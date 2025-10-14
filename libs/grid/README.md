@@ -1,0 +1,479 @@
+# @toolbox-web/grid
+
+A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies.
+
+## Installation
+
+```bash
+npm install @toolbox-web/grid
+```
+
+## Quick Start
+
+```typescript
+import '@toolbox-web/grid';
+
+const grid = document.createElement('tbw-grid');
+grid.columns = [
+  { field: 'name', header: 'Name' },
+  { field: 'email', header: 'Email' },
+];
+grid.rows = data;
+document.body.appendChild(grid);
+```
+
+> [!TIP]
+> For complete examples, see the [Storybook documentation](https://your-storybook-url).
+
+---
+
+## Configuration
+
+The grid supports multiple configuration methods, all converging into a **single source of truth** (`effectiveConfig`).
+
+### Configuration Methods
+
+**1. Via `gridConfig` (recommended for complex setups):**
+
+```typescript
+grid.gridConfig = {
+  columns: [{ field: 'name' }, { field: 'age', type: 'number' }],
+  fitMode: 'stretch',
+  editOn: 'dblclick',
+  plugins: [new SelectionPlugin({ mode: 'row' })],
+  shell: { header: { title: 'My Data Grid' } },
+};
+```
+
+**2. Via individual properties (convenience for simple cases):**
+
+```typescript
+grid.columns = [{ field: 'name' }, { field: 'age' }];
+grid.fitMode = 'stretch';
+grid.editOn = 'dblclick';
+```
+
+**3. Via Light DOM (declarative HTML):**
+
+```html
+<tbw-grid>
+  <tbw-grid-column field="name" header="Name" sortable></tbw-grid-column>
+  <tbw-grid-column field="age" header="Age" type="number"></tbw-grid-column>
+  <tbw-grid-header title="My Data Grid">
+    <tbw-grid-header-content>
+      <span>Custom content</span>
+    </tbw-grid-header-content>
+  </tbw-grid-header>
+</tbw-grid>
+```
+
+### Precedence
+
+When the same property is set via multiple methods, higher precedence wins:
+
+1. Individual props (`fitMode`, `editOn`) - highest
+2. `columns` prop
+3. Light DOM elements
+4. `gridConfig` property - lowest
+
+---
+
+## Features
+
+### Core Capabilities
+
+| Feature             | Description                                                                       |
+| ------------------- | --------------------------------------------------------------------------------- |
+| Virtualization      | Row and column virtualization for datasets with 100k+ rows                        |
+| Keyboard Navigation | Full keyboard support including arrow keys, Tab, Enter, Home/End, PageUp/PageDown |
+| Accessibility       | ARIA attributes and screen reader support                                         |
+| Theming             | CSS custom properties with 4 built-in themes                                      |
+| Column Inference    | Automatic column type detection from data                                         |
+
+### Editing
+
+| Feature         | Description                                           |
+| --------------- | ----------------------------------------------------- |
+| Inline Editing  | Cell and row editing modes with configurable triggers |
+| Undo/Redo       | Edit history with Ctrl+Z / Ctrl+Y                     |
+| Clipboard       | Copy/paste with configurable delimiters               |
+| Change Tracking | Track modified rows with commit/reset lifecycle       |
+
+### Data Operations
+
+| Feature          | Description                                                            |
+| ---------------- | ---------------------------------------------------------------------- |
+| Sorting          | Single and multi-column sorting                                        |
+| Filtering        | Text, number, date, set, and boolean filters                           |
+| Aggregations     | Built-in aggregators (sum, avg, count, min, max) plus custom functions |
+| Row Grouping     | Hierarchical grouping with nested aggregations                         |
+| Tree Data        | Nested data structures with expand/collapse                            |
+| Pivot Tables     | Data transformation with row/column groups                             |
+| Server-Side Data | Lazy loading with block caching                                        |
+
+### Column Features
+
+| Feature       | Description                                  |
+| ------------- | -------------------------------------------- |
+| Pinning       | Sticky columns on left or right edges        |
+| Resizing      | Drag-to-resize with auto-sizing              |
+| Reordering    | Drag-and-drop repositioning                  |
+| Visibility    | Show/hide columns programmatically or via UI |
+| Header Groups | Multi-level column headers                   |
+
+### Selection & Export
+
+| Feature         | Description                        |
+| --------------- | ---------------------------------- |
+| Selection Modes | Cell, row, or range selection      |
+| Context Menus   | Configurable right-click menus     |
+| Master/Detail   | Expandable detail rows             |
+| Export          | CSV, Excel (XML), and JSON formats |
+
+---
+
+## API Reference
+
+### Element
+
+```html
+<tbw-grid></tbw-grid>
+```
+
+### Properties
+
+| Property     | Type                    | Description                                        |
+| ------------ | ----------------------- | -------------------------------------------------- |
+| `rows`       | `T[]`                   | Data array                                         |
+| `columns`    | `ColumnConfig[]`        | Column definitions (→ `gridConfig.columns`)        |
+| `gridConfig` | `GridConfig`            | Full configuration object (single source of truth) |
+| `fitMode`    | `'stretch' \| 'fixed'`  | Column sizing behavior (→ `gridConfig.fitMode`)    |
+| `editOn`     | `'click' \| 'dblclick'` | Edit trigger (→ `gridConfig.editOn`)               |
+
+### Methods
+
+| Method                             | Returns               | Description                            |
+| ---------------------------------- | --------------------- | -------------------------------------- |
+| `ready()`                          | `Promise<void>`       | Resolves when fully initialized        |
+| `forceLayout()`                    | `Promise<void>`       | Force re-layout                        |
+| `getConfig()`                      | `Promise<GridConfig>` | Get effective configuration            |
+| `resetChangedRows(silent?)`        | `Promise<void>`       | Clear change tracking                  |
+| `beginBulkEdit(rowIndex)`          | `Promise<void>`       | Start row editing                      |
+| `commitActiveRowEdit()`            | `Promise<void>`       | Commit current edit                    |
+| `setColumnVisible(field, visible)` | `boolean`             | Set column visibility                  |
+| `getAllColumns()`                  | `ColumnInfo[]`        | Get all columns with visibility status |
+
+### Events
+
+| Event               | Detail                   | Description               |
+| ------------------- | ------------------------ | ------------------------- |
+| `cell-commit`       | `CellCommitDetail`       | Cell value committed      |
+| `row-commit`        | `RowCommitDetail`        | Row edit committed        |
+| `sort-change`       | `SortChangeDetail`       | Sort state changed        |
+| `column-resize`     | `ColumnResizeDetail`     | Column resized            |
+| `column-visibility` | `ColumnVisibilityDetail` | Column visibility changed |
+| `activate-cell`     | `ActivateCellDetail`     | Cell activated            |
+
+Import event names from the `DGEvents` constant:
+
+```typescript
+import { DGEvents } from '@toolbox-web/grid';
+grid.addEventListener(DGEvents.CELL_COMMIT, handler);
+```
+
+---
+
+## Column Configuration
+
+```typescript
+interface ColumnConfig {
+  field: string; // Required: property key in row data
+  header?: string; // Display label (defaults to field name)
+  type?: 'string' | 'number' | 'date' | 'boolean' | 'select';
+  width?: number | string; // Pixels, '1fr', or percentage
+  sortable?: boolean; // Enable sorting (default: true)
+  resizable?: boolean; // Enable resize (default: true)
+  editable?: boolean; // Enable editing
+  hidden?: boolean; // Initially hidden
+  lockVisible?: boolean; // Prevent hiding
+  format?: (value: any, row: T) => string;
+}
+```
+
+### Plugin-Provided Column Properties
+
+Some column properties are added via [TypeScript module augmentation](#typescript-module-augmentation) when you import a plugin:
+
+| Property      | Plugin            | Description              |
+| ------------- | ----------------- | ------------------------ |
+| `sticky`      | `pinnedColumns`   | Pin column left or right |
+| `group`       | `groupingColumns` | Column header group      |
+| `filterable`  | `filtering`       | Enable column filter     |
+| `filterType`  | `filtering`       | Filter type              |
+| `reorderable` | `reorder`         | Enable column reordering |
+
+See [Storybook](https://your-storybook-url) for complete configuration examples.
+
+---
+
+## Grid Configuration
+
+```typescript
+interface GridConfig {
+  columns?: ColumnConfig[];
+  fitMode?: 'stretch' | 'fixed';
+  editOn?: 'click' | 'dblclick';
+  plugins?: BaseGridPlugin[]; // Array of plugin class instances
+}
+```
+
+### Plugin Configuration Example
+
+Plugins are class instances that you import and instantiate with their configuration:
+
+```typescript
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+grid.gridConfig = {
+  plugins: [
+    new GroupingRowsPlugin({
+      groupOn: (row) => row.category,
+      fullWidth: false,
+      aggregators: { total: 'sum' },
+    }),
+    new SelectionPlugin({
+      mode: 'row',
+      multiple: true,
+    }),
+  ],
+};
+```
+
+---
+
+## Theming
+
+Apply a built-in theme:
+
+```css
+@import '@toolbox-web/grid/themes/dg-theme-standard.css';
+```
+
+Available themes: `standard`, `contrast`, `vibrant`, `large`
+
+### Custom Theming
+
+Override CSS custom properties on `tbw-grid` or a parent element:
+
+```css
+tbw-grid {
+  --tbw-color-bg: #ffffff;
+  --tbw-color-fg: #1a1a1a;
+  --tbw-color-border: #e5e5e5;
+  --tbw-color-header-bg: #f5f5f5;
+  --tbw-row-height: 32px;
+}
+```
+
+For a complete list of available CSS variables, see [grid.css](./src/lib/core/grid.css).
+
+### Core CSS Variables
+
+| Variable                | Description                  |
+| ----------------------- | ---------------------------- |
+| `--tbw-color-bg`        | Grid background              |
+| `--tbw-color-fg`        | Text color                   |
+| `--tbw-color-fg-muted`  | Secondary text color         |
+| `--tbw-color-accent`    | Accent/primary color         |
+| `--tbw-color-border`    | Border color                 |
+| `--tbw-color-header-bg` | Header background            |
+| `--tbw-color-header-fg` | Header text color            |
+| `--tbw-color-selection` | Selected cell/row background |
+| `--tbw-color-row-hover` | Row hover background         |
+| `--tbw-row-height`      | Data row height              |
+| `--tbw-header-height`   | Header row height            |
+| `--tbw-font-family`     | Font family                  |
+| `--tbw-font-size`       | Base font size               |
+| `--tbw-border-radius`   | Corner radius                |
+| `--tbw-focus-outline`   | Focus ring style             |
+
+### Plugin CSS Variables
+
+Plugins define their own CSS variables following a **layered fallback pattern**:
+
+```
+var(--tbw-{plugin}-{property}, var(--tbw-{global-property}))
+```
+
+This allows you to:
+
+1. Override a specific plugin's style: `--tbw-selection-bg`
+2. Or let it inherit from the global variable: `--tbw-color-selection`
+
+**Example: Customizing the selection plugin**
+
+```css
+tbw-grid {
+  /* Override just the selection plugin's background */
+  --tbw-selection-bg: #e0f2fe;
+
+  /* Or change the global selection color (affects all plugins) */
+  --tbw-color-selection: #e0f2fe;
+}
+```
+
+**Common plugin variables:**
+
+| Plugin        | Variables                                                  |
+| ------------- | ---------------------------------------------------------- |
+| `selection`   | `--tbw-selection-bg`, `--tbw-selection-border`             |
+| `filtering`   | `--tbw-filtering-panel-bg`, `--tbw-filtering-input-border` |
+| `contextMenu` | `--tbw-context-menu-bg`, `--tbw-context-menu-hover`        |
+| `pinnedRows`  | `--tbw-pinned-rows-bg`, `--tbw-pinned-rows-border`         |
+| `tree`        | `--tbw-tree-indent`, `--tbw-tree-toggle-color`             |
+
+Check each plugin's `styles` property for the full list of customizable variables.
+
+---
+
+## Plugins
+
+The grid uses a plugin architecture for optional features. Each plugin has its own documentation:
+
+| Plugin                | Description                    | Documentation                                               |
+| --------------------- | ------------------------------ | ----------------------------------------------------------- |
+| Selection             | Cell, row, and range selection | [README](./src/lib/plugins/selection/README.md)             |
+| Multi-Sort            | Multi-column sorting           | [README](./src/lib/plugins/multi-sort/README.md)            |
+| Filtering             | Column filters                 | [README](./src/lib/plugins/filtering/README.md)             |
+| Row Grouping          | Row grouping with aggregation  | [README](./src/lib/plugins/grouping-rows/README.md)         |
+| Column Grouping       | Column header groups           | [README](./src/lib/plugins/grouping-columns/README.md)      |
+| Tree                  | Tree/hierarchical data         | [README](./src/lib/plugins/tree/README.md)                  |
+| Pivot                 | Pivot table transformation     | [README](./src/lib/plugins/pivot/README.md)                 |
+| Master-Detail         | Expandable detail rows         | [README](./src/lib/plugins/master-detail/README.md)         |
+| Pinned Columns        | Sticky columns                 | [README](./src/lib/plugins/pinned-columns/README.md)        |
+| Reorder               | Column drag reordering         | [README](./src/lib/plugins/reorder/README.md)               |
+| Visibility            | Column visibility UI           | [README](./src/lib/plugins/visibility/README.md)            |
+| Clipboard             | Copy/paste                     | [README](./src/lib/plugins/clipboard/README.md)             |
+| Context Menu          | Right-click menus              | [README](./src/lib/plugins/context-menu/README.md)          |
+| Export                | CSV/Excel/JSON export          | [README](./src/lib/plugins/export/README.md)                |
+| Undo/Redo             | Edit history                   | [README](./src/lib/plugins/undo-redo/README.md)             |
+| Server-Side           | Lazy data loading              | [README](./src/lib/plugins/server-side/README.md)           |
+| Pinned Rows           | Footer aggregations            | [README](./src/lib/plugins/pinned-rows/README.md)           |
+| Column Virtualization | Horizontal virtualization      | [README](./src/lib/plugins/column-virtualization/README.md) |
+
+### Creating Custom Plugins
+
+Plugins extend the `BaseGridPlugin` class:
+
+```typescript
+import { BaseGridPlugin } from '@toolbox-web/grid';
+
+interface MyPluginConfig {
+  myOption?: boolean;
+}
+
+export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
+  readonly name = 'myPlugin';
+  readonly version = '1.0.0';
+
+  // CSS injected into shadow DOM
+  readonly styles = `
+    .my-element { color: red; }
+  `;
+
+  // Default config (override in constructor)
+  protected get defaultConfig(): Partial<MyPluginConfig> {
+    return { myOption: true };
+  }
+
+  // Called when plugin is attached to grid
+  attach(grid: GridElement): void {
+    super.attach(grid);
+    // Setup event listeners, etc.
+  }
+
+  // Called when plugin is detached
+  detach(): void {
+    // Cleanup
+  }
+
+  // Hook: Called after grid renders
+  afterRender(): void {
+    // DOM manipulation
+  }
+}
+```
+
+### Accessing Plugin Instances
+
+Use `grid.getPlugin()` to get a plugin instance for inter-plugin communication or API access:
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const selection = grid.getPlugin(SelectionPlugin);
+if (selection) {
+  selection.selectAll();
+}
+```
+
+---
+
+## TypeScript
+
+All types are exported from the package:
+
+```typescript
+import type { GridConfig, ColumnConfig, CellCommitDetail, BaseGridPlugin } from '@toolbox-web/grid';
+```
+
+### Plugin Type Exports
+
+Each plugin exports its class and configuration types from its own entry point:
+
+```typescript
+import { SelectionPlugin, SelectionConfig } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin, FilterConfig, FilterModel } from '@toolbox-web/grid/plugins/filtering';
+import { TreePlugin, TreeConfig, TreeState } from '@toolbox-web/grid/plugins/tree';
+```
+
+### All-in-One Bundle
+
+For convenience, you can import everything from the all-in-one bundle:
+
+```typescript
+import {
+  SelectionPlugin,
+  FilteringPlugin,
+  TreePlugin,
+  // ... all other plugins
+} from '@toolbox-web/grid/all';
+```
+
+Note: This includes all plugins in your bundle. For smaller bundles, import plugins individually.
+
+---
+
+## Browser Support
+
+Modern browsers with Web Components support (Chrome, Firefox, Safari, Edge).
+
+---
+
+## Development
+
+```bash
+bun nx build grid              # Build
+bun nx test grid               # Test
+bun nx test grid --coverage    # Test with coverage
+bun nx storybook storybook-app # Storybook (port 4400)
+```
+
+For architecture details, rendering pipeline, and plugin development, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+---
+
+## License
+
+MIT

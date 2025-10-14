@@ -1,0 +1,113 @@
+{
+  "name": "storybook-app",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/storybook-app",
+  "prefix": "toolbox",
+  "tags": ["type:app", "scope:storybook"],
+  "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "tsConfig": "apps/storybook-app/tsconfig.json",
+        "outputPath": "dist/apps/storybook-app"
+      },
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    },
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "storybook-app:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "storybook-app:build:development",
+          "hmr": true
+        },
+        "production": {
+          "buildTarget": "storybook-app:build:production",
+          "hmr": false
+        }
+      }
+    },
+    "preview": {
+      "executor": "@nx/vite:preview-server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "storybook-app:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "storybook-app:build:development"
+        },
+        "production": {
+          "buildTarget": "storybook-app:build:production"
+        }
+      }
+    },
+    "storybook": {
+      "executor": "@nx/storybook:storybook",
+      "options": {
+        "port": 4400,
+        "configDir": "apps/storybook-app/.storybook"
+      },
+      "configurations": {
+        "ci": {
+          "quiet": true
+        }
+      }
+    },
+    "build-storybook": {
+      "executor": "@nx/storybook:build",
+      "outputs": ["{options.outputDir}"],
+      "options": {
+        "outputDir": "dist/storybook",
+        "configDir": "apps/storybook-app/.storybook"
+      },
+      "configurations": {
+        "ci": {
+          "quiet": true
+        }
+      }
+    },
+    "static-storybook": {
+      "executor": "@nx/web:file-server",
+      "dependsOn": ["build-storybook"],
+      "options": {
+        "buildTarget": "storybook-app:build-storybook",
+        "staticFilePath": "dist/storybook",
+        "spa": true
+      },
+      "configurations": {
+        "ci": {
+          "buildTarget": "storybook-app:build-storybook:ci"
+        }
+      }
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "outputs": ["{options.reportsDirectory}"],
+      "options": {
+        "passWithNoTests": true,
+        "reportsDirectory": "../../coverage/apps/storybook-app"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:eslint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/storybook-app/**/*.{ts,tsx,js,jsx}"]
+      }
+    }
+  }
+}

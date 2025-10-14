@@ -1,0 +1,655 @@
+/* Pure TypeScript Web Component styles */
+:root {
+  color-scheme: light dark;
+}
+:host {
+  /* Core palette */
+  --tbw-color-bg: transparent;
+  --tbw-color-panel-bg: light-dark(#eeeeee, #222222);
+  --tbw-color-fg: light-dark(#222222, #eeeeee);
+  --tbw-color-fg-muted: light-dark(#555555, #aaaaaa);
+  --tbw-color-accent: light-dark(#3b82f6, #3b82f6);
+  --tbw-color-accent-fg: light-dark(#ffffff, #000000);
+  --tbw-color-success: light-dark(hsl(122, 39%, 40%), hsl(122, 39%, 49%));
+  --tbw-color-selection: light-dark(#fff7d6, #333333);
+  --tbw-color-row-alt: var(--tbw-color-bg);
+  --tbw-color-row-hover: light-dark(#f0f6ff, #1c1c1c);
+  --tbw-color-header-bg: color-mix(in hsl, var(--tbw-color-panel-bg) 85%, var(--tbw-color-fg));
+  --tbw-color-header-fg: color-mix(in hsl, var(--tbw-color-fg) 75%, var(--tbw-color-panel-bg));
+  --tbw-color-border: light-dark(#d0d0d4, #454545);
+  --tbw-color-border-strong: light-dark(#777777, #adacac);
+  --tbw-color-border-cell: var(--tbw-color-border);
+  --tbw-color-border-header: var(--tbw-color-border);
+  --tbw-color-shadow: light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3));
+
+  /* Typography & spacing */
+  --tbw-font-family: inherit;
+  --tbw-font-size: inherit;
+  --tbw-font-size-header: var(--tbw-font-size);
+  --tbw-font-weight-header: bold;
+  --tbw-cell-padding-header: 2px 8px;
+  --tbw-cell-padding: 2px 8px;
+  --tbw-cell-padding-input: 2px 6px;
+  --tbw-row-height: 28px; /* data rows */
+  --tbw-header-height: 30px; /* header row */
+
+  /* Borders & radii */
+  --tbw-border-radius: 4px;
+  --tbw-border-input: 1px solid var(--tbw-color-border-strong);
+  --tbw-border-header: 1px solid var(--tbw-color-border-header);
+  --tbw-row-divider: 1px solid var(--tbw-color-border-cell);
+  --tbw-row-hover-outline: 0; /* e.g. 1px solid var(--tbw-color-accent) */
+  --tbw-color-active-row-bg: var(--tbw-color-selection);
+  --tbw-active-row-outline: 0; /* focus ring for active row */
+
+  /* Focus & outline */
+  --tbw-focus-outline: 2px solid var(--tbw-color-accent);
+  --tbw-focus-outline-offset: -2px;
+  --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 12%);
+
+  /* Range/row selection */
+  --tbw-range-border-color: var(--tbw-color-success);
+  --tbw-range-selection-bg: rgba(from var(--tbw-range-border-color) r g b / 12%);
+
+  /* Resize */
+  --tbw-resize-handle-width: 4px;
+  --tbw-resize-handle-color: transparent;
+  --tbw-resize-handle-color-hover: var(--tbw-color-accent);
+  --tbw-resize-handle-border-radius: 0;
+
+  /* Scrollbar (opt-in usage by consumer) */
+  --tbw-scrollbar-thumb: var(--tbw-color-border-strong);
+  --tbw-scrollbar-track: var(--tbw-color-bg);
+
+  /* Animation / transitions */
+  --tbw-transition-duration: 120ms;
+  --tbw-transition-ease: ease;
+
+  /* Editing */
+  --tbw-editing-bg: var(--tbw-color-selection);
+  --tbw-editing-border: var(--tbw-border-input, 1px solid var(--tbw-color-border-strong));
+  --tbw-padding-editing-input: var(--tbw-cell-padding-input, 2px 6px);
+  --tbw-font-size-editor: inherit;
+
+  /* Sorting indicators */
+  --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
+  --tbw-sort-indicator-active-color: var(--tbw-color-accent);
+
+  /* Column headers */
+  --tbw-header-text-transform: none;
+  --tbw-header-letter-spacing: normal;
+  --tbw-color-header-separator: var(--tbw-color-border-cell);
+
+  /* Checkbox size */
+  --tbw-checkbox-size: 16px;
+
+  /* Density scaling (future) */
+  --tbw-density-scale: 1; /* multiply paddings/heights if needed */
+}
+:host {
+  position: relative;
+  display: block; /* host is now the grid container */
+  width: 100%;
+  height: 100%; /* allow parent to define overall component height */
+  min-height: 0; /* allow shrinking in flex contexts */
+  contain: content;
+  font-family: var(--tbw-font-family);
+  font-size: var(--tbw-font-size);
+  background: var(--tbw-color-bg);
+  color: var(--tbw-color-fg);
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius);
+  overflow: clip; /* Use clip instead of hidden - clips visually but doesn't break sticky positioning */
+  outline: none;
+}
+:host,
+:host * {
+  box-sizing: border-box;
+}
+/* tbw-grid-root layout is defined in faux scrollbar section below */
+
+/* Header container - fixed at top of rows-body */
+:host .header {
+  display: block;
+  flex-shrink: 0;
+  z-index: var(--tbw-z-layer-header, 30);
+  background: var(--tbw-color-header-bg);
+  overflow: visible; /* Must be visible for sticky columns to work */
+}
+/* Grouped column header row */
+:host .header-group-row {
+  display: grid;
+  grid-template-columns: var(--tbw-column-template);
+  background: var(--tbw-color-header-bg);
+  z-index: var(--tbw-z-layer-header, 30);
+}
+:host .header-group-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--tbw-cell-padding-header, 2px 8px);
+  color: var(--tbw-color-header-group-fg, var(--tbw-color-header-fg));
+  font-weight: var(--tbw-font-weight-header-group, var(--tbw-font-weight-header));
+  justify-content: var(--tbw-align-header-group, var(--tbw-align-header, flex-start));
+}
+
+/* Column header row - no longer sticky since content doesn't scroll */
+:host .header-row {
+  display: grid;
+  grid-template-columns: var(--tbw-column-template);
+  /* min-width: max-content; */
+  color: var(--tbw-color-header-fg);
+  font-size: var(--tbw-font-size-header);
+  min-height: var(--tbw-header-height);
+  border-bottom: var(--tbw-border-header);
+  z-index: var(--tbw-z-layer-header, 30);
+}
+:host .header-row > .cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: var(--tbw-cell-padding-header, 2px 8px);
+  background-color: var(--tbw-color-header-bg);
+  font-weight: var(--tbw-font-weight-header);
+  border-right: 1px solid var(--tbw-color-border-cell);
+  overflow: hidden;
+  min-width: 0;
+}
+:host .header-row > .cell > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:host .header-row > .cell > span[part~='sort-indicator'] {
+  flex-shrink: 0;
+}
+:host .header-row > .cell:last-child {
+  border-right: 0;
+}
+
+:host .header-group-cell,
+:host .header-row > .cell.grouped.group-end {
+  border-right: 2px solid var(--tbw-color-border);
+}
+
+/* ==========================================================================
+   Faux Scrollbar Pattern (AG Grid-style)
+   ==========================================================================
+   The grid uses a separate scrollbar element that provides the scroll events.
+   The content area (.rows-body) doesn't scroll - rows are positioned via transforms.
+   This prevents blank viewport during fast scrolling:
+   - Scroll events update transforms in RAF
+   - Old content stays visible until new transforms are applied
+   - No native scroll = no blank content during reflow
+   ========================================================================== */
+
+/* Main container - column flex so footer can go below rows-body */
+:host .tbw-grid-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Wrapper for rows-body - allows horizontal scrolling of content */
+:host .rows-body-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  min-width: fit-content;
+}
+
+/* Content body: holds header + rows-container in column layout */
+:host .rows-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: visible; /* Must be visible for sticky columns to work */
+}
+
+/* Rows container: holds rows-viewport */
+:host .rows-container {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  overflow: visible; /* Must be visible for sticky columns to work */
+}
+
+/* Rows viewport - fills remaining space, no scroll */
+:host .rows-viewport {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: block;
+  overflow: clip; /* Clips content without breaking sticky positioning */
+}
+
+/* Faux vertical scrollbar - sits at end of scroll area row */
+/* Uses sticky so it stays at viewport edge during horizontal scroll */
+:host .faux-vscroll {
+  position: sticky;
+  inset-inline-end: 0; /* Stick to right edge in LTR, left in RTL during horizontal scroll */
+  flex-shrink: 0;
+  width: auto; /* Scrollbar determines width; collapses when not scrollable */
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: var(--tbw-z-layer-header, 30); /* Above rows content */
+}
+
+/* Spacer inside faux scrollbar sets the virtual height */
+:host .faux-vscroll-spacer {
+  width: 1px;
+  /* Height is set dynamically via JS */
+}
+
+/* Data rows - positioned via transforms, never scrolled */
+/* Width determined by grid template, not constrained to viewport */
+:host .rows-viewport .rows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 100%; /* At least viewport width, but can grow with content */
+  will-change: transform;
+  /* Rows get their own stacking context because of transform; explicitly keep them below header */
+  z-index: var(--tbw-z-layer-rows, 1);
+}
+
+:host .data-grid-row {
+  display: grid;
+  grid-template-columns: var(--tbw-column-template);
+  contain: layout style; /* Limit layout recalc scope for scroll perf */
+  /* min-width: max-content; */
+}
+:host .data-grid-row:has(.editing) {
+  background: var(--tbw-editing-bg);
+}
+
+/* Data cells */
+:host .selecting .data-grid-row > .cell {
+  user-select: none;
+}
+:host .data-grid-row > .cell {
+  display: flex;
+  align-items: center;
+  padding: var(--tbw-cell-padding, 2px 8px);
+  border-bottom: var(--tbw-row-divider);
+  min-height: var(--tbw-row-height);
+  border-right: 1px solid var(--tbw-color-border-cell);
+  overflow: hidden;
+  min-width: 0; /* Allow flex child to shrink below content size */
+}
+:host .data-grid-row > .cell > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:host .data-grid-row > .cell:last-child {
+  border-right: 0;
+}
+
+:host .data-grid-row > .cell[data-type='boolean'] {
+  justify-content: center;
+}
+:host .data-grid-row > .cell[data-type='boolean'] input[type='checkbox'] {
+  margin: 0;
+  width: var(--tbw-checkbox-size);
+  height: var(--tbw-checkbox-size);
+}
+
+:host .data-grid-row > .cell.editing {
+  overflow: hidden;
+  padding: 0;
+}
+:host .data-grid-row > .cell.editing input:not([type='checkbox']),
+:host .data-grid-row > .cell.editing select,
+:host .data-grid-row > .cell.editing textarea {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  border: var(--tbw-editing-border);
+  padding: var(--tbw-padding-editing-input);
+  font-size: var(--tbw-font-size-editor);
+}
+
+:host .data-grid-row:nth-child(even) {
+  background: var(--tbw-color-row-alt);
+}
+:host .data-grid-row:hover {
+  background: var(--tbw-color-row-hover);
+}
+
+:host .sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+:host .resize-handle {
+  position: absolute;
+  top: 0;
+  right: calc(var(--tbw-resize-handle-width) / -2);
+  width: var(--tbw-resize-handle-width);
+  height: 100%;
+  cursor: e-resize;
+  user-select: none;
+  touch-action: none;
+  z-index: 20;
+  background: var(--tbw-resize-handle-color);
+  transition: background 120ms ease;
+  border-radius: var(--tbw-resize-handle-border-radius);
+}
+:host .resize-handle:hover {
+  background: var(--tbw-resize-handle-color-hover);
+}
+
+:host .cell-focus,
+:host .row-focus {
+  outline: var(--tbw-focus-outline);
+  outline-offset: var(--tbw-focus-outline-offset);
+}
+
+/* ================= Row Grouping ================= */
+:host .group-row {
+  display: grid;
+  grid-template-columns: var(--tbw-column-template);
+  background: var(--tbw-color-row-alt);
+  font-weight: 500;
+  border-bottom: var(--tbw-row-divider);
+  min-height: var(--tbw-row-height);
+}
+:host .group-row .cell {
+  display: flex;
+  align-items: center;
+  padding: var(--tbw-cell-padding, 2px 8px);
+}
+:host .group-row .group-toggle {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0 4px 0 0;
+  font: inherit;
+}
+:host .group-row .group-count {
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
+/* ================= Sticky Columns ================= */
+:host .sticky-left,
+:host .sticky-right {
+  position: sticky;
+  z-index: 25;
+}
+/* Header sticky cells need higher z-index since header wrapper has z-index: 30 */
+:host .header-row > .cell.sticky-left,
+:host .header-row > .cell.sticky-right {
+  background: var(--tbw-color-header-bg);
+  z-index: 35;
+}
+/* Body sticky cells use row background (fallback to panel bg for visibility) */
+:host .data-grid-row > .cell.sticky-left,
+:host .data-grid-row > .cell.sticky-right {
+  background: var(--tbw-color-panel-bg);
+}
+:host .sticky-left {
+  box-shadow: 1px 0 0 var(--tbw-color-border);
+}
+:host .sticky-right {
+  box-shadow: -1px 0 0 var(--tbw-color-border);
+}
+
+/* ================= Grid Container ================= */
+.grid-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.grid-placeholder {
+  padding: 2rem;
+  text-align: center;
+  color: var(--tbw-color-fg);
+  opacity: 0.6;
+}
+
+/* ================= Shell Layout ================= */
+:host {
+  /* Shell header CSS variables */
+  --tbw-shell-header-height: 44px;
+  --tbw-shell-header-bg: var(--tbw-color-panel-bg);
+  --tbw-shell-header-border: var(--tbw-color-border);
+  --tbw-shell-title-font-size: 14px;
+  --tbw-shell-title-font-weight: 600;
+
+  /* Tool panel CSS variables */
+  --tbw-tool-panel-width: 280px;
+  --tbw-tool-panel-bg: var(--tbw-color-panel-bg);
+  --tbw-tool-panel-border: var(--tbw-color-border);
+  --tbw-tool-panel-header-height: 40px;
+  --tbw-tool-panel-transition: 200ms ease-out;
+
+  /* Toolbar CSS variables */
+  --tbw-toolbar-button-size: 32px;
+  --tbw-toolbar-button-gap: 4px;
+}
+
+/* Shell root has-shell modifier */
+:host .tbw-grid-root.has-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Shell header bar */
+:host .tbw-shell-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--tbw-shell-header-height);
+  padding: 0 8px;
+  background: var(--tbw-shell-header-bg);
+  border-bottom: 1px solid var(--tbw-shell-header-border);
+  flex-shrink: 0;
+}
+
+/* Shell title (left section) */
+:host .tbw-shell-title {
+  font-size: var(--tbw-shell-title-font-size);
+  font-weight: var(--tbw-shell-title-font-weight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Shell content (center section - flexible) */
+:host .tbw-shell-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Shell toolbar (right section) */
+:host .tbw-shell-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--tbw-toolbar-button-gap);
+  flex-shrink: 0;
+}
+
+/* Toolbar button base */
+:host .tbw-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tbw-toolbar-button-size);
+  height: var(--tbw-toolbar-button-size);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--tbw-border-radius);
+  background: transparent;
+  color: var(--tbw-color-fg);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background var(--tbw-transition-duration) var(--tbw-transition-ease),
+    border-color var(--tbw-transition-duration) var(--tbw-transition-ease);
+}
+
+:host .tbw-toolbar-btn:hover {
+  background: var(--tbw-color-row-hover);
+}
+
+:host .tbw-toolbar-btn:focus-visible {
+  outline: var(--tbw-focus-outline);
+  outline-offset: var(--tbw-focus-outline-offset);
+}
+
+:host .tbw-toolbar-btn.active {
+  background: var(--tbw-focus-background);
+  border-color: var(--tbw-color-accent);
+}
+
+:host .tbw-toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toolbar separator */
+:host .tbw-toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--tbw-color-border);
+  margin: 0 4px;
+}
+
+/* Shell body (contains grid content + tool panel) */
+:host .tbw-shell-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: visible; /* Must be visible for sticky columns to work */
+}
+
+/* Grid content wrapper - row layout: scroll-area + faux-vscroll */
+:host .tbw-grid-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+/* Scroll area - column layout with horizontal scroll */
+/* Contains rows-body-wrapper + footer; scrollbar at bottom includes footer */
+:host .tbw-scroll-area {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto; /* Horizontal scroll for wide content (includes footer) */
+  overflow-y: hidden; /* Vertical scroll handled by faux scrollbar */
+}
+
+/* Tool panel container */
+:host .tbw-tool-panel {
+  width: 0;
+  overflow: hidden;
+  background: var(--tbw-tool-panel-bg);
+  border-left: 1px solid var(--tbw-tool-panel-border);
+  transition: width var(--tbw-tool-panel-transition);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+:host .tbw-tool-panel[data-position='left'] {
+  border-left: none;
+  border-right: 1px solid var(--tbw-tool-panel-border);
+  order: -1;
+}
+
+:host .tbw-tool-panel.open {
+  width: var(--tbw-tool-panel-width);
+}
+
+/* Tool panel header */
+:host .tbw-tool-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--tbw-tool-panel-header-height);
+  padding: 0 12px;
+  border-bottom: 1px solid var(--tbw-tool-panel-border);
+  flex-shrink: 0;
+}
+
+:host .tbw-tool-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:host .tbw-tool-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--tbw-border-radius);
+  background: transparent;
+  color: var(--tbw-color-fg-muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+:host .tbw-tool-panel-close:hover {
+  background: var(--tbw-color-row-hover);
+  color: var(--tbw-color-fg);
+}
+
+/* Tool panel content */
+:host .tbw-tool-panel-content {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+}
+
+/* Quick filter input (common header content) */
+:host .tbw-quick-filter-input {
+  flex: 1;
+  max-width: 300px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius);
+  background: var(--tbw-color-bg);
+  color: var(--tbw-color-fg);
+  font-size: 13px;
+}
+
+:host .tbw-quick-filter-input:focus {
+  outline: none;
+  border-color: var(--tbw-color-accent);
+}
+
+/* Selection summary (common header content) */
+:host .tbw-selection-summary {
+  font-size: 13px;
+  color: var(--tbw-color-fg-muted);
+  white-space: nowrap;
+}

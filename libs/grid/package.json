@@ -1,0 +1,53 @@
+{
+  "name": "@toolbox-web/grid",
+  "version": "0.0.1",
+  "description": "High-performance data grid web component",
+  "type": "module",
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
+    "./all": {
+      "types": "./all.d.ts",
+      "import": "./all.js"
+    },
+    "./plugins/*": {
+      "types": "./lib/plugins/*/index.d.ts",
+      "import": "./lib/plugins/*/index.js"
+    },
+    "./themes/*": "./themes/*",
+    "./umd/*": "./umd/*"
+  },
+  "files": [
+    "**/*.js",
+    "**/*.d.ts",
+    "**/*.css",
+    "**/*.map",
+    "custom-elements.json"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "keywords": [
+    "web-component",
+    "data-grid",
+    "table",
+    "virtualization"
+  ],
+  "license": "MIT",
+  "author": "Oystein Amundsen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OysteinAmundsen/toolbox.git",
+    "directory": "libs/grid"
+  },
+  "homepage": "https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid#readme",
+  "bugs": {
+    "url": "https://github.com/OysteinAmundsen/toolbox/issues"
+  },
+  "customElements": "custom-elements.json"
+}

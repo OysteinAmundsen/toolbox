@@ -1,0 +1,154 @@
+/**
+ * Central keyboard handler attached to the host element. Manages navigation, paging,
+ * and edit lifecycle triggers while respecting active form field interactions.
+ */
+import type { InternalGrid } from '../types';
+
+export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
+  // Dispatch to plugin system first - if any plugin handles it, stop here
+  if (grid.dispatchKeyDown?.(e)) {
+    return;
+  }
+
+  const maxRow = grid._rows.length - 1;
+  const maxCol = grid.visibleColumns.length - 1;
+  const editing = grid.activeEditRows !== undefined && grid.activeEditRows !== -1;
+  const col = grid.visibleColumns[grid.focusCol];
+  const colType = col?.type;
+  const path = (e as any).composedPath ? (e as any).composedPath() : [];
+  const target = (path && path.length ? path[0] : (e.target as any)) as HTMLElement | null;
+  const isFormField = (el: HTMLElement | null) => {
+    if (!el) return false;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return true;
+    if (el.isContentEditable) return true;
+    return false;
+  };
+  if (isFormField(target) && (e.key === 'Home' || e.key === 'End')) return;
+  if (isFormField(target) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    if ((target as HTMLInputElement).tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') return;
+  }
+  if (editing && (colType === 'select' || colType === 'typeahead') && (e.key === 'ArrowDown' || e.key === 'ArrowUp'))
+    return;
+  switch (e.key) {
+    case 'Tab': {
+      e.preventDefault();
+      const forward = !e.shiftKey;
+      if (forward) {
+        if (grid.focusCol < maxCol) grid.focusCol += 1;
+        else {
+          if (typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+          if (grid.focusRow < maxRow) {
+            grid.focusRow += 1;
+            grid.focusCol = 0;
+          }
+        }
+      } else {
+        if (grid.focusCol > 0) grid.focusCol -= 1;
+        else if (grid.focusRow > 0) {
+          if (typeof grid.commitActiveRowEdit === 'function' && grid.activeEditRows === grid.focusRow)
+            grid.commitActiveRowEdit();
+          grid.focusRow -= 1;
+          grid.focusCol = maxCol;
+        }
+      }
+      ensureCellVisible(grid);
+      return;
+    }
+    case 'ArrowDown':
+      if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+      grid.focusRow = Math.min(maxRow, grid.focusRow + 1);
+      e.preventDefault();
+      break;
+    case 'ArrowUp':
+      if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+      grid.focusRow = Math.max(0, grid.focusRow - 1);
+      e.preventDefault();
+      break;
+    case 'ArrowRight':
+      grid.focusCol = Math.min(maxCol, grid.focusCol + 1);
+      e.preventDefault();
+      break;
+    case 'ArrowLeft':
+      grid.focusCol = Math.max(0, grid.focusCol - 1);
+      e.preventDefault();
+      break;
+    case 'Home':
+      grid.focusCol = 0;
+      e.preventDefault();
+      break;
+    case 'End':
+      grid.focusCol = maxCol;
+      e.preventDefault();
+      break;
+    case 'PageDown':
+      grid.focusRow = Math.min(maxRow, grid.focusRow + 20);
+      e.preventDefault();
+      break;
+    case 'PageUp':
+      grid.focusRow = Math.max(0, grid.focusRow - 20);
+      e.preventDefault();
+      break;
+    case 'Enter':
+      if (typeof grid.beginBulkEdit === 'function') grid.beginBulkEdit(grid.focusRow);
+      else
+        (grid as unknown as HTMLElement).dispatchEvent(
+          new CustomEvent('activate-cell', { detail: { row: grid.focusRow, col: grid.focusCol } })
+        );
+      return ensureCellVisible(grid);
+    default:
+      return;
+  }
+  ensureCellVisible(grid);
+}
+
+/**
+ * Scroll the viewport (virtualized or static) so the focused cell's row is visible
+ * and apply visual focus styling / tabindex management.
+ */
+export function ensureCellVisible(grid: InternalGrid): void {
+  if (grid.virtualization?.enabled) {
+    const { rowHeight } = grid.virtualization;
+    const viewport = grid as unknown as HTMLElement; // grid element is the scroll container post-refactor
+    const y = grid.focusRow * rowHeight;
+    if (y < viewport.scrollTop) viewport.scrollTop = y;
+    else if (y + rowHeight > viewport.scrollTop + viewport.clientHeight)
+      viewport.scrollTop = y - viewport.clientHeight + rowHeight;
+  }
+  grid.refreshVirtualWindow(false);
+  Array.from(grid.bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) => el.classList.remove('cell-focus'));
+  // Clear previous aria-selected markers
+  Array.from(grid.bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el: any) => {
+    el.setAttribute('aria-selected', 'false');
+  });
+  const rowIndex = grid.focusRow;
+  const vStart = (grid.virtualization as any).start ?? 0;
+  const vEnd = (grid.virtualization as any).end ?? grid._rows.length;
+  if (rowIndex >= vStart && rowIndex < vEnd) {
+    const rowEl = grid.bodyEl.querySelectorAll('.data-grid-row')[rowIndex - vStart] as HTMLElement | null;
+    const cell = rowEl?.children[grid.focusCol] as HTMLElement | undefined;
+    if (cell) {
+      cell.classList.add('cell-focus');
+      cell.setAttribute('aria-selected', 'true');
+      if (grid.activeEditRows !== undefined && grid.activeEditRows !== -1 && cell.classList.contains('editing')) {
+        const focusTarget = cell.querySelector(
+          'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])'
+        ) as HTMLElement | null;
+        if (focusTarget && document.activeElement !== focusTarget) {
+          try {
+            focusTarget.focus();
+          } catch {
+            /* empty */
+          }
+        }
+      } else if (!cell.contains(document.activeElement)) {
+        if (!cell.hasAttribute('tabindex')) cell.setAttribute('tabindex', '-1');
+        try {
+          (cell as HTMLElement).focus({ preventScroll: true } as any);
+        } catch {
+          /* empty */
+        }
+      }
+    }
+  }
+}

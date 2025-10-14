@@ -1,0 +1,42 @@
+/**
+ * Master/Detail Plugin Types
+ *
+ * Type definitions for expandable detail rows showing additional content.
+ */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// The master-detail plugin intentionally uses `any` for maximum flexibility with user-defined row types.
+
+/** Configuration options for the master-detail plugin */
+export interface MasterDetailConfig {
+  /** Whether master-detail functionality is enabled (default: true) */
+  enabled?: boolean;
+  /** Renderer function that returns detail content for a row */
+  detailRenderer?: (row: any, rowIndex: number) => HTMLElement | string;
+  /** Height of the detail row - number (pixels) or 'auto' (default: 'auto') */
+  detailHeight?: number | 'auto';
+  /** Expand/collapse detail on row click (default: false) */
+  expandOnRowClick?: boolean;
+  /** Collapse expanded detail when clicking outside (default: false) */
+  collapseOnClickOutside?: boolean;
+  /** Show expand/collapse column (default: true) */
+  showExpandColumn?: boolean;
+}
+
+/** Internal state managed by the master-detail plugin */
+export interface MasterDetailState {
+  /** Set of expanded row objects (tracked by reference) */
+  expandedRows: Set<object>;
+  /** Map from row object to detail element */
+  detailElements: Map<object, HTMLElement>;
+}
+
+/** Event detail for detail-expand event */
+export interface DetailExpandDetail {
+  /** The row index that was expanded/collapsed */
+  rowIndex: number;
+  /** The row data */
+  row: any;
+  /** Whether the row is now expanded */
+  expanded: boolean;
+}

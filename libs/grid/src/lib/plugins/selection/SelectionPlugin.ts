@@ -8,7 +8,7 @@
  * - 'range': Range selection. Shift+click or drag to select rectangular cell ranges.
  */
 
-import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, CellMouseEvent, ScrollEvent } from '../../core/plugin/base-plugin';
 import {
   createRangeFromAnchor,
   getAllCellsInRanges,
@@ -281,6 +281,14 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
   }
 
+  /**
+   * Called during scroll - must update selection classes on recycled rows
+   */
+  override onScroll(_event: ScrollEvent): void {
+    // Apply selection classes to newly rendered/recycled rows
+    this.#applySelectionClasses();
+  }
+
   override afterRender(): void {
     const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
@@ -295,6 +303,21 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (container) {
       container.classList.toggle('selecting', this.isDragging);
     }
+
+    // Apply selection classes to cells/rows
+    this.#applySelectionClasses();
+  }
+
+  /**
+   * Apply selection-related CSS classes to currently visible cells/rows.
+   * Called from both afterRender() and onScroll() to ensure selection
+   * is always correct when rows are recycled during virtualization.
+   */
+  #applySelectionClasses(): void {
+    const shadowRoot = this.shadowRoot;
+    if (!shadowRoot) return;
+
+    const { mode } = this.config;
 
     // Clear all selection classes first
     const allCells = shadowRoot.querySelectorAll('.cell');

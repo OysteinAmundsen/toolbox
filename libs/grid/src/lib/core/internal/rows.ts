@@ -475,6 +475,8 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
   }
 
   const rowIndexStr = String(rowIndex);
+  const focusRow = grid.focusRow;
+  const focusCol = grid.focusCol;
 
   // Ultra-fast path for plain text grids - just set textContent directly
   if (!hasSpecialCols) {
@@ -485,6 +487,13 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       // Update data-row for click handling
       if (cell.getAttribute('data-row') !== rowIndexStr) {
         cell.setAttribute('data-row', rowIndexStr);
+      }
+      // Update focus state - must be data-driven, not DOM-element-driven
+      const shouldHaveFocus = focusRow === rowIndex && focusCol === i;
+      const hasFocus = cell.classList.contains('cell-focus');
+      if (shouldHaveFocus !== hasFocus) {
+        cell.classList.toggle('cell-focus', shouldHaveFocus);
+        cell.setAttribute('aria-selected', String(shouldHaveFocus));
       }
     }
     return;
@@ -510,6 +519,14 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     // Update data-row for click handling
     if (cell.getAttribute('data-row') !== rowIndexStr) {
       cell.setAttribute('data-row', rowIndexStr);
+    }
+
+    // Update focus state - must be data-driven, not DOM-element-driven
+    const shouldHaveFocus = focusRow === rowIndex && focusCol === i;
+    const hasFocus = cell.classList.contains('cell-focus');
+    if (shouldHaveFocus !== hasFocus) {
+      cell.classList.toggle('cell-focus', shouldHaveFocus);
+      cell.setAttribute('aria-selected', String(shouldHaveFocus));
     }
 
     // Skip cells in edit mode

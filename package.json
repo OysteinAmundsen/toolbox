@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/components",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "license": "MIT",
   "author": "Oystein Amundsen",
   "repository": {
@@ -20,7 +20,8 @@
     "coverage": "bun run test --coverage",
     "watch": "bun run build --watch",
     "update": "nx migrate latest && nx migrate --run-migrations --if-exists && git commit -am 'chore: update dependencies' && bunx npm-check-updates --format group -u --cooldown 5 --target minor && bun install",
-    "bump": "bun scripts/bump-version.ts"
+    "bump": "bun scripts/bump-version.ts",
+    "release": "bun run build && cd dist/libs/grid && npm publish --access public && cd ../../.. && git tag v$(node -p \"require('./package.json').version\") && git push origin --tags"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",

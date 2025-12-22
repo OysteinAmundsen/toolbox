@@ -3,6 +3,7 @@ import '../../lib/core/grid';
 // Import plugins used by integration tests
 import { GroupingColumnsPlugin } from '../../lib/plugins/grouping-columns';
 import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
+import { SelectionPlugin } from '../../lib/plugins/selection';
 
 function nextFrame() {
   return new Promise((r) => requestAnimationFrame(r));
@@ -745,5 +746,228 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     await waitUpgrade(grid);
 
     expect(grid.activeToolPanel).toBe('columns');
+  });
+});
+
+describe('tbw-grid integration: selection plugin', () => {
+  let grid: any;
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('range selection classes update correctly during scroll', async () => {
+    // Create many rows to enable virtualization
+    const rows = Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Row ${i}` }));
+    const selectionPlugin = new SelectionPlugin({ mode: 'range' });
+
+    grid.gridConfig = {
+      plugins: [selectionPlugin],
+    };
+    grid.columns = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = rows;
+    await waitUpgrade(grid);
+
+    const shadow = grid.shadowRoot!;
+
+    // Find a cell in the first visible row and click it to select
+    const firstVisibleCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+    expect(firstVisibleCell).not.toBeNull();
+
+    // Click to select the cell
+    firstVisibleCell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    firstVisibleCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    firstVisibleCell.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    await nextFrame();
+
+    // Verify the cell has the selected class
+    expect(firstVisibleCell.classList.contains('selected')).toBe(true);
+
+    // Verify the selection plugin tracks the correct data indices
+    const ranges = selectionPlugin.getRanges();
+    expect(ranges.length).toBe(1);
+    expect(ranges[0].from).toEqual({ row: 0, col: 0 });
+    expect(ranges[0].to).toEqual({ row: 0, col: 0 });
+
+    // Simulate scroll by triggering the scroll handler
+    // The faux scrollbar container is used for virtualization
+    const fauxScrollbar = grid.virtualization?.container;
+    if (fauxScrollbar) {
+      // Scroll down significantly
+      fauxScrollbar.scrollTop = 500;
+      fauxScrollbar.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await nextFrame(); // Extra frame for scroll batching
+
+      // After scrolling, row 0 should not be visible anymore
+      // The DOM elements that previously showed row 0 now show different rows
+      // But the selection should still be tied to data row 0
+
+      // Verify no cells currently visible have the selected class
+      // (since row 0 is scrolled out of view)
+      const visibleSelectedCells = shadow.querySelectorAll('.cell.selected');
+      // Row 0 should be scrolled out of view, so no selected cells
+      for (const cell of visibleSelectedCells) {
+        const cellRowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
+        // If any cells are selected, they should only be row 0
+        expect(cellRowIndex).toBe(0);
+      }
+
+      // Scroll back to top
+      fauxScrollbar.scrollTop = 0;
+      fauxScrollbar.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await nextFrame();
+
+      // Now row 0 should be visible again with the selected class
+      const restoredCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+      expect(restoredCell).not.toBeNull();
+      expect(restoredCell.classList.contains('selected')).toBe(true);
+    }
+  });
+
+  it('row selection classes update correctly during scroll', async () => {
+    // Create many rows to enable virtualization
+    const rows = Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Row ${i}` }));
+    const selectionPlugin = new SelectionPlugin({ mode: 'row' });
+
+    grid.gridConfig = {
+      plugins: [selectionPlugin],
+    };
+    grid.columns = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = rows;
+    await waitUpgrade(grid);
+
+    const shadow = grid.shadowRoot!;
+
+    // Find a cell in the first visible row and click it to select the row
+    const firstVisibleCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+    expect(firstVisibleCell).not.toBeNull();
+
+    // Click to select the row
+    firstVisibleCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await nextFrame();
+
+    // Verify the row has the row-focus class
+    const firstRow = firstVisibleCell.closest('.data-grid-row') as HTMLElement;
+    expect(firstRow.classList.contains('row-focus')).toBe(true);
+
+    // Verify the selection plugin tracks the correct data index
+    const selectedRows = selectionPlugin.getSelectedRows();
+    expect(selectedRows).toEqual([0]);
+
+    // Simulate scroll
+    const fauxScrollbar = grid.virtualization?.container;
+    if (fauxScrollbar) {
+      fauxScrollbar.scrollTop = 500;
+      fauxScrollbar.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await nextFrame();
+
+      // After scrolling, row 0 should not be visible
+      // Verify no rows currently visible have the row-focus class for wrong data
+      const visibleSelectedRows = shadow.querySelectorAll('.data-grid-row.row-focus');
+      for (const row of visibleSelectedRows) {
+        const firstCell = row.querySelector('.cell[data-row]');
+        const rowIndex = parseInt(firstCell?.getAttribute('data-row') ?? '-1', 10);
+        // Only row 0 should have row-focus
+        expect(rowIndex).toBe(0);
+      }
+
+      // Scroll back to top
+      fauxScrollbar.scrollTop = 0;
+      fauxScrollbar.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await nextFrame();
+
+      // Now row 0 should be visible again with the row-focus class
+      const restoredRow = shadow
+        .querySelector('.data-grid-row .cell[data-row="0"]')
+        ?.closest('.data-grid-row') as HTMLElement;
+      expect(restoredRow).not.toBeNull();
+      expect(restoredRow.classList.contains('row-focus')).toBe(true);
+    }
+  });
+});
+
+describe('tbw-grid integration: core cell focus', () => {
+  let grid: any;
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('cell-focus class stays on correct data cell during scroll', async () => {
+    // Create many rows to enable virtualization
+    const rows = Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Row ${i}` }));
+
+    grid.columns = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = rows;
+    await waitUpgrade(grid);
+
+    const shadow = grid.shadowRoot!;
+
+    // Find a cell in the first visible row and click it to set focus
+    const firstVisibleCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+    expect(firstVisibleCell).not.toBeNull();
+
+    // Click to focus the cell
+    firstVisibleCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await nextFrame();
+
+    // Verify the cell has the cell-focus class
+    expect(firstVisibleCell.classList.contains('cell-focus')).toBe(true);
+
+    // Verify focusRow and focusCol are set correctly
+    expect(grid.focusRow).toBe(0);
+    expect(grid.focusCol).toBe(0);
+
+    // Simulate scroll
+    const fauxScrollbar = grid.virtualization?.container;
+    if (fauxScrollbar) {
+      fauxScrollbar.scrollTop = 500;
+      fauxScrollbar.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await nextFrame();
+
+      // After scrolling, row 0 should not be visible anymore
+      // No visible cell should have cell-focus unless it's data-row="0" data-col="0"
+      const visibleFocusedCells = shadow.querySelectorAll('.cell.cell-focus');
+      for (const cell of visibleFocusedCells) {
+        const cellRowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
+        const cellColIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+        // Only row 0, col 0 should have focus
+        expect(cellRowIndex).toBe(0);
+        expect(cellColIndex).toBe(0);
+      }
+
+      // Scroll back to top
+      fauxScrollbar.scrollTop = 0;
+      fauxScrollbar.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await nextFrame();
+
+      // Now row 0 should be visible again with the cell-focus class
+      const restoredCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+      expect(restoredCell).not.toBeNull();
+      expect(restoredCell.classList.contains('cell-focus')).toBe(true);
+    }
   });
 });

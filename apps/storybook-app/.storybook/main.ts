@@ -1,7 +1,7 @@
 // This file has been automatically migrated to valid ESM format by Storybook.
-import { fileURLToPath } from "node:url";
 import type { StorybookConfig } from '@storybook/web-components-vite';
-import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,9 +14,9 @@ const config: StorybookConfig = {
     '../../../libs/grid/src/lib/core/**/*.stories.@(js|jsx|ts|tsx)',
     '../../../libs/grid/src/lib/plugins/**/*.stories.@(js|jsx|ts|tsx)',
   ],
-  addons: [getAbsolutePath("@storybook/addon-a11y")],
+  addons: [getAbsolutePath('@storybook/addon-a11y')],
   framework: {
-    name: getAbsolutePath("@storybook/web-components-vite"),
+    name: getAbsolutePath('@storybook/web-components-vite'),
     options: {},
   },
   typescript: {
@@ -44,10 +44,7 @@ const config: StorybookConfig = {
 
     // Ensure grid component side-effects (custom element registration) are preserved
     cfg.optimizeDeps = cfg.optimizeDeps || {};
-    cfg.optimizeDeps.include = [
-      ...(cfg.optimizeDeps.include || []),
-      '../../../libs/grid/src/index.ts',
-    ];
+    cfg.optimizeDeps.include = [...(cfg.optimizeDeps.include || []), '../../../libs/grid/src/index.ts'];
 
     // Prevent tree-shaking of side-effect imports during build
     cfg.build = cfg.build || {};

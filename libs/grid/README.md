@@ -23,7 +23,7 @@ document.body.appendChild(grid);
 ```
 
 > [!TIP]
-> For complete examples, see the [Storybook documentation](https://your-storybook-url).
+> For complete examples, see the [Storybook documentation](https://oysteinamundsen.github.io/toolbox/).
 
 ---
 

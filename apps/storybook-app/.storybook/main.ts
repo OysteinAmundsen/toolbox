@@ -34,13 +34,35 @@ const config: StorybookConfig = {
       '@toolbox/storybook/': resolve(__dirname, '../../../libs/storybook') + '/',
       '@toolbox/storybook': resolve(__dirname, '../../../libs/storybook'),
       '@toolbox-web/grid/': resolve(__dirname, '../../../libs/grid/src/lib') + '/',
-      '@toolbox-web/grid': resolve(__dirname, '../../../libs/grid/src'),
+      '@toolbox-web/grid': resolve(__dirname, '../../../libs/grid/src/index.ts'),
     };
 
     // Allow Vite to serve files from the monorepo root
     cfg.server = cfg.server || {};
     cfg.server.fs = cfg.server.fs || {};
     cfg.server.fs.allow = [resolve(__dirname, '../../..')];
+
+    // Ensure grid component side-effects (custom element registration) are preserved
+    cfg.optimizeDeps = cfg.optimizeDeps || {};
+    cfg.optimizeDeps.include = [
+      ...(cfg.optimizeDeps.include || []),
+      '../../../libs/grid/src/index.ts',
+    ];
+
+    // Prevent tree-shaking of side-effect imports during build
+    cfg.build = cfg.build || {};
+    cfg.build.rollupOptions = cfg.build.rollupOptions || {};
+    cfg.build.rollupOptions.treeshake = {
+      moduleSideEffects: (id: string) => {
+        // Preserve side effects for grid component (custom element registration)
+        if (id.includes('libs/grid/src')) return true;
+        return 'no-external';
+      },
+    };
+
+    // Disable minification to preserve code examples in stories
+    // The extractCode() utility uses fn.toString() which needs unminified source
+    cfg.build.minify = false;
 
     return cfg;
   },

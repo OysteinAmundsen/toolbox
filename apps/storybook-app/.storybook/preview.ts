@@ -5,6 +5,15 @@ import xml from 'highlight.js/lib/languages/xml';
 import 'highlight.js/styles/github-dark.min.css';
 import './storybook-styles.css';
 
+// Import grid component class to ensure custom element registration side-effect runs
+// We import the class (not just the module) to prevent tree-shaking
+import { DataGridElement } from '../../../libs/grid/src/index';
+
+// Force the import to be retained by referencing it
+if (typeof DataGridElement === 'undefined') {
+  console.error('Grid component failed to load');
+}
+
 // Static raw imports for themes using relative paths
 import contrastCss from '../../../libs/themes/dg-theme-contrast.css?raw';
 import largeCss from '../../../libs/themes/dg-theme-large.css?raw';

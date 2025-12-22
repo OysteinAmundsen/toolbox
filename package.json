@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/components",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "MIT",
   "author": "Oystein Amundsen",
   "repository": {
@@ -14,12 +14,13 @@
   "scripts": {
     "nx": "nx",
     "start": "nx run storybook-app:storybook",
-    "build": "nx run-many --target=build --exclude=storybook-app --output-style=stream",
+    "build": "rm -rf dist/libs/ && nx run-many --target=build --exclude=storybook-app --output-style=stream",
     "test": "nx run-many --target=test --exclude=storybook-app --output-style=stream",
     "lint": "nx run-many --target=lint --exclude=storybook-app --output-style=stream",
     "coverage": "bun run test --coverage",
     "watch": "bun run build --watch",
-    "update": "nx migrate latest && nx migrate --run-migrations --if-exists && git commit -am 'chore: update dependencies' && bunx npm-check-updates --format group -u --cooldown 5 --target minor && bun install"
+    "update": "nx migrate latest && nx migrate --run-migrations --if-exists && git commit -am 'chore: update dependencies' && bunx npm-check-updates --format group -u --cooldown 5 --target minor && bun install",
+    "bump": "bun scripts/bump-version.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",

@@ -73,6 +73,20 @@ function copyThemes(): Plugin {
   };
 }
 
+/** Copy README.md to dist for npm publishing */
+function copyReadme(): Plugin {
+  return {
+    name: 'copy-readme',
+    writeBundle() {
+      try {
+        copyFileSync(resolve(__dirname, 'README.md'), resolve(outDir, 'README.md'));
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+}
+
 /** Build each plugin as separate ES/CJS modules (parallel, no dts - types bundled in main) */
 function buildPluginModules(): Plugin {
   return {
@@ -212,7 +226,7 @@ export default defineConfig(({ command }) => ({
       skipDiagnostics: true,
     }),
     // Only run build-specific plugins during actual build, not during tests
-    ...(command === 'build' ? [copyThemes(), buildPluginModules(), buildUmdBundles()] : []),
+    ...(command === 'build' ? [copyThemes(), copyReadme(), buildPluginModules(), buildUmdBundles()] : []),
   ],
   build: {
     outDir,

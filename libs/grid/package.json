@@ -49,5 +49,8 @@
   "bugs": {
     "url": "https://github.com/OysteinAmundsen/toolbox/issues"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "customElements": "custom-elements.json"
 }

@@ -48,7 +48,7 @@
   --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 12%);
 
   /* Range/row selection */
-  --tbw-range-border-color: var(--tbw-color-success);
+  --tbw-range-border-color: var(--tbw-color-accent);
   --tbw-range-selection-bg: rgba(from var(--tbw-range-border-color) r g b / 12%);
 
   /* Resize */
@@ -273,6 +273,9 @@
 /* Data cells */
 :host .selecting .data-grid-row > .cell {
   user-select: none;
+}
+:host .data-grid-row > .cell:focus-visible {
+  outline: none;
 }
 :host .data-grid-row > .cell {
   display: flex;

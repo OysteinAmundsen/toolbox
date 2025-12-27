@@ -282,36 +282,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   }
 
   /**
-   * Called during scroll - must update selection classes on recycled rows
-   */
-  override onScroll(_event: ScrollEvent): void {
-    // Apply selection classes to newly rendered/recycled rows
-    this.#applySelectionClasses();
-  }
-
-  override afterRender(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
-
-    const container = shadowRoot.children[0];
-    const { mode } = this.config;
-
-    // Set data attribute on host for CSS variable scoping
-    (this.grid as unknown as Element).setAttribute('data-selection-mode', mode);
-
-    // Toggle .selecting class during drag to prevent text selection
-    if (container) {
-      container.classList.toggle('selecting', this.isDragging);
-    }
-
-    // Apply selection classes to cells/rows
-    this.#applySelectionClasses();
-  }
-
-  /**
-   * Apply selection-related CSS classes to currently visible cells/rows.
-   * Called from both afterRender() and onScroll() to ensure selection
-   * is always correct when rows are recycled during virtualization.
+   * Apply selection classes to visible cells/rows.
+   * Shared by afterRender and onScrollRender.
    */
   #applySelectionClasses(): void {
     const shadowRoot = this.shadowRoot;
@@ -327,18 +299,18 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     const allRows = shadowRoot.querySelectorAll('.data-grid-row');
     allRows.forEach((row) => {
-      row.classList.remove('selected');
+      row.classList.remove('selected', 'row-focus');
     });
 
     // ===== ROW MODE: Add row-focus class to selected rows =====
     if (mode === 'row') {
-      allRows.forEach((row) => row.classList.remove('row-focus'));
-
       allRows.forEach((row) => {
         const firstCell = row.querySelector('.cell[data-row]');
         const rowIndex = parseInt(firstCell?.getAttribute('data-row') ?? '-1', 10);
         if (rowIndex >= 0 && this.selected.has(rowIndex)) {
           row.classList.add('selected', 'row-focus');
+          // Remove cell-focus from all cells in selected rows
+          row.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
         }
       });
     }
@@ -356,6 +328,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
           if (inRange) {
             cell.classList.add('selected');
+            // Remove cell-focus from selected cells - selection highlight takes precedence
+            cell.classList.remove('cell-focus');
 
             if (normalized) {
               if (rowIndex === normalized.startRow) cell.classList.add('top');
@@ -367,6 +341,38 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         }
       });
     }
+
+    // ===== CELL MODE: Remove cell-focus when selection plugin handles focus =====
+    if (mode === 'cell' && this.selectedCell) {
+      // Remove all cell-focus - the selection plugin manages focus styling
+      shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
+    }
+  }
+
+  override afterRender(): void {
+    const shadowRoot = this.shadowRoot;
+    if (!shadowRoot) return;
+
+    const container = shadowRoot.children[0];
+    const { mode } = this.config;
+
+    // Set data attribute on host for CSS variable scoping
+    (this.grid as unknown as Element).setAttribute('data-selection-mode', mode);
+
+    // Toggle .selecting class during drag to prevent text selection
+    if (container) {
+      container.classList.toggle('selecting', this.isDragging);
+    }
+
+    this.#applySelectionClasses();
+  }
+
+  /**
+   * Called after scroll-triggered row rendering.
+   * Reapplies selection classes to recycled DOM elements.
+   */
+  override onScrollRender(): void {
+    this.#applySelectionClasses();
   }
 
   // ===== Public API =====

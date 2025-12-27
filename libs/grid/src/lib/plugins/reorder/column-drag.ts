@@ -15,13 +15,19 @@ import type { ColumnConfig } from '../../core/types';
  * @returns True if the column can be moved
  */
 export function canMoveColumn<TRow = unknown>(column: ColumnConfig<TRow>): boolean {
-  // Sticky columns cannot be reordered - they have fixed left/right positions
-  // Check via meta since sticky is added by PinnedColumnsPlugin
-  const meta = column.meta ?? {};
-  const sticky = (meta as { sticky?: 'left' | 'right' }).sticky;
+  // Check sticky directly on column config (primary location)
+  const sticky = (column as ColumnConfig<TRow> & { sticky?: 'left' | 'right' }).sticky;
   if (sticky === 'left' || sticky === 'right') {
     return false;
   }
+
+  // Also check meta.sticky for backwards compatibility
+  const meta = column.meta ?? {};
+  const metaSticky = (meta as { sticky?: 'left' | 'right' }).sticky;
+  if (metaSticky === 'left' || metaSticky === 'right') {
+    return false;
+  }
+
   // Check for lockPosition or suppressMovable properties in the column config
   return meta.lockPosition !== true && meta.suppressMovable !== true;
 }

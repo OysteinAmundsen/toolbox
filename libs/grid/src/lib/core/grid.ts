@@ -129,6 +129,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #isDragging = false;
   #boundMouseMove?: (e: MouseEvent) => void;
   #boundMouseUp?: (e: MouseEvent) => void;
+  #touchStartY: number | null = null;
+  #touchScrollTop: number | null = null;
 
   // ---------------- Plugin System ----------------
   #pluginManager!: PluginManager;
@@ -567,6 +569,40 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           },
           { passive: false }
         );
+
+        // Touch scrolling support for mobile devices
+        rowsBody.addEventListener(
+          'touchstart',
+          (e: TouchEvent) => {
+            if (e.touches.length === 1) {
+              this.#touchStartY = e.touches[0].clientY;
+              this.#touchScrollTop = fauxScrollbar.scrollTop;
+            }
+          },
+          { passive: true }
+        );
+
+        rowsBody.addEventListener(
+          'touchmove',
+          (e: TouchEvent) => {
+            if (e.touches.length === 1 && this.#touchStartY !== null && this.#touchScrollTop !== null) {
+              const deltaY = this.#touchStartY - e.touches[0].clientY;
+              fauxScrollbar.scrollTop = this.#touchScrollTop + deltaY;
+              // Prevent page scroll when scrolling within grid
+              e.preventDefault();
+            }
+          },
+          { passive: false }
+        );
+
+        rowsBody.addEventListener(
+          'touchend',
+          () => {
+            this.#touchStartY = null;
+            this.#touchScrollTop = null;
+          },
+          { passive: true }
+        );
       }
     }
 
@@ -969,6 +1005,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Faux scrollbar pattern: content never scrolls, just update transforms
     // Old content stays visible until new transforms are applied
     this.refreshVirtualWindow(false);
+
+    // Let plugins reapply visual state to recycled DOM elements
+    this.#pluginManager?.onScrollRender();
 
     // Dispatch to plugins (using cached flag)
     if (this.#hasScrollPlugins) {

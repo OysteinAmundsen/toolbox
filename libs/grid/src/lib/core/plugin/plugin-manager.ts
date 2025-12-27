@@ -200,6 +200,16 @@ export class PluginManager {
   }
 
   /**
+   * Execute onScrollRender hook on all plugins.
+   * Called after scroll-triggered row rendering for lightweight visual state updates.
+   */
+  onScrollRender(): void {
+    for (const plugin of this.plugins) {
+      plugin.onScrollRender?.();
+    }
+  }
+
+  /**
    * Execute renderRow hook on all plugins.
    * Returns true if any plugin handled the row.
    */

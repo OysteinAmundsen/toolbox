@@ -450,6 +450,8 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
   const colsLen = columns.length;
   const childLen = children.length;
   const minLen = colsLen < childLen ? colsLen : childLen;
+  const focusRow = grid.focusRow;
+  const focusCol = grid.focusCol;
 
   // Ultra-fast path: if no special columns (templates, formatters, etc.), use direct assignment
   // Check is cached on grid to avoid repeated iteration
@@ -475,8 +477,6 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
   }
 
   const rowIndexStr = String(rowIndex);
-  const focusRow = grid.focusRow;
-  const focusCol = grid.focusCol;
 
   // Ultra-fast path for plain text grids - just set textContent directly
   if (!hasSpecialCols) {

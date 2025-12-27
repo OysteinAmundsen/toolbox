@@ -420,6 +420,23 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
   afterRender?(): void;
 
   /**
+   * Called after scroll-triggered row rendering completes.
+   * This is a lightweight hook for applying visual state to recycled DOM elements.
+   * Use this instead of afterRender when you need to reapply styling during scroll.
+   *
+   * Performance note: This is called frequently during scroll. Keep implementation fast.
+   *
+   * @example
+   * ```ts
+   * onScrollRender(): void {
+   *   // Reapply selection state to visible cells
+   *   this.applySelectionToVisibleCells();
+   * }
+   * ```
+   */
+  onScrollRender?(): void;
+
+  /**
    * Render a custom row, bypassing the default row rendering.
    * Use this for special row types like group headers, detail rows, or footers.
    *

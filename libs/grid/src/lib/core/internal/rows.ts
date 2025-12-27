@@ -532,8 +532,23 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     // Skip cells in edit mode
     if (cell.classList.contains('editing')) continue;
 
-    // Skip templated / external / custom renderer cells
-    if (col.__viewTemplate || col.__compiledView || col.viewRenderer || col.externalView) {
+    // Handle viewRenderer - must re-invoke to get updated content
+    if (col.viewRenderer) {
+      const value = rowData[col.field];
+      const produced = col.viewRenderer({ row: rowData, value, field: col.field, column: col });
+      if (typeof produced === 'string') {
+        cell.innerHTML = sanitizeHTML(produced);
+      } else if (produced) {
+        cell.innerHTML = '';
+        cell.appendChild(produced);
+      } else {
+        cell.textContent = value == null ? '' : String(value);
+      }
+      continue;
+    }
+
+    // Skip templated / external cells (these need full rebuild to remount)
+    if (col.__viewTemplate || col.__compiledView || col.externalView) {
       continue;
     }
 

@@ -6,9 +6,9 @@
  * Includes UI with filter buttons in headers and dropdown filter panels.
  */
 
+import { computeVirtualWindow, shouldBypassVirtualization } from '../../core/internal/virtualization';
 import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnState } from '../../core/types';
-import { computeVirtualWindow, shouldBypassVirtualization } from '../../core/internal/virtualization';
 import { computeFilterCacheKey, filterRows, getUniqueValues } from './filter-model';
 import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams } from './types';
 
@@ -186,7 +186,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private panelElement: HTMLElement | null = null;
   private searchText: Map<string, string> = new Map();
   private excludedValues: Map<string, Set<unknown>> = new Map();
-  private documentClickHandler: ((e: MouseEvent) => void) | null = null;
+  private panelAbortController: AbortController | null = null; // For panel-scoped listeners
   private globalStylesInjected = false;
 
   // Virtualization constants for filter value list
@@ -212,7 +212,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
     this.searchText.clear();
     this.excludedValues.clear();
-    this.removeDocumentClickHandler();
+    // Abort panel-scoped listeners (document click handler, etc.)
+    this.panelAbortController?.abort();
+    this.panelAbortController = null;
   }
 
   // ===== Hooks =====
@@ -494,16 +496,22 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     document.body.appendChild(panel);
     this.positionPanel(panel, buttonEl);
 
+    // Create abort controller for panel-scoped listeners
+    // This allows cleanup when panel closes OR when grid disconnects
+    this.panelAbortController = new AbortController();
+
     // Add global click handler to close on outside click
-    const handler = (e: MouseEvent) => {
-      if (!panel.contains(e.target as Node) && e.target !== buttonEl) {
-        this.closeFilterPanel();
-      }
-    };
-    this.documentClickHandler = handler;
-    // Defer to next tick to avoid immediate close
+    // Defer to next tick to avoid immediate close from the click that opened the panel
     setTimeout(() => {
-      document.addEventListener('click', handler);
+      document.addEventListener(
+        'click',
+        (e: MouseEvent) => {
+          if (!panel.contains(e.target as Node) && e.target !== buttonEl) {
+            this.closeFilterPanel();
+          }
+        },
+        { signal: this.panelAbortController?.signal }
+      );
     }, 0);
   }
 
@@ -516,17 +524,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       this.panelElement = null;
     }
     this.openPanelField = null;
-    this.removeDocumentClickHandler();
-  }
-
-  /**
-   * Remove the document click handler
-   */
-  private removeDocumentClickHandler(): void {
-    if (this.documentClickHandler) {
-      document.removeEventListener('click', this.documentClickHandler);
-      this.documentClickHandler = null;
-    }
+    // Abort panel-scoped listeners (document click handler)
+    this.panelAbortController?.abort();
+    this.panelAbortController = null;
   }
 
   /**

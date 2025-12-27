@@ -124,13 +124,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #pendingScrollTop: number | null = null;
   #hasScrollPlugins = false; // Cached flag for plugin scroll handlers
   #renderRowHook?: (row: any, rowEl: HTMLElement, rowIndex: number) => boolean; // Cached hook to avoid closures
-  #boundEsc?: (e: KeyboardEvent) => void;
-  #boundOutside?: (e: MouseEvent) => void;
   #isDragging = false;
-  #boundMouseMove?: (e: MouseEvent) => void;
-  #boundMouseUp?: (e: MouseEvent) => void;
   #touchStartY: number | null = null;
+  #touchStartX: number | null = null;
   #touchScrollTop: number | null = null;
+  #touchScrollLeft: number | null = null;
+  #eventAbortController?: AbortController;
 
   // ---------------- Plugin System ----------------
   #pluginManager!: PluginManager;
@@ -266,6 +265,21 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Use this when you need the raw merged config (e.g., for column definitions including hidden)
   get effectiveConfig(): GridConfig<T> {
     return this.#effectiveConfig;
+  }
+
+  /**
+   * Get the disconnect signal for event listener cleanup.
+   * This signal is aborted when the grid disconnects from the DOM.
+   * Plugins and internal code can use this for automatic listener cleanup.
+   * @example
+   * element.addEventListener('click', handler, { signal: this.grid.disconnectSignal });
+   */
+  get disconnectSignal(): AbortSignal {
+    // Ensure AbortController exists (created in connectedCallback before plugins attach)
+    if (!this.#eventAbortController) {
+      this.#eventAbortController = new AbortController();
+    }
+    return this.#eventAbortController.signal;
   }
 
   constructor() {
@@ -405,10 +419,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!this.hasAttribute('tabindex')) (this as any).tabIndex = 0;
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
 
+    // Create AbortController for all event listeners (grid internal + plugins)
+    // This must happen BEFORE plugins attach so they can use disconnectSignal
+    // Abort any previous controller first (in case of re-connect)
+    this.#eventAbortController?.abort();
+    this.#eventAbortController = new AbortController();
+
     // Merge all config sources into effectiveConfig (including columns)
     this.#mergeEffectiveConfig();
 
-    // Initialize plugin system
+    // Initialize plugin system (now plugins can access disconnectSignal)
     this.#initializePlugins();
 
     // Collect tool panels and header content from plugins (must be before render)
@@ -430,22 +450,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     cleanupShellState(this.#shellState);
     this.#shellInitialized = false;
 
-    if (this.#boundEsc) {
-      document.removeEventListener('keydown', this.#boundEsc, true);
-      this.#boundEsc = undefined;
+    // Abort all event listeners (internal + document-level)
+    // This cleans up all listeners added with { signal } option
+    if (this.#eventAbortController) {
+      this.#eventAbortController.abort();
+      this.#eventAbortController = undefined;
     }
-    if (this.#boundOutside) {
-      document.removeEventListener('mousedown', this.#boundOutside, false);
-      this.#boundOutside = undefined;
-    }
-    if (this.#boundMouseMove) {
-      document.removeEventListener('mousemove', this.#boundMouseMove);
-      this.#boundMouseMove = undefined;
-    }
-    if (this.#boundMouseUp) {
-      document.removeEventListener('mouseup', this.#boundMouseUp);
-      this.#boundMouseUp = undefined;
-    }
+
     if (this.resizeController) {
       this.resizeController.dispose();
     }
@@ -483,32 +494,40 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!this.hasAttribute('role')) this.setAttribute('role', 'grid');
     this.#connected = true;
 
+    // Get the signal for event listener cleanup (AbortController created in connectedCallback)
+    const signal = this.disconnectSignal;
+
     // Run setup
     this.#setup();
 
-    this.addEventListener('keydown', (e) => handleGridKeyDown(this as any, e));
+    // Element-level keydown handler (uses signal for automatic cleanup)
+    this.addEventListener('keydown', (e) => handleGridKeyDown(this as any, e), { signal });
 
-    // Global listeners
-    if (!this.#boundEsc) {
-      this.#boundEsc = (e: KeyboardEvent) => {
+    // Document-level listeners (also use signal for automatic cleanup)
+    // Escape key to cancel row editing
+    document.addEventListener(
+      'keydown',
+      (e: KeyboardEvent) => {
         if (e.key === 'Escape' && this.activeEditRows !== -1) {
           this.#exitRowEdit(this.activeEditRows, true);
         }
-      };
-      document.addEventListener('keydown', this.#boundEsc, true);
-    }
+      },
+      { capture: true, signal }
+    );
 
-    if (!this.#boundOutside) {
-      this.#boundOutside = (e: MouseEvent) => {
+    // Click outside to commit row editing
+    document.addEventListener(
+      'mousedown',
+      (e: MouseEvent) => {
         if (this.activeEditRows === -1) return;
         const rowEl = this.findRenderedRowElement(this.activeEditRows);
         if (!rowEl) return;
         const path = (e.composedPath && e.composedPath()) || [];
         if (path.includes(rowEl)) return;
         this.#exitRowEdit(this.activeEditRows, false);
-      };
-      document.addEventListener('mousedown', this.#boundOutside, false);
-    }
+      },
+      { signal }
+    );
 
     // Faux scrollbar pattern: scroll events come from the fake scrollbar element
     // Content area doesn't scroll - rows are positioned via transforms
@@ -552,74 +571,99 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             });
           }
         },
-        { passive: true }
+        { passive: true, signal }
       );
 
       // Forward wheel events from content area to faux scrollbar
       // Without this, mouse wheel over content wouldn't scroll
-      const rowsBody = gridRoot?.querySelector('.rows-body') as HTMLElement;
-      if (rowsBody) {
-        rowsBody.addEventListener(
+      // Listen on .tbw-grid-content to capture wheel events from entire grid area
+      // Note: gridRoot may already BE .tbw-grid-content when shell is active, so search from shadow root
+      const gridContentEl = this.#shadow.querySelector('.tbw-grid-content') as HTMLElement;
+      const scrollArea = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;
+      if (gridContentEl) {
+        gridContentEl.addEventListener(
           'wheel',
           (e: WheelEvent) => {
             // Prevent default to stop any residual scroll behavior
             e.preventDefault();
-            // Apply wheel delta to faux scrollbar
-            fauxScrollbar.scrollTop += e.deltaY;
+
+            // SHIFT+wheel = horizontal scroll
+            // Also handle trackpad horizontal scroll (deltaX)
+            if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+              // Horizontal scroll - apply to scroll area
+              if (scrollArea) {
+                scrollArea.scrollLeft += e.shiftKey ? e.deltaY : e.deltaX;
+              }
+            } else {
+              // Vertical scroll - apply to faux scrollbar
+              fauxScrollbar.scrollTop += e.deltaY;
+            }
           },
-          { passive: false }
+          { passive: false, signal }
         );
 
         // Touch scrolling support for mobile devices
-        rowsBody.addEventListener(
+        // Supports both vertical (via faux scrollbar) and horizontal (via scroll area) scrolling
+        gridContentEl.addEventListener(
           'touchstart',
           (e: TouchEvent) => {
             if (e.touches.length === 1) {
               this.#touchStartY = e.touches[0].clientY;
+              this.#touchStartX = e.touches[0].clientX;
               this.#touchScrollTop = fauxScrollbar.scrollTop;
+              this.#touchScrollLeft = scrollArea?.scrollLeft ?? 0;
             }
           },
-          { passive: true }
+          { passive: true, signal }
         );
 
-        rowsBody.addEventListener(
+        gridContentEl.addEventListener(
           'touchmove',
           (e: TouchEvent) => {
-            if (e.touches.length === 1 && this.#touchStartY !== null && this.#touchScrollTop !== null) {
+            if (
+              e.touches.length === 1 &&
+              this.#touchStartY !== null &&
+              this.#touchStartX !== null &&
+              this.#touchScrollTop !== null &&
+              this.#touchScrollLeft !== null
+            ) {
               const deltaY = this.#touchStartY - e.touches[0].clientY;
+              const deltaX = this.#touchStartX - e.touches[0].clientX;
+
+              // Apply both vertical and horizontal scroll
               fauxScrollbar.scrollTop = this.#touchScrollTop + deltaY;
+              if (scrollArea) {
+                scrollArea.scrollLeft = this.#touchScrollLeft + deltaX;
+              }
+
               // Prevent page scroll when scrolling within grid
               e.preventDefault();
             }
           },
-          { passive: false }
+          { passive: false, signal }
         );
 
-        rowsBody.addEventListener(
+        gridContentEl.addEventListener(
           'touchend',
           () => {
             this.#touchStartY = null;
+            this.#touchStartX = null;
             this.#touchScrollTop = null;
+            this.#touchScrollLeft = null;
           },
-          { passive: true }
+          { passive: true, signal }
         );
       }
     }
 
     this.resizeController = createResizeController(this as any);
 
-    // Central mouse event handling for plugins
-    this.#shadow.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent));
+    // Central mouse event handling for plugins (uses signal for automatic cleanup)
+    this.#shadow.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent), { signal });
 
-    // Track global mousemove/mouseup for drag operations
-    if (!this.#boundMouseMove) {
-      this.#boundMouseMove = (e: MouseEvent) => this.#handleMouseMove(e);
-      document.addEventListener('mousemove', this.#boundMouseMove);
-    }
-    if (!this.#boundMouseUp) {
-      this.#boundMouseUp = (e: MouseEvent) => this.#handleMouseUp(e);
-      document.addEventListener('mouseup', this.#boundMouseUp);
-    }
+    // Track global mousemove/mouseup for drag operations (uses signal for automatic cleanup)
+    document.addEventListener('mousemove', (e: MouseEvent) => this.#handleMouseMove(e), { signal });
+    document.addEventListener('mouseup', (e: MouseEvent) => this.#handleMouseUp(e), { signal });
 
     if (this.virtualization.enabled) {
       requestAnimationFrame(() => this.refreshVirtualWindow(true));

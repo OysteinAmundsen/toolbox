@@ -13,6 +13,8 @@ export interface GridElement {
   rows: any[];
   columns: ColumnConfig[];
   gridConfig: any;
+  /** AbortSignal that is aborted when the grid disconnects from the DOM */
+  disconnectSignal: AbortSignal;
   requestRender(): void;
   requestAfterRender(): void;
   forceLayout(): Promise<void>;
@@ -327,6 +329,27 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
    */
   protected get shadowRoot(): ShadowRoot | null {
     return this.grid?.shadowRoot ?? null;
+  }
+
+  /**
+   * Get the disconnect signal for event listener cleanup.
+   * This signal is aborted when the grid disconnects from the DOM.
+   * Use this when adding event listeners that should be cleaned up automatically.
+   *
+   * Best for:
+   * - Document/window-level listeners added in attach()
+   * - Listeners on the grid element itself
+   * - Any listener that should persist across renders
+   *
+   * Not needed for:
+   * - Listeners on elements created in afterRender() (removed with element)
+   *
+   * @example
+   * element.addEventListener('click', handler, { signal: this.disconnectSignal });
+   * document.addEventListener('keydown', handler, { signal: this.disconnectSignal });
+   */
+  protected get disconnectSignal(): AbortSignal {
+    return this.grid?.disconnectSignal;
   }
 
   /**

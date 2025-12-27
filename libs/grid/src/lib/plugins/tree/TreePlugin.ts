@@ -122,7 +122,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       const firstCol = { ...cols[0] };
       const originalRenderer = firstCol.viewRenderer;
 
-      firstCol.viewRenderer = (renderCtx) => {
+      // Skip if already wrapped by this plugin (prevents double-wrapping on re-render)
+      if ((originalRenderer as any)?.__treeWrapped) {
+        return cols;
+      }
+
+      const wrappedRenderer = (renderCtx: Parameters<NonNullable<typeof originalRenderer>>[0]) => {
         const { value, row, column: colConfig } = renderCtx;
         const depth = row.__treeDepth ?? 0;
         const hasChildren = row.__treeHasChildren ?? false;
@@ -167,6 +172,10 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
         return container;
       };
+
+      // Mark renderer as wrapped to prevent double-wrapping
+      (wrappedRenderer as any).__treeWrapped = true;
+      firstCol.viewRenderer = wrappedRenderer;
 
       cols[0] = firstCol;
     }

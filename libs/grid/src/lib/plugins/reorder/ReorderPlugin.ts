@@ -45,7 +45,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   private draggedField: string | null = null;
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
-  private boundReorderRequestHandler: ((e: Event) => void) | null = null;
 
   // ===== Lifecycle =====
 
@@ -53,25 +52,22 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     super.attach(grid);
 
     // Listen for reorder requests from other plugins (e.g., VisibilityPlugin)
-    this.boundReorderRequestHandler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail?.field && typeof detail.toIndex === 'number') {
-        this.moveColumn(detail.field, detail.toIndex);
-      }
-    };
-    (grid as unknown as HTMLElement).addEventListener('column-reorder-request', this.boundReorderRequestHandler);
+    // Uses disconnectSignal for automatic cleanup - no need for manual removeEventListener
+    (grid as unknown as HTMLElement).addEventListener(
+      'column-reorder-request',
+      (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.field && typeof detail.toIndex === 'number') {
+          this.moveColumn(detail.field, detail.toIndex);
+        }
+      },
+      { signal: this.disconnectSignal }
+    );
   }
 
   override detach(): void {
-    // Remove event listener
-    if (this.boundReorderRequestHandler && this.grid) {
-      (this.grid as unknown as HTMLElement).removeEventListener(
-        'column-reorder-request',
-        this.boundReorderRequestHandler
-      );
-      this.boundReorderRequestHandler = null;
-    }
-
+    // Event listeners using eventSignal are automatically cleaned up
+    // Just reset internal state
     this.isDragging = false;
     this.draggedField = null;
     this.draggedIndex = null;

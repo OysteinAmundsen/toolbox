@@ -68,7 +68,12 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       const firstCol = { ...cols[0] };
       const originalRenderer = firstCol.viewRenderer;
 
-      firstCol.viewRenderer = (renderCtx) => {
+      // Skip if already wrapped by this plugin (prevents double-wrapping on re-render)
+      if ((originalRenderer as any)?.__masterDetailWrapped) {
+        return cols;
+      }
+
+      const wrappedRenderer = (renderCtx: Parameters<NonNullable<typeof originalRenderer>>[0]) => {
         const { value, row } = renderCtx;
         const isExpanded = this.expandedRows.has(row);
 
@@ -110,6 +115,10 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
         return container;
       };
+
+      // Mark renderer as wrapped to prevent double-wrapping
+      (wrappedRenderer as any).__masterDetailWrapped = true;
+      firstCol.viewRenderer = wrappedRenderer;
 
       cols[0] = firstCol;
     }

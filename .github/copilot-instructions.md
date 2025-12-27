@@ -18,6 +18,36 @@ All libraries in this suite are built as **standard web components** (custom ele
 - **Shared conventions**: All libraries follow consistent patterns for configuration, theming, testing, and Storybook integration
 - **Component prefix**: All web components use `tbw-` prefix (toolbox-web), e.g., `<tbw-grid>`
 
+### API Stability & Breaking Changes
+
+**`@toolbox-web/grid` is now a released library.** Avoid breaking changes to the public API.
+
+**What constitutes a breaking change:**
+
+- Removing or renaming exported types, interfaces, classes, or functions from `public.ts`
+- Changing method signatures (adding required parameters, changing return types)
+- Removing or renaming public properties/methods on `<tbw-grid>` element
+- Removing or renaming CSS custom properties (theming variables)
+- Changing event names or payload structures
+- Removing or renaming plugin hook methods in `BaseGridPlugin`
+- Changing the `disconnectSignal` contract (plugins depend on it for cleanup)
+
+**What is NOT a breaking change:**
+
+- Adding new optional properties, methods, or events
+- Internal refactoring that doesn't affect public API
+- Bug fixes (even if they change incorrect behavior)
+- Adding new exports to `public.ts`
+- Performance improvements
+- New plugins or plugin features
+
+**When breaking changes are unavoidable:**
+
+1. Document clearly in PR description
+2. Update CHANGELOG with migration guide
+3. Consider deprecation period with console warnings before removal
+4. Bump major version
+
 ### Monorepo Structure
 
 - **`libs/grid/`** - First library in suite; single `<tbw-grid>` component with extensive internal modules
@@ -50,12 +80,14 @@ The Grid follows a **single source of truth** pattern where all configuration in
 **Input Sources → `#mergeEffectiveConfig()` → `#effectiveConfig` (canonical)**
 
 Users can configure via:
+
 - `gridConfig` property - full config object
 - `columns` property - shorthand for `gridConfig.columns`
 - `fitMode` / `editOn` properties - shortcuts for those settings
 - Light DOM elements (`<tbw-grid-column>`, `<tbw-grid-header>`)
 
 **Precedence (low → high):**
+
 1. `gridConfig` prop (base)
 2. Light DOM elements (declarative)
 3. `columns` prop (direct array)
@@ -63,6 +95,7 @@ Users can configure via:
 5. Individual props (`fitMode`, `editOn`) - highest
 
 **Internal State Categories:**
+
 - **Input Properties** (`#rows`, `#columns`, `#gridConfig`, `#fitMode`, `#editOn`) - raw user input
 - **Effective Config** (`#effectiveConfig`) - **THE single source of truth**
 - **Derived State** (`_columns`, `_rows`) - result of plugin processing hooks

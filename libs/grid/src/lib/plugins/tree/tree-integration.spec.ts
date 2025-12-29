@@ -272,8 +272,8 @@ describe('tree plugin integration', () => {
       ];
 
       const mockGrid = {
-        dispatchEvent: () => {},
-        requestRender: () => {},
+        dispatchEvent: () => { /* noop */ },
+        requestRender: () => { /* noop */ },
         rows: rows, // Provide rows for expandAll/collapseAll/expandToKey
         _columns: [],
         shadowRoot: null,
@@ -420,8 +420,8 @@ describe('tree plugin integration', () => {
     it('should return false when clicking non-toggle element', () => {
       const plugin = new TreePlugin({ enabled: true });
       const mockGrid = {
-        dispatchEvent: () => {},
-        requestRender: () => {},
+        dispatchEvent: () => { /* noop */ },
+        requestRender: () => { /* noop */ },
         rows: [],
         _columns: [],
         shadowRoot: null,
@@ -440,8 +440,8 @@ describe('tree plugin integration', () => {
     it('should return false when toggle has no data-tree-key', () => {
       const plugin = new TreePlugin({ enabled: true });
       const mockGrid = {
-        dispatchEvent: () => {},
-        requestRender: () => {},
+        dispatchEvent: () => { /* noop */ },
+        requestRender: () => { /* noop */ },
         rows: [],
         _columns: [],
         shadowRoot: null,
@@ -450,7 +450,6 @@ describe('tree plugin integration', () => {
 
       const toggle = document.createElement('span');
       toggle.classList.add('tree-toggle');
-      // No data-tree-key attribute
 
       const result = plugin.onCellClick({
         rowIndex: 0,
@@ -464,8 +463,8 @@ describe('tree plugin integration', () => {
     it('should return false when key not found in rowKeyMap', () => {
       const plugin = new TreePlugin({ enabled: true });
       const mockGrid = {
-        dispatchEvent: () => {},
-        requestRender: () => {},
+        dispatchEvent: () => { /* noop */ },
+        requestRender: () => { /* noop */ },
         rows: [],
         _columns: [],
         shadowRoot: null,

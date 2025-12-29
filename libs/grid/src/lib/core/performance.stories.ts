@@ -24,6 +24,7 @@ interface BenchmarkResult {
   unit: string;
   target: number;
   passed: boolean;
+  note?: string; // Optional explanation for info-type metrics
 }
 
 // ============================================================================
@@ -118,7 +119,9 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
             <div style="color:#e5e5e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
             <div style="color:${r.passed ? '#4ade80' : '#f87171'};font-family:monospace;text-align:right;">
               ${
-                r.unit === 'bytes'
+                r.unit === 'info'
+                  ? '—'
+                  : r.unit === 'bytes'
                   ? formatBytes(r.time)
                   : r.unit === 'bool'
                   ? r.time
@@ -127,10 +130,20 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
                   : formatTime(r.time)
               }
             </div>
-            <div style="color:#888;font-family:monospace;text-align:right;font-size:11px;">
-              ${r.unit === 'bool' ? '' : '&lt;' + (r.unit === 'bytes' ? formatBytes(r.target) : formatTime(r.target))}
+            <div style="color:#888;font-family:monospace;text-align:right;font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${
+              r.note || ''
+            }">
+              ${
+                r.note
+                  ? r.note
+                  : r.unit === 'bool' || r.unit === 'info'
+                  ? ''
+                  : r.target === Infinity
+                  ? '(info)'
+                  : '&lt;' + (r.unit === 'bytes' ? formatBytes(r.target) : formatTime(r.target))
+              }
             </div>
-            <div style="text-align:center;">${r.passed ? '✅' : '❌'}</div>
+            <div style="text-align:center;">${r.target === Infinity ? 'ℹ️' : r.passed ? '✅' : '❌'}</div>
           `
             )
             .join('')}
@@ -244,8 +257,6 @@ export const PerformanceStressTest: Story = {
     wrapper.appendChild(bar);
     wrapper.appendChild(gridContainer);
 
-    const memoryApi = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
-
     // Setup benchmark runner
     setTimeout(() => {
       const runBtn = bar.querySelector('#run-bench') as HTMLButtonElement;
@@ -274,8 +285,41 @@ export const PerformanceStressTest: Story = {
           return performance.now() - start;
         };
 
+        // Modern memory measurement API (requires COOP/COEP headers)
+        type MemoryMeasurement = { bytes: number; breakdown: { bytes: number; types: string[] }[] };
+        let memoryApiReason = '';
+        const measureMemory = async (): Promise<number | null> => {
+          try {
+            // Check if API exists
+            const perf = performance as unknown as {
+              measureUserAgentSpecificMemory?: () => Promise<MemoryMeasurement>;
+            };
+            if (!perf.measureUserAgentSpecificMemory) {
+              memoryApiReason = 'API unavailable (Chrome 89+ only)';
+              return null;
+            }
+            // Check cross-origin isolation
+            if (!crossOriginIsolated) {
+              memoryApiReason = 'Missing COOP/COEP headers (restart Storybook)';
+              return null;
+            }
+            const result = await perf.measureUserAgentSpecificMemory();
+            return result.bytes;
+          } catch (e) {
+            memoryApiReason = `API error: ${e instanceof Error ? e.message : String(e)}`;
+            return null;
+          }
+        };
+
         status.textContent = 'Generating test data...';
         await nextFrame();
+
+        // Capture heap before grid data is loaded (baseline for delta calculation)
+        // Clear grid first and wait for GC opportunity
+        grid.gridConfig = { columns: [], plugins: [] };
+        grid.rows = [];
+        await new Promise((r) => setTimeout(r, 100));
+        const heapBefore = await measureMemory();
 
         const baseColumns = generateColumns(args.columnCount, { sortable: true, filterable: true });
         const baseRows = generateRows(args.rowCount, args.columnCount);
@@ -660,17 +704,39 @@ export const PerformanceStressTest: Story = {
           passed: estimatedBytesPerRow < 5000,
         });
 
-        // Total heap (only if API available)
-        if (memoryApi) {
-          const memAfterAll = memoryApi.usedJSHeapSize;
-          allResults.push({
-            name: 'Total heap',
-            category: 'memory',
-            time: memAfterAll,
-            unit: 'bytes',
-            target: 1024 * 1024 * 1024, // < 1GB
-            passed: memAfterAll < 1024 * 1024 * 1024,
-          });
+        // Note: performance.memory API is deprecated and unreliable for real-time measurements.
+        // Memory efficiency is tracked via Est. data size and Est. bytes/row above.
+        // Use modern measureUserAgentSpecificMemory if available (requires COOP/COEP headers)
+        if (heapBefore !== null) {
+          const heapAfter = await measureMemory();
+          if (heapAfter !== null) {
+            const heapDelta = Math.max(0, heapAfter - heapBefore);
+            // Target: grid overhead should be < 50MB + data size
+            const heapTarget = 50 * 1024 * 1024 + estimatedDataSize;
+            allResults.push({
+              name: 'Heap delta (measured)',
+              category: 'memory',
+              time: heapDelta,
+              unit: 'bytes',
+              target: heapTarget,
+              passed: heapDelta < heapTarget,
+            });
+          }
+        } else if (memoryApiReason) {
+          // Only show heap delta row if there's a reason to explain
+          // Skip entirely if API is simply unavailable - the estimated metrics are sufficient
+          if (memoryApiReason.includes('COOP/COEP')) {
+            allResults.push({
+              name: 'Heap delta',
+              category: 'memory',
+              time: 0,
+              unit: 'info',
+              target: 0,
+              passed: true,
+              note: memoryApiReason,
+            });
+          }
+          // If API is unavailable (Chrome 89+ only), silently skip - calculated metrics are primary
         }
         updateResults();
 

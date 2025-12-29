@@ -1,5 +1,8 @@
 # @toolbox-web/grid
 
+[![npm](https://img.shields.io/npm/v/@toolbox-web/grid)](https://www.npmjs.com/package/@toolbox-web/grid)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
+
 A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies.
 
 ## Installation
@@ -495,6 +498,22 @@ bun nx storybook storybook-app # Storybook (port 4400)
 ```
 
 For architecture details, rendering pipeline, and plugin development, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+---
+
+## Support This Project
+
+This grid is built and maintained by a single developer in spare time. If it saves you time or money, consider sponsoring to keep development going:
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor_on_GitHub-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/OysteinAmundsen)
+[![Patreon](https://img.shields.io/badge/Support_on_Patreon-f96854?style=for-the-badge&logo=patreon)](https://patreon.com/user?u=40656340)
+
+**What sponsorship enables:**
+
+- 🚀 Faster feature development (see [ROADMAP](./ROADMAP.md))
+- 🐛 Priority bug fixes and support
+- 📚 Better documentation and examples
+- 💼 Corporate sponsors get logo placement and priority support
 
 ---
 

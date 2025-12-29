@@ -248,4 +248,244 @@ describe('tree plugin integration', () => {
       expect.stringContaining('readme.md'),
     ]);
   });
+
+  describe('TreePlugin public API', () => {
+    const createPluginWithData = () => {
+      const config: TreeConfig = {
+        enabled: true,
+        defaultExpanded: false,
+        childrenField: 'children',
+      };
+      const plugin = new TreePlugin(config);
+
+      const rows = [
+        {
+          id: 'folder1',
+          name: 'Documents',
+          children: [
+            { id: 'file1', name: 'Resume.pdf' },
+            { id: 'file2', name: 'Cover.docx' },
+          ],
+        },
+        { id: 'folder2', name: 'Pictures', children: [{ id: 'file3', name: 'photo.jpg' }] },
+        { id: 'file4', name: 'readme.md' },
+      ];
+
+      const mockGrid = {
+        dispatchEvent: () => {},
+        requestRender: () => {},
+        rows: rows, // Provide rows for expandAll/collapseAll/expandToKey
+        _columns: [],
+        shadowRoot: null,
+      };
+      plugin.attach(mockGrid as any);
+
+      plugin.processRows(rows);
+      return { plugin, rows };
+    };
+
+    it('collapse() should remove key from expandedKeys', () => {
+      const { plugin } = createPluginWithData();
+
+      plugin.expand('folder1');
+      expect(plugin.isExpanded('folder1')).toBe(true);
+
+      plugin.collapse('folder1');
+      expect(plugin.isExpanded('folder1')).toBe(false);
+    });
+
+    it('toggle() should flip expansion state', () => {
+      const { plugin } = createPluginWithData();
+
+      expect(plugin.isExpanded('folder1')).toBe(false);
+      plugin.toggle('folder1');
+      expect(plugin.isExpanded('folder1')).toBe(true);
+      plugin.toggle('folder1');
+      expect(plugin.isExpanded('folder1')).toBe(false);
+    });
+
+    it('expandAll() should expand all nodes', () => {
+      const { plugin, rows } = createPluginWithData();
+
+      plugin.expandAll();
+      const processedRows = plugin.processRows(rows);
+
+      // All 6 rows should be visible
+      expect(processedRows).toHaveLength(6);
+      expect(plugin.isExpanded('folder1')).toBe(true);
+      expect(plugin.isExpanded('folder2')).toBe(true);
+    });
+
+    it('collapseAll() should collapse all nodes', () => {
+      const { plugin, rows } = createPluginWithData();
+
+      plugin.expandAll();
+      expect(plugin.getExpandedKeys().length).toBeGreaterThan(0);
+
+      plugin.collapseAll();
+      expect(plugin.getExpandedKeys()).toHaveLength(0);
+
+      const processedRows = plugin.processRows(rows);
+      expect(processedRows).toHaveLength(3); // Only root nodes
+    });
+
+    it('getExpandedKeys() should return all expanded keys', () => {
+      const { plugin } = createPluginWithData();
+
+      plugin.expand('folder1');
+      plugin.expand('folder2');
+
+      const keys = plugin.getExpandedKeys();
+      expect(keys).toContain('folder1');
+      expect(keys).toContain('folder2');
+      expect(keys).toHaveLength(2);
+    });
+
+    it('getFlattenedRows() should return flattened row metadata', () => {
+      const { plugin } = createPluginWithData();
+
+      const flatRows = plugin.getFlattenedRows();
+      expect(flatRows).toHaveLength(3);
+      expect(flatRows[0].key).toBe('folder1');
+      expect(flatRows[0].depth).toBe(0);
+      expect(flatRows[0].hasChildren).toBe(true);
+    });
+
+    it('getRowByKey() should return original row data', () => {
+      const { plugin } = createPluginWithData();
+
+      const row = plugin.getRowByKey('folder1');
+      expect(row).toBeDefined();
+      expect(row.name).toBe('Documents');
+      expect(row.children).toHaveLength(2);
+    });
+
+    it('getRowByKey() should return undefined for unknown key', () => {
+      const { plugin } = createPluginWithData();
+
+      const row = plugin.getRowByKey('nonexistent');
+      expect(row).toBeUndefined();
+    });
+
+    it('expandToKey() should expand ancestors to make node visible', () => {
+      const { plugin, rows } = createPluginWithData();
+
+      // file1 is child of folder1, so folder1 should expand
+      plugin.expandToKey('file1');
+
+      expect(plugin.isExpanded('folder1')).toBe(true);
+
+      const processedRows = plugin.processRows(rows);
+      const names = processedRows.map((r: any) => r.name);
+      expect(names).toContain('Resume.pdf');
+    });
+  });
+
+  describe('TreePlugin onCellClick', () => {
+    it('should toggle expansion when clicking tree-toggle', async () => {
+      const grid = document.createElement('tbw-grid') as GridElement;
+      document.body.appendChild(grid);
+
+      const treePlugin = new TreePlugin({
+        enabled: true,
+        defaultExpanded: false,
+        childrenField: 'children',
+      });
+
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name' }],
+        plugins: [treePlugin],
+      };
+
+      grid.rows = [{ id: 'folder1', name: 'Documents', children: [{ id: 'file1', name: 'Resume.pdf' }] }];
+
+      await waitUpgrade(grid);
+
+      // Find the tree toggle
+      const toggle = grid.shadowRoot?.querySelector('.tree-toggle') as HTMLElement;
+      expect(toggle).toBeDefined();
+
+      // Click the toggle
+      toggle?.click();
+      await new Promise((r) => requestAnimationFrame(r));
+
+      // Should now be expanded
+      expect(treePlugin.isExpanded('folder1')).toBe(true);
+
+      // Should show child row
+      const dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+      expect(dataRows?.length).toBe(2);
+    });
+
+    it('should return false when clicking non-toggle element', () => {
+      const plugin = new TreePlugin({ enabled: true });
+      const mockGrid = {
+        dispatchEvent: () => {},
+        requestRender: () => {},
+        rows: [],
+        _columns: [],
+        shadowRoot: null,
+      };
+      plugin.attach(mockGrid as any);
+
+      const result = plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        originalEvent: { target: document.createElement('span') } as any,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when toggle has no data-tree-key', () => {
+      const plugin = new TreePlugin({ enabled: true });
+      const mockGrid = {
+        dispatchEvent: () => {},
+        requestRender: () => {},
+        rows: [],
+        _columns: [],
+        shadowRoot: null,
+      };
+      plugin.attach(mockGrid as any);
+
+      const toggle = document.createElement('span');
+      toggle.classList.add('tree-toggle');
+      // No data-tree-key attribute
+
+      const result = plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        originalEvent: { target: toggle } as any,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when key not found in rowKeyMap', () => {
+      const plugin = new TreePlugin({ enabled: true });
+      const mockGrid = {
+        dispatchEvent: () => {},
+        requestRender: () => {},
+        rows: [],
+        _columns: [],
+        shadowRoot: null,
+      };
+      plugin.attach(mockGrid as any);
+
+      // Process some rows to initialize
+      plugin.processRows([{ name: 'Test' }]);
+
+      const toggle = document.createElement('span');
+      toggle.classList.add('tree-toggle');
+      toggle.setAttribute('data-tree-key', 'nonexistent-key');
+
+      const result = plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        originalEvent: { target: toggle } as any,
+      });
+
+      expect(result).toBe(false);
+    });
+  });
 });

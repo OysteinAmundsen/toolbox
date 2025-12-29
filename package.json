@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/components",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "license": "MIT",
   "author": "Oystein Amundsen",
   "repository": {
@@ -14,7 +14,8 @@
   "scripts": {
     "nx": "nx",
     "start": "nx run storybook-app:storybook",
-    "build": "rm -rf dist/libs/ && nx run-many --target=build --exclude=storybook-app --output-style=stream",
+    "build": "rm -rf dist/libs/ && nx run-many --target=build --exclude=storybook-app --output-style=stream && bun run cem",
+    "cem": "cd libs/grid && bunx cem analyze && cp custom-elements.json ../../dist/libs/grid/",
     "test": "nx run-many --target=test --exclude=storybook-app --output-style=stream",
     "lint": "nx run-many --target=lint --exclude=storybook-app --output-style=stream",
     "coverage": "bun run test --coverage",
@@ -24,6 +25,7 @@
     "release": "bun run build && cd dist/libs/grid && npm publish --access public && cd ../../.. && git tag v$(node -p \"require('./package.json').version\") && git push origin --tags"
   },
   "devDependencies": {
+    "@custom-elements-manifest/analyzer": "^0.11.0",
     "@eslint/js": "^9.8.0",
     "@nx/devkit": "22.2.7",
     "@nx/eslint": "22.2.7",

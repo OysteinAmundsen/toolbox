@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Version bump script for syncing versions across packages.
+ * Also regenerates the changelog from conventional commits.
  *
  * Usage:
  *   bun scripts/bump-version.ts patch   # 0.0.1 -> 0.0.2
@@ -9,11 +10,13 @@
  *   bun scripts/bump-version.ts 1.2.3   # Set explicit version
  */
 
+import { execSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
 const ROOT = resolve(import.meta.dir, '..');
 const PACKAGES = [resolve(ROOT, 'package.json'), resolve(ROOT, 'libs/grid/package.json')];
+const CHANGELOG_PATH = resolve(ROOT, 'libs/grid/CHANGELOG.md');
 
 type BumpType = 'patch' | 'minor' | 'major';
 
@@ -72,8 +75,20 @@ function main() {
     console.log(`  ✓ ${pkgPath.replace(ROOT, '.')}`);
   }
 
+  // Regenerate changelog from conventional commits
+  console.log('\nRegenerating changelog...');
+  try {
+    execSync(`bunx conventional-changelog -p angular -i "${CHANGELOG_PATH}" -s -r 0`, {
+      cwd: ROOT,
+      stdio: 'inherit',
+    });
+    console.log(`  ✓ ${CHANGELOG_PATH.replace(ROOT, '.')}`);
+  } catch (error) {
+    console.warn('  ⚠ Changelog generation failed (continuing anyway)');
+  }
+
   console.log(`\nVersion updated to ${newVersion}`);
-  console.log('Run: git add -A && git commit -m "chore: bump version to ' + newVersion + '"');
+  console.log('Run: git add -A && git commit -m "chore: release v' + newVersion + '"');
 }
 
 main();

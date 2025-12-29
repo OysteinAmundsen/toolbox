@@ -4,9 +4,22 @@
  * Handles rendering of the grid header row with sorting and resize affordances.
  */
 
-import type { ColumnConfig, InternalGrid } from '../types';
+import type { ColumnConfig, IconValue, InternalGrid } from '../types';
+import { DEFAULT_GRID_ICONS } from '../types';
 import { addPart } from './columns';
 import { toggleSort } from './sorting';
+
+/**
+ * Set an icon value on an element. Handles both string and HTMLElement icons.
+ */
+function setIcon(element: HTMLElement, icon: IconValue): void {
+  if (typeof icon === 'string') {
+    element.textContent = icon;
+  } else if (icon instanceof HTMLElement) {
+    element.innerHTML = '';
+    element.appendChild(icon.cloneNode(true));
+  }
+}
 
 /**
  * Rebuild the header row DOM based on current column configuration, attaching
@@ -54,7 +67,10 @@ export function renderHeader(grid: InternalGrid): void {
       addPart(icon as any, 'sort-indicator');
       icon.style.opacity = '0.6';
       const active = grid.sortState?.field === col.field ? grid.sortState.direction : 0;
-      icon.textContent = active === 1 ? '▲' : active === -1 ? '▼' : '⇅';
+      // Use grid-level icons (fall back to defaults)
+      const icons = { ...DEFAULT_GRID_ICONS, ...grid.icons };
+      const iconValue = active === 1 ? icons.sortAsc : active === -1 ? icons.sortDesc : icons.sortNone;
+      setIcon(icon, iconValue);
       cell.appendChild(icon);
       // Always set a baseline aria-sort for sortable headers for assistive tech clarity.
       cell.setAttribute('aria-sort', active === 0 ? 'none' : active === 1 ? 'ascending' : 'descending');

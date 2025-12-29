@@ -83,7 +83,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
         // Expand/collapse toggle icon
         const toggle = document.createElement('span');
         toggle.className = 'master-detail-toggle';
-        toggle.textContent = isExpanded ? '▼' : '▶';
+        // Use grid-level icons (fall back to defaults)
+        this.setIcon(toggle, this.resolveIcon(isExpanded ? 'collapse' : 'expand'));
         toggle.setAttribute('aria-expanded', String(isExpanded));
         toggle.setAttribute('aria-label', isExpanded ? 'Collapse details' : 'Expand details');
         toggle.addEventListener('click', (e) => {
@@ -141,37 +142,183 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     return false;
   }
 
+  override onCellClick(): boolean | void {
+    // Sync detail rows after cell click triggers refreshVirtualWindow
+    // This runs in microtask to ensure DOM updates are complete
+    if (this.expandedRows.size > 0) {
+      queueMicrotask(() => this.#syncDetailRows());
+    }
+    return; // Don't prevent default
+  }
+
   override afterRender(): void {
+    this.#syncDetailRows();
+  }
+
+  /**
+   * Called on scroll to sync detail elements with visible rows.
+   * Removes details for rows that scrolled out of view and reattaches for visible rows.
+   */
+  override onScrollRender(): void {
+    if (!this.config.detailRenderer || this.expandedRows.size === 0) return;
+    // Full sync needed on scroll to clean up orphaned details
+    this.#syncDetailRows();
+  }
+
+  /**
+   * Full sync of detail rows - cleans up stale elements and creates new ones.
+   * Detail rows are inserted as siblings AFTER their master row to survive row rebuilds.
+   */
+  #syncDetailRows(): void {
     if (!this.config.detailRenderer) return;
 
     const body = this.shadowRoot?.querySelector('.rows');
     if (!body) return;
 
-    // Remove old detail rows
-    body.querySelectorAll('.master-detail-row').forEach((el) => el.remove());
-    this.detailElements.clear();
-
-    // Insert detail rows as last child of expanded row elements
+    // Build a map of row index -> row element for visible rows
+    const visibleRowMap = new Map<number, Element>();
     const dataRows = body.querySelectorAll('.data-grid-row');
     const columnCount = this.columns.length;
 
     for (const rowEl of dataRows) {
       const firstCell = rowEl.querySelector('.cell[data-row]');
       const rowIndex = firstCell ? parseInt(firstCell.getAttribute('data-row') ?? '-1', 10) : -1;
-      if (rowIndex < 0) continue;
+      if (rowIndex >= 0) {
+        visibleRowMap.set(rowIndex, rowEl);
+      }
+    }
 
+    // Remove detail rows whose parent row is no longer visible or no longer expanded
+    const existingDetails = body.querySelectorAll('.master-detail-row');
+    for (const detailEl of existingDetails) {
+      const forIndex = parseInt(detailEl.getAttribute('data-detail-for') ?? '-1', 10);
+      const row = forIndex >= 0 ? this.rows[forIndex] : undefined;
+      const isStillExpanded = row && this.expandedRows.has(row);
+      const isRowVisible = visibleRowMap.has(forIndex);
+
+      // Remove detail if not expanded or if parent row scrolled out
+      if (!isStillExpanded || !isRowVisible) {
+        detailEl.remove();
+        if (row) this.detailElements.delete(row);
+      }
+    }
+
+    // Insert detail rows for expanded rows that are visible
+    for (const [rowIndex, rowEl] of visibleRowMap) {
       const row = this.rows[rowIndex];
       if (!row || !this.expandedRows.has(row)) continue;
 
+      // Check if detail already exists for this row
+      const existingDetail = this.detailElements.get(row);
+      if (existingDetail) {
+        // Ensure it's positioned correctly (as next sibling of row element)
+        if (existingDetail.previousElementSibling !== rowEl) {
+          rowEl.after(existingDetail);
+        }
+        continue;
+      }
+
+      // Create new detail element
       const detailEl = createDetailElement(row, rowIndex, this.config.detailRenderer, columnCount);
 
       if (typeof this.config.detailHeight === 'number') {
         detailEl.style.height = `${this.config.detailHeight}px`;
       }
 
-      rowEl.appendChild(detailEl);
+      // Insert as sibling after the row element (not as child)
+      rowEl.after(detailEl);
       this.detailElements.set(row, detailEl);
     }
+  }
+
+  /**
+   * Return total extra height from all expanded detail rows.
+   * Used by grid virtualization to adjust scrollbar height.
+   */
+  override getExtraHeight(): number {
+    let totalHeight = 0;
+    for (const row of this.expandedRows) {
+      const detailEl = this.detailElements.get(row);
+      if (detailEl) {
+        totalHeight += detailEl.offsetHeight;
+      } else {
+        // Detail not yet rendered - estimate based on config or default
+        const configHeight = this.config?.detailHeight;
+        totalHeight += typeof configHeight === 'number' ? configHeight : 150;
+      }
+    }
+    return totalHeight;
+  }
+
+  /**
+   * Return extra height that appears before a given row index.
+   * This is the sum of heights of all expanded details whose parent row is before the given index.
+   */
+  override getExtraHeightBefore(beforeRowIndex: number): number {
+    let totalHeight = 0;
+    for (const row of this.expandedRows) {
+      const rowIndex = this.rows.indexOf(row);
+      // Include detail if it's for a row before the given index
+      if (rowIndex >= 0 && rowIndex < beforeRowIndex) {
+        const detailEl = this.detailElements.get(row);
+        if (detailEl) {
+          totalHeight += detailEl.offsetHeight;
+        } else {
+          const configHeight = this.config?.detailHeight;
+          totalHeight += typeof configHeight === 'number' ? configHeight : 150;
+        }
+      }
+    }
+    return totalHeight;
+  }
+
+  /**
+   * Adjust the virtualization start index to keep expanded row visible while its detail is visible.
+   * This ensures the detail scrolls smoothly out of view instead of disappearing abruptly.
+   */
+  override adjustVirtualStart(start: number, scrollTop: number, rowHeight: number): number {
+    if (this.expandedRows.size === 0) return start;
+
+    // Build sorted list of expanded row indices for cumulative height calculation
+    const expandedIndices: Array<{ index: number; row: any }> = [];
+    for (const row of this.expandedRows) {
+      const index = this.rows.indexOf(row);
+      if (index >= 0) {
+        expandedIndices.push({ index, row });
+      }
+    }
+    expandedIndices.sort((a, b) => a.index - b.index);
+
+    let minStart = start;
+
+    // Calculate actual scroll position for each expanded row,
+    // accounting for cumulative detail heights before it
+    let cumulativeExtraHeight = 0;
+
+    for (const { index: rowIndex, row } of expandedIndices) {
+      // Actual position includes all detail heights before this row
+      const actualRowTop = rowIndex * rowHeight + cumulativeExtraHeight;
+      const detailEl = this.detailElements.get(row);
+      const detailHeight =
+        detailEl?.offsetHeight ?? (typeof this.config?.detailHeight === 'number' ? this.config.detailHeight : 150);
+      const actualDetailBottom = actualRowTop + rowHeight + detailHeight;
+
+      // Update cumulative height for next iteration
+      cumulativeExtraHeight += detailHeight;
+
+      // Skip rows that are at or after the calculated start
+      if (rowIndex >= start) continue;
+
+      // If any part of the detail is still visible (below the scroll position),
+      // we need to keep the parent row in the render range
+      if (actualDetailBottom > scrollTop) {
+        if (rowIndex < minStart) {
+          minStart = rowIndex;
+        }
+      }
+    }
+
+    return minStart;
   }
 
   // ===== Public API =====

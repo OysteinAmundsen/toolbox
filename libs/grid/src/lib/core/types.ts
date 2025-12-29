@@ -351,7 +351,51 @@ export interface GridConfig<TRow = any> {
    * When configured, adds an optional wrapper with title, toolbar, and collapsible side panels.
    */
   shell?: ShellConfig;
+
+  /**
+   * Grid-wide icon configuration.
+   * Provides consistent icons across all plugins (tree, grouping, sorting, etc.).
+   * Plugins will use these by default but can override with their own config.
+   */
+  icons?: GridIcons;
 }
+
+// ================= Grid Icons ============================
+
+/** Icon value - can be a string (text/HTML) or HTMLElement */
+export type IconValue = string | HTMLElement;
+
+/**
+ * Grid-wide icon configuration.
+ * All icons are optional - sensible defaults are used when not specified.
+ */
+export interface GridIcons {
+  /** Expand icon for collapsed items (trees, groups, details). Default: '▶' */
+  expand?: IconValue;
+  /** Collapse icon for expanded items (trees, groups, details). Default: '▼' */
+  collapse?: IconValue;
+  /** Sort ascending indicator. Default: '▲' */
+  sortAsc?: IconValue;
+  /** Sort descending indicator. Default: '▼' */
+  sortDesc?: IconValue;
+  /** Sort neutral/unsorted indicator. Default: '⇅' */
+  sortNone?: IconValue;
+  /** Submenu arrow for context menus. Default: '▶' */
+  submenuArrow?: IconValue;
+  /** Drag handle icon for reordering. Default: '⋮⋮' */
+  dragHandle?: IconValue;
+}
+
+/** Default icons used when not overridden */
+export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
+  expand: '▶',
+  collapse: '▼',
+  sortAsc: '▲',
+  sortDesc: '▼',
+  sortNone: '⇅',
+  submenuArrow: '▶',
+  dragHandle: '⋮⋮',
+};
 
 // ================= Shell Configuration ============================
 

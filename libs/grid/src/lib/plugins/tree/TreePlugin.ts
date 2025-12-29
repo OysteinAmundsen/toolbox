@@ -142,7 +142,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         if (hasChildren && showExpandIcons) {
           const icon = document.createElement('span');
           icon.className = 'tree-toggle';
-          icon.textContent = isExpanded ? '▼' : '▶';
+          // Use grid-level icons (fall back to defaults)
+          this.setIcon(icon, this.resolveIcon(isExpanded ? 'collapse' : 'expand'));
           icon.style.cursor = 'pointer';
           icon.style.marginRight = '4px';
           icon.style.fontSize = '10px';

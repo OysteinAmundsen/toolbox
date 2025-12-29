@@ -23,7 +23,7 @@ export interface GroupingRowsConfig {
   groupOn?: (row: any) => any[] | any | null | false;
   /** Whether groups are expanded by default (default: false) */
   defaultExpanded?: boolean;
-  /** Custom group row renderer */
+  /** Custom group row renderer - takes full control of group row rendering */
   groupRowRenderer?: (params: GroupRowRenderParams) => HTMLElement | string | void;
   /** Show row count in group headers (default: true) */
   showRowCount?: boolean;

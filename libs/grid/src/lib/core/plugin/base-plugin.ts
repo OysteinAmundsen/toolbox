@@ -5,7 +5,8 @@
  * Plugins are instantiated per-grid and manage their own state.
  */
 
-import type { ColumnConfig, ColumnState, HeaderContentDefinition, ToolPanelDefinition } from '../types';
+import type { ColumnConfig, ColumnState, HeaderContentDefinition, IconValue, ToolPanelDefinition } from '../types';
+import { DEFAULT_GRID_ICONS } from '../types';
 
 // Forward declare to avoid circular imports
 export interface GridElement {
@@ -353,6 +354,48 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
   }
 
   /**
+   * Get the grid-level icons configuration.
+   * Returns merged icons (user config + defaults).
+   */
+  protected get gridIcons(): typeof DEFAULT_GRID_ICONS {
+    const userIcons = this.grid?.gridConfig?.icons ?? {};
+    return { ...DEFAULT_GRID_ICONS, ...userIcons };
+  }
+
+  /**
+   * Resolve an icon value to string or HTMLElement.
+   * Checks plugin config first, then grid-level icons, then defaults.
+   *
+   * @param iconKey - The icon key in GridIcons (e.g., 'expand', 'collapse')
+   * @param pluginOverride - Optional plugin-level override
+   * @returns The resolved icon value
+   */
+  protected resolveIcon(iconKey: keyof typeof DEFAULT_GRID_ICONS, pluginOverride?: IconValue): IconValue {
+    // Plugin override takes precedence
+    if (pluginOverride !== undefined) {
+      return pluginOverride;
+    }
+    // Then grid-level config
+    return this.gridIcons[iconKey];
+  }
+
+  /**
+   * Set an icon value on an element.
+   * Handles both string (text/HTML) and HTMLElement values.
+   *
+   * @param element - The element to set the icon on
+   * @param icon - The icon value (string or HTMLElement)
+   */
+  protected setIcon(element: HTMLElement, icon: IconValue): void {
+    if (typeof icon === 'string') {
+      element.innerHTML = icon;
+    } else if (icon instanceof HTMLElement) {
+      element.innerHTML = '';
+      element.appendChild(icon.cloneNode(true));
+    }
+  }
+
+  /**
    * Log a warning message.
    */
   protected warn(message: string): void {
@@ -458,6 +501,71 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
    * ```
    */
   onScrollRender?(): void;
+
+  /**
+   * Return extra height contributed by this plugin (e.g., expanded detail rows).
+   * Used to adjust scrollbar height calculations for virtualization.
+   *
+   * @returns Total extra height in pixels
+   *
+   * @example
+   * ```ts
+   * getExtraHeight(): number {
+   *   return this.expandedRows.size * this.detailHeight;
+   * }
+   * ```
+   */
+  getExtraHeight?(): number;
+
+  /**
+   * Return extra height that appears before a given row index.
+   * Used by virtualization to correctly calculate scroll positions when
+   * there's variable height content (like expanded detail rows) above the viewport.
+   *
+   * @param beforeRowIndex - The row index to calculate extra height before
+   * @returns Extra height in pixels that appears before this row
+   *
+   * @example
+   * ```ts
+   * getExtraHeightBefore(beforeRowIndex: number): number {
+   *   let height = 0;
+   *   for (const expandedRowIndex of this.expandedRowIndices) {
+   *     if (expandedRowIndex < beforeRowIndex) {
+   *       height += this.getDetailHeight(expandedRowIndex);
+   *     }
+   *   }
+   *   return height;
+   * }
+   * ```
+   */
+  getExtraHeightBefore?(beforeRowIndex: number): number;
+
+  /**
+   * Adjust the virtualization start index to render additional rows before the visible range.
+   * Use this when expanded content (like detail rows) needs its parent row to remain rendered
+   * even when the parent row itself has scrolled above the viewport.
+   *
+   * @param start - The calculated start row index
+   * @param scrollTop - The current scroll position
+   * @param rowHeight - The height of a single row
+   * @returns The adjusted start index (lower than or equal to original start)
+   *
+   * @example
+   * ```ts
+   * adjustVirtualStart(start: number, scrollTop: number, rowHeight: number): number {
+   *   // If row 5 is expanded and scrolled partially, keep it rendered
+   *   for (const expandedRowIndex of this.expandedRowIndices) {
+   *     const expandedRowTop = expandedRowIndex * rowHeight;
+   *     const expandedRowBottom = expandedRowTop + rowHeight + this.detailHeight;
+   *     if (expandedRowBottom > scrollTop && expandedRowIndex < start) {
+   *       return expandedRowIndex;
+   *     }
+   *   }
+   *   return start;
+   * }
+   * ```
+   */
+  adjustVirtualStart?(start: number, scrollTop: number, rowHeight: number): number;
 
   /**
    * Render a custom row, bypassing the default row rendering.

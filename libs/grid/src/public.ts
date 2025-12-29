@@ -81,8 +81,11 @@ export type {
   GridColumnState,
   // Core configuration types
   GridConfig,
+  // Icons
+  GridIcons,
   // Shell types
   HeaderContentDefinition,
+  IconValue,
   // Inference types
   InferredColumnResult,
   PrimitiveColumnType,
@@ -100,7 +103,7 @@ export type {
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
-export { FitModeEnum } from './lib/core/types';
+export { DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
 
 // ================= Plugin Types =================
 // Only export types that consumers need to use plugins

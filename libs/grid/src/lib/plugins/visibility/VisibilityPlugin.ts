@@ -348,7 +348,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       if (reorderEnabled && canMoveColumn(col as unknown as ColumnConfig)) {
         const handle = document.createElement('span');
         handle.className = 'tbw-visibility-handle';
-        handle.textContent = '⋮⋮';
+        // Use grid-level icons (fall back to defaults)
+        this.setIcon(handle, this.resolveIcon('dragHandle'));
         handle.title = 'Drag to reorder';
         row.appendChild(handle);
       }

@@ -244,14 +244,19 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         this.menuElement.remove();
       }
 
-      this.menuElement = createMenuElement(items, params, (item) => {
-        if (item.action) {
-          item.action(params);
-        }
-        this.menuElement?.remove();
-        this.menuElement = null;
-        this.isOpen = false;
-      });
+      this.menuElement = createMenuElement(
+        items,
+        params,
+        (item) => {
+          if (item.action) {
+            item.action(params);
+          }
+          this.menuElement?.remove();
+          this.menuElement = null;
+          this.isOpen = false;
+        },
+        this.gridIcons.submenuArrow
+      );
 
       document.body.appendChild(this.menuElement);
       positionMenu(this.menuElement, event.clientX, event.clientY);
@@ -287,12 +292,17 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       this.menuElement.remove();
     }
 
-    this.menuElement = createMenuElement(items, fullParams, (item) => {
-      if (item.action) item.action(fullParams);
-      this.menuElement?.remove();
-      this.menuElement = null;
-      this.isOpen = false;
-    });
+    this.menuElement = createMenuElement(
+      items,
+      fullParams,
+      (item) => {
+        if (item.action) item.action(fullParams);
+        this.menuElement?.remove();
+        this.menuElement = null;
+        this.isOpen = false;
+      },
+      this.gridIcons.submenuArrow
+    );
 
     document.body.appendChild(this.menuElement);
     positionMenu(this.menuElement, x, y);

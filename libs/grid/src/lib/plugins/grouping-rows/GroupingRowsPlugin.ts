@@ -225,7 +225,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     btn.type = 'button';
     btn.className = 'group-toggle';
     btn.setAttribute('aria-label', row.__groupExpanded ? 'Collapse group' : 'Expand group');
-    btn.textContent = row.__groupExpanded ? '▾' : '▸';
+    this.setIcon(btn, this.resolveIcon(row.__groupExpanded ? 'collapse' : 'expand'));
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       handleToggle();
@@ -259,7 +259,6 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     const groupRows = row.__groupRows ?? [];
 
     // Get grid template from the grid element
-    const gridEl = this.grid as any;
     const bodyEl = this.shadowRoot?.querySelector('.body') as HTMLElement | null;
     const gridTemplate = bodyEl?.style.gridTemplateColumns || '';
     if (gridTemplate) {
@@ -278,7 +277,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'group-toggle';
-        btn.textContent = row.__groupExpanded ? '▾' : '▸';
+        btn.setAttribute('aria-label', row.__groupExpanded ? 'Collapse group' : 'Expand group');
+        this.setIcon(btn, this.resolveIcon(row.__groupExpanded ? 'collapse' : 'expand'));
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           handleToggle();

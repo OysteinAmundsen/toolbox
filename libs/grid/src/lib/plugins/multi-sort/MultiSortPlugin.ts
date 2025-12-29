@@ -94,7 +94,8 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
         indicator.className = 'sort-indicator';
         indicator.style.marginLeft = '4px';
         indicator.style.opacity = '0.8';
-        indicator.textContent = sortDir === 'asc' ? '▲' : '▼';
+        // Use grid-level icons (fall back to defaults)
+        this.setIcon(indicator, this.resolveIcon(sortDir === 'asc' ? 'sortAsc' : 'sortDesc'));
         cell.appendChild(indicator);
 
         // Add sort index badge if multiple columns sorted and showSortIndex is enabled

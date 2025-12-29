@@ -8,8 +8,8 @@
  *   import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
  */
 
-// Core grid and public API
-export * from './public';
+// Core grid - re-export everything from index (includes public API, plugin system, aggregators, etc.)
+export * from './index';
 
 // All plugins
 export { ClipboardPlugin } from './lib/plugins/clipboard';

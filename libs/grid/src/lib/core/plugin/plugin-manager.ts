@@ -210,6 +210,51 @@ export class PluginManager {
   }
 
   /**
+   * Get total extra height contributed by plugins (e.g., expanded detail rows).
+   * Used to adjust scrollbar height calculations.
+   */
+  getExtraHeight(): number {
+    let total = 0;
+    for (const plugin of this.plugins) {
+      if (typeof plugin.getExtraHeight === 'function') {
+        total += plugin.getExtraHeight();
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Get extra height from plugins that appears before a given row index.
+   * Used by virtualization to correctly position the scroll window.
+   */
+  getExtraHeightBefore(beforeRowIndex: number): number {
+    let total = 0;
+    for (const plugin of this.plugins) {
+      if (typeof plugin.getExtraHeightBefore === 'function') {
+        total += plugin.getExtraHeightBefore(beforeRowIndex);
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Adjust the virtualization start index based on plugin needs.
+   * Returns the minimum start index from all plugins.
+   */
+  adjustVirtualStart(start: number, scrollTop: number, rowHeight: number): number {
+    let adjustedStart = start;
+    for (const plugin of this.plugins) {
+      if (typeof plugin.adjustVirtualStart === 'function') {
+        const pluginStart = plugin.adjustVirtualStart(start, scrollTop, rowHeight);
+        if (pluginStart < adjustedStart) {
+          adjustedStart = pluginStart;
+        }
+      }
+    }
+    return adjustedStart;
+  }
+
+  /**
    * Execute renderRow hook on all plugins.
    * Returns true if any plugin handled the row.
    */

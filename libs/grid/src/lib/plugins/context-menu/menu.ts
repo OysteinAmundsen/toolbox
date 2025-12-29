@@ -4,6 +4,8 @@
  * Pure functions for building and positioning context menus.
  */
 
+import type { IconValue } from '../../core/types';
+import { DEFAULT_GRID_ICONS } from '../../core/types';
 import type { ContextMenuItem, ContextMenuParams } from './types';
 
 /**
@@ -45,12 +47,14 @@ export function isItemDisabled(item: ContextMenuItem, params: ContextMenuParams)
  * @param items - Array of menu items to render
  * @param params - Context menu parameters for evaluating dynamic properties
  * @param onAction - Callback when a menu item action is triggered
+ * @param submenuArrow - Optional custom submenu arrow icon
  * @returns The created menu element
  */
 export function createMenuElement(
   items: ContextMenuItem[],
   params: ContextMenuParams,
-  onAction: (item: ContextMenuItem) => void
+  onAction: (item: ContextMenuItem) => void,
+  submenuArrow: IconValue = DEFAULT_GRID_ICONS.submenuArrow
 ): HTMLElement {
   const menu = document.createElement('div');
   menu.className = 'tbw-context-menu';
@@ -99,7 +103,12 @@ export function createMenuElement(
     if (item.subMenu?.length) {
       const arrow = document.createElement('span');
       arrow.className = 'tbw-context-menu-arrow';
-      arrow.textContent = '▶';
+      // Use provided submenu arrow icon (string or HTMLElement)
+      if (typeof submenuArrow === 'string') {
+        arrow.innerHTML = submenuArrow;
+      } else if (submenuArrow instanceof HTMLElement) {
+        arrow.appendChild(submenuArrow.cloneNode(true));
+      }
       menuItem.appendChild(arrow);
 
       // Add submenu on hover
@@ -109,7 +118,7 @@ export function createMenuElement(
         if (!item.subMenu) return;
 
         const subMenuItems = buildMenuItems(item.subMenu, params);
-        const subMenu = createMenuElement(subMenuItems, params, onAction);
+        const subMenu = createMenuElement(subMenuItems, params, onAction, submenuArrow);
         subMenu.classList.add('tbw-context-submenu');
         subMenu.style.position = 'absolute';
         subMenu.style.left = '100%';

@@ -130,6 +130,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #touchScrollTop: number | null = null;
   #touchScrollLeft: number | null = null;
   #eventAbortController?: AbortController;
+  #resizeObserver?: ResizeObserver;
 
   // ---------------- Plugin System ----------------
   #pluginManager!: PluginManager;
@@ -460,6 +461,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this.resizeController) {
       this.resizeController.dispose();
     }
+    if (this.#resizeObserver) {
+      this.#resizeObserver.disconnect();
+      this.#resizeObserver = undefined;
+    }
     this.#connected = false;
   }
 
@@ -552,10 +557,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           const currentScrollTop = fauxScrollbar.scrollTop;
           const rowHeight = this.virtualization.rowHeight;
 
-          // Smooth scroll: apply sub-pixel offset immediately
-          // This creates fluid motion as user scrolls, before RAF updates content
-          // The offset is the remainder after dividing by rowHeight
-          const subPixelOffset = -(currentScrollTop % rowHeight);
+          // Smooth scroll: apply offset immediately for fluid motion
+          // Calculate even-aligned start to preserve zebra stripe parity
+          // DOM nth-child(even) will always match data row parity
+          const rawStart = Math.floor(currentScrollTop / rowHeight);
+          const evenAlignedStart = rawStart - (rawStart % 2);
+          const subPixelOffset = -(currentScrollTop - evenAlignedStart * rowHeight);
           rowsEl.style.transform = `translateY(${subPixelOffset}px)`;
 
           // Batch content update with requestAnimationFrame
@@ -680,6 +687,21 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         }
       }
     });
+
+    // ResizeObserver to refresh virtual window when viewport size changes
+    // This ensures more rows are rendered when the grid grows in height
+    if (this.virtualization.viewportEl) {
+      this.#resizeObserver = new ResizeObserver(() => {
+        // Debounce with RAF to avoid excessive recalculations
+        if (!this.#scrollRaf) {
+          this.#scrollRaf = requestAnimationFrame(() => {
+            this.#scrollRaf = 0;
+            this.refreshVirtualWindow(true);
+          });
+        }
+      });
+      this.#resizeObserver.observe(this.virtualization.viewportEl);
+    }
 
     // Initialize ARIA selection state
     queueMicrotask(() => this.#updateAriaSelection());
@@ -1830,15 +1852,45 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const rowHeight = this.virtualization.rowHeight;
     const scrollTop = fauxScrollbar.scrollTop;
 
-    // Faux scrollbar pattern: no overscan adjustment for start
-    // With translateY(0), the first rendered row appears at viewport top
-    // (Overscan before start would make extra rows visible, not hidden)
+    // When plugins add extra height (e.g., expanded details), the scroll position
+    // includes that extra height. We need to find the actual row at scrollTop
+    // by iteratively accounting for cumulative extra heights.
+    // This prevents jumping when scrolling past expanded content.
     let start = Math.floor(scrollTop / rowHeight);
+
+    // Iteratively refine: the initial guess may be too high because scrollTop
+    // includes extra heights from expanded rows before it. Adjust downward.
+    let iterations = 0;
+    const maxIterations = 10; // Prevent infinite loop
+    while (iterations < maxIterations) {
+      const extraHeightBefore = this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
+      const adjustedStart = Math.floor((scrollTop - extraHeightBefore) / rowHeight);
+      if (adjustedStart >= start || adjustedStart < 0) break;
+      start = adjustedStart;
+      iterations++;
+    }
+
+    // Faux scrollbar pattern: calculate effective position for this start
+    // With translateY(0), the first rendered row appears at viewport top
+    // Round down to even number so DOM nth-child(even) always matches data row parity
+    // This prevents zebra stripe flickering during scroll since rows shift in pairs
+    start = start - (start % 2);
     if (start < 0) start = 0;
+
+    // Allow plugins to extend the start index backwards
+    // (e.g., to keep expanded detail rows visible as they scroll out)
+    const pluginAdjustedStart = this.#pluginManager?.adjustVirtualStart(start, scrollTop, rowHeight);
+    if (pluginAdjustedStart !== undefined && pluginAdjustedStart < start) {
+      start = pluginAdjustedStart;
+      // Re-apply even alignment after plugin adjustment
+      start = start - (start % 2);
+      if (start < 0) start = 0;
+    }
 
     // Faux pattern buffer: render 2 extra rows below for smooth edge transition
     // This is smaller than traditional overscan since sub-pixel offset handles smoothness
-    const visibleCount = Math.ceil(viewportHeight / rowHeight) + 2;
+    // +1 extra to account for the even-alignment above potentially showing 1 more row at top
+    const visibleCount = Math.ceil(viewportHeight / rowHeight) + 3;
     let end = start + visibleCount;
     if (end > totalRows) end = totalRows;
 
@@ -1846,14 +1898,27 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.virtualization.end = end;
 
     // Height spacer for scrollbar
+    // Add 1 extra row height to account for even-alignment: when we round down
+    // from odd to even start, we need extra scroll range to reveal the last row
+    // Also add footer height: faux-vscroll is outside .tbw-scroll-area so it doesn't
+    // shrink when footer is present - we need extra spacer to scroll past the footer
+    const footerEl = this.#shadow.querySelector('.tbw-footer') as HTMLElement;
+    const footerHeight = footerEl?.offsetHeight ?? 0;
+    // Add extra height from plugins (e.g., expanded master-detail rows)
+    // This ensures the scrollbar range accounts for all content including expanded details
+    const pluginExtraHeight = this.#pluginManager?.getExtraHeight() ?? 0;
     if (this.virtualization.totalHeightEl) {
-      this.virtualization.totalHeightEl.style.height = `${totalRows * rowHeight}px`;
+      this.virtualization.totalHeightEl.style.height = `${
+        totalRows * rowHeight + rowHeight + footerHeight + pluginExtraHeight
+      }px`;
     }
 
-    // Smooth scroll: apply sub-pixel offset for fluid motion
-    // This is the remainder after dividing scrollTop by rowHeight
-    // Creates smooth sliding effect as rows scroll between row boundaries
-    const subPixelOffset = -(scrollTop % rowHeight);
+    // Smooth scroll: apply offset for fluid motion
+    // Since start is even-aligned, offset is distance from that aligned position
+    // This creates smooth sliding while preserving zebra stripe parity
+    // Account for extra heights (expanded details) before the start row
+    const extraHeightBeforeStart = this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
+    const subPixelOffset = -(scrollTop - start * rowHeight - extraHeightBeforeStart);
     this.bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
 
     this.#renderVisibleRows(start, end, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);

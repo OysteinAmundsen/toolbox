@@ -224,8 +224,32 @@ interface GridConfig {
   fitMode?: 'stretch' | 'fixed';
   editOn?: 'click' | 'dblclick';
   plugins?: BaseGridPlugin[]; // Array of plugin class instances
+  icons?: GridIcons; // Centralized icon configuration
+  shell?: ShellConfig; // Optional header bar and tool panels
 }
 ```
+
+### Icons Configuration
+
+The grid provides a centralized icon system via `gridConfig.icons`. All plugins (tree, grouping, sorting, context menus, etc.) automatically use these icons, ensuring visual consistency across the entire grid.
+
+```typescript
+import { DEFAULT_GRID_ICONS } from '@toolbox-web/grid';
+
+grid.gridConfig = {
+  icons: {
+    expand: '▶', // Collapsed tree/group/detail icon
+    collapse: '▼', // Expanded tree/group/detail icon
+    sortAsc: '▲', // Sort ascending indicator
+    sortDesc: '▼', // Sort descending indicator
+    sortNone: '⇅', // Unsorted column indicator
+    submenuArrow: '▶', // Context menu submenu arrow
+    dragHandle: '⋮⋮', // Column reorder drag handle
+  },
+};
+```
+
+Icons can be strings (text or HTML) or `HTMLElement` instances. Plugins use grid-level icons by default but can override with their own config when needed.
 
 ### Plugin Configuration Example
 

@@ -1,0 +1,26 @@
+.header-group-row {
+  display: grid;
+  grid-auto-flow: column;
+  background: var(--tbw-grouping-columns-header-bg, var(--tbw-color-header-bg));
+  border-bottom: 1px solid var(--tbw-grouping-columns-border, var(--tbw-color-border));
+}
+.header-group-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-right: 1px solid var(--tbw-grouping-columns-border, var(--tbw-color-border));
+}
+.header-group-cell:last-child {
+  border-right: none;
+}
+.header-row .cell.grouped {
+  border-top: none;
+}
+.header-row .cell.group-end {
+  border-right: 2px solid var(--tbw-grouping-columns-separator, var(--tbw-color-border-strong));
+}

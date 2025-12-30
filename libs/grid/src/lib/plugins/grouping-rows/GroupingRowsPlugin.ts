@@ -15,6 +15,7 @@ import {
   runAggregator,
   toggleGroupExpansion,
 } from './grouping-rows';
+import styles from './grouping-rows.css?inline';
 import type { GroupingRowsConfig, GroupRowModelItem, GroupToggleDetail, RenderRow } from './types';
 
 /**
@@ -50,7 +51,6 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   protected override get defaultConfig(): Partial<GroupingRowsConfig> {
     return {
-      enabled: true,
       defaultExpanded: false,
       showRowCount: true,
       indentWidth: 20,
@@ -85,7 +85,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     const config = this.config;
 
     // Check if grouping is configured
-    if (!config.enabled || typeof config.groupOn !== 'function') {
+    if (typeof config.groupOn !== 'function') {
       this.isActive = false;
       this.flattenedRows = [];
       return [...rows];
@@ -455,43 +455,5 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   // ===== Styles =====
 
-  override readonly styles = `
-    .group-row {
-      background: var(--tbw-grouping-rows-bg, var(--tbw-color-panel-bg));
-      font-weight: 500;
-    }
-    .group-row:hover {
-      background: var(--tbw-grouping-rows-bg-hover, var(--tbw-color-row-hover));
-    }
-    .group-toggle {
-      cursor: pointer;
-      user-select: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 20px;
-      height: 20px;
-      margin-right: 4px;
-      font-size: 10px;
-    }
-    .group-toggle:hover {
-      background: var(--tbw-grouping-rows-toggle-hover, var(--tbw-color-row-hover));
-      border-radius: 2px;
-    }
-    .group-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .group-count {
-      color: var(--tbw-grouping-rows-count-color, var(--tbw-color-fg-muted));
-      font-size: 0.85em;
-      font-weight: normal;
-    }
-    [data-group-depth="0"] .group-label { padding-left: 0; }
-    [data-group-depth="1"] .group-label { padding-left: 20px; }
-    [data-group-depth="2"] .group-label { padding-left: 40px; }
-    [data-group-depth="3"] .group-label { padding-left: 60px; }
-    [data-group-depth="4"] .group-label { padding-left: 80px; }
-  `;
+  override readonly styles = styles;
 }

@@ -20,5 +20,10 @@
     "**/*.stories.ts",
     "**/*.stories.js"
   ],
-  "include": ["../../libs/grid/stories/**/*.stories.ts", "../../libs/grid/src/lib/core/grid.stories.ts"]
+  "include": ["../../libs/grid/stories/**/*.stories.ts", "../../libs/grid/src/lib/core/grid.stories.ts"],
+  "references": [
+    {
+      "path": "../../libs/grid/tsconfig.lib.json"
+    }
+  ]
 }

@@ -99,10 +99,6 @@ Extends `tbw-grid-root` to support optional shell features:
 
 ## 🟠 P1 - High Priority
 
----
-
-## 🟠 P1 - High Priority
-
 ### Quick Filter / Global Search [plugin]
 
 A single search input that filters across all visible columns simultaneously. Lives in the Grid Shell header bar and delegates to the existing `filtering` plugin.
@@ -263,8 +259,6 @@ Allow cells to span multiple columns horizontally. Deferred due to complexity ar
 
 **Use case**: Summary rows, section headers, grouped data displays.
 
-**Spec**: [specs/column-spanning.md](./specs/column-spanning.md)
-
 **Status**: Deferred — needs design review
 
 ---
@@ -274,8 +268,6 @@ Allow cells to span multiple columns horizontally. Deferred due to complexity ar
 Allow cells to span multiple rows vertically. Deferred due to deep integration challenges with virtualization (spans above viewport must remain visible), absolute positioning complexity, and interactions with sorting/filtering/grouping.
 
 **Use case**: Financial reports, timesheets, merged row cells.
-
-**Spec**: [specs/row-spanning.md](./specs/row-spanning.md)
 
 **Status**: Deferred — needs design review
 

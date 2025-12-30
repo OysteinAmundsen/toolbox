@@ -30,7 +30,6 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
   protected override get defaultConfig(): Partial<ColumnVirtualizationConfig> {
     return {
-      enabled: true,
       autoEnable: true,
       threshold: 30,
       overscan: 3,
@@ -72,9 +71,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   // ===== Hooks =====
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    const isVirtualized =
-      this.config.enabled &&
-      shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true);
+    const isVirtualized = shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true);
 
     // Update state with current column metrics
     this.isVirtualized = isVirtualized ?? false;
@@ -95,7 +92,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
       viewportWidth,
       this.columnOffsets,
       this.columnWidths,
-      this.config.overscan ?? 3
+      this.config.overscan ?? 3,
     );
 
     this.startCol = viewport.startCol;

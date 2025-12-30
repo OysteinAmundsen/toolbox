@@ -34,8 +34,6 @@ export interface AggregationRowConfig {
 
 /** Configuration options for the status bar plugin */
 export interface PinnedRowsConfig {
-  /** Whether the status bar is enabled (default: false) */
-  enabled?: boolean;
   /** Position of the info bar (default: 'bottom') */
   position?: PinnedRowsPosition;
   /** Show total row count in info bar (default: true) */

@@ -7,6 +7,7 @@
 
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import { canMoveColumn, moveColumn } from './column-drag';
+import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
 
 /** Extended grid interface with column order methods */
@@ -34,7 +35,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   protected override get defaultConfig(): Partial<ReorderConfig> {
     return {
-      enabled: true,
       animation: true,
       animationDuration: 200,
     };
@@ -61,7 +61,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
           this.moveColumn(detail.field, detail.toIndex);
         }
       },
-      { signal: this.disconnectSignal }
+      { signal: this.disconnectSignal },
     );
   }
 
@@ -78,8 +78,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   // Note: No processColumns hook needed - we directly update the grid's column order
 
   override afterRender(): void {
-    if (!this.config.enabled) return;
-
     const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
 
@@ -237,34 +235,5 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   // ===== Styles =====
 
-  override readonly styles = `
-    .header-row > .cell[draggable="true"] {
-      cursor: grab;
-      position: relative;
-    }
-    .header-row > .cell.dragging {
-      opacity: 0.5;
-      cursor: grabbing;
-    }
-    .header-row > .cell.drop-before::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--tbw-reorder-indicator, var(--tbw-color-accent));
-      z-index: 1;
-    }
-    .header-row > .cell.drop-after::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--tbw-reorder-indicator, var(--tbw-color-accent));
-      z-index: 1;
-    }
-  `;
+  override readonly styles = styles;
 }

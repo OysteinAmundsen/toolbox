@@ -10,8 +10,6 @@ import type { ColumnConfig as CoreColumnConfig } from '../../core/types';
 
 /** Configuration options for the column groups plugin */
 export interface GroupingColumnsConfig {
-  /** Whether the plugin is enabled (default: true) */
-  enabled?: boolean;
   /** Custom group header renderer */
   groupHeaderRenderer?: (params: GroupHeaderRenderParams) => HTMLElement | string | void;
   /** Whether to show group borders (default: true) */

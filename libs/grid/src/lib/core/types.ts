@@ -198,7 +198,7 @@ export interface CellRenderContext<TRow = any, TValue = any> {
 }
 
 export type ColumnViewRenderer<TRow = any, TValue = any> = (
-  ctx: CellRenderContext<TRow, TValue>
+  ctx: CellRenderContext<TRow, TValue>,
 ) => Node | string | void;
 
 // ================= Internal-only augmented types (not re-exported publicly) =================
@@ -384,6 +384,8 @@ export interface GridIcons {
   submenuArrow?: IconValue;
   /** Drag handle icon for reordering. Default: '⋮⋮' */
   dragHandle?: IconValue;
+  /** Tool panel toggle icon in toolbar. Default: '☰' */
+  toolPanel?: IconValue;
 }
 
 /** Default icons used when not overridden */
@@ -395,6 +397,7 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   sortNone: '⇅',
   submenuArrow: '▶',
   dragHandle: '⋮⋮',
+  toolPanel: '☰',
 };
 
 // ================= Shell Configuration ============================
@@ -489,13 +492,13 @@ export interface ToolbarButtonInfo {
 export interface ToolPanelDefinition {
   /** Unique panel ID */
   id: string;
-  /** Panel title shown in header */
+  /** Panel title shown in accordion header */
   title: string;
-  /** Icon for toolbar button (SVG string or emoji) */
-  icon: string;
-  /** Toolbar button tooltip */
+  /** Icon for accordion section header (optional, emoji or SVG) */
+  icon?: string;
+  /** Tooltip for accordion section header */
   tooltip?: string;
-  /** Panel content factory - called when panel opens */
+  /** Panel content factory - called when panel section opens */
   render: (container: HTMLElement) => void | (() => void);
   /** Called when panel closes (for cleanup) */
   onClose?: () => void;

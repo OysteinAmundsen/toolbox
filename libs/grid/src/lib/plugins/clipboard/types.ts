@@ -6,8 +6,6 @@
 
 /** Configuration options for the clipboard plugin */
 export interface ClipboardConfig {
-  /** Whether clipboard functionality is enabled (default: true) */
-  enabled?: boolean;
   /** Include column headers in copied text (default: false) */
   includeHeaders?: boolean;
   /** Column delimiter character (default: '\t' for tab) */

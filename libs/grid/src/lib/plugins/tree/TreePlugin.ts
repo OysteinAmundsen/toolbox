@@ -11,6 +11,7 @@ import { BaseGridPlugin, CellClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { collapseAll, expandAll, expandToKey, flattenTree, toggleExpand } from './tree-data';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
+import styles from './tree.css?inline';
 import type { FlattenedTreeRow, TreeConfig, TreeExpandDetail } from './types';
 
 /**
@@ -29,7 +30,6 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   protected override get defaultConfig(): Partial<TreeConfig> {
     return {
-      enabled: true,
       childrenField: 'children',
       autoDetect: true,
       defaultExpanded: false,
@@ -289,14 +289,5 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   // ===== Styles =====
 
-  override readonly styles = `
-    .tree-toggle {
-      cursor: pointer;
-      user-select: none;
-      transition: transform 0.2s;
-    }
-    .tree-toggle:hover {
-      color: var(--tbw-tree-accent, var(--tbw-color-accent));
-    }
-  `;
+  override readonly styles = styles;
 }

@@ -48,9 +48,11 @@ export type {
 export {
   aggregatorRegistry,
   getAggregator,
+  getValueAggregator,
   listAggregators,
   registerAggregator,
   runAggregator,
+  runValueAggregator,
   unregisterAggregator,
 } from './lib/core/internal/aggregators';
-export type { AggregatorFn } from './lib/core/internal/aggregators';
+export type { AggregatorFn, ValueAggregatorFn } from './lib/core/internal/aggregators';

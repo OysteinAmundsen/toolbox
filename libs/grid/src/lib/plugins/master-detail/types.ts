@@ -9,8 +9,6 @@
 
 /** Configuration options for the master-detail plugin */
 export interface MasterDetailConfig {
-  /** Whether master-detail functionality is enabled (default: true) */
-  enabled?: boolean;
   /** Renderer function that returns detail content for a row */
   detailRenderer?: (row: any, rowIndex: number) => HTMLElement | string;
   /** Height of the detail row - number (pixels) or 'auto' (default: 'auto') */

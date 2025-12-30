@@ -6,8 +6,6 @@
 
 /** Configuration options for the reorder plugin */
 export interface ReorderConfig {
-  /** Whether column reordering is enabled (default: true) */
-  enabled?: boolean;
   /** Whether to animate column movement (default: true) */
   animation?: boolean;
   /** Animation duration in milliseconds (default: 200) */

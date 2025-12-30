@@ -97,8 +97,6 @@ export type FilterPanelRenderer = (container: HTMLElement, params: FilterPanelPa
 
 /** Configuration options for the filtering plugin */
 export interface FilterConfig {
-  /** Whether filtering is enabled (default: true) */
-  enabled?: boolean;
   /** Debounce delay in ms for filter input (default: 300) */
   debounceMs?: number;
   /** Whether text filtering is case sensitive (default: false) */

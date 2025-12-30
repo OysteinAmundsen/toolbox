@@ -503,7 +503,8 @@
   color: var(--tbw-color-fg);
   cursor: pointer;
   font-size: 16px;
-  transition: background var(--tbw-transition-duration) var(--tbw-transition-ease),
+  transition:
+    background var(--tbw-transition-duration) var(--tbw-transition-ease),
     border-color var(--tbw-transition-duration) var(--tbw-transition-ease);
 }
 
@@ -536,6 +537,7 @@
 
 /* Shell body (contains grid content + tool panel) */
 :host .tbw-shell-body {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
@@ -564,8 +566,12 @@
   overflow-y: hidden; /* Vertical scroll handled by faux scrollbar */
 }
 
-/* Tool panel container */
+/* Tool panel container - overlays grid content */
 :host .tbw-tool-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
   width: 0;
   overflow: hidden;
   background: var(--tbw-tool-panel-bg);
@@ -573,17 +579,45 @@
   transition: width var(--tbw-tool-panel-transition);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  z-index: 30;
+  box-shadow: -2px 0 8px var(--tbw-color-shadow);
 }
 
 :host .tbw-tool-panel[data-position='left'] {
+  right: auto;
+  left: 0;
   border-left: none;
   border-right: 1px solid var(--tbw-tool-panel-border);
-  order: -1;
+  box-shadow: 2px 0 8px var(--tbw-color-shadow);
 }
 
 :host .tbw-tool-panel.open {
   width: var(--tbw-tool-panel-width);
+}
+
+/* Tool panel resize handle */
+:host .tbw-tool-panel-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 10;
+  transition: background 0.15s ease;
+}
+
+:host .tbw-tool-panel-resize[data-handle-position='left'] {
+  left: 0;
+}
+
+:host .tbw-tool-panel-resize[data-handle-position='right'] {
+  right: 0;
+}
+
+:host .tbw-tool-panel-resize:hover,
+:host .tbw-tool-panel-resize.resizing {
+  background: var(--tbw-color-accent);
 }
 
 /* Tool panel header */
@@ -629,7 +663,91 @@
 :host .tbw-tool-panel-content {
   flex: 1;
   overflow: auto;
-  padding: 12px;
+}
+
+/* Accordion sections in tool panel */
+:host .tbw-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+:host .tbw-accordion-section {
+  border-bottom: 1px solid var(--tbw-tool-panel-border);
+}
+
+:host .tbw-accordion-section:last-child {
+  border-bottom: none;
+}
+
+:host .tbw-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--tbw-color-fg);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+:host .tbw-accordion-header:hover {
+  background: var(--tbw-color-row-hover);
+}
+
+/* Single panel: disable accordion toggle behavior */
+:host .tbw-accordion-section.single .tbw-accordion-header {
+  cursor: default;
+}
+
+:host .tbw-accordion-section.single .tbw-accordion-header:hover {
+  background: transparent;
+}
+
+:host .tbw-accordion-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  color: var(--tbw-color-fg-muted);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+:host .tbw-accordion-section.expanded .tbw-accordion-chevron {
+  transform: rotate(90deg);
+}
+
+:host .tbw-accordion-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+:host .tbw-accordion-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host .tbw-accordion-content {
+  display: none;
+}
+
+:host .tbw-accordion-section.expanded .tbw-accordion-content {
+  display: block;
 }
 
 /* Quick filter input (common header content) */

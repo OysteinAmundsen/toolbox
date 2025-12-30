@@ -14,9 +14,9 @@ const config: StorybookConfig = {
     '../../../libs/grid/src/lib/core/**/*.stories.@(js|jsx|ts|tsx)',
     '../../../libs/grid/src/lib/plugins/**/*.stories.@(js|jsx|ts|tsx)',
   ],
-  addons: [getAbsolutePath('@storybook/addon-a11y')],
+  addons: ['@storybook/addon-a11y'],
   framework: {
-    name: getAbsolutePath('@storybook/web-components-vite'),
+    name: '@storybook/web-components-vite',
     options: {},
   },
   typescript: {
@@ -65,7 +65,3 @@ const config: StorybookConfig = {
   },
 };
 export default config;
-
-function getAbsolutePath(value: string): any {
-  return dirname(fileURLToPath(import.meta.resolve(`${value}/package.json`)));
-}

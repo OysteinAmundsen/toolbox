@@ -239,6 +239,7 @@ All grid plugins must follow this **canonical structure** for consistency:
 libs/grid/src/lib/plugins/[plugin-name]/
 ├── index.ts              # Barrel exports (plugin class + types)
 ├── [PluginName]Plugin.ts # Plugin class extending BaseGridPlugin
+├── [plugin-name].css     # External CSS styles (imported via Vite)
 ├── types.ts              # Config and exported types
 ├── [plugin-name].ts      # Pure helper functions (optional)
 ├── [plugin-name].spec.ts # Unit tests
@@ -268,24 +269,32 @@ const container = shadowRoot.children[0]; // NOT querySelector('.some-class')
 
 ### Injecting Styles
 
-Plugins should use the `styles` property to inject CSS into the grid's shadow DOM:
+Plugins should use **external CSS files** imported via Vite's `?inline` query:
 
 ```typescript
+// Import CSS as inline string (Vite handles this)
+import styles from './my-plugin.css?inline';
+
 export class MyPlugin extends BaseGridPlugin<MyConfig> {
   readonly name = 'myPlugin';
   readonly version = '1.0.0';
 
-  readonly styles = `
-    .my-plugin-element {
-      /* styles here */
-    }
-  `;
+  // Assign imported styles to the styles property
+  override readonly styles = styles;
 
   // ... hooks
 }
 ```
 
-**Do NOT** create `<style>` elements manually or use inline styles for structural styling.
+The CSS file (`my-plugin.css`) contains the styles:
+
+```css
+.my-plugin-element {
+  /* styles here */
+}
+```
+
+**Do NOT** use inline template literal styles or create `<style>` elements manually.
 
 ### Plugin Hooks (Class Methods)
 

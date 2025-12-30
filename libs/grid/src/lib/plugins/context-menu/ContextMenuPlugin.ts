@@ -114,7 +114,6 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
   protected override get defaultConfig(): Partial<ContextMenuConfig> {
     return {
-      enabled: true,
       items: defaultItems,
     };
   }
@@ -176,8 +175,6 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   // ===== Hooks =====
 
   override afterRender(): void {
-    if (!this.config.enabled) return;
-
     const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
 
@@ -189,8 +186,6 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     container.setAttribute('data-context-menu-bound', 'true');
 
     container.addEventListener('contextmenu', (e: Event) => {
-      if (!this.config.enabled) return;
-
       const event = e as MouseEvent;
       event.preventDefault();
 
@@ -255,7 +250,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
           this.menuElement = null;
           this.isOpen = false;
         },
-        this.gridIcons.submenuArrow
+        this.gridIcons.submenuArrow,
       );
 
       document.body.appendChild(this.menuElement);
@@ -301,7 +296,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         this.menuElement = null;
         this.isOpen = false;
       },
-      this.gridIcons.submenuArrow
+      this.gridIcons.submenuArrow,
     );
 
     document.body.appendChild(this.menuElement);

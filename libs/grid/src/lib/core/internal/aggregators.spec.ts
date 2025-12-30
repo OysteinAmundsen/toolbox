@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getAggregator, listAggregators, registerAggregator, runAggregator, unregisterAggregator } from './aggregators';
+import {
+  getAggregator,
+  getValueAggregator,
+  listAggregators,
+  registerAggregator,
+  runAggregator,
+  runValueAggregator,
+  unregisterAggregator,
+} from './aggregators';
 
 describe('aggregators', () => {
   const testRows = [
@@ -151,6 +159,76 @@ describe('aggregators', () => {
       registerAggregator('custom', () => 0);
       const names = listAggregators();
       expect(names).toContain('custom');
+    });
+  });
+
+  describe('value-based aggregators', () => {
+    const testValues = [10, 20, 30, 40, 50];
+
+    it('getValueAggregator returns sum by default for unknown aggFunc', () => {
+      const fn = getValueAggregator('unknown');
+      expect(fn(testValues)).toBe(150);
+    });
+
+    it('sum aggregates numeric values', () => {
+      const fn = getValueAggregator('sum');
+      expect(fn(testValues)).toBe(150);
+    });
+
+    it('avg calculates average', () => {
+      const fn = getValueAggregator('avg');
+      expect(fn(testValues)).toBe(30);
+    });
+
+    it('avg returns 0 for empty array', () => {
+      const fn = getValueAggregator('avg');
+      expect(fn([])).toBe(0);
+    });
+
+    it('count returns value count', () => {
+      const fn = getValueAggregator('count');
+      expect(fn(testValues)).toBe(5);
+    });
+
+    it('min returns minimum value', () => {
+      const fn = getValueAggregator('min');
+      expect(fn(testValues)).toBe(10);
+    });
+
+    it('min returns 0 for empty array', () => {
+      const fn = getValueAggregator('min');
+      expect(fn([])).toBe(0);
+    });
+
+    it('max returns maximum value', () => {
+      const fn = getValueAggregator('max');
+      expect(fn(testValues)).toBe(50);
+    });
+
+    it('max returns 0 for empty array', () => {
+      const fn = getValueAggregator('max');
+      expect(fn([])).toBe(0);
+    });
+
+    it('first returns first value', () => {
+      const fn = getValueAggregator('first');
+      expect(fn(testValues)).toBe(10);
+    });
+
+    it('first returns 0 for empty array', () => {
+      const fn = getValueAggregator('first');
+      expect(fn([])).toBe(0);
+    });
+
+    it('last returns last value', () => {
+      const fn = getValueAggregator('last');
+      expect(fn(testValues)).toBe(50);
+    });
+
+    it('runValueAggregator convenience function works', () => {
+      expect(runValueAggregator('sum', testValues)).toBe(150);
+      expect(runValueAggregator('avg', testValues)).toBe(30);
+      expect(runValueAggregator('count', testValues)).toBe(5);
     });
   });
 });

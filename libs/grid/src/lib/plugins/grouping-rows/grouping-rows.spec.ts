@@ -14,24 +14,14 @@ import type { RenderRow, RowGroupingConfig } from './types';
 
 describe('row-grouping (buildGroupedRowModel)', () => {
   it('returns empty when groupOn not provided', () => {
-    const config: RowGroupingConfig = { enabled: true };
+    const config: RowGroupingConfig = {};
     const res = buildGroupedRowModel({ rows: [{ a: 1 }, { a: 2 }], config, expanded: new Set() });
-    expect(res).toEqual([]);
-  });
-
-  it('returns empty when enabled is false', () => {
-    const config: RowGroupingConfig = {
-      enabled: false,
-      groupOn: (r) => r.category,
-    };
-    const res = buildGroupedRowModel({ rows: [{ category: 'A' }], config, expanded: new Set() });
     expect(res).toEqual([]);
   });
 
   it('returns empty when all rows are ungrouped', () => {
     const rows = [{ a: 1 }, { a: 2 }];
     const config: RowGroupingConfig = {
-      enabled: true,
       groupOn: () => null,
     };
     expect(buildGroupedRowModel({ rows, config, expanded: new Set() })).toEqual([]);
@@ -44,7 +34,6 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Carol', dept: 'Sales' },
     ];
     const config: RowGroupingConfig = {
-      enabled: true,
       groupOn: (r) => r.dept,
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
@@ -63,7 +52,6 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Bob', dept: 'Sales' },
     ];
     const config: RowGroupingConfig = {
-      enabled: true,
       groupOn: (r) => r.dept,
     };
     const expanded = new Set(['Engineering']);
@@ -84,7 +72,6 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Bob', dept: 'Eng', team: 'Backend' },
     ];
     const config: RowGroupingConfig = {
-      enabled: true,
       groupOn: (r) => [r.dept, r.team],
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
@@ -101,7 +88,6 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Bob', dept: 'Eng', team: 'Backend' },
     ];
     const config: RowGroupingConfig = {
-      enabled: true,
       groupOn: (r) => [r.dept, r.team],
     };
     const expanded = new Set(['Eng']);
@@ -120,7 +106,6 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Bob', dept: 'Sales' },
     ];
     const config: RowGroupingConfig = {
-      enabled: true,
       groupOn: (r) => r.dept ?? '∅', // Explicit null handling in groupOn
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });

@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { getPivotAggregator, validatePivotConfig, createValueKey } from './pivot-model';
+import { describe, expect, it } from 'vitest';
 import {
   buildPivot,
-  getUniqueColumnKeys,
-  groupByFields,
   buildPivotRows,
   calculateTotals,
   flattenPivotRows,
+  getUniqueColumnKeys,
+  groupByFields,
   type PivotDataRow,
 } from './pivot-engine';
+import { createValueKey, getPivotAggregator, validatePivotConfig } from './pivot-model';
 import type { PivotConfig, PivotRow, PivotValueField } from './types';
 
 describe('pivot-model', () => {
@@ -82,7 +82,6 @@ describe('pivot-model', () => {
   describe('validatePivotConfig', () => {
     it('should return error when no row or column group fields', () => {
       const config: PivotConfig = {
-        enabled: true,
         valueFields: [{ field: 'amount', aggFunc: 'sum' }],
       };
       const errors = validatePivotConfig(config);
@@ -91,7 +90,6 @@ describe('pivot-model', () => {
 
     it('should return error when no value fields', () => {
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
       };
       const errors = validatePivotConfig(config);
@@ -99,14 +97,13 @@ describe('pivot-model', () => {
     });
 
     it('should return multiple errors when both missing', () => {
-      const config: PivotConfig = { enabled: true };
+      const config: PivotConfig = {};
       const errors = validatePivotConfig(config);
       expect(errors).toHaveLength(2);
     });
 
     it('should return no errors for valid config with row groups', () => {
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
         valueFields: [{ field: 'amount', aggFunc: 'sum' }],
       };
@@ -116,7 +113,6 @@ describe('pivot-model', () => {
 
     it('should return no errors for valid config with column groups', () => {
       const config: PivotConfig = {
-        enabled: true,
         columnGroupFields: ['region'],
         valueFields: [{ field: 'amount', aggFunc: 'sum' }],
       };
@@ -126,7 +122,6 @@ describe('pivot-model', () => {
 
     it('should return no errors for valid config with both groups', () => {
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
         columnGroupFields: ['region'],
         valueFields: [{ field: 'amount', aggFunc: 'sum' }],
@@ -454,7 +449,6 @@ describe('pivot-engine', () => {
       ];
 
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
         columnGroupFields: ['region'],
         valueFields: [{ field: 'sales', aggFunc: 'sum' }],
@@ -475,7 +469,6 @@ describe('pivot-engine', () => {
       ];
 
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
         valueFields: [{ field: 'amount', aggFunc: 'sum' }],
       };
@@ -487,7 +480,6 @@ describe('pivot-engine', () => {
 
     it('should handle empty data', () => {
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
         valueFields: [{ field: 'amount', aggFunc: 'sum' }],
       };
@@ -505,7 +497,6 @@ describe('pivot-engine', () => {
       ];
 
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
         valueFields: [
           { field: 'sales', aggFunc: 'sum' },
@@ -528,7 +519,6 @@ describe('pivot-engine', () => {
       ];
 
       const config: PivotConfig = {
-        enabled: true,
         rowGroupFields: ['category'],
         valueFields: [{ field: 'amount', aggFunc: 'sum' }],
       };
@@ -547,7 +537,6 @@ describe('pivot-engine', () => {
       ];
 
       const config: PivotConfig = {
-        enabled: true,
         columnGroupFields: ['region'],
         valueFields: [{ field: 'sales', aggFunc: 'sum' }],
       };

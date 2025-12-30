@@ -58,8 +58,6 @@ export interface ContextMenuParams {
  * Configuration options for the context menu plugin.
  */
 export interface ContextMenuConfig {
-  /** Whether the context menu is enabled (default: true) */
-  enabled?: boolean;
   /** Menu items - static array or function returning items */
   items?: ContextMenuItem[] | ((params: ContextMenuParams) => ContextMenuItem[]);
 }

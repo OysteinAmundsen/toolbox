@@ -9,11 +9,23 @@
 
 import type {
   HeaderContentDefinition,
+  IconValue,
   ShellConfig,
   ToolbarButtonConfig,
   ToolbarButtonInfo,
   ToolPanelDefinition,
 } from '../types';
+import { DEFAULT_GRID_ICONS } from '../types';
+
+/**
+ * Convert an IconValue to a string for rendering in HTML.
+ */
+function iconToString(icon: IconValue | undefined): string {
+  if (!icon) return '';
+  if (typeof icon === 'string') return icon;
+  // For HTMLElement, get the outerHTML
+  return icon.outerHTML;
+}
 
 /**
  * State for managing shell UI.
@@ -29,14 +41,20 @@ export interface ShellState {
   lightDomButtons: HTMLElement[];
   /** Light DOM header content elements */
   lightDomHeaderContent: HTMLElement[];
-  /** Currently open tool panel ID (null if closed) */
-  activePanel: string | null;
+  /** Whether the tool panel sidebar is open */
+  isPanelOpen: boolean;
+  /** Which accordion sections are expanded (by panel ID) */
+  expandedSections: Set<string>;
   /** Cleanup functions for header content render returns */
   headerContentCleanups: Map<string, () => void>;
-  /** Cleanup function for active panel render return */
-  activePanelCleanup: (() => void) | null;
+  /** Cleanup functions for each panel section's render return */
+  panelCleanups: Map<string, () => void>;
   /** Cleanup functions for toolbar button render returns */
   toolbarButtonCleanups: Map<string, () => void>;
+  /** @deprecated Use isPanelOpen instead. Kept for backward compatibility. */
+  activePanel: string | null;
+  /** @deprecated Use panelCleanups instead. Kept for backward compatibility. */
+  activePanelCleanup: (() => void) | null;
 }
 
 /**
@@ -49,10 +67,14 @@ export function createShellState(): ShellState {
     toolbarButtons: new Map(),
     lightDomButtons: [],
     lightDomHeaderContent: [],
-    activePanel: null,
+    isPanelOpen: false,
+    expandedSections: new Set(),
     headerContentCleanups: new Map(),
-    activePanelCleanup: null,
+    panelCleanups: new Map(),
     toolbarButtonCleanups: new Map(),
+    // Deprecated - kept for backward compatibility
+    activePanel: null,
+    activePanelCleanup: null,
   };
 }
 
@@ -83,33 +105,36 @@ export function shouldRenderShellHeader(config: ShellConfig | undefined, state: 
 
 /**
  * Render the shell header HTML.
+ * @param toolPanelIcon - Icon for the tool panel toggle (from grid icon config)
  */
-export function renderShellHeader(config: ShellConfig | undefined, state: ShellState): string {
+export function renderShellHeader(
+  config: ShellConfig | undefined,
+  state: ShellState,
+  toolPanelIcon: IconValue = '☰',
+): string {
   const title = config?.header?.title ?? '';
   const hasTitle = !!title;
+  const iconStr = iconToString(toolPanelIcon);
 
   // Collect all toolbar buttons in order
   // 1. Config buttons (sorted by order)
   // 2. API-registered buttons (sorted by order)
   // 3. Light DOM buttons via slot
-  // 4. Panel toggle buttons (sorted by order)
+  // 4. Single panel toggle button (if any panels registered)
 
   const configButtons = config?.header?.toolbarButtons ?? [];
   const hasConfigButtons = configButtons.length > 0;
   const hasApiButtons = state.toolbarButtons.size > 0;
   const hasLightDomButtons = state.lightDomButtons.length > 0;
-  const hasPanelToggles = state.toolPanels.size > 0;
+  const hasPanels = state.toolPanels.size > 0;
   const hasCustomButtons = hasConfigButtons || hasApiButtons || hasLightDomButtons;
-  const showSeparator = hasCustomButtons && hasPanelToggles;
+  const showSeparator = hasCustomButtons && hasPanels;
 
   // Sort config buttons by order
   const sortedConfigButtons = [...configButtons].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 
   // Sort API buttons by order
   const sortedApiButtons = [...state.toolbarButtons.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-
-  // Sort panel toggles by order
-  const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 
   // Build toolbar HTML
   let toolbarHtml = '';
@@ -154,14 +179,10 @@ export function renderShellHeader(config: ShellConfig | undefined, state: ShellS
     toolbarHtml += '<div class="tbw-toolbar-separator"></div>';
   }
 
-  // Panel toggle buttons
-  for (const panel of sortedPanels) {
-    const isActive = state.activePanel === panel.id;
-    toolbarHtml += `<button class="tbw-toolbar-btn${isActive ? ' active' : ''}" data-panel="${panel.id}" title="${
-      panel.tooltip ?? panel.title
-    }" aria-label="${panel.tooltip ?? panel.title}" aria-pressed="${isActive}" aria-controls="tbw-panel-${panel.id}">${
-      panel.icon
-    }</button>`;
+  // Single panel toggle button (opens accordion-style sidebar with all panels)
+  if (hasPanels) {
+    const isOpen = state.isPanelOpen;
+    toolbarHtml += `<button class="tbw-toolbar-btn${isOpen ? ' active' : ''}" data-panel-toggle title="Settings" aria-label="Toggle settings panel" aria-pressed="${isOpen}" aria-controls="tbw-tool-panel">${iconStr}</button>`;
   }
 
   return `
@@ -178,26 +199,60 @@ export function renderShellHeader(config: ShellConfig | undefined, state: ShellS
 }
 
 /**
- * Render the shell body wrapper HTML (contains grid content + tool panel).
+ * Render the shell body wrapper HTML (contains grid content + accordion-style tool panel).
+ * @param icons - Optional icons for expand/collapse chevrons (from grid config)
  */
-export function renderShellBody(config: ShellConfig | undefined, state: ShellState, gridContentHtml: string): string {
+export function renderShellBody(
+  config: ShellConfig | undefined,
+  state: ShellState,
+  gridContentHtml: string,
+  icons?: { expand?: IconValue; collapse?: IconValue },
+): string {
   const position = config?.toolPanel?.position ?? 'right';
   const hasPanel = state.toolPanels.size > 0;
-  const isOpen = state.activePanel !== null;
-  const activePanel = state.activePanel ? state.toolPanels.get(state.activePanel) : null;
+  const isOpen = state.isPanelOpen;
+  const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
+  const collapseIcon = iconToString(icons?.collapse ?? DEFAULT_GRID_ICONS.collapse);
+
+  // Sort panels by order for accordion sections
+  const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+  const isSinglePanel = sortedPanels.length === 1;
+
+  // Build accordion sections HTML
+  let accordionHtml = '';
+  for (const panel of sortedPanels) {
+    const isExpanded = state.expandedSections.has(panel.id);
+    const iconHtml = panel.icon ? `<span class="tbw-accordion-icon">${panel.icon}</span>` : '';
+    // Hide chevron for single panel (no toggling needed)
+    const chevronHtml = isSinglePanel
+      ? ''
+      : `<span class="tbw-accordion-chevron">${isExpanded ? collapseIcon : expandIcon}</span>`;
+    // Disable accordion toggle for single panel
+    const sectionClasses = `tbw-accordion-section${isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}`;
+    accordionHtml += `
+      <div class="${sectionClasses}" data-section="${panel.id}">
+        <button class="tbw-accordion-header" aria-expanded="${isExpanded}" aria-controls="tbw-section-${panel.id}"${isSinglePanel ? ' aria-disabled="true"' : ''}>
+          ${iconHtml}
+          <span class="tbw-accordion-title">${panel.title}</span>
+          ${chevronHtml}
+        </button>
+        <div class="tbw-accordion-content" id="tbw-section-${panel.id}" role="region" aria-labelledby="tbw-section-header-${panel.id}"></div>
+      </div>
+    `;
+  }
+
+  // Resize handle position depends on panel position
+  const resizeHandlePosition = position === 'left' ? 'right' : 'left';
 
   const panelHtml = hasPanel
     ? `
-    <aside class="tbw-tool-panel${
-      isOpen ? ' open' : ''
-    }" part="tool-panel" data-position="${position}" role="complementary" aria-label="${
-        activePanel?.title ?? 'Tool panel'
-      }" id="tbw-panel-${state.activePanel ?? 'closed'}">
-      <div class="tbw-tool-panel-header">
-        <span class="tbw-tool-panel-title">${activePanel?.title ?? ''}</span>
-        <button class="tbw-tool-panel-close" aria-label="Close panel">✕</button>
+    <aside class="tbw-tool-panel${isOpen ? ' open' : ''}" part="tool-panel" data-position="${position}" role="complementary" aria-label="Tool panel" id="tbw-tool-panel">
+      <div class="tbw-tool-panel-resize" data-resize-handle data-handle-position="${resizeHandlePosition}" aria-hidden="true"></div>
+      <div class="tbw-tool-panel-content" role="region">
+        <div class="tbw-accordion">
+          ${accordionHtml}
+        </div>
       </div>
-      <div class="tbw-tool-panel-content" role="region"></div>
     </aside>
   `
     : '';
@@ -239,7 +294,7 @@ export function parseLightDomShell(host: HTMLElement, state: ShellState): void {
   state.lightDomHeaderContent = Array.from(headerContents) as HTMLElement[];
 
   // Assign slot names for slotting into shadow DOM
-  state.lightDomHeaderContent.forEach((el, i) => {
+  state.lightDomHeaderContent.forEach((el) => {
     el.setAttribute('slot', 'header-content');
   });
 
@@ -260,31 +315,31 @@ export function parseLightDomShell(host: HTMLElement, state: ShellState): void {
 }
 
 /**
- * Set up event listeners for shell toolbar buttons.
+ * Set up event listeners for shell toolbar buttons and accordion.
  */
 export function setupShellEventListeners(
   shadowRoot: ShadowRoot,
   config: ShellConfig | undefined,
   state: ShellState,
   callbacks: {
-    onPanelToggle: (panelId: string) => void;
-    onPanelClose: () => void;
+    onPanelToggle: () => void;
+    onSectionToggle: (sectionId: string) => void;
     onToolbarButtonClick: (buttonId: string) => void;
-  }
+  },
 ): void {
   const toolbar = shadowRoot.querySelector('.tbw-shell-toolbar');
   if (toolbar) {
     toolbar.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
-      const btn = target.closest('[data-panel]') as HTMLElement | null;
-      if (btn) {
-        const panelId = btn.getAttribute('data-panel');
-        if (panelId) {
-          callbacks.onPanelToggle(panelId);
-        }
+
+      // Handle single panel toggle button
+      const panelToggle = target.closest('[data-panel-toggle]') as HTMLElement | null;
+      if (panelToggle) {
+        callbacks.onPanelToggle();
         return;
       }
 
+      // Handle custom toolbar buttons
       const customBtn = target.closest('[data-btn]') as HTMLElement | null;
       if (customBtn) {
         const btnId = customBtn.getAttribute('data-btn');
@@ -295,12 +350,100 @@ export function setupShellEventListeners(
     });
   }
 
-  const closeBtn = shadowRoot.querySelector('.tbw-tool-panel-close');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      callbacks.onPanelClose();
+  // Accordion header clicks
+  const accordion = shadowRoot.querySelector('.tbw-accordion');
+  if (accordion) {
+    accordion.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const header = target.closest('.tbw-accordion-header') as HTMLElement | null;
+      if (header) {
+        const section = header.closest('[data-section]') as HTMLElement | null;
+        const sectionId = section?.getAttribute('data-section');
+        if (sectionId) {
+          callbacks.onSectionToggle(sectionId);
+        }
+      }
     });
   }
+}
+
+/**
+ * Set up resize handle for tool panel.
+ * Returns a cleanup function to remove event listeners.
+ */
+export function setupToolPanelResize(
+  shadowRoot: ShadowRoot,
+  config: ShellConfig | undefined,
+  onResize: (width: number) => void,
+): () => void {
+  const panel = shadowRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
+  const handle = shadowRoot.querySelector('[data-resize-handle]') as HTMLElement | null;
+  const shellBody = shadowRoot.querySelector('.tbw-shell-body') as HTMLElement | null;
+  if (!panel || !handle || !shellBody) {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return () => {};
+  }
+
+  const position = config?.toolPanel?.position ?? 'right';
+  const minWidth = 200;
+
+  let startX = 0;
+  let startWidth = 0;
+  let maxWidth = 0;
+  let isResizing = false;
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+    e.preventDefault();
+
+    // For right-positioned panel: dragging left (negative clientX change) should expand
+    // For left-positioned panel: dragging right (positive clientX change) should expand
+    const delta = position === 'left' ? e.clientX - startX : startX - e.clientX;
+    const newWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + delta));
+
+    panel.style.width = `${newWidth}px`;
+  };
+
+  const onMouseUp = () => {
+    if (!isResizing) return;
+    isResizing = false;
+    handle.classList.remove('resizing');
+    panel.style.transition = ''; // Re-enable transition
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+
+    // Get final width and notify
+    const finalWidth = panel.getBoundingClientRect().width;
+    onResize(finalWidth);
+
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  const onMouseDown = (e: MouseEvent) => {
+    e.preventDefault();
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = panel.getBoundingClientRect().width;
+    // Calculate max width dynamically based on grid container width
+    maxWidth = shellBody.getBoundingClientRect().width - 20; // Leave 20px margin
+    handle.classList.add('resizing');
+    panel.style.transition = 'none'; // Disable transition for smooth resize
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  handle.addEventListener('mousedown', onMouseDown);
+
+  // Return cleanup function
+  return () => {
+    handle.removeEventListener('mousedown', onMouseDown);
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
 }
 
 /**
@@ -309,7 +452,7 @@ export function setupShellEventListeners(
 export function renderCustomToolbarButtons(
   shadowRoot: ShadowRoot,
   config: ShellConfig | undefined,
-  state: ShellState
+  state: ShellState,
 ): void {
   const allButtons = [...(config?.header?.toolbarButtons ?? []), ...state.toolbarButtons.values()];
 
@@ -377,30 +520,55 @@ export function renderHeaderContent(shadowRoot: ShadowRoot, state: ShellState): 
 }
 
 /**
- * Render tool panel content when panel opens.
+ * Render content for expanded accordion sections.
+ * @param icons - Optional icons for expand/collapse chevrons (from grid config)
  */
-export function renderPanelContent(shadowRoot: ShadowRoot, state: ShellState): void {
-  if (!state.activePanel) return;
+export function renderPanelContent(
+  shadowRoot: ShadowRoot,
+  state: ShellState,
+  icons?: { expand?: IconValue; collapse?: IconValue },
+): void {
+  if (!state.isPanelOpen) return;
 
-  const panel = state.toolPanels.get(state.activePanel);
-  if (!panel) return;
+  const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
+  const collapseIcon = iconToString(icons?.collapse ?? DEFAULT_GRID_ICONS.collapse);
 
-  const contentArea = shadowRoot.querySelector('.tbw-tool-panel-content');
-  if (!contentArea) return;
+  for (const [panelId, panel] of state.toolPanels) {
+    const isExpanded = state.expandedSections.has(panelId);
+    const section = shadowRoot.querySelector(`[data-section="${panelId}"]`);
+    const contentArea = section?.querySelector('.tbw-accordion-content') as HTMLElement | null;
 
-  // Clean up previous panel content
-  if (state.activePanelCleanup) {
-    state.activePanelCleanup();
-    state.activePanelCleanup = null;
-  }
+    if (!section || !contentArea) continue;
 
-  // Clear content area
-  contentArea.innerHTML = '';
+    // Update expanded state
+    section.classList.toggle('expanded', isExpanded);
+    const header = section.querySelector('.tbw-accordion-header');
+    if (header) {
+      header.setAttribute('aria-expanded', String(isExpanded));
+    }
+    const chevron = section.querySelector('.tbw-accordion-chevron');
+    if (chevron) {
+      chevron.innerHTML = isExpanded ? collapseIcon : expandIcon;
+    }
 
-  // Render new content
-  const cleanup = panel.render(contentArea as HTMLElement);
-  if (cleanup) {
-    state.activePanelCleanup = cleanup;
+    if (isExpanded) {
+      // Check if content is already rendered
+      if (contentArea.children.length === 0) {
+        // Render panel content
+        const cleanup = panel.render(contentArea);
+        if (cleanup) {
+          state.panelCleanups.set(panelId, cleanup);
+        }
+      }
+    } else {
+      // Clean up and clear content when collapsed
+      const cleanup = state.panelCleanups.get(panelId);
+      if (cleanup) {
+        cleanup();
+        state.panelCleanups.delete(panelId);
+      }
+      contentArea.innerHTML = '';
+    }
   }
 }
 
@@ -408,33 +576,26 @@ export function renderPanelContent(shadowRoot: ShadowRoot, state: ShellState): v
  * Update toolbar button active states.
  */
 export function updateToolbarActiveStates(shadowRoot: ShadowRoot, state: ShellState): void {
-  const buttons = shadowRoot.querySelectorAll('[data-panel]');
-  buttons.forEach((btn) => {
-    const panelId = btn.getAttribute('data-panel');
-    const isActive = panelId === state.activePanel;
-    btn.classList.toggle('active', isActive);
-    btn.setAttribute('aria-pressed', String(isActive));
-  });
+  // Update single panel toggle button
+  const panelToggle = shadowRoot.querySelector('[data-panel-toggle]');
+  if (panelToggle) {
+    panelToggle.classList.toggle('active', state.isPanelOpen);
+    panelToggle.setAttribute('aria-pressed', String(state.isPanelOpen));
+  }
 }
 
 /**
  * Update tool panel open/close state.
  */
 export function updatePanelState(shadowRoot: ShadowRoot, state: ShellState): void {
-  const panel = shadowRoot.querySelector('.tbw-tool-panel');
+  const panel = shadowRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
   if (!panel) return;
 
-  const isOpen = state.activePanel !== null;
-  panel.classList.toggle('open', isOpen);
+  panel.classList.toggle('open', state.isPanelOpen);
 
-  if (isOpen && state.activePanel) {
-    const panelDef = state.toolPanels.get(state.activePanel);
-    const titleEl = panel.querySelector('.tbw-tool-panel-title');
-    if (titleEl) {
-      titleEl.textContent = panelDef?.title ?? '';
-    }
-    panel.setAttribute('aria-label', `${panelDef?.title ?? 'Tool'} panel`);
-    panel.id = `tbw-panel-${state.activePanel}`;
+  // Clear inline width when closing (resize sets inline style that overrides CSS)
+  if (!state.isPanelOpen) {
+    panel.style.width = '';
   }
 }
 

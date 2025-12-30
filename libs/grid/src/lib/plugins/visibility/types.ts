@@ -6,8 +6,6 @@
 
 /** Configuration options for the visibility plugin */
 export interface VisibilityConfig {
-  /** Whether visibility control is enabled (default: true) */
-  enabled?: boolean;
   /** Allow hiding all columns (default: false) */
   allowHideAll?: boolean;
 }

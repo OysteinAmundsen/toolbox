@@ -9,6 +9,7 @@
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import { buildContext, createAggregationContainer, createInfoBarElement, renderAggregationRows } from './pinned-rows';
+import styles from './pinned-rows.css?inline';
 import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
 
 /**
@@ -33,7 +34,6 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
 
   protected override get defaultConfig(): Partial<PinnedRowsConfig> {
     return {
-      enabled: true,
       position: 'bottom',
       showRowCount: true,
       showSelectedCount: true,
@@ -71,11 +71,6 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   // ===== Hooks =====
 
   override afterRender(): void {
-    if (!this.config.enabled) {
-      this.cleanup();
-      return;
-    }
-
     const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
 
@@ -96,7 +91,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       this.columns as unknown[],
       this.grid as unknown as HTMLElement,
       selectionState,
-      filterState
+      filterState,
     );
 
     // ===== Handle Aggregation Rows =====
@@ -119,7 +114,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
         this.topAggregationContainer,
         topRows,
         this.visibleColumns as ColumnConfig[],
-        this.rows as unknown[]
+        this.rows as unknown[],
       );
     } else if (this.topAggregationContainer) {
       this.topAggregationContainer.remove();
@@ -169,7 +164,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
           this.bottomAggregationContainer,
           bottomRows,
           this.visibleColumns as ColumnConfig[],
-          this.rows as unknown[]
+          this.rows as unknown[],
         );
       }
 
@@ -259,7 +254,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       this.columns as unknown[],
       this.grid as unknown as HTMLElement,
       selectionState,
-      filterState
+      filterState,
     );
   }
 
@@ -311,76 +306,5 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
 
   // ===== Styles =====
 
-  override readonly styles = `
-    .tbw-footer {
-      position: sticky;
-      bottom: 0;
-      z-index: var(--tbw-z-layer-pinned-rows, 20);
-      background: var(--tbw-color-panel-bg);
-    }
-
-    .tbw-pinned-rows {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: var(--tbw-pinned-rows-bg, var(--tbw-color-panel-bg));
-      border-top: 1px solid var(--tbw-pinned-rows-border, var(--tbw-color-border));
-      font-size: 12px;
-      color: var(--tbw-pinned-rows-color, var(--tbw-color-fg-muted));
-      min-height: 32px;
-      box-sizing: border-box;
-      min-width: fit-content;
-    }
-    .tbw-pinned-rows-left,
-    .tbw-pinned-rows-center,
-    .tbw-pinned-rows-right {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .tbw-pinned-rows-left {
-      justify-content: flex-start;
-    }
-    .tbw-pinned-rows-center {
-      justify-content: center;
-      flex: 1;
-    }
-    .tbw-pinned-rows-right {
-      justify-content: flex-end;
-    }
-    .tbw-status-panel {
-      white-space: nowrap;
-    }
-
-    .tbw-aggregation-rows {
-      min-width: fit-content;
-      background: var(--tbw-aggregation-bg, var(--tbw-color-header-bg));
-    }
-    .tbw-aggregation-rows-top {
-      border-bottom: 1px solid var(--tbw-aggregation-border, var(--tbw-color-border));
-    }
-    .tbw-aggregation-rows-bottom {
-      border-top: 1px solid var(--tbw-aggregation-border, var(--tbw-color-border));
-    }
-    .tbw-aggregation-row {
-      display: grid;
-      grid-template-columns: var(--tbw-column-template);
-      font-weight: var(--tbw-aggregation-font-weight, 600);
-    }
-    .tbw-aggregation-cell {
-      padding: var(--tbw-cell-padding, 2px 8px);
-      min-height: var(--tbw-row-height, 28px);
-      display: flex;
-      align-items: center;
-      border-right: 1px solid var(--tbw-color-border-cell);
-    }
-    .tbw-aggregation-cell:last-child {
-      border-right: 0;
-    }
-    .tbw-aggregation-cell-full {
-      grid-column: 1 / -1;
-      border-right: 0;
-    }
-  `;
+  override readonly styles = styles;
 }

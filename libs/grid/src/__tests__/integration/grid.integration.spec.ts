@@ -402,7 +402,7 @@ describe('tbw-grid integration: template sandbox rendering', () => {
       const grid = await setupGrid(`<span>${tpl}</span>`);
       const shadow = grid.shadowRoot!;
       const texts = Array.from(shadow.querySelectorAll('.rows .data-grid-row .cell')).map(
-        (el) => (el as HTMLElement).textContent || ''
+        (el) => (el as HTMLElement).textContent || '',
       );
       texts.forEach((t) => expect(t.trim().length === 0).toBe(true));
     });
@@ -575,12 +575,14 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     await waitUpgrade(grid);
 
     // Panel should be registered but closed
-    expect(grid.activeToolPanel).toBeNull();
+    expect(grid.isToolPanelOpen).toBe(false);
 
-    // Open panel
-    grid.openToolPanel('test-panel');
+    // Open panel - first section is auto-expanded
+    grid.openToolPanel();
     await nextFrame();
-    expect(grid.activeToolPanel).toBe('test-panel');
+    expect(grid.isToolPanelOpen).toBe(true);
+    // First (and only) panel should be auto-expanded
+    expect(grid.expandedToolPanelSections).toContain('test-panel');
 
     const shadow = grid.shadowRoot!;
     const panel = shadow.querySelector('.tbw-tool-panel');
@@ -590,7 +592,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     // Close panel
     grid.closeToolPanel();
     await nextFrame();
-    expect(grid.activeToolPanel).toBeNull();
+    expect(grid.isToolPanelOpen).toBe(false);
   });
 
   it('toggles tool panels', async () => {
@@ -608,12 +610,12 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     await waitUpgrade(grid);
 
     // Toggle on
-    grid.toggleToolPanel('columns');
-    expect(grid.activeToolPanel).toBe('columns');
+    grid.toggleToolPanel();
+    expect(grid.isToolPanelOpen).toBe(true);
 
     // Toggle off
-    grid.toggleToolPanel('columns');
-    expect(grid.activeToolPanel).toBeNull();
+    grid.toggleToolPanel();
+    expect(grid.isToolPanelOpen).toBe(false);
   });
 
   it('clicks panel toggle button to open panel', async () => {
@@ -631,15 +633,15 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     await waitUpgrade(grid);
 
     const shadow = grid.shadowRoot!;
-    const toggleBtn = shadow.querySelector('[data-panel="columns"]') as HTMLButtonElement;
+    const toggleBtn = shadow.querySelector('[data-panel-toggle]') as HTMLButtonElement;
     expect(toggleBtn).not.toBeNull();
 
     toggleBtn.click();
     await nextFrame();
-    expect(grid.activeToolPanel).toBe('columns');
+    expect(grid.isToolPanelOpen).toBe(true);
   });
 
-  it('closes panel via close button', async () => {
+  it('closes panel by toggling toolbar button again', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];
     grid.registerToolPanel({
@@ -653,16 +655,19 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    grid.openToolPanel('columns');
+    // Open panel
+    grid.openToolPanel();
     await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(true);
 
+    // Toggle via toolbar button to close
     const shadow = grid.shadowRoot!;
-    const closeBtn = shadow.querySelector('.tbw-tool-panel-close') as HTMLButtonElement;
-    expect(closeBtn).not.toBeNull();
+    const toggleBtn = shadow.querySelector('[data-panel-toggle]') as HTMLButtonElement;
+    expect(toggleBtn).not.toBeNull();
 
-    closeBtn.click();
+    toggleBtn.click();
     await nextFrame();
-    expect(grid.activeToolPanel).toBeNull();
+    expect(grid.isToolPanelOpen).toBe(false);
   });
 
   it('renders header content from plugin', async () => {
@@ -728,7 +733,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shadow.querySelector('.tbw-grid-root.has-shell')).toBeNull();
   });
 
-  it('opens default panel when configured', async () => {
+  it('opens default section when configured', async () => {
     grid = document.createElement('tbw-grid');
     grid.registerToolPanel({
       id: 'columns',
@@ -745,7 +750,8 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    expect(grid.activeToolPanel).toBe('columns');
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.expandedToolPanelSections).toContain('columns');
   });
 });
 

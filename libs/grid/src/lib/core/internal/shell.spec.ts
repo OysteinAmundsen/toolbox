@@ -128,7 +128,7 @@ describe('shell module', () => {
       expect(html).not.toContain('tbw-shell-title');
     });
 
-    it('renders panel toggle buttons for registered panels', () => {
+    it('renders single panel toggle button when panels registered', () => {
       const panel: ToolPanelDefinition = {
         id: 'columns',
         title: 'Columns',
@@ -142,12 +142,12 @@ describe('shell module', () => {
 
       const html = renderShellHeader(undefined, state);
 
-      expect(html).toContain('data-panel="columns"');
+      expect(html).toContain('data-panel-toggle');
       expect(html).toContain('☰');
-      expect(html).toContain('title="Show/hide columns"');
+      expect(html).toContain('title="Settings"');
     });
 
-    it('marks active panel button as active', () => {
+    it('marks panel toggle button as active when panel is open', () => {
       const panel: ToolPanelDefinition = {
         id: 'columns',
         title: 'Columns',
@@ -157,7 +157,7 @@ describe('shell module', () => {
         },
       };
       state.toolPanels.set('columns', panel);
-      state.activePanel = 'columns';
+      state.isPanelOpen = true;
 
       const html = renderShellHeader(undefined, state);
 
@@ -246,7 +246,7 @@ describe('shell module', () => {
       expect(html).not.toContain('tbw-toolbar-separator');
     });
 
-    it('sorts panels by order', () => {
+    it('renders single panel toggle for multiple panels', () => {
       const panel1: ToolPanelDefinition = {
         id: 'columns',
         title: 'Columns',
@@ -270,10 +270,9 @@ describe('shell module', () => {
 
       const html = renderShellHeader(undefined, state);
 
-      // Filter should come before columns in the HTML
-      const filterIdx = html.indexOf('data-panel="filter"');
-      const columnsIdx = html.indexOf('data-panel="columns"');
-      expect(filterIdx).toBeLessThan(columnsIdx);
+      // Should only have one toggle button
+      const matches = html.match(/data-panel-toggle/g);
+      expect(matches).toHaveLength(1);
     });
 
     it('renders ARIA attributes for accessibility', () => {
@@ -292,7 +291,7 @@ describe('shell module', () => {
       expect(html).toContain('role="banner"');
       expect(html).toContain('role="toolbar"');
       expect(html).toContain('aria-label="Grid tools"');
-      expect(html).toContain('aria-controls="tbw-panel-columns"');
+      expect(html).toContain('aria-controls="tbw-tool-panel"');
     });
   });
 
@@ -307,7 +306,7 @@ describe('shell module', () => {
       expect(html).toContain('test-grid-content');
     });
 
-    it('renders tool panel when panels registered', () => {
+    it('renders tool panel with accordion sections when panels registered', () => {
       const panel: ToolPanelDefinition = {
         id: 'columns',
         title: 'Columns',
@@ -317,15 +316,16 @@ describe('shell module', () => {
         },
       };
       state.toolPanels.set('columns', panel);
-      state.activePanel = 'columns';
+      state.isPanelOpen = true;
 
       const html = renderShellBody(undefined, state, gridContentHtml);
 
       expect(html).toContain('tbw-tool-panel');
       expect(html).toContain('open');
-      expect(html).toContain('tbw-tool-panel-header');
+      expect(html).toContain('tbw-accordion');
+      expect(html).toContain('tbw-accordion-section');
+      expect(html).toContain('data-section="columns"');
       expect(html).toContain('Columns');
-      expect(html).toContain('tbw-tool-panel-close');
     });
 
     it('does not include open class when panel is closed', () => {
@@ -394,7 +394,7 @@ describe('shell module', () => {
       expect(html).not.toContain('tbw-tool-panel');
     });
 
-    it('renders ARIA attributes for accessibility', () => {
+    it('renders ARIA attributes for accordion sections', () => {
       const panel: ToolPanelDefinition = {
         id: 'columns',
         title: 'Columns',
@@ -404,12 +404,14 @@ describe('shell module', () => {
         },
       };
       state.toolPanels.set('columns', panel);
-      state.activePanel = 'columns';
+      state.isPanelOpen = true;
 
       const html = renderShellBody(undefined, state, gridContentHtml);
 
       expect(html).toContain('role="complementary"');
-      expect(html).toContain('aria-label="Columns"');
+      expect(html).toContain('aria-label="Tool panel"');
+      expect(html).toContain('aria-expanded="false"');
+      expect(html).toContain('aria-controls="tbw-section-columns"');
     });
   });
 

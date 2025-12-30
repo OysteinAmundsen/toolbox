@@ -14,6 +14,7 @@ import {
   isDetailExpanded,
   toggleDetailRow,
 } from './master-detail';
+import styles from './master-detail.css?inline';
 import type { DetailExpandDetail, MasterDetailConfig } from './types';
 
 /**
@@ -34,7 +35,6 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   protected override get defaultConfig(): Partial<MasterDetailConfig> {
     return {
-      enabled: true,
       detailHeight: 'auto',
       expandOnRowClick: false,
       collapseOnClickOutside: false,
@@ -56,7 +56,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   // ===== Hooks =====
 
   override processColumns(
-    columns: readonly import('../../core/types').ColumnConfig[]
+    columns: readonly import('../../core/types').ColumnConfig[],
   ): import('../../core/types').ColumnConfig[] {
     if (!this.config.detailRenderer) {
       return [...columns];
@@ -412,30 +412,5 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   // ===== Styles =====
 
-  override readonly styles = `
-    .master-detail-cell-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .master-detail-toggle {
-      cursor: pointer;
-      font-size: 10px;
-      opacity: 0.7;
-      user-select: none;
-    }
-    .master-detail-toggle:hover {
-      opacity: 1;
-    }
-    .master-detail-row {
-      grid-column: 1 / -1;
-      display: grid;
-      background: var(--tbw-master-detail-bg, var(--tbw-color-row-alt));
-      border-bottom: 1px solid var(--tbw-master-detail-border, var(--tbw-color-border));
-    }
-    .master-detail-cell {
-      padding: 16px;
-      overflow: auto;
-    }
-  `;
+  override readonly styles = styles;
 }

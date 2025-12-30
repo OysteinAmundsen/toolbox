@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createPinnedRowsElement, buildContext } from './pinned-rows';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { buildContext, createPinnedRowsElement } from './pinned-rows';
 import type { PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
 
 describe('pinnedRows', () => {
@@ -17,7 +17,7 @@ describe('pinnedRows', () => {
     });
 
     it('should create a status bar with role="status"', () => {
-      const config: PinnedRowsConfig = { enabled: true };
+      const config: PinnedRowsConfig = {};
       const element = createPinnedRowsElement(config, defaultContext);
 
       expect(element.getAttribute('role')).toBe('status');
@@ -26,7 +26,7 @@ describe('pinnedRows', () => {
     });
 
     it('should show row count by default', () => {
-      const config: PinnedRowsConfig = { enabled: true };
+      const config: PinnedRowsConfig = {};
       const element = createPinnedRowsElement(config, defaultContext);
 
       const rowCountPanel = element.querySelector('.tbw-status-panel-row-count');
@@ -35,7 +35,7 @@ describe('pinnedRows', () => {
     });
 
     it('should hide row count when showRowCount is false', () => {
-      const config: PinnedRowsConfig = { enabled: true, showRowCount: false };
+      const config: PinnedRowsConfig = { showRowCount: false };
       const element = createPinnedRowsElement(config, defaultContext);
 
       const rowCountPanel = element.querySelector('.tbw-status-panel-row-count');
@@ -43,7 +43,7 @@ describe('pinnedRows', () => {
     });
 
     it('should show filtered count when different from total', () => {
-      const config: PinnedRowsConfig = { enabled: true, showFilteredCount: true };
+      const config: PinnedRowsConfig = { showFilteredCount: true };
       const context: PinnedRowsContext = { ...defaultContext, filteredRows: 50 };
       const element = createPinnedRowsElement(config, context);
 
@@ -53,7 +53,7 @@ describe('pinnedRows', () => {
     });
 
     it('should not show filtered count when equal to total', () => {
-      const config: PinnedRowsConfig = { enabled: true, showFilteredCount: true };
+      const config: PinnedRowsConfig = { showFilteredCount: true };
       const element = createPinnedRowsElement(config, defaultContext);
 
       const filteredPanel = element.querySelector('.tbw-status-panel-filtered-count');
@@ -61,7 +61,7 @@ describe('pinnedRows', () => {
     });
 
     it('should show selected count when rows are selected', () => {
-      const config: PinnedRowsConfig = { enabled: true, showSelectedCount: true };
+      const config: PinnedRowsConfig = { showSelectedCount: true };
       const context: PinnedRowsContext = { ...defaultContext, selectedRows: 5 };
       const element = createPinnedRowsElement(config, context);
 
@@ -71,7 +71,7 @@ describe('pinnedRows', () => {
     });
 
     it('should not show selected count when zero rows selected', () => {
-      const config: PinnedRowsConfig = { enabled: true, showSelectedCount: true };
+      const config: PinnedRowsConfig = { showSelectedCount: true };
       const element = createPinnedRowsElement(config, defaultContext);
 
       const selectedPanel = element.querySelector('.tbw-status-panel-selected-count');
@@ -79,7 +79,7 @@ describe('pinnedRows', () => {
     });
 
     it('should not show selected count when showSelectedCount is false', () => {
-      const config: PinnedRowsConfig = { enabled: true, showSelectedCount: false };
+      const config: PinnedRowsConfig = { showSelectedCount: false };
       const context: PinnedRowsContext = { ...defaultContext, selectedRows: 5 };
       const element = createPinnedRowsElement(config, context);
 
@@ -94,7 +94,7 @@ describe('pinnedRows', () => {
           position: 'center',
           render: () => '<strong>Custom Content</strong>',
         };
-        const config: PinnedRowsConfig = { enabled: true, customPanels: [customPanel] };
+        const config: PinnedRowsConfig = { customPanels: [customPanel] };
         const element = createPinnedRowsElement(config, defaultContext);
 
         const panel = element.querySelector('#status-panel-test-panel');
@@ -112,7 +112,7 @@ describe('pinnedRows', () => {
           position: 'right',
           render: () => customEl,
         };
-        const config: PinnedRowsConfig = { enabled: true, customPanels: [customPanel] };
+        const config: PinnedRowsConfig = { customPanels: [customPanel] };
         const element = createPinnedRowsElement(config, defaultContext);
 
         const panel = element.querySelector('#status-panel-element-panel');
@@ -138,7 +138,6 @@ describe('pinnedRows', () => {
         };
 
         const config: PinnedRowsConfig = {
-          enabled: true,
           showRowCount: false,
           customPanels: [leftPanel, centerPanel, rightPanel],
         };
@@ -165,7 +164,7 @@ describe('pinnedRows', () => {
           },
         };
 
-        const config: PinnedRowsConfig = { enabled: true, customPanels: [customPanel] };
+        const config: PinnedRowsConfig = { customPanels: [customPanel] };
         const context: PinnedRowsContext = {
           totalRows: 250,
           filteredRows: 200,
@@ -185,7 +184,7 @@ describe('pinnedRows', () => {
 
     describe('structure', () => {
       it('should have three section containers', () => {
-        const config: PinnedRowsConfig = { enabled: true };
+        const config: PinnedRowsConfig = {};
         const element = createPinnedRowsElement(config, defaultContext);
 
         expect(element.querySelector('.tbw-pinned-rows-left')).not.toBeNull();

@@ -57,7 +57,8 @@ export const Pivot: Story = {
         ],
         plugins: [
           new PivotPlugin({
-            rowGroupFields: ['region'],
+            // Multiple row group fields create hierarchy: Region > Product
+            rowGroupFields: ['region', 'product'],
             columnGroupFields: ['quarter'],
             valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total Sales' }],
             showTotals: __$showTotals$,
@@ -91,9 +92,10 @@ export const Pivot: Story = {
       plugins: [{ className: 'PivotPlugin', path: 'plugins/pivot' }],
       description: `
         <p>The <strong>Pivot</strong> plugin transforms flat data into a pivot table view.</p>
-        <p>This example groups sales data by <strong>Region</strong> (rows) and <strong>Quarter</strong> (columns), 
+        <p>This example groups sales data by <strong>Region → Product</strong> (hierarchical rows) and <strong>Quarter</strong> (columns),
         aggregating <strong>Sales</strong> using sum.</p>
         <ul>
+          <li>Click ▶ to expand groups and see child rows</li>
           <li>Row totals: ${args.showTotals ? 'Shown' : 'Hidden'}</li>
           <li>Grand total: ${args.showGrandTotal ? 'Shown' : 'Hidden'}</li>
           <li>Supports multiple aggregation functions: sum, avg, count, min, max</li>

@@ -24,7 +24,6 @@ describe('tree plugin integration', () => {
   it('should populate flattenedRows in processRows and use them in processColumns', () => {
     // Create plugin with tree config
     const config: TreeConfig = {
-      enabled: true,
       defaultExpanded: true,
       childrenField: 'children',
       indentWidth: 20,
@@ -71,7 +70,7 @@ describe('tree plugin integration', () => {
   });
 
   it('should return columns unchanged if flattenedRows is empty', () => {
-    const plugin = new TreePlugin({ enabled: false });
+    const plugin = new TreePlugin({});
 
     // Mock grid for attach
     const mockGrid = {
@@ -95,7 +94,6 @@ describe('tree plugin integration', () => {
 
   it('should correctly flatten rows after expansion toggle', () => {
     const config: TreeConfig = {
-      enabled: true,
       defaultExpanded: false,
       childrenField: 'children',
       indentWidth: 20,
@@ -176,7 +174,6 @@ describe('tree plugin integration', () => {
     document.body.appendChild(grid);
 
     const treePlugin = new TreePlugin({
-      enabled: true,
       defaultExpanded: false,
       childrenField: 'children',
       indentWidth: 20,
@@ -235,7 +232,7 @@ describe('tree plugin integration', () => {
 
     // Check that row order is correct by checking first cell of each row
     const firstCells = Array.from(dataRows!).map((row) =>
-      row.querySelector('.cell[data-col="0"]')?.textContent?.trim()
+      row.querySelector('.cell[data-col="0"]')?.textContent?.trim(),
     );
 
     // The name should appear after the tree toggle icon
@@ -252,7 +249,6 @@ describe('tree plugin integration', () => {
   describe('TreePlugin public API', () => {
     const createPluginWithData = () => {
       const config: TreeConfig = {
-        enabled: true,
         defaultExpanded: false,
         childrenField: 'children',
       };
@@ -272,8 +268,12 @@ describe('tree plugin integration', () => {
       ];
 
       const mockGrid = {
-        dispatchEvent: () => { /* noop */ },
-        requestRender: () => { /* noop */ },
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
         rows: rows, // Provide rows for expandAll/collapseAll/expandToKey
         _columns: [],
         shadowRoot: null,
@@ -387,7 +387,6 @@ describe('tree plugin integration', () => {
       document.body.appendChild(grid);
 
       const treePlugin = new TreePlugin({
-        enabled: true,
         defaultExpanded: false,
         childrenField: 'children',
       });
@@ -418,10 +417,14 @@ describe('tree plugin integration', () => {
     });
 
     it('should return false when clicking non-toggle element', () => {
-      const plugin = new TreePlugin({ enabled: true });
+      const plugin = new TreePlugin({});
       const mockGrid = {
-        dispatchEvent: () => { /* noop */ },
-        requestRender: () => { /* noop */ },
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
         rows: [],
         _columns: [],
         shadowRoot: null,
@@ -438,10 +441,14 @@ describe('tree plugin integration', () => {
     });
 
     it('should return false when toggle has no data-tree-key', () => {
-      const plugin = new TreePlugin({ enabled: true });
+      const plugin = new TreePlugin({});
       const mockGrid = {
-        dispatchEvent: () => { /* noop */ },
-        requestRender: () => { /* noop */ },
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
         rows: [],
         _columns: [],
         shadowRoot: null,
@@ -461,10 +468,14 @@ describe('tree plugin integration', () => {
     });
 
     it('should return false when key not found in rowKeyMap', () => {
-      const plugin = new TreePlugin({ enabled: true });
+      const plugin = new TreePlugin({});
       const mockGrid = {
-        dispatchEvent: () => { /* noop */ },
-        requestRender: () => { /* noop */ },
+        dispatchEvent: () => {
+          /* noop */
+        },
+        requestRender: () => {
+          /* noop */
+        },
         rows: [],
         _columns: [],
         shadowRoot: null,

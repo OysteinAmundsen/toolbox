@@ -1,5 +1,4 @@
 export interface ServerSideConfig {
-  enabled?: boolean;
   pageSize?: number;
   cacheBlockSize?: number;
   maxConcurrentRequests?: number;

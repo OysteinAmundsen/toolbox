@@ -32,7 +32,6 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   protected override get defaultConfig(): Partial<ClipboardConfig> {
     return {
-      enabled: true,
       includeHeaders: false,
       delimiter: '\t',
       newline: '\n',
@@ -53,8 +52,6 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   // ===== Event Handlers =====
 
   override onKeyDown(event: KeyboardEvent): boolean {
-    if (this.config.enabled === false) return false;
-
     const isCopy = (event.ctrlKey || event.metaKey) && event.key === 'c';
     const isPaste = (event.ctrlKey || event.metaKey) && event.key === 'v';
 

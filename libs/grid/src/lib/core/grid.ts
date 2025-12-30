@@ -18,6 +18,7 @@ import {
   renderShellBody,
   renderShellHeader,
   setupShellEventListeners,
+  setupToolPanelResize,
   shouldRenderShellHeader,
   updatePanelState,
   updateToolbarActiveStates,
@@ -46,6 +47,7 @@ import type {
   ToolPanelDefinition,
   VirtualState,
 } from './types';
+import { DEFAULT_GRID_ICONS } from './types';
 
 /**
  * High-performance data grid web component.
@@ -142,10 +144,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Shell State ----------------
   #shellState: ShellState = createShellState();
   #shellInitialized = false;
+  #resizeCleanup?: () => void;
 
   // ================== DERIVED STATE ==================
   // _rows: result of applying plugin processRows hooks
   _rows: T[] = [];
+
+  // _baseColumns: columns before plugin transformation (analogous to #rows for row processing)
+  // This is the source of truth for processColumns - plugins transform these
+  #baseColumns: ColumnInternal<T>[] = [];
 
   // _columns is a getter/setter that operates on effectiveConfig.columns
   // This ensures effectiveConfig.columns is the single source of truth for columns
@@ -451,6 +458,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     cleanupShellState(this.#shellState);
     this.#shellInitialized = false;
 
+    // Clean up tool panel resize handler
+    this.#resizeCleanup?.();
+    this.#resizeCleanup = undefined;
+
     // Abort all event listeners (internal + document-level)
     // This cleans up all listeners added with { signal } option
     if (this.#eventAbortController) {
@@ -487,10 +498,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       renderHeaderContent(this.#shadow, this.#shellState);
       // Render custom toolbar buttons (element/render modes)
       renderCustomToolbarButtons(this.#shadow, this.#effectiveConfig?.shell, this.#shellState);
-      // Open default panel if configured
+      // Open default section if configured
       const defaultOpen = this.#effectiveConfig?.shell?.toolPanel?.defaultOpen;
       if (defaultOpen && this.#shellState.toolPanels.has(defaultOpen)) {
-        this.openToolPanel(defaultOpen);
+        this.openToolPanel();
+        this.#shellState.expandedSections.add(defaultOpen);
       }
     }
 
@@ -517,7 +529,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           this.#exitRowEdit(this.activeEditRows, true);
         }
       },
-      { capture: true, signal }
+      { capture: true, signal },
     );
 
     // Click outside to commit row editing
@@ -531,7 +543,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         if (path.includes(rowEl)) return;
         this.#exitRowEdit(this.activeEditRows, false);
       },
-      { signal }
+      { signal },
     );
 
     // Faux scrollbar pattern: scroll events come from the fake scrollbar element
@@ -578,7 +590,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             });
           }
         },
-        { passive: true, signal }
+        { passive: true, signal },
       );
 
       // Forward wheel events from content area to faux scrollbar
@@ -606,7 +618,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
               fauxScrollbar.scrollTop += e.deltaY;
             }
           },
-          { passive: false, signal }
+          { passive: false, signal },
         );
 
         // Touch scrolling support for mobile devices
@@ -621,7 +633,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
               this.#touchScrollLeft = scrollArea?.scrollLeft ?? 0;
             }
           },
-          { passive: true, signal }
+          { passive: true, signal },
         );
 
         gridContentEl.addEventListener(
@@ -647,7 +659,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
               e.preventDefault();
             }
           },
-          { passive: false, signal }
+          { passive: false, signal },
         );
 
         gridContentEl.addEventListener(
@@ -658,7 +670,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             this.#touchScrollTop = null;
             this.#touchScrollLeft = null;
           },
-          { passive: true, signal }
+          { passive: true, signal },
         );
       }
     }
@@ -825,26 +837,41 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #processColumns(): void {
     // Let plugins process visible columns (column grouping, etc.)
-    // Note: _columns always contains ALL columns; plugins work on visible subset
+    // Start from base columns (before any plugin transformation) - like #rebuildRowModel uses #rows
     if (this.#pluginManager) {
-      // Get visible columns for plugin processing
-      const visibleCols = this._columns.filter((c) => !c.hidden);
+      // Use base columns as source of truth, falling back to current _columns if not set
+      const sourceColumns = this.#baseColumns.length > 0 ? this.#baseColumns : this._columns;
+      const visibleCols = sourceColumns.filter((c) => !c.hidden);
+      const hiddenCols = sourceColumns.filter((c) => c.hidden);
       const processedColumns = this.#pluginManager.processColumns([...visibleCols] as any[]);
 
-      // If plugins modified visible columns, update them in place preserving hidden column positions
+      // If plugins modified visible columns, update them
       if (processedColumns !== visibleCols) {
         // Build a map of processed columns by field for quick lookup
         const processedMap = new Map(processedColumns.map((c: any, i: number) => [c.field, { col: c, order: i }]));
 
-        // Update visible columns in _columns with their processed versions
-        // Hidden columns keep their original position
-        const updatedColumns = this._columns.map((c) => {
-          if (c.hidden) return c; // Keep hidden columns unchanged
-          const processed = processedMap.get(c.field);
-          return processed ? processed.col : c;
-        });
+        // Check if this is a complete column replacement (e.g., pivot mode)
+        // If no processed columns match original columns, use processed columns directly
+        const hasMatchingFields = visibleCols.some((c) => processedMap.has(c.field));
 
-        this._columns = updatedColumns as ColumnInternal<T>[];
+        if (!hasMatchingFields && processedColumns.length > 0) {
+          // Complete replacement: use processed columns directly (pivot mode)
+          // Preserve hidden columns at the end
+          this._columns = [...processedColumns, ...hiddenCols] as ColumnInternal<T>[];
+        } else {
+          // Plugins returned original fields (possibly modified) - merge back
+          // Use source columns as base, not current _columns
+          const updatedColumns = sourceColumns.map((c) => {
+            if (c.hidden) return c; // Keep hidden columns unchanged
+            const processed = processedMap.get(c.field);
+            return processed ? processed.col : c;
+          });
+
+          this._columns = updatedColumns as ColumnInternal<T>[];
+        }
+      } else {
+        // Plugins returned columns unchanged, but we may need to restore from base
+        this._columns = [...sourceColumns] as ColumnInternal<T>[];
       }
     }
   }
@@ -1017,6 +1044,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#getColumnConfiguration();
     this.#mergeEffectiveConfig();
     this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
+
+    // Store base columns before plugin transformation (like #rows for row processing)
+    this.#baseColumns = [...this._columns];
+
     this.#rebuildRowModel(); // Runs processRows hooks (must run before processColumns for tree plugin)
     this.#processColumns(); // Runs processColumns hooks
 
@@ -1524,7 +1555,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#stateChangeHandler = createStateChangeHandler(
         this,
         () => (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[],
-        (state) => this.#emit('column-state-change', state)
+        (state) => this.#emit('column-state-change', state),
       );
     }
     this.#stateChangeHandler();
@@ -1574,79 +1605,184 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Shell / Tool Panel API ----------------
 
   /**
+   * Check if the tool panel is currently open.
+   */
+  get isToolPanelOpen(): boolean {
+    return this.#shellState.isPanelOpen;
+  }
+
+  /**
    * Get the currently active tool panel ID, or null if none is open.
+   * @deprecated Use isToolPanelOpen and expandedToolPanelSections instead.
    */
   get activeToolPanel(): string | null {
     return this.#shellState.activePanel;
   }
 
   /**
-   * Open a tool panel by ID.
-   * Closes any currently open panel first.
+   * Get the IDs of expanded accordion sections.
    */
-  openToolPanel(panelId: string): void {
-    const panel = this.#shellState.toolPanels.get(panelId);
-    if (!panel) {
-      console.warn(`[tbw-grid] Tool panel "${panelId}" not found`);
-      return;
-    }
+  get expandedToolPanelSections(): string[] {
+    return [...this.#shellState.expandedSections];
+  }
 
-    // Close current panel if different
-    if (this.#shellState.activePanel && this.#shellState.activePanel !== panelId) {
-      this.closeToolPanel();
-    }
+  /**
+   * Open the tool panel (accordion view with all registered panels).
+   */
+  openToolPanel(): void {
+    if (this.#shellState.isPanelOpen) return;
 
-    // Set active panel
-    this.#shellState.activePanel = panelId;
+    this.#shellState.isPanelOpen = true;
+
+    // Auto-expand first section if none expanded
+    if (this.#shellState.expandedSections.size === 0 && this.#shellState.toolPanels.size > 0) {
+      const sortedPanels = [...this.#shellState.toolPanels.values()].sort(
+        (a, b) => (a.order ?? 100) - (b.order ?? 100),
+      );
+      const firstPanel = sortedPanels[0];
+      if (firstPanel) {
+        this.#shellState.expandedSections.add(firstPanel.id);
+      }
+    }
 
     // Update UI
     updateToolbarActiveStates(this.#shadow, this.#shellState);
     updatePanelState(this.#shadow, this.#shellState);
 
-    // Render panel content
-    renderPanelContent(this.#shadow, this.#shellState);
+    // Render accordion sections
+    const accordionIcons = {
+      expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
+      collapse: this.#effectiveConfig?.icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
+    };
+    renderPanelContent(this.#shadow, this.#shellState, accordionIcons);
 
     // Emit event
-    this.#emit('tool-panel-open', { id: panelId });
+    this.#emit('tool-panel-open', { sections: this.expandedToolPanelSections });
   }
 
   /**
-   * Close the currently open tool panel.
+   * Close the tool panel.
    */
   closeToolPanel(): void {
-    if (!this.#shellState.activePanel) return;
+    if (!this.#shellState.isPanelOpen) return;
 
-    const panelId = this.#shellState.activePanel;
-    const panel = this.#shellState.toolPanels.get(panelId);
+    // Clean up all panel content
+    for (const cleanup of this.#shellState.panelCleanups.values()) {
+      cleanup();
+    }
+    this.#shellState.panelCleanups.clear();
 
-    // Clean up panel content
+    // Legacy cleanup
     if (this.#shellState.activePanelCleanup) {
       this.#shellState.activePanelCleanup();
       this.#shellState.activePanelCleanup = null;
     }
 
-    // Call panel's onClose callback
-    panel?.onClose?.();
+    // Call onClose for all panels
+    for (const panel of this.#shellState.toolPanels.values()) {
+      panel.onClose?.();
+    }
 
-    // Clear active panel
-    this.#shellState.activePanel = null;
+    this.#shellState.isPanelOpen = false;
 
     // Update UI
     updateToolbarActiveStates(this.#shadow, this.#shellState);
     updatePanelState(this.#shadow, this.#shellState);
 
     // Emit event
-    this.#emit('tool-panel-close', { id: panelId });
+    this.#emit('tool-panel-close', {});
   }
 
   /**
-   * Toggle a tool panel open/closed.
+   * Toggle the tool panel open/closed.
    */
-  toggleToolPanel(panelId: string): void {
-    if (this.#shellState.activePanel === panelId) {
+  toggleToolPanel(): void {
+    if (this.#shellState.isPanelOpen) {
       this.closeToolPanel();
     } else {
-      this.openToolPanel(panelId);
+      this.openToolPanel();
+    }
+  }
+
+  /**
+   * Toggle an accordion section expanded/collapsed.
+   * Only one section can be expanded at a time (exclusive accordion).
+   * When there's only one panel, toggling is disabled (always expanded).
+   */
+  toggleToolPanelSection(sectionId: string): void {
+    const panel = this.#shellState.toolPanels.get(sectionId);
+    if (!panel) {
+      console.warn(`[tbw-grid] Tool panel section "${sectionId}" not found`);
+      return;
+    }
+
+    // Don't allow toggling when there's only one panel (it should stay expanded)
+    if (this.#shellState.toolPanels.size === 1) {
+      return;
+    }
+
+    const isExpanded = this.#shellState.expandedSections.has(sectionId);
+
+    if (isExpanded) {
+      // Collapsing current section
+      const cleanup = this.#shellState.panelCleanups.get(sectionId);
+      if (cleanup) {
+        cleanup();
+        this.#shellState.panelCleanups.delete(sectionId);
+      }
+      panel.onClose?.();
+      this.#shellState.expandedSections.delete(sectionId);
+      this.#updateAccordionSectionState(sectionId, false);
+    } else {
+      // Expanding - first collapse all others (exclusive accordion)
+      for (const [otherId, otherPanel] of this.#shellState.toolPanels) {
+        if (otherId !== sectionId && this.#shellState.expandedSections.has(otherId)) {
+          const cleanup = this.#shellState.panelCleanups.get(otherId);
+          if (cleanup) {
+            cleanup();
+            this.#shellState.panelCleanups.delete(otherId);
+          }
+          otherPanel.onClose?.();
+          this.#shellState.expandedSections.delete(otherId);
+          this.#updateAccordionSectionState(otherId, false);
+          // Clear content of collapsed section
+          const contentEl = this.#shadow.querySelector(`[data-section="${otherId}"] .tbw-accordion-content`);
+          if (contentEl) contentEl.innerHTML = '';
+        }
+      }
+      // Now expand the target section
+      this.#shellState.expandedSections.add(sectionId);
+      this.#updateAccordionSectionState(sectionId, true);
+      this.#renderAccordionSectionContent(sectionId);
+    }
+
+    // Emit event
+    this.#emit('tool-panel-section-toggle', { id: sectionId, expanded: !isExpanded });
+  }
+
+  /**
+   * Update accordion section visual state.
+   */
+  #updateAccordionSectionState(sectionId: string, expanded: boolean): void {
+    const section = this.#shadow.querySelector(`[data-section="${sectionId}"]`);
+    if (section) {
+      section.classList.toggle('expanded', expanded);
+    }
+  }
+
+  /**
+   * Render content for a single accordion section.
+   */
+  #renderAccordionSectionContent(sectionId: string): void {
+    const panel = this.#shellState.toolPanels.get(sectionId);
+    if (!panel?.render) return;
+
+    const contentEl = this.#shadow.querySelector(`[data-section="${sectionId}"] .tbw-accordion-content`);
+    if (!contentEl) return;
+
+    const cleanup = panel.render(contentEl as HTMLElement);
+    if (cleanup) {
+      this.#shellState.panelCleanups.set(sectionId, cleanup);
     }
   }
 
@@ -1975,8 +2111,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     if (hasShell) {
       // Build shell DOM structure
-      const shellHeaderHtml = renderShellHeader(shellConfig, this.#shellState);
-      const shellBodyHtml = renderShellBody(shellConfig, this.#shellState, gridContentHtml);
+      const toolPanelIcon = this.#effectiveConfig?.icons?.toolPanel ?? DEFAULT_GRID_ICONS.toolPanel;
+      const accordionIcons = {
+        expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
+        collapse: this.#effectiveConfig?.icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
+      };
+      const shellHeaderHtml = renderShellHeader(shellConfig, this.#shellState, toolPanelIcon);
+      const shellBodyHtml = renderShellBody(shellConfig, this.#shellState, gridContentHtml, accordionIcons);
 
       this.#shadow.innerHTML = `
         <div class="tbw-grid-root has-shell">
@@ -2008,9 +2149,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #setupShellListeners(): void {
     setupShellEventListeners(this.#shadow, this.#effectiveConfig?.shell, this.#shellState, {
-      onPanelToggle: (panelId) => this.toggleToolPanel(panelId),
-      onPanelClose: () => this.closeToolPanel(),
+      onPanelToggle: () => this.toggleToolPanel(),
+      onSectionToggle: (sectionId: string) => this.toggleToolPanelSection(sectionId),
       onToolbarButtonClick: (buttonId) => this.#handleToolbarButtonClick(buttonId),
+    });
+
+    // Set up tool panel resize
+    this.#resizeCleanup?.();
+    this.#resizeCleanup = setupToolPanelResize(this.#shadow, this.#effectiveConfig?.shell, (width: number) => {
+      // Update the CSS variable to persist the new width
+      this.style.setProperty('--tbw-tool-panel-width', `${width}px`);
     });
   }
 

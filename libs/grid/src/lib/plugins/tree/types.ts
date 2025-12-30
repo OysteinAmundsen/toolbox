@@ -9,8 +9,6 @@
 
 /** Configuration options for the tree plugin */
 export interface TreeConfig {
-  /** Whether tree functionality is enabled (default: true) */
-  enabled?: boolean;
   /** Field name containing child rows (default: 'children') */
   childrenField?: string;
   /** Auto-detect tree structure from data (default: true) */

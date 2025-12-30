@@ -28,9 +28,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<PinnedColumnsConfig> {
-    return {
-      enabled: true,
-    };
+    return {};
   }
 
   // ===== Internal State =====
@@ -60,18 +58,13 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   // ===== Hooks =====
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    if (!this.config.enabled) {
-      this.isApplied = false;
-      return [...columns];
-    }
-
     // Mark that we have sticky columns to apply
     this.isApplied = hasStickyColumns([...columns]);
     return [...columns];
   }
 
   override afterRender(): void {
-    if (!this.config.enabled || !this.isApplied) {
+    if (!this.isApplied) {
       return;
     }
 

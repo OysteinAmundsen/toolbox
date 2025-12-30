@@ -85,6 +85,47 @@ export const aggregatorRegistry = {
   },
 };
 
+// ===== Value-based Aggregators =====
+// Used by plugins like Pivot that work with pre-extracted numeric values
+
+export type ValueAggregatorFn = (values: number[]) => number;
+
+/**
+ * Built-in value-based aggregators.
+ * These operate on arrays of numbers (unlike row-based aggregators).
+ */
+const builtInValueAggregators: Record<string, ValueAggregatorFn> = {
+  sum: (vals) => vals.reduce((a, b) => a + b, 0),
+  avg: (vals) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0),
+  count: (vals) => vals.length,
+  min: (vals) => (vals.length ? Math.min(...vals) : 0),
+  max: (vals) => (vals.length ? Math.max(...vals) : 0),
+  first: (vals) => vals[0] ?? 0,
+  last: (vals) => vals[vals.length - 1] ?? 0,
+};
+
+/**
+ * Get a value-based aggregator function.
+ * Used by Pivot plugin and other features that aggregate pre-extracted values.
+ *
+ * @param aggFunc - Aggregation function name ('sum', 'avg', 'count', 'min', 'max', 'first', 'last')
+ * @returns Aggregator function that takes number[] and returns number
+ */
+export function getValueAggregator(aggFunc: string): ValueAggregatorFn {
+  return builtInValueAggregators[aggFunc] ?? builtInValueAggregators.sum;
+}
+
+/**
+ * Run a value-based aggregator on a set of values.
+ *
+ * @param aggFunc - Aggregation function name
+ * @param values - Array of numbers to aggregate
+ * @returns Aggregated result
+ */
+export function runValueAggregator(aggFunc: string, values: number[]): number {
+  return getValueAggregator(aggFunc)(values);
+}
+
 // Legacy function exports for backward compatibility
 export const registerAggregator = aggregatorRegistry.register.bind(aggregatorRegistry);
 export const unregisterAggregator = aggregatorRegistry.unregister.bind(aggregatorRegistry);

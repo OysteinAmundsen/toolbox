@@ -1,0 +1,73 @@
+/*
+ * Bootstrap 5 Table Theme
+ * Matches the look of Bootstrap's .table component
+ * https://getbootstrap.com/docs/5.3/content/tables/
+ */
+tbw-grid {
+  color-scheme: light dark;
+
+  /* Bootstrap surface colors */
+  --tbw-color-bg: light-dark(#ffffff, #212529);
+  --tbw-color-panel-bg: light-dark(#ffffff, #212529);
+  --tbw-color-fg: light-dark(#212529, #dee2e6);
+  --tbw-color-fg-muted: light-dark(#6c757d, #adb5bd);
+
+  /* Bootstrap border colors */
+  --tbw-color-border: light-dark(#dee2e6, #495057);
+  --tbw-color-border-strong: light-dark(#adb5bd, #6c757d);
+  --tbw-color-border-cell: light-dark(#dee2e6, #495057);
+  --tbw-color-border-header: light-dark(#dee2e6, #495057);
+
+  /* Row divider */
+  --tbw-row-divider: 1px solid light-dark(#dee2e6, #495057);
+
+  /* Bootstrap primary (blue) */
+  --tbw-color-accent: light-dark(#0d6efd, #6ea8fe);
+  --tbw-color-accent-fg: #ffffff;
+
+  /* Selection & interaction - Bootstrap's table-active */
+  --tbw-color-selection: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.075));
+  --tbw-color-row-alt: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05)); /* Striped rows */
+  --tbw-color-row-hover: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.075));
+  --tbw-color-active-row-bg: light-dark(rgba(13, 110, 253, 0.1), rgba(110, 168, 254, 0.15));
+
+  /* Header - slightly darker background */
+  --tbw-color-header-bg: light-dark(#f8f9fa, #343a40);
+  --tbw-color-header-fg: light-dark(#212529, #dee2e6);
+
+  /* No border radius - Bootstrap tables are rectangular */
+  --tbw-border-radius: 0;
+
+  /* Focus styling */
+  --tbw-focus-outline: 3px solid light-dark(rgba(13, 110, 253, 0.25), rgba(110, 168, 254, 0.5));
+  --tbw-focus-outline-offset: -3px;
+  --tbw-resize-handle-color-hover: var(--tbw-color-accent);
+
+  /* Bootstrap typography */
+  --tbw-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --tbw-font-size: 1rem;
+  --tbw-font-size-header: 1rem;
+  --tbw-font-weight-header: bold;
+  --tbw-header-text-transform: none;
+
+  /* Bootstrap table padding */
+  --tbw-cell-padding: 8px 8px;
+  --tbw-cell-padding-header: 8px 8px;
+  --tbw-row-height: 40px;
+  --tbw-header-height: 44px;
+
+  /* Sort indicator */
+  --tbw-sort-indicator-color: light-dark(#6c757d, #adb5bd);
+  --tbw-sort-indicator-active-color: light-dark(#212529, #dee2e6);
+
+  /* Header border - thicker bottom border like Bootstrap */
+  --tbw-border-header: 2px solid light-dark(#212529, #dee2e6);
+
+  /* Input styling */
+  --tbw-border-input: 1px solid light-dark(#ced4da, #495057);
+  --tbw-editing-bg: light-dark(#ffffff, #212529);
+  --tbw-editing-border: 1px solid var(--tbw-color-accent);
+
+  /* Success color for checkmarks etc */
+  --tbw-color-success: light-dark(#198754, #75b798);
+}

@@ -26,7 +26,6 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
   protected override get defaultConfig(): Partial<ServerSideConfig> {
     return {
-      enabled: true,
       pageSize: 100,
       cacheBlockSize: 100,
       maxConcurrentRequests: 2,

@@ -10,6 +10,7 @@ import { computeVirtualWindow, shouldBypassVirtualization } from '../../core/int
 import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnState } from '../../core/types';
 import { computeFilterCacheKey, filterRows, getUniqueValues } from './filter-model';
+import styles from './filtering.css?inline';
 import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams } from './types';
 
 /** Global styles for filter panel (rendered in document.body) */
@@ -170,7 +171,6 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   protected override get defaultConfig(): Partial<FilterConfig> {
     return {
-      enabled: true,
       debounceMs: 300,
       caseSensitive: false,
       trimInput: true,
@@ -240,8 +240,6 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   override afterRender(): void {
-    if (!this.config.enabled) return;
-
     const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
 
@@ -510,7 +508,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
             this.closeFilterPanel();
           }
         },
-        { signal: this.panelAbortController?.signal }
+        { signal: this.panelAbortController?.signal },
       );
     }, 0);
   }
@@ -558,7 +556,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     panel: HTMLElement,
     params: FilterPanelParams,
     uniqueValues: unknown[],
-    excludedValues: Set<unknown>
+    excludedValues: Set<unknown>,
   ): void {
     const { field } = params;
 
@@ -746,7 +744,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
           renderVisibleItems();
         }
       },
-      { passive: true }
+      { passive: true },
     );
 
     renderValues(searchInput.value);
@@ -896,37 +894,5 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   // ===== Styles =====
 
-  override readonly styles = `
-    .header-cell.filtered::before {
-      content: '';
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 6px;
-      height: 6px;
-      background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-      border-radius: 50%;
-    }
-    .tbw-filter-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 2px;
-      margin-left: 4px;
-      opacity: 0.4;
-      transition: opacity 0.15s;
-      color: inherit;
-      vertical-align: middle;
-    }
-    .tbw-filter-btn:hover,
-    .tbw-filter-btn.active {
-      opacity: 1;
-    }
-    .tbw-filter-btn.active {
-      color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-    }
-  `;
+  override readonly styles = styles;
 }

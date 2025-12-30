@@ -8,7 +8,7 @@
  * - 'range': Range selection. Shift+click or drag to select rectangular cell ranges.
  */
 
-import { BaseGridPlugin, CellClickEvent, CellMouseEvent, ScrollEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import {
   createRangeFromAnchor,
   getAllCellsInRanges,
@@ -16,6 +16,7 @@ import {
   normalizeRange,
   toPublicRanges,
 } from './range-selection';
+import styles from './selection.css?inline';
 import type { CellRange, InternalCellRange, SelectionChangeDetail, SelectionConfig, SelectionMode } from './types';
 
 /**
@@ -28,7 +29,7 @@ function buildSelectionEvent(
     selected: Set<number>;
     ranges: InternalCellRange[];
   },
-  colCount: number
+  colCount: number,
 ): SelectionChangeDetail {
   if (mode === 'cell' && state.selectedCell) {
     return {
@@ -454,43 +455,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         selected: this.selected,
         ranges: this.ranges,
       },
-      this.columns.length
+      this.columns.length,
     );
   }
 
   // ===== Styles =====
 
-  override readonly styles = `
-    /* Prevent text selection during range drag */
-    :host .selecting .data-grid-row > .cell {
-      user-select: none;
-    }
-
-    /* Row selection - use accent color for row focus */
-    :host .data-grid-row.row-focus {
-      background-color: var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%));
-    }
-
-    /* Disable cell-focus outline in row mode - row is the focus unit */
-    :host([data-selection-mode="row"]) .cell-focus {
-      outline: none;
-    }
-
-    /* Selection cell styles - for range mode */
-    :host .data-grid-row > .cell.selected {
-      background-color: var(--tbw-range-selection-bg);
-    }
-    :host .data-grid-row > .cell.selected.top {
-      border-top: 2px solid var(--tbw-range-border-color);
-    }
-    :host .data-grid-row > .cell.selected.bottom {
-      border-bottom: 2px solid var(--tbw-range-border-color);
-    }
-    :host .data-grid-row > .cell.selected.first {
-      border-left: 2px solid var(--tbw-range-border-color);
-    }
-    :host .data-grid-row > .cell.selected.last {
-      border-right: 2px solid var(--tbw-range-border-color);
-    }
-  `;
+  override readonly styles = styles;
 }

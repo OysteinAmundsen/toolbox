@@ -1,13 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { formatCellValue, buildClipboardText, type CopyParams } from './copy';
+import { describe, expect, it } from 'vitest';
+import type { ColumnConfig } from '../../core/types';
+import { buildClipboardText, formatCellValue, type CopyParams } from './copy';
 import { parseClipboardText } from './paste';
 import type { ClipboardConfig } from './types';
-import type { ColumnConfig } from '../../core/types';
 
 describe('clipboard', () => {
   describe('formatCellValue', () => {
     const defaultConfig: ClipboardConfig = {
-      enabled: true,
       delimiter: '\t',
       newline: '\n',
       quoteStrings: false,
@@ -94,7 +93,6 @@ describe('clipboard', () => {
     ];
 
     const defaultConfig: ClipboardConfig = {
-      enabled: true,
       delimiter: '\t',
       newline: '\n',
       includeHeaders: false,
@@ -253,7 +251,6 @@ describe('clipboard', () => {
 
   describe('parseClipboardText', () => {
     const defaultConfig: ClipboardConfig = {
-      enabled: true,
       delimiter: '\t',
       newline: '\n',
     };
@@ -365,7 +362,6 @@ describe('clipboard', () => {
   describe('edge cases', () => {
     it('should handle round-trip with special characters', () => {
       const config: ClipboardConfig = {
-        enabled: true,
         delimiter: '\t',
         newline: '\n',
         quoteStrings: false,
@@ -397,7 +393,7 @@ describe('clipboard', () => {
         rows: [{ id: 1 }],
         columns: [],
         selectedIndices: new Set([0]),
-        config: { enabled: true, delimiter: '\t', newline: '\n' },
+        config: { delimiter: '\t', newline: '\n' },
       };
 
       const result = buildClipboardText(params);
@@ -419,7 +415,7 @@ describe('clipboard', () => {
         rows,
         columns,
         selectedIndices: new Set([0, 1]),
-        config: { enabled: true, delimiter: '\t', newline: '\n' },
+        config: { delimiter: '\t', newline: '\n' },
       };
 
       const result = buildClipboardText(params);

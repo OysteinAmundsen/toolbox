@@ -21,7 +21,6 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
   protected override get defaultConfig(): Partial<UndoRedoConfig> {
     return {
-      enabled: true,
       maxHistorySize: 100,
     };
   }
@@ -44,8 +43,6 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * - Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z: Redo
    */
   override onKeyDown(event: KeyboardEvent): boolean {
-    if (!this.config.enabled) return false;
-
     const isUndo = (event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey;
     const isRedo = (event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey));
 
@@ -114,7 +111,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     const newState = pushAction(
       { undoStack: this.undoStack, redoStack: this.redoStack },
       action,
-      this.config.maxHistorySize ?? 100
+      this.config.maxHistorySize ?? 100,
     );
     this.undoStack = newState.undoStack;
     this.redoStack = newState.redoStack;

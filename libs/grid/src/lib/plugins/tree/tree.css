@@ -1,0 +1,8 @@
+.tree-toggle {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s;
+}
+.tree-toggle:hover {
+  color: var(--tbw-tree-accent, var(--tbw-color-accent));
+}

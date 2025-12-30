@@ -9,12 +9,7 @@
 import type { RenderRow, RowGroupingConfig } from './types';
 
 // Re-export aggregator functions from core for backward compatibility
-export {
-  getAggregator,
-  listAggregators,
-  registerAggregator,
-  runAggregator,
-} from '../../core/internal/aggregators';
+export { getAggregator, listAggregators, registerAggregator, runAggregator } from '../../core/internal/aggregators';
 
 interface GroupNode {
   key: string; // composite key
@@ -33,14 +28,14 @@ interface BuildGroupingArgs {
 
 /**
  * Build a flattened grouping projection (collapsed by default).
- * Returns empty array when grouping disabled or all rows ungrouped.
+ * Returns empty array when groupOn not configured or all rows ungrouped.
  *
  * @param args - The grouping arguments
  * @returns Flattened array of render rows (groups + data rows)
  */
 export function buildGroupedRowModel({ rows, config, expanded }: BuildGroupingArgs): RenderRow[] {
   const groupOn = config.groupOn;
-  if (!config.enabled || typeof groupOn !== 'function') {
+  if (typeof groupOn !== 'function') {
     return [];
   }
 

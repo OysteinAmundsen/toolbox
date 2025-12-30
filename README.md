@@ -1,5 +1,8 @@
 # Toolbox Web
 
+[![CI/CD Pipeline](https://github.com/OysteinAmundsen/toolbox/actions/workflows/build-n-deploy.yml/badge.svg)](https://github.com/OysteinAmundsen/toolbox/actions/workflows/build-n-deploy.yml)
+[![CodeQL](https://github.com/OysteinAmundsen/toolbox/actions/workflows/codeql.yml/badge.svg)](https://github.com/OysteinAmundsen/toolbox/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 
 A monorepo for **framework-agnostic web component libraries** built with pure TypeScript. Components work natively in vanilla JS, React, Vue, Angular, Svelte, and any other framework.

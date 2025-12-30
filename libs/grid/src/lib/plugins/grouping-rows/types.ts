@@ -14,8 +14,6 @@ export type AggregatorMap = Record<string, import('../../core/internal/aggregato
 
 /** Configuration options for the row grouping plugin */
 export interface GroupingRowsConfig {
-  /** Whether the plugin is enabled (default: true) */
-  enabled?: boolean;
   /**
    * Callback to determine group path for a row.
    * Return an array of group keys, a single key, null/false to skip grouping.

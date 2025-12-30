@@ -1,0 +1,31 @@
+.header-cell.filtered::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+  border-radius: 50%;
+}
+.tbw-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  margin-left: 4px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  color: inherit;
+  vertical-align: middle;
+}
+.tbw-filter-btn:hover,
+.tbw-filter-btn.active {
+  opacity: 1;
+}
+.tbw-filter-btn.active {
+  color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+}

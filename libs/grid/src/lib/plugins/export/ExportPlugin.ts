@@ -37,7 +37,6 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
 
   protected override get defaultConfig(): Partial<ExportConfig> {
     return {
-      enabled: true,
       fileName: 'export',
       includeHeaders: true,
       onlyVisible: true,

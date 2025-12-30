@@ -9,8 +9,6 @@ export type ExportFormat = 'csv' | 'excel' | 'json';
 
 /** Configuration options for the export plugin */
 export interface ExportConfig {
-  /** Whether export is enabled (default: true) */
-  enabled?: boolean;
   /** Default file name for exports (default: 'export') */
   fileName?: string;
   /** Include column headers in export (default: true) */

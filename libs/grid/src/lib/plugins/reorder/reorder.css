@@ -1,0 +1,28 @@
+.header-row > .cell[draggable='true'] {
+  cursor: grab;
+  position: relative;
+}
+.header-row > .cell.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+.header-row > .cell.drop-before::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--tbw-reorder-indicator, var(--tbw-color-accent));
+  z-index: 1;
+}
+.header-row > .cell.drop-after::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--tbw-reorder-indicator, var(--tbw-color-accent));
+  z-index: 1;
+}

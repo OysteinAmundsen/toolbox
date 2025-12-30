@@ -8,8 +8,7 @@
 
 /** Configuration options for the pinned columns plugin */
 export interface PinnedColumnsConfig {
-  /** Whether the plugin is enabled (default: true) */
-  enabled?: boolean;
+  // Currently no configuration options - plugin is active when columns have sticky position
 }
 
 /** Internal state managed by the pinned columns plugin */

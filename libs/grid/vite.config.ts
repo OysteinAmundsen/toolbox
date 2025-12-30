@@ -54,12 +54,12 @@ function externalizeCore(): Plugin {
   };
 }
 
-/** Copy theme CSS files to dist/themes */
+/** Copy theme CSS files to dist/themes from shared libs/themes */
 function copyThemes(): Plugin {
   return {
     name: 'copy-themes',
     writeBundle() {
-      const src = resolve(__dirname, 'src/themes');
+      const src = resolve(__dirname, '../../libs/themes');
       const dest = resolve(outDir, 'themes');
       try {
         mkdirSync(dest, { recursive: true });
@@ -250,13 +250,9 @@ export default defineConfig(({ command }) => ({
     reporters: ['default'],
     // Isolate test files to prevent module initialization race conditions
     isolate: true,
-    // Use threads pool with single thread to eliminate race conditions
+    // Use single worker to eliminate race conditions (Vitest 4.0 replaces poolOptions.threads.singleThread)
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: true,
-      },
-    },
+    maxWorkers: 1,
     coverage: { provider: 'v8', reporter: ['text', 'html', 'lcov'], reportsDirectory: '../../coverage/libs/grid' },
   },
 }));

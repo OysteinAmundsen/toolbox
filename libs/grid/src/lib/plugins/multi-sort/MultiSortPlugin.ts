@@ -8,6 +8,7 @@
 import { BaseGridPlugin, HeaderClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnState } from '../../core/types';
 import { applySorts, getSortDirection, getSortIndex, toggleSort } from './multi-sort';
+import styles from './multi-sort.css?inline';
 import type { MultiSortConfig, SortModel } from './types';
 
 /**
@@ -24,7 +25,6 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   protected override get defaultConfig(): Partial<MultiSortConfig> {
     return {
-      enabled: true,
       maxSortColumns: 3,
       showSortIndex: true,
     };
@@ -210,29 +210,5 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   // ===== Styles =====
 
-  override readonly styles = `
-    .header-cell[data-sort="asc"]::after {
-      content: '↑';
-      margin-left: 4px;
-      opacity: 0.8;
-    }
-    .header-cell[data-sort="desc"]::after {
-      content: '↓';
-      margin-left: 4px;
-      opacity: 0.8;
-    }
-    .sort-index {
-      font-size: 10px;
-      background: var(--tbw-multi-sort-badge-bg, var(--tbw-color-panel-bg));
-      color: var(--tbw-multi-sort-badge-color, var(--tbw-color-fg));
-      border-radius: 50%;
-      width: 14px;
-      height: 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: 2px;
-      font-weight: 600;
-    }
-  `;
+  override readonly styles = styles;
 }

@@ -7,8 +7,6 @@
 
 /** Configuration for the undo/redo plugin */
 export interface UndoRedoConfig {
-  /** Whether the plugin is enabled. Default: true */
-  enabled?: boolean;
   /** Maximum number of actions to keep in history. Default: 100 */
   maxHistorySize?: number;
 }

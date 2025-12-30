@@ -6,8 +6,6 @@
 
 /** Configuration options for the column virtualization plugin */
 export interface ColumnVirtualizationConfig {
-  /** Whether the plugin is enabled (default: true) */
-  enabled?: boolean;
   /** Auto-enable when column count exceeds threshold (default: true) */
   autoEnable?: boolean;
   /** Column count threshold for auto-enabling (default: 30) */

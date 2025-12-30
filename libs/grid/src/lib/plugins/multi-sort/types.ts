@@ -14,8 +14,6 @@ export interface SortModel {
 
 /** Configuration options for the multi-sort plugin */
 export interface MultiSortConfig {
-  /** Whether multi-sort is enabled (default: true) */
-  enabled?: boolean;
   /** Maximum number of columns to sort by (default: 3) */
   maxSortColumns?: number;
   /** Whether to show sort order badges (1, 2, 3) on headers (default: true) */

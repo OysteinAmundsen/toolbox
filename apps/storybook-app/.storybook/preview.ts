@@ -14,24 +14,38 @@ if (typeof DataGridElement === 'undefined') {
   console.error('Grid component failed to load');
 }
 
-// Static raw imports for themes using relative paths
-import contrastCss from '../../../libs/themes/dg-theme-contrast.css?raw';
-import largeCss from '../../../libs/themes/dg-theme-large.css?raw';
-import standardCss from '../../../libs/themes/dg-theme-standard.css?raw';
-import vibrantCss from '../../../libs/themes/dg-theme-vibrant.css?raw';
+// Auto-import all theme CSS files from the themes directory
+// Adding a new theme file automatically makes it available
+const themeModules = import.meta.glob('../../../libs/themes/dg-theme-*.css', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+// Build THEME_MAP from glob results: extract theme name from filename
+// e.g., '../../../libs/themes/dg-theme-contrast.css' -> 'contrast'
+const THEME_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(themeModules).map(([path, css]) => {
+    const match = path.match(/dg-theme-(\w+)\.css$/);
+    const themeName = match?.[1] ?? 'unknown';
+    return [themeName, css];
+  }),
+);
+
+// Build toolbar items dynamically from available themes
+const themeToolbarItems = [
+  { value: 'default', title: 'Default (Built-in)' },
+  ...Object.keys(THEME_MAP).map((name) => ({
+    value: name,
+    title: name.charAt(0).toUpperCase() + name.slice(1),
+  })),
+];
 
 // Register languages for syntax highlighting
 hljs.registerLanguage('html', xml);
 hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('js', javascript);
-
-const THEME_MAP: Record<string, string> = {
-  standard: standardCss,
-  contrast: contrastCss,
-  vibrant: vibrantCss,
-  large: largeCss,
-};
 
 function applyTheme(name: string) {
   const id = 'dg-active-theme-style';
@@ -73,13 +87,7 @@ const preview: Preview = {
       defaultValue: 'standard',
       toolbar: {
         icon: 'paintbrush',
-        items: [
-          { value: 'default', title: 'Default (Built-in)' },
-          { value: 'standard', title: 'Standard' },
-          { value: 'contrast', title: 'High Contrast' },
-          { value: 'large', title: 'Large' },
-          { value: 'vibrant', title: 'Vibrant' },
-        ],
+        items: themeToolbarItems,
         dynamicTitle: true,
         showName: true,
       },

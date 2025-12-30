@@ -75,10 +75,12 @@ function main() {
     console.log(`  ✓ ${pkgPath.replace(ROOT, '.')}`);
   }
 
-  // Regenerate changelog from conventional commits
-  console.log('\nRegenerating changelog...');
+  // Regenerate changelog - prepend only the latest release to existing content
+  // -r 1 = generate only 1 release (the new one)
+  // -s = write to the same file (prepend mode with -i)
+  console.log('\nUpdating changelog...');
   try {
-    execSync(`bunx conventional-changelog -p angular -i "${CHANGELOG_PATH}" -s -r 0`, {
+    execSync(`bunx conventional-changelog -p angular -i "${CHANGELOG_PATH}" -s -r 1`, {
       cwd: ROOT,
       stdio: 'inherit',
     });

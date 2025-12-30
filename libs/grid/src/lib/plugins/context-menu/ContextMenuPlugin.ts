@@ -6,6 +6,7 @@
  */
 
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import contextMenuStyles from './context-menu.css?inline';
 import { buildMenuItems, createMenuElement, positionMenu } from './menu';
 import type { ContextMenuConfig, ContextMenuItem, ContextMenuParams } from './types';
 
@@ -15,60 +16,8 @@ let globalClickHandler: ((e: Event) => void) | null = null;
 let globalKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
 /** Global stylesheet for context menu (injected once) */
 let globalStyleSheet: HTMLStyleElement | null = null;
-
-/** Context menu styles for light DOM rendering */
-const contextMenuStyles = `
-  .tbw-context-menu {
-    position: fixed;
-    background: light-dark(#f5f5f5, #2a2a2a);
-    color: light-dark(#222, #eee);
-    border: 1px solid light-dark(#d0d0d4, #454545);
-    border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-    min-width: 160px;
-    padding: 4px 0;
-    z-index: 10000;
-    font-size: 13px;
-    font-family: system-ui, sans-serif;
-  }
-  .tbw-context-menu-item {
-    display: flex;
-    align-items: center;
-    padding: 6px 12px;
-    cursor: pointer;
-    gap: 8px;
-  }
-  .tbw-context-menu-item:hover:not(.disabled) {
-    background: light-dark(#e8e8e8, #3a3a3a);
-  }
-  .tbw-context-menu-item.disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .tbw-context-menu-item.danger {
-    color: light-dark(#c00, #f66);
-  }
-  .tbw-context-menu-icon {
-    width: 16px;
-    text-align: center;
-  }
-  .tbw-context-menu-label {
-    flex: 1;
-  }
-  .tbw-context-menu-shortcut {
-    color: light-dark(#888, #888);
-    font-size: 11px;
-  }
-  .tbw-context-menu-arrow {
-    font-size: 10px;
-    color: light-dark(#888, #888);
-  }
-  .tbw-context-menu-separator {
-    height: 1px;
-    background: light-dark(#d0d0d4, #454545);
-    margin: 4px 0;
-  }
-`;
+/** Reference count for instances using global handlers */
+let globalHandlerRefCount = 0;
 
 /** Default menu items when none are configured */
 const defaultItems: ContextMenuItem[] = [
@@ -129,6 +78,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
     this.installGlobalHandlers();
+    globalHandlerRefCount++;
   }
 
   override detach(): void {
@@ -138,6 +88,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     }
     this.isOpen = false;
     this.params = null;
+    this.uninstallGlobalHandlers();
   }
 
   // ===== Private Methods =====
@@ -169,6 +120,29 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         }
       };
       document.addEventListener('keydown', globalKeydownHandler);
+    }
+  }
+
+  /**
+   * Clean up global handlers when the last instance detaches.
+   * Uses reference counting to ensure handlers persist while any grid uses the plugin.
+   */
+  private uninstallGlobalHandlers(): void {
+    globalHandlerRefCount--;
+    if (globalHandlerRefCount > 0) return;
+
+    // Last instance - clean up all global resources
+    if (globalClickHandler) {
+      document.removeEventListener('click', globalClickHandler);
+      globalClickHandler = null;
+    }
+    if (globalKeydownHandler) {
+      document.removeEventListener('keydown', globalKeydownHandler);
+      globalKeydownHandler = null;
+    }
+    if (globalStyleSheet) {
+      globalStyleSheet.remove();
+      globalStyleSheet = null;
     }
   }
 

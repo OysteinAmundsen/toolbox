@@ -28,6 +28,10 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   if (isFormField(target) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
     if ((target as HTMLInputElement).tagName === 'INPUT' && (target as HTMLInputElement).type === 'number') return;
   }
+  // Let arrow left/right navigate within text inputs instead of moving cells
+  if (isFormField(target) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
+  // Let Enter/Escape be handled by the input's own handlers first
+  if (isFormField(target) && (e.key === 'Enter' || e.key === 'Escape')) return;
   if (editing && (colType === 'select' || colType === 'typeahead') && (e.key === 'ArrowDown' || e.key === 'ArrowUp'))
     return;
   switch (e.key) {
@@ -93,7 +97,7 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       if (typeof grid.beginBulkEdit === 'function') grid.beginBulkEdit(grid.focusRow);
       else
         (grid as unknown as HTMLElement).dispatchEvent(
-          new CustomEvent('activate-cell', { detail: { row: grid.focusRow, col: grid.focusCol } })
+          new CustomEvent('activate-cell', { detail: { row: grid.focusRow, col: grid.focusCol } }),
         );
       return ensureCellVisible(grid);
     default:
@@ -108,14 +112,25 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
  */
 export function ensureCellVisible(grid: InternalGrid): void {
   if (grid.virtualization?.enabled) {
-    const { rowHeight } = grid.virtualization;
-    const viewport = grid as unknown as HTMLElement; // grid element is the scroll container post-refactor
-    const y = grid.focusRow * rowHeight;
-    if (y < viewport.scrollTop) viewport.scrollTop = y;
-    else if (y + rowHeight > viewport.scrollTop + viewport.clientHeight)
-      viewport.scrollTop = y - viewport.clientHeight + rowHeight;
+    const { rowHeight, container, viewportEl } = grid.virtualization;
+    // container is the faux scrollbar element that handles actual scrolling
+    // viewportEl is the visible area element that has the correct height
+    const scrollEl = container as HTMLElement | undefined;
+    const visibleHeight = viewportEl?.clientHeight ?? scrollEl?.clientHeight ?? 0;
+    if (scrollEl && visibleHeight > 0) {
+      const y = grid.focusRow * rowHeight;
+      if (y < scrollEl.scrollTop) {
+        scrollEl.scrollTop = y;
+      } else if (y + rowHeight > scrollEl.scrollTop + visibleHeight) {
+        scrollEl.scrollTop = y - visibleHeight + rowHeight;
+      }
+    }
   }
-  grid.refreshVirtualWindow(false);
+  // Skip refreshVirtualWindow when in edit mode to avoid wiping editors
+  const isEditing = grid.activeEditRows !== undefined && grid.activeEditRows !== -1;
+  if (!isEditing) {
+    grid.refreshVirtualWindow(false);
+  }
   Array.from(grid.bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) => el.classList.remove('cell-focus'));
   // Clear previous aria-selected markers
   Array.from(grid.bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el: any) => {
@@ -132,7 +147,7 @@ export function ensureCellVisible(grid: InternalGrid): void {
       cell.setAttribute('aria-selected', 'true');
       if (grid.activeEditRows !== undefined && grid.activeEditRows !== -1 && cell.classList.contains('editing')) {
         const focusTarget = cell.querySelector(
-          'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])'
+          'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
         ) as HTMLElement | null;
         if (focusTarget && document.activeElement !== focusTarget) {
           try {

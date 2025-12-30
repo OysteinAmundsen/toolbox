@@ -6,7 +6,7 @@
 
 import type { ColumnConfig, InternalGrid } from '../types';
 import { defaultEditorFor } from './editors';
-import { renderInlineRow } from './rows';
+import { invalidateCellCache, renderInlineRow } from './rows';
 
 /**
  * Snapshot original row data and mark the row as actively being edited.
@@ -26,9 +26,46 @@ export function exitRowEdit(grid: InternalGrid, rowIndex: number, revert: boolea
   if (grid.activeEditRows !== rowIndex) return;
   const snapshot = grid.rowEditSnapshots.get(rowIndex);
   const current = grid._rows[rowIndex];
+
+  // Before re-rendering, collect and commit values from any active editors
+  // This ensures values are persisted even if blur hasn't fired yet
+  const rowEl = grid.findRenderedRowElement?.(rowIndex);
+  if (!revert && rowEl && current) {
+    const editingCells = rowEl.querySelectorAll('.cell.editing');
+    editingCells.forEach((cell) => {
+      const colIndex = Number((cell as HTMLElement).getAttribute('data-col'));
+      if (isNaN(colIndex)) return;
+      const col = grid.visibleColumns[colIndex];
+      if (!col) return;
+      const input = cell.querySelector('input,textarea,select') as
+        | HTMLInputElement
+        | HTMLTextAreaElement
+        | HTMLSelectElement
+        | null;
+      if (input) {
+        let val: unknown;
+        if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+          val = input.checked;
+        } else {
+          val = input.value;
+          // Convert to number for number columns
+          if (col.type === 'number' && val !== '') {
+            val = Number(val);
+          }
+        }
+        // Only commit if value actually changed
+        if (current[col.field] !== val) {
+          commitCellValue(grid, rowIndex, col, val, current);
+        }
+      }
+    });
+  }
+
   if (revert && snapshot && current) {
     Object.keys(snapshot).forEach((k) => (current[k] = snapshot[k]));
     grid._changedRowIndices.delete(rowIndex);
+    // Invalidate cell cache so reverted values display correctly
+    invalidateCellCache(grid);
   } else if (!revert) {
     const changed = grid._changedRowIndices.has(rowIndex);
     (grid as unknown as HTMLElement).dispatchEvent(
@@ -40,36 +77,38 @@ export function exitRowEdit(grid: InternalGrid, rowIndex: number, revert: boolea
           changedRows: grid.changedRows,
           changedRowIndices: grid.changedRowIndices,
         },
-      })
+      }),
     );
   }
   grid.rowEditSnapshots.delete(rowIndex);
   grid.activeEditRows = -1;
-  const rowEl = grid.findRenderedRowElement?.(rowIndex);
   if (rowEl) {
     renderInlineRow(grid, rowEl, grid._rows[rowIndex], rowIndex);
     if (grid._changedRowIndices.has(rowIndex)) rowEl.classList.add('changed');
     else rowEl.classList.remove('changed');
   }
-  if (revert) {
-    queueMicrotask(() => {
-      try {
-        (grid as unknown as HTMLElement).focus();
-        const rowIdx = grid.focusRow;
-        const colIdx = grid.focusCol;
-        const rowEl2 = grid.findRenderedRowElement?.(rowIdx);
-        if (rowEl2) {
-          Array.from(grid.bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) =>
-            el.classList.remove('cell-focus')
-          );
-          const cell = rowEl2.querySelector(`.cell[data-row="${rowIdx}"][data-col="${colIdx}"]`);
-          if (cell) (cell as HTMLElement).classList.add('cell-focus');
+  // Restore focus to the cell after exiting edit mode (for both commit and revert)
+  queueMicrotask(() => {
+    try {
+      const rowIdx = grid.focusRow;
+      const colIdx = grid.focusCol;
+      const rowEl2 = grid.findRenderedRowElement?.(rowIdx);
+      if (rowEl2) {
+        // Clear all cell-focus markers
+        Array.from(grid.bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) => el.classList.remove('cell-focus'));
+        // Find and focus the cell
+        const cell = rowEl2.querySelector(`.cell[data-row="${rowIdx}"][data-col="${colIdx}"]`) as HTMLElement | null;
+        if (cell) {
+          cell.classList.add('cell-focus');
+          cell.setAttribute('aria-selected', 'true');
+          if (!cell.hasAttribute('tabindex')) cell.setAttribute('tabindex', '-1');
+          cell.focus({ preventScroll: true });
         }
-      } catch {
-        /* empty */
       }
-    });
-  }
+    } catch {
+      /* empty */
+    }
+  });
 }
 
 /**
@@ -81,7 +120,7 @@ export function commitCellValue(
   rowIndex: number,
   column: ColumnConfig<any>,
   newValue: any,
-  rowData: any
+  rowData: any,
 ): void {
   const field = column.field;
   const oldValue = rowData[field];
@@ -102,7 +141,7 @@ export function commitCellValue(
         changedRowIndices: grid.changedRowIndices,
         firstTimeForRow: firstTime,
       },
-    })
+    }),
   );
 }
 
@@ -115,17 +154,22 @@ export function inlineEnterEdit(
   rowData: any,
   rowIndex: number,
   column: ColumnConfig<any>,
-  cell: HTMLElement
+  cell: HTMLElement,
 ): void {
   if (!column.editable) return;
   if (grid.activeEditRows !== rowIndex) startRowEdit(grid, rowIndex, rowData);
   if (cell.classList.contains('editing')) return;
   const originalValue = rowData[column.field];
   cell.classList.add('editing');
+  let editFinalized = false; // Flag to prevent blur from committing after explicit Enter/Escape
   const commit = (newValue: any) => {
+    // Skip if edit was already finalized by Enter/Escape, or if we've exited edit mode
+    // (handles bulk edit case where one cell's exit removes all editors)
+    if (editFinalized || grid.activeEditRows === -1) return;
     commitCellValue(grid, rowIndex, column, newValue, rowData);
   };
   const cancel = () => {
+    editFinalized = true; // Mark as finalized to prevent blur from re-committing
     rowData[column.field] = originalValue;
     const inputLike = cell.querySelector('input,textarea,select') as any;
     if (inputLike) {
@@ -139,6 +183,26 @@ export function inlineEnterEdit(
   editorHost.style.display = 'contents';
   cell.innerHTML = '';
   cell.appendChild(editorHost);
+
+  // Common keydown handler for all editor types to handle Enter/Escape with proper exit
+  // This catches events that bubble up from child elements (default editors, custom editors)
+  editorHost.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.stopPropagation();
+      e.preventDefault();
+      editFinalized = true; // Prevent blur from committing again
+      // Value should already be committed by the editor's own handler
+      // Just need to exit edit mode
+      exitRowEdit(grid, rowIndex, false);
+    }
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      e.preventDefault();
+      cancel(); // cancel() sets editFinalized = true
+      exitRowEdit(grid, rowIndex, true);
+    }
+  });
+
   const tplHolder = (column as any).__editorTemplate as HTMLElement | undefined;
   const editorSpec = (column as any).editor || (tplHolder ? 'template' : defaultEditorFor(column));
   const value = originalValue;
@@ -166,6 +230,7 @@ export function inlineEnterEdit(
         input.checked = !!originalValue;
       else if ('value' in input) (input as any).value = originalValue ?? '';
       input.addEventListener('blur', () => {
+        // commit() will check editFinalized flag and skip if already handled
         const val =
           hasHTMLInput && input instanceof HTMLInputElement && input.type === 'checkbox'
             ? input.checked
@@ -174,13 +239,22 @@ export function inlineEnterEdit(
       });
       input.addEventListener('keydown', (e: any) => {
         if (e.key === 'Enter') {
+          e.stopPropagation();
+          e.preventDefault();
+          editFinalized = true; // Prevent blur from committing again
           const val =
             hasHTMLInput && input instanceof HTMLInputElement && input.type === 'checkbox'
               ? input.checked
               : (input as any).value;
           commit(val);
+          exitRowEdit(grid, rowIndex, false);
         }
-        if (e.key === 'Escape') cancel();
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          e.preventDefault();
+          cancel(); // cancel() sets editFinalized = true
+          exitRowEdit(grid, rowIndex, true);
+        }
       });
       if (hasHTMLInput && input instanceof HTMLInputElement && input.type === 'checkbox') {
         input.addEventListener('change', () => {
@@ -214,7 +288,7 @@ export function inlineEnterEdit(
       }
     } else {
       (grid as unknown as HTMLElement).dispatchEvent(
-        new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context } })
+        new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context } }),
       );
     }
   }

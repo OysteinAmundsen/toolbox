@@ -1,7 +1,7 @@
 import styles from './grid.css?inline';
 import { applyColumnState, collectColumnState, createStateChangeHandler } from './internal/column-state';
 import { autoSizeColumns, getColumnConfiguration, updateTemplate } from './internal/columns';
-import { exitRowEdit, startRowEdit } from './internal/editing';
+import { exitRowEdit, inlineEnterEdit, startRowEdit } from './internal/editing';
 import { renderHeader } from './internal/header';
 import { inferColumns } from './internal/inference';
 import { handleGridKeyDown } from './internal/keyboard';
@@ -508,7 +508,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Mark for tests that afterConnect ran
     this.setAttribute('data-upgraded', '');
-    if (!this.hasAttribute('role')) this.setAttribute('role', 'grid');
     this.#connected = true;
 
     // Get the signal for event listener cleanup (AbortController created in connectedCallback)
@@ -1305,7 +1304,42 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   async beginBulkEdit(rowIndex: number): Promise<void> {
-    this.#startRowEdit(rowIndex, this._rows[rowIndex]);
+    // Check if any columns are editable - if not, skip edit mode entirely
+    const hasEditableColumn = this._columns.some((col) => (col as ColumnInternal<T>).editable);
+    if (!hasEditableColumn) return;
+
+    const rowData = this._rows[rowIndex];
+    this.#startRowEdit(rowIndex, rowData);
+
+    // Enter edit mode on all editable cells in the row (same as click/dblclick)
+    const rowEl = this.findRenderedRowElement?.(rowIndex);
+    if (rowEl) {
+      Array.from(rowEl.children).forEach((cell, i) => {
+        // Use visibleColumns to match the cell index - _columns may include hidden columns
+        const col = this.visibleColumns[i] as ColumnInternal<T> | undefined;
+        if (col?.editable) {
+          const cellEl = cell as HTMLElement;
+          if (!cellEl.classList.contains('editing')) {
+            inlineEnterEdit(this as unknown as InternalGrid, rowData, rowIndex, col, cellEl);
+          }
+        }
+      });
+
+      // Focus the editor in the focused cell
+      queueMicrotask(() => {
+        const targetCell = rowEl.querySelector(`.cell[data-col="${this.focusCol}"]`);
+        if (targetCell?.classList.contains('editing')) {
+          const editor = (targetCell as HTMLElement).querySelector(
+            'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
+          ) as HTMLElement | null;
+          try {
+            editor?.focus();
+          } catch {
+            /* empty */
+          }
+        }
+      });
+    }
   }
 
   async commitActiveRowEdit(): Promise<void> {
@@ -1974,8 +2008,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (this.virtualization.totalHeightEl) {
         this.virtualization.totalHeightEl.style.height = `${totalRows * this.virtualization.rowHeight}px`;
       }
-      this.setAttribute('aria-rowcount', String(totalRows));
-      this.setAttribute('aria-colcount', String(this.visibleColumns.length));
+      // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
+      const innerGrid = this.#shadow.querySelector('.rows-body');
+      innerGrid?.setAttribute('aria-rowcount', String(totalRows));
+      innerGrid?.setAttribute('aria-colcount', String(this.visibleColumns.length));
       this.#executeAfterRender();
       return;
     }
@@ -2059,8 +2095,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     this.#renderVisibleRows(start, end, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
 
-    this.setAttribute('aria-rowcount', String(totalRows));
-    this.setAttribute('aria-colcount', String(this.visibleColumns.length));
+    // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
+    const innerGrid = this.#shadow.querySelector('.rows-body');
+    innerGrid?.setAttribute('aria-rowcount', String(totalRows));
+    innerGrid?.setAttribute('aria-colcount', String(this.visibleColumns.length));
 
     // Only run plugin afterRender hooks on force refresh (structural changes)
     // Skip on scroll-triggered renders for maximum performance
@@ -2092,7 +2130,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const gridContentHtml = `
       <div class="tbw-scroll-area">
         <div class="rows-body-wrapper">
-          <div class="rows-body">
+          <div class="rows-body" role="grid">
             <div class="header">
               <div class="header-row" part="header-row"></div>
             </div>

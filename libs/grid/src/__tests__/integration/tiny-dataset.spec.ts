@@ -46,8 +46,9 @@ describe('tiny dataset virtualization bypass', () => {
     const transform = rowsContainer.style.transform || '';
     expect(transform === '' || transform === 'translateY(0px)').toBe(true);
 
-    // Aria row/col count set (even before aria indices feature added)
-    expect(grid.getAttribute('aria-rowcount')).toBe(String(rows.length));
-    expect(grid.getAttribute('aria-colcount')).toBe('2');
+    // aria-rowcount/colcount are on inner .rows-body (role=grid), not host element
+    const innerGrid = shadow.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe(String(rows.length));
+    expect(innerGrid?.getAttribute('aria-colcount')).toBe('2');
   });
 });

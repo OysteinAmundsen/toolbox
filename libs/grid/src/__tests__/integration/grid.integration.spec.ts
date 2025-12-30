@@ -326,8 +326,10 @@ describe('tbw-grid integration: aria row/col indices', () => {
       const cells = Array.from(r.querySelectorAll('.cell[data-col]')) as HTMLElement[];
       cells.forEach((c, ci) => expect(c.getAttribute('aria-colindex')).toBe(String(ci + 1)));
     });
-    expect(grid.getAttribute('aria-rowcount')).toBe(String(grid.rows.length));
-    expect(grid.getAttribute('aria-colcount')).toBe(String(grid.columns.length));
+    // aria-rowcount/colcount are on inner .rows-body (role=grid), not host element
+    const innerGrid = shadow.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe(String(grid.rows.length));
+    expect(innerGrid?.getAttribute('aria-colcount')).toBe(String(grid.columns.length));
   });
 });
 
@@ -442,8 +444,10 @@ describe('tbw-grid integration: tiny dataset virtualization bypass', () => {
     expect(renderedRows.length).toBe(rows.length);
     const transform = rowsContainer.style.transform || '';
     expect(transform === '' || transform === 'translateY(0px)').toBe(true);
-    expect(grid.getAttribute('aria-rowcount')).toBe(String(rows.length));
-    expect(grid.getAttribute('aria-colcount')).toBe('2');
+    // aria-rowcount/colcount are on inner .rows-body (role=grid), not host element
+    const innerGrid = shadow.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe(String(rows.length));
+    expect(innerGrid?.getAttribute('aria-colcount')).toBe('2');
   });
 });
 

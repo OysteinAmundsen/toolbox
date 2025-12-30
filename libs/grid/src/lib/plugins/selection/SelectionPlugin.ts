@@ -179,6 +179,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   override onKeyDown(event: KeyboardEvent): boolean {
     const { mode } = this.config;
+    const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', 'PageUp', 'PageDown'];
+    const isNavKey = navKeys.includes(event.key);
 
     // Escape clears selection in all modes
     if (event.key === 'Escape') {
@@ -195,6 +197,64 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
       this.requestAfterRender();
       return true;
+    }
+
+    // ===== CELL MODE: Selection follows focus =====
+    if (mode === 'cell' && isNavKey) {
+      // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
+      queueMicrotask(() => {
+        const grid = this.grid as { focusRow: number; focusCol: number };
+        this.selectedCell = { row: grid.focusRow, col: grid.focusCol };
+        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+        this.requestAfterRender();
+      });
+      return false; // Let grid handle navigation
+    }
+
+    // ===== ROW MODE: Only Up/Down arrows move row selection =====
+    if (mode === 'row' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      // Let grid move focus first, then sync row selection
+      queueMicrotask(() => {
+        const grid = this.grid as { focusRow: number };
+        this.selected.clear();
+        this.selected.add(grid.focusRow);
+        this.lastSelected = grid.focusRow;
+        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+        this.requestAfterRender();
+      });
+      return false; // Let grid handle navigation
+    }
+
+    // ===== RANGE MODE: Shift+Arrow extends, plain Arrow resets =====
+    if (mode === 'range' && isNavKey) {
+      const shiftKey = event.shiftKey;
+
+      queueMicrotask(() => {
+        const grid = this.grid as { focusRow: number; focusCol: number };
+        const currentRow = grid.focusRow;
+        const currentCol = grid.focusCol;
+
+        if (shiftKey) {
+          // Extend selection from anchor to current focus
+          if (!this.cellAnchor) {
+            // No anchor yet - set it to where we were before navigation
+            // Since grid already moved, we need to establish anchor at first nav with shift
+            this.cellAnchor = { row: currentRow, col: currentCol };
+          }
+          const newRange = createRangeFromAnchor(this.cellAnchor, { row: currentRow, col: currentCol });
+          this.ranges = [newRange];
+          this.activeRange = newRange;
+        } else {
+          // Without shift, clear selection (cell-focus will show instead)
+          this.ranges = [];
+          this.activeRange = null;
+          this.cellAnchor = { row: currentRow, col: currentCol }; // Reset anchor to current position
+        }
+
+        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+        this.requestAfterRender();
+      });
+      return false; // Let grid handle navigation
     }
 
     // Ctrl+A selects all in range mode
@@ -303,15 +363,16 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       row.classList.remove('selected', 'row-focus');
     });
 
-    // ===== ROW MODE: Add row-focus class to selected rows =====
+    // ===== ROW MODE: Add row-focus class to selected rows, disable cell-focus =====
     if (mode === 'row') {
+      // In row mode, disable ALL cell-focus styling - row selection takes precedence
+      shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
+
       allRows.forEach((row) => {
         const firstCell = row.querySelector('.cell[data-row]');
         const rowIndex = parseInt(firstCell?.getAttribute('data-row') ?? '-1', 10);
         if (rowIndex >= 0 && this.selected.has(rowIndex)) {
           row.classList.add('selected', 'row-focus');
-          // Remove cell-focus from all cells in selected rows
-          row.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
         }
       });
     }

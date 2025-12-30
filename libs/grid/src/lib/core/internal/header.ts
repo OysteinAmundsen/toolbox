@@ -29,9 +29,6 @@ export function renderHeader(grid: InternalGrid): void {
   grid.headerRowEl = (grid.findHeaderRow! as any)();
   const headerRow = grid.headerRowEl as HTMLElement;
   headerRow.innerHTML = '';
-  // ARIA row index for header row is always 1
-  headerRow.setAttribute('role', 'row');
-  headerRow.setAttribute('aria-rowindex', '1');
 
   grid.visibleColumns.forEach((col: ColumnConfig<any>, i: number) => {
     const cell = document.createElement('div');
@@ -124,4 +121,14 @@ export function renderHeader(grid: InternalGrid): void {
   headerRow.querySelectorAll('.cell.sortable').forEach((el) => {
     if (!el.getAttribute('aria-sort')) el.setAttribute('aria-sort', 'none');
   });
+
+  // Set ARIA role only if header has children (role="row" requires columnheader children)
+  // When grid is cleared with 0 columns, the header row should not have role="row"
+  if (headerRow.children.length > 0) {
+    headerRow.setAttribute('role', 'row');
+    headerRow.setAttribute('aria-rowindex', '1');
+  } else {
+    headerRow.removeAttribute('role');
+    headerRow.removeAttribute('aria-rowindex');
+  }
 }

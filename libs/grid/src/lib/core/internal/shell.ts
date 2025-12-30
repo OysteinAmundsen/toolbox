@@ -186,12 +186,12 @@ export function renderShellHeader(
   }
 
   return `
-    <div class="tbw-shell-header" part="shell-header" role="banner">
+    <div class="tbw-shell-header" part="shell-header" role="presentation">
       ${hasTitle ? `<div class="tbw-shell-title">${title}</div>` : ''}
-      <div class="tbw-shell-content" part="shell-content" role="region" aria-label="Grid information">
+      <div class="tbw-shell-content" part="shell-content" role="presentation">
         <slot name="header-content"></slot>
       </div>
-      <div class="tbw-shell-toolbar" part="shell-toolbar" role="toolbar" aria-label="Grid tools">
+      <div class="tbw-shell-toolbar" part="shell-toolbar" role="presentation">
         ${toolbarHtml}
       </div>
     </div>
@@ -236,7 +236,7 @@ export function renderShellBody(
           <span class="tbw-accordion-title">${panel.title}</span>
           ${chevronHtml}
         </button>
-        <div class="tbw-accordion-content" id="tbw-section-${panel.id}" role="region" aria-labelledby="tbw-section-header-${panel.id}"></div>
+        <div class="tbw-accordion-content" id="tbw-section-${panel.id}" role="presentation"></div>
       </div>
     `;
   }
@@ -246,9 +246,9 @@ export function renderShellBody(
 
   const panelHtml = hasPanel
     ? `
-    <aside class="tbw-tool-panel${isOpen ? ' open' : ''}" part="tool-panel" data-position="${position}" role="complementary" aria-label="Tool panel" id="tbw-tool-panel">
+    <aside class="tbw-tool-panel${isOpen ? ' open' : ''}" part="tool-panel" data-position="${position}" role="presentation" id="tbw-tool-panel">
       <div class="tbw-tool-panel-resize" data-resize-handle data-handle-position="${resizeHandlePosition}" aria-hidden="true"></div>
-      <div class="tbw-tool-panel-content" role="region">
+      <div class="tbw-tool-panel-content" role="presentation">
         <div class="tbw-accordion">
           ${accordionHtml}
         </div>

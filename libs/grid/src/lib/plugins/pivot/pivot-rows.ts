@@ -35,7 +35,8 @@ export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: 
   rowEl.className = 'pivot-group-row';
   rowEl.setAttribute('data-pivot-depth', String(row.__pivotDepth ?? 0));
   rowEl.setAttribute('role', 'row');
-  rowEl.setAttribute('aria-expanded', String(row.__pivotExpanded));
+  // Note: aria-expanded is not set here because it's only valid in treegrid, not grid
+  // The expand/collapse state is conveyed via the toggle button's aria-label
   rowEl.innerHTML = '';
 
   ctx.columns.forEach((col, colIdx) => {
@@ -126,14 +127,15 @@ export function renderPivotLeafRow(row: PivotRowData, rowEl: HTMLElement, column
  */
 export function renderPivotGrandTotalRow(row: PivotRowData, rowEl: HTMLElement, columns: ColumnConfig[]): boolean {
   rowEl.className = 'pivot-grand-total-row';
-  rowEl.setAttribute('role', 'row');
+  // Use role=presentation since grand total is rendered outside the role=grid element
+  rowEl.setAttribute('role', 'presentation');
   rowEl.innerHTML = '';
 
   columns.forEach((col, colIdx) => {
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.setAttribute('data-col', String(colIdx));
-    cell.setAttribute('role', 'gridcell');
+    // No role attribute - parent row has role=presentation so children don't need grid semantics
 
     if (colIdx === 0) {
       // First column: Grand Total label

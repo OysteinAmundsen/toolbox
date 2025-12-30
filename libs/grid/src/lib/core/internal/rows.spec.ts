@@ -27,7 +27,7 @@ function makeGrid() {
     _columns: [
       { field: 'id' },
       { field: 'name' },
-      { field: 'active', type: 'boolean' },
+      { field: 'active', type: 'boolean', editable: true },
       { field: 'date', type: 'date' },
     ],
     get visibleColumns() {

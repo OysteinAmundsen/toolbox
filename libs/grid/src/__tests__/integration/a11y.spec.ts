@@ -6,7 +6,7 @@ function nextFrame() {
 }
 
 describe('tbw-grid accessibility', () => {
-  it('sets grid role and aria counts', async () => {
+  it('sets grid role and aria counts on inner grid element', async () => {
     const grid = document.createElement('tbw-grid') as any;
     grid.rows = [
       { id: 1, name: 'A' },
@@ -15,11 +15,13 @@ describe('tbw-grid accessibility', () => {
     grid.columns = [{ field: 'id' }, { field: 'name' }];
     document.body.appendChild(grid);
     await nextFrame();
-    expect(grid.getAttribute('role')).toBe('grid');
+    // role="grid" is on inner .rows-body element (not host) to keep shell chrome outside grid semantics
+    const innerGrid = grid.shadowRoot!.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('role')).toBe('grid');
     // virtualization may update counts after frame
     await nextFrame();
-    expect(Number(grid.getAttribute('aria-rowcount'))).toBe(2);
-    expect(Number(grid.getAttribute('aria-colcount'))).toBe(2);
+    expect(Number(innerGrid?.getAttribute('aria-rowcount'))).toBe(2);
+    expect(Number(innerGrid?.getAttribute('aria-colcount'))).toBe(2);
   });
 
   it('header cells have columnheader role', async () => {
@@ -82,18 +84,21 @@ describe('tbw-grid accessibility', () => {
   it('boolean cells use checkbox semantics and toggle state', async () => {
     const grid = document.createElement('tbw-grid') as any;
     grid.rows = [{ ok: false }];
-    grid.columns = [{ field: 'ok', type: 'boolean' }];
+    grid.columns = [{ field: 'ok', type: 'boolean', editable: true }];
     document.body.appendChild(grid);
+    await grid.ready?.();
     await nextFrame();
     await nextFrame();
     const cell = grid.shadowRoot!.querySelector('.data-grid-row .cell') as HTMLElement;
-    const checkboxRoleEl = cell.getAttribute('role') === 'checkbox' ? cell : cell.querySelector('[role="checkbox"]');
-    expect((checkboxRoleEl as HTMLElement | null)?.getAttribute('role')).toBe('checkbox');
-    expect(cell.getAttribute('aria-checked')).toBe('false');
+    // Checkbox semantics are on inner span (cell remains gridcell for ARIA compliance)
+    const checkboxEl = cell.querySelector('[role="checkbox"]') as HTMLElement | null;
+    expect(checkboxEl).toBeTruthy();
+    expect(checkboxEl?.getAttribute('aria-checked')).toBe('false');
     cell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
     await nextFrame();
     await nextFrame();
-    expect(cell.getAttribute('aria-checked')).toBe('true');
+    const updatedCheckboxEl = cell.querySelector('[role="checkbox"]') as HTMLElement | null;
+    expect(updatedCheckboxEl?.getAttribute('aria-checked')).toBe('true');
   });
 
   it('focused cell gains aria-selected', async () => {

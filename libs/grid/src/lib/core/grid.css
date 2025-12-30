@@ -274,7 +274,8 @@
 :host .selecting .data-grid-row > .cell {
   user-select: none;
 }
-:host .data-grid-row > .cell:focus-visible {
+:host .data-grid-row > .cell.selected:focus-visible,
+:host .data-grid-row > .cell:focus-visible:not(.cell-focus) {
   outline: none;
 }
 :host .data-grid-row > .cell {

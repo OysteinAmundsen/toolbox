@@ -5,9 +5,9 @@
  * Includes both info bar and aggregation row rendering.
  */
 
-import type { PinnedRowsPanel, PinnedRowsContext, PinnedRowsConfig, AggregationRowConfig } from './types';
-import type { ColumnConfig } from '../../core/types';
 import { getAggregator } from '../../core/internal/aggregators';
+import type { ColumnConfig } from '../../core/types';
+import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
 
 /**
  * Creates the info bar DOM element with all configured panels.
@@ -19,7 +19,7 @@ import { getAggregator } from '../../core/internal/aggregators';
 export function createInfoBarElement(config: PinnedRowsConfig, context: PinnedRowsContext): HTMLElement {
   const pinnedRows = document.createElement('div');
   pinnedRows.className = 'tbw-pinned-rows';
-  pinnedRows.setAttribute('role', 'status');
+  pinnedRows.setAttribute('role', 'presentation');
   pinnedRows.setAttribute('aria-live', 'polite');
 
   const left = document.createElement('div');
@@ -89,7 +89,8 @@ export function createInfoBarElement(config: PinnedRowsConfig, context: PinnedRo
 export function createAggregationContainer(position: 'top' | 'bottom'): HTMLElement {
   const container = document.createElement('div');
   container.className = `tbw-aggregation-rows tbw-aggregation-rows-${position}`;
-  container.setAttribute('role', 'rowgroup');
+  // Use presentation role since aggregation rows are outside the role="grid" element for layout reasons
+  container.setAttribute('role', 'presentation');
   return container;
 }
 
@@ -105,14 +106,15 @@ export function renderAggregationRows(
   container: HTMLElement,
   rows: AggregationRowConfig[],
   columns: ColumnConfig[],
-  dataRows: unknown[]
+  dataRows: unknown[],
 ): void {
   container.innerHTML = '';
 
   for (const rowConfig of rows) {
     const rowEl = document.createElement('div');
     rowEl.className = 'tbw-aggregation-row';
-    rowEl.setAttribute('role', 'row');
+    // Use presentation role since aggregation rows are outside the role="grid" element
+    rowEl.setAttribute('role', 'presentation');
     if (rowConfig.id) {
       rowEl.setAttribute('data-aggregation-id', rowConfig.id);
     }
@@ -197,7 +199,7 @@ export function buildContext(
   columns: unknown[],
   grid: HTMLElement,
   selectionState?: { selected: Set<number> } | null,
-  filterState?: { cachedResult: unknown[] | null } | null
+  filterState?: { cachedResult: unknown[] | null } | null,
 ): PinnedRowsContext {
   return {
     totalRows: rows.length,

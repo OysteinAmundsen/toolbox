@@ -16,11 +16,11 @@ describe('pinnedRows', () => {
       };
     });
 
-    it('should create a status bar with role="status"', () => {
+    it('should create a status bar with role="presentation"', () => {
       const config: PinnedRowsConfig = {};
       const element = createPinnedRowsElement(config, defaultContext);
 
-      expect(element.getAttribute('role')).toBe('status');
+      expect(element.getAttribute('role')).toBe('presentation');
       expect(element.getAttribute('aria-live')).toBe('polite');
       expect(element.className).toBe('tbw-pinned-rows');
     });

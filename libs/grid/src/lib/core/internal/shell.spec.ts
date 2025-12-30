@@ -288,9 +288,8 @@ describe('shell module', () => {
 
       const html = renderShellHeader(undefined, state);
 
-      expect(html).toContain('role="banner"');
-      expect(html).toContain('role="toolbar"');
-      expect(html).toContain('aria-label="Grid tools"');
+      // Shell elements inside role="grid" must use role="presentation" to be valid ARIA children
+      expect(html).toContain('role="presentation"');
       expect(html).toContain('aria-controls="tbw-tool-panel"');
     });
   });
@@ -408,8 +407,8 @@ describe('shell module', () => {
 
       const html = renderShellBody(undefined, state, gridContentHtml);
 
-      expect(html).toContain('role="complementary"');
-      expect(html).toContain('aria-label="Tool panel"');
+      // Tool panel inside role="grid" must use role="presentation" to be valid ARIA children
+      expect(html).toContain('role="presentation"');
       expect(html).toContain('aria-expanded="false"');
       expect(html).toContain('aria-controls="tbw-section-columns"');
     });

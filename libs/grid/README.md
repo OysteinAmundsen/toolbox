@@ -506,7 +506,7 @@ For architecture details, rendering pipeline, and plugin development, see [ARCHI
 This grid is built and maintained by a single developer in spare time. If it saves you time or money, consider sponsoring to keep development going:
 
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor_on_GitHub-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/OysteinAmundsen)
-[![Patreon](https://img.shields.io/badge/Support_on_Patreon-f96854?style=for-the-badge&logo=patreon)](https://patreon.com/user?u=40656340)
+[![Patreon](https://img.shields.io/badge/Support_on_Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/OysteinAmundsen)
 
 **What sponsorship enables:**
 

@@ -1,7 +1,6 @@
 # Toolbox Web
 
 [![CI/CD Pipeline](https://github.com/OysteinAmundsen/toolbox/actions/workflows/build-n-deploy.yml/badge.svg)](https://github.com/OysteinAmundsen/toolbox/actions/workflows/build-n-deploy.yml)
-[![CodeQL](https://github.com/OysteinAmundsen/toolbox/actions/workflows/codeql.yml/badge.svg)](https://github.com/OysteinAmundsen/toolbox/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 
@@ -86,7 +85,7 @@ bun run test                 # Test all libraries
 Built and maintained by a solo developer. Sponsorship keeps this project alive:
 
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor_on_GitHub-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/OysteinAmundsen)
-[![Patreon](https://img.shields.io/badge/Support_on_Patreon-f96854?style=for-the-badge&logo=patreon)](https://patreon.com/user?u=40656340)
+[![Patreon](https://img.shields.io/badge/Support_on_Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/OysteinAmundsen)
 
 ## License
 

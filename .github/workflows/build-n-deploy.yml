@@ -116,6 +116,7 @@ jobs:
           path: dist/libs/grid
 
       - name: Publish to npm
+        continue-on-error: true # Allow failure if version already published
         run: |
           cd dist/libs/grid
           npm publish --provenance

@@ -7,6 +7,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /** Configuration options for the pinned columns plugin */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
 export interface PinnedColumnsConfig {
   // Currently no configuration options - plugin is active when columns have sticky position
 }

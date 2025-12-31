@@ -93,7 +93,12 @@ jobs:
   # RELEASE JOBS (runs on release published, release-please creates a release, or manual workflow_dispatch with release=true)
   # ============================================
   build-storybook:
-    if: github.event_name == 'release' || needs.release-please.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.release)
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'release' ||
+        needs.release-please.outputs.release_created == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.release == true)
+      )
     needs: [release-please]
     runs-on: ubuntu-latest
     steps:
@@ -120,7 +125,12 @@ jobs:
           path: dist/storybook
 
   deploy-pages:
-    if: github.event_name == 'release' || needs.release-please.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.release)
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'release' ||
+        needs.release-please.outputs.release_created == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.release == true)
+      )
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -132,7 +142,12 @@ jobs:
         uses: actions/deploy-pages@v4
 
   publish-npm:
-    if: github.event_name == 'release' || needs.release-please.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && inputs.release)
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'release' ||
+        needs.release-please.outputs.release_created == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.release == true)
+      )
     needs: [release-please]
     runs-on: ubuntu-latest
     environment: NPM

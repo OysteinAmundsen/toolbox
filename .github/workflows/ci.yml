@@ -72,10 +72,10 @@ jobs:
         run: bun run build
 
   # ============================================
-  # RELEASE PLEASE (runs on push to main only)
+  # RELEASE PLEASE (runs on push to main, or workflow_dispatch to satisfy job dependencies)
   # ============================================
   release-please:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -83,6 +83,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
     steps:
       - uses: googleapis/release-please-action@v4
+        if: github.event_name == 'push'
         id: release
         with:
           config-file: release-please-config.json

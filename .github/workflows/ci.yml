@@ -83,10 +83,11 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   # ============================================
-  # RELEASE JOBS (runs on release published only)
+  # RELEASE JOBS (runs when release-please creates a release OR on manual release)
   # ============================================
   build-storybook:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || needs.release-please.outputs.release_created == 'true'
+    needs: [release-please]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,19 +113,20 @@ jobs:
           path: dist/storybook
 
   deploy-pages:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || needs.release-please.outputs.release_created == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build-storybook
+    needs: [release-please, build-storybook]
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
   publish-npm:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || needs.release-please.outputs.release_created == 'true'
+    needs: [release-please]
     runs-on: ubuntu-latest
     environment: NPM
     permissions:

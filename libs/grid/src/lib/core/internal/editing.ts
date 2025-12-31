@@ -9,6 +9,15 @@ import { defaultEditorFor } from './editors';
 import { invalidateCellCache, renderInlineRow } from './rows';
 
 /**
+ * Returns true if the given property key is safe to use on a plain object without risking
+ * prototype pollution via special names like "__proto__", "constructor", or "prototype".
+ */
+function isSafePropertyKey(key: any): boolean {
+  if (key === '__proto__' || key === 'constructor' || key === 'prototype') return false;
+  return true;
+}
+
+/**
  * Snapshot original row data and mark the row as actively being edited.
  */
 export function startRowEdit(grid: InternalGrid, rowIndex: number, rowData: any): void {
@@ -123,6 +132,7 @@ export function commitCellValue(
   rowData: any,
 ): void {
   const field = column.field;
+  if (!isSafePropertyKey(field)) return;
   const oldValue = rowData[field];
   if (oldValue === newValue) return;
   rowData[field] = newValue;
@@ -170,7 +180,9 @@ export function inlineEnterEdit(
   };
   const cancel = () => {
     editFinalized = true; // Mark as finalized to prevent blur from re-committing
-    rowData[column.field] = originalValue;
+    if (isSafePropertyKey(column.field)) {
+      rowData[column.field] = originalValue;
+    }
     const inputLike = cell.querySelector('input,textarea,select') as any;
     if (inputLike) {
       const hasHTMLInput = typeof HTMLInputElement !== 'undefined';

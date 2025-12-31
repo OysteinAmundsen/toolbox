@@ -76,7 +76,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   /** Row selection state (row mode) */
   private selected = new Set<number>();
   private lastSelected: number | null = null;
@@ -91,7 +91,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /** Cell selection state (cell mode) */
   private selectedCell: { row: number; col: number } | null = null;
 
-  // ===== Lifecycle =====
+  // #endregion
+
+  // #region Lifecycle
 
   override detach(): void {
     this.selected.clear();
@@ -102,13 +104,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.selectedCell = null;
   }
 
-  // ===== Event Handlers =====
+  // #endregion
+
+  // #region Event Handlers
 
   override onCellClick(event: CellClickEvent): boolean {
     const { rowIndex, colIndex, originalEvent } = event;
     const { mode } = this.config;
 
-    // ===== CELL MODE: Single cell selection =====
+    // CELL MODE: Single cell selection
     if (mode === 'cell') {
       this.selectedCell = { row: rowIndex, col: colIndex };
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
@@ -116,7 +120,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false;
     }
 
-    // ===== ROW MODE: Select entire row =====
+    // ROW MODE: Select entire row
     if (mode === 'row') {
       this.selected.clear();
       this.selected.add(rowIndex);
@@ -127,7 +131,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false;
     }
 
-    // ===== RANGE MODE: Shift+click extends selection, click starts new =====
+    // RANGE MODE: Shift+click extends selection, click starts new
     if (mode === 'range') {
       const shiftKey = originalEvent.shiftKey;
       const ctrlKey = originalEvent.ctrlKey || originalEvent.metaKey;
@@ -199,7 +203,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return true;
     }
 
-    // ===== CELL MODE: Selection follows focus =====
+    // CELL MODE: Selection follows focus
     if (mode === 'cell' && isNavKey) {
       // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
       queueMicrotask(() => {
@@ -210,7 +214,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false; // Let grid handle navigation
     }
 
-    // ===== ROW MODE: Only Up/Down arrows move row selection =====
+    // ROW MODE: Only Up/Down arrows move row selection
     if (mode === 'row' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       // Let grid move focus first, then sync row selection
       queueMicrotask(() => {
@@ -223,7 +227,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false; // Let grid handle navigation
     }
 
-    // ===== RANGE MODE: Shift+Arrow extends, plain Arrow resets =====
+    // RANGE MODE: Shift+Arrow extends, plain Arrow resets
     if (mode === 'range' && isNavKey) {
       const shiftKey = event.shiftKey;
 
@@ -360,7 +364,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       row.classList.remove('selected', 'row-focus');
     });
 
-    // ===== ROW MODE: Add row-focus class to selected rows, disable cell-focus =====
+    // ROW MODE: Add row-focus class to selected rows, disable cell-focus
     if (mode === 'row') {
       // In row mode, disable ALL cell-focus styling - row selection takes precedence
       shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
@@ -374,7 +378,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       });
     }
 
-    // ===== RANGE MODE: Add selected and edge classes to cells =====
+    // RANGE MODE: Add selected and edge classes to cells
     if (mode === 'range' && this.ranges.length > 0) {
       const normalized = this.activeRange ? normalizeRange(this.activeRange) : null;
 
@@ -401,7 +405,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       });
     }
 
-    // ===== CELL MODE: Remove cell-focus when selection plugin handles focus =====
+    // CELL MODE: Remove cell-focus when selection plugin handles focus
     if (mode === 'cell' && this.selectedCell) {
       // Remove all cell-focus - the selection plugin manages focus styling
       shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
@@ -434,7 +438,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.#applySelectionClasses();
   }
 
-  // ===== Public API =====
+  // #endregion
+
+  // #region Public API
 
   /**
    * Get the selected cell (cell mode only).
@@ -503,7 +509,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.requestAfterRender();
   }
 
-  // ===== Private Helpers =====
+  // #endregion
+
+  // #region Private Helpers
 
   #buildEvent(): SelectionChangeDetail {
     return buildSelectionEvent(
@@ -517,7 +525,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     );
   }
 
-  // ===== Styles =====
+  // #endregion
+
+  // #region Styles
 
   override readonly styles = styles;
+
+  // #endregion
 }

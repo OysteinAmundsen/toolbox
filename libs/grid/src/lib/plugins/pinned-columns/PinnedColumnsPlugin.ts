@@ -31,20 +31,22 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     return {};
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private isApplied = false;
   private leftOffsets = new Map<string, number>();
   private rightOffsets = new Map<string, number>();
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.leftOffsets.clear();
     this.rightOffsets.clear();
     this.isApplied = false;
   }
+  // #endregion
 
-  // ===== Detection =====
+  // #region Detection
 
   /**
    * Auto-detect sticky columns from column configuration.
@@ -54,8 +56,9 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     if (!Array.isArray(columns)) return false;
     return hasStickyColumns(columns);
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     // Mark that we have sticky columns to apply
@@ -82,8 +85,9 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       applyStickyOffsets(host, columns);
     });
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Re-apply sticky offsets (e.g., after column resize).
@@ -115,4 +119,5 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   clearStickyPositions(): void {
     clearStickyOffsets(this.grid as unknown as HTMLElement);
   }
+  // #endregion
 }

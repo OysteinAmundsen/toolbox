@@ -153,7 +153,7 @@ export class PluginManager {
       .join('\n');
   }
 
-  // ===== Hook execution methods =====
+  // #region Hook execution methods
 
   /**
    * Execute processRows hook on all plugins.
@@ -380,8 +380,9 @@ export class PluginManager {
     }
     return items;
   }
+  // #endregion
 
-  // ===== Shell Integration Hooks =====
+  // #region Shell Integration Hooks
 
   /**
    * Collect tool panels from all plugins.
@@ -426,4 +427,5 @@ export class PluginManager {
     // Sort by order (ascending), default to 0
     return contents.sort((a, b) => (a.content.order ?? 0) - (b.content.order ?? 0));
   }
+  // #endregion
 }

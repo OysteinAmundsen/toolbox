@@ -61,3 +61,23 @@ interface GroupHeaderRenderParams {
   isImplicit: boolean; // Auto-generated for ungrouped columns
 }
 ```
+
+## API Methods
+
+Access via `grid.getPlugin(GroupingColumnsPlugin)`:
+
+```typescript
+const grouping = grid.getPlugin(GroupingColumnsPlugin);
+
+// Check if column groups are active
+grouping.isGroupingActive();
+
+// Get computed column groups
+const groups = grouping.getGroups();
+
+// Get columns in a specific group
+const cols = grouping.getGroupColumns('groupId');
+
+// Refresh column groups
+grouping.refresh();
+```

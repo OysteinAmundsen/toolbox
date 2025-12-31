@@ -201,7 +201,7 @@ export type ColumnViewRenderer<TRow = any, TValue = any> = (
   ctx: CellRenderContext<TRow, TValue>,
 ) => Node | string | void;
 
-// ================= Internal-only augmented types (not re-exported publicly) =================
+// #region Internal-only augmented types (not re-exported publicly)
 export interface ColumnInternal<T = any> extends ColumnConfig<T> {
   __autoSized?: boolean;
   __userResized?: boolean;
@@ -254,8 +254,9 @@ export interface VirtualState {
   /** Spacer element inside faux scrollbar for setting virtual height */
   totalHeightEl: HTMLElement | null;
 }
+// #endregion
 
-// ================= Grouping & Footer Public Types  =================
+// #region Grouping & Footer Public Types
 /**
  * Group row rendering customization options.
  * Used within grouping-rows plugin config for presentation of group rows.
@@ -284,8 +285,9 @@ export const FitModeEnum = {
   FIXED: 'fixed',
 } as const;
 export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum]; // evaluates to 'stretch' | 'fixed'
+// #endregion
 
-// ================= Grid Config ====================================
+// #region Grid Config
 /**
  * Grid configuration object - the **single source of truth** for grid behavior.
  *
@@ -359,8 +361,9 @@ export interface GridConfig<TRow = any> {
    */
   icons?: GridIcons;
 }
+// #endregion
 
-// ================= Grid Icons ============================
+// #region Grid Icons
 
 /** Icon value - can be a string (text/HTML) or HTMLElement */
 export type IconValue = string | HTMLElement;
@@ -399,8 +402,9 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   dragHandle: '⋮⋮',
   toolPanel: '☰',
 };
+// #endregion
 
-// ================= Shell Configuration ============================
+// #region Shell Configuration
 
 /**
  * Shell configuration for the grid's optional header bar and tool panels.
@@ -519,8 +523,9 @@ export interface HeaderContentDefinition {
   /** Order priority (lower = first, default: 100) */
   order?: number;
 }
+// #endregion
 
-// ================= Column State (Persistence) =====================
+// #region Column State (Persistence)
 
 /**
  * State for a single column. Captures user-driven changes at runtime.
@@ -566,8 +571,9 @@ export interface ColumnSortState {
 export interface GridColumnState {
   columns: ColumnState[];
 }
+// #endregion
 
-// ================= Public Event Detail Interfaces =================
+// #region Public Event Detail Interfaces
 export interface CellCommitDetail<TRow = any> {
   /** The mutated row after commit. */
   row: TRow;
@@ -667,3 +673,4 @@ export interface EvalContext {
   value: any;
   row: any;
 }
+// #endregion

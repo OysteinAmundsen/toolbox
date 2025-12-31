@@ -42,18 +42,20 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private expandedRows: Set<any> = new Set();
   private detailElements: Map<any, HTMLElement> = new Map();
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.expandedRows.clear();
     this.detailElements.clear();
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override processColumns(
     columns: readonly import('../../core/types').ColumnConfig[],
@@ -323,8 +325,9 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
     return minStart;
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Expand the detail row at the given index.
@@ -412,8 +415,9 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const row = this.rows[rowIndex];
     return row ? this.detailElements.get(row) : undefined;
   }
+  // #endregion
 
-  // ===== Styles =====
-
+  // #region Styles
   override readonly styles = styles;
+  // #endregion
 }

@@ -41,14 +41,14 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private infoBarElement: HTMLElement | null = null;
   private topAggregationContainer: HTMLElement | null = null;
   private bottomAggregationContainer: HTMLElement | null = null;
   private footerWrapper: HTMLElement | null = null;
+  // #endregion
 
-  // ===== Lifecycle =====
-
+  // #region Lifecycle
   override detach(): void {
     if (this.infoBarElement) {
       this.infoBarElement.remove();
@@ -67,9 +67,9 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       this.footerWrapper = null;
     }
   }
+  // #endregion
 
-  // ===== Hooks =====
-
+  // #region Hooks
   override afterRender(): void {
     const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
@@ -94,7 +94,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       filterState,
     );
 
-    // ===== Handle Aggregation Rows =====
+    // #region Handle Aggregation Rows
     const aggregationRows = this.config.aggregationRows || [];
     const topRows = aggregationRows.filter((r) => r.position === 'top');
     const bottomRows = aggregationRows.filter((r) => r.position !== 'top');
@@ -175,10 +175,11 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     } else {
       this.cleanupFooter();
     }
+    // #endregion
   }
+  // #endregion
 
-  // ===== Private Methods =====
-
+  // #region Private Methods
   private cleanup(): void {
     if (this.infoBarElement) {
       this.infoBarElement.remove();
@@ -231,9 +232,9 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       return null;
     }
   }
+  // #endregion
 
-  // ===== Public API =====
-
+  // #region Public API
   /**
    * Refresh the status bar to reflect current grid state.
    */
@@ -303,8 +304,9 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       this.requestRender();
     }
   }
+  // #endregion
 
-  // ===== Styles =====
-
+  // #region Styles
   override readonly styles = styles;
+  // #endregion
 }

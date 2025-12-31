@@ -38,7 +38,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
 
   /** Set of expanded row keys */
   private expandedKeys = new Set<string>();
@@ -52,7 +52,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   /** Map from key to flattened row for quick lookup */
   private rowKeyMap = new Map<string, FlattenedTreeRow>();
 
-  // ===== Lifecycle =====
+  // #endregion
+
+  // #region Lifecycle
 
   override detach(): void {
     this.expandedKeys.clear();
@@ -61,7 +63,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.rowKeyMap.clear();
   }
 
-  // ===== Auto-Detection =====
+  // #endregion
+
+  // #region Auto-Detection
 
   /**
    * Detects if tree functionality should be enabled based on data structure.
@@ -73,7 +77,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return detectTreeStructure(rows as any[], childrenField);
   }
 
-  // ===== Data Processing =====
+  // #endregion
+
+  // #region Data Processing
 
   override processRows(rows: readonly unknown[]): any[] {
     const childrenField = this.config.childrenField ?? 'children';
@@ -184,7 +190,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return cols;
   }
 
-  // ===== Event Handlers =====
+  // #endregion
+
+  // #region Event Handlers
 
   override onCellClick(event: CellClickEvent): boolean {
     const target = event.originalEvent?.target as HTMLElement;
@@ -209,7 +217,9 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return true;
   }
 
-  // ===== Public API =====
+  // #endregion
+
+  // #region Public API
 
   /**
    * Expand a specific node by key.
@@ -287,7 +297,11 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.requestRender();
   }
 
-  // ===== Styles =====
+  // #endregion
+
+  // #region Styles
 
   override readonly styles = styles;
+
+  // #endregion
 }

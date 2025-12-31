@@ -30,16 +30,18 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private sortModel: SortModel[] = [];
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.sortModel = [];
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override processRows(rows: readonly unknown[]): unknown[] {
     if (this.sortModel.length === 0) {
@@ -111,8 +113,9 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
       }
     });
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Get the current sort model.
@@ -158,8 +161,9 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   getSortDirection(field: string): 'asc' | 'desc' | undefined {
     return getSortDirection(this.sortModel, field);
   }
+  // #endregion
 
-  // ===== Column State Hooks =====
+  // #region Column State Hooks
 
   /**
    * Return sort state for a column if it's in the sort model.
@@ -207,8 +211,10 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     // Re-sort the model by priority to ensure correct order
     // This is handled after all columns are processed, but we maintain order here
   }
+  // #endregion
 
-  // ===== Styles =====
+  // #region Styles
 
   override readonly styles = styles;
+  // #endregion
 }

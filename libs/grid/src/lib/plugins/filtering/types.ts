@@ -6,7 +6,7 @@
 
 import type { ColumnConfig } from '../../core/types';
 
-// ===== Module Augmentation =====
+// #region Module Augmentation
 // When this plugin is imported, ColumnConfig is augmented with filtering-specific properties
 declare module '../../core/types' {
   interface BaseColumnConfig {
@@ -31,6 +31,7 @@ declare module '../../core/types' {
     };
   }
 }
+// #endregion
 
 /** Supported filter types */
 export type FilterType = 'text' | 'number' | 'date' | 'set' | 'boolean';

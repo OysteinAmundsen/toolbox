@@ -35,17 +35,18 @@ grid.gridConfig = {
 
 ## Menu Item Options
 
-| Option      | Type                             | Description              |
-| ----------- | -------------------------------- | ------------------------ |
-| `id`        | `string`                         | Unique identifier        |
-| `name`      | `string`                         | Display label            |
-| `icon`      | `string`                         | Icon (emoji or HTML)     |
-| `shortcut`  | `string`                         | Keyboard shortcut hint   |
-| `disabled`  | `boolean \| (params) => boolean` | Disable item             |
-| `hidden`    | `boolean \| (params) => boolean` | Hide item                |
-| `separator` | `boolean`                        | Render as separator line |
-| `subMenu`   | `ContextMenuItem[]`              | Nested submenu           |
-| `action`    | `(params) => void`               | Click handler            |
+| Option      | Type                | Description                 |
+| ----------- | ------------------- | --------------------------- | ------------ |
+| `id`        | `string`            | Unique identifier           |
+| `name`      | `string`            | Display label               |
+| `icon`      | `string`            | Icon (emoji or HTML)        |
+| `shortcut`  | `string`            | Keyboard shortcut hint      |
+| `disabled`  | `boolean \\         | (params) => boolean`        | Disable item |
+| `hidden`    | `boolean \\         | (params) => boolean`        | Hide item    |
+| `separator` | `boolean`           | Render as separator line    |
+| `subMenu`   | `ContextMenuItem[]` | Nested submenu              |
+| `action`    | `(params) => void`  | Click handler               |
+| `cssClass`  | `string`            | Optional CSS class for item |
 
 ## Context Parameters
 

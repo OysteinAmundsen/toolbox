@@ -28,23 +28,23 @@ This document explains the internal architecture of the grid component for contr
 5. **Single Source of Truth**: All configuration converges into one effective config
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        <tbw-grid>                           │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                    Shadow DOM                        │   │
-│  │  ┌─────────────────────────────────────────────┐    │   │
-│  │  │              Header Row                      │    │   │
-│  │  └─────────────────────────────────────────────┘    │   │
-│  │  ┌─────────────────────────────────────────────┐    │   │
-│  │  │           Rows Viewport (scrollable)         │    │   │
-│  │  │  ┌─────────────────────────────────────┐    │    │   │
-│  │  │  │  Spacer (virtual scroll height)     │    │    │   │
-│  │  │  ├─────────────────────────────────────┤    │    │   │
-│  │  │  │  Visible Rows (row pool)            │    │    │   │
-│  │  │  └─────────────────────────────────────┘    │    │   │
-│  │  └─────────────────────────────────────────────┘    │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────┐
+│                        <tbw-grid>                     │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │                    Shadow DOM                   │  │
+│  │  ┌───────────────────────────────────────────┐  │  │
+│  │  │              Header Row                   │  │  │
+│  │  └───────────────────────────────────────────┘  │  │
+│  │  ┌───────────────────────────────────────────┐  │  │
+│  │  │           Rows Viewport (scrollable)      │  │  │
+│  │  │  ┌─────────────────────────────────────┐  │  │  │
+│  │  │  │  Spacer (virtual scroll height)     │  │  │  │
+│  │  │  ├─────────────────────────────────────┤  │  │  │
+│  │  │  │  Visible Rows (row pool)            │  │  │  │
+│  │  │  └─────────────────────────────────────┘  │  │  │
+│  │  └───────────────────────────────────────────┘  │  │
+│  └─────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -64,48 +64,29 @@ The grid follows a **single source of truth** pattern. All configuration inputs 
 
 Users can configure the grid through multiple input methods:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    INPUT SOURCES                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────┐   │
-│  │ gridConfig  │   │  columns    │   │  fitMode/editOn │   │
-│  │  property   │   │  property   │   │   properties    │   │
-│  └──────┬──────┘   └──────┬──────┘   └────────┬────────┘   │
-│         │                 │                   │             │
-│         └─────────────────┼───────────────────┘             │
-│                           │                                 │
-│  ┌────────────────────────┼────────────────────────┐        │
-│  │        LIGHT DOM       │                        │        │
-│  │  ┌─────────────────┐   │   ┌─────────────────┐  │        │
-│  │  │ <tbw-grid-column│   │   │ <tbw-grid-header│  │        │
-│  │  │   field="..."   │   │   │   title="..."   │  │        │
-│  │  │   header="..."> │   │   │                 │  │        │
-│  │  └────────┬────────┘   │   └────────┬────────┘  │        │
-│  │           │            │            │           │        │
-│  └───────────┼────────────┼────────────┼───────────┘        │
-│              └────────────┼────────────┘                    │
-│                           │                                 │
-│                           ▼                                 │
-│              ┌────────────────────────┐                     │
-│              │  #mergeEffectiveConfig │                     │
-│              │    (single merge)      │                     │
-│              └───────────┬────────────┘                     │
-│                          │                                  │
-│                          ▼                                  │
-│              ┌────────────────────────┐                     │
-│              │    #effectiveConfig    │ ◄── SINGLE SOURCE   │
-│              │   (canonical config)   │     OF TRUTH        │
-│              └───────────┬────────────┘                     │
-│                          │                                  │
-│                          ▼                                  │
-│              ┌────────────────────────┐                     │
-│              │    DERIVED STATE       │                     │
-│              │  _columns (processed)  │                     │
-│              │  _rows (processed)     │                     │
-│              └────────────────────────┘                     │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph inputs["INPUT SOURCES"]
+        direction TB
+        A["gridConfig<br/>property"]
+        B["columns<br/>property"]
+        C["fitMode/editOn<br/>properties"]
+
+        subgraph lightdom["LIGHT DOM"]
+            D["&lt;tbw-grid-column&gt;<br/>field, header"]
+            E["&lt;tbw-grid-header&gt;<br/>title"]
+        end
+    end
+
+    A --> F
+    B --> F
+    C --> F
+    D --> F
+    E --> F
+
+    F["#mergeEffectiveConfig<br/><i>single merge</i>"]
+    F --> G["#effectiveConfig<br/><i>canonical config</i><br/>◀ SINGLE SOURCE OF TRUTH"]
+    G --> H["DERIVED STATE<br/>_columns (processed)<br/>_rows (processed)"]
 ```
 
 ### Precedence Rules
@@ -148,18 +129,15 @@ The grid parses these light DOM elements on connection:
 The grid maintains three categories of state:
 
 1. **Input Properties** (`#rows`, `#columns`, `#gridConfig`, `#fitMode`, `#editOn`)
-
    - Raw user input, never read directly for rendering
    - Merged into `#effectiveConfig` by `#mergeEffectiveConfig()`
 
 2. **Effective Config** (`#effectiveConfig`)
-
    - The **single source of truth** after merging all inputs
    - All rendering and logic reads from here
    - Immutable during a render cycle
 
 3. **Derived State** (`_columns`, `_rows`)
-
    - Result of processing `effectiveConfig` through plugin hooks
    - `_columns` = `effectiveConfig.columns` after `processColumns()` hooks
    - `_rows` = input rows after `processRows()` hooks (grouping, filtering, etc.)
@@ -174,33 +152,54 @@ The grid maintains three categories of state:
 
 ```
 libs/grid/src/
-├── index.ts              # Main entry (auto-registers element)
-├── public.ts             # Public API surface (types, constants)
-├── all.ts                # All-in-one bundle with all plugins
-└── lib/
-    ├── core/
-    │   ├── grid.ts           # Main component class
-    │   ├── grid.css          # Core styles
-    │   ├── types.ts          # Public type definitions
-    │   ├── internal/         # Pure helper functions
-    │   │   ├── columns.ts    # Column resolution, sizing
-    │   │   ├── rows.ts       # Row rendering
-    │   │   ├── header.ts     # Header rendering
-    │   │   ├── virtualization.ts  # Virtual scroll math
-    │   │   ├── keyboard.ts   # Keyboard navigation
-    │   │   ├── editing.ts    # Cell/row edit logic
-    │   │   ├── sorting.ts    # Sort comparators
-    │   │   ├── sanitize.ts   # Template security
-    │   │   └── ...
-    │   └── plugin/           # Plugin infrastructure
-    │       ├── base-plugin.ts    # Abstract base class
-    │       ├── plugin-manager.ts # Plugin lifecycle
-    │       └── index.ts          # Plugin system exports
-    └── plugins/              # Built-in plugins
-        ├── selection/
-        ├── filtering/
-        ├── tree/
-        └── ...
+├─ index.ts                # Main entry (auto-registers element)
+├─ public.ts               # Public API surface (types, constants)
+├─ all.ts                  # All-in-one bundle with all plugins
+└─ lib/
+   ├─ core/
+   │  ├─ grid.ts             # Main component class
+   │  ├─ grid.css            # Core styles
+   │  ├─ types.ts            # Public type definitions
+   │  ├─ constants.ts        # DOM class/attribute constants
+   │  ├─ internal/           # Pure helper functions
+   │  │  ├─ aggregators.ts    # Footer aggregation functions
+   │  │  ├─ column-state.ts   # Column state management
+   │  │  ├─ columns.ts        # Column resolution, sizing
+   │  │  ├─ editing.ts        # Cell/row edit logic
+   │  │  ├─ editors.ts        # Built-in cell editors
+   │  │  ├─ header.ts         # Header rendering
+   │  │  ├─ inference.ts      # Column type inference
+   │  │  ├─ keyboard.ts       # Keyboard navigation
+   │  │  ├─ resize.ts         # Column resizing
+   │  │  ├─ rows.ts           # Row rendering
+   │  │  ├─ sanitize.ts       # Template security
+   │  │  ├─ shell.ts          # Shell/toolbar rendering
+   │  │  ├─ sorting.ts        # Sort comparators
+   │  │  ├─ utils.ts          # Shared utilities
+   │  │  └─ virtualization.ts # Virtual scroll math
+   │  └─ plugin/             # Plugin infrastructure
+   │     ├─ base-plugin.ts    # Abstract base class
+   │     ├─ plugin-manager.ts # Plugin lifecycle
+   │     └─ index.ts          # Plugin system exports
+   └─ plugins/                # Built-in plugins
+      ├─ clipboard/            # Copy/paste support
+      ├─ column-virtualization/ # Horizontal virtualization
+      ├─ context-menu/         # Right-click menus
+      ├─ export/               # CSV/Excel export
+      ├─ filtering/            # Column filters
+      ├─ grouping-columns/     # Column header grouping
+      ├─ grouping-rows/        # Row grouping with aggregates
+      ├─ master-detail/        # Expandable row details
+      ├─ multi-sort/           # Multi-column sorting
+      ├─ pinned-columns/       # Frozen columns
+      ├─ pinned-rows/          # Frozen rows (top/bottom)
+      ├─ pivot/                # Pivot table transformation
+      ├─ reorder/              # Drag column reordering
+      ├─ selection/            # Row/cell/range selection
+      ├─ server-side/          # Server-side data loading
+      ├─ tree/                 # Hierarchical tree data
+      ├─ undo-redo/            # Edit history
+      └─ visibility/           # Column show/hide
 ```
 
 ### Key Conventions
@@ -263,47 +262,17 @@ class PluginManager {
 
 The grid follows a predictable render flow:
 
-```
-┌─────────────────┐
-│ Data/Config     │
-│ Change          │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ #scheduleSetup  │  Debounced setup trigger
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ #setup()        │  Main render orchestration
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │         │
-    ▼         ▼
-┌────────┐  ┌────────────────┐
-│Process │  │ Process Rows   │  Plugin hooks
-│Columns │  │ (plugins)      │
-└────┬───┘  └───────┬────────┘
-     │              │
-     ▼              ▼
-┌────────────────────────────┐
-│ updateTemplate()           │  CSS grid-template-columns
-└─────────────┬──────────────┘
-              │
-     ┌────────┴────────┐
-     │                 │
-     ▼                 ▼
-┌──────────┐    ┌──────────────────┐
-│renderHead│    │renderVisibleRows │  Only visible rows
-│er()      │    │()                │
-└──────────┘    └──────────────────┘
-              │
-              ▼
-┌─────────────────────────────┐
-│ Plugin afterRender() hooks  │
-└─────────────────────────────┘
+```mermaid
+flowchart TB
+    A["Data/Config Change"] --> B["#scheduleSetup<br/><i>Debounced setup trigger</i>"]
+    B --> C["#setup()<br/><i>Main render orchestration</i>"]
+    C --> D["Process Columns"]
+    C --> E["Process Rows<br/><i>Plugin hooks</i>"]
+    D --> F["updateTemplate()<br/><i>CSS grid-template-columns</i>"]
+    E --> F
+    F --> G["renderHeader()"]
+    F --> H["renderVisibleRows()<br/><i>Only visible rows</i>"]
+    H --> I["Plugin afterRender() hooks"]
 ```
 
 ### Key Functions
@@ -419,38 +388,26 @@ function getColumnConfiguration(grid: InternalGrid): ColumnInternal[] {
 
 ### Plugin Lifecycle
 
-```
-┌──────────────┐
-│ new Plugin() │  Constructor stores user config
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│ attach(grid) │  Plugin receives grid ref, merges config
-└──────┬───────┘
-       │
-       ▼
-┌──────────────────────────────┐
-│ Grid Render Cycle            │
-│  • processColumns() hook     │
-│  • processRows() hook        │
-│  • beforeRender() hook       │
-│  • afterRender() hook        │
-└──────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────┐
-│ User Interaction             │
-│  • onCellClick() hook        │
-│  • onKeyDown() hook          │
-│  • onScroll() hook           │
-│  • onCellMouseDown/Move/Up() │
-└──────────────────────────────┘
-       │
-       ▼
-┌──────────────┐
-│ detach()     │  Cleanup on grid disconnect
-└──────────────┘
+```mermaid
+flowchart TB
+    A["new Plugin()<br/><i>Constructor stores user config</i>"] --> B["attach(grid)<br/><i>Plugin receives grid ref, merges config</i>"]
+    B --> C["Grid Render Cycle"]
+    C --> D["User Interaction"]
+    D --> E["detach()<br/><i>Cleanup on grid disconnect</i>"]
+
+    subgraph C["Grid Render Cycle"]
+        C1["processColumns() hook"]
+        C2["processRows() hook"]
+        C3["beforeRender() hook"]
+        C4["afterRender() hook"]
+    end
+
+    subgraph D["User Interaction"]
+        D1["onCellClick() hook"]
+        D2["onKeyDown() hook"]
+        D3["onScroll() hook"]
+        D4["onCellMouseDown/Move/Up()"]
+    end
 ```
 
 ### Creating a Plugin
@@ -518,24 +475,42 @@ if (selection) {
 
 Core events emitted by the grid itself:
 
-| Event           | Detail Type          | When                 |
-| --------------- | -------------------- | -------------------- |
-| `cell-commit`   | `CellCommitDetail`   | Cell value committed |
-| `row-commit`    | `RowCommitDetail`    | Row edit committed   |
-| `sort-change`   | `SortChangeDetail`   | Sort state changed   |
-| `column-resize` | `ColumnResizeDetail` | Column resized       |
-| `activate-cell` | `ActivateCellDetail` | Cell focus changed   |
+| Event                   | Detail Type                 | When                          |
+| ----------------------- | --------------------------- | ----------------------------- |
+| `cell-commit`           | `CellCommitDetail`          | Cell value committed          |
+| `row-commit`            | `RowCommitDetail`           | Row edit committed            |
+| `changed-rows-reset`    | `void`                      | Changed rows cleared          |
+| `sort-change`           | `SortChangeDetail`          | Sort state changed            |
+| `column-resize`         | `ColumnResizeDetail`        | Column resized                |
+| `activate-cell`         | `ActivateCellDetail`        | Cell focus changed            |
+| `group-toggle`          | `GroupToggleDetail`         | Group row expanded/collapsed  |
+| `column-state-change`   | `ColumnStateChangeDetail`   | Column config changed         |
+| `mount-external-view`   | `MountExternalViewDetail`   | External view renderer needed |
+| `mount-external-editor` | `MountExternalEditorDetail` | External editor needed        |
 
 ### Plugin Events
 
 Plugins emit their own events via `this.emit()`:
 
-| Event               | Plugin    | Detail                  |
-| ------------------- | --------- | ----------------------- |
-| `selection-change`  | Selection | `SelectionChangeDetail` |
-| `tree-expand`       | Tree      | `TreeExpandDetail`      |
-| `filter-change`     | Filtering | `FilterModel`           |
-| `sort-model-change` | MultiSort | `SortModel[]`           |
+| Event                      | Plugin       | Detail                   |
+| -------------------------- | ------------ | ------------------------ |
+| `selection-change`         | Selection    | `SelectionChangeDetail`  |
+| `tree-expand`              | Tree         | `TreeExpandDetail`       |
+| `filter-change`            | Filtering    | `FilterModel`            |
+| `sort-model-change`        | MultiSort    | `SortModel[]`            |
+| `export-start`             | Export       | `ExportStartDetail`      |
+| `export-complete`          | Export       | `ExportCompleteDetail`   |
+| `clipboard-copy`           | Clipboard    | `ClipboardCopyDetail`    |
+| `clipboard-paste`          | Clipboard    | `ClipboardPasteDetail`   |
+| `context-menu-open`        | ContextMenu  | `ContextMenuOpenDetail`  |
+| `context-menu-close`       | ContextMenu  | `void`                   |
+| `history-change`           | UndoRedo     | `HistoryChangeDetail`    |
+| `server-loading`           | ServerSide   | `boolean`                |
+| `server-error`             | ServerSide   | `Error`                  |
+| `column-visibility-change` | Visibility   | `VisibilityChangeDetail` |
+| `column-reorder`           | Reorder      | `ReorderDetail`          |
+| `detail-expand`            | MasterDetail | `DetailExpandDetail`     |
+| `group-expand`             | GroupingRows | `GroupExpandDetail`      |
 
 ### Event Constants
 
@@ -608,25 +583,29 @@ This allows:
 
 ### CSS Classes
 
+All class names are defined in `constants.ts` (`GridClasses`):
+
 | Class            | Element   | Purpose                       |
 | ---------------- | --------- | ----------------------------- |
 | `.tbw-grid-root` | Container | Root wrapper                  |
 | `.header`        | Container | Header section                |
 | `.header-row`    | Row       | Header cells container        |
-| `.header-cell`   | Cell      | Individual header cell        |
+| `.cell`          | Cell      | Header or data cell           |
 | `.rows-viewport` | Container | Scrollable body area          |
 | `.rows-spacer`   | Div       | Creates virtual scroll height |
 | `.rows`          | Container | Visible rows container        |
 | `.data-row`      | Row       | Individual data row           |
-| `.data-cell`     | Cell      | Individual data cell          |
+| `.group-row`     | Row       | Grouped row header            |
 
 ### Data Attributes
 
-| Attribute        | Element      | Value                   |
-| ---------------- | ------------ | ----------------------- |
-| `data-row-index` | `.data-row`  | Row index in data array |
-| `data-col-index` | `.data-cell` | Column index            |
-| `data-field`     | `.data-cell` | Column field name       |
+All attribute names are defined in `constants.ts` (`GridDataAttrs`):
+
+| Attribute        | Element     | Value                   |
+| ---------------- | ----------- | ----------------------- |
+| `data-row-index` | `.data-row` | Row index in data array |
+| `data-col-index` | `.cell`     | Column index            |
+| `data-field`     | `.cell`     | Column field name       |
 
 ---
 

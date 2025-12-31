@@ -39,15 +39,17 @@ Access via `grid.getPlugin(PinnedColumnsPlugin)`:
 ```typescript
 const pinned = grid.getPlugin(PinnedColumnsPlugin);
 
-// Pin a column
-pinned.pin('id', 'left');
+// Get left pinned columns
+const leftPinned = pinned.getLeftPinnedColumns();
 
-// Unpin a column
-pinned.unpin('id');
+// Get right pinned columns
+const rightPinned = pinned.getRightPinnedColumns();
 
-// Get pinned columns
-const leftPinned = pinned.getPinned('left');
-const rightPinned = pinned.getPinned('right');
+// Refresh sticky offsets (e.g., after column resize)
+pinned.refreshStickyOffsets();
+
+// Clear all sticky positioning
+pinned.clearStickyPositions();
 ```
 
 ## Behavior with Other Plugins

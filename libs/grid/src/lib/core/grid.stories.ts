@@ -121,7 +121,7 @@ type Story = StoryObj<GridArgs>;
 // Column definitions factory
 function buildColumnDefs(
   visibleColumns: ColumnKey[],
-  opts: { sortable: boolean; resizable: boolean; editable: boolean }
+  opts: { sortable: boolean; resizable: boolean; editable: boolean },
 ): ColumnConfig[] {
   const columnDefs: Record<ColumnKey, ColumnConfig> = {
     id: { field: 'id', header: 'ID', type: 'number', sortable: opts.sortable, resizable: opts.resizable },
@@ -210,7 +210,7 @@ export const Playground: Story = {
       __$sortable$: boolean,
       __$resizable$: boolean,
       __$editable$: boolean,
-      __$editOn$: string
+      __$editOn$: string,
     ) => {
       // Generate sample data
       const roles = ['admin', 'user', 'guest'];
@@ -291,8 +291,8 @@ export const Playground: Story = {
       sessionKey: 'grid-playground',
       description: `
         <p>Rendering <strong>${args.rowCount.toLocaleString()} rows</strong> with <strong>${
-        args.visibleColumns.length
-      } columns</strong> (${heightInfo}).</p>
+          args.visibleColumns.length
+        } columns</strong> (${heightInfo}).</p>
         <p><strong>Virtualization:</strong> ${
           args.fixedHeight
             ? 'Only visible rows are in the DOM — try scrolling with 10,000 rows!'
@@ -631,9 +631,7 @@ grid.resetColumnState();`;
   },
 };
 
-// ============================================================================
-// SHELL STORIES
-// ============================================================================
+// #region Shell Stories
 
 // Shell-specific columns
 const shellColumns: ColumnConfig[] = [
@@ -1196,3 +1194,5 @@ grid.gridConfig = {
     });
   },
 };
+
+// #endregion

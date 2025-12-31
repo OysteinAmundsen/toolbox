@@ -25,10 +25,11 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option      | Type     | Default | Description                    |
-| ----------- | -------- | ------- | ------------------------------ |
-| `threshold` | `number` | `30`    | Min columns to activate        |
-| `overscan`  | `number` | `3`     | Extra columns outside viewport |
+| Option       | Type      | Default | Description                       |
+| ------------ | --------- | ------- | --------------------------------- |
+| `autoEnable` | `boolean` | `true`  | Auto-enable when threshold is met |
+| `threshold`  | `number`  | `30`    | Min columns to activate           |
+| `overscan`   | `number`  | `3`     | Extra columns outside viewport    |
 
 ## When to Use
 
@@ -44,11 +45,17 @@ Access via `grid.getPlugin(ColumnVirtualizationPlugin)`:
 const colVirt = grid.getPlugin(ColumnVirtualizationPlugin);
 
 // Check if virtualization is active
-const isActive = colVirt.isActive();
+const isActive = colVirt.getIsVirtualized();
 
 // Get visible column range
-const { start, end } = colVirt.getVisibleRange();
+const { start, end } = colVirt.getVisibleColumnRange();
 
-// Force recalculation
-colVirt.refresh();
+// Scroll to a specific column
+colVirt.scrollToColumn(columnIndex);
+
+// Get column offset
+const offset = colVirt.getColumnOffset(columnIndex);
+
+// Get total width
+const totalWidth = colVirt.getTotalWidth();
 ```

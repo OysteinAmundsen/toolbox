@@ -32,6 +32,12 @@ grid.columns = [
 | `hidden`      | `boolean` | Initially hidden          |
 | `lockVisible` | `boolean` | Prevent visibility toggle |
 
+## Configuration
+
+| Option         | Type      | Default | Description              |
+| -------------- | --------- | ------- | ------------------------ |
+| `allowHideAll` | `boolean` | `false` | Allow hiding all columns |
+
 ## API Methods
 
 Access via `grid.getPlugin(VisibilityPlugin)`:
@@ -40,17 +46,26 @@ Access via `grid.getPlugin(VisibilityPlugin)`:
 const visibility = grid.getPlugin(VisibilityPlugin);
 
 // Show/hide columns
-visibility.setVisible('email', false);
-visibility.setVisible('phone', true);
+visibility.setColumnVisible('email', false);
+visibility.showColumn('phone');
+visibility.hideColumn('notes');
 
 // Toggle visibility
-visibility.toggle('notes');
+visibility.toggleColumn('notes');
 
-// Get hidden columns
+// Check visibility
+const isVisible = visibility.isColumnVisible('email');
+
+// Get column lists
 const hidden = visibility.getHiddenColumns();
+const visible = visibility.getVisibleColumns();
+const all = visibility.getAllColumns();
 
-// Show the visibility panel UI
-visibility.showPanel();
+// Show all hidden columns
+visibility.showAll();
+
+// Check panel state
+visibility.isPanelVisible();
 ```
 
 ## Events

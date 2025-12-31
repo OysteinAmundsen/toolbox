@@ -75,7 +75,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private columnListElement: HTMLElement | null = null;
 
   // Drag state for reorder integration
@@ -83,8 +83,9 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   private draggedField: string | null = null;
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.columnListElement = null;
@@ -93,8 +94,9 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     this.draggedIndex = null;
     this.dropIndex = null;
   }
+  // #endregion
 
-  // ===== Shell Integration =====
+  // #region Shell Integration
 
   /**
    * Register the column visibility tool panel with the shell.
@@ -109,8 +111,9 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       render: (container) => this.renderPanelContent(container),
     };
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Show the visibility sidebar panel.
@@ -239,8 +242,9 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     const grid = this.grid as unknown as GridWithVisibility;
     return grid.activeToolPanel === VisibilityPlugin.PANEL_ID;
   }
+  // #endregion
 
-  // ===== Private Methods =====
+  // #region Private Methods
 
   /**
    * Render the panel content into the shell's tool panel container.
@@ -438,8 +442,10 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       }
     });
   }
+  // #endregion
 
-  // ===== Styles =====
+  // #region Styles
 
   override readonly styles = styles;
+  // #endregion
 }

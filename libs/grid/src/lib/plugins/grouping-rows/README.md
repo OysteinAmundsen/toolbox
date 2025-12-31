@@ -28,12 +28,16 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option              | Type                          | Default | Description                     |
-| ------------------- | ----------------------------- | ------- | ------------------------------- |
-| `groupOn`           | `(row) => string \| string[]` | -       | Function returning group key(s) |
-| `aggregators`       | `Record<string, Aggregator>`  | `{}`    | Aggregation functions per field |
-| `fullWidth`         | `boolean`                     | `true`  | Group rows span full width      |
-| `expandedByDefault` | `boolean`                     | `true`  | Start groups expanded           |
+| Option             | Type                          | Default | Description                            |
+| ------------------ | ----------------------------- | ------- | -------------------------------------- |
+| `groupOn`          | `(row) => string \| string[]` | -       | Function returning group key(s)        |
+| `aggregators`      | `Record<string, Aggregator>`  | `{}`    | Aggregation functions per field        |
+| `fullWidth`        | `boolean`                     | `true`  | Group rows span full width             |
+| `defaultExpanded`  | `boolean`                     | `false` | Start groups expanded                  |
+| `showRowCount`     | `boolean`                     | `true`  | Show row count in group headers        |
+| `indentWidth`      | `number`                      | `20`    | Indent width per depth level in pixels |
+| `groupRowRenderer` | `(params) => Element\|string` | -       | Custom group row renderer              |
+| `formatLabel`      | `(value, depth, key) => str`  | -       | Custom format function for group label |
 
 ## Multi-Level Grouping
 
@@ -62,13 +66,13 @@ new GroupingRowsPlugin({
 
 ## Events
 
-### `group-expand`
+### `group-toggle`
 
 Fired when a group is expanded or collapsed.
 
 ```typescript
-grid.addEventListener('group-expand', (e) => {
-  console.log('Group key:', e.detail.groupKey);
+grid.addEventListener('group-toggle', (e) => {
+  console.log('Group key:', e.detail.key);
   console.log('Expanded:', e.detail.expanded);
 });
 ```

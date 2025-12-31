@@ -1,6 +1,6 @@
 # Pinned Rows Plugin
 
-Pin rows to top or bottom of grid (footer aggregations).
+Status bar with row counts and aggregation rows for computed values.
 
 ## Installation
 
@@ -16,8 +16,18 @@ import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 grid.gridConfig = {
   plugins: [
     new PinnedRowsPlugin({
-      pinnedTopRows: [{ id: 'header', name: 'Header Row', isTotal: false }],
-      pinnedBottomRows: [{ id: 'total', name: 'Total', amount: 0, __aggregators: { amount: 'sum' } }],
+      position: 'bottom',
+      showRowCount: true,
+      aggregationRows: [
+        {
+          id: 'totals',
+          position: 'bottom',
+          aggregators: {
+            amount: 'sum',
+            count: 'count',
+          },
+        },
+      ],
     }),
   ],
 };
@@ -25,22 +35,26 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option             | Type    | Description           |
-| ------------------ | ------- | --------------------- |
-| `pinnedTopRows`    | `any[]` | Rows pinned at top    |
-| `pinnedBottomRows` | `any[]` | Rows pinned at bottom |
+| Option              | Type                     | Default   | Description                           |
+| ------------------- | ------------------------ | --------- | ------------------------------------- | ------------------------ |
+| `position`          | `'top' \\                | 'bottom'` | `'bottom'`                            | Position of the info bar |
+| `showRowCount`      | `boolean`                | `true`    | Show total row count                  |
+| `showSelectedCount` | `boolean`                | `true`    | Show selected row count               |
+| `showFilteredCount` | `boolean`                | `true`    | Show filtered row count               |
+| `aggregationRows`   | `AggregationRowConfig[]` | -         | Aggregation rows with computed values |
+| `customPanels`      | `PinnedRowsPanel[]`      | -         | Custom status panels                  |
 
-## Aggregation in Pinned Rows
+## Aggregation Rows
 
-Add `__aggregators` to a pinned row for automatic aggregation:
+Configure computed footer/header rows:
 
 ```typescript
 {
   id: 'totals',
-  name: 'Totals',
-  amount: 0,       // Will be replaced with sum
-  count: 0,        // Will be replaced with count
-  __aggregators: {
+  position: 'bottom',  // 'top' or 'bottom'
+  fullWidth: false,    // Render as single spanning cell
+  label: 'Totals',     // Label when fullWidth is true
+  aggregators: {
     amount: 'sum',
     count: 'count',
   },
@@ -56,17 +70,19 @@ Access via `grid.getPlugin(PinnedRowsPlugin)`:
 ```typescript
 const pinned = grid.getPlugin(PinnedRowsPlugin);
 
-// Update pinned rows
-pinned.setPinnedTopRows([...]);
-pinned.setPinnedBottomRows([...]);
+// Refresh status bar and aggregations
+pinned.refresh();
 
-// Refresh aggregations
-pinned.refreshAggregations();
+// Get current context
+const context = pinned.getContext();
 ```
 
 ## CSS Variables
 
-| Variable                   | Description           |
-| -------------------------- | --------------------- |
-| `--tbw-pinned-rows-bg`     | Pinned row background |
-| `--tbw-pinned-rows-border` | Pinned row border     |
+| Variable                   | Description                |
+| -------------------------- | -------------------------- |
+| `--tbw-pinned-rows-bg`     | Info bar background        |
+| `--tbw-pinned-rows-border` | Info bar border            |
+| `--tbw-pinned-rows-color`  | Info bar text color        |
+| `--tbw-aggregation-bg`     | Aggregation row background |
+| `--tbw-aggregation-border` | Aggregation row border     |

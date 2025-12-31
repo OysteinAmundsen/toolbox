@@ -44,11 +44,12 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private isExportingFlag = false;
   private lastExportInfo: { format: ExportFormat; timestamp: Date } | null = null;
+  // #endregion
 
-  // ===== Private Methods =====
+  // #region Private Methods
 
   private performExport(format: ExportFormat, params?: Partial<ExportParams>): void {
     const config = this.config;
@@ -147,8 +148,9 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       return null;
     }
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Export data to CSV format.
@@ -189,4 +191,5 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
   getLastExport(): { format: ExportFormat; timestamp: Date } | null {
     return this.lastExportInfo;
   }
+  // #endregion
 }

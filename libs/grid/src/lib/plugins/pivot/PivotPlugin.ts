@@ -57,7 +57,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private isActive = false;
   private hasInitialized = false;
   private pivotResult: PivotResult | null = null;
@@ -75,7 +75,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return (this.config.valueFields?.length ?? 0) > 0;
   }
 
-  // ===== Lifecycle =====
+  // #endregion
+
+  // #region Lifecycle
 
   override detach(): void {
     this.isActive = false;
@@ -87,7 +89,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.cleanupGrandTotalFooter();
   }
 
-  // ===== Shell Integration =====
+  // #endregion
+
+  // #region Shell Integration
 
   override getToolPanel(): ToolPanelDefinition | undefined {
     return {
@@ -100,7 +104,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     };
   }
 
-  // ===== Hooks =====
+  // #endregion
+
+  // #region Hooks
 
   override processRows(rows: readonly unknown[]): PivotDataRow[] {
     // Auto-enable pivot if config.active is true and we have valid pivot fields
@@ -312,7 +318,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
   }
 
-  // ===== Expand/Collapse API =====
+  // #endregion
+
+  // #region Expand/Collapse API
 
   toggle(key: string): void {
     if (this.expandedKeys.has(key)) {
@@ -352,7 +360,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return this.expandedKeys.has(key);
   }
 
-  // ===== Public API =====
+  // #endregion
+
+  // #region Public API
 
   enablePivot(): void {
     if (this.originalColumns.length === 0) {
@@ -396,7 +406,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.requestRender();
   }
 
-  // ===== Tool Panel API =====
+  // #endregion
+
+  // #region Tool Panel API
 
   showPanel(): void {
     const grid = this.grid as unknown as GridWithColumns;
@@ -418,7 +430,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return grid.activeToolPanel === PivotPlugin.PANEL_ID;
   }
 
-  // ===== Private Helpers =====
+  // #endregion
+
+  // #region Private Helpers
 
   private get gridColumns(): ColumnConfig[] {
     const grid = this.grid as unknown as GridWithColumns;
@@ -561,7 +575,11 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     if (this.isActive) this.refresh();
   }
 
-  // ===== Styles =====
+  // #endregion
+
+  // #region Styles
 
   override readonly styles = styles;
+
+  // #endregion
 }

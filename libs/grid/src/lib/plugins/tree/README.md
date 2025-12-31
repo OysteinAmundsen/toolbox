@@ -29,7 +29,7 @@ grid.gridConfig = {
   plugins: [
     new TreePlugin({
       childrenField: 'children', // Property containing child nodes
-      expandedByDefault: false, // Start collapsed
+      defaultExpanded: false, // Start collapsed
     }),
   ],
 };
@@ -38,11 +38,13 @@ grid.rows = data;
 
 ## Configuration
 
-| Option              | Type      | Default      | Description                     |
-| ------------------- | --------- | ------------ | ------------------------------- |
-| `childrenField`     | `string`  | `'children'` | Property name for child nodes   |
-| `expandedByDefault` | `boolean` | `false`      | Expand all nodes initially      |
-| `indent`            | `number`  | `20`         | Pixels of indentation per level |
+| Option            | Type      | Default      | Description                     |
+| ----------------- | --------- | ------------ | ------------------------------- |
+| `childrenField`   | `string`  | `'children'` | Property name for child nodes   |
+| `autoDetect`      | `boolean` | `true`       | Auto-detect tree structure      |
+| `defaultExpanded` | `boolean` | `false`      | Expand all nodes initially      |
+| `indentWidth`     | `number`  | `20`         | Pixels of indentation per level |
+| `showExpandIcons` | `boolean` | `true`       | Show expand/collapse icons      |
 
 ## Auto-Detection
 
@@ -93,7 +95,7 @@ const level = tree.getLevel(rowIndex);
 
 ## CSS Variables
 
-| Variable                  | Description                |
-| ------------------------- | -------------------------- |
-| `--tbw-tree-indent`       | Indentation per level      |
-| `--tbw-tree-toggle-color` | Expand/collapse icon color |
+| Variable            | Description                |
+| ------------------- | -------------------------- |
+| `--tbw-tree-indent` | Indentation per level      |
+| `--tbw-tree-accent` | Expand/collapse icon color |

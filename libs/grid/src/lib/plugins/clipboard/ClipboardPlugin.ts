@@ -39,17 +39,19 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   /** The last copied text (for reference/debugging) */
   private lastCopied: { text: string; timestamp: number } | null = null;
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.lastCopied = null;
   }
+  // #endregion
 
-  // ===== Event Handlers =====
+  // #region Event Handlers
 
   override onKeyDown(event: KeyboardEvent): boolean {
     const isCopy = (event.ctrlKey || event.metaKey) && event.key === 'c';
@@ -67,8 +69,9 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     return false;
   }
+  // #endregion
 
-  // ===== Private Methods =====
+  // #region Private Methods
 
   /**
    * Handle copy operation
@@ -278,8 +281,9 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     return { text, field, value };
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Copy currently selected rows to clipboard.
@@ -336,9 +340,10 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   getLastCopied(): { text: string; timestamp: number } | null {
     return this.lastCopied;
   }
+  // #endregion
 }
 
-// ===== Internal Types =====
+// #region Internal Types
 
 /**
  * Interface for SelectionPlugin methods we need.
@@ -353,6 +358,7 @@ interface SelectionPluginInterface {
   /** Get selected cell (cell mode) */
   getSelectedCell(): { row: number; col: number } | null;
 }
+// #endregion
 
 // Re-export types
 export type { ClipboardConfig, CopyDetail, PasteDetail } from './types';

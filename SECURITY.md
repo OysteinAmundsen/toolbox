@@ -2,11 +2,12 @@
 
 ## Supported Versions
 
-Security updates are provided for the latest minor version only.
+Only the current version receives security updates. When a new version is released, prior versions are no longer supported.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.0.x   | :white_check_mark: |
+| 0.2.x   | :white_check_mark: |
+| < 0.2   | :x:                |
 
 ## Reporting a Vulnerability
 

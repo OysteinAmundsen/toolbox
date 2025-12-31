@@ -140,7 +140,6 @@ When creating a new plugin:
 
 1. Create directory: `libs/grid/src/lib/plugins/<plugin-name>/`
 2. Required files:
-
    - `index.ts` - Barrel exports
    - `<PluginName>Plugin.ts` - Plugin class
    - `types.ts` - TypeScript interfaces
@@ -161,7 +160,7 @@ When creating a new plugin:
 
 ## Release Process
 
-This project uses [Release Please](https://github.com/googleapis/release-please) for automated releases. You don't need to manually bump versions or create tags.
+This project uses [Release Please](https://github.com/googleapis/release-please) for automated releases.
 
 ### How It Works
 
@@ -177,11 +176,11 @@ This project uses [Release Please](https://github.com/googleapis/release-please)
 
 ### Version Bumps
 
-| Commit Type | Version Bump | Example |
-|-------------|--------------|---------|
-| `fix:` | Patch (0.0.X) | `fix(grid): correct scroll issue` |
-| `feat:` | Minor (0.X.0) | `feat(grid): add row pinning` |
-| `feat!:` or `BREAKING CHANGE:` | Major (X.0.0) | `feat!: remove deprecated API` |
+| Commit Type                    | Version Bump  | Example                           |
+| ------------------------------ | ------------- | --------------------------------- |
+| `fix:`                         | Patch (0.0.X) | `fix(grid): correct scroll issue` |
+| `feat:`                        | Minor (0.X.0) | `feat(grid): add row pinning`     |
+| `feat!:` or `BREAKING CHANGE:` | Major (X.0.0) | `feat!: remove deprecated API`    |
 
 Commits like `chore:`, `docs:`, `test:`, `refactor:` don't trigger releases.
 

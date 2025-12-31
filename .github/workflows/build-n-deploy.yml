@@ -1,11 +1,12 @@
 name: CI/CD Pipeline
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-  release:
-    types: [published]
+  push:
+    branches:
+      - main # Only for Storybook deployment
   workflow_dispatch: # Allow manual trigger
 
 permissions:
@@ -19,8 +20,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Job 1: Run tests
+  # Job 1: Run tests (PRs only)
   test:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,8 +42,9 @@ jobs:
       - name: Run tests
         run: bun run test
 
-  # Job 2: Build library (depends on tests passing)
+  # Job 2: Build library (PRs only, depends on tests passing)
   build:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: test
     steps:
@@ -66,10 +69,10 @@ jobs:
           path: dist/libs/grid
           retention-days: 1
 
-  # Job 3: Build Storybook (depends on tests passing)
+  # Job 3: Build and deploy Storybook (main branch only)
   build-storybook:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    needs: test
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,38 +96,9 @@ jobs:
         with:
           path: dist/storybook
 
-  # Job 4: Publish to npm (only on release)
-  publish-npm:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'release'
-    environment: NPM # Must match the environment name configured in npm trusted publishing
-    permissions:
-      contents: read
-      id-token: write # Required for npm OIDC trusted publishing
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Download library artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lib-dist
-          path: dist/libs/grid
-
-      - name: Publish to npm
-        run: |
-          cd dist/libs/grid
-          npm publish --provenance
-
-  # Job 5: Deploy to GitHub Pages (depends on storybook build succeeding)
+  # Job 4: Deploy to GitHub Pages (main branch only)
   deploy-pages:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

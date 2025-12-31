@@ -14,6 +14,10 @@ export interface GridElement {
   rows: any[];
   columns: ColumnConfig[];
   gridConfig: any;
+  /** Current focused row index */
+  focusRow: number;
+  /** Current focused column index */
+  focusCol: number;
   /** AbortSignal that is aborted when the grid disconnects from the DOM */
   disconnectSignal: AbortSignal;
   requestRender(): void;

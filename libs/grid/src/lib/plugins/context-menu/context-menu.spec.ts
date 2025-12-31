@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { buildMenuItems, isItemDisabled, createMenuElement } from './menu';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildMenuItems, createMenuElement, isItemDisabled, positionMenu } from './menu';
 import type { ContextMenuItem, ContextMenuParams } from './types';
 
 /**
@@ -327,6 +327,286 @@ describe('contextMenu', () => {
       const menu = createMenuElement(items, params, onAction);
 
       expect(menu.children).toHaveLength(0);
+    });
+
+    it('should render custom submenu arrow when provided as string', () => {
+      const items: ContextMenuItem[] = [
+        {
+          id: 'parent',
+          name: 'Parent',
+          subMenu: [{ id: 'child', name: 'Child' }],
+        },
+      ];
+
+      const menu = createMenuElement(items, params, onAction, '→');
+      const arrow = menu.querySelector('.tbw-context-menu-arrow');
+
+      expect(arrow).not.toBeNull();
+      expect(arrow?.innerHTML).toBe('→');
+    });
+
+    it('should render custom submenu arrow when provided as HTMLElement', () => {
+      const customArrow = document.createElement('span');
+      customArrow.className = 'custom-arrow-icon';
+      customArrow.textContent = '>';
+
+      const items: ContextMenuItem[] = [
+        {
+          id: 'parent',
+          name: 'Parent',
+          subMenu: [{ id: 'child', name: 'Child' }],
+        },
+      ];
+
+      const menu = createMenuElement(items, params, onAction, customArrow);
+      const arrow = menu.querySelector('.tbw-context-menu-arrow');
+      const clonedArrow = arrow?.querySelector('.custom-arrow-icon');
+
+      expect(arrow).not.toBeNull();
+      expect(clonedArrow).not.toBeNull();
+      expect(clonedArrow?.textContent).toBe('>');
+    });
+
+    describe('submenu hover interactions', () => {
+      it('should show submenu on mouseenter', () => {
+        const items: ContextMenuItem[] = [
+          {
+            id: 'parent',
+            name: 'Parent',
+            subMenu: [{ id: 'child', name: 'Child Item' }],
+          },
+        ];
+
+        const menu = createMenuElement(items, params, onAction);
+        const parentItem = menu.querySelector('.tbw-context-menu-item');
+
+        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+        const subMenu = parentItem?.querySelector('.tbw-context-submenu');
+        expect(subMenu).not.toBeNull();
+        expect(subMenu?.classList.contains('tbw-context-menu')).toBe(true);
+      });
+
+      it('should remove submenu on mouseleave', () => {
+        const items: ContextMenuItem[] = [
+          {
+            id: 'parent',
+            name: 'Parent',
+            subMenu: [{ id: 'child', name: 'Child' }],
+          },
+        ];
+
+        const menu = createMenuElement(items, params, onAction);
+        const parentItem = menu.querySelector('.tbw-context-menu-item');
+
+        // First trigger mouseenter to create submenu
+        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        expect(parentItem?.querySelector('.tbw-context-submenu')).not.toBeNull();
+
+        // Then trigger mouseleave to remove it
+        parentItem?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+        expect(parentItem?.querySelector('.tbw-context-submenu')).toBeNull();
+      });
+
+      it('should not create duplicate submenu on repeated mouseenter', () => {
+        const items: ContextMenuItem[] = [
+          {
+            id: 'parent',
+            name: 'Parent',
+            subMenu: [{ id: 'child', name: 'Child' }],
+          },
+        ];
+
+        const menu = createMenuElement(items, params, onAction);
+        const parentItem = menu.querySelector('.tbw-context-menu-item');
+
+        // Trigger mouseenter multiple times
+        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+        const subMenus = parentItem?.querySelectorAll('.tbw-context-submenu');
+        expect(subMenus).toHaveLength(1);
+      });
+
+      it('should position submenu correctly', () => {
+        const items: ContextMenuItem[] = [
+          {
+            id: 'parent',
+            name: 'Parent',
+            subMenu: [{ id: 'child', name: 'Child' }],
+          },
+        ];
+
+        const menu = createMenuElement(items, params, onAction);
+        const parentItem = menu.querySelector('.tbw-context-menu-item') as HTMLElement;
+
+        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+        const subMenu = parentItem?.querySelector('.tbw-context-submenu') as HTMLElement;
+        expect(subMenu?.style.position).toBe('absolute');
+        expect(subMenu?.style.left).toBe('100%');
+        expect(subMenu?.style.top).toBe('0px');
+        expect(parentItem?.style.position).toBe('relative');
+      });
+
+      it('should filter hidden items in submenu', () => {
+        const items: ContextMenuItem[] = [
+          {
+            id: 'parent',
+            name: 'Parent',
+            subMenu: [
+              { id: 'visible', name: 'Visible' },
+              { id: 'hidden', name: 'Hidden', hidden: true },
+            ],
+          },
+        ];
+
+        const menu = createMenuElement(items, params, onAction);
+        const parentItem = menu.querySelector('.tbw-context-menu-item');
+
+        parentItem?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+
+        const subMenu = parentItem?.querySelector('.tbw-context-submenu');
+        const subMenuItems = subMenu?.querySelectorAll('.tbw-context-menu-item');
+        expect(subMenuItems).toHaveLength(1);
+        expect(subMenuItems?.[0].getAttribute('data-id')).toBe('visible');
+      });
+    });
+  });
+
+  describe('positionMenu', () => {
+    let menu: HTMLElement;
+
+    beforeEach(() => {
+      menu = document.createElement('div');
+      menu.style.width = '200px';
+      menu.style.height = '150px';
+      document.body.appendChild(menu);
+    });
+
+    afterEach(() => {
+      menu.remove();
+    });
+
+    it('should set fixed positioning', () => {
+      positionMenu(menu, 100, 100);
+
+      expect(menu.style.position).toBe('fixed');
+    });
+
+    it('should set high z-index for top-layer behavior', () => {
+      positionMenu(menu, 100, 100);
+
+      expect(menu.style.zIndex).toBe('10000');
+    });
+
+    it('should set visibility to visible', () => {
+      positionMenu(menu, 100, 100);
+
+      expect(menu.style.visibility).toBe('visible');
+    });
+
+    it('should position menu at specified coordinates', () => {
+      // Mock viewport large enough
+      Object.defineProperty(window, 'innerWidth', { value: 1920, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 1080, configurable: true });
+
+      positionMenu(menu, 200, 300);
+
+      expect(menu.style.left).toBe('200px');
+      expect(menu.style.top).toBe('300px');
+    });
+
+    it('should flip menu left when overflowing right edge', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 500, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 500, configurable: true });
+
+      // Mock getBoundingClientRect
+      vi.spyOn(menu, 'getBoundingClientRect').mockReturnValue({
+        width: 200,
+        height: 150,
+        left: 450,
+        top: 100,
+        right: 650,
+        bottom: 250,
+        x: 450,
+        y: 100,
+        toJSON: () => ({}),
+      });
+
+      positionMenu(menu, 450, 100);
+
+      // Should flip to left (450 - 200 = 250)
+      expect(menu.style.left).toBe('250px');
+    });
+
+    it('should flip menu up when overflowing bottom edge', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 500, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 500, configurable: true });
+
+      vi.spyOn(menu, 'getBoundingClientRect').mockReturnValue({
+        width: 200,
+        height: 150,
+        left: 100,
+        top: 400,
+        right: 300,
+        bottom: 550,
+        x: 100,
+        y: 400,
+        toJSON: () => ({}),
+      });
+
+      positionMenu(menu, 100, 400);
+
+      // Should flip up (400 - 150 = 250)
+      expect(menu.style.top).toBe('250px');
+    });
+
+    it('should not go negative on left edge', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 500, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 500, configurable: true });
+
+      vi.spyOn(menu, 'getBoundingClientRect').mockReturnValue({
+        width: 200,
+        height: 150,
+        left: 50,
+        top: 100,
+        right: 250,
+        bottom: 250,
+        x: 50,
+        y: 100,
+        toJSON: () => ({}),
+      });
+
+      // x would flip to -150, but should clamp to 0
+      positionMenu(menu, 50, 100);
+
+      const left = parseInt(menu.style.left, 10);
+      expect(left).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should not go negative on top edge', () => {
+      Object.defineProperty(window, 'innerWidth', { value: 500, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 500, configurable: true });
+
+      vi.spyOn(menu, 'getBoundingClientRect').mockReturnValue({
+        width: 200,
+        height: 150,
+        left: 100,
+        top: 50,
+        right: 300,
+        bottom: 200,
+        x: 100,
+        y: 50,
+        toJSON: () => ({}),
+      });
+
+      // y would flip to -100, but should clamp to 0
+      positionMenu(menu, 100, 50);
+
+      const top = parseInt(menu.style.top, 10);
+      expect(top).toBeGreaterThanOrEqual(0);
     });
   });
 });

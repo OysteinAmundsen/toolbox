@@ -107,13 +107,12 @@ export { DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
 
 // ================= Plugin Types =================
 // Only export types that consumers need to use plugins
+// Plugin classes are available via @toolbox-web/grid/plugins/<name> or from 'all.ts'
 
 // Selection plugin
-export { SelectionPlugin } from './lib/plugins/selection/SelectionPlugin';
 export type { CellRange, SelectionChangeDetail, SelectionConfig, SelectionMode } from './lib/plugins/selection/types';
 
 // Tree plugin
-export { TreePlugin } from './lib/plugins/tree/TreePlugin';
 export type { TreeConfig, TreeExpandDetail } from './lib/plugins/tree/types';
 
 // Filtering plugin

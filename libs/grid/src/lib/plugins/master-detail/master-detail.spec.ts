@@ -263,7 +263,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
-      } as any);
+      }) as any;
 
     it('should return 0 when no rows are expanded', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
@@ -360,7 +360,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
-      } as any);
+      }) as any;
 
     it('should return 0 when no rows are expanded', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
@@ -438,7 +438,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
-      } as any);
+      }) as any;
 
     it('should return same start when no rows are expanded', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
@@ -522,6 +522,571 @@ describe('masterDetail', () => {
       // Start calculated as index 7 (200 / 28 = ~7.14 => floor to 7)
       // Should extend start to 1 (row 1's detail is still visible at scroll 200)
       expect(plugin.adjustVirtualStart(7, 200, 28)).toBe(1);
+    });
+  });
+
+  describe('MasterDetailPlugin.processColumns', () => {
+    const createMockGrid = (rows: any[] = []) =>
+      ({
+        shadowRoot: null,
+        rows,
+        columns: [],
+        gridConfig: {},
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        dispatchEvent: vi.fn(),
+        icons: { expand: '▶', collapse: '▼' },
+      }) as any;
+
+    it('should return columns unchanged when no detailRenderer configured', () => {
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(createMockGrid());
+
+      const columns = [{ field: 'name' }, { field: 'age' }];
+      const result = plugin.processColumns(columns);
+
+      expect(result).toEqual(columns);
+    });
+
+    it('should wrap first column renderer when detailRenderer is configured', () => {
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGrid());
+
+      const columns = [{ field: 'name' }, { field: 'age' }];
+      const result = plugin.processColumns(columns);
+
+      expect(result[0].viewRenderer).toBeDefined();
+      expect((result[0].viewRenderer as any).__masterDetailWrapped).toBe(true);
+    });
+
+    it('should not double-wrap an already wrapped renderer', () => {
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGrid());
+
+      const columns = [{ field: 'name' }, { field: 'age' }];
+      const result1 = plugin.processColumns(columns);
+      const result2 = plugin.processColumns(result1);
+
+      expect(result2[0].viewRenderer).toBe(result1[0].viewRenderer);
+    });
+
+    it('should render toggle icon in wrapped renderer', () => {
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGrid([{ name: 'John' }]));
+
+      const columns = [{ field: 'name' }, { field: 'age' }];
+      const result = plugin.processColumns(columns);
+
+      const element = result[0].viewRenderer!({
+        value: 'John',
+        row: { name: 'John' },
+        rowIndex: 0,
+        column: result[0],
+        colIndex: 0,
+      });
+
+      expect(element).toBeInstanceOf(HTMLElement);
+      const container = element as HTMLElement;
+      expect(container.className).toBe('master-detail-cell-wrapper');
+      expect(container.querySelector('.master-detail-toggle')).not.toBeNull();
+    });
+
+    it('should use original renderer output for cell content', () => {
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGrid([{ name: 'Jane' }]));
+
+      const originalRenderer = (ctx: any) => {
+        const span = document.createElement('span');
+        span.textContent = `Name: ${ctx.value}`;
+        span.className = 'custom-content';
+        return span;
+      };
+
+      const columns = [{ field: 'name', viewRenderer: originalRenderer }, { field: 'age' }];
+      const result = plugin.processColumns(columns);
+
+      const element = result[0].viewRenderer!({
+        value: 'Jane',
+        row: { name: 'Jane' },
+        rowIndex: 0,
+        column: result[0],
+        colIndex: 0,
+      }) as HTMLElement;
+
+      const customContent = element.querySelector('.custom-content');
+      expect(customContent).not.toBeNull();
+      expect(customContent?.textContent).toBe('Name: Jane');
+    });
+
+    it('should handle original renderer returning string', () => {
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGrid([{ name: 'Bob' }]));
+
+      const originalRenderer = (ctx: any) => `Formatted: ${ctx.value}`;
+
+      const columns = [{ field: 'name', viewRenderer: originalRenderer }, { field: 'age' }];
+      const result = plugin.processColumns(columns);
+
+      const element = result[0].viewRenderer!({
+        value: 'Bob',
+        row: { name: 'Bob' },
+        rowIndex: 0,
+        column: result[0],
+        colIndex: 0,
+      }) as HTMLElement;
+
+      const spans = element.querySelectorAll('span');
+      expect(spans[1].textContent).toBe('Formatted: Bob');
+    });
+
+    it('should set aria attributes on toggle', () => {
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGrid([{ name: 'Test' }]));
+
+      const columns = [{ field: 'name' }];
+      const result = plugin.processColumns(columns);
+
+      const element = result[0].viewRenderer!({
+        value: 'Test',
+        row: { name: 'Test' },
+        rowIndex: 0,
+        column: result[0],
+        colIndex: 0,
+      }) as HTMLElement;
+
+      const toggle = element.querySelector('.master-detail-toggle')!;
+      expect(toggle.getAttribute('role')).toBe('button');
+      expect(toggle.getAttribute('tabindex')).toBe('0');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(toggle.getAttribute('aria-label')).toBe('Expand details');
+    });
+
+    it('should show expanded state in toggle', () => {
+      const row = { name: 'Expanded' };
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGrid([row]));
+
+      // Manually expand the row
+      plugin['expandedRows'].add(row);
+
+      const columns = [{ field: 'name' }];
+      const result = plugin.processColumns(columns);
+
+      const element = result[0].viewRenderer!({
+        value: 'Expanded',
+        row,
+        rowIndex: 0,
+        column: result[0],
+        colIndex: 0,
+      }) as HTMLElement;
+
+      const toggle = element.querySelector('.master-detail-toggle')!;
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(toggle.getAttribute('aria-label')).toBe('Collapse details');
+    });
+
+    it('should emit detail-expand event when toggle is clicked', () => {
+      const row = { name: 'Test' };
+      const mockGrid = createMockGrid([row]);
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(mockGrid);
+
+      const columns = [{ field: 'name' }];
+      const result = plugin.processColumns(columns);
+
+      const element = result[0].viewRenderer!({
+        value: 'Test',
+        row,
+        rowIndex: 0,
+        column: result[0],
+        colIndex: 0,
+      }) as HTMLElement;
+
+      const toggle = element.querySelector('.master-detail-toggle')!;
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(mockGrid.dispatchEvent).toHaveBeenCalled();
+      const dispatchedEvent = mockGrid.dispatchEvent.mock.calls[0][0];
+      expect(dispatchedEvent.type).toBe('detail-expand');
+      expect(dispatchedEvent.detail.row).toBe(row);
+      expect(dispatchedEvent.detail.expanded).toBe(true);
+    });
+  });
+
+  describe('MasterDetailPlugin.onRowClick', () => {
+    const createMockGrid = (rows: any[] = []) =>
+      ({
+        shadowRoot: null,
+        rows,
+        columns: [],
+        gridConfig: {},
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as any;
+
+    it('should not toggle when expandOnRowClick is false', () => {
+      const row = { name: 'Test' };
+      const mockGrid = createMockGrid([row]);
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => 'test',
+        expandOnRowClick: false,
+      });
+      plugin.attach(mockGrid);
+
+      plugin.onRowClick({
+        rowIndex: 0,
+        row,
+        rowEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin['expandedRows'].has(row)).toBe(false);
+      expect(mockGrid.requestRender).not.toHaveBeenCalled();
+    });
+
+    it('should not toggle when no detailRenderer configured', () => {
+      const row = { name: 'Test' };
+      const mockGrid = createMockGrid([row]);
+      const plugin = new MasterDetailPlugin({ expandOnRowClick: true });
+      plugin.attach(mockGrid);
+
+      plugin.onRowClick({
+        rowIndex: 0,
+        row,
+        rowEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin['expandedRows'].has(row)).toBe(false);
+      expect(mockGrid.requestRender).not.toHaveBeenCalled();
+    });
+
+    it('should toggle row and emit event when expandOnRowClick is true', () => {
+      const row = { name: 'Test' };
+      const mockGrid = createMockGrid([row]);
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => 'test',
+        expandOnRowClick: true,
+      });
+      plugin.attach(mockGrid);
+
+      plugin.onRowClick({
+        rowIndex: 0,
+        row,
+        rowEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin['expandedRows'].has(row)).toBe(true);
+      expect(mockGrid.requestRender).toHaveBeenCalled();
+      expect(mockGrid.dispatchEvent).toHaveBeenCalled();
+
+      const dispatchedEvent = mockGrid.dispatchEvent.mock.calls[0][0];
+      expect(dispatchedEvent.type).toBe('detail-expand');
+      expect(dispatchedEvent.detail.expanded).toBe(true);
+    });
+
+    it('should collapse when clicking expanded row', () => {
+      const row = { name: 'Test' };
+      const mockGrid = createMockGrid([row]);
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => 'test',
+        expandOnRowClick: true,
+      });
+      plugin.attach(mockGrid);
+
+      // First click expands
+      plugin.onRowClick({
+        rowIndex: 0,
+        row,
+        rowEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      // Second click collapses
+      plugin.onRowClick({
+        rowIndex: 0,
+        row,
+        rowEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin['expandedRows'].has(row)).toBe(false);
+      const lastEvent = mockGrid.dispatchEvent.mock.calls[1][0];
+      expect(lastEvent.detail.expanded).toBe(false);
+    });
+  });
+
+  describe('MasterDetailPlugin public API', () => {
+    const createMockGrid = (rows: any[] = []) =>
+      ({
+        shadowRoot: null,
+        rows,
+        columns: [],
+        gridConfig: {},
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as any;
+
+    describe('expand', () => {
+      it('should expand a row by index', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin.expand(1);
+
+        expect(plugin['expandedRows'].has(rows[1])).toBe(true);
+        expect(mockGrid.requestRender).toHaveBeenCalled();
+      });
+
+      it('should do nothing for invalid row index', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin.expand(99);
+
+        expect(plugin['expandedRows'].size).toBe(0);
+      });
+    });
+
+    describe('collapse', () => {
+      it('should collapse an expanded row by index', () => {
+        const rows = [{ id: 1 }, { id: 2 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin['expandedRows'].add(rows[0]);
+        plugin.collapse(0);
+
+        expect(plugin['expandedRows'].has(rows[0])).toBe(false);
+        expect(mockGrid.requestRender).toHaveBeenCalled();
+      });
+
+      it('should do nothing for invalid row index', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin.collapse(99);
+
+        expect(mockGrid.requestRender).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('toggle', () => {
+      it('should toggle row expansion', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin.toggle(0);
+        expect(plugin['expandedRows'].has(rows[0])).toBe(true);
+
+        plugin.toggle(0);
+        expect(plugin['expandedRows'].has(rows[0])).toBe(false);
+      });
+
+      it('should do nothing for invalid row index', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin.toggle(99);
+
+        expect(plugin['expandedRows'].size).toBe(0);
+      });
+    });
+
+    describe('isExpanded', () => {
+      it('should return true for expanded row', () => {
+        const rows = [{ id: 1 }, { id: 2 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin['expandedRows'].add(rows[0]);
+
+        expect(plugin.isExpanded(0)).toBe(true);
+        expect(plugin.isExpanded(1)).toBe(false);
+      });
+
+      it('should return false for invalid row index', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        expect(plugin.isExpanded(99)).toBe(false);
+      });
+    });
+
+    describe('expandAll', () => {
+      it('should expand all rows', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin.expandAll();
+
+        expect(plugin['expandedRows'].size).toBe(3);
+        expect(plugin.isExpanded(0)).toBe(true);
+        expect(plugin.isExpanded(1)).toBe(true);
+        expect(plugin.isExpanded(2)).toBe(true);
+        expect(mockGrid.requestRender).toHaveBeenCalled();
+      });
+    });
+
+    describe('collapseAll', () => {
+      it('should collapse all rows', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin['expandedRows'].add(rows[0]);
+        plugin['expandedRows'].add(rows[1]);
+        plugin['expandedRows'].add(rows[2]);
+
+        plugin.collapseAll();
+
+        expect(plugin['expandedRows'].size).toBe(0);
+        expect(mockGrid.requestRender).toHaveBeenCalled();
+      });
+    });
+
+    describe('getExpandedRows', () => {
+      it('should return indices of expanded rows', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin['expandedRows'].add(rows[0]);
+        plugin['expandedRows'].add(rows[2]);
+
+        const result = plugin.getExpandedRows();
+
+        expect(result).toContain(0);
+        expect(result).toContain(2);
+        expect(result.length).toBe(2);
+      });
+
+      it('should return empty array when no rows expanded', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        expect(plugin.getExpandedRows()).toEqual([]);
+      });
+    });
+
+    describe('getDetailElement', () => {
+      it('should return detail element for expanded row', () => {
+        const rows = [{ id: 1 }, { id: 2 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        const detailEl = document.createElement('div');
+        plugin['expandedRows'].add(rows[0]);
+        plugin['detailElements'].set(rows[0], detailEl);
+
+        expect(plugin.getDetailElement(0)).toBe(detailEl);
+      });
+
+      it('should return undefined for non-expanded row', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        expect(plugin.getDetailElement(0)).toBeUndefined();
+      });
+
+      it('should return undefined for invalid row index', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        expect(plugin.getDetailElement(99)).toBeUndefined();
+      });
+    });
+
+    describe('detach', () => {
+      it('should clear all internal state', () => {
+        const rows = [{ id: 1 }, { id: 2 }];
+        const mockGrid = createMockGrid(rows);
+        const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+        plugin.attach(mockGrid);
+
+        plugin['expandedRows'].add(rows[0]);
+        plugin['detailElements'].set(rows[0], document.createElement('div'));
+
+        plugin.detach();
+
+        expect(plugin['expandedRows'].size).toBe(0);
+        expect(plugin['detailElements'].size).toBe(0);
+      });
+    });
+  });
+
+  describe('MasterDetailPlugin.onScrollRender', () => {
+    const createMockGridWithShadowRoot = (rows: any[] = []) => {
+      const shadowRoot = document.createElement('div') as unknown as ShadowRoot;
+      return {
+        shadowRoot,
+        rows,
+        columns: [{ field: 'name' }],
+        gridConfig: {},
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        dispatchEvent: vi.fn(),
+      } as any;
+    };
+
+    it('should do nothing when no detailRenderer configured', () => {
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(createMockGridWithShadowRoot());
+
+      // Should not throw
+      plugin.onScrollRender();
+    });
+
+    it('should do nothing when no rows are expanded', () => {
+      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
+      plugin.attach(createMockGridWithShadowRoot());
+
+      // Should not throw
+      plugin.onScrollRender();
     });
   });
 });

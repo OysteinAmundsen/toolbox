@@ -8,7 +8,7 @@
       "declarations": [
         {
           "kind": "class",
-          "description": "High-performance data grid web component.\r\nDuring migration, uses tbw-grid tag to avoid conflicts with existing datagrid.\r\nWill be renamed back to data-grid when migration is complete.\r\n\r\n## Configuration Architecture\r\n\r\nThe grid follows a **single source of truth** pattern where all configuration\r\nconverges into `#effectiveConfig`. Users can set configuration via multiple inputs:\r\n\r\n**Input Sources (precedence low → high):**\r\n1. `gridConfig` property - base configuration object\r\n2. Light DOM elements:\r\n   - `<tbw-grid-column>` → `effectiveConfig.columns`\r\n   - `<tbw-grid-header title=\"...\">` → `effectiveConfig.shell.header.title`\r\n   - `<tbw-grid-header-content>` → `effectiveConfig.shell.header.content`\r\n3. `columns` property → merged into `effectiveConfig.columns`\r\n4. `fitMode` property → merged into `effectiveConfig.fitMode`\r\n5. `editOn` property → merged into `effectiveConfig.editOn`\r\n6. Column inference from first row (if no columns defined)\r\n\r\n**Derived State:**\r\n- `_columns` - processed columns from `effectiveConfig.columns` after plugin hooks\r\n- `_rows` - processed rows after plugin hooks (grouping, filtering, etc.)\r\n\r\nThe `#mergeEffectiveConfig()` method is the single place where all inputs converge.\r\nAll rendering and logic should read from `effectiveConfig` or derived state.",
+          "description": "High-performance data grid web component.\nDuring migration, uses tbw-grid tag to avoid conflicts with existing datagrid.\nWill be renamed back to data-grid when migration is complete.\n\n## Configuration Architecture\n\nThe grid follows a **single source of truth** pattern where all configuration\nconverges into `#effectiveConfig`. Users can set configuration via multiple inputs:\n\n**Input Sources (precedence low → high):**\n1. `gridConfig` property - base configuration object\n2. Light DOM elements:\n   - `<tbw-grid-column>` → `effectiveConfig.columns`\n   - `<tbw-grid-header title=\"...\">` → `effectiveConfig.shell.header.title`\n   - `<tbw-grid-header-content>` → `effectiveConfig.shell.header.content`\n3. `columns` property → merged into `effectiveConfig.columns`\n4. `fitMode` property → merged into `effectiveConfig.fitMode`\n5. `editOn` property → merged into `effectiveConfig.editOn`\n6. Column inference from first row (if no columns defined)\n\n**Derived State:**\n- `_columns` - processed columns from `effectiveConfig.columns` after plugin hooks\n- `_rows` - processed rows after plugin hooks (grouping, filtering, etc.)\n\nThe `#mergeEffectiveConfig()` method is the single place where all inputs converge.\nAll rendering and logic should read from `effectiveConfig` or derived state.",
           "name": "DataGridElement",
           "cssProperties": [
             {
@@ -278,9 +278,26 @@
             },
             {
               "kind": "field",
+              "name": "#resizeCleanup",
+              "privacy": "private",
+              "type": {
+                "text": "() => void | undefined"
+              }
+            },
+            {
+              "kind": "field",
               "name": "_rows",
               "type": {
                 "text": "T[]"
+              },
+              "default": "[]"
+            },
+            {
+              "kind": "field",
+              "name": "#baseColumns",
+              "privacy": "private",
+              "type": {
+                "text": "ColumnInternal<T>[]"
               },
               "default": "[]"
             },
@@ -437,7 +454,7 @@
               "type": {
                 "text": "T[]"
               },
-              "description": "Get the original unfiltered/unprocessed rows.\r\nUse this when you need access to all source data regardless of active filters.",
+              "description": "Get the original unfiltered/unprocessed rows.\nUse this when you need access to all source data regardless of active filters.",
               "readonly": true
             },
             {
@@ -482,7 +499,7 @@
               "type": {
                 "text": "AbortSignal"
               },
-              "description": "Get the disconnect signal for event listener cleanup.\r\nThis signal is aborted when the grid disconnects from the DOM.\r\nPlugins and internal code can use this for automatic listener cleanup.",
+              "description": "Get the disconnect signal for event listener cleanup.\nThis signal is aborted when the grid disconnects from the DOM.\nPlugins and internal code can use this for automatic listener cleanup.",
               "readonly": true
             },
             {
@@ -511,7 +528,7 @@
                   }
                 }
               ],
-              "description": "Get a plugin instance by its class.\r\nUsed by plugins for inter-plugin communication."
+              "description": "Get a plugin instance by its class.\nUsed by plugins for inter-plugin communication."
             },
             {
               "kind": "method",
@@ -529,7 +546,7 @@
                   }
                 }
               ],
-              "description": "Get a plugin instance by its name.\r\nUsed for loose coupling between plugins (avoids static imports)."
+              "description": "Get a plugin instance by its name.\nUsed for loose coupling between plugins (avoids static imports)."
             },
             {
               "kind": "method",
@@ -539,7 +556,7 @@
                   "text": "void"
                 }
               },
-              "description": "Request a full re-render of the grid.\r\nCalled by plugins when they need the grid to update.\r\nNote: This does NOT reset plugin state - just re-processes rows/columns and renders."
+              "description": "Request a full re-render of the grid.\nCalled by plugins when they need the grid to update.\nNote: This does NOT reset plugin state - just re-processes rows/columns and renders."
             },
             {
               "kind": "method",
@@ -549,7 +566,7 @@
                   "text": "void"
                 }
               },
-              "description": "Request a lightweight style update without rebuilding DOM.\r\nCalled by plugins when they only need to update CSS classes/styles.\r\nThis runs all plugin afterRender hooks without rebuilding row/column DOM."
+              "description": "Request a lightweight style update without rebuilding DOM.\nCalled by plugins when they only need to update CSS classes/styles.\nThis runs all plugin afterRender hooks without rebuilding row/column DOM."
             },
             {
               "kind": "method",
@@ -560,7 +577,7 @@
                   "text": "void"
                 }
               },
-              "description": "Initialize plugin system with instances from config.\r\nPlugins are class instances passed in gridConfig.plugins[]."
+              "description": "Initialize plugin system with instances from config.\nPlugins are class instances passed in gridConfig.plugins[]."
             },
             {
               "kind": "method",
@@ -571,7 +588,7 @@
                   "text": "void"
                 }
               },
-              "description": "Inject all plugin styles into the shadow DOM.\r\nMust be called after #render() since innerHTML wipes existing content."
+              "description": "Inject all plugin styles into the shadow DOM.\nMust be called after #render() since innerHTML wipes existing content."
             },
             {
               "kind": "method",
@@ -582,7 +599,7 @@
                   "text": "void"
                 }
               },
-              "description": "Update plugins when grid config changes.\r\nWith class-based plugins, we need to detach old and attach new."
+              "description": "Update plugins when grid config changes.\nWith class-based plugins, we need to detach old and attach new."
             },
             {
               "kind": "method",
@@ -604,7 +621,7 @@
                   "text": "void"
                 }
               },
-              "description": "Collect tool panels and header content from all plugins.\r\nCalled after plugins are attached but before render."
+              "description": "Collect tool panels and header content from all plugins.\nCalled after plugins are attached but before render."
             },
             {
               "kind": "method",
@@ -866,7 +883,7 @@
                   "text": "void"
                 }
               },
-              "description": "Build the canonical effective configuration by merging all input sources.\r\n\r\nThis is the **single source of truth** for the grid's configuration.\r\nAll inputs (gridConfig, light DOM, individual props) converge here.\r\n\r\n**Precedence (lowest → highest):**\r\n1. `gridConfig` property - base config object\r\n2. Light DOM `<tbw-grid-column>` elements - declarative columns\r\n3. `columns` property - programmatic columns override\r\n4. Inferred columns - auto-detected from row data\r\n5. Individual props (`fitMode`, `editOn`) - convenience overrides\r\n\r\nAfter this method runs:\r\n- `#effectiveConfig` contains the merged result\r\n- `_columns` is NOT set here (done by #getColumnConfiguration + #processColumns)\r\n- Plugins receive config via their attach() method"
+              "description": "Build the canonical effective configuration by merging all input sources.\n\nThis is the **single source of truth** for the grid's configuration.\nAll inputs (gridConfig, light DOM, individual props) converge here.\n\n**Precedence (lowest → highest):**\n1. `gridConfig` property - base config object\n2. Light DOM `<tbw-grid-column>` elements - declarative columns\n3. `columns` property - programmatic columns override\n4. Inferred columns - auto-detected from row data\n5. Individual props (`fitMode`, `editOn`) - convenience overrides\n\nAfter this method runs:\n- `#effectiveConfig` contains the merged result\n- `_columns` is NOT set here (done by #getColumnConfiguration + #processColumns)\n- Plugins receive config via their attach() method"
             },
             {
               "kind": "method",
@@ -1061,7 +1078,7 @@
                   }
                 }
               ],
-              "description": "Dispatch a cell click event to the plugin system.\r\nReturns true if any plugin handled the event."
+              "description": "Dispatch a cell click event to the plugin system.\nReturns true if any plugin handled the event."
             },
             {
               "kind": "method",
@@ -1091,7 +1108,7 @@
                   }
                 }
               ],
-              "description": "Dispatch a header click event to the plugin system.\r\nReturns true if any plugin handled the event."
+              "description": "Dispatch a header click event to the plugin system.\nReturns true if any plugin handled the event."
             },
             {
               "kind": "method",
@@ -1109,7 +1126,7 @@
                   }
                 }
               ],
-              "description": "Dispatch a keyboard event to the plugin system.\r\nReturns true if any plugin handled the event."
+              "description": "Dispatch a keyboard event to the plugin system.\nReturns true if any plugin handled the event."
             },
             {
               "kind": "method",
@@ -1134,7 +1151,7 @@
                   }
                 }
               ],
-              "description": "Build a CellMouseEvent from a native MouseEvent.\r\nExtracts cell/row information from the event target."
+              "description": "Build a CellMouseEvent from a native MouseEvent.\nExtracts cell/row information from the event target."
             },
             {
               "kind": "method",
@@ -1363,7 +1380,7 @@
                   "text": ""
                 }
               },
-              "description": "Get list of all column fields (including hidden).\r\nReturns columns reflecting current display order (after reordering).\r\nHidden columns are interleaved at their original relative positions."
+              "description": "Get list of all column fields (including hidden).\nReturns columns reflecting current display order (after reordering).\nHidden columns are interleaved at their original relative positions."
             },
             {
               "kind": "method",
@@ -1382,7 +1399,7 @@
                   "description": "Array of field names in the desired order"
                 }
               ],
-              "description": "Reorder columns according to the specified field order.\r\nThis directly updates _columns in place without going through processColumns."
+              "description": "Reorder columns according to the specified field order.\nThis directly updates _columns in place without going through processColumns."
             },
             {
               "kind": "method",
@@ -1402,7 +1419,7 @@
                   "text": "GridColumnState"
                 }
               },
-              "description": "Get the current column state, including order, width, visibility, sort, and plugin state.\r\nReturns a serializable object suitable for localStorage or database storage."
+              "description": "Get the current column state, including order, width, visibility, sort, and plugin state.\nReturns a serializable object suitable for localStorage or database storage."
             },
             {
               "kind": "field",
@@ -1439,7 +1456,7 @@
                   "text": "void"
                 }
               },
-              "description": "Request a state change event to be emitted.\r\nCalled internally after resize, reorder, visibility, or sort changes.\r\nPlugins should call this after changing their state.\r\nThe event is debounced to avoid excessive events during drag operations."
+              "description": "Request a state change event to be emitted.\nCalled internally after resize, reorder, visibility, or sort changes.\nPlugins should call this after changing their state.\nThe event is debounced to avoid excessive events during drag operations."
             },
             {
               "kind": "method",
@@ -1449,7 +1466,16 @@
                   "text": "void"
                 }
               },
-              "description": "Reset column state to initial configuration.\r\nClears all user modifications (order, width, visibility, sort)."
+              "description": "Reset column state to initial configuration.\nClears all user modifications (order, width, visibility, sort)."
+            },
+            {
+              "kind": "field",
+              "name": "isToolPanelOpen",
+              "type": {
+                "text": "boolean"
+              },
+              "description": "Check if the tool panel is currently open.",
+              "readonly": true
             },
             {
               "kind": "field",
@@ -1458,6 +1484,16 @@
                 "text": "string | null"
               },
               "description": "Get the currently active tool panel ID, or null if none is open.",
+              "deprecated": "Use isToolPanelOpen and expandedToolPanelSections instead.",
+              "readonly": true
+            },
+            {
+              "kind": "field",
+              "name": "expandedToolPanelSections",
+              "type": {
+                "text": "string[]"
+              },
+              "description": "Get the IDs of expanded accordion sections.",
               "readonly": true
             },
             {
@@ -1468,15 +1504,7 @@
                   "text": "void"
                 }
               },
-              "parameters": [
-                {
-                  "name": "panelId",
-                  "type": {
-                    "text": "string"
-                  }
-                }
-              ],
-              "description": "Open a tool panel by ID.\r\nCloses any currently open panel first."
+              "description": "Open the tool panel (accordion view with all registered panels)."
             },
             {
               "kind": "method",
@@ -1486,7 +1514,7 @@
                   "text": "void"
                 }
               },
-              "description": "Close the currently open tool panel."
+              "description": "Close the tool panel."
             },
             {
               "kind": "method",
@@ -1496,15 +1524,69 @@
                   "text": "void"
                 }
               },
+              "description": "Toggle the tool panel open/closed."
+            },
+            {
+              "kind": "method",
+              "name": "toggleToolPanelSection",
+              "return": {
+                "type": {
+                  "text": "void"
+                }
+              },
               "parameters": [
                 {
-                  "name": "panelId",
+                  "name": "sectionId",
                   "type": {
                     "text": "string"
                   }
                 }
               ],
-              "description": "Toggle a tool panel open/closed."
+              "description": "Toggle an accordion section expanded/collapsed.\nOnly one section can be expanded at a time (exclusive accordion).\nWhen there's only one panel, toggling is disabled (always expanded)."
+            },
+            {
+              "kind": "method",
+              "name": "#updateAccordionSectionState",
+              "privacy": "private",
+              "return": {
+                "type": {
+                  "text": "void"
+                }
+              },
+              "parameters": [
+                {
+                  "name": "sectionId",
+                  "type": {
+                    "text": "string"
+                  }
+                },
+                {
+                  "name": "expanded",
+                  "type": {
+                    "text": "boolean"
+                  }
+                }
+              ],
+              "description": "Update accordion section visual state."
+            },
+            {
+              "kind": "method",
+              "name": "#renderAccordionSectionContent",
+              "privacy": "private",
+              "return": {
+                "type": {
+                  "text": "void"
+                }
+              },
+              "parameters": [
+                {
+                  "name": "sectionId",
+                  "type": {
+                    "text": "string"
+                  }
+                }
+              ],
+              "description": "Render content for a single accordion section."
             },
             {
               "kind": "method",
@@ -1676,7 +1758,7 @@
                   "text": "void"
                 }
               },
-              "description": "Re-parse light DOM shell elements and refresh shell header.\r\nCall this after dynamically modifying <tbw-grid-header> children."
+              "description": "Re-parse light DOM shell elements and refresh shell header.\nCall this after dynamically modifying <tbw-grid-header> children."
             },
             {
               "kind": "method",
@@ -1703,7 +1785,7 @@
                   "default": "false"
                 }
               ],
-              "description": "Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,\r\nor standard row window rendering."
+              "description": "Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,\nor standard row window rendering."
             },
             {
               "kind": "method",

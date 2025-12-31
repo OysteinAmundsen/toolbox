@@ -140,7 +140,6 @@ When creating a new plugin:
 
 1. Create directory: `libs/grid/src/lib/plugins/<plugin-name>/`
 2. Required files:
-
    - `index.ts` - Barrel exports
    - `<PluginName>Plugin.ts` - Plugin class
    - `types.ts` - TypeScript interfaces
@@ -158,6 +157,44 @@ When creating a new plugin:
    ```
 
 4. Export from plugin's `index.ts`
+
+## Release Process
+
+This project uses [Release Please](https://github.com/googleapis/release-please) for automated releases.
+
+### How It Works
+
+1. **Develop & Merge PRs** - Use conventional commit messages (`feat:`, `fix:`, etc.)
+2. **Release PR Created Automatically** - After merging, Release Please creates/updates a "Release PR" that:
+   - Bumps version based on commit types
+   - Updates CHANGELOG.md
+3. **Merge the Release PR** - When ready to release, merge the Release PR
+4. **Automatic Release** - This triggers:
+   - Git tag creation (e.g., `v0.2.0`)
+   - GitHub Release with changelog
+   - npm publish
+
+### Version Bumps
+
+| Commit Type                    | Version Bump  | Example                           |
+| ------------------------------ | ------------- | --------------------------------- |
+| `fix:`                         | Patch (0.0.X) | `fix(grid): correct scroll issue` |
+| `feat:`                        | Minor (0.X.0) | `feat(grid): add row pinning`     |
+| `feat!:` or `BREAKING CHANGE:` | Major (X.0.0) | `feat!: remove deprecated API`    |
+
+Commits like `chore:`, `docs:`, `test:`, `refactor:` don't trigger releases.
+
+### Workflow Summary
+
+```
+feature-branch → PR → merge to main
+                        ↓
+              Release Please creates Release PR
+                        ↓
+              Merge Release PR when ready
+                        ↓
+              Tag + GitHub Release + npm publish
+```
 
 ## Questions?
 

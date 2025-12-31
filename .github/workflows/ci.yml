@@ -10,6 +10,12 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Trigger release jobs (build storybook, deploy pages, publish npm)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -83,10 +89,10 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   # ============================================
-  # RELEASE JOBS (runs on release published only)
+  # RELEASE JOBS (runs on release published, or manual workflow_dispatch with release=true)
   # ============================================
   build-storybook:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,7 +118,7 @@ jobs:
           path: dist/storybook
 
   deploy-pages:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release)
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -124,7 +130,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   publish-npm:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release)
     runs-on: ubuntu-latest
     environment: NPM
     permissions:

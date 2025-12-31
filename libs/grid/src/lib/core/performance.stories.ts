@@ -45,7 +45,7 @@ type Story = StoryObj<StressTestArgs>;
 // Generate columns dynamically
 function generateColumns(
   count: number,
-  options?: { sortable?: boolean; filterable?: boolean }
+  options?: { sortable?: boolean; filterable?: boolean },
 ): ExtendedColumnConfig[] {
   const columns: ExtendedColumnConfig[] = [
     { field: 'id', header: 'ID', type: 'number', width: 60, sortable: options?.sortable },
@@ -120,12 +120,12 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
                 r.unit === 'info'
                   ? '—'
                   : r.unit === 'bytes'
-                  ? formatBytes(r.time)
-                  : r.unit === 'bool'
-                  ? r.time
-                    ? 'Yes'
-                    : 'No'
-                  : formatTime(r.time)
+                    ? formatBytes(r.time)
+                    : r.unit === 'bool'
+                      ? r.time
+                        ? 'Yes'
+                        : 'No'
+                      : formatTime(r.time)
               }
             </div>
             <div style="color:#888;font-family:monospace;text-align:right;font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${
@@ -135,14 +135,14 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
                 r.note
                   ? r.note
                   : r.unit === 'bool' || r.unit === 'info'
-                  ? ''
-                  : r.target === Infinity
-                  ? '(info)'
-                  : '&lt;' + (r.unit === 'bytes' ? formatBytes(r.target) : formatTime(r.target))
+                    ? ''
+                    : r.target === Infinity
+                      ? '(info)'
+                      : '&lt;' + (r.unit === 'bytes' ? formatBytes(r.target) : formatTime(r.target))
               }
             </div>
             <div style="text-align:center;">${r.target === Infinity ? 'ℹ️' : r.passed ? '✅' : '❌'}</div>
-          `
+          `,
             )
             .join('')}
         </div>
@@ -231,8 +231,8 @@ export const PerformanceStressTest: Story = {
     bar.innerHTML = `
       <button id="run-bench" class="dg-toggle-btn">Run Full Benchmark</button>
       <span id="bench-status" style="font-size:13px;">Ready - ${args.rowCount.toLocaleString()} rows × ${
-      args.columnCount
-    } columns</span>
+        args.columnCount
+      } columns</span>
     `;
 
     // Grid container
@@ -752,7 +752,8 @@ export const PerformanceStressTest: Story = {
             Result: r.unit === 'bytes' ? formatBytes(r.time) : formatTime(r.time),
             Target: r.unit === 'bytes' ? '< ' + formatBytes(r.target) : '< ' + formatTime(r.target),
             Status: r.passed ? '✅ PASS' : '❌ FAIL',
-          }))
+          })),
+        );
         // #endregion
       });
     });

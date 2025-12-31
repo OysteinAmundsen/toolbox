@@ -36,7 +36,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private isVirtualized = false;
   private startCol = 0;
   private endCol = 0;
@@ -44,8 +44,9 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   private totalWidth = 0;
   private columnWidths: number[] = [];
   private columnOffsets: number[] = [];
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
@@ -67,8 +68,9 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.scrollLeft = 0;
     this.totalWidth = 0;
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     const isVirtualized = shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true);
@@ -142,8 +144,9 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     // Recalculate visible columns and request re-render
     this.requestRender();
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Check if column virtualization is currently active.
@@ -184,4 +187,5 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   getTotalWidth(): number {
     return this.totalWidth;
   }
+  // #endregion
 }

@@ -85,7 +85,7 @@ export const aggregatorRegistry = {
   },
 };
 
-// ===== Value-based Aggregators =====
+// #region Value-based Aggregators
 // Used by plugins like Pivot that work with pre-extracted numeric values
 
 export type ValueAggregatorFn = (values: number[]) => number;
@@ -125,6 +125,7 @@ export function getValueAggregator(aggFunc: string): ValueAggregatorFn {
 export function runValueAggregator(aggFunc: string, values: number[]): number {
   return getValueAggregator(aggFunc)(values);
 }
+// #endregion
 
 // Legacy function exports for backward compatibility
 export const registerAggregator = aggregatorRegistry.register.bind(aggregatorRegistry);

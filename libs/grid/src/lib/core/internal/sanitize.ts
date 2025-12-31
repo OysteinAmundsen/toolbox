@@ -14,9 +14,7 @@ const SAFE_EXPR = /^[\w$. '?+\-*/%:()!<>=,&|]+$/;
 const FORBIDDEN =
   /__(proto|defineGetter|defineSetter)|constructor|window|globalThis|global|process|Function|import|eval|Reflect|Proxy|Error|arguments|document|location|cookie|localStorage|sessionStorage|indexedDB|fetch|XMLHttpRequest|WebSocket|Worker|SharedWorker|ServiceWorker|opener|parent|top|frames|self|this\b/;
 
-// ============================================================================
-// HTML SANITIZATION
-// ============================================================================
+// #region HTML Sanitization
 
 /**
  * Tags that are considered dangerous and will be completely removed.
@@ -107,7 +105,7 @@ function sanitizeNode(root: DocumentFragment | Element): void {
     if (tagName === 'svg' || el.namespaceURI === 'http://www.w3.org/2000/svg') {
       // Remove entire SVG if it has any suspicious attributes
       const hasDangerousContent = Array.from(el.attributes).some(
-        (attr) => DANGEROUS_ATTR_PATTERN.test(attr.name) || attr.name === 'href' || attr.name === 'xlink:href'
+        (attr) => DANGEROUS_ATTR_PATTERN.test(attr.name) || attr.name === 'href' || attr.name === 'xlink:href',
       );
       if (hasDangerousContent) {
         toRemove.push(el);
@@ -145,6 +143,8 @@ function sanitizeNode(root: DocumentFragment | Element): void {
   // Remove dangerous elements (do this after iteration to avoid modifying during traversal)
   toRemove.forEach((el) => el.remove());
 }
+
+// #endregion
 
 export function evalTemplateString(raw: string, ctx: EvalContext): string {
   if (!raw || raw.indexOf('{{') === -1) return raw; // fast path (no expressions)

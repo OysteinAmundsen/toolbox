@@ -31,6 +31,13 @@ grid.columns = [
 | ------------- | --------- | ------- | ---------------------------- |
 | `reorderable` | `boolean` | `true`  | Allow column to be reordered |
 
+## Configuration
+
+| Option              | Type      | Default | Description                        |
+| ------------------- | --------- | ------- | ---------------------------------- |
+| `animation`         | `boolean` | `true`  | Whether to animate column movement |
+| `animationDuration` | `number`  | `200`   | Animation duration in milliseconds |
+
 ## Limitations
 
 ### Sticky (Pinned) Columns
@@ -61,15 +68,16 @@ grid.gridConfig = {
 
 ## Events
 
-### `column-reorder`
+### `column-move`
 
 Fired when columns are reordered.
 
 ```typescript
-grid.addEventListener('column-reorder', (e) => {
+grid.addEventListener('column-move', (e) => {
+  console.log('Field:', e.detail.field);
   console.log('From index:', e.detail.fromIndex);
   console.log('To index:', e.detail.toIndex);
-  console.log('Field:', e.detail.field);
+  console.log('New order:', e.detail.columnOrder);
 });
 ```
 
@@ -81,8 +89,5 @@ Access via `grid.getPlugin(ReorderPlugin)`:
 const reorder = grid.getPlugin(ReorderPlugin);
 
 // Move column programmatically
-reorder.moveColumn(fromIndex, toIndex);
-
-// Move by field name
-reorder.moveField('email', 0); // Move to first position
+reorder.moveColumn('email', 0); // Move to first position
 ```

@@ -24,9 +24,10 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option           | Type     | Default | Description             |
-| ---------------- | -------- | ------- | ----------------------- |
-| `maxSortColumns` | `number` | `3`     | Maximum columns in sort |
+| Option           | Type      | Default | Description                                 |
+| ---------------- | --------- | ------- | ------------------------------------------- |
+| `maxSortColumns` | `number`  | `3`     | Maximum columns in sort                     |
+| `showSortIndex`  | `boolean` | `true`  | Show sort order badges (1, 2, 3) on headers |
 
 ## User Interaction
 

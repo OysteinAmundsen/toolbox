@@ -107,7 +107,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #readyPromise: Promise<void>;
   #readyResolve?: () => void;
 
-  // ================== INPUT PROPERTIES ==================
+  // #region Input Properties
   // These backing fields store raw user input. They are merged into
   // #effectiveConfig by #mergeEffectiveConfig(). Never read directly
   // for rendering logic - always use effectiveConfig or derived state.
@@ -116,8 +116,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #gridConfig?: GridConfig<T>;
   #fitMode?: FitMode;
   #editOn?: string;
+  // #endregion
 
-  // ================== SINGLE SOURCE OF TRUTH ==================
+  // #region Single Source of Truth
   // All input sources converge here. This is the canonical config
   // that all rendering and logic should read from.
   #effectiveConfig: GridConfig<T> = {};
@@ -145,8 +146,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #shellState: ShellState = createShellState();
   #shellInitialized = false;
   #resizeCleanup?: () => void;
+  // #endregion
 
-  // ================== DERIVED STATE ==================
+  // #region Derived State
   // _rows: result of applying plugin processRows hooks
   _rows: T[] = [];
 
@@ -169,8 +171,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   get visibleColumns(): ColumnInternal<T>[] {
     return this._columns.filter((c) => !c.hidden);
   }
+  // #endregion
 
-  // ================== RUNTIME STATE ==================
+  // #region Runtime State
   // User-driven state changes at runtime (sort, etc.)
   // Visibility is stored in effectiveConfig.columns[].hidden
   rowPool: HTMLElement[] = [];
@@ -199,6 +202,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   gridTemplate = '';
   rowEditSnapshots = new Map<number, T>();
   _changedRowIndices = new Set<number>();
+  // #endregion
 
   // ---------------- Public API Props (getters/setters) ----------------
   // Getters return the EFFECTIVE value (after merging), not the raw input.

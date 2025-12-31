@@ -95,7 +95,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     return false;
   }
 
-  // ===== Public API Methods =====
+  // #region Public API Methods
 
   /**
    * Record a cell edit for undo/redo tracking.
@@ -191,4 +191,5 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   getRedoStack(): EditAction[] {
     return [...this.redoStack];
   }
+  // #endregion
 }

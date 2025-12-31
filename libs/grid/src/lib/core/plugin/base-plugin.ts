@@ -406,7 +406,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
     console.warn(`[tbw-grid:${this.name}] ${message}`);
   }
 
-  // ===== Lifecycle Hooks (override as needed) =====
+  // #region Lifecycle Hooks
 
   /**
    * Transform rows before rendering.
@@ -593,7 +593,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
    */
   renderRow?(row: any, rowEl: HTMLElement, rowIndex: number): boolean | void;
 
-  // ===== Interaction Hooks (override as needed) =====
+  // #endregion
+
+  // #region Interaction Hooks
 
   /**
    * Handle keyboard events on the grid.
@@ -770,7 +772,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
    */
   getContextMenuItems?(params: ContextMenuParams): ContextMenuItem[];
 
-  // ===== Column State Hooks (override as needed) =====
+  // #endregion
+
+  // #region Column State Hooks
 
   /**
    * Contribute plugin-specific state for a column.
@@ -816,7 +820,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
    */
   applyColumnState?(field: string, state: ColumnState): void;
 
-  // ===== Shell Integration Hooks (override as needed) =====
+  // #endregion
+
+  // #region Shell Integration Hooks
 
   /**
    * Register a tool panel for this plugin.
@@ -871,4 +877,6 @@ export abstract class BaseGridPlugin<TConfig = unknown> {
    * ```
    */
   getHeaderContent?(): HeaderContentDefinition | undefined;
+
+  // #endregion
 }

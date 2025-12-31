@@ -83,55 +83,38 @@ When the same property is set via multiple methods, higher precedence wins:
 
 ## Features
 
-### Core Capabilities
-
-| Feature             | Description                                                                       |
-| ------------------- | --------------------------------------------------------------------------------- |
-| Virtualization      | Row and column virtualization for datasets with 100k+ rows                        |
-| Keyboard Navigation | Full keyboard support including arrow keys, Tab, Enter, Home/End, PageUp/PageDown |
-| Accessibility       | ARIA attributes and screen reader support                                         |
-| Theming             | CSS custom properties with 4 built-in themes                                      |
-| Column Inference    | Automatic column type detection from data                                         |
-
-### Editing
-
-| Feature         | Description                                           |
-| --------------- | ----------------------------------------------------- |
-| Inline Editing  | Cell and row editing modes with configurable triggers |
-| Undo/Redo       | Edit history with Ctrl+Z / Ctrl+Y                     |
-| Clipboard       | Copy/paste with configurable delimiters               |
-| Change Tracking | Track modified rows with commit/reset lifecycle       |
-
-### Data Operations
-
-| Feature          | Description                                                            |
-| ---------------- | ---------------------------------------------------------------------- |
-| Sorting          | Single and multi-column sorting                                        |
-| Filtering        | Text, number, date, set, and boolean filters                           |
-| Aggregations     | Built-in aggregators (sum, avg, count, min, max) plus custom functions |
-| Row Grouping     | Hierarchical grouping with nested aggregations                         |
-| Tree Data        | Nested data structures with expand/collapse                            |
-| Pivot Tables     | Data transformation with row/column groups                             |
-| Server-Side Data | Lazy loading with block caching                                        |
-
-### Column Features
-
-| Feature       | Description                                  |
-| ------------- | -------------------------------------------- |
-| Pinning       | Sticky columns on left or right edges        |
-| Resizing      | Drag-to-resize with auto-sizing              |
-| Reordering    | Drag-and-drop repositioning                  |
-| Visibility    | Show/hide columns programmatically or via UI |
-| Header Groups | Multi-level column headers                   |
-
-### Selection & Export
-
-| Feature         | Description                        |
-| --------------- | ---------------------------------- |
-| Selection Modes | Cell, row, or range selection      |
-| Context Menus   | Configurable right-click menus     |
-| Master/Detail   | Expandable detail rows             |
-| Export          | CSV, Excel (XML), and JSON formats |
+<table>
+<tr><th colspan="2">Core Capabilities</th></tr>
+<tr><td>Virtualization</td><td>Row and column virtualization for datasets with 100k+ rows</td></tr>
+<tr><td>Keyboard Navigation</td><td>Full keyboard support including arrow keys, Tab, Enter, Home/End, PageUp/PageDown</td></tr>
+<tr><td>Accessibility</td><td>ARIA attributes and screen reader support</td></tr>
+<tr><td>Theming</td><td>CSS custom properties with 6 built-in themes</td></tr>
+<tr><td>Column Inference</td><td>Automatic column type detection from data</td></tr>
+<tr><th colspan="2">Editing</th></tr>
+<tr><td>Inline Editing</td><td>Cell and row editing modes with configurable triggers</td></tr>
+<tr><td>Undo/Redo</td><td>Edit history with Ctrl+Z / Ctrl+Y</td></tr>
+<tr><td>Clipboard</td><td>Copy/paste with configurable delimiters</td></tr>
+<tr><td>Change Tracking</td><td>Track modified rows with commit/reset lifecycle</td></tr>
+<tr><th colspan="2">Data Operations</th></tr>
+<tr><td>Sorting</td><td>Single and multi-column sorting</td></tr>
+<tr><td>Filtering</td><td>Text, number, date, set, and boolean filters</td></tr>
+<tr><td>Aggregations</td><td>Built-in aggregators (sum, avg, count, min, max) plus custom functions</td></tr>
+<tr><td>Row Grouping</td><td>Hierarchical grouping with nested aggregations</td></tr>
+<tr><td>Tree Data</td><td>Nested data structures with expand/collapse</td></tr>
+<tr><td>Pivot Tables</td><td>Data transformation with row/column groups</td></tr>
+<tr><td>Server-Side Data</td><td>Lazy loading with block caching</td></tr>
+<tr><th colspan="2">Column Features</th></tr>
+<tr><td>Pinning</td><td>Sticky columns on left or right edges</td></tr>
+<tr><td>Resizing</td><td>Drag-to-resize with auto-sizing</td></tr>
+<tr><td>Reordering</td><td>Drag-and-drop repositioning</td></tr>
+<tr><td>Visibility</td><td>Show/hide columns programmatically or via UI</td></tr>
+<tr><td>Header Groups</td><td>Multi-level column headers</td></tr>
+<tr><th colspan="2">Selection & Export</th></tr>
+<tr><td>Selection Modes</td><td>Cell, row, or range selection</td></tr>
+<tr><td>Context Menus</td><td>Configurable right-click menus</td></tr>
+<tr><td>Master/Detail</td><td>Expandable detail rows</td></tr>
+<tr><td>Export</td><td>CSV, Excel (XML), and JSON formats</td></tr>
+</table>
 
 ---
 
@@ -148,6 +131,7 @@ When the same property is set via multiple methods, higher precedence wins:
 | Property     | Type                    | Description                                        |
 | ------------ | ----------------------- | -------------------------------------------------- |
 | `rows`       | `T[]`                   | Data array                                         |
+| `sourceRows` | `T[]` (readonly)        | Original unfiltered/unprocessed rows               |
 | `columns`    | `ColumnConfig[]`        | Column definitions (→ `gridConfig.columns`)        |
 | `gridConfig` | `GridConfig`            | Full configuration object (single source of truth) |
 | `fitMode`    | `'stretch' \| 'fixed'`  | Column sizing behavior (→ `gridConfig.fitMode`)    |
@@ -164,18 +148,25 @@ When the same property is set via multiple methods, higher precedence wins:
 | `beginBulkEdit(rowIndex)`          | `Promise<void>`       | Start row editing                      |
 | `commitActiveRowEdit()`            | `Promise<void>`       | Commit current edit                    |
 | `setColumnVisible(field, visible)` | `boolean`             | Set column visibility                  |
+| `setColumnOrder(order)`            | `void`                | Reorder columns by field array         |
 | `getAllColumns()`                  | `ColumnInfo[]`        | Get all columns with visibility status |
+| `getPlugin(PluginClass)`           | `P \| undefined`      | Get plugin instance by class           |
+| `getPluginByName(name)`            | `Plugin \| undefined` | Get plugin instance by name            |
 
 ### Events
 
-| Event               | Detail                   | Description               |
-| ------------------- | ------------------------ | ------------------------- |
-| `cell-commit`       | `CellCommitDetail`       | Cell value committed      |
-| `row-commit`        | `RowCommitDetail`        | Row edit committed        |
-| `sort-change`       | `SortChangeDetail`       | Sort state changed        |
-| `column-resize`     | `ColumnResizeDetail`     | Column resized            |
-| `column-visibility` | `ColumnVisibilityDetail` | Column visibility changed |
-| `activate-cell`     | `ActivateCellDetail`     | Cell activated            |
+| Event                   | Detail                      | Description                   |
+| ----------------------- | --------------------------- | ----------------------------- |
+| `cell-commit`           | `CellCommitDetail`          | Cell value committed          |
+| `row-commit`            | `RowCommitDetail`           | Row edit committed            |
+| `changed-rows-reset`    | `ChangedRowsResetDetail`    | Change tracking cleared       |
+| `sort-change`           | `SortChangeDetail`          | Sort state changed            |
+| `column-resize`         | `ColumnResizeDetail`        | Column resized                |
+| `column-state-change`   | `ColumnState`               | Column state changed          |
+| `activate-cell`         | `ActivateCellDetail`        | Cell activated                |
+| `group-toggle`          | `GroupToggleDetail`         | Row group expanded/collapsed  |
+| `mount-external-view`   | `ExternalMountViewDetail`   | External view mount request   |
+| `mount-external-editor` | `ExternalMountEditorDetail` | External editor mount request |
 
 Import event names from the `DGEvents` constant:
 
@@ -215,7 +206,7 @@ Some column properties are added via [TypeScript module augmentation](#typescrip
 | `filterType`  | `filtering`       | Filter type              |
 | `reorderable` | `reorder`         | Enable column reordering |
 
-See [Storybook](https://your-storybook-url) for complete configuration examples.
+See [Storybook](https://oysteinamundsen.github.io/toolbox/) for complete configuration examples.
 
 ---
 
@@ -287,7 +278,7 @@ Apply a built-in theme:
 @import '@toolbox-web/grid/themes/dg-theme-standard.css';
 ```
 
-Available themes: `standard`, `contrast`, `vibrant`, `large`
+Available themes: `standard`, `contrast`, `vibrant`, `large`, `bootstrap`, `material`
 
 ### Custom Theming
 

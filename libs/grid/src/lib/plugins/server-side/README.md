@@ -35,11 +35,12 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option            | Type                   | Default | Description                |
-| ----------------- | ---------------------- | ------- | -------------------------- |
-| `dataSource`      | `ServerSideDataSource` | -       | Data source implementation |
-| `blockSize`       | `number`               | `100`   | Rows per block             |
-| `cacheBlockCount` | `number`               | `10`    | Max cached blocks          |
+| Option                  | Type                   | Default | Description                |
+| ----------------------- | ---------------------- | ------- | -------------------------- |
+| `dataSource`            | `ServerSideDataSource` | -       | Data source implementation |
+| `pageSize`              | `number`               | `100`   | Rows per page/block        |
+| `cacheBlockSize`        | `number`               | `100`   | Rows per cache block       |
+| `maxConcurrentRequests` | `number`               | `2`     | Max concurrent block loads |
 
 ## Data Source Interface
 
@@ -57,7 +58,8 @@ interface GetRowsParams {
 
 interface GetRowsResult {
   rows: any[];
-  totalRows: number;
+  totalRowCount: number;
+  lastRow?: number; // If known, for infinite scroll
 }
 ```
 
@@ -68,24 +70,21 @@ Access via `grid.getPlugin(ServerSidePlugin)`:
 ```typescript
 const serverSide = grid.getPlugin(ServerSidePlugin);
 
-// Refresh data (clears cache)
+// Refresh data (clears cache and reloads)
 serverSide.refresh();
 
-// Purge cache
+// Purge cache only
 serverSide.purgeCache();
 
 // Set new data source
 serverSide.setDataSource(newDataSource);
-```
 
-## Events
+// Get total row count
+const total = serverSide.getTotalRowCount();
 
-### `server-side-loading`
+// Check if row is loaded
+const loaded = serverSide.isRowLoaded(rowIndex);
 
-Fired when loading state changes.
-
-```typescript
-grid.addEventListener('server-side-loading', (e) => {
-  console.log('Loading:', e.detail.loading);
-});
+// Get loaded block count
+const blockCount = serverSide.getLoadedBlockCount();
 ```

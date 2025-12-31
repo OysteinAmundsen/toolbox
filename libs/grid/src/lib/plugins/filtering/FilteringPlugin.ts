@@ -11,151 +11,8 @@ import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin'
 import type { ColumnConfig, ColumnState } from '../../core/types';
 import { computeFilterCacheKey, filterRows, getUniqueValues } from './filter-model';
 import styles from './filtering.css?inline';
+import filterPanelStyles from './FilteringPlugin.css?inline';
 import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams } from './types';
-
-/** Global styles for filter panel (rendered in document.body) */
-const filterPanelStyles = `
-.tbw-filter-panel {
-  position: fixed;
-  background: var(--tbw-filter-panel-bg, var(--tbw-color-panel-bg, light-dark(#eeeeee, #222222)));
-  color: var(--tbw-filter-panel-fg, var(--tbw-color-fg, light-dark(#222222, #eeeeee)));
-  border: 1px solid var(--tbw-filter-panel-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
-  border-radius: var(--tbw-filter-panel-radius, var(--tbw-border-radius, 4px));
-  box-shadow: 0 4px 16px var(--tbw-filter-panel-shadow, var(--tbw-color-shadow, light-dark(rgba(0,0,0,0.1), rgba(0,0,0,0.3))));
-  padding: 12px;
-  z-index: 10000;
-  min-width: 200px;
-  max-width: 280px;
-  max-height: 350px;
-  display: flex;
-  flex-direction: column;
-  font-family: var(--tbw-font-family, system-ui, sans-serif);
-  font-size: var(--tbw-font-size, 13px);
-}
-
-.tbw-filter-search {
-  margin-bottom: 8px;
-}
-
-.tbw-filter-search-input {
-  width: 100%;
-  padding: 6px 10px;
-  background: var(--tbw-filter-input-bg, var(--tbw-color-bg, transparent));
-  color: inherit;
-  border: 1px solid var(--tbw-filter-input-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
-  border-radius: var(--tbw-filter-input-radius, 4px);
-  font-size: inherit;
-  box-sizing: border-box;
-}
-
-.tbw-filter-search-input:focus {
-  outline: none;
-  border-color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-  box-shadow: 0 0 0 2px rgba(from var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6)) r g b / 15%);
-}
-
-.tbw-filter-actions {
-  display: flex;
-  padding: 4px 2px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--tbw-filter-divider, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
-}
-
-.tbw-filter-action-btn {
-  background: transparent;
-  border: none;
-  color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 0;
-}
-
-.tbw-filter-action-btn:hover {
-  text-decoration: underline;
-}
-
-.tbw-filter-values {
-  flex: 1;
-  overflow-y: auto;
-  margin-bottom: 8px;
-  max-height: 180px;
-  position: relative;
-}
-
-.tbw-filter-values-spacer {
-  width: 1px;
-}
-
-.tbw-filter-values-content {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-}
-
-.tbw-filter-value-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
-  cursor: pointer;
-  border-radius: 3px;
-}
-
-.tbw-filter-value-item:hover {
-  background: var(--tbw-filter-hover, var(--tbw-color-row-hover, light-dark(#f0f6ff, #1c1c1c)));
-}
-
-.tbw-filter-checkbox {
-  margin: 0;
-  cursor: pointer;
-  accent-color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-}
-
-.tbw-filter-no-match {
-  color: var(--tbw-filter-muted, var(--tbw-color-fg-muted, light-dark(#555555, #aaaaaa)));
-  padding: 8px 0;
-  text-align: center;
-  font-style: italic;
-}
-
-.tbw-filter-buttons {
-  display: flex;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--tbw-filter-divider, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
-}
-
-.tbw-filter-apply-btn {
-  flex: 1;
-  padding: 6px 12px;
-  background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-  color: var(--tbw-filter-accent-fg, var(--tbw-color-accent-fg, light-dark(#ffffff, #000000)));
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.tbw-filter-apply-btn:hover {
-  filter: brightness(0.9);
-}
-
-.tbw-filter-clear-btn {
-  flex: 1;
-  padding: 6px 12px;
-  background: transparent;
-  color: var(--tbw-filter-muted, var(--tbw-color-fg-muted, light-dark(#555555, #aaaaaa)));
-  border: 1px solid var(--tbw-filter-input-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.tbw-filter-clear-btn:hover {
-  background: var(--tbw-filter-hover, var(--tbw-color-row-hover, light-dark(#f0f6ff, #1c1c1c)));
-}
-`;
 
 /**
  * Filtering Plugin for tbw-grid
@@ -178,7 +35,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private filters: Map<string, FilterModel> = new Map();
   private cachedResult: unknown[] | null = null;
   private cacheKey: string | null = null;
@@ -193,8 +50,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private static readonly LIST_ITEM_HEIGHT = 28;
   private static readonly LIST_OVERSCAN = 3;
   private static readonly LIST_BYPASS_THRESHOLD = 50; // Don't virtualize if < 50 items
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override attach(grid: GridElement): void {
     super.attach(grid);
@@ -216,8 +74,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.panelAbortController?.abort();
     this.panelAbortController = null;
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override processRows(rows: readonly unknown[]): unknown[] {
     const filterList = [...this.filters.values()];
@@ -279,8 +138,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       cell.appendChild(filterBtn);
     });
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Set a filter on a specific field.
@@ -405,8 +265,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   getUniqueValues(field: string): unknown[] {
     return getUniqueValues(this.sourceRows as Record<string, unknown>[], field);
   }
+  // #endregion
 
-  // ===== Private Methods =====
+  // #region Private Methods
 
   /**
    * Inject global styles for filter panel (rendered in document.body)
@@ -847,8 +708,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     });
     this.requestRender();
   }
+  // #endregion
 
-  // ===== Column State Hooks =====
+  // #region Column State Hooks
 
   /**
    * Return filter state for a column if it has an active filter.
@@ -891,8 +753,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.cachedResult = null;
     this.cacheKey = null;
   }
+  // #endregion
 
-  // ===== Styles =====
+  // #region Styles
 
   override readonly styles = styles;
+  // #endregion
 }

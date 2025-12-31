@@ -28,7 +28,7 @@ export interface SelectionState {
   anchor: number | null;
 }
 
-// ================= Cell/Range Selection Types =================
+// #region Cell/Range Selection Types
 
 /** Internal representation of a rectangular cell range */
 export interface InternalCellRange {
@@ -74,3 +74,5 @@ export interface SelectionPluginState extends SelectionState {
   /** Selected cell (for cell mode) */
   selectedCell: { row: number; col: number } | null;
 }
+
+// #endregion

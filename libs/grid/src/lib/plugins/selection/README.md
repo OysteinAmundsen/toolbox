@@ -17,7 +17,6 @@ grid.gridConfig = {
   plugins: [
     new SelectionPlugin({
       mode: 'row', // 'cell' | 'row' | 'range'
-      multiple: true, // Allow multi-select with Ctrl/Shift
     }),
   ],
 };
@@ -25,11 +24,9 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option     | Type                         | Default  | Description                   |
-| ---------- | ---------------------------- | -------- | ----------------------------- |
-| `mode`     | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection mode                |
-| `multiple` | `boolean`                    | `true`   | Allow multiple selection      |
-| `checkbox` | `boolean`                    | `false`  | Show row selection checkboxes |
+| Option | Type                         | Default  | Description    |
+| ------ | ---------------------------- | -------- | -------------- |
+| `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection mode |
 
 ## Selection Modes
 
@@ -91,7 +88,8 @@ const isSelected = selection.isRowSelected(rowIndex);
 
 ## CSS Variables
 
-| Variable                 | Description                |
-| ------------------------ | -------------------------- |
-| `--tbw-selection-bg`     | Selection background color |
-| `--tbw-selection-border` | Selection border color     |
+| Variable                   | Description                     |
+| -------------------------- | ------------------------------- |
+| `--tbw-focus-background`   | Row focus background (row mode) |
+| `--tbw-range-selection-bg` | Range selection background      |
+| `--tbw-range-border-color` | Range selection border color    |

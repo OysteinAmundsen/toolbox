@@ -40,13 +40,14 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private isDragging = false;
   private draggedField: string | null = null;
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
@@ -73,8 +74,9 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     this.draggedIndex = null;
     this.dropIndex = null;
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
   // Note: No processColumns hook needed - we directly update the grid's column order
 
   override afterRender(): void {
@@ -176,8 +178,9 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
       });
     });
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Get the current column order from the grid.
@@ -232,8 +235,10 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     // Trigger state change after reset
     (this.grid as unknown as GridWithColumnOrder).requestStateChange?.();
   }
+  // #endregion
 
-  // ===== Styles =====
+  // #region Styles
 
   override readonly styles = styles;
+  // #endregion
 }

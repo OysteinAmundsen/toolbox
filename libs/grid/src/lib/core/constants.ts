@@ -5,7 +5,7 @@
  * used throughout the grid. Use these instead of magic strings.
  */
 
-// ================= CSS Classes =================
+// #region CSS Classes
 
 /**
  * CSS class names used in the grid's shadow DOM.
@@ -69,7 +69,9 @@ export const GridClasses = {
   SELECTION_OVERLAY: 'selection-overlay',
 } as const;
 
-// ================= Data Attributes =================
+// #endregion
+
+// #region Data Attributes
 
 /**
  * Data attribute names used on grid elements.
@@ -84,7 +86,9 @@ export const GridDataAttrs = {
   STICKY: 'data-sticky',
 } as const;
 
-// ================= Selectors =================
+// #endregion
+
+// #region Selectors
 
 /**
  * Common CSS selectors for querying grid elements.
@@ -112,7 +116,9 @@ export const GridSelectors = {
   EDITING_CELL: `.${GridClasses.DATA_CELL}.${GridClasses.EDITING}`,
 } as const;
 
-// ================= CSS Custom Properties =================
+// #endregion
+
+// #region CSS Custom Properties
 
 /**
  * CSS custom property names for theming.
@@ -144,6 +150,8 @@ export const GridCSSVars = {
   BORDER_RADIUS: '--tbw-border-radius',
   FOCUS_OUTLINE: '--tbw-focus-outline',
 } as const;
+
+// #endregion
 
 // Type helpers
 export type GridClassName = (typeof GridClasses)[keyof typeof GridClasses];

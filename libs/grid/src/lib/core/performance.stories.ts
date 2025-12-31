@@ -11,9 +11,7 @@ import { MultiSortPlugin } from '../plugins/multi-sort';
 import { PinnedColumnsPlugin } from '../plugins/pinned-columns';
 import { SelectionPlugin } from '../plugins/selection';
 
-// ============================================================================
-// Benchmark Definitions
-// ============================================================================
+// #region Benchmark Definitions
 
 type ExtendedColumnConfig = ColumnConfig & { sticky?: 'left' | 'right'; filterable?: boolean };
 
@@ -27,9 +25,9 @@ interface BenchmarkResult {
   note?: string; // Optional explanation for info-type metrics
 }
 
-// ============================================================================
-// Story Configuration
-// ============================================================================
+// #endregion
+
+// #region Story Configuration
 
 const meta: Meta = {
   title: 'Grid',
@@ -47,7 +45,7 @@ type Story = StoryObj<StressTestArgs>;
 // Generate columns dynamically
 function generateColumns(
   count: number,
-  options?: { sortable?: boolean; filterable?: boolean }
+  options?: { sortable?: boolean; filterable?: boolean },
 ): ExtendedColumnConfig[] {
   const columns: ExtendedColumnConfig[] = [
     { field: 'id', header: 'ID', type: 'number', width: 60, sortable: options?.sortable },
@@ -78,9 +76,9 @@ function generateRows(rowCount: number, columnCount: number): Record<string, unk
   return rows;
 }
 
-// ============================================================================
-// Results Display
-// ============================================================================
+// #endregion
+
+// #region Results Display
 
 function formatTime(ms: number): string {
   if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
@@ -122,12 +120,12 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
                 r.unit === 'info'
                   ? '—'
                   : r.unit === 'bytes'
-                  ? formatBytes(r.time)
-                  : r.unit === 'bool'
-                  ? r.time
-                    ? 'Yes'
-                    : 'No'
-                  : formatTime(r.time)
+                    ? formatBytes(r.time)
+                    : r.unit === 'bool'
+                      ? r.time
+                        ? 'Yes'
+                        : 'No'
+                      : formatTime(r.time)
               }
             </div>
             <div style="color:#888;font-family:monospace;text-align:right;font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${
@@ -137,14 +135,14 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
                 r.note
                   ? r.note
                   : r.unit === 'bool' || r.unit === 'info'
-                  ? ''
-                  : r.target === Infinity
-                  ? '(info)'
-                  : '&lt;' + (r.unit === 'bytes' ? formatBytes(r.target) : formatTime(r.target))
+                    ? ''
+                    : r.target === Infinity
+                      ? '(info)'
+                      : '&lt;' + (r.unit === 'bytes' ? formatBytes(r.target) : formatTime(r.target))
               }
             </div>
             <div style="text-align:center;">${r.target === Infinity ? 'ℹ️' : r.passed ? '✅' : '❌'}</div>
-          `
+          `,
             )
             .join('')}
         </div>
@@ -180,9 +178,9 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
   return html;
 }
 
-// ============================================================================
-// Main Story
-// ============================================================================
+// #endregion
+
+// #region Main Story
 
 /**
  * ## Comprehensive Grid Benchmark
@@ -233,8 +231,8 @@ export const PerformanceStressTest: Story = {
     bar.innerHTML = `
       <button id="run-bench" class="dg-toggle-btn">Run Full Benchmark</button>
       <span id="bench-status" style="font-size:13px;">Ready - ${args.rowCount.toLocaleString()} rows × ${
-      args.columnCount
-    } columns</span>
+        args.columnCount
+      } columns</span>
     `;
 
     // Grid container
@@ -337,9 +335,7 @@ export const PerformanceStressTest: Story = {
         const scaledByRows = (base: number) => Math.round(base * rowScale);
         const scaledByCells = (base: number) => Math.round(base * cellScale);
 
-        // =====================================================================
-        // 🎨 INITIAL RENDER BENCHMARKS
-        // =====================================================================
+        // #region 🎨 INITIAL RENDER BENCHMARKS
         status.textContent = 'Testing: Initial render (baseline)...';
 
         // Clear grid
@@ -398,9 +394,9 @@ export const PerformanceStressTest: Story = {
         });
         updateResults();
 
-        // =====================================================================
-        // 📜 SCROLL BENCHMARKS
-        // =====================================================================
+        // #endregion
+
+        // #region 📜 SCROLL BENCHMARKS
         status.textContent = 'Testing: Scroll performance...';
         await new Promise((r) => setTimeout(r, 100));
 
@@ -530,9 +526,9 @@ export const PerformanceStressTest: Story = {
           }
         }
 
-        // =====================================================================
-        // ⚡ OPERATION BENCHMARKS
-        // =====================================================================
+        // #endregion
+
+        // #region ⚡ OPERATION BENCHMARKS
 
         // Sort operation
         status.textContent = 'Testing: Sort operation...';
@@ -674,9 +670,9 @@ export const PerformanceStressTest: Story = {
           updateResults();
         }
 
-        // =====================================================================
-        // 💾 MEMORY BENCHMARKS
-        // =====================================================================
+        // #endregion
+
+        // #region 💾 MEMORY BENCHMARKS
         status.textContent = 'Calculating: Data size...';
 
         // Calculate estimated data size directly (more reliable than performance.memory API)
@@ -740,9 +736,9 @@ export const PerformanceStressTest: Story = {
         }
         updateResults();
 
-        // =====================================================================
-        // COMPLETE
-        // =====================================================================
+        // #endregion
+
+        // #region COMPLETE
         status.textContent = 'Benchmark complete!';
         runBtn.disabled = false;
 
@@ -756,11 +752,14 @@ export const PerformanceStressTest: Story = {
             Result: r.unit === 'bytes' ? formatBytes(r.time) : formatTime(r.time),
             Target: r.unit === 'bytes' ? '< ' + formatBytes(r.target) : '< ' + formatTime(r.target),
             Status: r.passed ? '✅ PASS' : '❌ FAIL',
-          }))
+          })),
         );
+        // #endregion
       });
     });
 
     return wrapper;
   },
 };
+
+// #endregion

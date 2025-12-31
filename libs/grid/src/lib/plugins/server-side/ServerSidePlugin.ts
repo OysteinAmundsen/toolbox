@@ -32,15 +32,16 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private dataSource: ServerSideDataSource | null = null;
   private totalRowCount = 0;
   private loadedBlocks = new Map<number, unknown[]>();
   private loadingBlocks = new Set<number>();
   private lastRequestId = 0;
   private scrollDebounceTimer?: ReturnType<typeof setTimeout>;
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.dataSource = null;
@@ -53,8 +54,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       this.scrollDebounceTimer = undefined;
     }
   }
+  // #endregion
 
-  // ===== Private Methods =====
+  // #region Private Methods
 
   /**
    * Check current viewport and load any missing blocks.
@@ -97,8 +99,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
         });
     }
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override processRows(rows: readonly unknown[]): unknown[] {
     if (!this.dataSource) return [...rows];
@@ -127,8 +130,9 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
       this.loadRequiredBlocks();
     }, SCROLL_DEBOUNCE_MS);
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Set the data source for server-side loading.
@@ -188,4 +192,5 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   getLoadedBlockCount(): number {
     return this.loadedBlocks.size;
   }
+  // #endregion
 }

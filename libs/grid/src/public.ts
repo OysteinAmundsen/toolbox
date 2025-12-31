@@ -1,4 +1,4 @@
-// Public API surface - only export what consumers need
+// #region Public API surface - only export what consumers need
 export { DataGridElement, DataGridElement as GridElement } from './lib/core/grid';
 
 // Event name constants for DataGrid (public API)
@@ -97,15 +97,16 @@ export type {
   ShellConfig,
   ShellHeaderConfig,
   SortChangeDetail,
+  ToolbarButtonConfig,
   ToolPanelConfig,
   ToolPanelDefinition,
-  ToolbarButtonConfig,
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
 export { DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
+// #endregion
 
-// ================= Plugin Types =================
+// #region Plugin Types
 // Only export types that consumers need to use plugins
 // Plugin classes are available via @toolbox-web/grid/plugins/<name> or from 'all.ts'
 
@@ -143,5 +144,6 @@ export type { GroupingRowsConfig } from './lib/plugins/grouping-rows/types';
 export { BaseGridPlugin } from './lib/core/plugin';
 
 // DOM constants - for querying grid elements and styling
-export { GridCSSVars, GridClasses, GridDataAttrs, GridSelectors } from './lib/core/constants';
-export type { GridCSSVar, GridClassName, GridDataAttr } from './lib/core/constants';
+export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';
+export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constants';
+// #endregion

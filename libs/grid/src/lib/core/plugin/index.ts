@@ -5,7 +5,7 @@
  * All plugins extend BaseGridPlugin and are attached to grids via PluginManager.
  */
 
-// ===== Base Plugin Class =====
+// #region Base Plugin Class
 export { BaseGridPlugin } from './base-plugin';
 export type {
   CellClickEvent,
@@ -24,9 +24,11 @@ export type {
   RowClickEvent,
   ScrollEvent,
 } from './base-plugin';
+// #endregion
 
-// ===== Plugin Manager =====
+// #region Plugin Manager
 export { PluginManager } from './plugin-manager';
+// #endregion
 
 // Re-export ColumnConfig for plugins that need it
 export type { ColumnConfig } from '../types';

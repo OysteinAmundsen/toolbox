@@ -14,13 +14,27 @@ import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 
 grid.gridConfig = {
-  plugins: [new ExportPlugin()],
+  plugins: [
+    new ExportPlugin({
+      fileName: 'my-data',
+      includeHeaders: true,
+    }),
+  ],
 };
 
 // Export via API
 const exporter = grid.getPlugin(ExportPlugin);
 exporter.exportCsv('data.csv');
 ```
+
+## Configuration
+
+| Option           | Type      | Default    | Description                   |
+| ---------------- | --------- | ---------- | ----------------------------- |
+| `fileName`       | `string`  | `'export'` | Default file name for exports |
+| `includeHeaders` | `boolean` | `true`     | Include column headers        |
+| `onlyVisible`    | `boolean` | `true`     | Export only visible columns   |
+| `onlySelected`   | `boolean` | `false`    | Export only selected rows     |
 
 ## API Methods
 

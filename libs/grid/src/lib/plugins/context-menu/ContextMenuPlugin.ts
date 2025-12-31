@@ -67,13 +67,14 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private isOpen = false;
   private position = { x: 0, y: 0 };
   private params: ContextMenuParams | null = null;
   private menuElement: HTMLElement | null = null;
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
@@ -90,8 +91,9 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     this.params = null;
     this.uninstallGlobalHandlers();
   }
+  // #endregion
 
-  // ===== Private Methods =====
+  // #region Private Methods
 
   private installGlobalHandlers(): void {
     // Inject global stylesheet for context menu (once)
@@ -145,8 +147,9 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       globalStyleSheet = null;
     }
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override afterRender(): void {
     const shadowRoot = this.shadowRoot;
@@ -234,8 +237,9 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       this.emit('context-menu-open', { params, items });
     });
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Programmatically show the context menu at the specified position.
@@ -296,6 +300,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   isMenuOpen(): boolean {
     return this.isOpen;
   }
+  // #endregion
 
   // Styles are injected globally via installGlobalHandlers() since menu renders in document.body
 }

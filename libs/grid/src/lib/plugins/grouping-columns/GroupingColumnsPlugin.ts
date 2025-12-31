@@ -38,18 +38,20 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private groups: ColumnGroup[] = [];
   private isActive = false;
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.groups = [];
     this.isActive = false;
   }
+  // #endregion
 
-  // ===== Static Detection =====
+  // #region Static Detection
 
   /**
    * Auto-detect column groups from column configuration.
@@ -59,8 +61,9 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     if (!Array.isArray(columns)) return false;
     return hasColumnGroups(columns);
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     // Compute groups from column definitions
@@ -112,8 +115,9 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
       applyGroupedHeaderCellClasses(headerRow, this.groups, this.columns as ColumnConfig[]);
     }
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Check if column groups are active.
@@ -147,8 +151,10 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   refresh(): void {
     this.requestRender();
   }
+  // #endregion
 
-  // ===== Styles =====
+  // #region Styles
 
   override readonly styles = styles;
+  // #endregion
 }

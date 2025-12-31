@@ -25,41 +25,43 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option         | Type      | Default | Description                                    |
-| -------------- | --------- | ------- | ---------------------------------------------- |
-| `copyHeaders`  | `boolean` | `false` | Include headers when copying                   |
-| `delimiter`    | `string`  | `'\t'`  | Column delimiter (tab for Excel compatibility) |
-| `rowDelimiter` | `string`  | `'\n'`  | Row delimiter                                  |
+| Option           | Type                            | Default | Description                                    |
+| ---------------- | ------------------------------- | ------- | ---------------------------------------------- |
+| `includeHeaders` | `boolean`                       | `false` | Include headers when copying                   |
+| `delimiter`      | `string`                        | `'\t'`  | Column delimiter (tab for Excel compatibility) |
+| `newline`        | `string`                        | `'\n'`  | Row delimiter                                  |
+| `quoteStrings`   | `boolean`                       | `false` | Wrap string values with quotes                 |
+| `processCell`    | `(value, field, row) => string` | -       | Custom cell value processor                    |
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action                            |
-| -------- | --------------------------------- |
-| `Ctrl+C` | Copy selected cells/rows          |
-| `Ctrl+V` | Paste into selected cells         |
-| `Ctrl+X` | Cut selected cells (copy + clear) |
+| Shortcut | Action                   |
+| -------- | ------------------------ |
+| `Ctrl+C` | Copy selected cells/rows |
+| `Ctrl+V` | Paste into grid          |
 
 ## Events
 
-### `clipboard-copy`
+### `copy`
 
 Fired when data is copied.
 
 ```typescript
-grid.addEventListener('clipboard-copy', (e) => {
+grid.addEventListener('copy', (e) => {
   console.log('Copied text:', e.detail.text);
-  console.log('Rows:', e.detail.rows);
+  console.log('Row count:', e.detail.rowCount);
+  console.log('Column count:', e.detail.columnCount);
 });
 ```
 
-### `clipboard-paste`
+### `paste`
 
 Fired when data is pasted.
 
 ```typescript
-grid.addEventListener('clipboard-paste', (e) => {
-  console.log('Pasted data:', e.detail.data);
-  console.log('Target cell:', e.detail.startRow, e.detail.startCol);
+grid.addEventListener('paste', (e) => {
+  console.log('Pasted rows:', e.detail.rows);
+  console.log('Raw text:', e.detail.text);
 });
 ```
 

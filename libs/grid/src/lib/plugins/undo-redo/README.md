@@ -16,7 +16,7 @@ import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 grid.gridConfig = {
   plugins: [
     new UndoRedoPlugin({
-      maxHistory: 50,
+      maxHistorySize: 50,
     }),
   ],
 };
@@ -24,9 +24,9 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option       | Type     | Default | Description                |
-| ------------ | -------- | ------- | -------------------------- |
-| `maxHistory` | `number` | `100`   | Maximum actions in history |
+| Option           | Type     | Default | Description                |
+| ---------------- | -------- | ------- | -------------------------- |
+| `maxHistorySize` | `number` | `100`   | Maximum actions in history |
 
 ## Keyboard Shortcuts
 
@@ -51,22 +51,34 @@ const canUndo = history.canUndo();
 const canRedo = history.canRedo();
 
 // Clear history
-history.clear();
+history.clearHistory();
 
-// Get history length
-const undoCount = history.getUndoCount();
-const redoCount = history.getRedoCount();
+// Record an edit manually
+history.recordEdit(rowIndex, field, oldValue, newValue);
+
+// Get stacks
+const undoStack = history.getUndoStack();
+const redoStack = history.getRedoStack();
 ```
 
 ## Events
 
-### `history-change`
+### `undo`
 
-Fired when history state changes.
+Fired when an undo operation is performed.
 
 ```typescript
-grid.addEventListener('history-change', (e) => {
-  console.log('Can undo:', e.detail.canUndo);
-  console.log('Can redo:', e.detail.canRedo);
+grid.addEventListener('undo', (e) => {
+  console.log('Action undone:', e.detail.action);
+});
+```
+
+### `redo`
+
+Fired when a redo operation is performed.
+
+```typescript
+grid.addEventListener('redo', (e) => {
+  console.log('Action redone:', e.detail.action);
 });
 ```

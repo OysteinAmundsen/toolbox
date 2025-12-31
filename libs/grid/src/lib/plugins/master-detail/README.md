@@ -32,11 +32,13 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option           | Type                      | Description           |
-| ---------------- | ------------------------- | --------------------- |
-| `detailRenderer` | `(params) => HTMLElement` | Render detail content |
-| `detailHeight`   | `number \| 'auto'`        | Detail row height     |
-| `expandOnClick`  | `boolean`                 | Expand on row click   |
+| Option                   | Type                             | Default | Description                    |
+| ------------------------ | -------------------------------- | ------- | ------------------------------ | ----------------- |
+| `detailRenderer`         | `(row, rowIndex) => HTMLElement` | -       | Render detail content          |
+| `detailHeight`           | `number \\                       | 'auto'` | `'auto'`                       | Detail row height |
+| `expandOnRowClick`       | `boolean`                        | `false` | Expand on row click            |
+| `collapseOnClickOutside` | `boolean`                        | `false` | Collapse when clicking outside |
+| `showExpandColumn`       | `boolean`                        | `true`  | Show expand/collapse column    |
 
 ## Detail Renderer Parameters
 

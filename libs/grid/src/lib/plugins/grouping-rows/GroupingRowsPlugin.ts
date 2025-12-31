@@ -58,20 +58,22 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     };
   }
 
-  // ===== Internal State =====
+  // #region Internal State
   private expandedKeys: Set<string> = new Set();
   private flattenedRows: RenderRow[] = [];
   private isActive = false;
+  // #endregion
 
-  // ===== Lifecycle =====
+  // #region Lifecycle
 
   override detach(): void {
     this.expandedKeys.clear();
     this.flattenedRows = [];
     this.isActive = false;
   }
+  // #endregion
 
-  // ===== Hooks =====
+  // #region Hooks
 
   /**
    * Auto-detect grouping configuration from grid config.
@@ -208,8 +210,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     // No additional DOM manipulation needed for grouping
     // The renderRow hook handles all group row rendering
   }
+  // #endregion
 
-  // ===== Private Rendering Helpers =====
+  // #region Private Rendering Helpers
 
   private renderFullWidthGroupRow(row: any, rowEl: HTMLElement, handleToggle: () => void): void {
     const config = this.config;
@@ -318,8 +321,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       rowEl.appendChild(cell);
     });
   }
+  // #endregion
 
-  // ===== Public API =====
+  // #region Public API
 
   /**
    * Expand all groups.
@@ -452,8 +456,10 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     (this.config as GroupingRowsConfig).groupOn = fn;
     this.requestRender();
   }
+  // #endregion
 
-  // ===== Styles =====
+  // #region Styles
 
   override readonly styles = styles;
+  // #endregion
 }

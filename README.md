@@ -1,6 +1,6 @@
 # Toolbox Web
 
-[![CI/CD Pipeline](https://github.com/OysteinAmundsen/toolbox/actions/workflows/build-n-deploy.yml/badge.svg)](https://github.com/OysteinAmundsen/toolbox/actions/workflows/build-n-deploy.yml)
+[![CI/CD Pipeline](https://github.com/OysteinAmundsen/toolbox/actions/workflows/ci.yml/badge.svg)](https://github.com/OysteinAmundsen/toolbox/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 

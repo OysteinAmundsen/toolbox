@@ -74,21 +74,6 @@ Shared utilities used across components (not published separately initially):
 
 ---
 
-## Native HTML5 Features We DON'T Wrap
-
-These are well-supported natively. We provide guidance, not components:
-
-| Feature            | Native Element                 | Browser Support |
-| ------------------ | ------------------------------ | --------------- |
-| Modal dialogs      | `<dialog>`                     | ✅ Excellent    |
-| Popovers/dropdowns | `popover` attribute            | ✅ Good (2023+) |
-| Accordions         | `<details>/<summary>`          | ✅ Excellent    |
-| Date pickers       | `<input type="date">`          | ✅ Good         |
-| Tooltips           | `popover` + CSS anchor         | 🔄 Emerging     |
-| Tabs               | CSS `:target` or radio buttons | ✅ Excellent    |
-
----
-
 ## Component Design Principles
 
 ### 1. Shadow DOM Encapsulation
@@ -140,9 +125,9 @@ See individual package READMEs for contribution guidelines.
 
 | Quarter | Focus                                 |
 | ------- | ------------------------------------- |
-| Q1 2025 | Grid stabilization, tree extraction   |
-| Q2 2025 | Calendar component, commander palette |
-| Q3 2025 | Explorer, utility packages            |
-| Q4 2025 | Editor, additional utilities          |
+| Q1 2026 | Grid stabilization, tree extraction   |
+| Q2 2026 | Calendar component, commander palette |
+| Q3 2026 | Explorer, utility packages            |
+| Q4 2026 | Editor, additional utilities          |
 
 _Timeline is aspirational and subject to community feedback._

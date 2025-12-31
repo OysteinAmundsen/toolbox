@@ -96,9 +96,13 @@ import { DEFAULT_GRID_ICONS } from './types';
  * @cssprop --tbw-color-bg - Background color
  * @cssprop --tbw-color-fg - Foreground/text color
  */
+// Injected by Vite at build time from package.json
+declare const __GRID_VERSION__: string;
+
 export class DataGridElement<T = any> extends HTMLElement implements InternalGrid<T> {
   // TODO: Rename to 'data-grid' when migration is complete
   static readonly tagName = 'tbw-grid';
+  static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
 
   readonly #shadow: ShadowRoot;
   #initialized = false;
@@ -429,6 +433,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Lifecycle ----------------
   connectedCallback(): void {
     if (!this.hasAttribute('tabindex')) (this as any).tabIndex = 0;
+    if (!this.hasAttribute('version')) this.setAttribute('version', DataGridElement.version);
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
 
     // Create AbortController for all event listeners (grid internal + plugins)

@@ -1,10 +1,15 @@
 // This file has been automatically migrated to valid ESM format by Storybook.
 import type { StorybookConfig } from '@storybook/web-components-vite';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Read grid version for build-time injection (same as grid's vite.config.ts)
+const gridPkg = JSON.parse(readFileSync(resolve(__dirname, '../../../libs/grid/package.json'), 'utf-8'));
+const gridVersion = gridPkg.version;
 
 const config: StorybookConfig = {
   stories: [
@@ -60,6 +65,12 @@ const config: StorybookConfig = {
     // Disable minification to preserve code examples in stories
     // The extractCode() utility uses fn.toString() which needs unminified source
     cfg.build.minify = false;
+
+    // Inject grid version constant (same as grid's vite.config.ts)
+    cfg.define = {
+      ...cfg.define,
+      __GRID_VERSION__: JSON.stringify(gridVersion),
+    };
 
     return cfg;
   },

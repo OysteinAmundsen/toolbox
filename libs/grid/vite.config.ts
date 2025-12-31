@@ -5,6 +5,10 @@ import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite'
 import dts from 'vite-plugin-dts';
 import { gzipSync } from 'zlib';
 
+// Read package.json version for build-time injection
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
+const gridVersion = pkg.version;
+
 const outDir = resolve(__dirname, '../../dist/libs/grid');
 const pluginsDir = resolve(__dirname, 'src/lib/plugins');
 
@@ -113,7 +117,7 @@ function buildPluginModules(): Plugin {
               },
             },
           });
-        })
+        }),
       );
 
       // Print plugin sizes summary
@@ -187,8 +191,8 @@ function buildUmdBundles(): Plugin {
                 },
               },
             },
-          })
-        )
+          }),
+        ),
       );
 
       // Print UMD sizes summary
@@ -218,6 +222,9 @@ function buildUmdBundles(): Plugin {
 export default defineConfig(({ command }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/libs/grid',
+  define: {
+    __GRID_VERSION__: JSON.stringify(gridVersion),
+  },
   plugins: [
     dts({
       entryRoot: 'src',

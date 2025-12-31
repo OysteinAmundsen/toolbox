@@ -61,22 +61,6 @@ describe('keyboard navigation', () => {
     expect(g.focusRow).toBe(0);
     expect(g.focusCol).toBe(1);
   });
-  it('tab forward wraps to next row resetting col (merged)', () => {
-    const g = makeGrid(3, 2);
-    g.focusRow = 0;
-    g.focusCol = 1;
-    key(g, 'Tab');
-    expect(g.focusRow).toBe(1);
-    expect(g.focusCol).toBe(0);
-  });
-  it('shift+tab moves to previous row last col (merged)', () => {
-    const g = makeGrid(3, 2);
-    g.focusRow = 1;
-    g.focusCol = 0;
-    key(g, 'Tab', { shiftKey: true });
-    expect(g.focusRow).toBe(0);
-    expect(g.focusCol).toBe(1);
-  });
   it('home/end navigation moves to first/last column', () => {
     const g = makeGrid(2, 4);
     key(g, 'End');

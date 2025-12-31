@@ -1,6 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { buildContext, createPinnedRowsElement } from './pinned-rows';
-import type { PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildContext,
+  createAggregationContainer,
+  createPinnedRowsElement,
+  renderAggregationRows,
+} from './pinned-rows';
+import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
 
 describe('pinnedRows', () => {
   describe('createPinnedRowsElement', () => {
@@ -12,6 +17,7 @@ describe('pinnedRows', () => {
         filteredRows: 100,
         selectedRows: 0,
         columns: [],
+        rows: [],
         grid: document.createElement('div'),
       };
     });
@@ -153,7 +159,7 @@ describe('pinnedRows', () => {
       });
 
       it('should provide context to custom panel render function', () => {
-        let capturedContext: PinnedRowsContext | null = null;
+        let capturedContext: PinnedRowsContext | undefined;
 
         const customPanel: PinnedRowsPanel = {
           id: 'context-test',
@@ -170,15 +176,18 @@ describe('pinnedRows', () => {
           filteredRows: 200,
           selectedRows: 10,
           columns: [],
+          rows: [],
           grid: document.createElement('div'),
         };
 
         createPinnedRowsElement(config, context);
 
-        expect(capturedContext).not.toBeNull();
-        expect(capturedContext?.totalRows).toBe(250);
-        expect(capturedContext?.filteredRows).toBe(200);
-        expect(capturedContext?.selectedRows).toBe(10);
+        expect(capturedContext).toBeDefined();
+        if (capturedContext) {
+          expect(capturedContext.totalRows).toBe(250);
+          expect(capturedContext.filteredRows).toBe(200);
+          expect(capturedContext.selectedRows).toBe(10);
+        }
       });
     });
 
@@ -276,6 +285,254 @@ describe('pinnedRows', () => {
 
       expect(context.totalRows).toBe(0);
       expect(context.filteredRows).toBe(0);
+    });
+  });
+
+  describe('createAggregationContainer', () => {
+    it('should create a container for top position', () => {
+      const container = createAggregationContainer('top');
+
+      expect(container.className).toBe('tbw-aggregation-rows tbw-aggregation-rows-top');
+      expect(container.getAttribute('role')).toBe('presentation');
+    });
+
+    it('should create a container for bottom position', () => {
+      const container = createAggregationContainer('bottom');
+
+      expect(container.className).toBe('tbw-aggregation-rows tbw-aggregation-rows-bottom');
+      expect(container.getAttribute('role')).toBe('presentation');
+    });
+  });
+
+  describe('renderAggregationRows', () => {
+    it('should clear container and render new rows', () => {
+      const container = document.createElement('div');
+      container.innerHTML = '<div>existing content</div>';
+      const columns = [{ field: 'amount' }];
+      const dataRows = [{ amount: 100 }, { amount: 200 }];
+      const rows: AggregationRowConfig[] = [{ id: 'totals' }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      expect(container.querySelector(':scope > div > div.existing')).toBeNull();
+      expect(container.querySelector('.tbw-aggregation-row')).not.toBeNull();
+    });
+
+    it('should set data-aggregation-id attribute when id is provided', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'value' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{ id: 'summary' }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const row = container.querySelector('.tbw-aggregation-row');
+      expect(row?.getAttribute('data-aggregation-id')).toBe('summary');
+    });
+
+    it('should not set data-aggregation-id when id is not provided', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'value' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{}];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const row = container.querySelector('.tbw-aggregation-row');
+      expect(row?.hasAttribute('data-aggregation-id')).toBe(false);
+    });
+
+    it('should render fullWidth row with label', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'a' }, { field: 'b' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{ fullWidth: true, label: 'Summary Row' }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('.tbw-aggregation-cell-full');
+      expect(cell).not.toBeNull();
+      expect(cell?.textContent).toBe('Summary Row');
+      expect(cell?.getAttribute('style')).toContain('grid-column');
+    });
+
+    it('should render fullWidth row with empty label when not provided', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'a' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{ fullWidth: true }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('.tbw-aggregation-cell-full');
+      expect(cell?.textContent).toBe('');
+    });
+
+    it('should render per-column cells with static values', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'name' }, { field: 'value' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [
+        {
+          cells: { name: 'Total:', value: 500 },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cells = container.querySelectorAll('.tbw-aggregation-cell');
+      expect(cells.length).toBe(2);
+      expect(cells[0]?.getAttribute('data-field')).toBe('name');
+      expect(cells[0]?.textContent).toBe('Total:');
+      expect(cells[1]?.getAttribute('data-field')).toBe('value');
+      expect(cells[1]?.textContent).toBe('500');
+    });
+
+    it('should render per-column cells with function values', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'count' }];
+      const dataRows = [{ count: 10 }, { count: 20 }];
+      const computeFn = vi.fn((data: unknown[]) => data.length);
+      const rows: AggregationRowConfig[] = [
+        {
+          cells: { count: computeFn },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      expect(computeFn).toHaveBeenCalledWith(dataRows, 'count', columns[0]);
+      const cell = container.querySelector('[data-field="count"]');
+      expect(cell?.textContent).toBe('2');
+    });
+
+    it('should use aggregator when specified', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'amount' }];
+      const dataRows = [{ amount: 100 }, { amount: 200 }, { amount: 300 }];
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: { amount: 'sum' },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('[data-field="amount"]');
+      expect(cell?.textContent).toBe('600');
+    });
+
+    it('should prioritize aggregator over static cells', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'value' }];
+      const dataRows = [{ value: 50 }];
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: { value: 'sum' },
+          cells: { value: 'ignored' },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('[data-field="value"]');
+      expect(cell?.textContent).toBe('50'); // sum result, not 'ignored'
+    });
+
+    it('should render empty cell when no value is found', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'missing' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{}];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('[data-field="missing"]');
+      expect(cell?.textContent).toBe('');
+    });
+
+    it('should handle null and undefined values gracefully', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'nullField' }, { field: 'undefinedField' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [
+        {
+          cells: { nullField: null, undefinedField: undefined },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const nullCell = container.querySelector('[data-field="nullField"]');
+      const undefinedCell = container.querySelector('[data-field="undefinedField"]');
+      expect(nullCell?.textContent).toBe('');
+      expect(undefinedCell?.textContent).toBe('');
+    });
+
+    it('should render multiple aggregation rows', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'value' }];
+      const dataRows = [{ value: 10 }];
+      const rows: AggregationRowConfig[] = [
+        { id: 'row1', cells: { value: 'Row 1' } },
+        { id: 'row2', cells: { value: 'Row 2' } },
+        { id: 'row3', cells: { value: 'Row 3' } },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const allRows = container.querySelectorAll('.tbw-aggregation-row');
+      expect(allRows.length).toBe(3);
+      expect(allRows[0]?.getAttribute('data-aggregation-id')).toBe('row1');
+      expect(allRows[1]?.getAttribute('data-aggregation-id')).toBe('row2');
+      expect(allRows[2]?.getAttribute('data-aggregation-id')).toBe('row3');
+    });
+
+    it('should set role="presentation" on aggregation rows', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'a' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{ id: 'test' }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const row = container.querySelector('.tbw-aggregation-row');
+      expect(row?.getAttribute('role')).toBe('presentation');
+    });
+
+    it('should handle custom aggregator function', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'scores' }];
+      const dataRows = [{ scores: 10 }, { scores: 20 }, { scores: 30 }];
+      const customAggregator = vi.fn((_rows: unknown[], field: string) => `Custom: ${field}`);
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: { scores: customAggregator },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      expect(customAggregator).toHaveBeenCalled();
+      const cell = container.querySelector('[data-field="scores"]');
+      expect(cell?.textContent).toBe('Custom: scores');
+    });
+
+    it('should handle aggregator that returns null', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'empty' }];
+      const dataRows: unknown[] = [];
+      const nullAggregator = () => null;
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: { empty: nullAggregator },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('[data-field="empty"]');
+      expect(cell?.textContent).toBe('');
     });
   });
 });

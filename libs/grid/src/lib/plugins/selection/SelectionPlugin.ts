@@ -203,8 +203,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (mode === 'cell' && isNavKey) {
       // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
       queueMicrotask(() => {
-        const grid = this.grid as { focusRow: number; focusCol: number };
-        this.selectedCell = { row: grid.focusRow, col: grid.focusCol };
+        this.selectedCell = { row: this.grid.focusRow, col: this.grid.focusCol };
         this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
         this.requestAfterRender();
       });
@@ -215,10 +214,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (mode === 'row' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       // Let grid move focus first, then sync row selection
       queueMicrotask(() => {
-        const grid = this.grid as { focusRow: number };
         this.selected.clear();
-        this.selected.add(grid.focusRow);
-        this.lastSelected = grid.focusRow;
+        this.selected.add(this.grid.focusRow);
+        this.lastSelected = this.grid.focusRow;
         this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
         this.requestAfterRender();
       });
@@ -230,9 +228,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       const shiftKey = event.shiftKey;
 
       queueMicrotask(() => {
-        const grid = this.grid as { focusRow: number; focusCol: number };
-        const currentRow = grid.focusRow;
-        const currentCol = grid.focusCol;
+        const currentRow = this.grid.focusRow;
+        const currentCol = this.grid.focusCol;
 
         if (shiftKey) {
           // Extend selection from anchor to current focus

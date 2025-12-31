@@ -6,7 +6,8 @@ on:
       - main
   push:
     branches:
-      - main # Only for Storybook deployment
+      - main # For Storybook deployment
+      - release-please--branches--main # Trigger tests for release-please PRs
   workflow_dispatch: # Allow manual trigger
 
 permissions:
@@ -20,9 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Job 1: Run tests (PRs only)
+  # Job 1: Run tests (PRs and release-please branch)
   test:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/release-please')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,9 +43,9 @@ jobs:
       - name: Run tests
         run: bun run test
 
-  # Job 2: Build library (PRs only, depends on tests passing)
+  # Job 2: Build library (PRs and release-please branch)
   build:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/release-please')
     runs-on: ubuntu-latest
     needs: test
     steps:

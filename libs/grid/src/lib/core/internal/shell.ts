@@ -687,3 +687,364 @@ export function cleanupShellState(state: ShellState): void {
   state.lightDomHeaderContent = [];
   state.activePanel = null;
 }
+
+// ============================================================================
+// ShellController - Encapsulates tool panel orchestration logic
+// ============================================================================
+
+/**
+ * Callbacks for ShellController to communicate with the grid.
+ * This interface decouples the controller from grid internals.
+ */
+export interface ShellControllerCallbacks {
+  /** Get the shadow root for DOM queries */
+  getShadow: () => ShadowRoot;
+  /** Get the current shell config */
+  getShellConfig: () => ShellConfig | undefined;
+  /** Get accordion expand/collapse icons */
+  getAccordionIcons: () => { expand: IconValue; collapse: IconValue };
+  /** Emit an event from the grid */
+  emit: (eventName: string, detail: unknown) => void;
+  /** Refresh the shell header (re-parse light DOM and re-render) */
+  refreshShellHeader: () => void;
+}
+
+/**
+ * Controller interface for managing shell/tool panel behavior.
+ */
+export interface ShellController {
+  /** Whether the shell has been initialized */
+  readonly isInitialized: boolean;
+  /** Set the initialized state */
+  setInitialized(value: boolean): void;
+  /** Whether the tool panel is currently open */
+  readonly isPanelOpen: boolean;
+  /** Get the currently active panel ID (deprecated) */
+  readonly activePanel: string | null;
+  /** Get IDs of expanded accordion sections */
+  readonly expandedSections: string[];
+  /** Open the tool panel */
+  openToolPanel(): void;
+  /** Close the tool panel */
+  closeToolPanel(): void;
+  /** Toggle the tool panel */
+  toggleToolPanel(): void;
+  /** Toggle an accordion section */
+  toggleToolPanelSection(sectionId: string): void;
+  /** Get registered tool panels */
+  getToolPanels(): ToolPanelDefinition[];
+  /** Register a tool panel */
+  registerToolPanel(panel: ToolPanelDefinition): void;
+  /** Unregister a tool panel */
+  unregisterToolPanel(panelId: string): void;
+  /** Get registered header contents */
+  getHeaderContents(): HeaderContentDefinition[];
+  /** Register header content */
+  registerHeaderContent(content: HeaderContentDefinition): void;
+  /** Unregister header content */
+  unregisterHeaderContent(contentId: string): void;
+  /** Get all toolbar buttons info */
+  getToolbarButtons(): ToolbarButtonInfo[];
+  /** Register a toolbar button */
+  registerToolbarButton(button: ToolbarButtonConfig): void;
+  /** Unregister a toolbar button */
+  unregisterToolbarButton(buttonId: string): void;
+  /** Enable/disable a toolbar button */
+  setToolbarButtonDisabled(buttonId: string, disabled: boolean): void;
+}
+
+/**
+ * Create a ShellController instance.
+ * The controller encapsulates all tool panel orchestration logic.
+ */
+export function createShellController(state: ShellState, callbacks: ShellControllerCallbacks): ShellController {
+  let initialized = false;
+
+  const controller: ShellController = {
+    get isInitialized() {
+      return initialized;
+    },
+    setInitialized(value: boolean) {
+      initialized = value;
+    },
+
+    get isPanelOpen() {
+      return state.isPanelOpen;
+    },
+
+    get activePanel() {
+      // For backward compatibility, return first expanded section if panel is open
+      if (state.isPanelOpen && state.expandedSections.size > 0) {
+        return [...state.expandedSections][0];
+      }
+      return null;
+    },
+
+    get expandedSections() {
+      return [...state.expandedSections];
+    },
+
+    openToolPanel() {
+      if (state.isPanelOpen) return;
+      if (state.toolPanels.size === 0) {
+        console.warn('[tbw-grid] No tool panels registered');
+        return;
+      }
+
+      state.isPanelOpen = true;
+
+      // Auto-expand first section if none expanded
+      if (state.expandedSections.size === 0 && state.toolPanels.size > 0) {
+        const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+        const firstPanel = sortedPanels[0];
+        if (firstPanel) {
+          state.expandedSections.add(firstPanel.id);
+        }
+      }
+
+      // Update UI
+      const shadow = callbacks.getShadow();
+      updateToolbarActiveStates(shadow, state);
+      updatePanelState(shadow, state);
+
+      // Render accordion sections
+      renderPanelContent(shadow, state, callbacks.getAccordionIcons());
+
+      // Emit event
+      callbacks.emit('tool-panel-open', { sections: controller.expandedSections });
+    },
+
+    closeToolPanel() {
+      if (!state.isPanelOpen) return;
+
+      // Clean up all panel content
+      for (const cleanup of state.panelCleanups.values()) {
+        cleanup();
+      }
+      state.panelCleanups.clear();
+
+      // Legacy cleanup
+      if (state.activePanelCleanup) {
+        state.activePanelCleanup();
+        state.activePanelCleanup = null;
+      }
+
+      // Call onClose for all panels
+      for (const panel of state.toolPanels.values()) {
+        panel.onClose?.();
+      }
+
+      state.isPanelOpen = false;
+
+      // Update UI
+      const shadow = callbacks.getShadow();
+      updateToolbarActiveStates(shadow, state);
+      updatePanelState(shadow, state);
+
+      // Emit event
+      callbacks.emit('tool-panel-close', {});
+    },
+
+    toggleToolPanel() {
+      if (state.isPanelOpen) {
+        controller.closeToolPanel();
+      } else {
+        controller.openToolPanel();
+      }
+    },
+
+    toggleToolPanelSection(sectionId: string) {
+      const panel = state.toolPanels.get(sectionId);
+      if (!panel) {
+        console.warn(`[tbw-grid] Tool panel section "${sectionId}" not found`);
+        return;
+      }
+
+      // Don't allow toggling when there's only one panel (it should stay expanded)
+      if (state.toolPanels.size === 1) {
+        return;
+      }
+
+      const shadow = callbacks.getShadow();
+      const isExpanded = state.expandedSections.has(sectionId);
+
+      if (isExpanded) {
+        // Collapsing current section
+        const cleanup = state.panelCleanups.get(sectionId);
+        if (cleanup) {
+          cleanup();
+          state.panelCleanups.delete(sectionId);
+        }
+        panel.onClose?.();
+        state.expandedSections.delete(sectionId);
+        updateAccordionSectionState(shadow, sectionId, false);
+      } else {
+        // Expanding - first collapse all others (exclusive accordion)
+        for (const [otherId, otherPanel] of state.toolPanels) {
+          if (otherId !== sectionId && state.expandedSections.has(otherId)) {
+            const cleanup = state.panelCleanups.get(otherId);
+            if (cleanup) {
+              cleanup();
+              state.panelCleanups.delete(otherId);
+            }
+            otherPanel.onClose?.();
+            state.expandedSections.delete(otherId);
+            updateAccordionSectionState(shadow, otherId, false);
+            // Clear content of collapsed section
+            const contentEl = shadow.querySelector(`[data-section="${otherId}"] .tbw-accordion-content`);
+            if (contentEl) contentEl.innerHTML = '';
+          }
+        }
+        // Now expand the target section
+        state.expandedSections.add(sectionId);
+        updateAccordionSectionState(shadow, sectionId, true);
+        renderAccordionSectionContent(shadow, state, sectionId);
+      }
+
+      // Emit event
+      callbacks.emit('tool-panel-section-toggle', { id: sectionId, expanded: !isExpanded });
+    },
+
+    getToolPanels() {
+      return [...state.toolPanels.values()];
+    },
+
+    registerToolPanel(panel: ToolPanelDefinition) {
+      if (state.toolPanels.has(panel.id)) {
+        console.warn(`[tbw-grid] Tool panel "${panel.id}" already registered`);
+        return;
+      }
+      state.toolPanels.set(panel.id, panel);
+
+      if (initialized) {
+        callbacks.refreshShellHeader();
+      }
+    },
+
+    unregisterToolPanel(panelId: string) {
+      // Close panel if open and this section is expanded
+      if (state.expandedSections.has(panelId)) {
+        const cleanup = state.panelCleanups.get(panelId);
+        if (cleanup) {
+          cleanup();
+          state.panelCleanups.delete(panelId);
+        }
+        state.expandedSections.delete(panelId);
+      }
+
+      state.toolPanels.delete(panelId);
+
+      if (initialized) {
+        callbacks.refreshShellHeader();
+      }
+    },
+
+    getHeaderContents() {
+      return [...state.headerContents.values()];
+    },
+
+    registerHeaderContent(content: HeaderContentDefinition) {
+      if (state.headerContents.has(content.id)) {
+        console.warn(`[tbw-grid] Header content "${content.id}" already registered`);
+        return;
+      }
+      state.headerContents.set(content.id, content);
+
+      if (initialized) {
+        renderHeaderContent(callbacks.getShadow(), state);
+      }
+    },
+
+    unregisterHeaderContent(contentId: string) {
+      // Clean up
+      const cleanup = state.headerContentCleanups.get(contentId);
+      if (cleanup) {
+        cleanup();
+        state.headerContentCleanups.delete(contentId);
+      }
+
+      // Call onDestroy
+      const content = state.headerContents.get(contentId);
+      content?.onDestroy?.();
+
+      state.headerContents.delete(contentId);
+
+      // Remove DOM element
+      const el = callbacks.getShadow().querySelector(`[data-header-content="${contentId}"]`);
+      el?.remove();
+    },
+
+    getToolbarButtons() {
+      return getToolbarButtonsInfo(callbacks.getShellConfig(), state);
+    },
+
+    registerToolbarButton(button: ToolbarButtonConfig) {
+      if (state.toolbarButtons.has(button.id)) {
+        console.warn(`[tbw-grid] Toolbar button "${button.id}" already registered`);
+        return;
+      }
+      state.toolbarButtons.set(button.id, button);
+
+      if (initialized) {
+        callbacks.refreshShellHeader();
+      }
+    },
+
+    unregisterToolbarButton(buttonId: string) {
+      // Clean up
+      const cleanup = state.toolbarButtonCleanups.get(buttonId);
+      if (cleanup) {
+        cleanup();
+        state.toolbarButtonCleanups.delete(buttonId);
+      }
+
+      state.toolbarButtons.delete(buttonId);
+
+      if (initialized) {
+        callbacks.refreshShellHeader();
+      }
+    },
+
+    setToolbarButtonDisabled(buttonId: string, disabled: boolean) {
+      // Check API-registered buttons
+      const apiBtn = state.toolbarButtons.get(buttonId);
+      if (apiBtn) {
+        apiBtn.disabled = disabled;
+      }
+
+      // Update DOM
+      const btn = callbacks.getShadow().querySelector(`[data-btn="${buttonId}"]`) as HTMLButtonElement | null;
+      if (btn) {
+        btn.disabled = disabled;
+      }
+    },
+  };
+
+  return controller;
+}
+
+/**
+ * Update accordion section visual state.
+ */
+function updateAccordionSectionState(shadow: ShadowRoot, sectionId: string, expanded: boolean): void {
+  const section = shadow.querySelector(`[data-section="${sectionId}"]`);
+  if (section) {
+    section.classList.toggle('expanded', expanded);
+  }
+}
+
+/**
+ * Render content for a single accordion section.
+ */
+function renderAccordionSectionContent(shadow: ShadowRoot, state: ShellState, sectionId: string): void {
+  const panel = state.toolPanels.get(sectionId);
+  if (!panel?.render) return;
+
+  const contentEl = shadow.querySelector(`[data-section="${sectionId}"] .tbw-accordion-content`);
+  if (!contentEl) return;
+
+  const cleanup = panel.render(contentEl as HTMLElement);
+  if (cleanup) {
+    state.panelCleanups.set(sectionId, cleanup);
+  }
+}

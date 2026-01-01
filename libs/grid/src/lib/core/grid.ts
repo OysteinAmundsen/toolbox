@@ -9,19 +9,17 @@ import { createResizeController } from './internal/resize';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
   cleanupShellState,
+  createShellController,
   createShellState,
-  getToolbarButtonsInfo,
   parseLightDomShell,
   renderCustomToolbarButtons,
   renderHeaderContent,
-  renderPanelContent,
   renderShellBody,
   renderShellHeader,
   setupShellEventListeners,
   setupToolPanelResize,
   shouldRenderShellHeader,
-  updatePanelState,
-  updateToolbarActiveStates,
+  type ShellController,
   type ShellState,
 } from './internal/shell';
 import type { CellMouseEvent, ScrollEvent } from './plugin';
@@ -148,7 +146,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // ---------------- Shell State ----------------
   #shellState: ShellState = createShellState();
-  #shellInitialized = false;
+  #shellController!: ShellController;
   #resizeCleanup?: () => void;
   // #endregion
 
@@ -303,6 +301,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#shadow = this.attachShadow({ mode: 'open' });
     this.#injectStyles();
     this.#readyPromise = new Promise((res) => (this.#readyResolve = res));
+
+    // Initialize shell controller with callbacks
+    this.#shellController = createShellController(this.#shellState, {
+      getShadow: () => this.#shadow,
+      getShellConfig: () => this.#effectiveConfig?.shell,
+      getAccordionIcons: () => ({
+        expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
+        collapse: this.#effectiveConfig?.icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
+      }),
+      emit: (eventName, detail) => this.#emit(eventName, detail),
+      refreshShellHeader: () => this.refreshShellHeader(),
+    });
   }
 
   #injectStyles(): void {
@@ -337,8 +347,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   requestRender(): void {
     this.#rebuildRowModel();
     this.#processColumns();
-    this.#renderHeader();
-    this.updateTemplate();
+    renderHeader(this);
+    updateTemplate(this);
     this.refreshVirtualWindow(true);
   }
 
@@ -348,7 +358,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * This runs all plugin afterRender hooks without rebuilding row/column DOM.
    */
   requestAfterRender(): void {
-    this.#executeAfterRender();
+    this.#pluginManager?.afterRender();
   }
 
   /**
@@ -465,7 +475,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Clean up shell state
     cleanupShellState(this.#shellState);
-    this.#shellInitialized = false;
+    this.#shellController.setInitialized(false);
 
     // Clean up tool panel resize handler
     this.#resizeCleanup?.();
@@ -502,7 +512,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.bodyEl = gridRoot?.querySelector('.rows') as HTMLElement;
 
     // Initialize shell header content and custom buttons if shell is active
-    if (this.#shellInitialized) {
+    if (this.#shellController.isInitialized) {
       // Render plugin header content
       renderHeaderContent(this.#shadow, this.#shellState);
       // Render custom toolbar buttons (element/render modes)
@@ -534,7 +544,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       'keydown',
       (e: KeyboardEvent) => {
         if (e.key === 'Escape' && this.activeEditRows !== -1) {
-          this.#exitRowEdit(this.activeEditRows, true);
+          exitRowEdit(this, this.activeEditRows, true);
         }
       },
       { capture: true, signal },
@@ -549,7 +559,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         if (!rowEl) return;
         const path = (e.composedPath && e.composedPath()) || [];
         if (path.includes(rowEl)) return;
-        this.#exitRowEdit(this.activeEditRows, false);
+        exitRowEdit(this, this.activeEditRows, false);
       },
       { signal },
     );
@@ -774,12 +784,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const mode = this.#effectiveConfig.fitMode;
     if (mode === 'fixed') {
       this.__didInitialAutoSize = false;
-      this.#autoSizeColumns();
+      autoSizeColumns(this);
     } else {
       this._columns.forEach((c: any) => {
         if (!c.__userResized && c.__autoSized) delete c.width;
       });
-      this.updateTemplate();
+      updateTemplate(this);
     }
   }
 
@@ -805,7 +815,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #onColsChanged(): void {
     // Invalidate caches that depend on column configuration
-    invalidateCellCache(this as unknown as any);
+    invalidateCellCache(this);
 
     // Re-merge config and setup - _columns will be set through effectiveConfig
     if (this.#connected) {
@@ -820,27 +830,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#updatePluginConfigs(); // Sync plugin configs with new grid config
     this.#rebuildRowModel();
     this.#processColumns(); // Process columns after rows for tree plugin
-    this.#renderHeader();
-    this.updateTemplate();
+    renderHeader(this);
+    updateTemplate(this);
     this.refreshVirtualWindow(true);
-  }
-
-  // ---------------- Helper Wrappers ----------------
-  #getColumnConfiguration(): void {
-    getColumnConfiguration(this as unknown as any);
-  }
-
-  #renderHeader(): void {
-    renderHeader(this as unknown as any);
-    // Grouped header cell classes are applied by plugins via afterRender
-  }
-
-  updateTemplate(): void {
-    updateTemplate(this as unknown as any);
-  }
-
-  #autoSizeColumns(): void {
-    autoSizeColumns(this as unknown as any);
   }
 
   #processColumns(): void {
@@ -884,15 +876,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
-  /** Execute all plugin afterRender hooks */
-  #executeAfterRender(): void {
-    this.#pluginManager?.afterRender();
-  }
-
   /** Recompute row model via plugin hooks (grouping, tree, filtering, etc.). */
   #rebuildRowModel(): void {
     // Invalidate cell display value cache - rows are changing
-    invalidateCellCache(this as unknown as any);
+    invalidateCellCache(this);
 
     // Start fresh from original rows (plugins will transform them)
     const originalRows = Array.isArray(this.#rows) ? [...this.#rows] : [];
@@ -1020,14 +1007,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     renderVisibleRows(this as any, start, end, epoch, this.#renderRowHook);
   }
 
-  #startRowEdit(rowIndex: number, rowData: any): void {
-    startRowEdit(this as unknown as any, rowIndex, rowData);
-  }
-
-  #exitRowEdit(rowIndex: number, revert: boolean): void {
-    exitRowEdit(this as unknown as any, rowIndex, revert);
-  }
-
   // ---------------- Core Helpers ----------------
   #setup(): void {
     if (!this.isConnected) return;
@@ -1049,7 +1028,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this._columns = seeded as ColumnInternal<T>[];
     }
 
-    this.#getColumnConfiguration();
+    getColumnConfiguration(this);
     this.#mergeEffectiveConfig();
     this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
 
@@ -1066,13 +1045,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#applyColumnStateInternal(state);
     }
 
-    this.#renderHeader();
-    this.updateTemplate();
+    renderHeader(this);
+    updateTemplate(this);
     this.refreshVirtualWindow(true);
 
     const mode = this.#effectiveConfig.fitMode;
     if (mode === 'fixed' && !this.__didInitialAutoSize) {
-      requestAnimationFrame(() => this.#autoSizeColumns());
+      requestAnimationFrame(() => autoSizeColumns(this));
     }
 
     // Ensure legacy inline grid styles are cleared from container
@@ -1082,7 +1061,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Run plugin afterRender hooks (column groups, sticky, etc.)
-    queueMicrotask(() => this.#executeAfterRender());
+    queueMicrotask(() => this.#pluginManager?.afterRender());
   }
 
   /** Internal method to apply column state without triggering setup loop */
@@ -1100,10 +1079,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         col.hidden = !colState.visible;
       }
     }
-  }
-
-  #shouldBypassVirtualization(): boolean {
-    return this._rows.length <= this.virtualization.bypassThreshold;
   }
 
   #onScrollBatched(scrollTop: number): void {
@@ -1318,7 +1293,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!hasEditableColumn) return;
 
     const rowData = this._rows[rowIndex];
-    this.#startRowEdit(rowIndex, rowData);
+    startRowEdit(this, rowIndex, rowData);
 
     // Enter edit mode on all editable cells in the row (same as click/dblclick)
     const rowEl = this.findRenderedRowElement?.(rowIndex);
@@ -1353,7 +1328,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   async commitActiveRowEdit(): Promise<void> {
     if (this.activeEditRows !== -1) {
-      this.#exitRowEdit(this.activeEditRows, false);
+      exitRowEdit(this, this.activeEditRows, false);
     }
   }
 
@@ -1524,8 +1499,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this._columns = reordered;
 
     // Re-render with new order
-    this.#renderHeader();
-    this.updateTemplate();
+    renderHeader(this);
+    updateTemplate(this);
     this.refreshVirtualWindow(true);
   }
 
@@ -1646,12 +1621,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   // ---------------- Shell / Tool Panel API ----------------
+  // These methods delegate to ShellController for implementation.
+  // The controller encapsulates all tool panel logic while grid.ts
+  // exposes the public API surface.
 
-  /**
-   * Check if the tool panel is currently open.
-   */
+  /** Check if the tool panel is currently open. */
   get isToolPanelOpen(): boolean {
-    return this.#shellState.isPanelOpen;
+    return this.#shellController.isPanelOpen;
   }
 
   /**
@@ -1659,318 +1635,82 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @deprecated Use isToolPanelOpen and expandedToolPanelSections instead.
    */
   get activeToolPanel(): string | null {
-    return this.#shellState.activePanel;
+    return this.#shellController.activePanel;
   }
 
-  /**
-   * Get the IDs of expanded accordion sections.
-   */
+  /** Get the IDs of expanded accordion sections. */
   get expandedToolPanelSections(): string[] {
-    return [...this.#shellState.expandedSections];
+    return this.#shellController.expandedSections;
   }
 
-  /**
-   * Open the tool panel (accordion view with all registered panels).
-   */
+  /** Open the tool panel (accordion view with all registered panels). */
   openToolPanel(): void {
-    if (this.#shellState.isPanelOpen) return;
-
-    this.#shellState.isPanelOpen = true;
-
-    // Auto-expand first section if none expanded
-    if (this.#shellState.expandedSections.size === 0 && this.#shellState.toolPanels.size > 0) {
-      const sortedPanels = [...this.#shellState.toolPanels.values()].sort(
-        (a, b) => (a.order ?? 100) - (b.order ?? 100),
-      );
-      const firstPanel = sortedPanels[0];
-      if (firstPanel) {
-        this.#shellState.expandedSections.add(firstPanel.id);
-      }
-    }
-
-    // Update UI
-    updateToolbarActiveStates(this.#shadow, this.#shellState);
-    updatePanelState(this.#shadow, this.#shellState);
-
-    // Render accordion sections
-    const accordionIcons = {
-      expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
-      collapse: this.#effectiveConfig?.icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
-    };
-    renderPanelContent(this.#shadow, this.#shellState, accordionIcons);
-
-    // Emit event
-    this.#emit('tool-panel-open', { sections: this.expandedToolPanelSections });
+    this.#shellController.openToolPanel();
   }
 
-  /**
-   * Close the tool panel.
-   */
+  /** Close the tool panel. */
   closeToolPanel(): void {
-    if (!this.#shellState.isPanelOpen) return;
-
-    // Clean up all panel content
-    for (const cleanup of this.#shellState.panelCleanups.values()) {
-      cleanup();
-    }
-    this.#shellState.panelCleanups.clear();
-
-    // Legacy cleanup
-    if (this.#shellState.activePanelCleanup) {
-      this.#shellState.activePanelCleanup();
-      this.#shellState.activePanelCleanup = null;
-    }
-
-    // Call onClose for all panels
-    for (const panel of this.#shellState.toolPanels.values()) {
-      panel.onClose?.();
-    }
-
-    this.#shellState.isPanelOpen = false;
-
-    // Update UI
-    updateToolbarActiveStates(this.#shadow, this.#shellState);
-    updatePanelState(this.#shadow, this.#shellState);
-
-    // Emit event
-    this.#emit('tool-panel-close', {});
+    this.#shellController.closeToolPanel();
   }
 
-  /**
-   * Toggle the tool panel open/closed.
-   */
+  /** Toggle the tool panel open/closed. */
   toggleToolPanel(): void {
-    if (this.#shellState.isPanelOpen) {
-      this.closeToolPanel();
-    } else {
-      this.openToolPanel();
-    }
+    this.#shellController.toggleToolPanel();
   }
 
-  /**
-   * Toggle an accordion section expanded/collapsed.
-   * Only one section can be expanded at a time (exclusive accordion).
-   * When there's only one panel, toggling is disabled (always expanded).
-   */
+  /** Toggle an accordion section expanded/collapsed. */
   toggleToolPanelSection(sectionId: string): void {
-    const panel = this.#shellState.toolPanels.get(sectionId);
-    if (!panel) {
-      console.warn(`[tbw-grid] Tool panel section "${sectionId}" not found`);
-      return;
-    }
-
-    // Don't allow toggling when there's only one panel (it should stay expanded)
-    if (this.#shellState.toolPanels.size === 1) {
-      return;
-    }
-
-    const isExpanded = this.#shellState.expandedSections.has(sectionId);
-
-    if (isExpanded) {
-      // Collapsing current section
-      const cleanup = this.#shellState.panelCleanups.get(sectionId);
-      if (cleanup) {
-        cleanup();
-        this.#shellState.panelCleanups.delete(sectionId);
-      }
-      panel.onClose?.();
-      this.#shellState.expandedSections.delete(sectionId);
-      this.#updateAccordionSectionState(sectionId, false);
-    } else {
-      // Expanding - first collapse all others (exclusive accordion)
-      for (const [otherId, otherPanel] of this.#shellState.toolPanels) {
-        if (otherId !== sectionId && this.#shellState.expandedSections.has(otherId)) {
-          const cleanup = this.#shellState.panelCleanups.get(otherId);
-          if (cleanup) {
-            cleanup();
-            this.#shellState.panelCleanups.delete(otherId);
-          }
-          otherPanel.onClose?.();
-          this.#shellState.expandedSections.delete(otherId);
-          this.#updateAccordionSectionState(otherId, false);
-          // Clear content of collapsed section
-          const contentEl = this.#shadow.querySelector(`[data-section="${otherId}"] .tbw-accordion-content`);
-          if (contentEl) contentEl.innerHTML = '';
-        }
-      }
-      // Now expand the target section
-      this.#shellState.expandedSections.add(sectionId);
-      this.#updateAccordionSectionState(sectionId, true);
-      this.#renderAccordionSectionContent(sectionId);
-    }
-
-    // Emit event
-    this.#emit('tool-panel-section-toggle', { id: sectionId, expanded: !isExpanded });
+    this.#shellController.toggleToolPanelSection(sectionId);
   }
 
-  /**
-   * Update accordion section visual state.
-   */
-  #updateAccordionSectionState(sectionId: string, expanded: boolean): void {
-    const section = this.#shadow.querySelector(`[data-section="${sectionId}"]`);
-    if (section) {
-      section.classList.toggle('expanded', expanded);
-    }
-  }
-
-  /**
-   * Render content for a single accordion section.
-   */
-  #renderAccordionSectionContent(sectionId: string): void {
-    const panel = this.#shellState.toolPanels.get(sectionId);
-    if (!panel?.render) return;
-
-    const contentEl = this.#shadow.querySelector(`[data-section="${sectionId}"] .tbw-accordion-content`);
-    if (!contentEl) return;
-
-    const cleanup = panel.render(contentEl as HTMLElement);
-    if (cleanup) {
-      this.#shellState.panelCleanups.set(sectionId, cleanup);
-    }
-  }
-
-  /**
-   * Get registered tool panel definitions.
-   */
+  /** Get registered tool panel definitions. */
   getToolPanels(): ToolPanelDefinition[] {
-    return [...this.#shellState.toolPanels.values()];
+    return this.#shellController.getToolPanels();
   }
 
-  /**
-   * Register a custom tool panel (without creating a plugin).
-   */
+  /** Register a custom tool panel (without creating a plugin). */
   registerToolPanel(panel: ToolPanelDefinition): void {
-    if (this.#shellState.toolPanels.has(panel.id)) {
-      console.warn(`[tbw-grid] Tool panel "${panel.id}" already registered`);
-      return;
-    }
-    this.#shellState.toolPanels.set(panel.id, panel);
-
-    // Re-render shell if needed to show new toolbar button
-    if (this.#shellInitialized) {
-      this.#refreshShellHeader();
-    }
+    this.#shellController.registerToolPanel(panel);
   }
 
-  /**
-   * Unregister a custom tool panel.
-   */
+  /** Unregister a custom tool panel. */
   unregisterToolPanel(panelId: string): void {
-    // Close panel if it's open
-    if (this.#shellState.activePanel === panelId) {
-      this.closeToolPanel();
-    }
-
-    this.#shellState.toolPanels.delete(panelId);
-
-    // Re-render shell if needed to remove toolbar button
-    if (this.#shellInitialized) {
-      this.#refreshShellHeader();
-    }
+    this.#shellController.unregisterToolPanel(panelId);
   }
 
-  /**
-   * Get registered header content definitions.
-   */
+  /** Get registered header content definitions. */
   getHeaderContents(): HeaderContentDefinition[] {
-    return [...this.#shellState.headerContents.values()];
+    return this.#shellController.getHeaderContents();
   }
 
-  /**
-   * Register custom header content (without creating a plugin).
-   */
+  /** Register custom header content (without creating a plugin). */
   registerHeaderContent(content: HeaderContentDefinition): void {
-    if (this.#shellState.headerContents.has(content.id)) {
-      console.warn(`[tbw-grid] Header content "${content.id}" already registered`);
-      return;
-    }
-    this.#shellState.headerContents.set(content.id, content);
-
-    // Render the content if shell is initialized
-    if (this.#shellInitialized) {
-      renderHeaderContent(this.#shadow, this.#shellState);
-    }
+    this.#shellController.registerHeaderContent(content);
   }
 
-  /**
-   * Unregister custom header content.
-   */
+  /** Unregister custom header content. */
   unregisterHeaderContent(contentId: string): void {
-    // Clean up
-    const cleanup = this.#shellState.headerContentCleanups.get(contentId);
-    if (cleanup) {
-      cleanup();
-      this.#shellState.headerContentCleanups.delete(contentId);
-    }
-
-    // Call onDestroy
-    const content = this.#shellState.headerContents.get(contentId);
-    content?.onDestroy?.();
-
-    this.#shellState.headerContents.delete(contentId);
-
-    // Remove DOM element
-    const el = this.#shadow.querySelector(`[data-header-content="${contentId}"]`);
-    el?.remove();
+    this.#shellController.unregisterHeaderContent(contentId);
   }
 
-  /**
-   * Get all registered toolbar buttons.
-   */
+  /** Get all registered toolbar buttons. */
   getToolbarButtons(): ToolbarButtonInfo[] {
-    return getToolbarButtonsInfo(this.#effectiveConfig?.shell, this.#shellState);
+    return this.#shellController.getToolbarButtons();
   }
 
-  /**
-   * Register a custom toolbar button programmatically.
-   */
+  /** Register a custom toolbar button programmatically. */
   registerToolbarButton(button: ToolbarButtonConfig): void {
-    if (this.#shellState.toolbarButtons.has(button.id)) {
-      console.warn(`[tbw-grid] Toolbar button "${button.id}" already registered`);
-      return;
-    }
-    this.#shellState.toolbarButtons.set(button.id, button);
-
-    // Re-render shell if needed
-    if (this.#shellInitialized) {
-      this.#refreshShellHeader();
-    }
+    this.#shellController.registerToolbarButton(button);
   }
 
-  /**
-   * Unregister a custom toolbar button.
-   */
+  /** Unregister a custom toolbar button. */
   unregisterToolbarButton(buttonId: string): void {
-    // Clean up
-    const cleanup = this.#shellState.toolbarButtonCleanups.get(buttonId);
-    if (cleanup) {
-      cleanup();
-      this.#shellState.toolbarButtonCleanups.delete(buttonId);
-    }
-
-    this.#shellState.toolbarButtons.delete(buttonId);
-
-    // Re-render shell if needed
-    if (this.#shellInitialized) {
-      this.#refreshShellHeader();
-    }
+    this.#shellController.unregisterToolbarButton(buttonId);
   }
 
-  /**
-   * Enable/disable a toolbar button by ID.
-   */
+  /** Enable/disable a toolbar button by ID. */
   setToolbarButtonDisabled(buttonId: string, disabled: boolean): void {
-    // Check API-registered buttons
-    const apiBtn = this.#shellState.toolbarButtons.get(buttonId);
-    if (apiBtn) {
-      apiBtn.disabled = disabled;
-    }
-
-    // Update DOM
-    const btn = this.#shadow.querySelector(`[data-btn="${buttonId}"]`) as HTMLButtonElement | null;
-    if (btn) {
-      btn.disabled = disabled;
-    }
+    this.#shellController.setToolbarButtonDisabled(buttonId, disabled);
   }
 
   /**
@@ -1978,13 +1718,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Call this after dynamically modifying <tbw-grid-header> children.
    */
   refreshShellHeader(): void {
-    this.#refreshShellHeader();
-  }
-
-  /**
-   * Internal shell header refresh.
-   */
-  #refreshShellHeader(): void {
     // Re-parse light DOM
     parseLightDomShell(this, this.#shellState);
 
@@ -2005,11 +1738,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     if (!this.virtualization.enabled) {
       this.#renderVisibleRows(0, totalRows);
-      this.#executeAfterRender();
+      this.#pluginManager?.afterRender();
       return;
     }
 
-    if (this.#shouldBypassVirtualization()) {
+    if (this._rows.length <= this.virtualization.bypassThreshold) {
       this.virtualization.start = 0;
       this.virtualization.end = totalRows;
       this.bodyEl.style.transform = 'translateY(0px)';
@@ -2021,7 +1754,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       const innerGrid = this.#shadow.querySelector('.rows-body');
       innerGrid?.setAttribute('aria-rowcount', String(totalRows));
       innerGrid?.setAttribute('aria-colcount', String(this.visibleColumns.length));
-      this.#executeAfterRender();
+      this.#pluginManager?.afterRender();
       return;
     }
 
@@ -2112,7 +1845,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Only run plugin afterRender hooks on force refresh (structural changes)
     // Skip on scroll-triggered renders for maximum performance
     if (force) {
-      this.#executeAfterRender();
+      this.#pluginManager?.afterRender();
     }
   }
 
@@ -2177,7 +1910,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#setupShellListeners();
 
       // Mark shell as initialized
-      this.#shellInitialized = true;
+      this.#shellController.setInitialized(true);
     } else {
       // Build minimal DOM structure (no shell)
       // Wrap in .tbw-grid-content for consistent horizontal scroll behavior

@@ -8,7 +8,7 @@ import {
 } from './master-detail';
 import { MasterDetailPlugin } from './MasterDetailPlugin';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 // Tests use `any` for flexibility with test row data.
 
 describe('masterDetail', () => {

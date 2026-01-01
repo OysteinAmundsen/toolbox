@@ -66,7 +66,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   focusRow: number;
   focusCol: number;
   activeEditRows: number;
-  rowEditSnapshots: Map<number, any>;
+  rowEditSnapshots: Map<number, T>;
   _changedRowIndices: Set<number>;
   changedRows?: T[];
   changedRowIndices?: number[];
@@ -115,13 +115,13 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   /** Optional custom editor factory or element tag name */
   editor?: ColumnEditorSpec<TRow, TValue>;
   /** For select/typeahead types - available options */
-  options?: Array<{ label: string; value: any }> | (() => Array<{ label: string; value: any }>);
+  options?: Array<{ label: string; value: unknown }> | (() => Array<{ label: string; value: unknown }>);
   /** For select/typeahead - allow multi select */
   multi?: boolean;
   /** Optional formatter */
   format?: (value: TValue, row: TRow) => string;
   /** Arbitrary extra metadata */
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
 }
 
 /**
@@ -132,12 +132,12 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
   viewRenderer?: ColumnViewRenderer<TRow, any>;
   /** External view spec (lets host app mount any framework component) */
   externalView?: {
-    component: any;
-    props?: Record<string, any>;
+    component: unknown;
+    props?: Record<string, unknown>;
     mount?: (options: {
       placeholder: HTMLElement;
-      context: CellRenderContext<TRow, any>;
-      spec: any;
+      context: CellRenderContext<TRow, unknown>;
+      spec: unknown;
     }) => void | { dispose?: () => void };
   };
   /** Whether the column is initially hidden */
@@ -149,19 +149,19 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
 export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
 
 /** External editor spec: tag name, factory function, or external mount spec */
-export type ColumnEditorSpec<TRow = any, TValue = any> =
+export type ColumnEditorSpec<TRow = unknown, TValue = unknown> =
   | string // custom element tag name
   | ((context: ColumnEditorContext<TRow, TValue>) => HTMLElement | string)
   | {
       /** Arbitrary component reference (class, function, token) */
-      component: any;
+      component: unknown;
       /** Optional static props passed to mount */
-      props?: Record<string, any>;
+      props?: Record<string, unknown>;
       /** Optional custom mount function; if provided we call it directly instead of emitting an event */
       mount?: (options: {
         placeholder: HTMLElement;
         context: ColumnEditorContext<TRow, TValue>;
-        spec: any;
+        spec: unknown;
       }) => void | { dispose?: () => void };
     };
 
@@ -197,7 +197,7 @@ export interface CellRenderContext<TRow = any, TValue = any> {
   column: ColumnConfig<TRow>;
 }
 
-export type ColumnViewRenderer<TRow = any, TValue = any> = (
+export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
   ctx: CellRenderContext<TRow, TValue>,
 ) => Node | string | void;
 
@@ -218,7 +218,7 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T> {
  */
 export interface CellContext<T = any> {
   row: T;
-  value: any;
+  value: unknown;
   field: string;
   column: ColumnInternal<T>;
 }
@@ -227,7 +227,7 @@ export interface CellContext<T = any> {
  * Internal editor execution context extending the generic cell context with commit helpers.
  */
 export interface EditorExecContext<T = any> extends CellContext<T> {
-  commit: (newValue: any) => void;
+  commit: (newValue: unknown) => void;
   cancel: () => void;
 }
 
@@ -265,17 +265,17 @@ export interface RowGroupRenderConfig {
   /** If true, group rows span all columns (single full-width cell). Default false. */
   fullWidth?: boolean;
   /** Optional label formatter override. Receives raw group value + depth. */
-  formatLabel?: (value: any, depth: number, key: string) => string;
+  formatLabel?: (value: unknown, depth: number, key: string) => string;
   /** Optional aggregate overrides per field for group summary cells (only when not fullWidth). */
   aggregators?: Record<string, AggregatorRef>;
   /** Additional CSS class applied to each group row root element. */
   class?: string;
 }
 
-export type AggregatorRef = string | ((rows: any[], field: string, column?: any) => any);
+export type AggregatorRef = string | ((rows: unknown[], field: string, column?: unknown) => unknown);
 
 /** Result of automatic column inference from sample rows. */
-export interface InferredColumnResult<TRow = any> {
+export interface InferredColumnResult<TRow = unknown> {
   columns: ColumnConfigMap<TRow>;
   typeMap: Record<string, PrimitiveColumnType>;
 }
@@ -285,6 +285,22 @@ export const FitModeEnum = {
   FIXED: 'fixed',
 } as const;
 export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum]; // evaluates to 'stretch' | 'fixed'
+// #endregion
+
+// #region Plugin Interface
+/**
+ * Minimal plugin interface for type-checking.
+ * This interface is defined here to avoid circular imports with BaseGridPlugin.
+ * All plugins must satisfy this shape (BaseGridPlugin implements it).
+ */
+export interface GridPlugin {
+  /** Unique plugin identifier */
+  readonly name: string;
+  /** Plugin version */
+  readonly version: string;
+  /** CSS styles to inject into grid's shadow DOM */
+  readonly styles?: string;
+}
 // #endregion
 
 // #region Grid Config
@@ -340,7 +356,7 @@ export interface GridConfig<TRow = any> {
    * ]
    * ```
    */
-  plugins?: any[];
+  plugins?: GridPlugin[];
 
   /**
    * Saved column state to restore on initialization.
@@ -574,13 +590,13 @@ export interface GridColumnState {
 // #endregion
 
 // #region Public Event Detail Interfaces
-export interface CellCommitDetail<TRow = any> {
+export interface CellCommitDetail<TRow = unknown> {
   /** The mutated row after commit. */
   row: TRow;
   /** Field name whose value changed. */
   field: string;
   /** New value stored. */
-  value: any;
+  value: unknown;
   /** Index of the row in current data set. */
   rowIndex: number;
   /** All rows that have at least one committed change (snapshot list). */
@@ -592,7 +608,7 @@ export interface CellCommitDetail<TRow = any> {
 }
 
 /** Detail payload for a committed row edit (may or may not include changes). */
-export interface RowCommitDetail<TRow = any> {
+export interface RowCommitDetail<TRow = unknown> {
   /** Row index that lost edit focus. */
   rowIndex: number;
   /** Row object reference. */
@@ -606,7 +622,7 @@ export interface RowCommitDetail<TRow = any> {
 }
 
 /** Emitted when the changed rows tracking set is cleared programmatically. */
-export interface ChangedRowsResetDetail<TRow = any> {
+export interface ChangedRowsResetDetail<TRow = unknown> {
   /** New (empty) changed rows array after reset. */
   rows: TRow[];
   /** Parallel indices (likely empty). */
@@ -637,19 +653,26 @@ export interface ActivateCellDetail {
   col: number;
 }
 
-export interface ExternalMountViewDetail<TRow = any> {
+export interface ExternalMountViewDetail<TRow = unknown> {
   placeholder: HTMLElement;
-  spec: any;
-  context: { row: TRow; value: any; field: string; column: any };
+  spec: unknown;
+  context: { row: TRow; value: unknown; field: string; column: unknown };
 }
 
-export interface ExternalMountEditorDetail<TRow = any> {
+export interface ExternalMountEditorDetail<TRow = unknown> {
   placeholder: HTMLElement;
-  spec: any;
-  context: { row: TRow; value: any; field: string; column: any; commit: (v: any) => void; cancel: () => void };
+  spec: unknown;
+  context: {
+    row: TRow;
+    value: unknown;
+    field: string;
+    column: unknown;
+    commit: (v: unknown) => void;
+    cancel: () => void;
+  };
 }
 
-export interface DataGridEventMap<TRow = any> {
+export interface DataGridEventMap<TRow = unknown> {
   'cell-commit': CellCommitDetail<TRow>;
   'row-commit': RowCommitDetail<TRow>;
   'changed-rows-reset': ChangedRowsResetDetail<TRow>;
@@ -661,16 +684,16 @@ export interface DataGridEventMap<TRow = any> {
   'column-state-change': GridColumnState;
 }
 
-export type DataGridEventDetail<K extends keyof DataGridEventMap<any>, TRow = any> = DataGridEventMap<TRow>[K];
-export type DataGridCustomEvent<K extends keyof DataGridEventMap<any>, TRow = any> = CustomEvent<
+export type DataGridEventDetail<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = DataGridEventMap<TRow>[K];
+export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = CustomEvent<
   DataGridEventMap<TRow>[K]
 >;
 
 // Internal code now reuses the public ColumnEditorContext; provide alias for backward compatibility
-export type EditorContext<T = any> = ColumnEditorContext<T, any>;
+export type EditorContext<T = unknown> = ColumnEditorContext<T, unknown>;
 
 export interface EvalContext {
-  value: any;
-  row: any;
+  value: unknown;
+  row: Record<string, unknown> | null;
 }
 // #endregion

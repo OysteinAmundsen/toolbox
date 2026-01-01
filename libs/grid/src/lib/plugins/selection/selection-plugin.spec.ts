@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SelectionPlugin } from './SelectionPlugin';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 // Tests use `any` for flexibility with mock grid objects.
 
 describe('SelectionPlugin', () => {

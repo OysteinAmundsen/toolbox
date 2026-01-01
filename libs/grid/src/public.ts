@@ -83,6 +83,8 @@ export type {
   GridConfig,
   // Icons
   GridIcons,
+  // Plugin interface (minimal shape for type-checking)
+  GridPlugin,
   // Shell types
   HeaderContentDefinition,
   IconValue,

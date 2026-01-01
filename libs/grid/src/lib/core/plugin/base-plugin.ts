@@ -5,7 +5,14 @@
  * Plugins are instantiated per-grid and manage their own state.
  */
 
-import type { ColumnConfig, ColumnState, HeaderContentDefinition, IconValue, ToolPanelDefinition } from '../types';
+import type {
+  ColumnConfig,
+  ColumnState,
+  GridPlugin,
+  HeaderContentDefinition,
+  IconValue,
+  ToolPanelDefinition,
+} from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 
 // Forward declare to avoid circular imports
@@ -210,7 +217,7 @@ export interface CellEditor {
  *
  * @template TConfig - Configuration type for the plugin
  */
-export abstract class BaseGridPlugin<TConfig = unknown> {
+export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   /** Unique plugin identifier (derived from class name by default) */
   abstract readonly name: string;
 

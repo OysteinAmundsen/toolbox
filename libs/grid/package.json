@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/grid",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "High-performance data grid web component",
   "type": "module",
   "main": "./index.js",

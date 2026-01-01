@@ -2,7 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { handleGridKeyDown } from './keyboard';
 
 function key(grid: any, k: string, opts: any = {}) {
-  const e: any = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, shiftKey: !!opts.shiftKey });
+  const e: any = new KeyboardEvent('keydown', {
+    key: k,
+    bubbles: true,
+    cancelable: true,
+    shiftKey: !!opts.shiftKey,
+    ctrlKey: !!opts.ctrlKey,
+    metaKey: !!opts.metaKey,
+  });
   if (opts.target) {
     // Provide a composedPath shim returning the supplied target to exercise early-return logic
     e.composedPath = () => [opts.target];
@@ -67,6 +74,36 @@ describe('keyboard navigation', () => {
     expect(g.focusCol).toBe(3);
     key(g, 'Home');
     expect(g.focusCol).toBe(0);
+  });
+  it('CTRL+Home navigates to first row, first cell', () => {
+    const g = makeGrid(10, 5);
+    g.focusRow = 5;
+    g.focusCol = 3;
+    key(g, 'Home', { ctrlKey: true });
+    expect(g.focusRow).toBe(0);
+    expect(g.focusCol).toBe(0);
+  });
+  it('CTRL+End navigates to last row, last cell', () => {
+    const g = makeGrid(10, 5);
+    g.focusRow = 2;
+    g.focusCol = 1;
+    key(g, 'End', { ctrlKey: true });
+    expect(g.focusRow).toBe(9);
+    expect(g.focusCol).toBe(4);
+  });
+  it('CTRL+Home/End commits active row edit', () => {
+    const g = makeGrid(10, 5);
+    g.focusRow = 5;
+    g.focusCol = 3;
+    g.activeEditRows = 5;
+    g.commitActiveRowEdit = vi.fn();
+    key(g, 'Home', { ctrlKey: true });
+    expect(g.commitActiveRowEdit).toHaveBeenCalledTimes(1);
+    g.focusRow = 5;
+    g.focusCol = 3;
+    g.activeEditRows = 5;
+    key(g, 'End', { ctrlKey: true });
+    expect(g.commitActiveRowEdit).toHaveBeenCalledTimes(2);
   });
   // NEW TESTS FOR ADDITIONAL BRANCHES
   it('shift+tab simple decrement without wrap and no commit', () => {

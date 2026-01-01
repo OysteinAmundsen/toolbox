@@ -18,6 +18,7 @@
   "changelog-sections": [
     { "type": "feat", "section": "Features" },
     { "type": "fix", "section": "Bug Fixes" },
+    { "type": "enhance", "section": "Enhancements" },
     { "type": "perf", "section": "Performance Improvements" },
     { "type": "revert", "section": "Reverts" },
     { "type": "docs", "section": "Documentation", "hidden": true },

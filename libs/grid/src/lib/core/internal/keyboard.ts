@@ -78,11 +78,27 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       e.preventDefault();
       break;
     case 'Home':
-      grid.focusCol = 0;
+      if (e.ctrlKey || e.metaKey) {
+        // CTRL+Home: navigate to first row, first cell
+        if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+        grid.focusRow = 0;
+        grid.focusCol = 0;
+      } else {
+        // Home: navigate to first cell in current row
+        grid.focusCol = 0;
+      }
       e.preventDefault();
       break;
     case 'End':
-      grid.focusCol = maxCol;
+      if (e.ctrlKey || e.metaKey) {
+        // CTRL+End: navigate to last row, last cell
+        if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+        grid.focusRow = maxRow;
+        grid.focusCol = maxCol;
+      } else {
+        // End: navigate to last cell in current row
+        grid.focusCol = maxCol;
+      }
       e.preventDefault();
       break;
     case 'PageDown':

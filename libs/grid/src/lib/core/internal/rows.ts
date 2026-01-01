@@ -323,194 +323,6 @@ export function renderVisibleRows(
 }
 
 /**
- * Ultra-fast row update for plain columns (no templates, renderers, or external views).
- * This is the hottest path during scroll - every microsecond counts.
- * Minimal operations: just update cell textContent directly.
- */
-function updateRowDataFast(grid: InternalGrid, rowEl: HTMLElement, rowData: Record<string, unknown>): void {
-  const cells = rowEl.children;
-  const columns = grid.visibleColumns;
-  const len = columns.length;
-
-  for (let i = 0; i < len; i++) {
-    const cell = cells[i] as HTMLElement;
-    if (!cell) continue;
-
-    const col = columns[i];
-    const value = rowData[col.field];
-
-    // Direct textContent update - fastest possible path
-    cell.textContent = value == null ? '' : String(value);
-  }
-}
-
-/**
- * Update row data in-place without rebuilding DOM structure.
- * Used during scroll when showing different row data in the same row pool slot.
- * Handles special column types (templates, renderers, external views).
- */
-function updateRowDataInPlace(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
-  // Use children for faster access than querySelectorAll
-  const cells = rowEl.children;
-  const columns = grid.visibleColumns;
-  const colsLen = columns.length;
-  const focusRow = grid.focusRow;
-  const focusCol = grid.focusCol;
-
-  // Cache header row count on grid to avoid repeated DOM queries
-  let headerRowCount = (grid as any).__cachedHeaderRowCount;
-  if (headerRowCount === undefined) {
-    headerRowCount = grid.shadowRoot?.querySelector('.header-group-row') ? 2 : 1;
-    (grid as any).__cachedHeaderRowCount = headerRowCount;
-  }
-
-  // Update aria-rowindex on the row
-  const newRowIndex = String(rowIndex + headerRowCount + 1);
-  if (rowEl.getAttribute('aria-rowindex') !== newRowIndex) {
-    rowEl.setAttribute('aria-rowindex', newRowIndex);
-  }
-
-  const rowIndexStr = String(rowIndex);
-
-  for (let i = 0; i < colsLen; i++) {
-    const col = columns[i];
-    const cell = cells[i] as HTMLElement;
-    if (!cell) continue;
-
-    // Update data-row attribute only if changed
-    if (cell.getAttribute('data-row') !== rowIndexStr) {
-      cell.setAttribute('data-row', rowIndexStr);
-    }
-
-    // Skip cells with active editors
-    if (cell.classList.contains('editing')) continue;
-
-    // Handle external views - they need remounting for new data
-    if ((col as any).externalView) {
-      const placeholder = cell.querySelector('[data-external-view]');
-      if (placeholder) {
-        const spec = (col as any).externalView;
-        const value = (rowData as any)[col.field];
-        const context = { row: rowData, value, field: col.field, column: col };
-        if (spec.mount) {
-          try {
-            spec.mount({ placeholder, context, spec });
-          } catch {
-            /* empty */
-          }
-        }
-      }
-      continue;
-    }
-
-    // Handle compiled templates
-    const compiled = (col as any).__compiledView as ((ctx: any) => string) | undefined;
-    if (compiled) {
-      const value = (rowData as any)[col.field];
-      const output = compiled({ row: rowData, value, field: col.field, column: col });
-      const blocked = (compiled as any).__blocked;
-      cell.innerHTML = blocked ? '' : sanitizeHTML(output);
-      if (blocked) {
-        cell.textContent = '';
-        cell.setAttribute('data-blocked-template', '');
-      } else {
-        cell.removeAttribute('data-blocked-template');
-      }
-      continue;
-    }
-
-    // Handle inline templates
-    const tplHolder = (col as any).__viewTemplate as HTMLElement | undefined;
-    if (tplHolder) {
-      const rawTpl = tplHolder.innerHTML;
-      const value = (rowData as any)[col.field];
-      if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
-        cell.textContent = '';
-        cell.setAttribute('data-blocked-template', '');
-      } else {
-        cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
-        cell.removeAttribute('data-blocked-template');
-      }
-      continue;
-    }
-
-    // Handle viewRenderer
-    const viewRenderer = (col as any).viewRenderer;
-    if (viewRenderer) {
-      const value = (rowData as any)[col.field];
-      const produced = viewRenderer({ row: rowData, value, field: col.field, column: col });
-      if (typeof produced === 'string') {
-        cell.innerHTML = sanitizeHTML(produced);
-      } else if (produced) {
-        cell.innerHTML = '';
-        cell.appendChild(produced);
-      } else {
-        cell.textContent = value == null ? '' : String(value);
-      }
-      continue;
-    }
-
-    // Plain value rendering - update content directly
-    let value = (rowData as any)[col.field];
-    const format = (col as any).format;
-    if (format) {
-      try {
-        value = format(value, rowData);
-      } catch {
-        /* empty */
-      }
-    }
-
-    // Convert to display string once
-    let displayValue: string;
-    if (col.type === 'date') {
-      if (value == null || value === '') {
-        displayValue = '';
-      } else {
-        let d: Date | null = null;
-        if (value instanceof Date) d = value;
-        else if (typeof value === 'number' || typeof value === 'string') {
-          const tentative = new Date(value);
-          if (!isNaN(tentative.getTime())) d = tentative;
-        }
-        displayValue = d ? d.toLocaleDateString() : '';
-      }
-      // Only update if changed
-      if (cell.textContent !== displayValue) {
-        cell.textContent = displayValue;
-      }
-    } else if (col.type === 'boolean') {
-      const isTrue = !!value;
-      // Boolean cells have inner span with checkbox role
-      const innerCheckbox = cell.querySelector('[role="checkbox"]');
-      const currentChecked = innerCheckbox?.getAttribute('aria-checked');
-      if (currentChecked !== String(isTrue)) {
-        cell.innerHTML = `<span role="checkbox" aria-checked="${isTrue}" aria-label="${isTrue}">${isTrue ? '&#x1F5F9;' : '&#9744;'}</span>`;
-      }
-    } else {
-      displayValue = value == null ? '' : String(value);
-      // Only update if changed
-      if (cell.textContent !== displayValue) {
-        cell.textContent = displayValue;
-      }
-    }
-
-    // Update focus state - check before modifying
-    const shouldHaveFocus = focusRow === rowIndex && focusCol === i;
-    const hasFocus = cell.classList.contains('cell-focus');
-    if (shouldHaveFocus !== hasFocus) {
-      if (shouldHaveFocus) {
-        cell.classList.add('cell-focus');
-        cell.setAttribute('aria-selected', 'true');
-      } else {
-        cell.classList.remove('cell-focus');
-        cell.setAttribute('aria-selected', 'false');
-      }
-    }
-  }
-}
-
-/**
  * Fast patch path for an already-rendered row: updates plain text cells whose data changed
  * while skipping cells with external views, templates, or active editors.
  *
@@ -689,14 +501,6 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     cell.setAttribute('data-row', String(rowIndex));
     const isCheckbox = col.type === 'boolean';
     if (col.type) cell.setAttribute('data-type', col.type as any);
-
-    // Apply sticky class if column has sticky property
-    const sticky = (col as any).sticky;
-    if (sticky === 'left') {
-      cell.classList.add('sticky-left');
-    } else if (sticky === 'right') {
-      cell.classList.add('sticky-right');
-    }
 
     let value = (rowData as any)[col.field];
     const format = (col as any).format;
@@ -916,9 +720,13 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       if (!cell.hasAttribute('tabindex')) cell.tabIndex = 0;
     }
 
-    // Initialize selection attributes (valid for gridcell)
-    if (focusRow === rowIndex && focusCol === colIndex) cell.setAttribute('aria-selected', 'true');
-    else cell.setAttribute('aria-selected', 'false');
+    // Initialize focus state (must match fastPatchRow for consistent behavior)
+    if (focusRow === rowIndex && focusCol === colIndex) {
+      cell.classList.add('cell-focus');
+      cell.setAttribute('aria-selected', 'true');
+    } else {
+      cell.setAttribute('aria-selected', 'false');
+    }
 
     fragment.appendChild(cell);
   }

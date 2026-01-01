@@ -5,7 +5,8 @@
  * Supports keyboard and mouse interactions with visual feedback.
  */
 
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, PLUGIN_QUERIES } from '../../core/plugin/base-plugin';
+import type { ColumnConfig } from '../../core/types';
 import { canMoveColumn, moveColumn } from './column-drag';
 import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
@@ -15,6 +16,8 @@ interface GridWithColumnOrder {
   setColumnOrder(order: string[]): void;
   getColumnOrder(): string[];
   requestStateChange?: () => void;
+  /** Query plugins for inter-plugin communication */
+  queryPlugins<T>(query: { type: string; context: unknown }): T[];
 }
 
 /**
@@ -91,7 +94,14 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
       if (!field) return;
 
       const column = this.columns.find((c) => c.field === field);
-      if (!column || !canMoveColumn(column)) {
+      // Check both local metadata and plugin queries (e.g., PinnedColumnsPlugin)
+      const gridEl = this.grid as unknown as GridWithColumnOrder;
+      const pluginResponses = gridEl.queryPlugins<boolean>({
+        type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
+        context: column as ColumnConfig,
+      });
+      const pluginAllows = !pluginResponses.includes(false);
+      if (!column || !canMoveColumn(column) || !pluginAllows) {
         headerEl.draggable = false;
         return;
       }

@@ -4,7 +4,7 @@
  * Type definitions for column pinning (sticky left/right columns).
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 /** Configuration options for the pinned columns plugin */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface

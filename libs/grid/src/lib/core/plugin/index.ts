@@ -6,7 +6,7 @@
  */
 
 // #region Base Plugin Class
-export { BaseGridPlugin } from './base-plugin';
+export { BaseGridPlugin, PLUGIN_QUERIES } from './base-plugin';
 export type {
   CellClickEvent,
   CellCoords,
@@ -21,6 +21,7 @@ export type {
   KeyboardModifiers,
   PluginCellRenderContext,
   PluginHeaderRenderContext,
+  PluginQuery,
   RowClickEvent,
   ScrollEvent,
 } from './base-plugin';

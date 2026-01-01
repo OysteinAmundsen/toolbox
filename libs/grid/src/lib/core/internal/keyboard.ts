@@ -78,13 +78,31 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       e.preventDefault();
       break;
     case 'Home':
-      grid.focusCol = 0;
+      if (e.ctrlKey || e.metaKey) {
+        // CTRL+Home: navigate to first row, first cell
+        if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+        grid.focusRow = 0;
+        grid.focusCol = 0;
+      } else {
+        // Home: navigate to first cell in current row
+        grid.focusCol = 0;
+      }
       e.preventDefault();
-      break;
+      ensureCellVisible(grid, { forceScrollLeft: true });
+      return;
     case 'End':
-      grid.focusCol = maxCol;
+      if (e.ctrlKey || e.metaKey) {
+        // CTRL+End: navigate to last row, last cell
+        if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
+        grid.focusRow = maxRow;
+        grid.focusCol = maxCol;
+      } else {
+        // End: navigate to last cell in current row
+        grid.focusCol = maxCol;
+      }
       e.preventDefault();
-      break;
+      ensureCellVisible(grid, { forceScrollRight: true });
+      return;
     case 'PageDown':
       grid.focusRow = Math.min(maxRow, grid.focusRow + 20);
       e.preventDefault();
@@ -107,10 +125,20 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
 }
 
 /**
+ * Options for ensureCellVisible to control scroll behavior.
+ */
+interface EnsureCellVisibleOptions {
+  /** Force scroll to the leftmost position (for Home key) */
+  forceScrollLeft?: boolean;
+  /** Force scroll to the rightmost position (for End key) */
+  forceScrollRight?: boolean;
+}
+
+/**
  * Scroll the viewport (virtualized or static) so the focused cell's row is visible
  * and apply visual focus styling / tabindex management.
  */
-export function ensureCellVisible(grid: InternalGrid): void {
+export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibleOptions): void {
   if (grid.virtualization?.enabled) {
     const { rowHeight, container, viewportEl } = grid.virtualization;
     // container is the faux scrollbar element that handles actual scrolling
@@ -145,6 +173,42 @@ export function ensureCellVisible(grid: InternalGrid): void {
     if (cell) {
       cell.classList.add('cell-focus');
       cell.setAttribute('aria-selected', 'true');
+
+      // Horizontal scroll: ensure focused cell is visible in the horizontal scroll area
+      // The .tbw-scroll-area element handles horizontal scrolling
+      const scrollArea = grid.shadowRoot?.querySelector('.tbw-scroll-area') as HTMLElement | null;
+      if (scrollArea && cell) {
+        // Handle forced scroll for Home/End keys - always scroll to edge
+        if (options?.forceScrollLeft) {
+          scrollArea.scrollLeft = 0;
+        } else if (options?.forceScrollRight) {
+          scrollArea.scrollLeft = scrollArea.scrollWidth - scrollArea.clientWidth;
+        } else {
+          // Get scroll boundary offsets from plugins (e.g., pinned columns)
+          // This allows plugins to report how much of the scroll area they obscure
+          // and whether the focused cell should skip scrolling (e.g., pinned cells are always visible)
+          const offsets = grid.getHorizontalScrollOffsets?.(rowEl ?? undefined, cell) ?? { left: 0, right: 0 };
+
+          if (!offsets.skipScroll) {
+            // Get cell position relative to the scroll area
+            const cellRect = cell.getBoundingClientRect();
+            const scrollAreaRect = scrollArea.getBoundingClientRect();
+            // Calculate the cell's position relative to scroll area's visible region
+            const cellLeft = cellRect.left - scrollAreaRect.left + scrollArea.scrollLeft;
+            const cellRight = cellLeft + cellRect.width;
+            // Adjust visible boundaries to account for plugin-reported offsets
+            const visibleLeft = scrollArea.scrollLeft + offsets.left;
+            const visibleRight = scrollArea.scrollLeft + scrollArea.clientWidth - offsets.right;
+            // Scroll horizontally if needed
+            if (cellLeft < visibleLeft) {
+              scrollArea.scrollLeft = cellLeft - offsets.left;
+            } else if (cellRight > visibleRight) {
+              scrollArea.scrollLeft = cellRight - scrollArea.clientWidth + offsets.right;
+            }
+          }
+        }
+      }
+
       if (grid.activeEditRows !== undefined && grid.activeEditRows !== -1 && cell.classList.contains('editing')) {
         const focusTarget = cell.querySelector(
           'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',

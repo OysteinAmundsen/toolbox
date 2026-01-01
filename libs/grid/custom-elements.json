@@ -8,32 +8,8 @@
       "declarations": [
         {
           "kind": "class",
-          "description": "High-performance data grid web component.\nDuring migration, uses tbw-grid tag to avoid conflicts with existing datagrid.\nWill be renamed back to data-grid when migration is complete.\n\n## Configuration Architecture\n\nThe grid follows a **single source of truth** pattern where all configuration\nconverges into `#effectiveConfig`. Users can set configuration via multiple inputs:\n\n**Input Sources (precedence low → high):**\n1. `gridConfig` property - base configuration object\n2. Light DOM elements:\n   - `<tbw-grid-column>` → `effectiveConfig.columns`\n   - `<tbw-grid-header title=\"...\">` → `effectiveConfig.shell.header.title`\n   - `<tbw-grid-header-content>` → `effectiveConfig.shell.header.content`\n3. `columns` property → merged into `effectiveConfig.columns`\n4. `fitMode` property → merged into `effectiveConfig.fitMode`\n5. `editOn` property → merged into `effectiveConfig.editOn`\n6. Column inference from first row (if no columns defined)\n\n**Derived State:**\n- `_columns` - processed columns from `effectiveConfig.columns` after plugin hooks\n- `_rows` - processed rows after plugin hooks (grouping, filtering, etc.)\n\nThe `#mergeEffectiveConfig()` method is the single place where all inputs converge.\nAll rendering and logic should read from `effectiveConfig` or derived state.",
+          "description": "",
           "name": "DataGridElement",
-          "cssProperties": [
-            {
-              "description": "Background color",
-              "name": "--tbw-color-bg"
-            },
-            {
-              "description": "Foreground/text color",
-              "name": "--tbw-color-fg"
-            }
-          ],
-          "cssParts": [
-            {
-              "description": "The main grid container",
-              "name": "container"
-            },
-            {
-              "description": "The header row container",
-              "name": "header"
-            },
-            {
-              "description": "The body/rows container",
-              "name": "body"
-            }
-          ],
           "members": [
             {
               "kind": "field",
@@ -44,6 +20,12 @@
               "static": true,
               "readonly": true,
               "default": "'tbw-grid'"
+            },
+            {
+              "kind": "field",
+              "name": "version",
+              "static": true,
+              "readonly": true
             },
             {
               "kind": "field",
@@ -269,12 +251,11 @@
             },
             {
               "kind": "field",
-              "name": "#shellInitialized",
+              "name": "#shellController",
               "privacy": "private",
               "type": {
-                "text": "boolean"
-              },
-              "default": "false"
+                "text": "ShellController"
+              }
             },
             {
               "kind": "field",
@@ -805,45 +786,6 @@
             },
             {
               "kind": "method",
-              "name": "#getColumnConfiguration",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              }
-            },
-            {
-              "kind": "method",
-              "name": "#renderHeader",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              }
-            },
-            {
-              "kind": "method",
-              "name": "updateTemplate",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              }
-            },
-            {
-              "kind": "method",
-              "name": "#autoSizeColumns",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              }
-            },
-            {
-              "kind": "method",
               "name": "#processColumns",
               "privacy": "private",
               "return": {
@@ -851,17 +793,6 @@
                   "text": "void"
                 }
               }
-            },
-            {
-              "kind": "method",
-              "name": "#executeAfterRender",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              },
-              "description": "Execute all plugin afterRender hooks"
             },
             {
               "kind": "method",
@@ -915,54 +846,6 @@
             },
             {
               "kind": "method",
-              "name": "#startRowEdit",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              },
-              "parameters": [
-                {
-                  "name": "rowIndex",
-                  "type": {
-                    "text": "number"
-                  }
-                },
-                {
-                  "name": "rowData",
-                  "type": {
-                    "text": "any"
-                  }
-                }
-              ]
-            },
-            {
-              "kind": "method",
-              "name": "#exitRowEdit",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              },
-              "parameters": [
-                {
-                  "name": "rowIndex",
-                  "type": {
-                    "text": "number"
-                  }
-                },
-                {
-                  "name": "revert",
-                  "type": {
-                    "text": "boolean"
-                  }
-                }
-              ]
-            },
-            {
-              "kind": "method",
               "name": "#setup",
               "privacy": "private",
               "return": {
@@ -989,16 +872,6 @@
                 }
               ],
               "description": "Internal method to apply column state without triggering setup loop"
-            },
-            {
-              "kind": "method",
-              "name": "#shouldBypassVirtualization",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "boolean"
-                }
-              }
             },
             {
               "kind": "method",
@@ -1542,51 +1415,7 @@
                   }
                 }
               ],
-              "description": "Toggle an accordion section expanded/collapsed.\nOnly one section can be expanded at a time (exclusive accordion).\nWhen there's only one panel, toggling is disabled (always expanded)."
-            },
-            {
-              "kind": "method",
-              "name": "#updateAccordionSectionState",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              },
-              "parameters": [
-                {
-                  "name": "sectionId",
-                  "type": {
-                    "text": "string"
-                  }
-                },
-                {
-                  "name": "expanded",
-                  "type": {
-                    "text": "boolean"
-                  }
-                }
-              ],
-              "description": "Update accordion section visual state."
-            },
-            {
-              "kind": "method",
-              "name": "#renderAccordionSectionContent",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              },
-              "parameters": [
-                {
-                  "name": "sectionId",
-                  "type": {
-                    "text": "string"
-                  }
-                }
-              ],
-              "description": "Render content for a single accordion section."
+              "description": "Toggle an accordion section expanded/collapsed."
             },
             {
               "kind": "method",
@@ -1762,17 +1591,6 @@
             },
             {
               "kind": "method",
-              "name": "#refreshShellHeader",
-              "privacy": "private",
-              "return": {
-                "type": {
-                  "text": "void"
-                }
-              },
-              "description": "Internal shell header refresh."
-            },
-            {
-              "kind": "method",
               "name": "refreshVirtualWindow",
               "return": {
                 "type": {
@@ -1834,48 +1652,11 @@
               "type": {
                 "text": "CustomEvent"
               }
-            },
-            {
-              "description": "Fired when a cell value is committed",
-              "name": "cell-commit"
-            },
-            {
-              "description": "Fired when a bulk row edit session commits",
-              "name": "row-commit"
-            },
-            {
-              "description": "Fired after resetChangedRows() unless silent",
-              "name": "changed-rows-reset"
-            },
-            {
-              "description": "Fired to request mounting of an external view renderer",
-              "name": "mount-external-view"
-            },
-            {
-              "description": "Fired to request mounting of an external editor renderer",
-              "name": "mount-external-editor"
-            },
-            {
-              "description": "Fired when sort state changes for a column",
-              "name": "sort-change"
-            },
-            {
-              "description": "Fired after a column resize drag completes",
-              "name": "column-resize"
-            },
-            {
-              "description": "Fired when a cell activation intent occurs",
-              "name": "activate-cell"
-            },
-            {
-              "description": "Fired when a group row is toggled",
-              "name": "group-toggle"
             }
           ],
           "superclass": {
             "name": "HTMLElement"
           },
-          "tagName": "tbw-grid",
           "customElement": true
         },
         {

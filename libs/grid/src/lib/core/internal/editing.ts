@@ -169,7 +169,7 @@ export function inlineEnterEdit(
   if (!column.editable) return;
   if (grid.activeEditRows !== rowIndex) startRowEdit(grid, rowIndex, rowData);
   if (cell.classList.contains('editing')) return;
-  const originalValue = rowData[column.field];
+  const originalValue = isSafePropertyKey(column.field) ? rowData[column.field] : undefined;
   cell.classList.add('editing');
   let editFinalized = false; // Flag to prevent blur from committing after explicit Enter/Escape
   const commit = (newValue: any) => {
@@ -180,9 +180,7 @@ export function inlineEnterEdit(
   };
   const cancel = () => {
     editFinalized = true; // Mark as finalized to prevent blur from re-committing
-    if (isSafePropertyKey(column.field)) {
-      rowData[column.field] = originalValue;
-    }
+    rowData[column.field] = isSafePropertyKey(column.field) ? originalValue : undefined;
     const inputLike = cell.querySelector('input,textarea,select') as any;
     if (inputLike) {
       const hasHTMLInput = typeof HTMLInputElement !== 'undefined';

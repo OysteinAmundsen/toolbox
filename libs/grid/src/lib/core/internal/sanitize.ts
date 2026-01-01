@@ -5,11 +5,6 @@ import type { EvalContext } from '../types';
 
 const EXPR_RE = /{{\s*([^}]+)\s*}}/g;
 const EMPTY_SENTINEL = '__DG_EMPTY__';
-// Distinct sentinel for a template that was forcefully blocked at compile time OR
-// produced only blocked content. This lets downstream rendering logic suppress any
-// fallback value population that might otherwise leak (e.g. the raw row value or a
-// function source string) when a dangerous token is detected.
-export const BLOCKED_SENTINEL = '__DG_BLOCKED__';
 const SAFE_EXPR = /^[\w$. '?+\-*/%:()!<>=,&|]+$/;
 const FORBIDDEN =
   /__(proto|defineGetter|defineSetter)|constructor|window|globalThis|global|process|Function|import|eval|Reflect|Proxy|Error|arguments|document|location|cookie|localStorage|sessionStorage|indexedDB|fetch|XMLHttpRequest|WebSocket|Worker|SharedWorker|ServiceWorker|opener|parent|top|frames|self|this\b/;
@@ -179,7 +174,7 @@ function evalSingle(expr: string, ctx: EvalContext): string {
   const dotChain = expr.match(/\./g);
   if (dotChain && dotChain.length > 1) return EMPTY_SENTINEL;
   try {
-    // eslint-disable-next-line no-new-func
+     
     const fn = new Function('value', 'row', `return (${expr});`);
     const out = fn(ctx.value, ctx.row);
     const str = out == null ? '' : String(out);

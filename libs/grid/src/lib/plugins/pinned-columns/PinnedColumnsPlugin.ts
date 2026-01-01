@@ -4,7 +4,7 @@
  * Enables column pinning (sticky left/right positioning).
  */
 
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, PLUGIN_QUERIES, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
   applyStickyOffsets,
@@ -85,6 +85,31 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       applyStickyOffsets(host, columns);
     });
   }
+
+  /**
+   * Handle inter-plugin queries.
+   */
+  override onPluginQuery(query: PluginQuery): unknown {
+    switch (query.type) {
+      case PLUGIN_QUERIES.CAN_MOVE_COLUMN: {
+        // Prevent pinned columns from being moved/reordered.
+        // Pinned columns have fixed positions and should not be draggable.
+        const column = query.context as ColumnConfig;
+        const sticky = (column as ColumnConfig & { sticky?: 'left' | 'right' }).sticky;
+        if (sticky === 'left' || sticky === 'right') {
+          return false;
+        }
+        // Also check meta.sticky for backwards compatibility
+        const metaSticky = (column.meta as { sticky?: 'left' | 'right' } | undefined)?.sticky;
+        if (metaSticky === 'left' || metaSticky === 'right') {
+          return false;
+        }
+        return undefined; // Let other plugins or default behavior decide
+      }
+      default:
+        return undefined;
+    }
+  }
   // #endregion
 
   // #region Public API
@@ -118,6 +143,54 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    */
   clearStickyPositions(): void {
     clearStickyOffsets(this.grid as unknown as HTMLElement);
+  }
+
+  /**
+   * Report horizontal scroll boundary offsets for pinned columns.
+   * Used by keyboard navigation to ensure focused cells aren't hidden behind sticky columns.
+   */
+  override getHorizontalScrollOffsets(
+    rowEl?: HTMLElement,
+    focusedCell?: HTMLElement,
+  ): { left: number; right: number; skipScroll?: boolean } | undefined {
+    if (!this.isApplied) {
+      return undefined;
+    }
+
+    let left = 0;
+    let right = 0;
+
+    if (rowEl) {
+      // Calculate from rendered cells in the row
+      const stickyLeftCells = rowEl.querySelectorAll('.sticky-left');
+      const stickyRightCells = rowEl.querySelectorAll('.sticky-right');
+      stickyLeftCells.forEach((el) => {
+        left += (el as HTMLElement).offsetWidth;
+      });
+      stickyRightCells.forEach((el) => {
+        right += (el as HTMLElement).offsetWidth;
+      });
+    } else {
+      // Fall back to header row if no row element provided
+      const host = this.grid as unknown as HTMLElement;
+      const shadowRoot = host.shadowRoot;
+      if (shadowRoot) {
+        const headerCells = shadowRoot.querySelectorAll('.header-row .cell');
+        headerCells.forEach((cell) => {
+          if (cell.classList.contains('sticky-left')) {
+            left += (cell as HTMLElement).offsetWidth;
+          } else if (cell.classList.contains('sticky-right')) {
+            right += (cell as HTMLElement).offsetWidth;
+          }
+        });
+      }
+    }
+
+    // Skip horizontal scrolling if focused cell is pinned (it's always visible)
+    const skipScroll =
+      focusedCell?.classList.contains('sticky-left') || focusedCell?.classList.contains('sticky-right');
+
+    return { left, right, skipScroll };
   }
   // #endregion
 }

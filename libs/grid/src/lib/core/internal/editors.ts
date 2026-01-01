@@ -16,7 +16,7 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
       return (ctx: EditorContext) => {
         const input = document.createElement('input');
         input.type = 'number';
-        input.value = ctx.value ?? '';
+        input.value = ctx.value != null ? String(ctx.value) : '';
         input.addEventListener('blur', () => ctx.commit(input.value === '' ? null : Number(input.value)));
         input.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') ctx.commit(input.value === '' ? null : Number(input.value));
@@ -86,7 +86,7 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
       return (ctx: EditorContext) => {
         const input = document.createElement('input');
         input.type = 'text';
-        input.value = ctx.value ?? '';
+        input.value = ctx.value != null ? String(ctx.value) : '';
         input.addEventListener('blur', () => ctx.commit(input.value));
         input.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') ctx.commit(input.value);

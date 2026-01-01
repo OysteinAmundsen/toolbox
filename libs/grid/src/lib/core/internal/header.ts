@@ -41,13 +41,6 @@ export function renderHeader(grid: InternalGrid): void {
     cell.setAttribute('data-field', col.field);
     cell.setAttribute('data-col', String(i)); // Add data-col for consistency with body cells
 
-    // Apply sticky class if column has sticky property
-    if ((col as any).sticky === 'left') {
-      cell.classList.add('sticky-left');
-    } else if ((col as any).sticky === 'right') {
-      cell.classList.add('sticky-right');
-    }
-
     // Column grouping styling is handled by the grouping-columns plugin via afterRender
     const maybeTpl = (col as any).__headerTemplate as HTMLElement | undefined;
     if (maybeTpl) Array.from(maybeTpl.childNodes).forEach((n) => cell.appendChild(n.cloneNode(true)));
@@ -88,10 +81,9 @@ export function renderHeader(grid: InternalGrid): void {
       });
     }
     if (col.resizable) {
-      // Only set position: relative if column is not sticky (sticky already creates positioning context)
-      if (!(col as any).sticky) {
-        cell.style.position = 'relative';
-      }
+      // Set position: relative for the resize handle positioning context
+      // Note: If a plugin applies position: sticky (e.g., PinnedColumnsPlugin), it will override this
+      cell.style.position = 'relative';
       const handle = document.createElement('div');
       handle.className = 'resize-handle';
       handle.setAttribute('aria-hidden', 'true');
@@ -104,19 +96,7 @@ export function renderHeader(grid: InternalGrid): void {
     }
     headerRow.appendChild(cell);
   });
-  // If a column grouping row exists (handled in component render), we also mirror grouped class onto header-group-row cells in a post-pass
-  try {
-    const hostRoot = (grid as any).shadowRoot as ShadowRoot | undefined;
-    if (hostRoot) {
-      const groupCells = hostRoot.querySelectorAll('.header-group-row .cell');
-      groupCells.forEach((gc) => {
-        const id = gc.getAttribute('data-group');
-        if (id) gc.classList.add('grouped');
-      });
-    }
-  } catch {
-    /* empty */
-  }
+
   // Ensure every sortable header has a baseline aria-sort if not already set during construction.
   headerRow.querySelectorAll('.cell.sortable').forEach((el) => {
     if (!el.getAttribute('aria-sort')) el.setAttribute('aria-sort', 'none');

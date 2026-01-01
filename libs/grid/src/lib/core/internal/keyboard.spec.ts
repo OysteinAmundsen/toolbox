@@ -233,7 +233,9 @@ describe('keyboard navigation', () => {
         virtualization: { enabled: false, start: 0, end: rows },
         bodyEl,
         shadowRoot,
-        refreshVirtualWindow: () => {},
+        refreshVirtualWindow: () => {
+          /* empty */
+        },
         getHorizontalScrollOffsets: () => ({ left: 100, right: 100, skipScroll: false }),
       };
       return { grid, scrollArea };

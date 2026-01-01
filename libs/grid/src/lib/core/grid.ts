@@ -4,7 +4,7 @@ import { autoSizeColumns, getColumnConfiguration, updateTemplate } from './inter
 import { exitRowEdit, inlineEnterEdit, startRowEdit } from './internal/editing';
 import { renderHeader } from './internal/header';
 import { inferColumns } from './internal/inference';
-import { handleGridKeyDown } from './internal/keyboard';
+import { ensureCellVisible, handleGridKeyDown } from './internal/keyboard';
 import { createResizeController } from './internal/resize';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
@@ -706,20 +706,27 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       requestAnimationFrame(() => this.refreshVirtualWindow(true));
     }
 
-    // Measure actual row height after first paint for accurate spacer sizing
-    requestAnimationFrame(() => {
-      const firstRow = this.bodyEl.querySelector('.data-grid-row');
-      if (firstRow) {
-        const h = (firstRow as HTMLElement).getBoundingClientRect().height;
-        if (h && Math.abs(h - this.virtualization.rowHeight) > 0.1) {
-          this.virtualization.rowHeight = h;
-          this.refreshVirtualWindow(true);
+    // Determine row height for virtualization:
+    // 1. User-configured rowHeight in gridConfig takes precedence
+    // 2. Otherwise, measure actual row height from DOM (respects CSS variable --tbw-row-height)
+    const userRowHeight = this.#effectiveConfig.rowHeight;
+    if (userRowHeight && userRowHeight > 0) {
+      this.virtualization.rowHeight = userRowHeight;
+    } else {
+      // Measure after first render to pick up CSS-defined row height
+      requestAnimationFrame(() => {
+        const firstRow = this.bodyEl?.querySelector('.data-grid-row');
+        if (firstRow) {
+          const measuredHeight = (firstRow as HTMLElement).getBoundingClientRect().height;
+          if (measuredHeight > 0) {
+            this.virtualization.rowHeight = measuredHeight;
+            this.refreshVirtualWindow(true);
+          }
         }
-      }
-    });
+      });
+    }
 
-    // ResizeObserver to refresh virtual window when viewport size changes
-    // This ensures more rows are rendered when the grid grows in height
+    // Resize observer to refresh virtualization and maintain focus when viewport size changes
     if (this.virtualization.viewportEl) {
       this.#resizeObserver = new ResizeObserver(() => {
         // Debounce with RAF to avoid excessive recalculations
@@ -727,6 +734,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           this.#scrollRaf = requestAnimationFrame(() => {
             this.#scrollRaf = 0;
             this.refreshVirtualWindow(true);
+
+            // Ensure focused cell remains visible after resize
+            // (viewport size may have changed, pushing the focused cell out of view)
+            ensureCellVisible(this as any);
           });
         }
       });
@@ -977,6 +988,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this.#fitMode) base.fitMode = this.#fitMode;
     if (!base.fitMode) base.fitMode = 'stretch';
     if (this.#editOn) base.editOn = this.#editOn;
+
+    // Apply rowHeight from config if specified
+    if (base.rowHeight && base.rowHeight > 0) {
+      this.virtualization.rowHeight = base.rowHeight;
+    }
 
     // Store columnState from gridConfig if not already set
     if (base.columnState && !this.#initialColumnState) {

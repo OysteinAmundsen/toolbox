@@ -720,9 +720,13 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       if (!cell.hasAttribute('tabindex')) cell.tabIndex = 0;
     }
 
-    // Initialize selection attributes (valid for gridcell)
-    if (focusRow === rowIndex && focusCol === colIndex) cell.setAttribute('aria-selected', 'true');
-    else cell.setAttribute('aria-selected', 'false');
+    // Initialize focus state (must match fastPatchRow for consistent behavior)
+    if (focusRow === rowIndex && focusCol === colIndex) {
+      cell.classList.add('cell-focus');
+      cell.setAttribute('aria-selected', 'true');
+    } else {
+      cell.setAttribute('aria-selected', 'false');
+    }
 
     fragment.appendChild(cell);
   }

@@ -353,6 +353,27 @@ export interface GridConfig<TRow = any> {
   /** Edit activation mode ('click' | 'dblclick'). Can also be set via `editOn` prop. */
   editOn?: string;
   /**
+   * Row height in pixels for virtualization calculations.
+   * The virtualization system assumes uniform row heights for performance.
+   *
+   * If not specified, the grid measures the first rendered row's height,
+   * which respects the CSS variable `--tbw-row-height` set by themes.
+   *
+   * Set this explicitly when:
+   * - Row content may wrap to multiple lines (also set `--tbw-cell-white-space: normal`)
+   * - Using custom row templates with variable content
+   * - You want to override theme-defined row height
+   *
+   * @default Auto-measured from first row (respects --tbw-row-height CSS variable)
+   *
+   * @example
+   * ```ts
+   * // Fixed height for rows that may wrap to 2 lines
+   * gridConfig = { rowHeight: 56 };
+   * ```
+   */
+  rowHeight?: number;
+  /**
    * Array of plugin instances.
    * Each plugin is instantiated with its configuration and attached to this grid.
    *

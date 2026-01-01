@@ -190,4 +190,99 @@ describe('keyboard navigation', () => {
     expect(activate).toBeTruthy();
     expect(activate.detail).toEqual({ row: 0, col: 0 });
   });
+
+  describe('Home/End scroll behavior', () => {
+    function makeGridWithScrollArea(rows = 5, cols = 10) {
+      // Create a grid with a mock scroll area element
+      const scrollArea = document.createElement('div');
+      scrollArea.className = 'tbw-scroll-area';
+      // Mock scroll dimensions
+      Object.defineProperty(scrollArea, 'scrollWidth', { value: 1000, configurable: true });
+      Object.defineProperty(scrollArea, 'clientWidth', { value: 500, configurable: true });
+      scrollArea.scrollLeft = 250; // Start in the middle
+
+      const shadowRoot = {
+        querySelector: (selector: string) => {
+          if (selector === '.tbw-scroll-area') return scrollArea;
+          return null;
+        },
+        querySelectorAll: () => [],
+      };
+
+      const bodyEl = document.createElement('div');
+      // Create mock rows with cells
+      for (let r = 0; r < rows; r++) {
+        const row = document.createElement('div');
+        row.className = 'data-grid-row';
+        for (let c = 0; c < cols; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          row.appendChild(cell);
+        }
+        bodyEl.appendChild(row);
+      }
+
+      const grid: any = {
+        _rows: Array.from({ length: rows }, (_, i) => ({ id: i })),
+        _columns: Array.from({ length: cols }, (_, i) => ({ field: 'c' + i })),
+        get visibleColumns() {
+          return this._columns;
+        },
+        focusRow: 0,
+        focusCol: 5, // Start in the middle column
+        virtualization: { enabled: false, start: 0, end: rows },
+        bodyEl,
+        shadowRoot,
+        refreshVirtualWindow: () => {},
+        getHorizontalScrollOffsets: () => ({ left: 100, right: 100, skipScroll: false }),
+      };
+      return { grid, scrollArea };
+    }
+
+    it('Home key scrolls to far left (scrollLeft = 0)', () => {
+      const { grid, scrollArea } = makeGridWithScrollArea();
+      scrollArea.scrollLeft = 500; // Start scrolled right
+      key(grid, 'Home');
+      expect(scrollArea.scrollLeft).toBe(0);
+    });
+
+    it('End key scrolls to far right (scrollLeft = scrollWidth - clientWidth)', () => {
+      const { grid, scrollArea } = makeGridWithScrollArea();
+      scrollArea.scrollLeft = 0; // Start scrolled left
+      key(grid, 'End');
+      expect(scrollArea.scrollLeft).toBe(500); // 1000 - 500
+    });
+
+    it('Home key scrolls left even when target cell is pinned (would normally skip scroll)', () => {
+      const { grid, scrollArea } = makeGridWithScrollArea();
+      // Make getHorizontalScrollOffsets return skipScroll: true (as if first column is pinned)
+      grid.getHorizontalScrollOffsets = () => ({ left: 100, right: 0, skipScroll: true });
+      scrollArea.scrollLeft = 500;
+      key(grid, 'Home');
+      // Should still scroll to 0 because Home forces scroll
+      expect(scrollArea.scrollLeft).toBe(0);
+    });
+
+    it('CTRL+Home scrolls to far left and navigates to first row', () => {
+      const { grid, scrollArea } = makeGridWithScrollArea();
+      grid.focusRow = 3;
+      grid.focusCol = 5;
+      scrollArea.scrollLeft = 500;
+      key(grid, 'Home', { ctrlKey: true });
+      expect(grid.focusRow).toBe(0);
+      expect(grid.focusCol).toBe(0);
+      expect(scrollArea.scrollLeft).toBe(0);
+    });
+
+    it('CTRL+End scrolls to far right and navigates to last row', () => {
+      const { grid, scrollArea } = makeGridWithScrollArea();
+      grid.focusRow = 0;
+      grid.focusCol = 0;
+      scrollArea.scrollLeft = 0;
+      key(grid, 'End', { ctrlKey: true });
+      expect(grid.focusRow).toBe(4); // 5 rows, last is index 4
+      expect(grid.focusCol).toBe(9); // 10 cols, last is index 9
+      expect(scrollArea.scrollLeft).toBe(500); // 1000 - 500
+    });
+  });
 });

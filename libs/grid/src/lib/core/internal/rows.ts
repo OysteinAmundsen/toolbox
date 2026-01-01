@@ -502,14 +502,6 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     const isCheckbox = col.type === 'boolean';
     if (col.type) cell.setAttribute('data-type', col.type as any);
 
-    // Apply sticky class if column has sticky property
-    const sticky = (col as any).sticky;
-    if (sticky === 'left') {
-      cell.classList.add('sticky-left');
-    } else if (sticky === 'right') {
-      cell.classList.add('sticky-right');
-    }
-
     let value = (rowData as any)[col.field];
     const format = (col as any).format;
     if (format) {

@@ -12,10 +12,9 @@ import type {
   CellEditor,
   CellMouseEvent,
   CellRenderer,
-  ContextMenuItem,
-  ContextMenuParams,
   HeaderClickEvent,
   HeaderRenderer,
+  PluginQuery,
   RowClickEvent,
   ScrollEvent,
 } from './base-plugin';
@@ -268,6 +267,26 @@ export class PluginManager {
   }
 
   /**
+   * Query all plugins with a generic query and collect responses.
+   * This enables inter-plugin communication without the core knowing plugin-specific concepts.
+   *
+   * Common query types are defined in PLUGIN_QUERIES, but plugins can define their own.
+   *
+   * @param query - The query object containing type and context
+   * @returns Array of non-undefined responses from plugins
+   */
+  queryPlugins<T>(query: PluginQuery): T[] {
+    const responses: T[] = [];
+    for (const plugin of this.plugins) {
+      const response = plugin.onPluginQuery?.(query);
+      if (response !== undefined) {
+        responses.push(response as T);
+      }
+    }
+    return responses;
+  }
+
+  /**
    * Execute onKeyDown hook on all plugins.
    * Returns true if any plugin handled the event.
    */
@@ -367,18 +386,36 @@ export class PluginManager {
     return false;
   }
 
+  // #endregion
+
+  // #region Scroll Boundary Hooks
+
   /**
-   * Collect context menu items from all plugins.
+   * Collect horizontal scroll boundary offsets from all plugins.
+   * Combines offsets from all plugins that report them.
+   *
+   * @param rowEl - The row element (optional, for calculating widths from rendered cells)
+   * @param focusedCell - The currently focused cell element (optional, to determine if scrolling should be skipped)
+   * @returns Combined left and right pixel offsets, plus skipScroll if any plugin requests it
    */
-  getContextMenuItems(params: ContextMenuParams): ContextMenuItem[] {
-    const items: ContextMenuItem[] = [];
+  getHorizontalScrollOffsets(
+    rowEl?: HTMLElement,
+    focusedCell?: HTMLElement,
+  ): { left: number; right: number; skipScroll?: boolean } {
+    let left = 0;
+    let right = 0;
+    let skipScroll = false;
     for (const plugin of this.plugins) {
-      const pluginItems = plugin.getContextMenuItems?.(params);
-      if (pluginItems) {
-        items.push(...pluginItems);
+      const offsets = plugin.getHorizontalScrollOffsets?.(rowEl, focusedCell);
+      if (offsets) {
+        left += offsets.left;
+        right += offsets.right;
+        if (offsets.skipScroll) {
+          skipScroll = true;
+        }
       }
     }
-    return items;
+    return { left, right, skipScroll };
   }
   // #endregion
 

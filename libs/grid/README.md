@@ -423,6 +423,52 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
 }
 ```
 
+### Inter-Plugin Communication
+
+Plugins can communicate with each other using the generic query system. This allows plugins to expose capabilities or constraints without the core knowing about specific plugin concepts.
+
+**Responding to queries (in your plugin):**
+
+```typescript
+import { BaseGridPlugin, PLUGIN_QUERIES, PluginQuery } from '@toolbox-web/grid';
+
+export class MyPlugin extends BaseGridPlugin<MyConfig> {
+  override onPluginQuery(query: PluginQuery): unknown {
+    switch (query.type) {
+      case PLUGIN_QUERIES.CAN_MOVE_COLUMN:
+        // Veto column movement for locked columns
+        const column = query.context as ColumnConfig;
+        if (this.isLocked(column)) return false;
+        return undefined; // Let other plugins decide
+      default:
+        return undefined;
+    }
+  }
+}
+```
+
+**Querying other plugins:**
+
+```typescript
+import { PLUGIN_QUERIES } from '@toolbox-web/grid';
+
+// In your plugin or application code
+const responses = grid.queryPlugins<boolean>({
+  type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
+  context: column,
+});
+const canMove = !responses.includes(false);
+```
+
+**Built-in query types:**
+
+| Query Type               | Context             | Response            | Description                     |
+| ------------------------ | ------------------- | ------------------- | ------------------------------- |
+| `CAN_MOVE_COLUMN`        | `ColumnConfig`      | `boolean`           | Can the column be reordered?    |
+| `GET_CONTEXT_MENU_ITEMS` | `ContextMenuParams` | `ContextMenuItem[]` | Get menu items for context menu |
+
+Plugins can also define custom query types for their own inter-plugin communication.
+
 ### Accessing Plugin Instances
 
 Use `grid.getPlugin()` to get a plugin instance for inter-plugin communication or API access:

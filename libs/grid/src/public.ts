@@ -99,9 +99,9 @@ export type {
   ShellConfig,
   ShellHeaderConfig,
   SortChangeDetail,
-  ToolbarButtonConfig,
   ToolPanelConfig,
   ToolPanelDefinition,
+  ToolbarButtonConfig,
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
@@ -143,9 +143,10 @@ export type { EditAction } from './lib/plugins/undo-redo/types';
 export type { GroupingRowsConfig } from './lib/plugins/grouping-rows/types';
 
 // Plugin base class - for creating custom plugins
-export { BaseGridPlugin } from './lib/core/plugin';
+export { BaseGridPlugin, PLUGIN_QUERIES } from './lib/core/plugin';
+export type { PluginQuery } from './lib/core/plugin';
 
 // DOM constants - for querying grid elements and styling
-export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';
-export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constants';
+export { GridCSSVars, GridClasses, GridDataAttrs, GridSelectors } from './lib/core/constants';
+export type { GridCSSVar, GridClassName, GridDataAttr } from './lib/core/constants';
 // #endregion

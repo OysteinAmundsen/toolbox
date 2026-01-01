@@ -42,15 +42,8 @@ describe('column-drag', () => {
       expect(canMoveColumn(column)).toBe(true);
     });
 
-    it('should return false for a column with sticky: left', () => {
-      const column: ColumnConfig = { field: 'id', sticky: 'left' };
-      expect(canMoveColumn(column)).toBe(false);
-    });
-
-    it('should return false for a column with sticky: right', () => {
-      const column: ColumnConfig = { field: 'actions', sticky: 'right' };
-      expect(canMoveColumn(column)).toBe(false);
-    });
+    // Note: sticky column checks are handled by PinnedColumnsPlugin via the onPluginQuery hook
+    // and tested in pinned-columns.spec.ts
   });
 
   describe('moveColumn', () => {

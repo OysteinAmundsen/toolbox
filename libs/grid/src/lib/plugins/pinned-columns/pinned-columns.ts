@@ -60,7 +60,7 @@ export function getColumnStickyPosition(column: any): StickyPosition | null {
  */
 export function calculateLeftStickyOffsets(
   columns: any[],
-  getColumnWidth: (field: string) => number
+  getColumnWidth: (field: string) => number,
 ): Map<string, number> {
   const offsets = new Map<string, number>();
   let currentOffset = 0;
@@ -85,7 +85,7 @@ export function calculateLeftStickyOffsets(
  */
 export function calculateRightStickyOffsets(
   columns: any[],
-  getColumnWidth: (field: string) => number
+  getColumnWidth: (field: string) => number,
 ): Map<string, number> {
   const offsets = new Map<string, number>();
   let currentOffset = 0;
@@ -130,11 +130,13 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
         cell.classList.add('sticky-left');
+        cell.style.position = 'sticky';
         cell.style.left = left + 'px';
         // Body cells use data-col (column index), not data-field
         if (colIndex !== undefined) {
           shadowRoot.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
             el.classList.add('sticky-left');
+            (el as HTMLElement).style.position = 'sticky';
             (el as HTMLElement).style.left = left + 'px';
           });
         }
@@ -151,11 +153,13 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
         cell.classList.add('sticky-right');
+        cell.style.position = 'sticky';
         cell.style.right = right + 'px';
         // Body cells use data-col (column index), not data-field
         if (colIndex !== undefined) {
           shadowRoot.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
             el.classList.add('sticky-right');
+            (el as HTMLElement).style.position = 'sticky';
             (el as HTMLElement).style.right = right + 'px';
           });
         }
@@ -177,6 +181,7 @@ export function clearStickyOffsets(host: HTMLElement): void {
   const cells = shadowRoot.querySelectorAll('.sticky-left, .sticky-right');
   cells.forEach((cell) => {
     cell.classList.remove('sticky-left', 'sticky-right');
+    (cell as HTMLElement).style.position = '';
     (cell as HTMLElement).style.left = '';
     (cell as HTMLElement).style.right = '';
   });

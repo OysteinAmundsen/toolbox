@@ -23,7 +23,7 @@ import {
   type ShellState,
 } from './internal/shell';
 import type { CellMouseEvent, ScrollEvent } from './plugin';
-import type { BaseGridPlugin, CellClickEvent, HeaderClickEvent } from './plugin/base-plugin';
+import type { BaseGridPlugin, CellClickEvent, HeaderClickEvent, PluginQuery } from './plugin/base-plugin';
 import { PluginManager } from './plugin/plugin-manager';
 import type {
   ActivateCellDetail,
@@ -1168,6 +1168,31 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Get horizontal scroll boundary offsets from plugins.
+   * Used by keyboard navigation to ensure focused cells are fully visible
+   * when plugins like pinned columns obscure part of the scroll area.
+   */
+  getHorizontalScrollOffsets(
+    rowEl?: HTMLElement,
+    focusedCell?: HTMLElement,
+  ): { left: number; right: number; skipScroll?: boolean } {
+    return this.#pluginManager?.getHorizontalScrollOffsets(rowEl, focusedCell) ?? { left: 0, right: 0 };
+  }
+
+  /**
+   * Query all plugins with a generic query and collect responses.
+   * This enables inter-plugin communication without the core knowing plugin-specific concepts.
+   *
+   * @example
+   * // Check if any plugin vetoes moving a column
+   * const responses = grid.queryPlugins<boolean>({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column });
+   * const canMove = !responses.includes(false);
+   */
+  queryPlugins<T>(query: PluginQuery): T[] {
+    return this.#pluginManager?.queryPlugins<T>(query) ?? [];
+  }
+
+  /**
    * Build a CellMouseEvent from a native MouseEvent.
    * Extracts cell/row information from the event target.
    */
@@ -1748,7 +1773,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.bodyEl.style.transform = 'translateY(0px)';
       this.#renderVisibleRows(0, totalRows, this.__rowRenderEpoch);
       if (this.virtualization.totalHeightEl) {
-        this.virtualization.totalHeightEl.style.height = `${totalRows * this.virtualization.rowHeight}px`;
+        // Account for horizontal scrollbar height even in bypass mode
+        const scrollAreaEl = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;
+        const hScrollbarHeight = scrollAreaEl ? scrollAreaEl.offsetHeight - scrollAreaEl.clientHeight : 0;
+        this.virtualization.totalHeightEl.style.height = `${totalRows * this.virtualization.rowHeight + hScrollbarHeight}px`;
       }
       // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
       const innerGrid = this.#shadow.querySelector('.rows-body');
@@ -1821,9 +1849,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Add extra height from plugins (e.g., expanded master-detail rows)
     // This ensures the scrollbar range accounts for all content including expanded details
     const pluginExtraHeight = this.#pluginManager?.getExtraHeight() ?? 0;
+    // Add horizontal scrollbar height: when horizontal scrollbar is visible in .tbw-scroll-area,
+    // it takes space at the bottom that the faux vertical scrollbar doesn't account for.
+    // Detect by comparing offsetHeight (includes scrollbar) vs clientHeight (excludes scrollbar).
+    const scrollAreaEl = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;
+    const hScrollbarHeight = scrollAreaEl ? scrollAreaEl.offsetHeight - scrollAreaEl.clientHeight : 0;
     if (this.virtualization.totalHeightEl) {
       this.virtualization.totalHeightEl.style.height = `${
-        totalRows * rowHeight + rowHeight + footerHeight + pluginExtraHeight
+        totalRows * rowHeight + rowHeight + footerHeight + pluginExtraHeight + hScrollbarHeight
       }px`;
     }
 

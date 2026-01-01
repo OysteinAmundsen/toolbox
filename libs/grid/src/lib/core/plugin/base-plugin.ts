@@ -146,7 +146,7 @@ export interface ContextMenuParams {
 }
 
 /**
- * Context menu item
+ * Context menu item (used by context-menu plugin query)
  */
 export interface ContextMenuItem {
   id: string;
@@ -157,6 +157,29 @@ export interface ContextMenuItem {
   children?: ContextMenuItem[];
   action?: (params: ContextMenuParams) => void;
 }
+
+/**
+ * Generic plugin query for inter-plugin communication.
+ * Plugins can define their own query types as string constants
+ * and respond to queries from other plugins.
+ */
+export interface PluginQuery<T = unknown> {
+  /** Query type identifier (e.g., 'canMoveColumn', 'getContextMenuItems') */
+  type: string;
+  /** Query-specific context/parameters */
+  context: T;
+}
+
+/**
+ * Well-known plugin query types.
+ * Plugins can define additional query types beyond these.
+ */
+export const PLUGIN_QUERIES = {
+  /** Ask if a column can be moved. Context: ColumnConfig. Response: boolean | undefined */
+  CAN_MOVE_COLUMN: 'canMoveColumn',
+  /** Get context menu items. Context: ContextMenuParams. Response: ContextMenuItem[] */
+  GET_CONTEXT_MENU_ITEMS: 'getContextMenuItems',
+} as const;
 
 /**
  * Cell render context for plugin cell renderers.
@@ -602,6 +625,38 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
 
   // #endregion
 
+  // #region Inter-Plugin Communication
+
+  /**
+   * Handle queries from other plugins.
+   * This is the generic mechanism for inter-plugin communication.
+   * Plugins can respond to well-known query types or define their own.
+   *
+   * @param query - The query object with type and context
+   * @returns Query-specific response, or undefined if not handling this query
+   *
+   * @example
+   * ```ts
+   * onPluginQuery(query: PluginQuery): unknown {
+   *   switch (query.type) {
+   *     case PLUGIN_QUERIES.CAN_MOVE_COLUMN:
+   *       // Prevent moving pinned columns
+   *       const column = query.context as ColumnConfig;
+   *       if (column.sticky === 'left' || column.sticky === 'right') {
+   *         return false;
+   *       }
+   *       break;
+   *     case PLUGIN_QUERIES.GET_CONTEXT_MENU_ITEMS:
+   *       const params = query.context as ContextMenuParams;
+   *       return [{ id: 'my-action', label: 'My Action', action: () => {} }];
+   *   }
+   * }
+   * ```
+   */
+  onPluginQuery?(query: PluginQuery): unknown;
+
+  // #endregion
+
   // #region Interaction Hooks
 
   /**
@@ -755,29 +810,8 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    */
   onCellMouseUp?(event: CellMouseEvent): boolean | void;
 
-  /**
-   * Provide context menu items when right-clicking on the grid.
-   * Multiple plugins can contribute items; they are merged into a single menu.
-   *
-   * @param params - Context about where the menu was triggered (row, column, etc.)
-   * @returns Array of menu items to display
-   *
-   * @example
-   * ```ts
-   * getContextMenuItems(params: ContextMenuParams): ContextMenuItem[] {
-   *   if (params.isHeader) {
-   *     return [
-   *       { id: 'sort-asc', label: 'Sort Ascending', action: () => this.sortAsc(params.field) },
-   *       { id: 'sort-desc', label: 'Sort Descending', action: () => this.sortDesc(params.field) },
-   *     ];
-   *   }
-   *   return [
-   *     { id: 'copy', label: 'Copy Cell', action: () => this.copyCell(params) },
-   *   ];
-   * }
-   * ```
-   */
-  getContextMenuItems?(params: ContextMenuParams): ContextMenuItem[];
+  // Note: Context menu items are now provided via onPluginQuery with PLUGIN_QUERIES.GET_CONTEXT_MENU_ITEMS
+  // This keeps the core decoupled from the context-menu plugin specifics.
 
   // #endregion
 
@@ -826,6 +860,38 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   applyColumnState?(field: string, state: ColumnState): void;
+
+  // #endregion
+
+  // #region Scroll Boundary Hooks
+
+  /**
+   * Report horizontal scroll boundary offsets for this plugin.
+   * Plugins that obscure part of the scroll area (e.g., pinned/sticky columns)
+   * should return how much space they occupy on each side.
+   * The keyboard navigation uses this to ensure focused cells are fully visible.
+   *
+   * @param rowEl - The row element (optional, for calculating widths from rendered cells)
+   * @param focusedCell - The currently focused cell element (optional, to determine if scrolling should be skipped)
+   * @returns Object with left/right pixel offsets and optional skipScroll flag, or undefined if plugin has no offsets
+   *
+   * @example
+   * ```ts
+   * getHorizontalScrollOffsets(rowEl?: HTMLElement, focusedCell?: HTMLElement): { left: number; right: number; skipScroll?: boolean } | undefined {
+   *   // Calculate total width of left-pinned columns
+   *   const leftCells = rowEl?.querySelectorAll('.sticky-left') ?? [];
+   *   let left = 0;
+   *   leftCells.forEach(el => { left += (el as HTMLElement).offsetWidth; });
+   *   // Skip scroll if focused cell is pinned (always visible)
+   *   const skipScroll = focusedCell?.classList.contains('sticky-left');
+   *   return { left, right: 0, skipScroll };
+   * }
+   * ```
+   */
+  getHorizontalScrollOffsets?(
+    rowEl?: HTMLElement,
+    focusedCell?: HTMLElement,
+  ): { left: number; right: number; skipScroll?: boolean } | undefined;
 
   // #endregion
 

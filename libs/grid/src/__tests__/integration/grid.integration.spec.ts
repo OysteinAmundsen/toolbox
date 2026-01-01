@@ -3,6 +3,7 @@ import '../../lib/core/grid';
 // Import plugins used by integration tests
 import { GroupingColumnsPlugin } from '../../lib/plugins/grouping-columns';
 import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
+import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns';
 import { SelectionPlugin } from '../../lib/plugins/selection';
 
 function nextFrame() {
@@ -271,7 +272,7 @@ describe('tbw-grid integration: column grouping / sticky', () => {
       { id: 3, name: 'Gamma', status: 'closed', amount: 7 },
     ];
     grid.gridConfig = {
-      plugins: [new GroupingColumnsPlugin()],
+      plugins: [new GroupingColumnsPlugin(), new PinnedColumnsPlugin()],
     };
     await waitUpgrade(grid);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

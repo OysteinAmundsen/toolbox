@@ -3,6 +3,13 @@
  *
  * Centralized constants for CSS classes, data attributes, and selectors
  * used throughout the grid. Use these instead of magic strings.
+ *
+ * Note: Some constants here are used by plugins but defined in core because:
+ * 1. The core CSS needs to style these elements (e.g., sticky positioning)
+ * 2. Multiple plugins may share the same class names
+ *
+ * Plugins can define their own additional constants and export them.
+ * See each plugin's index.ts for plugin-specific exports.
  */
 
 // #region CSS Classes
@@ -10,9 +17,13 @@
 /**
  * CSS class names used in the grid's shadow DOM.
  * Use these when adding/removing classes or querying elements.
+ *
+ * Classes are organized by:
+ * - Core: Used by the grid core for structure and basic functionality
+ * - Shared: Used by multiple features/plugins, styled by core CSS
  */
 export const GridClasses = {
-  // Root structure
+  // ─── Core Structure ───────────────────────────────────────────────
   ROOT: 'tbw-grid-root',
   HEADER: 'header',
   HEADER_ROW: 'header-row',
@@ -30,7 +41,7 @@ export const GridClasses = {
   // Cell elements
   DATA_CELL: 'data-cell',
 
-  // States
+  // ─── Core States ──────────────────────────────────────────────────
   SELECTED: 'selected',
   FOCUSED: 'focused',
   EDITING: 'editing',
@@ -39,7 +50,7 @@ export const GridClasses = {
   DRAGGING: 'dragging',
   RESIZING: 'resizing',
 
-  // Sorting
+  // Sorting (core feature)
   SORTABLE: 'sortable',
   SORTED_ASC: 'sorted-asc',
   SORTED_DESC: 'sorted-desc',
@@ -47,24 +58,28 @@ export const GridClasses = {
   // Visibility
   HIDDEN: 'hidden',
 
-  // Sticky/pinned
+  // ─── Shared Classes (used by plugins, styled by core CSS) ────────
+  // These are defined here because core CSS provides the base styling.
+  // Plugins apply these classes; core CSS defines how they look.
+
+  // Sticky positioning (PinnedColumnsPlugin applies, core CSS styles)
   STICKY_LEFT: 'sticky-left',
   STICKY_RIGHT: 'sticky-right',
 
-  // Special rows
+  // Pinned rows (PinnedRowsPlugin applies, core CSS styles)
   PINNED_TOP: 'pinned-top',
   PINNED_BOTTOM: 'pinned-bottom',
 
-  // Tree
+  // Tree structure (TreePlugin applies, core CSS styles)
   TREE_TOGGLE: 'tree-toggle',
   TREE_INDENT: 'tree-indent',
 
-  // Grouping
+  // Grouping (GroupingRowsPlugin applies, core CSS styles)
   GROUP_TOGGLE: 'group-toggle',
   GROUP_LABEL: 'group-label',
   GROUP_COUNT: 'group-count',
 
-  // Selection
+  // Selection (SelectionPlugin applies, core CSS styles)
   RANGE_SELECTION: 'range-selection',
   SELECTION_OVERLAY: 'selection-overlay',
 } as const;
@@ -78,12 +93,15 @@ export const GridClasses = {
  * Use these when getting/setting data attributes.
  */
 export const GridDataAttrs = {
+  // ─── Core Attributes ──────────────────────────────────────────────
   ROW_INDEX: 'data-row-index',
   COL_INDEX: 'data-col-index',
   FIELD: 'data-field',
-  GROUP_KEY: 'data-group-key',
-  TREE_LEVEL: 'data-tree-level',
-  STICKY: 'data-sticky',
+
+  // ─── Shared Attributes (used by plugins) ──────────────────────────
+  GROUP_KEY: 'data-group-key', // GroupingRowsPlugin
+  TREE_LEVEL: 'data-tree-level', // TreePlugin
+  STICKY: 'data-sticky', // PinnedColumnsPlugin
 } as const;
 
 // #endregion

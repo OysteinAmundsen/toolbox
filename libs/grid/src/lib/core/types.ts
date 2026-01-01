@@ -1,3 +1,5 @@
+import type { PluginQuery } from './plugin/base-plugin';
+
 /**
  * The compiled webcomponent interface for DataGrid
  */
@@ -83,6 +85,13 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   dispatchHeaderClick?: (event: MouseEvent, colIndex: number, headerEl: HTMLElement) => boolean;
   /** Dispatch keydown to plugin system, returns true if handled */
   dispatchKeyDown?: (event: KeyboardEvent) => boolean;
+  /** Get horizontal scroll boundary offsets from plugins (e.g., pinned columns) */
+  getHorizontalScrollOffsets?: (
+    rowEl?: HTMLElement,
+    focusedCell?: HTMLElement,
+  ) => { left: number; right: number; skipScroll?: boolean };
+  /** Query all plugins with a generic query and collect responses */
+  queryPlugins?: <T>(query: PluginQuery) => T[];
   /** Request emission of column-state-change event (debounced) */
   requestStateChange?: () => void;
 }

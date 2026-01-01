@@ -7,28 +7,19 @@
 import type { ColumnConfig } from '../../core/types';
 
 /**
- * Check if a column can be moved.
- * Respects lockPosition, suppressMovable, and sticky properties.
- * Sticky (pinned) columns cannot be reordered as they have fixed positions.
+ * Check if a column can be moved based on its own metadata.
+ * This checks column-level properties like lockPosition and suppressMovable.
+ *
+ * Note: For full movability checks including plugin constraints (e.g., pinned columns),
+ * use `grid.queryPlugins({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column })`
+ * which queries all plugins via the generic plugin query system.
  *
  * @param column - The column configuration to check
- * @returns True if the column can be moved
+ * @returns True if the column can be moved based on its metadata
  */
 export function canMoveColumn<TRow = unknown>(column: ColumnConfig<TRow>): boolean {
-  // Check sticky directly on column config (primary location)
-  const sticky = (column as ColumnConfig<TRow> & { sticky?: 'left' | 'right' }).sticky;
-  if (sticky === 'left' || sticky === 'right') {
-    return false;
-  }
-
-  // Also check meta.sticky for backwards compatibility
-  const meta = column.meta ?? {};
-  const metaSticky = (meta as { sticky?: 'left' | 'right' }).sticky;
-  if (metaSticky === 'left' || metaSticky === 'right') {
-    return false;
-  }
-
   // Check for lockPosition or suppressMovable properties in the column config
+  const meta = column.meta ?? {};
   return meta.lockPosition !== true && meta.suppressMovable !== true;
 }
 

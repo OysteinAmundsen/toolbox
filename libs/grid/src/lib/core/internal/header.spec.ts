@@ -220,30 +220,17 @@ describe('renderHeader', () => {
       expect(cell.style.position).toBe('relative');
     });
 
-    it('does not override position on sticky resizable cells', () => {
+    it('sets position relative on all resizable cells (plugin overrides for sticky)', () => {
+      // Core always sets position: relative for resize handle positioning
+      // PinnedColumnsPlugin will override to position: sticky when it applies offsets
       const g = makeGrid({ columns: [{ field: 'name', resizable: true, sticky: 'left' }] });
       renderHeader(g);
       const cell = g.headerRowEl.querySelector('.cell') as HTMLElement;
-      // sticky cells should not have position: relative forced
-      expect(cell.style.position).not.toBe('relative');
+      expect(cell.style.position).toBe('relative');
     });
   });
 
-  describe('sticky columns', () => {
-    it('adds sticky-left class for left sticky columns', () => {
-      const g = makeGrid({ columns: [{ field: 'id', sticky: 'left' }] });
-      renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell');
-      expect(cell.classList.contains('sticky-left')).toBe(true);
-    });
-
-    it('adds sticky-right class for right sticky columns', () => {
-      const g = makeGrid({ columns: [{ field: 'id', sticky: 'right' }] });
-      renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell');
-      expect(cell.classList.contains('sticky-right')).toBe(true);
-    });
-  });
+  // Note: sticky class application is handled by PinnedColumnsPlugin, tested in pinned-columns.spec.ts
 
   describe('header row attributes', () => {
     it('sets role=row on header row', () => {

@@ -48,7 +48,7 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
  */
 export function mergeColumns(
   programmatic: ColumnConfig[] | undefined,
-  dom: ColumnConfig[] | undefined
+  dom: ColumnConfig[] | undefined,
 ): ColumnInternal[] {
   if ((!programmatic || !programmatic.length) && (!dom || !dom.length)) return [];
   if (!programmatic || !programmatic.length) return (dom || []) as ColumnInternal[];
@@ -100,7 +100,7 @@ export function addPart(el: HTMLElement, token: string): void {
 export function getColumnConfiguration(grid: InternalGrid): void {
   if (!grid.__lightDomColumnsCache) {
     grid.__originalColumnNodes = Array.from(
-      (grid as unknown as HTMLElement).querySelectorAll('tbw-grid-column')
+      (grid as unknown as HTMLElement).querySelectorAll('tbw-grid-column'),
     ) as HTMLElement[];
     grid.__lightDomColumnsCache = grid.__originalColumnNodes.length
       ? parseLightDomColumns(grid as unknown as HTMLElement)
@@ -130,14 +130,14 @@ export function autoSizeColumns(grid: InternalGrid): void {
   if (mode !== FitModeEnum.STRETCH && mode !== FitModeEnum.FIXED) return;
   if (grid.__didInitialAutoSize) return;
   if (!(grid as unknown as HTMLElement).isConnected) return;
-  const headerCells = (grid.headerRowEl?.children || []) as any;
+  const headerCells = (grid._headerRowEl?.children || []) as any;
   if (!headerCells.length) return;
   let changed = false;
-  grid.visibleColumns.forEach((col: ColumnInternal, i: number) => {
+  grid._visibleColumns.forEach((col: ColumnInternal, i: number) => {
     if (col.width) return;
     const headerCell = headerCells[i] as HTMLElement | undefined;
     let max = headerCell ? headerCell.scrollWidth : 0;
-    for (const rowEl of grid.rowPool) {
+    for (const rowEl of grid._rowPool) {
       const cell = rowEl.children[i] as HTMLElement | undefined;
       if (cell) {
         const w = cell.scrollWidth;
@@ -169,7 +169,7 @@ export function updateTemplate(grid: InternalGrid): void {
   const mode = (grid as any).effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
 
   if (mode === FitModeEnum.STRETCH) {
-    grid.gridTemplate = grid.visibleColumns
+    grid._gridTemplate = grid._visibleColumns
       .map((c: ColumnInternal) => {
         if (c.width) return `${c.width}px`;
         // Flexible column: pure 1fr unless minWidth specified
@@ -180,9 +180,9 @@ export function updateTemplate(grid: InternalGrid): void {
       .trim();
   } else {
     // fixed mode: explicit pixel widths or max-content for content-based sizing
-    grid.gridTemplate = grid.visibleColumns
+    grid._gridTemplate = grid._visibleColumns
       .map((c: ColumnInternal) => (c.width ? `${c.width}px` : 'max-content'))
       .join(' ');
   }
-  ((grid as unknown as HTMLElement).style as any).setProperty('--tbw-column-template', grid.gridTemplate);
+  ((grid as unknown as HTMLElement).style as any).setProperty('--tbw-column-template', grid._gridTemplate);
 }

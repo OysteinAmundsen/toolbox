@@ -17,7 +17,7 @@ export function createResizeController(grid: InternalGrid): ResizeController {
     if (!resizeState) return;
     const delta = e.clientX - resizeState.startX;
     const width = Math.max(40, resizeState.startWidth + delta);
-    const col = grid.visibleColumns[resizeState.colIndex];
+    const col = grid._visibleColumns[resizeState.colIndex];
     col.width = width;
     col.__userResized = true;
     col.__renderedWidth = width;
@@ -28,7 +28,7 @@ export function createResizeController(grid: InternalGrid): ResizeController {
       });
     }
     (grid as unknown as HTMLElement).dispatchEvent(
-      new CustomEvent('column-resize', { detail: { field: col.field, width } })
+      new CustomEvent('column-resize', { detail: { field: col.field, width } }),
     );
   };
   let justFinishedResize = false;

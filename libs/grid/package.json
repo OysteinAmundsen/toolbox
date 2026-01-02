@@ -52,5 +52,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "customElements": "custom-elements.json"
+  "customElements": "../../dist/libs/grid/custom-elements.json"
 }

@@ -10,7 +10,7 @@ describe('resize controller', () => {
   it('updates column width & dispatches events', async () => {
     const grid: any = {
       _columns: [{ field: 'a', width: 100 }],
-      get visibleColumns() {
+      get _visibleColumns() {
         return this._columns.filter((c: any) => !c.hidden);
       },
       updateTemplate: vi.fn(),
@@ -32,7 +32,7 @@ describe('resize controller', () => {
   it('sets isResizing during drag and briefly after mouseup', async () => {
     const grid: any = {
       _columns: [{ field: 'a', width: 100 }],
-      get visibleColumns() {
+      get _visibleColumns() {
         return this._columns.filter((c: any) => !c.hidden);
       },
       updateTemplate: vi.fn(),

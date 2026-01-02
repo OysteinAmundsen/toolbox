@@ -19,10 +19,10 @@ function makeGrid(opts: Partial<any> = {}): InternalGrid {
       { field: 'name', width: 150 },
       { field: 'value', width: 80, __renderedWidth: 120 },
     ],
-    get visibleColumns() {
+    get _visibleColumns() {
       return this._columns.filter((c: any) => !c.hidden);
     },
-    sortState: opts.sortState || null,
+    _sortState: opts._sortState || null,
     dispatchEvent: (ev: any) => events.push(ev),
     __events: events,
   };
@@ -59,7 +59,7 @@ describe('collectColumnState', () => {
 
   it('includes sort state when present', () => {
     const grid = makeGrid({
-      sortState: { field: 'name', direction: 1 },
+      _sortState: { field: 'name', direction: 1 },
     });
     const plugins: BaseGridPlugin[] = [];
 
@@ -75,7 +75,7 @@ describe('collectColumnState', () => {
 
   it('includes descending sort state', () => {
     const grid = makeGrid({
-      sortState: { field: 'id', direction: -1 },
+      _sortState: { field: 'id', direction: -1 },
     });
     const plugins: BaseGridPlugin[] = [];
 
@@ -174,13 +174,13 @@ describe('applyColumnState', () => {
 
     applyColumnState(grid, state, allColumns, plugins);
 
-    expect(grid.sortState).toEqual({ field: 'name', direction: 1 });
+    expect(grid._sortState).toEqual({ field: 'name', direction: 1 });
   });
 
   it('clears sort state when no sort in state', () => {
     const grid = makeGrid({
       columns: [],
-      sortState: { field: 'id', direction: 1 },
+      _sortState: { field: 'id', direction: 1 },
     });
     const allColumns: ColumnInternal[] = [{ field: 'id' }];
     const state: GridColumnState = {
@@ -190,7 +190,7 @@ describe('applyColumnState', () => {
 
     applyColumnState(grid, state, allColumns, plugins);
 
-    expect(grid.sortState).toBeNull();
+    expect(grid._sortState).toBeNull();
   });
 
   it('calls plugin applyColumnState hooks', () => {

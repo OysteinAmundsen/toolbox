@@ -30,14 +30,14 @@ function makeGrid() {
       { field: 'active', type: 'boolean', editable: true },
       { field: 'date', type: 'date' },
     ],
-    get visibleColumns() {
+    get _visibleColumns() {
       return this._columns.filter((c: any) => !c.hidden);
     },
-    bodyEl,
-    rowPool: [],
+    _bodyEl: bodyEl,
+    _rowPool: [],
     _changedRowIndices: new Set<number>(),
-    rowEditSnapshots: new Map<number, any>(),
-    activeEditRows: -1,
+    _rowEditSnapshots: new Map<number, any>(),
+    _activeEditRows: -1,
     get changedRows() {
       return (Array.from(this._changedRowIndices) as number[]).map((i) => this._rows[i]);
     },
@@ -45,8 +45,8 @@ function makeGrid() {
       return Array.from(this._changedRowIndices) as number[];
     },
     findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-    focusRow: -1,
-    focusCol: -1,
+    _focusRow: -1,
+    _focusCol: -1,
     dispatchEvent: (ev: any) => {
       (grid.__events || (grid.__events = [])).push(ev);
     },
@@ -58,14 +58,14 @@ describe('renderVisibleRows', () => {
   it('creates row elements for visible range', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 2, 1);
-    const rows = g.bodyEl.querySelectorAll('.data-grid-row');
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
     expect(rows.length).toBe(2);
   });
 
   it('sets role=row on each row element', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 2, 1);
-    const rows = g.bodyEl.querySelectorAll('.data-grid-row');
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
     rows.forEach((row: Element) => {
       expect(row.getAttribute('role')).toBe('row');
     });
@@ -74,7 +74,7 @@ describe('renderVisibleRows', () => {
   it('renders cells for each column', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const row = g.bodyEl.querySelector('.data-grid-row')!;
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
     const cells = row.querySelectorAll('.cell');
     expect(cells.length).toBe(4);
   });
@@ -82,7 +82,7 @@ describe('renderVisibleRows', () => {
   it('formats boolean cells with checkbox glyphs', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 2, 1);
-    const rows = g.bodyEl.querySelectorAll('.data-grid-row');
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
     const activeCell0 = rows[0].querySelector('.cell[data-col="2"]') as HTMLElement;
     const activeCell1 = rows[1].querySelector('.cell[data-col="2"]') as HTMLElement;
     expect(activeCell0.textContent?.length).toBeGreaterThan(0);
@@ -92,7 +92,7 @@ describe('renderVisibleRows', () => {
   it('formats date cells', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 2, 1);
-    const rows = g.bodyEl.querySelectorAll('.data-grid-row');
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
     const dateCell0 = rows[0].querySelector('.cell[data-col="3"]') as HTMLElement;
     const dateCell1 = rows[1].querySelector('.cell[data-col="3"]') as HTMLElement;
     expect(dateCell0.textContent?.length).toBeGreaterThan(0);
@@ -102,11 +102,11 @@ describe('renderVisibleRows', () => {
   it('uses row pool for efficient DOM reuse', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 2, 1);
-    expect(g.rowPool.length).toBe(2);
-    const firstPool = [...g.rowPool];
+    expect(g._rowPool.length).toBe(2);
+    const firstPool = [...g._rowPool];
     renderVisibleRows(g, 0, 2, 1);
-    expect(g.rowPool[0]).toBe(firstPool[0]);
-    expect(g.rowPool[1]).toBe(firstPool[1]);
+    expect(g._rowPool[0]).toBe(firstPool[0]);
+    expect(g._rowPool[1]).toBe(firstPool[1]);
   });
 
   it('fast patch updates modified cell content', () => {
@@ -114,7 +114,7 @@ describe('renderVisibleRows', () => {
     renderVisibleRows(g, 0, 2, 1);
     g._rows[1].name = 'BetaX';
     renderVisibleRows(g, 0, 2, 1);
-    const secondRow = g.bodyEl.querySelectorAll('.data-grid-row')[1];
+    const secondRow = g._bodyEl.querySelectorAll('.data-grid-row')[1];
     const nameCell = secondRow.querySelector('.cell[data-col="1"]') as HTMLElement;
     expect(nameCell.textContent).toBe('BetaX');
   });
@@ -133,17 +133,17 @@ describe('renderVisibleRows', () => {
           },
         },
       ],
-      get visibleColumns() {
+      get _visibleColumns() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      bodyEl,
-      rowPool: [],
+      _bodyEl: bodyEl,
+      _rowPool: [],
       _changedRowIndices: new Set<number>(),
-      rowEditSnapshots: new Map<number, any>(),
-      activeEditRows: -1,
+      _rowEditSnapshots: new Map<number, any>(),
+      _activeEditRows: -1,
       findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-      focusRow: 0,
-      focusCol: 0,
+      _focusRow: 0,
+      _focusCol: 0,
       dispatchEvent: () => {
         /* noop */
       },
@@ -159,7 +159,7 @@ describe('renderVisibleRows', () => {
   it('boolean cell toggles via space keydown', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const boolCell = rowEl.querySelector('.cell[data-col="2"]') as HTMLElement;
     expect(g._rows[0].active).toBe(true);
     boolCell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
@@ -169,10 +169,10 @@ describe('renderVisibleRows', () => {
   it('shrinks row pool when fewer rows needed', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 2, 1);
-    expect(g.rowPool.length).toBe(2);
+    expect(g._rowPool.length).toBe(2);
     g._rows = [g._rows[0]];
     renderVisibleRows(g, 0, 1, 1);
-    expect(g.rowPool.length).toBe(1);
+    expect(g._rowPool.length).toBe(1);
   });
 });
 
@@ -182,21 +182,21 @@ describe('handleRowClick', () => {
     const grid: any = {
       _rows: [{ id: 1, a: 'A', b: 'B' }],
       _columns: [{ field: 'id' }, { field: 'a', editable: true }, { field: 'b', editable: true }],
-      get visibleColumns() {
+      get _visibleColumns() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      bodyEl,
-      rowPool: [],
+      _bodyEl: bodyEl,
+      _rowPool: [],
       _changedRowIndices: new Set<number>(),
-      rowEditSnapshots: new Map<number, any>(),
-      activeEditRows: -1,
-      focusRow: -1,
-      focusCol: -1,
+      _rowEditSnapshots: new Map<number, any>(),
+      _activeEditRows: -1,
+      _focusRow: -1,
+      _focusCol: -1,
       editOn: editOn === 'click' ? 'click' : 'doubleClick',
       refreshVirtualWindow: () => {
         /* noop */
       },
-      virtualization: { start: 0, end: 1, enabled: false },
+      _virtualization: { start: 0, end: 1, enabled: false },
       findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
       dispatchEvent: (ev: any) => (grid.__events || (grid.__events = [])).push(ev),
     };
@@ -206,49 +206,49 @@ describe('handleRowClick', () => {
 
   it('enters edit on single click in click mode', () => {
     const g = gridForClickMode('click');
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const targetCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
     const ev = new MouseEvent('click', { bubbles: true });
     Object.defineProperty(ev, 'target', { value: targetCell });
     handleRowClick(g, ev, rowEl, false);
-    expect(g.activeEditRows).toBe(0);
+    expect(g._activeEditRows).toBe(0);
     expect(targetCell.classList.contains('editing')).toBe(true);
   });
 
   it('sets focus row and column on click', () => {
     const g = gridForClickMode('click');
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const targetCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
     const ev = new MouseEvent('click', { bubbles: true });
     Object.defineProperty(ev, 'target', { value: targetCell });
     handleRowClick(g, ev, rowEl, false);
-    expect(g.focusRow).toBe(0);
-    expect(g.focusCol).toBe(1);
+    expect(g._focusRow).toBe(0);
+    expect(g._focusCol).toBe(1);
   });
 
   it('does not enter edit on single click in doubleClick mode', () => {
     const g = gridForClickMode('doubleClick');
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const targetCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
     const ev = new MouseEvent('click', { bubbles: true });
     Object.defineProperty(ev, 'target', { value: targetCell });
     handleRowClick(g, ev, rowEl, false);
-    expect(g.activeEditRows).toBe(-1);
+    expect(g._activeEditRows).toBe(-1);
   });
 
   it('enters edit on double click in doubleClick mode', () => {
     const g = gridForClickMode('doubleClick');
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const targetCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
     const ev = new MouseEvent('dblclick', { bubbles: true });
     Object.defineProperty(ev, 'target', { value: targetCell });
     handleRowClick(g, ev, rowEl, true);
-    expect(g.activeEditRows).toBe(0);
+    expect(g._activeEditRows).toBe(0);
   });
 
   it('clears existing editing cells on double click', () => {
     const g = gridForClickMode('doubleClick');
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     rowEl.querySelectorAll('.cell').forEach((c: any) => c.classList.add('editing'));
     const targetCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
     const ev = new MouseEvent('dblclick', { bubbles: true });
@@ -260,13 +260,13 @@ describe('handleRowClick', () => {
 
   it('starts row edit even when clicking non-cell row area', () => {
     const g = gridForClickMode('click');
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const ev = new MouseEvent('click', { bubbles: true });
     Object.defineProperty(ev, 'target', { value: rowEl });
     handleRowClick(g, ev, rowEl, false);
     // Row edit starts but no cell focus since we didn't click a cell
-    expect(g.activeEditRows).toBe(0);
-    expect(g.focusRow).toBe(-1);
-    expect(g.focusCol).toBe(-1);
+    expect(g._activeEditRows).toBe(0);
+    expect(g._focusRow).toBe(-1);
+    expect(g._focusCol).toBe(-1);
   });
 });

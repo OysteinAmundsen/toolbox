@@ -21,9 +21,9 @@ function isSafePropertyKey(key: any): boolean {
  * Snapshot original row data and mark the row as actively being edited.
  */
 export function startRowEdit(grid: InternalGrid, rowIndex: number, rowData: any): void {
-  if (grid.activeEditRows !== rowIndex) {
-    grid.rowEditSnapshots.set(rowIndex, { ...rowData });
-    grid.activeEditRows = rowIndex;
+  if (grid._activeEditRows !== rowIndex) {
+    grid._rowEditSnapshots.set(rowIndex, { ...rowData });
+    grid._activeEditRows = rowIndex;
   }
 }
 
@@ -32,8 +32,8 @@ export function startRowEdit(grid: InternalGrid, rowIndex: number, rowData: any)
  * Otherwise emit a row-commit event describing change status.
  */
 export function exitRowEdit(grid: InternalGrid, rowIndex: number, revert: boolean): void {
-  if (grid.activeEditRows !== rowIndex) return;
-  const snapshot = grid.rowEditSnapshots.get(rowIndex);
+  if (grid._activeEditRows !== rowIndex) return;
+  const snapshot = grid._rowEditSnapshots.get(rowIndex);
   const current = grid._rows[rowIndex];
 
   // Before re-rendering, collect and commit values from any active editors
@@ -44,7 +44,7 @@ export function exitRowEdit(grid: InternalGrid, rowIndex: number, revert: boolea
     editingCells.forEach((cell) => {
       const colIndex = Number((cell as HTMLElement).getAttribute('data-col'));
       if (isNaN(colIndex)) return;
-      const col = grid.visibleColumns[colIndex];
+      const col = grid._visibleColumns[colIndex];
       if (!col) return;
       const input = cell.querySelector('input,textarea,select') as
         | HTMLInputElement
@@ -89,8 +89,8 @@ export function exitRowEdit(grid: InternalGrid, rowIndex: number, revert: boolea
       }),
     );
   }
-  grid.rowEditSnapshots.delete(rowIndex);
-  grid.activeEditRows = -1;
+  grid._rowEditSnapshots.delete(rowIndex);
+  grid._activeEditRows = -1;
   if (rowEl) {
     renderInlineRow(grid, rowEl, grid._rows[rowIndex], rowIndex);
     if (grid._changedRowIndices.has(rowIndex)) rowEl.classList.add('changed');
@@ -99,12 +99,14 @@ export function exitRowEdit(grid: InternalGrid, rowIndex: number, revert: boolea
   // Restore focus to the cell after exiting edit mode (for both commit and revert)
   queueMicrotask(() => {
     try {
-      const rowIdx = grid.focusRow;
-      const colIdx = grid.focusCol;
+      const rowIdx = grid._focusRow;
+      const colIdx = grid._focusCol;
       const rowEl2 = grid.findRenderedRowElement?.(rowIdx);
       if (rowEl2) {
         // Clear all cell-focus markers
-        Array.from(grid.bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) => el.classList.remove('cell-focus'));
+        Array.from(grid._bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) =>
+          el.classList.remove('cell-focus'),
+        );
         // Find and focus the cell
         const cell = rowEl2.querySelector(`.cell[data-row="${rowIdx}"][data-col="${colIdx}"]`) as HTMLElement | null;
         if (cell) {
@@ -167,7 +169,7 @@ export function inlineEnterEdit(
   cell: HTMLElement,
 ): void {
   if (!column.editable) return;
-  if (grid.activeEditRows !== rowIndex) startRowEdit(grid, rowIndex, rowData);
+  if (grid._activeEditRows !== rowIndex) startRowEdit(grid, rowIndex, rowData);
   if (cell.classList.contains('editing')) return;
   const originalValue = isSafePropertyKey(column.field) ? rowData[column.field] : undefined;
   cell.classList.add('editing');
@@ -175,7 +177,7 @@ export function inlineEnterEdit(
   const commit = (newValue: any) => {
     // Skip if edit was already finalized by Enter/Escape, or if we've exited edit mode
     // (handles bulk edit case where one cell's exit removes all editors)
-    if (editFinalized || grid.activeEditRows === -1) return;
+    if (editFinalized || grid._activeEditRows === -1) return;
     commitCellValue(grid, rowIndex, column, newValue, rowData);
   };
   const cancel = () => {

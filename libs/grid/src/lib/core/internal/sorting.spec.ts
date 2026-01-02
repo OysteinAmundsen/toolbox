@@ -24,25 +24,25 @@ function makeGrid(opts: Partial<any> = {}) {
       { field: 'name', sortable: true },
       { field: 'value', sortable: true },
     ],
-    get visibleColumns() {
+    get _visibleColumns() {
       return this._columns.filter((c: any) => !c.hidden);
     },
-    headerRowEl: host.querySelector('.header-row') as HTMLElement,
-    bodyEl: host.querySelector('.rows') as HTMLElement,
-    rowPool: [],
-    sortState: opts.sortState || null,
+    _headerRowEl: host.querySelector('.header-row') as HTMLElement,
+    _bodyEl: host.querySelector('.rows') as HTMLElement,
+    _rowPool: [],
+    _sortState: opts._sortState || null,
     __originalOrder: opts.__originalOrder || null,
     __rowRenderEpoch: 0,
     findHeaderRow: function () {
-      return this.headerRowEl;
+      return this._headerRowEl;
     },
-    resizeController: {
+    _resizeController: {
       start: () => {
         /* empty */
       },
     },
     dispatchEvent: (ev: any) => events.push(ev),
-    dispatchHeaderClick: () => false,
+    _dispatchHeaderClick: () => false,
     refreshVirtualWindow: () => {
       /* empty */
     },
@@ -59,7 +59,7 @@ describe('toggleSort', () => {
     const g = makeGrid();
     const col = g._columns[0];
     toggleSort(g, col);
-    expect(g.sortState).toEqual({ field: 'id', direction: 1 });
+    expect(g._sortState).toEqual({ field: 'id', direction: 1 });
   });
 
   it('cycles to descending on second toggle', () => {
@@ -67,7 +67,7 @@ describe('toggleSort', () => {
     const col = g._columns[0];
     toggleSort(g, col);
     toggleSort(g, col);
-    expect(g.sortState).toEqual({ field: 'id', direction: -1 });
+    expect(g._sortState).toEqual({ field: 'id', direction: -1 });
   });
 
   it('clears sort on third toggle', () => {
@@ -76,7 +76,7 @@ describe('toggleSort', () => {
     toggleSort(g, col);
     toggleSort(g, col);
     toggleSort(g, col);
-    expect(g.sortState).toBeNull();
+    expect(g._sortState).toBeNull();
   });
 
   it('saves original order before first sort', () => {
@@ -112,7 +112,7 @@ describe('toggleSort', () => {
     const g = makeGrid();
     toggleSort(g, g._columns[0]); // id asc
     toggleSort(g, g._columns[1]); // name asc (new column)
-    expect(g.sortState).toEqual({ field: 'name', direction: 1 });
+    expect(g._sortState).toEqual({ field: 'name', direction: 1 });
   });
 
   it('increments __rowRenderEpoch on clear', () => {
@@ -197,7 +197,7 @@ describe('applySort', () => {
     const g = makeGrid();
     const row1 = document.createElement('div') as any;
     row1.__epoch = 5;
-    g.rowPool = [row1];
+    g._rowPool = [row1];
     applySort(g, g._columns[0], 1);
     expect(row1.__epoch).toBe(-1);
   });
@@ -205,6 +205,6 @@ describe('applySort', () => {
   it('sets sortState correctly', () => {
     const g = makeGrid();
     applySort(g, g._columns[1], -1);
-    expect(g.sortState).toEqual({ field: 'name', direction: -1 });
+    expect(g._sortState).toEqual({ field: 'name', direction: -1 });
   });
 });

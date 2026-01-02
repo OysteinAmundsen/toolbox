@@ -88,21 +88,21 @@ describe('column configuration', () => {
         { id: 2, name: 'B' },
       ],
       _columns: opts.columns || [{ field: 'id', sortable: true }, { field: 'name' }],
-      get visibleColumns() {
+      get _visibleColumns() {
         return this._columns.filter((c: any) => !c.hidden);
       },
       fitMode: opts.fitMode || FitModeEnum.STRETCH,
       __didInitialAutoSize: false,
-      headerRowEl: host.querySelector('.header-row') as HTMLElement,
-      bodyEl: host.querySelector('.rows') as HTMLElement,
-      rowPool: [],
+      _headerRowEl: host.querySelector('.header-row') as HTMLElement,
+      _bodyEl: host.querySelector('.rows') as HTMLElement,
+      _rowPool: [],
       findHeaderRow() {
-        return this.headerRowEl;
+        return this._headerRowEl;
       },
       refreshVirtualWindow: () => {
         /* empty */
       },
-      resizeController: {
+      _resizeController: {
         start: () => {
           /* empty */
         },
@@ -116,7 +116,7 @@ describe('column configuration', () => {
         },
       },
       virtualization: { enabled: false },
-      sortState: null,
+      _sortState: null,
       querySelectorAll: (__sel: string) => [],
       isConnected: true,
     };
@@ -131,23 +131,23 @@ describe('column configuration', () => {
     const g = makeGrid();
     getColumnConfiguration(g);
     updateTemplate(g);
-    expect(typeof g.gridTemplate).toBe('string');
+    expect(typeof g._gridTemplate).toBe('string');
     // Count occurrences of '1fr' to determine column count
-    const frCount = (g.gridTemplate.match(/1fr/g) || []).length;
+    const frCount = (g._gridTemplate.match(/1fr/g) || []).length;
     expect(frCount).toBe(g._columns.length);
   });
   it('updateTemplate uses minmax when minWidth specified', () => {
     const g = makeGrid({ columns: [{ field: 'a', minWidth: 100 }, { field: 'b' }] });
     getColumnConfiguration(g);
     updateTemplate(g);
-    expect(g.gridTemplate).toBe('minmax(100px, 1fr) 1fr');
+    expect(g._gridTemplate).toBe('minmax(100px, 1fr) 1fr');
   });
   it('autoSizeColumns sets width when fit=stretch and not previously sized', () => {
     const g = makeGrid({ fitMode: FitModeEnum.STRETCH });
     getColumnConfiguration(g);
     renderHeader(g);
-    g.rowPool = [document.createElement('div')] as any;
-    const row = g.rowPool[0];
+    g._rowPool = [document.createElement('div')] as any;
+    const row = g._rowPool[0];
     g._columns.forEach(() => {
       const cell = document.createElement('div');
       Object.defineProperty(cell, 'scrollWidth', { value: 50, configurable: true });
@@ -155,7 +155,7 @@ describe('column configuration', () => {
     });
     const headerCell = document.createElement('div');
     Object.defineProperty(headerCell, 'scrollWidth', { value: 40, configurable: true });
-    g.headerRowEl.appendChild(headerCell);
+    g._headerRowEl.appendChild(headerCell);
     autoSizeColumns(g);
     const sized = g._columns.filter((c: any) => c.width);
     expect(sized.length).toBeGreaterThan(0);

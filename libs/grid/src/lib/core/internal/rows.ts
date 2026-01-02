@@ -108,7 +108,7 @@ export function precomputeCellCache(
   endRow: number,
   epoch: number | undefined,
 ): void {
-  const columns = grid.visibleColumns;
+  const columns = grid._visibleColumns;
   const rows = grid._rows;
 
   for (let r = startRow; r < endRow && r < rows.length; r++) {
@@ -145,8 +145,8 @@ export function renderVisibleRows(
   renderRowHook?: RenderRowHook,
 ): void {
   const needed = Math.max(0, end - start);
-  const bodyEl = grid.bodyEl;
-  const columns = grid.visibleColumns;
+  const bodyEl = grid._bodyEl;
+  const columns = grid._visibleColumns;
   const colLen = columns.length;
 
   // Cache header row count once (check for group header row existence)
@@ -157,22 +157,22 @@ export function renderVisibleRows(
   }
 
   // Pool management: grow pool if needed
-  while (grid.rowPool.length < needed) {
+  while (grid._rowPool.length < needed) {
     const rowEl = document.createElement('div');
     rowEl.className = 'data-grid-row';
     rowEl.setAttribute('role', 'row');
     rowEl.addEventListener('click', (e) => handleRowClick(grid, e, rowEl, false));
     rowEl.addEventListener('dblclick', (e) => handleRowClick(grid, e, rowEl, true));
-    grid.rowPool.push(rowEl);
+    grid._rowPool.push(rowEl);
   }
 
   // Remove excess pool elements from DOM and shrink pool
-  if (grid.rowPool.length > needed) {
-    for (let i = needed; i < grid.rowPool.length; i++) {
-      const el = grid.rowPool[i];
+  if (grid._rowPool.length > needed) {
+    for (let i = needed; i < grid._rowPool.length; i++) {
+      const el = grid._rowPool[i];
       if (el.parentNode === bodyEl) el.remove();
     }
-    grid.rowPool.length = needed;
+    grid._rowPool.length = needed;
   }
 
   // Check if any plugin has a renderRow hook (cache this)
@@ -181,7 +181,7 @@ export function renderVisibleRows(
   for (let i = 0; i < needed; i++) {
     const rowIndex = start + i;
     const rowData = grid._rows[rowIndex];
-    const rowEl = grid.rowPool[i];
+    const rowEl = grid._rowPool[i];
 
     // Always set aria-rowindex (1-based, accounting for header rows)
     rowEl.setAttribute('aria-rowindex', String(rowIndex + headerRowCount + 1));
@@ -221,7 +221,7 @@ export function renderVisibleRows(
     if (!structureValid || needsExternalRebuild) {
       // Full rebuild needed - epoch changed, cell count mismatch, or external view missing
       const hasEditingCell = rowEl.querySelector('.cell.editing');
-      const isActivelyEditedRow = grid.activeEditRows === rowIndex;
+      const isActivelyEditedRow = grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
       // (This happens when virtualization recycles the DOM element for a different row)
@@ -253,7 +253,7 @@ export function renderVisibleRows(
         if (isActivelyEditedRow) {
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
-            const col = grid.visibleColumns[c];
+            const col = grid._visibleColumns[c];
             if (col && (col as any).editable) {
               inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement);
             }
@@ -263,7 +263,7 @@ export function renderVisibleRows(
     } else if (dataRefChanged) {
       // Same structure, different row data - fast update
       const hasEditingCell = rowEl.querySelector('.cell.editing');
-      const isActivelyEditedRow = grid.activeEditRows === rowIndex;
+      const isActivelyEditedRow = grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
       if (hasEditingCell && !isActivelyEditedRow) {
@@ -278,7 +278,7 @@ export function renderVisibleRows(
         if (isActivelyEditedRow && !hasEditingCell) {
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
-            const col = grid.visibleColumns[c];
+            const col = grid._visibleColumns[c];
             if (col && (col as any).editable) {
               inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement);
             }
@@ -288,7 +288,7 @@ export function renderVisibleRows(
     } else {
       // Same row data reference - just patch if any values changed
       const hasEditingCell = rowEl.querySelector('.cell.editing');
-      const isActivelyEditedRow = grid.activeEditRows === rowIndex;
+      const isActivelyEditedRow = grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
       if (hasEditingCell && !isActivelyEditedRow) {
@@ -302,7 +302,7 @@ export function renderVisibleRows(
         if (isActivelyEditedRow && !hasEditingCell) {
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
-            const col = grid.visibleColumns[c];
+            const col = grid._visibleColumns[c];
             if (col && (col as any).editable) {
               inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement);
             }
@@ -330,12 +330,12 @@ export function renderVisibleRows(
  */
 function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
   const children = rowEl.children;
-  const columns = grid.visibleColumns;
+  const columns = grid._visibleColumns;
   const colsLen = columns.length;
   const childLen = children.length;
   const minLen = colsLen < childLen ? colsLen : childLen;
-  const focusRow = grid.focusRow;
-  const focusCol = grid.focusCol;
+  const focusRow = grid._focusRow;
+  const focusCol = grid._focusCol;
 
   // Ultra-fast path: if no special columns (templates, formatters, etc.), use direct assignment
   // Check is cached on grid to avoid repeated iteration
@@ -477,10 +477,10 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
   rowEl.innerHTML = '';
 
   // Pre-cache values used in the loop
-  const columns = grid.visibleColumns;
+  const columns = grid._visibleColumns;
   const colsLen = columns.length;
-  const focusRow = grid.focusRow;
-  const focusCol = grid.focusCol;
+  const focusRow = grid._focusRow;
+  const focusCol = grid._focusCol;
   const editMode = (grid as any).effectiveConfig?.editOn || grid.editOn;
   const gridEl = grid as unknown as HTMLElement;
 
@@ -625,8 +625,8 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
         const currentRowIndex = Number(cell.getAttribute('data-row'));
         const currentColIndex = Number(cell.getAttribute('data-col'));
         if (isNaN(currentRowIndex) || isNaN(currentColIndex)) return;
-        grid.focusRow = currentRowIndex;
-        grid.focusCol = currentColIndex;
+        grid._focusRow = currentRowIndex;
+        grid._focusCol = currentColIndex;
         ensureCellVisible(grid);
       });
       if (editMode === 'click') {
@@ -638,10 +638,10 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
           const currentColIndex = Number(cell.getAttribute('data-col'));
           if (isNaN(currentRowIndex) || isNaN(currentColIndex)) return;
           const currentRowData = grid._rows[currentRowIndex];
-          const currentCol = grid.visibleColumns[currentColIndex];
+          const currentCol = grid._visibleColumns[currentColIndex];
           if (!currentRowData || !currentCol) return;
-          grid.focusRow = currentRowIndex;
-          grid.focusCol = currentColIndex;
+          grid._focusRow = currentRowIndex;
+          grid._focusCol = currentColIndex;
           inlineEnterEdit(grid, currentRowData, currentRowIndex, currentCol, cell);
         });
       } else {
@@ -657,7 +657,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
           if (rowElCurrent) {
             const children = rowElCurrent.children;
             for (let i = 0; i < children.length; i++) {
-              const col2 = grid.visibleColumns[i];
+              const col2 = grid._visibleColumns[i];
               if (col2 && (col2 as any).editable)
                 inlineEnterEdit(grid, currentRowData, currentRowIndex, col2, children[i] as HTMLElement);
             }
@@ -670,7 +670,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
         const currentColIndex = Number(cell.getAttribute('data-col'));
         if (isNaN(currentRowIndex) || isNaN(currentColIndex)) return;
         const currentRowData = grid._rows[currentRowIndex];
-        const currentCol = grid.visibleColumns[currentColIndex];
+        const currentCol = grid._visibleColumns[currentColIndex];
         if (!currentRowData || !currentCol) return;
         if (
           (currentCol.type === 'select' || currentCol.type === 'typeahead') &&
@@ -678,7 +678,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
           e.key === 'Enter'
         ) {
           e.preventDefault();
-          if (grid.activeEditRows !== currentRowIndex) startRowEdit(grid, currentRowIndex, currentRowData);
+          if (grid._activeEditRows !== currentRowIndex) startRowEdit(grid, currentRowIndex, currentRowData);
           inlineEnterEdit(grid, currentRowData, currentRowIndex, currentCol, cell);
           setTimeout(() => {
             const selectEl = cell.querySelector('select') as HTMLSelectElement | null;
@@ -693,7 +693,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
         }
         if (currentCol.type === 'boolean' && e.key === ' ' && !cell.classList.contains('editing')) {
           e.preventDefault();
-          if (grid.activeEditRows !== currentRowIndex) startRowEdit(grid, currentRowIndex, currentRowData);
+          if (grid._activeEditRows !== currentRowIndex) startRowEdit(grid, currentRowIndex, currentRowData);
           const newVal = !currentRowData[currentCol.field];
           commitCellValue(grid, currentRowIndex, currentCol, newVal, currentRowData);
           cell.innerHTML = `<span role="checkbox" aria-checked="${newVal}" aria-label="${newVal}">${newVal ? '&#x1F5F9;' : '&#9744;'}</span>`;
@@ -702,8 +702,8 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
         if (e.key === 'Enter' && !cell.classList.contains('editing')) {
           e.preventDefault();
           e.stopPropagation(); // Prevent grid-level handler from also processing Enter
-          grid.focusRow = currentRowIndex;
-          grid.focusCol = currentColIndex;
+          grid._focusRow = currentRowIndex;
+          grid._focusCol = currentColIndex;
           if (typeof grid.beginBulkEdit === 'function') grid.beginBulkEdit(currentRowIndex);
           else inlineEnterEdit(grid, currentRowData, currentRowIndex, currentCol, cell);
           return;
@@ -754,11 +754,11 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
     const colIndex = Number(cellEl.getAttribute('data-col'));
     if (!isNaN(colIndex)) {
       // Dispatch to plugin system first - if handled, stop propagation
-      if (grid.dispatchCellClick?.(e, rowIndex, colIndex, cellEl)) {
+      if (grid._dispatchCellClick?.(e, rowIndex, colIndex, cellEl)) {
         return;
       }
-      grid.focusRow = rowIndex;
-      grid.focusCol = colIndex;
+      grid._focusRow = rowIndex;
+      grid._focusCol = colIndex;
       ensureCellVisible(grid);
     }
   }
@@ -771,12 +771,12 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
   if (mode === 'click' || (mode === 'doubleClick' && isDbl)) startRowEdit(grid, rowIndex, rowData);
   else return;
   Array.from(rowEl.children).forEach((c: any, i: number) => {
-    const col = grid.visibleColumns[i];
+    const col = grid._visibleColumns[i];
     if (col && (col as any).editable) inlineEnterEdit(grid, rowData, rowIndex, col, c as HTMLElement);
   });
   if (cellEl) {
     queueMicrotask(() => {
-      const targetCell = rowEl.querySelector(`.cell[data-col="${grid.focusCol}"]`);
+      const targetCell = rowEl.querySelector(`.cell[data-col="${grid._focusCol}"]`);
       if (targetCell?.classList.contains('editing')) {
         const editor = (targetCell as HTMLElement).querySelector(
           'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',

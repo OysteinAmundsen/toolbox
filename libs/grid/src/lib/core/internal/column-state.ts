@@ -26,9 +26,9 @@ function getSortState(grid: InternalGrid): Map<string, ColumnSortState> {
   const sortMap = new Map<string, ColumnSortState>();
 
   // Core sort state (single column)
-  if (grid.sortState) {
-    sortMap.set(grid.sortState.field, {
-      direction: grid.sortState.direction === 1 ? 'asc' : 'desc',
+  if (grid._sortState) {
+    sortMap.set(grid._sortState.field, {
+      direction: grid._sortState.direction === 1 ? 'asc' : 'desc',
       priority: 0,
     });
   }
@@ -95,7 +95,7 @@ export function applyColumnState<T>(
   grid: InternalGrid<T>,
   state: GridColumnState,
   allColumns: ColumnConfig<T>[],
-  plugins: BaseGridPlugin[]
+  plugins: BaseGridPlugin[],
 ): void {
   if (!state.columns || state.columns.length === 0) return;
 
@@ -141,13 +141,13 @@ export function applyColumnState<T>(
   if (sortedByPriority.length > 0) {
     const primarySort = sortedByPriority[0];
     if (primarySort.sort) {
-      grid.sortState = {
+      grid._sortState = {
         field: primarySort.field,
         direction: primarySort.sort.direction === 'asc' ? 1 : -1,
       };
     }
   } else {
-    grid.sortState = null;
+    grid._sortState = null;
   }
 
   // 5. Let each plugin apply its state
@@ -167,7 +167,7 @@ export function applyColumnState<T>(
 export function createStateChangeHandler<T>(
   grid: InternalGrid<T>,
   getPlugins: () => BaseGridPlugin[],
-  emit: (detail: GridColumnState) => void
+  emit: (detail: GridColumnState) => void,
 ): () => void {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
 

@@ -6,14 +6,14 @@ import type { InternalGrid } from '../types';
 
 export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   // Dispatch to plugin system first - if any plugin handles it, stop here
-  if (grid.dispatchKeyDown?.(e)) {
+  if (grid._dispatchKeyDown?.(e)) {
     return;
   }
 
   const maxRow = grid._rows.length - 1;
-  const maxCol = grid.visibleColumns.length - 1;
-  const editing = grid.activeEditRows !== undefined && grid.activeEditRows !== -1;
-  const col = grid.visibleColumns[grid.focusCol];
+  const maxCol = grid._visibleColumns.length - 1;
+  const editing = grid._activeEditRows !== undefined && grid._activeEditRows !== -1;
+  const col = grid._visibleColumns[grid._focusCol];
   const colType = col?.type;
   const path = (e as any).composedPath ? (e as any).composedPath() : [];
   const target = (path && path.length ? path[0] : (e.target as any)) as HTMLElement | null;
@@ -39,21 +39,21 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       e.preventDefault();
       const forward = !e.shiftKey;
       if (forward) {
-        if (grid.focusCol < maxCol) grid.focusCol += 1;
+        if (grid._focusCol < maxCol) grid._focusCol += 1;
         else {
           if (typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
-          if (grid.focusRow < maxRow) {
-            grid.focusRow += 1;
-            grid.focusCol = 0;
+          if (grid._focusRow < maxRow) {
+            grid._focusRow += 1;
+            grid._focusCol = 0;
           }
         }
       } else {
-        if (grid.focusCol > 0) grid.focusCol -= 1;
-        else if (grid.focusRow > 0) {
-          if (typeof grid.commitActiveRowEdit === 'function' && grid.activeEditRows === grid.focusRow)
+        if (grid._focusCol > 0) grid._focusCol -= 1;
+        else if (grid._focusRow > 0) {
+          if (typeof grid.commitActiveRowEdit === 'function' && grid._activeEditRows === grid._focusRow)
             grid.commitActiveRowEdit();
-          grid.focusRow -= 1;
-          grid.focusCol = maxCol;
+          grid._focusRow -= 1;
+          grid._focusCol = maxCol;
         }
       }
       ensureCellVisible(grid);
@@ -61,31 +61,31 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
     }
     case 'ArrowDown':
       if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
-      grid.focusRow = Math.min(maxRow, grid.focusRow + 1);
+      grid._focusRow = Math.min(maxRow, grid._focusRow + 1);
       e.preventDefault();
       break;
     case 'ArrowUp':
       if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
-      grid.focusRow = Math.max(0, grid.focusRow - 1);
+      grid._focusRow = Math.max(0, grid._focusRow - 1);
       e.preventDefault();
       break;
     case 'ArrowRight':
-      grid.focusCol = Math.min(maxCol, grid.focusCol + 1);
+      grid._focusCol = Math.min(maxCol, grid._focusCol + 1);
       e.preventDefault();
       break;
     case 'ArrowLeft':
-      grid.focusCol = Math.max(0, grid.focusCol - 1);
+      grid._focusCol = Math.max(0, grid._focusCol - 1);
       e.preventDefault();
       break;
     case 'Home':
       if (e.ctrlKey || e.metaKey) {
         // CTRL+Home: navigate to first row, first cell
         if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
-        grid.focusRow = 0;
-        grid.focusCol = 0;
+        grid._focusRow = 0;
+        grid._focusCol = 0;
       } else {
         // Home: navigate to first cell in current row
-        grid.focusCol = 0;
+        grid._focusCol = 0;
       }
       e.preventDefault();
       ensureCellVisible(grid, { forceScrollLeft: true });
@@ -94,28 +94,28 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       if (e.ctrlKey || e.metaKey) {
         // CTRL+End: navigate to last row, last cell
         if (editing && typeof grid.commitActiveRowEdit === 'function') grid.commitActiveRowEdit();
-        grid.focusRow = maxRow;
-        grid.focusCol = maxCol;
+        grid._focusRow = maxRow;
+        grid._focusCol = maxCol;
       } else {
         // End: navigate to last cell in current row
-        grid.focusCol = maxCol;
+        grid._focusCol = maxCol;
       }
       e.preventDefault();
       ensureCellVisible(grid, { forceScrollRight: true });
       return;
     case 'PageDown':
-      grid.focusRow = Math.min(maxRow, grid.focusRow + 20);
+      grid._focusRow = Math.min(maxRow, grid._focusRow + 20);
       e.preventDefault();
       break;
     case 'PageUp':
-      grid.focusRow = Math.max(0, grid.focusRow - 20);
+      grid._focusRow = Math.max(0, grid._focusRow - 20);
       e.preventDefault();
       break;
     case 'Enter':
-      if (typeof grid.beginBulkEdit === 'function') grid.beginBulkEdit(grid.focusRow);
+      if (typeof grid.beginBulkEdit === 'function') grid.beginBulkEdit(grid._focusRow);
       else
         (grid as unknown as HTMLElement).dispatchEvent(
-          new CustomEvent('activate-cell', { detail: { row: grid.focusRow, col: grid.focusCol } }),
+          new CustomEvent('activate-cell', { detail: { row: grid._focusRow, col: grid._focusCol } }),
         );
       return ensureCellVisible(grid);
     default:
@@ -139,14 +139,14 @@ interface EnsureCellVisibleOptions {
  * and apply visual focus styling / tabindex management.
  */
 export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibleOptions): void {
-  if (grid.virtualization?.enabled) {
-    const { rowHeight, container, viewportEl } = grid.virtualization;
+  if (grid._virtualization?.enabled) {
+    const { rowHeight, container, viewportEl } = grid._virtualization;
     // container is the faux scrollbar element that handles actual scrolling
     // viewportEl is the visible area element that has the correct height
     const scrollEl = container as HTMLElement | undefined;
     const visibleHeight = viewportEl?.clientHeight ?? scrollEl?.clientHeight ?? 0;
     if (scrollEl && visibleHeight > 0) {
-      const y = grid.focusRow * rowHeight;
+      const y = grid._focusRow * rowHeight;
       if (y < scrollEl.scrollTop) {
         scrollEl.scrollTop = y;
       } else if (y + rowHeight > scrollEl.scrollTop + visibleHeight) {
@@ -155,21 +155,21 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
     }
   }
   // Skip refreshVirtualWindow when in edit mode to avoid wiping editors
-  const isEditing = grid.activeEditRows !== undefined && grid.activeEditRows !== -1;
+  const isEditing = grid._activeEditRows !== undefined && grid._activeEditRows !== -1;
   if (!isEditing) {
     grid.refreshVirtualWindow(false);
   }
-  Array.from(grid.bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) => el.classList.remove('cell-focus'));
+  Array.from(grid._bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) => el.classList.remove('cell-focus'));
   // Clear previous aria-selected markers
-  Array.from(grid.bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el: any) => {
+  Array.from(grid._bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el: any) => {
     el.setAttribute('aria-selected', 'false');
   });
-  const rowIndex = grid.focusRow;
-  const vStart = (grid.virtualization as any).start ?? 0;
-  const vEnd = (grid.virtualization as any).end ?? grid._rows.length;
+  const rowIndex = grid._focusRow;
+  const vStart = (grid._virtualization as any).start ?? 0;
+  const vEnd = (grid._virtualization as any).end ?? grid._rows.length;
   if (rowIndex >= vStart && rowIndex < vEnd) {
-    const rowEl = grid.bodyEl.querySelectorAll('.data-grid-row')[rowIndex - vStart] as HTMLElement | null;
-    const cell = rowEl?.children[grid.focusCol] as HTMLElement | undefined;
+    const rowEl = grid._bodyEl.querySelectorAll('.data-grid-row')[rowIndex - vStart] as HTMLElement | null;
+    const cell = rowEl?.children[grid._focusCol] as HTMLElement | undefined;
     if (cell) {
       cell.classList.add('cell-focus');
       cell.setAttribute('aria-selected', 'true');
@@ -187,7 +187,7 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
           // Get scroll boundary offsets from plugins (e.g., pinned columns)
           // This allows plugins to report how much of the scroll area they obscure
           // and whether the focused cell should skip scrolling (e.g., pinned cells are always visible)
-          const offsets = grid.getHorizontalScrollOffsets?.(rowEl ?? undefined, cell) ?? { left: 0, right: 0 };
+          const offsets = grid._getHorizontalScrollOffsets?.(rowEl ?? undefined, cell) ?? { left: 0, right: 0 };
 
           if (!offsets.skipScroll) {
             // Get cell position relative to the scroll area
@@ -209,7 +209,7 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
         }
       }
 
-      if (grid.activeEditRows !== undefined && grid.activeEditRows !== -1 && cell.classList.contains('editing')) {
+      if (grid._activeEditRows !== undefined && grid._activeEditRows !== -1 && cell.classList.contains('editing')) {
         const focusTarget = cell.querySelector(
           'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
         ) as HTMLElement | null;

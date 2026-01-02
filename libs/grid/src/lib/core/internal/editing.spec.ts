@@ -15,16 +15,16 @@ function makeGrid() {
       { field: 'age', type: 'number', editable: true },
       { field: 'active', type: 'boolean' },
     ],
-    get visibleColumns() {
+    get _visibleColumns() {
       return this._columns.filter((c: any) => !c.hidden);
     },
-    bodyEl,
-    rowPool: [],
+    _bodyEl: bodyEl,
+    _rowPool: [],
     _changedRowIndices: new Set<number>(),
-    rowEditSnapshots: new Map<number, any>(),
-    activeEditRows: -1,
-    focusRow: 0,
-    focusCol: 0,
+    _rowEditSnapshots: new Map<number, any>(),
+    _activeEditRows: -1,
+    _focusRow: 0,
+    _focusCol: 0,
     get changedRows() {
       return (Array.from(this._changedRowIndices) as number[]).map((i) => this._rows[i]);
     },
@@ -43,27 +43,27 @@ describe('startRowEdit', () => {
   it('snapshots row data on first call', () => {
     const g = makeGrid();
     startRowEdit(g, 0, g._rows[0]);
-    expect(g.rowEditSnapshots.has(0)).toBe(true);
-    const snapshot = g.rowEditSnapshots.get(0);
+    expect(g._rowEditSnapshots.has(0)).toBe(true);
+    const snapshot = g._rowEditSnapshots.get(0);
     expect(snapshot.name).toBe('Alice');
     expect(snapshot.age).toBe(30);
   });
 
   it('sets activeEditRows to the row index', () => {
     const g = makeGrid();
-    expect(g.activeEditRows).toBe(-1);
+    expect(g._activeEditRows).toBe(-1);
     startRowEdit(g, 0, g._rows[0]);
-    expect(g.activeEditRows).toBe(0);
+    expect(g._activeEditRows).toBe(0);
   });
 
   it('does not re-snapshot if already editing same row', () => {
     const g = makeGrid();
     startRowEdit(g, 0, g._rows[0]);
-    const firstSnapshot = g.rowEditSnapshots.get(0);
+    const firstSnapshot = g._rowEditSnapshots.get(0);
     g._rows[0].name = 'Changed';
     startRowEdit(g, 0, g._rows[0]);
     // Should still have original snapshot
-    expect(g.rowEditSnapshots.get(0)).toBe(firstSnapshot);
+    expect(g._rowEditSnapshots.get(0)).toBe(firstSnapshot);
     expect(firstSnapshot.name).toBe('Alice');
   });
 });
@@ -121,8 +121,8 @@ describe('exitRowEdit', () => {
     renderVisibleRows(g, 0, 1, 1);
     startRowEdit(g, 0, g._rows[0]);
     exitRowEdit(g, 0, false);
-    expect(g.rowEditSnapshots.has(0)).toBe(false);
-    expect(g.activeEditRows).toBe(-1);
+    expect(g._rowEditSnapshots.has(0)).toBe(false);
+    expect(g._activeEditRows).toBe(-1);
   });
 
   it('adds changed class to row element when changed', () => {
@@ -131,14 +131,14 @@ describe('exitRowEdit', () => {
     startRowEdit(g, 0, g._rows[0]);
     g._changedRowIndices.add(0);
     exitRowEdit(g, 0, false);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row');
+    const rowEl = g._bodyEl.querySelector('.data-grid-row');
     expect(rowEl.classList.contains('changed')).toBe(true);
   });
 
   it('removes changed class when reverted', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row');
+    const rowEl = g._bodyEl.querySelector('.data-grid-row');
     rowEl.classList.add('changed');
     g._changedRowIndices.add(0);
     startRowEdit(g, 0, g._rows[0]);
@@ -203,7 +203,7 @@ describe('commitCellValue', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 1, 1);
     commitCellValue(g, 0, g._columns[1], 'Bob', g._rows[0]);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row');
+    const rowEl = g._bodyEl.querySelector('.data-grid-row');
     expect(rowEl.classList.contains('changed')).toBe(true);
   });
 });
@@ -228,14 +228,14 @@ describe('inlineEnterEdit', () => {
         },
         { field: 'txt', editable: true },
       ],
-      get visibleColumns() {
+      get _visibleColumns() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      bodyEl,
-      rowPool: [],
+      _bodyEl: bodyEl,
+      _rowPool: [],
       _changedRowIndices: new Set<number>(),
-      rowEditSnapshots: new Map<number, any>(),
-      activeEditRows: -1,
+      _rowEditSnapshots: new Map<number, any>(),
+      _activeEditRows: -1,
       get changedRows() {
         return (Array.from(this._changedRowIndices) as number[]).map((i) => this._rows[i]);
       },
@@ -243,8 +243,8 @@ describe('inlineEnterEdit', () => {
         return Array.from(this._changedRowIndices) as number[];
       },
       findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-      focusRow: 0,
-      focusCol: 0,
+      _focusRow: 0,
+      _focusCol: 0,
       dispatchEvent: (ev: any) => {
         (grid.__events || (grid.__events = [])).push(ev);
       },
@@ -255,7 +255,7 @@ describe('inlineEnterEdit', () => {
   it('does nothing if column is not editable', () => {
     const g = editableGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = rowEl.querySelector('.cell[data-col="0"]') as HTMLElement; // id column, not editable
     const originalContent = cell.innerHTML;
     inlineEnterEdit(g, g._rows[0], 0, g._columns[0], cell);
@@ -265,17 +265,17 @@ describe('inlineEnterEdit', () => {
   it('starts row edit if not already editing', () => {
     const g = editableGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
-    expect(g.activeEditRows).toBe(-1);
+    expect(g._activeEditRows).toBe(-1);
     inlineEnterEdit(g, g._rows[0], 0, g._columns[1], cell);
-    expect(g.activeEditRows).toBe(0);
+    expect(g._activeEditRows).toBe(0);
   });
 
   it('uses number editor and commits on Enter', () => {
     const g = editableGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
     inlineEnterEdit(g, g._rows[0], 0, g._columns[1], cell);
     const input = cell.querySelector('input[type="number"]') as HTMLInputElement;
@@ -292,7 +292,7 @@ describe('inlineEnterEdit', () => {
     tpl.innerHTML = '<input />';
     g._columns[4] = { field: 'txt', editable: true, __editorTemplate: tpl };
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = rowEl.querySelector('.cell[data-col="4"]') as HTMLElement;
     inlineEnterEdit(g, g._rows[0], 0, g._columns[4], cell);
     const input = cell.querySelector('input') as HTMLInputElement;
@@ -304,7 +304,7 @@ describe('inlineEnterEdit', () => {
   it('select editor commits on change', () => {
     const g = editableGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = rowEl.querySelector('.cell[data-col="3"]') as HTMLElement;
     inlineEnterEdit(g, g._rows[0], 0, g._columns[3], cell);
     const select = cell.querySelector('select') as HTMLSelectElement;
@@ -324,7 +324,7 @@ describe('inlineEnterEdit', () => {
     g._columns.push({ field: 'extra', editable: true, editor: editorSpec });
     g._rows[0].extra = 'orig';
     renderVisibleRows(g, 0, 1, 2);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.setAttribute('data-col', '5');
@@ -336,7 +336,7 @@ describe('inlineEnterEdit', () => {
   it('Escape cancels and restores original value', () => {
     const g = editableGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = rowEl.querySelector('.cell[data-col="4"]') as HTMLElement;
     inlineEnterEdit(g, g._rows[0], 0, g._columns[4], cell);
     const input = cell.querySelector('input[type="text"],input:not([type])') as HTMLInputElement | null;
@@ -355,16 +355,16 @@ describe('inlineEnterEdit', () => {
     const grid: any = {
       _rows: [{ id: 1, txt: 'hello' }],
       _columns: [{ field: 'id' }, { field: 'txt', editable: true, __editorTemplate: tpl }],
-      get visibleColumns() {
+      get _visibleColumns() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      bodyEl,
-      rowPool: [],
+      _bodyEl: bodyEl,
+      _rowPool: [],
       _changedRowIndices: new Set<number>(),
-      rowEditSnapshots: new Map<number, any>(),
-      activeEditRows: -1,
-      focusRow: 0,
-      focusCol: 0,
+      _rowEditSnapshots: new Map<number, any>(),
+      _activeEditRows: -1,
+      _focusRow: 0,
+      _focusCol: 0,
       refreshVirtualWindow: () => {
         /* noop */
       },
@@ -388,7 +388,7 @@ describe('inlineEnterEdit', () => {
   it('does not re-enter if cell already editing', () => {
     const g = editableGrid();
     renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g.bodyEl.querySelector('.data-grid-row')!;
+    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const cell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
     inlineEnterEdit(g, g._rows[0], 0, g._columns[1], cell);
     const firstInput = cell.querySelector('input');

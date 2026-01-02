@@ -783,7 +783,7 @@ describe('tbw-grid integration: selection plugin', () => {
 
     // Simulate scroll by triggering the scroll handler
     // The faux scrollbar container is used for virtualization
-    const fauxScrollbar = grid.virtualization?.container;
+    const fauxScrollbar = grid._virtualization?.container;
     if (fauxScrollbar) {
       // Scroll down significantly
       fauxScrollbar.scrollTop = 500;
@@ -852,7 +852,7 @@ describe('tbw-grid integration: selection plugin', () => {
     expect(selectedRows).toEqual([0]);
 
     // Simulate scroll
-    const fauxScrollbar = grid.virtualization?.container;
+    const fauxScrollbar = grid._virtualization?.container;
     if (fauxScrollbar) {
       fauxScrollbar.scrollTop = 500;
       fauxScrollbar.dispatchEvent(new Event('scroll'));
@@ -921,11 +921,11 @@ describe('tbw-grid integration: core cell focus', () => {
     expect(firstVisibleCell.classList.contains('cell-focus')).toBe(true);
 
     // Verify focusRow and focusCol are set correctly
-    expect(grid.focusRow).toBe(0);
-    expect(grid.focusCol).toBe(0);
+    expect(grid._focusRow).toBe(0);
+    expect(grid._focusCol).toBe(0);
 
     // Simulate scroll
-    const fauxScrollbar = grid.virtualization?.container;
+    const fauxScrollbar = grid._virtualization?.container;
     if (fauxScrollbar) {
       fauxScrollbar.scrollTop = 500;
       fauxScrollbar.dispatchEvent(new Event('scroll'));

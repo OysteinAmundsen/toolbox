@@ -26,11 +26,11 @@ function setIcon(element: HTMLElement, icon: IconValue): void {
  * sorting and resize affordances where enabled.
  */
 export function renderHeader(grid: InternalGrid): void {
-  grid.headerRowEl = (grid.findHeaderRow! as any)();
-  const headerRow = grid.headerRowEl as HTMLElement;
+  grid._headerRowEl = (grid.findHeaderRow! as any)();
+  const headerRow = grid._headerRowEl as HTMLElement;
   headerRow.innerHTML = '';
 
-  grid.visibleColumns.forEach((col: ColumnConfig<any>, i: number) => {
+  grid._visibleColumns.forEach((col: ColumnConfig<any>, i: number) => {
     const cell = document.createElement('div');
     cell.className = 'cell';
     addPart(cell, 'header-cell');
@@ -56,7 +56,7 @@ export function renderHeader(grid: InternalGrid): void {
       const icon = document.createElement('span');
       addPart(icon as any, 'sort-indicator');
       icon.style.opacity = '0.6';
-      const active = grid.sortState?.field === col.field ? grid.sortState.direction : 0;
+      const active = grid._sortState?.field === col.field ? grid._sortState.direction : 0;
       // Use grid-level icons (fall back to defaults)
       const icons = { ...DEFAULT_GRID_ICONS, ...grid.icons };
       const iconValue = active === 1 ? icons.sortAsc : active === -1 ? icons.sortDesc : icons.sortNone;
@@ -66,16 +66,16 @@ export function renderHeader(grid: InternalGrid): void {
       cell.setAttribute('aria-sort', active === 0 ? 'none' : active === 1 ? 'ascending' : 'descending');
       cell.addEventListener('click', (e) => {
         // Ignore clicks that are the result of a resize drag ending
-        if (grid.resizeController?.isResizing) return;
+        if (grid._resizeController?.isResizing) return;
         // Let plugins handle the click first (e.g., multi-sort)
-        if (grid.dispatchHeaderClick?.(e, i, cell)) return;
+        if (grid._dispatchHeaderClick?.(e, i, cell)) return;
         toggleSort(grid, col);
       });
       cell.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           // Let plugins handle the keydown first
-          if (grid.dispatchHeaderClick?.(e as unknown as MouseEvent, i, cell)) return;
+          if (grid._dispatchHeaderClick?.(e as unknown as MouseEvent, i, cell)) return;
           toggleSort(grid, col);
         }
       });
@@ -90,7 +90,7 @@ export function renderHeader(grid: InternalGrid): void {
       handle.addEventListener('mousedown', (e: MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
-        grid.resizeController.start(e, i, cell);
+        grid._resizeController.start(e, i, cell);
       });
       cell.appendChild(handle);
     }

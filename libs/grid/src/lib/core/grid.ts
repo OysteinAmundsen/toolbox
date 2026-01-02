@@ -170,40 +170,52 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // visibleColumns returns only visible columns for rendering
   // This is what header/row rendering should use
-  get visibleColumns(): ColumnInternal<T>[] {
+  get _visibleColumns(): ColumnInternal<T>[] {
     return this._columns.filter((c) => !c.hidden);
   }
   // #endregion
 
-  // #region Runtime State
-  // User-driven state changes at runtime (sort, etc.)
-  // Visibility is stored in effectiveConfig.columns[].hidden
-  rowPool: HTMLElement[] = [];
+  // #region Runtime State (Plugin-accessible)
+  // DOM references
+  _headerRowEl!: HTMLElement;
+  _bodyEl!: HTMLElement;
+  _rowPool: HTMLElement[] = [];
+  _resizeController!: ResizeController;
+
+  // Virtualization & scroll state
+  _virtualization: VirtualState = {
+    enabled: true,
+    rowHeight: 28,
+    bypassThreshold: 24,
+    start: 0,
+    end: 0,
+    container: null,
+    viewportEl: null,
+    totalHeightEl: null,
+  };
+
+  // Focus & navigation
+  _focusRow = 0;
+  _focusCol = 0;
+
+  // Sort state
+  _sortState: { field: string; direction: 1 | -1 } | null = null;
+
+  // Edit state
+  _activeEditRows = -1;
+  _rowEditSnapshots = new Map<number, T>();
+  _changedRowIndices = new Set<number>();
+
+  // Layout
+  _gridTemplate = '';
+  // #endregion
+
+  // #region Implementation Details (Internal only)
   __rowRenderEpoch = 0;
-  activeEditRows = -1;
-  resizeController!: ResizeController;
   __didInitialAutoSize = false;
   __lightDomColumnsCache?: ColumnInternal[];
   __originalColumnNodes?: HTMLElement[];
-  headerRowEl!: HTMLElement;
-  bodyEl!: HTMLElement;
-  virtualization: VirtualState = {
-    enabled: true,
-    rowHeight: 28, // Initial state - will recalculate after first render
-    bypassThreshold: 24, // Skip virtualization if <= this many rows (saves overhead)
-    start: 0,
-    end: 0,
-    container: null, // Faux scrollbar element
-    viewportEl: null, // Rows viewport for measuring visible height
-    totalHeightEl: null, // Spacer for virtual height
-  };
-  sortState: { field: string; direction: 1 | -1 } | null = null;
   __originalOrder: T[] = [];
-  focusRow = 0;
-  focusCol = 0;
-  gridTemplate = '';
-  rowEditSnapshots = new Map<number, T>();
-  _changedRowIndices = new Set<number>();
   // #endregion
 
   // ---------------- Public API Props (getters/setters) ----------------
@@ -274,9 +286,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
-  // Effective config accessor for internal modules and plugins
-  // Returns the merged config (single source of truth) before plugin processing
-  // Use this when you need the raw merged config (e.g., for column definitions including hidden)
+  /**
+   * Effective config accessor for internal modules and plugins.
+   * Returns the merged config (single source of truth) before plugin processing.
+   * Use this when you need the raw merged config (e.g., for column definitions including hidden).
+   * @internal Plugin API
+   */
   get effectiveConfig(): GridConfig<T> {
     return this.#effectiveConfig;
   }
@@ -285,6 +300,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Get the disconnect signal for event listener cleanup.
    * This signal is aborted when the grid disconnects from the DOM.
    * Plugins and internal code can use this for automatic listener cleanup.
+   * @internal Plugin API
    * @example
    * element.addEventListener('click', handler, { signal: this.grid.disconnectSignal });
    */
@@ -326,6 +342,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get a plugin instance by its class.
    * Used by plugins for inter-plugin communication.
+   * @internal Plugin API
    */
   getPlugin<P extends BaseGridPlugin>(PluginClass: new (...args: any[]) => P): P | undefined {
     return this.#pluginManager?.getPlugin(PluginClass);
@@ -334,6 +351,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get a plugin instance by its name.
    * Used for loose coupling between plugins (avoids static imports).
+   * @internal Plugin API
    */
   getPluginByName(name: string): BaseGridPlugin | undefined {
     return this.#pluginManager?.getPluginByName(name);
@@ -343,6 +361,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Request a full re-render of the grid.
    * Called by plugins when they need the grid to update.
    * Note: This does NOT reset plugin state - just re-processes rows/columns and renders.
+   * @internal Plugin API
    */
   requestRender(): void {
     this.#rebuildRowModel();
@@ -356,6 +375,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Request a lightweight style update without rebuilding DOM.
    * Called by plugins when they only need to update CSS classes/styles.
    * This runs all plugin afterRender hooks without rebuilding row/column DOM.
+   * @internal Plugin API
    */
   requestAfterRender(): void {
     this.#pluginManager?.afterRender();
@@ -488,8 +508,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#eventAbortController = undefined;
     }
 
-    if (this.resizeController) {
-      this.resizeController.dispose();
+    if (this._resizeController) {
+      this._resizeController.dispose();
     }
     if (this.#resizeObserver) {
       this.#resizeObserver.disconnect();
@@ -503,13 +523,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const gridContent = this.#shadow.querySelector('.tbw-grid-content');
     const gridRoot = gridContent ?? this.#shadow.querySelector('.tbw-grid-root');
 
-    this.headerRowEl = gridRoot?.querySelector('.header-row') as HTMLElement;
+    this._headerRowEl = gridRoot?.querySelector('.header-row') as HTMLElement;
     // Faux scrollbar pattern:
     // - .faux-vscroll-spacer sets virtual height
     // - .rows-viewport provides visible height for virtualization calculations
-    this.virtualization.totalHeightEl = gridRoot?.querySelector('.faux-vscroll-spacer') as HTMLElement;
-    this.virtualization.viewportEl = gridRoot?.querySelector('.rows-viewport') as HTMLElement;
-    this.bodyEl = gridRoot?.querySelector('.rows') as HTMLElement;
+    this._virtualization.totalHeightEl = gridRoot?.querySelector('.faux-vscroll-spacer') as HTMLElement;
+    this._virtualization.viewportEl = gridRoot?.querySelector('.rows-viewport') as HTMLElement;
+    this._bodyEl = gridRoot?.querySelector('.rows') as HTMLElement;
 
     // Initialize shell header content and custom buttons if shell is active
     if (this.#shellController.isInitialized) {
@@ -543,8 +563,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     document.addEventListener(
       'keydown',
       (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && this.activeEditRows !== -1) {
-          exitRowEdit(this, this.activeEditRows, true);
+        if (e.key === 'Escape' && this._activeEditRows !== -1) {
+          exitRowEdit(this, this._activeEditRows, true);
         }
       },
       { capture: true, signal },
@@ -554,12 +574,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     document.addEventListener(
       'mousedown',
       (e: MouseEvent) => {
-        if (this.activeEditRows === -1) return;
-        const rowEl = this.findRenderedRowElement(this.activeEditRows);
+        if (this._activeEditRows === -1) return;
+        const rowEl = this.findRenderedRowElement(this._activeEditRows);
         if (!rowEl) return;
         const path = (e.composedPath && e.composedPath()) || [];
         if (path.includes(rowEl)) return;
-        exitRowEdit(this, this.activeEditRows, false);
+        exitRowEdit(this, this._activeEditRows, false);
       },
       { signal },
     );
@@ -572,7 +592,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const rowsEl = gridRoot?.querySelector('.rows') as HTMLElement;
 
     // Store reference for scroll position reading in refreshVirtualWindow
-    this.virtualization.container = fauxScrollbar ?? this;
+    this._virtualization.container = fauxScrollbar ?? this;
 
     // Cache whether any plugin has scroll handlers (checked once during setup)
     this.#hasScrollPlugins = this.#pluginManager?.getAll().some((p) => p.onScroll) ?? false;
@@ -582,10 +602,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         'scroll',
         () => {
           // Fast exit if no scroll processing needed
-          if (!this.virtualization.enabled && !this.#hasScrollPlugins) return;
+          if (!this._virtualization.enabled && !this.#hasScrollPlugins) return;
 
           const currentScrollTop = fauxScrollbar.scrollTop;
-          const rowHeight = this.virtualization.rowHeight;
+          const rowHeight = this._virtualization.rowHeight;
 
           // Smooth scroll: apply offset immediately for fluid motion
           // Calculate even-aligned start to preserve zebra stripe parity
@@ -693,7 +713,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
     }
 
-    this.resizeController = createResizeController(this as any);
+    this._resizeController = createResizeController(this as any);
 
     // Central mouse event handling for plugins (uses signal for automatic cleanup)
     this.#shadow.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent), { signal });
@@ -702,7 +722,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     document.addEventListener('mousemove', (e: MouseEvent) => this.#handleMouseMove(e), { signal });
     document.addEventListener('mouseup', (e: MouseEvent) => this.#handleMouseUp(e), { signal });
 
-    if (this.virtualization.enabled) {
+    if (this._virtualization.enabled) {
       requestAnimationFrame(() => this.refreshVirtualWindow(true));
     }
 
@@ -711,15 +731,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // 2. Otherwise, measure actual row height from DOM (respects CSS variable --tbw-row-height)
     const userRowHeight = this.#effectiveConfig.rowHeight;
     if (userRowHeight && userRowHeight > 0) {
-      this.virtualization.rowHeight = userRowHeight;
+      this._virtualization.rowHeight = userRowHeight;
     } else {
       // Measure after first render to pick up CSS-defined row height
       requestAnimationFrame(() => {
-        const firstRow = this.bodyEl?.querySelector('.data-grid-row');
+        const firstRow = this._bodyEl?.querySelector('.data-grid-row');
         if (firstRow) {
           const measuredHeight = (firstRow as HTMLElement).getBoundingClientRect().height;
           if (measuredHeight > 0) {
-            this.virtualization.rowHeight = measuredHeight;
+            this._virtualization.rowHeight = measuredHeight;
             this.refreshVirtualWindow(true);
           }
         }
@@ -727,7 +747,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Resize observer to refresh virtualization and maintain focus when viewport size changes
-    if (this.virtualization.viewportEl) {
+    if (this._virtualization.viewportEl) {
       this.#resizeObserver = new ResizeObserver(() => {
         // Debounce with RAF to avoid excessive recalculations
         if (!this.#scrollRaf) {
@@ -741,7 +761,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           });
         }
       });
-      this.#resizeObserver.observe(this.virtualization.viewportEl);
+      this.#resizeObserver.observe(this._virtualization.viewportEl);
     }
 
     // Initialize ARIA selection state
@@ -755,35 +775,35 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
   }
 
-  emitCellCommit(detail: CellCommitDetail<T>): void {
+  _emitCellCommit(detail: CellCommitDetail<T>): void {
     this.#emit('cell-commit', detail);
   }
 
-  emitRowCommit(detail: RowCommitDetail<T>): void {
+  _emitRowCommit(detail: RowCommitDetail<T>): void {
     this.#emit('row-commit', detail);
   }
 
-  emitSortChange(detail: SortChangeDetail): void {
+  _emitSortChange(detail: SortChangeDetail): void {
     this.#emit('sort-change', detail);
   }
 
-  emitColumnResize(detail: ColumnResizeDetail): void {
+  _emitColumnResize(detail: ColumnResizeDetail): void {
     this.#emit('column-resize', detail);
   }
 
-  emitActivateCell(detail: ActivateCellDetail): void {
+  _emitActivateCell(detail: ActivateCellDetail): void {
     this.#emit('activate-cell', detail);
   }
 
   /** Update ARIA selection attributes on rendered rows/cells */
   #updateAriaSelection(): void {
     // Mark active row and cell with aria-selected
-    const rows = this.bodyEl?.querySelectorAll('.data-grid-row');
+    const rows = this._bodyEl?.querySelectorAll('.data-grid-row');
     rows?.forEach((row, rowIdx) => {
-      const isActiveRow = rowIdx === this.focusRow;
+      const isActiveRow = rowIdx === this._focusRow;
       row.setAttribute('aria-selected', String(isActiveRow));
       row.querySelectorAll('.cell').forEach((cell, colIdx) => {
-        (cell as HTMLElement).setAttribute('aria-selected', String(isActiveRow && colIdx === this.focusCol));
+        (cell as HTMLElement).setAttribute('aria-selected', String(isActiveRow && colIdx === this._focusCol));
       });
     });
   }
@@ -807,8 +827,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #onEditModeChanged(): void {
     if (!this.#connected) return;
     this.#mergeEffectiveConfig();
-    this.rowPool.length = 0;
-    if (this.bodyEl) this.bodyEl.innerHTML = '';
+    this._rowPool.length = 0;
+    if (this._bodyEl) this._bodyEl.innerHTML = '';
     this.__rowRenderEpoch++;
     this.refreshVirtualWindow(true);
   }
@@ -991,7 +1011,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Apply rowHeight from config if specified
     if (base.rowHeight && base.rowHeight > 0) {
-      this.virtualization.rowHeight = base.rowHeight;
+      this._virtualization.rowHeight = base.rowHeight;
     }
 
     // Store columnState from gridConfig if not already set
@@ -1026,7 +1046,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Core Helpers ----------------
   #setup(): void {
     if (!this.isConnected) return;
-    if (!this.headerRowEl || !this.bodyEl) {
+    if (!this._headerRowEl || !this._bodyEl) {
       return;
     }
 
@@ -1071,9 +1091,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Ensure legacy inline grid styles are cleared from container
-    if (this.bodyEl) {
-      this.bodyEl.style.display = '';
-      this.bodyEl.style.gridTemplateColumns = '';
+    if (this._bodyEl) {
+      this._bodyEl.style.display = '';
+      this._bodyEl.style.gridTemplateColumns = '';
     }
 
     // Run plugin afterRender hooks (column groups, sticky, etc.)
@@ -1107,7 +1127,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Dispatch to plugins (using cached flag)
     if (this.#hasScrollPlugins) {
-      const fauxScrollbar = this.virtualization.container;
+      const fauxScrollbar = this._virtualization.container;
       const scrollEvent: ScrollEvent = {
         scrollTop,
         scrollLeft: fauxScrollbar?.scrollLeft ?? 0,
@@ -1121,13 +1141,25 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
+  /**
+   * Find the header row element in the shadow DOM.
+   * Used by plugins that need to access header cells for styling or measurement.
+   * @internal Plugin API
+   */
   findHeaderRow(): HTMLElement {
     return this.#shadow.querySelector('.header-row') as HTMLElement;
   }
 
+  /**
+   * Find a rendered row element by its data row index.
+   * Returns null if the row is not currently rendered (virtualized out of view).
+   * Used by plugins that need to access specific row elements for styling or measurement.
+   * @internal Plugin API
+   * @param rowIndex - The data row index (not the DOM position)
+   */
   findRenderedRowElement(rowIndex: number): HTMLElement | null {
     return (
-      (Array.from(this.bodyEl.querySelectorAll('.data-grid-row')) as HTMLElement[]).find((r) => {
+      (Array.from(this._bodyEl.querySelectorAll('.data-grid-row')) as HTMLElement[]).find((r) => {
         const cell = r.querySelector('.cell[data-row]');
         return cell && Number(cell.getAttribute('data-row')) === rowIndex;
       }) || null
@@ -1138,7 +1170,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Dispatch a cell click event to the plugin system.
    * Returns true if any plugin handled the event.
    */
-  dispatchCellClick(event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement): boolean {
+  _dispatchCellClick(event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement): boolean {
     const row = this._rows[rowIndex];
     const col = this._columns[colIndex];
     if (!row || !col) return false;
@@ -1160,7 +1192,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Dispatch a header click event to the plugin system.
    * Returns true if any plugin handled the event.
    */
-  dispatchHeaderClick(event: MouseEvent, colIndex: number, headerEl: HTMLElement): boolean {
+  _dispatchHeaderClick(event: MouseEvent, colIndex: number, headerEl: HTMLElement): boolean {
     const col = this._columns[colIndex];
     if (!col) return false;
 
@@ -1179,7 +1211,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Dispatch a keyboard event to the plugin system.
    * Returns true if any plugin handled the event.
    */
-  dispatchKeyDown(event: KeyboardEvent): boolean {
+  _dispatchKeyDown(event: KeyboardEvent): boolean {
     return this.#pluginManager?.onKeyDown(event) ?? false;
   }
 
@@ -1188,7 +1220,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Used by keyboard navigation to ensure focused cells are fully visible
    * when plugins like pinned columns obscure part of the scroll area.
    */
-  getHorizontalScrollOffsets(
+  _getHorizontalScrollOffsets(
     rowEl?: HTMLElement,
     focusedCell?: HTMLElement,
   ): { left: number; right: number; skipScroll?: boolean } {
@@ -1198,6 +1230,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Query all plugins with a generic query and collect responses.
    * This enables inter-plugin communication without the core knowing plugin-specific concepts.
+   * @internal Plugin API
    *
    * @example
    * // Check if any plugin vetoes moving a column
@@ -1325,7 +1358,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!silent) {
       this.#emit('changed-rows-reset', { rows: this.changedRows, indices: this.changedRowIndices });
     }
-    this.rowPool.forEach((r) => r.classList.remove('changed'));
+    this._rowPool.forEach((r) => r.classList.remove('changed'));
   }
 
   async beginBulkEdit(rowIndex: number): Promise<void> {
@@ -1341,7 +1374,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (rowEl) {
       Array.from(rowEl.children).forEach((cell, i) => {
         // Use visibleColumns to match the cell index - _columns may include hidden columns
-        const col = this.visibleColumns[i] as ColumnInternal<T> | undefined;
+        const col = this._visibleColumns[i] as ColumnInternal<T> | undefined;
         if (col?.editable) {
           const cellEl = cell as HTMLElement;
           if (!cellEl.classList.contains('editing')) {
@@ -1352,7 +1385,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
       // Focus the editor in the focused cell
       queueMicrotask(() => {
-        const targetCell = rowEl.querySelector(`.cell[data-col="${this.focusCol}"]`);
+        const targetCell = rowEl.querySelector(`.cell[data-col="${this._focusCol}"]`);
         if (targetCell?.classList.contains('editing')) {
           const editor = (targetCell as HTMLElement).querySelector(
             'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
@@ -1368,8 +1401,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   async commitActiveRowEdit(): Promise<void> {
-    if (this.activeEditRows !== -1) {
-      exitRowEdit(this, this.activeEditRows, false);
+    if (this._activeEditRows !== -1) {
+      exitRowEdit(this, this._activeEditRows, false);
     }
   }
 
@@ -1428,8 +1461,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       });
 
       // Clear row pool to force complete rebuild with new column count
-      this.rowPool.length = 0;
-      if (this.bodyEl) this.bodyEl.innerHTML = '';
+      this._rowPool.length = 0;
+      if (this._bodyEl) this._bodyEl.innerHTML = '';
       this.__rowRenderEpoch++;
 
       // Re-setup to rebuild columns with updated visibility
@@ -1483,8 +1516,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     });
 
     // Clear row pool to force complete rebuild with new column count
-    this.rowPool.length = 0;
-    if (this.bodyEl) this.bodyEl.innerHTML = '';
+    this._rowPool.length = 0;
+    if (this._bodyEl) this._bodyEl.innerHTML = '';
     this.__rowRenderEpoch++;
 
     this.#setup();
@@ -1608,6 +1641,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Called internally after resize, reorder, visibility, or sort changes.
    * Plugins should call this after changing their state.
    * The event is debounced to avoid excessive events during drag operations.
+   * @internal Plugin API
    */
   requestStateChange(): void {
     if (!this.#stateChangeHandler) {
@@ -1635,7 +1669,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     });
 
     // Reset sort state
-    this.sortState = null;
+    this._sortState = null;
     this.__originalOrder = [];
 
     // Re-initialize columns from config
@@ -1771,43 +1805,44 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,
    * or standard row window rendering.
+   * @internal Plugin API
    */
   refreshVirtualWindow(force = false): void {
-    if (!this.bodyEl) return;
+    if (!this._bodyEl) return;
 
     const totalRows = this._rows.length;
 
-    if (!this.virtualization.enabled) {
+    if (!this._virtualization.enabled) {
       this.#renderVisibleRows(0, totalRows);
       this.#pluginManager?.afterRender();
       return;
     }
 
-    if (this._rows.length <= this.virtualization.bypassThreshold) {
-      this.virtualization.start = 0;
-      this.virtualization.end = totalRows;
-      this.bodyEl.style.transform = 'translateY(0px)';
+    if (this._rows.length <= this._virtualization.bypassThreshold) {
+      this._virtualization.start = 0;
+      this._virtualization.end = totalRows;
+      this._bodyEl.style.transform = 'translateY(0px)';
       this.#renderVisibleRows(0, totalRows, this.__rowRenderEpoch);
-      if (this.virtualization.totalHeightEl) {
+      if (this._virtualization.totalHeightEl) {
         // Account for horizontal scrollbar height even in bypass mode
         const scrollAreaEl = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;
         const hScrollbarHeight = scrollAreaEl ? scrollAreaEl.offsetHeight - scrollAreaEl.clientHeight : 0;
-        this.virtualization.totalHeightEl.style.height = `${totalRows * this.virtualization.rowHeight + hScrollbarHeight}px`;
+        this._virtualization.totalHeightEl.style.height = `${totalRows * this._virtualization.rowHeight + hScrollbarHeight}px`;
       }
       // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
       const innerGrid = this.#shadow.querySelector('.rows-body');
       innerGrid?.setAttribute('aria-rowcount', String(totalRows));
-      innerGrid?.setAttribute('aria-colcount', String(this.visibleColumns.length));
+      innerGrid?.setAttribute('aria-colcount', String(this._visibleColumns.length));
       this.#pluginManager?.afterRender();
       return;
     }
 
     // --- Normal virtualization path with faux scrollbar pattern ---
     // Faux scrollbar provides scrollTop, viewport provides visible height
-    const fauxScrollbar = this.virtualization.container ?? this;
-    const viewportEl = this.virtualization.viewportEl ?? fauxScrollbar;
+    const fauxScrollbar = this._virtualization.container ?? this;
+    const viewportEl = this._virtualization.viewportEl ?? fauxScrollbar;
     const viewportHeight = viewportEl.clientHeight;
-    const rowHeight = this.virtualization.rowHeight;
+    const rowHeight = this._virtualization.rowHeight;
     const scrollTop = fauxScrollbar.scrollTop;
 
     // When plugins add extra height (e.g., expanded details), the scroll position
@@ -1852,8 +1887,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     let end = start + visibleCount;
     if (end > totalRows) end = totalRows;
 
-    this.virtualization.start = start;
-    this.virtualization.end = end;
+    this._virtualization.start = start;
+    this._virtualization.end = end;
 
     // Height spacer for scrollbar
     // Add 1 extra row height to account for even-alignment: when we round down
@@ -1870,8 +1905,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Detect by comparing offsetHeight (includes scrollbar) vs clientHeight (excludes scrollbar).
     const scrollAreaEl = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;
     const hScrollbarHeight = scrollAreaEl ? scrollAreaEl.offsetHeight - scrollAreaEl.clientHeight : 0;
-    if (this.virtualization.totalHeightEl) {
-      this.virtualization.totalHeightEl.style.height = `${
+    if (this._virtualization.totalHeightEl) {
+      this._virtualization.totalHeightEl.style.height = `${
         totalRows * rowHeight + rowHeight + footerHeight + pluginExtraHeight + hScrollbarHeight
       }px`;
     }
@@ -1882,14 +1917,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Account for extra heights (expanded details) before the start row
     const extraHeightBeforeStart = this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
     const subPixelOffset = -(scrollTop - start * rowHeight - extraHeightBeforeStart);
-    this.bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
+    this._bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
 
     this.#renderVisibleRows(start, end, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
 
     // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
     const innerGrid = this.#shadow.querySelector('.rows-body');
     innerGrid?.setAttribute('aria-rowcount', String(totalRows));
-    innerGrid?.setAttribute('aria-colcount', String(this.visibleColumns.length));
+    innerGrid?.setAttribute('aria-colcount', String(this._visibleColumns.length));
 
     // Only run plugin afterRender hooks on force refresh (structural changes)
     // Skip on scroll-triggered renders for maximum performance

@@ -52,23 +52,23 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _rows: T[];
   _columns: ColumnInternal<T>[];
   /** Visible columns only (excludes hidden). Use for rendering. */
-  visibleColumns: ColumnInternal<T>[];
-  headerRowEl: HTMLElement;
-  bodyEl: HTMLElement;
-  rowPool: HTMLElement[];
-  resizeController: ResizeController;
-  sortState: { field: string; direction: 1 | -1 } | null;
+  _visibleColumns: ColumnInternal<T>[];
+  _headerRowEl: HTMLElement;
+  _bodyEl: HTMLElement;
+  _rowPool: HTMLElement[];
+  _resizeController: ResizeController;
+  _sortState: { field: string; direction: 1 | -1 } | null;
   __originalOrder: T[];
   __rowRenderEpoch: number;
   __didInitialAutoSize?: boolean;
   __lightDomColumnsCache?: ColumnInternal[];
   __originalColumnNodes?: HTMLElement[];
-  gridTemplate: string;
-  virtualization: VirtualState;
-  focusRow: number;
-  focusCol: number;
-  activeEditRows: number;
-  rowEditSnapshots: Map<number, T>;
+  _gridTemplate: string;
+  _virtualization: VirtualState;
+  _focusRow: number;
+  _focusCol: number;
+  _activeEditRows: number;
+  _rowEditSnapshots: Map<number, T>;
   _changedRowIndices: Set<number>;
   changedRows?: T[];
   changedRowIndices?: number[];
@@ -80,13 +80,13 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   beginBulkEdit?: (rowIndex: number) => void;
   commitActiveRowEdit?: () => void;
   /** Dispatch cell click to plugin system, returns true if handled */
-  dispatchCellClick?: (event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement) => boolean;
+  _dispatchCellClick?: (event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement) => boolean;
   /** Dispatch header click to plugin system, returns true if handled */
-  dispatchHeaderClick?: (event: MouseEvent, colIndex: number, headerEl: HTMLElement) => boolean;
+  _dispatchHeaderClick?: (event: MouseEvent, colIndex: number, headerEl: HTMLElement) => boolean;
   /** Dispatch keydown to plugin system, returns true if handled */
-  dispatchKeyDown?: (event: KeyboardEvent) => boolean;
+  _dispatchKeyDown?: (event: KeyboardEvent) => boolean;
   /** Get horizontal scroll boundary offsets from plugins (e.g., pinned columns) */
-  getHorizontalScrollOffsets?: (
+  _getHorizontalScrollOffsets?: (
     rowEl?: HTMLElement,
     focusedCell?: HTMLElement,
   ) => { left: number; right: number; skipScroll?: boolean };

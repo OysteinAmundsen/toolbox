@@ -29,17 +29,17 @@ function makeGrid(opts: Partial<any> = {}) {
       { field: 'id', sortable: true },
       { field: 'name', resizable: true },
     ],
-    get visibleColumns() {
+    get _visibleColumns() {
       return this._columns.filter((c: any) => !c.hidden);
     },
-    headerRowEl: host.querySelector('.header-row') as HTMLElement,
-    bodyEl: host.querySelector('.rows') as HTMLElement,
-    rowPool: [],
-    sortState: opts.sortState || null,
+    _headerRowEl: host.querySelector('.header-row') as HTMLElement,
+    _bodyEl: host.querySelector('.rows') as HTMLElement,
+    _rowPool: [],
+    _sortState: opts._sortState || null,
     findHeaderRow: function () {
-      return this.headerRowEl;
+      return this._headerRowEl;
     },
-    resizeController: {
+    _resizeController: {
       start: () => {
         /* empty */
       },
@@ -47,7 +47,7 @@ function makeGrid(opts: Partial<any> = {}) {
     dispatchEvent: () => {
       /* empty */
     },
-    dispatchHeaderClick: () => false,
+    _dispatchHeaderClick: () => false,
     refreshVirtualWindow: () => {
       /* empty */
     },
@@ -59,14 +59,14 @@ describe('renderHeader', () => {
   it('creates header cells for each column', () => {
     const g = makeGrid();
     renderHeader(g);
-    const cells = g.headerRowEl.querySelectorAll('.cell');
+    const cells = g._headerRowEl.querySelectorAll('.cell');
     expect(cells.length).toBe(2);
   });
 
   it('sets columnheader role on each cell', () => {
     const g = makeGrid();
     renderHeader(g);
-    const cells = g.headerRowEl.querySelectorAll('.cell');
+    const cells = g._headerRowEl.querySelectorAll('.cell');
     cells.forEach((cell: Element) => {
       expect(cell.getAttribute('role')).toBe('columnheader');
     });
@@ -75,7 +75,7 @@ describe('renderHeader', () => {
   it('sets aria-colindex (1-based) on each cell', () => {
     const g = makeGrid();
     renderHeader(g);
-    const cells = g.headerRowEl.querySelectorAll('.cell');
+    const cells = g._headerRowEl.querySelectorAll('.cell');
     expect(cells[0].getAttribute('aria-colindex')).toBe('1');
     expect(cells[1].getAttribute('aria-colindex')).toBe('2');
   });
@@ -83,7 +83,7 @@ describe('renderHeader', () => {
   it('sets data-field attribute on each cell', () => {
     const g = makeGrid();
     renderHeader(g);
-    const cells = g.headerRowEl.querySelectorAll('.cell');
+    const cells = g._headerRowEl.querySelectorAll('.cell');
     expect(cells[0].getAttribute('data-field')).toBe('id');
     expect(cells[1].getAttribute('data-field')).toBe('name');
   });
@@ -91,7 +91,7 @@ describe('renderHeader', () => {
   it('sets data-col attribute on each cell', () => {
     const g = makeGrid();
     renderHeader(g);
-    const cells = g.headerRowEl.querySelectorAll('.cell');
+    const cells = g._headerRowEl.querySelectorAll('.cell');
     expect(cells[0].getAttribute('data-col')).toBe('0');
     expect(cells[1].getAttribute('data-col')).toBe('1');
   });
@@ -104,7 +104,7 @@ describe('renderHeader', () => {
       ],
     });
     renderHeader(g);
-    const cells = g.headerRowEl.querySelectorAll('.cell');
+    const cells = g._headerRowEl.querySelectorAll('.cell');
     expect(cells[0].textContent).toContain('ID');
     expect(cells[1].textContent).toContain('name');
   });
@@ -116,7 +116,7 @@ describe('renderHeader', () => {
       columns: [{ field: 'id', __headerTemplate: tpl }],
     });
     renderHeader(g);
-    const cell = g.headerRowEl.querySelector('.cell');
+    const cell = g._headerRowEl.querySelector('.cell');
     expect(cell.querySelector('strong')).toBeTruthy();
     expect(cell.textContent).toContain('Custom');
   });
@@ -125,75 +125,75 @@ describe('renderHeader', () => {
     it('adds sortable class to sortable columns', () => {
       const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
       renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell');
+      const cell = g._headerRowEl.querySelector('.cell');
       expect(cell.classList.contains('sortable')).toBe(true);
     });
 
     it('makes sortable cells focusable', () => {
       const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
       renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell');
+      const cell = g._headerRowEl.querySelector('.cell');
       expect(cell.tabIndex).toBe(0);
     });
 
     it('adds sort indicator span', () => {
       const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
       renderHeader(g);
-      const indicator = g.headerRowEl.querySelector('[part="sort-indicator"]');
+      const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
       expect(indicator).toBeTruthy();
     });
 
     it('shows neutral indicator when not sorted', () => {
       const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
       renderHeader(g);
-      const indicator = g.headerRowEl.querySelector('[part="sort-indicator"]');
+      const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
       expect(indicator.textContent).toBe('⇅');
     });
 
     it('shows ascending indicator when sorted asc', () => {
       const g = makeGrid({
         columns: [{ field: 'id', sortable: true }],
-        sortState: { field: 'id', direction: 1 },
+        _sortState: { field: 'id', direction: 1 },
       });
       renderHeader(g);
-      const indicator = g.headerRowEl.querySelector('[part="sort-indicator"]');
+      const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
       expect(indicator.textContent).toBe('▲');
     });
 
     it('shows descending indicator when sorted desc', () => {
       const g = makeGrid({
         columns: [{ field: 'id', sortable: true }],
-        sortState: { field: 'id', direction: -1 },
+        _sortState: { field: 'id', direction: -1 },
       });
       renderHeader(g);
-      const indicator = g.headerRowEl.querySelector('[part="sort-indicator"]');
+      const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
       expect(indicator.textContent).toBe('▼');
     });
 
     it('sets aria-sort=none when not sorted', () => {
       const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
       renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell');
+      const cell = g._headerRowEl.querySelector('.cell');
       expect(cell.getAttribute('aria-sort')).toBe('none');
     });
 
     it('sets aria-sort=ascending when sorted asc', () => {
       const g = makeGrid({
         columns: [{ field: 'id', sortable: true }],
-        sortState: { field: 'id', direction: 1 },
+        _sortState: { field: 'id', direction: 1 },
       });
       renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell');
+      const cell = g._headerRowEl.querySelector('.cell');
       expect(cell.getAttribute('aria-sort')).toBe('ascending');
     });
 
     it('sets aria-sort=descending when sorted desc', () => {
       const g = makeGrid({
         columns: [{ field: 'id', sortable: true }],
-        sortState: { field: 'id', direction: -1 },
+        _sortState: { field: 'id', direction: -1 },
       });
       renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell');
+      const cell = g._headerRowEl.querySelector('.cell');
       expect(cell.getAttribute('aria-sort')).toBe('descending');
     });
   });
@@ -202,21 +202,21 @@ describe('renderHeader', () => {
     it('adds resize handle to resizable columns', () => {
       const g = makeGrid({ columns: [{ field: 'name', resizable: true }] });
       renderHeader(g);
-      const handle = g.headerRowEl.querySelector('.resize-handle');
+      const handle = g._headerRowEl.querySelector('.resize-handle');
       expect(handle).toBeTruthy();
     });
 
     it('resize handle has aria-hidden', () => {
       const g = makeGrid({ columns: [{ field: 'name', resizable: true }] });
       renderHeader(g);
-      const handle = g.headerRowEl.querySelector('.resize-handle');
+      const handle = g._headerRowEl.querySelector('.resize-handle');
       expect(handle.getAttribute('aria-hidden')).toBe('true');
     });
 
     it('sets position relative on non-sticky resizable cells', () => {
       const g = makeGrid({ columns: [{ field: 'name', resizable: true }] });
       renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell') as HTMLElement;
+      const cell = g._headerRowEl.querySelector('.cell') as HTMLElement;
       expect(cell.style.position).toBe('relative');
     });
 
@@ -225,7 +225,7 @@ describe('renderHeader', () => {
       // PinnedColumnsPlugin will override to position: sticky when it applies offsets
       const g = makeGrid({ columns: [{ field: 'name', resizable: true, sticky: 'left' }] });
       renderHeader(g);
-      const cell = g.headerRowEl.querySelector('.cell') as HTMLElement;
+      const cell = g._headerRowEl.querySelector('.cell') as HTMLElement;
       expect(cell.style.position).toBe('relative');
     });
   });
@@ -236,13 +236,13 @@ describe('renderHeader', () => {
     it('sets role=row on header row', () => {
       const g = makeGrid();
       renderHeader(g);
-      expect(g.headerRowEl.getAttribute('role')).toBe('row');
+      expect(g._headerRowEl.getAttribute('role')).toBe('row');
     });
 
     it('sets aria-rowindex=1 on header row', () => {
       const g = makeGrid();
       renderHeader(g);
-      expect(g.headerRowEl.getAttribute('aria-rowindex')).toBe('1');
+      expect(g._headerRowEl.getAttribute('aria-rowindex')).toBe('1');
     });
   });
 });

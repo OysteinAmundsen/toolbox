@@ -30,7 +30,7 @@ interface BenchmarkResult {
 // #region Story Configuration
 
 const meta: Meta = {
-  title: 'Grid',
+  title: 'Grid/Benchmarks',
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
 };

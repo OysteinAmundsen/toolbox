@@ -91,6 +91,8 @@ const preview: Preview = {
             'Plugins', // Plugin overview and individual plugins
             ['Overview', 'Selection', 'Filtering', 'Multi Sort', 'Grouping Rows', 'Grouping Columns', '*'],
             'API Reference',
+            'All Features',
+            'Benchmarks', // Performance tests at the end
             '*', // Everything else alphabetically
           ],
           '*',

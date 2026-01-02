@@ -92,6 +92,12 @@ export function renderHeader(grid: InternalGrid): void {
         e.preventDefault();
         grid._resizeController.start(e, i, cell);
       });
+      // Double-click to reset column width to default
+      handle.addEventListener('dblclick', (e: MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        grid._resizeController.resetColumn(i);
+      });
       cell.appendChild(handle);
     }
     headerRow.appendChild(cell);

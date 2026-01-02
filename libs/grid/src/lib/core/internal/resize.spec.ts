@@ -63,4 +63,51 @@ describe('resize controller', () => {
     await new Promise((r) => requestAnimationFrame(r));
     expect(controller.isResizing).toBe(false);
   });
+
+  it('resetColumn restores original configured width', () => {
+    const grid: any = {
+      _columns: [{ field: 'a', width: 150, __originalWidth: 100, __userResized: true, __renderedWidth: 150 }],
+      get _visibleColumns() {
+        return this._columns.filter((c: any) => !c.hidden);
+      },
+      updateTemplate: vi.fn(),
+      dispatchEvent: vi.fn(),
+      requestStateChange: vi.fn(),
+    };
+    const controller = createResizeController(grid);
+
+    controller.resetColumn(0);
+
+    expect(grid._columns[0].width).toBe(100);
+    expect(grid._columns[0].__userResized).toBe(false);
+    expect(grid._columns[0].__renderedWidth).toBeUndefined();
+    expect(grid.updateTemplate).toHaveBeenCalled();
+    expect(grid.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'column-resize-reset',
+        detail: { field: 'a', width: 100 },
+      }),
+    );
+    expect(grid.requestStateChange).toHaveBeenCalled();
+  });
+
+  it('resetColumn clears width when no original was configured', () => {
+    const grid: any = {
+      _columns: [{ field: 'a', width: 150, __userResized: true, __renderedWidth: 150 }],
+      get _visibleColumns() {
+        return this._columns.filter((c: any) => !c.hidden);
+      },
+      updateTemplate: vi.fn(),
+      dispatchEvent: vi.fn(),
+      requestStateChange: vi.fn(),
+    };
+    const controller = createResizeController(grid);
+
+    controller.resetColumn(0);
+
+    expect(grid._columns[0].width).toBeUndefined();
+    expect(grid._columns[0].__userResized).toBe(false);
+    expect(grid._columns[0].__renderedWidth).toBeUndefined();
+    expect(grid.updateTemplate).toHaveBeenCalled();
+  });
 });

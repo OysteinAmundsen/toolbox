@@ -1,12 +1,4 @@
-/** Controller interface for column resize interactions (local minimal typing). */
-import type { InternalGrid } from '../types';
-
-interface ResizeController {
-  start: (e: MouseEvent, colIndex: number, cell: HTMLElement) => void;
-  dispose: () => void;
-  /** True while a resize drag is in progress (used to suppress header click/sort). */
-  isResizing: boolean;
-}
+import type { InternalGrid, ResizeController } from '../types';
 
 export function createResizeController(grid: InternalGrid): ResizeController {
   let resizeState: { startX: number; colIndex: number; startWidth: number } | null = null;
@@ -71,6 +63,21 @@ export function createResizeController(grid: InternalGrid): ResizeController {
       document.documentElement.style.cursor = 'e-resize';
       if (prevUserSelect === null) prevUserSelect = document.body.style.userSelect;
       document.body.style.userSelect = 'none';
+    },
+    resetColumn(colIndex) {
+      const col = grid._visibleColumns[colIndex];
+      if (!col) return;
+
+      // Reset to original configured width (or undefined for auto-sizing)
+      col.__userResized = false;
+      col.__renderedWidth = undefined;
+      col.width = col.__originalWidth;
+
+      grid.updateTemplate?.();
+      grid.requestStateChange?.();
+      (grid as unknown as HTMLElement).dispatchEvent(
+        new CustomEvent('column-resize-reset', { detail: { field: col.field, width: col.width } }),
+      );
     },
     dispose() {
       onUp();

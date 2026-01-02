@@ -167,6 +167,7 @@ describe('HTML attribute configuration', () => {
     document.body.appendChild(grid);
 
     // Invalid JSON should not throw, just warn
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     grid.setAttribute('rows', 'not valid json');
 

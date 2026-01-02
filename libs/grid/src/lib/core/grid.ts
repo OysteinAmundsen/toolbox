@@ -377,6 +377,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Update the grid's column template CSS.
+   * Called by resize controller during column resize operations.
+   * @internal
+   */
+  updateTemplate(): void {
+    updateTemplate(this);
+  }
+
+  /**
    * Request a lightweight style update without rebuilding DOM.
    * Called by plugins when they only need to update CSS classes/styles.
    * This runs all plugin afterRender hooks without rebuilding row/column DOM.
@@ -590,6 +599,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Get the signal for event listener cleanup (AbortController created in connectedCallback)
     const signal = this.disconnectSignal;
 
+    // Create resize controller BEFORE setup - renderHeader() needs it for resize handle mousedown events
+    this._resizeController = createResizeController(this as any);
+
     // Run setup
     this.#setup();
 
@@ -750,8 +762,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         );
       }
     }
-
-    this._resizeController = createResizeController(this as any);
 
     // Central mouse event handling for plugins (uses signal for automatic cleanup)
     this.#shadow.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent), { signal });
@@ -1023,6 +1033,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       columns.forEach((c) => {
         if (c.sortable === undefined) c.sortable = true;
         if (c.resizable === undefined) c.resizable = true;
+        // Store original configured width for reset on double-click (only numeric widths)
+        const internal = c as ColumnInternal<T>;
+        if (internal.__originalWidth === undefined && typeof c.width === 'number') {
+          internal.__originalWidth = c.width;
+        }
       });
       // Preserve processed columns (with __compiledView etc.) if already set by #getColumnConfiguration
       // Only set base.columns if effectiveConfig.columns is empty or doesn't have compiled templates

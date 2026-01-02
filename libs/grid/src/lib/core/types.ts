@@ -215,6 +215,8 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T> {
   __autoSized?: boolean;
   __userResized?: boolean;
   __renderedWidth?: number;
+  /** Original configured width (for reset on double-click) */
+  __originalWidth?: number;
   __viewTemplate?: HTMLElement;
   __editorTemplate?: HTMLElement;
   __headerTemplate?: HTMLElement;
@@ -243,6 +245,8 @@ export interface EditorExecContext<T = any> extends CellContext<T> {
 /** Controller managing drag-based column resize lifecycle. */
 export interface ResizeController {
   start: (e: MouseEvent, colIndex: number, cell: HTMLElement) => void;
+  /** Reset a column to its configured width (or auto-size if none configured). */
+  resetColumn: (colIndex: number) => void;
   dispose: () => void;
   /** True while a resize drag is in progress (used to suppress header click/sort). */
   isResizing: boolean;

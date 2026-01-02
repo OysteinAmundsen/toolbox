@@ -1,0 +1,126 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as FilteringStories from './filtering.stories';
+
+<Meta of={FilteringStories} />
+
+# Filtering Plugin
+
+The Filtering plugin adds column header filters with text search, dropdown options, and custom filter panels.
+
+## Installation
+
+```ts
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+  ],
+  plugins: [new FilteringPlugin({ debounceMs: 300 })],
+};
+```
+
+## Demos
+
+### Default Filtering
+
+Type in column header filter inputs to filter rows.
+
+<Canvas of={FilteringStories.Default} />
+<Controls of={FilteringStories.Default} />
+
+### Custom Filter Panel
+
+Advanced filtering with custom UI.
+
+<Canvas of={FilteringStories.CustomFilterPanel} />
+
+### Case-Sensitive Filtering
+
+Filters respect letter case.
+
+<Canvas of={FilteringStories.CaseSensitive} />
+
+## Configuration Options
+
+| Option          | Type      | Default       | Description                     |
+| --------------- | --------- | ------------- | ------------------------------- |
+| `debounceMs`    | `number`  | `300`         | Debounce delay for filter input |
+| `caseSensitive` | `boolean` | `false`       | Case-sensitive string matching  |
+| `placeholder`   | `string`  | `'Filter...'` | Input placeholder text          |
+
+## Column Configuration
+
+```ts
+const columns = [
+  {
+    field: 'name',
+    filterable: true, // Enable filtering
+    filterType: 'text', // 'text' | 'select' | 'number' | 'date'
+  },
+  {
+    field: 'status',
+    filterable: true,
+    filterType: 'select',
+    filterOptions: ['Active', 'Inactive', 'Pending'],
+  },
+];
+```
+
+## Events
+
+| Event               | Detail                                | Description               |
+| ------------------- | ------------------------------------- | ------------------------- |
+| `tbw-filter-change` | `{ filters: Record<string, string> }` | Fired when filters change |
+
+```ts
+grid.addEventListener('tbw-filter-change', (e) => {
+  console.log('Active filters:', e.detail.filters);
+});
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(FilteringPlugin);
+
+// Set filter value
+plugin.setFilter('name', 'Alice');
+
+// Get current filters
+const filters = plugin.getFilters();
+
+// Clear all filters
+plugin.clearFilters();
+
+// Clear specific filter
+plugin.clearFilter('name');
+```
+
+## Styling
+
+```css
+/* Filter input */
+tbw-grid::part(filter-input) {
+  border: 1px solid var(--tbw-border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+/* Filter input focused */
+tbw-grid::part(filter-input):focus {
+  border-color: var(--tbw-primary-color);
+  outline: none;
+}
+
+/* Filter row */
+tbw-grid::part(filter-row) {
+  background: var(--tbw-filter-row-bg, #fafafa);
+}
+```

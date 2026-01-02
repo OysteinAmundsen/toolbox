@@ -1,0 +1,92 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as ServerSideStories from './server-side.stories';
+
+<Meta of={ServerSideStories} />
+
+# Server-Side Plugin
+
+The Server-Side plugin enables lazy loading of data from a remote server.
+
+## Installation
+
+```ts
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+```
+
+## Basic Usage
+
+```ts
+const dataSource = {
+  async getRows(params) {
+    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    const data = await response.json();
+    return { rows: data.rows, totalRowCount: data.total };
+  },
+};
+
+const plugin = new ServerSidePlugin({ pageSize: 50 });
+
+grid.gridConfig = {
+  columns: [...],
+  plugins: [plugin],
+};
+
+grid.ready().then(() => plugin.setDataSource(dataSource));
+```
+
+## Demos
+
+### Virtual Scroll Mode
+
+<Canvas of={ServerSideStories.Default} />
+<Controls of={ServerSideStories.Default} />
+
+### Paging Mode
+
+<Canvas of={ServerSideStories.PagingMode} />
+
+## Configuration Options
+
+| Option             | Type     | Default    | Description       |
+| ------------------ | -------- | ---------- | ----------------- |
+| `pageSize`         | `number` | `100`      | Rows per block    |
+| `cacheBlockSize`   | `number` | `pageSize` | Cache block size  |
+| `maxBlocksInCache` | `number` | `10`       | Max cached blocks |
+
+## Data Source Interface
+
+```ts
+interface ServerSideDataSource {
+  getRows(params: GetRowsParams): Promise<GetRowsResult>;
+}
+
+interface GetRowsParams {
+  startRow: number;
+  endRow: number;
+  sortModel?: { field: string; direction: 'asc' | 'desc' }[];
+  filterModel?: Record<string, FilterCondition>;
+}
+
+interface GetRowsResult {
+  rows: any[];
+  totalRowCount: number;
+}
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(ServerSidePlugin);
+
+plugin.setDataSource(newDataSource);
+plugin.refresh();
+plugin.clearCache();
+```
+
+## Events
+
+| Event                | Detail                           | Description      |
+| -------------------- | -------------------------------- | ---------------- |
+| `tbw-server-loading` | `{ startRow, endRow }`           | Loading begins   |
+| `tbw-server-loaded`  | `{ startRow, endRow, rowCount }` | Loading complete |
+| `tbw-server-error`   | `{ error }`                      | Loading error    |

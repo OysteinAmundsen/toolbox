@@ -1,0 +1,60 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as ReorderStories from './reorder.stories';
+
+<Meta of={ReorderStories} />
+
+# Column Reorder Plugin
+
+The Reorder plugin enables drag-and-drop column reordering.
+
+## Installation
+
+```ts
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [new ReorderPlugin()],
+};
+```
+
+## Demos
+
+### Default Reorder
+
+Drag column headers to reorder them.
+
+<Canvas of={ReorderStories.Default} />
+<Controls of={ReorderStories.Default} />
+
+### Without Animation
+
+Instant column movement.
+
+<Canvas of={ReorderStories.NoAnimation} />
+
+## Configuration Options
+
+| Option           | Type       | Default     | Description                      |
+| ---------------- | ---------- | ----------- | -------------------------------- |
+| `animate`        | `boolean`  | `true`      | Enable smooth animation          |
+| `handleSelector` | `string`   | `undefined` | CSS selector for drag handle     |
+| `lockedColumns`  | `string[]` | `[]`        | Columns that cannot be reordered |
+
+## Events
+
+| Event                | Detail                          | Description  |
+| -------------------- | ------------------------------- | ------------ |
+| `tbw-column-reorder` | `{ field, fromIndex, toIndex }` | Column moved |
+
+## Keyboard Support
+
+| Key       | Action                    |
+| --------- | ------------------------- |
+| `Alt + ←` | Move focused column left  |
+| `Alt + →` | Move focused column right |

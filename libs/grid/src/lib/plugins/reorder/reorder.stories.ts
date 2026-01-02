@@ -1,24 +1,39 @@
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
-import { buildExclusiveGridCodeView, extractCode } from '@toolbox/storybook/_utils';
 import type { GridElement } from '../../../public';
 import { ReorderPlugin } from './ReorderPlugin';
 
-// Import grid
+// Import grid component
 import '../../../index';
 
+// Sample data for reorder demos
+const sampleData = [
+  { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', salary: 95000 },
+  { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', salary: 75000 },
+  { id: 3, name: 'Carol', department: 'Engineering', email: 'carol@example.com', salary: 105000 },
+];
+
+const columns = [
+  { field: 'id', header: 'ID', type: 'number' as const },
+  { field: 'name', header: 'Name' },
+  { field: 'department', header: 'Department' },
+  { field: 'email', header: 'Email' },
+  { field: 'salary', header: 'Salary', type: 'number' as const },
+];
+
 const meta: Meta = {
-  title: 'Grid/Plugins',
+  title: 'Grid/Plugins/Reorder',
+  tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
     animation: {
       control: { type: 'boolean' },
       description: 'Animate column movement',
-      table: { category: 'Reorder' },
+      table: { category: 'Reorder', defaultValue: { summary: 'true' } },
     },
     animationDuration: {
       control: { type: 'range', min: 0, max: 500, step: 50 },
       description: 'Animation duration in milliseconds',
-      table: { category: 'Reorder' },
+      table: { category: 'Reorder', defaultValue: { summary: '200' } },
     },
   },
   args: {
@@ -35,62 +50,129 @@ interface ReorderArgs {
 type Story = StoryObj<ReorderArgs>;
 
 /**
- * ## Column Reordering
- *
- * Drag column headers to reorder columns.
- * The reorder plugin enables drag-and-drop column repositioning.
+ * Drag column headers to reorder columns. A visual indicator shows where
+ * the column will be placed.
  */
-export const ColumnReorder: Story = {
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 350px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'email', header: 'Email' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [
+    new ReorderPlugin({
+      animation: true,
+      animationDuration: 200,
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', salary: 95000 },
+  { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', salary: 75000 },
+  { id: 3, name: 'Carol', department: 'Engineering', email: 'carol@example.com', salary: 105000 },
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
   render: (args: ReorderArgs) => {
-    const host = document.createElement('div');
-    const htmlSnippet = `<tbw-grid></tbw-grid>`;
-    host.innerHTML = htmlSnippet;
-    const grid = host.querySelector('tbw-grid') as GridElement;
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
 
-    const codeSnippet = (__$animation$: boolean, __$animationDuration$: number) => {
-      grid.gridConfig = {
-        columns: [
-          { field: 'id', header: 'ID', type: 'number' },
-          { field: 'name', header: 'Name' },
-          { field: 'department', header: 'Department' },
-          { field: 'email', header: 'Email' },
-          { field: 'salary', header: 'Salary', type: 'number' },
-        ],
-        plugins: [
-          new ReorderPlugin({
-            animation: __$animation$,
-            animationDuration: __$animationDuration$,
-          }),
-        ],
-      };
-
-      grid.rows = [
-        { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', salary: 95000 },
-        { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', salary: 75000 },
-        { id: 3, name: 'Carol', department: 'Engineering', email: 'carol@example.com', salary: 105000 },
-      ];
-
-      grid.addEventListener('column-move', (e: CustomEvent) => {
-        console.log('column-move', e.detail);
-      });
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new ReorderPlugin({
+          animation: args.animation,
+          animationDuration: args.animationDuration,
+        }),
+      ],
     };
+    grid.rows = sampleData;
 
-    const jsSnippet = `${extractCode(codeSnippet, args)}`;
-    codeSnippet(args.animation, args.animationDuration);
+    return grid;
+  },
+};
 
-    return buildExclusiveGridCodeView(host, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'grid-reorder',
-      plugins: [{ className: 'ReorderPlugin', path: 'plugins/reorder' }],
-      description: `
-        <p>The <strong>Reorder</strong> plugin enables drag-and-drop column repositioning.</p>
-        <p><strong>Try it:</strong> Click and drag any column header to move it to a new position.</p>
-        <ul>
-          <li>A visual indicator shows where the column will be placed</li>
-          <li>Animation: ${args.animation ? `Enabled (${args.animationDuration}ms)` : 'Disabled'}</li>
-          <li>The <code>column-move</code> event fires when reordering completes</li>
-        </ul>
-      `,
-    });
+/**
+ * Instant column movement without animation.
+ */
+export const NoAnimation: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 350px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'email', header: 'Email' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [
+    new ReorderPlugin({
+      animation: false, // Instant reorder
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', salary: 95000 },
+  { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', salary: 75000 },
+  { id: 3, name: 'Carol', department: 'Engineering', email: 'carol@example.com', salary: 105000 },
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  args: {
+    animation: false,
+    animationDuration: 0,
+  },
+  render: (args: ReorderArgs) => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new ReorderPlugin({
+          animation: args.animation,
+          animationDuration: args.animationDuration,
+        }),
+      ],
+    };
+    grid.rows = sampleData;
+
+    return grid;
   },
 };

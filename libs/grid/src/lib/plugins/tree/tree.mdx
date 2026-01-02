@@ -1,0 +1,80 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as TreeStories from './tree.stories';
+
+<Meta of={TreeStories} />
+
+# Tree Plugin
+
+The Tree plugin displays hierarchical data with parent-child relationships.
+
+## Installation
+
+```ts
+import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [{ field: 'name', header: 'Name' }],
+  plugins: [
+    new TreePlugin({
+      idField: 'id',
+      parentField: 'parentId',
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Documents', parentId: null },
+  { id: 2, name: 'Work', parentId: 1 },
+  { id: 3, name: 'Report.docx', parentId: 2 },
+];
+```
+
+## Demos
+
+### Default Tree View
+
+<Canvas of={TreeStories.Default} />
+<Controls of={TreeStories.Default} />
+
+### Expanded by Default
+
+<Canvas of={TreeStories.ExpandedByDefault} />
+
+### Wide Indentation
+
+<Canvas of={TreeStories.WideIndentation} />
+
+## Configuration Options
+
+| Option              | Type      | Default      | Description                 |
+| ------------------- | --------- | ------------ | --------------------------- |
+| `idField`           | `string`  | `'id'`       | Unique identifier field     |
+| `parentField`       | `string`  | `'parentId'` | Parent reference field      |
+| `childrenField`     | `string`  | `undefined`  | Alternative: children array |
+| `expandedByDefault` | `boolean` | `false`      | Expand all initially        |
+| `indentSize`        | `number`  | `20`         | Indent per level            |
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(TreePlugin);
+
+plugin.expand(nodeId);
+plugin.collapse(nodeId);
+plugin.toggle(nodeId);
+plugin.expandAll();
+plugin.collapseAll();
+const expanded = plugin.getExpandedNodes();
+```
+
+## Events
+
+| Event               | Detail              | Description    |
+| ------------------- | ------------------- | -------------- |
+| `tbw-tree-expand`   | `{ nodeId, level }` | Node expanded  |
+| `tbw-tree-collapse` | `{ nodeId, level }` | Node collapsed |

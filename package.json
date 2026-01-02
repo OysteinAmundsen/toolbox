@@ -20,6 +20,8 @@
     "lint": "nx run-many --target=lint --exclude=storybook-app --output-style=stream",
     "coverage": "bun run test --coverage",
     "watch": "bun run build --watch",
+    "docs": "nx run storybook-app:storybook --docs",
+    "docs:build": "nx run storybook-app:build-storybook --docs -o dist/docs",
     "update": "nx migrate latest && nx migrate --run-migrations --if-exists && git commit -am 'chore: update dependencies' && bunx npm-check-updates --format group -u --cooldown 5 --target minor && bun install"
   },
   "devDependencies": {
@@ -36,6 +38,7 @@
     "@nx/web": "22.3.3",
     "@playwright/test": "1.57.0",
     "@storybook/addon-a11y": "10.1.11",
+    "@storybook/addon-docs": "^10.1.11",
     "@storybook/web-components-vite": "10.1.11",
     "@swc-node/register": "1.11.1",
     "@swc/core": "1.15.7",
@@ -55,6 +58,7 @@
     "lit": "3.3.2",
     "nx": "22.3.3",
     "prettier": "3.7.4",
+    "remark-gfm": "^4.0.1",
     "storybook": "10.1.11",
     "ts-node": "10.9.2",
     "tslib": "2.8.1",

@@ -1,0 +1,254 @@
+{/* GettingStarted.mdx */}
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Getting Started" />
+
+# Getting Started
+
+This guide walks you through setting up `@toolbox-web/grid` in your project.
+
+## Installation
+
+### Package Manager
+
+```bash
+# npm
+npm install @toolbox-web/grid
+
+# yarn
+yarn add @toolbox-web/grid
+
+# pnpm
+pnpm add @toolbox-web/grid
+
+# bun
+bun add @toolbox-web/grid
+```
+
+### CDN (UMD)
+
+For quick prototyping, you can use the UMD bundle directly:
+
+```html
+<script src="https://unpkg.com/@toolbox-web/grid/umd/grid.umd.js"></script>
+```
+
+## Basic Setup
+
+### ES Modules (Recommended)
+
+```typescript
+// Import the component (registers <tbw-grid> custom element)
+import '@toolbox-web/grid';
+
+// TypeScript users: import types
+import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
+```
+
+### HTML Markup
+
+The grid is a standard web component. Use it like any HTML element:
+
+```html
+<tbw-grid id="my-grid" style="height: 400px;"></tbw-grid>
+```
+
+> **Important:** For virtualization to work, the grid needs a fixed height. Either set `height` via CSS/style or use `height: auto` for non-virtualized mode.
+
+### Configuration via HTML Attributes
+
+For simple use cases, configure the grid entirely via HTML attributes with JSON values:
+
+```html
+<tbw-grid
+  style="height: 400px;"
+  fit-mode="stretch"
+  edit-on="dblclick"
+  columns='[{"field":"id","header":"ID","type":"number"},{"field":"name","header":"Name","editable":true}]'
+  rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"},{"id":3,"name":"Carol"}]'>
+</tbw-grid>
+```
+
+This is particularly useful for:
+- Quick prototyping without JavaScript
+- Server-side rendered templates
+- Framework template bindings (Angular, Vue, etc.)
+
+### Configuration via JavaScript
+
+```typescript
+const grid = document.querySelector('#my-grid');
+
+// Set columns
+grid.columns = [
+  { field: 'id', header: 'ID', type: 'number', sortable: true },
+  { field: 'name', header: 'Name', sortable: true, editable: true },
+  { field: 'email', header: 'Email' },
+  { field: 'active', header: 'Active', type: 'boolean' },
+];
+
+// Set row data
+grid.rows = [
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', active: true },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com', active: false },
+  { id: 3, name: 'Carol White', email: 'carol@example.com', active: true },
+];
+```
+
+### Configuration via gridConfig
+
+For more complex setups, use the `gridConfig` property:
+
+```typescript
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+  ],
+  fitMode: 'stretch', // Columns stretch to fill width
+  editOn: 'dblclick', // Double-click to edit
+  plugins: [], // Add plugins here
+};
+```
+
+### Declarative Configuration (Light DOM)
+
+You can also configure columns declaratively:
+
+```html
+<tbw-grid>
+  <tbw-grid-column field="id" header="ID" type="number" sortable></tbw-grid-column>
+  <tbw-grid-column field="name" header="Name" editable></tbw-grid-column>
+  <tbw-grid-column field="email" header="Email"></tbw-grid-column>
+</tbw-grid>
+```
+
+## Framework Integration
+
+### Vanilla JavaScript
+
+```javascript
+import '@toolbox-web/grid';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const grid = document.querySelector('tbw-grid');
+  grid.columns = [...];
+  grid.rows = [...];
+
+  // Listen for events
+  grid.addEventListener('cell-commit', (e) => {
+    console.log('Cell edited:', e.detail);
+  });
+});
+```
+
+### React
+
+```tsx
+import '@toolbox-web/grid';
+import { useEffect, useRef } from 'react';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+function MyGrid({ data }) {
+  const gridRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.columns = columns;
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} style={{ height: '400px' }} />;
+}
+```
+
+### Vue
+
+```vue
+<template>
+  <tbw-grid ref="gridRef" style="height: 400px" />
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { ref, onMounted, watch } from 'vue';
+
+const gridRef = ref(null);
+const props = defineProps(['data', 'columns']);
+
+onMounted(() => {
+  gridRef.value.columns = props.columns;
+  gridRef.value.rows = props.data;
+});
+
+watch(
+  () => props.data,
+  (newData) => {
+    gridRef.value.rows = newData;
+  },
+);
+</script>
+```
+
+### Angular
+
+```typescript
+// app.module.ts
+import { CUSTOM_ELEMENTS_SCHEMA, NgModule } from '@angular/core';
+import '@toolbox-web/grid';
+
+@NgModule({
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  // ...
+})
+export class AppModule {}
+```
+
+```typescript
+// grid.component.ts
+import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+
+@Component({
+  selector: 'app-grid',
+  template: `<tbw-grid #grid style="height: 400px"></tbw-grid>`,
+})
+export class GridComponent implements AfterViewInit {
+  @ViewChild('grid') gridRef: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.columns = [...];
+    this.gridRef.nativeElement.rows = [...];
+  }
+}
+```
+
+## TypeScript Support
+
+The package includes full TypeScript definitions. Import types for better IDE support:
+
+```typescript
+import '@toolbox-web/grid';
+import type { ColumnConfig, GridConfig, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
+
+// Type-safe column configuration
+const columns: ColumnConfig[] = [
+  { field: 'id', header: 'ID', type: 'number' },
+  { field: 'name', header: 'Name', editable: true },
+];
+
+// Type-safe event handling
+grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
+  const { row, field, value, oldValue } = e.detail;
+  console.log(`Changed ${field} from ${oldValue} to ${value}`);
+});
+```
+
+## Next Steps
+
+Now that you have the grid set up, explore:
+
+- **[Core Features](../?path=/docs/grid-core--docs)** - Sorting, editing, keyboard navigation
+- **[Plugins](../?path=/docs/grid-plugins-selection--docs)** - Add selection, filtering, row grouping
+- **[Theming](../?path=/docs/grid-theming--docs)** - Customize colors and styles
+- **[API Reference](../?path=/docs/grid-api--docs)** - Complete property/method/event reference

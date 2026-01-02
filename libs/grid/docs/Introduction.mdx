@@ -1,0 +1,114 @@
+{/* Introduction.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Introduction" />
+
+# <img src="/grid_logo.png" alt="" style={{height: '1.2em', verticalAlign: 'middle', marginRight: '0.3em'}} /> @toolbox-web/grid
+
+A **high-performance, framework-agnostic data grid** web component built with pure TypeScript.
+
+## Why @toolbox-web/grid?
+
+| Feature                    | Description                                                         |
+| -------------------------- | ------------------------------------------------------------------- |
+| 🚀 **High Performance**    | Virtualized rendering handles 100k+ rows smoothly                   |
+| 🔧 **Framework Agnostic**  | Works in vanilla JS, React, Vue, Angular, Svelte—no wrappers needed |
+| ⌨️ **Keyboard Navigation** | Full arrow key, Tab, Enter, Escape, Home/End, Page Up/Down support  |
+| 🎨 **Themeable**           | CSS custom properties for complete visual customization             |
+| 📦 **Plugin Architecture** | Extend with selection, filtering, grouping, and more                |
+| 🪶 **Lightweight**         | Zero dependencies, tree-shakeable plugins                           |
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install @toolbox-web/grid
+# or
+bun add @toolbox-web/grid
+```
+
+### Basic Usage
+
+```html
+<tbw-grid style="height: 300px;"></tbw-grid>
+
+<script type="module">
+  import '@toolbox-web/grid';
+
+  const grid = document.querySelector('tbw-grid');
+
+  grid.columns = [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true, editable: true },
+    { field: 'email', header: 'Email' },
+  ];
+
+  grid.rows = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+    { id: 3, name: 'Carol', email: 'carol@example.com' },
+  ];
+</script>
+```
+
+## Features Overview
+
+### Virtualization
+
+The grid uses row virtualization by default, rendering only visible rows plus a small overscan buffer. This enables smooth scrolling even with massive datasets.
+
+### Column Configuration
+
+Columns support many configuration options:
+
+```typescript
+const columns = [
+  {
+    field: 'name', // Data field key
+    header: 'Full Name', // Display header
+    type: 'string', // 'string' | 'number' | 'boolean' | 'date' | 'select'
+    sortable: true, // Enable sorting
+    resizable: true, // Enable column resize
+    editable: true, // Enable inline editing
+    width: 200, // Initial width in pixels
+    minWidth: 100, // Minimum width when resizing
+  },
+];
+```
+
+### Sorting
+
+Click column headers to sort. The grid supports:
+
+- Single-column sorting (default)
+- Multi-column sorting via the MultiSort plugin
+- Custom sort comparators
+
+### Inline Editing
+
+Enable editing with `editable: true` on columns. The grid supports:
+
+- **Click** or **double-click** to edit (configurable via `editOn`)
+- Text, number, boolean (checkbox), date, and select inputs
+- Enter to confirm, Escape to cancel
+- Tab/Shift+Tab navigation between editable cells
+
+### Events
+
+The grid emits several events for integration:
+
+| Event           | Description                         |
+| --------------- | ----------------------------------- |
+| `cell-commit`   | Cell value was edited and committed |
+| `row-commit`    | Bulk row edit session completed     |
+| `sort-change`   | Sort state changed                  |
+| `column-resize` | Column was resized                  |
+| `activate-cell` | Cell received focus/activation      |
+
+## Next Steps
+
+- [Getting Started](../?path=/docs/grid-getting-started--docs) - Detailed setup instructions
+- [Configuration](../?path=/docs/grid-core--docs) - Full configuration reference
+- [Plugins](../?path=/docs/grid-plugins-selection--docs) - Extend with selection, filtering, and more
+- [Theming](../?path=/docs/grid-theming--docs) - Customize the visual appearance

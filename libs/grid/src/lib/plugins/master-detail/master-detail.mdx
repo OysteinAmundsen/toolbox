@@ -1,0 +1,86 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as MasterDetailStories from './master-detail.stories';
+
+<Meta of={MasterDetailStories} />
+
+# Master-Detail Plugin
+
+The Master-Detail plugin displays expandable detail rows beneath master rows.
+
+## Installation
+
+```ts
+import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new MasterDetailPlugin({
+      detailRenderer: (row) => `<div>Details for ${row.name}</div>`,
+    }),
+  ],
+};
+```
+
+## Demos
+
+### Default Master-Detail
+
+<Canvas of={MasterDetailStories.Default} />
+<Controls of={MasterDetailStories.Default} />
+
+### Expand on Row Click
+
+<Canvas of={MasterDetailStories.ExpandOnRowClick} />
+
+### Fixed Detail Height
+
+<Canvas of={MasterDetailStories.FixedDetailHeight} />
+
+## Configuration Options
+
+| Option             | Type                             | Default  | Description         |
+| ------------------ | -------------------------------- | -------- | ------------------- |
+| `detailRenderer`   | `(row) => HTMLElement \| string` | required | Render function     |
+| `expandOnRowClick` | `boolean`                        | `false`  | Expand on row click |
+| `detailHeight`     | `number \| 'auto'`               | `'auto'` | Detail row height   |
+| `singleExpand`     | `boolean`                        | `false`  | Only one expanded   |
+
+## Nested Grid Example
+
+```ts
+new MasterDetailPlugin({
+  detailRenderer: (row) => {
+    const childGrid = document.createElement('tbw-grid');
+    childGrid.style.height = '200px';
+    childGrid.gridConfig = { columns: [...] };
+    childGrid.rows = row.items || [];
+    return childGrid;
+  },
+})
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(MasterDetailPlugin);
+
+plugin.expandRow(rowIndex);
+plugin.collapseRow(rowIndex);
+plugin.toggleRow(rowIndex);
+plugin.expandAll();
+plugin.collapseAll();
+const isExpanded = plugin.isRowExpanded(rowIndex);
+```
+
+## Events
+
+| Event                 | Detail              | Description   |
+| --------------------- | ------------------- | ------------- |
+| `tbw-detail-expand`   | `{ rowIndex, row }` | Detail opened |
+| `tbw-detail-collapse` | `{ rowIndex, row }` | Detail closed |

@@ -93,13 +93,36 @@ flowchart TB
 
 When the same property is set via multiple sources, higher precedence wins:
 
-| Priority    | Source                | Example                                    |
-| ----------- | --------------------- | ------------------------------------------ |
-| 1 (lowest)  | `gridConfig` property | `grid.gridConfig = { fitMode: 'stretch' }` |
-| 2           | Light DOM elements    | `<tbw-grid-column field="name">`           |
-| 3           | `columns` property    | `grid.columns = [{ field: 'name' }]`       |
-| 4           | Inferred columns      | (auto-detected from first row)             |
-| 5 (highest) | Individual props      | `grid.fitMode = 'fixed'`                   |
+| Priority    | Source                | Example                                      |
+| ----------- | --------------------- | -------------------------------------------- |
+| 1 (lowest)  | HTML attributes       | `<tbw-grid rows='[...]' fit-mode="stretch">` |
+| 2           | `gridConfig` property | `grid.gridConfig = { fitMode: 'stretch' }`   |
+| 3           | Light DOM elements    | `<tbw-grid-column field="name">`             |
+| 4           | `columns` property    | `grid.columns = [{ field: 'name' }]`         |
+| 5           | Inferred columns      | (auto-detected from first row)               |
+| 6 (highest) | Individual props      | `grid.fitMode = 'fixed'`                     |
+
+### HTML Attribute Configuration
+
+The grid supports JSON-serialized configuration via HTML attributes:
+
+```html
+<tbw-grid
+  rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
+  columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
+  fit-mode="stretch"
+  edit-on="dblclick"
+>
+</tbw-grid>
+```
+
+Supported attributes:
+
+- `rows` - JSON array of row data
+- `columns` - JSON array of column configurations
+- `grid-config` - JSON object with full GridConfig
+- `fit-mode` - String: `'stretch'` or `'fixed'`
+- `edit-on` - String: `'click'` or `'dblclick'`
 
 ### Light DOM Configuration
 

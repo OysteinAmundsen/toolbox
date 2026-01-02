@@ -1,0 +1,79 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as GroupingRowsStories from './grouping-rows.stories';
+
+<Meta of={GroupingRowsStories} />
+
+# Row Grouping Plugin
+
+The Row Grouping plugin enables hierarchical grouping of rows with expand/collapse.
+
+## Installation
+
+```ts
+import { RowGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new RowGroupingPlugin({
+      groupByFields: ['department'],
+    }),
+  ],
+};
+```
+
+## Demos
+
+### Default Grouping
+
+<Canvas of={GroupingRowsStories.Default} />
+<Controls of={GroupingRowsStories.Default} />
+
+### Expanded by Default
+
+<Canvas of={GroupingRowsStories.ExpandedByDefault} />
+
+### Without Row Count
+
+<Canvas of={GroupingRowsStories.NoRowCount} />
+
+## Configuration Options
+
+| Option              | Type       | Default | Description          |
+| ------------------- | ---------- | ------- | -------------------- |
+| `groupByFields`     | `string[]` | `[]`    | Fields to group by   |
+| `expandedByDefault` | `boolean`  | `false` | Start expanded       |
+| `showRowCount`      | `boolean`  | `true`  | Show count in header |
+| `indentSize`        | `number`   | `20`    | Indent per level     |
+
+## Multi-Level Grouping
+
+```ts
+new RowGroupingPlugin({
+  groupByFields: ['region', 'department', 'team'],
+});
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(RowGroupingPlugin);
+
+plugin.expandGroup(['Engineering']);
+plugin.collapseGroup(['Engineering']);
+plugin.expandAll();
+plugin.collapseAll();
+const isExpanded = plugin.isGroupExpanded(['Engineering']);
+```
+
+## Events
+
+| Event                | Detail          | Description     |
+| -------------------- | --------------- | --------------- |
+| `tbw-group-expand`   | `{ groupPath }` | Group expanded  |
+| `tbw-group-collapse` | `{ groupPath }` | Group collapsed |

@@ -1,0 +1,80 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as PinnedRowsStories from './pinned-rows.stories';
+
+<Meta of={PinnedRowsStories} />
+
+# Pinned Rows (Status Bar) Plugin
+
+The Pinned Rows plugin creates a status bar for aggregations, row counts, or custom content.
+
+## Installation
+
+```ts
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new PinnedRowsPlugin({
+      position: 'bottom',
+      showRowCount: true,
+    }),
+  ],
+};
+```
+
+## Demos
+
+### Default Status Bar
+
+<Canvas of={PinnedRowsStories.Default} />
+<Controls of={PinnedRowsStories.Default} />
+
+### Multiple Aggregations
+
+<Canvas of={PinnedRowsStories.MultipleAggregations} />
+
+### Custom Panels
+
+<Canvas of={PinnedRowsStories.CustomPanels} />
+
+## Configuration Options
+
+| Option         | Type                  | Default    | Description         |
+| -------------- | --------------------- | ---------- | ------------------- |
+| `position`     | `'top' \| 'bottom'`   | `'bottom'` | Status bar position |
+| `showRowCount` | `boolean`             | `false`    | Display row count   |
+| `aggregations` | `AggregationConfig[]` | `[]`       | Column aggregations |
+| `customPanels` | `CustomPanel[]`       | `[]`       | Custom panels       |
+
+## Aggregations
+
+```ts
+new PinnedRowsPlugin({
+  aggregations: [
+    { field: 'quantity', aggFunc: 'sum', label: 'Total' },
+    { field: 'price', aggFunc: 'avg', label: 'Average' },
+  ],
+});
+```
+
+Available functions: `sum`, `avg`, `min`, `max`, `count`, `first`, `last`
+
+## Custom Panels
+
+```ts
+new PinnedRowsPlugin({
+  customPanels: [
+    {
+      id: 'info',
+      position: 'right',
+      render: () => '<span>Custom content</span>',
+    },
+  ],
+});
+```

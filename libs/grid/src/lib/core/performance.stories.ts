@@ -31,6 +31,7 @@ interface BenchmarkResult {
 
 const meta: Meta = {
   title: 'Grid',
+  tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
 };
 export default meta;

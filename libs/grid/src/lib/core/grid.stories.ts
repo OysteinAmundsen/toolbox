@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
-import { buildExclusiveGridCodeView, extractCode } from '@toolbox/storybook/_utils';
 import type { ColumnConfig, GridConfig, HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from '../../public';
 import { FitModeEnum } from '../../public';
 
@@ -27,6 +26,7 @@ type ColumnKey = (typeof ALL_COLUMNS)[number];
 
 const meta: Meta = {
   title: 'Grid/Core',
+  tags: ['!dev'],
   parameters: {
     layout: 'fullscreen',
     docs: {
@@ -196,75 +196,59 @@ function generateRows(count: number) {
  * - Page Up/Down: Scroll by page
  */
 export const Playground: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid');
+
+// Configure grid
+grid.fitMode = 'stretch';
+grid.editOn = 'dblclick';
+
+grid.columns = [
+  { field: 'id', header: 'ID', type: 'number', sortable: true, resizable: true },
+  { field: 'name', header: 'Name', sortable: true, resizable: true, editable: true },
+  { field: 'active', header: 'Active', type: 'boolean', sortable: true, editable: true },
+  { field: 'score', header: 'Score', type: 'number', sortable: true, resizable: true, editable: true },
+  { field: 'created', header: 'Created', type: 'date', sortable: true, resizable: true },
+  {
+    field: 'role',
+    header: 'Role',
+    type: 'select',
+    sortable: true,
+    editable: true,
+    options: [
+      { label: 'Admin', value: 'admin' },
+      { label: 'User', value: 'user' },
+      { label: 'Guest', value: 'guest' },
+    ],
+  },
+];
+
+grid.rows = generateRows(100);
+
+// Listen for cell edits
+grid.addEventListener('cell-commit', (e) => {
+  console.log('cell-commit:', e.detail.field, '=', e.detail.newValue);
+});
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
   render: (args: GridArgs) => {
     const effectiveHeight = args.fixedHeight ? args.height : 'auto';
-    const htmlSnippet = `<tbw-grid style="height: ${effectiveHeight}; display: block;"></tbw-grid>`;
 
-    // Create grid element directly to set props BEFORE DOM connection (single render pass)
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.cssText = `height: ${effectiveHeight}; display: block;`;
-
-    const codeSnippet = (
-      __$rowCount$: number,
-      __$fitMode$: string,
-      __$sortable$: boolean,
-      __$resizable$: boolean,
-      __$editable$: boolean,
-      __$editOn$: string,
-    ) => {
-      // Generate sample data
-      const roles = ['admin', 'user', 'guest'];
-      const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
-      const rows: any[] = [];
-      for (let i = 0; i < __$rowCount$; i++) {
-        rows.push({
-          id: i + 1,
-          name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
-          active: i % 3 !== 0,
-          score: Math.floor(Math.random() * 100),
-          created: new Date(Date.now() - i * 86400000),
-          role: roles[i % roles.length],
-        });
-      }
-
-      // Configure grid
-      grid.fitMode = __$fitMode$;
-      grid.editOn = __$editOn$;
-
-      grid.columns = [
-        { field: 'id', header: 'ID', type: 'number', sortable: __$sortable$, resizable: __$resizable$ },
-        { field: 'name', header: 'Name', sortable: __$sortable$, resizable: __$resizable$, editable: __$editable$ },
-        { field: 'active', header: 'Active', type: 'boolean', sortable: __$sortable$, editable: __$editable$ },
-        {
-          field: 'score',
-          header: 'Score',
-          type: 'number',
-          sortable: __$sortable$,
-          resizable: __$resizable$,
-          editable: __$editable$,
-        },
-        { field: 'created', header: 'Created', type: 'date', sortable: __$sortable$, resizable: __$resizable$ },
-        {
-          field: 'role',
-          header: 'Role',
-          type: 'select',
-          sortable: __$sortable$,
-          editable: __$editable$,
-          options: [
-            { label: 'Admin', value: 'admin' },
-            { label: 'User', value: 'user' },
-            { label: 'Guest', value: 'guest' },
-          ],
-        },
-      ];
-      grid.rows = rows;
-
-      // Listen for cell edits
-      grid.addEventListener('cell-commit', (e: Event) => {
-        const detail = (e as CustomEvent).detail;
-        console.log('cell-commit:', detail.field, '=', detail.newValue);
-      });
-    };
 
     // Build columns from selected options
     const columns = buildColumnDefs(args.visibleColumns, {
@@ -284,23 +268,7 @@ export const Playground: Story = {
       console.log('cell-commit:', detail.field, '=', detail.newValue);
     });
 
-    const jsSnippet = extractCode(codeSnippet, args);
-    const heightInfo = args.fixedHeight ? `height: ${args.height}` : 'auto height';
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'grid-playground',
-      description: `
-        <p>Rendering <strong>${args.rowCount.toLocaleString()} rows</strong> with <strong>${
-          args.visibleColumns.length
-        } columns</strong> (${heightInfo}).</p>
-        <p><strong>Virtualization:</strong> ${
-          args.fixedHeight
-            ? 'Only visible rows are in the DOM — try scrolling with 10,000 rows!'
-            : 'Disabled (auto height renders all rows).'
-        }</p>
-        <p><strong>Keyboard:</strong> Arrow keys navigate, <code>Enter</code> edits, <code>Escape</code> cancels, <code>Tab</code> moves between editable cells.</p>
-      `,
-    });
+    return grid;
   },
 };
 
@@ -324,32 +292,52 @@ export const ColumnInference: Story = {
     editable: { table: { disable: true } },
     editOn: { table: { disable: true } },
   },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- Option 1: Pure HTML with JSON attributes (simplest!) -->
+<tbw-grid
+  style="height: 300px;"
+  rows='[
+    {"id":1,"name":"Alice","score":95,"active":true},
+    {"id":2,"name":"Bob","score":82,"active":false},
+    {"id":3,"name":"Carol","score":91,"active":true}
+  ]'>
+</tbw-grid>
+
+<!-- Option 2: JavaScript property assignment -->
+<tbw-grid id="my-grid" style="height: 300px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+
+const grid = document.querySelector('#my-grid');
+
+// No columns defined - they're inferred from the data!
+grid.rows = [
+  { id: 1, name: 'Alice', score: 95, active: true, joined: new Date('2023-01-15') },
+  { id: 2, name: 'Bob', score: 82, active: false, joined: new Date('2023-06-20') },
+  { id: 3, name: 'Carol', score: 91, active: true, joined: new Date('2024-02-10') },
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
   render: () => {
-    const host = document.createElement('div');
-    const htmlSnippet = `<tbw-grid></tbw-grid>`;
-    host.innerHTML = htmlSnippet;
-    const grid = host.querySelector('tbw-grid') as GridElement;
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '300px';
 
-    const codeSnippet = () => {
-      // No columns defined - they're inferred from the data!
-      grid.rows = [
-        { id: 1, name: 'Alice', score: 95, active: true, joined: new Date('2023-01-15') },
-        { id: 2, name: 'Bob', score: 82, active: false, joined: new Date('2023-06-20') },
-        { id: 3, name: 'Carol', score: 91, active: true, joined: new Date('2024-02-10') },
-      ];
-    };
+    // No columns defined - they're inferred from the data!
+    grid.rows = [
+      { id: 1, name: 'Alice', score: 95, active: true, joined: new Date('2023-01-15') },
+      { id: 2, name: 'Bob', score: 82, active: false, joined: new Date('2023-06-20') },
+      { id: 3, name: 'Carol', score: 91, active: true, joined: new Date('2024-02-10') },
+    ];
 
-    codeSnippet();
-    const jsSnippet = extractCode(codeSnippet, {});
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'grid-inference',
-      description: `
-        <p>No <code>columns</code> prop provided — types are <strong>auto-detected</strong> from the data.</p>
-        <p>The grid infers: <code>number</code>, <code>string</code>, <code>boolean</code>, and <code>Date</code> types.</p>
-        <p>Column headers are generated from field names (camelCase → Title Case).</p>
-      `,
-    });
+    return grid;
   },
 };
 
@@ -369,41 +357,51 @@ export const LightDOMColumns: Story = {
     resizable: { table: { disable: true } },
     editOn: { table: { disable: true } },
   },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid>
+  <tbw-grid-column field="name" header="Name" sortable editable resizable></tbw-grid-column>
+  <tbw-grid-column field="score" header="Score" type="number" sortable editable></tbw-grid-column>
+  <tbw-grid-column field="role" header="Role" type="select" editable options="admin:Admin,user:User,guest:Guest"></tbw-grid-column>
+</tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid');
+// Only rows needed - columns are defined in HTML
+grid.rows = [
+  { name: 'Alice', score: 95, role: 'admin' },
+  { name: 'Bob', score: 82, role: 'user' },
+  { name: 'Carol', score: 91, role: 'guest' },
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
   render: (args: GridArgs) => {
     const host = document.createElement('div');
-    const htmlSnippet = `
-<tbw-grid>
+    host.innerHTML = `
+<tbw-grid style="height: 300px;">
   <tbw-grid-column field="name" header="Name" sortable ${args.editable ? 'editable' : ''} resizable></tbw-grid-column>
-  <tbw-grid-column field="score" header="Score" type="number" sortable ${
-    args.editable ? 'editable' : ''
-  }></tbw-grid-column>
-  <tbw-grid-column field="role" header="Role" type="select" ${
-    args.editable ? 'editable' : ''
-  } options="admin:Admin,user:User,guest:Guest"></tbw-grid-column>
+  <tbw-grid-column field="score" header="Score" type="number" sortable ${args.editable ? 'editable' : ''}></tbw-grid-column>
+  <tbw-grid-column field="role" header="Role" type="select" ${args.editable ? 'editable' : ''} options="admin:Admin,user:User,guest:Guest"></tbw-grid-column>
 </tbw-grid>`;
-    host.innerHTML = htmlSnippet;
     const grid = host.querySelector('tbw-grid') as GridElement;
 
-    const codeSnippet = () => {
-      // Only rows needed - columns are defined in HTML
-      grid.rows = [
-        { name: 'Alice', score: 95, role: 'admin' },
-        { name: 'Bob', score: 82, role: 'user' },
-        { name: 'Carol', score: 91, role: 'guest' },
-      ];
-    };
+    // Only rows needed - columns are defined in HTML
+    grid.rows = [
+      { name: 'Alice', score: 95, role: 'admin' },
+      { name: 'Bob', score: 82, role: 'user' },
+      { name: 'Carol', score: 91, role: 'guest' },
+    ];
 
-    codeSnippet();
-    const jsSnippet = extractCode(codeSnippet, {});
-    return buildExclusiveGridCodeView(host, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'grid-lightdom',
-      description: `
-        <p>Columns defined via <code>&lt;tbw-grid-column&gt;</code> elements in the HTML.</p>
-        <p>Great for <strong>HTML-first</strong> workflows, CMS templates, or server-rendered pages.</p>
-        <p>Attributes: <code>field</code>, <code>header</code>, <code>type</code>, <code>sortable</code>, <code>editable</code>, <code>resizable</code>, <code>options</code>.</p>
-      `,
-    });
+    return grid;
   },
 };
 
@@ -424,63 +422,104 @@ export const CustomFormatters: Story = {
     editable: { table: { disable: true } },
     editOn: { table: { disable: true } },
   },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.columns = [
+  { field: 'name', header: 'Name' },
+  {
+    field: 'score',
+    header: 'Score',
+    type: 'number',
+    // Simple format function
+    format: (value) => \`\${value} pts\`,
+  },
+  {
+    field: 'status',
+    header: 'Status',
+    // viewRenderer for custom HTML
+    viewRenderer: ({ value }) => {
+      const color = value === 'active' ? 'green' : value === 'pending' ? 'orange' : 'gray';
+      return \`<span style="color: \${color}; font-weight: bold;">● \${value}</span>\`;
+    },
+  },
+  {
+    field: 'progress',
+    header: 'Progress',
+    type: 'number',
+    // viewRenderer can return HTMLElement
+    viewRenderer: ({ value }) => {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden';
+      bar.innerHTML = \`<div style="width:\${value}%;height:100%;background:#4caf50"></div>\`;
+      return bar;
+    },
+  },
+];
+
+grid.rows = [
+  { name: 'Project A', score: 85, status: 'active', progress: 75 },
+  { name: 'Project B', score: 62, status: 'pending', progress: 40 },
+  { name: 'Project C', score: 91, status: 'completed', progress: 100 },
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
   render: () => {
-    const host = document.createElement('div');
-    const htmlSnippet = `<tbw-grid></tbw-grid>`;
-    host.innerHTML = htmlSnippet;
-    const grid = host.querySelector('tbw-grid') as GridElement;
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '300px';
 
-    const codeSnippet = () => {
-      grid.columns = [
-        { field: 'name', header: 'Name' },
-        {
-          field: 'score',
-          header: 'Score',
-          type: 'number',
-          // Simple format function
-          format: (value: number) => `${value} pts`,
+    grid.columns = [
+      { field: 'name', header: 'Name' },
+      {
+        field: 'score',
+        header: 'Score',
+        type: 'number',
+        // Simple format function
+        format: (value: number) => `${value} pts`,
+      },
+      {
+        field: 'status',
+        header: 'Status',
+        // viewRenderer for custom HTML
+        viewRenderer: ({ value }) => {
+          const color = value === 'active' ? 'green' : value === 'pending' ? 'orange' : 'gray';
+          return `<span style="color: ${color}; font-weight: bold;">● ${value}</span>`;
         },
-        {
-          field: 'status',
-          header: 'Status',
-          // viewRenderer for custom HTML
-          viewRenderer: ({ value }) => {
-            const color = value === 'active' ? 'green' : value === 'pending' ? 'orange' : 'gray';
-            return `<span style="color: ${color}; font-weight: bold;">● ${value}</span>`;
-          },
+      },
+      {
+        field: 'progress',
+        header: 'Progress',
+        type: 'number',
+        // viewRenderer can return HTMLElement
+        viewRenderer: ({ value }) => {
+          const bar = document.createElement('div');
+          bar.style.cssText = 'height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden';
+          bar.innerHTML = `<div style="width:${value}%;height:100%;background:#4caf50"></div>`;
+          return bar;
         },
-        {
-          field: 'progress',
-          header: 'Progress',
-          type: 'number',
-          // viewRenderer can return HTMLElement
-          viewRenderer: ({ value }) => {
-            const bar = document.createElement('div');
-            bar.style.cssText = 'height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden';
-            bar.innerHTML = `<div style="width:${value}%;height:100%;background:#4caf50"></div>`;
-            return bar;
-          },
-        },
-      ];
+      },
+    ];
 
-      grid.rows = [
-        { name: 'Project A', score: 85, status: 'active', progress: 75 },
-        { name: 'Project B', score: 62, status: 'pending', progress: 40 },
-        { name: 'Project C', score: 91, status: 'completed', progress: 100 },
-      ];
-    };
+    grid.rows = [
+      { name: 'Project A', score: 85, status: 'active', progress: 75 },
+      { name: 'Project B', score: 62, status: 'pending', progress: 40 },
+      { name: 'Project C', score: 91, status: 'completed', progress: 100 },
+    ];
 
-    codeSnippet();
-    const jsSnippet = extractCode(codeSnippet, {});
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'grid-formatters',
-      description: `
-        <p><code>format</code> — simple value → string transformation (e.g., "85 pts").</p>
-        <p><code>viewRenderer</code> — return HTML string or <code>HTMLElement</code> for rich cell content.</p>
-        <p>Examples: status badges, progress bars, custom icons, formatted currencies.</p>
-      `,
-    });
+    return grid;
   },
 };
 
@@ -599,35 +638,58 @@ export const ColumnStatePersistence: Story = {
       showStatus('📂 Restored saved state from localStorage');
     }
 
-    const htmlSnippet = `<tbw-grid></tbw-grid>`;
-    const jsSnippet = `${extractCode(codeSnippet, {})}
+    return wrapper;
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid></tbw-grid>
 
-// Save state to localStorage
+<script type="module">
+import '@toolbox-web/grid';
+
+const STORAGE_KEY = 'my-grid-state';
+const grid = document.querySelector('tbw-grid');
+
+// Check for saved state on load
+const savedState = localStorage.getItem(STORAGE_KEY);
+const initialState = savedState ? JSON.parse(savedState) : undefined;
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', sortable: true, resizable: true },
+    { field: 'name', header: 'Name', sortable: true, resizable: true },
+    { field: 'department', header: 'Department', sortable: true, resizable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true, resizable: true },
+    { field: 'hired', header: 'Hired', type: 'date', sortable: true, resizable: true },
+  ],
+  // Restore saved state if available
+  columnState: initialState,
+};
+
+grid.rows = [...];
+
+// Listen for state changes
 grid.addEventListener('column-state-change', (e) => {
-  localStorage.setItem('my-grid-state', JSON.stringify(e.detail));
+  console.log('column-state-change', e.detail);
 });
 
-// Or manually get/set state
+// Save state to localStorage
 const state = grid.getColumnState();
-grid.columnState = savedState;
+localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+// Load state from localStorage
+grid.columnState = JSON.parse(localStorage.getItem(STORAGE_KEY));
 
 // Reset to initial column config
-grid.resetColumnState();`;
-
-    return buildExclusiveGridCodeView(wrapper, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'grid-column-state',
-      description: `
-        <p><strong>Try these actions:</strong></p>
-        <ul>
-          <li><strong>Resize columns</strong> — drag column borders</li>
-          <li><strong>Sort columns</strong> — click headers</li>
-          <li><strong>Hide columns</strong> — right-click header → Hide (if context menu enabled)</li>
-        </ul>
-        <p>Then <strong>Save State</strong> and reload the page to verify persistence!</p>
-        <p>The <code>column-state-change</code> event fires (debounced) after each user change.</p>
-      `,
-    });
+grid.resetColumnState();
+</script>
+`,
+        language: 'html',
+      },
+    },
   },
 };
 
@@ -830,34 +892,44 @@ export const ShellBasic: StoryObj<ShellArgs> = {
       });
     }
 
-    const codeSnippet = (__$title$: string, __$position$: string) => {
-      const grid = document.querySelector('tbw-grid');
-      grid!.gridConfig = {
-        shell: {
-          header: { title: __$title$ },
-          toolPanel: { position: __$position$ },
-        },
-        plugins: [new VisibilityPlugin()],
-      };
+    return grid;
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid></tbw-grid>
 
-      // Register custom header content
-      grid!.registerHeaderContent({
-        id: 'row-count',
-        render: (container) => {
-          container.innerHTML = '<span>20 rows</span>';
-        },
-      });
-    };
+<script type="module">
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
-    const jsSnippet = extractCode(codeSnippet, {
-      __$title$: `'${args.title}'`,
-      __$position$: `'${args.panelPosition}'`,
-    });
+const grid = document.querySelector('tbw-grid');
 
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'shell-basic',
-    });
+grid.gridConfig = {
+  shell: {
+    header: { title: 'Employee Data' },
+    toolPanel: { position: 'right' },
+  },
+  plugins: [new VisibilityPlugin()],
+};
+
+grid.columns = [...];
+grid.rows = [...];
+
+// Register custom header content
+grid.registerHeaderContent({
+  id: 'row-count',
+  render: (container) => {
+    container.innerHTML = '<span>20 rows</span>';
+  },
+});
+</script>
+`,
+        language: 'html',
+      },
+    },
   },
 };
 
@@ -890,17 +962,34 @@ export const ShellLightDOMConfig: StoryObj = {
     editable: { table: { disable: true } },
     editOn: { table: { disable: true } },
   },
-  render: () => {
-    const htmlSnippet = `
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
 <tbw-grid style="height: 500px; display: block;">
   <tbw-grid-header title="Employee Directory">
     <tbw-grid-header-content>
       <span style="color: #666;">20 employees</span>
     </tbw-grid-header-content>
   </tbw-grid-header>
-</tbw-grid>`;
+</tbw-grid>
 
-    // Create container with light DOM structure
+<script type="module">
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+const grid = document.querySelector('tbw-grid');
+grid.columns = columns;
+grid.rows = rows;
+grid.gridConfig = { plugins: [new VisibilityPlugin()] };
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
     const container = document.createElement('div');
     container.innerHTML = `
       <tbw-grid style="height: 500px; display: block;">
@@ -921,17 +1010,7 @@ export const ShellLightDOMConfig: StoryObj = {
       plugins: [new VisibilityPlugin()],
     };
 
-    const jsSnippet = `
-const grid = document.querySelector('tbw-grid');
-grid.columns = columns;
-grid.rows = rows;
-grid.gridConfig = { plugins: [new VisibilityPlugin()] };
-`;
-
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'shell-light-dom',
-    });
+    return grid;
   },
 };
 
@@ -1031,29 +1110,64 @@ export const ShellMultiplePanels: StoryObj = {
       },
     });
 
-    const jsSnippet = `
+    return grid;
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 500px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
 const grid = document.querySelector('tbw-grid');
+
 grid.gridConfig = {
   shell: { header: { title: 'Multi-Panel Demo' } },
-  plugins: [new VisibilityPlugin()],
+  plugins: [new VisibilityPlugin()], // Adds "Columns" panel
 };
 
-// Register custom panels
+grid.columns = [...];
+grid.rows = [...];
+
+// Register custom "Filter" panel
 grid.registerToolPanel({
   id: 'filter',
   title: 'Filter',
   icon: '🔍',
+  tooltip: 'Filter data',
   order: 20,
   render: (container) => {
-    container.innerHTML = '<div>Filter UI here</div>';
+    container.innerHTML = '<div style="padding: 16px;">Filter UI here</div>';
+    return () => container.innerHTML = '';
   },
 });
-`;
 
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'shell-multi-panel',
-    });
+// Register custom "Settings" panel
+grid.registerToolPanel({
+  id: 'settings',
+  title: 'Settings',
+  icon: '⚙',
+  tooltip: 'Grid settings',
+  order: 50,
+  render: (container) => {
+    container.innerHTML = \`
+      <div style="padding: 16px;">
+        <label><input type="checkbox" checked /> Row hover effect</label><br/>
+        <label><input type="checkbox" checked /> Alternating row colors</label>
+      </div>
+    \`;
+    return () => container.innerHTML = '';
+  },
+});
+</script>
+`,
+        language: 'html',
+      },
+    },
   },
 };
 
@@ -1077,9 +1191,41 @@ export const ShellToolbarButtons: StoryObj = {
     editable: { table: { disable: true } },
     editOn: { table: { disable: true } },
   },
-  render: () => {
-    const htmlSnippet = `<tbw-grid style="height: 500px; display: block;"></tbw-grid>`;
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid></tbw-grid>
 
+<script type="module">
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  shell: {
+    header: {
+      title: 'Toolbar Demo',
+      toolbarButtons: [
+        { id: 'export', label: 'Export', icon: '📥', action: () => alert('Export!') },
+        { id: 'print', label: 'Print', icon: '🖨️', action: () => window.print() },
+      ],
+    },
+  },
+  plugins: [new VisibilityPlugin()],
+};
+
+grid.columns = [...];
+grid.rows = [...];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.cssText = 'height: 500px; display: block;';
 
@@ -1114,26 +1260,7 @@ export const ShellToolbarButtons: StoryObj = {
     grid.columns = shellColumns;
     grid.rows = generateShellRows(20);
 
-    const jsSnippet = `
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  shell: {
-    header: {
-      title: 'Toolbar Demo',
-      toolbarButtons: [
-        { id: 'export', label: 'Export', icon: '📥', action: () => alert('Export!') },
-        { id: 'print', label: 'Print', icon: '🖨️', action: () => window.print() },
-      ],
-    },
-  },
-  plugins: [new VisibilityPlugin()],
-};
-`;
-
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'shell-toolbar',
-    });
+    return grid;
   },
 };
 
@@ -1154,9 +1281,39 @@ export const ShellLeftPanelPosition: StoryObj = {
     editable: { table: { disable: true } },
     editOn: { table: { disable: true } },
   },
-  render: () => {
-    const htmlSnippet = `<tbw-grid style="height: 500px; display: block;"></tbw-grid>`;
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid></tbw-grid>
 
+<script type="module">
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  shell: {
+    header: { title: 'Left Panel Position' },
+    toolPanel: {
+      position: 'left',
+      defaultOpen: 'columns', // Open by default
+    },
+  },
+  plugins: [new VisibilityPlugin()],
+};
+
+grid.columns = [...];
+grid.rows = [...];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.cssText = 'height: 500px; display: block;';
 
@@ -1174,24 +1331,7 @@ export const ShellLeftPanelPosition: StoryObj = {
     grid.columns = shellColumns;
     grid.rows = generateShellRows(20);
 
-    const jsSnippet = `
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  shell: {
-    header: { title: 'Left Panel Position' },
-    toolPanel: {
-      position: 'left',
-      defaultOpen: 'columns', // Open by default
-    },
-  },
-  plugins: [new VisibilityPlugin()],
-};
-`;
-
-    return buildExclusiveGridCodeView(grid, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'shell-left-panel',
-    });
+    return grid;
   },
 };
 

@@ -1,0 +1,70 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as ColumnVirtualizationStories from './column-virtualization.stories';
+
+<Meta of={ColumnVirtualizationStories} />
+
+# Column Virtualization Plugin
+
+The Column Virtualization plugin improves performance for grids with many columns.
+
+## Installation
+
+```ts
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: generateManyColumns(100),
+  fitMode: 'fixed', // Required
+  plugins: [new ColumnVirtualizationPlugin()],
+};
+```
+
+## Demos
+
+### Default Column Virtualization
+
+<Canvas of={ColumnVirtualizationStories.Default} />
+<Controls of={ColumnVirtualizationStories.Default} />
+
+### Wide Grid (100 columns)
+
+<Canvas of={ColumnVirtualizationStories.WideGrid} />
+
+### Disabled Virtualization
+
+<Canvas of={ColumnVirtualizationStories.DisabledVirtualization} />
+
+## Configuration Options
+
+| Option       | Type      | Default | Description                 |
+| ------------ | --------- | ------- | --------------------------- |
+| `autoEnable` | `boolean` | `true`  | Auto-enable above threshold |
+| `threshold`  | `number`  | `30`    | Column count threshold      |
+| `overscan`   | `number`  | `3`     | Extra columns to render     |
+
+## Requirements
+
+- `fitMode: 'fixed'` is required
+- Columns must have explicit widths
+- Grid must have fixed height
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(ColumnVirtualizationPlugin);
+
+const isEnabled = plugin.isEnabled();
+plugin.setEnabled(true);
+const range = plugin.getVisibleRange();
+```
+
+## Events
+
+| Event                         | Detail                     | Description           |
+| ----------------------------- | -------------------------- | --------------------- |
+| `tbw-column-viewport-changed` | `{ startIndex, endIndex }` | Visible range changed |

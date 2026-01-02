@@ -1,0 +1,77 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as PivotStories from './pivot.stories';
+
+<Meta of={PivotStories} />
+
+# Pivot Table Plugin
+
+The Pivot plugin transforms flat data into a pivot table view.
+
+## Installation
+
+```ts
+import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new PivotPlugin({
+      rowGroupFields: ['region', 'product'],
+      columnGroupFields: ['quarter'],
+      valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+    }),
+  ],
+};
+```
+
+## Demos
+
+### Default Pivot Table
+
+<Canvas of={PivotStories.Default} />
+<Controls of={PivotStories.Default} />
+
+### Without Totals
+
+<Canvas of={PivotStories.NoTotals} />
+
+### Average Aggregation
+
+<Canvas of={PivotStories.AverageAggregation} />
+
+## Configuration Options
+
+| Option              | Type           | Default | Description            |
+| ------------------- | -------------- | ------- | ---------------------- |
+| `rowGroupFields`    | `string[]`     | `[]`    | Row grouping fields    |
+| `columnGroupFields` | `string[]`     | `[]`    | Column grouping fields |
+| `valueFields`       | `ValueField[]` | `[]`    | Aggregation fields     |
+| `showTotals`        | `boolean`      | `true`  | Show row totals        |
+| `showGrandTotal`    | `boolean`      | `true`  | Show grand total       |
+
+## Aggregation Functions
+
+`sum`, `avg`, `count`, `min`, `max`, `first`, `last`
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(PivotPlugin);
+
+plugin.expandGroup(['North', 'Widget A']);
+plugin.collapseGroup(['North']);
+plugin.expandAll();
+plugin.collapseAll();
+```
+
+## Events
+
+| Event                | Detail          | Description     |
+| -------------------- | --------------- | --------------- |
+| `tbw-pivot-expand`   | `{ groupPath }` | Group expanded  |
+| `tbw-pivot-collapse` | `{ groupPath }` | Group collapsed |

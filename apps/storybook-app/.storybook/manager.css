@@ -1,0 +1,36 @@
+/* Custom Storybook manager styles */
+
+/* Brand logo + text in sidebar header */
+.sidebar-header a[title='@toolbox-web'] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.sidebar-header a[title='@toolbox-web'] img {
+  max-height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Add "@toolbox-web" text after the logo */
+.sidebar-header a[title='@toolbox-web']::after {
+  content: '@toolbox-web';
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Add grid icon to the "Grid" root-level sidebar group - only on the main toggle button */
+[data-nodetype='root'][data-item-id='grid'] > button[data-action='collapse-root']::before {
+  content: '';
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  background: url('./assets/grid_logo.png') no-repeat center center;
+  background-size: contain;
+  vertical-align: middle;
+  flex-shrink: 0;
+}

@@ -1,0 +1,235 @@
+{/* Theming.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Theming" />
+
+# Theming
+
+The `@toolbox-web/grid` component is fully themeable via CSS custom properties (CSS variables). This allows you to customize colors, spacing, fonts, and more without modifying the component source.
+
+## Quick Start
+
+Override CSS custom properties on the grid element or a parent container:
+
+```css
+tbw-grid {
+  --tbw-color-bg: #1a1a2e;
+  --tbw-color-fg: #eaeaea;
+  --tbw-color-border: #16213e;
+  --tbw-header-bg: #0f3460;
+  --tbw-row-hover-bg: #1a1a4e;
+}
+```
+
+Or apply a dark theme to all grids:
+
+```css
+:root {
+  --tbw-color-bg: #121212;
+  --tbw-color-fg: #ffffff;
+}
+```
+
+## Available CSS Custom Properties
+
+### Colors
+
+| Property                | Default   | Description            |
+| ----------------------- | --------- | ---------------------- |
+| `--tbw-color-bg`        | `#ffffff` | Grid background color  |
+| `--tbw-color-fg`        | `#333333` | Primary text color     |
+| `--tbw-color-border`    | `#e0e0e0` | Cell border color      |
+| `--tbw-color-primary`   | `#1976d2` | Primary accent color   |
+| `--tbw-color-secondary` | `#424242` | Secondary accent color |
+
+### Header
+
+| Property                   | Default   | Description         |
+| -------------------------- | --------- | ------------------- |
+| `--tbw-header-bg`          | `#f5f5f5` | Header background   |
+| `--tbw-header-fg`          | `#333333` | Header text color   |
+| `--tbw-header-font-weight` | `600`     | Header font weight  |
+| `--tbw-header-border`      | `#d0d0d0` | Header border color |
+
+### Rows
+
+| Property                | Default       | Description                |
+| ----------------------- | ------------- | -------------------------- |
+| `--tbw-row-bg`          | `transparent` | Default row background     |
+| `--tbw-row-alt-bg`      | `#fafafa`     | Alternating row background |
+| `--tbw-row-hover-bg`    | `#f0f7ff`     | Row hover background       |
+| `--tbw-row-selected-bg` | `#e3f2fd`     | Selected row background    |
+
+### Cells
+
+| Property                 | Default    | Description      |
+| ------------------------ | ---------- | ---------------- |
+| `--tbw-cell-padding`     | `8px 12px` | Cell padding     |
+| `--tbw-cell-font-size`   | `14px`     | Cell font size   |
+| `--tbw-cell-line-height` | `1.4`      | Cell line height |
+
+### Focus & Selection
+
+| Property                    | Default                   | Description                |
+| --------------------------- | ------------------------- | -------------------------- |
+| `--tbw-focus-outline`       | `#1976d2`                 | Focus ring color           |
+| `--tbw-focus-outline-width` | `2px`                     | Focus ring width           |
+| `--tbw-selection-bg`        | `rgba(25, 118, 210, 0.1)` | Range selection background |
+| `--tbw-selection-border`    | `#1976d2`                 | Range selection border     |
+
+### Sizing
+
+| Property                 | Default | Description          |
+| ------------------------ | ------- | -------------------- |
+| `--tbw-row-height`       | `36px`  | Default row height   |
+| `--tbw-header-height`    | `40px`  | Header row height    |
+| `--tbw-min-column-width` | `50px`  | Minimum column width |
+
+## Pre-built Themes
+
+The library includes several pre-built themes you can import:
+
+```typescript
+// Import a theme CSS file
+import '@toolbox-web/grid/themes/dg-theme-material.css';
+```
+
+### Available Themes
+
+| Theme     | Import                                            |
+| --------- | ------------------------------------------------- |
+| Standard  | `@toolbox-web/grid/themes/dg-theme-standard.css`  |
+| Material  | `@toolbox-web/grid/themes/dg-theme-material.css`  |
+| Bootstrap | `@toolbox-web/grid/themes/dg-theme-bootstrap.css` |
+| Contrast  | `@toolbox-web/grid/themes/dg-theme-contrast.css`  |
+| Vibrant   | `@toolbox-web/grid/themes/dg-theme-vibrant.css`   |
+| Large     | `@toolbox-web/grid/themes/dg-theme-large.css`     |
+
+> **Tip**: Use the theme switcher in the Storybook toolbar to preview different themes!
+
+## Creating Custom Themes
+
+Create a CSS file with your custom properties:
+
+```css
+/* my-theme.css */
+tbw-grid.my-theme,
+.my-theme tbw-grid {
+  /* Dark theme example */
+  --tbw-color-bg: #1e1e1e;
+  --tbw-color-fg: #d4d4d4;
+  --tbw-color-border: #3c3c3c;
+  --tbw-color-primary: #569cd6;
+
+  --tbw-header-bg: #252526;
+  --tbw-header-fg: #cccccc;
+  --tbw-header-border: #3c3c3c;
+
+  --tbw-row-alt-bg: #252526;
+  --tbw-row-hover-bg: #2a2d2e;
+  --tbw-row-selected-bg: #094771;
+
+  --tbw-focus-outline: #569cd6;
+  --tbw-selection-bg: rgba(86, 156, 214, 0.2);
+}
+```
+
+Apply via class:
+
+```html
+<tbw-grid class="my-theme"></tbw-grid>
+```
+
+Or via wrapper:
+
+```html
+<div class="my-theme">
+  <tbw-grid></tbw-grid>
+</div>
+```
+
+## CSS Parts
+
+The grid exposes CSS parts for deeper customization:
+
+```css
+tbw-grid::part(container) {
+  /* Main grid container */
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+tbw-grid::part(header) {
+  /* Header row container */
+  position: sticky;
+  top: 0;
+}
+
+tbw-grid::part(body) {
+  /* Body/rows container */
+}
+```
+
+## Dark Mode Support
+
+Use CSS media queries for automatic dark mode:
+
+```css
+@media (prefers-color-scheme: dark) {
+  tbw-grid {
+    --tbw-color-bg: #1e1e1e;
+    --tbw-color-fg: #d4d4d4;
+    --tbw-color-border: #3c3c3c;
+    --tbw-header-bg: #252526;
+    --tbw-row-alt-bg: #252526;
+    --tbw-row-hover-bg: #2a2d2e;
+  }
+}
+```
+
+## Typography
+
+Customize fonts via standard CSS:
+
+```css
+tbw-grid {
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  --tbw-cell-font-size: 13px;
+  --tbw-header-font-weight: 700;
+}
+```
+
+For monospace data (like code or IDs):
+
+```css
+tbw-grid [data-field='id'],
+tbw-grid [data-field='code'] {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+```
+
+## Responsive Theming
+
+Adjust spacing for different screen sizes:
+
+```css
+/* Compact mode for mobile */
+@media (max-width: 768px) {
+  tbw-grid {
+    --tbw-cell-padding: 4px 8px;
+    --tbw-row-height: 32px;
+    --tbw-header-height: 36px;
+    --tbw-cell-font-size: 12px;
+  }
+}
+```
+
+## Next Steps
+
+- **[Introduction](../?path=/docs/grid-introduction--docs)** - Grid overview
+- **[Core Features](../?path=/docs/grid-core--docs)** - Sorting, editing, keyboard navigation
+- **[Plugins](../?path=/docs/grid-plugins-overview--docs)** - Extend with selection, filtering

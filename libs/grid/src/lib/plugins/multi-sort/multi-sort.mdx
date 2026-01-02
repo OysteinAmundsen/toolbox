@@ -1,0 +1,132 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as MultiSortStories from './multi-sort.stories';
+
+<Meta of={MultiSortStories} />
+
+# Multi-Sort Plugin
+
+The Multi-Sort plugin enables sorting by multiple columns simultaneously with priority indicators.
+
+## Installation
+
+```ts
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'department', header: 'Department', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+  ],
+  plugins: [new MultiSortPlugin()],
+};
+```
+
+## Demos
+
+### Default Multi-Sort
+
+Hold Shift and click multiple column headers to sort by multiple columns.
+
+<Canvas of={MultiSortStories.Default} />
+<Controls of={MultiSortStories.Default} />
+
+### With Initial Sort
+
+Pre-configured sort order on load.
+
+<Canvas of={MultiSortStories.WithInitialSort} />
+
+### Without Badges
+
+Hide the sort priority numbers.
+
+<Canvas of={MultiSortStories.NoBadges} />
+
+## Configuration Options
+
+| Option           | Type          | Default | Description                |
+| ---------------- | ------------- | ------- | -------------------------- |
+| `maxSortColumns` | `number`      | `3`     | Maximum columns to sort by |
+| `showBadges`     | `boolean`     | `true`  | Show sort priority numbers |
+| `initialSort`    | `SortModel[]` | `[]`    | Initial sort configuration |
+
+## Initial Sort Configuration
+
+```ts
+new MultiSortPlugin({
+  initialSort: [
+    { field: 'department', direction: 'asc' },
+    { field: 'salary', direction: 'desc' },
+  ],
+});
+```
+
+## Events
+
+| Event             | Detail                       | Description             |
+| ----------------- | ---------------------------- | ----------------------- |
+| `tbw-sort-change` | `{ sortModel: SortModel[] }` | Fired when sort changes |
+
+```ts
+grid.addEventListener('tbw-sort-change', (e) => {
+  console.log('Sort model:', e.detail.sortModel);
+  // [{ field: 'name', direction: 'asc' }, { field: 'salary', direction: 'desc' }]
+});
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(MultiSortPlugin);
+
+// Set sort programmatically
+plugin.setSort([
+  { field: 'department', direction: 'asc' },
+  { field: 'name', direction: 'asc' },
+]);
+
+// Get current sort model
+const sortModel = plugin.getSortModel();
+
+// Clear all sorting
+plugin.clearSort();
+
+// Add a column to sort
+plugin.addSort('salary', 'desc');
+
+// Remove a column from sort
+plugin.removeSort('salary');
+```
+
+## Keyboard Shortcuts
+
+| Shortcut        | Action                              |
+| --------------- | ----------------------------------- |
+| `Click header`  | Sort by column (clears other sorts) |
+| `Shift + Click` | Add column to multi-sort            |
+| `Ctrl + Click`  | Toggle sort direction               |
+
+## Styling
+
+```css
+/* Sort indicator */
+tbw-grid::part(sort-indicator) {
+  margin-left: 4px;
+}
+
+/* Sort priority badge */
+tbw-grid::part(sort-badge) {
+  background: var(--tbw-primary-color);
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  padding: 2px 6px;
+  margin-left: 4px;
+}
+```

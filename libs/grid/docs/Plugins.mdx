@@ -1,0 +1,196 @@
+{/* Plugins.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Plugins/Overview" />
+
+# Grid Plugins
+
+The `@toolbox-web/grid` plugin architecture allows you to extend the grid with powerful features while keeping the core bundle lightweight. Plugins are tree-shakeable—only import what you need.
+
+## Available Plugins
+
+### Selection & Interaction
+
+| Plugin                                                         | Description                                          |
+| -------------------------------------------------------------- | ---------------------------------------------------- |
+| [Selection](../?path=/docs/grid-plugins-selection--docs)       | Cell, row, and range selection with keyboard support |
+| [Clipboard](../?path=/docs/grid-plugins-clipboard--docs)       | Copy/paste with Ctrl+C/V                             |
+| [Context Menu](../?path=/docs/grid-plugins-context-menu--docs) | Right-click context menus with submenus              |
+| [Reorder](../?path=/docs/grid-plugins-reorder--docs)           | Drag-and-drop column reordering                      |
+
+### Filtering & Sorting
+
+| Plugin                                                     | Description                                       |
+| ---------------------------------------------------------- | ------------------------------------------------- |
+| [Filtering](../?path=/docs/grid-plugins-filtering--docs)   | Column header filters with search and dropdown    |
+| [Multi-Sort](../?path=/docs/grid-plugins-multi-sort--docs) | Sort by multiple columns with priority indicators |
+
+### Grouping & Hierarchy
+
+| Plugin                                                                | Description                                     |
+| --------------------------------------------------------------------- | ----------------------------------------------- |
+| [Row Grouping](../?path=/docs/grid-plugins-grouping-rows--docs)       | Group rows by field values with expand/collapse |
+| [Column Grouping](../?path=/docs/grid-plugins-grouping-columns--docs) | Visual column grouping with nested headers      |
+| [Tree](../?path=/docs/grid-plugins-tree--docs)                        | Hierarchical tree data display                  |
+| [Master-Detail](../?path=/docs/grid-plugins-master-detail--docs)      | Expandable detail rows                          |
+| [Pivot](../?path=/docs/grid-plugins-pivot--docs)                      | Pivot table transformation with aggregations    |
+
+### Layout & Display
+
+| Plugin                                                                           | Description                                    |
+| -------------------------------------------------------------------------------- | ---------------------------------------------- |
+| [Pinned Columns](../?path=/docs/grid-plugins-pinned-columns--docs)               | Pin columns to left or right edge              |
+| [Pinned Rows](../?path=/docs/grid-plugins-pinned-rows--docs)                     | Status bar with aggregations and custom panels |
+| [Visibility](../?path=/docs/grid-plugins-visibility--docs)                       | Show/hide columns dynamically                  |
+| [Column Virtualization](../?path=/docs/grid-plugins-column-virtualization--docs) | Performance optimization for many columns      |
+
+### Data & Export
+
+| Plugin                                                       | Description                           |
+| ------------------------------------------------------------ | ------------------------------------- |
+| [Export](../?path=/docs/grid-plugins-export--docs)           | Export to CSV, JSON formats           |
+| [Server-Side](../?path=/docs/grid-plugins-server-side--docs) | Lazy loading from remote data sources |
+| [Undo/Redo](../?path=/docs/grid-plugins-undo-redo--docs)     | Undo/redo for cell edits              |
+
+## Using Plugins
+
+### Installation
+
+Plugins are included in the main package. Import only what you need:
+
+```typescript
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+```
+
+### Registration
+
+Pass plugin instances to the `gridConfig.plugins` array:
+
+```typescript
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+    new FilteringPlugin({ debounceMs: 300 }),
+  ],
+};
+```
+
+### Accessing Plugin Instances
+
+Use `grid.getPlugin()` to access a registered plugin:
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const selection = grid.getPlugin(SelectionPlugin);
+if (selection) {
+  // Call plugin methods
+  selection.selectAll();
+  selection.clearSelection();
+
+  // Get current selection
+  const ranges = selection.getSelectedRanges();
+}
+```
+
+## Plugin Configuration
+
+Each plugin accepts a configuration object:
+
+```typescript
+// Selection plugin options
+new SelectionPlugin({
+  mode: 'row', // 'cell' | 'row' | 'range'
+  multiSelect: true, // Allow selecting multiple items
+  checkboxColumn: true, // Add checkbox column for row selection
+});
+
+// Filtering plugin options
+new FilteringPlugin({
+  debounceMs: 200, // Debounce filter input
+  caseSensitive: false, // Case-insensitive filtering
+});
+
+// Export plugin options
+new ExportPlugin({
+  formats: ['csv', 'json'],
+  filename: 'grid-export',
+});
+```
+
+## Creating Custom Plugins
+
+Plugins extend `BaseGridPlugin` and implement lifecycle hooks:
+
+```typescript
+import { BaseGridPlugin } from '@toolbox-web/grid/plugins';
+
+interface MyPluginConfig {
+  option1: string;
+  option2: boolean;
+}
+
+class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
+  readonly name = 'myPlugin';
+  readonly version = '1.0.0';
+
+  // CSS styles (loaded from external file in real plugins)
+  override readonly styles = `
+    .my-plugin-class { color: blue; }
+  `;
+
+  // Called when plugin is attached to grid
+  attach(grid) {
+    super.attach(grid);
+    // Setup: add event listeners, initialize state
+  }
+
+  // Called when plugin is detached
+  detach() {
+    // Cleanup: remove listeners, clear state
+    super.detach();
+  }
+
+  // Transform column definitions
+  processColumns(columns) {
+    return columns.map((col) => ({
+      ...col,
+      // Add custom column processing
+    }));
+  }
+
+  // Transform row data
+  processRows(rows) {
+    return rows; // Filter, sort, group, etc.
+  }
+
+  // Called after grid renders
+  afterRender() {
+    // DOM manipulation, measurements, etc.
+  }
+
+  // Handle keyboard events
+  onKeyDown(event) {
+    if (event.key === 'MyHotkey') {
+      // Handle and return true to prevent default
+      return true;
+    }
+    return false;
+  }
+}
+```
+
+## Plugin Lifecycle
+
+1. **Construction**: `new MyPlugin(config)` - Store configuration
+2. **Attach**: `attach(grid)` - Grid reference provided, setup listeners
+3. **Process**: `processColumns()` / `processRows()` - Transform data
+4. **Render**: `afterRender()` - Post-render DOM work
+5. **Detach**: `detach()` - Cleanup when removed or grid destroyed
+
+Plugins receive a `disconnectSignal` (AbortSignal) for automatic cleanup of event listeners when the plugin is detached.

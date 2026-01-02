@@ -1,0 +1,117 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as SelectionStories from './selection.stories';
+
+<Meta of={SelectionStories} />
+
+# Selection Plugin
+
+The Selection plugin adds cell, row, and range selection capabilities to the grid with full keyboard support.
+
+## Installation
+
+```ts
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+  ],
+};
+```
+
+## Demos
+
+### Default (Cell Mode)
+
+Click cells to select them individually.
+
+<Canvas of={SelectionStories.Default} />
+<Controls of={SelectionStories.Default} />
+
+### Row Selection Mode
+
+Click anywhere in a row to select the entire row.
+
+<Canvas of={SelectionStories.RowMode} />
+
+### Range Selection Mode
+
+Click and drag or Shift+Click to select rectangular ranges.
+
+<Canvas of={SelectionStories.RangeMode} />
+
+## Configuration Options
+
+| Option           | Type                         | Default  | Description                                    |
+| ---------------- | ---------------------------- | -------- | ---------------------------------------------- |
+| `mode`           | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode                        |
+| `multiSelect`    | `boolean`                    | `true`   | Allow selecting multiple items with Ctrl+Click |
+| `checkboxColumn` | `boolean`                    | `false`  | Add a checkbox column for row selection        |
+
+## Keyboard Shortcuts
+
+| Shortcut        | Action                          |
+| --------------- | ------------------------------- |
+| `Arrow Keys`    | Move selection                  |
+| `Shift + Arrow` | Extend selection (range mode)   |
+| `Ctrl + Click`  | Toggle selection (multi-select) |
+| `Shift + Click` | Extend to clicked cell/row      |
+| `Ctrl + A`      | Select all (range mode)         |
+| `Escape`        | Clear selection                 |
+
+## Events
+
+| Event                  | Detail             | Description                  |
+| ---------------------- | ------------------ | ---------------------------- |
+| `tbw-selection-change` | `{ mode, ranges }` | Fired when selection changes |
+
+```ts
+grid.addEventListener('tbw-selection-change', (e) => {
+  console.log('Selected ranges:', e.detail.ranges);
+});
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(SelectionPlugin);
+
+// Select programmatically
+plugin.selectCell(rowIndex, colIndex);
+plugin.selectRow(rowIndex);
+plugin.selectRange({ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } });
+
+// Get current selection
+const ranges = plugin.getSelectedRanges();
+
+// Clear selection
+plugin.clearSelection();
+
+// Select all
+plugin.selectAll();
+```
+
+## Styling
+
+```css
+/* Selected cell */
+tbw-grid::part(cell-selected) {
+  background: var(--tbw-selection-bg, rgba(0, 120, 215, 0.1));
+}
+
+/* Selected row */
+tbw-grid::part(row-selected) {
+  background: var(--tbw-selection-bg, rgba(0, 120, 215, 0.15));
+}
+
+/* Selection range border */
+tbw-grid::part(selection-range) {
+  border: 2px solid var(--tbw-selection-border, #0078d7);
+}
+```

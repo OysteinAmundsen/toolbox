@@ -1,0 +1,86 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as ExportStories from './export.stories';
+
+<Meta of={ExportStories} />
+
+# Export Plugin
+
+The Export plugin allows users to export grid data to CSV or other formats.
+
+## Installation
+
+```ts
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new ExportPlugin({
+      filename: 'my-data',
+      format: 'csv',
+    }),
+  ],
+};
+```
+
+## Demos
+
+### Default Export
+
+Export all visible data to CSV.
+
+<Canvas of={ExportStories.Default} />
+
+### Export Selected Rows
+
+When combined with SelectionPlugin, export only selected rows.
+
+<Canvas of={ExportStories.ExportSelected} />
+
+## Programmatic Export
+
+```ts
+const exportPlugin = grid.getPlugin(ExportPlugin);
+
+// Export all data
+exportPlugin.exportToCSV();
+
+// Export with custom options
+exportPlugin.exportToCSV({
+  filename: 'custom-export',
+  includeHeaders: true,
+  selectedOnly: false,
+});
+```
+
+## Configuration Options
+
+| Option           | Type              | Default         | Description                       |
+| ---------------- | ----------------- | --------------- | --------------------------------- |
+| `filename`       | `string`          | `'grid-export'` | Base filename (without extension) |
+| `format`         | `'csv' \| 'json'` | `'csv'`         | Export format                     |
+| `includeHeaders` | `boolean`         | `true`          | Include column headers in export  |
+| `delimiter`      | `string`          | `','`           | CSV delimiter character           |
+
+## Events
+
+| Event                 | Detail                                 | Description                 |
+| --------------------- | -------------------------------------- | --------------------------- |
+| `tbw-export-start`    | `{ format: string }`                   | Fired when export begins    |
+| `tbw-export-complete` | `{ format: string, rowCount: number }` | Fired when export completes |
+
+## Styling
+
+The Export plugin can add a button to the toolbar. Customize using:
+
+```css
+tbw-grid::part(export-button) {
+  background: var(--tbw-primary-color);
+  color: white;
+}
+```

@@ -1,0 +1,109 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as ClipboardStories from './clipboard.stories';
+
+<Meta of={ClipboardStories} />
+
+# Clipboard Plugin
+
+The Clipboard plugin enables copy/paste functionality with Ctrl+C/V support for grid data.
+
+## Installation
+
+```ts
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [new ClipboardPlugin()],
+};
+```
+
+## Demos
+
+### Default Clipboard
+
+Select cells and use Ctrl+C to copy, Ctrl+V to paste.
+
+<Canvas of={ClipboardStories.Default} />
+<Controls of={ClipboardStories.Default} />
+
+### With Headers
+
+Include column headers when copying.
+
+<Canvas of={ClipboardStories.WithHeaders} />
+
+### Quoted Strings
+
+Wrap text values in quotes for CSV compatibility.
+
+<Canvas of={ClipboardStories.QuotedStrings} />
+
+## Configuration Options
+
+| Option           | Type      | Default | Description                                    |
+| ---------------- | --------- | ------- | ---------------------------------------------- |
+| `includeHeaders` | `boolean` | `false` | Include column headers in copied data          |
+| `delimiter`      | `string`  | `'\t'`  | Column delimiter (tab for Excel compatibility) |
+| `quoteStrings`   | `boolean` | `false` | Wrap string values in quotes                   |
+| `rowDelimiter`   | `string`  | `'\n'`  | Row delimiter                                  |
+
+## Keyboard Shortcuts
+
+| Shortcut           | Action                    |
+| ------------------ | ------------------------- |
+| `Ctrl+C` / `Cmd+C` | Copy selected cells       |
+| `Ctrl+V` / `Cmd+V` | Paste into selected cells |
+| `Ctrl+X` / `Cmd+X` | Cut selected cells        |
+
+## Events
+
+| Event       | Detail                            | Description               |
+| ----------- | --------------------------------- | ------------------------- |
+| `tbw-copy`  | `{ text: string, cells: Cell[] }` | Fired when data is copied |
+| `tbw-paste` | `{ text: string, cells: Cell[] }` | Fired when data is pasted |
+| `tbw-cut`   | `{ text: string, cells: Cell[] }` | Fired when data is cut    |
+
+```ts
+grid.addEventListener('tbw-copy', (e) => {
+  console.log('Copied:', e.detail.text);
+});
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(ClipboardPlugin);
+
+// Copy selection to clipboard
+await plugin.copy();
+
+// Copy with custom options
+await plugin.copy({ includeHeaders: true });
+
+// Paste from clipboard
+await plugin.paste();
+
+// Get clipboard text without copying
+const text = plugin.getSelectionAsText();
+```
+
+## Excel Compatibility
+
+The default tab delimiter ensures copied data pastes correctly into Excel:
+
+```ts
+new ClipboardPlugin({
+  delimiter: '\t', // Tab for Excel
+  includeHeaders: true, // Include column names
+});
+```
+
+## Styling
+
+The clipboard plugin doesn't add visible UI elements. Selection styling is handled by the SelectionPlugin.

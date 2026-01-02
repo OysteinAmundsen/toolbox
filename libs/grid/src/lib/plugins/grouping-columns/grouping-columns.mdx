@@ -1,0 +1,58 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as GroupingColumnsStories from './grouping-columns.stories';
+
+<Meta of={GroupingColumnsStories} />
+
+# Column Grouping Plugin
+
+The Column Grouping plugin enables visual grouping of columns under shared headers.
+
+## Installation
+
+```ts
+import { ColumnGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', group: 'Personal' },
+    { field: 'age', header: 'Age', group: 'Personal' },
+    { field: 'department', header: 'Department', group: 'Work' },
+  ],
+  plugins: [new ColumnGroupingPlugin()],
+};
+```
+
+## Demos
+
+### Default Column Groups
+
+<Canvas of={GroupingColumnsStories.Default} />
+<Controls of={GroupingColumnsStories.Default} />
+
+### Without Borders
+
+<Canvas of={GroupingColumnsStories.NoBorders} />
+
+## Configuration Options
+
+| Option         | Type      | Default | Description         |
+| -------------- | --------- | ------- | ------------------- |
+| `showBorders`  | `boolean` | `true`  | Show group borders  |
+| `headerHeight` | `number`  | `28`    | Group header height |
+| `collapsible`  | `boolean` | `false` | Allow collapsing    |
+
+## Column Configuration
+
+```ts
+const columns = [
+  { field: 'firstName', header: 'First', group: 'Name' },
+  { field: 'lastName', header: 'Last', group: 'Name' },
+  { field: 'street', header: 'Street', group: 'Address' },
+  { field: 'city', header: 'City', group: 'Address' },
+];
+```

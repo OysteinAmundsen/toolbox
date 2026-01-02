@@ -1,0 +1,68 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as PinnedColumnsStories from './pinned-columns.stories';
+
+<Meta of={PinnedColumnsStories} />
+
+# Pinned Columns Plugin
+
+The Pinned Columns plugin allows columns to be frozen to the left or right edge.
+
+## Installation
+
+```ts
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', pinned: 'left' },
+    { field: 'name', header: 'Name' },
+    { field: 'actions', header: 'Actions', pinned: 'right' },
+  ],
+  plugins: [new PinnedColumnsPlugin()],
+};
+```
+
+## Demos
+
+### Default (Both Sides)
+
+<Canvas of={PinnedColumnsStories.Default} />
+<Controls of={PinnedColumnsStories.Default} />
+
+### Left Pinned Only
+
+<Canvas of={PinnedColumnsStories.LeftPinnedOnly} />
+
+### Right Pinned Only
+
+<Canvas of={PinnedColumnsStories.RightPinnedOnly} />
+
+## Configuration Options
+
+| Option           | Type      | Default     | Description             |
+| ---------------- | --------- | ----------- | ----------------------- |
+| `showShadow`     | `boolean` | `true`      | Show shadow at boundary |
+| `maxPinnedLeft`  | `number`  | `undefined` | Max columns on left     |
+| `maxPinnedRight` | `number`  | `undefined` | Max columns on right    |
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(PinnedColumnsPlugin);
+
+plugin.pinColumn('email', 'left');
+plugin.unpinColumn('email');
+const leftPinned = plugin.getPinnedColumns('left');
+```
+
+## Events
+
+| Event                 | Detail            | Description     |
+| --------------------- | ----------------- | --------------- |
+| `tbw-column-pinned`   | `{ field, side }` | Column pinned   |
+| `tbw-column-unpinned` | `{ field }`       | Column unpinned |

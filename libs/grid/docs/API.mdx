@@ -1,0 +1,333 @@
+{/* API.mdx */}
+import { Meta, ArgTypes } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/API Reference" />
+
+# API Reference
+
+Complete reference for the `<tbw-grid>` component API.
+
+## Element Tag
+
+```html
+<tbw-grid></tbw-grid>
+```
+
+The custom element is registered as `tbw-grid` (Toolbox Web Grid).
+
+## Properties
+
+### Core Data Properties
+
+| Property     | Type             | Default | Description                |
+| ------------ | ---------------- | ------- | -------------------------- |
+| `rows`       | `T[]`            | `[]`    | Array of row data objects  |
+| `columns`    | `ColumnConfig[]` | `[]`    | Column configuration array |
+| `gridConfig` | `GridConfig<T>`  | `{}`    | Full configuration object  |
+
+### Layout Properties
+
+| Property  | Type                    | Default      | Description            |
+| --------- | ----------------------- | ------------ | ---------------------- |
+| `fitMode` | `'stretch' \| 'fixed'`  | `'stretch'`  | Column sizing strategy |
+| `editOn`  | `'click' \| 'dblclick'` | `'dblclick'` | Edit trigger mode      |
+
+### Read-only Properties
+
+| Property      | Type                      | Description                   |
+| ------------- | ------------------------- | ----------------------------- |
+| `changedRows` | `Map<T, ChangedRowEntry>` | Rows with pending edits       |
+| `sortState`   | `Map<string, SortState>`  | Current sort state per column |
+
+## HTML Attributes
+
+The grid supports configuration via HTML attributes for declarative usage. JSON-serialized values are used for complex types.
+
+| Attribute     | Maps to Property | Type   | Description                 |
+| ------------- | ---------------- | ------ | --------------------------- |
+| `rows`        | `rows`           | JSON   | Row data as JSON array      |
+| `columns`     | `columns`        | JSON   | Column config as JSON array |
+| `grid-config` | `gridConfig`     | JSON   | Full config object as JSON  |
+| `fit-mode`    | `fitMode`        | string | `'stretch'` or `'fixed'`    |
+| `edit-on`     | `editOn`         | string | `'click'` or `'dblclick'`   |
+
+### Example
+
+```html
+<tbw-grid
+  rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
+  columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
+  fit-mode="stretch"
+  edit-on="dblclick"
+>
+</tbw-grid>
+```
+
+> **Note:** JavaScript property assignment takes precedence over HTML attributes. Removing an attribute does not clear a JS-set value.
+
+## Methods
+
+### Data Methods
+
+```typescript
+// Update row data
+grid.rows = newData;
+
+// Refresh display without changing data
+grid.requestRefresh();
+
+// Full re-render
+grid.requestRefresh({ full: true });
+```
+
+### Column Methods
+
+```typescript
+// Get processed column definitions
+const columns = grid.getProcessedColumns();
+
+// Auto-size a column to fit content
+grid.autoSizeColumn('fieldName');
+
+// Auto-size all columns
+grid.autoSizeAllColumns();
+```
+
+### Editing Methods
+
+```typescript
+// Start editing a cell programmatically
+grid.startEdit(rowIndex, 'fieldName');
+
+// Commit current edit
+grid.commitEdit();
+
+// Cancel current edit
+grid.cancelEdit();
+
+// Get pending changes
+const changes = grid.changedRows;
+
+// Reset changed rows tracking
+grid.resetChangedRows();
+```
+
+### Plugin Methods
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+// Get a registered plugin instance
+const selection = grid.getPlugin(SelectionPlugin);
+
+// Check if plugin is registered
+if (selection) {
+  selection.selectAll();
+}
+```
+
+### Scroll & Navigation
+
+```typescript
+// Scroll to a specific row
+grid.scrollToRow(rowIndex);
+
+// Scroll to a specific cell
+grid.scrollToCell(rowIndex, columnIndex);
+
+// Ensure a cell is visible
+grid.ensureCellVisible(rowIndex, columnIndex);
+```
+
+### Shell Methods (Header/Toolbar)
+
+```typescript
+// Register a tool panel
+grid.registerToolPanel({
+  id: 'myPanel',
+  title: 'My Panel',
+  icon: '⚙️',
+  render: (container) => {
+    container.innerHTML = '<div>Panel content</div>';
+  },
+});
+
+// Open/close/toggle panels
+grid.openToolPanel('myPanel');
+grid.closeToolPanel();
+grid.toggleToolPanel('myPanel');
+```
+
+## Events
+
+### Edit Events
+
+| Event                | Detail Type        | Description             |
+| -------------------- | ------------------ | ----------------------- |
+| `cell-commit`        | `CellCommitDetail` | Cell value was edited   |
+| `row-commit`         | `RowCommitDetail`  | Bulk row edit completed |
+| `changed-rows-reset` | -                  | Changed rows were reset |
+
+```typescript
+grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
+  const { row, field, value, oldValue, rowIndex } = e.detail;
+  console.log(`Cell ${field} changed from ${oldValue} to ${value}`);
+});
+```
+
+### Sort Events
+
+| Event         | Detail Type        | Description        |
+| ------------- | ------------------ | ------------------ |
+| `sort-change` | `SortChangeDetail` | Sort state changed |
+
+```typescript
+grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
+  const { field, direction, sortState } = e.detail;
+  console.log(`Sorted by ${field} ${direction}`);
+});
+```
+
+### Interaction Events
+
+| Event           | Detail Type          | Description                  |
+| --------------- | -------------------- | ---------------------------- |
+| `activate-cell` | `ActivateCellDetail` | Cell was focused/activated   |
+| `column-resize` | `ColumnResizeDetail` | Column was resized           |
+| `group-toggle`  | `GroupToggleDetail`  | Group row expanded/collapsed |
+
+### External Rendering Events
+
+| Event                   | Detail Type           | Description                      |
+| ----------------------- | --------------------- | -------------------------------- |
+| `mount-external-view`   | `MountExternalDetail` | Request external view renderer   |
+| `mount-external-editor` | `MountExternalDetail` | Request external editor renderer |
+
+## CSS Custom Properties
+
+See the [Theming](../?path=/docs/grid-theming--docs) page for the complete list of CSS custom properties.
+
+### Quick Reference
+
+```css
+tbw-grid {
+  /* Colors */
+  --tbw-color-bg: #ffffff;
+  --tbw-color-fg: #333333;
+  --tbw-color-border: #e0e0e0;
+  --tbw-color-primary: #1976d2;
+
+  /* Header */
+  --tbw-header-bg: #f5f5f5;
+  --tbw-header-fg: #333333;
+
+  /* Rows */
+  --tbw-row-hover-bg: #f0f7ff;
+  --tbw-row-selected-bg: #e3f2fd;
+
+  /* Sizing */
+  --tbw-row-height: 36px;
+  --tbw-header-height: 40px;
+}
+```
+
+## CSS Parts
+
+```css
+tbw-grid::part(container) {
+  /* Main container */
+}
+tbw-grid::part(header) {
+  /* Header row */
+}
+tbw-grid::part(body) {
+  /* Body/rows container */
+}
+```
+
+## TypeScript Types
+
+### Column Configuration
+
+```typescript
+interface ColumnConfig {
+  field: string; // Data field key
+  header?: string; // Display header text
+  type?: ColumnType; // 'string' | 'number' | 'boolean' | 'date' | 'select'
+  width?: number; // Width in pixels
+  minWidth?: number; // Minimum width
+  maxWidth?: number; // Maximum width
+  sortable?: boolean; // Enable sorting
+  resizable?: boolean; // Enable resizing
+  editable?: boolean; // Enable editing
+  hidden?: boolean; // Initially hidden
+  pinned?: 'left' | 'right'; // Pin to edge
+  align?: 'left' | 'center' | 'right';
+
+  // Custom rendering
+  formatter?: (value: any, row: T) => string;
+  renderer?: (value: any, row: T, cell: HTMLElement) => void;
+
+  // Select type options
+  options?: Array<{ label: string; value: any }>;
+}
+```
+
+### Grid Configuration
+
+```typescript
+interface GridConfig<T> {
+  columns?: ColumnConfig[];
+  fitMode?: 'stretch' | 'fixed';
+  editOn?: 'click' | 'dblclick';
+  plugins?: BaseGridPlugin[];
+  shell?: ShellConfig;
+}
+```
+
+### Event Details
+
+```typescript
+interface CellCommitDetail<T = any> {
+  row: T;
+  field: string;
+  value: any;
+  oldValue: any;
+  rowIndex: number;
+}
+
+interface SortChangeDetail {
+  field: string;
+  direction: 'asc' | 'desc' | null;
+  sortState: Map<string, SortState>;
+}
+
+interface ColumnResizeDetail {
+  field: string;
+  width: number;
+  previousWidth: number;
+}
+```
+
+## Keyboard Shortcuts
+
+| Shortcut                 | Action                              |
+| ------------------------ | ----------------------------------- |
+| `↑` `↓` `←` `→`          | Navigate between cells              |
+| `Enter`                  | Start editing / confirm edit        |
+| `Escape`                 | Cancel editing / clear selection    |
+| `Tab` / `Shift+Tab`      | Move to next/previous editable cell |
+| `Home` / `End`           | Jump to first/last column           |
+| `Ctrl+Home` / `Ctrl+End` | Jump to first/last row              |
+| `Page Up` / `Page Down`  | Scroll by page                      |
+| `F2`                     | Start editing current cell          |
+
+## Browser Support
+
+The grid uses standard Web Components APIs and is compatible with:
+
+- Chrome/Edge 79+
+- Firefox 63+
+- Safari 13.1+
+
+No polyfills required for modern browsers.

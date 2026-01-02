@@ -3,6 +3,7 @@ import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
 import xml from 'highlight.js/lib/languages/xml';
 import 'highlight.js/styles/github-dark.min.css';
+import { themes } from 'storybook/theming';
 import './storybook-styles.css';
 
 // Import grid component class to ensure custom element registration side-effect runs
@@ -63,7 +64,12 @@ function applyTheme(name: string) {
   styleEl.textContent = THEME_MAP[name] || THEME_MAP.standard;
 }
 
+// Detect user's preferred color scheme for docs theming
+const prefersDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
 const preview: Preview = {
+  // Stories are embedded in MDX docs pages (docsMode: true in main.ts)
+  // No autodocs tag needed - MDX pages control documentation structure
   parameters: {
     actions: { argTypesRegex: '^on[A-Z].*' },
     controls: {
@@ -72,7 +78,34 @@ const preview: Preview = {
         date: /Date$/,
       },
     },
+    options: {
+      // Control sidebar navigation order
+      storySort: {
+        order: [
+          'Grid',
+          [
+            'Introduction',
+            'Getting Started',
+            'Core', // Core grid stories
+            'Theming',
+            'Plugins', // Plugin overview and individual plugins
+            ['Overview', 'Selection', 'Filtering', 'Multi Sort', 'Grouping Rows', 'Grouping Columns', '*'],
+            'API Reference',
+            '*', // Everything else alphabetically
+          ],
+          '*',
+        ],
+      },
+    },
     docs: {
+      // Apply dark/light theme based on system preference
+      theme: prefersDark ? themes.dark : themes.light,
+      // Enable table of contents for documentation pages
+      toc: {
+        contentsSelector: '.sbdocs-content',
+        headingSelector: 'h2, h3',
+        title: 'On this page',
+      },
       extractComponentDescription: (component: any, { notes }: any) => {
         if (notes) {
           return typeof notes === 'string' ? notes : notes.markdown || notes.text;

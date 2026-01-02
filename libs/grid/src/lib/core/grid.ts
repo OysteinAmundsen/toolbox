@@ -102,6 +102,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   static readonly tagName = 'tbw-grid';
   static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
 
+  // ---------------- Observed Attributes ----------------
+  static get observedAttributes(): string[] {
+    return ['rows', 'columns', 'grid-config', 'fit-mode', 'edit-on'];
+  }
+
   readonly #shadow: ShadowRoot;
   #initialized = false;
 
@@ -516,6 +521,39 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#resizeObserver = undefined;
     }
     this.#connected = false;
+  }
+
+  /**
+   * Handle HTML attribute changes.
+   * Only processes attribute values when SET (non-null).
+   * Removing an attribute does NOT clear JS-set properties.
+   */
+  attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+    if (oldValue === newValue || !newValue || newValue === 'null' || newValue === 'undefined') return;
+
+    // Map kebab-case attributes to camelCase properties
+    const propMap: Record<string, keyof this> = {
+      rows: 'rows',
+      columns: 'columns',
+      'grid-config': 'gridConfig',
+      'fit-mode': 'fitMode',
+      'edit-on': 'editOn',
+    };
+
+    const prop = propMap[name];
+    if (!prop) return;
+
+    // JSON attributes need parsing
+    if (name === 'rows' || name === 'columns' || name === 'grid-config') {
+      try {
+        (this as any)[prop] = JSON.parse(newValue);
+      } catch {
+        console.warn(`[tbw-grid] Invalid JSON for '${name}' attribute:`, newValue);
+      }
+    } else {
+      // String attributes (fit-mode, edit-on)
+      (this as any)[prop] = newValue;
+    }
   }
 
   #afterConnect(): void {

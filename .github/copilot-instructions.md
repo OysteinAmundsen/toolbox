@@ -118,10 +118,36 @@ See `ARCHITECTURE.md` for detailed diagrams and `config-precedence.spec.ts` for 
 
 - **Core stories**: `libs/grid/stories/*.stories.ts` for general grid features
 - **Plugin stories**: Co-located with each plugin (e.g., `plugins/selection/selection.stories.ts`)
+- **MDX documentation**: `libs/grid/docs/*.mdx` for rich narrative documentation with live examples
 - **Live source imports**: `import '../src/index'` enables HMR without rebuilds
 - **Code view helper**: `buildExclusiveGridCodeView(gridEl, htmlSnippet, jsSnippet)` from `@toolbox/storybook/_utils` shows togglable markup/code
 - **`extractCode(fn, args)`**: Extracts function body with placeholder substitution (`__$varName$`)
+- **Autodocs**: All stories auto-generate documentation pages from JSDoc comments
 - Run Storybook: `bun nx storybook` (port 4400)
+- Run docs mode: `bun run docs` (documentation-focused view)
+- Build docs: `bun run docs:build` (outputs to `dist/docs/`)
+
+### MDX Documentation
+
+MDX files combine Markdown with live component examples:
+
+```mdx
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+import * as GridStories from '../src/lib/core/grid.stories';
+
+<Meta title="Grid/Introduction" />
+
+# Grid Introduction
+
+<Canvas of={GridStories.Playground} />
+```
+
+Key Doc Blocks:
+
+- `<Canvas of={Story} />` - Renders story with source code panel
+- `<Controls of={Story} />` - Interactive prop controls
+- `<ArgTypes of={Stories} />` - Auto-generated prop table from JSDoc
+- `<Source code={...} />` - Syntax-highlighted code block
 
 ## Critical Workflows
 
@@ -130,6 +156,12 @@ See `ARCHITECTURE.md` for detailed diagrams and `config-precedence.spec.ts` for 
 ```bash
 # Start Storybook with live reload
 bun nx storybook
+
+# Start Storybook in docs mode (documentation focused)
+bun run docs
+
+# Build documentation site
+bun run docs:build
 
 # Build grid library (Vite compilation)
 bun nx build grid

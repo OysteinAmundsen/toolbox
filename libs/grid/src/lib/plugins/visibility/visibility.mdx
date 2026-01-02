@@ -1,0 +1,70 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as VisibilityStories from './visibility.stories';
+
+<Meta of={VisibilityStories} />
+
+# Column Visibility Plugin
+
+The Visibility plugin allows users to show/hide columns dynamically.
+
+## Installation
+
+```ts
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'email', header: 'Email', visible: false }, // Hidden by default
+  ],
+  plugins: [new VisibilityPlugin()],
+};
+```
+
+## Demos
+
+### Default Column Chooser
+
+<Canvas of={VisibilityStories.Default} />
+<Controls of={VisibilityStories.Default} />
+
+### Locked Columns
+
+<Canvas of={VisibilityStories.LockedColumns} />
+
+### Initially Hidden
+
+<Canvas of={VisibilityStories.InitiallyHidden} />
+
+## Configuration Options
+
+| Option              | Type      | Default     | Description          |
+| ------------------- | --------- | ----------- | -------------------- |
+| `showChooser`       | `boolean` | `true`      | Show in context menu |
+| `persistKey`        | `string`  | `undefined` | LocalStorage key     |
+| `minVisibleColumns` | `number`  | `1`         | Minimum visible      |
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(VisibilityPlugin);
+
+plugin.hideColumn('email');
+plugin.showColumn('email');
+plugin.toggleColumn('email');
+plugin.showAllColumns();
+const hidden = plugin.getHiddenColumns();
+```
+
+## Events
+
+| Event                    | Detail             | Description           |
+| ------------------------ | ------------------ | --------------------- |
+| `tbw-column-hidden`      | `{ field }`        | Column hidden         |
+| `tbw-column-shown`       | `{ field }`        | Column shown          |
+| `tbw-visibility-changed` | `{ hiddenFields }` | Any visibility change |

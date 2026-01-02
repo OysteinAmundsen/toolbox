@@ -3,6 +3,7 @@ import type { StorybookConfig } from '@storybook/web-components-vite';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'path';
+import remarkGfm from 'remark-gfm';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,14 +13,29 @@ const gridPkg = JSON.parse(readFileSync(resolve(__dirname, '../../../libs/grid/p
 const gridVersion = gridPkg.version;
 
 const config: StorybookConfig = {
+  staticDirs: ['assets'],
   stories: [
+    // MDX documentation pages
+    '../../../libs/grid/docs/**/*.mdx',
     // Stories from library stories/ directories
     '../../../**/stories/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
     // Stories from core and plugin directories
-    '../../../libs/grid/src/lib/core/**/*.stories.@(js|jsx|ts|tsx)',
-    '../../../libs/grid/src/lib/plugins/**/*.stories.@(js|jsx|ts|tsx)',
+    '../../../libs/grid/src/lib/core/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
+    '../../../libs/grid/src/lib/plugins/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
   ],
-  addons: ['@storybook/addon-a11y'],
+  addons: [
+    '@storybook/addon-a11y',
+    {
+      name: '@storybook/addon-docs',
+      options: {
+        mdxPluginOptions: {
+          mdxCompileOptions: {
+            remarkPlugins: [remarkGfm],
+          },
+        },
+      },
+    },
+  ],
   framework: {
     name: '@storybook/web-components-vite',
     options: {},
@@ -27,7 +43,7 @@ const config: StorybookConfig = {
   typescript: {
     check: false,
   },
-
+  // Note: docsMode: true would hide stories - we show both MDX docs and stories
   core: {},
   viteFinal: async (cfg) => {
     // Add Vite resolve aliases for @toolbox/* paths

@@ -1,0 +1,73 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as UndoRedoStories from './undo-redo.stories';
+
+<Meta of={UndoRedoStories} />
+
+# Undo/Redo Plugin
+
+The Undo/Redo plugin tracks cell edits and enables keyboard shortcuts.
+
+## Installation
+
+```ts
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+  ],
+  plugins: [new UndoRedoPlugin()],
+};
+```
+
+## Demos
+
+### Default Undo/Redo
+
+<Canvas of={UndoRedoStories.Default} />
+<Controls of={UndoRedoStories.Default} />
+
+### Limited History
+
+<Canvas of={UndoRedoStories.LimitedHistory} />
+
+## Configuration Options
+
+| Option           | Type      | Default | Description            |
+| ---------------- | --------- | ------- | ---------------------- |
+| `maxHistorySize` | `number`  | `100`   | Max actions in history |
+| `groupEdits`     | `boolean` | `false` | Group rapid edits      |
+| `groupTimeMs`    | `number`  | `500`   | Grouping time window   |
+
+## Keyboard Shortcuts
+
+| Shortcut                 | Action |
+| ------------------------ | ------ |
+| `Ctrl+Z` / `Cmd+Z`       | Undo   |
+| `Ctrl+Y` / `Cmd+Shift+Z` | Redo   |
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(UndoRedoPlugin);
+
+plugin.undo();
+plugin.redo();
+const canUndo = plugin.canUndo();
+const canRedo = plugin.canRedo();
+plugin.clearHistory();
+```
+
+## Events
+
+| Event                 | Detail                     | Description     |
+| --------------------- | -------------------------- | --------------- |
+| `tbw-undo`            | `{ action }`               | Undo performed  |
+| `tbw-redo`            | `{ action }`               | Redo performed  |
+| `tbw-history-changed` | `{ undoCount, redoCount }` | History changed |

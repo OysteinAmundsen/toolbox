@@ -1,19 +1,32 @@
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
-import { buildExclusiveGridCodeView, extractCode } from '@toolbox/storybook/_utils';
 import type { GridElement } from '../../../public';
 import { UndoRedoPlugin } from './UndoRedoPlugin';
 
-// Import grid
+// Import grid component
 import '../../../index';
 
+const columns = [
+  { field: 'id', header: 'ID', type: 'number' as const },
+  { field: 'name', header: 'Name', editable: true },
+  { field: 'quantity', header: 'Quantity', type: 'number' as const, editable: true },
+  { field: 'price', header: 'Price', type: 'number' as const, editable: true },
+];
+
+const sampleData = [
+  { id: 1, name: 'Widget A', quantity: 10, price: 25.99 },
+  { id: 2, name: 'Widget B', quantity: 5, price: 49.99 },
+  { id: 3, name: 'Widget C', quantity: 20, price: 15.0 },
+];
+
 const meta: Meta = {
-  title: 'Grid/Plugins',
+  title: 'Grid/Plugins/Undo-Redo',
+  tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
     maxHistorySize: {
       control: { type: 'range', min: 10, max: 200, step: 10 },
-      description: 'Maximum number of actions to keep in history',
-      table: { category: 'Undo/Redo' },
+      description: 'Maximum actions in history',
+      table: { category: 'Undo/Redo', defaultValue: { summary: '100' } },
     },
   },
   args: {
@@ -28,65 +41,124 @@ interface UndoRedoArgs {
 type Story = StoryObj<UndoRedoArgs>;
 
 /**
- * ## Undo/Redo
- *
- * Track cell edits and enable Ctrl+Z to undo and Ctrl+Y to redo.
- * Edit cells in the grid, then use keyboard shortcuts to undo/redo changes.
+ * Double-click to edit cells, then use Ctrl+Z to undo and Ctrl+Y to redo.
  */
-export const UndoRedo: Story = {
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 350px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+  ],
+  plugins: [
+    new UndoRedoPlugin({
+      maxHistorySize: 100,
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Widget A', quantity: 10, price: 25.99 },
+  { id: 2, name: 'Widget B', quantity: 5, price: 49.99 },
+  { id: 3, name: 'Widget C', quantity: 20, price: 15.00 },
+];
+
+// Double-click to edit, Ctrl+Z to undo, Ctrl+Y to redo
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
   render: (args: UndoRedoArgs) => {
-    const host = document.createElement('div');
-    const htmlSnippet = `<tbw-grid></tbw-grid>`;
-    host.innerHTML = htmlSnippet;
-    const grid = host.querySelector('tbw-grid') as GridElement;
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
 
-    const codeSnippet = (__$maxHistorySize$: number) => {
-      grid.gridConfig = {
-        columns: [
-          { field: 'id', header: 'ID', type: 'number' },
-          { field: 'name', header: 'Name', editable: true },
-          { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
-          { field: 'price', header: 'Price', type: 'number', editable: true },
-        ],
-        plugins: [
-          new UndoRedoPlugin({
-            maxHistorySize: __$maxHistorySize$,
-          }),
-        ],
-      };
-
-      grid.rows = [
-        { id: 1, name: 'Widget A', quantity: 10, price: 25.99 },
-        { id: 2, name: 'Widget B', quantity: 5, price: 49.99 },
-        { id: 3, name: 'Widget C', quantity: 20, price: 15.0 },
-      ];
-
-      grid.addEventListener('undo', (e: CustomEvent) => {
-        console.log('Undo:', e.detail);
-      });
-
-      grid.addEventListener('redo', (e: CustomEvent) => {
-        console.log('Redo:', e.detail);
-      });
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new UndoRedoPlugin({
+          maxHistorySize: args.maxHistorySize,
+        }),
+      ],
     };
+    grid.rows = [...sampleData];
 
-    const jsSnippet = `${extractCode(codeSnippet, args)}`;
-    codeSnippet(args.maxHistorySize);
+    return grid;
+  },
+};
 
-    return buildExclusiveGridCodeView(host, htmlSnippet, jsSnippet, {
-      start: 'grid',
-      sessionKey: 'grid-undo-redo',
-      plugins: [{ className: 'UndoRedoPlugin', path: 'plugins/undo-redo' }],
-      description: `
-        <p><strong>Try it:</strong> Double-click any editable cell (Name, Quantity, or Price) to edit it, 
-        then use keyboard shortcuts to undo/redo your changes.</p>
-        <ul>
-          <li><code>Ctrl+Z</code> (or <code>Cmd+Z</code> on Mac) — Undo the last edit</li>
-          <li><code>Ctrl+Y</code> or <code>Ctrl+Shift+Z</code> — Redo the last undone edit</li>
-        </ul>
-        <p>The plugin maintains separate undo and redo stacks. Performing a new edit after undoing 
-        will clear the redo stack. History is limited to ${args.maxHistorySize} actions.</p>
-      `,
-    });
+/**
+ * Limited history (20 actions max).
+ */
+export const LimitedHistory: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 350px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+  ],
+  plugins: [
+    new UndoRedoPlugin({
+      maxHistorySize: 20, // Limit history to 20 actions
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Widget A', quantity: 10, price: 25.99 },
+  { id: 2, name: 'Widget B', quantity: 5, price: 49.99 },
+  { id: 3, name: 'Widget C', quantity: 20, price: 15.00 },
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  args: {
+    maxHistorySize: 20,
+  },
+  render: (args: UndoRedoArgs) => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new UndoRedoPlugin({
+          maxHistorySize: args.maxHistorySize,
+        }),
+      ],
+    };
+    grid.rows = [...sampleData];
+
+    return grid;
   },
 };

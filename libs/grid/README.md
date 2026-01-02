@@ -126,6 +126,30 @@ When the same property is set via multiple methods, higher precedence wins:
 <tbw-grid></tbw-grid>
 ```
 
+### HTML Attributes
+
+The grid supports configuration via HTML attributes with JSON-serialized values:
+
+| Attribute     | Type   | Description                                 |
+| ------------- | ------ | ------------------------------------------- |
+| `rows`        | JSON   | Data array (JSON-serialized)                |
+| `columns`     | JSON   | Column definitions (JSON-serialized)        |
+| `grid-config` | JSON   | Full configuration object (JSON-serialized) |
+| `fit-mode`    | string | Column sizing: `'stretch'` or `'fixed'`     |
+| `edit-on`     | string | Edit trigger: `'click'` or `'dblclick'`     |
+
+**Example with HTML attributes:**
+
+```html
+<tbw-grid
+  rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
+  columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
+  fit-mode="stretch"
+  edit-on="dblclick"
+>
+</tbw-grid>
+```
+
 ### Properties
 
 | Property     | Type                    | Description                                        |

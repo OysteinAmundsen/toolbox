@@ -1,0 +1,157 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as ContextMenuStories from './context-menu.stories';
+
+<Meta of={ContextMenuStories} />
+
+# Context Menu Plugin
+
+The Context Menu plugin adds right-click context menus with customizable actions and submenus.
+
+## Installation
+
+```ts
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+```
+
+## Basic Usage
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new ContextMenuPlugin({
+      items: [
+        { id: 'copy', label: 'Copy', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+        { id: 'edit', label: 'Edit', action: (ctx) => grid.startEditing(ctx.rowIndex, ctx.colIndex) },
+        { type: 'separator' },
+        { id: 'delete', label: 'Delete Row', action: (ctx) => deleteRow(ctx.rowIndex) },
+      ],
+    }),
+  ],
+};
+```
+
+## Demos
+
+### Default Context Menu
+
+Right-click any cell to see the context menu.
+
+<Canvas of={ContextMenuStories.Default} />
+<Controls of={ContextMenuStories.Default} />
+
+### With Submenus
+
+Nested menu items for complex actions.
+
+<Canvas of={ContextMenuStories.WithSubmenus} />
+
+### Conditional Items
+
+Show/hide items based on context.
+
+<Canvas of={ContextMenuStories.ConditionalItems} />
+
+## Configuration Options
+
+| Option             | Type         | Default | Description                      |
+| ------------------ | ------------ | ------- | -------------------------------- |
+| `items`            | `MenuItem[]` | `[]`    | Menu items to display            |
+| `showDefaultItems` | `boolean`    | `true`  | Include default Copy/Paste items |
+
+## Menu Item Types
+
+```ts
+interface MenuItem {
+  id: string;
+  label: string;
+  icon?: string; // Icon class or HTML
+  action?: (ctx: MenuContext) => void;
+  disabled?: boolean | ((ctx: MenuContext) => boolean);
+  visible?: boolean | ((ctx: MenuContext) => boolean);
+  items?: MenuItem[]; // Submenu items
+}
+
+interface SeparatorItem {
+  type: 'separator';
+}
+```
+
+## Menu Context
+
+The action callback receives context about the clicked cell:
+
+```ts
+interface MenuContext {
+  rowIndex: number;
+  colIndex: number;
+  field: string;
+  value: any;
+  row: any;
+  column: ColumnConfig;
+}
+```
+
+## Conditional Items
+
+```ts
+new ContextMenuPlugin({
+  items: [
+    {
+      id: 'edit',
+      label: 'Edit',
+      visible: (ctx) => ctx.column.editable === true,
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      disabled: (ctx) => ctx.row.locked === true,
+    },
+  ],
+});
+```
+
+## Events
+
+| Event             | Detail                          | Description       |
+| ----------------- | ------------------------------- | ----------------- |
+| `tbw-menu-open`   | `{ rowIndex, colIndex, items }` | Menu opened       |
+| `tbw-menu-close`  | `{}`                            | Menu closed       |
+| `tbw-menu-action` | `{ id, context }`               | Menu item clicked |
+
+## Styling
+
+```css
+/* Menu container */
+tbw-grid::part(context-menu) {
+  background: var(--tbw-surface-color);
+  border: 1px solid var(--tbw-border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 160px;
+}
+
+/* Menu item */
+tbw-grid::part(context-menu-item) {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+tbw-grid::part(context-menu-item):hover {
+  background: var(--tbw-hover-bg);
+}
+
+/* Disabled item */
+tbw-grid::part(context-menu-item-disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Separator */
+tbw-grid::part(context-menu-separator) {
+  height: 1px;
+  background: var(--tbw-border-color);
+  margin: 4px 0;
+}
+```

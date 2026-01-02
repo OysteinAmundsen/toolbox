@@ -1,0 +1,182 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as GridStories from './grid.stories';
+
+<Meta of={GridStories} />
+
+# Core Grid Component
+
+The `<tbw-grid>` is a high-performance, framework-agnostic data grid web component built with pure TypeScript.
+
+## Features
+
+| Feature                    | Description                                          |
+| -------------------------- | ---------------------------------------------------- |
+| 🚀 **Virtualization**      | Handles 100k+ rows with smooth scrolling             |
+| 🔧 **Framework Agnostic**  | Works in vanilla JS, React, Vue, Angular, Svelte     |
+| ⌨️ **Keyboard Navigation** | Full arrow key, Tab, Enter, Escape support           |
+| 🎨 **Themeable**           | CSS custom properties for complete customization     |
+| 📦 **Plugin Architecture** | Extend with selection, filtering, grouping, and more |
+
+## Installation
+
+```bash
+npm install @toolbox-web/grid
+```
+
+## Basic Usage
+
+```html
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+  import '@toolbox-web/grid';
+
+  const grid = document.querySelector('tbw-grid');
+  grid.columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'email', header: 'Email' },
+  ];
+  grid.rows = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ];
+</script>
+```
+
+## Demos
+
+### Interactive Playground
+
+Experiment with all core grid options using the controls below.
+
+<Canvas of={GridStories.Playground} />
+<Controls of={GridStories.Playground} />
+
+### Column Inference
+
+The grid can automatically infer column types from your data.
+
+<Canvas of={GridStories.ColumnInference} />
+
+### Light DOM Columns
+
+Define columns declaratively in HTML using `<tbw-grid-column>` elements.
+
+<Canvas of={GridStories.LightDOMColumns} />
+
+### Custom Formatters
+
+Use format functions and templates to customize cell display.
+
+<Canvas of={GridStories.CustomFormatters} />
+
+### Column State Persistence
+
+Persist column widths, order, and visibility to localStorage.
+
+<Canvas of={GridStories.ColumnStatePersistence} />
+
+## Configuration
+
+### Via Properties
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.columns = [...];
+grid.rows = [...];
+grid.fitMode = 'stretch'; // or 'fixed'
+grid.editOn = 'dblclick'; // or 'click'
+```
+
+### Via gridConfig
+
+```ts
+grid.gridConfig = {
+  columns: [...],
+  fitMode: 'stretch',
+  editOn: 'dblclick',
+  plugins: [...],
+};
+grid.rows = [...];
+```
+
+## Column Configuration
+
+| Property    | Type                                          | Description                |
+| ----------- | --------------------------------------------- | -------------------------- |
+| `field`     | `string`                                      | Data field name (required) |
+| `header`    | `string`                                      | Column header text         |
+| `type`      | `'string' \| 'number' \| 'boolean' \| 'date'` | Data type                  |
+| `width`     | `number`                                      | Fixed width in pixels      |
+| `minWidth`  | `number`                                      | Minimum width              |
+| `maxWidth`  | `number`                                      | Maximum width              |
+| `sortable`  | `boolean`                                     | Enable sorting             |
+| `editable`  | `boolean`                                     | Enable editing             |
+| `resizable` | `boolean`                                     | Enable resizing            |
+| `format`    | `(value, row) => string`                      | Custom formatter           |
+| `template`  | `string`                                      | Template string            |
+
+## Keyboard Shortcuts
+
+| Key                      | Action                       |
+| ------------------------ | ---------------------------- |
+| `↑` `↓` `←` `→`          | Navigate cells               |
+| `Tab` / `Shift+Tab`      | Move to next/previous cell   |
+| `Enter`                  | Start editing / confirm edit |
+| `Escape`                 | Cancel editing               |
+| `Home` / `End`           | Jump to first/last column    |
+| `Ctrl+Home` / `Ctrl+End` | Jump to first/last row       |
+| `Page Up` / `Page Down`  | Scroll by viewport           |
+
+## Shell Components
+
+The grid includes a shell wrapper for toolbar, tool panels, and status bar.
+
+### Basic Shell
+
+<Canvas of={GridStories.ShellBasic} />
+
+### Light DOM Shell Configuration
+
+<Canvas of={GridStories.ShellLightDOMConfig} />
+
+### Multiple Tool Panels
+
+<Canvas of={GridStories.ShellMultiplePanels} />
+
+### Toolbar Buttons
+
+<Canvas of={GridStories.ShellToolbarButtons} />
+
+## Events
+
+| Event                 | Detail                                | Description         |
+| --------------------- | ------------------------------------- | ------------------- |
+| `tbw-cell-click`      | `{ row, column, rowIndex }`           | Cell clicked        |
+| `tbw-cell-dblclick`   | `{ row, column, rowIndex }`           | Cell double-clicked |
+| `tbw-cell-edit-start` | `{ row, column, value }`              | Edit started        |
+| `tbw-cell-edit-end`   | `{ row, column, oldValue, newValue }` | Edit completed      |
+| `tbw-sort-change`     | `{ field, direction }`                | Sort changed        |
+| `tbw-column-resize`   | `{ field, width }`                    | Column resized      |
+
+## Methods
+
+```ts
+// Refresh the grid display
+grid.requestRefresh();
+
+// Full re-render
+grid.requestRefresh({ full: true });
+
+// Auto-size column to content
+grid.autoSizeColumn('fieldName');
+
+// Auto-size all columns
+grid.autoSizeAllColumns();
+
+// Editing
+grid.startEdit(rowIndex, 'fieldName');
+grid.commitEdit();
+grid.cancelEdit();
+```

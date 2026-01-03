@@ -11,7 +11,6 @@
 */
 
 tbw-grid {
-  color-scheme: light dark;
   /* Reuse core color tokens from standard theme with a few tweaks */
   --tbw-color-bg: light-dark(#ffffff, #1f2125);
   --tbw-color-fg: light-dark(#1b1e23, #e7e9ed); /* a bit darker/lighter */

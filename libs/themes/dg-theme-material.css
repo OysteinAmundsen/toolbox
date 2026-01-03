@@ -4,8 +4,6 @@
  * https://material.angular.io/components/table/overview
  */
 tbw-grid {
-  color-scheme: light dark;
-
   /* Clean white/dark surface - no tinting */
   --tbw-color-bg: light-dark(#ffffff, #272727);
   --tbw-color-panel-bg: light-dark(#ffffff, #272727);

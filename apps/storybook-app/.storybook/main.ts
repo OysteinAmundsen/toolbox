@@ -14,6 +14,15 @@ const gridVersion = gridPkg.version;
 
 const config: StorybookConfig = {
   staticDirs: ['assets'],
+  // Disable toolbar features that don't add value for this component library
+  features: {
+    // Grid overlay - not useful for grid component demos
+    backgrounds: false,
+    // Measure distances - requires dev tools, not useful in docs
+    measure: false,
+    // Outline elements - not useful for styled components
+    outline: false,
+  },
   stories: [
     // MDX documentation pages
     '../../../libs/grid/docs/**/*.mdx',
@@ -25,6 +34,7 @@ const config: StorybookConfig = {
   ],
   addons: [
     '@storybook/addon-a11y',
+    '@vueless/storybook-dark-mode',
     {
       name: '@storybook/addon-docs',
       options: {

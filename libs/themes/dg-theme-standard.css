@@ -1,6 +1,5 @@
 /* Standard balanced theme with light-dark() adaptive palette */
 tbw-grid {
-  color-scheme: light dark;
   --tbw-color-bg: light-dark(#ffffff, #1f2125);
   --tbw-color-fg: light-dark(#1f2329, #e5e7eb);
   --tbw-color-fg-muted: light-dark(#586069, #9ca3af);

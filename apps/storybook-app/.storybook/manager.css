@@ -34,3 +34,8 @@
   vertical-align: middle;
   flex-shrink: 0;
 }
+
+/* Default color-scheme - toggle is handled via inline style set by preview decorator */
+:root {
+  color-scheme: light dark;
+}

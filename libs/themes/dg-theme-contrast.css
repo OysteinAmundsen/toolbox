@@ -1,6 +1,5 @@
 /* High contrast accessibility-focused theme */
 tbw-grid {
-  color-scheme: light dark;
   --tbw-color-bg: light-dark(#ffffff, #000000);
   --tbw-color-fg: light-dark(#000000, #ffffff);
   --tbw-color-fg-muted: light-dark(#222222, #dddddd);

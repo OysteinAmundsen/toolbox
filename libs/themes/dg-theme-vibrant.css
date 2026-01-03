@@ -1,6 +1,5 @@
 /* Vibrant colorful theme (keeps good contrast) */
 tbw-grid {
-  color-scheme: light dark;
   --tbw-color-bg: light-dark(#fcfcff, #1a1c24);
   --tbw-color-fg: light-dark(#1e2430, #f1f5f9);
   --tbw-color-fg-muted: light-dark(#5d6473, #9ba4b4);

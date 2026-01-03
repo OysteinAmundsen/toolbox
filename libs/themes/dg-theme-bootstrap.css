@@ -4,8 +4,6 @@
  * https://getbootstrap.com/docs/5.3/content/tables/
  */
 tbw-grid {
-  color-scheme: light dark;
-
   /* Bootstrap surface colors */
   --tbw-color-bg: light-dark(#ffffff, #212529);
   --tbw-color-panel-bg: light-dark(#ffffff, #212529);

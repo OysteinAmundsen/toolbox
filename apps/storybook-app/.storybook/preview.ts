@@ -64,9 +64,6 @@ function applyTheme(name: string) {
   styleEl.textContent = THEME_MAP[name] || THEME_MAP.standard;
 }
 
-// Detect user's preferred color scheme for docs theming
-const prefersDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
-
 const preview: Preview = {
   // Stories are embedded in MDX docs pages (docsMode: true in main.ts)
   // No autodocs tag needed - MDX pages control documentation structure
@@ -77,6 +74,14 @@ const preview: Preview = {
         color: /(background|color)$/i,
         date: /Date$/,
       },
+    },
+    // Configure storybook-dark-mode addon
+    darkMode: {
+      dark: { ...themes.dark },
+      light: { ...themes.light },
+      // Apply dark/light class to preview iframe for CSS targeting
+      stylePreview: true,
+      classTarget: 'html',
     },
     options: {
       // Control sidebar navigation order
@@ -100,8 +105,6 @@ const preview: Preview = {
       },
     },
     docs: {
-      // Apply dark/light theme based on system preference
-      theme: prefersDark ? themes.dark : themes.light,
       // Enable table of contents for documentation pages
       toc: {
         contentsSelector: '.sbdocs-content',

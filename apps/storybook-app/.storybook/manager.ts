@@ -2,7 +2,8 @@ import { addons } from 'storybook/manager-api';
 import { create } from 'storybook/theming';
 import './manager.css';
 
-// Detect user's preferred color scheme
+// Detect user's preferred color scheme for initial branding theme
+// The @vueless/storybook-dark-mode addon handles runtime switching
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
 // Create custom theme with branding

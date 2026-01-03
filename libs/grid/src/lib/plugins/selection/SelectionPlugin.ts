@@ -88,6 +88,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   private cellAnchor: { row: number; col: number } | null = null;
   private isDragging = false;
 
+  /** Pending keyboard navigation update (processed in afterRender) */
+  private pendingKeyboardUpdate: { shiftKey: boolean } | null = null;
+
   /** Cell selection state (cell mode) */
   private selectedCell: { row: number; col: number } | null = null;
 
@@ -102,6 +105,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.cellAnchor = null;
     this.isDragging = false;
     this.selectedCell = null;
+    this.pendingKeyboardUpdate = null;
   }
 
   // #endregion
@@ -207,7 +211,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (mode === 'cell' && isNavKey) {
       // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
       queueMicrotask(() => {
-        this.selectedCell = { row: this.grid.focusRow, col: this.grid.focusCol };
+        this.selectedCell = { row: this.grid._focusRow, col: this.grid._focusCol };
         this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
         this.requestAfterRender();
       });
@@ -219,8 +223,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       // Let grid move focus first, then sync row selection
       queueMicrotask(() => {
         this.selected.clear();
-        this.selected.add(this.grid.focusRow);
-        this.lastSelected = this.grid.focusRow;
+        this.selected.add(this.grid._focusRow);
+        this.lastSelected = this.grid._focusRow;
         this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
         this.requestAfterRender();
       });
@@ -229,32 +233,20 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     // RANGE MODE: Shift+Arrow extends, plain Arrow resets
     if (mode === 'range' && isNavKey) {
-      const shiftKey = event.shiftKey;
+      // Capture anchor BEFORE grid moves focus (synchronous)
+      // This ensures the anchor is the starting point, not the destination
+      if (event.shiftKey && !this.cellAnchor) {
+        this.cellAnchor = { row: this.grid._focusRow, col: this.grid._focusCol };
+      }
 
-      queueMicrotask(() => {
-        const currentRow = this.grid.focusRow;
-        const currentCol = this.grid.focusCol;
+      // Mark pending update - will be processed in afterRender when grid updates focus
+      this.pendingKeyboardUpdate = { shiftKey: event.shiftKey };
 
-        if (shiftKey) {
-          // Extend selection from anchor to current focus
-          if (!this.cellAnchor) {
-            // No anchor yet - set it to where we were before navigation
-            // Since grid already moved, we need to establish anchor at first nav with shift
-            this.cellAnchor = { row: currentRow, col: currentCol };
-          }
-          const newRange = createRangeFromAnchor(this.cellAnchor, { row: currentRow, col: currentCol });
-          this.ranges = [newRange];
-          this.activeRange = newRange;
-        } else {
-          // Without shift, clear selection (cell-focus will show instead)
-          this.ranges = [];
-          this.activeRange = null;
-          this.cellAnchor = { row: currentRow, col: currentCol }; // Reset anchor to current position
-        }
+      // Schedule afterRender to run after grid's keyboard handler completes
+      // Grid's refreshVirtualWindow(false) skips afterRender for performance,
+      // so we explicitly request it to process pendingKeyboardUpdate
+      queueMicrotask(() => this.requestAfterRender());
 
-        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-        this.requestAfterRender();
-      });
       return false; // Let grid handle navigation
     }
 
@@ -418,6 +410,30 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     const container = shadowRoot.children[0];
     const { mode } = this.config;
+
+    // Process pending keyboard navigation update (range mode)
+    // This runs AFTER the grid has updated focusRow/focusCol
+    if (this.pendingKeyboardUpdate && mode === 'range') {
+      const { shiftKey } = this.pendingKeyboardUpdate;
+      this.pendingKeyboardUpdate = null;
+
+      const currentRow = this.grid._focusRow;
+      const currentCol = this.grid._focusCol;
+
+      if (shiftKey && this.cellAnchor) {
+        // Extend selection from anchor to current focus
+        const newRange = createRangeFromAnchor(this.cellAnchor, { row: currentRow, col: currentCol });
+        this.ranges = [newRange];
+        this.activeRange = newRange;
+      } else if (!shiftKey) {
+        // Without shift, clear selection (cell-focus will show instead)
+        this.ranges = [];
+        this.activeRange = null;
+        this.cellAnchor = { row: currentRow, col: currentCol }; // Reset anchor to current position
+      }
+
+      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    }
 
     // Set data attribute on host for CSS variable scoping
     (this.grid as unknown as Element).setAttribute('data-selection-mode', mode);

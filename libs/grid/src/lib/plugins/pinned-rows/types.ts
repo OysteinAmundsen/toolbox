@@ -10,8 +10,25 @@ import type { ColumnConfig } from '../../core/types';
 /** Position of the status bar relative to the grid */
 export type PinnedRowsPosition = 'top' | 'bottom';
 
-/** Aggregator reference - string key for built-in or custom function */
-export type AggregatorRef = string | ((rows: unknown[], field: string, column?: ColumnConfig) => unknown);
+/** Aggregator function signature */
+export type AggregatorFn = (rows: unknown[], field: string, column?: ColumnConfig) => unknown;
+
+/** Aggregator formatter function - formats the computed value for display */
+export type AggregatorFormatter = (value: unknown, field: string, column?: ColumnConfig) => string;
+
+/** Simple aggregator reference - string key for built-in or custom function */
+export type AggregatorRef = string | AggregatorFn;
+
+/** Full aggregator config with optional formatter */
+export interface AggregatorConfig {
+  /** The aggregator function or built-in key ('sum', 'avg', 'min', 'max', 'count', 'first', 'last') */
+  aggFunc: AggregatorRef;
+  /** Optional formatter to format the computed value for display */
+  formatter?: AggregatorFormatter;
+}
+
+/** Aggregator definition - simple string/function or full config object */
+export type AggregatorDefinition = AggregatorRef | AggregatorConfig;
 
 /**
  * Configuration for an aggregation row (footer/header row with computed values).
@@ -28,8 +45,16 @@ export interface AggregationRowConfig {
   label?: string;
   /** Static or computed cell values keyed by field */
   cells?: Record<string, unknown | string | ((rows: unknown[], field: string, column?: ColumnConfig) => unknown)>;
-  /** Per-field aggregator override; string maps to registered aggregator key */
-  aggregators?: Record<string, AggregatorRef>;
+  /**
+   * Per-field aggregator configuration.
+   * Can be a simple string ('sum', 'avg', etc.), a function, or an object with aggFunc and formatter.
+   * @example
+   * aggregators: {
+   *   quantity: 'sum',  // simple built-in
+   *   price: { aggFunc: 'sum', formatter: (v) => `$${v.toFixed(2)}` }  // with formatter
+   * }
+   */
+  aggregators?: Record<string, AggregatorDefinition>;
 }
 
 /** Configuration options for the status bar plugin */

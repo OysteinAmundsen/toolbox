@@ -54,6 +54,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       active: true,
       showTotals: true,
       showGrandTotal: true,
+      showToolPanel: true,
     };
   }
 
@@ -94,6 +95,13 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   // #region Shell Integration
 
   override getToolPanel(): ToolPanelDefinition | undefined {
+    // Allow users to disable the tool panel for programmatic-only pivot
+    // Check userConfig first (works before attach), then merged config
+    const showToolPanel = this.config?.showToolPanel ?? this.userConfig?.showToolPanel ?? true;
+    if (showToolPanel === false) {
+      return undefined;
+    }
+
     return {
       id: PivotPlugin.PANEL_ID,
       title: 'Pivot',

@@ -59,7 +59,7 @@ const meta: Meta = {
       table: { category: 'Tree', defaultValue: { summary: 'false' } },
     },
     indentWidth: {
-      control: { type: 'range', min: 10, max: 40, step: 5 },
+      control: { type: 'range', min: 0, max: 40, step: 5 },
       description: 'Indentation width per level in pixels',
       table: { category: 'Tree', defaultValue: { summary: '20' } },
     },

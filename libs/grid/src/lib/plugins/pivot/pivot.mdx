@@ -46,17 +46,33 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option              | Type           | Default | Description            |
-| ------------------- | -------------- | ------- | ---------------------- |
-| `rowGroupFields`    | `string[]`     | `[]`    | Row grouping fields    |
-| `columnGroupFields` | `string[]`     | `[]`    | Column grouping fields |
-| `valueFields`       | `ValueField[]` | `[]`    | Aggregation fields     |
-| `showTotals`        | `boolean`      | `true`  | Show row totals        |
-| `showGrandTotal`    | `boolean`      | `true`  | Show grand total       |
+| Option              | Type           | Default | Description                                  |
+| ------------------- | -------------- | ------- | -------------------------------------------- |
+| `rowGroupFields`    | `string[]`     | `[]`    | Row grouping fields                          |
+| `columnGroupFields` | `string[]`     | `[]`    | Column grouping fields                       |
+| `valueFields`       | `ValueField[]` | `[]`    | Aggregation fields                           |
+| `showTotals`        | `boolean`      | `true`  | Show row totals                              |
+| `showGrandTotal`    | `boolean`      | `true`  | Show grand total                             |
+| `showToolPanel`     | `boolean`      | `true`  | Show pivot tool panel for interactive config |
 
 ## Aggregation Functions
 
 `sum`, `avg`, `count`, `min`, `max`, `first`, `last`
+
+## Programmatic-Only Usage
+
+To use pivot transformation without exposing the tool panel UI to users:
+
+```ts
+new PivotPlugin({
+  showToolPanel: false,
+  rowGroupFields: ['region'],
+  columnGroupFields: ['quarter'],
+  valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+});
+```
+
+The pivot API methods remain available for programmatic control.
 
 ## Programmatic API
 

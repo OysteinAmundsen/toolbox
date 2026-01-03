@@ -37,9 +37,72 @@ Type in column header filter inputs to filter rows.
 
 ### Custom Filter Panel
 
-Advanced filtering with custom UI.
+The `filterPanelRenderer` option lets you replace the default filter panel with custom UI.
+When the renderer returns `undefined`, the default panel is used for that column.
 
 <Canvas of={FilteringStories.CustomFilterPanel} withToolbar />
+
+#### FilterPanelParams
+
+Your custom renderer receives a `params` object with:
+
+**Properties**
+
+| Property         | Type           | Description                            |
+| ---------------- | -------------- | -------------------------------------- |
+| `field`          | `string`       | The field being filtered               |
+| `column`         | `ColumnConfig` | Column configuration                   |
+| `uniqueValues`   | `unknown[]`    | All unique values for this field       |
+| `excludedValues` | `Set<unknown>` | Currently excluded values (set filter) |
+| `searchText`     | `string`       | Current search text                    |
+
+**Methods**
+
+| Method            | Signature                                   | Description                               |
+| ----------------- | ------------------------------------------- | ----------------------------------------- |
+| `applySetFilter`  | `(excluded: unknown[]) => void`             | Apply a set filter (exclude these values) |
+| `applyTextFilter` | `(op: FilterOperator, val: string) => void` | Apply a text filter with operator         |
+| `clearFilter`     | `() => void`                                | Clear the filter for this field           |
+| `closePanel`      | `() => void`                                | Close the filter panel                    |
+
+#### Example: Radio-button Filter
+
+```ts
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  plugins: [
+    new FilteringPlugin({
+      filterPanelRenderer: (container, params) => {
+        // Custom panel only for 'status' column
+        if (params.field !== 'status') return undefined;
+
+        container.innerHTML = `
+          <div style="padding: 8px;">
+            <label><input type="radio" name="status" value="all" checked> All</label>
+            ${params.uniqueValues
+              .map((v) => `<label><input type="radio" name="status" value="${v}"> ${v}</label>`)
+              .join('')}
+          </div>
+        `;
+
+        container.querySelectorAll('input').forEach((input) => {
+          input.addEventListener('change', () => {
+            if (input.value === 'all') {
+              params.clearFilter();
+            } else {
+              // Exclude all except the selected value
+              const excluded = params.uniqueValues.filter((v) => v !== input.value);
+              params.applySetFilter(excluded);
+            }
+            params.closePanel();
+          });
+        });
+      },
+    }),
+  ],
+};
+```
 
 ### Case-Sensitive Filtering
 

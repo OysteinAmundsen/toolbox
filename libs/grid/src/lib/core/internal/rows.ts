@@ -499,6 +499,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     cell.setAttribute('aria-colindex', String(colIndex + 1));
     cell.setAttribute('data-col', String(colIndex));
     cell.setAttribute('data-row', String(rowIndex));
+    cell.setAttribute('data-field', col.field); // Field name for column identification
     const isCheckbox = col.type === 'boolean';
     if (col.type) cell.setAttribute('data-type', col.type as any);
 
@@ -747,6 +748,12 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
   if (isNaN(rowIndex)) return;
   const rowData = grid._rows[rowIndex];
   if (!rowData) return;
+
+  // Dispatch row click to plugin system first (e.g., for master-detail expansion)
+  if (grid._dispatchRowClick?.(e, rowIndex, rowData, rowEl)) {
+    return;
+  }
+
   const cellEl = (e.target as HTMLElement)?.closest('.cell[data-col]') as HTMLElement | null;
   if (cellEl) {
     // Skip focus/ensureCellVisible if cell is already editing - avoid wiping editors

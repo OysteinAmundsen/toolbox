@@ -432,6 +432,20 @@ html.dark {
   accent-color: light-dark(#029cfd, #3b82f6);
 }
 
+/* Range slider track (Firefox) */
+.docblock-argstable input[type='range']::-moz-range-track {
+  background: light-dark(#d1d5db, #4b5563);
+}
+
+/* Range slider thumb */
+.docblock-argstable input[type='range']::-webkit-slider-thumb {
+  cursor: pointer;
+}
+
+.docblock-argstable input[type='range']::-moz-range-thumb {
+  cursor: pointer;
+}
+
 /* Range slider value labels - siblings of the input */
 .docblock-argstable input[type='range'] ~ span,
 .docblock-argstable input[type='range'] + span {

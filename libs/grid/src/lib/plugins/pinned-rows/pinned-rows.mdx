@@ -23,6 +23,16 @@ grid.gridConfig = {
     new PinnedRowsPlugin({
       position: 'bottom',
       showRowCount: true,
+      aggregationRows: [
+        {
+          id: 'totals',
+          aggregators: {
+            quantity: 'sum',
+            price: { aggFunc: 'sum', formatter: (v) => `$${v.toFixed(2)}` },
+          },
+          cells: { id: 'Totals:' },
+        },
+      ],
     }),
   ],
 };
@@ -35,7 +45,7 @@ grid.gridConfig = {
 <Canvas of={PinnedRowsStories.Default} withToolbar />
 <Controls of={PinnedRowsStories.Default} />
 
-### Multiple Aggregations
+### Multiple Aggregation Rows
 
 <Canvas of={PinnedRowsStories.MultipleAggregations} withToolbar />
 
@@ -45,25 +55,51 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option         | Type                  | Default    | Description         |
-| -------------- | --------------------- | ---------- | ------------------- |
-| `position`     | `'top' \| 'bottom'`   | `'bottom'` | Status bar position |
-| `showRowCount` | `boolean`             | `false`    | Display row count   |
-| `aggregations` | `AggregationConfig[]` | `[]`       | Column aggregations |
-| `customPanels` | `CustomPanel[]`       | `[]`       | Custom panels       |
+| Option              | Type                     | Default    | Description                |
+| ------------------- | ------------------------ | ---------- | -------------------------- |
+| `position`          | `'top' \| 'bottom'`      | `'bottom'` | Status bar position        |
+| `showRowCount`      | `boolean`                | `true`     | Display row count          |
+| `showSelectedCount` | `boolean`                | `true`     | Display selected row count |
+| `showFilteredCount` | `boolean`                | `true`     | Display filtered row count |
+| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | Aggregation footer rows    |
+| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | Custom info bar panels     |
 
-## Aggregations
+## Aggregation Rows
+
+Configure computed footer/header rows with aggregators:
 
 ```ts
 new PinnedRowsPlugin({
-  aggregations: [
-    { field: 'quantity', aggFunc: 'sum', label: 'Total' },
-    { field: 'price', aggFunc: 'avg', label: 'Average' },
+  aggregationRows: [
+    {
+      id: 'totals',
+      position: 'bottom',
+      aggregators: {
+        // Simple string aggregator
+        quantity: 'sum',
+        // Object syntax with formatter
+        price: {
+          aggFunc: 'sum',
+          formatter: (value) => `$${value.toFixed(2)}`,
+        },
+      },
+      cells: { id: 'Totals:', name: '' },
+    },
   ],
 });
 ```
 
-Available functions: `sum`, `avg`, `min`, `max`, `count`, `first`, `last`
+### Aggregator Syntax
+
+| Syntax   | Example                                              | Description                |
+| -------- | ---------------------------------------------------- | -------------------------- |
+| String   | `'sum'`                                              | Built-in aggregator        |
+| Function | `(rows, field) => rows.length`                       | Custom aggregator function |
+| Object   | `{ aggFunc: 'sum', formatter: (v) => v.toFixed(2) }` | Aggregator with formatter  |
+
+### Built-in Aggregators
+
+`sum`, `avg`, `count`, `min`, `max`, `first`, `last`
 
 ## Custom Panels
 
@@ -73,7 +109,7 @@ new PinnedRowsPlugin({
     {
       id: 'info',
       position: 'right',
-      render: () => '<span>Custom content</span>',
+      render: (ctx) => `<span>Rows: ${ctx.totalRows}</span>`,
     },
   ],
 });

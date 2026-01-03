@@ -23,7 +23,13 @@ import {
   type ShellState,
 } from './internal/shell';
 import type { CellMouseEvent, ScrollEvent } from './plugin';
-import type { BaseGridPlugin, CellClickEvent, HeaderClickEvent, PluginQuery } from './plugin/base-plugin';
+import type {
+  BaseGridPlugin,
+  CellClickEvent,
+  HeaderClickEvent,
+  PluginQuery,
+  RowClickEvent,
+} from './plugin/base-plugin';
 import { PluginManager } from './plugin/plugin-manager';
 import type {
   ActivateCellDetail,
@@ -1306,6 +1312,23 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     };
 
     return this.#pluginManager?.onCellClick(cellClickEvent) ?? false;
+  }
+
+  /**
+   * Dispatch a row click event to the plugin system.
+   * Returns true if any plugin handled the event.
+   */
+  _dispatchRowClick(event: MouseEvent, rowIndex: number, row: any, rowEl: HTMLElement): boolean {
+    if (!row) return false;
+
+    const rowClickEvent: RowClickEvent = {
+      rowIndex,
+      row,
+      rowEl,
+      originalEvent: event,
+    };
+
+    return this.#pluginManager?.onRowClick(rowClickEvent) ?? false;
   }
 
   /**

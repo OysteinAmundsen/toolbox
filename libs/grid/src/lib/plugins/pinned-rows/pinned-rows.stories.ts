@@ -54,6 +54,9 @@ interface PinnedRowsArgs {
 }
 type Story = StoryObj<PinnedRowsArgs>;
 
+// Currency formatter for price columns
+const formatCurrency = (value: unknown) => `$${(value as number).toFixed(2)}`;
+
 /**
  * Status bar with aggregation rows showing totals at the bottom.
  * Scroll to see the pinned rows stay fixed.
@@ -89,9 +92,13 @@ grid.gridConfig = {
           aggregators: {
             // Custom aggregator function
             name: (rows) => \`\${new Set(rows.map(r => r.name)).size} unique\`,
-            // Built-in aggregators
+            // Built-in aggregator
             quantity: 'sum',
-            price: 'sum',
+            // Object syntax with formatter for currency
+            price: {
+              aggFunc: 'sum',
+              formatter: (value) => \`$\${value.toFixed(2)}\`,
+            },
           },
           cells: { id: 'Totals:' },
         },
@@ -131,7 +138,7 @@ grid.rows = [
               aggregators: {
                 name: (rows) => `${new Set(rows.map((r) => r.name)).size} unique`,
                 quantity: 'sum',
-                price: 'sum',
+                price: { aggFunc: 'sum', formatter: formatCurrency },
               },
               cells: { id: 'Totals:' },
             },
@@ -146,7 +153,8 @@ grid.rows = [
 };
 
 /**
- * Multiple aggregation rows showing sum, average, and min/max.
+ * Multiple aggregation rows showing sum, average, and min/max values.
+ * This demonstrates how to add multiple footer rows with different aggregations.
  */
 export const MultipleAggregations: Story = {
   parameters: {
@@ -160,6 +168,8 @@ export const MultipleAggregations: Story = {
 import '@toolbox-web/grid';
 import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 
+const formatCurrency = (value) => \`$\${value.toFixed(2)}\`;
+
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
@@ -170,23 +180,34 @@ grid.gridConfig = {
   ],
   plugins: [
     new PinnedRowsPlugin({
+      position: 'bottom',
+      showRowCount: true,
       aggregationRows: [
         {
           id: 'sum',
           position: 'bottom',
-          aggregators: { quantity: 'sum', price: 'sum' },
+          aggregators: {
+            quantity: 'sum',
+            price: { aggFunc: 'sum', formatter: formatCurrency },
+          },
           cells: { id: 'Sum:', name: '' },
         },
         {
           id: 'avg',
           position: 'bottom',
-          aggregators: { quantity: 'avg', price: 'avg' },
+          aggregators: {
+            quantity: { aggFunc: 'avg', formatter: (v) => v.toFixed(1) },
+            price: { aggFunc: 'avg', formatter: formatCurrency },
+          },
           cells: { id: 'Avg:', name: '' },
         },
         {
           id: 'minmax',
           position: 'bottom',
-          aggregators: { quantity: 'min', price: 'max' },
+          aggregators: {
+            quantity: 'min',
+            price: { aggFunc: 'max', formatter: formatCurrency },
+          },
           cells: { id: 'Min/Max:', name: '' },
         },
       ],
@@ -219,19 +240,28 @@ grid.rows = [
             {
               id: 'sum',
               position: 'bottom',
-              aggregators: { quantity: 'sum', price: 'sum' },
+              aggregators: {
+                quantity: 'sum',
+                price: { aggFunc: 'sum', formatter: formatCurrency },
+              },
               cells: { id: 'Sum:', name: '' },
             },
             {
               id: 'avg',
               position: 'bottom',
-              aggregators: { quantity: 'avg', price: 'avg' },
+              aggregators: {
+                quantity: { aggFunc: 'avg', formatter: (v) => (v as number).toFixed(1) },
+                price: { aggFunc: 'avg', formatter: formatCurrency },
+              },
               cells: { id: 'Avg:', name: '' },
             },
             {
               id: 'minmax',
               position: 'bottom',
-              aggregators: { quantity: 'min', price: 'max' },
+              aggregators: {
+                quantity: 'min',
+                price: { aggFunc: 'max', formatter: formatCurrency },
+              },
               cells: { id: 'Min/Max:', name: '' },
             },
           ],

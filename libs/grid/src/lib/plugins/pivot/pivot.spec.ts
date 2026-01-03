@@ -9,6 +9,7 @@ import {
   type PivotDataRow,
 } from './pivot-engine';
 import { createValueKey, getPivotAggregator, validatePivotConfig } from './pivot-model';
+import { PivotPlugin } from './PivotPlugin';
 import type { PivotConfig, PivotRow, PivotValueField } from './types';
 
 describe('pivot-model', () => {
@@ -547,5 +548,24 @@ describe('pivot-engine', () => {
       expect(result.rows).toHaveLength(1);
       expect(result.columnKeys).toEqual(['North', 'South']);
     });
+  });
+});
+
+describe('PivotPlugin.getToolPanel', () => {
+  it('returns tool panel definition by default', () => {
+    const plugin = new PivotPlugin({});
+    expect(plugin.getToolPanel()).toBeDefined();
+    expect(plugin.getToolPanel()?.id).toBe('pivot');
+  });
+
+  it('returns tool panel definition when showToolPanel is true', () => {
+    const plugin = new PivotPlugin({ showToolPanel: true });
+    expect(plugin.getToolPanel()).toBeDefined();
+    expect(plugin.getToolPanel()?.id).toBe('pivot');
+  });
+
+  it('returns undefined when showToolPanel is false', () => {
+    const plugin = new PivotPlugin({ showToolPanel: false });
+    expect(plugin.getToolPanel()).toBeUndefined();
   });
 });

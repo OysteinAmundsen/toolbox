@@ -534,5 +534,120 @@ describe('pinnedRows', () => {
       const cell = container.querySelector('[data-field="empty"]');
       expect(cell?.textContent).toBe('');
     });
+
+    it('should apply formatter when using object syntax with aggFunc', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'price' }];
+      const dataRows = [{ price: 100 }, { price: 50.5 }];
+      const formatter = vi.fn((value: unknown) => `$${(value as number).toFixed(2)}`);
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: {
+            price: { aggFunc: 'sum', formatter },
+          },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      expect(formatter).toHaveBeenCalledWith(150.5, 'price', columns[0]);
+      const cell = container.querySelector('[data-field="price"]');
+      expect(cell?.textContent).toBe('$150.50');
+    });
+
+    it('should work with simple string aggregator (backward compat)', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'amount' }];
+      const dataRows = [{ amount: 10 }, { amount: 20 }];
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: { amount: 'sum' },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('[data-field="amount"]');
+      expect(cell?.textContent).toBe('30');
+    });
+
+    it('should work with custom function aggregator (backward compat)', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'items' }];
+      const dataRows = [{ items: ['a', 'b'] }, { items: ['c'] }];
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: {
+            items: (rows) => (rows as { items: string[] }[]).flatMap((r) => r.items).length,
+          },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('[data-field="items"]');
+      expect(cell?.textContent).toBe('3');
+    });
+
+    it('should use object syntax with custom function as aggFunc', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'count' }];
+      const dataRows = [{ count: 1 }, { count: 2 }, { count: 3 }];
+      const customAgg = (rows: unknown[]) => rows.length * 100;
+      const formatter = (value: unknown) => `${value} items`;
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: {
+            count: { aggFunc: customAgg, formatter },
+          },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('[data-field="count"]');
+      expect(cell?.textContent).toBe('300 items');
+    });
+
+    it('should not apply formatter when value is null', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'empty' }];
+      const dataRows: unknown[] = [];
+      const formatter = vi.fn((value: unknown) => `formatted: ${value}`);
+      const nullAggregator = () => null;
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: { empty: { aggFunc: nullAggregator, formatter } },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      expect(formatter).not.toHaveBeenCalled();
+      const cell = container.querySelector('[data-field="empty"]');
+      expect(cell?.textContent).toBe('');
+    });
+
+    it('should pass column config to formatter', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'value', header: 'Value Column' }];
+      const dataRows = [{ value: 42 }];
+      const formatter = vi.fn((_value: unknown, field: string, column?: { header?: string }) => {
+        return `${column?.header}: ${_value}`;
+      });
+      const rows: AggregationRowConfig[] = [
+        {
+          aggregators: {
+            value: { aggFunc: 'sum', formatter },
+          },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      expect(formatter).toHaveBeenCalledWith(42, 'value', columns[0]);
+      const cell = container.querySelector('[data-field="value"]');
+      expect(cell?.textContent).toBe('Value Column: 42');
+    });
   });
 });

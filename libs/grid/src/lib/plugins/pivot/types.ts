@@ -13,6 +13,8 @@ export interface PivotConfig {
   defaultExpanded?: boolean;
   /** Indent width per depth level in pixels (default: 20) */
   indentWidth?: number;
+  /** Whether to show the pivot configuration tool panel (default: true) */
+  showToolPanel?: boolean;
 }
 
 export interface PivotValueField {

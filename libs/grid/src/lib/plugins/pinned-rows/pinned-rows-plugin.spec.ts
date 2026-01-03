@@ -40,7 +40,7 @@ describe('PinnedRowsPlugin', () => {
     // Attach mock properties
     Object.defineProperty(grid, 'rows', { get: () => opts.rows ?? [], configurable: true });
     Object.defineProperty(grid, 'columns', { get: () => opts.columns ?? [], configurable: true });
-    Object.defineProperty(grid, 'visibleColumns', {
+    Object.defineProperty(grid, '_visibleColumns', {
       get: () => opts.visibleColumns ?? opts.columns ?? [],
       configurable: true,
     });

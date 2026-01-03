@@ -30,21 +30,14 @@ grid.gridConfig = {
 Drag column headers to reorder them.
 
 <Canvas of={ReorderStories.Default} withToolbar />
-<Controls of={ReorderStories.Default} />
-
-### Without Animation
-
-Instant column movement.
-
-<Canvas of={ReorderStories.NoAnimation} withToolbar />
 
 ## Configuration Options
 
-| Option           | Type       | Default     | Description                      |
-| ---------------- | ---------- | ----------- | -------------------------------- |
-| `animate`        | `boolean`  | `true`      | Enable smooth animation          |
-| `handleSelector` | `string`   | `undefined` | CSS selector for drag handle     |
-| `lockedColumns`  | `string[]` | `[]`        | Columns that cannot be reordered |
+| Option           | Type       | Default     | Description                                          |
+| ---------------- | ---------- | ----------- | ---------------------------------------------------- |
+| `viewTransition` | `boolean`  | `true`      | Use View Transitions API for smooth column animation |
+| `handleSelector` | `string`   | `undefined` | CSS selector for drag handle                         |
+| `lockedColumns`  | `string[]` | `[]`        | Columns that cannot be reordered                     |
 
 ## Events
 

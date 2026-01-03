@@ -170,8 +170,8 @@
   border-right: 0;
 }
 
-:host .header-group-cell,
-:host .header-row > .cell.grouped.group-end {
+:host .header-group-cell:not(:last-child),
+:host .header-row > .cell.grouped.group-end:not(:last-child) {
   border-right: 2px solid var(--tbw-color-border);
 }
 

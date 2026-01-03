@@ -3,4 +3,12 @@
  * Re-exports plugin class and types for tree-shakeable imports.
  */
 export { PinnedRowsPlugin } from './PinnedRowsPlugin';
-export type { PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
+export type {
+  AggregationRowConfig,
+  AggregatorConfig,
+  AggregatorDefinition,
+  AggregatorFormatter,
+  PinnedRowsConfig,
+  PinnedRowsContext,
+  PinnedRowsPanel,
+} from './types';

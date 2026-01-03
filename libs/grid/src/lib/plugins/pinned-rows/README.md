@@ -23,9 +23,14 @@ grid.gridConfig = {
           id: 'totals',
           position: 'bottom',
           aggregators: {
-            amount: 'sum',
-            count: 'count',
+            quantity: 'sum',
+            // Object syntax with formatter for currency
+            price: {
+              aggFunc: 'sum',
+              formatter: (value) => `$${value.toFixed(2)}`,
+            },
           },
+          cells: { id: 'Totals:' },
         },
       ],
     }),
@@ -35,14 +40,14 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option              | Type                     | Default   | Description                           |
-| ------------------- | ------------------------ | --------- | ------------------------------------- | ------------------------ |
-| `position`          | `'top' \\                | 'bottom'` | `'bottom'`                            | Position of the info bar |
-| `showRowCount`      | `boolean`                | `true`    | Show total row count                  |
-| `showSelectedCount` | `boolean`                | `true`    | Show selected row count               |
-| `showFilteredCount` | `boolean`                | `true`    | Show filtered row count               |
-| `aggregationRows`   | `AggregationRowConfig[]` | -         | Aggregation rows with computed values |
-| `customPanels`      | `PinnedRowsPanel[]`      | -         | Custom status panels                  |
+| Option              | Type                     | Default    | Description                           |
+| ------------------- | ------------------------ | ---------- | ------------------------------------- |
+| `position`          | `'top' \| 'bottom'`      | `'bottom'` | Position of the info bar              |
+| `showRowCount`      | `boolean`                | `true`     | Show total row count                  |
+| `showSelectedCount` | `boolean`                | `true`     | Show selected row count               |
+| `showFilteredCount` | `boolean`                | `true`     | Show filtered row count               |
+| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | Aggregation rows with computed values |
+| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | Custom status panels                  |
 
 ## Aggregation Rows
 
@@ -55,13 +60,43 @@ Configure computed footer/header rows:
   fullWidth: false,    // Render as single spanning cell
   label: 'Totals',     // Label when fullWidth is true
   aggregators: {
-    amount: 'sum',
-    count: 'count',
+    // Simple string aggregator
+    quantity: 'sum',
+    // Custom function
+    name: (rows, field) => new Set(rows.map(r => r[field])).size,
+    // Object syntax with formatter
+    price: {
+      aggFunc: 'sum',
+      formatter: (value) => `$${value.toFixed(2)}`,
+    },
   },
+  cells: { id: 'Totals:' },  // Static cell values
 }
 ```
 
-Built-in aggregators: `'sum'`, `'avg'`, `'count'`, `'min'`, `'max'`
+### Aggregator Syntax
+
+| Syntax   | Example                                              | Description                |
+| -------- | ---------------------------------------------------- | -------------------------- |
+| String   | `'sum'`                                              | Built-in aggregator        |
+| Function | `(rows, field, column) => value`                     | Custom aggregator function |
+| Object   | `{ aggFunc: 'sum', formatter: (v) => v.toFixed(2) }` | Aggregator with formatter  |
+
+### Built-in Aggregators
+
+`sum`, `avg`, `count`, `min`, `max`, `first`, `last`
+
+### Formatter
+
+The `formatter` function formats the computed value for display:
+
+```typescript
+formatter: (value, field, column) => string;
+```
+
+- `value` - The computed aggregation value
+- `field` - The column field name
+- `column` - The full column configuration
 
 ## API Methods
 

@@ -37,6 +37,7 @@ grid.gridConfig = {
 | `valueFields`       | `PivotValueField[]` | `[]`    | Value fields with aggregation functions        |
 | `showTotals`        | `boolean`           | `true`  | Show row totals column                         |
 | `showGrandTotal`    | `boolean`           | `true`  | Show grand total as sticky pinned footer       |
+| `showToolPanel`     | `boolean`           | `true`  | Show pivot tool panel for interactive config   |
 | `defaultExpanded`   | `boolean`           | `true`  | Whether groups are expanded by default         |
 | `indentWidth`       | `number`            | `20`    | Indent width per depth level in pixels         |
 
@@ -126,6 +127,21 @@ The pivot plugin registers a tool panel for interactive configuration:
 - **Column Groups**: Fields that create column headers
 - **Values**: Aggregated value fields with selectable aggregation function
 - **Options**: Toggle totals, grand total, and default expansion state
+
+### Programmatic-Only Usage
+
+To use pivot transformation without exposing the tool panel UI to users:
+
+```typescript
+new PivotPlugin({
+  showToolPanel: false,
+  rowGroupFields: ['region'],
+  columnGroupFields: ['quarter'],
+  valueFields: [{ field: 'revenue', aggFunc: 'sum' }],
+});
+```
+
+The pivot API methods remain available for programmatic control.
 
 ## Features
 

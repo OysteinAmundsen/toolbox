@@ -119,9 +119,6 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (this.flattenedRows.length === 0) return [...columns];
 
-    const indentWidth = this.config.indentWidth ?? 20;
-    const showExpandIcons = this.config.showExpandIcons ?? true;
-
     // Wrap first column's renderer to add tree indentation
     const cols = [...columns] as ColumnConfig[];
     if (cols.length > 0) {
@@ -133,11 +130,18 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         return cols;
       }
 
+      // Capture plugin reference for dynamic config access
+      const plugin = this;
+
       const wrappedRenderer = (renderCtx: Parameters<NonNullable<typeof originalRenderer>>[0]) => {
         const { value, row, column: colConfig } = renderCtx;
         const depth = row.__treeDepth ?? 0;
         const hasChildren = row.__treeHasChildren ?? false;
         const isExpanded = row.__treeExpanded ?? false;
+
+        // Read config dynamically to support runtime changes
+        const indentWidth = plugin.config.indentWidth ?? 20;
+        const showExpandIcons = plugin.config.showExpandIcons ?? true;
 
         const container = document.createElement('span');
         container.style.display = 'flex';

@@ -7,7 +7,21 @@
 
 import { getAggregator } from '../../core/internal/aggregators';
 import type { ColumnConfig } from '../../core/types';
-import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
+import type {
+  AggregationRowConfig,
+  AggregatorConfig,
+  AggregatorDefinition,
+  PinnedRowsConfig,
+  PinnedRowsContext,
+  PinnedRowsPanel,
+} from './types';
+
+/**
+ * Check if an aggregator definition is a full config object (with aggFunc and optional formatter).
+ */
+function isAggregatorConfig(def: AggregatorDefinition): def is AggregatorConfig {
+  return typeof def === 'object' && def !== null && 'aggFunc' in def;
+}
 
 /**
  * Creates the info bar DOM element with all configured panels.
@@ -134,13 +148,23 @@ export function renderAggregationRows(
         cell.setAttribute('data-field', col.field);
 
         let value: unknown;
+        let formatter: ((value: unknown, field: string, column?: ColumnConfig) => string) | undefined;
 
         // Check for aggregator first
-        const aggRef = rowConfig.aggregators?.[col.field];
-        if (aggRef) {
-          const aggFn = getAggregator(aggRef);
-          if (aggFn) {
-            value = aggFn(dataRows, col.field, col);
+        const aggDef = rowConfig.aggregators?.[col.field];
+        if (aggDef) {
+          // Handle both simple ref and full config object
+          if (isAggregatorConfig(aggDef)) {
+            const aggFn = getAggregator(aggDef.aggFunc);
+            if (aggFn) {
+              value = aggFn(dataRows, col.field, col);
+            }
+            formatter = aggDef.formatter;
+          } else {
+            const aggFn = getAggregator(aggDef);
+            if (aggFn) {
+              value = aggFn(dataRows, col.field, col);
+            }
           }
         } else if (rowConfig.cells && Object.prototype.hasOwnProperty.call(rowConfig.cells, col.field)) {
           // Static or computed cell value
@@ -152,7 +176,12 @@ export function renderAggregationRows(
           }
         }
 
-        cell.textContent = value != null ? String(value) : '';
+        // Apply formatter if provided, otherwise convert to string
+        if (value != null) {
+          cell.textContent = formatter ? formatter(value, col.field, col) : String(value);
+        } else {
+          cell.textContent = '';
+        }
         rowEl.appendChild(cell);
       }
     }

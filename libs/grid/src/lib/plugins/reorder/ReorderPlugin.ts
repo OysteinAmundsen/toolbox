@@ -25,11 +25,7 @@ interface GridWithColumnOrder {
  *
  * @example
  * ```ts
- * new ReorderPlugin({
- *   enabled: true,
- *   animation: true,
- *   animationDuration: 200,
- * })
+ * new ReorderPlugin()
  * ```
  */
 export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
@@ -38,8 +34,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   protected override get defaultConfig(): Partial<ReorderConfig> {
     return {
-      animation: true,
-      animationDuration: 200,
+      viewTransition: true,
     };
   }
 
@@ -70,8 +65,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   }
 
   override detach(): void {
-    // Event listeners using eventSignal are automatically cleaned up
-    // Just reset internal state
     this.isDragging = false;
     this.draggedField = null;
     this.draggedIndex = null;
@@ -80,7 +73,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   // #endregion
 
   // #region Hooks
-  // Note: No processColumns hook needed - we directly update the grid's column order
 
   override afterRender(): void {
     const shadowRoot = this.shadowRoot;
@@ -179,12 +171,10 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
           columnOrder: newOrder,
         };
 
-        // Directly update the grid's column order
-        (this.grid as unknown as GridWithColumnOrder).setColumnOrder(newOrder);
+        // Update the grid's column order (with optional view transition)
+        this.updateColumnOrder(newOrder);
 
         this.emit('column-move', detail);
-        // Trigger state change after reorder
-        (this.grid as unknown as GridWithColumnOrder).requestStateChange?.();
       });
     });
   }
@@ -212,8 +202,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     const newOrder = moveColumn(currentOrder, fromIndex, toIndex);
 
-    // Directly update the grid's column order
-    (this.grid as unknown as GridWithColumnOrder).setColumnOrder(newOrder);
+    // Update with view transition
+    this.updateColumnOrder(newOrder);
 
     this.emit<ColumnMoveDetail>('column-move', {
       field,
@@ -221,9 +211,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
       toIndex,
       columnOrder: newOrder,
     });
-
-    // Trigger state change after reorder
-    (this.grid as unknown as GridWithColumnOrder).requestStateChange?.();
   }
 
   /**
@@ -231,9 +218,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * @param order - Array of field names in desired order
    */
   setColumnOrder(order: string[]): void {
-    (this.grid as unknown as GridWithColumnOrder).setColumnOrder(order);
-    // Trigger state change after reorder
-    (this.grid as unknown as GridWithColumnOrder).requestStateChange?.();
+    this.updateColumnOrder(order);
   }
 
   /**
@@ -241,9 +226,43 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    */
   resetColumnOrder(): void {
     const originalOrder = this.columns.map((c) => c.field);
-    (this.grid as unknown as GridWithColumnOrder).setColumnOrder(originalOrder);
-    // Trigger state change after reset
-    (this.grid as unknown as GridWithColumnOrder).requestStateChange?.();
+    this.updateColumnOrder(originalOrder);
+  }
+  // #endregion
+
+  // #region View Transition
+
+  /**
+   * Update column order with optional view transition animation.
+   * Falls back to instant update if View Transitions API is not supported.
+   */
+  private updateColumnOrder(newOrder: string[]): void {
+    const gridEl = this.grid as unknown as GridWithColumnOrder;
+    const shadowRoot = this.shadowRoot;
+
+    if (this.config.viewTransition && 'startViewTransition' in document && shadowRoot) {
+      // Unique view-transition-name per field enables position tracking
+      const allCells = shadowRoot.querySelectorAll('.cell[data-field]');
+      allCells.forEach((cell) => {
+        const field = cell.getAttribute('data-field');
+        if (field) (cell as HTMLElement).style.viewTransitionName = `col-${field}`;
+      });
+
+      const transition = (
+        document as Document & { startViewTransition: (cb: () => void) => { finished: Promise<void> } }
+      ).startViewTransition(() => gridEl.setColumnOrder(newOrder));
+
+      // Clean up after transition
+      transition.finished.finally(() => {
+        allCells.forEach((cell) => {
+          (cell as HTMLElement).style.viewTransitionName = '';
+        });
+      });
+    } else {
+      gridEl.setColumnOrder(newOrder);
+    }
+
+    gridEl.requestStateChange?.();
   }
   // #endregion
 

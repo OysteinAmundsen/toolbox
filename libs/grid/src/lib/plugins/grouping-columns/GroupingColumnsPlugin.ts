@@ -101,6 +101,9 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     // Build and insert group header row
     const groupRow = buildGroupHeaderRow(this.groups, this.columns as ColumnConfig[]);
     if (groupRow) {
+      // Toggle border visibility class
+      groupRow.classList.toggle('no-borders', !this.config.showGroupBorders);
+
       const headerRow = header.querySelector('.header-row');
       if (headerRow) {
         header.insertBefore(groupRow, headerRow);
@@ -112,6 +115,8 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     // Apply classes to header cells
     const headerRow = header.querySelector('.header-row') as HTMLElement;
     if (headerRow) {
+      // Toggle border visibility on header cells
+      headerRow.classList.toggle('no-group-borders', !this.config.showGroupBorders);
       applyGroupedHeaderCellClasses(headerRow, this.groups, this.columns as ColumnConfig[]);
     }
   }

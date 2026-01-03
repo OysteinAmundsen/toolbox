@@ -52,6 +52,7 @@
 .tbw-aggregation-row {
   display: grid;
   grid-template-columns: var(--tbw-column-template);
+  font-size: var(--tbw-aggregation-font-size, 0.8em);
   font-weight: var(--tbw-aggregation-font-weight, 600);
 }
 .tbw-aggregation-cell {

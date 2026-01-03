@@ -24,3 +24,18 @@
 .header-row .cell.group-end {
   border-right: 2px solid var(--tbw-grouping-columns-separator, var(--tbw-color-border-strong));
 }
+/* Last cell shouldn't have right border - avoids double border with grid edge */
+.header-row .cell.group-end:last-child {
+  border-right: none;
+}
+
+/* Hide borders when showGroupBorders is false */
+.header-group-row.no-borders {
+  border-bottom: none;
+}
+.header-group-row.no-borders .header-group-cell {
+  border-right: none;
+}
+.header-row.no-group-borders .cell.group-end {
+  border-right: 1px solid var(--tbw-color-border);
+}

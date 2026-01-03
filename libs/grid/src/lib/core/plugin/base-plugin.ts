@@ -362,7 +362,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Use this for rendering that needs to match the grid template.
    */
   protected get visibleColumns(): ColumnConfig[] {
-    return (this.grid as any)?.visibleColumns ?? [];
+    return (this.grid as any)?._visibleColumns ?? [];
   }
 
   /**

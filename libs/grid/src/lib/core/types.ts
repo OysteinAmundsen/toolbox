@@ -81,6 +81,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   commitActiveRowEdit?: () => void;
   /** Dispatch cell click to plugin system, returns true if handled */
   _dispatchCellClick?: (event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement) => boolean;
+  /** Dispatch row click to plugin system, returns true if handled */
+  _dispatchRowClick?: (event: MouseEvent, rowIndex: number, row: any, rowEl: HTMLElement) => boolean;
   /** Dispatch header click to plugin system, returns true if handled */
   _dispatchHeaderClick?: (event: MouseEvent, colIndex: number, headerEl: HTMLElement) => boolean;
   /** Dispatch keydown to plugin system, returns true if handled */

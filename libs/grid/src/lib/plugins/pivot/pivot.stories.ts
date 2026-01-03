@@ -28,45 +28,9 @@ const columns = [
   { field: 'sales', header: 'Sales', type: 'number' as const },
 ];
 
-const meta: Meta = {
-  title: 'Grid/Plugins/Pivot',
-  tags: ['!dev'],
-  parameters: { layout: 'fullscreen' },
-  argTypes: {
-    showTotals: {
-      control: { type: 'boolean' },
-      description: 'Show row totals',
-      table: { category: 'Pivot', defaultValue: { summary: 'true' } },
-    },
-    showGrandTotal: {
-      control: { type: 'boolean' },
-      description: 'Show grand total row',
-      table: { category: 'Pivot', defaultValue: { summary: 'true' } },
-    },
-  },
-  args: {
-    showTotals: true,
-    showGrandTotal: true,
-  },
-};
-export default meta;
-
-interface PivotArgs {
-  showTotals: boolean;
-  showGrandTotal: boolean;
-}
-type Story = StoryObj<PivotArgs>;
-
-/**
- * Transform flat data into a pivot table view. Groups sales by Region → Product
- * (rows) and Quarter (columns), aggregating with sum.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
+/** Generate code snippet for Default/NoTotals stories */
+function generatePivotCode(args: PivotArgs): string {
+  return `<!-- HTML -->
 <tbw-grid style="height: 400px;"></tbw-grid>
 
 <script type="module">
@@ -86,8 +50,9 @@ grid.gridConfig = {
       rowGroupFields: ['region', 'product'],
       columnGroupFields: ['quarter'],
       valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total Sales' }],
-      showTotals: true,
-      showGrandTotal: true,
+      showTotals: ${args.showTotals},
+      showGrandTotal: ${args.showGrandTotal},
+      showToolPanel: ${args.showToolPanel},
     }),
   ],
 };
@@ -95,16 +60,56 @@ grid.gridConfig = {
 grid.rows = [
   { region: 'North', product: 'Widget A', quarter: 'Q1', sales: 1200 },
   { region: 'North', product: 'Widget B', quarter: 'Q1', sales: 800 },
-  { region: 'North', product: 'Widget A', quarter: 'Q2', sales: 1500 },
-  { region: 'North', product: 'Widget B', quarter: 'Q2', sales: 950 },
-  { region: 'South', product: 'Widget A', quarter: 'Q1', sales: 900 },
-  { region: 'South', product: 'Widget B', quarter: 'Q1', sales: 1100 },
-  { region: 'South', product: 'Widget A', quarter: 'Q2', sales: 1300 },
-  { region: 'South', product: 'Widget B', quarter: 'Q2', sales: 1400 },
   // ... more sales data
 ];
-</script>
-`,
+</script>`;
+}
+
+const meta: Meta = {
+  title: 'Grid/Plugins/Pivot',
+  tags: ['!dev'],
+  parameters: { layout: 'fullscreen' },
+  argTypes: {
+    showTotals: {
+      control: { type: 'boolean' },
+      description: 'Show row totals',
+      table: { category: 'Pivot', defaultValue: { summary: 'true' } },
+    },
+    showGrandTotal: {
+      control: { type: 'boolean' },
+      description: 'Show grand total row',
+      table: { category: 'Pivot', defaultValue: { summary: 'true' } },
+    },
+    showToolPanel: {
+      control: { type: 'boolean' },
+      description: 'Show pivot tool panel for interactive configuration',
+      table: { category: 'Pivot', defaultValue: { summary: 'true' } },
+    },
+  },
+  args: {
+    showTotals: true,
+    showGrandTotal: true,
+    showToolPanel: true,
+  },
+};
+export default meta;
+
+interface PivotArgs {
+  showTotals: boolean;
+  showGrandTotal: boolean;
+  showToolPanel: boolean;
+}
+type Story = StoryObj<PivotArgs>;
+
+/**
+ * Transform flat data into a pivot table view. Groups sales by Region → Product
+ * (rows) and Quarter (columns), aggregating with sum.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        transform: (_code: string, ctx: { args: PivotArgs }) => generatePivotCode(ctx.args),
         language: 'html',
       },
     },
@@ -122,6 +127,7 @@ grid.rows = [
           valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total Sales' }],
           showTotals: args.showTotals,
           showGrandTotal: args.showGrandTotal,
+          showToolPanel: args.showToolPanel,
         }),
       ],
     };
@@ -138,41 +144,7 @@ export const NoTotals: Story = {
   parameters: {
     docs: {
       source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
-
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  columns: [
-    { field: 'region', header: 'Region' },
-    { field: 'product', header: 'Product' },
-    { field: 'quarter', header: 'Quarter' },
-    { field: 'sales', header: 'Sales', type: 'number' },
-  ],
-  plugins: [
-    new PivotPlugin({
-      rowGroupFields: ['region'],
-      columnGroupFields: ['quarter'],
-      valueFields: [{ field: 'sales', aggFunc: 'sum' }],
-      showTotals: false,
-      showGrandTotal: false,
-    }),
-  ],
-};
-
-grid.rows = [
-  { region: 'North', product: 'Widget A', quarter: 'Q1', sales: 1200 },
-  { region: 'North', product: 'Widget B', quarter: 'Q2', sales: 950 },
-  { region: 'South', product: 'Widget A', quarter: 'Q1', sales: 900 },
-  // ...
-];
-</script>
-`,
+        transform: (_code: string, ctx: { args: PivotArgs }) => generatePivotCode(ctx.args),
         language: 'html',
       },
     },
@@ -194,6 +166,7 @@ grid.rows = [
           valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total Sales' }],
           showTotals: args.showTotals,
           showGrandTotal: args.showGrandTotal,
+          showToolPanel: args.showToolPanel,
         }),
       ],
     };
@@ -203,15 +176,9 @@ grid.rows = [
   },
 };
 
-/**
- * Average aggregation instead of sum.
- */
-export const AverageAggregation: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
+/** Generate code snippet for AverageAggregation story */
+function generateAvgPivotCode(args: PivotArgs): string {
+  return `<!-- HTML -->
 <tbw-grid style="height: 400px;"></tbw-grid>
 
 <script type="module">
@@ -220,23 +187,44 @@ import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
 
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' },
+  ],
   plugins: [
     new PivotPlugin({
       rowGroupFields: ['region'],
       columnGroupFields: ['quarter'],
       valueFields: [{ field: 'sales', aggFunc: 'avg', header: 'Avg Sales' }],
+      showTotals: ${args.showTotals},
+      showGrandTotal: ${args.showGrandTotal},
+      showToolPanel: ${args.showToolPanel},
     }),
   ],
 };
-grid.rows = [...];
-</script>
-`,
+
+grid.rows = [
+  { region: 'North', product: 'Widget A', quarter: 'Q1', sales: 1200 },
+  // ... more sales data
+];
+</script>`;
+}
+
+/**
+ * Average aggregation instead of sum.
+ */
+export const AverageAggregation: Story = {
+  parameters: {
+    docs: {
+      source: {
+        transform: (_code: string, ctx: { args: PivotArgs }) => generateAvgPivotCode(ctx.args),
         language: 'html',
       },
     },
   },
-  render: () => {
+  render: (args: PivotArgs) => {
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 
@@ -247,8 +235,9 @@ grid.rows = [...];
           rowGroupFields: ['region'],
           columnGroupFields: ['quarter'],
           valueFields: [{ field: 'sales', aggFunc: 'avg', header: 'Avg Sales' }],
-          showTotals: true,
-          showGrandTotal: true,
+          showTotals: args.showTotals,
+          showGrandTotal: args.showGrandTotal,
+          showToolPanel: args.showToolPanel,
         }),
       ],
     };

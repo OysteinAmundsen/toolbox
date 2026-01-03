@@ -50,12 +50,13 @@ Wrap text values in quotes for CSV compatibility.
 
 ## Configuration Options
 
-| Option           | Type      | Default | Description                                    |
-| ---------------- | --------- | ------- | ---------------------------------------------- |
-| `includeHeaders` | `boolean` | `false` | Include column headers in copied data          |
-| `delimiter`      | `string`  | `'\t'`  | Column delimiter (tab for Excel compatibility) |
-| `quoteStrings`   | `boolean` | `false` | Wrap string values in quotes                   |
-| `rowDelimiter`   | `string`  | `'\n'`  | Row delimiter                                  |
+| Option           | Type                            | Default | Description                                    |
+| ---------------- | ------------------------------- | ------- | ---------------------------------------------- |
+| `includeHeaders` | `boolean`                       | `false` | Include column headers in copied data          |
+| `delimiter`      | `string`                        | `'\t'`  | Column delimiter (tab for Excel compatibility) |
+| `newline`        | `string`                        | `'\n'`  | Row delimiter                                  |
+| `quoteStrings`   | `boolean`                       | `false` | Wrap string values in quotes                   |
+| `processCell`    | `(value, field, row) => string` | -       | Custom cell value processor for copy           |
 
 ## Keyboard Shortcuts
 
@@ -64,20 +65,6 @@ Wrap text values in quotes for CSV compatibility.
 | `Ctrl+C` / `Cmd+C` | Copy selected cells       |
 | `Ctrl+V` / `Cmd+V` | Paste into selected cells |
 | `Ctrl+X` / `Cmd+X` | Cut selected cells        |
-
-## Events
-
-| Event       | Detail                            | Description               |
-| ----------- | --------------------------------- | ------------------------- |
-| `tbw-copy`  | `{ text: string, cells: Cell[] }` | Fired when data is copied |
-| `tbw-paste` | `{ text: string, cells: Cell[] }` | Fired when data is pasted |
-| `tbw-cut`   | `{ text: string, cells: Cell[] }` | Fired when data is cut    |
-
-```ts
-grid.addEventListener('tbw-copy', (e) => {
-  console.log('Copied:', e.detail.text);
-});
-```
 
 ## Programmatic API
 

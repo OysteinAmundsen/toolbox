@@ -48,11 +48,9 @@ Click and drag or Shift+Click to select rectangular ranges.
 
 ## Configuration Options
 
-| Option           | Type                         | Default  | Description                                    |
-| ---------------- | ---------------------------- | -------- | ---------------------------------------------- |
-| `mode`           | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode                        |
-| `multiSelect`    | `boolean`                    | `true`   | Allow selecting multiple items with Ctrl+Click |
-| `checkboxColumn` | `boolean`                    | `false`  | Add a checkbox column for row selection        |
+| Option | Type                         | Default  | Description             |
+| ------ | ---------------------------- | -------- | ----------------------- |
+| `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
 
 ## Keyboard Shortcuts
 
@@ -64,18 +62,6 @@ Click and drag or Shift+Click to select rectangular ranges.
 | `Shift + Click` | Extend to clicked cell/row      |
 | `Ctrl + A`      | Select all (range mode)         |
 | `Escape`        | Clear selection                 |
-
-## Events
-
-| Event                  | Detail             | Description                  |
-| ---------------------- | ------------------ | ---------------------------- |
-| `tbw-selection-change` | `{ mode, ranges }` | Fired when selection changes |
-
-```ts
-grid.addEventListener('tbw-selection-change', (e) => {
-  console.log('Selected ranges:', e.detail.ranges);
-});
-```
 
 ## Programmatic API
 

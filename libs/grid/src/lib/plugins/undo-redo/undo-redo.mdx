@@ -39,11 +39,9 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option           | Type      | Default | Description            |
-| ---------------- | --------- | ------- | ---------------------- |
-| `maxHistorySize` | `number`  | `100`   | Max actions in history |
-| `groupEdits`     | `boolean` | `false` | Group rapid edits      |
-| `groupTimeMs`    | `number`  | `500`   | Grouping time window   |
+| Option           | Type     | Default | Description            |
+| ---------------- | -------- | ------- | ---------------------- |
+| `maxHistorySize` | `number` | `100`   | Max actions in history |
 
 ## Keyboard Shortcuts
 
@@ -63,11 +61,3 @@ const canUndo = plugin.canUndo();
 const canRedo = plugin.canRedo();
 plugin.clearHistory();
 ```
-
-## Events
-
-| Event                 | Detail                     | Description     |
-| --------------------- | -------------------------- | --------------- |
-| `tbw-undo`            | `{ action }`               | Undo performed  |
-| `tbw-redo`            | `{ action }`               | Redo performed  |
-| `tbw-history-changed` | `{ undoCount, redoCount }` | History changed |

@@ -48,12 +48,15 @@ grid.gridConfig = {
 
 | Option              | Type           | Default | Description                                  |
 | ------------------- | -------------- | ------- | -------------------------------------------- |
+| `active`            | `boolean`      | `true`  | Whether pivot is active on load              |
 | `rowGroupFields`    | `string[]`     | `[]`    | Row grouping fields                          |
 | `columnGroupFields` | `string[]`     | `[]`    | Column grouping fields                       |
 | `valueFields`       | `ValueField[]` | `[]`    | Aggregation fields                           |
 | `showTotals`        | `boolean`      | `true`  | Show row totals                              |
 | `showGrandTotal`    | `boolean`      | `true`  | Show grand total                             |
 | `showToolPanel`     | `boolean`      | `true`  | Show pivot tool panel for interactive config |
+| `defaultExpanded`   | `boolean`      | `true`  | Whether groups are expanded by default       |
+| `indentWidth`       | `number`       | `20`    | Indent width per depth level in pixels       |
 
 ## Aggregation Functions
 
@@ -84,10 +87,3 @@ plugin.collapseGroup(['North']);
 plugin.expandAll();
 plugin.collapseAll();
 ```
-
-## Events
-
-| Event                | Detail          | Description     |
-| -------------------- | --------------- | --------------- |
-| `tbw-pivot-expand`   | `{ groupPath }` | Group expanded  |
-| `tbw-pivot-collapse` | `{ groupPath }` | Group collapsed |

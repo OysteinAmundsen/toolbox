@@ -47,11 +47,11 @@ grid.ready().then(() => plugin.setDataSource(dataSource));
 
 ## Configuration Options
 
-| Option             | Type     | Default    | Description       |
-| ------------------ | -------- | ---------- | ----------------- |
-| `pageSize`         | `number` | `100`      | Rows per block    |
-| `cacheBlockSize`   | `number` | `pageSize` | Cache block size  |
-| `maxBlocksInCache` | `number` | `10`       | Max cached blocks |
+| Option                  | Type     | Default    | Description                |
+| ----------------------- | -------- | ---------- | -------------------------- |
+| `pageSize`              | `number` | `100`      | Rows per block             |
+| `cacheBlockSize`        | `number` | `pageSize` | Cache block size           |
+| `maxConcurrentRequests` | `number` | `2`        | Max parallel data requests |
 
 ## Data Source Interface
 
@@ -82,11 +82,3 @@ plugin.setDataSource(newDataSource);
 plugin.refresh();
 plugin.clearCache();
 ```
-
-## Events
-
-| Event                | Detail                           | Description      |
-| -------------------- | -------------------------------- | ---------------- |
-| `tbw-server-loading` | `{ startRow, endRow }`           | Loading begins   |
-| `tbw-server-loaded`  | `{ startRow, endRow, rowCount }` | Loading complete |
-| `tbw-server-error`   | `{ error }`                      | Loading error    |

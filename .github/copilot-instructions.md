@@ -269,13 +269,15 @@ All grid plugins must follow this **canonical structure** for consistency:
 
 ```
 libs/grid/src/lib/plugins/[plugin-name]/
-├── index.ts              # Barrel exports (plugin class + types)
-├── [PluginName]Plugin.ts # Plugin class extending BaseGridPlugin
-├── [plugin-name].css     # External CSS styles (imported via Vite)
-├── types.ts              # Config and exported types
-├── [plugin-name].ts      # Pure helper functions (optional)
-├── [plugin-name].spec.ts # Unit tests
-└── [plugin-name].stories.ts # Storybook demo (optional)
+├── index.ts                # Barrel exports (plugin class + types)
+├── [PluginName]Plugin.ts   # Plugin class extending BaseGridPlugin
+├── [plugin-name].css       # External CSS styles (imported via Vite)
+├── types.ts                # Config and exported types
+├── [plugin-name].ts        # Pure helper functions (optional)
+├── [plugin-name].spec.ts   # Unit tests
+├── [plugin-name].stories.ts# Storybook demo (optional)
+├── [plugin-name].mdx       # Documentation (required - appears in Storybook docs)
+└── README.md               # Package-level documentation (optional)
 ```
 
 ### Accessing the Grid's Shadow DOM
@@ -365,6 +367,14 @@ grid.gridConfig = {
   plugins: [new SelectionPlugin({ mode: 'row' }), new FilteringPlugin({ debounceMs: 200 })],
 };
 ```
+
+For convenience, import all plugins from the all-in-one bundle (`src/all.ts`):
+
+```typescript
+import { SelectionPlugin, FilteringPlugin, TreePlugin } from '@toolbox-web/grid/all';
+```
+
+Note: This includes all plugins in the bundle. For smaller bundles, import plugins individually.
 
 Access plugin instances via `grid.getPlugin()`:
 

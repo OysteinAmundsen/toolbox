@@ -55,10 +55,9 @@ Show/hide items based on context.
 
 ## Configuration Options
 
-| Option             | Type         | Default | Description                      |
-| ------------------ | ------------ | ------- | -------------------------------- |
-| `items`            | `MenuItem[]` | `[]`    | Menu items to display            |
-| `showDefaultItems` | `boolean`    | `true`  | Include default Copy/Paste items |
+| Option  | Type         | Default | Description           |
+| ------- | ------------ | ------- | --------------------- |
+| `items` | `MenuItem[]` | `[]`    | Menu items to display |
 
 ## Menu Item Types
 
@@ -114,11 +113,9 @@ new ContextMenuPlugin({
 
 ## Events
 
-| Event             | Detail                          | Description       |
-| ----------------- | ------------------------------- | ----------------- |
-| `tbw-menu-open`   | `{ rowIndex, colIndex, items }` | Menu opened       |
-| `tbw-menu-close`  | `{}`                            | Menu closed       |
-| `tbw-menu-action` | `{ id, context }`               | Menu item clicked |
+| Event               | Detail              | Description |     |
+| ------------------- | ------------------- | ----------- | --- |
+| `context-menu-open` | `{ params, items }` | Menu opened |
 
 ## Styling
 

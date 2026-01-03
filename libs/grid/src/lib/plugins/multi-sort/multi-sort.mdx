@@ -50,11 +50,10 @@ Hide the sort priority numbers.
 
 ## Configuration Options
 
-| Option           | Type          | Default | Description                |
-| ---------------- | ------------- | ------- | -------------------------- |
-| `maxSortColumns` | `number`      | `3`     | Maximum columns to sort by |
-| `showBadges`     | `boolean`     | `true`  | Show sort priority numbers |
-| `initialSort`    | `SortModel[]` | `[]`    | Initial sort configuration |
+| Option           | Type      | Default | Description                |     |
+| ---------------- | --------- | ------- | -------------------------- | --- |
+| `maxSortColumns` | `number`  | `3`     | Maximum columns to sort by |
+| `showSortIndex`  | `boolean` | `true`  | Show sort priority badges  |
 
 ## Initial Sort Configuration
 
@@ -69,12 +68,12 @@ new MultiSortPlugin({
 
 ## Events
 
-| Event             | Detail                       | Description             |
-| ----------------- | ---------------------------- | ----------------------- |
-| `tbw-sort-change` | `{ sortModel: SortModel[] }` | Fired when sort changes |
+| Event         | Detail                       | Description             |
+| ------------- | ---------------------------- | ----------------------- |
+| `sort-change` | `{ sortModel: SortModel[] }` | Fired when sort changes |
 
 ```ts
-grid.addEventListener('tbw-sort-change', (e) => {
+grid.addEventListener('sort-change', (e) => {
   console.log('Sort model:', e.detail.sortModel);
   // [{ field: 'name', direction: 'asc' }, { field: 'salary', direction: 'desc' }]
 });

@@ -272,7 +272,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   protected config!: TConfig;
 
   /** User-provided configuration from constructor */
-  private readonly userConfig: Partial<TConfig>;
+  protected readonly userConfig: Partial<TConfig>;
 
   /**
    * Default configuration - subclasses should override this getter.

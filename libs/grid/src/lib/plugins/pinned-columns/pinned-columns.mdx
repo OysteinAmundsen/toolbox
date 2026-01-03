@@ -44,11 +44,7 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option           | Type      | Default     | Description             |
-| ---------------- | --------- | ----------- | ----------------------- |
-| `showShadow`     | `boolean` | `true`      | Show shadow at boundary |
-| `maxPinnedLeft`  | `number`  | `undefined` | Max columns on left     |
-| `maxPinnedRight` | `number`  | `undefined` | Max columns on right    |
+The plugin has no configuration options. It is activated when columns have `sticky: 'left'` or `sticky: 'right'` set.
 
 ## Programmatic API
 
@@ -59,10 +55,3 @@ plugin.pinColumn('email', 'left');
 plugin.unpinColumn('email');
 const leftPinned = plugin.getPinnedColumns('left');
 ```
-
-## Events
-
-| Event                 | Detail            | Description     |
-| --------------------- | ----------------- | --------------- |
-| `tbw-column-pinned`   | `{ field, side }` | Column pinned   |
-| `tbw-column-unpinned` | `{ field }`       | Column unpinned |

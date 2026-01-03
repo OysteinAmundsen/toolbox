@@ -130,18 +130,19 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         return cols;
       }
 
-      // Capture plugin reference for dynamic config access
-      const plugin = this;
+      // Capture config getter for dynamic access (avoids this-aliasing)
+      const getConfig = () => this.config;
 
       const wrappedRenderer = (renderCtx: Parameters<NonNullable<typeof originalRenderer>>[0]) => {
-        const { value, row, column: colConfig } = renderCtx;
+        const { value, row, column: _colConfig } = renderCtx;
         const depth = row.__treeDepth ?? 0;
         const hasChildren = row.__treeHasChildren ?? false;
         const isExpanded = row.__treeExpanded ?? false;
 
         // Read config dynamically to support runtime changes
-        const indentWidth = plugin.config.indentWidth ?? 20;
-        const showExpandIcons = plugin.config.showExpandIcons ?? true;
+        const cfg = getConfig();
+        const indentWidth = cfg.indentWidth ?? 20;
+        const showExpandIcons = cfg.showExpandIcons ?? true;
 
         const container = document.createElement('span');
         container.style.display = 'flex';

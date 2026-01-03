@@ -21,16 +21,13 @@ grid.gridConfig = {
   columns: [{ field: 'name', header: 'Name' }],
   plugins: [
     new TreePlugin({
-      idField: 'id',
-      parentField: 'parentId',
+      childrenField: 'children',
     }),
   ],
 };
 
 grid.rows = [
-  { id: 1, name: 'Documents', parentId: null },
-  { id: 2, name: 'Work', parentId: 1 },
-  { id: 3, name: 'Report.docx', parentId: 2 },
+  { id: 1, name: 'Documents', children: [{ id: 2, name: 'Work', children: [{ id: 3, name: 'Report.docx' }] }] },
 ];
 ```
 
@@ -51,13 +48,13 @@ grid.rows = [
 
 ## Configuration Options
 
-| Option              | Type      | Default      | Description                 |
-| ------------------- | --------- | ------------ | --------------------------- |
-| `idField`           | `string`  | `'id'`       | Unique identifier field     |
-| `parentField`       | `string`  | `'parentId'` | Parent reference field      |
-| `childrenField`     | `string`  | `undefined`  | Alternative: children array |
-| `expandedByDefault` | `boolean` | `false`      | Expand all initially        |
-| `indentSize`        | `number`  | `20`         | Indent per level            |
+| Option            | Type      | Default      | Description                  |
+| ----------------- | --------- | ------------ | ---------------------------- |
+| `childrenField`   | `string`  | `'children'` | Field containing child array |
+| `autoDetect`      | `boolean` | `true`       | Auto-detect tree structure   |
+| `defaultExpanded` | `boolean` | `false`      | Expand all initially         |
+| `indentWidth`     | `number`  | `20`         | Indent per level in pixels   |
+| `showExpandIcons` | `boolean` | `true`       | Show expand/collapse icons   |
 
 ## Programmatic API
 
@@ -71,10 +68,3 @@ plugin.expandAll();
 plugin.collapseAll();
 const expanded = plugin.getExpandedNodes();
 ```
-
-## Events
-
-| Event               | Detail              | Description    |
-| ------------------- | ------------------- | -------------- |
-| `tbw-tree-expand`   | `{ nodeId, level }` | Node expanded  |
-| `tbw-tree-collapse` | `{ nodeId, level }` | Node collapsed |

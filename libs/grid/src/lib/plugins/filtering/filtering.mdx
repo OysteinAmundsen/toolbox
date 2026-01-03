@@ -112,11 +112,13 @@ Filters respect letter case.
 
 ## Configuration Options
 
-| Option          | Type      | Default       | Description                     |
-| --------------- | --------- | ------------- | ------------------------------- |
-| `debounceMs`    | `number`  | `300`         | Debounce delay for filter input |
-| `caseSensitive` | `boolean` | `false`       | Case-sensitive string matching  |
-| `placeholder`   | `string`  | `'Filter...'` | Input placeholder text          |
+| Option                | Type                  | Default | Description                            |
+| --------------------- | --------------------- | ------- | -------------------------------------- |
+| `debounceMs`          | `number`              | `300`   | Debounce delay for filter input        |
+| `caseSensitive`       | `boolean`             | `false` | Case-sensitive string matching         |
+| `trimInput`           | `boolean`             | `true`  | Trim whitespace from filter input      |
+| `useWorker`           | `boolean`             | `true`  | Use Web Worker for datasets >1000 rows |
+| `filterPanelRenderer` | `FilterPanelRenderer` | -       | Custom filter panel renderer           |
 
 ## Column Configuration
 
@@ -134,18 +136,6 @@ const columns = [
     filterOptions: ['Active', 'Inactive', 'Pending'],
   },
 ];
-```
-
-## Events
-
-| Event               | Detail                                | Description               |
-| ------------------- | ------------------------------------- | ------------------------- |
-| `tbw-filter-change` | `{ filters: Record<string, string> }` | Fired when filters change |
-
-```ts
-grid.addEventListener('tbw-filter-change', (e) => {
-  console.log('Active filters:', e.detail.filters);
-});
 ```
 
 ## Programmatic API

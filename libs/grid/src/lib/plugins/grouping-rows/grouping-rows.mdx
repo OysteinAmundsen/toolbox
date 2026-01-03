@@ -10,7 +10,7 @@ The Row Grouping plugin enables hierarchical grouping of rows with expand/collap
 ## Installation
 
 ```ts
-import { RowGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
 ```
 
 ## Basic Usage
@@ -20,8 +20,8 @@ const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [...],
   plugins: [
-    new RowGroupingPlugin({
-      groupByFields: ['department'],
+    new GroupingRowsPlugin({
+      groupOn: (row) => [row.department],
     }),
   ],
 };
@@ -44,12 +44,13 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option              | Type       | Default | Description          |
-| ------------------- | ---------- | ------- | -------------------- |
-| `groupByFields`     | `string[]` | `[]`    | Fields to group by   |
-| `expandedByDefault` | `boolean`  | `false` | Start expanded       |
-| `showRowCount`      | `boolean`  | `true`  | Show count in header |
-| `indentSize`        | `number`   | `20`    | Indent per level     |
+| Option            | Type       | Default | Description                   |
+| ----------------- | ---------- | ------- | ----------------------------- |
+| `groupOn`         | `function` | -       | Callback returning group path |
+| `defaultExpanded` | `boolean`  | `false` | Start expanded                |
+| `showRowCount`    | `boolean`  | `true`  | Show count in header          |
+| `indentWidth`     | `number`   | `20`    | Indent per level in pixels    |
+| `fullWidth`       | `boolean`  | `true`  | Group row spans full width    |
 
 ## Multi-Level Grouping
 
@@ -70,10 +71,3 @@ plugin.expandAll();
 plugin.collapseAll();
 const isExpanded = plugin.isGroupExpanded(['Engineering']);
 ```
-
-## Events
-
-| Event                | Detail          | Description     |
-| -------------------- | --------------- | --------------- |
-| `tbw-group-expand`   | `{ groupPath }` | Group expanded  |
-| `tbw-group-collapse` | `{ groupPath }` | Group collapsed |

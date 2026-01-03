@@ -43,11 +43,9 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option              | Type      | Default     | Description          |
-| ------------------- | --------- | ----------- | -------------------- |
-| `showChooser`       | `boolean` | `true`      | Show in context menu |
-| `persistKey`        | `string`  | `undefined` | LocalStorage key     |
-| `minVisibleColumns` | `number`  | `1`         | Minimum visible      |
+| Option         | Type      | Default | Description                           |
+| -------------- | --------- | ------- | ------------------------------------- |
+| `allowHideAll` | `boolean` | `false` | Allow hiding all columns (no minimum) |
 
 ## Programmatic API
 
@@ -60,11 +58,3 @@ plugin.toggleColumn('email');
 plugin.showAllColumns();
 const hidden = plugin.getHiddenColumns();
 ```
-
-## Events
-
-| Event                    | Detail             | Description           |
-| ------------------------ | ------------------ | --------------------- |
-| `tbw-column-hidden`      | `{ field }`        | Column hidden         |
-| `tbw-column-shown`       | `{ field }`        | Column shown          |
-| `tbw-visibility-changed` | `{ hiddenFields }` | Any visibility change |

@@ -44,12 +44,13 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option             | Type                             | Default  | Description         |
-| ------------------ | -------------------------------- | -------- | ------------------- |
-| `detailRenderer`   | `(row) => HTMLElement \| string` | required | Render function     |
-| `expandOnRowClick` | `boolean`                        | `false`  | Expand on row click |
-| `detailHeight`     | `number \| 'auto'`               | `'auto'` | Detail row height   |
-| `singleExpand`     | `boolean`                        | `false`  | Only one expanded   |
+| Option                   | Type                             | Default  | Description                 |
+| ------------------------ | -------------------------------- | -------- | --------------------------- |
+| `detailRenderer`         | `(row) => HTMLElement \| string` | required | Render function             |
+| `expandOnRowClick`       | `boolean`                        | `false`  | Expand on row click         |
+| `detailHeight`           | `number \| 'auto'`               | `'auto'` | Detail row height           |
+| `collapseOnClickOutside` | `boolean`                        | `false`  | Collapse on click outside   |
+| `showExpandColumn`       | `boolean`                        | `true`   | Show expand/collapse column |
 
 ## Nested Grid Example
 
@@ -77,10 +78,3 @@ plugin.expandAll();
 plugin.collapseAll();
 const isExpanded = plugin.isRowExpanded(rowIndex);
 ```
-
-## Events
-
-| Event                 | Detail              | Description   |
-| --------------------- | ------------------- | ------------- |
-| `tbw-detail-expand`   | `{ rowIndex, row }` | Detail opened |
-| `tbw-detail-collapse` | `{ rowIndex, row }` | Detail closed |

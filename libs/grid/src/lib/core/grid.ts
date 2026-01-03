@@ -139,6 +139,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #touchStartX: number | null = null;
   #touchScrollTop: number | null = null;
   #touchScrollLeft: number | null = null;
+  #touchLastY: number | null = null;
+  #touchLastX: number | null = null;
+  #touchLastTime: number | null = null;
+  #touchVelocityY = 0;
+  #touchVelocityX = 0;
+  #momentumRaf = 0;
   #eventAbortController?: AbortController;
   #resizeObserver?: ResizeObserver;
 
@@ -691,34 +697,53 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         gridContentEl.addEventListener(
           'wheel',
           (e: WheelEvent) => {
-            // Prevent default to stop any residual scroll behavior
-            e.preventDefault();
+            // SHIFT+wheel or trackpad deltaX = horizontal scroll
+            const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
 
-            // SHIFT+wheel = horizontal scroll
-            // Also handle trackpad horizontal scroll (deltaX)
-            if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-              // Horizontal scroll - apply to scroll area
-              if (scrollArea) {
-                scrollArea.scrollLeft += e.shiftKey ? e.deltaY : e.deltaX;
+            if (isHorizontal && scrollArea) {
+              const delta = e.shiftKey ? e.deltaY : e.deltaX;
+              const { scrollLeft, scrollWidth, clientWidth } = scrollArea;
+              const canScroll = (delta > 0 && scrollLeft < scrollWidth - clientWidth) || (delta < 0 && scrollLeft > 0);
+              if (canScroll) {
+                e.preventDefault();
+                scrollArea.scrollLeft += delta;
               }
-            } else {
-              // Vertical scroll - apply to faux scrollbar
-              fauxScrollbar.scrollTop += e.deltaY;
+            } else if (!isHorizontal) {
+              const { scrollTop, scrollHeight, clientHeight } = fauxScrollbar;
+              const canScroll =
+                (e.deltaY > 0 && scrollTop < scrollHeight - clientHeight) || (e.deltaY < 0 && scrollTop > 0);
+              if (canScroll) {
+                e.preventDefault();
+                fauxScrollbar.scrollTop += e.deltaY;
+              }
             }
+            // If can't scroll, event bubbles to scroll the page
           },
           { passive: false, signal },
         );
 
         // Touch scrolling support for mobile devices
         // Supports both vertical (via faux scrollbar) and horizontal (via scroll area) scrolling
+        // Includes momentum scrolling for natural "flick" behavior
         gridContentEl.addEventListener(
           'touchstart',
           (e: TouchEvent) => {
             if (e.touches.length === 1) {
+              // Cancel any ongoing momentum animation
+              if (this.#momentumRaf) {
+                cancelAnimationFrame(this.#momentumRaf);
+                this.#momentumRaf = 0;
+              }
+
               this.#touchStartY = e.touches[0].clientY;
               this.#touchStartX = e.touches[0].clientX;
+              this.#touchLastY = e.touches[0].clientY;
+              this.#touchLastX = e.touches[0].clientX;
+              this.#touchLastTime = performance.now();
               this.#touchScrollTop = fauxScrollbar.scrollTop;
               this.#touchScrollLeft = scrollArea?.scrollLeft ?? 0;
+              this.#touchVelocityY = 0;
+              this.#touchVelocityX = 0;
             }
           },
           { passive: true, signal },
@@ -734,17 +759,50 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
               this.#touchScrollTop !== null &&
               this.#touchScrollLeft !== null
             ) {
-              const deltaY = this.#touchStartY - e.touches[0].clientY;
-              const deltaX = this.#touchStartX - e.touches[0].clientX;
+              const currentY = e.touches[0].clientY;
+              const currentX = e.touches[0].clientX;
+              const now = performance.now();
 
-              // Apply both vertical and horizontal scroll
-              fauxScrollbar.scrollTop = this.#touchScrollTop + deltaY;
+              const deltaY = this.#touchStartY - currentY;
+              const deltaX = this.#touchStartX - currentX;
+
+              // Calculate velocity for momentum scrolling
+              if (this.#touchLastTime !== null && this.#touchLastY !== null && this.#touchLastX !== null) {
+                const dt = now - this.#touchLastTime;
+                if (dt > 0) {
+                  // Velocity in pixels per millisecond
+                  this.#touchVelocityY = (this.#touchLastY - currentY) / dt;
+                  this.#touchVelocityX = (this.#touchLastX - currentX) / dt;
+                }
+              }
+              this.#touchLastY = currentY;
+              this.#touchLastX = currentX;
+              this.#touchLastTime = now;
+
+              // Check if grid can scroll in the requested directions
+              const { scrollTop, scrollHeight, clientHeight } = fauxScrollbar;
+              const maxScrollY = scrollHeight - clientHeight;
+              const canScrollVertically = (deltaY > 0 && scrollTop < maxScrollY) || (deltaY < 0 && scrollTop > 0);
+
+              let canScrollHorizontally = false;
               if (scrollArea) {
+                const { scrollLeft, scrollWidth, clientWidth } = scrollArea;
+                const maxScrollX = scrollWidth - clientWidth;
+                canScrollHorizontally = (deltaX > 0 && scrollLeft < maxScrollX) || (deltaX < 0 && scrollLeft > 0);
+              }
+
+              // Apply scroll if grid can scroll in that direction
+              if (canScrollVertically) {
+                fauxScrollbar.scrollTop = this.#touchScrollTop + deltaY;
+              }
+              if (canScrollHorizontally && scrollArea) {
                 scrollArea.scrollLeft = this.#touchScrollLeft + deltaX;
               }
 
-              // Prevent page scroll when scrolling within grid
-              e.preventDefault();
+              // Only prevent page scroll when we actually scrolled the grid
+              if (canScrollVertically || canScrollHorizontally) {
+                e.preventDefault();
+              }
             }
           },
           { passive: false, signal },
@@ -753,10 +811,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         gridContentEl.addEventListener(
           'touchend',
           () => {
+            // Start momentum scrolling if there's significant velocity
+            const minVelocity = 0.1; // pixels per ms threshold
+            if (Math.abs(this.#touchVelocityY) > minVelocity || Math.abs(this.#touchVelocityX) > minVelocity) {
+              this.#startMomentumScroll(fauxScrollbar, scrollArea);
+            }
+
             this.#touchStartY = null;
             this.#touchStartX = null;
             this.#touchScrollTop = null;
             this.#touchScrollLeft = null;
+            this.#touchLastY = null;
+            this.#touchLastX = null;
+            this.#touchLastTime = null;
           },
           { passive: true, signal },
         );
@@ -1361,6 +1428,42 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           ? { row: rowIndex, col: colIndex }
           : undefined,
     };
+  }
+
+  /**
+   * Apply momentum scrolling animation after touch release.
+   * Decelerates smoothly until velocity drops below threshold.
+   */
+  #startMomentumScroll(fauxScrollbar: HTMLElement, scrollArea: HTMLElement | null): void {
+    const friction = 0.95; // Deceleration factor per frame
+    const minVelocity = 0.01; // Stop threshold in px/ms
+
+    const animate = () => {
+      // Apply friction
+      this.#touchVelocityY *= friction;
+      this.#touchVelocityX *= friction;
+
+      // Convert velocity (px/ms) to per-frame scroll amount (~16ms per frame)
+      const scrollY = this.#touchVelocityY * 16;
+      const scrollX = this.#touchVelocityX * 16;
+
+      // Apply scroll if above threshold
+      if (Math.abs(this.#touchVelocityY) > minVelocity) {
+        fauxScrollbar.scrollTop += scrollY;
+      }
+      if (Math.abs(this.#touchVelocityX) > minVelocity && scrollArea) {
+        scrollArea.scrollLeft += scrollX;
+      }
+
+      // Continue animation if still moving
+      if (Math.abs(this.#touchVelocityY) > minVelocity || Math.abs(this.#touchVelocityX) > minVelocity) {
+        this.#momentumRaf = requestAnimationFrame(animate);
+      } else {
+        this.#momentumRaf = 0;
+      }
+    };
+
+    this.#momentumRaf = requestAnimationFrame(animate);
   }
 
   /**

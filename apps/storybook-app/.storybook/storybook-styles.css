@@ -336,6 +336,11 @@ html.dark {
   color: var(--sbdocs-fg) !important;
 }
 
+/* TOC left border line */
+.sbdocs-toc--custom .toc-list {
+  border-left-color: light-dark(rgb(236, 242, 249), #333) !important;
+}
+
 .sbdocs-toc--custom a {
   color: var(--sbdocs-toc-link) !important;
 }

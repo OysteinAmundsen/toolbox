@@ -48,34 +48,34 @@ npm install @toolbox-web/grid
 
 ### Interactive Playground
 
-Experiment with all core grid options using the controls below.
+Experiment with all core grid options using the controls below. [Open with controls →](?path=/story/grid-core--playground)
 
-<Canvas of={GridStories.Playground} />
-<Controls of={GridStories.Playground} />
+<Canvas of={GridStories.Playground} withToolbar />
+<Controls of={GridStories.Playground} exclude={['fixedHeight']} />
 
 ### Column Inference
 
 The grid can automatically infer column types from your data.
 
-<Canvas of={GridStories.ColumnInference} />
+<Canvas of={GridStories.ColumnInference} withToolbar />
 
 ### Light DOM Columns
 
 Define columns declaratively in HTML using `<tbw-grid-column>` elements.
 
-<Canvas of={GridStories.LightDOMColumns} />
+<Canvas of={GridStories.LightDOMColumns} withToolbar />
 
 ### Custom Formatters
 
 Use format functions and templates to customize cell display.
 
-<Canvas of={GridStories.CustomFormatters} />
+<Canvas of={GridStories.CustomFormatters} withToolbar />
 
 ### Column State Persistence
 
 Persist column widths, order, and visibility to localStorage.
 
-<Canvas of={GridStories.ColumnStatePersistence} />
+<Canvas of={GridStories.ColumnStatePersistence} layout="fullscreen" withToolbar />
 
 ## Configuration
 
@@ -135,19 +135,19 @@ The grid includes a shell wrapper for toolbar, tool panels, and status bar.
 
 ### Basic Shell
 
-<Canvas of={GridStories.ShellBasic} />
+<Canvas of={GridStories.ShellBasic} withToolbar />
 
 ### Light DOM Shell Configuration
 
-<Canvas of={GridStories.ShellLightDOMConfig} />
+<Canvas of={GridStories.ShellLightDOMConfig} withToolbar />
 
 ### Multiple Tool Panels
 
-<Canvas of={GridStories.ShellMultiplePanels} />
+<Canvas of={GridStories.ShellMultiplePanels} withToolbar />
 
 ### Toolbar Buttons
 
-<Canvas of={GridStories.ShellToolbarButtons} />
+<Canvas of={GridStories.ShellToolbarButtons} withToolbar />
 
 ## Events
 

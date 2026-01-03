@@ -167,22 +167,63 @@ html.dark {
 }
 
 /* Canvas/Story preview containers */
-.sbdocs-content > div[class*='css-'] {
+.sbdocs-content > div {
   background: var(--sbdocs-bg) !important;
   border-color: var(--sb-border) !important;
-}
-
-/* Story preview wrapper - the white box around stories */
-div[class*='css-'][class*='1l25kea'],
-div[class*='css-'][class*='kdwx3d'],
-div[class*='css-'][class*='jspizm'] {
-  background: var(--sbdocs-bg) !important;
 }
 
 /* Canvas inner zoom wrapper */
 .innerZoomElementWrapper,
 .innerZoomElementWrapper > div {
   background: transparent !important;
+}
+
+/* Canvas toolbar (zoom buttons, fullscreen link) - target by structure and aria-labels */
+.sbdocs-content button[aria-label='Zoom in'],
+.sbdocs-content button[aria-label='Zoom out'],
+.sbdocs-content button[aria-label='Reset zoom'],
+.sbdocs-content a[aria-label='Open canvas in new tab'] {
+  color: var(--sbdocs-fg) !important;
+}
+
+.sbdocs-content button[aria-label='Zoom in']:hover,
+.sbdocs-content button[aria-label='Zoom out']:hover,
+.sbdocs-content button[aria-label='Reset zoom']:hover,
+.sbdocs-content a[aria-label='Open canvas in new tab']:hover {
+  background: light-dark(#e0e0e0, #444) !important;
+}
+
+/* Canvas toolbar container - parent of zoom buttons */
+.sbdocs-content button[aria-label='Zoom in']:is(:first-child) ~ *,
+.sbdocs-content [aria-label='Zoom in'] {
+  color: var(--sbdocs-fg) !important;
+}
+
+/* Story preview frame - target via nesting under sbdocs-content */
+.sbdocs-content > div {
+  background: var(--sbdocs-bg) !important;
+  border-color: var(--sb-border) !important;
+}
+
+/* Nested containers in story previews */
+.sbdocs-content > div > div {
+  background: var(--sbdocs-bg) !important;
+}
+
+/* "Show code" toggle button and its container */
+.docblock-code-toggle {
+  background: var(--sbdocs-bg) !important;
+  color: var(--sbdocs-fg) !important;
+  border-color: var(--sb-border) !important;
+}
+
+.docblock-code-toggle:hover {
+  background: light-dark(#f0f0f0, #333) !important;
+}
+
+/* Container holding the "Show code" button */
+.docblock-code-toggle:is(:only-child) {
+  background: var(--sbdocs-bg) !important;
 }
 
 .sbdocs-content,
@@ -335,19 +376,24 @@ div[class*='css-'][class*='jspizm'] {
   background: var(--sbdocs-table-header) !important;
 }
 
-.docblock-argstable-body tr[title] button,
-.docblock-argstable-body tr[title] span {
+/* Only style the visible span, not the invisible button overlay */
+.docblock-argstable-body tr[title] td > span {
   color: var(--sbdocs-fg) !important;
 }
 
-/* Property name spans */
-.docblock-argstable-body span[class*='css-in3yi3'] {
+/* Property name - first column spans in data rows */
+.docblock-argstable-body td:first-child span {
   color: light-dark(#c41d7f, #f472b6) !important;
 }
 
-/* Type badges */
-.docblock-argstable-body span[class*='css-129bphp'] {
+/* Type badges - description column */
+.docblock-argstable-body td:nth-child(2) span {
   color: light-dark(#1677ff, #60a5fa) !important;
+}
+
+/* Reset description text color */
+.docblock-argstable-body td:nth-child(2) > div:first-child span {
+  color: var(--sbdocs-fg) !important;
 }
 
 /* Input fields - textareas */
@@ -357,21 +403,22 @@ div[class*='css-'][class*='jspizm'] {
   border-color: var(--sb-border) !important;
 }
 
-/* Toggle switches */
-.docblock-argstable label[class*='css-19nr3wg'] {
+/* Toggle switches - labels with role=switch inside */
+.docblock-argstable label:has(input[role='switch']) {
   background: light-dark(#e0e0e0, #444) !important;
 }
 
-.docblock-argstable label[class*='css-19nr3wg']:has(input:checked) {
+.docblock-argstable label:has(input[role='switch']:checked) {
   background: light-dark(#029cfd, #3b82f6) !important;
 }
 
-.docblock-argstable label[class*='css-19nr3wg'] span {
+.docblock-argstable label:has(input[role='switch']) span {
   color: light-dark(#666, #aaa) !important;
 }
 
-/* Radio buttons and checkboxes labels */
-.docblock-argstable label[class*='css-d1nmb4'] span {
+/* Radio buttons and checkboxes - labels containing input[type] */
+.docblock-argstable label:has(input[type='radio']) span,
+.docblock-argstable label:has(input[type='checkbox']) span {
   color: var(--sbdocs-fg) !important;
 }
 
@@ -380,8 +427,14 @@ div[class*='css-'][class*='jspizm'] {
   accent-color: light-dark(#029cfd, #3b82f6);
 }
 
-.docblock-argstable span[class*='css-1h8ulyx'],
-.docblock-argstable span[class*='css-x5q3ks'] {
+/* Range slider value labels - siblings of the input */
+.docblock-argstable input[type='range'] ~ span,
+.docblock-argstable input[type='range'] + span {
+  color: var(--sbdocs-fg) !important;
+}
+
+/* Min value label before slider */
+.docblock-argstable label:has(input[type='range']) span:first-of-type {
   color: var(--sbdocs-fg) !important;
 }
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.7](https://github.com/OysteinAmundsen/toolbox/compare/v0.2.6...v0.2.7) (2026-01-04)
+
+
+### Bug Fixes
+
+* **grid:** added animation support ([66e056a](https://github.com/OysteinAmundsen/toolbox/commit/66e056a7929c3d3c449eb7216ade563eff05a42a))
+
+
+### Enhancements
+
+* **docs:** added svg logo and favicon ([2e25aea](https://github.com/OysteinAmundsen/toolbox/commit/2e25aeaa955ff421c2ce60b926e543b83e6536a1))
+* **grid:** implement async sorting and filtering handlers for server-side operations ([530a9b6](https://github.com/OysteinAmundsen/toolbox/commit/530a9b65090cc9bef53ddd9b78805be3b2b0f5e6))
+
 ## [0.2.6](https://github.com/OysteinAmundsen/toolbox/compare/v0.2.5...v0.2.6) (2026-01-03)
 
 

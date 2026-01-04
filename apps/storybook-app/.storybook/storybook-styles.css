@@ -156,6 +156,7 @@ html.dark {
   --sbdocs-fg: light-dark(#2e3438, #c9d1d9);
   --sbdocs-heading: light-dark(#1a1a1a, #e6e6e6);
   --sbdocs-code-bg: light-dark(#f6f8fa, #2d2d2d);
+  --sbdocs-border: light-dark(#f6f8fa, #413f3f);
   --sbdocs-table-bg: light-dark(#fafafa, #2a2d32);
   --sbdocs-table-header: light-dark(#f0f0f0, #333);
   --sbdocs-toc-bg: light-dark(#f8f9fa, #1a1a1a);
@@ -247,6 +248,7 @@ html.dark {
 .sbdocs-content code {
   background: var(--sbdocs-code-bg) !important;
   color: var(--sbdocs-fg) !important;
+  border-color: var(--sbdocs-border) !important;
 }
 
 /* Code blocks - wrapper and content */
@@ -464,4 +466,18 @@ html.dark {
 
 .docblock-argstable button[aria-label='Reset controls']:hover {
   background: light-dark(#e0e0e0, #444) !important;
+}
+
+/* Default value column - the 3rd td with the value display */
+.docblock-argstable-body td:nth-of-type(3) span {
+  color: var(--sbdocs-fg) !important;
+}
+
+/* Args table rows - override Storybook's hardcoded white background */
+.docblock-argstable tbody > tr > td,
+.docblock-argstable tbody > tr > th,
+[class*='css-'] tbody > tr > td,
+[class*='css-'] tbody > tr > th {
+  background: var(--sbdocs-bg) !important;
+  color: var(--sbdocs-fg) !important;
 }

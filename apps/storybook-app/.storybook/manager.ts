@@ -2,21 +2,28 @@ import { addons } from 'storybook/manager-api';
 import { create } from 'storybook/theming';
 import './manager.css';
 
-// Detect user's preferred color scheme for initial branding theme
-// The @vueless/storybook-dark-mode addon handles runtime switching
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+// Create theme based on color scheme
+const createToolboxTheme = (dark: boolean) =>
+  create({
+    base: dark ? 'dark' : 'light',
+    brandTitle: '@toolbox-web',
+    brandUrl: 'https://github.com/OysteinAmundsen/toolbox',
+    brandImage: dark ? './logo_dark.svg' : './logo_light.svg',
+    brandTarget: '_blank',
+  });
 
-// Create custom theme with branding
-const toolboxTheme = create({
-  base: prefersDark ? 'dark' : 'light',
-  brandTitle: '@toolbox-web',
-  brandUrl: 'https://github.com/OysteinAmundsen/toolbox',
-  brandImage: './logo.png',
-  brandTarget: '_blank',
-});
+// Detect user's preferred color scheme for initial branding theme
+const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 addons.setConfig({
-  theme: toolboxTheme,
+  theme: createToolboxTheme(darkModeQuery.matches),
   // Show sidebar panel by default (not canvas/docs panel selector)
   initialActive: 'sidebar',
+});
+
+// Listen for system theme changes and update config
+darkModeQuery.addEventListener('change', (e) => {
+  addons.setConfig({
+    theme: createToolboxTheme(e.matches),
+  });
 });

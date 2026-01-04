@@ -48,13 +48,31 @@ grid.rows = [
 
 ## Configuration Options
 
-| Option            | Type      | Default      | Description                  |
-| ----------------- | --------- | ------------ | ---------------------------- |
-| `childrenField`   | `string`  | `'children'` | Field containing child array |
-| `autoDetect`      | `boolean` | `true`       | Auto-detect tree structure   |
-| `defaultExpanded` | `boolean` | `false`      | Expand all initially         |
-| `indentWidth`     | `number`  | `20`         | Indent per level in pixels   |
-| `showExpandIcons` | `boolean` | `true`       | Show expand/collapse icons   |
+| Option            | Type                         | Default      | Description                              |
+| ----------------- | ---------------------------- | ------------ | ---------------------------------------- |
+| `childrenField`   | `string`                     | `'children'` | Field containing child array             |
+| `autoDetect`      | `boolean`                    | `true`       | Auto-detect tree structure               |
+| `defaultExpanded` | `boolean`                    | `false`      | Expand all initially                     |
+| `indentWidth`     | `number`                     | `20`         | Indent per level in pixels               |
+| `showExpandIcons` | `boolean`                    | `true`       | Show expand/collapse icons               |
+| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'`    | Animation style for expanding/collapsing |
+
+### Animation Options
+
+The `animation` option controls how child nodes appear/disappear:
+
+```ts
+// Slide animation (default)
+new TreePlugin({ animation: 'slide', ... });
+
+// Fade animation
+new TreePlugin({ animation: 'fade', ... });
+
+// No animation
+new TreePlugin({ animation: false, ... });
+```
+
+> **Note:** Animation respects the grid-level `animation.mode` setting.
 
 ## Programmatic API
 

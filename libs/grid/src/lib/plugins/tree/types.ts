@@ -7,6 +7,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The tree plugin intentionally uses `any` for maximum flexibility with user-defined row types.
 
+/** Animation style for expand/collapse */
+export type ExpandCollapseAnimation = false | 'slide' | 'fade';
+
 /** Configuration options for the tree plugin */
 export interface TreeConfig {
   /** Field name containing child rows (default: 'children') */
@@ -19,6 +22,14 @@ export interface TreeConfig {
   indentWidth?: number;
   /** Show expand/collapse icons (default: true) */
   showExpandIcons?: boolean;
+  /**
+   * Animation style for expanding/collapsing tree nodes.
+   * - `false`: No animation
+   * - `'slide'`: Slide animation (default)
+   * - `'fade'`: Fade animation
+   * @default 'slide'
+   */
+  animation?: ExpandCollapseAnimation;
 }
 
 /** Internal state managed by the tree plugin */

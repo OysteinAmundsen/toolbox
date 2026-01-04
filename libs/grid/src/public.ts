@@ -57,6 +57,10 @@ export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
 export type {
   ActivateCellDetail,
   AggregatorRef,
+  // Animation types
+  AnimationConfig,
+  AnimationMode,
+  AnimationStyle,
   BaseColumnConfig,
   // Event detail types
   CellCommitDetail,
@@ -99,13 +103,13 @@ export type {
   ShellConfig,
   ShellHeaderConfig,
   SortChangeDetail,
+  ToolbarButtonConfig,
   ToolPanelConfig,
   ToolPanelDefinition,
-  ToolbarButtonConfig,
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
-export { DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
+export { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
 // #endregion
 
 // #region Plugin Types
@@ -147,6 +151,6 @@ export { BaseGridPlugin, PLUGIN_QUERIES } from './lib/core/plugin';
 export type { PluginQuery } from './lib/core/plugin';
 
 // DOM constants - for querying grid elements and styling
-export { GridCSSVars, GridClasses, GridDataAttrs, GridSelectors } from './lib/core/constants';
-export type { GridCSSVar, GridClassName, GridDataAttr } from './lib/core/constants';
+export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';
+export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constants';
 // #endregion

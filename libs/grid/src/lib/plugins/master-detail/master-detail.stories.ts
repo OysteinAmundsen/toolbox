@@ -57,6 +57,12 @@ const meta: Meta = {
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
+    animation: {
+      control: { type: 'select' },
+      options: [false, 'slide', 'fade'],
+      description: 'Animation style for expand/collapse',
+      table: { category: 'Master-Detail', defaultValue: { summary: "'slide'" } },
+    },
     detailHeight: {
       control: { type: 'select' },
       options: ['auto', 100, 150, 200],
@@ -70,6 +76,7 @@ const meta: Meta = {
     },
   },
   args: {
+    animation: 'slide' as const,
     detailHeight: 'auto',
     expandOnRowClick: false,
   },
@@ -77,6 +84,7 @@ const meta: Meta = {
 export default meta;
 
 interface MasterDetailArgs {
+  animation: false | 'slide' | 'fade';
   detailHeight: 'auto' | number;
   expandOnRowClick: boolean;
 }
@@ -208,6 +216,7 @@ grid.rows = [
       columns,
       plugins: [
         new MasterDetailPlugin({
+          animation: args.animation,
           detailHeight: args.detailHeight,
           expandOnRowClick: args.expandOnRowClick,
           detailRenderer,

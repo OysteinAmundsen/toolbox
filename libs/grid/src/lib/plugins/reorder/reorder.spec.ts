@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { canMoveColumn, getDropIndex, moveColumn, reorderColumns } from './column-drag';
+import { ReorderPlugin } from './ReorderPlugin';
 
 describe('column-drag', () => {
   describe('canMoveColumn', () => {
@@ -304,6 +305,165 @@ describe('column-drag', () => {
 
       // 'city' appears first and is consumed, second 'city' is ignored
       expect(result.map((c) => c.field)).toEqual(['city', 'name', 'age']);
+    });
+  });
+});
+
+describe('ReorderPlugin', () => {
+  describe('onKeyDown', () => {
+    function createMockGrid(focusCol: number, columns: ColumnConfig[]) {
+      const columnOrder = columns.map((c) => c.field);
+      let currentOrder = [...columnOrder];
+
+      // Create a minimal mock body element
+      const mockBodyEl = {
+        querySelectorAll: () => [],
+      };
+
+      // Create mock shadowRoot with required methods
+      const mockShadowRoot = {
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        host: { offsetHeight: 0 },
+      };
+
+      return {
+        _focusCol: focusCol,
+        _focusRow: 0,
+        _visibleColumns: columns,
+        _bodyEl: mockBodyEl,
+        _virtualization: { enabled: false, start: 0, end: 0 },
+        _activeEditRows: undefined,
+        _rows: [],
+        shadowRoot: mockShadowRoot,
+        getColumnOrder: () => currentOrder,
+        setColumnOrder: (order: string[]) => {
+          currentOrder = order;
+        },
+        queryPlugins: () => [],
+        requestStateChange: () => {
+          /* noop */
+        },
+        addEventListener: () => {
+          /* noop */
+        },
+        dispatchEvent: () => true,
+        refreshVirtualWindow: () => {
+          /* noop */
+        },
+      };
+    }
+
+    function createKeyEvent(key: string, altKey = true): KeyboardEvent {
+      return {
+        key,
+        altKey,
+        preventDefault: () => {
+          /* noop */
+        },
+        stopPropagation: () => {
+          /* noop */
+        },
+      } as unknown as KeyboardEvent;
+    }
+
+    it('should move column left with Alt+ArrowLeft', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      const grid = createMockGrid(1, columns); // Focus on 'b'
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowLeft');
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBe(true);
+      expect(grid.getColumnOrder()).toEqual(['b', 'a', 'c']);
+      expect(grid._focusCol).toBe(0);
+    });
+
+    it('should move column right with Alt+ArrowRight', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      const grid = createMockGrid(1, columns); // Focus on 'b'
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowRight');
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBe(true);
+      expect(grid.getColumnOrder()).toEqual(['a', 'c', 'b']);
+      expect(grid._focusCol).toBe(2);
+    });
+
+    it('should not move first column left (bounds check)', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      const grid = createMockGrid(0, columns); // Focus on first column
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowLeft');
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBeUndefined();
+      expect(grid.getColumnOrder()).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should not move last column right (bounds check)', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      const grid = createMockGrid(2, columns); // Focus on last column
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowRight');
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBeUndefined();
+      expect(grid.getColumnOrder()).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should ignore non-Alt arrow keys', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }];
+      const grid = createMockGrid(0, columns);
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowRight', false); // No Alt key
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBeUndefined();
+      expect(grid.getColumnOrder()).toEqual(['a', 'b']);
+    });
+
+    it('should ignore non-arrow keys with Alt', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }];
+      const grid = createMockGrid(0, columns);
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('Enter', true);
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should not move locked column', () => {
+      const columns: ColumnConfig[] = [{ field: 'a', meta: { lockPosition: true } }, { field: 'b' }];
+      const grid = createMockGrid(0, columns);
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowRight');
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBeUndefined();
+      expect(grid.getColumnOrder()).toEqual(['a', 'b']);
     });
   });
 });

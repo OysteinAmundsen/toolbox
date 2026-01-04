@@ -88,7 +88,6 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 10px;
   color: var(--tbw-pivot-toggle-color, var(--tbw-color-fg-muted));
   border-radius: var(--tbw-border-radius);
   transition:
@@ -323,4 +322,38 @@
   width: 14px;
   height: 14px;
   cursor: pointer;
+}
+
+/* ===== Expand/Collapse Animations ===== */
+
+/* Slide animation for rows appearing */
+.pivot-group-row.tbw-pivot-slide-in,
+.pivot-leaf-row.tbw-pivot-slide-in {
+  animation: tbw-pivot-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+}
+
+@keyframes tbw-pivot-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Fade animation for rows appearing */
+.pivot-group-row.tbw-pivot-fade-in,
+.pivot-leaf-row.tbw-pivot-fade-in {
+  animation: tbw-pivot-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+}
+
+@keyframes tbw-pivot-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

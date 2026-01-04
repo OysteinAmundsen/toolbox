@@ -28,6 +28,12 @@ const meta: Meta = {
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
+    animation: {
+      control: { type: 'select' },
+      options: [false, 'slide', 'fade'],
+      description: 'Animation style for expand/collapse',
+      table: { category: 'Row Grouping', defaultValue: { summary: "'slide'" } },
+    },
     defaultExpanded: {
       control: { type: 'boolean' },
       description: 'Whether groups are expanded by default',
@@ -45,6 +51,7 @@ const meta: Meta = {
     },
   },
   args: {
+    animation: 'slide' as const,
     defaultExpanded: false,
     showRowCount: true,
     indentWidth: 20,
@@ -53,6 +60,7 @@ const meta: Meta = {
 export default meta;
 
 interface GroupingRowsArgs {
+  animation: false | 'slide' | 'fade';
   defaultExpanded: boolean;
   showRowCount: boolean;
   indentWidth: number;
@@ -115,6 +123,7 @@ grid.rows = [
       columns,
       plugins: [
         new GroupingRowsPlugin({
+          animation: args.animation,
           groupOn: (row: { department: string }) => row.department,
           defaultExpanded: args.defaultExpanded,
           showRowCount: args.showRowCount,

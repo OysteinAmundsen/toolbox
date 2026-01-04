@@ -4,9 +4,31 @@
  * Type definitions for the column reordering feature.
  */
 
+/** Animation type for column reordering */
+export type ReorderAnimation = false | 'flip' | 'fade';
+
 /** Configuration options for the reorder plugin */
 export interface ReorderConfig {
-  /** Use View Transitions API for smooth column movement (default: true) */
+  /**
+   * Animation type for column movement.
+   * - `false`: No animation, instant reorder
+   * - `'flip'`: FLIP animation (slides columns smoothly)
+   * - `'fade'`: View Transitions API (cross-fade effect)
+   * @default 'flip'
+   */
+  animation?: ReorderAnimation;
+
+  /**
+   * Animation duration in milliseconds.
+   * Applies to FLIP animation. View Transitions use browser defaults.
+   * @default 200
+   */
+  animationDuration?: number;
+
+  /**
+   * @deprecated Use `animation` instead. Will be removed in next major version.
+   * Use View Transitions API for smooth column movement.
+   */
   viewTransition?: boolean;
 }
 

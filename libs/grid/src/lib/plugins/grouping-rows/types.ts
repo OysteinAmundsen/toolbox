@@ -9,6 +9,9 @@
 // Re-export aggregator types from core
 export type { AggregatorFn, AggregatorRef } from '../../core/internal/aggregators';
 
+/** Animation style for expand/collapse */
+export type ExpandCollapseAnimation = false | 'slide' | 'fade';
+
 /** Map of field names to aggregator references */
 export type AggregatorMap = Record<string, import('../../core/internal/aggregators').AggregatorRef>;
 
@@ -33,6 +36,14 @@ export interface GroupingRowsConfig {
   formatLabel?: (value: any, depth: number, key: string) => string;
   /** Whether to render group row as full-width spanning cell (default: true) */
   fullWidth?: boolean;
+  /**
+   * Animation style for expanding/collapsing groups.
+   * - `false`: No animation
+   * - `'slide'`: Slide animation (default)
+   * - `'fade'`: Fade animation
+   * @default 'slide'
+   */
+  animation?: ExpandCollapseAnimation;
 }
 
 /** Parameters passed to custom group row renderer */

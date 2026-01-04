@@ -44,13 +44,31 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option                   | Type                             | Default  | Description                 |
-| ------------------------ | -------------------------------- | -------- | --------------------------- |
-| `detailRenderer`         | `(row) => HTMLElement \| string` | required | Render function             |
-| `expandOnRowClick`       | `boolean`                        | `false`  | Expand on row click         |
-| `detailHeight`           | `number \| 'auto'`               | `'auto'` | Detail row height           |
-| `collapseOnClickOutside` | `boolean`                        | `false`  | Collapse on click outside   |
-| `showExpandColumn`       | `boolean`                        | `true`   | Show expand/collapse column |
+| Option                   | Type                             | Default   | Description                                      |
+| ------------------------ | -------------------------------- | --------- | ------------------------------------------------ |
+| `detailRenderer`         | `(row) => HTMLElement \| string` | required  | Render function                                  |
+| `expandOnRowClick`       | `boolean`                        | `false`   | Expand on row click                              |
+| `detailHeight`           | `number \| 'auto'`               | `'auto'`  | Detail row height                                |
+| `collapseOnClickOutside` | `boolean`                        | `false`   | Collapse on click outside                        |
+| `showExpandColumn`       | `boolean`                        | `true`    | Show expand/collapse column                      |
+| `animation`              | `false \| 'slide' \| 'fade'`     | `'slide'` | Animation style for expanding/collapsing details |
+
+### Animation Options
+
+The `animation` option controls how detail rows appear/disappear:
+
+```ts
+// Slide animation (default)
+new MasterDetailPlugin({ animation: 'slide', ... });
+
+// Fade animation
+new MasterDetailPlugin({ animation: 'fade', ... });
+
+// No animation
+new MasterDetailPlugin({ animation: false, ... });
+```
+
+> **Note:** Animation respects the grid-level `animation.mode` setting. If the grid has `animation: { mode: 'off' }`, plugin animations are disabled.
 
 ## Nested Grid Example
 

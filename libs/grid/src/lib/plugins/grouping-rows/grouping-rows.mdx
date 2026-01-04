@@ -44,13 +44,31 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option            | Type       | Default | Description                   |
-| ----------------- | ---------- | ------- | ----------------------------- |
-| `groupOn`         | `function` | -       | Callback returning group path |
-| `defaultExpanded` | `boolean`  | `false` | Start expanded                |
-| `showRowCount`    | `boolean`  | `true`  | Show count in header          |
-| `indentWidth`     | `number`   | `20`    | Indent per level in pixels    |
-| `fullWidth`       | `boolean`  | `true`  | Group row spans full width    |
+| Option            | Type                         | Default   | Description                              |
+| ----------------- | ---------------------------- | --------- | ---------------------------------------- |
+| `groupOn`         | `function`                   | -         | Callback returning group path            |
+| `defaultExpanded` | `boolean`                    | `false`   | Start expanded                           |
+| `showRowCount`    | `boolean`                    | `true`    | Show count in header                     |
+| `indentWidth`     | `number`                     | `20`      | Indent per level in pixels               |
+| `fullWidth`       | `boolean`                    | `true`    | Group row spans full width               |
+| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'` | Animation style for expanding/collapsing |
+
+### Animation Options
+
+The `animation` option controls how grouped rows appear/disappear:
+
+```ts
+// Slide animation (default)
+new GroupingRowsPlugin({ animation: 'slide', ... });
+
+// Fade animation
+new GroupingRowsPlugin({ animation: 'fade', ... });
+
+// No animation
+new GroupingRowsPlugin({ animation: false, ... });
+```
+
+> **Note:** Animation respects the grid-level `animation.mode` setting.
 
 ## Multi-Level Grouping
 

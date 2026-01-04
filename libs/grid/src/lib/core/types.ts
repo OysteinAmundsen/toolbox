@@ -412,7 +412,77 @@ export interface GridConfig<TRow = any> {
    * Plugins will use these by default but can override with their own config.
    */
   icons?: GridIcons;
+
+  /**
+   * Grid-wide animation configuration.
+   * Controls animations for expand/collapse, reordering, and other visual transitions.
+   * Individual plugins can override these defaults in their own config.
+   */
+  animation?: AnimationConfig;
 }
+// #endregion
+
+// #region Animation
+
+/**
+ * Animation behavior mode.
+ * - `true` or `'on'`: Animations always enabled
+ * - `false` or `'off'`: Animations always disabled
+ * - `'reduced-motion'`: Respects `prefers-reduced-motion` media query (default)
+ */
+export type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
+
+/**
+ * Animation style for visual transitions.
+ * - `'slide'`: Slide/transform animation (e.g., expand down, slide left/right)
+ * - `'fade'`: Opacity fade animation
+ * - `'flip'`: FLIP technique for position changes (First, Last, Invert, Play)
+ * - `false`: No animation for this specific feature
+ */
+export type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
+
+/**
+ * Grid-wide animation configuration.
+ * Controls global animation behavior - individual plugins define their own animation styles.
+ * Duration and easing values set corresponding CSS variables on the grid element.
+ */
+export interface AnimationConfig {
+  /**
+   * Global animation mode.
+   * @default 'reduced-motion'
+   */
+  mode?: AnimationMode;
+
+  /**
+   * Default animation duration in milliseconds.
+   * Sets `--tbw-animation-duration` CSS variable.
+   * @default 200
+   */
+  duration?: number;
+
+  /**
+   * Default easing function.
+   * Sets `--tbw-animation-easing` CSS variable.
+   * @default 'ease-out'
+   */
+  easing?: string;
+
+  /**
+   * Animation style for sorting (row position changes).
+   * Sorting is a core feature, so its animation is configured here.
+   * @default false (disabled by default for performance)
+   */
+  sort?: AnimationStyle;
+}
+
+/** Default animation configuration */
+export const DEFAULT_ANIMATION_CONFIG: Required<AnimationConfig> = {
+  mode: 'reduced-motion',
+  duration: 200,
+  easing: 'ease-out',
+  sort: false,
+};
+
 // #endregion
 
 // #region Grid Icons

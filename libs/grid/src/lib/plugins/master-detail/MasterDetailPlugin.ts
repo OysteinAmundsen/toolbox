@@ -2,11 +2,13 @@
  * Master/Detail Plugin (Class-based)
  *
  * Enables expandable detail rows showing additional content for each row.
+ * Animation style is plugin-configured; respects grid-level animation.mode.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { BaseGridPlugin, RowClickEvent } from '../../core/plugin/base-plugin';
+import type { GridConfig } from '../../core/types';
 import {
   collapseDetailRow,
   createDetailElement,
@@ -15,7 +17,12 @@ import {
   toggleDetailRow,
 } from './master-detail';
 import styles from './master-detail.css?inline';
-import type { DetailExpandDetail, MasterDetailConfig } from './types';
+import type { DetailExpandDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
+
+/** Extended grid interface for accessing effective config */
+interface GridWithConfig {
+  effectiveConfig?: GridConfig;
+}
 
 /**
  * Master/Detail Plugin for tbw-grid
@@ -39,8 +46,89 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       expandOnRowClick: false,
       collapseOnClickOutside: false,
       showExpandColumn: true,
+      animation: 'slide', // Plugin's own default
     };
   }
+
+  // #region Animation Helpers
+
+  /**
+   * Check if animations are enabled at the grid level.
+   * Respects gridConfig.animation.mode and CSS variable.
+   */
+  private get isAnimationEnabled(): boolean {
+    const gridEl = this.grid as unknown as GridWithConfig;
+    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
+
+    if (mode === false || mode === 'off') return false;
+    if (mode === true || mode === 'on') return true;
+
+    // reduced-motion: check CSS variable
+    const host = this.shadowRoot?.host as HTMLElement | undefined;
+    if (host) {
+      const enabled = getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim();
+      return enabled !== '0';
+    }
+    return true;
+  }
+
+  /**
+   * Get expand/collapse animation style from plugin config.
+   */
+  private get animationStyle(): ExpandCollapseAnimation {
+    if (!this.isAnimationEnabled) return false;
+    return this.config.animation ?? 'slide'; // Plugin default
+  }
+
+  /**
+   * Get animation duration from CSS variable (set by grid).
+   */
+  private get animationDuration(): number {
+    const host = this.shadowRoot?.host as HTMLElement | undefined;
+    if (host) {
+      const durationStr = getComputedStyle(host).getPropertyValue('--tbw-animation-duration').trim();
+      const parsed = parseInt(durationStr, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return 200; // Default
+  }
+
+  /**
+   * Apply expand animation to a detail element.
+   */
+  private animateExpand(detailEl: HTMLElement): void {
+    if (!this.isAnimationEnabled || this.animationStyle === false) return;
+
+    detailEl.classList.add('tbw-expanding');
+    detailEl.addEventListener(
+      'animationend',
+      () => {
+        detailEl.classList.remove('tbw-expanding');
+      },
+      { once: true },
+    );
+  }
+
+  /**
+   * Apply collapse animation to a detail element and remove after animation.
+   */
+  private animateCollapse(detailEl: HTMLElement, onComplete: () => void): void {
+    if (!this.isAnimationEnabled || this.animationStyle === false) {
+      onComplete();
+      return;
+    }
+
+    detailEl.classList.add('tbw-collapsing');
+    const cleanup = () => {
+      detailEl.classList.remove('tbw-collapsing');
+      onComplete();
+    };
+    detailEl.addEventListener('animationend', cleanup, { once: true });
+    // Fallback timeout in case animation doesn't fire
+    setTimeout(cleanup, this.animationDuration + 50);
+  }
+
+  // #endregion
 
   // #region Internal State
   private expandedRows: Set<any> = new Set();
@@ -84,7 +172,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
         // Expand/collapse toggle icon
         const toggle = document.createElement('span');
-        toggle.className = 'master-detail-toggle';
+        toggle.className = `master-detail-toggle${isExpanded ? ' expanded' : ''}`;
         // Use grid-level icons (fall back to defaults)
         this.setIcon(toggle, this.resolveIcon(isExpanded ? 'collapse' : 'expand'));
         // role="button" is required for aria-expanded to be valid
@@ -233,6 +321,9 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       // Insert as sibling after the row element (not as child)
       rowEl.after(detailEl);
       this.detailElements.set(row, detailEl);
+
+      // Apply expand animation
+      this.animateExpand(detailEl);
     }
   }
 

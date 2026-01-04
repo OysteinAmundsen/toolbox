@@ -7,6 +7,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The master-detail plugin intentionally uses `any` for maximum flexibility with user-defined row types.
 
+/** Animation style for expand/collapse */
+export type ExpandCollapseAnimation = false | 'slide' | 'fade';
+
 /** Configuration options for the master-detail plugin */
 export interface MasterDetailConfig {
   /** Renderer function that returns detail content for a row */
@@ -19,6 +22,14 @@ export interface MasterDetailConfig {
   collapseOnClickOutside?: boolean;
   /** Show expand/collapse column (default: true) */
   showExpandColumn?: boolean;
+  /**
+   * Animation style for expanding/collapsing detail rows.
+   * - `false`: No animation
+   * - `'slide'`: Slide down/up animation (default)
+   * - `'fade'`: Fade in/out animation
+   * @default 'slide'
+   */
+  animation?: ExpandCollapseAnimation;
 }
 
 /** Internal state managed by the master-detail plugin */

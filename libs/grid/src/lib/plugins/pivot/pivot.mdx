@@ -46,17 +46,18 @@ grid.gridConfig = {
 
 ## Configuration Options
 
-| Option              | Type           | Default | Description                                  |
-| ------------------- | -------------- | ------- | -------------------------------------------- |
-| `active`            | `boolean`      | `true`  | Whether pivot is active on load              |
-| `rowGroupFields`    | `string[]`     | `[]`    | Row grouping fields                          |
-| `columnGroupFields` | `string[]`     | `[]`    | Column grouping fields                       |
-| `valueFields`       | `ValueField[]` | `[]`    | Aggregation fields                           |
-| `showTotals`        | `boolean`      | `true`  | Show row totals                              |
-| `showGrandTotal`    | `boolean`      | `true`  | Show grand total                             |
-| `showToolPanel`     | `boolean`      | `true`  | Show pivot tool panel for interactive config |
-| `defaultExpanded`   | `boolean`      | `true`  | Whether groups are expanded by default       |
-| `indentWidth`       | `number`       | `20`    | Indent width per depth level in pixels       |
+| Option              | Type                         | Default   | Description                                  |
+| ------------------- | ---------------------------- | --------- | -------------------------------------------- |
+| `active`            | `boolean`                    | `true`    | Whether pivot is active on load              |
+| `rowGroupFields`    | `string[]`                   | `[]`      | Row grouping fields                          |
+| `columnGroupFields` | `string[]`                   | `[]`      | Column grouping fields                       |
+| `valueFields`       | `ValueField[]`               | `[]`      | Aggregation fields                           |
+| `showTotals`        | `boolean`                    | `true`    | Show row totals                              |
+| `showGrandTotal`    | `boolean`                    | `true`    | Show grand total                             |
+| `showToolPanel`     | `boolean`                    | `true`    | Show pivot tool panel for interactive config |
+| `defaultExpanded`   | `boolean`                    | `true`    | Whether groups are expanded by default       |
+| `indentWidth`       | `number`                     | `20`      | Indent width per depth level in pixels       |
+| `animation`         | `false \| 'slide' \| 'fade'` | `'slide'` | Animation style for expand/collapse          |
 
 ## Aggregation Functions
 
@@ -76,6 +77,22 @@ new PivotPlugin({
 ```
 
 The pivot API methods remain available for programmatic control.
+
+## Animation
+
+The plugin supports animated expand/collapse transitions. Animation respects the grid-level
+`animation.mode` setting and can be customized per-plugin:
+
+```ts
+new PivotPlugin({
+  rowGroupFields: ['region'],
+  valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+  animation: 'slide', // 'slide' | 'fade' | false
+});
+```
+
+Animation is automatically disabled when `animation.mode` is `'off'` or when the user prefers
+reduced motion (`'reduced-motion'` mode with system preference).
 
 ## Programmatic API
 

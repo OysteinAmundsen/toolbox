@@ -26,3 +26,9 @@
   background: var(--tbw-reorder-indicator, var(--tbw-color-accent));
   z-index: 1;
 }
+
+/* FLIP animation: cells slide smoothly during reorder */
+.cell.flip-animating {
+  will-change: transform;
+  z-index: 1;
+}

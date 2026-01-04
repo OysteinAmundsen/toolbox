@@ -34,6 +34,7 @@ export interface RowRenderContext {
 export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: RowRenderContext): boolean {
   rowEl.className = 'pivot-group-row';
   rowEl.setAttribute('data-pivot-depth', String(row.__pivotDepth ?? 0));
+  rowEl.setAttribute('data-pivot-key', String(row.__pivotRowKey ?? ''));
   rowEl.setAttribute('role', 'row');
   // Note: aria-expanded is not set here because it's only valid in treegrid, not grid
   // The expand/collapse state is conveyed via the toggle button's aria-label
@@ -92,6 +93,7 @@ export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: 
 export function renderPivotLeafRow(row: PivotRowData, rowEl: HTMLElement, columns: ColumnConfig[]): boolean {
   rowEl.className = 'pivot-leaf-row';
   rowEl.setAttribute('data-pivot-depth', String(row.__pivotDepth ?? 0));
+  rowEl.setAttribute('data-pivot-key', String(row.__pivotRowKey ?? ''));
   rowEl.innerHTML = '';
 
   columns.forEach((col, colIdx) => {

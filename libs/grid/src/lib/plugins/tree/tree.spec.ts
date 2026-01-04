@@ -1,16 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  flattenTree,
-  toggleExpand,
-  expandAll,
   collapseAll,
+  expandAll,
+  expandToKey,
+  flattenTree,
   generateRowKey,
   getDescendants,
   getPathToKey,
-  expandToKey,
+  toggleExpand,
 } from './tree-data';
-import { detectTreeStructure, inferChildrenField, getMaxDepth, countNodes } from './tree-detect';
-import type { TreeConfig, FlattenedTreeRow } from './types';
+import { countNodes, detectTreeStructure, getMaxDepth, inferChildrenField } from './tree-detect';
+import { TreePlugin } from './TreePlugin';
+import type { FlattenedTreeRow, TreeConfig } from './types';
 
 describe('tree-data', () => {
   const defaultConfig: TreeConfig = {
@@ -508,6 +509,163 @@ describe('tree-detect', () => {
     it('should handle null rows', () => {
       const rows = [null, { name: 'A' }, null];
       expect(countNodes(rows)).toBe(1);
+    });
+  });
+});
+
+describe('TreePlugin sorting', () => {
+  /**
+   * Test helper to access the private sortTree method.
+   * We create a plugin instance and properly initialize it with a mock grid.
+   */
+  function sortTree(rows: any[], field: string, direction: 1 | -1): any[] {
+    const plugin = new TreePlugin({});
+    // Mock grid to initialize plugin properly
+    const mockGrid = {
+      shadowRoot: null,
+      rows: [],
+      columns: [],
+      gridConfig: {},
+      _focusRow: 0,
+      _focusCol: 0,
+      disconnectSignal: new AbortController().signal,
+      requestRender: () => {
+        /* noop */
+      },
+      requestAfterRender: () => {
+        /* noop */
+      },
+      forceLayout: async () => {
+        /* noop */
+      },
+      getPlugin: () => undefined,
+      getPluginByName: () => undefined,
+      dispatchEvent: () => true,
+    };
+    plugin.attach(mockGrid as any);
+    // Access private method via bracket notation for testing
+    return (plugin as any).sortTree(rows, field, direction);
+  }
+
+  describe('sortTree', () => {
+    it('should sort root level ascending', () => {
+      const rows = [{ name: 'Pictures' }, { name: 'Documents' }, { name: 'readme.md' }];
+
+      const result = sortTree(rows, 'name', 1);
+
+      expect(result.map((r: any) => r.name)).toEqual(['Documents', 'Pictures', 'readme.md']);
+    });
+
+    it('should sort root level descending', () => {
+      const rows = [{ name: 'Documents' }, { name: 'Pictures' }, { name: 'readme.md' }];
+
+      const result = sortTree(rows, 'name', -1);
+
+      expect(result.map((r: any) => r.name)).toEqual(['readme.md', 'Pictures', 'Documents']);
+    });
+
+    it('should sort children within their parent (ASC)', () => {
+      const rows = [
+        {
+          name: 'Documents',
+          children: [{ name: 'Resume.pdf' }, { name: 'Cover Letter.docx' }, { name: 'Projects' }],
+        },
+        { name: 'Pictures' },
+        { name: 'readme.md' },
+      ];
+
+      const result = sortTree(rows, 'name', 1);
+
+      // Root level should be sorted
+      expect(result.map((r: any) => r.name)).toEqual(['Documents', 'Pictures', 'readme.md']);
+
+      // Children of Documents should be sorted
+      const docsChildren = result[0].children;
+      expect(docsChildren.map((r: any) => r.name)).toEqual(['Cover Letter.docx', 'Projects', 'Resume.pdf']);
+    });
+
+    it('should sort children within their parent (DESC)', () => {
+      const rows = [
+        {
+          name: 'Documents',
+          children: [{ name: 'Resume.pdf' }, { name: 'Cover Letter.docx' }, { name: 'Projects' }],
+        },
+        { name: 'Pictures' },
+        { name: 'readme.md' },
+      ];
+
+      const result = sortTree(rows, 'name', -1);
+
+      // Root level should be sorted descending
+      expect(result.map((r: any) => r.name)).toEqual(['readme.md', 'Pictures', 'Documents']);
+
+      // Children of Documents should be sorted descending
+      const docsChildren = result[2].children; // Documents is now last
+      expect(docsChildren.map((r: any) => r.name)).toEqual(['Resume.pdf', 'Projects', 'Cover Letter.docx']);
+    });
+
+    it('should sort deeply nested children', () => {
+      const rows = [
+        {
+          name: 'Root',
+          children: [
+            {
+              name: 'Level1-B',
+              children: [{ name: 'Level2-C' }, { name: 'Level2-A' }, { name: 'Level2-B' }],
+            },
+            { name: 'Level1-A' },
+          ],
+        },
+      ];
+
+      const result = sortTree(rows, 'name', 1);
+
+      expect(result[0].name).toBe('Root');
+      expect(result[0].children.map((r: any) => r.name)).toEqual(['Level1-A', 'Level1-B']);
+      expect(result[0].children[1].children.map((r: any) => r.name)).toEqual(['Level2-A', 'Level2-B', 'Level2-C']);
+    });
+
+    it('should handle null/undefined values in sort field', () => {
+      const rows = [{ name: 'B' }, { name: null }, { name: 'A' }, { name: undefined }];
+
+      const result = sortTree(rows, 'name', 1);
+
+      // Null/undefined come first, then sorted values
+      expect(result[0].name).toBeNull();
+      expect(result[1].name).toBeUndefined();
+      expect(result[2].name).toBe('A');
+      expect(result[3].name).toBe('B');
+    });
+
+    it('should sort by numeric field', () => {
+      const rows = [
+        { name: 'Item', size: 100 },
+        { name: 'Item', size: 50 },
+        { name: 'Item', size: 200 },
+      ];
+
+      const result = sortTree(rows, 'size', 1);
+
+      expect(result.map((r: any) => r.size)).toEqual([50, 100, 200]);
+    });
+
+    it('should preserve tree structure after sorting', () => {
+      const rows = [
+        {
+          name: 'Parent',
+          children: [{ name: 'Child' }],
+        },
+      ];
+
+      const result = sortTree(rows, 'name', 1);
+
+      // Original should not be mutated
+      expect(rows[0]).not.toBe(result[0]);
+      expect(rows[0].children).not.toBe(result[0].children);
+
+      // Structure should be preserved
+      expect(result[0].children).toHaveLength(1);
+      expect(result[0].children[0].name).toBe('Child');
     });
   });
 });

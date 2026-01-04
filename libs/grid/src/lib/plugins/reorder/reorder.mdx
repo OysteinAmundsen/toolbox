@@ -27,15 +27,30 @@ grid.gridConfig = {
 
 ### Default Reorder
 
-Drag column headers to reorder them.
+Drag column headers to reorder them. Use the controls below to experiment with different animation types and durations.
 
 <Canvas of={ReorderStories.Default} withToolbar />
+<Controls of={ReorderStories.Default} />
 
 ## Configuration Options
 
-| Option           | Type      | Default | Description                                          |
-| ---------------- | --------- | ------- | ---------------------------------------------------- |
-| `viewTransition` | `boolean` | `true`  | Use View Transitions API for smooth column animation |
+| Option              | Type                        | Default  | Description                                                               |
+| ------------------- | --------------------------- | -------- | ------------------------------------------------------------------------- |
+| `animation`         | `false \| 'flip' \| 'fade'` | `'flip'` | Animation type: `false` (instant), `'flip'` (slide), `'fade'` (crossfade) |
+| `animationDuration` | `number`                    | `200`    | Animation duration in ms (applies to FLIP animation)                      |
+
+### Animation Examples
+
+```ts
+// No animation - instant reorder
+new ReorderPlugin({ animation: false });
+
+// FLIP animation with custom duration
+new ReorderPlugin({ animation: 'flip', animationDuration: 300 });
+
+// View Transitions API fade effect
+new ReorderPlugin({ animation: 'fade' });
+```
 
 ## Events
 

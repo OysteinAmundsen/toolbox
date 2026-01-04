@@ -1,6 +1,9 @@
 /** Available aggregation function types */
 export type AggFunc = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last';
 
+/** Animation style for expand/collapse */
+export type ExpandCollapseAnimation = false | 'slide' | 'fade';
+
 export interface PivotConfig {
   /** Whether pivot view is active on load (default: true when fields are configured) */
   active?: boolean;
@@ -15,6 +18,14 @@ export interface PivotConfig {
   indentWidth?: number;
   /** Whether to show the pivot configuration tool panel (default: true) */
   showToolPanel?: boolean;
+  /**
+   * Animation style for expanding/collapsing groups.
+   * - `false`: No animation
+   * - `'slide'`: Slide animation (default)
+   * - `'fade'`: Fade animation
+   * @default 'slide'
+   */
+  animation?: ExpandCollapseAnimation;
 }
 
 export interface PivotValueField {

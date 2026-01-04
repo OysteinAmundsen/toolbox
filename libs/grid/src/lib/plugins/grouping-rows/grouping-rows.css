@@ -14,7 +14,6 @@
   width: 20px;
   height: 20px;
   margin-right: 4px;
-  font-size: 10px;
 }
 .group-toggle:hover {
   background: var(--tbw-grouping-rows-toggle-hover, var(--tbw-color-row-hover));
@@ -44,4 +43,34 @@
 }
 [data-group-depth='4'] .group-label {
   padding-left: 80px;
+}
+
+/* Slide animation for child rows appearing */
+.data-grid-row.tbw-group-slide-in {
+  animation: tbw-group-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+}
+
+@keyframes tbw-group-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Fade animation for child rows appearing */
+.data-grid-row.tbw-group-fade-in {
+  animation: tbw-group-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+}
+
+@keyframes tbw-group-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

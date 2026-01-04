@@ -33,10 +33,23 @@ grid.columns = [
 
 ## Configuration
 
-| Option              | Type      | Default | Description                        |
-| ------------------- | --------- | ------- | ---------------------------------- |
-| `animation`         | `boolean` | `true`  | Whether to animate column movement |
-| `animationDuration` | `number`  | `200`   | Animation duration in milliseconds |
+| Option              | Type                        | Default  | Description                                                               |
+| ------------------- | --------------------------- | -------- | ------------------------------------------------------------------------- |
+| `animation`         | `false \| 'flip' \| 'fade'` | `'flip'` | Animation type: `false` (instant), `'flip'` (slide), `'fade'` (crossfade) |
+| `animationDuration` | `number`                    | `200`    | Animation duration in ms (applies to FLIP animation)                      |
+
+### Animation Types
+
+```typescript
+// No animation - instant column swap
+new ReorderPlugin({ animation: false });
+
+// FLIP animation - columns slide smoothly (default)
+new ReorderPlugin({ animation: 'flip', animationDuration: 300 });
+
+// Fade animation - uses View Transitions API for cross-fade effect
+new ReorderPlugin({ animation: 'fade' });
+```
 
 ## Limitations
 

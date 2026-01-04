@@ -7,12 +7,12 @@
  */
 
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
+import type { ColumnConfig, GridConfig, ToolPanelDefinition } from '../../core/types';
 import { buildPivot, flattenPivotRows, getAllGroupKeys, type PivotDataRow } from './pivot-engine';
 import { createValueKey, validatePivotConfig } from './pivot-model';
 import { renderPivotPanel, type FieldInfo, type PanelCallbacks } from './pivot-panel';
 import { renderPivotGrandTotalRow, renderPivotGroupRow, renderPivotLeafRow, type PivotRowData } from './pivot-rows';
-import type { AggFunc, PivotConfig, PivotResult, PivotValueField } from './types';
+import type { AggFunc, ExpandCollapseAnimation, PivotConfig, PivotResult, PivotValueField } from './types';
 
 // Import CSS as inline string (Vite handles this)
 import styles from './pivot.css?inline';
@@ -20,6 +20,7 @@ import styles from './pivot.css?inline';
 /** Extended grid interface with column access */
 interface GridWithColumns {
   shadowRoot: ShadowRoot | null;
+  effectiveConfig?: GridConfig;
   getAllColumns(): Array<{ field: string; header: string; visible: boolean }>;
   columns: ColumnConfig[];
   rows: unknown[];
@@ -55,6 +56,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       showTotals: true,
       showGrandTotal: true,
       showToolPanel: true,
+      animation: 'slide',
     };
   }
 
@@ -68,12 +70,31 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private originalColumns: Array<{ field: string; header: string }> = [];
   private panelContainer: HTMLElement | null = null;
   private grandTotalFooter: HTMLElement | null = null;
+  private previousVisibleKeys = new Set<string>();
+  private keysToAnimate = new Set<string>();
 
   /**
    * Check if the plugin has valid pivot configuration (at least value fields).
    */
   private hasValidPivotConfig(): boolean {
     return (this.config.valueFields?.length ?? 0) > 0;
+  }
+
+  /**
+   * Get animation style respecting grid-level animation mode.
+   */
+  private get animationStyle(): ExpandCollapseAnimation {
+    const gridEl = this.grid as unknown as GridWithColumns;
+    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
+
+    if (mode === false || mode === 'off') return false;
+    if (mode !== true && mode !== 'on') {
+      const host = this.shadowRoot?.host as HTMLElement | undefined;
+      if (host && getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim() === '0') {
+        return false;
+      }
+    }
+    return this.config.animation ?? 'slide';
   }
 
   // #endregion
@@ -88,6 +109,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.originalColumns = [];
     this.panelContainer = null;
     this.cleanupGrandTotalFooter();
+    this.previousVisibleKeys.clear();
+    this.keysToAnimate.clear();
   }
 
   // #endregion
@@ -173,6 +196,19 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       __pivotTotal: pr.total,
       ...pr.values,
     }));
+
+    // Track which rows are newly visible (for animation)
+    this.keysToAnimate.clear();
+    const currentVisibleKeys = new Set<string>();
+    for (const row of flatRows) {
+      const key = row.__pivotRowKey;
+      currentVisibleKeys.add(key);
+      // Animate non-root rows that weren't previously visible
+      if (!this.previousVisibleKeys.has(key) && row.__pivotDepth > 0) {
+        this.keysToAnimate.add(key);
+      }
+    }
+    this.previousVisibleKeys = currentVisibleKeys;
 
     // Grand total is rendered as a pinned footer row in afterRender,
     // not as part of the scrolling row data
@@ -278,6 +314,23 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     } else {
       this.cleanupGrandTotalFooter();
     }
+
+    // Apply animations to newly visible rows
+    const style = this.animationStyle;
+    if (style === false || this.keysToAnimate.size === 0) return;
+
+    const body = this.shadowRoot?.querySelector('.rows');
+    if (!body) return;
+
+    const animClass = style === 'fade' ? 'tbw-pivot-fade-in' : 'tbw-pivot-slide-in';
+    for (const rowEl of body.querySelectorAll('.pivot-group-row, .pivot-leaf-row')) {
+      const key = (rowEl as HTMLElement).dataset.pivotKey;
+      if (key && this.keysToAnimate.has(key)) {
+        rowEl.classList.add(animClass);
+        rowEl.addEventListener('animationend', () => rowEl.classList.remove(animClass), { once: true });
+      }
+    }
+    this.keysToAnimate.clear();
   }
 
   /**

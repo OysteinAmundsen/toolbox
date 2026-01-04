@@ -33,6 +33,7 @@ import type {
 import { PluginManager } from './plugin/plugin-manager';
 import type {
   ActivateCellDetail,
+  AnimationConfig,
   CellCommitDetail,
   ColumnConfig,
   ColumnConfigMap,
@@ -51,12 +52,10 @@ import type {
   ToolPanelDefinition,
   VirtualState,
 } from './types';
-import { DEFAULT_GRID_ICONS } from './types';
+import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
 
 /**
  * High-performance data grid web component.
- * During migration, uses tbw-grid tag to avoid conflicts with existing datagrid.
- * Will be renamed back to data-grid when migration is complete.
  *
  * ## Configuration Architecture
  *
@@ -131,7 +130,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #editOn?: string;
   // #endregion
 
-  // #region Single Source of Truth
+  // #region Private properties
   // All input sources converge here. This is the canonical config
   // that all rendering and logic should read from.
   #effectiveConfig: GridConfig<T> = {};
@@ -235,7 +234,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   __originalOrder: T[] = [];
   // #endregion
 
-  // ---------------- Public API Props (getters/setters) ----------------
+  // #region Public API Props (getters/setters)
   // Getters return the EFFECTIVE value (after merging), not the raw input.
   // This is what consumers and plugins need - the current resolved state.
   // Setters update input properties which trigger re-merge into effectiveConfig.
@@ -328,6 +327,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
     return this.#eventAbortController.signal;
   }
+  // #endregion
 
   constructor() {
     super();
@@ -1156,6 +1156,39 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         if (c.width == null) (c as ColumnConfig<T>).width = 80;
       });
     }
+
+    // Apply animation configuration to CSS variables
+    this.#applyAnimationConfig();
+  }
+
+  /**
+   * Apply animation configuration to CSS custom properties on the host element.
+   * This makes the grid's animation settings available to plugins via CSS variables.
+   */
+  #applyAnimationConfig(): void {
+    const config: AnimationConfig = {
+      ...DEFAULT_ANIMATION_CONFIG,
+      ...this.#effectiveConfig.animation,
+    };
+
+    // Resolve animation mode
+    const mode = config.mode ?? 'reduced-motion';
+    let enabled: 0 | 1 = 1;
+
+    if (mode === false || mode === 'off') {
+      enabled = 0;
+    } else if (mode === true || mode === 'on') {
+      enabled = 1;
+    }
+    // For 'reduced-motion', we leave enabled=1 and let CSS @media query handle it
+
+    // Set CSS custom properties
+    this.style.setProperty('--tbw-animation-duration', `${config.duration}ms`);
+    this.style.setProperty('--tbw-animation-easing', config.easing ?? 'ease-out');
+    this.style.setProperty('--tbw-animation-enabled', String(enabled));
+
+    // Set data attribute for mode-based CSS selectors
+    this.dataset.animationMode = typeof mode === 'boolean' ? (mode ? 'on' : 'off') : mode;
   }
 
   // ---------------- Delegate Wrappers ----------------
@@ -2001,7 +2034,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this._virtualization.start = 0;
       this._virtualization.end = totalRows;
       this._bodyEl.style.transform = 'translateY(0px)';
-      this.#renderVisibleRows(0, totalRows, this.__rowRenderEpoch);
+      this.#renderVisibleRows(0, totalRows, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
       if (this._virtualization.totalHeightEl) {
         // Account for horizontal scrollbar height even in bypass mode
         const scrollAreaEl = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;

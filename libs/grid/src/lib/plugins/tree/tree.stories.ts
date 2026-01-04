@@ -53,6 +53,12 @@ const meta: Meta = {
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
+    animation: {
+      control: { type: 'select' },
+      options: [false, 'slide', 'fade'],
+      description: 'Animation style for expand/collapse',
+      table: { category: 'Tree', defaultValue: { summary: "'slide'" } },
+    },
     defaultExpanded: {
       control: { type: 'boolean' },
       description: 'Whether nodes are expanded by default',
@@ -65,6 +71,7 @@ const meta: Meta = {
     },
   },
   args: {
+    animation: 'slide' as const,
     defaultExpanded: false,
     indentWidth: 20,
   },
@@ -72,6 +79,7 @@ const meta: Meta = {
 export default meta;
 
 interface TreeArgs {
+  animation: false | 'slide' | 'fade';
   defaultExpanded: boolean;
   indentWidth: number;
 }
@@ -154,6 +162,7 @@ grid.rows = [
       columns,
       plugins: [
         new TreePlugin({
+          animation: args.animation,
           childrenField: 'children',
           defaultExpanded: args.defaultExpanded,
           indentWidth: args.indentWidth,

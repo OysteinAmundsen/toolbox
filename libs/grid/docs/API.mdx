@@ -282,7 +282,93 @@ interface GridConfig<T> {
   editOn?: 'click' | 'dblclick';
   plugins?: BaseGridPlugin[];
   shell?: ShellConfig;
+  animation?: AnimationConfig;
 }
+```
+
+### Animation Configuration
+
+The grid supports a global animation configuration that controls whether animations run.
+Individual plugins define their own animation styles.
+
+```typescript
+// Animation behavior mode
+type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
+
+// Animation style (used by plugins)
+type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
+
+// Grid-level animation config
+interface AnimationConfig {
+  // Global animation mode (default: 'reduced-motion')
+  mode?: AnimationMode;
+
+  // Animation duration in ms (default: 200)
+  duration?: number;
+
+  // Easing function (default: 'ease-out')
+  easing?: string;
+
+  // Style for sorting row changes (core feature, default: false)
+  sort?: AnimationStyle;
+}
+```
+
+#### Animation Modes
+
+| Mode               | Behavior                                                |
+| ------------------ | ------------------------------------------------------- |
+| `true` / `'on'`    | Animations always enabled                               |
+| `false` / `'off'`  | Animations always disabled                              |
+| `'reduced-motion'` | Respects `prefers-reduced-motion` media query (default) |
+
+#### Plugin Animation Styles
+
+Each plugin defines its own animation style in its config:
+
+```typescript
+// ReorderPlugin - column reordering animation
+new ReorderPlugin({ animation: 'flip' }); // 'flip' | 'fade' | false
+
+// MasterDetailPlugin - expand/collapse animation
+new MasterDetailPlugin({ animation: 'slide' }); // 'slide' | 'fade' | false
+
+// TreePlugin - tree node expand/collapse
+new TreePlugin({ animation: 'slide' }); // 'slide' | 'fade' | false
+
+// GroupingRowsPlugin - group expand/collapse
+new GroupingRowsPlugin({ animation: 'slide' }); // 'slide' | 'fade' | false
+```
+
+#### CSS Variables
+
+Animation duration and easing are exposed via CSS custom properties:
+
+```css
+tbw-grid {
+  --tbw-animation-duration: 200ms;
+  --tbw-animation-easing: ease-out;
+  --tbw-animation-enabled: 1; /* 0 = disabled, 1 = enabled */
+}
+```
+
+#### Example
+
+```typescript
+grid.gridConfig = {
+  // Grid-level: enable animations, set timing
+  animation: {
+    mode: 'on',
+    duration: 300,
+    easing: 'ease-in-out',
+  },
+  // Plugin-level: each plugin configures its own style
+  plugins: [
+    new ReorderPlugin({ animation: 'flip' }),
+    new MasterDetailPlugin({ animation: 'slide' }),
+    new TreePlugin({ animation: 'fade' }),
+  ],
+};
 ```
 
 ### Event Details

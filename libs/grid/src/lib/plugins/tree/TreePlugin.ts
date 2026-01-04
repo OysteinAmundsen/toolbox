@@ -1,23 +1,25 @@
 /**
- * Tree Data Plugin (Class-based)
+ * Tree Data Plugin
  *
- * Enables hierarchical tree data with expand/collapse and auto-detection.
+ * Enables hierarchical tree data with expand/collapse, sorting, and auto-detection.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// The tree plugin intentionally uses `any` for maximum flexibility with user-defined row types.
 
-import { BaseGridPlugin, CellClickEvent } from '../../core/plugin/base-plugin';
-import type { ColumnConfig } from '../../core/types';
-import { collapseAll, expandAll, expandToKey, flattenTree, toggleExpand } from './tree-data';
+import { BaseGridPlugin, CellClickEvent, HeaderClickEvent } from '../../core/plugin/base-plugin';
+import type { ColumnConfig, GridConfig } from '../../core/types';
+import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
-import type { FlattenedTreeRow, TreeConfig, TreeExpandDetail } from './types';
+import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandDetail } from './types';
+
+interface GridWithConfig {
+  effectiveConfig?: GridConfig;
+  _sortState?: { field: string; direction: 1 | -1 } | null;
+}
 
 /**
  * Tree Data Plugin for tbw-grid
- *
- * Provides hierarchical tree data display with expand/collapse functionality.
  *
  * @example
  * ```ts
@@ -27,6 +29,7 @@ import type { FlattenedTreeRow, TreeConfig, TreeExpandDetail } from './types';
 export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   readonly name = 'tree';
   override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<TreeConfig> {
     return {
@@ -35,46 +38,56 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       defaultExpanded: false,
       indentWidth: 20,
       showExpandIcons: true,
+      animation: 'slide',
     };
   }
 
-  // #region Internal State
+  // #region State
 
-  /** Set of expanded row keys */
   private expandedKeys = new Set<string>();
-
-  /** Whether initial expansion (based on defaultExpanded config) has been applied */
   private initialExpansionDone = false;
-
-  /** Flattened tree rows for rendering */
   private flattenedRows: FlattenedTreeRow[] = [];
-
-  /** Map from key to flattened row for quick lookup */
   private rowKeyMap = new Map<string, FlattenedTreeRow>();
-
-  // #endregion
-
-  // #region Lifecycle
+  private previousVisibleKeys = new Set<string>();
+  private keysToAnimate = new Set<string>();
+  private sortState: { field: string; direction: 1 | -1 } | null = null;
 
   override detach(): void {
     this.expandedKeys.clear();
     this.initialExpansionDone = false;
     this.flattenedRows = [];
     this.rowKeyMap.clear();
+    this.previousVisibleKeys.clear();
+    this.keysToAnimate.clear();
+    this.sortState = null;
+  }
+
+  // #endregion
+
+  // #region Animation
+
+  private get animationStyle(): ExpandCollapseAnimation {
+    const gridEl = this.grid as unknown as GridWithConfig;
+    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
+
+    if (mode === false || mode === 'off') return false;
+    if (mode !== true && mode !== 'on') {
+      const host = this.shadowRoot?.host as HTMLElement | undefined;
+      if (host && getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim() === '0') {
+        return false;
+      }
+    }
+    return this.config.animation ?? 'slide';
   }
 
   // #endregion
 
   // #region Auto-Detection
 
-  /**
-   * Detects if tree functionality should be enabled based on data structure.
-   * Called by the grid during plugin initialization.
-   */
   detect(rows: readonly unknown[]): boolean {
     if (!this.config.autoDetect) return false;
-    const childrenField = this.config.childrenField ?? inferChildrenField(rows as any[]) ?? 'children';
-    return detectTreeStructure(rows as any[], childrenField);
+    const field = this.config.childrenField ?? inferChildrenField(rows as any[]) ?? 'children';
+    return detectTreeStructure(rows as any[], field);
   }
 
   // #endregion
@@ -84,114 +97,164 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   override processRows(rows: readonly unknown[]): any[] {
     const childrenField = this.config.childrenField ?? 'children';
 
-    // Check if data is actually a tree
     if (!detectTreeStructure(rows as any[], childrenField)) {
       this.flattenedRows = [];
       this.rowKeyMap.clear();
+      this.previousVisibleKeys.clear();
       return [...rows];
     }
 
-    // Initialize expansion state if needed (only once per grid lifecycle)
+    // Assign stable keys, then optionally sort
+    let data = this.withStableKeys(rows as any[]);
+    if (this.sortState) {
+      data = this.sortTree(data, this.sortState.field, this.sortState.direction);
+    }
+
+    // Initialize expansion if needed
     if (this.config.defaultExpanded && !this.initialExpansionDone) {
-      this.expandedKeys = expandAll(rows as any[], this.config);
+      this.expandedKeys = expandAll(data, this.config);
       this.initialExpansionDone = true;
     }
 
-    // Flatten tree
-    this.flattenedRows = flattenTree(rows as any[], this.config, this.expandedKeys);
-
-    // Build key map
+    // Flatten and track animations
+    this.flattenedRows = this.flattenTree(data, this.expandedKeys);
     this.rowKeyMap.clear();
-    for (const flatRow of this.flattenedRows) {
-      this.rowKeyMap.set(flatRow.key, flatRow);
-    }
+    this.keysToAnimate.clear();
+    const currentKeys = new Set<string>();
 
-    // Return flattened data for rendering with tree metadata
-    return this.flattenedRows.map((fr) => ({
-      ...fr.data,
-      __treeKey: fr.key,
-      __treeDepth: fr.depth,
-      __treeHasChildren: fr.hasChildren,
-      __treeExpanded: fr.isExpanded,
+    for (const row of this.flattenedRows) {
+      this.rowKeyMap.set(row.key, row);
+      currentKeys.add(row.key);
+      if (!this.previousVisibleKeys.has(row.key) && row.depth > 0) {
+        this.keysToAnimate.add(row.key);
+      }
+    }
+    this.previousVisibleKeys = currentKeys;
+
+    return this.flattenedRows.map((r) => ({
+      ...r.data,
+      __treeKey: r.key,
+      __treeDepth: r.depth,
+      __treeHasChildren: r.hasChildren,
+      __treeExpanded: r.isExpanded,
     }));
+  }
+
+  /** Assign stable keys to rows (preserves key across sort operations) */
+  private withStableKeys(rows: any[], parentKey: string | null = null): any[] {
+    const childrenField = this.config.childrenField ?? 'children';
+    return rows.map((row, i) => {
+      const key =
+        row.id !== undefined ? String(row.id) : (row.__stableKey ?? (parentKey ? `${parentKey}-${i}` : String(i)));
+      const children = row[childrenField];
+      const hasChildren = Array.isArray(children) && children.length > 0;
+      return {
+        ...row,
+        __stableKey: key,
+        ...(hasChildren ? { [childrenField]: this.withStableKeys(children, key) } : {}),
+      };
+    });
+  }
+
+  /** Flatten tree using stable keys */
+  private flattenTree(rows: any[], expanded: Set<string>, depth = 0): FlattenedTreeRow[] {
+    const childrenField = this.config.childrenField ?? 'children';
+    const result: FlattenedTreeRow[] = [];
+
+    for (const row of rows) {
+      const key = row.__stableKey ?? row.id ?? '?';
+      const children = row[childrenField];
+      const hasChildren = Array.isArray(children) && children.length > 0;
+      const isExpanded = expanded.has(key);
+
+      result.push({
+        key,
+        data: row,
+        depth,
+        hasChildren,
+        isExpanded,
+        parentKey: depth > 0 ? key.substring(0, key.lastIndexOf('-')) || null : null,
+      });
+
+      if (hasChildren && isExpanded) {
+        result.push(...this.flattenTree(children, expanded, depth + 1));
+      }
+    }
+    return result;
+  }
+
+  /** Sort tree recursively, keeping children with parents */
+  private sortTree(rows: any[], field: string, dir: 1 | -1): any[] {
+    const childrenField = this.config.childrenField ?? 'children';
+    const sorted = [...rows].sort((a, b) => {
+      const aVal = a[field],
+        bVal = b[field];
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return -1;
+      if (bVal == null) return 1;
+      return aVal > bVal ? dir : aVal < bVal ? -dir : 0;
+    });
+    return sorted.map((row) => {
+      const children = row[childrenField];
+      return Array.isArray(children) && children.length > 0
+        ? { ...row, [childrenField]: this.sortTree(children, field, dir) }
+        : row;
+    });
   }
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (this.flattenedRows.length === 0) return [...columns];
 
-    // Wrap first column's renderer to add tree indentation
     const cols = [...columns] as ColumnConfig[];
-    if (cols.length > 0) {
-      const firstCol = { ...cols[0] };
-      const originalRenderer = firstCol.viewRenderer;
+    if (cols.length === 0) return cols;
 
-      // Skip if already wrapped by this plugin (prevents double-wrapping on re-render)
-      if ((originalRenderer as any)?.__treeWrapped) {
-        return cols;
+    const firstCol = { ...cols[0] };
+    const original = firstCol.viewRenderer;
+    if ((original as any)?.__treeWrapped) return cols;
+
+    const getConfig = () => this.config;
+    const setIcon = this.setIcon.bind(this);
+    const resolveIcon = this.resolveIcon.bind(this);
+
+    const wrapped = (ctx: Parameters<NonNullable<typeof original>>[0]) => {
+      const { value, row } = ctx;
+      const { indentWidth = 20, showExpandIcons = true } = getConfig();
+
+      const container = document.createElement('span');
+      container.className = 'tree-cell';
+      container.style.setProperty('--tree-depth', String(row.__treeDepth ?? 0));
+      container.style.setProperty('--tbw-tree-indent', `${indentWidth}px`);
+
+      if (row.__treeHasChildren && showExpandIcons) {
+        const icon = document.createElement('span');
+        icon.className = `tree-toggle${row.__treeExpanded ? ' expanded' : ''}`;
+        setIcon(icon, resolveIcon(row.__treeExpanded ? 'collapse' : 'expand'));
+        icon.setAttribute('data-tree-key', row.__treeKey);
+        container.appendChild(icon);
+      } else if (showExpandIcons) {
+        const spacer = document.createElement('span');
+        spacer.className = 'tree-spacer';
+        container.appendChild(spacer);
       }
 
-      // Capture config getter for dynamic access (avoids this-aliasing)
-      const getConfig = () => this.config;
-
-      const wrappedRenderer = (renderCtx: Parameters<NonNullable<typeof originalRenderer>>[0]) => {
-        const { value, row, column: _colConfig } = renderCtx;
-        const depth = row.__treeDepth ?? 0;
-        const hasChildren = row.__treeHasChildren ?? false;
-        const isExpanded = row.__treeExpanded ?? false;
-
-        // Read config dynamically to support runtime changes
-        const cfg = getConfig();
-        const indentWidth = cfg.indentWidth ?? 20;
-        const showExpandIcons = cfg.showExpandIcons ?? true;
-
-        const container = document.createElement('span');
-        container.style.display = 'flex';
-        container.style.alignItems = 'center';
-        container.style.paddingLeft = `${depth * indentWidth}px`;
-
-        // Expand/collapse icon
-        if (hasChildren && showExpandIcons) {
-          const icon = document.createElement('span');
-          icon.className = 'tree-toggle';
-          // Use grid-level icons (fall back to defaults)
-          this.setIcon(icon, this.resolveIcon(isExpanded ? 'collapse' : 'expand'));
-          icon.style.cursor = 'pointer';
-          icon.style.marginRight = '4px';
-          icon.style.fontSize = '10px';
-          icon.setAttribute('data-tree-key', row.__treeKey);
-          container.appendChild(icon);
-        } else if (showExpandIcons) {
-          // Spacer for alignment
-          const spacer = document.createElement('span');
-          spacer.style.width = '14px';
-          spacer.style.display = 'inline-block';
-          container.appendChild(spacer);
-        }
-
-        // Cell content
-        const content = document.createElement('span');
-        if (originalRenderer) {
-          const rendered = originalRenderer(renderCtx);
-          if (rendered instanceof Node) {
-            content.appendChild(rendered);
-          } else {
-            content.textContent = String(rendered ?? value ?? '');
-          }
+      const content = document.createElement('span');
+      if (original) {
+        const rendered = original(ctx);
+        if (rendered instanceof Node) {
+          content.appendChild(rendered);
         } else {
-          content.textContent = String(value ?? '');
+          content.textContent = String(rendered ?? value ?? '');
         }
-        container.appendChild(content);
+      } else {
+        content.textContent = String(value ?? '');
+      }
+      container.appendChild(content);
+      return container;
+    };
 
-        return container;
-      };
-
-      // Mark renderer as wrapped to prevent double-wrapping
-      (wrappedRenderer as any).__treeWrapped = true;
-      firstCol.viewRenderer = wrappedRenderer;
-
-      cols[0] = firstCol;
-    }
-
+    (wrapped as any).__treeWrapped = true;
+    firstCol.viewRenderer = wrapped;
+    cols[0] = firstCol;
     return cols;
   }
 
@@ -204,109 +267,113 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     if (!target?.classList.contains('tree-toggle')) return false;
 
     const key = target.getAttribute('data-tree-key');
-    if (!key) return false;
-
-    const flatRow = this.rowKeyMap.get(key);
+    const flatRow = key ? this.rowKeyMap.get(key) : null;
     if (!flatRow) return false;
 
-    this.expandedKeys = toggleExpand(this.expandedKeys, key);
-
+    this.expandedKeys = toggleExpand(this.expandedKeys, key!);
     this.emit<TreeExpandDetail>('tree-expand', {
-      key,
+      key: key!,
       row: flatRow.data,
-      expanded: this.expandedKeys.has(key),
+      expanded: this.expandedKeys.has(key!),
       depth: flatRow.depth,
     });
-
     this.requestRender();
     return true;
+  }
+
+  override onHeaderClick(event: HeaderClickEvent): boolean {
+    if (this.flattenedRows.length === 0 || !event.column.sortable) return false;
+
+    const { field } = event.column;
+    if (!this.sortState || this.sortState.field !== field) {
+      this.sortState = { field, direction: 1 };
+    } else if (this.sortState.direction === 1) {
+      this.sortState = { field, direction: -1 };
+    } else {
+      this.sortState = null;
+    }
+
+    // Sync grid sort indicator
+    const gridEl = this.grid as unknown as GridWithConfig;
+    if (gridEl._sortState !== undefined) {
+      gridEl._sortState = this.sortState ? { ...this.sortState } : null;
+    }
+
+    this.emit('sort-change', { field, direction: this.sortState?.direction ?? 0 });
+    this.requestRender();
+    return true;
+  }
+
+  override afterRender(): void {
+    const style = this.animationStyle;
+    if (style === false || this.keysToAnimate.size === 0) return;
+
+    const body = this.shadowRoot?.querySelector('.rows');
+    if (!body) return;
+
+    const animClass = style === 'fade' ? 'tbw-tree-fade-in' : 'tbw-tree-slide-in';
+    for (const rowEl of body.querySelectorAll('.data-grid-row')) {
+      const cell = rowEl.querySelector('.cell[data-row]');
+      const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
+      const key = this.flattenedRows[idx]?.key;
+
+      if (key && this.keysToAnimate.has(key)) {
+        rowEl.classList.add(animClass);
+        rowEl.addEventListener('animationend', () => rowEl.classList.remove(animClass), { once: true });
+      }
+    }
+    this.keysToAnimate.clear();
   }
 
   // #endregion
 
   // #region Public API
 
-  /**
-   * Expand a specific node by key.
-   */
   expand(key: string): void {
     this.expandedKeys.add(key);
     this.requestRender();
   }
 
-  /**
-   * Collapse a specific node by key.
-   */
   collapse(key: string): void {
     this.expandedKeys.delete(key);
     this.requestRender();
   }
 
-  /**
-   * Toggle the expansion state of a node.
-   */
   toggle(key: string): void {
     this.expandedKeys = toggleExpand(this.expandedKeys, key);
     this.requestRender();
   }
 
-  /**
-   * Expand all nodes in the tree.
-   */
   expandAll(): void {
     this.expandedKeys = expandAll(this.rows as any[], this.config);
     this.requestRender();
   }
 
-  /**
-   * Collapse all nodes in the tree.
-   */
   collapseAll(): void {
     this.expandedKeys = collapseAll();
     this.requestRender();
   }
 
-  /**
-   * Check if a node is currently expanded.
-   */
   isExpanded(key: string): boolean {
     return this.expandedKeys.has(key);
   }
 
-  /**
-   * Get all currently expanded keys.
-   */
   getExpandedKeys(): string[] {
     return [...this.expandedKeys];
   }
 
-  /**
-   * Get the flattened tree rows with metadata.
-   */
   getFlattenedRows(): FlattenedTreeRow[] {
     return [...this.flattenedRows];
   }
 
-  /**
-   * Get a row's original data by its key.
-   */
   getRowByKey(key: string): any | undefined {
     return this.rowKeyMap.get(key)?.data;
   }
 
-  /**
-   * Expand all ancestors of a node to make it visible.
-   */
   expandToKey(key: string): void {
     this.expandedKeys = expandToKey(this.rows as any[], key, this.config, this.expandedKeys);
     this.requestRender();
   }
-
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
 
   // #endregion
 }

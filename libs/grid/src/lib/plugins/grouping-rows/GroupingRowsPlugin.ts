@@ -7,6 +7,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { BaseGridPlugin, CellClickEvent } from '../../core/plugin/base-plugin';
+import type { GridConfig } from '../../core/types';
 import {
   buildGroupedRowModel,
   collapseAllGroups,
@@ -16,7 +17,17 @@ import {
   toggleGroupExpansion,
 } from './grouping-rows';
 import styles from './grouping-rows.css?inline';
-import type { GroupingRowsConfig, GroupRowModelItem, GroupToggleDetail, RenderRow } from './types';
+import type {
+  ExpandCollapseAnimation,
+  GroupingRowsConfig,
+  GroupRowModelItem,
+  GroupToggleDetail,
+  RenderRow,
+} from './types';
+
+interface GridWithConfig {
+  effectiveConfig?: GridConfig;
+}
 
 /**
  * Group state information returned by getGroupState()
@@ -55,6 +66,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       showRowCount: true,
       indentWidth: 20,
       aggregators: {},
+      animation: 'slide',
     };
   }
 
@@ -62,6 +74,26 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   private expandedKeys: Set<string> = new Set();
   private flattenedRows: RenderRow[] = [];
   private isActive = false;
+  private previousVisibleKeys = new Set<string>();
+  private keysToAnimate = new Set<string>();
+  // #endregion
+
+  // #region Animation
+
+  private get animationStyle(): ExpandCollapseAnimation {
+    const gridEl = this.grid as unknown as GridWithConfig;
+    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
+
+    if (mode === false || mode === 'off') return false;
+    if (mode !== true && mode !== 'on') {
+      const host = this.shadowRoot?.host as HTMLElement | undefined;
+      if (host && getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim() === '0') {
+        return false;
+      }
+    }
+    return this.config.animation ?? 'slide';
+  }
+
   // #endregion
 
   // #region Lifecycle
@@ -70,6 +102,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.expandedKeys.clear();
     this.flattenedRows = [];
     this.isActive = false;
+    this.previousVisibleKeys.clear();
+    this.keysToAnimate.clear();
   }
   // #endregion
 
@@ -109,6 +143,20 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     this.isActive = true;
     this.flattenedRows = grouped;
+
+    // Track which data rows are newly visible (for animation)
+    this.keysToAnimate.clear();
+    const currentVisibleKeys = new Set<string>();
+    grouped.forEach((item, idx) => {
+      if (item.kind === 'data') {
+        const key = `data-${idx}`;
+        currentVisibleKeys.add(key);
+        if (!this.previousVisibleKeys.has(key)) {
+          this.keysToAnimate.add(key);
+        }
+      }
+    });
+    this.previousVisibleKeys = currentVisibleKeys;
 
     // Return flattened rows for rendering
     // The grid will need to handle group rows specially
@@ -207,8 +255,25 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   }
 
   override afterRender(): void {
-    // No additional DOM manipulation needed for grouping
-    // The renderRow hook handles all group row rendering
+    const style = this.animationStyle;
+    if (style === false || this.keysToAnimate.size === 0) return;
+
+    const body = this.shadowRoot?.querySelector('.rows');
+    if (!body) return;
+
+    const animClass = style === 'fade' ? 'tbw-group-fade-in' : 'tbw-group-slide-in';
+    for (const rowEl of body.querySelectorAll('.data-grid-row:not(.group-row)')) {
+      const cell = rowEl.querySelector('.cell[data-row]');
+      const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
+      const item = this.flattenedRows[idx];
+      const key = item?.kind === 'data' ? `data-${idx}` : undefined;
+
+      if (key && this.keysToAnimate.has(key)) {
+        rowEl.classList.add(animClass);
+        rowEl.addEventListener('animationend', () => rowEl.classList.remove(animClass), { once: true });
+      }
+    }
+    this.keysToAnimate.clear();
   }
   // #endregion
 
@@ -226,7 +291,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     // Toggle button with click handler
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'group-toggle';
+    btn.className = `group-toggle${row.__groupExpanded ? ' expanded' : ''}`;
     btn.setAttribute('aria-label', row.__groupExpanded ? 'Collapse group' : 'Expand group');
     this.setIcon(btn, this.resolveIcon(row.__groupExpanded ? 'collapse' : 'expand'));
     btn.addEventListener('click', (e) => {
@@ -279,7 +344,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         // First column: toggle button + label
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'group-toggle';
+        btn.className = `group-toggle${row.__groupExpanded ? ' expanded' : ''}`;
         btn.setAttribute('aria-label', row.__groupExpanded ? 'Collapse group' : 'Expand group');
         this.setIcon(btn, this.resolveIcon(row.__groupExpanded ? 'collapse' : 'expand'));
         btn.addEventListener('click', (e) => {

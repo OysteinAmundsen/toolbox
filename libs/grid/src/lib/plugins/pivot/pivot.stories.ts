@@ -70,6 +70,12 @@ const meta: Meta = {
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
+    animation: {
+      control: { type: 'select' },
+      options: [false, 'slide', 'fade'],
+      description: 'Animation style for expand/collapse',
+      table: { category: 'Pivot', defaultValue: { summary: "'slide'" } },
+    },
     showTotals: {
       control: { type: 'boolean' },
       description: 'Show row totals',
@@ -87,6 +93,7 @@ const meta: Meta = {
     },
   },
   args: {
+    animation: 'slide' as const,
     showTotals: true,
     showGrandTotal: true,
     showToolPanel: true,
@@ -95,6 +102,7 @@ const meta: Meta = {
 export default meta;
 
 interface PivotArgs {
+  animation: false | 'slide' | 'fade';
   showTotals: boolean;
   showGrandTotal: boolean;
   showToolPanel: boolean;
@@ -122,6 +130,7 @@ export const Default: Story = {
       columns,
       plugins: [
         new PivotPlugin({
+          animation: args.animation,
           rowGroupFields: ['region', 'product'],
           columnGroupFields: ['quarter'],
           valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total Sales' }],

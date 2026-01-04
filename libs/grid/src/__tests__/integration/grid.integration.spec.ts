@@ -956,3 +956,197 @@ describe('tbw-grid integration: core cell focus', () => {
     }
   });
 });
+
+describe('tbw-grid integration: async filtering state persistence', () => {
+  let grid: any;
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('should preserve filter state after async filterHandler completes', async () => {
+    // Import the FilteringPlugin
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const data = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
+
+    const plugin = new FilteringPlugin({
+      valuesHandler: async (field: string) => {
+        await new Promise((r) => setTimeout(r, 10));
+        return [...new Set(data.map((row) => (row as Record<string, unknown>)[field]))];
+      },
+      filterHandler: async (filters: any[]) => {
+        await new Promise((r) => setTimeout(r, 10));
+        if (filters.length === 0) return data;
+        return data.filter((row) => {
+          return filters.every((filter: any) => {
+            const excluded = filter.value as unknown[];
+            if (!excluded || excluded.length === 0) return true;
+            const val = (row as Record<string, unknown>)[filter.field];
+            return !excluded.includes(val);
+          });
+        });
+      },
+    });
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', filterable: false },
+        { field: 'name', header: 'Name', filterable: true },
+      ],
+      plugins: [plugin],
+    };
+    grid.rows = data;
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Check initial state: no filters, button should not be active
+    const shadow = grid.shadowRoot as ShadowRoot;
+    const nameHeaderCell = shadow.querySelector('[part~="header-cell"][data-col="1"]');
+    expect(nameHeaderCell).not.toBeNull();
+
+    let filterBtn = nameHeaderCell!.querySelector('.tbw-filter-btn') as HTMLElement;
+    expect(filterBtn).not.toBeNull();
+    expect(filterBtn.classList.contains('active')).toBe(false);
+
+    // Verify filter state before applying
+    expect(plugin.isFieldFiltered('name')).toBe(false);
+    expect(plugin.getFilters()).toHaveLength(0);
+
+    // Apply a filter programmatically (simulate what the panel does)
+    const excludedValues = ['Alice', 'Charlie']; // Keep only 'Bob'
+    plugin.setFilter('name', {
+      type: 'set',
+      operator: 'notIn',
+      value: excludedValues,
+    });
+
+    // Wait for async handler to complete
+    await new Promise((r) => setTimeout(r, 50));
+    await nextFrame();
+    await nextFrame();
+
+    // Verify filter state is preserved
+    expect(plugin.isFieldFiltered('name')).toBe(true);
+    expect(plugin.getFilters()).toHaveLength(1);
+
+    // Get the plugin instance from the grid to ensure we're checking the right one
+    const attachedPlugin = grid.getPlugin(FilteringPlugin);
+    expect(attachedPlugin).not.toBeNull();
+    expect(attachedPlugin.isFieldFiltered('name')).toBe(true);
+
+    // Force a render to ensure afterRender is called
+    grid.refreshVirtualWindow(true);
+    await nextFrame();
+    await nextFrame();
+
+    // Re-query the header cell since renderHeader rebuilds the DOM
+    const updatedNameHeaderCell = shadow.querySelector('[part~="header-cell"][data-col="1"]');
+    expect(updatedNameHeaderCell).not.toBeNull();
+
+    // Check button is now active
+    filterBtn = updatedNameHeaderCell!.querySelector('.tbw-filter-btn') as HTMLElement;
+    expect(filterBtn).not.toBeNull();
+    expect(filterBtn.classList.contains('active')).toBe(true);
+
+    // Verify excludedValues is synced (for panel checkbox state)
+    const excluded = (attachedPlugin as any).excludedValues.get('name') as Set<unknown>;
+    expect(excluded).toBeDefined();
+    expect(excluded.has('Alice')).toBe(true);
+    expect(excluded.has('Charlie')).toBe(true);
+    expect(excluded.has('Bob')).toBe(false);
+  });
+
+  it('should update filter button state after UI panel interaction', async () => {
+    // Import the FilteringPlugin
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const data = [
+      { id: 1, status: 'Active' },
+      { id: 2, status: 'Inactive' },
+      { id: 3, status: 'On Leave' },
+    ];
+
+    const plugin = new FilteringPlugin({});
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', filterable: false },
+        { field: 'status', header: 'Status', filterable: true },
+      ],
+      plugins: [plugin],
+    };
+    grid.rows = data;
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    const shadow = grid.shadowRoot as ShadowRoot;
+    const statusHeaderCell = shadow.querySelector('[part~="header-cell"][data-col="1"]');
+    expect(statusHeaderCell).not.toBeNull();
+
+    let filterBtn = statusHeaderCell!.querySelector('.tbw-filter-btn') as HTMLElement;
+    expect(filterBtn).not.toBeNull();
+    expect(filterBtn.classList.contains('active')).toBe(false);
+
+    // Click filter button to open panel
+    filterBtn.click();
+    await nextFrame();
+
+    // Find panel in document body
+    const panel = document.body.querySelector('.tbw-filter-panel') as HTMLElement;
+    expect(panel).not.toBeNull();
+
+    // Find checkboxes and uncheck Active and On Leave (keep only Inactive)
+    const checkboxes = panel.querySelectorAll('.tbw-filter-checkbox[data-value]');
+    expect(checkboxes.length).toBe(3);
+
+    // Uncheck Active and On Leave
+    for (const cb of checkboxes) {
+      const value = cb.getAttribute('data-value');
+      if (value === 'Active' || value === 'On Leave') {
+        (cb as HTMLInputElement).click();
+      }
+    }
+    await nextFrame();
+
+    // Click Apply button
+    const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLElement;
+    expect(applyBtn).not.toBeNull();
+    applyBtn.click();
+    await nextFrame();
+    await nextFrame();
+
+    // Panel should be closed
+    expect(document.body.querySelector('.tbw-filter-panel')).toBeNull();
+
+    // Re-query header cell (DOM rebuilt)
+    const updatedStatusHeaderCell = shadow.querySelector('[part~="header-cell"][data-col="1"]');
+    expect(updatedStatusHeaderCell).not.toBeNull();
+
+    // Verify filter button now has active class
+    filterBtn = updatedStatusHeaderCell!.querySelector('.tbw-filter-btn') as HTMLElement;
+    expect(filterBtn).not.toBeNull();
+    expect(filterBtn.classList.contains('active')).toBe(true);
+
+    // Verify filter state
+    expect(plugin.isFieldFiltered('status')).toBe(true);
+    const filters = plugin.getFilters();
+    expect(filters).toHaveLength(1);
+    expect(filters[0].field).toBe('status');
+    expect(filters[0].type).toBe('set');
+    expect(filters[0].value).toContain('Active');
+    expect(filters[0].value).toContain('On Leave');
+
+    // Verify rows are filtered
+    expect(grid._rows).toHaveLength(1);
+    expect(grid._rows[0].status).toBe('Inactive');
+  });
+});

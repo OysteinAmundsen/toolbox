@@ -614,3 +614,53 @@ describe('filter-model', () => {
     });
   });
 });
+
+describe('FilterConfig async handlers', () => {
+  describe('FilterHandler type', () => {
+    it('should accept sync filter handler', () => {
+      // Type check: sync handler returns array directly
+      const syncHandler = (filters: FilterModel[], rows: unknown[]): unknown[] => {
+        if (filters.length === 0) return rows;
+        // Simulate filtering
+        return rows.filter(() => true);
+      };
+
+      const result = syncHandler([], [{ id: 1 }, { id: 2 }]);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(2);
+    });
+
+    it('should accept async filter handler', async () => {
+      // Type check: async handler returns Promise
+      const asyncHandler = async (filters: FilterModel[], rows: unknown[]): Promise<unknown[]> => {
+        // Simulate server delay
+        await new Promise((r) => setTimeout(r, 10));
+        if (filters.length === 0) return rows;
+        return rows.slice(0, 1); // Simulated filtered result
+      };
+
+      const result = await asyncHandler(
+        [{ field: 'name', type: 'text', operator: 'contains', value: 'A' }],
+        [{ id: 1 }, { id: 2 }],
+      );
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('FilterValuesHandler type', () => {
+    it('should accept async values handler', async () => {
+      // Type check: values handler returns Promise of unique values
+      const valuesHandler = async (field: string): Promise<unknown[]> => {
+        await new Promise((r) => setTimeout(r, 10));
+        if (field === 'department') {
+          return ['Engineering', 'Marketing', 'Sales'];
+        }
+        return [];
+      };
+
+      const result = await valuesHandler('department');
+      expect(result).toEqual(['Engineering', 'Marketing', 'Sales']);
+    });
+  });
+});

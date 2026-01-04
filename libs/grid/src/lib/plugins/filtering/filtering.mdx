@@ -110,15 +110,63 @@ Filters respect letter case.
 
 <Canvas of={FilteringStories.CaseSensitive} withToolbar />
 
+### Async Filtering (Server-Side)
+
+For large or server-side datasets, the default local filtering may not be suitable:
+
+- **Not all unique values are available locally** for the filter panel
+- **Filtering should happen on the backend** rather than in the browser
+
+Use `valuesHandler` and `filterHandler` to customize this behavior:
+
+```ts
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new FilteringPlugin({
+      // Fetch unique values for a column from the server
+      valuesHandler: async (field, column) => {
+        const response = await fetch(`/api/distinct-values?field=${field}`);
+        return response.json(); // Returns: ['Engineering', 'Marketing', ...]
+      },
+
+      // Apply filters on the server
+      // FilterModel: { field, type, operator: 'notIn', value: excludedValues[] }
+      filterHandler: async (filters, currentRows) => {
+        const response = await fetch('/api/data', {
+          method: 'POST',
+          body: JSON.stringify({ filters }),
+        });
+        return response.json();
+      },
+    }),
+  ],
+};
+```
+
+**Handler signatures:**
+
+| Handler         | Signature                                                    | Returns                  |
+| --------------- | ------------------------------------------------------------ | ------------------------ |
+| `valuesHandler` | `(field: string, column: ColumnConfig) => Promise<T[]>`      | Unique values for filter |
+| `filterHandler` | `(filters: FilterModel[], rows: T[]) => T[] \| Promise<T[]>` | Filtered rows            |
+
+When `valuesHandler` is provided, the filter panel shows a loading indicator while fetching values.
+When `filterHandler` is provided, filter application bypasses the local `processRows` hook.
+
+<Canvas of={FilteringStories.AsyncFiltering} withToolbar />
+
 ## Configuration Options
 
-| Option                | Type                  | Default | Description                            |
-| --------------------- | --------------------- | ------- | -------------------------------------- |
-| `debounceMs`          | `number`              | `300`   | Debounce delay for filter input        |
-| `caseSensitive`       | `boolean`             | `false` | Case-sensitive string matching         |
-| `trimInput`           | `boolean`             | `true`  | Trim whitespace from filter input      |
-| `useWorker`           | `boolean`             | `true`  | Use Web Worker for datasets >1000 rows |
-| `filterPanelRenderer` | `FilterPanelRenderer` | -       | Custom filter panel renderer           |
+| Option                | Type                  | Default | Description                                 |
+| --------------------- | --------------------- | ------- | ------------------------------------------- |
+| `debounceMs`          | `number`              | `300`   | Debounce delay for filter input             |
+| `caseSensitive`       | `boolean`             | `false` | Case-sensitive string matching              |
+| `trimInput`           | `boolean`             | `true`  | Trim whitespace from filter input           |
+| `useWorker`           | `boolean`             | `true`  | Use Web Worker for datasets >1000 rows      |
+| `filterPanelRenderer` | `FilterPanelRenderer` | -       | Custom filter panel renderer                |
+| `valuesHandler`       | `FilterValuesHandler` | -       | Async handler to fetch unique filter values |
+| `filterHandler`       | `FilterHandler<TRow>` | -       | Async handler to apply filters remotely     |
 
 ## Column Configuration
 

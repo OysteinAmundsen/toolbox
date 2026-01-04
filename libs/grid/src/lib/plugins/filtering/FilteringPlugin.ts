@@ -82,6 +82,15 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const filterList = [...this.filters.values()];
     if (!filterList.length) return [...rows];
 
+    // If using async filterHandler, processRows becomes a passthrough
+    // Actual filtering happens in applyFiltersAsync and rows are set directly on grid
+    if (this.config.filterHandler) {
+      // Return cached result if available (set by async handler)
+      if (this.cachedResult) return this.cachedResult;
+      // Otherwise return rows as-is (filtering happens async)
+      return [...rows];
+    }
+
     // Check cache
     const newCacheKey = computeFilterCacheKey(filterList);
     if (this.cacheKey === newCacheKey && this.cachedResult) {
@@ -108,30 +117,40 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       const colIndex = cell.getAttribute('data-col');
       if (colIndex === null) return;
 
-      const col = this.columns[parseInt(colIndex, 10)] as ColumnConfig;
+      // Use visibleColumns since data-col is the index within _visibleColumns
+      const col = this.visibleColumns[parseInt(colIndex, 10)] as ColumnConfig;
       if (!col || col.filterable === false) return;
-
-      // Skip if button already exists
-      if (cell.querySelector('.tbw-filter-btn')) return;
 
       const field = col.field;
       if (!field) return;
 
+      const hasFilter = this.filters.has(field);
+
+      // Check if button already exists
+      let filterBtn = cell.querySelector('.tbw-filter-btn') as HTMLElement | null;
+
+      if (filterBtn) {
+        // Update active state of existing button
+        filterBtn.classList.toggle('active', hasFilter);
+        (cell as HTMLElement).classList.toggle('filtered', hasFilter);
+        return;
+      }
+
       // Create filter button
-      const filterBtn = document.createElement('button');
+      filterBtn = document.createElement('button');
       filterBtn.className = 'tbw-filter-btn';
       filterBtn.setAttribute('aria-label', `Filter ${col.header ?? field}`);
       filterBtn.innerHTML = `<svg viewBox="0 0 16 16" width="12" height="12"><path fill="currentColor" d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>`;
 
       // Mark button as active if filter exists
-      if (this.filters.has(field)) {
+      if (hasFilter) {
         filterBtn.classList.add('active');
-        cell.classList.add('filtered');
+        (cell as HTMLElement).classList.add('filtered');
       }
 
       filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.toggleFilterPanel(field, col, filterBtn);
+        this.toggleFilterPanel(field, col, filterBtn!);
       });
 
       // Append to header cell
@@ -149,8 +168,16 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   setFilter(field: string, filter: Omit<FilterModel, 'field'> | null): void {
     if (filter === null) {
       this.filters.delete(field);
+      this.excludedValues.delete(field);
     } else {
       this.filters.set(field, { ...filter, field });
+      // Sync excludedValues for set filters so the panel reflects correct state
+      if (filter.type === 'set' && filter.operator === 'notIn' && Array.isArray(filter.value)) {
+        this.excludedValues.set(field, new Set(filter.value));
+      } else if (filter.type === 'set') {
+        // Other set operators may have different semantics; clear for safety
+        this.excludedValues.delete(field);
+      }
     }
     // Invalidate cache
     this.cachedResult = null;
@@ -189,8 +216,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    */
   setFilterModel(filters: FilterModel[]): void {
     this.filters.clear();
+    this.excludedValues.clear();
     for (const filter of filters) {
       this.filters.set(filter.field, filter);
+      // Sync excludedValues for set filters so the panel reflects correct state
+      if (filter.type === 'set' && filter.operator === 'notIn' && Array.isArray(filter.value)) {
+        this.excludedValues.set(filter.field, new Set(filter.value));
+      }
     }
     this.cachedResult = null;
     this.cacheKey = null;
@@ -209,14 +241,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.filters.clear();
     this.excludedValues.clear();
     this.searchText.clear();
-    this.cachedResult = null;
-    this.cacheKey = null;
 
-    this.emit<FilterChangeDetail>('filter-change', {
-      filters: [],
-      filteredRowCount: this.rows.length,
-    });
-    this.requestRender();
+    this.applyFiltersInternal();
   }
 
   /**
@@ -227,14 +253,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.excludedValues.delete(field);
     this.searchText.delete(field);
 
-    this.cachedResult = null;
-    this.cacheKey = null;
-
-    this.emit<FilterChangeDetail>('filter-change', {
-      filters: [...this.filters.values()],
-      filteredRowCount: 0,
-    });
-    this.requestRender();
+    this.applyFiltersInternal();
   }
 
   /**
@@ -304,9 +323,36 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.panelElement = panel;
     this.openPanelField = field;
 
-    // Get unique values for this field (from source rows, not filtered)
-    const uniqueValues = getUniqueValues(this.sourceRows as Record<string, unknown>[], field);
+    // If using async valuesHandler, show loading state and fetch values
+    if (this.config.valuesHandler) {
+      panel.innerHTML = '<div class="tbw-filter-loading">Loading...</div>';
+      document.body.appendChild(panel);
+      this.positionPanel(panel, buttonEl);
+      this.setupPanelCloseHandler(panel, buttonEl);
 
+      this.config.valuesHandler(field, column).then((values) => {
+        // Check if panel is still open for this field
+        if (this.openPanelField !== field || !this.panelElement) return;
+        panel.innerHTML = '';
+        this.renderPanelContent(field, column, panel, values);
+      });
+      return;
+    }
+
+    // Sync path: get unique values from local rows
+    const uniqueValues = getUniqueValues(this.sourceRows as Record<string, unknown>[], field);
+    this.renderPanelContent(field, column, panel, uniqueValues);
+
+    // Position and append to body
+    document.body.appendChild(panel);
+    this.positionPanel(panel, buttonEl);
+    this.setupPanelCloseHandler(panel, buttonEl);
+  }
+
+  /**
+   * Render filter panel content with given values
+   */
+  private renderPanelContent(field: string, column: ColumnConfig, panel: HTMLElement, uniqueValues: unknown[]): void {
     // Get current excluded values or initialize empty
     let excludedSet = this.excludedValues.get(field);
     if (!excludedSet) {
@@ -343,18 +389,19 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Custom renderer can return undefined to fall back to default panel for specific columns
     let usedCustomRenderer = false;
     if (this.config.filterPanelRenderer) {
-      const result = this.config.filterPanelRenderer(panel, params);
+      this.config.filterPanelRenderer(panel, params);
       // If renderer added content to panel, it handled rendering
       usedCustomRenderer = panel.children.length > 0;
     }
     if (!usedCustomRenderer) {
       this.renderDefaultFilterPanel(panel, params, uniqueValues, excludedSet);
     }
+  }
 
-    // Position and append to body
-    document.body.appendChild(panel);
-    this.positionPanel(panel, buttonEl);
-
+  /**
+   * Setup click-outside handler to close the panel
+   */
+  private setupPanelCloseHandler(panel: HTMLElement, buttonEl: HTMLElement): void {
     // Create abort controller for panel-scoped listeners
     // This allows cleanup when panel closes OR when grid disconnects
     this.panelAbortController = new AbortController();
@@ -677,14 +724,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       });
     }
 
-    this.cachedResult = null;
-    this.cacheKey = null;
-
-    this.emit<FilterChangeDetail>('filter-change', {
-      filters: [...this.filters.values()],
-      filteredRowCount: 0,
-    });
-    this.requestRender();
+    this.applyFiltersInternal();
   }
 
   /**
@@ -699,11 +739,53 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       valueTo,
     });
 
+    this.applyFiltersInternal();
+  }
+
+  /**
+   * Internal method to apply filters (sync or async based on config)
+   */
+  private applyFiltersInternal(): void {
     this.cachedResult = null;
     this.cacheKey = null;
 
+    const filterList = [...this.filters.values()];
+
+    // If using async filterHandler, delegate to server
+    if (this.config.filterHandler) {
+      const gridEl = this.grid as HTMLElement;
+      gridEl.setAttribute('aria-busy', 'true');
+
+      const result = this.config.filterHandler(filterList, this.sourceRows as unknown[]);
+
+      // Handle async or sync result
+      const handleResult = (rows: unknown[]) => {
+        gridEl.removeAttribute('aria-busy');
+        this.cachedResult = rows;
+
+        // Update grid rows directly for async filtering
+        (this.grid as unknown as { rows: unknown[] }).rows = rows;
+
+        this.emit<FilterChangeDetail>('filter-change', {
+          filters: filterList,
+          filteredRowCount: rows.length,
+        });
+
+        // Trigger afterRender to update filter button active state
+        this.requestRender();
+      };
+
+      if (result && typeof (result as Promise<unknown[]>).then === 'function') {
+        (result as Promise<unknown[]>).then(handleResult);
+      } else {
+        handleResult(result as unknown[]);
+      }
+      return;
+    }
+
+    // Sync path: emit event and re-render (processRows will handle filtering)
     this.emit<FilterChangeDetail>('filter-change', {
-      filters: [...this.filters.values()],
+      filters: filterList,
       filteredRowCount: 0,
     });
     this.requestRender();

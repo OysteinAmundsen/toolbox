@@ -4,8 +4,52 @@
  * Handles column sorting state transitions and row ordering.
  */
 
-import type { ColumnConfig, InternalGrid } from '../types';
+import type { ColumnConfig, InternalGrid, SortHandler, SortState } from '../types';
 import { renderHeader } from './header';
+
+/**
+ * Default comparator for sorting values.
+ * Handles nulls (pushed to end), numbers, and string fallback.
+ */
+export function defaultComparator(a: unknown, b: unknown): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  return a > b ? 1 : a < b ? -1 : 0;
+}
+
+/**
+ * Built-in sort implementation using column comparator or default.
+ * This is the default sortHandler when none is configured.
+ */
+export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnConfig<T>[]): T[] {
+  const col = columns.find((c) => c.field === sortState.field);
+  const comparator = col?.sortComparator ?? defaultComparator;
+  const { field, direction } = sortState;
+
+  return [...rows].sort((rA: any, rB: any) => {
+    return comparator(rA[field], rB[field], rA, rB) * direction;
+  });
+}
+
+/**
+ * Apply sort result to grid and update UI.
+ * Called after sync or async sort completes.
+ */
+function finalizeSortResult(grid: InternalGrid, sortedRows: unknown[], col: ColumnConfig<any>, dir: 1 | -1): void {
+  grid._rows = sortedRows as any[];
+  // Bump epoch so renderVisibleRows triggers full inline rebuild
+  grid.__rowRenderEpoch++;
+  // Invalidate pooled rows to guarantee rebuild
+  grid._rowPool.forEach((r) => ((r as any).__epoch = -1));
+  renderHeader(grid);
+  grid.refreshVirtualWindow(true);
+  (grid as unknown as HTMLElement).dispatchEvent(
+    new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }),
+  );
+  // Trigger state change after sort applied
+  grid.requestStateChange?.();
+}
 
 /**
  * Cycle sort state for a column: none -> ascending -> descending -> none.
@@ -44,24 +88,30 @@ export function toggleSort(grid: InternalGrid, col: ColumnConfig<any>): void {
 }
 
 /**
- * Apply a concrete sort direction to rows using either the column's custom comparator
- * or a default comparator aware of null/undefined ordering.
+ * Apply a concrete sort direction to rows.
+ *
+ * Uses custom sortHandler from gridConfig if provided, otherwise uses built-in sorting.
+ * Supports both sync and async handlers (for server-side sorting).
  */
 export function applySort(grid: InternalGrid, col: ColumnConfig<any>, dir: 1 | -1): void {
   grid._sortState = { field: col.field, direction: dir };
-  const comparator =
-    (col as any).sortComparator ||
-    ((a: any, b: any) => (a == null && b == null ? 0 : a == null ? -1 : b == null ? 1 : a > b ? 1 : a < b ? -1 : 0));
-  grid._rows.sort((rA: any, rB: any) => comparator(rA[col.field], rB[col.field], rA, rB) * dir);
-  // Bump epoch so renderVisibleRows triggers full inline rebuild (ensures templated / compiled view cells update)
-  grid.__rowRenderEpoch++;
-  // Invalidate pooled rows to guarantee rebuild even if epoch comparison logic changes
-  grid._rowPool.forEach((r) => ((r as any).__epoch = -1));
-  renderHeader(grid);
-  grid.refreshVirtualWindow(true);
-  (grid as unknown as HTMLElement).dispatchEvent(
-    new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }),
-  );
-  // Trigger state change after sort applied
-  grid.requestStateChange?.();
+
+  const sortState: SortState = { field: col.field, direction: dir };
+  const columns = grid._columns as ColumnConfig<any>[];
+
+  // Get custom handler from effectiveConfig, or use built-in
+  const handler: SortHandler<any> = (grid as any).effectiveConfig?.sortHandler ?? builtInSort;
+
+  const result = handler(grid._rows, sortState, columns);
+
+  // Handle async (Promise) or sync result
+  if (result && typeof (result as Promise<any>).then === 'function') {
+    // Async handler - wait for result
+    (result as Promise<any[]>).then((sortedRows) => {
+      finalizeSortResult(grid, sortedRows, col, dir);
+    });
+  } else {
+    // Sync handler - apply immediately
+    finalizeSortResult(grid, result as any[], col, dir);
+  }
 }

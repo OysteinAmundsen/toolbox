@@ -278,3 +278,110 @@ loadPage(0);
     return container;
   },
 };
+
+/**
+ * Server-side sorting using the async sortHandler.
+ *
+ * When a column header is clicked, the grid calls the custom `sortHandler`
+ * which fetches pre-sorted data from the server instead of sorting locally.
+ * This is ideal for large datasets where sorting should happen on the backend.
+ */
+export const ServerSideSorting: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid');
+
+// Simulated server data
+const serverData = generateMockData(1000);
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'department', header: 'Department', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    { field: 'email', header: 'Email' },
+  ],
+
+  // Async sort handler - fetches sorted data from server
+  sortHandler: async (rows, sortState, columns) => {
+    console.log('Server-side sort:', sortState);
+
+    // Show loading state (optional)
+    grid.setAttribute('aria-busy', 'true');
+
+    try {
+      // Simulate API call with network delay
+      await new Promise(r => setTimeout(r, 300));
+
+      // In real apps, you'd call your API:
+      // const response = await fetch(\`/api/data?sort=\${sortState.field}&dir=\${sortState.direction}\`);
+      // return response.json();
+
+      // Simulated server-side sort
+      const sorted = [...serverData].sort((a, b) => {
+        const aVal = a[sortState.field];
+        const bVal = b[sortState.field];
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return cmp * sortState.direction;
+      });
+
+      return sorted;
+    } finally {
+      grid.removeAttribute('aria-busy');
+    }
+  },
+};
+
+// Set initial data
+grid.rows = serverData;
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    const serverData = generateMockData(1000);
+
+    grid.gridConfig = {
+      columns,
+      sortHandler: async (rows, sortState) => {
+        // Show loading indicator
+        grid.setAttribute('aria-busy', 'true');
+
+        try {
+          // Simulate server delay
+          await new Promise((r) => setTimeout(r, 300));
+
+          // Server-side sort simulation
+          const sorted = [...serverData].sort((a, b) => {
+            const aVal = (a as Record<string, unknown>)[sortState.field];
+            const bVal = (b as Record<string, unknown>)[sortState.field];
+            const cmp = aVal! < bVal! ? -1 : aVal! > bVal! ? 1 : 0;
+            return cmp * sortState.direction;
+          });
+
+          return sorted;
+        } finally {
+          grid.removeAttribute('aria-busy');
+        }
+      },
+    };
+
+    grid.rows = serverData;
+
+    return grid;
+  },
+};

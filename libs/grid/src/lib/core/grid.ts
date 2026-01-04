@@ -957,10 +957,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #onRowsChanged(): void {
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
     this.#rebuildRowModel();
-    // If no explicit columns provided, trigger full setup so inference runs
-    if (!this.#columns || (Array.isArray(this.#columns) && this.#columns.length === 0)) {
+    // If no columns configured from any source, trigger full setup so inference runs
+    // Check _columns (processed columns) or effectiveConfig.columns to avoid re-init when columns exist
+    const hasColumns =
+      this._columns.length > 0 ||
+      (Array.isArray(this.#effectiveConfig?.columns) && this.#effectiveConfig.columns.length > 0) ||
+      (Array.isArray(this.#columns) && this.#columns.length > 0);
+    if (!hasColumns) {
       this.#setup();
     } else {
+      // Process columns hooks (tree plugin needs this after row data changes)
+      this.#processColumns();
       this.refreshVirtualWindow(true);
     }
   }

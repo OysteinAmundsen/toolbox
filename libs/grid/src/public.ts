@@ -103,6 +103,9 @@ export type {
   ShellConfig,
   ShellHeaderConfig,
   SortChangeDetail,
+  // Sorting types
+  SortHandler,
+  SortState,
   ToolbarButtonConfig,
   ToolPanelConfig,
   ToolPanelDefinition,
@@ -110,6 +113,9 @@ export type {
 
 // Re-export FitModeEnum for runtime usage
 export { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
+
+// Re-export sorting utilities for custom sort handlers
+export { builtInSort, defaultComparator } from './lib/core/internal/sorting';
 // #endregion
 
 // #region Plugin Types
@@ -123,7 +129,14 @@ export type { CellRange, SelectionChangeDetail, SelectionConfig, SelectionMode }
 export type { TreeConfig, TreeExpandDetail } from './lib/plugins/tree/types';
 
 // Filtering plugin
-export type { FilterConfig, FilterModel, FilterOperator, FilterType } from './lib/plugins/filtering/types';
+export type {
+  FilterConfig,
+  FilterHandler,
+  FilterModel,
+  FilterOperator,
+  FilterType,
+  FilterValuesHandler,
+} from './lib/plugins/filtering/types';
 
 // Multi-sort plugin
 export type { MultiSortConfig, SortModel } from './lib/plugins/multi-sort/types';

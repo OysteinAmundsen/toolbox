@@ -45,6 +45,40 @@ grid.ready().then(() => plugin.setDataSource(dataSource));
 
 <Canvas of={ServerSideStories.PagingMode} withToolbar />
 
+### Server-Side Sorting
+
+Use the `sortHandler` config option for async sorting. When a user clicks a sortable column header,
+your handler is called instead of the built-in sorting logic. This is ideal for large datasets
+where sorting should happen on the backend.
+
+<Canvas of={ServerSideStories.ServerSideSorting} withToolbar />
+
+```ts
+grid.gridConfig = {
+  columns: [...],
+  sortHandler: async (rows, sortState, columns) => {
+    // sortState: { field: 'name', direction: 1 } // 1 = asc, -1 = desc
+    const response = await fetch(
+      `/api/data?sort=${sortState.field}&dir=${sortState.direction === 1 ? 'asc' : 'desc'}`
+    );
+    return response.json();
+  },
+};
+```
+
+The handler receives:
+
+- `rows` - Current row array (may be useful for optimistic updates)
+- `sortState` - `{ field: string, direction: 1 | -1 }`
+- `columns` - Column configurations (access `sortComparator` if needed)
+
+Return the sorted array directly or a Promise that resolves to it.
+
+### Server-Side Filtering
+
+For server-side filtering, use the FilteringPlugin's async handlers.
+See the [Filtering Plugin documentation](?path=/docs/grid-plugins-filtering--docs#async-handlers-for-server-side-filtering) for details on `valuesHandler` and `filterHandler`.
+
 ## Configuration Options
 
 | Option                  | Type     | Default    | Description                |

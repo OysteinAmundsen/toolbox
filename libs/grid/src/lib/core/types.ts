@@ -419,10 +419,64 @@ export interface GridConfig<TRow = any> {
    * Individual plugins can override these defaults in their own config.
    */
   animation?: AnimationConfig;
+
+  /**
+   * Custom sort handler for full control over sorting behavior.
+   *
+   * When provided, this handler is called instead of the built-in sorting logic.
+   * Enables custom sorting algorithms, server-side sorting, or plugin-specific sorting.
+   *
+   * The handler receives:
+   * - `rows`: Current row array to sort
+   * - `sortState`: Sort field and direction (1 = asc, -1 = desc)
+   * - `columns`: Column configurations (for accessing sortComparator)
+   *
+   * Return the sorted array (sync) or a Promise that resolves to the sorted array (async).
+   * For server-side sorting, return a Promise that resolves when data is fetched.
+   *
+   * @example
+   * ```ts
+   * // Custom stable sort
+   * sortHandler: (rows, state, cols) => {
+   *   return stableSort(rows, (a, b) => compare(a[state.field], b[state.field]) * state.direction);
+   * }
+   *
+   * // Server-side sorting
+   * sortHandler: async (rows, state) => {
+   *   const response = await fetch(`/api/data?sort=${state.field}&dir=${state.direction}`);
+   *   return response.json();
+   * }
+   * ```
+   */
+  sortHandler?: SortHandler<TRow>;
 }
 // #endregion
 
 // #region Animation
+
+/**
+ * Sort state passed to custom sort handlers.
+ */
+export interface SortState {
+  /** Field to sort by */
+  field: string;
+  /** Sort direction: 1 = ascending, -1 = descending */
+  direction: 1 | -1;
+}
+
+/**
+ * Custom sort handler function signature.
+ *
+ * @param rows - Current row array to sort
+ * @param sortState - Sort field and direction
+ * @param columns - Column configurations (for accessing sortComparator)
+ * @returns Sorted array (sync) or Promise resolving to sorted array (async)
+ */
+export type SortHandler<TRow = any> = (
+  rows: TRow[],
+  sortState: SortState,
+  columns: ColumnConfig<TRow>[],
+) => TRow[] | Promise<TRow[]>;
 
 /**
  * Animation behavior mode.
@@ -466,21 +520,13 @@ export interface AnimationConfig {
    * @default 'ease-out'
    */
   easing?: string;
-
-  /**
-   * Animation style for sorting (row position changes).
-   * Sorting is a core feature, so its animation is configured here.
-   * @default false (disabled by default for performance)
-   */
-  sort?: AnimationStyle;
 }
 
 /** Default animation configuration */
-export const DEFAULT_ANIMATION_CONFIG: Required<AnimationConfig> = {
+export const DEFAULT_ANIMATION_CONFIG: Required<Omit<AnimationConfig, 'sort'>> = {
   mode: 'reduced-motion',
   duration: 200,
   easing: 'ease-out',
-  sort: false,
 };
 
 // #endregion

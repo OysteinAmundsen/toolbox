@@ -333,3 +333,128 @@ export const NoDebounce: Story = {
     return grid;
   },
 };
+
+// Generate larger dataset for async demo
+function generateMockData(count: number) {
+  const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+  const statuses = ['Active', 'Inactive', 'On Leave'];
+  const data = [];
+  for (let i = 0; i < count; i++) {
+    data.push({
+      id: i + 1,
+      name: `Employee ${i + 1}`,
+      department: departments[i % departments.length],
+      salary: 50000 + Math.floor(Math.random() * 50000),
+      status: statuses[i % statuses.length],
+    });
+  }
+  return data;
+}
+
+/**
+ * Async filtering with server-side handlers. Use `valuesHandler` to fetch
+ * unique filter values from a server, and `filterHandler` to apply filters
+ * remotely. Ideal for large datasets where not all data is loaded locally.
+ */
+export const AsyncFiltering: StoryObj = {
+  name: 'Async/Server-Side Filtering',
+  parameters: {
+    docs: {
+      description: {
+        story: `For large or server-side datasets, use \`valuesHandler\` to fetch unique values
+from the server and \`filterHandler\` to apply filters remotely. The filter panel
+shows a loading indicator while fetching values.`,
+      },
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'status', header: 'Status' },
+  ],
+  plugins: [
+    new FilteringPlugin({
+      // Fetch unique values from server
+      valuesHandler: async (field, column) => {
+        const response = await fetch(\`/api/distinct-values?field=\${field}\`);
+        return response.json();
+      },
+      // Apply filters on server
+      filterHandler: async (filters, currentRows) => {
+        const response = await fetch('/api/data', {
+          method: 'POST',
+          body: JSON.stringify({ filters }),
+        });
+        return response.json();
+      },
+    }),
+  ],
+};
+
+grid.rows = [...]; // Initial data
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    const serverData = generateMockData(1000);
+
+    // Simulate server-side unique value extraction
+    const getUniqueValues = async (field: string): Promise<unknown[]> => {
+      await new Promise((r) => setTimeout(r, 200));
+      const values = [...new Set(serverData.map((row) => (row as Record<string, unknown>)[field]))];
+      return values.sort();
+    };
+
+    // Simulate server-side filtering
+    // FilterModel uses { field, operator: 'notIn', value: excludedValues[] }
+    const applyServerFilters = async (
+      filters: { field: string; operator: string; value: unknown }[],
+    ): Promise<typeof serverData> => {
+      await new Promise((r) => setTimeout(r, 300));
+
+      if (filters.length === 0) return serverData;
+
+      return serverData.filter((row) => {
+        return filters.every((filter) => {
+          const excludedValues = filter.value as unknown[];
+          if (!excludedValues || excludedValues.length === 0) return true;
+
+          const val = (row as Record<string, unknown>)[filter.field];
+          // 'notIn' means exclude these values, so row passes if value is NOT in excluded list
+          return !excludedValues.includes(val);
+        });
+      });
+    };
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new FilteringPlugin({
+          valuesHandler: getUniqueValues,
+          filterHandler: applyServerFilters,
+        }),
+      ],
+    };
+
+    grid.rows = serverData;
+
+    return grid;
+  },
+};

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applySort, toggleSort } from './sorting';
+import { applySort, builtInSort, defaultComparator, toggleSort } from './sorting';
 
 // Mock renderHeader to avoid import resolution issues in tests
 vi.mock('./header', () => ({
@@ -206,5 +206,114 @@ describe('applySort', () => {
     const g = makeGrid();
     applySort(g, g._columns[1], -1);
     expect(g._sortState).toEqual({ field: 'name', direction: -1 });
+  });
+
+  it('uses custom sortHandler from effectiveConfig', () => {
+    const customHandler = vi.fn((rows, sortState) => {
+      // Custom: sort by name length instead of value
+      return [...rows].sort((a, b) => a.name.length - b.name.length);
+    });
+
+    const g = makeGrid();
+    g.effectiveConfig = { sortHandler: customHandler };
+
+    applySort(g, g._columns[0], 1);
+
+    expect(customHandler).toHaveBeenCalledWith(expect.any(Array), { field: 'id', direction: 1 }, expect.any(Array));
+    // Custom handler sorted by name length: Bob (3), Alice (5), Charlie (7)
+    expect(g._rows.map((r: any) => r.name)).toEqual(['Bob', 'Alice', 'Charlie']);
+  });
+
+  it('supports async sortHandler', async () => {
+    const asyncHandler = vi.fn(async (rows, sortState) => {
+      // Simulate server delay
+      await new Promise((r) => setTimeout(r, 10));
+      return [...rows].sort((a, b) => a.id - b.id);
+    });
+
+    const g = makeGrid();
+    g.effectiveConfig = { sortHandler: asyncHandler };
+
+    applySort(g, g._columns[0], 1);
+
+    // Wait for async handler to complete
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(asyncHandler).toHaveBeenCalled();
+    expect(g._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('defaultComparator', () => {
+  it('returns 0 for equal values', () => {
+    expect(defaultComparator(5, 5)).toBe(0);
+    expect(defaultComparator('a', 'a')).toBe(0);
+  });
+
+  it('returns 0 for both null/undefined', () => {
+    expect(defaultComparator(null, null)).toBe(0);
+    expect(defaultComparator(undefined, undefined)).toBe(0);
+    expect(defaultComparator(null, undefined)).toBe(0);
+  });
+
+  it('pushes null/undefined to top (returns -1)', () => {
+    expect(defaultComparator(null, 5)).toBe(-1);
+    expect(defaultComparator(undefined, 'a')).toBe(-1);
+  });
+
+  it('returns 1 when second is null/undefined', () => {
+    expect(defaultComparator(5, null)).toBe(1);
+    expect(defaultComparator('a', undefined)).toBe(1);
+  });
+
+  it('compares numbers correctly', () => {
+    expect(defaultComparator(1, 2)).toBe(-1);
+    expect(defaultComparator(3, 2)).toBe(1);
+  });
+
+  it('compares strings correctly', () => {
+    expect(defaultComparator('a', 'b')).toBe(-1);
+    expect(defaultComparator('z', 'a')).toBe(1);
+  });
+});
+
+describe('builtInSort', () => {
+  const rows = [
+    { id: 3, name: 'Charlie' },
+    { id: 1, name: 'Alice' },
+    { id: 2, name: 'Bob' },
+  ];
+
+  const columns = [
+    { field: 'id', sortable: true },
+    { field: 'name', sortable: true },
+  ];
+
+  it('sorts ascending by field', () => {
+    const result = builtInSort(rows, { field: 'id', direction: 1 }, columns as any);
+    expect(result.map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it('sorts descending by field', () => {
+    const result = builtInSort(rows, { field: 'id', direction: -1 }, columns as any);
+    expect(result.map((r) => r.id)).toEqual([3, 2, 1]);
+  });
+
+  it('uses column sortComparator when provided', () => {
+    const columnsWithComparator = [
+      {
+        field: 'name',
+        sortable: true,
+        sortComparator: (a: string, b: string) => b.localeCompare(a), // reverse
+      },
+    ];
+    const result = builtInSort(rows, { field: 'name', direction: 1 }, columnsWithComparator as any);
+    expect(result.map((r) => r.name)).toEqual(['Charlie', 'Bob', 'Alice']);
+  });
+
+  it('does not mutate original array', () => {
+    const original = [...rows];
+    builtInSort(rows, { field: 'id', direction: 1 }, columns as any);
+    expect(rows.map((r) => r.id)).toEqual(original.map((r) => r.id));
   });
 });

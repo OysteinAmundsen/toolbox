@@ -170,6 +170,7 @@
 }
 :host .header-row > .cell > span[part~='sort-indicator'] {
   flex-shrink: 0;
+  opacity: 0.6;
 }
 :host .header-row > .cell:last-child {
   border-right: 0;
@@ -453,7 +454,7 @@
   --tbw-tool-panel-bg: var(--tbw-color-panel-bg);
   --tbw-tool-panel-border: var(--tbw-color-border);
   --tbw-tool-panel-header-height: 40px;
-  --tbw-tool-panel-transition: 200ms ease-out;
+  --tbw-tool-panel-transition: var(--tbw-animation-duration) var(--tbw-animation-easing);
 
   /* Toolbar CSS variables */
   --tbw-toolbar-button-size: 32px;
@@ -621,7 +622,7 @@
   cursor: col-resize;
   background: transparent;
   z-index: 10;
-  transition: background 0.15s ease;
+  transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
 }
 
 :host .tbw-tool-panel-resize[data-handle-position='left'] {

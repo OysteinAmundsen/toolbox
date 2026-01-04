@@ -94,8 +94,6 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
         // Add sort arrow indicator
         const indicator = document.createElement('span');
         indicator.className = 'sort-indicator';
-        indicator.style.marginLeft = '4px';
-        indicator.style.opacity = '0.8';
         // Use grid-level icons (fall back to defaults)
         this.setIcon(indicator, this.resolveIcon(sortDir === 'asc' ? 'sortAsc' : 'sortDesc'));
         cell.appendChild(indicator);

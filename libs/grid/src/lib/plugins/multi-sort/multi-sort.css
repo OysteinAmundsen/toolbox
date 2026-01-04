@@ -8,6 +8,10 @@
   margin-left: 4px;
   opacity: 0.8;
 }
+.sort-indicator {
+  margin-left: 4px;
+  opacity: 0.8;
+}
 .sort-index {
   font-size: 10px;
   background: var(--tbw-multi-sort-badge-bg, var(--tbw-color-panel-bg));

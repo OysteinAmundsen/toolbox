@@ -55,7 +55,6 @@ export function renderHeader(grid: InternalGrid): void {
       cell.tabIndex = 0;
       const icon = document.createElement('span');
       addPart(icon as any, 'sort-indicator');
-      icon.style.opacity = '0.6';
       const active = grid._sortState?.field === col.field ? grid._sortState.direction : 0;
       // Use grid-level icons (fall back to defaults)
       const icons = { ...DEFAULT_GRID_ICONS, ...grid.icons };

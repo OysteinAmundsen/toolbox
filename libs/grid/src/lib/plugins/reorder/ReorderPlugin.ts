@@ -369,6 +369,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   /**
    * Apply FLIP animation for column reorder.
+   * Uses CSS transitions - JS sets initial transform and toggles class.
    * @param oldPositions - Header positions captured before DOM change
    */
   private animateFLIP(oldPositions: Map<string, number>): void {
@@ -388,21 +389,20 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     if (deltas.size === 0) return;
 
-    // Collect all cells (headers + body) for animation
+    // Set initial transform (First → Last position offset)
     const cells: HTMLElement[] = [];
     shadowRoot.querySelectorAll('.cell[data-field]').forEach((cell) => {
       const deltaX = deltas.get(cell.getAttribute('data-field') ?? '');
       if (deltaX !== undefined) {
         const el = cell as HTMLElement;
         el.style.transform = `translateX(${deltaX}px)`;
-        el.style.transition = 'none';
         cells.push(el);
       }
     });
 
     if (cells.length === 0) return;
 
-    // Force reflow then animate to final position
+    // Force reflow then animate to final position via CSS transition
     void (shadowRoot.host as HTMLElement).offsetHeight;
 
     const duration = this.animationDuration;
@@ -410,32 +410,69 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     requestAnimationFrame(() => {
       cells.forEach((el) => {
         el.classList.add('flip-animating');
-        el.style.transition = `transform ${duration}ms ease-out`;
         el.style.transform = '';
       });
 
       // Cleanup after animation
-      const cleanup = () =>
+      setTimeout(() => {
         cells.forEach((el) => {
-          el.style.transition = '';
           el.style.transform = '';
           el.classList.remove('flip-animating');
         });
-
-      cells[0].addEventListener('transitionend', cleanup, { once: true });
-      setTimeout(cleanup, duration + 50); // Fallback
+      }, duration + 50);
     });
   }
 
   /**
-   * Apply fade animation using View Transitions API.
+   * Apply crossfade animation for moved columns.
+   * Uses CSS keyframes - JS just toggles classes.
    */
   private animateFade(applyChange: () => void): void {
-    if (!('startViewTransition' in document)) {
+    const shadowRoot = this.shadowRoot;
+    if (!shadowRoot) {
       applyChange();
       return;
     }
-    (document as any).startViewTransition(applyChange);
+
+    // Capture old positions to detect which columns moved
+    const oldPositions = this.captureHeaderPositions();
+
+    // Apply the change first
+    applyChange();
+
+    // Find which columns changed position
+    const movedFields = new Set<string>();
+    shadowRoot.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
+      const field = cell.getAttribute('data-field');
+      if (!field) return;
+      const oldLeft = oldPositions.get(field);
+      if (oldLeft === undefined) return;
+      const newLeft = cell.getBoundingClientRect().left;
+      if (Math.abs(oldLeft - newLeft) > 1) {
+        movedFields.add(field);
+      }
+    });
+
+    if (movedFields.size === 0) return;
+
+    // Add animation class to moved columns (headers + body cells)
+    const cells: HTMLElement[] = [];
+    shadowRoot.querySelectorAll('.cell[data-field]').forEach((cell) => {
+      const field = cell.getAttribute('data-field');
+      if (field && movedFields.has(field)) {
+        const el = cell as HTMLElement;
+        el.classList.add('fade-animating');
+        cells.push(el);
+      }
+    });
+
+    if (cells.length === 0) return;
+
+    // Remove class after animation completes
+    const duration = this.animationDuration;
+    setTimeout(() => {
+      cells.forEach((el) => el.classList.remove('fade-animating'));
+    }, duration + 50);
   }
 
   /**

@@ -29,6 +29,21 @@
 
 /* FLIP animation: cells slide smoothly during reorder */
 .cell.flip-animating {
+  transition: transform var(--tbw-animation-duration, 200ms) ease-out;
   will-change: transform;
   z-index: 1;
+}
+
+/* Fade animation: crossfade columns at new position */
+@keyframes reorder-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cell.fade-animating {
+  animation: reorder-fade-in var(--tbw-animation-duration, 200ms) ease-out backwards;
 }

@@ -669,13 +669,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           const currentScrollTop = fauxScrollbar.scrollTop;
           const rowHeight = this._virtualization.rowHeight;
 
-          // Smooth scroll: apply offset immediately for fluid motion
-          // Calculate even-aligned start to preserve zebra stripe parity
-          // DOM nth-child(even) will always match data row parity
-          const rawStart = Math.floor(currentScrollTop / rowHeight);
-          const evenAlignedStart = rawStart - (rawStart % 2);
-          const subPixelOffset = -(currentScrollTop - evenAlignedStart * rowHeight);
-          rowsEl.style.transform = `translateY(${subPixelOffset}px)`;
+          // Bypass mode: all rows are rendered, just translate by scroll position
+          // No need for virtual window calculations
+          if (this._rows.length <= this._virtualization.bypassThreshold) {
+            rowsEl.style.transform = `translateY(${-currentScrollTop}px)`;
+          } else {
+            // Virtualized mode: calculate sub-pixel offset for smooth scrolling
+            // Even-aligned start preserves zebra stripe parity
+            // DOM nth-child(even) will always match data row parity
+            const rawStart = Math.floor(currentScrollTop / rowHeight);
+            const evenAlignedStart = rawStart - (rawStart % 2);
+            const subPixelOffset = -(currentScrollTop - evenAlignedStart * rowHeight);
+            rowsEl.style.transform = `translateY(${subPixelOffset}px)`;
+          }
 
           // Batch content update with requestAnimationFrame
           // Old content stays visible with smooth offset until new content renders
@@ -2040,13 +2046,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this._rows.length <= this._virtualization.bypassThreshold) {
       this._virtualization.start = 0;
       this._virtualization.end = totalRows;
-      this._bodyEl.style.transform = 'translateY(0px)';
+      // Only reset transform on force refresh (initial render, data change)
+      // Don't reset on scroll-triggered updates - the scroll handler manages transforms
+      if (force) {
+        this._bodyEl.style.transform = 'translateY(0px)';
+      }
       this.#renderVisibleRows(0, totalRows, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
       if (this._virtualization.totalHeightEl) {
-        // Account for horizontal scrollbar height even in bypass mode
-        const scrollAreaEl = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;
-        const hScrollbarHeight = scrollAreaEl ? scrollAreaEl.offsetHeight - scrollAreaEl.clientHeight : 0;
-        this._virtualization.totalHeightEl.style.height = `${totalRows * this._virtualization.rowHeight + hScrollbarHeight}px`;
+        // The faux-vscroll height includes the header, but rows-viewport doesn't.
+        // viewportEl.clientHeight already reflects any reduction from horizontal scrollbar,
+        // so heightDiff captures all vertical space differences.
+        const fauxScrollHeight = this._virtualization.container?.clientHeight ?? 0;
+        const viewportHeight = this._virtualization.viewportEl?.clientHeight ?? fauxScrollHeight;
+        const heightDiff = fauxScrollHeight - viewportHeight;
+        this._virtualization.totalHeightEl.style.height = `${totalRows * this._virtualization.rowHeight + heightDiff}px`;
       }
       // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
       const innerGrid = this.#shadow.querySelector('.rows-body');

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/OysteinAmundsen/toolbox/compare/v0.2.7...v0.2.8) (2026-01-05)
+
+
+### Bug Fixes
+
+* **grid:** scroll bug when in datasets with less than 24 rows ([e49206f](https://github.com/OysteinAmundsen/toolbox/commit/e49206ffa986707e52400a7954a9d113bc08c853))
+
 ## [0.2.7](https://github.com/OysteinAmundsen/toolbox/compare/v0.2.6...v0.2.7) (2026-01-04)
 
 

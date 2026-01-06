@@ -127,7 +127,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #columns?: ColumnConfig<T>[] | ColumnConfigMap<T>;
   #gridConfig?: GridConfig<T>;
   #fitMode?: FitMode;
-  #editOn?: string;
+  #editOn?: string | boolean;
   // #endregion
 
   // #region Private properties
@@ -291,10 +291,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
-  get editOn(): string | undefined {
+  get editOn(): string | boolean | undefined {
     return this.#effectiveConfig.editOn;
   }
-  set editOn(value: string | undefined) {
+  set editOn(value: string | boolean | undefined) {
     const oldValue = this.#editOn;
     this.#editOn = value;
     if (oldValue !== value) {
@@ -1587,6 +1587,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   async beginBulkEdit(rowIndex: number): Promise<void> {
+    // editOn: false disables all editing
+    if (this.#effectiveConfig.editOn === false) return;
+
     // Check if any columns are editable - if not, skip edit mode entirely
     const hasEditableColumn = this._columns.some((col) => (col as ColumnInternal<T>).editable);
     if (!hasEditableColumn) return;

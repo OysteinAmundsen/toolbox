@@ -86,7 +86,7 @@ const grid = document.querySelector('tbw-grid');
 grid.columns = [...];
 grid.rows = [...];
 grid.fitMode = 'stretch'; // or 'fixed'
-grid.editOn = 'dblclick'; // or 'click'
+grid.editOn = 'dblClick'; // or 'click', or false to disable editing
 ```
 
 ### Via gridConfig
@@ -95,7 +95,7 @@ grid.editOn = 'dblclick'; // or 'click'
 grid.gridConfig = {
   columns: [...],
   fitMode: 'stretch',
-  editOn: 'dblclick',
+  editOn: 'dblClick',
   plugins: [...],
 };
 grid.rows = [...];

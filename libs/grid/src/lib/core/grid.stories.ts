@@ -85,7 +85,7 @@ const meta: Meta = {
     },
     editOn: {
       control: { type: 'radio' },
-      options: ['click', 'dblclick'],
+      options: ['click', 'dblClick'],
       description: 'Edit trigger mode',
       table: { category: 'Features' },
       if: { arg: 'editable' },
@@ -100,7 +100,7 @@ const meta: Meta = {
     sortable: true,
     resizable: true,
     editable: true,
-    editOn: 'dblclick',
+    editOn: 'dblClick',
   },
 };
 export default meta;
@@ -114,7 +114,7 @@ interface GridArgs {
   sortable: boolean;
   resizable: boolean;
   editable: boolean;
-  editOn: 'click' | 'dblclick';
+  editOn: 'click' | 'dblClick';
 }
 type Story = StoryObj<GridArgs>;
 
@@ -210,7 +210,7 @@ const grid = document.querySelector('tbw-grid');
 
 // Configure grid
 grid.fitMode = 'stretch';
-grid.editOn = 'dblclick';
+grid.editOn = 'dblClick';
 
 grid.columns = [
   { field: 'id', header: 'ID', type: 'number', sortable: true, resizable: true },

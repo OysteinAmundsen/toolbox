@@ -27,10 +27,10 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 
 ### Layout Properties
 
-| Property  | Type                    | Default      | Description            |
-| --------- | ----------------------- | ------------ | ---------------------- |
-| `fitMode` | `'stretch' \| 'fixed'`  | `'stretch'`  | Column sizing strategy |
-| `editOn`  | `'click' \| 'dblclick'` | `'dblclick'` | Edit trigger mode      |
+| Property  | Type                                | Default      | Description            |
+| --------- | ----------------------------------- | ------------ | ---------------------- |
+| `fitMode` | `'stretch' \| 'fixed'`              | `'stretch'`  | Column sizing strategy |
+| `editOn`  | `'click' \| 'dblClick' \| false`    | `'dblClick'` | Edit trigger mode. Set to `false` to disable editing. |
 
 ### Read-only Properties
 
@@ -43,13 +43,13 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 
 The grid supports configuration via HTML attributes for declarative usage. JSON-serialized values are used for complex types.
 
-| Attribute     | Maps to Property | Type   | Description                 |
-| ------------- | ---------------- | ------ | --------------------------- |
-| `rows`        | `rows`           | JSON   | Row data as JSON array      |
-| `columns`     | `columns`        | JSON   | Column config as JSON array |
-| `grid-config` | `gridConfig`     | JSON   | Full config object as JSON  |
-| `fit-mode`    | `fitMode`        | string | `'stretch'` or `'fixed'`    |
-| `edit-on`     | `editOn`         | string | `'click'` or `'dblclick'`   |
+| Attribute     | Maps to Property | Type   | Description                           |
+| ------------- | ---------------- | ------ | ------------------------------------- |
+| `rows`        | `rows`           | JSON   | Row data as JSON array                |
+| `columns`     | `columns`        | JSON   | Column config as JSON array           |
+| `grid-config` | `gridConfig`     | JSON   | Full config object as JSON            |
+| `fit-mode`    | `fitMode`        | string | `'stretch'` or `'fixed'`              |
+| `edit-on`     | `editOn`         | string | `'click'`, `'dblClick'`, or `'false'` |
 
 ### Example
 
@@ -58,7 +58,7 @@ The grid supports configuration via HTML attributes for declarative usage. JSON-
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
   columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
   fit-mode="stretch"
-  edit-on="dblclick"
+  edit-on="dblClick"
 >
 </tbw-grid>
 ```
@@ -279,7 +279,7 @@ interface ColumnConfig {
 interface GridConfig<T> {
   columns?: ColumnConfig[];
   fitMode?: 'stretch' | 'fixed';
-  editOn?: 'click' | 'dblclick';
+  editOn?: 'click' | 'dblClick' | false;
   plugins?: BaseGridPlugin[];
   shell?: ShellConfig;
   animation?: AnimationConfig;

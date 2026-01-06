@@ -42,7 +42,7 @@ The grid supports multiple configuration methods, all converging into a **single
 grid.gridConfig = {
   columns: [{ field: 'name' }, { field: 'age', type: 'number' }],
   fitMode: 'stretch',
-  editOn: 'dblclick',
+  editOn: 'dblClick',
   plugins: [new SelectionPlugin({ mode: 'row' })],
   shell: { header: { title: 'My Data Grid' } },
 };
@@ -53,7 +53,7 @@ grid.gridConfig = {
 ```typescript
 grid.columns = [{ field: 'name' }, { field: 'age' }];
 grid.fitMode = 'stretch';
-grid.editOn = 'dblclick';
+grid.editOn = 'dblClick';
 ```
 
 **3. Via Light DOM (declarative HTML):**
@@ -136,7 +136,7 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `columns`     | JSON   | Column definitions (JSON-serialized)        |
 | `grid-config` | JSON   | Full configuration object (JSON-serialized) |
 | `fit-mode`    | string | Column sizing: `'stretch'` or `'fixed'`     |
-| `edit-on`     | string | Edit trigger: `'click'` or `'dblclick'`     |
+| `edit-on`     | string | Edit trigger: `'click'` or `'dblClick'`     |
 
 **Example with HTML attributes:**
 
@@ -145,21 +145,21 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
   columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
   fit-mode="stretch"
-  edit-on="dblclick"
+  edit-on="dblClick"
 >
 </tbw-grid>
 ```
 
 ### Properties
 
-| Property     | Type                    | Description                                        |
-| ------------ | ----------------------- | -------------------------------------------------- |
-| `rows`       | `T[]`                   | Data array                                         |
-| `sourceRows` | `T[]` (readonly)        | Original unfiltered/unprocessed rows               |
-| `columns`    | `ColumnConfig[]`        | Column definitions (→ `gridConfig.columns`)        |
-| `gridConfig` | `GridConfig`            | Full configuration object (single source of truth) |
-| `fitMode`    | `'stretch' \| 'fixed'`  | Column sizing behavior (→ `gridConfig.fitMode`)    |
-| `editOn`     | `'click' \| 'dblclick'` | Edit trigger (→ `gridConfig.editOn`)               |
+| Property     | Type                             | Description                                                              |
+| ------------ | -------------------------------- | ------------------------------------------------------------------------ |
+| `rows`       | `T[]`                            | Data array                                                               |
+| `sourceRows` | `T[]` (readonly)                 | Original unfiltered/unprocessed rows                                     |
+| `columns`    | `ColumnConfig[]`                 | Column definitions (→ `gridConfig.columns`)                              |
+| `gridConfig` | `GridConfig`                     | Full configuration object (single source of truth)                       |
+| `fitMode`    | `'stretch' \| 'fixed'`           | Column sizing behavior (→ `gridConfig.fitMode`)                          |
+| `editOn`     | `'click' \| 'dblClick' \| false` | Edit trigger (→ `gridConfig.editOn`). Set to `false` to disable editing. |
 
 ### Methods
 
@@ -240,7 +240,7 @@ See [Storybook](https://oysteinamundsen.github.io/toolbox/) for complete configu
 interface GridConfig {
   columns?: ColumnConfig[];
   fitMode?: 'stretch' | 'fixed';
-  editOn?: 'click' | 'dblclick';
+  editOn?: 'click' | 'dblClick' | false;
   plugins?: BaseGridPlugin[]; // Array of plugin class instances
   icons?: GridIcons; // Centralized icon configuration
   shell?: ShellConfig; // Optional header bar and tool panels

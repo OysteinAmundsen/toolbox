@@ -356,8 +356,8 @@ export interface GridConfig<TRow = any> {
   columns?: ColumnConfigMap<TRow>;
   /** Sizing mode for columns. Can also be set via `fitMode` prop. */
   fitMode?: FitMode;
-  /** Edit activation mode ('click' | 'dblclick'). Can also be set via `editOn` prop. */
-  editOn?: string;
+  /** Edit activation mode ('click' | 'dblClick' | false). Set to false to disable editing. Can also be set via `editOn` prop. */
+  editOn?: string | boolean;
   /**
    * Row height in pixels for virtualization calculations.
    * The virtualization system assumes uniform row heights for performance.

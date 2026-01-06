@@ -111,7 +111,7 @@ The grid supports JSON-serialized configuration via HTML attributes:
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
   columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
   fit-mode="stretch"
-  edit-on="dblclick"
+  edit-on="dblClick"
 >
 </tbw-grid>
 ```
@@ -122,7 +122,7 @@ Supported attributes:
 - `columns` - JSON array of column configurations
 - `grid-config` - JSON object with full GridConfig
 - `fit-mode` - String: `'stretch'` or `'fixed'`
-- `edit-on` - String: `'click'` or `'dblclick'`
+- `edit-on` - String: `'click'` or `'dblClick'`
 
 ### Light DOM Configuration
 

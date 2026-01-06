@@ -129,7 +129,7 @@ describe('HTML attribute configuration', () => {
       'grid-config',
       JSON.stringify({
         fitMode: 'stretch',
-        editOn: 'dblclick',
+        editOn: 'dblClick',
         columns: [{ field: 'name', header: 'Full Name' }],
       }),
     );
@@ -140,7 +140,7 @@ describe('HTML attribute configuration', () => {
 
     const cfg = await grid.getConfig();
     expect(cfg.fitMode).toBe('stretch');
-    expect(cfg.editOn).toBe('dblclick');
+    expect(cfg.editOn).toBe('dblClick');
     expect(cfg.columns[0].header).toBe('Full Name');
   }, 20000);
 

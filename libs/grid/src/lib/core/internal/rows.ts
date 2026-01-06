@@ -651,6 +651,13 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
           // Read row index from data attribute to handle virtualization row reuse
           const currentRowIndex = Number(cell.getAttribute('data-row'));
           if (isNaN(currentRowIndex)) return;
+          // Use beginBulkEdit if available for consistent behavior with Enter key
+          if (typeof grid.beginBulkEdit === 'function') {
+            grid._focusRow = currentRowIndex;
+            grid._focusCol = Number(cell.getAttribute('data-col')) || 0;
+            grid.beginBulkEdit(currentRowIndex);
+            return;
+          }
           const currentRowData = grid._rows[currentRowIndex];
           if (!currentRowData) return;
           startRowEdit(grid, currentRowIndex, currentRowData);
@@ -756,27 +763,81 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
 
   const cellEl = (e.target as HTMLElement)?.closest('.cell[data-col]') as HTMLElement | null;
   if (cellEl) {
-    // Skip focus/ensureCellVisible if cell is already editing - avoid wiping editors
-    if (cellEl.classList.contains('editing')) return;
     const colIndex = Number(cellEl.getAttribute('data-col'));
     if (!isNaN(colIndex)) {
       // Dispatch to plugin system first - if handled, stop propagation
       if (grid._dispatchCellClick?.(e, rowIndex, colIndex, cellEl)) {
         return;
       }
+
+      // Always update focus to the clicked cell
+      const focusChanged = grid._focusRow !== rowIndex || grid._focusCol !== colIndex;
       grid._focusRow = rowIndex;
       grid._focusCol = colIndex;
+
+      // If clicking an already-editing cell, just update focus styling and return
+      if (cellEl.classList.contains('editing')) {
+        if (focusChanged) {
+          // Update .cell-focus class to reflect new focus (clear from entire shadow root)
+          const root = grid.shadowRoot ?? grid._bodyEl;
+          Array.from(root.querySelectorAll('.cell-focus')).forEach((el: Element) => el.classList.remove('cell-focus'));
+          cellEl.classList.add('cell-focus');
+        }
+        return;
+      }
+
       ensureCellVisible(grid);
     }
   }
+
+  // If this row is already in edit mode, don't re-render editors
+  // Just update focus if clicking an editable cell
+  const isRowAlreadyEditing = grid._activeEditRows === rowIndex;
+  if (isRowAlreadyEditing) {
+    // For single-click on already-editing row, just update focus to the clicked cell
+    if (cellEl) {
+      // Clear all cell-focus markers and set focus on the clicked cell
+      const root = grid.shadowRoot ?? grid._bodyEl;
+      Array.from(root.querySelectorAll('.cell-focus')).forEach((el: Element) => el.classList.remove('cell-focus'));
+      cellEl.classList.add('cell-focus');
+
+      queueMicrotask(() => {
+        const colIndex = Number(cellEl.getAttribute('data-col'));
+        const col = grid._visibleColumns[colIndex];
+        // If clicking an editable cell, focus its editor
+        if (col && (col as any).editable && cellEl.classList.contains('editing')) {
+          const editor = cellEl.querySelector(
+            'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
+          ) as HTMLElement | null;
+          try {
+            editor?.focus();
+          } catch {
+            /* empty */
+          }
+        }
+      });
+    }
+    return;
+  }
+
   if (rowEl.querySelector('.cell.editing')) {
     const active = rowEl.querySelectorAll('.cell.editing');
     if (!isDbl) return;
     active.forEach((n: any) => n.classList.remove('editing'));
   }
-  const mode: 'click' | 'doubleClick' = ((grid as any).effectiveConfig?.editOn || grid.editOn || 'doubleClick') as any;
-  if (mode === 'click' || (mode === 'doubleClick' && isDbl)) startRowEdit(grid, rowIndex, rowData);
-  else return;
+  const rawMode = (grid as any).effectiveConfig?.editOn ?? grid.editOn ?? 'dblClick';
+  // editOn: false disables all editing
+  if (rawMode === false) return;
+  // Normalize: accept both 'dblClick' and 'dblclick' (DOM event name)
+  const mode = rawMode === 'dblclick' ? 'dblClick' : rawMode;
+  if (mode === 'click' || (mode === 'dblClick' && isDbl)) {
+    // Use beginBulkEdit if available for consistent behavior with Enter key
+    if (typeof grid.beginBulkEdit === 'function') {
+      grid.beginBulkEdit(rowIndex);
+      return;
+    }
+    startRowEdit(grid, rowIndex, rowData);
+  } else return;
   Array.from(rowEl.children).forEach((c: any, i: number) => {
     const col = grid._visibleColumns[i];
     if (col && (col as any).editable) inlineEnterEdit(grid, rowData, rowIndex, col, c as HTMLElement);

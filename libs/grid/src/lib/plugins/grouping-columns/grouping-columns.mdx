@@ -10,21 +10,56 @@ The Column Grouping plugin enables visual grouping of columns under shared heade
 ## Installation
 
 ```ts
-import { ColumnGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
+import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
 ```
 
 ## Basic Usage
+
+There are two ways to define column groups:
+
+### Option 1: Declarative `columnGroups` (Recommended)
+
+Define groups once at the grid level, referencing columns by field name:
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columnGroups: [
+    { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+    { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+  ],
+  columns: [
+    { field: 'firstName', header: 'First Name' },
+    { field: 'lastName', header: 'Last Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+    { field: 'title', header: 'Title' },
+    { field: 'salary', header: 'Salary' },
+  ],
+  plugins: [new GroupingColumnsPlugin()],
+};
+```
+
+### Option 2: Inline `group` Property
+
+Add group information directly to each column:
 
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
-    { field: 'name', header: 'Name', group: 'Personal' },
-    { field: 'age', header: 'Age', group: 'Personal' },
-    { field: 'department', header: 'Department', group: 'Work' },
+    { field: 'firstName', header: 'First Name', group: { id: 'personal', label: 'Personal Info' } },
+    { field: 'lastName', header: 'Last Name', group: { id: 'personal', label: 'Personal Info' } },
+    { field: 'department', header: 'Department', group: { id: 'work', label: 'Work Info' } },
   ],
-  plugins: [new ColumnGroupingPlugin()],
+  plugins: [new GroupingColumnsPlugin()],
 };
+```
+
+You can also use a simple string for the group (the string becomes both the id and label):
+
+```ts
+{ field: 'firstName', header: 'First Name', group: 'Personal' }
 ```
 
 ## Demos
@@ -40,18 +75,44 @@ grid.gridConfig = {
 
 ## Configuration Options
 
+### Plugin Options
+
 | Option                | Type       | Default | Description                              |
 | --------------------- | ---------- | ------- | ---------------------------------------- |
 | `showGroupBorders`    | `boolean`  | `true`  | Show borders between groups              |
 | `groupHeaderRenderer` | `function` | —       | Custom renderer for group header content |
 
-## Column Configuration
+### Grid Config: `columnGroups`
+
+| Property   | Type       | Description                                |
+| ---------- | ---------- | ------------------------------------------ |
+| `id`       | `string`   | Unique group identifier                    |
+| `header`   | `string`   | Display label for the group header         |
+| `children` | `string[]` | Array of column field names in this group  |
+
+### Column Config: `group`
+
+| Type                              | Description                                         |
+| --------------------------------- | --------------------------------------------------- |
+| `string`                          | Simple group ID (used as both id and label)         |
+| `{ id: string; label?: string }`  | Group object with explicit id and optional label    |
+
+## API Methods
+
+The plugin provides these methods on the plugin instance:
 
 ```ts
-const columns = [
-  { field: 'firstName', header: 'First', group: 'Name' },
-  { field: 'lastName', header: 'Last', group: 'Name' },
-  { field: 'street', header: 'Street', group: 'Address' },
-  { field: 'city', header: 'City', group: 'Address' },
-];
+const plugin = grid.getPlugin(GroupingColumnsPlugin);
+
+// Check if grouping is active
+plugin.isGroupingActive(); // boolean
+
+// Get all computed groups
+plugin.getGroups(); // ColumnGroup[]
+
+// Get columns in a specific group
+plugin.getGroupColumns('personal'); // ColumnConfig[]
+
+// Force refresh of column groups
+plugin.refresh();
 ```

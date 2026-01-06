@@ -8,6 +8,47 @@
 
 import type { ColumnConfig as CoreColumnConfig } from '../../core/types';
 
+// ============================================================================
+// Module Augmentation - Extends core types with grouping-specific properties
+// ============================================================================
+
+declare module '../../core/types' {
+  /**
+   * Augment ColumnConfig with group assignment property.
+   */
+  interface ColumnConfig<TRow = any> {
+    /**
+     * Column group assignment for the GroupingColumnsPlugin.
+     * Columns with the same group.id are rendered under a shared header.
+     */
+    group?: { id: string; label?: string } | string;
+  }
+
+  /**
+   * Augment GridConfig with declarative column groups.
+   */
+  interface GridConfig<TRow = any> {
+    /**
+     * Declarative column group definitions for the GroupingColumnsPlugin.
+     * Each group specifies an id, header label, and array of column field names.
+     * The plugin will automatically assign the `group` property to matching columns.
+     *
+     * @example
+     * ```ts
+     * columnGroups: [
+     *   { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+     *   { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+     * ]
+     * ```
+     */
+    columnGroups?: ColumnGroupDefinition[];
+  }
+}
+
+// ============================================================================
+// Plugin Configuration Types
+// ============================================================================
+
 /** Configuration options for the column groups plugin */
 export interface GroupingColumnsConfig {
   /** Custom group header renderer */
@@ -38,7 +79,20 @@ export interface GroupingColumnsState {
   isActive: boolean;
 }
 
-/** Column group definition */
+/**
+ * Declarative column group definition for GridConfig.columnGroups.
+ * Maps group metadata to column field names.
+ */
+export interface ColumnGroupDefinition {
+  /** Unique group identifier */
+  id: string;
+  /** Display label for the group header */
+  header: string;
+  /** Array of column field names belonging to this group */
+  children: string[];
+}
+
+/** Column group definition (computed at runtime) */
 export interface ColumnGroup<T = any> {
   /** Unique group identifier */
   id: string;

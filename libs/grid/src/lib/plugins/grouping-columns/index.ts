@@ -3,4 +3,4 @@
  * Re-exports plugin class and types for tree-shakeable imports.
  */
 export { GroupingColumnsPlugin } from './GroupingColumnsPlugin';
-export type { ColumnGroup, GroupingColumnsConfig } from './types';
+export type { ColumnGroup, ColumnGroupDefinition, GroupingColumnsConfig } from './types';

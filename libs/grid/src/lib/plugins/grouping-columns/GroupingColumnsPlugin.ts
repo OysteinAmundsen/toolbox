@@ -55,8 +55,14 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
 
   /**
    * Auto-detect column groups from column configuration.
+   * Detects both inline `column.group` properties and declarative `columnGroups` config.
    */
   static detect(rows: readonly any[], config: any): boolean {
+    // Check for declarative columnGroups in config
+    if (config?.columnGroups && Array.isArray(config.columnGroups) && config.columnGroups.length > 0) {
+      return true;
+    }
+    // Check for inline group properties on columns
     const columns = config?.columns;
     if (!Array.isArray(columns)) return false;
     return hasColumnGroups(columns);
@@ -66,20 +72,45 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   // #region Hooks
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    // Compute groups from column definitions
-    const groups = computeColumnGroups(columns as ColumnConfig[]);
+    // First, check if gridConfig.columnGroups is defined and apply to columns
+    const columnGroups = this.grid?.gridConfig?.columnGroups;
+    let processedColumns: ColumnConfig[];
+
+    if (columnGroups && Array.isArray(columnGroups) && columnGroups.length > 0) {
+      // Build a map of field -> group info from the declarative config
+      const fieldToGroup = new Map<string, { id: string; label: string }>();
+      for (const group of columnGroups) {
+        for (const field of group.children) {
+          fieldToGroup.set(field, { id: group.id, label: group.header });
+        }
+      }
+
+      // Apply group property to columns that don't already have one
+      processedColumns = columns.map((col) => {
+        const groupInfo = fieldToGroup.get(col.field);
+        if (groupInfo && !col.group) {
+          return { ...col, group: groupInfo };
+        }
+        return col;
+      });
+    } else {
+      processedColumns = [...columns];
+    }
+
+    // Compute groups from column definitions (now including applied groups)
+    const groups = computeColumnGroups(processedColumns);
 
     if (groups.length === 0) {
       this.isActive = false;
       this.groups = [];
-      return [...columns];
+      return processedColumns;
     }
 
     this.isActive = true;
     this.groups = groups;
 
-    // Return columns unchanged - the afterRender hook will add the group header
-    return [...columns];
+    // Return columns with group info applied
+    return processedColumns;
   }
 
   override afterRender(): void {

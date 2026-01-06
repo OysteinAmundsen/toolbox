@@ -331,7 +331,7 @@ html.dark {
 }
 
 .sbdocs-toc--custom {
-  background: var(--sbdocs-toc-bg) !important;
+  background: transparent !important;
 }
 
 .sbdocs-toc--custom h2 {

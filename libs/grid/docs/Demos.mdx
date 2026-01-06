@@ -1,0 +1,154 @@
+{/* Demos.mdx */}
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import * as AllFeaturesStories from '../src/lib/core/all.stories';
+
+<Meta title="Grid/Demos" />
+
+# Demos: Enterprise Employee Management
+
+This comprehensive demo showcases `@toolbox-web/grid` in a **production-ready enterprise scenario**—an Employee Management System handling 200+ employees with complex data relationships, multiple interaction patterns, and advanced features working together seamlessly.
+
+## Live Demo
+
+<Canvas of={AllFeaturesStories.AllFeatures} />
+
+<Controls of={AllFeaturesStories.AllFeatures} />
+
+## What This Demo Showcases
+
+This single grid instance demonstrates **15+ plugins working together** in a realistic business application:
+
+### Data Complexity
+
+- **200+ employee records** with 15+ fields per row
+- **Nested data structures**: Each employee has projects, performance reviews, and skill arrays
+- **Mixed data types**: Strings, numbers, dates, booleans, enums (select dropdowns)
+- **Computed fields**: Top performer stars based on rating thresholds
+
+### Visual Features
+
+| Feature                   | Implementation                                                                |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| **Column Groups**         | "Employee Info", "Organization", "Compensation", "Status & Performance"       |
+| **Custom Cell Renderers** | Status badges with color-coded backgrounds, star ratings, top performer icons |
+| **Currency Formatting**   | Salary and bonus columns with USD formatting                                  |
+| **Column Virtualization** | Efficient rendering for 15 columns                                            |
+
+### Interaction Features
+
+| Feature             | How to Use                                           |
+| ------------------- | ---------------------------------------------------- |
+| **Multi-Sort**      | Click column headers; Shift+Click for secondary sort |
+| **Filtering**       | Click filter icon (⊻) in any header                  |
+| **Range Selection** | Click + Shift+Click or drag                          |
+| **Column Reorder**  | Drag column headers                                  |
+| **Context Menu**    | Right-click any cell                                 |
+
+### Editing Features
+
+| Feature              | How to Use                                               |
+| -------------------- | -------------------------------------------------------- |
+| **Inline Editing**   | Double-click editable cells (Name, Salary, Status, etc.) |
+| **Select Dropdowns** | Edit Department, Level, or Status fields                 |
+| **Undo/Redo**        | Ctrl+Z / Ctrl+Y after making changes                     |
+| **Clipboard**        | Ctrl+C to copy, Ctrl+V to paste                          |
+
+### Advanced Features
+
+| Feature           | Description                                                   |
+| ----------------- | ------------------------------------------------------------- |
+| **Master-Detail** | Click ▶ to expand rows and see projects + performance reviews |
+| **Row Grouping**  | Toggle in controls above to group by department               |
+| **Status Bar**    | Bottom bar shows row count and salary totals                  |
+| **Export**        | Right-click → Export to CSV or JSON                           |
+
+## Try These Interactions
+
+1. **Filter Engineering employees**: Click the filter icon on "Dept" → select "Engineering"
+2. **Sort by salary (descending)**: Click the "Salary" header twice
+3. **Multi-sort by department then salary**: Click "Dept", then Shift+Click "Salary"
+4. **Expand an employee**: Click the ▶ arrow to see their projects and reviews
+5. **Edit a salary**: Double-click a salary cell, change it, press Enter
+6. **Undo the edit**: Press Ctrl+Z
+7. **Export filtered data**: Right-click → Export → CSV
+8. **Group by department**: Enable "Row Grouping" toggle above the grid
+
+## Row Grouping Variant
+
+<Canvas of={AllFeaturesStories.GroupedByDepartment} />
+
+This variant shows employees grouped by department with:
+
+- **Expandable group rows** with employee counts
+- **Aggregated values**: Total salary and average rating per department
+- Click group headers to expand/collapse
+
+## Code Architecture
+
+The demo uses these plugins together:
+
+```typescript
+import {
+  SelectionPlugin,
+  MultiSortPlugin,
+  FilteringPlugin,
+  ClipboardPlugin,
+  ContextMenuPlugin,
+  ReorderPlugin,
+  GroupingColumnsPlugin,
+  PinnedColumnsPlugin,
+  ColumnVirtualizationPlugin,
+  VisibilityPlugin,
+  MasterDetailPlugin,
+  UndoRedoPlugin,
+  ExportPlugin,
+  PinnedRowsPlugin,
+} from '@toolbox-web/grid/all';
+
+grid.gridConfig = {
+  columnGroups: [...],
+  columns: [...],
+  editOn: 'dblclick',
+  plugins: [
+    new SelectionPlugin({ mode: 'range' }),
+    new MultiSortPlugin(),
+    new FilteringPlugin({ debounceMs: 200 }),
+    new ClipboardPlugin(),
+    new ContextMenuPlugin(),
+    new ReorderPlugin(),
+    new GroupingColumnsPlugin(),
+    new PinnedColumnsPlugin(),
+    new ColumnVirtualizationPlugin(),
+    new VisibilityPlugin(),
+    new MasterDetailPlugin({
+      detailRenderer: (row) => createEmployeeDetailView(row),
+      showExpandColumn: true,
+    }),
+    new UndoRedoPlugin({ maxHistorySize: 100 }),
+    new ExportPlugin(),
+    new PinnedRowsPlugin({
+      position: 'bottom',
+      showRowCount: true,
+      showFilteredCount: true,
+      aggregationRows: [{ ... }],
+    }),
+  ],
+};
+```
+
+## Performance Notes
+
+Even with 200+ rows and 15 columns:
+
+- **Row virtualization** ensures only visible rows are in the DOM
+- **Column virtualization** handles wide grids efficiently
+- **Debounced filtering** prevents excessive re-renders
+- **Plugin hooks** process data efficiently in a single pass
+
+Scale up to 1000 rows using the slider control to see virtualization in action!
+
+## Next Steps
+
+- [Getting Started](../?path=/docs/grid-getting-started--docs) - Set up your first grid
+- [Plugins Overview](../?path=/docs/grid-plugins-overview--docs) - Learn about individual plugins
+- [Theming](../?path=/docs/grid-theming--docs) - Customize the visual appearance

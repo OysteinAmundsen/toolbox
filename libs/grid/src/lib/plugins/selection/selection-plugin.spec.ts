@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SelectionPlugin } from './SelectionPlugin';
 
- 
 // Tests use `any` for flexibility with mock grid objects.
 
 describe('SelectionPlugin', () => {
@@ -350,6 +349,37 @@ describe('SelectionPlugin', () => {
       const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }));
 
       expect(handled).toBe(false);
+    });
+
+    it('should not extend selection with Shift+Tab in range mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const columns = [{ field: 'a' }, { field: 'b' }];
+      const mockGrid = createMockGrid(rows, columns);
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(mockGrid);
+
+      // Set an anchor (simulating previous selection)
+      plugin['cellAnchor'] = { row: 0, col: 0 };
+
+      // Press Shift+Tab
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true }));
+
+      // The pendingKeyboardUpdate should have shiftKey: false (Tab doesn't extend)
+      expect(plugin['pendingKeyboardUpdate']).toEqual({ shiftKey: false });
+    });
+
+    it('should extend selection with Shift+Arrow in range mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const columns = [{ field: 'a' }, { field: 'b' }];
+      const mockGrid = createMockGrid(rows, columns);
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(mockGrid);
+
+      // Press Shift+ArrowRight
+      plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true }));
+
+      // The pendingKeyboardUpdate should have shiftKey: true (Arrow extends)
+      expect(plugin['pendingKeyboardUpdate']).toEqual({ shiftKey: true });
     });
   });
 

@@ -232,15 +232,20 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     // RANGE MODE: Shift+Arrow extends, plain Arrow resets
+    // Tab key always navigates without extending (even with Shift)
     if (mode === 'range' && isNavKey) {
+      // Tab should not extend selection - it just navigates to the next/previous cell
+      const isTabKey = event.key === 'Tab';
+      const shouldExtend = event.shiftKey && !isTabKey;
+
       // Capture anchor BEFORE grid moves focus (synchronous)
       // This ensures the anchor is the starting point, not the destination
-      if (event.shiftKey && !this.cellAnchor) {
+      if (shouldExtend && !this.cellAnchor) {
         this.cellAnchor = { row: this.grid._focusRow, col: this.grid._focusCol };
       }
 
       // Mark pending update - will be processed in afterRender when grid updates focus
-      this.pendingKeyboardUpdate = { shiftKey: event.shiftKey };
+      this.pendingKeyboardUpdate = { shiftKey: shouldExtend };
 
       // Schedule afterRender to run after grid's keyboard handler completes
       // Grid's refreshVirtualWindow(false) skips afterRender for performance,
@@ -372,6 +377,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     // RANGE MODE: Add selected and edge classes to cells
     if (mode === 'range' && this.ranges.length > 0) {
+      // Clear all cell-focus first - selection plugin manages focus styling in range mode
+      shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
+
       const normalized = this.activeRange ? normalizeRange(this.activeRange) : null;
 
       const cells = shadowRoot.querySelectorAll('.cell[data-row][data-col]');
@@ -383,8 +391,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
           if (inRange) {
             cell.classList.add('selected');
-            // Remove cell-focus from selected cells - selection highlight takes precedence
-            cell.classList.remove('cell-focus');
 
             if (normalized) {
               if (rowIndex === normalized.startRow) cell.classList.add('top');

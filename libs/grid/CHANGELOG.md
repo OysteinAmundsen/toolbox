@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.9](https://github.com/OysteinAmundsen/toolbox/compare/v0.2.8...v0.2.9) (2026-01-07)
+
+
+### Bug Fixes
+
+* **grid:** editOn should be allowed to disable editing by setting `false` ([31c0ea7](https://github.com/OysteinAmundsen/toolbox/commit/31c0ea73f4ed6337273c03b3d05f179def067db9))
+* **selection:** Should not select cells when shift+tab'ing through the cells ([b87324f](https://github.com/OysteinAmundsen/toolbox/commit/b87324f79221a942ddab3250e53adea24b5db1df))
+
+
+### Enhancements
+
+* **docs:** added a demo page showcasing more complex grid examples ([0d1f147](https://github.com/OysteinAmundsen/toolbox/commit/0d1f147bb40dcf37e62ade6f91a89ba082ba0d51))
+* **docs:** Enhanced demo page ([e61b8b8](https://github.com/OysteinAmundsen/toolbox/commit/e61b8b8cce852c52aba6889140a21c82eaf9a707))
+* **groupingColumns:** Added a new gridConfig property to group columns by. ([e88d44e](https://github.com/OysteinAmundsen/toolbox/commit/e88d44eea25e8f6f2e806e72959bb44b9ca9a393))
+
 ## [0.2.8](https://github.com/OysteinAmundsen/toolbox/compare/v0.2.7...v0.2.8) (2026-01-05)
 
 

@@ -22,7 +22,7 @@ interface GridWithColumns {
   shadowRoot: ShadowRoot | null;
   effectiveConfig?: GridConfig;
   getAllColumns(): Array<{ field: string; header: string; visible: boolean }>;
-  columns: ColumnConfig[];
+  columns: unknown[];
   rows: unknown[];
   requestRender(): void;
   openToolPanel(id: string): void;
@@ -201,10 +201,10 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.keysToAnimate.clear();
     const currentVisibleKeys = new Set<string>();
     for (const row of flatRows) {
-      const key = row.__pivotRowKey;
+      const key = row.__pivotRowKey as string;
       currentVisibleKeys.add(key);
       // Animate non-root rows that weren't previously visible
-      if (!this.previousVisibleKeys.has(key) && row.__pivotDepth > 0) {
+      if (!this.previousVisibleKeys.has(key) && (row.__pivotDepth as number) > 0) {
         this.keysToAnimate.add(key);
       }
     }
@@ -497,7 +497,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   private get gridColumns(): ColumnConfig[] {
     const grid = this.grid as unknown as GridWithColumns;
-    return grid.columns ?? [];
+    return (grid.columns ?? []) as ColumnConfig[];
   }
 
   private buildFieldHeaderMap(): void {

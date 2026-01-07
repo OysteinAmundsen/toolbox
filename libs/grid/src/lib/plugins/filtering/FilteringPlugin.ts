@@ -753,7 +753,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // If using async filterHandler, delegate to server
     if (this.config.filterHandler) {
-      const gridEl = this.grid as HTMLElement;
+      const gridEl = this.grid as unknown as Element;
       gridEl.setAttribute('aria-busy', 'true');
 
       const result = this.config.filterHandler(filterList, this.sourceRows as unknown[]);

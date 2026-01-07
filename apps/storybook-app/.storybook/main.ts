@@ -24,13 +24,10 @@ const config: StorybookConfig = {
     outline: false,
   },
   stories: [
-    // MDX documentation pages
-    '../../../libs/grid/docs/**/*.mdx',
-    // Stories from library stories/ directories
+    // All grid library stories and documentation
+    '../../../libs/grid/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
+    // Stories from other library stories/ directories
     '../../../**/stories/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
-    // Stories from core and plugin directories
-    '../../../libs/grid/src/lib/core/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
-    '../../../libs/grid/src/lib/plugins/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
   ],
   addons: [
     '@storybook/addon-a11y',

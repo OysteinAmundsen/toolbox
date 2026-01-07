@@ -20,6 +20,7 @@
     "target": "es2022",
     "paths": {
       "@toolbox-web/grid": ["libs/grid/src/"],
+      "@toolbox-web/grid/all": ["libs/grid/src/all.ts"],
       "@toolbox-web/grid/*": ["libs/grid/src/lib/*"],
       "@toolbox/storybook/*": ["libs/storybook/*"],
       "@toolbox/themes/*": ["libs/themes/*"]

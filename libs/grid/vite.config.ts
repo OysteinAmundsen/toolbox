@@ -229,7 +229,7 @@ export default defineConfig(({ command }) => ({
     dts({
       entryRoot: 'src',
       tsconfigPath: resolve(__dirname, 'tsconfig.lib.json'),
-      rollupTypes: true,
+      rollupTypes: false, // Disable type bundling to avoid import() resolution errors
       skipDiagnostics: true,
     }),
     // Only run build-specific plugins during actual build, not during tests
@@ -244,7 +244,17 @@ export default defineConfig(({ command }) => ({
       formats: ['es'],
       fileName: (_format, name) => `${name}.js`,
     },
-    rollupOptions: { output: { manualChunks: undefined, compact: true } },
+    rollupOptions: {
+      output: {
+        compact: true,
+        // Force each entry to be self-contained (duplicate shared code)
+        manualChunks: undefined,
+        chunkFileNames: undefined,
+      },
+      // This is the key: tell Rollup NOT to share code between entries
+      preserveEntrySignatures: 'allow-extension',
+      makeAbsoluteExternalsRelative: false,
+    },
     sourcemap: true,
     minify: 'esbuild',
     target: 'es2022',

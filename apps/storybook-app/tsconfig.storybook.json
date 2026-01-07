@@ -11,7 +11,8 @@
     "../../**/stories/**/*.stories.ts",
     ".storybook/**/*.ts",
     "../../libs/storybook/**/*.ts",
-    "../../libs/grid/src/lib/core/grid.stories.ts"
+    "../../libs/grid/src/lib/core/grid.stories.ts",
+    "../../libs/grid/demo/**/*.ts"
   ],
   "references": [
     {

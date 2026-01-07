@@ -1,6 +1,6 @@
 {/* Demos.mdx */}
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
-import * as AllFeaturesStories from '../src/lib/core/all.stories';
+import * as AllFeaturesStories from '../demo/employee-management.stories';
 
 <Meta title="Grid/Demos" />
 
@@ -8,9 +8,11 @@ import * as AllFeaturesStories from '../src/lib/core/all.stories';
 
 This comprehensive demo showcases `@toolbox-web/grid` in a **production-ready enterprise scenario**—an Employee Management System handling 200+ employees with complex data relationships, multiple interaction patterns, and advanced features working together seamlessly.
 
+> 📂 **View the source code**: [libs/grid/demo/](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid/demo)
+
 ## Live Demo
 
-<Canvas of={AllFeaturesStories.AllFeatures} />
+<Canvas of={AllFeaturesStories.AllFeatures} withToolbar/>
 
 <Controls of={AllFeaturesStories.AllFeatures} />
 
@@ -108,7 +110,7 @@ import {
 grid.gridConfig = {
   columnGroups: [...],
   columns: [...],
-  editOn: 'dblclick',
+  editOn: 'dblClick',
   plugins: [
     new SelectionPlugin({ mode: 'range' }),
     new MultiSortPlugin(),

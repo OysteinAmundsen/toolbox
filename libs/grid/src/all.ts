@@ -8,8 +8,20 @@
  *   import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
  */
 
-// Core grid - re-export everything from index (includes public API, plugin system, aggregators, etc.)
-export * from './index';
+// Core grid - import directly from source to avoid shared chunks with index.ts
+// Auto-register the custom element
+import './lib/core/grid';
+
+// Re-export public API
+export * from './public';
+
+// Core grid component
+export { DataGridElement } from './lib/core/grid';
+
+// Plugin system
+export { BaseGridPlugin, PluginManager } from './lib/core/plugin';
+export type { CellClickEvent } from './lib/core/plugin/base-plugin';
+export type { GridPlugin } from './lib/core/types';
 
 // All plugins
 export { ClipboardPlugin } from './lib/plugins/clipboard';

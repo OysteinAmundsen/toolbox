@@ -8,7 +8,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { BaseGridPlugin, RowClickEvent } from '../../core/plugin/base-plugin';
-import type { GridConfig } from '../../core/types';
+import type { ColumnConfig, GridConfig } from '../../core/types';
 import {
   collapseDetailRow,
   createDetailElement,
@@ -145,9 +145,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   // #region Hooks
 
-  override processColumns(
-    columns: readonly import('../../core/types').ColumnConfig[],
-  ): import('../../core/types').ColumnConfig[] {
+  override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (!this.config.detailRenderer) {
       return [...columns];
     }

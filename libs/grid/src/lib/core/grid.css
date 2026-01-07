@@ -324,15 +324,16 @@
 :host .data-grid-row > .cell.editing {
   overflow: hidden;
   padding: 0;
-  /* Override grid to use flex for editing inputs */
+  /* Override block to flex for editing inputs */
   display: flex;
+  /* Match the height that non-editing cells naturally have from line-height + padding */
+  min-height: calc(var(--tbw-row-height) + 2px);
 }
 :host .data-grid-row > .cell.editing input:not([type='checkbox']),
 :host .data-grid-row > .cell.editing select,
 :host .data-grid-row > .cell.editing textarea {
   width: 100%;
   height: 100%;
-  max-width: 100%;
   flex: 1 1 auto;
   min-width: 0;
   border: var(--tbw-editing-border);

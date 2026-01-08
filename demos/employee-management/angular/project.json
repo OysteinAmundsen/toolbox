@@ -1,0 +1,82 @@
+{
+  "name": "demo-angular",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "demos/employee-management/angular/src",
+  "root": "demos/employee-management/angular",
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:application",
+      "dependsOn": [
+        {
+          "projects": ["grid"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "outputPath": "dist/demos/demo-angular",
+        "browser": "demos/employee-management/angular/src/main.ts",
+        "tsConfig": "demos/employee-management/angular/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "demos/employee-management/angular/public"
+          }
+        ],
+        "styles": ["demos/employee-management/shared/demo-styles.css"],
+        "plugins": ["./demos/employee-management/angular/tools/esbuild-alias-plugin.mjs"]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kB",
+              "maximumError": "1MB"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kB",
+              "maximumError": "8kB"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "serve": {
+      "executor": "@nx/angular:dev-server",
+      "dependsOn": [
+        {
+          "projects": ["grid"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "buildTarget": "demo-angular:build"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "demo-angular:build:production"
+        },
+        "development": {
+          "buildTarget": "demo-angular:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["demos/employee-management/angular/**/*.ts"]
+      }
+    }
+  }
+}

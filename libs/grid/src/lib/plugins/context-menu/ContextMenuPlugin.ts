@@ -97,7 +97,14 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
   private installGlobalHandlers(): void {
     // Inject global stylesheet for context menu (once)
-    if (!globalStyleSheet && typeof document !== 'undefined') {
+    // Only inject if we have valid CSS text (Vite's ?inline import)
+    // When importing from source without Vite, the import is a module object, not a string
+    if (
+      !globalStyleSheet &&
+      typeof document !== 'undefined' &&
+      typeof contextMenuStyles === 'string' &&
+      contextMenuStyles
+    ) {
       globalStyleSheet = document.createElement('style');
       globalStyleSheet.id = 'tbw-context-menu-styles';
       globalStyleSheet.textContent = contextMenuStyles;

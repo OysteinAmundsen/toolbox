@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "baseUrl": ".",
+    "paths": {
+      "@toolbox-web/grid": ["../../../libs/grid/src/index.ts"],
+      "@toolbox-web/grid/*": ["../../../libs/grid/src/*"],
+      "@demo/shared/styles": ["../shared/styles.ts"],
+      "@demo/shared": ["../shared/index.ts"]
+    }
+  },
+  "include": ["../shared/**/*.ts", "**/*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    {
+      "path": "../../../libs/grid"
+    }
+  ]
+}

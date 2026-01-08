@@ -1,15 +1,16 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as ClipboardStories from './clipboard.stories';
 
 <Meta of={ClipboardStories} />
 
 # Clipboard Plugin
 
-The Clipboard plugin enables copy/paste functionality with Ctrl+C/V support for grid data.
+The Clipboard plugin brings familiar copy/cut/paste functionality to your grid with full keyboard shortcut support (Ctrl+C, Ctrl+X, Ctrl+V). It handles single cells, multi-cell selections, and integrates seamlessly with Excel and other spreadsheet applications via tab-delimited output.
 
-> **Tip:** For best results, use with the [SelectionPlugin](/docs/grid-plugins-selection--docs).
-> Without selection, only the single focused cell is copied. With selection enabled,
-> you can copy entire rows or cell ranges depending on your selection mode.
+> **Tip:** For the best experience, combine with the [SelectionPlugin](/docs/grid-plugins-selection--docs).
+> Without selection, only the focused cell is copied. With selection enabled, you can copy entire rows
+> or rectangular cell ranges depending on your selection mode.
 
 ## Installation
 
@@ -19,13 +20,125 @@ import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
 
 ## Basic Usage
 
+Just add the plugin and you're ready to go—keyboard shortcuts work automatically. Configure options like `includeHeaders` for copying column headers or `delimiter` for custom CSV formats.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
-  plugins: [new ClipboardPlugin()],
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' }
+  ],
+  plugins: [
+    new ClipboardPlugin({
+      includeHeaders: true,
+      quoteStrings: true, // Wrap text in quotes for CSV compatibility
+    }),
+  ],
 };
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+
+function DataGrid({ data }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+          { field: 'department', header: 'Department' }
+        ],
+        plugins: [
+          new ClipboardPlugin({
+            includeHeaders: true,
+            quoteStrings: true,
+          }),
+        ],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+
+const props = defineProps(['data']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' }
+    ],
+    plugins: [
+      new ClipboardPlugin({
+        includeHeaders: true,
+        quoteStrings: true,
+      }),
+    ],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class DataGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' }
+      ],
+      plugins: [
+        new ClipboardPlugin({
+          includeHeaders: true,
+          quoteStrings: true,
+        }),
+      ],
+    };
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

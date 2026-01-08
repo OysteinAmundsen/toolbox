@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as ReorderStories from './reorder.stories';
 
 <Meta of={ReorderStories} />
 
 # Column Reorder Plugin
 
-The Reorder plugin enables drag-and-drop column reordering.
+The Reorder plugin lets users rearrange columns by dragging and dropping column headers. Supports smooth FLIP animations, fade transitions, or instant reordering depending on your preference.
 
 ## Installation
 
@@ -15,13 +16,127 @@ import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
 
 ## Basic Usage
 
+Just add the plugin and columns become draggable. Users can grab any column header and drop it in a new position. The plugin handles visual feedback and smooth animations automatically.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
-  plugins: [new ReorderPlugin()],
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ],
+  plugins: [
+    new ReorderPlugin({
+      animation: 'flip',
+      animationDuration: 200,
+    }),
+  ],
 };
+
+// Listen for column moves
+grid.addEventListener('column-move', (e) => {
+  console.log(`Moved ${e.detail.field} from ${e.detail.fromIndex} to ${e.detail.toIndex}`);
+});
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+
+function ReorderableGrid({ data }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+          { field: 'department', header: 'Department' },
+        ],
+        plugins: [new ReorderPlugin({ animation: 'flip' })],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" @column-move="onColumnMove" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+
+const props = defineProps(['data']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+    ],
+    plugins: [new ReorderPlugin({ animation: 'flip' })],
+  };
+  gridRef.value.rows = props.data;
+});
+
+const onColumnMove = (e) => {
+  console.log('Column moved:', e.detail);
+};
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class ReorderableGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' },
+      ],
+      plugins: [new ReorderPlugin({ animation: 'flip' })],
+    };
+
+    this.gridRef.nativeElement.addEventListener('column-move', (e: CustomEvent) => {
+      console.log('Column moved:', e.detail);
+    });
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

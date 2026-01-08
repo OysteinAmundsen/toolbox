@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as VisibilityStories from './visibility.stories';
 
 <Meta of={VisibilityStories} />
 
 # Column Visibility Plugin
 
-The Visibility plugin allows users to show/hide columns dynamically.
+The Visibility plugin gives users control over which columns are displayed. Hide less important columns by default, let users toggle them via a column chooser UI, or programmatically show/hide columns based on user preferences or screen size.
 
 ## Installation
 
@@ -15,16 +16,115 @@ import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
 ## Basic Usage
 
+Set `visible: false` on columns you want hidden by default. The plugin provides a UI and API for toggling column visibility at runtime.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID' },
-    { field: 'email', header: 'Email', visible: false }, // Hidden by default
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'phone', header: 'Phone', visible: false }, // Hidden by default
+    { field: 'address', header: 'Address', visible: false },
   ],
   plugins: [new VisibilityPlugin()],
 };
+
+// Toggle visibility programmatically
+const plugin = grid.getPlugin(VisibilityPlugin);
+plugin.showColumn('phone');
+plugin.hideColumn('email');
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+function ConfigurableGrid({ data }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+          { field: 'phone', header: 'Phone', visible: false },
+        ],
+        plugins: [new VisibilityPlugin()],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+const props = defineProps(['data']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'phone', header: 'Phone', visible: false },
+    ],
+    plugins: [new VisibilityPlugin()],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class ConfigurableGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'phone', header: 'Phone', visible: false },
+      ],
+      plugins: [new VisibilityPlugin()],
+    };
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

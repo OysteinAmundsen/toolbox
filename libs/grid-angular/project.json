@@ -1,0 +1,47 @@
+{
+  "name": "grid-angular",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/grid-angular/src",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:grid"],
+  "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "dependsOn": [
+        {
+          "projects": ["grid"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "outputPath": "dist/libs/grid-angular",
+        "emptyOutDir": true
+      },
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "outputs": ["{options.reportsDirectory}"],
+      "options": {
+        "passWithNoTests": true,
+        "reportsDirectory": "../../coverage/libs/grid-angular"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["libs/grid-angular/**/*.ts"]
+      }
+    }
+  }
+}

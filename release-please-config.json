@@ -2,17 +2,22 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "release-type": "node",
   "packages": {
-    ".": {
+    "libs/grid": {
       "release-type": "node",
-      "component": "toolbox-web",
-      "changelog-path": "libs/grid/CHANGELOG.md",
+      "component": "grid",
+      "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
           "type": "json",
-          "path": "libs/grid/package.json",
+          "path": "../../package.json",
           "jsonpath": "$.version"
         }
       ]
+    },
+    "libs/grid-angular": {
+      "release-type": "node",
+      "component": "grid-angular",
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "changelog-sections": [
@@ -29,6 +34,7 @@
     { "type": "build", "section": "Build System", "hidden": true },
     { "type": "ci", "section": "CI/CD", "hidden": true }
   ],
-  "include-component-in-tag": false,
-  "include-v-in-tag": true
+  "separate-pull-requests": true,
+  "include-component-in-tag": true,
+  "include-v-in-tag": false
 }

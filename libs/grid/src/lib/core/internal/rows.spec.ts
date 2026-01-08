@@ -12,6 +12,7 @@ vi.mock('./columns', async (importOriginal) => {
   };
 });
 
+import { setupCellEventDelegation } from './event-delegation';
 import { handleRowClick, renderVisibleRows } from './rows';
 
 /**
@@ -158,12 +159,19 @@ describe('renderVisibleRows', () => {
 
   it('boolean cell toggles via space keydown', () => {
     const g = makeGrid();
+    // Set up event delegation (required since handlers moved from per-cell to delegated)
+    const controller = new AbortController();
+    setupCellEventDelegation(g, g._bodyEl, controller.signal);
+
     renderVisibleRows(g, 0, 1, 1);
     const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
     const boolCell = rowEl.querySelector('.cell[data-col="2"]') as HTMLElement;
     expect(g._rows[0].active).toBe(true);
     boolCell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
     expect(g._rows[0].active).toBe(false);
+
+    // Cleanup
+    controller.abort();
   });
 
   it('shrinks row pool when fewer rows needed', () => {

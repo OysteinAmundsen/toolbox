@@ -1,6 +1,8 @@
 .tbw-footer {
-  position: sticky;
-  bottom: 0;
+  /* Use normal flow (not sticky) so footer takes space in flex layout
+   * rather than overlapping content. Parent .tbw-scroll-area is flex column,
+   * so this footer becomes a flex child that shrinks the rows area. */
+  flex-shrink: 0;
   z-index: var(--tbw-z-layer-pinned-rows, 20);
   background: var(--tbw-color-panel-bg);
 }

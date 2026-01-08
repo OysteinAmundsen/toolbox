@@ -32,8 +32,13 @@ bun run test
 ```
 libs/
   grid/           # @toolbox-web/grid - Data grid component
+  grid-angular/   # @toolbox-web/grid-angular - Angular adapter
   themes/         # Shared CSS themes
-  storybook/      # Shared Storybook utilities
+demos/
+  employee-management/   # Full-featured demo applications
+    shared/              # Shared types and data generators
+    vanilla/             # Pure TypeScript/Vite demo
+    angular/             # Angular 21 demo
 apps/
   storybook-app/  # Unified Storybook application
 ```
@@ -69,8 +74,9 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). This enable
 ### Scopes
 
 - `grid` - Changes to @toolbox-web/grid
+- `grid-angular` - Changes to @toolbox-web/grid-angular
 - `themes` - Changes to shared themes
-- `storybook` - Changes to Storybook setup
+- `demos` - Changes to demo applications
 
 ### Examples
 

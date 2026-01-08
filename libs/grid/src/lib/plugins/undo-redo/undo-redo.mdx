@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as UndoRedoStories from './undo-redo.stories';
 
 <Meta of={UndoRedoStories} />
 
 # Undo/Redo Plugin
 
-The Undo/Redo plugin tracks cell edits and enables keyboard shortcuts.
+The Undo/Redo plugin tracks all cell edits and lets users revert or replay changes with familiar keyboard shortcuts (Ctrl+Z / Ctrl+Y). It maintains an in-memory history stack with configurable depth—perfect for data entry workflows where mistakes happen.
 
 ## Installation
 
@@ -15,16 +16,119 @@ import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
 ## Basic Usage
 
+Add the plugin to any grid with editable columns. History tracking is automatic—every cell edit is recorded, and users can navigate back and forth through the edit history.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name', editable: true },
     { field: 'price', header: 'Price', type: 'number', editable: true },
+    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
   ],
-  plugins: [new UndoRedoPlugin()],
+  editOn: 'dblClick',
+  plugins: [
+    new UndoRedoPlugin({
+      maxHistorySize: 50, // Remember last 50 edits
+    }),
+  ],
 };
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+
+function EditableGrid({ data }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'price', header: 'Price', type: 'number', editable: true },
+          { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+        ],
+        editOn: 'dblClick',
+        plugins: [
+          new UndoRedoPlugin({ maxHistorySize: 50 }),
+        ],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+
+const props = defineProps(['data']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'price', header: 'Price', type: 'number', editable: true },
+      { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+    ],
+    editOn: 'dblClick',
+    plugins: [
+      new UndoRedoPlugin({ maxHistorySize: 50 }),
+    ],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class EditableGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'price', header: 'Price', type: 'number', editable: true },
+        { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+      ],
+      editOn: 'dblClick',
+      plugins: [
+        new UndoRedoPlugin({ maxHistorySize: 50 }),
+      ],
+    };
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

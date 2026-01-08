@@ -57,6 +57,26 @@ This document outlines planned features and improvements for the grid component,
 - [ ] - Quick Filter / Global Search - 🟠 P1
 - [ ] - Row Drag & Drop - 🟡 P2
 
+**Framework Adapters:**
+
+Framework adapters enable idiomatic integration with popular JavaScript frameworks, allowing framework components as cell renderers/editors, proper lifecycle management, and type-safe APIs.
+
+| Package                     | Framework   | Priority | Status      |
+| --------------------------- | ----------- | -------- | ----------- |
+| `@toolbox-web/grid-angular` | Angular 17+ | 🔴 P0    | ✅ Complete |
+| `@toolbox-web/grid-react`   | React 18+   | 🔴 P0    | Not started |
+| `@toolbox-web/grid-vue`     | Vue 3       | 🟠 P1    | Not started |
+| `@toolbox-web/grid-svelte`  | Svelte 4/5  | 🟡 P2    | Not started |
+| `@toolbox-web/grid-solid`   | Solid       | 🟢 P3    | Not started |
+
+> [!NOTE]
+> The core grid works in all frameworks without adapters for basic usage. Adapters become valuable when you need:
+>
+> - Framework components as cell renderers/editors
+> - Reactive bindings (Vue refs, Svelte stores, Solid signals)
+> - Framework-idiomatic event handling
+> - Proper component lifecycle with cell recycling (virtualization)
+
 ---
 
 ## ✅ Recently Completed

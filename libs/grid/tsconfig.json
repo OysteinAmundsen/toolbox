@@ -6,6 +6,7 @@
     "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
+    "noPropertyAccessFromIndexSignature": false,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

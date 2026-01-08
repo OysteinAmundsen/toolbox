@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as PinnedRowsStories from './pinned-rows.stories';
 
 <Meta of={PinnedRowsStories} />
 
 # Pinned Rows (Status Bar) Plugin
 
-The Pinned Rows plugin creates a status bar for aggregations, row counts, or custom content.
+The Pinned Rows plugin creates a fixed status bar at the top or bottom of the grid for displaying aggregations, row counts, or custom content. Think of it as the "totals row" you'd see in a spreadsheet—always visible regardless of scroll position.
 
 ## Installation
 
@@ -15,10 +16,18 @@ import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 
 ## Basic Usage
 
+Configure aggregation rows with built-in functions (`sum`, `avg`, `count`, `min`, `max`) or custom aggregators. Each aggregation row can have different calculations per column.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'product', header: 'Product' },
+    { field: 'quantity', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'currency' },
+  ],
   plugins: [
     new PinnedRowsPlugin({
       position: 'bottom',
@@ -30,13 +39,131 @@ grid.gridConfig = {
             quantity: 'sum',
             price: { aggFunc: 'sum', formatter: (v) => `$${v.toFixed(2)}` },
           },
-          cells: { id: 'Totals:' },
+          cells: { product: 'Totals:' },
         },
       ],
     }),
   ],
 };
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+
+function OrderGrid({ orders }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'product', header: 'Product' },
+          { field: 'quantity', header: 'Qty', type: 'number' },
+          { field: 'price', header: 'Price', type: 'currency' },
+        ],
+        plugins: [
+          new PinnedRowsPlugin({
+            position: 'bottom',
+            showRowCount: true,
+            aggregationRows: [
+              {
+                id: 'totals',
+                aggregators: { quantity: 'sum', price: 'sum' },
+                cells: { product: 'Totals:' },
+              },
+            ],
+          }),
+        ],
+      };
+      gridRef.current.rows = orders;
+    }
+  }, [orders]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+
+const props = defineProps(['orders']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'product', header: 'Product' },
+      { field: 'quantity', header: 'Qty', type: 'number' },
+      { field: 'price', header: 'Price', type: 'currency' },
+    ],
+    plugins: [
+      new PinnedRowsPlugin({
+        position: 'bottom',
+        aggregationRows: [
+          {
+            id: 'totals',
+            aggregators: { quantity: 'sum', price: 'sum' },
+            cells: { product: 'Totals:' },
+          },
+        ],
+      }),
+    ],
+  };
+  gridRef.value.rows = props.orders;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class OrderGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'product', header: 'Product' },
+        { field: 'quantity', header: 'Qty', type: 'number' },
+        { field: 'price', header: 'Price', type: 'currency' },
+      ],
+      plugins: [
+        new PinnedRowsPlugin({
+          position: 'bottom',
+          aggregationRows: [
+            {
+              id: 'totals',
+              aggregators: { quantity: 'sum', price: 'sum' },
+              cells: { product: 'Totals:' },
+            },
+          ],
+        }),
+      ],
+    };
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

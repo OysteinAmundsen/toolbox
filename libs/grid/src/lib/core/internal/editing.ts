@@ -9,12 +9,58 @@ import { defaultEditorFor } from './editors';
 import { invalidateCellCache, renderInlineRow } from './rows';
 
 /**
+ * CSS selector for focusable editor elements within a cell.
+ * Used by multiple modules to find and focus the active editor.
+ */
+export const FOCUSABLE_EDITOR_SELECTOR =
+  'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])';
+
+/**
  * Returns true if the given property key is safe to use on a plain object without risking
  * prototype pollution via special names like "__proto__", "constructor", or "prototype".
  */
 function isSafePropertyKey(key: any): boolean {
   if (key === '__proto__' || key === 'constructor' || key === 'prototype') return false;
   return true;
+}
+
+/**
+ * Check if a row element has any cells in editing mode.
+ * Uses a cached count on the row element for O(1) lookup instead of querySelector.
+ */
+export function hasEditingCells(rowEl: HTMLElement): boolean {
+  return ((rowEl as any).__editingCellCount ?? 0) > 0;
+}
+
+/**
+ * Increment the editing cell count on a row element.
+ * Called when a cell enters edit mode.
+ */
+function incrementEditingCount(rowEl: HTMLElement): void {
+  const count = ((rowEl as any).__editingCellCount ?? 0) + 1;
+  (rowEl as any).__editingCellCount = count;
+  rowEl.setAttribute('data-has-editing', '');
+}
+
+/**
+ * Decrement the editing cell count on a row element.
+ * Called when a cell exits edit mode.
+ */
+function decrementEditingCount(rowEl: HTMLElement): void {
+  const count = Math.max(0, ((rowEl as any).__editingCellCount ?? 0) - 1);
+  (rowEl as any).__editingCellCount = count;
+  if (count === 0) {
+    rowEl.removeAttribute('data-has-editing');
+  }
+}
+
+/**
+ * Clear all editing state from a row element.
+ * Called when the row is recycled or fully re-rendered.
+ */
+export function clearEditingState(rowEl: HTMLElement): void {
+  (rowEl as any).__editingCellCount = 0;
+  rowEl.removeAttribute('data-has-editing');
 }
 
 /**
@@ -160,6 +206,9 @@ export function commitCellValue(
 /**
  * Replace a cell's content with an editor resolved from column configuration (custom editor, template, external
  * mount spec or default editor by type). Manages commit / cancel lifecycle and value restoration.
+ *
+ * @param skipFocus - When true, don't auto-focus the editor. Used when creating multiple editors
+ *                    at once (e.g., beginBulkEdit) so the caller can control focus.
  */
 export function inlineEnterEdit(
   grid: InternalGrid,
@@ -167,12 +216,18 @@ export function inlineEnterEdit(
   rowIndex: number,
   column: ColumnConfig<any>,
   cell: HTMLElement,
+  skipFocus = false,
 ): void {
   if (!column.editable) return;
   if (grid._activeEditRows !== rowIndex) startRowEdit(grid, rowIndex, rowData);
   if (cell.classList.contains('editing')) return;
   const originalValue = isSafePropertyKey(column.field) ? rowData[column.field] : undefined;
   cell.classList.add('editing');
+
+  // Track editing state on the row element for fast O(1) lookup
+  const rowEl = cell.parentElement;
+  if (rowEl) incrementEditingCount(rowEl);
+
   let editFinalized = false; // Flag to prevent blur from committing after explicit Enter/Escape
   const commit = (newValue: any) => {
     // Skip if edit was already finalized by Enter/Escape, or if we've exited edit mode
@@ -274,7 +329,9 @@ export function inlineEnterEdit(
           commit(val);
         });
       }
-      setTimeout(() => input.focus(), 0);
+      if (!skipFocus) {
+        setTimeout(() => input.focus({ preventScroll: true }), 0);
+      }
     }
     editorHost.appendChild(clone);
   } else if (typeof editorSpec === 'string') {
@@ -282,10 +339,24 @@ export function inlineEnterEdit(
     (el as any).value = value;
     el.addEventListener('change', () => commit((el as any).value));
     editorHost.appendChild(el);
+    // Focus the custom element editor after DOM insertion
+    if (!skipFocus) {
+      queueMicrotask(() => {
+        const focusable = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+        focusable?.focus({ preventScroll: true });
+      });
+    }
   } else if (typeof editorSpec === 'function') {
     const produced = editorSpec({ row: rowData, value, field: column.field, column, commit, cancel });
     if (typeof produced === 'string') editorHost.innerHTML = produced;
     else editorHost.appendChild(produced);
+    // Focus the editor after DOM insertion (editors no longer auto-focus)
+    if (!skipFocus) {
+      queueMicrotask(() => {
+        const focusable = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+        focusable?.focus({ preventScroll: true });
+      });
+    }
   } else if (editorSpec && typeof editorSpec === 'object') {
     const placeholder = document.createElement('div');
     placeholder.setAttribute('data-external-editor', '');
@@ -303,5 +374,129 @@ export function inlineEnterEdit(
         new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context } }),
       );
     }
+  }
+}
+
+// ============================================================================
+// Bulk Editing API
+// ============================================================================
+// These functions are extracted from grid.ts to reduce the god object size.
+// Grid.ts delegates to these functions for all bulk editing operations.
+
+/**
+ * Emit a custom event from the grid element.
+ */
+function emitEvent(grid: InternalGrid, eventName: string, detail: any): void {
+  (grid as unknown as HTMLElement).dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
+}
+
+/**
+ * Get all changed rows from the grid.
+ * @param grid - The grid instance
+ * @returns Array of changed row data objects
+ */
+export function getChangedRows<T>(grid: InternalGrid<T>): T[] {
+  return Array.from(grid._changedRowIndices).map((i) => grid._rows[i]);
+}
+
+/**
+ * Get indices of all changed rows.
+ * @param grid - The grid instance
+ * @returns Array of row indices that have been modified
+ */
+export function getChangedRowIndices(grid: InternalGrid): number[] {
+  return Array.from(grid._changedRowIndices);
+}
+
+/**
+ * Reset all changed row markers.
+ * @param grid - The grid instance
+ * @param silent - If true, don't emit the reset event
+ */
+export function resetChangedRows<T>(grid: InternalGrid<T>, silent?: boolean): void {
+  grid._changedRowIndices.clear();
+  if (!silent) {
+    emitEvent(grid, 'changed-rows-reset', {
+      rows: getChangedRows(grid),
+      indices: getChangedRowIndices(grid),
+    });
+  }
+  grid._rowPool.forEach((r) => r.classList.remove('changed'));
+}
+
+/**
+ * Begin bulk editing for a row. Enters edit mode on all editable cells.
+ * @param grid - The grid instance
+ * @param rowIndex - The row index to start editing
+ * @param callbacks - Grid callbacks for finding row elements
+ */
+export function beginBulkEdit<T>(
+  grid: InternalGrid<T>,
+  rowIndex: number,
+  callbacks: { findRenderedRowElement: (rowIndex: number) => HTMLElement | null },
+): void {
+  // editOn: false disables all editing
+  if ((grid as any).effectiveConfig?.editOn === false) return;
+
+  // Check if any columns are editable - if not, skip edit mode entirely
+  const hasEditableColumn = grid._columns.some((col) => col.editable);
+  if (!hasEditableColumn) return;
+
+  const rowData = grid._rows[rowIndex];
+  startRowEdit(grid, rowIndex, rowData);
+
+  // Enter edit mode on all editable cells in the row
+  const rowEl = callbacks.findRenderedRowElement(rowIndex);
+  if (rowEl) {
+    Array.from(rowEl.children).forEach((cell, i) => {
+      // Use visibleColumns to match the cell index - _columns may include hidden columns
+      const col = grid._visibleColumns[i];
+      if (col?.editable) {
+        const cellEl = cell as HTMLElement;
+        if (!cellEl.classList.contains('editing')) {
+          // Skip auto-focus - we'll focus the correct editor below
+          inlineEnterEdit(grid, rowData, rowIndex, col, cellEl, true);
+        }
+      }
+    });
+
+    // Focus the editor in the focused cell, or the first editable cell if focused cell is not editable
+    // Use setTimeout to ensure custom editors have time to render their focusable elements
+    setTimeout(() => {
+      // First try the focused cell
+      let targetCell = rowEl.querySelector(`.cell[data-col="${grid._focusCol}"]`);
+      if (!targetCell?.classList.contains('editing')) {
+        // Focused cell is not editable, find the first editable cell
+        targetCell = rowEl.querySelector('.cell.editing');
+      }
+      if (targetCell?.classList.contains('editing')) {
+        const editor = (targetCell as HTMLElement).querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+        try {
+          editor?.focus({ preventScroll: true });
+        } catch {
+          /* empty */
+        }
+      }
+    }, 0);
+  }
+}
+
+/**
+ * Commit the currently active row edit.
+ * @param grid - The grid instance
+ */
+export function commitActiveRowEdit(grid: InternalGrid): void {
+  if (grid._activeEditRows !== -1) {
+    exitRowEdit(grid, grid._activeEditRows, false);
+  }
+}
+
+/**
+ * Cancel the currently active row edit, reverting to original values.
+ * @param grid - The grid instance
+ */
+export function cancelActiveRowEdit(grid: InternalGrid): void {
+  if (grid._activeEditRows !== -1) {
+    exitRowEdit(grid, grid._activeEditRows, true);
   }
 }

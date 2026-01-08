@@ -30,7 +30,11 @@
     "custom-elements.json"
   ],
   "sideEffects": [
-    "*.css"
+    "*.css",
+    "**/index.ts",
+    "**/index.js",
+    "**/grid.ts",
+    "**/grid.js"
   ],
   "keywords": [
     "web-component",

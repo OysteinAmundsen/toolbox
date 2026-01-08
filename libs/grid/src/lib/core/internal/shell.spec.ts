@@ -4,7 +4,7 @@
  * Tests the pure functions for shell header bar and tool panel infrastructure.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from '../types';
 import {
   cleanupShellState,
@@ -496,6 +496,132 @@ describe('shell module', () => {
 
       expect(state.activePanel).toBeNull();
       expect(state.activePanelCleanup).toBeNull();
+    });
+  });
+
+  describe('parseLightDomToolPanels', () => {
+    let host: HTMLDivElement;
+
+    beforeEach(() => {
+      host = document.createElement('div');
+    });
+
+    it('parses tool panel elements with required attributes', async () => {
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="filters" title="Filters" icon="🔍" tooltip="Filter data" order="10">
+          <div class="filter-content">Filter UI here</div>
+        </tbw-grid-tool-panel>
+      `;
+
+      parseLightDomToolPanels(host, state);
+
+      expect(state.toolPanels.size).toBe(1);
+      expect(state.toolPanels.has('filters')).toBe(true);
+
+      const panel = state.toolPanels.get('filters');
+      expect(panel?.title).toBe('Filters');
+      expect(panel?.icon).toBe('🔍');
+      expect(panel?.tooltip).toBe('Filter data');
+      expect(panel?.order).toBe(10);
+    });
+
+    it('skips tool panels without required id or title', async () => {
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="no-title">Content</tbw-grid-tool-panel>
+        <tbw-grid-tool-panel title="No ID">Content</tbw-grid-tool-panel>
+      `;
+
+      // Suppress expected warning about missing attributes
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      parseLightDomToolPanels(host, state);
+      warnSpy.mockRestore();
+
+      expect(state.toolPanels.size).toBe(0);
+    });
+
+    it('hides parsed tool panel elements', async () => {
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="test" title="Test">Content</tbw-grid-tool-panel>
+      `;
+
+      const panelEl = host.querySelector('tbw-grid-tool-panel') as HTMLElement;
+      expect(panelEl.style.display).toBe('');
+
+      parseLightDomToolPanels(host, state);
+
+      expect(panelEl.style.display).toBe('none');
+    });
+
+    it('tracks parsed panel IDs to avoid re-parsing', async () => {
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="test" title="Test">Content</tbw-grid-tool-panel>
+      `;
+
+      parseLightDomToolPanels(host, state);
+      expect(state.lightDomToolPanelIds.has('test')).toBe(true);
+
+      // Modify the panel definition
+      state.toolPanels.get('test')!.title = 'Modified';
+
+      // Re-parse should not overwrite
+      parseLightDomToolPanels(host, state);
+      expect(state.toolPanels.get('test')!.title).toBe('Modified');
+    });
+
+    it('uses framework adapter renderer when provided', async () => {
+      const { parseLightDomToolPanels } = await import('./shell');
+      let adapterCalled = false;
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="custom" title="Custom Panel">Template content</tbw-grid-tool-panel>
+      `;
+
+      const rendererFactory = () => {
+        adapterCalled = true;
+        return (container: HTMLElement) => {
+          container.innerHTML = '<div>From adapter</div>';
+        };
+      };
+
+      parseLightDomToolPanels(host, state, rendererFactory);
+
+      expect(adapterCalled).toBe(true);
+
+      const panel = state.toolPanels.get('custom');
+      expect(panel).toBeDefined();
+
+      // Test the render function
+      const container = document.createElement('div');
+      panel!.render(container);
+      expect(container.innerHTML).toBe('<div>From adapter</div>');
+    });
+
+    it('falls back to innerHTML when no adapter renderer', async () => {
+      const { parseLightDomToolPanels } = await import('./shell');
+
+      host.innerHTML = `
+        <tbw-grid-tool-panel id="vanilla" title="Vanilla Panel">
+          <div class="my-content">Static content</div>
+        </tbw-grid-tool-panel>
+      `;
+
+      parseLightDomToolPanels(host, state);
+
+      const panel = state.toolPanels.get('vanilla');
+      expect(panel).toBeDefined();
+
+      // Test the render function
+      const container = document.createElement('div');
+      panel!.render(container);
+      expect(container.querySelector('.my-content')).toBeTruthy();
     });
   });
 });

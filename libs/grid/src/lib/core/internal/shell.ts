@@ -41,6 +41,10 @@ export interface ShellState {
   lightDomButtons: HTMLElement[];
   /** Light DOM header content elements */
   lightDomHeaderContent: HTMLElement[];
+  /** Light DOM header title from <tbw-grid-header title="..."> */
+  lightDomTitle: string | null;
+  /** IDs of tool panels registered from light DOM (to avoid re-parsing) */
+  lightDomToolPanelIds: Set<string>;
   /** Whether the tool panel sidebar is open */
   isPanelOpen: boolean;
   /** Which accordion sections are expanded (by panel ID) */
@@ -67,6 +71,8 @@ export function createShellState(): ShellState {
     toolbarButtons: new Map(),
     lightDomButtons: [],
     lightDomHeaderContent: [],
+    lightDomTitle: null,
+    lightDomToolPanelIds: new Set(),
     isPanelOpen: false,
     expandedSections: new Set(),
     headerContentCleanups: new Map(),
@@ -82,8 +88,9 @@ export function createShellState(): ShellState {
  * Determine if shell header should be rendered.
  */
 export function shouldRenderShellHeader(config: ShellConfig | undefined, state: ShellState): boolean {
-  // Check if title is configured
+  // Check if title is configured (from config or light DOM)
   if (config?.header?.title) return true;
+  if (state.lightDomTitle) return true;
 
   // Check if config has toolbar buttons
   if (config?.header?.toolbarButtons?.length) return true;
@@ -281,36 +288,198 @@ export function renderShellBody(
 
 /**
  * Parse light DOM shell elements (tbw-grid-header, etc.).
+ * Safe to call multiple times - will only parse once when elements are available.
  */
 export function parseLightDomShell(host: HTMLElement, state: ShellState): void {
   const headerEl = host.querySelector('tbw-grid-header');
   if (!headerEl) return;
 
-  // Hide the light DOM container
-  (headerEl as HTMLElement).style.display = 'none';
+  // Parse title attribute (only if not already parsed)
+  if (!state.lightDomTitle) {
+    const title = headerEl.getAttribute('title');
+    if (title) {
+      state.lightDomTitle = title;
+    }
+  }
 
   // Parse header content elements
   const headerContents = headerEl.querySelectorAll('tbw-grid-header-content');
-  state.lightDomHeaderContent = Array.from(headerContents) as HTMLElement[];
+  if (headerContents.length > 0 && state.lightDomHeaderContent.length === 0) {
+    state.lightDomHeaderContent = Array.from(headerContents) as HTMLElement[];
 
-  // Assign slot names for slotting into shadow DOM
-  state.lightDomHeaderContent.forEach((el) => {
-    el.setAttribute('slot', 'header-content');
+    // Assign slot names for slotting into shadow DOM
+    state.lightDomHeaderContent.forEach((el) => {
+      el.setAttribute('slot', 'header-content');
+    });
+  }
+
+  // Parse toolbar button elements (only process if we haven't already)
+  // Check for placeholder elements OR already-transformed button elements
+  const toolButtonPlaceholders = headerEl.querySelectorAll('tbw-grid-tool-button');
+  const existingButtons = headerEl.querySelectorAll('button.tbw-toolbar-btn[slot="toolbar"]');
+
+  if (toolButtonPlaceholders.length > 0 && state.lightDomButtons.length === 0) {
+    // First time parsing - convert placeholders to buttons
+    state.lightDomButtons = Array.from(toolButtonPlaceholders).map((placeholder) => {
+      // Create actual button element from placeholder attributes
+      const button = document.createElement('button');
+      button.className = 'tbw-toolbar-btn';
+      const id = placeholder.getAttribute('id') ?? '';
+      const label = placeholder.getAttribute('label') ?? '';
+      const icon = placeholder.getAttribute('icon') ?? '';
+      const order = placeholder.getAttribute('order') ?? '100';
+
+      button.setAttribute('data-btn', id);
+      button.setAttribute('title', label);
+      button.setAttribute('aria-label', label);
+      button.setAttribute('data-order', order);
+      button.textContent = icon;
+      button.setAttribute('slot', 'toolbar');
+
+      // Replace placeholder with actual button in the DOM
+      placeholder.replaceWith(button);
+
+      return button;
+    });
+
+    // Sort by order attribute
+    state.lightDomButtons.sort((a, b) => {
+      const orderA = parseInt(a.getAttribute('data-order') ?? '100', 10);
+      const orderB = parseInt(b.getAttribute('data-order') ?? '100', 10);
+      return orderA - orderB;
+    });
+  } else if (existingButtons.length > 0 && state.lightDomButtons.length === 0) {
+    // Buttons were already transformed (perhaps by a previous call), just reference them
+    state.lightDomButtons = Array.from(existingButtons) as HTMLElement[];
+    state.lightDomButtons.sort((a, b) => {
+      const orderA = parseInt(a.getAttribute('data-order') ?? '100', 10);
+      const orderB = parseInt(b.getAttribute('data-order') ?? '100', 10);
+      return orderA - orderB;
+    });
+  }
+
+  // Move buttons outside of header element before hiding it (so they remain visible for slotting)
+  state.lightDomButtons.forEach((button) => {
+    if (button.parentElement === headerEl) {
+      host.appendChild(button);
+    }
   });
 
-  // Parse toolbar button elements
-  const toolButtons = headerEl.querySelectorAll('tbw-grid-tool-button');
-  state.lightDomButtons = Array.from(toolButtons) as HTMLElement[];
+  // Hide the light DOM header container (after moving buttons out)
+  (headerEl as HTMLElement).style.display = 'none';
+}
 
-  // Sort by order attribute and assign slots
-  state.lightDomButtons.sort((a, b) => {
-    const orderA = parseInt(a.getAttribute('order') ?? '100', 10);
-    const orderB = parseInt(b.getAttribute('order') ?? '100', 10);
-    return orderA - orderB;
-  });
+/**
+ * Callback type for creating a tool panel renderer from a light DOM element.
+ * This is used by framework adapters (Angular, React, etc.) to create renderers
+ * from their template syntax.
+ */
+export type ToolPanelRendererFactory = (
+  element: HTMLElement,
+) => ((container: HTMLElement) => void | (() => void)) | undefined;
 
-  state.lightDomButtons.forEach((el) => {
-    el.setAttribute('slot', 'toolbar');
+/**
+ * Parse light DOM tool panel elements (<tbw-grid-tool-panel>).
+ * These can appear as direct children of <tbw-grid> for declarative tool panel configuration.
+ *
+ * Attributes:
+ * - `id` (required): Unique panel identifier
+ * - `title` (required): Panel title shown in accordion header
+ * - `icon`: Icon for accordion section header (emoji or text)
+ * - `tooltip`: Tooltip for accordion section header
+ * - `order`: Panel order priority (lower = first, default: 100)
+ *
+ * For vanilla JS, the element's innerHTML is used as the panel content.
+ * For framework adapters, the adapter can provide a custom renderer factory.
+ *
+ * @param host - The grid host element
+ * @param state - Shell state to update
+ * @param rendererFactory - Optional factory for creating renderers (used by framework adapters)
+ */
+export function parseLightDomToolPanels(
+  host: HTMLElement,
+  state: ShellState,
+  rendererFactory?: ToolPanelRendererFactory,
+): void {
+  const toolPanelElements = host.querySelectorAll(':scope > tbw-grid-tool-panel');
+
+  toolPanelElements.forEach((element) => {
+    const panelEl = element as HTMLElement;
+    const id = panelEl.getAttribute('id');
+    const title = panelEl.getAttribute('title');
+
+    // Skip if required attributes are missing
+    if (!id || !title) {
+      console.warn(
+        `[parseLightDomToolPanels] Tool panel missing required id or title attribute: id="${id ?? ''}", title="${title ?? ''}"`,
+      );
+      return;
+    }
+
+    const icon = panelEl.getAttribute('icon') ?? undefined;
+    const tooltip = panelEl.getAttribute('tooltip') ?? undefined;
+    const order = parseInt(panelEl.getAttribute('order') ?? '100', 10);
+
+    // Try framework adapter first, then fall back to innerHTML
+    let render: (container: HTMLElement) => void | (() => void);
+
+    const adapterRenderer = rendererFactory?.(panelEl);
+    if (adapterRenderer) {
+      render = adapterRenderer;
+    } else {
+      // Vanilla fallback: use innerHTML as static content
+      const content = panelEl.innerHTML.trim();
+      render = (container: HTMLElement) => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = content;
+        container.appendChild(wrapper);
+        return () => wrapper.remove();
+      };
+    }
+
+    // Check if panel was already parsed
+    const existingPanel = state.toolPanels.get(id);
+
+    // If already parsed and we have an adapter renderer, update the render function
+    // and re-read attributes from DOM (Angular may have updated them after initial parse)
+    // This handles the case where Angular templates register after initial parsing
+    if (existingPanel) {
+      if (adapterRenderer) {
+        // Update render function with framework adapter renderer
+        existingPanel.render = render;
+
+        // Re-read attributes from DOM - framework may have set them after initial parse
+        // (e.g., Angular directive sets attributes in an effect after template is available)
+        existingPanel.order = order;
+        existingPanel.icon = icon;
+        existingPanel.tooltip = tooltip;
+        // Note: title and id are required and shouldn't change
+
+        // Clear existing cleanup to force re-render with new renderer
+        const cleanup = state.panelCleanups.get(id);
+        if (cleanup) {
+          cleanup();
+          state.panelCleanups.delete(id);
+        }
+      }
+      return;
+    }
+
+    // Register the tool panel
+    const panel: ToolPanelDefinition = {
+      id,
+      title,
+      icon,
+      tooltip,
+      order,
+      render,
+    };
+
+    state.toolPanels.set(id, panel);
+    state.lightDomToolPanelIds.add(id);
+
+    // Hide the light DOM element
+    panelEl.style.display = 'none';
   });
 }
 
@@ -1047,4 +1216,175 @@ function renderAccordionSectionContent(shadow: ShadowRoot, state: ShellState, se
   if (cleanup) {
     state.panelCleanups.set(sectionId, cleanup);
   }
+}
+
+// ============================================================================
+// Grid Render HTML
+// ============================================================================
+
+/**
+ * Core grid content HTML template.
+ * Uses faux scrollbar pattern for smooth virtualized scrolling.
+ */
+export const GRID_CONTENT_HTML = `
+  <div class="tbw-scroll-area">
+    <div class="rows-body-wrapper">
+      <div class="rows-body" role="grid">
+        <div class="header">
+          <div class="header-row" part="header-row"></div>
+        </div>
+        <div class="rows-container">
+          <div class="rows-viewport">
+            <div class="rows"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="faux-vscroll">
+    <div class="faux-vscroll-spacer"></div>
+  </div>
+`;
+
+/**
+ * Render the complete grid HTML structure.
+ * @returns HTML string to set as shadow root innerHTML
+ * @deprecated Use buildGridDOM() for better performance
+ */
+export function renderGridHtml(
+  shellConfig: ShellConfig | undefined,
+  state: ShellState,
+  icons?: { toolPanel?: IconValue; expand?: IconValue; collapse?: IconValue },
+): string {
+  const hasShell = shouldRenderShellHeader(shellConfig, state);
+
+  if (hasShell) {
+    const toolPanelIcon = icons?.toolPanel ?? DEFAULT_GRID_ICONS.toolPanel;
+    const accordionIcons = {
+      expand: icons?.expand ?? DEFAULT_GRID_ICONS.expand,
+      collapse: icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
+    };
+    const shellHeaderHtml = renderShellHeader(shellConfig, state, toolPanelIcon);
+    const shellBodyHtml = renderShellBody(shellConfig, state, GRID_CONTENT_HTML, accordionIcons);
+
+    return `
+      <div class="tbw-grid-root has-shell">
+        ${shellHeaderHtml}
+        ${shellBodyHtml}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="tbw-grid-root">
+      <div class="tbw-grid-content">
+        ${GRID_CONTENT_HTML}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// DOM-based Grid Rendering (Performance Optimized)
+// ============================================================================
+
+import {
+  buildGridDOM,
+  buildShellBody,
+  buildShellHeader,
+  type ShellBodyOptions,
+  type ShellHeaderOptions,
+} from './dom-builder';
+
+/**
+ * Build the complete grid DOM structure using direct DOM construction.
+ * This is 2-3x faster than innerHTML for initial render.
+ *
+ * @param shadowRoot - The shadow root to render into (will be cleared)
+ * @param shellConfig - Shell configuration
+ * @param state - Shell state
+ * @param icons - Optional icons
+ * @returns Whether shell is active (for post-render setup)
+ */
+export function buildGridDOMIntoShadow(
+  shadowRoot: ShadowRoot,
+  shellConfig: ShellConfig | undefined,
+  state: ShellState,
+  icons?: { toolPanel?: IconValue; expand?: IconValue; collapse?: IconValue },
+): boolean {
+  const hasShell = shouldRenderShellHeader(shellConfig, state);
+
+  // Clear existing content
+  shadowRoot.replaceChildren();
+
+  if (hasShell) {
+    const toolPanelIcon = iconToString(icons?.toolPanel ?? DEFAULT_GRID_ICONS.toolPanel);
+    const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
+    const collapseIcon = iconToString(icons?.collapse ?? DEFAULT_GRID_ICONS.collapse);
+
+    // Prepare button arrays
+    const configButtons = shellConfig?.header?.toolbarButtons ?? [];
+    const sortedConfigButtons = [...configButtons].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+    const sortedApiButtons = [...state.toolbarButtons.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+
+    // Build header options
+    const headerOptions: ShellHeaderOptions = {
+      title: shellConfig?.header?.title ?? state.lightDomTitle ?? undefined,
+      hasLightDomButtons: state.lightDomButtons.length > 0,
+      hasPanels: state.toolPanels.size > 0,
+      isPanelOpen: state.isPanelOpen,
+      toolPanelIcon,
+      configButtons: sortedConfigButtons.map((b) => ({
+        id: b.id,
+        label: b.label,
+        icon: iconToString(b.icon),
+        disabled: b.disabled,
+        hasElement: !!b.element,
+        hasRender: !!b.render,
+        action: b.action,
+      })),
+      apiButtons: sortedApiButtons.map((b) => ({
+        id: b.id,
+        label: b.label,
+        icon: iconToString(b.icon),
+        disabled: b.disabled,
+        hasElement: !!b.element,
+        hasRender: !!b.render,
+        action: b.action,
+      })),
+    };
+
+    // Build body options
+    const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+    const bodyOptions: ShellBodyOptions = {
+      position: shellConfig?.toolPanel?.position ?? 'right',
+      isPanelOpen: state.isPanelOpen,
+      expandIcon,
+      collapseIcon,
+      panels: sortedPanels.map((p) => ({
+        id: p.id,
+        title: p.title,
+        icon: iconToString(p.icon),
+        isExpanded: state.expandedSections.has(p.id),
+      })),
+    };
+
+    // Build shell elements
+    const shellHeader = buildShellHeader(headerOptions);
+    const shellBody = buildShellBody(bodyOptions);
+
+    // Build and append complete DOM
+    const fragment = buildGridDOM({
+      hasShell: true,
+      shellHeader,
+      shellBody,
+    });
+    shadowRoot.appendChild(fragment);
+  } else {
+    // No shell - just grid content
+    const fragment = buildGridDOM({ hasShell: false });
+    shadowRoot.appendChild(fragment);
+  }
+
+  return hasShell;
 }

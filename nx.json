@@ -87,9 +87,6 @@
           "codeCoverage": true
         }
       }
-    },
-    "test": {
-      "dependsOn": ["^build"]
     }
   },
   "generators": {

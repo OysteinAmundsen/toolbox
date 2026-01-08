@@ -44,6 +44,42 @@ describe('parseLightDomColumns', () => {
     expect(col.__editorTemplate).toBeInstanceOf(HTMLElement);
     expect(col.__headerTemplate).toBeInstanceOf(HTMLElement);
   });
+
+  it('parses width attribute as number', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="id" width="120"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.width).toBe(120);
+  });
+
+  it('parses width attribute with px suffix as string', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="id" width="120px"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.width).toBe('120px');
+  });
+
+  it('parses minWidth attribute (camelCase)', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="id" minWidth="80"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.minWidth).toBe(80);
+  });
+
+  it('parses min-width attribute (kebab-case)', () => {
+    const host = document.createElement('div');
+    host.innerHTML = `
+      <tbw-grid-column field="id" min-width="80"></tbw-grid-column>
+    `;
+    const [col] = parseLightDomColumns(host as any);
+    expect(col.minWidth).toBe(80);
+  });
 });
 
 describe('mergeColumns', () => {
@@ -75,6 +111,24 @@ describe('mergeColumns', () => {
     expect(a).toMatchObject({ field: 'a', sortable: true, resizable: true, header: 'A', type: 'number' });
     expect(b).toMatchObject({ field: 'b', editable: true, sortable: true });
     expect(c).toBeTruthy();
+  });
+
+  it('merges width and minWidth from DOM when not set programmatically', () => {
+    const programmatic: any = [
+      { field: 'a', header: 'A' },
+      { field: 'b', header: 'B', width: 200 },
+    ];
+    const dom: any = [
+      { field: 'a', width: 120, minWidth: 80 },
+      { field: 'b', width: 100, minWidth: 50 },
+    ];
+    const merged = mergeColumns(programmatic, dom);
+    const a = merged.find((c: any) => c.field === 'a');
+    const b = merged.find((c: any) => c.field === 'b');
+    // DOM width/minWidth should be applied when programmatic is missing
+    expect(a).toMatchObject({ field: 'a', width: 120, minWidth: 80 });
+    // Programmatic width should be preserved, but minWidth from DOM should be applied
+    expect(b).toMatchObject({ field: 'b', width: 200, minWidth: 50 });
   });
 });
 

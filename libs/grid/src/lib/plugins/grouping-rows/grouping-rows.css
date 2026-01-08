@@ -1,6 +1,16 @@
+/* Group row layout - uses grid template from parent */
 .group-row {
+  display: grid;
+  grid-template-columns: var(--tbw-column-template);
   background: var(--tbw-grouping-rows-bg, var(--tbw-color-panel-bg));
   font-weight: 500;
+  border-bottom: var(--tbw-row-divider);
+  min-height: var(--tbw-row-height);
+}
+.group-row .cell {
+  display: flex;
+  align-items: center;
+  padding: var(--tbw-cell-padding, 2px 8px);
 }
 .group-row:hover {
   background: var(--tbw-grouping-rows-bg-hover, var(--tbw-color-row-hover));
@@ -14,6 +24,9 @@
   width: 20px;
   height: 20px;
   margin-right: 4px;
+  background: none;
+  border: 0;
+  font: inherit;
 }
 .group-toggle:hover {
   background: var(--tbw-grouping-rows-toggle-hover, var(--tbw-color-row-hover));

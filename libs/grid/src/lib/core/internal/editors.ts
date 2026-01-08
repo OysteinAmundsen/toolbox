@@ -2,13 +2,18 @@
  * Default Editors Module
  *
  * Provides built-in editor factories for different column types.
+ *
+ * IMPORTANT: Editor factories should NOT call focus() on elements - they are called
+ * before the element is appended to the DOM. The calling code (beginBulkEdit,
+ * inlineEnterEdit) is responsible for focusing the correct editor after insertion.
  */
 
 import type { ColumnConfig, EditorContext } from '../types';
 
 /**
  * Returns a default editor factory function for the given column type.
- * Each editor handles focus, commit on blur/Enter, and cancel on Escape.
+ * Each editor handles commit on blur/Enter, and cancel on Escape.
+ * Note: Focus is NOT called here - the calling code handles focusing after DOM insertion.
  */
 export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext) => HTMLElement | string {
   switch (column.type) {
@@ -22,7 +27,6 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
           if (e.key === 'Enter') ctx.commit(input.value === '' ? null : Number(input.value));
           if (e.key === 'Escape') ctx.cancel();
         });
-        input.focus();
         return input;
       };
     case 'boolean':
@@ -31,7 +35,6 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
         input.type = 'checkbox';
         input.checked = !!ctx.value;
         input.addEventListener('change', () => ctx.commit(input.checked));
-        input.focus();
         return input;
       };
     case 'date':
@@ -43,7 +46,6 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
         input.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') ctx.cancel();
         });
-        input.focus();
         return input;
       };
     case 'select':
@@ -79,7 +81,6 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
         select.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') ctx.cancel();
         });
-        select.focus();
         return select;
       };
     default:
@@ -92,7 +93,6 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
           if (e.key === 'Enter') ctx.commit(input.value);
           if (e.key === 'Escape') ctx.cancel();
         });
-        input.focus();
         return input;
       };
   }

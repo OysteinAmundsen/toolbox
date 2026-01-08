@@ -297,6 +297,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       this.globalStylesInjected = true;
       return;
     }
+    // Only inject if we have valid CSS text (Vite's ?inline import)
+    // When importing from source without Vite, the import is a module object, not a string
+    if (typeof filterPanelStyles !== 'string' || !filterPanelStyles) {
+      this.globalStylesInjected = true;
+      return;
+    }
     const style = document.createElement('style');
     style.id = 'tbw-filter-panel-styles';
     style.textContent = filterPanelStyles;

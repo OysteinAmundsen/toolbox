@@ -8,6 +8,7 @@
  * - 'range': Range selection. Shift+click or drag to select rectangular cell ranges.
  */
 
+import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import {
   createRangeFromAnchor,
@@ -364,11 +365,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // ROW MODE: Add row-focus class to selected rows, disable cell-focus
     if (mode === 'row') {
       // In row mode, disable ALL cell-focus styling - row selection takes precedence
-      shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
+      clearCellFocus(shadowRoot);
 
       allRows.forEach((row) => {
         const firstCell = row.querySelector('.cell[data-row]');
-        const rowIndex = parseInt(firstCell?.getAttribute('data-row') ?? '-1', 10);
+        const rowIndex = getRowIndexFromCell(firstCell);
         if (rowIndex >= 0 && this.selected.has(rowIndex)) {
           row.classList.add('selected', 'row-focus');
         }
@@ -378,7 +379,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // RANGE MODE: Add selected and edge classes to cells
     if (mode === 'range' && this.ranges.length > 0) {
       // Clear all cell-focus first - selection plugin manages focus styling in range mode
-      shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
+      clearCellFocus(shadowRoot);
 
       const normalized = this.activeRange ? normalizeRange(this.activeRange) : null;
 
@@ -406,7 +407,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // CELL MODE: Remove cell-focus when selection plugin handles focus
     if (mode === 'cell' && this.selectedCell) {
       // Remove all cell-focus - the selection plugin manages focus styling
-      shadowRoot.querySelectorAll('.cell-focus').forEach((cell) => cell.classList.remove('cell-focus'));
+      clearCellFocus(shadowRoot);
     }
   }
 

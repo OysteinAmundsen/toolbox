@@ -7,8 +7,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // The master-detail plugin intentionally uses `any` for maximum flexibility with user-defined row types.
 
-/** Animation style for expand/collapse */
-export type ExpandCollapseAnimation = false | 'slide' | 'fade';
+import type { ExpandCollapseAnimation } from '../../core/types';
+export type { ExpandCollapseAnimation } from '../../core/types';
 
 /** Configuration options for the master-detail plugin */
 export interface MasterDetailConfig {

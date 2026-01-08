@@ -1150,3 +1150,105 @@ describe('tbw-grid integration: async filtering state persistence', () => {
     expect(grid._rows[0].status).toBe('Inactive');
   });
 });
+
+describe('tbw-grid scroll height calculation', () => {
+  let grid: any;
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('creates correct DOM structure for shell + column groups + footer', async () => {
+    // This test verifies the DOM structure is correct for scroll height calculation.
+    // The actual height calculation can only be verified in a real browser since
+    // happy-dom doesn't provide real layout (clientHeight returns 0).
+
+    // Import PinnedRowsPlugin for footer
+    const { PinnedRowsPlugin } = await import('../../lib/plugins/pinned-rows');
+
+    // Generate 200 rows like the demo
+    const rows = Array.from({ length: 200 }, (_, i) => ({
+      id: 1001 + i,
+      firstName: `First${i}`,
+      lastName: `Last${i}`,
+      department: 'Engineering',
+      salary: 50000 + i * 100,
+    }));
+
+    // Create grid and configure BEFORE appending to DOM (like other shell tests)
+    grid = document.createElement('tbw-grid');
+    grid.style.height = '600px';
+    grid.style.display = 'block';
+    grid.gridConfig = {
+      shell: {
+        header: { title: 'Test Grid' },
+      },
+      columnGroups: [
+        { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName'] },
+        { id: 'work', header: 'Work Info', children: ['department', 'salary'] },
+      ],
+      columns: [
+        { field: 'id', header: 'ID', type: 'number' },
+        { field: 'firstName', header: 'First Name' },
+        { field: 'lastName', header: 'Last Name' },
+        { field: 'department', header: 'Department' },
+        { field: 'salary', header: 'Salary', type: 'number' },
+      ],
+      plugins: [
+        new GroupingColumnsPlugin(),
+        new PinnedRowsPlugin({
+          position: 'bottom',
+          showRowCount: true,
+          aggregationRows: [
+            {
+              id: 'Summary',
+              salary: (r: any[]) => r.reduce((a, b) => a + (b.salary || 0), 0),
+            },
+          ],
+        }),
+      ],
+    };
+    grid.rows = rows;
+    document.body.appendChild(grid);
+
+    await waitUpgrade(grid);
+    // Wait for plugins to render
+    await nextFrame();
+    await nextFrame();
+
+    const shadow = grid.shadowRoot;
+
+    // Verify all critical DOM elements exist for scroll height calculation
+    const fauxScrollbar = shadow.querySelector('.faux-vscroll');
+    const spacer = shadow.querySelector('.faux-vscroll-spacer');
+    const viewportEl = shadow.querySelector('.rows-viewport');
+    const scrollArea = shadow.querySelector('.tbw-scroll-area');
+    const shellHeader = shadow.querySelector('.tbw-shell-header');
+    const headerGroupRow = shadow.querySelector('.header-group-row');
+
+    // All elements must exist for proper height calculation
+    expect(fauxScrollbar).not.toBeNull();
+    expect(spacer).not.toBeNull();
+    expect(viewportEl).not.toBeNull();
+    expect(scrollArea).not.toBeNull();
+    expect(shellHeader).not.toBeNull();
+    expect(headerGroupRow).not.toBeNull();
+
+    // Footer is created by PinnedRowsPlugin in afterRender - verify it exists
+    // May need additional frames for plugin to render
+    await nextFrame();
+    const footer = shadow.querySelector('.tbw-footer');
+    expect(footer).not.toBeNull();
+
+    // Verify the faux-vscroll and scroll-area are siblings (correct structure for height calc)
+    const gridContent = shadow.querySelector('.tbw-grid-content');
+    expect(gridContent).not.toBeNull();
+    expect(fauxScrollbar?.parentElement).toBe(gridContent);
+    expect(scrollArea?.parentElement).toBe(gridContent);
+
+    // Verify footer is inside scroll-area (so it affects viewport height)
+    expect(footer?.closest('.tbw-scroll-area')).toBe(scrollArea);
+
+    // Verify spacer has some height set (even if 0 in test env, style should exist)
+    expect((spacer as HTMLElement).style.height).toBeDefined();
+  });
+});

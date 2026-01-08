@@ -1,3 +1,22 @@
+/* Quick filter input in header */
+:host .tbw-quick-filter-input {
+  flex: 1;
+  max-width: 300px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius);
+  background: var(--tbw-color-bg);
+  color: var(--tbw-color-fg);
+  font-size: 13px;
+}
+
+:host .tbw-quick-filter-input:focus {
+  outline: none;
+  border-color: var(--tbw-color-accent);
+}
+
+/* Header cell indicator when filtered */
 .header-cell.filtered::before {
   content: '';
   position: absolute;

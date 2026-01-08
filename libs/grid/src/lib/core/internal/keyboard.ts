@@ -3,6 +3,8 @@
  * and edit lifecycle triggers while respecting active form field interactions.
  */
 import type { InternalGrid } from '../types';
+import { FOCUSABLE_EDITOR_SELECTOR } from './editing';
+import { clearCellFocus } from './utils';
 
 export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   // Dispatch to plugin system first - if any plugin handles it, stop here
@@ -112,11 +114,15 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       e.preventDefault();
       break;
     case 'Enter':
-      if (typeof grid.beginBulkEdit === 'function') grid.beginBulkEdit(grid._focusRow);
-      else
+      if (typeof grid.beginBulkEdit === 'function') {
+        grid.beginBulkEdit(grid._focusRow);
+        // Don't call ensureCellVisible - beginBulkEdit handles focus
+        return;
+      } else {
         (grid as unknown as HTMLElement).dispatchEvent(
           new CustomEvent('activate-cell', { detail: { row: grid._focusRow, col: grid._focusCol } }),
         );
+      }
       return ensureCellVisible(grid);
     default:
       return;
@@ -159,7 +165,7 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
   if (!isEditing) {
     grid.refreshVirtualWindow(false);
   }
-  Array.from(grid._bodyEl.querySelectorAll('.cell-focus')).forEach((el: any) => el.classList.remove('cell-focus'));
+  clearCellFocus(grid._bodyEl);
   // Clear previous aria-selected markers
   Array.from(grid._bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el: any) => {
     el.setAttribute('aria-selected', 'false');
@@ -176,8 +182,9 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
 
       // Horizontal scroll: ensure focused cell is visible in the horizontal scroll area
       // The .tbw-scroll-area element handles horizontal scrolling
+      // Skip horizontal scrolling when in edit mode to prevent scroll jumps when editors are created
       const scrollArea = grid.shadowRoot?.querySelector('.tbw-scroll-area') as HTMLElement | null;
-      if (scrollArea && cell) {
+      if (scrollArea && cell && !isEditing) {
         // Handle forced scroll for Home/End keys - always scroll to edge
         if (options?.forceScrollLeft) {
           scrollArea.scrollLeft = 0;
@@ -210,12 +217,10 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
       }
 
       if (grid._activeEditRows !== undefined && grid._activeEditRows !== -1 && cell.classList.contains('editing')) {
-        const focusTarget = cell.querySelector(
-          'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
-        ) as HTMLElement | null;
+        const focusTarget = cell.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
         if (focusTarget && document.activeElement !== focusTarget) {
           try {
-            focusTarget.focus();
+            focusTarget.focus({ preventScroll: true });
           } catch {
             /* empty */
           }

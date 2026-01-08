@@ -10,7 +10,8 @@
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
-        "outputPath": "dist/libs/grid"
+        "outputPath": "dist/libs/grid",
+        "emptyOutDir": true
       },
       "configurations": {
         "development": {

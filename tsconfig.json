@@ -8,6 +8,9 @@
     },
     {
       "path": "./libs/grid"
+    },
+    {
+      "path": "./libs/grid-angular"
     }
   ],
   "ts-node": {

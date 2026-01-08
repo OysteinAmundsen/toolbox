@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Employee Management - @toolbox-web/grid Demo</title>
+  </head>
+  <body>
+    <div id="app">
+      <div class="demo-container">
+        <header class="demo-header">
+          <div class="demo-controls">
+            <label>
+              <span class="row-count-display">Rows: <strong id="row-count-value">200</strong></span>
+              <input type="range" id="row-count" min="50" max="1000" step="50" value="200" />
+            </label>
+            <label><input type="checkbox" id="enable-selection" checked /> Selection</label>
+            <label><input type="checkbox" id="enable-filtering" checked /> Filtering</label>
+            <label><input type="checkbox" id="enable-sorting" checked /> Sorting</label>
+            <label><input type="checkbox" id="enable-editing" checked /> Editing</label>
+            <label><input type="checkbox" id="enable-detail" checked /> Master-Detail</label>
+          </div>
+        </header>
+
+        <!-- Grid is created dynamically by main.ts -->
+        <div class="grid-wrapper"></div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

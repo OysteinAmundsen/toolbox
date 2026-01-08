@@ -1,0 +1,28 @@
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": ["node", "vite/client"],
+    "skipLibCheck": true,
+    "paths": {
+      "@demo/shared": ["../shared/index.ts"],
+      "@demo/shared/styles": ["../shared/styles.ts"],
+      "@toolbox-web/grid": ["../../../dist/libs/grid"],
+      "@toolbox-web/grid/all": ["../../../dist/libs/grid/all"],
+      "@toolbox-web/grid/*": ["../../../dist/libs/grid/*"],
+      "@toolbox-web/grid-angular": ["../../../libs/grid-angular/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts"],
+  "references": [
+    {
+      "path": "../../../libs/grid-angular/tsconfig.lib.json"
+    },
+    {
+      "path": "../../../libs/grid/tsconfig.lib.json"
+    }
+  ]
+}

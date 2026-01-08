@@ -24,10 +24,8 @@ const config: StorybookConfig = {
     outline: false,
   },
   stories: [
-    // All grid library stories and documentation
-    '../../../libs/grid/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
-    // Stories from other library stories/ directories
-    '../../../**/stories/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
+    // All stories and docs from libs and demos (node_modules/dist excluded by default)
+    '../../../{libs,demos}/**/*.@(mdx|stories.@(js|jsx|ts|tsx))',
   ],
   addons: [
     '@storybook/addon-a11y',
@@ -54,16 +52,25 @@ const config: StorybookConfig = {
   core: {},
   viteFinal: async (cfg) => {
     // Add Vite resolve aliases for @toolbox/* paths
+    // Use array format to ensure proper ordering (more specific paths first)
     cfg.resolve = cfg.resolve || {};
-    cfg.resolve.alias = {
-      ...cfg.resolve.alias,
-      '@toolbox/themes/': resolve(__dirname, '../../../libs/themes') + '/',
-      '@toolbox/themes': resolve(__dirname, '../../../libs/themes'),
-      '@toolbox/storybook/': resolve(__dirname, '../../../libs/storybook') + '/',
-      '@toolbox/storybook': resolve(__dirname, '../../../libs/storybook'),
-      '@toolbox-web/grid/': resolve(__dirname, '../../../libs/grid/src/lib') + '/',
-      '@toolbox-web/grid': resolve(__dirname, '../../../libs/grid/src/index.ts'),
-    };
+    cfg.resolve.alias = [
+      // Preserve any existing aliases
+      ...(Array.isArray(cfg.resolve.alias) ? cfg.resolve.alias : []),
+      // Theme paths
+      { find: /^@toolbox\/themes\/(.*)/, replacement: resolve(__dirname, '../../../libs/themes/$1') },
+      { find: '@toolbox/themes', replacement: resolve(__dirname, '../../../libs/themes') },
+      // Grid paths - most specific first
+      { find: '@toolbox-web/grid/all', replacement: resolve(__dirname, '../../../libs/grid/src/all.ts') },
+      { find: /^@toolbox-web\/grid\/(.*)/, replacement: resolve(__dirname, '../../../libs/grid/src/lib/$1') },
+      { find: '@toolbox-web/grid', replacement: resolve(__dirname, '../../../libs/grid/src/index.ts') },
+      // Demo shared module - more specific path first
+      {
+        find: '@demo/shared/styles',
+        replacement: resolve(__dirname, '../../../demos/employee-management/shared/styles.ts'),
+      },
+      { find: '@demo/shared', replacement: resolve(__dirname, '../../../demos/employee-management/shared/index.ts') },
+    ];
 
     // Allow Vite to serve files from the monorepo root
     cfg.server = cfg.server || {};

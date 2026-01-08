@@ -16,17 +16,17 @@
     "start": "nx run storybook-app:storybook",
     "build": "rm -rf dist/libs/ && nx run-many --target=build --exclude=storybook-app --output-style=stream && bun run cem",
     "cem": "cd libs/grid && bunx cem analyze",
-    "test": "nx run-many --target=test --exclude=storybook-app --output-style=stream",
+    "test": "nx run-many --target=test --exclude=storybook-app,demo-angular --output-style=stream",
     "lint": "nx run-many --target=lint --exclude=storybook-app --output-style=stream",
     "coverage": "bun run test --coverage",
     "watch": "bun run build --watch",
-    "docs": "nx run storybook-app:storybook --docs",
-    "docs:build": "nx run storybook-app:build-storybook --docs -o dist/docs",
     "update": "nx migrate latest && nx migrate --run-migrations --if-exists && git commit -am 'chore: update dependencies' && bunx npm-check-updates --format group -u --cooldown 5 --target minor && bun install"
   },
   "devDependencies": {
+    "@angular-devkit/build-angular": "^21.0.5",
     "@custom-elements-manifest/analyzer": "0.11.0",
     "@eslint/js": "9.39.2",
+    "@nx/angular": "^22.3.3",
     "@nx/devkit": "22.3.3",
     "@nx/eslint": "22.3.3",
     "@nx/eslint-plugin": "22.3.3",
@@ -47,6 +47,7 @@
     "@vitest/coverage-v8": "4.0.16",
     "@vitest/ui": "4.0.16",
     "@vueless/storybook-dark-mode": "^10.0.4",
+    "ajv": "^8.0.0",
     "eslint": "9.39.2",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import": "2.32.0",
@@ -56,6 +57,7 @@
     "highlight.js": "11.11.1",
     "jiti": "2.6.1",
     "jsdom": "27.4.0",
+    "jsonc-eslint-parser": "^2.1.0",
     "lit": "3.3.2",
     "nx": "22.3.3",
     "prettier": "3.7.4",
@@ -73,5 +75,6 @@
   "workspaces": [
     "libs/*",
     "apps/*"
-  ]
+  ],
+  "dependencies": {}
 }

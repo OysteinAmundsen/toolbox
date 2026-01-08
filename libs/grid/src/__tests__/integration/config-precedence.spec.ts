@@ -178,4 +178,48 @@ describe('HTML attribute configuration', () => {
     expect(grid.rows).toEqual([]);
     warnSpy.mockRestore();
   }, 20000);
+
+  it('re-parses light DOM columns when gridConfig is set after initial render', async () => {
+    // This simulates Angular's async content projection:
+    // 1. Grid connects to DOM
+    // 2. Grid does initial render (light DOM empty or incomplete)
+    // 3. Angular projects <tbw-grid-column> elements
+    // 4. Angular sets gridConfig
+    // 5. Grid should re-parse light DOM and pick up columns with width/editable
+    const grid: any = document.createElement('tbw-grid');
+    document.body.innerHTML = '';
+    document.body.appendChild(grid);
+
+    // Wait for grid to initialize (simulates initial render before content projection)
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    // Now simulate Angular projecting content into light DOM
+    grid.innerHTML = `
+      <tbw-grid-column field="id" header="ID" width="80" sortable></tbw-grid-column>
+      <tbw-grid-column field="name" header="Name" width="150" editable></tbw-grid-column>
+    `;
+
+    // Simulate Angular setting gridConfig (which should trigger re-parse)
+    grid.gridConfig = {};
+    grid.rows = [{ id: 1, name: 'Test' }];
+
+    // Wait for update
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const cfg = await grid.getConfig();
+
+    // Columns should be parsed from light DOM with width and editable
+    expect(cfg.columns.length).toBe(2);
+    const idCol = cfg.columns.find((c: any) => c.field === 'id');
+    const nameCol = cfg.columns.find((c: any) => c.field === 'name');
+
+    expect(idCol).toBeDefined();
+    expect(idCol.width).toBe(80);
+    expect(idCol.sortable).toBe(true);
+
+    expect(nameCol).toBeDefined();
+    expect(nameCol.width).toBe(150);
+    expect(nameCol.editable).toBe(true);
+  }, 20000);
 });

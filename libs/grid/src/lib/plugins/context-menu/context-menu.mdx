@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as ContextMenuStories from './context-menu.stories';
 
 <Meta of={ContextMenuStories} />
 
 # Context Menu Plugin
 
-The Context Menu plugin adds right-click context menus with customizable actions and submenus.
+The Context Menu plugin adds a customizable right-click menu to your grid cells. Build anything from simple copy/paste actions to complex nested menus with conditional visibility, icons, and keyboard shortcuts.
 
 ## Installation
 
@@ -15,22 +16,143 @@ import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
 
 ## Basic Usage
 
+Define your menu items as an array—each item has an `id`, `label`, and `action` callback that receives context about the clicked cell (row data, column info, cell value, etc.). Add separators between groups of actions for visual clarity.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'status', header: 'Status' }
+  ],
   plugins: [
     new ContextMenuPlugin({
       items: [
-        { id: 'copy', label: 'Copy', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
-        { id: 'edit', label: 'Edit', action: (ctx) => grid.startEditing(ctx.rowIndex, ctx.colIndex) },
+        { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+        { id: 'edit', label: 'Edit Row', action: (ctx) => grid.startEditing(ctx.rowIndex, ctx.colIndex) },
         { type: 'separator' },
-        { id: 'delete', label: 'Delete Row', action: (ctx) => deleteRow(ctx.rowIndex) },
+        { id: 'delete', label: 'Delete Row', action: (ctx) => removeRow(ctx.rowIndex) },
       ],
     }),
   ],
 };
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+
+function DataGrid({ data, onDelete }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+          { field: 'status', header: 'Status' }
+        ],
+        plugins: [
+          new ContextMenuPlugin({
+            items: [
+              { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+              { id: 'edit', label: 'Edit Row', action: (ctx) => gridRef.current.startEditing(ctx.rowIndex, ctx.colIndex) },
+              { type: 'separator' },
+              { id: 'delete', label: 'Delete Row', action: (ctx) => onDelete(ctx.rowIndex) },
+            ],
+          }),
+        ],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+
+const props = defineProps(['data']);
+const emit = defineEmits(['delete']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'status', header: 'Status' }
+    ],
+    plugins: [
+      new ContextMenuPlugin({
+        items: [
+          { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+          { id: 'edit', label: 'Edit Row', action: (ctx) => gridRef.value.startEditing(ctx.rowIndex, ctx.colIndex) },
+          { type: 'separator' },
+          { id: 'delete', label: 'Delete Row', action: (ctx) => emit('delete', ctx.rowIndex) },
+        ],
+      }),
+    ],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA, Output, EventEmitter } from '@angular/core';
+import '@toolbox-web/grid';
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class DataGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+  @Output() deleteRow = new EventEmitter<number>();
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'status', header: 'Status' }
+      ],
+      plugins: [
+        new ContextMenuPlugin({
+          items: [
+            { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+            { id: 'edit', label: 'Edit Row', action: (ctx) => this.gridRef.nativeElement.startEditing(ctx.rowIndex, ctx.colIndex) },
+            { type: 'separator' },
+            { id: 'delete', label: 'Delete Row', action: (ctx) => this.deleteRow.emit(ctx.rowIndex) },
+          ],
+        }),
+      ],
+    };
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

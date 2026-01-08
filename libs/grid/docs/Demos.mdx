@@ -1,6 +1,6 @@
 {/* Demos.mdx */}
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
-import * as AllFeaturesStories from '../demo/employee-management.stories';
+import * as EmployeeManagement from '../../../demos/employee-management/employee-management.stories';
 
 <Meta title="Grid/Demos" />
 
@@ -8,13 +8,13 @@ import * as AllFeaturesStories from '../demo/employee-management.stories';
 
 This comprehensive demo showcases `@toolbox-web/grid` in a **production-ready enterprise scenario**—an Employee Management System handling 200+ employees with complex data relationships, multiple interaction patterns, and advanced features working together seamlessly.
 
-> 📂 **View the source code**: [libs/grid/demo/](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid/demo)
+> 📂 **View the source code**: [demos/employee-management/](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/employee-management)
 
 ## Live Demo
 
-<Canvas of={AllFeaturesStories.AllFeatures} withToolbar/>
+<Canvas of={EmployeeManagement.AllFeatures} withToolbar />
 
-<Controls of={AllFeaturesStories.AllFeatures} />
+<Controls of={EmployeeManagement.AllFeatures} />
 
 ## What This Demo Showcases
 
@@ -77,7 +77,7 @@ This single grid instance demonstrates **15+ plugins working together** in a rea
 
 ## Row Grouping Variant
 
-<Canvas of={AllFeaturesStories.GroupedByDepartment} />
+<Canvas of={EmployeeManagement.GroupedByDepartment} />
 
 This variant shows employees grouped by department with:
 
@@ -148,6 +148,17 @@ Even with 200+ rows and 15 columns:
 - **Plugin hooks** process data efficiently in a single pass
 
 Scale up to 1000 rows using the slider control to see virtualization in action!
+
+## Demo Implementations
+
+The employee management demo is available in two implementations:
+
+| Implementation | Description | Path |
+| -------------- | ----------- | ---- |
+| **Vanilla TypeScript** | Pure TypeScript with Vite, imperative grid setup | [`demos/employee-management/vanilla/`](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/employee-management/vanilla) |
+| **Angular 21** | Standalone components, signals, template-driven renderers | [`demos/employee-management/angular/`](https://github.com/OysteinAmundsen/toolbox/tree/main/demos/employee-management/angular) |
+
+Both demos share the same data types and generators from `demos/employee-management/shared/`.
 
 ## Next Steps
 

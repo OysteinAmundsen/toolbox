@@ -536,7 +536,9 @@ describe('shell module', () => {
       `;
 
       // Suppress expected warning about missing attributes
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* intentionally empty */
+      });
       parseLightDomToolPanels(host, state);
       warnSpy.mockRestore();
 

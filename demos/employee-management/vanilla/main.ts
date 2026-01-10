@@ -14,7 +14,7 @@
  */
 
 // Import shared demo styles (applies to document)
-import '../shared/demo-styles.css';
+import '@demo/shared/demo-styles.css';
 
 // Import the grid component (registers <tbw-grid> custom element)
 import '@toolbox-web/grid';

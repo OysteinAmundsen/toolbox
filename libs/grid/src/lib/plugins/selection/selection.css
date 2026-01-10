@@ -29,3 +29,10 @@
 :host .data-grid-row > .cell.selected.last {
   border-right: 2px solid var(--tbw-range-border-color);
 }
+
+/* Selection summary in header */
+:host .tbw-selection-summary {
+  font-size: 13px;
+  color: var(--tbw-color-fg-muted);
+  white-space: nowrap;
+}

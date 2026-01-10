@@ -377,32 +377,6 @@
   outline-offset: var(--tbw-focus-outline-offset);
 }
 
-/* ================= Row Grouping ================= */
-:host .group-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  background: var(--tbw-color-row-alt);
-  font-weight: 500;
-  border-bottom: var(--tbw-row-divider);
-  min-height: var(--tbw-row-height);
-}
-:host .group-row .cell {
-  display: flex;
-  align-items: center;
-  padding: var(--tbw-cell-padding, 2px 8px);
-}
-:host .group-row .group-toggle {
-  background: none;
-  border: 0;
-  cursor: pointer;
-  padding: 0 4px 0 0;
-  font: inherit;
-}
-:host .group-row .group-count {
-  margin-left: 4px;
-  opacity: 0.7;
-}
-
 /* ================= Sticky Columns ================= */
 :host .sticky-left,
 :host .sticky-right {
@@ -583,6 +557,7 @@
   flex-direction: column;
   overflow-x: auto; /* Horizontal scroll for wide content (includes footer) */
   overflow-y: hidden; /* Vertical scroll handled by faux scrollbar */
+  overflow-anchor: none; /* Prevent browser auto-scrolling when content changes */
 }
 
 /* Tool panel container - overlays grid content */
@@ -769,31 +744,6 @@
   display: block;
 }
 
-/* Quick filter input (common header content) */
-:host .tbw-quick-filter-input {
-  flex: 1;
-  max-width: 300px;
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--tbw-color-border);
-  border-radius: var(--tbw-border-radius);
-  background: var(--tbw-color-bg);
-  color: var(--tbw-color-fg);
-  font-size: 13px;
-}
-
-:host .tbw-quick-filter-input:focus {
-  outline: none;
-  border-color: var(--tbw-color-accent);
-}
-
-/* Selection summary (common header content) */
-:host .tbw-selection-summary {
-  font-size: 13px;
-  color: var(--tbw-color-fg-muted);
-  white-space: nowrap;
-}
-
 /* ========== Animation System ========== */
 
 /* Respect prefers-reduced-motion when animation mode is 'reduced-motion' */
@@ -810,7 +760,7 @@
   --tbw-animation-duration: 0ms;
 }
 
-/* Expand/collapse animation for tree, groups, master-detail */
+/* Expand/collapse animation classes for plugins */
 :host .tbw-expanding {
   animation: tbw-expand var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
   overflow: hidden;
@@ -847,7 +797,7 @@
   }
 }
 
-/* Fade animation for filtering */
+/* Fade animation classes for plugins */
 :host .tbw-fade-in {
   animation: tbw-fade-in var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
 }
@@ -874,13 +824,13 @@
   }
 }
 
-/* FLIP animation class (used by reorder, sort) */
+/* FLIP animation class for plugins */
 :host .tbw-flip-animating {
   will-change: transform;
   z-index: 1;
 }
 
-/* Toggle icon rotation (tree, groups, master-detail) */
+/* Toggle icon rotation for expand/collapse states */
 :host .tbw-toggle-icon {
   display: inline-flex;
   align-items: center;

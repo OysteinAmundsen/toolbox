@@ -19,11 +19,15 @@
     "strict": true,
     "target": "es2022",
     "paths": {
-      "@toolbox-web/grid": ["libs/grid/src/"],
-      "@toolbox-web/grid/all": ["libs/grid/src/all.ts"],
-      "@toolbox-web/grid/*": ["libs/grid/src/lib/*"],
-      "@toolbox/storybook/*": ["libs/storybook/*"],
-      "@toolbox/themes/*": ["libs/themes/*"]
+      "@toolbox-web/grid": ["dist/libs/grid/index.d.ts"],
+      "@toolbox-web/grid/all": ["dist/libs/grid/all.d.ts"],
+      "@toolbox-web/grid/*": ["dist/libs/grid/*"],
+      "@toolbox-web/grid-angular": ["dist/libs/grid-angular/index.d.ts"],
+      "@toolbox/themes/*": ["libs/themes/*"],
+      "@toolbox/datagrid": ["libs/datagrid/src/"],
+      "@toolbox/datagrid/*": ["libs/datagrid/src/lib/*"],
+      "@demo/shared": ["demos/employee-management/shared/index.ts"],
+      "@demo/shared/styles": ["demos/employee-management/shared/styles.ts"]
     }
   }
 }

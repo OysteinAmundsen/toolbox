@@ -51,10 +51,14 @@ All libraries in this suite are built as **standard web components** (custom ele
 ### Monorepo Structure
 
 - **`libs/grid/`** - First library in suite; single `<tbw-grid>` component with extensive internal modules
+- **`libs/grid-angular/`** - Angular adapter library (`@toolbox-web/grid-angular`) with directives for template-driven column renderers/editors
 - **`libs/*/`** - Additional component libraries will follow same pure TypeScript + web standards pattern
 - **`apps/storybook-app/`** - Unified Storybook for all components with live HMR via Vite
 - **`libs/themes/`** - Shared CSS theme system (currently Grid themes; will expand for suite-wide theming)
-- **`libs/storybook/`** - Shared Storybook utilities for all component libraries (`_utils.ts` for code view helpers)
+- **`demos/employee-management/`** - Full-featured demo applications showcasing the grid:
+  - `vanilla/` - Pure TypeScript/Vite demo (`demo-vanilla` project)
+  - `angular/` - Angular demo using grid-angular adapter (`demo-angular` project)
+  - `shared/` - Shared types and mock data used by both demos
 
 ### Grid Component Architecture
 
@@ -72,6 +76,51 @@ The `<tbw-grid>` component ([libs/grid/src/lib/core/grid.ts](libs/grid/src/lib/c
   - `sanitize.ts` - Template string evaluation with safety guards
   - `sticky.ts` - Sticky column offset calculations
   - `inference.ts` - Column type inference from data
+
+### Angular Adapter (`@toolbox-web/grid-angular`)
+
+The Angular adapter library provides directives for seamless Angular integration with `<tbw-grid>`:
+
+**Exported Directives:**
+
+- **`Grid`** - Auto-registers `AngularGridAdapter` on `<tbw-grid>` elements, enabling Angular template rendering
+- **`GridColumnView`** - Captures `<ng-template>` for custom cell renderers with typed context (`GridCellContext`)
+- **`GridColumnEditor`** - Captures `<ng-template>` for custom cell editors with commit/cancel support (`GridEditorContext`)
+
+**Usage Example:**
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, GridColumnView, GridColumnEditor } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid, GridColumnView, GridColumnEditor],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [rows]="data" [gridConfig]="config">
+      <tbw-grid-column field="status">
+        <tbw-grid-column-view>
+          <ng-template let-value let-row="row">
+            <app-status-badge [value]="value" [row]="row" />
+          </ng-template>
+        </tbw-grid-column-view>
+        <tbw-grid-column-editor>
+          <ng-template let-value let-commit="commit" let-cancel="cancel">
+            <app-status-select [value]="value" (valueChange)="commit.emit($event)" />
+          </ng-template>
+        </tbw-grid-column-editor>
+      </tbw-grid-column>
+    </tbw-grid>
+  `
+})
+export class GridComponent { ... }
+```
+
+**Key Features:**
+
+- Auto-adapter registration via `Grid` directive (no manual setup)
+- Template context provides `value`, `row`, `column`, and for editors: `commit`/`cancel` emitters
+- Works with Angular 17+ (standalone components)
 
 ### Configuration Precedence System (Single Source of Truth)
 
@@ -116,16 +165,14 @@ See `ARCHITECTURE.md` for detailed diagrams and `config-precedence.spec.ts` for 
 
 ### Storybook Development
 
-- **Core stories**: `libs/grid/stories/*.stories.ts` for general grid features
-- **Plugin stories**: Co-located with each plugin (e.g., `plugins/selection/selection.stories.ts`)
-- **MDX documentation**: `libs/grid/docs/*.mdx` for rich narrative documentation with live examples
+- **Core stories**: `libs/grid/src/lib/core/*.stories.ts` for general grid features
+- **Plugin stories**: Co-located with each plugin (e.g., `libs/grid/src/lib/plugins/selection/selection.stories.ts`)
+- **MDX documentation**: `libs/grid/docs/*.mdx` for high-level docs, plugin-specific MDX in `libs/grid/src/lib/plugins/*/`
+- **Demo stories**: `demos/employee-management/employee-management.stories.ts` for full-featured demo
 - **Live source imports**: `import '../src/index'` enables HMR without rebuilds
-- **Code view helper**: `buildExclusiveGridCodeView(gridEl, htmlSnippet, jsSnippet)` from `@toolbox/storybook/_utils` shows togglable markup/code
-- **`extractCode(fn, args)`**: Extracts function body with placeholder substitution (`__$varName$`)
 - **Autodocs**: All stories auto-generate documentation pages from JSDoc comments
 - Run Storybook: `bun nx storybook` (port 4400)
-- Run docs mode: `bun run docs` (documentation-focused view)
-- Build docs: `bun run docs:build` (outputs to `dist/docs/`)
+- Build Storybook: `bun nx build-storybook storybook-app` (outputs to `dist/storybook/`)
 
 ### MDX Documentation
 
@@ -157,26 +204,30 @@ Key Doc Blocks:
 # Start Storybook with live reload
 bun nx storybook
 
-# Start Storybook in docs mode (documentation focused)
-bun run docs
-
-# Build documentation site
-bun run docs:build
+# Build Storybook (documentation site)
+bun nx build-storybook storybook-app
 
 # Build grid library (Vite compilation)
 bun nx build grid
 
 # Run all tests
-bun nx run-many -t test
+bun run test
 
 # Run tests for specific project
 bun nx test grid
 
+# Lint all projects
+bun run lint
+
 # Lint + test + build (CI flow)
-bun nx run-many -t lint test build
+bun run lint && bun run test && bun run build
 
 # Run single target across affected projects
 bun nx affected -t test
+
+# Serve a demo app
+bun nx serve demo-vanilla
+bun nx serve demo-angular
 ```
 
 ### Adding a New Library to the Suite
@@ -213,13 +264,14 @@ bun nx affected -t test
 TypeScript paths defined in `tsconfig.base.json` for all libraries:
 
 ```json
-"@toolbox-web/grid": ["libs/grid/src/"],
-"@toolbox-web/grid/*": ["libs/grid/src/lib/*"],
-"@toolbox/themes/*": ["libs/themes/*"],
-"@toolbox/storybook/*": ["libs/storybook/*"]
+"@toolbox-web/grid": ["dist/libs/grid/index.d.ts"],
+"@toolbox-web/grid/all": ["dist/libs/grid/all.d.ts"],
+"@toolbox-web/grid/*": ["dist/libs/grid/*"],
+"@toolbox-web/grid-angular": ["dist/libs/grid-angular/index.d.ts"],
+"@toolbox/themes/*": ["libs/themes/*"]
 ```
 
-**When adding new libraries**, follow this pattern: `@toolbox/[lib-name]` -> `libs/[lib-name]/src/`. Use workspace paths, not relative paths across libs.
+**Note**: Grid paths point to `dist/` for type resolution after build. Use workspace paths, not relative paths across libs.
 
 ## Project-Specific Conventions
 
@@ -227,7 +279,7 @@ TypeScript paths defined in `tsconfig.base.json` for all libraries:
 
 - **Strict TypeScript**: `strict: true`, no implicit any, prefer explicit types
 - **ESLint config**: Flat config in `eslint.config.mjs` using `@nx/eslint-plugin`
-- **Formatting**: Prettier v2.6.2 (no explicit config file; uses defaults)
+- **Formatting**: Prettier v3.7.4 (no explicit config file; uses defaults)
 - **Naming**:
   - Private/internal fields prefixed with `#` (ES private fields) or `__` (legacy)
   - Public API uses camelCase, no prefixes
@@ -398,13 +450,14 @@ if (selection) {
 
 ## External Dependencies
 
-- **Nx**: v21.6.4 - Monorepo task orchestration
-- **Vite**: v7.x - Build tool and dev server
-- **Vitest**: v3.x - Fast unit test runner
+- **Nx**: v22.3.3 - Monorepo task orchestration
+- **Vite**: v7.3.x - Build tool and dev server
+- **Vitest**: v4.x - Fast unit test runner
 - **Bun**: Package manager + test runtime (faster than npm/yarn)
-- **Storybook**: v9.1.10 - Component development environment
+- **Storybook**: v10.1.11 - Component development environment
 - **Lit**: Used for story rendering (web components framework)
 - **happy-dom**: DOM environment for testing
+- **Prettier**: v3.7.4 - Code formatting (uses defaults)
 
 ## Key Files Reference
 
@@ -415,6 +468,10 @@ if (selection) {
 - **`libs/grid/src/lib/core/plugin/`** - Plugin system (registry, hooks, state management)
 - **`libs/grid/src/lib/plugins/`** - Individual plugin implementations
 - **`libs/grid/vite.config.ts`** - Vite build configuration with plugin bundling
+- **`libs/grid-angular/src/index.ts`** - Angular adapter exports (Grid, GridColumnView, GridColumnEditor directives)
+- **`demos/employee-management/shared/`** - Shared demo types, data, and utilities
+- **`demos/employee-management/vanilla/`** - Vanilla TypeScript demo application
+- **`demos/employee-management/angular/`** - Angular demo application
 - **`tsconfig.base.json`** - Workspace-wide TypeScript paths
 - **`nx.json`** - Nx workspace config with plugins and target defaults
 - **`.github/workflows/ci.yml`** - CI pipeline (Bun-based)

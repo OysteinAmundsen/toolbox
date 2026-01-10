@@ -1,0 +1,159 @@
+<div class="demo-container">
+  <header class="demo-header">
+    <div class="demo-controls">
+      <label>
+        <span class="row-count-display">
+          Rows: <strong>{{ rowCount() }}</strong>
+        </span>
+        <input type="range" [(ngModel)]="rowCount" min="50" max="1000" step="50" />
+      </label>
+      <label>
+        <input type="checkbox" [(ngModel)]="enableSelection" />
+        Selection
+      </label>
+      <label>
+        <input type="checkbox" [(ngModel)]="enableFiltering" />
+        Filtering
+      </label>
+      <label>
+        <input type="checkbox" [(ngModel)]="enableSorting" />
+        Sorting
+      </label>
+      <label>
+        <input type="checkbox" [(ngModel)]="enableEditing" />
+        Editing
+      </label>
+      <label>
+        <input type="checkbox" [(ngModel)]="enableMasterDetail" />
+        Master-Detail
+      </label>
+    </div>
+  </header>
+
+  <div class="grid-wrapper">
+    <tbw-grid
+      #grid
+      id="employee-grid"
+      class="demo-grid"
+      [rows]="rows()"
+      [gridConfig]="gridConfig()"
+      [customStyles]="customStyles"
+    >
+      <!-- Shell configuration -->
+      <tbw-grid-header title="Employee Management System">
+        <tbw-grid-tool-button
+          id="export-csv"
+          label="Export CSV"
+          icon="📄"
+          order="10"
+          (click)="exportCsv()"
+        ></tbw-grid-tool-button>
+        <tbw-grid-tool-button
+          id="export-excel"
+          label="Export Excel"
+          icon="📊"
+          order="11"
+          (click)="exportExcel()"
+        ></tbw-grid-tool-button>
+      </tbw-grid-header>
+
+      <!-- Column templates - column definitions come from gridConfig, these add Angular templates -->
+      <tbw-grid-column field="status">
+        <tbw-grid-column-view>
+          <ng-template let-value>
+            <app-status-badge [value]="value" />
+          </ng-template>
+        </tbw-grid-column-view>
+        <tbw-grid-column-editor>
+          <ng-template let-value let-commit="commit" let-cancel="cancel">
+            <app-status-select-editor
+              [value]="value"
+              (commit)="commit.emit($event)"
+              (cancel)="cancel.emit()"
+            />
+          </ng-template>
+        </tbw-grid-column-editor>
+      </tbw-grid-column>
+      <tbw-grid-column field="bonus">
+        <tbw-grid-column-editor>
+          <ng-template let-value let-row="row" let-commit="commit" let-cancel="cancel">
+            <app-bonus-slider-editor
+              [value]="value"
+              [salary]="row.salary"
+              (commit)="commit.emit($event)"
+              (cancel)="cancel.emit()"
+            />
+          </ng-template>
+        </tbw-grid-column-editor>
+      </tbw-grid-column>
+      <tbw-grid-column field="rating">
+        <tbw-grid-column-view>
+          <ng-template let-value>
+            <app-rating-display [value]="value" />
+          </ng-template>
+        </tbw-grid-column-view>
+        <tbw-grid-column-editor>
+          <ng-template let-value let-commit="commit" let-cancel="cancel">
+            <app-star-rating-editor
+              [value]="value"
+              (commit)="commit.emit($event)"
+              (cancel)="cancel.emit()"
+            />
+          </ng-template>
+        </tbw-grid-column-editor>
+      </tbw-grid-column>
+      <tbw-grid-column field="hireDate">
+        <tbw-grid-column-editor>
+          <ng-template let-value let-commit="commit" let-cancel="cancel">
+            <app-date-editor
+              [value]="value"
+              (commit)="commit.emit($event)"
+              (cancel)="cancel.emit()"
+            />
+          </ng-template>
+        </tbw-grid-column-editor>
+      </tbw-grid-column>
+      <tbw-grid-column field="isTopPerformer">
+        <tbw-grid-column-view>
+          <ng-template let-value>
+            <app-top-performer [value]="value" />
+          </ng-template>
+        </tbw-grid-column-view>
+      </tbw-grid-column>
+
+      <!-- Master-detail template -->
+      @if (enableMasterDetail()) {
+        <tbw-grid-detail [showExpandColumn]="true" animation="slide">
+          <ng-template let-row>
+            <app-detail-panel [employee]="row" />
+          </ng-template>
+        </tbw-grid-detail>
+      }
+
+      <!-- Custom Tool Panels -->
+      <tbw-grid-tool-panel
+        id="quick-filters"
+        title="Quick Filters"
+        icon="🔍"
+        tooltip="Apply quick filters to the data"
+        [order]="10"
+      >
+        <ng-template let-grid>
+          <app-quick-filters-panel [grid]="grid" />
+        </ng-template>
+      </tbw-grid-tool-panel>
+
+      <tbw-grid-tool-panel
+        id="analytics"
+        title="Analytics"
+        icon="📈"
+        tooltip="View data analytics and insights"
+        [order]="20"
+      >
+        <ng-template let-grid>
+          <app-analytics-panel [grid]="grid" [rows]="rows()" />
+        </ng-template>
+      </tbw-grid-tool-panel>
+    </tbw-grid>
+  </div>
+</div>

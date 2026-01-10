@@ -5,18 +5,21 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 # <img src="./grid_logo.png" alt="" style={{height: '1.2em', verticalAlign: 'middle', marginRight: '0.3em'}} /> @toolbox-web/grid
 
-A **high-performance, framework-agnostic data grid** web component built with pure TypeScript.
+A **high-performance, framework-agnostic data grid** web component built with pure TypeScript. No runtime dependencies—just drop it into any project and start rendering data.
 
-## Why @toolbox-web/grid?
+## Why Choose @toolbox-web/grid?
+
+We built this grid because we needed something that works everywhere without the baggage of framework-specific implementations. Whether you're building a vanilla JavaScript app, a React dashboard, or an Angular enterprise application, you get the same powerful grid with zero lock-in.
 
 | Feature                    | Description                                                         |
 | -------------------------- | ------------------------------------------------------------------- |
 | 🚀 **High Performance**    | Virtualized rendering handles 100k+ rows smoothly                   |
 | 🔧 **Framework Agnostic**  | Works in vanilla JS, React, Vue, Angular, Svelte—no wrappers needed |
+| 🅰️ **Angular Adapter**     | Optional `@toolbox-web/grid-angular` for template-driven renderers  |
 | ⌨️ **Keyboard Navigation** | Full arrow key, Tab, Enter, Escape, Home/End, Page Up/Down support  |
 | 🎨 **Themeable**           | CSS custom properties for complete visual customization             |
 | 📦 **Plugin Architecture** | Extend with selection, filtering, grouping, and more                |
-| 🪶 **Lightweight**         | Zero dependencies, tree-shakeable plugins                           |
+| 🪶 **Lightweight**         | Zero dependencies, tree-shakeable plugins (~37kB gzipped core)      |
 
 ## Quick Start
 
@@ -24,11 +27,15 @@ A **high-performance, framework-agnostic data grid** web component built with pu
 
 ```bash
 npm install @toolbox-web/grid
-# or
+# or use your preferred package manager
+yarn add @toolbox-web/grid
+pnpm add @toolbox-web/grid
 bun add @toolbox-web/grid
 ```
 
 ### Basic Usage
+
+The grid is a standard web component—use it just like any HTML element:
 
 ```html
 <tbw-grid style="height: 300px;"></tbw-grid>
@@ -52,51 +59,57 @@ bun add @toolbox-web/grid
 </script>
 ```
 
+That's it—no build step required for basic usage. The grid auto-registers the `<tbw-grid>` custom element when you import it.
+
 ## Features Overview
 
 ### Virtualization
 
-The grid uses row virtualization by default, rendering only visible rows plus a small overscan buffer. This enables smooth scrolling even with massive datasets.
+The grid uses row virtualization by default, rendering only visible rows plus a small overscan buffer. This means you can throw a million rows at it and still get smooth 60fps scrolling. The DOM stays lean regardless of dataset size.
 
 ### Column Configuration
 
-Columns support many configuration options:
+Columns support extensive configuration options. Here's a taste of what's available:
 
 ```typescript
 const columns = [
   {
-    field: 'name', // Data field key
-    header: 'Full Name', // Display header
-    type: 'string', // 'string' | 'number' | 'boolean' | 'date' | 'select'
-    sortable: true, // Enable sorting
-    resizable: true, // Enable column resize
-    editable: true, // Enable inline editing
-    width: 200, // Initial width in pixels
-    minWidth: 100, // Minimum width when resizing
+    field: 'name',           // Data field key (required)
+    header: 'Full Name',     // Display header
+    type: 'string',          // 'string' | 'number' | 'boolean' | 'date' | 'select'
+    sortable: true,          // Enable sorting
+    resizable: true,         // Enable column resize
+    editable: true,          // Enable inline editing
+    width: 200,              // Initial width in pixels
+    minWidth: 100,           // Minimum width when resizing
+    format: (val) => val.toUpperCase(),  // Custom formatter
   },
 ];
 ```
+
+Check out the [API Reference](../?path=/docs/grid-api--docs) for the complete list of column options.
 
 ### Sorting
 
 Click column headers to sort. The grid supports:
 
-- Single-column sorting (default)
-- Multi-column sorting via the MultiSort plugin
-- Custom sort comparators
+- **Single-column sorting** (default) — click a header to sort, click again to reverse
+- **Multi-column sorting** — hold Shift and click multiple headers, or use the MultiSort plugin
+- **Custom sort comparators** — define your own comparison logic per column
 
 ### Inline Editing
 
-Enable editing with `editable: true` on columns. The grid supports:
+Enable editing with `editable: true` on columns. The grid provides:
 
 - **Click** or **double-click** to edit (configurable via `editOn`)
-- Text, number, boolean (checkbox), date, and select inputs
-- Enter to confirm, Escape to cancel
-- Tab/Shift+Tab navigation between editable cells
+- Built-in editors for text, number, boolean (checkbox), date, and select
+- **Enter** to confirm, **Escape** to cancel
+- **Tab/Shift+Tab** navigation between editable cells
+- Change tracking with commit/reset lifecycle
 
 ### Events
 
-The grid emits several events for integration:
+The grid emits standard DOM `CustomEvent`s that you can listen to:
 
 | Event           | Description                         |
 | --------------- | ----------------------------------- |
@@ -106,10 +119,49 @@ The grid emits several events for integration:
 | `column-resize` | Column was resized                  |
 | `activate-cell` | Cell received focus/activation      |
 
+```typescript
+grid.addEventListener('cell-commit', (e) => {
+  const { row, field, value, oldValue } = e.detail;
+  console.log(`${field} changed from "${oldValue}" to "${value}"`);
+});
+```
+
+## Plugin Architecture
+
+The core grid is intentionally minimal. Advanced features are delivered through plugins that you can import as needed:
+
+- **SelectionPlugin** — Cell, row, or range selection
+- **FilteringPlugin** — Column header filters with custom panels
+- **GroupingRowsPlugin** — Hierarchical row grouping with aggregations
+- **TreePlugin** — Expandable tree data structures
+- **MasterDetailPlugin** — Expandable detail rows
+- **PinnedColumnsPlugin** — Sticky columns on left/right edges
+- **ExportPlugin** — Export to CSV, Excel, or JSON
+- **ClipboardPlugin** — Copy/paste support
+- ...and many more
+
+Plugins are tree-shakeable—only what you import ends up in your bundle.
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+    new FilteringPlugin({ debounceMs: 300 }),
+  ],
+};
+```
+
 ## Next Steps
 
-- [Demos](../?path=/docs/grid-demos--docs) - See all features in action
-- [Getting Started](../?path=/docs/grid-getting-started--docs) - Detailed setup instructions
-- [Configuration](../?path=/docs/grid-core--docs) - Full configuration reference
-- [Plugins](../?path=/docs/grid-plugins-selection--docs) - Extend with selection, filtering, and more
-- [Theming](../?path=/docs/grid-theming--docs) - Customize the visual appearance
+Ready to dive in? Here's where to go next:
+
+- **[Getting Started](../?path=/docs/grid-getting-started--docs)** — Detailed setup for all frameworks
+- **[Demos](../?path=/docs/grid-demos--docs)** — See all features in action
+- **[Core Configuration](../?path=/docs/grid-core--docs)** — Full configuration reference
+- **[Plugins](../?path=/docs/grid-plugins-selection--docs)** — Extend with selection, filtering, and more
+- **[Theming](../?path=/docs/grid-theming--docs)** — Customize the visual appearance
+- **[API Reference](../?path=/docs/grid-api--docs)** — Complete property/method/event reference

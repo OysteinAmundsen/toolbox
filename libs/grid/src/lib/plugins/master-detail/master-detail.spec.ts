@@ -8,7 +8,6 @@ import {
 } from './master-detail';
 import { MasterDetailPlugin } from './MasterDetailPlugin';
 
- 
 // Tests use `any` for flexibility with test row data.
 
 describe('masterDetail', () => {
@@ -1087,6 +1086,218 @@ describe('masterDetail', () => {
 
       // Should not throw
       plugin.onScrollRender();
+    });
+  });
+
+  describe('MasterDetailPlugin Light DOM Parsing', () => {
+    const createMockGridElement = () => {
+      // Create a real container element that can hold light DOM children
+      // We need a real DOM element for querySelector to work
+      const gridEl = document.createElement('div');
+
+      // Add mock grid properties as a plain object that we'll mix in
+      Object.defineProperty(gridEl, 'rows', { value: [], writable: true });
+      Object.defineProperty(gridEl, 'columns', { value: [{ field: 'name' }], writable: true });
+      Object.defineProperty(gridEl, 'gridConfig', { value: {}, writable: true });
+      Object.defineProperty(gridEl, 'disconnectSignal', { value: new AbortController().signal, writable: true });
+      Object.defineProperty(gridEl, 'requestRender', { value: vi.fn(), writable: true });
+      Object.defineProperty(gridEl, 'requestAfterRender', { value: vi.fn(), writable: true });
+      Object.defineProperty(gridEl, 'forceLayout', { value: vi.fn().mockResolvedValue(undefined), writable: true });
+      Object.defineProperty(gridEl, 'getPlugin', { value: vi.fn(), writable: true });
+      Object.defineProperty(gridEl, 'getPluginByName', { value: vi.fn(), writable: true });
+
+      return gridEl;
+    };
+
+    it('should parse tbw-grid-detail element innerHTML as template', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.innerHTML = '<div>Name: {{ row.name }}</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].detailRenderer).toBeDefined();
+    });
+
+    it('should evaluate template expressions with row data', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.innerHTML = '<div>Name: {{ row.name }}, Age: {{ row.age }}</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      const renderer = plugin['config'].detailRenderer!;
+      const result = renderer({ name: 'John', age: 30 }, 0);
+
+      expect(result).toBe('<div>Name: John, Age: 30</div>');
+    });
+
+    it('should parse animation attribute', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.setAttribute('animation', 'fade');
+      detailEl.innerHTML = '<div>Detail</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].animation).toBe('fade');
+    });
+
+    it('should parse animation="false" as disabled', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.setAttribute('animation', 'false');
+      detailEl.innerHTML = '<div>Detail</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].animation).toBe(false);
+    });
+
+    it('should parse show-expand-column attribute', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.setAttribute('show-expand-column', 'false');
+      detailEl.innerHTML = '<div>Detail</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].showExpandColumn).toBe(false);
+    });
+
+    it('should parse expand-on-row-click attribute', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.setAttribute('expand-on-row-click', 'true');
+      detailEl.innerHTML = '<div>Detail</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].expandOnRowClick).toBe(true);
+    });
+
+    it('should parse collapse-on-click-outside attribute', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.setAttribute('collapse-on-click-outside', 'true');
+      detailEl.innerHTML = '<div>Detail</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].collapseOnClickOutside).toBe(true);
+    });
+
+    it('should parse numeric height attribute', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.setAttribute('height', '200');
+      detailEl.innerHTML = '<div>Detail</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].detailHeight).toBe(200);
+    });
+
+    it('should parse height="auto" attribute', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.setAttribute('height', 'auto');
+      detailEl.innerHTML = '<div>Detail</div>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].detailHeight).toBe('auto');
+    });
+
+    it('should not override programmatic detailRenderer', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.innerHTML = '<div>Light DOM Template</div>';
+      gridEl.appendChild(detailEl);
+
+      const programmaticRenderer = () => 'Programmatic';
+      const plugin = new MasterDetailPlugin({ detailRenderer: programmaticRenderer });
+      plugin.attach(gridEl as any);
+
+      expect(plugin['config'].detailRenderer).toBe(programmaticRenderer);
+    });
+
+    it('should sanitize potentially unsafe content', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.innerHTML = '<div>{{ row.name }}</div><script>alert("xss")</script>';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      const renderer = plugin['config'].detailRenderer!;
+      const result = renderer({ name: 'John' }, 0);
+
+      // Script tags should be removed by sanitization
+      expect(result).not.toContain('<script>');
+      expect(result).toContain('John');
+    });
+
+    it('should handle empty tbw-grid-detail element', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.innerHTML = '';
+      gridEl.appendChild(detailEl);
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      // Should not create a renderer for empty content
+      expect(plugin['config'].detailRenderer).toBeUndefined();
+    });
+
+    it('should work without tbw-grid-detail element', () => {
+      const gridEl = createMockGridElement();
+      // No detail element added
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      // Should use default config without renderer
+      expect(plugin['config'].detailRenderer).toBeUndefined();
+      expect(plugin['config'].animation).toBe('slide');
+    });
+
+    it('should defer to framework adapter when present', () => {
+      const gridEl = createMockGridElement();
+      const detailEl = document.createElement('tbw-grid-detail');
+      detailEl.innerHTML = '<ng-template>Angular template</ng-template>';
+      gridEl.appendChild(detailEl);
+
+      const adapterRenderer = vi.fn(() => 'Adapter result');
+      (gridEl as any).__frameworkAdapter = {
+        parseDetailElement: vi.fn(() => adapterRenderer),
+      };
+
+      const plugin = new MasterDetailPlugin({});
+      plugin.attach(gridEl as any);
+
+      expect((gridEl as any).__frameworkAdapter.parseDetailElement).toHaveBeenCalledWith(detailEl);
+      expect(plugin['config'].detailRenderer).toBe(adapterRenderer);
     });
   });
 });

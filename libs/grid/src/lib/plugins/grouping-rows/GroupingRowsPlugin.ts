@@ -177,13 +177,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   }
 
   override onCellClick(event: CellClickEvent): boolean | void {
-    const row = event.row;
+    const row = event.row as Record<string, unknown> | undefined;
 
     // Check if this is a group row toggle
     if (row?.__isGroupRow) {
       const target = event.originalEvent.target as HTMLElement;
       if (target?.closest('.group-toggle')) {
-        this.toggle(row.__groupKey);
+        this.toggle(row.__groupKey as string);
         return true; // Prevent default
       }
     }

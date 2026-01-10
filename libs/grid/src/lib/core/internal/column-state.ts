@@ -214,3 +214,284 @@ export function areColumnStatesEqual(a: GridColumnState, b: GridColumnState): bo
 
   return true;
 }
+
+// ============================================================================
+// Column State API (High-level functions)
+// ============================================================================
+// These functions are extracted from grid.ts to reduce the god object size.
+// Grid.ts delegates to these functions for all state-related operations.
+
+/**
+ * State manager for a grid instance.
+ * Encapsulates the state change handler and initial state storage.
+ */
+export interface ColumnStateManager {
+  /** The initial state to apply after initialization */
+  initialState: GridColumnState | undefined;
+  /** Debounced state change handler */
+  stateChangeHandler: (() => void) | undefined;
+}
+
+/**
+ * Create a column state manager for a grid.
+ */
+export function createColumnStateManager(): ColumnStateManager {
+  return {
+    initialState: undefined,
+    stateChangeHandler: undefined,
+  };
+}
+
+/**
+ * Get the current column state from the grid.
+ * @param grid - The grid instance
+ * @param plugins - Array of attached plugins
+ * @returns Serializable column state object
+ */
+export function getGridColumnState<T>(grid: InternalGrid<T>, plugins: BaseGridPlugin[]): GridColumnState {
+  return collectColumnState(grid, plugins);
+}
+
+/**
+ * Set column state on a grid, storing for later if not yet initialized.
+ * @param grid - The grid instance
+ * @param state - The state to apply
+ * @param manager - The column state manager
+ * @param isInitialized - Whether the grid is initialized
+ * @param applyNow - Function to apply the state immediately
+ */
+export function setGridColumnState<T>(
+  state: GridColumnState | undefined,
+  manager: ColumnStateManager,
+  isInitialized: boolean,
+  applyNow: (state: GridColumnState) => void,
+): void {
+  if (!state) return;
+
+  // Store for use after initialization if called before ready
+  manager.initialState = state;
+
+  // If already initialized, apply immediately
+  if (isInitialized) {
+    applyNow(state);
+  }
+}
+
+/**
+ * Request a state change event emission (debounced).
+ * @param grid - The grid instance
+ * @param manager - The column state manager
+ * @param getPlugins - Function to get attached plugins
+ * @param emit - Function to emit the event
+ */
+export function requestGridStateChange<T>(
+  grid: InternalGrid<T>,
+  manager: ColumnStateManager,
+  getPlugins: () => BaseGridPlugin[],
+  emit: (state: GridColumnState) => void,
+): void {
+  if (!manager.stateChangeHandler) {
+    manager.stateChangeHandler = createStateChangeHandler(grid, getPlugins, emit);
+  }
+  manager.stateChangeHandler();
+}
+
+/**
+ * Reset column state to initial configuration.
+ * @param grid - The grid instance
+ * @param manager - The column state manager
+ * @param plugins - Array of attached plugins
+ * @param callbacks - Grid callbacks for triggering updates
+ */
+export function resetGridColumnState<T>(
+  grid: InternalGrid<T>,
+  manager: ColumnStateManager,
+  plugins: BaseGridPlugin[],
+  callbacks: {
+    mergeEffectiveConfig: () => void;
+    setup: () => void;
+    requestStateChange: () => void;
+  },
+): void {
+  // Clear initial state
+  manager.initialState = undefined;
+
+  // Clear hidden flag on all columns
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  allCols.forEach((c) => {
+    c.hidden = false;
+  });
+
+  // Reset sort state
+  grid._sortState = null;
+  grid.__originalOrder = [];
+
+  // Re-initialize columns from config
+  callbacks.mergeEffectiveConfig();
+  callbacks.setup();
+
+  // Notify plugins to reset their state
+  for (const plugin of plugins) {
+    if (plugin.applyColumnState) {
+      // Pass empty state to indicate reset
+      for (const col of grid._columns) {
+        plugin.applyColumnState(col.field, {
+          field: col.field,
+          order: 0,
+          visible: true,
+        });
+      }
+    }
+  }
+
+  // Emit state change
+  callbacks.requestStateChange();
+}
+
+// ============================================================================
+// Column Visibility API
+// ============================================================================
+// Pure functions for column visibility operations.
+
+/** Callbacks for visibility changes that need grid integration */
+export interface VisibilityCallbacks {
+  emit: (eventName: string, detail: unknown) => void;
+  clearRowPool: () => void;
+  setup: () => void;
+  requestStateChange: () => void;
+}
+
+/**
+ * Set the visibility of a column.
+ * @returns true if visibility changed, false otherwise
+ */
+export function setColumnVisible<T>(
+  grid: InternalGrid<T>,
+  field: string,
+  visible: boolean,
+  callbacks: VisibilityCallbacks,
+): boolean {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  const col = allCols.find((c) => c.field === field);
+
+  if (!col) return false;
+  if (!visible && col.lockVisible) return false;
+
+  // Ensure at least one column remains visible
+  if (!visible) {
+    const remainingVisible = allCols.filter((c) => !c.hidden && c.field !== field).length;
+    if (remainingVisible === 0) return false;
+  }
+
+  const wasHidden = !!col.hidden;
+  if (wasHidden === !visible) return false; // No change
+
+  col.hidden = !visible;
+
+  callbacks.emit('column-visibility', {
+    field,
+    visible,
+    visibleColumns: allCols.filter((c) => !c.hidden).map((c) => c.field),
+  });
+
+  callbacks.clearRowPool();
+  callbacks.setup();
+  callbacks.requestStateChange();
+  return true;
+}
+
+/**
+ * Toggle column visibility.
+ * @returns true if toggled, false if column not found or locked
+ */
+export function toggleColumnVisibility<T>(
+  grid: InternalGrid<T>,
+  field: string,
+  callbacks: VisibilityCallbacks,
+): boolean {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  const col = allCols.find((c) => c.field === field);
+  return col ? setColumnVisible(grid, field, !!col.hidden, callbacks) : false;
+}
+
+/**
+ * Check if a column is visible.
+ */
+export function isColumnVisible<T>(grid: InternalGrid<T>, field: string): boolean {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  const col = allCols.find((c) => c.field === field);
+  return col ? !col.hidden : false;
+}
+
+/**
+ * Show all columns.
+ */
+export function showAllColumns<T>(grid: InternalGrid<T>, callbacks: VisibilityCallbacks): void {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  if (!allCols.some((c) => c.hidden)) return;
+
+  allCols.forEach((c) => (c.hidden = false));
+
+  callbacks.emit('column-visibility', {
+    visibleColumns: allCols.map((c) => c.field),
+  });
+
+  callbacks.clearRowPool();
+  callbacks.setup();
+  callbacks.requestStateChange();
+}
+
+/**
+ * Get all columns with visibility info.
+ */
+export function getAllColumns<T>(
+  grid: InternalGrid<T>,
+): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }> {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  return allCols.map((c) => ({
+    field: c.field,
+    header: c.header || c.field,
+    visible: !c.hidden,
+    lockVisible: c.lockVisible,
+  }));
+}
+
+/**
+ * Get current column order.
+ */
+export function getColumnOrder<T>(grid: InternalGrid<T>): string[] {
+  return grid._columns.map((c) => c.field);
+}
+
+/**
+ * Set column order.
+ */
+export function setColumnOrder<T>(
+  grid: InternalGrid<T>,
+  order: string[],
+  callbacks: { renderHeader: () => void; updateTemplate: () => void; refreshVirtualWindow: () => void },
+): void {
+  if (!order.length) return;
+
+  const columnMap = new Map(grid._columns.map((c) => [c.field as string, c]));
+  const reordered: ColumnInternal<T>[] = [];
+
+  for (const field of order) {
+    const col = columnMap.get(field);
+    if (col) {
+      reordered.push(col);
+      columnMap.delete(field);
+    }
+  }
+
+  // Add remaining columns not in order
+  for (const col of columnMap.values()) {
+    reordered.push(col);
+  }
+
+  grid._columns = reordered;
+
+  callbacks.renderHeader();
+  callbacks.updateTemplate();
+  callbacks.refreshVirtualWindow();
+}

@@ -1,8 +1,8 @@
+import type { ExpandCollapseAnimation } from '../../core/types';
+export type { ExpandCollapseAnimation } from '../../core/types';
+
 /** Available aggregation function types */
 export type AggFunc = 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last';
-
-/** Animation style for expand/collapse */
-export type ExpandCollapseAnimation = false | 'slide' | 'fade';
 
 export interface PivotConfig {
   /** Whether pivot view is active on load (default: true when fields are configured) */

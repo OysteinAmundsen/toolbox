@@ -1,5 +1,6 @@
 {/* GettingStarted.mdx */}
 import { Meta, Source } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from './components/Tabs';
 
 <Meta title="Grid/Getting Started" />
 
@@ -69,47 +70,6 @@ For simple use cases, configure the grid entirely via HTML attributes with JSON 
 </tbw-grid>
 ```
 
-This is particularly useful for:
-- Quick prototyping without JavaScript
-- Server-side rendered templates
-- Framework template bindings (Angular, Vue, etc.)
-
-### Configuration via JavaScript
-
-```typescript
-const grid = document.querySelector('#my-grid');
-
-// Set columns
-grid.columns = [
-  { field: 'id', header: 'ID', type: 'number', sortable: true },
-  { field: 'name', header: 'Name', sortable: true, editable: true },
-  { field: 'email', header: 'Email' },
-  { field: 'active', header: 'Active', type: 'boolean' },
-];
-
-// Set row data
-grid.rows = [
-  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', active: true },
-  { id: 2, name: 'Bob Smith', email: 'bob@example.com', active: false },
-  { id: 3, name: 'Carol White', email: 'carol@example.com', active: true },
-];
-```
-
-### Configuration via gridConfig
-
-For more complex setups, use the `gridConfig` property:
-
-```typescript
-grid.gridConfig = {
-  columns: [
-    { field: 'id', header: 'ID', type: 'number' },
-    { field: 'name', header: 'Name' },
-  ],
-  fitMode: 'stretch', // Columns stretch to fill width
-  editOn: 'dblClick', // Double-click to edit
-  plugins: [], // Add plugins here
-};
-```
 
 ### Declarative Configuration (Light DOM)
 
@@ -123,38 +83,77 @@ You can also configure columns declaratively:
 </tbw-grid>
 ```
 
-## Framework Integration
+### Auto-Inferred Columns
 
-### Vanilla JavaScript
+If no columns are configured, the grid will automatically infer column configuration from the first row:
 
-```javascript
-import '@toolbox-web/grid';
+```typescript
+const grid = document.querySelector('#my-grid');
 
-document.addEventListener('DOMContentLoaded', () => {
-  const grid = document.querySelector('tbw-grid');
-  grid.columns = [...];
-  grid.rows = [...];
+// Columns are auto-generated from object keys
+grid.rows = [
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', active: true },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com', active: false },
+];
+```
+The grid will:
+- Create a column for each property in the first row
+- Infer column types from values (`number`, `boolean`, `date`, `string`)
+- Use the property name as the header (with basic formatting)
+- Apply appropriate built-in renderers for each type
 
-  // Listen for events
-  grid.addEventListener('cell-commit', (e) => {
-    console.log('Cell edited:', e.detail);
-  });
-});
+Use `gridConfig` when you need to customize sorting, editing, plugins, or column appearance.
+
+### Configuration via JavaScript
+
+```typescript
+const grid = document.querySelector('#my-grid');
+
+// Configure grid with gridConfig
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true, editable: true },
+    { field: 'email', header: 'Email' },
+    { field: 'active', header: 'Active', type: 'boolean' },
+  ],
+  fitMode: 'stretch', // Columns stretch to fill width
+  editOn: 'dblClick', // Double-click to edit
+  plugins: [],        // Add plugins here
+};
+
+// Set row data
+grid.rows = [
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', active: true },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com', active: false },
+  { id: 3, name: 'Carol White', email: 'carol@example.com', active: true },
+];
 ```
 
-### React
+> **Tip:** You can also set `grid.columns` directly as a shorthand for `gridConfig.columns`, but using `gridConfig` is more versatile as it includes columns, plugins, and behavioral settings in one place.
+
+## Framework Integration
+
+The examples above use vanilla JavaScript. Here's how to integrate the grid with popular frameworks:
+
+<Tabs>
+  <Tab label="React">
 
 ```tsx
 import '@toolbox-web/grid';
 import { useEffect, useRef } from 'react';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
 
 function MyGrid({ data }) {
-  const gridRef = useRef<HTMLElement>(null);
+  const gridRef = useRef<DataGridElement>(null);
 
   useEffect(() => {
     if (gridRef.current) {
-      gridRef.current.columns = columns;
+      gridRef.current.gridConfig = {
+        columns: [...],
+        fitMode: 'stretch',
+        editOn: 'dblClick',
+      };
       gridRef.current.rows = data;
     }
   }, [data]);
@@ -163,7 +162,8 @@ function MyGrid({ data }) {
 }
 ```
 
-### Vue
+  </Tab>
+  <Tab label="Vue">
 
 ```vue
 <template>
@@ -175,10 +175,14 @@ import '@toolbox-web/grid';
 import { ref, onMounted, watch } from 'vue';
 
 const gridRef = ref(null);
-const props = defineProps(['data', 'columns']);
+const props = defineProps(['data']);
 
 onMounted(() => {
-  gridRef.value.columns = props.columns;
+  gridRef.value.gridConfig = {
+    columns: [...],
+    fitMode: 'stretch',
+    editOn: 'dblClick',
+  };
   gridRef.value.rows = props.data;
 });
 
@@ -191,37 +195,90 @@ watch(
 </script>
 ```
 
-### Angular
+  </Tab>
+  <Tab label="Angular">
 
-```typescript
-// app.module.ts
-import { CUSTOM_ELEMENTS_SCHEMA, NgModule } from '@angular/core';
-import '@toolbox-web/grid';
+For Angular projects, use the `@toolbox-web/grid-angular` adapter package for enhanced integration:
 
-@NgModule({
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  // ...
-})
-export class AppModule {}
+```bash
+# Install both packages
+npm install @toolbox-web/grid @toolbox-web/grid-angular
 ```
 
 ```typescript
 // grid.component.ts
-import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, GridColumnView, GridColumnEditor } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-grid',
-  template: `<tbw-grid #grid style="height: 400px"></tbw-grid>`,
-})
-export class GridComponent implements AfterViewInit {
-  @ViewChild('grid') gridRef: ElementRef;
+  imports: [Grid, GridColumnView, GridColumnEditor],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.columns = [...];
-    this.gridRef.nativeElement.rows = [...];
+      <!-- Custom cell renderer using Angular template -->
+      <tbw-grid-column field="status">
+        <tbw-grid-column-view>
+          <ng-template let-value let-row="row">
+            <span [class]="'badge badge--' + value">{{ value }}</span>
+          </ng-template>
+        </tbw-grid-column-view>
+      </tbw-grid-column>
+    </tbw-grid>
+  `
+})
+export class GridComponent {
+  rows = [...];
+  config = {...};
+}
+```
+
+The `Grid` directive automatically registers the Angular adapter, enabling:
+- Template-driven cell renderers (`GridColumnView`)
+- Template-driven cell editors (`GridColumnEditor`)
+- Full Angular component support inside templates
+
+See the [Angular adapter documentation](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-angular#readme) for complete API reference.
+
+### Basic Usage (Without Adapter)
+
+For simple use cases without custom renderers, you can still use the grid directly:
+
+```typescript
+// grid.component.ts
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-grid',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid style="height: 400px; display: block;"></tbw-grid>`,
+})
+export class GridComponent {
+  gridRef = viewChild.required<ElementRef<DataGridElement>>('grid');
+
+  constructor() {
+    effect(() => {
+      const grid = this.gridRef().nativeElement;
+      grid.gridConfig = {
+        columns: [...],
+        fitMode: 'stretch',
+        editOn: 'dblClick',
+      };
+      grid.rows = [...];
+    });
   }
 }
 ```
+
+  </Tab>
+</Tabs>
 
 ## TypeScript Support
 

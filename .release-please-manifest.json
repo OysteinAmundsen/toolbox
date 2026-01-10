@@ -1,3 +1,4 @@
 {
-  ".": "0.2.9"
+  "libs/grid": "0.3.0",
+  "libs/grid-angular": "0.0.1"
 }

@@ -32,6 +32,7 @@ export { FilteringPlugin } from './lib/plugins/filtering';
 export { GroupingColumnsPlugin } from './lib/plugins/grouping-columns';
 export { GroupingRowsPlugin } from './lib/plugins/grouping-rows';
 export { MasterDetailPlugin } from './lib/plugins/master-detail';
+export type { MasterDetailConfig } from './lib/plugins/master-detail';
 export { MultiSortPlugin } from './lib/plugins/multi-sort';
 export { PinnedColumnsPlugin } from './lib/plugins/pinned-columns';
 export { PinnedRowsPlugin } from './lib/plugins/pinned-rows';

@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as GroupingRowsStories from './grouping-rows.stories';
 
 <Meta of={GroupingRowsStories} />
 
 # Row Grouping Plugin
 
-The Row Grouping plugin enables hierarchical grouping of rows with expand/collapse.
+The Row Grouping plugin organizes your rows into collapsible hierarchical groups. Perfect for organizing data by category, department, status, or any other dimension—or even multiple dimensions for nested grouping.
 
 ## Installation
 
@@ -15,17 +16,128 @@ import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
 
 ## Basic Usage
 
+The `groupOn` callback receives each row and should return an array representing the group path. For single-level grouping, return a one-element array. For multi-level grouping, return multiple elements (e.g., `['Region', 'Department']`).
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' }
+  ],
   plugins: [
     new GroupingRowsPlugin({
       groupOn: (row) => [row.department],
+      showRowCount: true,
+      defaultExpanded: false,
     }),
   ],
 };
+
+grid.rows = employees;
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+function EmployeeGrid({ employees }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Employee' },
+          { field: 'department', header: 'Department' },
+          { field: 'salary', header: 'Salary', type: 'currency' }
+        ],
+        plugins: [
+          new GroupingRowsPlugin({
+            groupOn: (row) => [row.department],
+            showRowCount: true,
+          }),
+        ],
+      };
+      gridRef.current.rows = employees;
+    }
+  }, [employees]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+const props = defineProps(['employees']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Employee' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'currency' }
+    ],
+    plugins: [
+      new GroupingRowsPlugin({
+        groupOn: (row) => [row.department],
+        showRowCount: true,
+      }),
+    ],
+  };
+  gridRef.value.rows = props.employees;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class EmployeeGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Employee' },
+        { field: 'department', header: 'Department' },
+        { field: 'salary', header: 'Salary', type: 'currency' }
+      ],
+      plugins: [
+        new GroupingRowsPlugin({
+          groupOn: (row) => [row.department],
+          showRowCount: true,
+        }),
+      ],
+    };
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

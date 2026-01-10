@@ -188,9 +188,12 @@ libs/grid/src/
    │  │  ├─ aggregators.ts    # Footer aggregation functions
    │  │  ├─ column-state.ts   # Column state management
    │  │  ├─ columns.ts        # Column resolution, sizing
+   │  │  ├─ dom-builder.ts    # Direct DOM construction utilities
    │  │  ├─ editing.ts        # Cell/row edit logic
    │  │  ├─ editors.ts        # Built-in cell editors
+   │  │  ├─ event-delegation.ts # Delegated event handlers
    │  │  ├─ header.ts         # Header rendering
+   │  │  ├─ idle-scheduler.ts # requestIdleCallback wrapper
    │  │  ├─ inference.ts      # Column type inference
    │  │  ├─ keyboard.ts       # Keyboard navigation
    │  │  ├─ resize.ts         # Column resizing
@@ -198,6 +201,7 @@ libs/grid/src/
    │  │  ├─ sanitize.ts       # Template security
    │  │  ├─ shell.ts          # Shell/toolbar rendering
    │  │  ├─ sorting.ts        # Sort comparators
+   │  │  ├─ touch-scroll.ts   # Touch/momentum scrolling
    │  │  ├─ utils.ts          # Shared utilities
    │  │  └─ virtualization.ts # Virtual scroll math
    │  └─ plugin/             # Plugin infrastructure
@@ -634,11 +638,56 @@ All attribute names are defined in `constants.ts` (`GridDataAttrs`):
 
 ## Performance Considerations
 
-1. **Batch DOM Updates**: Use `DocumentFragment` for inserting multiple rows
-2. **RAF Scheduling**: Debounce renders with `requestAnimationFrame`
-3. **Event Delegation**: Handle events at container level, not per-cell
-4. **Memoization**: Cache computed values (column widths, templates)
-5. **Conditional Processing**: Skip sanitization when not using innerHTML
+The grid employs multiple optimization strategies to achieve high performance with large datasets.
+
+### DOM Optimization
+
+| Technique                   | Implementation                                      | Benefit                           |
+| --------------------------- | --------------------------------------------------- | --------------------------------- |
+| **Template Cloning**        | `rows.ts` uses `<template>` elements for rows/cells | 3-4x faster than `createElement`  |
+| **Direct DOM Construction** | `dom-builder.ts` builds DOM programmatically        | Avoids innerHTML parsing overhead |
+| **DocumentFragment**        | Batch cell insertion into fragment before appending | Single reflow per row             |
+| **Row Pooling**             | Reuse row elements during scroll                    | Zero allocation during scroll     |
+| **Cached DOM Refs**         | `__rowsBodyEl`, `__scrollAreaEl` cached on grid     | Avoid querySelector per scroll    |
+
+### Rendering Pipeline
+
+| Technique              | Implementation                                    | Benefit                         |
+| ---------------------- | ------------------------------------------------- | ------------------------------- |
+| **Batched Updates**    | `#queueUpdate()` coalesces property changes       | Single render for rapid changes |
+| **RAF Scheduling**     | Scroll handlers use `requestAnimationFrame`       | Smooth 60fps scrolling          |
+| **Idle Scheduling**    | `idle-scheduler.ts` defers non-critical work      | Faster time-to-interactive      |
+| **Fast-Path Patching** | `fastPatchRow()` for plain text grids             | Skip expensive template logic   |
+| **Cell Display Cache** | `getCellDisplayValue()` memoizes formatted values | Avoid recomputing during scroll |
+
+### Event Handling
+
+| Technique                   | Implementation                                        | Benefit                            |
+| --------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| **Event Delegation**        | Single listener at body level (`event-delegation.ts`) | Constant memory regardless of rows |
+| **Pooled Scroll Events**    | `#pooledScrollEvent` reused object                    | Zero GC pressure during scroll     |
+| **AbortController Cleanup** | `disconnectSignal` for automatic listener removal     | No memory leaks on disconnect      |
+
+### State Management
+
+| Technique                    | Implementation                           | Benefit                            |
+| ---------------------------- | ---------------------------------------- | ---------------------------------- |
+| **O(1) Editing Checks**      | `hasEditingCells()` counter-based        | Avoid querySelector in hot path    |
+| **Epoch-Based Invalidation** | `__rowRenderEpoch` triggers full rebuild | Minimal DOM updates on data change |
+| **Column Visibility Flags**  | `_visibleColumns` getter filters hidden  | Avoid iteration during render      |
+
+### Memory Efficiency
+
+- **Row Pool Size**: Pool grows to viewport + overscan, never shrinks during scroll
+- **Cache Invalidation**: Cell cache cleared on epoch change, not per-cell
+- **Lazy Plugin Styles**: Styles injected once after initial render
+
+### What to Avoid
+
+- ❌ `querySelector` in scroll/render paths (use cached refs)
+- ❌ Creating objects in hot loops (reuse pooled objects)
+- ❌ `innerHTML` for data content (use `textContent` or DOM APIs)
+- ❌ Synchronous layout reads after writes (batch reads before writes)
 
 ---
 

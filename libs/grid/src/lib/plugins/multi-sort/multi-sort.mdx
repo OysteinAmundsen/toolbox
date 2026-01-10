@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as MultiSortStories from './multi-sort.stories';
 
 <Meta of={MultiSortStories} />
 
 # Multi-Sort Plugin
 
-The Multi-Sort plugin enables sorting by multiple columns simultaneously with priority indicators.
+The Multi-Sort plugin enables sorting by multiple columns at once—hold Shift and click additional column headers to build up a sort stack. Priority badges show the sort order, so users always know which column takes precedence.
 
 ## Installation
 
@@ -15,6 +16,10 @@ import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 
 ## Basic Usage
 
+Mark columns as `sortable: true` and add the plugin. Users Shift+click to add columns to the sort stack, and regular click to reset to single-column sort.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
@@ -22,10 +27,119 @@ grid.gridConfig = {
     { field: 'name', header: 'Name', sortable: true },
     { field: 'department', header: 'Department', sortable: true },
     { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    { field: 'startDate', header: 'Start Date', type: 'date', sortable: true },
   ],
-  plugins: [new MultiSortPlugin()],
+  plugins: [
+    new MultiSortPlugin({
+      maxSortColumns: 3,
+      showSortIndex: true,
+    }),
+  ],
 };
+
+// Listen for sort changes
+grid.addEventListener('sort-change', (e) => {
+  console.log('Active sorts:', e.detail.sortModel);
+});
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+
+function SortableGrid({ data }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', sortable: true },
+          { field: 'department', header: 'Department', sortable: true },
+          { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+        ],
+        plugins: [
+          new MultiSortPlugin({ maxSortColumns: 3 }),
+        ],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" @sort-change="onSortChange" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+
+const props = defineProps(['data']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'department', header: 'Department', sortable: true },
+      { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    ],
+    plugins: [
+      new MultiSortPlugin({ maxSortColumns: 3 }),
+    ],
+  };
+  gridRef.value.rows = props.data;
+});
+
+const onSortChange = (e) => {
+  console.log('Sort changed:', e.detail.sortModel);
+};
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class SortableGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'department', header: 'Department', sortable: true },
+        { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+      ],
+      plugins: [
+        new MultiSortPlugin({ maxSortColumns: 3 }),
+      ],
+    };
+
+    this.gridRef.nativeElement.addEventListener('sort-change', (e: CustomEvent) => {
+      console.log('Sort changed:', e.detail);
+    });
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

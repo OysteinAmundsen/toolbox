@@ -8,9 +8,9 @@
 
 // Re-export aggregator types from core
 export type { AggregatorFn, AggregatorRef } from '../../core/internal/aggregators';
+export type { ExpandCollapseAnimation } from '../../core/types';
 
-/** Animation style for expand/collapse */
-export type ExpandCollapseAnimation = false | 'slide' | 'fade';
+import type { ExpandCollapseAnimation } from '../../core/types';
 
 /** Map of field names to aggregator references */
 export type AggregatorMap = Record<string, import('../../core/internal/aggregators').AggregatorRef>;

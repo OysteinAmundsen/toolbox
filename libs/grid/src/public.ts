@@ -79,9 +79,12 @@ export type {
   DataGridCustomEvent,
   DataGridElement as DataGridElementInterface,
   DataGridEventMap,
+  ExpandCollapseAnimation,
   ExternalMountEditorDetail,
   ExternalMountViewDetail,
   FitMode,
+  // Framework adapter interface
+  FrameworkAdapter,
   GridColumnState,
   // Core configuration types
   GridConfig,
@@ -106,9 +109,9 @@ export type {
   // Sorting types
   SortHandler,
   SortState,
-  ToolbarButtonConfig,
   ToolPanelConfig,
   ToolPanelDefinition,
+  ToolbarButtonConfig,
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
@@ -164,6 +167,6 @@ export { BaseGridPlugin, PLUGIN_QUERIES } from './lib/core/plugin';
 export type { PluginQuery } from './lib/core/plugin';
 
 // DOM constants - for querying grid elements and styling
-export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';
-export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constants';
+export { GridCSSVars, GridClasses, GridDataAttrs, GridSelectors } from './lib/core/constants';
+export type { GridCSSVar, GridClassName, GridDataAttr } from './lib/core/constants';
 // #endregion

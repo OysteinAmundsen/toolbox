@@ -15,201 +15,46 @@ import type {
 } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 
-// Forward declare to avoid circular imports
-export interface GridElement {
-  shadowRoot: ShadowRoot | null;
-  rows: any[];
-  columns: ColumnConfig[];
-  gridConfig: any;
-  /**
-   * Current focused row index
-   * @internal Plugin API
-   */
-  _focusRow: number;
-  /**
-   * Current focused column index
-   * @internal Plugin API
-   */
-  _focusCol: number;
-  /** AbortSignal that is aborted when the grid disconnects from the DOM */
-  disconnectSignal: AbortSignal;
-  requestRender(): void;
-  requestAfterRender(): void;
-  forceLayout(): Promise<void>;
+// Re-export shared plugin types for convenience
+export { PLUGIN_QUERIES } from './types';
+export type {
+  CellClickEvent,
+  CellCoords,
+  CellEditor,
+  CellMouseEvent,
+  CellRenderer,
+  ContextMenuItem,
+  ContextMenuParams,
+  GridElementRef,
+  HeaderClickEvent,
+  HeaderRenderer,
+  KeyboardModifiers,
+  PluginCellRenderContext,
+  PluginQuery,
+  RowClickEvent,
+  ScrollEvent,
+} from './types';
+
+import type {
+  CellClickEvent,
+  CellEditor,
+  CellMouseEvent,
+  CellRenderer,
+  GridElementRef,
+  HeaderClickEvent,
+  HeaderRenderer,
+  PluginQuery,
+  RowClickEvent,
+  ScrollEvent,
+} from './types';
+
+/**
+ * Grid element interface for plugins.
+ * Extends GridElementRef with plugin-specific methods.
+ */
+export interface GridElement extends GridElementRef {
   getPlugin<T extends BaseGridPlugin>(PluginClass: new (...args: any[]) => T): T | undefined;
   getPluginByName(name: string): BaseGridPlugin | undefined;
-  dispatchEvent(event: Event): boolean;
-}
-
-/**
- * Keyboard modifier flags
- */
-export interface KeyboardModifiers {
-  ctrl?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-  meta?: boolean;
-}
-
-/**
- * Cell coordinates
- */
-export interface CellCoords {
-  row: number;
-  col: number;
-}
-
-/**
- * Cell click event
- */
-export interface CellClickEvent {
-  rowIndex: number;
-  colIndex: number;
-  field: string;
-  value: any;
-  row: any;
-  cellEl: HTMLElement;
-  originalEvent: MouseEvent;
-}
-
-/**
- * Row click event
- */
-export interface RowClickEvent {
-  rowIndex: number;
-  row: any;
-  rowEl: HTMLElement;
-  originalEvent: MouseEvent;
-}
-
-/**
- * Header click event
- */
-export interface HeaderClickEvent {
-  colIndex: number;
-  field: string;
-  column: ColumnConfig;
-  headerEl: HTMLElement;
-  originalEvent: MouseEvent;
-}
-
-/**
- * Scroll event
- */
-export interface ScrollEvent {
-  scrollTop: number;
-  scrollLeft: number;
-  scrollHeight: number;
-  scrollWidth: number;
-  clientHeight: number;
-  clientWidth: number;
-  originalEvent?: Event;
-}
-
-/**
- * Cell mouse event (for drag operations, selection, etc.)
- */
-export interface CellMouseEvent {
-  /** Event type: mousedown, mousemove, or mouseup */
-  type: 'mousedown' | 'mousemove' | 'mouseup';
-  /** Row index, undefined if not over a data cell */
-  rowIndex?: number;
-  /** Column index, undefined if not over a cell */
-  colIndex?: number;
-  /** Field name, undefined if not over a cell */
-  field?: string;
-  /** Cell value, undefined if not over a data cell */
-  value?: unknown;
-  /** Row data object, undefined if not over a data row */
-  row?: unknown;
-  /** Column configuration, undefined if not over a column */
-  column?: ColumnConfig;
-  /** The cell element, undefined if not over a cell */
-  cellElement?: HTMLElement;
-  /** The row element, undefined if not over a row */
-  rowElement?: HTMLElement;
-  /** Whether the event is over a header cell */
-  isHeader: boolean;
-  /** Cell coordinates if over a valid data cell */
-  cell?: CellCoords;
-  /** The original mouse event */
-  originalEvent: MouseEvent;
-}
-
-/**
- * Context menu parameters
- */
-export interface ContextMenuParams {
-  x: number;
-  y: number;
-  rowIndex?: number;
-  colIndex?: number;
-  field?: string;
-  value?: any;
-  row?: any;
-  column?: ColumnConfig;
-  isHeader?: boolean;
-}
-
-/**
- * Context menu item (used by context-menu plugin query)
- */
-export interface ContextMenuItem {
-  id: string;
-  label: string;
-  icon?: string;
-  disabled?: boolean;
-  separator?: boolean;
-  children?: ContextMenuItem[];
-  action?: (params: ContextMenuParams) => void;
-}
-
-/**
- * Generic plugin query for inter-plugin communication.
- * Plugins can define their own query types as string constants
- * and respond to queries from other plugins.
- */
-export interface PluginQuery<T = unknown> {
-  /** Query type identifier (e.g., 'canMoveColumn', 'getContextMenuItems') */
-  type: string;
-  /** Query-specific context/parameters */
-  context: T;
-}
-
-/**
- * Well-known plugin query types.
- * Plugins can define additional query types beyond these.
- */
-export const PLUGIN_QUERIES = {
-  /** Ask if a column can be moved. Context: ColumnConfig. Response: boolean | undefined */
-  CAN_MOVE_COLUMN: 'canMoveColumn',
-  /** Get context menu items. Context: ContextMenuParams. Response: ContextMenuItem[] */
-  GET_CONTEXT_MENU_ITEMS: 'getContextMenuItems',
-} as const;
-
-/**
- * Cell render context for plugin cell renderers.
- * Provides full context including position and editing state.
- *
- * Note: This differs from the core `CellRenderContext` in types.ts which is
- * simpler and used for column view renderers. This version provides additional
- * context needed by plugins that register custom cell renderers.
- */
-export interface PluginCellRenderContext {
-  /** The cell value */
-  value: any;
-  /** The field/column key */
-  field: string;
-  /** The row data object */
-  row: any;
-  /** Row index in the data array */
-  rowIndex: number;
-  /** Column index */
-  colIndex: number;
-  /** Column configuration */
-  column: ColumnConfig;
-  /** Whether the cell is currently in edit mode */
-  isEditing: boolean;
 }
 
 /**
@@ -220,25 +65,6 @@ export interface PluginHeaderRenderContext {
   column: ColumnConfig;
   /** Column index */
   colIndex: number;
-}
-
-/**
- * Cell renderer function type for plugins.
- */
-export type CellRenderer = (ctx: PluginCellRenderContext) => string | HTMLElement;
-
-/**
- * Header renderer function type for plugins.
- */
-export type HeaderRenderer = (ctx: PluginHeaderRenderContext) => string | HTMLElement;
-
-/**
- * Cell editor interface for plugins.
- */
-export interface CellEditor {
-  create(ctx: PluginCellRenderContext, commitFn: (value: any) => void, cancelFn: () => void): HTMLElement;
-  getValue?(element: HTMLElement): any;
-  focus?(element: HTMLElement): void;
 }
 
 /**

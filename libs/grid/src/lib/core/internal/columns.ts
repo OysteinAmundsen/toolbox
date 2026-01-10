@@ -20,8 +20,36 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       const sortable = el.hasAttribute('sortable');
       const editable = el.hasAttribute('editable');
       const config: ColumnInternal = { field, type, header, sortable, editable };
+
+      // Parse width attribute (supports px values, percentages, or plain numbers)
+      const widthAttr = el.getAttribute('width');
+      if (widthAttr) {
+        const numericWidth = parseFloat(widthAttr);
+        if (!isNaN(numericWidth) && /^\d+(\.\d+)?$/.test(widthAttr.trim())) {
+          config.width = numericWidth;
+        } else {
+          config.width = widthAttr; // e.g. "100px", "20%", "1fr"
+        }
+      }
+
+      // Parse minWidth attribute (numeric only)
+      const minWidthAttr = el.getAttribute('minWidth') || el.getAttribute('min-width');
+      if (minWidthAttr) {
+        const numericMinWidth = parseFloat(minWidthAttr);
+        if (!isNaN(numericMinWidth)) {
+          config.minWidth = numericMinWidth;
+        }
+      }
+
       if (el.hasAttribute('resizable')) (config as any).resizable = true;
       if (el.hasAttribute('sizable')) (config as any).resizable = true; // legacy attribute support
+
+      // Parse editor and renderer attribute names for programmatic lookup
+      const editorName = el.getAttribute('editor');
+      const rendererName = el.getAttribute('renderer');
+      if (editorName) (config as any).__editorName = editorName;
+      if (rendererName) (config as any).__rendererName = rendererName;
+
       // Parse options attribute for select/typeahead: "value1:Label1,value2:Label2" or "value1,value2"
       const optionsAttr = el.getAttribute('options');
       if (optionsAttr) {
@@ -36,6 +64,24 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       if (viewTpl) config.__viewTemplate = viewTpl as HTMLElement;
       if (editorTpl) config.__editorTemplate = editorTpl as HTMLElement;
       if (headerTpl) config.__headerTemplate = headerTpl as HTMLElement;
+
+      // Check if framework adapters can handle the template wrapper elements
+      if (viewTpl) {
+        const adapters = (globalThis as any).DataGridElement?.getAdapters?.() ?? [];
+        const adapter = adapters.find((a: any) => a.canHandle(viewTpl));
+        if (adapter) {
+          config.viewRenderer = adapter.createRenderer(viewTpl);
+        }
+      }
+
+      if (editorTpl) {
+        const adapters = (globalThis as any).DataGridElement?.getAdapters?.() ?? [];
+        const adapter = adapters.find((a: any) => a.canHandle(editorTpl));
+        if (adapter) {
+          config.editor = adapter.createEditor(editorTpl);
+        }
+      }
+
       return config;
     })
     .filter((c): c is ColumnInternal => !!c);
@@ -64,9 +110,15 @@ export function mergeColumns(
     m.sortable = c.sortable || d.sortable;
     if ((c as any).resizable === true || (d as any).resizable === true) (m as any).resizable = true;
     m.editable = c.editable || d.editable;
+    // Merge width/minWidth from DOM if not set programmatically
+    if (d.width != null && m.width == null) m.width = d.width;
+    if (d.minWidth != null && m.minWidth == null) m.minWidth = d.minWidth;
     if ((d as any).__viewTemplate) (m as any).__viewTemplate = (d as any).__viewTemplate;
     if ((d as any).__editorTemplate) (m as any).__editorTemplate = (d as any).__editorTemplate;
     if ((d as any).__headerTemplate) (m as any).__headerTemplate = (d as any).__headerTemplate;
+    // Merge framework adapter renderers/editors from DOM
+    if (d.viewRenderer && !m.viewRenderer) m.viewRenderer = d.viewRenderer;
+    if (d.editor && !m.editor) m.editor = d.editor;
     delete domMap[c.field];
     return m;
   });
@@ -185,4 +237,207 @@ export function updateTemplate(grid: InternalGrid): void {
       .join(' ');
   }
   ((grid as unknown as HTMLElement).style as any).setProperty('--tbw-column-template', grid._gridTemplate);
+}
+
+// ============================================================================
+// Column Visibility API
+// ============================================================================
+// These functions are extracted from grid.ts to reduce the god object size.
+// Grid.ts delegates to these functions for all visibility-related operations.
+
+/**
+ * Emit a custom event from the grid element.
+ */
+function emitEvent(grid: InternalGrid, eventName: string, detail: any): void {
+  (grid as unknown as HTMLElement).dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true }));
+}
+
+/**
+ * Set the visibility of a column.
+ * @param grid - The grid instance
+ * @param field - The field name of the column
+ * @param visible - Whether the column should be visible
+ * @param callbacks - Grid callbacks for triggering setup/state changes
+ * @returns True if visibility was changed, false if column not found or locked
+ */
+export function setColumnVisible<T>(
+  grid: InternalGrid<T>,
+  field: string,
+  visible: boolean,
+  callbacks: { setup: () => void; requestStateChange: () => void },
+): boolean {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  const col = allCols.find((c) => c.field === field);
+
+  // If column not found, cannot change visibility
+  if (!col) return false;
+
+  // Check lockVisible - cannot hide locked columns
+  if (!visible && col.lockVisible) return false;
+
+  // Check if at least one column would remain visible
+  if (!visible) {
+    const currentVisible = allCols.filter((c) => !c.hidden && c.field !== field).length;
+    if (currentVisible === 0) return false;
+  }
+
+  const wasHidden = !!col.hidden;
+  const willBeHidden = !visible;
+
+  // Only refresh if visibility actually changed
+  if (wasHidden !== willBeHidden) {
+    // Update the hidden property on the column in effectiveConfig
+    col.hidden = willBeHidden;
+
+    // Emit event for consumer preference saving
+    emitEvent(grid, 'column-visibility', {
+      field,
+      visible,
+      visibleColumns: allCols.filter((c) => !c.hidden).map((c) => c.field),
+    });
+
+    // Clear row pool to force complete rebuild with new column count
+    grid._rowPool.length = 0;
+    if (grid._bodyEl) grid._bodyEl.innerHTML = '';
+    grid.__rowRenderEpoch++;
+
+    // Re-setup to rebuild columns with updated visibility
+    callbacks.setup();
+
+    // Trigger state change after visibility change
+    callbacks.requestStateChange();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Toggle the visibility of a column.
+ * @param grid - The grid instance
+ * @param field - The field name of the column
+ * @param callbacks - Grid callbacks for triggering setup/state changes
+ * @returns True if visibility was toggled, false if column not found or locked
+ */
+export function toggleColumnVisibility<T>(
+  grid: InternalGrid<T>,
+  field: string,
+  callbacks: { setup: () => void; requestStateChange: () => void },
+): boolean {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  const col = allCols.find((c) => c.field === field);
+  const isCurrentlyHidden = !!col?.hidden;
+  return setColumnVisible(grid, field, isCurrentlyHidden, callbacks);
+}
+
+/**
+ * Check if a column is currently visible.
+ * @param grid - The grid instance
+ * @param field - The field name of the column
+ * @returns True if visible, false if hidden or not found
+ */
+export function isColumnVisible<T>(grid: InternalGrid<T>, field: string): boolean {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  const col = allCols.find((c) => c.field === field);
+  return col ? !col.hidden : false;
+}
+
+/**
+ * Show all columns.
+ * @param grid - The grid instance
+ * @param callbacks - Grid callbacks for triggering setup/state changes
+ */
+export function showAllColumns<T>(
+  grid: InternalGrid<T>,
+  callbacks: { setup: () => void; requestStateChange: () => void },
+): void {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+  const hasHidden = allCols.some((c) => c.hidden);
+  if (!hasHidden) return;
+
+  // Clear hidden flag on all columns
+  allCols.forEach((c) => {
+    c.hidden = false;
+  });
+
+  emitEvent(grid, 'column-visibility', {
+    visibleColumns: allCols.map((c) => c.field),
+  });
+
+  // Clear row pool to force complete rebuild with new column count
+  grid._rowPool.length = 0;
+  if (grid._bodyEl) grid._bodyEl.innerHTML = '';
+  grid.__rowRenderEpoch++;
+
+  callbacks.setup();
+
+  // Trigger state change after visibility change
+  callbacks.requestStateChange();
+}
+
+/**
+ * Get list of all column fields (including hidden).
+ * Returns columns reflecting current display order (after reordering).
+ * Hidden columns are interleaved at their original relative positions.
+ * @param grid - The grid instance
+ * @returns Array of all field names with their visibility status
+ */
+export function getAllColumns<T>(
+  grid: InternalGrid<T>,
+): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }> {
+  const allCols = (grid.effectiveConfig?.columns ?? []) as ColumnInternal<T>[];
+
+  return allCols.map((c) => ({
+    field: c.field,
+    header: c.header || c.field,
+    visible: !c.hidden,
+    lockVisible: c.lockVisible,
+  }));
+}
+
+/**
+ * Reorder columns according to the specified field order.
+ * This directly updates _columns in place without going through processColumns.
+ * @param grid - The grid instance
+ * @param order - Array of field names in the desired order
+ * @param callbacks - Grid callbacks for triggering re-render
+ */
+export function setColumnOrder<T>(
+  grid: InternalGrid<T>,
+  order: string[],
+  callbacks: { renderHeader: () => void; refreshVirtualWindow: (full: boolean) => void },
+): void {
+  if (!order.length) return;
+
+  const columnMap = new Map<string, ColumnInternal<T>>(grid._columns.map((c) => [c.field as string, c]));
+  const reordered: ColumnInternal<T>[] = [];
+
+  // Add columns in specified order
+  for (const field of order) {
+    const col = columnMap.get(field);
+    if (col) {
+      reordered.push(col);
+      columnMap.delete(field);
+    }
+  }
+
+  // Add any remaining columns not in order
+  for (const col of columnMap.values()) {
+    reordered.push(col);
+  }
+
+  grid._columns = reordered;
+
+  // Re-render with new order
+  callbacks.renderHeader();
+  updateTemplate(grid);
+  callbacks.refreshVirtualWindow(true);
+}
+
+/**
+ * Get the current column order as an array of field names.
+ * @param grid - The grid instance
+ * @returns Array of field names in display order
+ */
+export function getColumnOrder<T>(grid: InternalGrid<T>): string[] {
+  return grid._columns.map((c) => c.field);
 }

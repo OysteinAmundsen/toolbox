@@ -92,9 +92,16 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      # Grid package outputs
+      grid_release_created: ${{ steps.release.outputs['libs/grid--release_created'] }}
+      grid_tag_name: ${{ steps.release.outputs['libs/grid--tag_name'] }}
+      grid_version: ${{ steps.release.outputs['libs/grid--version'] }}
+      # Grid-angular package outputs
+      grid_angular_release_created: ${{ steps.release.outputs['libs/grid-angular--release_created'] }}
+      grid_angular_tag_name: ${{ steps.release.outputs['libs/grid-angular--tag_name'] }}
+      grid_angular_version: ${{ steps.release.outputs['libs/grid-angular--version'] }}
+      # Any release created (for jobs that run on any release)
+      releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
       - uses: googleapis/release-please-action@v4
         if: github.event_name == 'push'
@@ -110,7 +117,7 @@ jobs:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
-        needs.release-please.outputs.release_created == 'true' ||
+        needs.release-please.outputs.releases_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
@@ -150,7 +157,7 @@ jobs:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
-        needs.release-please.outputs.release_created == 'true' ||
+        needs.release-please.outputs.releases_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
       )
     environment:
@@ -163,11 +170,11 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  publish-npm:
+  publish-grid:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
-        needs.release-please.outputs.release_created == 'true' ||
+        needs.release-please.outputs.grid_release_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
@@ -201,10 +208,56 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build library
+      - name: Build grid library
         run: bun nx build grid
 
-      - name: Publish to npm
+      - name: Publish @toolbox-web/grid to npm
         run: |
           cd dist/libs/grid
+          npm publish --provenance
+
+  publish-grid-angular:
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'release' ||
+        needs.release-please.outputs.grid_angular_release_created == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
+      )
+    needs: [release-please]
+    runs-on: ubuntu-latest
+    environment: NPM
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build grid-angular library
+        run: bun nx build grid-angular
+
+      - name: Publish @toolbox-web/grid-angular to npm
+        run: |
+          cd dist/libs/grid-angular
           npm publish --provenance

@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as TreeStories from './tree.stories';
 
 <Meta of={TreeStories} />
 
 # Tree Plugin
 
-The Tree plugin displays hierarchical data with parent-child relationships.
+The Tree plugin transforms your flat grid into a hierarchical tree view with expandable parent-child relationships. Great for file explorers, organizational charts, nested categories, or any data with a natural hierarchy.
 
 ## Installation
 
@@ -15,21 +16,141 @@ import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
 
 ## Basic Usage
 
+Just point the plugin at the field containing child items (defaults to `children`) and the grid handles all the expand/collapse behavior, indentation, and icons automatically.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [{ field: 'name', header: 'Name' }],
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'type', header: 'Type' },
+    { field: 'size', header: 'Size' }
+  ],
   plugins: [
     new TreePlugin({
       childrenField: 'children',
+      indentWidth: 24,
     }),
   ],
 };
 
 grid.rows = [
-  { id: 1, name: 'Documents', children: [{ id: 2, name: 'Work', children: [{ id: 3, name: 'Report.docx' }] }] },
+  {
+    id: 1,
+    name: 'Documents',
+    type: 'folder',
+    children: [
+      { id: 2, name: 'Work', type: 'folder', children: [
+        { id: 3, name: 'Report.docx', type: 'file', size: '24 KB' }
+      ]},
+      { id: 4, name: 'Personal', type: 'folder', children: [] }
+    ]
+  },
 ];
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+
+function FileExplorer({ files }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'type', header: 'Type' },
+          { field: 'size', header: 'Size' }
+        ],
+        plugins: [
+          new TreePlugin({
+            childrenField: 'children',
+            indentWidth: 24,
+          }),
+        ],
+      };
+      gridRef.current.rows = files;
+    }
+  }, [files]);
+
+  return <tbw-grid ref={gridRef} />;
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" />
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+
+const props = defineProps(['files']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'type', header: 'Type' },
+      { field: 'size', header: 'Size' }
+    ],
+    plugins: [
+      new TreePlugin({
+        childrenField: 'children',
+        indentWidth: 24,
+      }),
+    ],
+  };
+  gridRef.value.rows = props.files;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid #grid />`
+})
+export class FileExplorerComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+  files = [/* hierarchical data */];
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'type', header: 'Type' },
+        { field: 'size', header: 'Size' }
+      ],
+      plugins: [
+        new TreePlugin({
+          childrenField: 'children',
+          indentWidth: 24,
+        }),
+      ],
+    };
+    this.gridRef.nativeElement.rows = this.files;
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

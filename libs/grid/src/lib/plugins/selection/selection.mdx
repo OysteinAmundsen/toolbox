@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as SelectionStories from './selection.stories';
 
 <Meta of={SelectionStories} />
 
 # Selection Plugin
 
-The Selection plugin adds cell, row, and range selection capabilities to the grid with full keyboard support.
+The Selection plugin adds cell, row, and range selection capabilities to the grid with full keyboard support. Whether you need simple cell highlighting or complex multi-range selections, this plugin has you covered.
 
 ## Installation
 
@@ -15,34 +16,146 @@ import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 
 ## Basic Usage
 
+<Tabs>
+  <Tab label="Vanilla JS">
+
 ```ts
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ],
   plugins: [
     new SelectionPlugin({ mode: 'row' }),
   ],
 };
+grid.rows = data;
 ```
+
+  </Tab>
+  <Tab label="React">
+
+```tsx
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { useEffect, useRef } from 'react';
+import type { DataGridElement } from '@toolbox-web/grid';
+
+function MyGrid({ data }) {
+  const gridRef = useRef<DataGridElement>(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+        ],
+        plugins: [new SelectionPlugin({ mode: 'row' })],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} style={{ height: '400px' }} />;
+}
+```
+
+  </Tab>
+  <Tab label="Vue">
+
+```vue
+<template>
+  <tbw-grid ref="gridRef" style="height: 400px" />
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { ref, onMounted } from 'vue';
+
+const gridRef = ref(null);
+const props = defineProps(['data']);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [new SelectionPlugin({ mode: 'row' })],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+
+  </Tab>
+  <Tab label="Angular">
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  rows = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ];
+
+  config = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [new SelectionPlugin({ mode: 'row' })],
+  };
+}
+```
+
+  </Tab>
+</Tabs>
 
 ## Demos
 
 ### Default (Cell Mode)
 
-Click cells to select them individually.
+Click cells to select them individually. Great for spreadsheet-style interactions.
 
 <Canvas of={SelectionStories.Default} withToolbar />
 <Controls of={SelectionStories.Default} />
 
 ### Row Selection Mode
 
-Click anywhere in a row to select the entire row.
+Click anywhere in a row to select the entire row. Perfect for data grids where you're working with complete records.
 
 <Canvas of={SelectionStories.RowMode} withToolbar />
 
 ### Range Selection Mode
 
-Click and drag or Shift+Click to select rectangular ranges.
+Click and drag or Shift+Click to select rectangular ranges. Ideal for data export or bulk operations.
 
 <Canvas of={SelectionStories.RangeMode} withToolbar />
 
@@ -53,6 +166,8 @@ Click and drag or Shift+Click to select rectangular ranges.
 | `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
 
 ## Keyboard Shortcuts
+
+The plugin provides full keyboard support for accessibility and power users:
 
 | Shortcut        | Action                          |
 | --------------- | ------------------------------- |
@@ -65,39 +180,46 @@ Click and drag or Shift+Click to select rectangular ranges.
 
 ## Programmatic API
 
+You can control selection programmatically via the plugin instance:
+
 ```ts
+// Get the plugin instance from the grid
 const plugin = grid.getPlugin(SelectionPlugin);
 
-// Select programmatically
+// Select specific cells/rows
 plugin.selectCell(rowIndex, colIndex);
 plugin.selectRow(rowIndex);
 plugin.selectRange({ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } });
 
-// Get current selection
+// Query current selection
 const ranges = plugin.getSelectedRanges();
+const selectedRows = plugin.getSelectedRows();
 
-// Clear selection
+// Modify selection
 plugin.clearSelection();
-
-// Select all
 plugin.selectAll();
 ```
 
 ## Styling
 
+Customize selection appearance using CSS custom properties:
+
 ```css
-/* Selected cell */
+/* Selected cell background */
 tbw-grid::part(cell-selected) {
   background: var(--tbw-selection-bg, rgba(0, 120, 215, 0.1));
 }
 
-/* Selected row */
+/* Selected row background */
 tbw-grid::part(row-selected) {
   background: var(--tbw-selection-bg, rgba(0, 120, 215, 0.15));
 }
 
 /* Selection range border */
 tbw-grid::part(selection-range) {
+  border: 2px solid var(--tbw-selection-border, #0078d7);
+}
+```
   border: 2px solid var(--tbw-selection-border, #0078d7);
 }
 ```

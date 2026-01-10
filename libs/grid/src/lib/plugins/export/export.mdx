@@ -1,11 +1,12 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../docs/components/Tabs';
 import * as ExportStories from './export.stories';
 
 <Meta of={ExportStories} />
 
 # Export Plugin
 
-The Export plugin allows users to export grid data to CSV or other formats.
+The Export plugin lets users download grid data as CSV, JSON, or other formats with a single click or API call. Great for reporting, data backup, or letting users work with data in Excel.
 
 ## Installation
 
@@ -15,18 +16,161 @@ import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 
 ## Basic Usage
 
+Add the plugin and call `exportToCSV()` or `exportToJSON()` when you're ready to download. You can also combine it with the SelectionPlugin to export only selected rows.
+
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' }
+  ],
   plugins: [
     new ExportPlugin({
-      filename: 'my-data',
+      filename: 'employees',
       format: 'csv',
+      includeHeaders: true,
     }),
   ],
 };
+
+// Trigger export via button click
+document.getElementById('export-btn').addEventListener('click', () => {
+  const plugin = grid.getPlugin(ExportPlugin);
+  plugin.exportToCSV();
+});
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { useRef, useEffect } from 'react';
+import '@toolbox-web/grid';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+function DataGrid({ data }) {
+  const gridRef = useRef(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+          { field: 'department', header: 'Department' }
+        ],
+        plugins: [
+          new ExportPlugin({
+            filename: 'employees',
+            format: 'csv',
+            includeHeaders: true,
+          }),
+        ],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  const handleExport = () => {
+    const plugin = gridRef.current?.getPlugin(ExportPlugin);
+    plugin?.exportToCSV();
+  };
+
+  return (
+    <>
+      <button onClick={handleExport}>Export CSV</button>
+      <tbw-grid ref={gridRef} />
+    </>
+  );
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <div>
+    <button @click="handleExport">Export CSV</button>
+    <tbw-grid ref="gridRef" />
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+const props = defineProps(['data']);
+const gridRef = ref(null);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' }
+    ],
+    plugins: [
+      new ExportPlugin({
+        filename: 'employees',
+        format: 'csv',
+        includeHeaders: true,
+      }),
+    ],
+  };
+  gridRef.value.rows = props.data;
+});
+
+const handleExport = () => {
+  const plugin = gridRef.value.getPlugin(ExportPlugin);
+  plugin.exportToCSV();
+};
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+@Component({
+  standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <button (click)="handleExport()">Export CSV</button>
+    <tbw-grid #grid />
+  `
+})
+export class DataGridComponent {
+  @ViewChild('grid') gridRef!: ElementRef;
+
+  ngAfterViewInit() {
+    this.gridRef.nativeElement.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' }
+      ],
+      plugins: [
+        new ExportPlugin({
+          filename: 'employees',
+          format: 'csv',
+          includeHeaders: true,
+        }),
+      ],
+    };
+  }
+
+  handleExport() {
+    const plugin = this.gridRef.nativeElement.getPlugin(ExportPlugin);
+    plugin.exportToCSV();
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

@@ -7,7 +7,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { BaseGridPlugin, RowClickEvent } from '../../core/plugin/base-plugin';
+import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
+import { BaseGridPlugin, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridConfig } from '../../core/types';
 import {
   collapseDetailRow,
@@ -49,6 +50,106 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       animation: 'slide', // Plugin's own default
     };
   }
+
+  // #region Light DOM Parsing
+
+  /**
+   * Called when plugin is attached to the grid.
+   * Parses light DOM for `<tbw-grid-detail>` elements to configure detail templates.
+   */
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+    this.parseLightDomDetail();
+  }
+
+  /**
+   * Parse `<tbw-grid-detail>` elements from the grid's light DOM.
+   *
+   * Allows declarative configuration:
+   * ```html
+   * <tbw-grid [rows]="data">
+   *   <tbw-grid-detail>
+   *     <div class="detail-content">
+   *       <p>Name: {{ row.name }}</p>
+   *       <p>Email: {{ row.email }}</p>
+   *     </div>
+   *   </tbw-grid-detail>
+   * </tbw-grid>
+   * ```
+   *
+   * Attributes:
+   * - `animation`: 'slide' | 'fade' | 'false' (default: 'slide')
+   * - `show-expand-column`: 'true' | 'false' (default: 'true')
+   * - `expand-on-row-click`: 'true' | 'false' (default: 'false')
+   * - `collapse-on-click-outside`: 'true' | 'false' (default: 'false')
+   * - `height`: number (pixels) or 'auto' (default: 'auto')
+   */
+  private parseLightDomDetail(): void {
+    const gridEl = this.grid as unknown as Element;
+    if (!gridEl || typeof gridEl.querySelector !== 'function') return;
+
+    const detailEl = gridEl.querySelector('tbw-grid-detail');
+    if (!detailEl) return;
+
+    // Check if a framework adapter wants to handle this element
+    // (e.g., Angular adapter intercepts for ng-template rendering)
+    const gridWithAdapter = gridEl as unknown as {
+      __frameworkAdapter?: {
+        parseDetailElement?: (el: Element) => ((row: any, rowIndex: number) => HTMLElement | string) | undefined;
+      };
+    };
+    if (gridWithAdapter.__frameworkAdapter?.parseDetailElement) {
+      const adapterRenderer = gridWithAdapter.__frameworkAdapter.parseDetailElement(detailEl);
+      if (adapterRenderer) {
+        this.config = { ...this.config, detailRenderer: adapterRenderer };
+        return;
+      }
+    }
+
+    // Parse attributes for configuration
+    const animation = detailEl.getAttribute('animation');
+    const showExpandColumn = detailEl.getAttribute('show-expand-column');
+    const expandOnRowClick = detailEl.getAttribute('expand-on-row-click');
+    const collapseOnClickOutside = detailEl.getAttribute('collapse-on-click-outside');
+    const heightAttr = detailEl.getAttribute('height');
+
+    const configUpdates: Partial<MasterDetailConfig> = {};
+
+    if (animation !== null) {
+      configUpdates.animation = animation === 'false' ? false : (animation as 'slide' | 'fade');
+    }
+    if (showExpandColumn !== null) {
+      configUpdates.showExpandColumn = showExpandColumn !== 'false';
+    }
+    if (expandOnRowClick !== null) {
+      configUpdates.expandOnRowClick = expandOnRowClick === 'true';
+    }
+    if (collapseOnClickOutside !== null) {
+      configUpdates.collapseOnClickOutside = collapseOnClickOutside === 'true';
+    }
+    if (heightAttr !== null) {
+      configUpdates.detailHeight = heightAttr === 'auto' ? 'auto' : parseInt(heightAttr, 10);
+    }
+
+    // Get template content from innerHTML
+    const templateHTML = detailEl.innerHTML.trim();
+    if (templateHTML && !this.config.detailRenderer) {
+      // Create a template-based renderer using the inner HTML
+      configUpdates.detailRenderer = (row: any, _rowIndex: number): string => {
+        // Evaluate template expressions like {{ row.field }}
+        const evaluated = evalTemplateString(templateHTML, { value: row, row });
+        // Sanitize the result to prevent XSS
+        return sanitizeHTML(evaluated);
+      };
+    }
+
+    // Merge updates into config
+    if (Object.keys(configUpdates).length > 0) {
+      this.config = { ...this.config, ...configUpdates };
+    }
+  }
+
+  // #endregion
 
   // #region Animation Helpers
 
@@ -221,12 +322,12 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override onRowClick(event: RowClickEvent): boolean | void {
     if (!this.config.expandOnRowClick || !this.config.detailRenderer) return;
 
-    this.expandedRows = toggleDetailRow(this.expandedRows, event.row);
+    this.expandedRows = toggleDetailRow(this.expandedRows, event.row as object);
 
     this.emit<DetailExpandDetail>('detail-expand', {
       rowIndex: event.rowIndex,
       row: event.row,
-      expanded: this.expandedRows.has(event.row),
+      expanded: this.expandedRows.has(event.row as object),
     });
 
     this.requestRender();
@@ -503,6 +604,25 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   getDetailElement(rowIndex: number): HTMLElement | undefined {
     const row = this.rows[rowIndex];
     return row ? this.detailElements.get(row) : undefined;
+  }
+
+  /**
+   * Re-parse light DOM to refresh the detail renderer.
+   * Call this after framework templates are registered (e.g., Angular ngAfterContentInit).
+   *
+   * This allows frameworks to register templates asynchronously and then
+   * update the plugin's detailRenderer.
+   */
+  refreshDetailRenderer(): void {
+    // Force re-parse by temporarily clearing the renderer
+    const currentRenderer = this.config.detailRenderer;
+    this.config = { ...this.config, detailRenderer: undefined };
+    this.parseLightDomDetail();
+
+    // If no new renderer was found, restore the original
+    if (!this.config.detailRenderer && currentRenderer) {
+      this.config = { ...this.config, detailRenderer: currentRenderer };
+    }
   }
   // #endregion
 

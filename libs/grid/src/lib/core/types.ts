@@ -42,6 +42,24 @@ export interface PublicGrid<T = any> {
   getConfig?: () => Promise<Readonly<GridConfig<T>>>;
   /** Toggle expansion state of a group row by its generated key. */
   toggleGroup?: (key: string) => Promise<void>;
+
+  // Custom Styles API
+  /**
+   * Register custom CSS styles to be injected into the grid's shadow DOM.
+   * Use this to style custom cell renderers, editors, or detail panels.
+   * @param id - Unique identifier for the style block (for removal/updates)
+   * @param css - CSS string to inject
+   */
+  registerStyles?: (id: string, css: string) => void;
+  /**
+   * Remove previously registered custom styles.
+   * @param id - The ID used when registering the styles
+   */
+  unregisterStyles?: (id: string) => void;
+  /**
+   * Get list of registered custom style IDs.
+   */
+  getRegisteredStyles?: () => string[];
 }
 
 /**
@@ -87,7 +105,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _dispatchHeaderClick?: (event: MouseEvent, colIndex: number, headerEl: HTMLElement) => boolean;
   /** Dispatch keydown to plugin system, returns true if handled */
   _dispatchKeyDown?: (event: KeyboardEvent) => boolean;
-  /** Get horizontal scroll boundary offsets from plugins (e.g., pinned columns) */
+  /** Get horizontal scroll boundary offsets from plugins */
   _getHorizontalScrollOffsets?: (
     rowEl?: HTMLElement,
     focusedCell?: HTMLElement,
@@ -153,7 +171,7 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
   };
   /** Whether the column is initially hidden */
   hidden?: boolean;
-  /** Prevent this column from being hidden by the visibility plugin */
+  /** Prevent this column from being hidden programmatically */
   lockVisible?: boolean;
 }
 
@@ -211,6 +229,67 @@ export interface CellRenderContext<TRow = any, TValue = any> {
 export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
   ctx: CellRenderContext<TRow, TValue>,
 ) => Node | string | void;
+
+/**
+ * Framework adapter interface for handling framework-specific component instantiation.
+ * Allows framework libraries (Angular, React, Vue) to register handlers that convert
+ * declarative light DOM elements into functional renderers/editors.
+ *
+ * @example
+ * ```typescript
+ * // In @toolbox-web/grid-angular
+ * class AngularGridAdapter implements FrameworkAdapter {
+ *   canHandle(element: HTMLElement): boolean {
+ *     return element.tagName.startsWith('APP-');
+ *   }
+ *   createRenderer(element: HTMLElement): ColumnViewRenderer {
+ *     return (ctx) => {
+ *       // Angular-specific instantiation logic
+ *       const componentRef = createComponent(...);
+ *       componentRef.setInput('value', ctx.value);
+ *       return componentRef.location.nativeElement;
+ *     };
+ *   }
+ *   createEditor(element: HTMLElement): ColumnEditorSpec {
+ *     return (ctx) => {
+ *       // Angular-specific editor with commit/cancel
+ *       const componentRef = createComponent(...);
+ *       componentRef.setInput('value', ctx.value);
+ *       // Subscribe to commit/cancel outputs
+ *       return componentRef.location.nativeElement;
+ *     };
+ *   }
+ * }
+ *
+ * // User registers adapter once in their app
+ * GridElement.registerAdapter(new AngularGridAdapter(injector, appRef));
+ * ```
+ */
+export interface FrameworkAdapter {
+  /**
+   * Determines if this adapter can handle the given element.
+   * Typically checks tag name, attributes, or other conventions.
+   */
+  canHandle(element: HTMLElement): boolean;
+
+  /**
+   * Creates a view renderer function from a light DOM element.
+   * The renderer receives cell context and returns DOM or string.
+   */
+  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue>;
+
+  /**
+   * Creates an editor spec from a light DOM element.
+   * The editor receives context with commit/cancel and returns DOM.
+   */
+  createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue>;
+
+  /**
+   * Creates a tool panel renderer from a light DOM element.
+   * The renderer receives a container element and optionally returns a cleanup function.
+   */
+  createToolPanelRenderer?(element: HTMLElement): ((container: HTMLElement) => void | (() => void)) | undefined;
+}
 
 // #region Internal-only augmented types (not re-exported publicly)
 export interface ColumnInternal<T = any> extends ColumnConfig<T> {
@@ -494,6 +573,15 @@ export type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
  * - `false`: No animation for this specific feature
  */
 export type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
+
+/**
+ * Animation style for expand/collapse operations.
+ * Subset of AnimationStyle - excludes 'flip' which is for position changes.
+ * - `'slide'`: Slide down/up animation for expanding/collapsing content
+ * - `'fade'`: Fade in/out animation
+ * - `false`: No animation
+ */
+export type ExpandCollapseAnimation = 'slide' | 'fade' | false;
 
 /**
  * Grid-wide animation configuration.

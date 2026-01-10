@@ -1,11 +1,51 @@
 import type { ColumnConfig, InternalGrid } from '../types';
-import { addPart } from './columns';
-import { commitCellValue, inlineEnterEdit, startRowEdit } from './editing';
+import {
+  clearEditingState,
+  FOCUSABLE_EDITOR_SELECTOR,
+  hasEditingCells,
+  inlineEnterEdit,
+  startRowEdit,
+} from './editing';
 import { ensureCellVisible } from './keyboard';
 import { evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
+import { booleanCellHTML, clearCellFocus, formatBooleanValue, formatDateValue, getRowIndexFromCell } from './utils';
 
 /** Callback type for plugin row rendering hook */
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
+
+// ============== Template Cloning System ==============
+// Using template cloning is 3-4x faster than document.createElement + setAttribute
+// for repetitive element creation because the browser can skip parsing.
+
+/**
+ * Cell template for cloning. Pre-configured with static attributes.
+ * Dynamic attributes (data-col, data-row, etc.) are set after cloning.
+ */
+const cellTemplate = document.createElement('template');
+cellTemplate.innerHTML = '<div class="cell" role="gridcell" part="cell"></div>';
+
+/**
+ * Row template for cloning. Pre-configured with static attributes.
+ * Dynamic attributes (data-row) and children (cells) are set after cloning.
+ */
+const rowTemplate = document.createElement('template');
+rowTemplate.innerHTML = '<div class="data-grid-row" role="row" part="row"></div>';
+
+/**
+ * Create a cell element from template. Significantly faster than createElement + setAttribute.
+ */
+function createCellFromTemplate(): HTMLDivElement {
+  return cellTemplate.content.firstElementChild!.cloneNode(true) as HTMLDivElement;
+}
+
+/**
+ * Create a row element from template. Significantly faster than createElement + setAttribute.
+ */
+export function createRowFromTemplate(): HTMLDivElement {
+  return rowTemplate.content.firstElementChild!.cloneNode(true) as HTMLDivElement;
+}
+
+// ============== End Template Cloning System ==============
 
 /**
  * Cell display value cache key on grid instance.
@@ -80,19 +120,11 @@ function computeCellDisplayValue(rowData: any, col: ColumnConfig<any>): string {
 
   // Type-specific conversion
   if (col.type === 'date') {
-    if (value == null || value === '') return '';
-    if (value instanceof Date) {
-      return isNaN(value.getTime()) ? '' : value.toLocaleDateString();
-    }
-    if (typeof value === 'number' || typeof value === 'string') {
-      const d = new Date(value);
-      return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
-    }
-    return '';
+    return formatDateValue(value);
   }
 
   if (col.type === 'boolean') {
-    return value ? '\u{1F5F9}' : '\u2610';
+    return formatBooleanValue(value);
   }
 
   return value == null ? '' : String(value);
@@ -158,9 +190,8 @@ export function renderVisibleRows(
 
   // Pool management: grow pool if needed
   while (grid._rowPool.length < needed) {
-    const rowEl = document.createElement('div');
-    rowEl.className = 'data-grid-row';
-    rowEl.setAttribute('role', 'row');
+    // Use template cloning - 3-4x faster than createElement + setAttribute
+    const rowEl = createRowFromTemplate();
     rowEl.addEventListener('click', (e) => handleRowClick(grid, e, rowEl, false));
     rowEl.addEventListener('dblclick', (e) => handleRowClick(grid, e, rowEl, true));
     grid._rowPool.push(rowEl);
@@ -220,22 +251,24 @@ export function renderVisibleRows(
 
     if (!structureValid || needsExternalRebuild) {
       // Full rebuild needed - epoch changed, cell count mismatch, or external view missing
-      const hasEditingCell = rowEl.querySelector('.cell.editing');
+      // Use cached editing state for O(1) check instead of querySelector
+      const hasEditing = hasEditingCells(rowEl);
       const isActivelyEditedRow = grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
       // (This happens when virtualization recycles the DOM element for a different row)
-      if (hasEditingCell && !isActivelyEditedRow) {
+      if (hasEditing && !isActivelyEditedRow) {
         // Force full rebuild to clear stale editors
         if ((rowEl as any).__isCustomRow) {
           rowEl.className = 'data-grid-row';
           rowEl.setAttribute('role', 'row');
           (rowEl as any).__isCustomRow = false;
         }
+        clearEditingState(rowEl); // Clear editing state before rebuild
         renderInlineRow(grid, rowEl, rowData, rowIndex);
         (rowEl as any).__epoch = epoch;
         (rowEl as any).__rowDataRef = rowData;
-      } else if (hasEditingCell && isActivelyEditedRow) {
+      } else if (hasEditing && isActivelyEditedRow) {
         // Row is in editing mode AND this is the correct row - preserve editors
         fastPatchRow(grid, rowEl, rowData, rowIndex);
         (rowEl as any).__rowDataRef = rowData;
@@ -255,18 +288,21 @@ export function renderVisibleRows(
           for (let c = 0; c < children.length; c++) {
             const col = grid._visibleColumns[c];
             if (col && (col as any).editable) {
-              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement);
+              // Skip focus - editors are being re-created during virtualization scroll
+              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
             }
           }
         }
       }
     } else if (dataRefChanged) {
       // Same structure, different row data - fast update
-      const hasEditingCell = rowEl.querySelector('.cell.editing');
+      // Use cached editing state for O(1) check instead of querySelector
+      const hasEditing = hasEditingCells(rowEl);
       const isActivelyEditedRow = grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
-      if (hasEditingCell && !isActivelyEditedRow) {
+      if (hasEditing && !isActivelyEditedRow) {
+        clearEditingState(rowEl); // Clear editing state before rebuild
         renderInlineRow(grid, rowEl, rowData, rowIndex);
         (rowEl as any).__epoch = epoch;
         (rowEl as any).__rowDataRef = rowData;
@@ -275,23 +311,26 @@ export function renderVisibleRows(
         (rowEl as any).__rowDataRef = rowData;
 
         // If this is the actively edited row but DOM doesn't have editors, create them
-        if (isActivelyEditedRow && !hasEditingCell) {
+        if (isActivelyEditedRow && !hasEditing) {
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
             const col = grid._visibleColumns[c];
             if (col && (col as any).editable) {
-              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement);
+              // Skip focus - editors are being re-created during virtualization scroll
+              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
             }
           }
         }
       }
     } else {
       // Same row data reference - just patch if any values changed
-      const hasEditingCell = rowEl.querySelector('.cell.editing');
+      // Use cached editing state for O(1) check instead of querySelector
+      const hasEditing = hasEditingCells(rowEl);
       const isActivelyEditedRow = grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
-      if (hasEditingCell && !isActivelyEditedRow) {
+      if (hasEditing && !isActivelyEditedRow) {
+        clearEditingState(rowEl); // Clear editing state before rebuild
         renderInlineRow(grid, rowEl, rowData, rowIndex);
         (rowEl as any).__epoch = epoch;
         (rowEl as any).__rowDataRef = rowData;
@@ -299,12 +338,13 @@ export function renderVisibleRows(
         fastPatchRow(grid, rowEl, rowData, rowIndex);
 
         // If this is the actively edited row but DOM doesn't have editors, create them
-        if (isActivelyEditedRow && !hasEditingCell) {
+        if (isActivelyEditedRow && !hasEditing) {
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
             const col = grid._visibleColumns[c];
             if (col && (col as any).editable) {
-              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement);
+              // Skip focus - editors are being re-created during virtualization scroll
+              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
             }
           }
         }
@@ -449,19 +489,11 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         displayStr = value == null ? '' : String(value);
       }
     } else if (col.type === 'date') {
-      if (value == null || value === '') {
-        displayStr = '';
-      } else if (value instanceof Date) {
-        displayStr = isNaN(value.getTime()) ? '' : value.toLocaleDateString();
-      } else {
-        const d = new Date(value);
-        displayStr = isNaN(d.getTime()) ? '' : d.toLocaleDateString();
-      }
+      displayStr = formatDateValue(value);
       cell.textContent = displayStr;
     } else if (col.type === 'boolean') {
-      const isTrue = !!value;
       // Boolean cells have inner span with checkbox role for ARIA compliance
-      cell.innerHTML = `<span role="checkbox" aria-checked="${isTrue}" aria-label="${isTrue}">${isTrue ? '&#x1F5F9;' : '&#9744;'}</span>`;
+      cell.innerHTML = booleanCellHTML(!!value);
     } else {
       displayStr = value == null ? '' : String(value);
       cell.textContent = displayStr;
@@ -489,12 +521,10 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
 
   for (let colIndex = 0; colIndex < colsLen; colIndex++) {
     const col: ColumnConfig<any> = columns[colIndex];
-    const cell = document.createElement('div');
-    cell.className = 'cell';
-    addPart(cell, 'cell');
+    // Use template cloning - 3-4x faster than createElement + setAttribute
+    const cell = createCellFromTemplate();
 
-    // All cells get role=gridcell (required by role=row)
-    cell.setAttribute('role', 'gridcell');
+    // Only set dynamic attributes (role, class, part are already set in template)
     // aria-colindex is 1-based
     cell.setAttribute('aria-colindex', String(colIndex + 1));
     cell.setAttribute('data-col', String(colIndex));
@@ -582,21 +612,10 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     } else {
       // Plain value rendering - compute display directly (matches Stencil performance)
       if (col.type === 'date') {
-        if (value == null || value === '') {
-          cell.textContent = '';
-        } else {
-          let d: Date | null = null;
-          if (value instanceof Date) d = value;
-          else if (typeof value === 'number' || typeof value === 'string') {
-            const tentative = new Date(value);
-            if (!isNaN(tentative.getTime())) d = tentative;
-          }
-          cell.textContent = d ? d.toLocaleDateString() : '';
-        }
+        cell.textContent = formatDateValue(value);
       } else if (col.type === 'boolean') {
-        const isTrue = !!value;
         // Wrap checkbox in span to satisfy ARIA: gridcell can contain checkbox
-        cell.innerHTML = `<span role="checkbox" aria-checked="${isTrue}" aria-label="${isTrue}">${isTrue ? '&#x1F5F9;' : '&#9744;'}</span>`;
+        cell.innerHTML = booleanCellHTML(!!value);
       } else {
         cell.textContent = value == null ? '' : String(value);
       }
@@ -617,111 +636,10 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       // If anything at all remains (e.g., 'function () { [native code] }'), blank it completely.
       if ((cell.textContent || '').trim().length) cell.textContent = '';
     }
+    // Mark editable cells with tabindex for keyboard navigation
+    // Event handlers are set up via delegation in setupCellEventDelegation()
     if ((col as any).editable) {
       cell.tabIndex = 0;
-      cell.addEventListener('mousedown', () => {
-        // Skip if cell is already in editing mode - avoid refreshVirtualWindow wiping editors
-        if (cell.classList.contains('editing')) return;
-        // Read row/col index from data attributes to handle virtualization row reuse
-        const currentRowIndex = Number(cell.getAttribute('data-row'));
-        const currentColIndex = Number(cell.getAttribute('data-col'));
-        if (isNaN(currentRowIndex) || isNaN(currentColIndex)) return;
-        grid._focusRow = currentRowIndex;
-        grid._focusCol = currentColIndex;
-        ensureCellVisible(grid);
-      });
-      if (editMode === 'click') {
-        cell.addEventListener('click', (e) => {
-          if (cell.classList.contains('editing')) return;
-          e.stopPropagation();
-          // Read row/col index from data attributes to handle virtualization row reuse
-          const currentRowIndex = Number(cell.getAttribute('data-row'));
-          const currentColIndex = Number(cell.getAttribute('data-col'));
-          if (isNaN(currentRowIndex) || isNaN(currentColIndex)) return;
-          const currentRowData = grid._rows[currentRowIndex];
-          const currentCol = grid._visibleColumns[currentColIndex];
-          if (!currentRowData || !currentCol) return;
-          grid._focusRow = currentRowIndex;
-          grid._focusCol = currentColIndex;
-          inlineEnterEdit(grid, currentRowData, currentRowIndex, currentCol, cell);
-        });
-      } else {
-        cell.addEventListener('dblclick', (e) => {
-          e.stopPropagation();
-          // Read row index from data attribute to handle virtualization row reuse
-          const currentRowIndex = Number(cell.getAttribute('data-row'));
-          if (isNaN(currentRowIndex)) return;
-          // Use beginBulkEdit if available for consistent behavior with Enter key
-          if (typeof grid.beginBulkEdit === 'function') {
-            grid._focusRow = currentRowIndex;
-            grid._focusCol = Number(cell.getAttribute('data-col')) || 0;
-            grid.beginBulkEdit(currentRowIndex);
-            return;
-          }
-          const currentRowData = grid._rows[currentRowIndex];
-          if (!currentRowData) return;
-          startRowEdit(grid, currentRowIndex, currentRowData);
-          const rowElCurrent = grid.findRenderedRowElement?.(currentRowIndex);
-          if (rowElCurrent) {
-            const children = rowElCurrent.children;
-            for (let i = 0; i < children.length; i++) {
-              const col2 = grid._visibleColumns[i];
-              if (col2 && (col2 as any).editable)
-                inlineEnterEdit(grid, currentRowData, currentRowIndex, col2, children[i] as HTMLElement);
-            }
-          }
-        });
-      }
-      cell.addEventListener('keydown', (e) => {
-        // Read row/col index from data attributes to handle virtualization row reuse
-        const currentRowIndex = Number(cell.getAttribute('data-row'));
-        const currentColIndex = Number(cell.getAttribute('data-col'));
-        if (isNaN(currentRowIndex) || isNaN(currentColIndex)) return;
-        const currentRowData = grid._rows[currentRowIndex];
-        const currentCol = grid._visibleColumns[currentColIndex];
-        if (!currentRowData || !currentCol) return;
-        if (
-          (currentCol.type === 'select' || currentCol.type === 'typeahead') &&
-          !cell.classList.contains('editing') &&
-          e.key === 'Enter'
-        ) {
-          e.preventDefault();
-          if (grid._activeEditRows !== currentRowIndex) startRowEdit(grid, currentRowIndex, currentRowData);
-          inlineEnterEdit(grid, currentRowData, currentRowIndex, currentCol, cell);
-          setTimeout(() => {
-            const selectEl = cell.querySelector('select') as HTMLSelectElement | null;
-            try {
-              (selectEl as any)?.showPicker?.();
-            } catch {
-              /* empty */
-            }
-            selectEl?.focus();
-          }, 0);
-          return;
-        }
-        if (currentCol.type === 'boolean' && e.key === ' ' && !cell.classList.contains('editing')) {
-          e.preventDefault();
-          if (grid._activeEditRows !== currentRowIndex) startRowEdit(grid, currentRowIndex, currentRowData);
-          const newVal = !currentRowData[currentCol.field];
-          commitCellValue(grid, currentRowIndex, currentCol, newVal, currentRowData);
-          cell.innerHTML = `<span role="checkbox" aria-checked="${newVal}" aria-label="${newVal}">${newVal ? '&#x1F5F9;' : '&#9744;'}</span>`;
-          return;
-        }
-        if (e.key === 'Enter' && !cell.classList.contains('editing')) {
-          e.preventDefault();
-          e.stopPropagation(); // Prevent grid-level handler from also processing Enter
-          grid._focusRow = currentRowIndex;
-          grid._focusCol = currentColIndex;
-          if (typeof grid.beginBulkEdit === 'function') grid.beginBulkEdit(currentRowIndex);
-          else inlineEnterEdit(grid, currentRowData, currentRowIndex, currentCol, cell);
-          return;
-        }
-        if (e.key === 'F2' && !cell.classList.contains('editing')) {
-          e.preventDefault();
-          inlineEnterEdit(grid, currentRowData, currentRowIndex, currentCol, cell);
-          return;
-        }
-      });
     } else if (col.type === 'boolean') {
       // Non-editable boolean cells should NOT toggle on space key
       // They are read-only, only set tabindex for focus navigation
@@ -750,9 +668,8 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
 export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLElement, isDbl: boolean): void {
   if ((e.target as HTMLElement)?.closest('.resize-handle')) return;
   const firstCell = rowEl.querySelector('.cell[data-row]') as HTMLElement | null;
-  if (!firstCell) return;
-  const rowIndex = Number(firstCell.getAttribute('data-row'));
-  if (isNaN(rowIndex)) return;
+  const rowIndex = getRowIndexFromCell(firstCell);
+  if (rowIndex < 0) return;
   const rowData = grid._rows[rowIndex];
   if (!rowData) return;
 
@@ -779,8 +696,7 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
       if (cellEl.classList.contains('editing')) {
         if (focusChanged) {
           // Update .cell-focus class to reflect new focus (clear from entire shadow root)
-          const root = grid.shadowRoot ?? grid._bodyEl;
-          Array.from(root.querySelectorAll('.cell-focus')).forEach((el: Element) => el.classList.remove('cell-focus'));
+          clearCellFocus(grid.shadowRoot ?? grid._bodyEl);
           cellEl.classList.add('cell-focus');
         }
         return;
@@ -797,8 +713,7 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
     // For single-click on already-editing row, just update focus to the clicked cell
     if (cellEl) {
       // Clear all cell-focus markers and set focus on the clicked cell
-      const root = grid.shadowRoot ?? grid._bodyEl;
-      Array.from(root.querySelectorAll('.cell-focus')).forEach((el: Element) => el.classList.remove('cell-focus'));
+      clearCellFocus(grid.shadowRoot ?? grid._bodyEl);
       cellEl.classList.add('cell-focus');
 
       queueMicrotask(() => {
@@ -806,11 +721,9 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
         const col = grid._visibleColumns[colIndex];
         // If clicking an editable cell, focus its editor
         if (col && (col as any).editable && cellEl.classList.contains('editing')) {
-          const editor = cellEl.querySelector(
-            'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
-          ) as HTMLElement | null;
+          const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
           try {
-            editor?.focus();
+            editor?.focus({ preventScroll: true });
           } catch {
             /* empty */
           }
@@ -820,10 +733,16 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
     return;
   }
 
-  if (rowEl.querySelector('.cell.editing')) {
-    const active = rowEl.querySelectorAll('.cell.editing');
+  // Use cached editing state check (O(1) vs querySelector)
+  if (hasEditingCells(rowEl)) {
+    // If clicking (not double-clicking) on an already-editing row, do nothing
     if (!isDbl) return;
-    active.forEach((n: any) => n.classList.remove('editing'));
+    // Double-click on editing row - clear editing classes
+    const children = rowEl.children;
+    for (let i = 0; i < children.length; i++) {
+      (children[i] as HTMLElement).classList.remove('editing');
+    }
+    clearEditingState(rowEl);
   }
   const rawMode = (grid as any).effectiveConfig?.editOn ?? grid.editOn ?? 'dblClick';
   // editOn: false disables all editing
@@ -840,17 +759,16 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
   } else return;
   Array.from(rowEl.children).forEach((c: any, i: number) => {
     const col = grid._visibleColumns[i];
-    if (col && (col as any).editable) inlineEnterEdit(grid, rowData, rowIndex, col, c as HTMLElement);
+    // Skip focus - we'll focus the correct editor in the queueMicrotask below
+    if (col && (col as any).editable) inlineEnterEdit(grid, rowData, rowIndex, col, c as HTMLElement, true);
   });
   if (cellEl) {
     queueMicrotask(() => {
       const targetCell = rowEl.querySelector(`.cell[data-col="${grid._focusCol}"]`);
       if (targetCell?.classList.contains('editing')) {
-        const editor = (targetCell as HTMLElement).querySelector(
-          'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])',
-        ) as HTMLElement | null;
+        const editor = (targetCell as HTMLElement).querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
         try {
-          editor?.focus();
+          editor?.focus({ preventScroll: true });
         } catch {
           /* empty */
         }

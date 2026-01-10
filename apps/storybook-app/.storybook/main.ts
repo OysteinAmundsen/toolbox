@@ -66,6 +66,10 @@ const config: StorybookConfig = {
       { find: '@toolbox-web/grid', replacement: resolve(__dirname, '../../../libs/grid/src/index.ts') },
       // Demo shared module - more specific path first
       {
+        find: '@demo/shared/demo-styles.css',
+        replacement: resolve(__dirname, '../../../demos/employee-management/shared/demo-styles.css'),
+      },
+      {
         find: '@demo/shared/styles',
         replacement: resolve(__dirname, '../../../demos/employee-management/shared/styles.ts'),
       },

@@ -1,7 +1,24 @@
 /// <reference types='vitest' />
+import { copyFileSync } from 'fs';
 import * as path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import dts from 'vite-plugin-dts';
+
+const outDir = path.resolve(import.meta.dirname, '../../dist/libs/grid-angular');
+
+/** Copy README.md to dist for npm publishing */
+function copyReadme(): Plugin {
+  return {
+    name: 'copy-readme',
+    writeBundle() {
+      try {
+        copyFileSync(path.resolve(import.meta.dirname, 'README.md'), path.resolve(outDir, 'README.md'));
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+}
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
@@ -11,6 +28,7 @@ export default defineConfig(() => ({
       entryRoot: 'src',
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),
     }),
+    copyReadme(),
   ],
   // Uncomment this if you are using workers.
   // worker: {

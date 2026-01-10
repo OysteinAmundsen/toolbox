@@ -642,39 +642,39 @@ The grid employs multiple optimization strategies to achieve high performance wi
 
 ### DOM Optimization
 
-| Technique | Implementation | Benefit |
-|-----------|----------------|---------|
-| **Template Cloning** | `rows.ts` uses `<template>` elements for rows/cells | 3-4x faster than `createElement` |
-| **Direct DOM Construction** | `dom-builder.ts` builds DOM programmatically | Avoids innerHTML parsing overhead |
-| **DocumentFragment** | Batch cell insertion into fragment before appending | Single reflow per row |
-| **Row Pooling** | Reuse row elements during scroll | Zero allocation during scroll |
-| **Cached DOM Refs** | `__rowsBodyEl`, `__scrollAreaEl` cached on grid | Avoid querySelector per scroll |
+| Technique                   | Implementation                                      | Benefit                           |
+| --------------------------- | --------------------------------------------------- | --------------------------------- |
+| **Template Cloning**        | `rows.ts` uses `<template>` elements for rows/cells | 3-4x faster than `createElement`  |
+| **Direct DOM Construction** | `dom-builder.ts` builds DOM programmatically        | Avoids innerHTML parsing overhead |
+| **DocumentFragment**        | Batch cell insertion into fragment before appending | Single reflow per row             |
+| **Row Pooling**             | Reuse row elements during scroll                    | Zero allocation during scroll     |
+| **Cached DOM Refs**         | `__rowsBodyEl`, `__scrollAreaEl` cached on grid     | Avoid querySelector per scroll    |
 
 ### Rendering Pipeline
 
-| Technique | Implementation | Benefit |
-|-----------|----------------|---------|
-| **Batched Updates** | `#queueUpdate()` coalesces property changes | Single render for rapid changes |
-| **RAF Scheduling** | Scroll handlers use `requestAnimationFrame` | Smooth 60fps scrolling |
-| **Idle Scheduling** | `idle-scheduler.ts` defers non-critical work | Faster time-to-interactive |
-| **Fast-Path Patching** | `fastPatchRow()` for plain text grids | Skip expensive template logic |
+| Technique              | Implementation                                    | Benefit                         |
+| ---------------------- | ------------------------------------------------- | ------------------------------- |
+| **Batched Updates**    | `#queueUpdate()` coalesces property changes       | Single render for rapid changes |
+| **RAF Scheduling**     | Scroll handlers use `requestAnimationFrame`       | Smooth 60fps scrolling          |
+| **Idle Scheduling**    | `idle-scheduler.ts` defers non-critical work      | Faster time-to-interactive      |
+| **Fast-Path Patching** | `fastPatchRow()` for plain text grids             | Skip expensive template logic   |
 | **Cell Display Cache** | `getCellDisplayValue()` memoizes formatted values | Avoid recomputing during scroll |
 
 ### Event Handling
 
-| Technique | Implementation | Benefit |
-|-----------|----------------|---------|
-| **Event Delegation** | Single listener at body level (`event-delegation.ts`) | Constant memory regardless of rows |
-| **Pooled Scroll Events** | `#pooledScrollEvent` reused object | Zero GC pressure during scroll |
-| **AbortController Cleanup** | `disconnectSignal` for automatic listener removal | No memory leaks on disconnect |
+| Technique                   | Implementation                                        | Benefit                            |
+| --------------------------- | ----------------------------------------------------- | ---------------------------------- |
+| **Event Delegation**        | Single listener at body level (`event-delegation.ts`) | Constant memory regardless of rows |
+| **Pooled Scroll Events**    | `#pooledScrollEvent` reused object                    | Zero GC pressure during scroll     |
+| **AbortController Cleanup** | `disconnectSignal` for automatic listener removal     | No memory leaks on disconnect      |
 
 ### State Management
 
-| Technique | Implementation | Benefit |
-|-----------|----------------|---------|
-| **O(1) Editing Checks** | `hasEditingCells()` counter-based | Avoid querySelector in hot path |
+| Technique                    | Implementation                           | Benefit                            |
+| ---------------------------- | ---------------------------------------- | ---------------------------------- |
+| **O(1) Editing Checks**      | `hasEditingCells()` counter-based        | Avoid querySelector in hot path    |
 | **Epoch-Based Invalidation** | `__rowRenderEpoch` triggers full rebuild | Minimal DOM updates on data change |
-| **Column Visibility Flags** | `_visibleColumns` getter filters hidden | Avoid iteration during render |
+| **Column Visibility Flags**  | `_visibleColumns` getter filters hidden  | Avoid iteration during render      |
 
 ### Memory Efficiency
 

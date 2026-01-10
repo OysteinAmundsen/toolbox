@@ -5,14 +5,7 @@
     "libs/grid": {
       "release-type": "node",
       "component": "grid",
-      "changelog-path": "CHANGELOG.md",
-      "extra-files": [
-        {
-          "type": "json",
-          "path": "../../package.json",
-          "jsonpath": "$.version"
-        }
-      ]
+      "changelog-path": "CHANGELOG.md"
     },
     "libs/grid-angular": {
       "release-type": "node",

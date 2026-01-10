@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.3.0...grid-0.3.1) (2026-01-10)
+
+
+### Bug Fixes
+
+* lint errors ([e4b93a6](https://github.com/OysteinAmundsen/toolbox/commit/e4b93a69cf800e42cefdf9e398fc7ded7eb49f48))
+
 ## [0.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.2.8...grid-0.3.0) (2026-01-10)
 
 

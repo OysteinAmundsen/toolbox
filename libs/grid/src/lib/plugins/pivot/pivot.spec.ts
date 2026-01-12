@@ -568,4 +568,496 @@ describe('PivotPlugin.getToolPanel', () => {
     const plugin = new PivotPlugin({ showToolPanel: false });
     expect(plugin.getToolPanel()).toBeUndefined();
   });
+
+  it('returns correct tool panel properties', () => {
+    const plugin = new PivotPlugin({});
+    const panel = plugin.getToolPanel();
+    expect(panel?.title).toBe('Pivot');
+    expect(panel?.icon).toBe('⊞');
+    expect(panel?.tooltip).toBe('Configure pivot table');
+    expect(panel?.order).toBe(90);
+  });
+});
+
+describe('PivotPlugin lifecycle and API', () => {
+  function createMockGrid() {
+    let renderCount = 0;
+    const columns = [
+      { field: 'category', header: 'Category', visible: true },
+      { field: 'region', header: 'Region', visible: true },
+      { field: 'sales', header: 'Sales', visible: true },
+    ];
+    let activeToolPanel: string | undefined;
+
+    return {
+      columns,
+      rows: [],
+      shadowRoot: {
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        children: [],
+        host: { offsetHeight: 0 },
+      },
+      effectiveConfig: {},
+      requestRender: () => renderCount++,
+      getAllColumns: () => columns,
+      openToolPanel: (id: string) => {
+        activeToolPanel = id;
+      },
+      closeToolPanel: () => {
+        activeToolPanel = undefined;
+      },
+      toggleToolPanel: (id: string) => {
+        activeToolPanel = activeToolPanel === id ? undefined : id;
+      },
+      get activeToolPanel() {
+        return activeToolPanel;
+      },
+      getRenderCount: () => renderCount,
+      addEventListener: () => {},
+      dispatchEvent: () => true,
+    };
+  }
+
+  describe('detach', () => {
+    it('resets all internal state', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      // Enable pivot and process some data
+      plugin.enablePivot();
+      expect(plugin.isPivotActive()).toBe(true);
+
+      // Detach should reset state
+      plugin.detach();
+
+      expect(plugin.isPivotActive()).toBe(false);
+      expect(plugin.getPivotResult()).toBeNull();
+    });
+  });
+
+  describe('Expand/Collapse API', () => {
+    function setupPluginWithData() {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category', 'subcategory'], // Two levels for hierarchical groups
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        defaultExpanded: false,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'Electronics', subcategory: 'Phones', sales: 100 },
+        { category: 'Electronics', subcategory: 'Tablets', sales: 200 },
+        { category: 'Clothing', subcategory: 'Shirts', sales: 50 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      // Process rows to build pivot
+      plugin.processRows(mockGrid.rows);
+      return { plugin, mockGrid };
+    }
+
+    it('expand should add key to expanded set', () => {
+      const { plugin } = setupPluginWithData();
+
+      expect(plugin.isExpanded('Electronics')).toBe(false);
+      plugin.expand('Electronics');
+      expect(plugin.isExpanded('Electronics')).toBe(true);
+    });
+
+    it('collapse should remove key from expanded set', () => {
+      const { plugin } = setupPluginWithData();
+
+      plugin.expand('Electronics');
+      expect(plugin.isExpanded('Electronics')).toBe(true);
+
+      plugin.collapse('Electronics');
+      expect(plugin.isExpanded('Electronics')).toBe(false);
+    });
+
+    it('toggle should toggle expanded state', () => {
+      const { plugin } = setupPluginWithData();
+
+      expect(plugin.isExpanded('Electronics')).toBe(false);
+      plugin.toggle('Electronics');
+      expect(plugin.isExpanded('Electronics')).toBe(true);
+      plugin.toggle('Electronics');
+      expect(plugin.isExpanded('Electronics')).toBe(false);
+    });
+
+    it('expandAll should expand all groups', () => {
+      const { plugin } = setupPluginWithData();
+
+      plugin.expandAll();
+      // With hierarchical groups, Electronics is a group
+      expect(plugin.isExpanded('Electronics')).toBe(true);
+      expect(plugin.isExpanded('Clothing')).toBe(true);
+    });
+
+    it('collapseAll should collapse all groups', () => {
+      const { plugin } = setupPluginWithData();
+
+      plugin.expandAll();
+      plugin.collapseAll();
+      expect(plugin.isExpanded('Electronics')).toBe(false);
+      expect(plugin.isExpanded('Clothing')).toBe(false);
+    });
+  });
+
+  describe('Public API', () => {
+    it('enablePivot should activate pivot mode', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      expect(plugin.isPivotActive()).toBe(false);
+      plugin.enablePivot();
+      expect(plugin.isPivotActive()).toBe(true);
+    });
+
+    it('disablePivot should deactivate pivot mode', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      plugin.enablePivot();
+      expect(plugin.isPivotActive()).toBe(true);
+
+      plugin.disablePivot();
+      expect(plugin.isPivotActive()).toBe(false);
+    });
+
+    it('getPivotResult returns null when not active', () => {
+      const plugin = new PivotPlugin({});
+      expect(plugin.getPivotResult()).toBeNull();
+    });
+
+    it('setRowGroupFields updates config', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      plugin.setRowGroupFields(['category', 'region']);
+      // Config is private, but processColumns should use it
+      expect(mockGrid.getRenderCount()).toBeGreaterThan(0);
+    });
+
+    it('setColumnGroupFields updates config', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      plugin.setColumnGroupFields(['region']);
+      expect(mockGrid.getRenderCount()).toBeGreaterThan(0);
+    });
+
+    it('setValueFields updates config', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      plugin.setValueFields([{ field: 'sales', aggFunc: 'sum' }]);
+      expect(mockGrid.getRenderCount()).toBeGreaterThan(0);
+    });
+
+    it('refresh clears pivot result and re-renders', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'A', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      expect(plugin.getPivotResult()).not.toBeNull();
+
+      const countBefore = mockGrid.getRenderCount();
+      plugin.refresh();
+      expect(mockGrid.getRenderCount()).toBeGreaterThan(countBefore);
+    });
+  });
+
+  describe('Tool Panel API', () => {
+    it('showPanel opens the pivot panel', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      plugin.showPanel();
+      expect(mockGrid.activeToolPanel).toBe('pivot');
+    });
+
+    it('hidePanel closes the tool panel', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      mockGrid.openToolPanel('pivot');
+      expect(mockGrid.activeToolPanel).toBe('pivot');
+
+      plugin.hidePanel();
+      expect(mockGrid.activeToolPanel).toBeUndefined();
+    });
+
+    it('togglePanel toggles the pivot panel', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      expect(mockGrid.activeToolPanel).toBeUndefined();
+      plugin.togglePanel();
+      expect(mockGrid.activeToolPanel).toBe('pivot');
+      plugin.togglePanel();
+      expect(mockGrid.activeToolPanel).toBeUndefined();
+    });
+
+    it('isPanelVisible returns correct state', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      expect(plugin.isPanelVisible()).toBe(false);
+      plugin.showPanel();
+      expect(plugin.isPanelVisible()).toBe(true);
+      plugin.hidePanel();
+      expect(plugin.isPanelVisible()).toBe(false);
+    });
+  });
+
+  describe('processRows', () => {
+    it('returns original rows when pivot is not active', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      const rows = [{ a: 1 }, { a: 2 }];
+      const result = plugin.processRows(rows);
+
+      expect(result).toEqual(rows);
+    });
+
+    it('transforms rows when pivot is active', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', sales: 100 },
+        { category: 'B', sales: 200 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      const result = plugin.processRows(mockGrid.rows);
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0]).toHaveProperty('__pivotRowKey');
+      expect(result[0]).toHaveProperty('__pivotLabel');
+    });
+
+    it('adds pivot metadata to rows', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        indentWidth: 24,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'A', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      const result = plugin.processRows(mockGrid.rows);
+
+      expect(result[0]).toHaveProperty('__pivotDepth');
+      expect(result[0]).toHaveProperty('__pivotIsGroup');
+      expect(result[0]).toHaveProperty('__pivotHasChildren');
+      expect(result[0]).toHaveProperty('__pivotIndent');
+    });
+  });
+
+  describe('processColumns', () => {
+    it('returns original columns when pivot is not active', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      const columns = [{ field: 'a' }, { field: 'b' }];
+      const result = plugin.processColumns(columns);
+
+      expect(result).toEqual(columns);
+    });
+
+    it('generates pivot columns when active', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        columnGroupFields: ['region'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        showTotals: true,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', region: 'North', sales: 100 },
+        { category: 'A', region: 'South', sales: 200 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const result = plugin.processColumns([]);
+
+      // Should have label column + value columns + total column
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].field).toBe('__pivotLabel');
+      expect(result[result.length - 1].field).toBe('__pivotTotal');
+    });
+
+    it('omits total column when showTotals is false', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        showTotals: false,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'A', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const result = plugin.processColumns([]);
+
+      expect(result.find((c) => c.field === '__pivotTotal')).toBeUndefined();
+    });
+  });
+
+  describe('renderRow', () => {
+    it('returns false for non-pivot rows when pivot is not active', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      const rowEl = document.createElement('div');
+      const result = plugin.renderRow({ someField: 'value' }, rowEl);
+
+      expect(result).toBe(false);
+    });
+
+    it('returns true for pivot group rows', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category', 'subcategory'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'Electronics', subcategory: 'Phones', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const rowEl = document.createElement('div');
+      const pivotRow = {
+        __pivotRowKey: 'Electronics',
+        __pivotHasChildren: true,
+        __pivotLabel: 'Electronics',
+        __pivotDepth: 0,
+        __pivotIsGroup: true,
+      };
+
+      const result = plugin.renderRow(pivotRow, rowEl);
+
+      expect(result).toBe(true);
+      expect(rowEl.classList.contains('pivot-group-row')).toBe(true);
+    });
+
+    it('returns true for pivot leaf rows when pivot is active', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'Electronics', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const rowEl = document.createElement('div');
+      const leafRow = {
+        __pivotRowKey: 'Electronics',
+        __pivotHasChildren: false,
+        __pivotLabel: 'Electronics',
+        __pivotDepth: 0,
+      };
+
+      const result = plugin.renderRow(leafRow, rowEl);
+
+      expect(result).toBe(true);
+      expect(rowEl.classList.contains('pivot-leaf-row')).toBe(true);
+    });
+
+    it('cleans up pivot styling from reused row elements', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      // Simulate a row element that was previously a pivot row
+      const rowEl = document.createElement('div');
+      rowEl.classList.add('pivot-group-row');
+      rowEl.setAttribute('data-pivot-depth', '1');
+      rowEl.innerHTML = '<div>old content</div>';
+
+      // renderRow should clean up when pivot is not active
+      plugin.renderRow({ normalField: 'value' }, rowEl);
+
+      expect(rowEl.classList.contains('pivot-group-row')).toBe(false);
+      expect(rowEl.classList.contains('data-grid-row')).toBe(true);
+      expect(rowEl.hasAttribute('data-pivot-depth')).toBe(false);
+      expect(rowEl.innerHTML).toBe('');
+    });
+  });
+
+  describe('afterRender', () => {
+    it('does not throw when shadowRoot is not available', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.shadowRoot = null;
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows([{ category: 'A', sales: 100 }]);
+
+      // Should not throw
+      expect(() => plugin.afterRender()).not.toThrow();
+    });
+  });
+
+  describe('Config validation in processRows', () => {
+    it('returns original rows when config has errors', () => {
+      const plugin = new PivotPlugin({
+        // Missing valueFields - this will cause validation error
+        rowGroupFields: ['category'],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'A', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      const result = plugin.processRows(mockGrid.rows);
+
+      // Should return original rows due to validation error
+      expect(result).toEqual(mockGrid.rows);
+    });
+  });
 });

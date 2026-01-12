@@ -131,29 +131,6 @@ function computeCellDisplayValue(rowData: any, col: ColumnConfig<any>): string {
 }
 
 /**
- * Pre-compute display values for a range of rows.
- * Call this after rows change to warm the cache for visible + overscan rows.
- */
-export function precomputeCellCache(
-  grid: InternalGrid,
-  startRow: number,
-  endRow: number,
-  epoch: number | undefined,
-): void {
-  const columns = grid._visibleColumns;
-  const rows = grid._rows;
-
-  for (let r = startRow; r < endRow && r < rows.length; r++) {
-    const rowData = rows[r];
-    if (!rowData) continue;
-    for (let c = 0; c < columns.length; c++) {
-      // This will compute and cache
-      getCellDisplayValue(grid, r, c, rowData, columns[c], epoch);
-    }
-  }
-}
-
-/**
  * Invalidate the cell cache (call when rows or columns change).
  */
 export function invalidateCellCache(grid: InternalGrid): void {
@@ -387,6 +364,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       if (
         col.__viewTemplate ||
         col.__compiledView ||
+        col.renderer ||
         col.viewRenderer ||
         col.externalView ||
         col.format ||
@@ -457,15 +435,21 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     // Skip cells in edit mode
     if (cell.classList.contains('editing')) continue;
 
-    // Handle viewRenderer - must re-invoke to get updated content
-    if (col.viewRenderer) {
+    // Handle viewRenderer/renderer - must re-invoke to get updated content
+    const cellRenderer = (col as any).renderer || col.viewRenderer;
+    if (cellRenderer) {
       const value = rowData[col.field];
-      const produced = col.viewRenderer({ row: rowData, value, field: col.field, column: col });
+      // Pass cellEl for framework adapters that want to cache per-cell
+      const produced = cellRenderer({ row: rowData, value, field: col.field, column: col, cellEl: cell });
       if (typeof produced === 'string') {
         cell.innerHTML = sanitizeHTML(produced);
       } else if (produced) {
-        cell.innerHTML = '';
-        cell.appendChild(produced);
+        // Check if this container is already a child of the cell (reused by framework adapter)
+        if (produced.parentElement !== cell) {
+          cell.innerHTML = '';
+          cell.appendChild(produced);
+        }
+        // If already a child, the framework adapter has re-rendered in place
       } else {
         cell.textContent = value == null ? '' : String(value);
       }
@@ -545,20 +529,29 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
 
     const compiled = (col as any).__compiledView as ((ctx: any) => string) | undefined;
     const tplHolder = (col as any).__viewTemplate as HTMLElement | undefined;
-    const viewRenderer = (col as any).viewRenderer;
+    // Support both 'renderer' (ergonomic alias) and 'viewRenderer' (legacy)
+    const viewRenderer = (col as any).renderer || (col as any).viewRenderer;
     const externalView = (col as any).externalView;
 
     // Track if we used a template that needs sanitization
     let needsSanitization = false;
 
     if (viewRenderer) {
-      const produced = viewRenderer({ row: rowData, value, field: col.field, column: col });
+      // Pass cellEl for framework adapters that want to cache per-cell
+      const produced = viewRenderer({ row: rowData, value, field: col.field, column: col, cellEl: cell });
       if (typeof produced === 'string') {
         // Sanitize HTML from viewRenderer to prevent XSS from user-controlled data
         cell.innerHTML = sanitizeHTML(produced);
         needsSanitization = true;
-      } else if (produced) cell.appendChild(produced);
-      else cell.textContent = value == null ? '' : String(value);
+      } else if (produced) {
+        // Check if this container is already a child of the cell (reused by framework adapter)
+        if (produced.parentElement !== cell) {
+          // Clear any existing content before appending new container
+          cell.textContent = '';
+          cell.appendChild(produced);
+        }
+        // If already a child, the framework adapter has re-rendered in place
+      } else cell.textContent = value == null ? '' : String(value);
     } else if (externalView) {
       const spec = externalView;
       const placeholder = document.createElement('div');

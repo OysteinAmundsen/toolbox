@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { rafDebounce } from '../../../../test/helpers';
 import {
   booleanCellHTML,
   clearCellFocus,
@@ -6,7 +7,6 @@ import {
   formatDateValue,
   getColIndexFromCell,
   getRowIndexFromCell,
-  rafDebounce,
 } from './utils';
 
 describe('utils', () => {

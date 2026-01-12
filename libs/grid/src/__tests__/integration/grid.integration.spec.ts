@@ -508,34 +508,34 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shadow.querySelector('.tbw-shell-title')?.textContent).toBe('My Grid');
   });
 
-  it('renders shell when toolbar buttons are configured', async () => {
+  it('renders shell when light-dom toolbar buttons container is provided', async () => {
     let clicked = false;
     grid = document.createElement('tbw-grid');
-    grid.gridConfig = {
-      shell: {
-        header: {
-          toolbarButtons: [
-            {
-              id: 'refresh',
-              label: 'Refresh',
-              icon: '↻',
-              action: () => {
-                clicked = true;
-              },
-            },
-          ],
-        },
-      },
+
+    // Create toolbar buttons container via light-DOM
+    const toolButtons = document.createElement('tbw-grid-tool-buttons');
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'tbw-toolbar-btn';
+    refreshBtn.setAttribute('data-btn', 'refresh');
+    refreshBtn.title = 'Refresh';
+    refreshBtn.textContent = '↻';
+    refreshBtn.onclick = () => {
+      clicked = true;
     };
+    toolButtons.appendChild(refreshBtn);
+    grid.appendChild(toolButtons);
+
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
     const shadow = grid.shadowRoot!;
-    const btn = shadow.querySelector('[data-btn="refresh"]') as HTMLButtonElement;
-    expect(btn).not.toBeNull();
+    // Light-dom container is slotted, so check for the slot
+    const slot = shadow.querySelector('slot[name="toolbar"]') as HTMLSlotElement;
+    expect(slot).not.toBeNull();
 
-    btn.click();
+    // Click the actual button (in light DOM)
+    refreshBtn.click();
     expect(clicked).toBe(true);
   });
 
@@ -667,20 +667,24 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shadow.querySelector('.status-text')?.textContent).toBe('Ready');
   });
 
-  it('registers and unregisters toolbar buttons dynamically', async () => {
+  it('registers and unregisters toolbar buttons dynamically via render function', async () => {
     grid = document.createElement('tbw-grid');
     grid.gridConfig = { shell: { header: { title: 'Test' } } };
     grid.rows = [{ id: 1 }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    // Register button
+    // Create a button element
+    const customBtn = document.createElement('button');
+    customBtn.className = 'tbw-toolbar-btn';
+    customBtn.id = 'custom-dynamic';
+    customBtn.textContent = '★';
+
+    // Register button with render function
     grid.registerToolbarButton({
       id: 'dynamic',
-      label: 'Dynamic',
-      icon: '★',
-      action: () => {
-        /* noop */
+      render: (container) => {
+        container.appendChild(customBtn);
       },
     });
 
@@ -689,16 +693,16 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     await nextFrame();
 
     const shadow = grid.shadowRoot!;
-    let btn = shadow.querySelector('[data-btn="dynamic"]');
-    expect(btn).not.toBeNull();
+    let slot = shadow.querySelector('[data-btn-slot="dynamic"]');
+    expect(slot).not.toBeNull();
 
     // Unregister button
     grid.unregisterToolbarButton('dynamic');
     grid.refreshShellHeader();
     await nextFrame();
 
-    btn = shadow.querySelector('[data-btn="dynamic"]');
-    expect(btn).toBeNull();
+    slot = shadow.querySelector('[data-btn-slot="dynamic"]');
+    expect(slot).toBeNull();
   });
 
   it('does not render shell when nothing configured', async () => {

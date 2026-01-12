@@ -328,3 +328,442 @@ describe('areColumnStatesEqual', () => {
     expect(areColumnStatesEqual(b, a)).toBe(false);
   });
 });
+
+// Import additional functions for testing
+import {
+  createColumnStateManager,
+  getAllColumns,
+  getColumnOrder,
+  getGridColumnState,
+  isColumnVisible,
+  requestGridStateChange,
+  resetGridColumnState,
+  setColumnOrder,
+  setColumnVisible,
+  setGridColumnState,
+  showAllColumns,
+  toggleColumnVisibility,
+} from './column-state';
+
+describe('createColumnStateManager', () => {
+  it('creates a manager with undefined initial values', () => {
+    const manager = createColumnStateManager();
+    expect(manager.initialState).toBeUndefined();
+    expect(manager.stateChangeHandler).toBeUndefined();
+  });
+});
+
+describe('getGridColumnState', () => {
+  it('returns collected column state', () => {
+    const grid = makeGrid();
+    const result = getGridColumnState(grid, []);
+    expect(result.columns).toHaveLength(3);
+  });
+});
+
+describe('setGridColumnState', () => {
+  it('does nothing when state is undefined', () => {
+    const manager = createColumnStateManager();
+    const applyNow = vi.fn();
+
+    setGridColumnState(undefined, manager, true, applyNow);
+
+    expect(manager.initialState).toBeUndefined();
+    expect(applyNow).not.toHaveBeenCalled();
+  });
+
+  it('stores initial state', () => {
+    const manager = createColumnStateManager();
+    const state: GridColumnState = { columns: [{ field: 'id', order: 0, visible: true }] };
+    const applyNow = vi.fn();
+
+    setGridColumnState(state, manager, false, applyNow);
+
+    expect(manager.initialState).toEqual(state);
+  });
+
+  it('applies state immediately when initialized', () => {
+    const manager = createColumnStateManager();
+    const state: GridColumnState = { columns: [{ field: 'id', order: 0, visible: true }] };
+    const applyNow = vi.fn();
+
+    setGridColumnState(state, manager, true, applyNow);
+
+    expect(applyNow).toHaveBeenCalledWith(state);
+  });
+
+  it('does not apply state when not initialized', () => {
+    const manager = createColumnStateManager();
+    const state: GridColumnState = { columns: [{ field: 'id', order: 0, visible: true }] };
+    const applyNow = vi.fn();
+
+    setGridColumnState(state, manager, false, applyNow);
+
+    expect(applyNow).not.toHaveBeenCalled();
+  });
+});
+
+describe('requestGridStateChange', () => {
+  it('creates handler if not exists and calls it', async () => {
+    const grid = makeGrid();
+    const manager = createColumnStateManager();
+    const emit = vi.fn();
+
+    requestGridStateChange(grid, manager, () => [], emit);
+
+    expect(manager.stateChangeHandler).toBeDefined();
+
+    // Wait for debounce
+    await new Promise((r) => setTimeout(r, 150));
+    expect(emit).toHaveBeenCalled();
+  });
+
+  it('reuses existing handler', async () => {
+    const grid = makeGrid();
+    const manager = createColumnStateManager();
+    const emit = vi.fn();
+
+    requestGridStateChange(grid, manager, () => [], emit);
+    const handler = manager.stateChangeHandler;
+
+    requestGridStateChange(grid, manager, () => [], emit);
+    expect(manager.stateChangeHandler).toBe(handler);
+  });
+});
+
+describe('resetGridColumnState', () => {
+  it('clears initial state', () => {
+    const grid = makeGrid({ columns: [{ field: 'id' }] });
+    grid.effectiveConfig = { columns: grid._columns };
+    const manager = createColumnStateManager();
+    manager.initialState = { columns: [{ field: 'id', order: 0, visible: true }] };
+
+    const callbacks = {
+      mergeEffectiveConfig: vi.fn(),
+      setup: vi.fn(),
+      requestStateChange: vi.fn(),
+    };
+
+    resetGridColumnState(grid, manager, [], callbacks);
+
+    expect(manager.initialState).toBeUndefined();
+  });
+
+  it('clears sort state', () => {
+    const grid = makeGrid({
+      columns: [{ field: 'id' }],
+      _sortState: { field: 'id', direction: 1 },
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+    const manager = createColumnStateManager();
+
+    const callbacks = {
+      mergeEffectiveConfig: vi.fn(),
+      setup: vi.fn(),
+      requestStateChange: vi.fn(),
+    };
+
+    resetGridColumnState(grid, manager, [], callbacks);
+
+    expect(grid._sortState).toBeNull();
+  });
+
+  it('calls all callbacks', () => {
+    const grid = makeGrid({ columns: [{ field: 'id' }] });
+    grid.effectiveConfig = { columns: grid._columns };
+    const manager = createColumnStateManager();
+
+    const callbacks = {
+      mergeEffectiveConfig: vi.fn(),
+      setup: vi.fn(),
+      requestStateChange: vi.fn(),
+    };
+
+    resetGridColumnState(grid, manager, [], callbacks);
+
+    expect(callbacks.mergeEffectiveConfig).toHaveBeenCalled();
+    expect(callbacks.setup).toHaveBeenCalled();
+    expect(callbacks.requestStateChange).toHaveBeenCalled();
+  });
+});
+
+describe('setColumnVisible', () => {
+  const createCallbacks = () => ({
+    emit: vi.fn(),
+    clearRowPool: vi.fn(),
+    setup: vi.fn(),
+    requestStateChange: vi.fn(),
+  });
+
+  it('returns false for non-existent column', () => {
+    const grid = makeGrid();
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = setColumnVisible(grid, 'nonexistent', false, createCallbacks());
+    expect(result).toBe(false);
+  });
+
+  it('returns false for locked visible column', () => {
+    const grid = makeGrid({
+      columns: [{ field: 'id', lockVisible: true }],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = setColumnVisible(grid, 'id', false, createCallbacks());
+    expect(result).toBe(false);
+  });
+
+  it('returns false when trying to hide last visible column', () => {
+    const grid = makeGrid({
+      columns: [{ field: 'id', hidden: false }],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = setColumnVisible(grid, 'id', false, createCallbacks());
+    expect(result).toBe(false);
+  });
+
+  it('returns false when visibility does not change', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', hidden: false },
+        { field: 'name', hidden: false },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = setColumnVisible(grid, 'id', true, createCallbacks());
+    expect(result).toBe(false);
+  });
+
+  it('hides column and emits event', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', hidden: false },
+        { field: 'name', hidden: false },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+    const callbacks = createCallbacks();
+
+    const result = setColumnVisible(grid, 'id', false, callbacks);
+
+    expect(result).toBe(true);
+    expect(grid._columns[0].hidden).toBe(true);
+    expect(callbacks.emit).toHaveBeenCalledWith(
+      'column-visibility',
+      expect.objectContaining({ field: 'id', visible: false }),
+    );
+    expect(callbacks.clearRowPool).toHaveBeenCalled();
+    expect(callbacks.setup).toHaveBeenCalled();
+    expect(callbacks.requestStateChange).toHaveBeenCalled();
+  });
+
+  it('shows column and emits event', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', hidden: true },
+        { field: 'name', hidden: false },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+    const callbacks = createCallbacks();
+
+    const result = setColumnVisible(grid, 'id', true, callbacks);
+
+    expect(result).toBe(true);
+    expect(grid._columns[0].hidden).toBe(false);
+    expect(callbacks.emit).toHaveBeenCalledWith(
+      'column-visibility',
+      expect.objectContaining({ field: 'id', visible: true }),
+    );
+  });
+});
+
+describe('toggleColumnVisibility', () => {
+  const createCallbacks = () => ({
+    emit: vi.fn(),
+    clearRowPool: vi.fn(),
+    setup: vi.fn(),
+    requestStateChange: vi.fn(),
+  });
+
+  it('returns false for non-existent column', () => {
+    const grid = makeGrid();
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = toggleColumnVisibility(grid, 'nonexistent', createCallbacks());
+    expect(result).toBe(false);
+  });
+
+  it('toggles visible column to hidden', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', hidden: false },
+        { field: 'name', hidden: false },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = toggleColumnVisibility(grid, 'id', createCallbacks());
+
+    expect(result).toBe(true);
+    expect(grid._columns[0].hidden).toBe(true);
+  });
+
+  it('toggles hidden column to visible', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', hidden: true },
+        { field: 'name', hidden: false },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = toggleColumnVisibility(grid, 'id', createCallbacks());
+
+    expect(result).toBe(true);
+    expect(grid._columns[0].hidden).toBe(false);
+  });
+});
+
+describe('isColumnVisible', () => {
+  it('returns true for visible column', () => {
+    const grid = makeGrid({
+      columns: [{ field: 'id', hidden: false }],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    expect(isColumnVisible(grid, 'id')).toBe(true);
+  });
+
+  it('returns false for hidden column', () => {
+    const grid = makeGrid({
+      columns: [{ field: 'id', hidden: true }],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    expect(isColumnVisible(grid, 'id')).toBe(false);
+  });
+
+  it('returns false for non-existent column', () => {
+    const grid = makeGrid();
+    grid.effectiveConfig = { columns: grid._columns };
+
+    expect(isColumnVisible(grid, 'nonexistent')).toBe(false);
+  });
+});
+
+describe('showAllColumns', () => {
+  const createCallbacks = () => ({
+    emit: vi.fn(),
+    clearRowPool: vi.fn(),
+    setup: vi.fn(),
+    requestStateChange: vi.fn(),
+  });
+
+  it('does nothing when all columns already visible', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', hidden: false },
+        { field: 'name', hidden: false },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+    const callbacks = createCallbacks();
+
+    showAllColumns(grid, callbacks);
+
+    expect(callbacks.emit).not.toHaveBeenCalled();
+  });
+
+  it('shows all hidden columns', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', hidden: true },
+        { field: 'name', hidden: true },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+    const callbacks = createCallbacks();
+
+    showAllColumns(grid, callbacks);
+
+    expect(grid._columns[0].hidden).toBe(false);
+    expect(grid._columns[1].hidden).toBe(false);
+    expect(callbacks.emit).toHaveBeenCalled();
+  });
+});
+
+describe('getAllColumns', () => {
+  it('returns all columns with visibility info', () => {
+    const grid = makeGrid({
+      columns: [
+        { field: 'id', header: 'ID', hidden: false, lockVisible: true },
+        { field: 'name', hidden: true },
+      ],
+    });
+    grid.effectiveConfig = { columns: grid._columns };
+
+    const result = getAllColumns(grid);
+
+    expect(result).toEqual([
+      { field: 'id', header: 'ID', visible: true, lockVisible: true },
+      { field: 'name', header: 'name', visible: false, lockVisible: undefined },
+    ]);
+  });
+});
+
+describe('getColumnOrder', () => {
+  it('returns fields in order', () => {
+    const grid = makeGrid();
+    const result = getColumnOrder(grid);
+    expect(result).toEqual(['id', 'name', 'value']);
+  });
+});
+
+describe('setColumnOrder', () => {
+  const createCallbacks = () => ({
+    renderHeader: vi.fn(),
+    updateTemplate: vi.fn(),
+    refreshVirtualWindow: vi.fn(),
+  });
+
+  it('does nothing for empty order', () => {
+    const grid = makeGrid();
+    const callbacks = createCallbacks();
+
+    setColumnOrder(grid, [], callbacks);
+
+    expect(callbacks.renderHeader).not.toHaveBeenCalled();
+  });
+
+  it('reorders columns according to order array', () => {
+    const grid = makeGrid();
+    const callbacks = createCallbacks();
+
+    setColumnOrder(grid, ['value', 'id', 'name'], callbacks);
+
+    expect(getColumnOrder(grid)).toEqual(['value', 'id', 'name']);
+  });
+
+  it('appends columns not in order array', () => {
+    const grid = makeGrid();
+    const callbacks = createCallbacks();
+
+    setColumnOrder(grid, ['name'], callbacks);
+
+    expect(getColumnOrder(grid)).toEqual(['name', 'id', 'value']);
+  });
+
+  it('calls all callbacks', () => {
+    const grid = makeGrid();
+    const callbacks = createCallbacks();
+
+    setColumnOrder(grid, ['id', 'name', 'value'], callbacks);
+
+    expect(callbacks.renderHeader).toHaveBeenCalled();
+    expect(callbacks.updateTemplate).toHaveBeenCalled();
+    expect(callbacks.refreshVirtualWindow).toHaveBeenCalled();
+  });
+});

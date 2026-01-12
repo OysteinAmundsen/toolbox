@@ -465,5 +465,497 @@ describe('ReorderPlugin', () => {
       expect(result).toBeUndefined();
       expect(grid.getColumnOrder()).toEqual(['a', 'b']);
     });
+
+    it('should handle invalid focus column gracefully', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }];
+      const grid = createMockGrid(-1, columns); // Invalid focus
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowRight');
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should handle focus column beyond array length', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }];
+      const grid = createMockGrid(5, columns); // Out of bounds
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const event = createKeyEvent('ArrowRight');
+      const result = plugin.onKeyDown(event);
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('Public API', () => {
+    function createMockGridForAPI() {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      let currentOrder = columns.map((c) => c.field);
+      const events: Array<{ type: string; detail: unknown }> = [];
+
+      return {
+        _focusCol: 0,
+        _focusRow: 0,
+        _visibleColumns: columns,
+        _bodyEl: { querySelectorAll: () => [] },
+        _virtualization: { enabled: false, start: 0, end: 0 },
+        _activeEditRows: undefined,
+        _rows: [],
+        columns,
+        shadowRoot: {
+          querySelectorAll: () => [],
+          querySelector: () => null,
+          host: { offsetHeight: 0 },
+          children: [],
+        },
+        effectiveConfig: { animation: { mode: 'off' } },
+        getColumnOrder: () => currentOrder,
+        setColumnOrder: (order: string[]) => {
+          currentOrder = order;
+        },
+        queryPlugins: () => [],
+        requestStateChange: () => {},
+        addEventListener: () => {},
+        dispatchEvent: (e: CustomEvent) => {
+          events.push({ type: e.type, detail: e.detail });
+          return true;
+        },
+        refreshVirtualWindow: () => {},
+        getEvents: () => events,
+      };
+    }
+
+    describe('getColumnOrder', () => {
+      it('returns current column order from grid', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        const order = plugin.getColumnOrder();
+        expect(order).toEqual(['a', 'b', 'c']);
+      });
+
+      it('returns updated order after changes', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        grid.setColumnOrder(['c', 'b', 'a']);
+        const order = plugin.getColumnOrder();
+        expect(order).toEqual(['c', 'b', 'a']);
+      });
+    });
+
+    describe('moveColumn', () => {
+      it('moves a column to a new position', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        plugin.moveColumn('a', 2);
+
+        expect(grid.getColumnOrder()).toEqual(['b', 'c', 'a']);
+      });
+
+      it('emits column-move event', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        plugin.moveColumn('b', 0);
+
+        const events = grid.getEvents();
+        const moveEvent = events.find((e) => e.type === 'column-move');
+        expect(moveEvent).toBeDefined();
+        expect((moveEvent?.detail as any).field).toBe('b');
+        expect((moveEvent?.detail as any).fromIndex).toBe(1);
+        expect((moveEvent?.detail as any).toIndex).toBe(0);
+      });
+
+      it('does nothing when field is not found', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        plugin.moveColumn('nonexistent', 0);
+
+        expect(grid.getColumnOrder()).toEqual(['a', 'b', 'c']);
+      });
+
+      it('includes new column order in event', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        plugin.moveColumn('a', 2);
+
+        const events = grid.getEvents();
+        const moveEvent = events.find((e) => e.type === 'column-move');
+        expect((moveEvent?.detail as any).columnOrder).toEqual(['b', 'c', 'a']);
+      });
+    });
+
+    describe('setColumnOrder', () => {
+      it('sets a specific column order', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        plugin.setColumnOrder(['c', 'a', 'b']);
+
+        expect(grid.getColumnOrder()).toEqual(['c', 'a', 'b']);
+      });
+
+      it('allows reordering to reverse order', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        plugin.setColumnOrder(['c', 'b', 'a']);
+
+        expect(grid.getColumnOrder()).toEqual(['c', 'b', 'a']);
+      });
+    });
+
+    describe('resetColumnOrder', () => {
+      it('resets to original column order', () => {
+        const grid = createMockGridForAPI();
+        const plugin = new ReorderPlugin();
+        plugin.attach(grid as any);
+
+        // Change order first
+        plugin.setColumnOrder(['c', 'b', 'a']);
+        expect(grid.getColumnOrder()).toEqual(['c', 'b', 'a']);
+
+        // Reset to original
+        plugin.resetColumnOrder();
+        expect(grid.getColumnOrder()).toEqual(['a', 'b', 'c']);
+      });
+    });
+  });
+
+  describe('detach', () => {
+    it('resets internal state', () => {
+      const grid = createMockGridForAPI();
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      // Trigger some state
+      plugin.moveColumn('a', 1);
+
+      // Detach should reset state
+      plugin.detach();
+
+      // Verify no errors when re-attaching
+      plugin.attach(grid as any);
+      expect(plugin.getColumnOrder()).toEqual(['b', 'a', 'c']);
+    });
+
+    function createMockGridForAPI() {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      let currentOrder = columns.map((c) => c.field);
+
+      return {
+        _focusCol: 0,
+        _focusRow: 0,
+        _visibleColumns: columns,
+        _bodyEl: { querySelectorAll: () => [] },
+        _virtualization: { enabled: false, start: 0, end: 0 },
+        _activeEditRows: undefined,
+        _rows: [],
+        columns,
+        shadowRoot: {
+          querySelectorAll: () => [],
+          querySelector: () => null,
+          host: { offsetHeight: 0 },
+          children: [],
+        },
+        effectiveConfig: { animation: { mode: 'off' } },
+        getColumnOrder: () => currentOrder,
+        setColumnOrder: (order: string[]) => {
+          currentOrder = order;
+        },
+        queryPlugins: () => [],
+        requestStateChange: () => {},
+        addEventListener: () => {},
+        dispatchEvent: () => true,
+        refreshVirtualWindow: () => {},
+      };
+    }
+  });
+
+  describe('attach', () => {
+    it('sets up column-reorder-request listener', () => {
+      const listeners: Array<{ type: string; handler: EventListener }> = [];
+      const grid = {
+        _focusCol: 0,
+        _focusRow: 0,
+        _visibleColumns: [{ field: 'a' }, { field: 'b' }],
+        _bodyEl: { querySelectorAll: () => [] },
+        _virtualization: { enabled: false, start: 0, end: 0 },
+        _activeEditRows: undefined,
+        _rows: [],
+        columns: [{ field: 'a' }, { field: 'b' }],
+        shadowRoot: {
+          querySelectorAll: () => [],
+          querySelector: () => null,
+          host: { offsetHeight: 0 },
+          children: [],
+        },
+        effectiveConfig: { animation: { mode: 'off' } },
+        getColumnOrder: () => ['a', 'b'],
+        setColumnOrder: () => {},
+        queryPlugins: () => [],
+        requestStateChange: () => {},
+        addEventListener: (type: string, handler: EventListener) => {
+          listeners.push({ type, handler });
+        },
+        dispatchEvent: () => true,
+        refreshVirtualWindow: () => {},
+      };
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      const reorderListener = listeners.find((l) => l.type === 'column-reorder-request');
+      expect(reorderListener).toBeDefined();
+    });
+  });
+
+  describe('afterRender', () => {
+    function createMockGridWithShadowDOM(columns: ColumnConfig[]) {
+      const headerCells: HTMLElement[] = columns.map((col) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-field', col.field);
+        return cell;
+      });
+
+      const headerRow = document.createElement('div');
+      headerRow.className = 'header-row';
+      headerCells.forEach((cell) => headerRow.appendChild(cell));
+
+      const mockShadowRoot = {
+        querySelectorAll: (selector: string) => {
+          if (selector === '.header-row > .cell') {
+            return headerCells;
+          }
+          return [];
+        },
+        querySelector: () => null,
+        host: { offsetHeight: 0 },
+        children: [headerRow],
+      };
+
+      return {
+        _focusCol: 0,
+        _focusRow: 0,
+        _visibleColumns: columns,
+        _bodyEl: { querySelectorAll: () => [] },
+        _virtualization: { enabled: false, start: 0, end: 0 },
+        _activeEditRows: undefined,
+        _rows: [],
+        columns,
+        shadowRoot: mockShadowRoot,
+        effectiveConfig: { animation: { mode: 'off' } },
+        getColumnOrder: () => columns.map((c) => c.field),
+        setColumnOrder: () => {},
+        queryPlugins: () => [],
+        requestStateChange: () => {},
+        addEventListener: () => {},
+        dispatchEvent: () => true,
+        refreshVirtualWindow: () => {},
+        headerCells,
+      };
+    }
+
+    it('makes header cells draggable', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'a', header: 'A' },
+        { field: 'b', header: 'B' },
+      ];
+      const grid = createMockGridWithShadowDOM(columns);
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      expect(grid.headerCells[0].draggable).toBe(true);
+      expect(grid.headerCells[1].draggable).toBe(true);
+    });
+
+    it('does not make locked columns draggable', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'a', header: 'A', meta: { lockPosition: true } },
+        { field: 'b', header: 'B' },
+      ];
+      const grid = createMockGridWithShadowDOM(columns);
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      expect(grid.headerCells[0].draggable).toBe(false);
+      expect(grid.headerCells[1].draggable).toBe(true);
+    });
+
+    it('does not make suppressMovable columns draggable', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'a', header: 'A', meta: { suppressMovable: true } },
+        { field: 'b', header: 'B' },
+      ];
+      const grid = createMockGridWithShadowDOM(columns);
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      expect(grid.headerCells[0].draggable).toBe(false);
+      expect(grid.headerCells[1].draggable).toBe(true);
+    });
+
+    it('handles cells without data-field attribute', () => {
+      const columns: ColumnConfig[] = [{ field: 'a', header: 'A' }];
+      const grid = createMockGridWithShadowDOM(columns);
+
+      // Remove data-field from first cell
+      grid.headerCells[0].removeAttribute('data-field');
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      // Should not throw
+      expect(() => plugin.afterRender()).not.toThrow();
+    });
+
+    it('does not throw when shadowRoot is null', () => {
+      const columns: ColumnConfig[] = [{ field: 'a' }];
+      const grid = createMockGridWithShadowDOM(columns);
+      grid.shadowRoot = null;
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      expect(() => plugin.afterRender()).not.toThrow();
+    });
+
+    it('respects plugin query responses for column movability', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'a', header: 'A' },
+        { field: 'b', header: 'B' },
+      ];
+      const grid = createMockGridWithShadowDOM(columns);
+      // Mock queryPlugins to return false for first column
+      grid.queryPlugins = (query: { type: string; context: unknown }) => {
+        const col = query.context as ColumnConfig;
+        if (col.field === 'a') return [false];
+        return [];
+      };
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      expect(grid.headerCells[0].draggable).toBe(false);
+      expect(grid.headerCells[1].draggable).toBe(true);
+    });
+
+    it('marks cells with data-dragstart-bound attribute after binding', () => {
+      const columns: ColumnConfig[] = [{ field: 'a', header: 'A' }];
+      const grid = createMockGridWithShadowDOM(columns);
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      expect(grid.headerCells[0].getAttribute('data-dragstart-bound')).toBe('true');
+    });
+
+    it('does not rebind listeners if already bound', () => {
+      const columns: ColumnConfig[] = [{ field: 'a', header: 'A' }];
+      const grid = createMockGridWithShadowDOM(columns);
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      // First render
+      plugin.afterRender();
+
+      // Set a marker to verify it's not re-processed
+      grid.headerCells[0].setAttribute('test-marker', 'first-run');
+
+      // Second render - should skip since already bound
+      plugin.afterRender();
+
+      expect(grid.headerCells[0].getAttribute('test-marker')).toBe('first-run');
+    });
+  });
+
+  describe('animation configuration', () => {
+    function createGridWithAnimationMode(mode: boolean | 'on' | 'off' | 'reduced-motion') {
+      const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }];
+      let currentOrder = columns.map((c) => c.field);
+
+      return {
+        _focusCol: 0,
+        _focusRow: 0,
+        _visibleColumns: columns,
+        _bodyEl: { querySelectorAll: () => [] },
+        _virtualization: { enabled: false, start: 0, end: 0 },
+        _activeEditRows: undefined,
+        _rows: [],
+        columns,
+        shadowRoot: {
+          querySelectorAll: () => [],
+          querySelector: () => null,
+          host: { offsetHeight: 0 },
+          children: [],
+        },
+        effectiveConfig: { animation: { mode } },
+        getColumnOrder: () => currentOrder,
+        setColumnOrder: (order: string[]) => {
+          currentOrder = order;
+        },
+        queryPlugins: () => [],
+        requestStateChange: () => {},
+        addEventListener: () => {},
+        dispatchEvent: () => true,
+        refreshVirtualWindow: () => {},
+      };
+    }
+
+    it('respects animation mode = off', () => {
+      const grid = createGridWithAnimationMode('off');
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      // Should not throw when setting column order
+      plugin.setColumnOrder(['b', 'a']);
+      expect(grid.getColumnOrder()).toEqual(['b', 'a']);
+    });
+
+    it('respects animation mode = false', () => {
+      const grid = createGridWithAnimationMode(false);
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.setColumnOrder(['b', 'a']);
+      expect(grid.getColumnOrder()).toEqual(['b', 'a']);
+    });
+
+    it('respects animation mode = on', () => {
+      const grid = createGridWithAnimationMode('on');
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.setColumnOrder(['b', 'a']);
+      expect(grid.getColumnOrder()).toEqual(['b', 'a']);
+    });
   });
 });

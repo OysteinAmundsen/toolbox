@@ -64,6 +64,55 @@ export function clearEditingState(rowEl: HTMLElement): void {
 }
 
 /**
+ * Auto-wire commit/cancel lifecycle for input elements in string-returned editors.
+ * This enables the simple syntax: `editor: (ctx) => `<input value="${ctx.value}" />`
+ * by automatically handling blur→commit, Enter→commit, Escape→cancel.
+ *
+ * Note: editFinalized is passed by reference effect (closure) - when the outer
+ * code sets editFinalized=true, the handlers here see it.
+ */
+function wireEditorInputs(
+  editorHost: HTMLElement,
+  column: ColumnConfig<any>,
+  commit: (value: any) => void,
+  cancel: () => void,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _editFinalizedRef: boolean,
+): void {
+  const input = editorHost.querySelector('input,textarea,select') as
+    | HTMLInputElement
+    | HTMLTextAreaElement
+    | HTMLSelectElement
+    | null;
+  if (!input) return;
+
+  const getInputValue = (): any => {
+    if (input instanceof HTMLInputElement) {
+      if (input.type === 'checkbox') return input.checked;
+      if (input.type === 'number') return input.value === '' ? null : Number(input.value);
+      if (input.type === 'date') return input.valueAsDate;
+    }
+    // For select and textarea, convert to number if column type requires
+    if (column.type === 'number' && (input as any).value !== '') {
+      return Number((input as any).value);
+    }
+    return (input as any).value;
+  };
+
+  // Blur commits value (unless already handled by Enter/Escape)
+  input.addEventListener('blur', () => {
+    commit(getInputValue());
+  });
+
+  // Change event for checkboxes and selects
+  if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+    input.addEventListener('change', () => commit(input.checked));
+  } else if (input instanceof HTMLSelectElement) {
+    input.addEventListener('change', () => commit(getInputValue()));
+  }
+}
+
+/**
  * Snapshot original row data and mark the row as actively being edited.
  */
 export function startRowEdit(grid: InternalGrid, rowIndex: number, rowData: any): void {
@@ -348,8 +397,13 @@ export function inlineEnterEdit(
     }
   } else if (typeof editorSpec === 'function') {
     const produced = editorSpec({ row: rowData, value, field: column.field, column, commit, cancel });
-    if (typeof produced === 'string') editorHost.innerHTML = produced;
-    else editorHost.appendChild(produced);
+    if (typeof produced === 'string') {
+      editorHost.innerHTML = produced;
+      // Auto-wire commit/cancel for inputs in string-returned editors
+      wireEditorInputs(editorHost, column, commit, cancel, editFinalized);
+    } else {
+      editorHost.appendChild(produced);
+    }
     // Focus the editor after DOM insertion (editors no longer auto-focus)
     if (!skipFocus) {
       queueMicrotask(() => {

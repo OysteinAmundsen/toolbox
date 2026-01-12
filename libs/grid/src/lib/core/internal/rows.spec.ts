@@ -182,6 +182,77 @@ describe('renderVisibleRows', () => {
     renderVisibleRows(g, 0, 1, 1);
     expect(g._rowPool.length).toBe(1);
   });
+
+  it('supports renderer as an alias for viewRenderer (string template)', () => {
+    const bodyEl = document.createElement('div');
+    const g: any = {
+      _rows: [{ id: 1, status: 'active' }],
+      _columns: [
+        {
+          field: 'status',
+          // Using 'renderer' alias instead of 'viewRenderer'
+          renderer: (ctx: any) => `<span class="badge">${ctx.value}</span>`,
+        },
+      ],
+      get _visibleColumns() {
+        return this._columns.filter((c: any) => !c.hidden);
+      },
+      _bodyEl: bodyEl,
+      _rowPool: [],
+      _changedRowIndices: new Set<number>(),
+      _rowEditSnapshots: new Map<number, any>(),
+      _activeEditRows: -1,
+      findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
+      _focusRow: 0,
+      _focusCol: 0,
+      dispatchEvent: () => {
+        /* noop */
+      },
+    };
+    renderVisibleRows(g, 0, 1, 1);
+    const cell = bodyEl.querySelector('.cell') as HTMLElement;
+    const badge = cell.querySelector('.badge');
+    expect(badge).toBeTruthy();
+    expect(badge?.textContent).toBe('active');
+  });
+
+  it('supports renderer as an alias for viewRenderer (DOM element)', () => {
+    const bodyEl = document.createElement('div');
+    const g: any = {
+      _rows: [{ id: 1, name: 'Test' }],
+      _columns: [
+        {
+          field: 'name',
+          // Using 'renderer' alias with DOM element return
+          renderer: (ctx: any) => {
+            const btn = document.createElement('button');
+            btn.className = 'action-btn';
+            btn.textContent = ctx.value;
+            return btn;
+          },
+        },
+      ],
+      get _visibleColumns() {
+        return this._columns.filter((c: any) => !c.hidden);
+      },
+      _bodyEl: bodyEl,
+      _rowPool: [],
+      _changedRowIndices: new Set<number>(),
+      _rowEditSnapshots: new Map<number, any>(),
+      _activeEditRows: -1,
+      findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
+      _focusRow: 0,
+      _focusCol: 0,
+      dispatchEvent: () => {
+        /* noop */
+      },
+    };
+    renderVisibleRows(g, 0, 1, 1);
+    const cell = bodyEl.querySelector('.cell') as HTMLElement;
+    const btn = cell.querySelector('button.action-btn');
+    expect(btn).toBeTruthy();
+    expect(btn?.textContent).toBe('Test');
+  });
 });
 
 describe('handleRowClick', () => {

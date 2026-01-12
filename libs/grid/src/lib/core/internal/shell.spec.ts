@@ -30,9 +30,9 @@ describe('shell module', () => {
       expect(state.headerContents.size).toBe(0);
       expect(state.toolbarButtons).toBeInstanceOf(Map);
       expect(state.toolbarButtons.size).toBe(0);
-      expect(state.lightDomButtons).toEqual([]);
+      expect(state.hasToolButtonsContainer).toBe(false);
       expect(state.lightDomHeaderContent).toEqual([]);
-      expect(state.activePanel).toBeNull();
+      expect(state.isPanelOpen).toBe(false);
     });
   });
 
@@ -46,17 +46,13 @@ describe('shell module', () => {
       expect(shouldRenderShellHeader(config, state)).toBe(true);
     });
 
-    it('returns true when config has toolbar buttons', () => {
+    it('returns true when config has toolbar buttons with element/render', () => {
       const config: ShellConfig = {
         header: {
           toolbarButtons: [
             {
               id: 'refresh',
-              label: 'Refresh',
-              icon: '↻',
-              action: () => {
-                /* noop */
-              },
+              element: document.createElement('button'),
             },
           ],
         },
@@ -91,22 +87,18 @@ describe('shell module', () => {
     it('returns true when API toolbar buttons are registered', () => {
       state.toolbarButtons.set('custom', {
         id: 'custom',
-        label: 'Custom',
-        icon: '★',
-        action: () => {
-          /* noop */
-        },
+        element: document.createElement('button'),
       });
-      expect(shouldRenderShellHeader(undefined, state)).toBe(true);
-    });
-
-    it('returns true when light DOM buttons exist', () => {
-      state.lightDomButtons = [document.createElement('button')];
       expect(shouldRenderShellHeader(undefined, state)).toBe(true);
     });
 
     it('returns true when light DOM header content exists', () => {
       state.lightDomHeaderContent = [document.createElement('div')];
+      expect(shouldRenderShellHeader(undefined, state)).toBe(true);
+    });
+
+    it('returns true when tool buttons container was found', () => {
+      state.hasToolButtonsContainer = true;
       expect(shouldRenderShellHeader(undefined, state)).toBe(true);
     });
   });
@@ -165,33 +157,10 @@ describe('shell module', () => {
       expect(html).toContain('aria-pressed="true"');
     });
 
-    it('renders config toolbar buttons with icon/action', () => {
-      const config: ShellConfig = {
-        header: {
-          toolbarButtons: [
-            {
-              id: 'refresh',
-              label: 'Refresh',
-              icon: '↻',
-              action: () => {
-                /* noop */
-              },
-            },
-          ],
-        },
-      };
-
-      const html = renderShellHeader(config, state);
-
-      expect(html).toContain('data-btn="refresh"');
-      expect(html).toContain('↻');
-      expect(html).toContain('title="Refresh"');
-    });
-
     it('renders slot placeholders for element/render toolbar buttons', () => {
       const config: ShellConfig = {
         header: {
-          toolbarButtons: [{ id: 'custom', label: 'Custom', element: document.createElement('button') }],
+          toolbarButtons: [{ id: 'custom', element: document.createElement('button') }],
         },
       };
 
@@ -200,17 +169,19 @@ describe('shell module', () => {
       expect(html).toContain('data-btn-slot="custom"');
     });
 
-    it('renders separator when both custom buttons and panel toggles exist', () => {
+    it('always includes toolbar slot for light DOM buttons', () => {
+      const html = renderShellHeader(undefined, state);
+
+      expect(html).toContain('slot name="toolbar"');
+    });
+
+    it('renders separator when both element buttons and panel toggles exist', () => {
       const config: ShellConfig = {
         header: {
           toolbarButtons: [
             {
               id: 'refresh',
-              label: 'Refresh',
-              icon: '↻',
-              action: () => {
-                /* noop */
-              },
+              element: document.createElement('button'),
             },
           ],
         },
@@ -337,7 +308,7 @@ describe('shell module', () => {
         },
       };
       state.toolPanels.set('columns', panel);
-      state.activePanel = null;
+      state.isPanelOpen = false;
 
       const html = renderShellBody(undefined, state, gridContentHtml);
 
@@ -423,9 +394,9 @@ describe('shell module', () => {
       state.headerContentCleanups.set('search', () => {
         headerCleanupCalled = true;
       });
-      state.activePanelCleanup = () => {
+      state.panelCleanups.set('columns', () => {
         panelCleanupCalled = true;
-      };
+      });
       state.toolbarButtonCleanups.set('custom', () => {
         buttonCleanupCalled = true;
       });
@@ -477,25 +448,20 @@ describe('shell module', () => {
     });
 
     it('clears arrays', () => {
-      state.lightDomButtons = [document.createElement('button')];
       state.lightDomHeaderContent = [document.createElement('div')];
 
       cleanupShellState(state);
 
-      expect(state.lightDomButtons).toEqual([]);
       expect(state.lightDomHeaderContent).toEqual([]);
     });
 
-    it('resets activePanel and activePanelCleanup', () => {
-      state.activePanel = 'columns';
-      state.activePanelCleanup = () => {
-        /* noop */
-      };
+    it('resets isPanelOpen state', () => {
+      state.isPanelOpen = true;
+      state.expandedSections.add('columns');
 
       cleanupShellState(state);
 
-      expect(state.activePanel).toBeNull();
-      expect(state.activePanelCleanup).toBeNull();
+      expect(state.isPanelOpen).toBe(false);
     });
   });
 

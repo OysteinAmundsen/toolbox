@@ -192,6 +192,7 @@ libs/grid/src/
    │  │  ├─ editing.ts        # Cell/row edit logic
    │  │  ├─ editors.ts        # Built-in cell editors
    │  │  ├─ event-delegation.ts # Delegated event handlers
+   │  │  ├─ grid-internals.ts # Internal grid interface adapter
    │  │  ├─ header.ts         # Header rendering
    │  │  ├─ idle-scheduler.ts # requestIdleCallback wrapper
    │  │  ├─ inference.ts      # Column type inference
@@ -304,13 +305,17 @@ flowchart TB
 
 ### Key Functions
 
-| Function                   | File                | Purpose                          |
-| -------------------------- | ------------------- | -------------------------------- |
-| `getColumnConfiguration()` | `columns.ts`        | Resolves effective column config |
-| `updateTemplate()`         | `columns.ts`        | Generates CSS grid template      |
-| `renderHeader()`           | `header.ts`         | Renders header row               |
-| `renderVisibleRows()`      | `rows.ts`           | Renders virtualized body rows    |
-| `computeVirtualWindow()`   | `virtualization.ts` | Calculates visible row range     |
+| Function                     | File                  | Purpose                            |
+| ---------------------------- | --------------------- | ---------------------------------- |
+| `getColumnConfiguration()`   | `columns.ts`          | Resolves effective column config   |
+| `updateTemplate()`           | `columns.ts`          | Generates CSS grid template        |
+| `renderHeader()`             | `header.ts`           | Renders header row                 |
+| `renderVisibleRows()`        | `rows.ts`             | Renders virtualized body rows      |
+| `computeVirtualWindow()`     | `virtualization.ts`   | Calculates visible row range       |
+| `buildGridDOM()`             | `dom-builder.ts`      | Direct DOM construction for grid   |
+| `setupCellEventDelegation()` | `event-delegation.ts` | Delegated event handlers for cells |
+| `createGridInternals()`      | `grid-internals.ts`   | Internal grid interface adapter    |
+| `scheduleIdle()`             | `idle-scheduler.ts`   | Defer work to browser idle time    |
 
 ---
 

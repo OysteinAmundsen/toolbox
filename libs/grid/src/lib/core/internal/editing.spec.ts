@@ -396,4 +396,55 @@ describe('inlineEnterEdit', () => {
     const secondInput = cell.querySelector('input');
     expect(firstInput).toBe(secondInput);
   });
+
+  it('auto-wires commit/cancel for string-returned editors', () => {
+    const bodyEl = document.createElement('div');
+    const grid: any = {
+      _rows: [{ id: 1, name: 'Alice' }],
+      _columns: [
+        { field: 'id' },
+        {
+          field: 'name',
+          editable: true,
+          editor: (ctx: any) => `<input type="text" value="${ctx.value}" />`,
+        },
+      ],
+      get _visibleColumns() {
+        return this._columns.filter((c: any) => !c.hidden);
+      },
+      _bodyEl: bodyEl,
+      _rowPool: [],
+      _changedRowIndices: new Set<number>(),
+      _rowEditSnapshots: new Map<number, any>(),
+      _activeEditRows: -1,
+      _focusRow: 0,
+      _focusCol: 0,
+      get changedRows() {
+        return (Array.from(this._changedRowIndices) as number[]).map((i) => this._rows[i]);
+      },
+      get changedRowIndices() {
+        return Array.from(this._changedRowIndices) as number[];
+      },
+      virtualization: { start: 0, end: 1, enabled: false },
+      findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
+      dispatchEvent: () => {
+        /* noop */
+      },
+    };
+    renderVisibleRows(grid, 0, 1, 1);
+    const rowEl = bodyEl.querySelector('.data-grid-row')!;
+    const cell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
+    inlineEnterEdit(grid, grid._rows[0], 0, grid._columns[1], cell);
+
+    // The string template should be rendered and auto-wired
+    const input = cell.querySelector('input') as HTMLInputElement;
+    expect(input).toBeDefined();
+    expect(input.value).toBe('Alice');
+
+    // Simulate editing and blur should commit
+    input.value = 'Bob';
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    expect(grid._rows[0].name).toBe('Bob');
+    expect(grid._changedRowIndices.has(0)).toBe(true);
+  });
 });

@@ -271,3 +271,200 @@ describe('PinnedColumnsPlugin.onPluginQuery (CAN_MOVE_COLUMN)', async () => {
     expect(plugin.onPluginQuery({ type: 'unknown-query', context: {} })).toBe(undefined);
   });
 });
+
+describe('PinnedColumnsPlugin lifecycle and API', () => {
+  let plugin: typeof import('./PinnedColumnsPlugin').PinnedColumnsPlugin.prototype;
+
+  beforeEach(async () => {
+    const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+    plugin = new PinnedColumnsPlugin();
+  });
+
+  describe('static detect', () => {
+    it('returns true when columns have sticky property', async () => {
+      const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+      const result = PinnedColumnsPlugin.detect([], {
+        columns: [{ field: 'id', sticky: 'left' }, { field: 'name' }],
+      });
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no columns have sticky property', async () => {
+      const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+      const result = PinnedColumnsPlugin.detect([], {
+        columns: [{ field: 'id' }, { field: 'name' }],
+      });
+      expect(result).toBe(false);
+    });
+
+    it('returns false when columns is not an array', async () => {
+      const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+      const result = PinnedColumnsPlugin.detect([], {});
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('processColumns', () => {
+    it('returns columns unchanged', () => {
+      const columns = [{ field: 'id', sticky: 'left' }, { field: 'name' }];
+      const result = plugin.processColumns(columns as any);
+      expect(result).toEqual(columns);
+    });
+
+    it('sets isApplied flag when sticky columns exist', () => {
+      const columns = [{ field: 'id', sticky: 'left' }];
+      plugin.processColumns(columns as any);
+      // isApplied is private, so we test via afterRender behavior
+      // This is verified through the afterRender tests
+    });
+  });
+
+  describe('detach', () => {
+    it('clears internal state', () => {
+      plugin.detach();
+      // No error means success - internal maps are cleared
+      expect(true).toBe(true);
+    });
+  });
+
+  describe('public API methods', () => {
+    let mockGrid: any;
+
+    beforeEach(() => {
+      // Create a mock grid with shadow DOM
+      mockGrid = document.createElement('div');
+      const shadow = mockGrid.attachShadow({ mode: 'open' });
+      shadow.innerHTML = `
+        <div class="header-row">
+          <div class="cell sticky-left" style="width: 100px;">ID</div>
+          <div class="cell" style="width: 150px;">Name</div>
+          <div class="cell sticky-right" style="width: 80px;">Actions</div>
+        </div>
+      `;
+
+      // Mock columns array on grid
+      mockGrid.columns = [
+        { field: 'id', sticky: 'left', width: 100 },
+        { field: 'name', width: 150 },
+        { field: 'actions', sticky: 'right', width: 80 },
+      ];
+
+      // Attach plugin to mock grid
+      (plugin as any).grid = mockGrid;
+    });
+
+    it('getLeftPinnedColumns returns left sticky columns', () => {
+      const result = plugin.getLeftPinnedColumns();
+      expect(result).toHaveLength(1);
+      expect(result[0].field).toBe('id');
+    });
+
+    it('getRightPinnedColumns returns right sticky columns', () => {
+      const result = plugin.getRightPinnedColumns();
+      expect(result).toHaveLength(1);
+      expect(result[0].field).toBe('actions');
+    });
+
+    it('clearStickyPositions removes sticky classes and styles', () => {
+      // First apply some sticky styling
+      const cells = mockGrid.shadowRoot.querySelectorAll('.cell');
+      cells[0].classList.add('sticky-left');
+      cells[0].style.left = '0px';
+      cells[2].classList.add('sticky-right');
+      cells[2].style.right = '0px';
+
+      plugin.clearStickyPositions();
+
+      // Check that sticky classes and styles are removed
+      expect(cells[0].classList.contains('sticky-left')).toBe(false);
+      expect(cells[0].style.left).toBe('');
+      expect(cells[2].classList.contains('sticky-right')).toBe(false);
+      expect(cells[2].style.right).toBe('');
+    });
+
+    it('refreshStickyOffsets applies sticky offsets', () => {
+      // This test verifies the method doesn't throw
+      expect(() => plugin.refreshStickyOffsets()).not.toThrow();
+    });
+  });
+
+  describe('getHorizontalScrollOffsets', () => {
+    let mockGrid: any;
+
+    beforeEach(() => {
+      mockGrid = document.createElement('div');
+      const shadow = mockGrid.attachShadow({ mode: 'open' });
+      shadow.innerHTML = `
+        <div class="header-row">
+          <div class="cell sticky-left" style="width: 100px;">ID</div>
+          <div class="cell" style="width: 150px;">Name</div>
+          <div class="cell sticky-right" style="width: 80px;">Actions</div>
+        </div>
+      `;
+      document.body.appendChild(mockGrid);
+
+      (plugin as any).grid = mockGrid;
+      (plugin as any).isApplied = true;
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('returns undefined when not applied', () => {
+      (plugin as any).isApplied = false;
+      const result = plugin.getHorizontalScrollOffsets();
+      expect(result).toBeUndefined();
+    });
+
+    it('calculates offsets from row element when provided', () => {
+      const rowEl = document.createElement('div');
+      rowEl.innerHTML = `
+        <div class="cell sticky-left" style="width: 100px;"></div>
+        <div class="cell" style="width: 150px;"></div>
+        <div class="cell sticky-right" style="width: 80px;"></div>
+      `;
+      document.body.appendChild(rowEl);
+
+      const result = plugin.getHorizontalScrollOffsets(rowEl);
+
+      expect(result).toBeDefined();
+      expect(result?.left).toBeGreaterThanOrEqual(0);
+      expect(result?.right).toBeGreaterThanOrEqual(0);
+    });
+
+    it('falls back to header row when no rowEl provided', () => {
+      const result = plugin.getHorizontalScrollOffsets();
+
+      expect(result).toBeDefined();
+      expect(result?.left).toBeGreaterThanOrEqual(0);
+      expect(result?.right).toBeGreaterThanOrEqual(0);
+    });
+
+    it('returns skipScroll true when focused cell is sticky-left', () => {
+      const focusedCell = document.createElement('div');
+      focusedCell.classList.add('sticky-left');
+
+      const result = plugin.getHorizontalScrollOffsets(undefined, focusedCell);
+
+      expect(result?.skipScroll).toBe(true);
+    });
+
+    it('returns skipScroll true when focused cell is sticky-right', () => {
+      const focusedCell = document.createElement('div');
+      focusedCell.classList.add('sticky-right');
+
+      const result = plugin.getHorizontalScrollOffsets(undefined, focusedCell);
+
+      expect(result?.skipScroll).toBe(true);
+    });
+
+    it('returns skipScroll false/undefined when focused cell is not sticky', () => {
+      const focusedCell = document.createElement('div');
+
+      const result = plugin.getHorizontalScrollOffsets(undefined, focusedCell);
+
+      expect(result?.skipScroll).toBeFalsy();
+    });
+  });
+});

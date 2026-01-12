@@ -130,25 +130,3 @@ export class IdleQueue {
     return this.tasks.length === 0;
   }
 }
-
-/**
- * Singleton idle queue for grid-wide deferred work.
- */
-let globalIdleQueue: IdleQueue | null = null;
-
-/**
- * Get the global idle queue (creates if needed).
- */
-export function getIdleQueue(): IdleQueue {
-  if (!globalIdleQueue) {
-    globalIdleQueue = new IdleQueue();
-  }
-  return globalIdleQueue;
-}
-
-/**
- * Schedule work to run during idle time using the global queue.
- */
-export function deferToIdle(fn: () => void, priority = 10): void {
-  getIdleQueue().add(fn, priority);
-}

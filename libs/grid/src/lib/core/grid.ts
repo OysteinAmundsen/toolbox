@@ -35,6 +35,7 @@ import {
   createShellController,
   createShellState,
   parseLightDomShell,
+  parseLightDomToolButtons,
   parseLightDomToolPanels,
   renderCustomToolbarButtons,
   renderHeaderContent,
@@ -62,13 +63,10 @@ import type {
 } from './plugin/base-plugin';
 import { PluginManager } from './plugin/plugin-manager';
 import type {
-  ActivateCellDetail,
   AnimationConfig,
-  CellCommitDetail,
   ColumnConfig,
   ColumnConfigMap,
   ColumnInternal,
-  ColumnResizeDetail,
   FitMode,
   FrameworkAdapter,
   GridColumnState,
@@ -76,8 +74,6 @@ import type {
   HeaderContentDefinition,
   InternalGrid,
   ResizeController,
-  RowCommitDetail,
-  SortChangeDetail,
   ToolbarButtonConfig,
   ToolbarButtonInfo,
   ToolPanelDefinition,
@@ -228,6 +224,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #eventAbortController?: AbortController;
   #resizeObserver?: ResizeObserver;
   #rowHeightObserver?: ResizeObserver; // Watches first row for size changes (CSS loading, custom renderers)
+  #refreshColumnsRaf = 0; // RAF handle for debounced refreshColumns
   #lightDomObserver?: MutationObserver;
   #idleCallbackHandle?: number; // Handle for cancelling deferred idle work
 
@@ -327,8 +324,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // Cached DOM refs for hot path (refreshVirtualWindow) - avoid querySelector per scroll
   __rowsBodyEl: HTMLElement | null = null;
-  __scrollAreaEl: HTMLElement | null = null;
-  __footerEl: HTMLElement | null = null;
   // #endregion
 
   // #region Public API Props (getters/setters)
@@ -598,11 +593,42 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this.#pluginManager) {
       this.#pluginManager.detachAll();
     }
+
+    // Clear plugin-contributed panels BEFORE re-initializing plugins
+    // This is critical: when plugins are re-initialized, they create NEW instances
+    // with NEW render functions. The old panel definitions have stale closures.
+    // We preserve light DOM panels (tracked in lightDomToolPanelIds) and
+    // API-registered panels (tracked in apiToolPanelIds).
+    for (const panelId of this.#shellState.toolPanels.keys()) {
+      const isLightDom = this.#shellState.lightDomToolPanelIds.has(panelId);
+      const isApiRegistered = this.#shellState.apiToolPanelIds.has(panelId);
+      if (!isLightDom && !isApiRegistered) {
+        // Clean up any active panel cleanup function
+        const cleanup = this.#shellState.panelCleanups.get(panelId);
+        if (cleanup) {
+          cleanup();
+          this.#shellState.panelCleanups.delete(panelId);
+        }
+        this.#shellState.toolPanels.delete(panelId);
+      }
+    }
+
+    // Similarly clear plugin-contributed header contents
+    // Header contents don't have a light DOM tracking set, so clear all and re-collect
+    for (const contentId of this.#shellState.headerContents.keys()) {
+      const cleanup = this.#shellState.headerContentCleanups.get(contentId);
+      if (cleanup) {
+        cleanup();
+        this.#shellState.headerContentCleanups.delete(contentId);
+      }
+      this.#shellState.headerContents.delete(contentId);
+    }
+
     this.#initializePlugins();
     this.#injectAllPluginStyles();
 
     // Re-collect plugin shell contributions (tool panels, header content)
-    // This is needed when gridConfig changes after initial render
+    // Now the new plugin instances will add their fresh panel definitions
     this.#collectPluginShellContributions();
 
     // Update cached scroll plugin flag
@@ -697,6 +723,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Parse light DOM shell elements BEFORE merging config
     parseLightDomShell(this, this.#shellState);
+    // Parse light DOM tool buttons container
+    parseLightDomToolButtons(this, this.#shellState);
     // Parse light DOM tool panels (framework adapters may not be ready yet, but vanilla JS works)
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
@@ -790,8 +818,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Clear cached DOM refs to prevent stale references
     this.__rowsBodyEl = null;
-    this.__scrollAreaEl = null;
-    this.__footerEl = null;
 
     this.#connected = false;
   }
@@ -844,8 +870,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Cache DOM refs for hot path (refreshVirtualWindow) - avoid querySelector per scroll
     this.__rowsBodyEl = gridRoot?.querySelector('.rows-body') as HTMLElement;
-    this.__scrollAreaEl = gridRoot?.querySelector('.tbw-scroll-area') as HTMLElement;
-    this.__footerEl = gridRoot?.querySelector('.tbw-footer') as HTMLElement;
 
     // Initialize shell header content and custom buttons if shell is active
     if (this.#shellController.isInitialized) {
@@ -1137,26 +1161,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
   }
 
-  _emitCellCommit(detail: CellCommitDetail<T>): void {
-    this.#emit('cell-commit', detail);
-  }
-
-  _emitRowCommit(detail: RowCommitDetail<T>): void {
-    this.#emit('row-commit', detail);
-  }
-
-  _emitSortChange(detail: SortChangeDetail): void {
-    this.#emit('sort-change', detail);
-  }
-
-  _emitColumnResize(detail: ColumnResizeDetail): void {
-    this.#emit('column-resize', detail);
-  }
-
-  _emitActivateCell(detail: ActivateCellDetail): void {
-    this.#emit('activate-cell', detail);
-  }
-
   /** Update ARIA selection attributes on rendered rows/cells */
   #updateAriaSelection(): void {
     // Mark active row and cell with aria-selected
@@ -1278,19 +1282,49 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   #applyGridConfigUpdate(): void {
+    // Parse shell config (title, etc.) - needed for React where gridConfig is set after initial render
+    parseLightDomShell(this, this.#shellState);
+    // Parse tool buttons container before checking shell state
+    parseLightDomToolButtons(this, this.#shellState);
+
     const hadShell = !!this.#shadow.querySelector('.has-shell');
-    const needsShell = shouldRenderShellHeader(this.#effectiveConfig as any, this.#shellState);
+    const hadToolPanel = !!this.#shadow.querySelector('.tbw-tool-panel');
+
+    // Count accordion sections before update (to detect new panels added)
+    const accordionSectionsBefore = this.#shadow.querySelectorAll('.tbw-accordion-section').length;
 
     getColumnConfiguration(this);
     this.#mergeEffectiveConfig();
     this.#updatePluginConfigs();
 
-    const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig as any, this.#shellState);
+    // Parse light DOM tool panels AFTER plugins are initialized
+    // This ensures plugin panels are collected first, then light DOM panels merge in
+    parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
-    if (hadShell !== nowNeedsShell || (!hadShell && nowNeedsShell)) {
+    const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig as any, this.#shellState);
+    const nowHasToolPanels = this.#shellState.toolPanels.size > 0;
+
+    // Full re-render needed if:
+    // 1. Shell state changed (added or removed)
+    // 2. Tool panels were added but sidebar doesn't exist in DOM yet
+    // 3. Number of tool panels changed (plugin panels added/removed)
+    const toolPanelCountChanged = this.#shellState.toolPanels.size !== accordionSectionsBefore;
+    const needsFullRerender =
+      hadShell !== nowNeedsShell ||
+      (!hadShell && nowNeedsShell) ||
+      (!hadToolPanel && nowHasToolPanels) ||
+      (hadToolPanel && toolPanelCountChanged);
+
+    if (needsFullRerender) {
       this.#render();
       this.#afterConnect();
       return;
+    }
+
+    // Update shell header in place if it exists (e.g., title changed)
+    // This avoids a full re-render when only shell config changed
+    if (hadShell) {
+      this.#updateShellHeaderInPlace();
     }
 
     this.#rebuildRowModel();
@@ -1298,6 +1332,34 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     renderHeader(this);
     updateTemplate(this);
     this.refreshVirtualWindow(true);
+  }
+
+  /**
+   * Update the shell header DOM in place without a full re-render.
+   * Handles title, toolbar buttons, and other shell header changes.
+   */
+  #updateShellHeaderInPlace(): void {
+    const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
+    if (!shellHeader) return;
+
+    const title = this.#effectiveConfig.shell?.header?.title ?? this.#shellState.lightDomTitle;
+
+    // Update or create title element
+    let titleEl = shellHeader.querySelector('.tbw-shell-title') as HTMLElement | null;
+    if (title) {
+      if (!titleEl) {
+        // Create title element if it doesn't exist
+        titleEl = document.createElement('h2');
+        titleEl.className = 'tbw-shell-title';
+        titleEl.setAttribute('part', 'shell-title');
+        // Insert at the beginning of the shell header
+        shellHeader.insertBefore(titleEl, shellHeader.firstChild);
+      }
+      titleEl.textContent = title;
+    } else if (titleEl) {
+      // Remove title element if no title
+      titleEl.remove();
+    }
   }
 
   // NOTE: Legacy watch handlers have been replaced by the batched update system.
@@ -1403,6 +1465,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           exist.sortable = exist.sortable || c.sortable;
           if (c.resizable) exist.resizable = true;
           if (c.editable) exist.editable = true;
+          // Merge framework adapter renderers/editors from DOM (support both 'renderer' alias and 'viewRenderer')
+          const cRenderer = (c as any).renderer || c.viewRenderer;
+          const existRenderer = (exist as any).renderer || exist.viewRenderer;
+          if (cRenderer && !existRenderer) {
+            exist.viewRenderer = cRenderer;
+            if ((c as any).renderer) (exist as any).renderer = cRenderer;
+          }
+          if (c.editor && !exist.editor) exist.editor = c.editor;
         }
       });
     }
@@ -1526,6 +1596,40 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       };
     }
     renderVisibleRows(this as any, start, end, epoch, this.#renderRowHook);
+  }
+
+  // Cache for ARIA counts to avoid redundant DOM writes on scroll (hot path)
+  #lastAriaRowCount = -1;
+  #lastAriaColCount = -1;
+
+  /**
+   * Updates ARIA row/col counts on the grid container.
+   * Also sets role="rowgroup" on .rows container only when there are rows.
+   * Uses caching to avoid redundant DOM writes on every scroll frame.
+   */
+  #updateAriaCounts(rowCount: number, colCount: number): void {
+    // Skip if nothing changed (hot path optimization for scroll)
+    if (rowCount === this.#lastAriaRowCount && colCount === this.#lastAriaColCount) {
+      return;
+    }
+    const prevRowCount = this.#lastAriaRowCount;
+    this.#lastAriaRowCount = rowCount;
+    this.#lastAriaColCount = colCount;
+
+    // Update ARIA counts on inner grid element
+    if (this.__rowsBodyEl) {
+      this.__rowsBodyEl.setAttribute('aria-rowcount', String(rowCount));
+      this.__rowsBodyEl.setAttribute('aria-colcount', String(colCount));
+    }
+
+    // Set role="rowgroup" on .rows only when there are rows (ARIA compliance)
+    if (rowCount !== prevRowCount && this._bodyEl) {
+      if (rowCount > 0) {
+        this._bodyEl.setAttribute('role', 'rowgroup');
+      } else {
+        this._bodyEl.removeAttribute('role');
+      }
+    }
   }
 
   // ---------------- Core Helpers ----------------
@@ -1813,7 +1917,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-  /**
    * Handle mousedown events and dispatch to plugin system.
    */
   #handleMouseDown(e: MouseEvent): void {
@@ -2094,11 +2197,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /** Register a custom tool panel (without creating a plugin). */
   registerToolPanel(panel: ToolPanelDefinition): void {
+    this.#shellState.apiToolPanelIds.add(panel.id);
     this.#shellController.registerToolPanel(panel);
   }
 
   /** Unregister a custom tool panel. */
   unregisterToolPanel(panelId: string): void {
+    this.#shellState.apiToolPanelIds.delete(panelId);
     this.#shellController.unregisterToolPanel(panelId);
   }
 
@@ -2142,8 +2247,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Call this after dynamically modifying <tbw-grid-header> children.
    */
   refreshShellHeader(): void {
-    // Re-parse light DOM (header and tool panels)
+    // Re-parse light DOM (header, tool buttons, and tool panels)
     parseLightDomShell(this, this.#shellState);
+    parseLightDomToolButtons(this, this.#shellState);
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
     // Re-render the entire grid (shell structure may change)
@@ -2231,11 +2337,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (needsShellUpdate) {
         // Re-parse shell and update header if title changed
         const hadTitle = this.#shellState.lightDomTitle;
+        const hadToolButtons = this.#shellState.hasToolButtonsContainer;
         parseLightDomShell(this, this.#shellState);
+        parseLightDomToolButtons(this, this.#shellState);
         parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
         const hasTitle = this.#shellState.lightDomTitle;
+        const hasToolButtons = this.#shellState.hasToolButtonsContainer;
 
-        if (hasTitle && !hadTitle) {
+        if ((hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons)) {
           this.#mergeEffectiveConfig();
           const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
           if (shellHeader) {
@@ -2309,21 +2418,47 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Re-parse light DOM column elements and refresh the grid.
    * Call this after framework adapters have registered their templates.
+   * Debounced to coalesce multiple calls (e.g., from React StrictMode double-mounting).
    * @internal Used by framework integration libraries (Angular, React, Vue)
    */
   refreshColumns(): void {
+    // Debounce: if already pending, skip this call
+    if (this.#refreshColumnsRaf) {
+      return;
+    }
+
+    this.#refreshColumnsRaf = requestAnimationFrame(() => {
+      this.#refreshColumnsRaf = 0;
+      this.#doRefreshColumns();
+    });
+  }
+
+  /**
+   * Internal implementation of refreshColumns, called after debounce.
+   */
+  #doRefreshColumns(): void {
     // Clear the column cache to force re-parsing
     this.__lightDomColumnsCache = undefined;
 
+    // Invalidate cell cache to reset __hasSpecialColumns flag
+    // This is critical for frameworks like React where renderers are registered asynchronously
+    // after the initial render (which may have cached __hasSpecialColumns = false)
+    invalidateCellCache(this);
+
     // Re-parse light DOM shell elements (may have been rendered asynchronously by frameworks)
     const hadTitle = this.#shellState.lightDomTitle;
+    const hadToolButtons = this.#shellState.hasToolButtonsContainer;
     parseLightDomShell(this, this.#shellState);
+    // Also parse tool buttons container that is a direct child (React/Vue pattern)
+    parseLightDomToolButtons(this, this.#shellState);
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
     const hasTitle = this.#shellState.lightDomTitle;
+    const hasToolButtons = this.#shellState.hasToolButtonsContainer;
 
-    // If title was added via light DOM, update the shell header in place
+    // If title or tool buttons were added via light DOM, update the shell header in place
     // The shell may already be rendered (due to plugins/panels), but without the title
-    if (hasTitle && !hadTitle) {
+    const needsShellRefresh = (hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons);
+    if (needsShellRefresh) {
       // Merge the new title into effectiveConfig
       this.#mergeEffectiveConfig();
       // Update the existing shell header element with new HTML
@@ -2409,10 +2544,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (this._virtualization.totalHeightEl) {
         this._virtualization.totalHeightEl.style.height = `${this.#calculateTotalSpacerHeight(totalRows)}px`;
       }
-      // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
-      // Use cached ref to avoid querySelector per scroll
-      this.__rowsBodyEl?.setAttribute('aria-rowcount', String(totalRows));
-      this.__rowsBodyEl?.setAttribute('aria-colcount', String(this._visibleColumns.length));
+      // Update ARIA counts on the grid container
+      this.#updateAriaCounts(totalRows, this._visibleColumns.length);
       this.#pluginManager?.afterRender();
       return;
     }
@@ -2501,10 +2634,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     this.#renderVisibleRows(start, end, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
 
-    // Set ARIA counts on inner grid element (not host, which may contain shell chrome)
-    // Use cached ref to avoid querySelector per scroll
-    this.__rowsBodyEl?.setAttribute('aria-rowcount', String(totalRows));
-    this.__rowsBodyEl?.setAttribute('aria-colcount', String(this._visibleColumns.length));
+    // Update ARIA counts on the grid container
+    this.#updateAriaCounts(totalRows, this._visibleColumns.length);
 
     // Only run plugin afterRender hooks on force refresh (structural changes)
     // Skip on scroll-triggered renders for maximum performance
@@ -2534,6 +2665,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #render(): void {
     // Parse light DOM shell elements before rendering
     parseLightDomShell(this, this.#shellState);
+    parseLightDomToolButtons(this, this.#shellState);
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
     // Re-merge config to pick up any newly parsed light DOM shell settings
@@ -2569,22 +2701,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Handle toolbar button click (for config buttons with action).
+   * Handle toolbar button click.
+   * Note: Config/API buttons use element or render, so they handle their own clicks.
+   * This method is kept for backwards compatibility but may emit an event in the future.
    */
-  #handleToolbarButtonClick(buttonId: string): void {
-    // Check config buttons
-    const configButtons = this.#effectiveConfig?.shell?.header?.toolbarButtons ?? [];
-    const configBtn = configButtons.find((b) => b.id === buttonId);
-    if (configBtn?.action) {
-      configBtn.action();
-      return;
-    }
-
-    // Check API-registered buttons
-    const apiBtn = this.#shellState.toolbarButtons.get(buttonId);
-    if (apiBtn?.action) {
-      apiBtn.action();
-    }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  #handleToolbarButtonClick(_buttonId: string): void {
+    // No-op: Config and API buttons now use element/render and handle their own events.
+    // Light DOM buttons use slot and handle their own events.
+    // This callback may be used for future extensibility (e.g., emitting an event).
   }
 }
 

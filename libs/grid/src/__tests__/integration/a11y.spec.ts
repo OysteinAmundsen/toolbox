@@ -114,4 +114,40 @@ describe('tbw-grid accessibility', () => {
     const selected = grid.shadowRoot!.querySelector('[aria-selected="true"]');
     expect(selected).toBeTruthy();
   });
+
+  it('empty grid has role="grid" from static template with zero counts', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.rows = [];
+    grid.columns = [];
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.shadowRoot!.querySelector('.rows-body');
+    // Static role from template is always present
+    expect(innerGrid?.getAttribute('role')).toBe('grid');
+    // Counts are 0 for empty grid
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('0');
+    expect(innerGrid?.getAttribute('aria-colcount')).toBe('0');
+  });
+
+  it('grid updates aria counts when data changes', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.rows = [{ id: 1 }];
+    grid.columns = [{ field: 'id' }];
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.shadowRoot!.querySelector('.rows-body');
+    // Static role always present
+    expect(innerGrid?.getAttribute('role')).toBe('grid');
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('1');
+
+    // Clear data
+    grid.rows = [];
+    await nextFrame();
+    await nextFrame();
+    // Role stays, count updates to 0
+    expect(innerGrid?.getAttribute('role')).toBe('grid');
+    expect(innerGrid?.getAttribute('aria-rowcount')).toBe('0');
+  });
 });

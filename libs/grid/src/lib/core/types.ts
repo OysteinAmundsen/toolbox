@@ -157,6 +157,24 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
  * Full column configuration including optional custom view/renderer & grouping metadata.
  */
 export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
+  /**
+   * Optional custom cell renderer function. Alias for `viewRenderer`.
+   * Can return an HTMLElement, a Node, or an HTML string (which will be sanitized).
+   *
+   * @example
+   * ```typescript
+   * // Simple string template
+   * renderer: (ctx) => `<span class="badge">${ctx.value}</span>`
+   *
+   * // DOM element
+   * renderer: (ctx) => {
+   *   const el = document.createElement('span');
+   *   el.textContent = ctx.value;
+   *   return el;
+   * }
+   * ```
+   */
+  renderer?: ColumnViewRenderer<TRow, any>;
   /** Optional custom view renderer used instead of default text rendering */
   viewRenderer?: ColumnViewRenderer<TRow, any>;
   /** External view spec (lets host app mount any framework component) */
@@ -224,6 +242,12 @@ export interface CellRenderContext<TRow = any, TValue = any> {
   field: keyof TRow & string;
   /** Column configuration reference. */
   column: ColumnConfig<TRow>;
+  /**
+   * The cell DOM element being rendered into.
+   * Framework adapters can use this to cache per-cell state (e.g., React roots).
+   * @internal
+   */
+  cellEl?: HTMLElement;
 }
 
 export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
@@ -698,31 +722,32 @@ export interface ToolPanelConfig {
 
 /**
  * Toolbar button defined via config (programmatic approach).
- * Supports three modes:
- * - Simple: provide `icon` + `action` for grid to create button
- * - Element: provide `element` for user-created DOM
- * - Render: provide `render` function for complex widgets
+ *
+ * The grid does NOT create buttons - developers have full control over their own buttons.
+ * Provide either:
+ * - `element`: A ready-made DOM element (grid appends it to toolbar)
+ * - `render`: A factory function that receives a container and appends content
+ *
+ * For declarative HTML buttons, use light-dom instead:
+ * ```html
+ * <tbw-grid>
+ *   <tbw-grid-header>
+ *     <button slot="toolbar">My Button</button>
+ *   </tbw-grid-header>
+ * </tbw-grid>
+ * ```
  */
 export interface ToolbarButtonConfig {
   /** Unique button ID */
   id: string;
-  /** Tooltip / aria-label (required for accessibility) */
-  label: string;
+  /** Tooltip / aria-label (for accessibility, used when grid generates panel toggle) */
+  label?: string;
   /** Order priority (lower = first, default: 100) */
   order?: number;
-  /** Whether button is disabled (only applies to grid-rendered buttons) */
-  disabled?: boolean;
 
-  // ===== Option A: Simple - Grid renders the button =====
-  /** Button content: SVG string, emoji, or text. Grid creates <button> with this. */
-  icon?: string;
-  /** Click handler (required when using icon) */
-  action?: () => void;
-
-  // ===== Option B: Custom DOM - User provides element or render function =====
   /**
-   * User-provided element. Grid wraps it but doesn't modify it.
-   * User is responsible for event handlers.
+   * User-provided element. Grid appends it to the toolbar.
+   * User is responsible for styling, event handlers, accessibility, etc.
    */
   element?: HTMLElement;
   /**
@@ -739,7 +764,6 @@ export interface ToolbarButtonConfig {
 export interface ToolbarButtonInfo {
   id: string;
   label: string;
-  disabled: boolean;
   /** Source of this button: 'config' | 'light-dom' | 'panel-toggle' */
   source: 'config' | 'light-dom' | 'panel-toggle';
   /** For panel toggles, the associated panel ID */

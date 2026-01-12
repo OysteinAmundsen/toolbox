@@ -126,7 +126,9 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
                       ? r.time
                         ? 'Yes'
                         : 'No'
-                      : formatTime(r.time)
+                      : r.unit === 'count'
+                        ? r.time.toLocaleString()
+                        : formatTime(r.time)
               }
             </div>
             <div style="color:#888;font-family:monospace;text-align:right;font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${
@@ -135,7 +137,7 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
               ${
                 r.note
                   ? r.note
-                  : r.unit === 'bool' || r.unit === 'info'
+                  : r.unit === 'bool' || r.unit === 'info' || r.unit === 'count'
                     ? ''
                     : r.target === Infinity
                       ? '(info)'
@@ -195,16 +197,22 @@ function renderResultsTable(results: BenchmarkResult[], isComplete = false): str
  * **📜 Scroll Performance**
  * - Baseline scroll (no plugins)
  * - Scroll with multiple plugins
+ * - Stress scroll (random position jumps)
+ * - Horizontal scroll (column virtualization)
  *
  * **⚡ Operations**
- * - Sort 100% of data
+ * - Sort ascending/descending
  * - Filter to 10% of data
  * - Full data replacement
+ * - Rapid data updates (streaming simulation)
  * - Select all rows
+ * - Column config changes
  *
- * **💾 Memory**
+ * **💾 Memory & DOM**
+ * - Estimated data size
  * - Bytes per row
- * - Total heap usage
+ * - DOM row/cell count (virtualization verification)
+ * - Heap delta (if browser API available)
  */
 export const PerformanceStressTest: Story = {
   args: {
@@ -450,6 +458,47 @@ export const PerformanceStressTest: Story = {
               passed: p95Scroll < 33.33,
             });
             updateResults();
+
+            // Stress scroll: rapid jumping (worst case scenario)
+            status.textContent = 'Testing: Stress scroll (random jumps)...';
+            scrollContainer.scrollTop = 0;
+            await new Promise((r) => setTimeout(r, 50));
+
+            const stressJumps = 20;
+            const stressFrameTimes: number[] = [];
+            for (let i = 0; i < stressJumps; i++) {
+              // Jump to random positions (forces full re-render of row pool)
+              const randomPos = Math.random() * (totalHeight - viewportHeight);
+              const start = performance.now();
+              scrollContainer.scrollTop = randomPos;
+              await nextFrame();
+              stressFrameTimes.push(performance.now() - start);
+            }
+
+            const avgStressScroll = stressFrameTimes.reduce((a, b) => a + b, 0) / stressFrameTimes.length;
+            const maxStressScroll = Math.max(...stressFrameTimes);
+
+            allResults.push({
+              name: 'Stress scroll avg',
+              category: 'scroll',
+              time: avgStressScroll,
+              unit: 'ms',
+              target: 50, // More lenient - random jumps are expensive
+              passed: avgStressScroll < 50,
+            });
+
+            allResults.push({
+              name: 'Stress scroll max',
+              category: 'scroll',
+              time: maxStressScroll,
+              unit: 'ms',
+              target: 100, // Worst case should still be < 100ms
+              passed: maxStressScroll < 100,
+            });
+            updateResults();
+
+            scrollContainer.scrollTop = 0;
+            await new Promise((r) => setTimeout(r, 50));
           }
         }
 
@@ -671,10 +720,60 @@ export const PerformanceStressTest: Story = {
           updateResults();
         }
 
+        // Rapid data updates (streaming simulation)
+        status.textContent = 'Testing: Rapid data updates...';
+        const updateCount = 10;
+        const updateTimes: number[] = [];
+        for (let i = 0; i < updateCount; i++) {
+          // Modify ~1% of rows each update
+          const modifiedRows = [...grid.rows] as Record<string, unknown>[];
+          const updateSize = Math.max(1, Math.floor(args.rowCount * 0.01));
+          for (let j = 0; j < updateSize; j++) {
+            const idx = (i * updateSize + j) % args.rowCount;
+            modifiedRows[idx] = { ...modifiedRows[idx], col1: `Updated-${i}-${j}` };
+          }
+          const t = await measure(() => {
+            grid.rows = modifiedRows;
+          });
+          updateTimes.push(t);
+        }
+        const avgUpdateTime = updateTimes.reduce((a, b) => a + b, 0) / updateTimes.length;
+
+        allResults.push({
+          name: `Rapid update (${updateCount}× 1%)`,
+          category: 'operation',
+          time: avgUpdateTime,
+          unit: 'ms',
+          target: scaledByRows(30),
+          passed: avgUpdateTime < scaledByRows(30),
+        });
+        updateResults();
+
+        // Column config change
+        status.textContent = 'Testing: Column config change...';
+        const configChangeTime = await measure(() => {
+          // Toggle a column width
+          const newColumns = baseColumns.map((col, i) => ({
+            ...col,
+            width: i === 1 ? 200 : col.width,
+          }));
+          grid.columns = newColumns;
+        });
+
+        allResults.push({
+          name: 'Column config change',
+          category: 'operation',
+          time: configChangeTime,
+          unit: 'ms',
+          target: scaledByCells(50),
+          passed: configChangeTime < scaledByCells(50),
+        });
+        updateResults();
+
         // #endregion
 
         // #region 💾 MEMORY BENCHMARKS
-        status.textContent = 'Calculating: Data size...';
+        status.textContent = 'Calculating: Memory & DOM metrics...';
 
         // Calculate estimated data size directly (more reliable than performance.memory API)
         // Each row object: key overhead (~40 bytes) + values
@@ -700,6 +799,41 @@ export const PerformanceStressTest: Story = {
           target: 5000, // < 5KB per row
           passed: estimatedBytesPerRow < 5000,
         });
+
+        // DOM node count - verify virtualization is working
+        const rowElements = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+        const renderedRowCount = rowElements?.length ?? 0;
+        // With virtualization, we should have far fewer DOM rows than data rows
+        // Expect: viewport rows (~15-30) + overscan (2×8) + buffer = typically < 60 rows
+        const maxExpectedRows = Math.min(args.rowCount, 100); // At most 100 DOM rows for any dataset
+        const virtualizationWorking = renderedRowCount <= maxExpectedRows;
+
+        allResults.push({
+          name: `DOM rows (${renderedRowCount}/${args.rowCount.toLocaleString()})`,
+          category: 'memory',
+          time: renderedRowCount,
+          unit: 'count',
+          target: maxExpectedRows,
+          passed: virtualizationWorking,
+          note: virtualizationWorking ? 'Virtualization active' : 'Too many DOM nodes!',
+        });
+
+        // Cell count
+        const cellElements = grid.shadowRoot?.querySelectorAll('.cell');
+        const renderedCellCount = cellElements?.length ?? 0;
+        const expectedCellsPerRow = args.columnCount <= 20 ? args.columnCount : Math.min(args.columnCount, 30);
+        const maxExpectedCells = maxExpectedRows * expectedCellsPerRow;
+
+        allResults.push({
+          name: `DOM cells rendered`,
+          category: 'memory',
+          time: renderedCellCount,
+          unit: 'count',
+          target: maxExpectedCells,
+          passed: renderedCellCount <= maxExpectedCells,
+          note: `${renderedCellCount.toLocaleString()} cells in DOM`,
+        });
+        updateResults();
 
         // Note: performance.memory API is deprecated and unreliable for real-time measurements.
         // Memory efficiency is tracked via Est. data size and Est. bytes/row above.
@@ -750,8 +884,24 @@ export const PerformanceStressTest: Story = {
         console.table(
           allResults.map((r) => ({
             Benchmark: r.name,
-            Result: r.unit === 'bytes' ? formatBytes(r.time) : formatTime(r.time),
-            Target: r.unit === 'bytes' ? '< ' + formatBytes(r.target) : '< ' + formatTime(r.target),
+            Result:
+              r.unit === 'bytes'
+                ? formatBytes(r.time)
+                : r.unit === 'count'
+                  ? r.time.toLocaleString()
+                  : r.unit === 'bool'
+                    ? r.time
+                      ? 'Yes'
+                      : 'No'
+                    : r.unit === 'info'
+                      ? r.note || '—'
+                      : formatTime(r.time),
+            Target:
+              r.unit === 'bytes'
+                ? '< ' + formatBytes(r.target)
+                : r.unit === 'count' || r.unit === 'bool' || r.unit === 'info'
+                  ? r.note || '—'
+                  : '< ' + formatTime(r.target),
             Status: r.passed ? '✅ PASS' : '❌ FAIL',
           })),
         );

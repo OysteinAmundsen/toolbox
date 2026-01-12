@@ -76,6 +76,9 @@
   --tbw-editing-border: var(--tbw-border-input, 1px solid var(--tbw-color-border-strong));
   --tbw-padding-editing-input: var(--tbw-cell-padding-input, 2px 6px);
   --tbw-font-size-editor: inherit;
+  --tbw-editing-row-bg: var(--tbw-editing-bg);
+  --tbw-editing-row-outline-color: var(--tbw-color-accent);
+  --tbw-editing-row-outline-width: 1px;
 
   /* Sorting indicators */
   --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
@@ -271,10 +274,16 @@
   display: grid;
   grid-template-columns: var(--tbw-column-template);
   contain: layout style; /* Limit layout recalc scope for scroll perf */
+  /* content-visibility allows browser to skip rendering off-screen rows entirely.
+     This dramatically improves performance when many rows are in the DOM. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--tbw-row-height);
   /* min-width: max-content; */
 }
 :host .data-grid-row:has(.editing) {
-  background: var(--tbw-editing-bg);
+  background: var(--tbw-editing-row-bg);
+  outline: var(--tbw-editing-row-outline-width) solid var(--tbw-editing-row-outline-color);
+  outline-offset: calc(-1 * var(--tbw-editing-row-outline-width));
 }
 
 /* Data cells */
@@ -742,6 +751,42 @@
 
 :host .tbw-accordion-section.expanded .tbw-accordion-content {
   display: block;
+}
+
+/* ========== Accessibility ========== */
+
+/* Windows High Contrast / forced-colors mode support */
+@media (forced-colors: active) {
+  :host {
+    --tbw-color-border: CanvasText;
+    --tbw-color-border-strong: CanvasText;
+    --tbw-color-border-cell: CanvasText;
+    --tbw-color-border-header: CanvasText;
+    --tbw-color-fg: CanvasText;
+    --tbw-color-bg: Canvas;
+    --tbw-color-panel-bg: Canvas;
+    --tbw-color-header-bg: Canvas;
+    --tbw-color-header-fg: CanvasText;
+    --tbw-color-accent: Highlight;
+    --tbw-color-accent-fg: HighlightText;
+    --tbw-color-selection: Highlight;
+    --tbw-color-row-hover: Highlight;
+    --tbw-focus-outline: 2px solid Highlight;
+    --tbw-range-border-color: Highlight;
+  }
+
+  /* Ensure focus is always visible in high contrast */
+  :host .cell:focus,
+  :host .cell.active-cell {
+    outline: 2px solid Highlight !important;
+    outline-offset: -2px;
+  }
+
+  /* Selected rows use system highlight */
+  :host .data-grid-row[aria-selected='true'] {
+    background: Highlight !important;
+    color: HighlightText !important;
+  }
 }
 
 /* ========== Animation System ========== */

@@ -134,11 +134,11 @@ gridContentTemplate.innerHTML = `
   <div class="tbw-scroll-area">
     <div class="rows-body-wrapper">
       <div class="rows-body" role="grid">
-        <div class="header">
-          <div class="header-row" part="header-row"></div>
+        <div class="header" role="rowgroup">
+          <div class="header-row" role="row" part="header-row"></div>
         </div>
-        <div class="rows-container">
-          <div class="rows-viewport">
+        <div class="rows-container" role="presentation">
+          <div class="rows-viewport" role="presentation">
             <div class="rows"></div>
           </div>
         </div>
@@ -196,32 +196,28 @@ export function buildGridDOM(options: GridDOMOptions): DocumentFragment {
 
 /**
  * Build shell header using direct DOM construction.
+ *
+ * Note: The grid no longer creates buttons from config (icon/action).
+ * Config/API buttons only use element or render function.
+ * Light DOM buttons are slotted directly.
+ * The ONLY button the grid creates is the panel toggle.
  */
 export interface ShellHeaderOptions {
   title?: string;
-  hasLightDomButtons: boolean;
   hasPanels: boolean;
   isPanelOpen: boolean;
   toolPanelIcon: string;
-  /** Config toolbar buttons (pre-sorted by order) */
+  /** Config toolbar buttons with element/render (pre-sorted by order) */
   configButtons: Array<{
     id: string;
-    label: string;
-    icon?: string;
-    disabled?: boolean;
     hasElement?: boolean;
     hasRender?: boolean;
-    action?: () => void;
   }>;
-  /** API toolbar buttons (pre-sorted by order) */
+  /** API toolbar buttons with element/render (pre-sorted by order) */
   apiButtons: Array<{
     id: string;
-    label: string;
-    icon?: string;
-    disabled?: boolean;
     hasElement?: boolean;
     hasRender?: boolean;
-    action?: () => void;
   }>;
 }
 
@@ -246,54 +242,26 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
   // Toolbar
   const toolbar = div('tbw-shell-toolbar', { part: 'shell-toolbar', role: 'presentation' });
 
-  // Config buttons with icon/action
-  for (const btn of options.configButtons) {
-    if (btn.icon && btn.action) {
-      const btnEl = button('tbw-toolbar-btn', {
-        'data-btn': btn.id,
-        title: btn.label,
-        'aria-label': btn.label,
-      });
-      if (btn.disabled) btnEl.disabled = true;
-      btnEl.innerHTML = btn.icon; // Icons can be HTML (e.g., emojis or SVG)
-      toolbar.appendChild(btnEl);
-    }
-  }
-
-  // API buttons with icon/action
-  for (const btn of options.apiButtons) {
-    if (btn.icon && btn.action) {
-      const btnEl = button('tbw-toolbar-btn', {
-        'data-btn': btn.id,
-        title: btn.label,
-        'aria-label': btn.label,
-      });
-      if (btn.disabled) btnEl.disabled = true;
-      btnEl.innerHTML = btn.icon;
-      toolbar.appendChild(btnEl);
-    }
-  }
-
-  // Placeholders for config/API buttons with element or render function
+  // Placeholders for config buttons with element or render function
   for (const btn of options.configButtons) {
     if (btn.hasElement || btn.hasRender) {
       toolbar.appendChild(div('tbw-toolbar-btn-slot', { 'data-btn-slot': btn.id }));
     }
   }
+  // Placeholders for API buttons with element or render function
   for (const btn of options.apiButtons) {
     if (btn.hasElement || btn.hasRender) {
       toolbar.appendChild(div('tbw-toolbar-btn-slot', { 'data-btn-slot': btn.id }));
     }
   }
 
-  // Light DOM slot for toolbar
-  if (options.hasLightDomButtons) {
-    toolbar.appendChild(slot('toolbar'));
-  }
+  // Light DOM slot for toolbar - always include for async rendering (React)
+  toolbar.appendChild(slot('toolbar'));
 
-  // Separator
+  // Separator between config/API buttons and panel toggle
   const hasCustomButtons =
-    options.configButtons.length > 0 || options.apiButtons.length > 0 || options.hasLightDomButtons;
+    options.configButtons.some((b) => b.hasElement || b.hasRender) ||
+    options.apiButtons.some((b) => b.hasElement || b.hasRender);
   if (hasCustomButtons && options.hasPanels) {
     toolbar.appendChild(div('tbw-toolbar-separator'));
   }

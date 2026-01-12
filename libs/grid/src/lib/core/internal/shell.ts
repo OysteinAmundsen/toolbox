@@ -37,14 +37,16 @@ export interface ShellState {
   headerContents: Map<string, HeaderContentDefinition>;
   /** Custom toolbar buttons registered via API */
   toolbarButtons: Map<string, ToolbarButtonConfig>;
-  /** Light DOM toolbar buttons */
-  lightDomButtons: HTMLElement[];
+  /** Whether a <tbw-grid-tool-buttons> container was found in light DOM */
+  hasToolButtonsContainer: boolean;
   /** Light DOM header content elements */
   lightDomHeaderContent: HTMLElement[];
   /** Light DOM header title from <tbw-grid-header title="..."> */
   lightDomTitle: string | null;
   /** IDs of tool panels registered from light DOM (to avoid re-parsing) */
   lightDomToolPanelIds: Set<string>;
+  /** IDs of tool panels registered via registerToolPanel API */
+  apiToolPanelIds: Set<string>;
   /** Whether the tool panel sidebar is open */
   isPanelOpen: boolean;
   /** Which accordion sections are expanded (by panel ID) */
@@ -55,10 +57,6 @@ export interface ShellState {
   panelCleanups: Map<string, () => void>;
   /** Cleanup functions for toolbar button render returns */
   toolbarButtonCleanups: Map<string, () => void>;
-  /** @deprecated Use isPanelOpen instead. Kept for backward compatibility. */
-  activePanel: string | null;
-  /** @deprecated Use panelCleanups instead. Kept for backward compatibility. */
-  activePanelCleanup: (() => void) | null;
 }
 
 /**
@@ -69,18 +67,16 @@ export function createShellState(): ShellState {
     toolPanels: new Map(),
     headerContents: new Map(),
     toolbarButtons: new Map(),
-    lightDomButtons: [],
+    hasToolButtonsContainer: false,
     lightDomHeaderContent: [],
     lightDomTitle: null,
     lightDomToolPanelIds: new Set(),
+    apiToolPanelIds: new Set(),
     isPanelOpen: false,
     expandedSections: new Set(),
     headerContentCleanups: new Map(),
     panelCleanups: new Map(),
     toolbarButtonCleanups: new Map(),
-    // Deprecated - kept for backward compatibility
-    activePanel: null,
-    activePanelCleanup: null,
   };
 }
 
@@ -105,13 +101,25 @@ export function shouldRenderShellHeader(config: ShellConfig | undefined, state: 
   if (state.toolbarButtons.size > 0) return true;
 
   // Check if light DOM has header elements
-  if (state.lightDomButtons.length > 0 || state.lightDomHeaderContent.length > 0) return true;
+  if (state.lightDomHeaderContent.length > 0) return true;
+
+  // Check if a toolbar buttons container was found
+  if (state.hasToolButtonsContainer) return true;
 
   return false;
 }
 
 /**
  * Render the shell header HTML.
+ *
+ * Toolbar buttons come from two sources:
+ * 1. Light DOM slot (users provide their own HTML buttons)
+ * 2. Config/API with element or render function (programmatic insertion)
+ *
+ * The grid does NOT create buttons from config (icon/action).
+ * Users have full control over button HTML, styling, and behavior.
+ * The only button the grid creates is the tool panel toggle.
+ *
  * @param toolPanelIcon - Icon for the tool panel toggle (from grid icon config)
  */
 export function renderShellHeader(
@@ -119,52 +127,26 @@ export function renderShellHeader(
   state: ShellState,
   toolPanelIcon: IconValue = '☰',
 ): string {
-  const title = config?.header?.title ?? '';
+  const title = config?.header?.title ?? state.lightDomTitle ?? '';
   const hasTitle = !!title;
   const iconStr = iconToString(toolPanelIcon);
 
-  // Collect all toolbar buttons in order
-  // 1. Config buttons (sorted by order)
-  // 2. API-registered buttons (sorted by order)
-  // 3. Light DOM buttons via slot
-  // 4. Single panel toggle button (if any panels registered)
-
+  // Collect toolbar button sources
   const configButtons = config?.header?.toolbarButtons ?? [];
-  const hasConfigButtons = configButtons.length > 0;
-  const hasApiButtons = state.toolbarButtons.size > 0;
-  const hasLightDomButtons = state.lightDomButtons.length > 0;
+  const hasConfigButtons = configButtons.some((btn) => btn.element || btn.render);
+  const hasApiButtons = [...state.toolbarButtons.values()].some((btn) => btn.element || btn.render);
   const hasPanels = state.toolPanels.size > 0;
-  const hasCustomButtons = hasConfigButtons || hasApiButtons || hasLightDomButtons;
+  const hasCustomButtons = hasConfigButtons || hasApiButtons;
   const showSeparator = hasCustomButtons && hasPanels;
 
-  // Sort config buttons by order
+  // Sort config/API buttons by order for slot placement
   const sortedConfigButtons = [...configButtons].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-
-  // Sort API buttons by order
   const sortedApiButtons = [...state.toolbarButtons.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 
   // Build toolbar HTML
   let toolbarHtml = '';
 
-  // Config buttons with icon/action (grid renders these)
-  for (const btn of sortedConfigButtons) {
-    if (btn.icon && btn.action) {
-      toolbarHtml += `<button class="tbw-toolbar-btn" data-btn="${btn.id}" title="${btn.label}" aria-label="${
-        btn.label
-      }"${btn.disabled ? ' disabled' : ''}>${btn.icon}</button>`;
-    }
-  }
-
-  // API buttons with icon/action
-  for (const btn of sortedApiButtons) {
-    if (btn.icon && btn.action) {
-      toolbarHtml += `<button class="tbw-toolbar-btn" data-btn="${btn.id}" title="${btn.label}" aria-label="${
-        btn.label
-      }"${btn.disabled ? ' disabled' : ''}>${btn.icon}</button>`;
-    }
-  }
-
-  // Placeholders for config/API buttons with element or render function
+  // Slots for config/API buttons with element or render function
   for (const btn of sortedConfigButtons) {
     if (btn.element || btn.render) {
       toolbarHtml += `<div class="tbw-toolbar-btn-slot" data-btn-slot="${btn.id}"></div>`;
@@ -176,20 +158,20 @@ export function renderShellHeader(
     }
   }
 
-  // Light DOM slot
-  if (hasLightDomButtons) {
-    toolbarHtml += '<slot name="toolbar"></slot>';
-  }
+  // Light DOM slot - user provides their own button HTML
+  // Always include slot so light-dom buttons can be added later (e.g., React async rendering)
+  toolbarHtml += '<slot name="toolbar"></slot>';
 
-  // Separator
+  // Separator between custom buttons and panel toggle
   if (showSeparator) {
     toolbarHtml += '<div class="tbw-toolbar-separator"></div>';
   }
 
-  // Single panel toggle button (opens accordion-style sidebar with all panels)
+  // Single panel toggle button (the ONLY button the grid creates)
   if (hasPanels) {
     const isOpen = state.isPanelOpen;
-    toolbarHtml += `<button class="tbw-toolbar-btn${isOpen ? ' active' : ''}" data-panel-toggle title="Settings" aria-label="Toggle settings panel" aria-pressed="${isOpen}" aria-controls="tbw-tool-panel">${iconStr}</button>`;
+    const toggleClass = isOpen ? 'tbw-toolbar-btn active' : 'tbw-toolbar-btn';
+    toolbarHtml += `<button class="${toggleClass}" data-panel-toggle title="Settings" aria-label="Toggle settings panel" aria-pressed="${isOpen}" aria-controls="tbw-tool-panel">${iconStr}</button>`;
   }
 
   return `
@@ -313,60 +295,37 @@ export function parseLightDomShell(host: HTMLElement, state: ShellState): void {
     });
   }
 
-  // Parse toolbar button elements (only process if we haven't already)
-  // Check for placeholder elements OR already-transformed button elements
-  const toolButtonPlaceholders = headerEl.querySelectorAll('tbw-grid-tool-button');
-  const existingButtons = headerEl.querySelectorAll('button.tbw-toolbar-btn[slot="toolbar"]');
-
-  if (toolButtonPlaceholders.length > 0 && state.lightDomButtons.length === 0) {
-    // First time parsing - convert placeholders to buttons
-    state.lightDomButtons = Array.from(toolButtonPlaceholders).map((placeholder) => {
-      // Create actual button element from placeholder attributes
-      const button = document.createElement('button');
-      button.className = 'tbw-toolbar-btn';
-      const id = placeholder.getAttribute('id') ?? '';
-      const label = placeholder.getAttribute('label') ?? '';
-      const icon = placeholder.getAttribute('icon') ?? '';
-      const order = placeholder.getAttribute('order') ?? '100';
-
-      button.setAttribute('data-btn', id);
-      button.setAttribute('title', label);
-      button.setAttribute('aria-label', label);
-      button.setAttribute('data-order', order);
-      button.textContent = icon;
-      button.setAttribute('slot', 'toolbar');
-
-      // Replace placeholder with actual button in the DOM
-      placeholder.replaceWith(button);
-
-      return button;
-    });
-
-    // Sort by order attribute
-    state.lightDomButtons.sort((a, b) => {
-      const orderA = parseInt(a.getAttribute('data-order') ?? '100', 10);
-      const orderB = parseInt(b.getAttribute('data-order') ?? '100', 10);
-      return orderA - orderB;
-    });
-  } else if (existingButtons.length > 0 && state.lightDomButtons.length === 0) {
-    // Buttons were already transformed (perhaps by a previous call), just reference them
-    state.lightDomButtons = Array.from(existingButtons) as HTMLElement[];
-    state.lightDomButtons.sort((a, b) => {
-      const orderA = parseInt(a.getAttribute('data-order') ?? '100', 10);
-      const orderB = parseInt(b.getAttribute('data-order') ?? '100', 10);
-      return orderA - orderB;
-    });
-  }
-
-  // Move buttons outside of header element before hiding it (so they remain visible for slotting)
-  state.lightDomButtons.forEach((button) => {
-    if (button.parentElement === headerEl) {
-      host.appendChild(button);
-    }
-  });
-
-  // Hide the light DOM header container (after moving buttons out)
+  // Hide the light DOM header container (it was just for declarative config)
   (headerEl as HTMLElement).style.display = 'none';
+}
+
+/**
+ * Parse toolbar buttons container element (<tbw-grid-tool-buttons>).
+ * This is a container element that gets slotted as-is into the toolbar.
+ * Users put their buttons inside and have full control over their HTML.
+ *
+ * Example:
+ * ```html
+ * <tbw-grid>
+ *   <tbw-grid-tool-buttons>
+ *     <button>My button</button>
+ *     <button>My other button</button>
+ *   </tbw-grid-tool-buttons>
+ * </tbw-grid>
+ * ```
+ *
+ * The container is assigned slot="toolbar" and slotted directly.
+ */
+export function parseLightDomToolButtons(host: HTMLElement, state: ShellState): void {
+  // Look for the toolbar buttons container element
+  const toolButtonsContainer = host.querySelector(':scope > tbw-grid-tool-buttons');
+  if (!toolButtonsContainer) return;
+
+  // Mark that we found the container (for shouldRenderShellHeader)
+  state.hasToolButtonsContainer = true;
+
+  // Assign slot so it gets slotted into the toolbar area
+  toolButtonsContainer.setAttribute('slot', 'toolbar');
 }
 
 /**
@@ -769,17 +728,17 @@ export function updatePanelState(shadowRoot: ShadowRoot, state: ShellState): voi
 }
 
 /**
- * Get all toolbar button info.
+ * Get all toolbar button info (for debugging/introspection only).
+ * Since users have full control over their button HTML, this returns limited info.
  */
 export function getToolbarButtonsInfo(config: ShellConfig | undefined, state: ShellState): ToolbarButtonInfo[] {
   const result: ToolbarButtonInfo[] = [];
 
-  // Config buttons
+  // Config buttons (element/render only)
   for (const btn of config?.header?.toolbarButtons ?? []) {
     result.push({
       id: btn.id,
-      label: btn.label,
-      disabled: btn.disabled ?? false,
+      label: btn.label ?? '',
       source: 'config',
     });
   }
@@ -788,30 +747,16 @@ export function getToolbarButtonsInfo(config: ShellConfig | undefined, state: Sh
   for (const btn of state.toolbarButtons.values()) {
     result.push({
       id: btn.id,
-      label: btn.label,
-      disabled: btn.disabled ?? false,
+      label: btn.label ?? '',
       source: 'config',
     });
   }
 
-  // Light DOM buttons (limited info since user provides DOM)
-  for (let i = 0; i < state.lightDomButtons.length; i++) {
-    const el = state.lightDomButtons[i];
-    const btn = el.querySelector('button');
-    result.push({
-      id: `light-dom-${i}`,
-      label: btn?.getAttribute('title') ?? btn?.getAttribute('aria-label') ?? '',
-      disabled: btn?.disabled ?? false,
-      source: 'light-dom',
-    });
-  }
-
-  // Panel toggles
+  // Panel toggles (the only buttons the grid creates)
   for (const panel of state.toolPanels.values()) {
     result.push({
       id: `panel-toggle-${panel.id}`,
       label: panel.tooltip ?? panel.title,
-      disabled: false,
       source: 'panel-toggle',
       panelId: panel.id,
     });
@@ -830,11 +775,11 @@ export function cleanupShellState(state: ShellState): void {
   }
   state.headerContentCleanups.clear();
 
-  // Clean up active panel
-  if (state.activePanelCleanup) {
-    state.activePanelCleanup();
-    state.activePanelCleanup = null;
+  // Clean up panel content
+  for (const cleanup of state.panelCleanups.values()) {
+    cleanup();
   }
+  state.panelCleanups.clear();
 
   // Clean up toolbar buttons
   for (const cleanup of state.toolbarButtonCleanups.values()) {
@@ -842,19 +787,23 @@ export function cleanupShellState(state: ShellState): void {
   }
   state.toolbarButtonCleanups.clear();
 
-  // Invoke panel onClose if open
-  if (state.activePanel) {
-    const panel = state.toolPanels.get(state.activePanel);
-    panel?.onClose?.();
+  // Invoke onClose for all open panels
+  if (state.isPanelOpen) {
+    for (const sectionId of state.expandedSections) {
+      const panel = state.toolPanels.get(sectionId);
+      panel?.onClose?.();
+    }
   }
+
+  // Reset panel state
+  state.isPanelOpen = false;
+  state.expandedSections.clear();
 
   // Clear registrations
   state.toolPanels.clear();
   state.headerContents.clear();
   state.toolbarButtons.clear();
-  state.lightDomButtons = [];
   state.lightDomHeaderContent = [];
-  state.activePanel = null;
 }
 
 // ============================================================================
@@ -991,12 +940,6 @@ export function createShellController(state: ShellState, callbacks: ShellControl
         cleanup();
       }
       state.panelCleanups.clear();
-
-      // Legacy cleanup
-      if (state.activePanelCleanup) {
-        state.activePanelCleanup();
-        state.activePanelCleanup = null;
-      }
 
       // Call onClose for all panels
       for (const panel of state.toolPanels.values()) {
@@ -1174,18 +1117,15 @@ export function createShellController(state: ShellState, callbacks: ShellControl
       }
     },
 
-    setToolbarButtonDisabled(buttonId: string, disabled: boolean) {
-      // Check API-registered buttons
-      const apiBtn = state.toolbarButtons.get(buttonId);
-      if (apiBtn) {
-        apiBtn.disabled = disabled;
-      }
-
-      // Update DOM
-      const btn = callbacks.getShadow().querySelector(`[data-btn="${buttonId}"]`) as HTMLButtonElement | null;
-      if (btn) {
-        btn.disabled = disabled;
-      }
+    /**
+     * Note: Toolbar button disabled state is now managed by the user.
+     * This method is kept for backward compatibility but is a no-op.
+     * Users should control their button's disabled state directly in their HTML.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setToolbarButtonDisabled(_buttonId: string, _disabled: boolean) {
+      // No-op: Users control their button disabled state directly.
+      // The grid no longer creates or manages toolbar buttons.
     },
   };
 
@@ -1230,11 +1170,11 @@ export const GRID_CONTENT_HTML = `
   <div class="tbw-scroll-area">
     <div class="rows-body-wrapper">
       <div class="rows-body" role="grid">
-        <div class="header">
-          <div class="header-row" part="header-row"></div>
+        <div class="header" role="rowgroup">
+          <div class="header-row" role="row" part="header-row"></div>
         </div>
-        <div class="rows-container">
-          <div class="rows-viewport">
+        <div class="rows-container" role="presentation">
+          <div class="rows-viewport" role="presentation">
             <div class="rows"></div>
           </div>
         </div>
@@ -1245,44 +1185,6 @@ export const GRID_CONTENT_HTML = `
     <div class="faux-vscroll-spacer"></div>
   </div>
 `;
-
-/**
- * Render the complete grid HTML structure.
- * @returns HTML string to set as shadow root innerHTML
- * @deprecated Use buildGridDOM() for better performance
- */
-export function renderGridHtml(
-  shellConfig: ShellConfig | undefined,
-  state: ShellState,
-  icons?: { toolPanel?: IconValue; expand?: IconValue; collapse?: IconValue },
-): string {
-  const hasShell = shouldRenderShellHeader(shellConfig, state);
-
-  if (hasShell) {
-    const toolPanelIcon = icons?.toolPanel ?? DEFAULT_GRID_ICONS.toolPanel;
-    const accordionIcons = {
-      expand: icons?.expand ?? DEFAULT_GRID_ICONS.expand,
-      collapse: icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
-    };
-    const shellHeaderHtml = renderShellHeader(shellConfig, state, toolPanelIcon);
-    const shellBodyHtml = renderShellBody(shellConfig, state, GRID_CONTENT_HTML, accordionIcons);
-
-    return `
-      <div class="tbw-grid-root has-shell">
-        ${shellHeaderHtml}
-        ${shellBodyHtml}
-      </div>
-    `;
-  }
-
-  return `
-    <div class="tbw-grid-root">
-      <div class="tbw-grid-content">
-        ${GRID_CONTENT_HTML}
-      </div>
-    </div>
-  `;
-}
 
 // ============================================================================
 // DOM-based Grid Rendering (Performance Optimized)
@@ -1330,27 +1232,18 @@ export function buildGridDOMIntoShadow(
     // Build header options
     const headerOptions: ShellHeaderOptions = {
       title: shellConfig?.header?.title ?? state.lightDomTitle ?? undefined,
-      hasLightDomButtons: state.lightDomButtons.length > 0,
       hasPanels: state.toolPanels.size > 0,
       isPanelOpen: state.isPanelOpen,
       toolPanelIcon,
       configButtons: sortedConfigButtons.map((b) => ({
         id: b.id,
-        label: b.label,
-        icon: iconToString(b.icon),
-        disabled: b.disabled,
         hasElement: !!b.element,
         hasRender: !!b.render,
-        action: b.action,
       })),
       apiButtons: sortedApiButtons.map((b) => ({
         id: b.id,
-        label: b.label,
-        icon: iconToString(b.icon),
-        disabled: b.disabled,
         hasElement: !!b.element,
         hasRender: !!b.render,
-        action: b.action,
       })),
     };
 

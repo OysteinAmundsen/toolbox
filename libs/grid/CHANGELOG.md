@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.3.1...grid-0.3.2) (2026-01-12)
+
+
+### Bug Fixes
+
+* resolve lint errors and improve package documentation ([2847835](https://github.com/OysteinAmundsen/toolbox/commit/2847835a3275e5df53a40e1868020d83c7a9406f))
+
+
+### Enhancements
+
+* **docs:** Improved documentation coverage ([39b5626](https://github.com/OysteinAmundsen/toolbox/commit/39b5626cc2bd16c61b26458d636506797626b7b6))
+* **grid-angular:** improved developer ergonomics in creating grids ([2d77f07](https://github.com/OysteinAmundsen/toolbox/commit/2d77f071de68a15d64e5c2b8f80c13a89a13217b))
+* **grid:** framework and aria support ([a7266c8](https://github.com/OysteinAmundsen/toolbox/commit/a7266c8137c57b677f6dd2f439dab378a090114f))
+
 ## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.3.0...grid-0.3.1) (2026-01-10)
 
 

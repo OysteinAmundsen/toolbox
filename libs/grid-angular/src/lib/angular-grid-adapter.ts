@@ -17,6 +17,32 @@ import { getEditorTemplate, GridEditorContext } from './directives/grid-column-e
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
 import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
+import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';
+
+/**
+ * Helper to get view template from either structural directive or nested directive.
+ */
+function getAnyViewTemplate(element: HTMLElement): TemplateRef<GridCellContext> | undefined {
+  // First check structural directive registry (for *tbwRenderer syntax)
+  const structuralTemplate = getStructuralViewTemplate(element);
+  if (structuralTemplate) return structuralTemplate as unknown as TemplateRef<GridCellContext>;
+
+  // Fall back to nested directive (for <tbw-grid-column-view> syntax)
+  return getViewTemplate(element);
+}
+
+/**
+ * Helper to get editor template from either structural directive or nested directive.
+ */
+function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorContext> | undefined {
+  // First check structural directive registry (for *tbwEditor syntax)
+  // The structural context uses `any` types for better ergonomics, but is compatible with GridEditorContext
+  const structuralTemplate = getStructuralEditorTemplate(element);
+  if (structuralTemplate) return structuralTemplate as unknown as TemplateRef<GridEditorContext>;
+
+  // Fall back to nested directive (for <tbw-grid-column-editor> syntax)
+  return getEditorTemplate(element);
+}
 
 /**
  * Framework adapter that enables zero-boilerplate integration of Angular components
@@ -44,7 +70,17 @@ import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-to
  * }
  * ```
  *
- * **Declarative configuration in templates:**
+ * **Declarative configuration in templates (structural directive - recommended):**
+ * ```html
+ * <tbw-grid>
+ *   <tbw-grid-column field="status">
+ *     <app-status-badge *tbwRenderer="let value; row as row" [value]="value" />
+ *     <app-status-editor *tbwEditor="let value" [value]="value" />
+ *   </tbw-grid-column>
+ * </tbw-grid>
+ * ```
+ *
+ * **Declarative configuration in templates (nested directive - legacy):**
  * ```html
  * <tbw-grid>
  *   <tbw-grid-column field="status">
@@ -54,8 +90,8 @@ import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-to
  *       </ng-template>
  *     </tbw-grid-column-view>
  *     <tbw-grid-column-editor>
- *       <ng-template let-value let-commit="commit" let-cancel="cancel">
- *         <app-status-select [value]="value" (commit)="commit.emit($event)" (cancel)="cancel.emit()" />
+ *       <ng-template let-value let-onCommit="onCommit" let-onCancel="onCancel">
+ *         <app-status-select [value]="value" (commit)="onCommit($event)" (cancel)="onCancel()" />
  *       </ng-template>
  *     </tbw-grid-column-editor>
  *   </tbw-grid-column>
@@ -63,9 +99,9 @@ import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-to
  * ```
  *
  * The adapter automatically:
- * - Detects Angular templates registered by directives
+ * - Detects Angular templates registered by directives (both structural and nested)
  * - Creates embedded views with cell context (value, row, column)
- * - Handles editor outputs (commit/cancel) via EventEmitters
+ * - Handles editor callbacks (onCommit/onCancel)
  * - Manages view lifecycle and change detection
  */
 export class AngularGridAdapter implements FrameworkAdapter {
@@ -82,22 +118,26 @@ export class AngularGridAdapter implements FrameworkAdapter {
 
   /**
    * Determines if this adapter can handle the given element.
-   * Checks if a template is registered for this element.
+   * Checks if a template is registered for this element (structural or nested).
    */
   canHandle(element: HTMLElement): boolean {
-    return getViewTemplate(element) !== undefined || getEditorTemplate(element) !== undefined;
+    return getAnyViewTemplate(element) !== undefined || getAnyEditorTemplate(element) !== undefined;
   }
 
   /**
    * Creates a view renderer function that creates an embedded view
    * from the registered template and returns its DOM element.
+   *
+   * Returns undefined if no template is registered for this element,
+   * allowing the grid to use its default rendering.
    */
   createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> {
-    const template = getViewTemplate(element) as TemplateRef<GridCellContext<TValue, TRow>> | undefined;
+    const template = getAnyViewTemplate(element) as TemplateRef<GridCellContext<TValue, TRow>> | undefined;
 
     if (!template) {
-      console.warn(`[AngularGridAdapter] No template registered for element`);
-      return () => '';
+      // Return undefined so the grid uses default rendering
+      // This is important when only an editor template is provided (no view template)
+      return undefined as unknown as ColumnViewRenderer<TRow, TValue>;
     }
 
     return (ctx: CellRenderContext<TRow, TValue>) => {
@@ -123,11 +163,25 @@ export class AngularGridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Creates an editor spec that creates an embedded view
-   * with commit/cancel EventEmitters in the context.
+   * Creates an editor spec that creates an embedded view.
+   *
+   * **Auto-wiring**: The adapter automatically listens for `commit` and `cancel`
+   * CustomEvents on the rendered component. If the component emits these events,
+   * the adapter will call the grid's commit/cancel functions automatically.
+   *
+   * This means templates can be simplified from:
+   * ```html
+   * <app-editor *tbwEditor="let value; onCommit as onCommit"
+   *   [value]="value" (commit)="onCommit($event)" />
+   * ```
+   * To just:
+   * ```html
+   * <app-editor *tbwEditor="let value" [value]="value" />
+   * ```
+   * As long as the component emits `(commit)` with the new value.
    */
   createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> {
-    const template = getEditorTemplate(element) as TemplateRef<GridEditorContext<TValue, TRow>> | undefined;
+    const template = getAnyEditorTemplate(element) as TemplateRef<GridEditorContext<TValue, TRow>> | undefined;
 
     if (!template) {
       console.warn(`[AngularGridAdapter] No editor template registered for element`);
@@ -135,11 +189,13 @@ export class AngularGridAdapter implements FrameworkAdapter {
     }
 
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
-      // Create EventEmitters that bridge to the grid's commit/cancel
+      // Create simple callback functions (preferred)
+      const onCommit = (value: TValue) => ctx.commit(value);
+      const onCancel = () => ctx.cancel();
+
+      // Create EventEmitters for backwards compatibility (deprecated)
       const commitEmitter = new EventEmitter<TValue>();
       const cancelEmitter = new EventEmitter<void>();
-
-      // Subscribe to the emitters
       commitEmitter.subscribe((value: TValue) => ctx.commit(value));
       cancelEmitter.subscribe(() => ctx.cancel());
 
@@ -149,6 +205,10 @@ export class AngularGridAdapter implements FrameworkAdapter {
         value: ctx.value,
         row: ctx.row,
         column: ctx.column,
+        // Preferred: simple callback functions
+        onCommit,
+        onCancel,
+        // Deprecated: EventEmitters (for backwards compatibility)
         commit: commitEmitter,
         cancel: cancelEmitter,
       };
@@ -161,7 +221,21 @@ export class AngularGridAdapter implements FrameworkAdapter {
       viewRef.detectChanges();
 
       // Get the first root node (the component's host element)
-      const rootNode = viewRef.rootNodes[0];
+      const rootNode = viewRef.rootNodes[0] as HTMLElement;
+
+      // Auto-wire: Listen for commit/cancel events on the rendered component.
+      // This allows components to just emit (commit) and (cancel) without
+      // requiring explicit template bindings like (commit)="onCommit($event)".
+      if (rootNode && rootNode.addEventListener) {
+        rootNode.addEventListener('commit', (e: Event) => {
+          const customEvent = e as CustomEvent<TValue>;
+          ctx.commit(customEvent.detail);
+        });
+        rootNode.addEventListener('cancel', () => {
+          ctx.cancel();
+        });
+      }
+
       return rootNode;
     };
   }

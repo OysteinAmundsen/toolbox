@@ -38,87 +38,54 @@
       [rows]="rows()"
       [gridConfig]="gridConfig()"
       [customStyles]="customStyles"
+      (cellCommit)="onCellCommit($event)"
     >
-      <!-- Shell configuration -->
-      <tbw-grid-header title="Employee Management System">
-        <tbw-grid-tool-button
-          id="export-csv"
-          label="Export CSV"
-          icon="📄"
-          order="10"
+      <!-- Shell configuration with title -->
+      <tbw-grid-header title="Employee Management System"></tbw-grid-header>
+
+      <!-- Toolbar buttons container -->
+      <tbw-grid-tool-buttons>
+        <button
+          class="tbw-toolbar-btn"
+          title="Export CSV"
+          aria-label="Export CSV"
           (click)="exportCsv()"
-        ></tbw-grid-tool-button>
-        <tbw-grid-tool-button
-          id="export-excel"
-          label="Export Excel"
-          icon="📊"
-          order="11"
+        >
+          📄
+        </button>
+        <button
+          class="tbw-toolbar-btn"
+          title="Export Excel"
+          aria-label="Export Excel"
           (click)="exportExcel()"
-        ></tbw-grid-tool-button>
-      </tbw-grid-header>
+        >
+          📊
+        </button>
+      </tbw-grid-tool-buttons>
 
       <!-- Column templates - column definitions come from gridConfig, these add Angular templates -->
+      <!-- Using structural directives for cleaner syntax -->
+      <!-- Auto-wiring: editor components just emit (commit) and (cancel) events, no explicit binding needed -->
       <tbw-grid-column field="status">
-        <tbw-grid-column-view>
-          <ng-template let-value>
-            <app-status-badge [value]="value" />
-          </ng-template>
-        </tbw-grid-column-view>
-        <tbw-grid-column-editor>
-          <ng-template let-value let-commit="commit" let-cancel="cancel">
-            <app-status-select-editor
-              [value]="value"
-              (commit)="commit.emit($event)"
-              (cancel)="cancel.emit()"
-            />
-          </ng-template>
-        </tbw-grid-column-editor>
+        <app-status-badge *tbwRenderer="let value" [value]="value" />
+        <app-status-select-editor *tbwEditor="let value" [value]="value" />
       </tbw-grid-column>
       <tbw-grid-column field="bonus">
-        <tbw-grid-column-editor>
-          <ng-template let-value let-row="row" let-commit="commit" let-cancel="cancel">
-            <app-bonus-slider-editor
-              [value]="value"
-              [salary]="row.salary"
-              (commit)="commit.emit($event)"
-              (cancel)="cancel.emit()"
-            />
-          </ng-template>
-        </tbw-grid-column-editor>
+        <app-bonus-slider-editor
+          *tbwEditor="let value; row as row"
+          [value]="value"
+          [salary]="row.salary"
+        />
       </tbw-grid-column>
       <tbw-grid-column field="rating">
-        <tbw-grid-column-view>
-          <ng-template let-value>
-            <app-rating-display [value]="value" />
-          </ng-template>
-        </tbw-grid-column-view>
-        <tbw-grid-column-editor>
-          <ng-template let-value let-commit="commit" let-cancel="cancel">
-            <app-star-rating-editor
-              [value]="value"
-              (commit)="commit.emit($event)"
-              (cancel)="cancel.emit()"
-            />
-          </ng-template>
-        </tbw-grid-column-editor>
+        <app-rating-display *tbwRenderer="let value" [value]="value" />
+        <app-star-rating-editor *tbwEditor="let value" [value]="value" />
       </tbw-grid-column>
       <tbw-grid-column field="hireDate">
-        <tbw-grid-column-editor>
-          <ng-template let-value let-commit="commit" let-cancel="cancel">
-            <app-date-editor
-              [value]="value"
-              (commit)="commit.emit($event)"
-              (cancel)="cancel.emit()"
-            />
-          </ng-template>
-        </tbw-grid-column-editor>
+        <app-date-editor *tbwEditor="let value" [value]="value" />
       </tbw-grid-column>
       <tbw-grid-column field="isTopPerformer">
-        <tbw-grid-column-view>
-          <ng-template let-value>
-            <app-top-performer [value]="value" />
-          </ng-template>
-        </tbw-grid-column-view>
+        <app-top-performer *tbwRenderer="let value" [value]="value" />
       </tbw-grid-column>
 
       <!-- Master-detail template -->

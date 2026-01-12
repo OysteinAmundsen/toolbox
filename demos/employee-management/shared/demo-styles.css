@@ -42,6 +42,13 @@ app-root {
   height: 100%;
 }
 
+/* React root container needs height:100% for proper flex layout */
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 #app {
   height: 100%;
   display: flex;

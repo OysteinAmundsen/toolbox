@@ -11,11 +11,12 @@ import { generateEmployees } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
+  CellCommitEvent,
   Grid,
-  GridColumnEditor,
-  GridColumnView,
   GridDetailView,
   GridToolPanel,
+  TbwEditor,
+  TbwRenderer,
 } from '@toolbox-web/grid-angular';
 import { ExportPlugin } from '@toolbox-web/grid/all';
 
@@ -37,10 +38,10 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
   imports: [
     FormsModule,
     Grid,
-    GridColumnView,
-    GridColumnEditor,
     GridDetailView,
     GridToolPanel,
+    TbwRenderer,
+    TbwEditor,
     // Renderer components
     StatusBadgeComponent,
     RatingDisplayComponent,
@@ -99,5 +100,15 @@ export class AppComponent {
     if (!grid) return;
     const exportPlugin = grid.getPlugin(ExportPlugin);
     exportPlugin?.exportExcel({ fileName: 'employees' });
+  }
+
+  /**
+   * Handle cell commit events at the grid level.
+   * This demonstrates the event bubbling feature - instead of handling
+   * commit in each editor template, we can handle it centrally here.
+   */
+  onCellCommit(event: CellCommitEvent): void {
+    console.log(`[Grid] Cell committed: ${event.field} = ${event.value} (row ${event.rowIndex})`);
+    // Example: could trigger auto-save, show notification, etc.
   }
 }

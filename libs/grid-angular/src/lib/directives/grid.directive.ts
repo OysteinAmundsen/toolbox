@@ -8,11 +8,48 @@ import {
   input,
   OnDestroy,
   OnInit,
+  output,
   ViewContainerRef,
 } from '@angular/core';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import { MasterDetailPlugin } from '@toolbox-web/grid/all';
 import { AngularGridAdapter } from '../angular-grid-adapter';
+
+/**
+ * Event detail for cell commit events.
+ */
+export interface CellCommitEvent<TRow = unknown, TValue = unknown> {
+  /** The row data object */
+  row: TRow;
+  /** The field name of the edited column */
+  field: string;
+  /** The new value after edit */
+  value: TValue;
+  /** The row index in the data array */
+  rowIndex: number;
+  /** Array of all rows that have been modified */
+  changedRows: TRow[];
+  /** Set of row indices that have been modified */
+  changedRowIndices: Set<number>;
+  /** Whether this is the first modification to this row */
+  firstTimeForRow: boolean;
+}
+
+/**
+ * Event detail for row commit events (bulk editing).
+ */
+export interface RowCommitEvent<TRow = unknown> {
+  /** The row data object */
+  row: TRow;
+  /** The row index in the data array */
+  rowIndex: number;
+  /** Array of all rows that have been modified */
+  changedRows: TRow[];
+  /** Set of row indices that have been modified */
+  changedRowIndices: Set<number>;
+  /** Whether this is the first modification to this row */
+  firstTimeForRow: boolean;
+}
 
 /**
  * Directive that automatically registers the Angular adapter with tbw-grid elements.
@@ -57,6 +94,8 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   private viewContainerRef = inject(ViewContainerRef);
 
   private adapter: AngularGridAdapter | null = null;
+  private cellCommitListener: ((e: Event) => void) | null = null;
+  private rowCommitListener: ((e: Event) => void) | null = null;
 
   /**
    * Custom CSS styles to inject into the grid's shadow DOM.
@@ -77,14 +116,56 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    */
   customStyles = input<string>();
 
+  /**
+   * Emitted when a cell value is committed (inline editing).
+   * Provides the row, field, new value, and change tracking information.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (cellCommit)="onCellCommit($event)">...</tbw-grid>
+   * ```
+   *
+   * ```typescript
+   * onCellCommit(event: CellCommitEvent) {
+   *   console.log(`Changed ${event.field} to ${event.value} in row ${event.rowIndex}`);
+   * }
+   * ```
+   */
+  cellCommit = output<CellCommitEvent>();
+
+  /**
+   * Emitted when a row's values are committed (bulk/row editing).
+   * Provides the row data and change tracking information.
+   *
+   * @example
+   * ```html
+   * <tbw-grid (rowCommit)="onRowCommit($event)">...</tbw-grid>
+   * ```
+   */
+  rowCommit = output<RowCommitEvent>();
+
   ngOnInit(): void {
     // Create and register the adapter
     this.adapter = new AngularGridAdapter(this.injector, this.appRef, this.viewContainerRef);
     GridElement.registerAdapter(this.adapter);
 
+    // Set up event listeners for commit events
+    const grid = this.elementRef.nativeElement;
+
+    this.cellCommitListener = (e: Event) => {
+      const detail = (e as CustomEvent).detail as CellCommitEvent;
+      this.cellCommit.emit(detail);
+    };
+    grid.addEventListener('cell-commit', this.cellCommitListener);
+
+    this.rowCommitListener = (e: Event) => {
+      const detail = (e as CustomEvent).detail as RowCommitEvent;
+      this.rowCommit.emit(detail);
+    };
+    grid.addEventListener('row-commit', this.rowCommitListener);
+
     // Register adapter on the grid element so MasterDetailPlugin can use it
     // via the __frameworkAdapter hook during attach()
-    const grid = this.elementRef.nativeElement;
     (grid as any).__frameworkAdapter = this.adapter;
   }
 
@@ -176,8 +257,20 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Cleanup custom styles
+    // Cleanup event listeners
     const grid = this.elementRef.nativeElement;
+    if (grid) {
+      if (this.cellCommitListener) {
+        grid.removeEventListener('cell-commit', this.cellCommitListener);
+        this.cellCommitListener = null;
+      }
+      if (this.rowCommitListener) {
+        grid.removeEventListener('row-commit', this.rowCommitListener);
+        this.rowCommitListener = null;
+      }
+    }
+
+    // Cleanup custom styles
     if (grid && this.customStyles()) {
       grid.unregisterStyles?.('angular-custom-styles');
     }

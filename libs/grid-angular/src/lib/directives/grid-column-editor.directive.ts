@@ -13,9 +13,25 @@ export interface GridEditorContext<TValue = unknown, TRow = unknown> {
   row: TRow;
   /** The column configuration */
   column: unknown;
-  /** Event emitter to commit the edited value */
+  /**
+   * Callback function to commit the edited value.
+   * Use with Angular event binding: `(commit)="onCommit($event)"`
+   */
+  onCommit: (value: TValue) => void;
+  /**
+   * Callback function to cancel editing.
+   * Use with Angular event binding: `(cancel)="onCancel()"`
+   */
+  onCancel: () => void;
+  /**
+   * @deprecated Use `onCommit` callback function instead. Will be removed in v2.0.
+   * EventEmitter for commit - requires `.emit()` call.
+   */
   commit: EventEmitter<TValue>;
-  /** Event emitter to cancel editing */
+  /**
+   * @deprecated Use `onCancel` callback function instead. Will be removed in v2.0.
+   * EventEmitter for cancel - requires `.emit()` call.
+   */
   cancel: EventEmitter<void>;
 }
 
@@ -41,12 +57,12 @@ export function getEditorTemplate(element: HTMLElement): TemplateRef<GridEditorC
  * ```html
  * <tbw-grid-column field="status" editable>
  *   <tbw-grid-column-editor>
- *     <ng-template let-value let-row="row" let-commit="commit" let-cancel="cancel">
+ *     <ng-template let-value let-row="row" let-onCommit="onCommit" let-onCancel="onCancel">
  *       <app-status-select
  *         [value]="value"
  *         [row]="row"
- *         (commit)="commit.emit($event)"
- *         (cancel)="cancel.emit()"
+ *         (commit)="onCommit($event)"
+ *         (cancel)="onCancel()"
  *       />
  *     </ng-template>
  *   </tbw-grid-column-editor>
@@ -57,8 +73,8 @@ export function getEditorTemplate(element: HTMLElement): TemplateRef<GridEditorC
  * - `$implicit` / `value`: The cell value
  * - `row`: The full row data object
  * - `column`: The column configuration
- * - `commit`: EventEmitter to commit the new value
- * - `cancel`: EventEmitter to cancel editing
+ * - `onCommit`: Callback function to commit the new value
+ * - `onCancel`: Callback function to cancel editing
  *
  * Import the directive in your component:
  *

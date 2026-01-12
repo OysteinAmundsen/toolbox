@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.1...grid-react-0.0.2) (2026-01-12)
+
+
+### Bug Fixes
+
+* **eslint:** resolve module-boundaries rule performance issue ([55f17fa](https://github.com/OysteinAmundsen/toolbox/commit/55f17fa03e12f3bc7199fcd8daf966a856d55b57))
+* resolve lint errors and improve package documentation ([2847835](https://github.com/OysteinAmundsen/toolbox/commit/2847835a3275e5df53a40e1868020d83c7a9406f))
+
 ## 0.0.1 (Unreleased)
 
 ### Features

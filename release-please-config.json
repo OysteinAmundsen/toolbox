@@ -11,6 +11,11 @@
       "release-type": "node",
       "component": "grid-angular",
       "changelog-path": "CHANGELOG.md"
+    },
+    "libs/grid-react": {
+      "release-type": "node",
+      "component": "grid-react",
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "changelog-sections": [

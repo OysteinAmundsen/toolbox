@@ -1,0 +1,38 @@
+/**
+ * @toolbox-web/grid-react
+ *
+ * React adapter library for @toolbox-web/grid providing:
+ * - DataGrid component wrapper with full React props
+ * - Custom cell renderer support via render props
+ * - Custom cell editor support with commit/cancel handling
+ * - Master-detail panel support with GridDetailPanel
+ * - Custom tool panels with GridToolPanel
+ * - TypeScript generics for row type safety
+ * - Ref-based access to underlying grid element
+ */
+
+// JSX types for custom elements
+import './jsx.d.ts';
+
+// Main components
+export { DataGrid } from './lib/data-grid';
+export { GridColumn } from './lib/grid-column';
+export { GridDetailPanel, type DetailPanelContext, type GridDetailPanelProps } from './lib/grid-detail-panel';
+export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-button';
+export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
+
+// React column config types (for defining renderers/editors in gridConfig)
+export type { ReactColumnConfig, ReactGridConfig } from './lib/react-column-config';
+
+// Hooks
+export { useGrid } from './lib/use-grid';
+export { useGridEvent } from './lib/use-grid-event';
+
+// React adapter (for advanced usage)
+export { getRegisteredFields, ReactGridAdapter } from './lib/react-grid-adapter';
+
+// Context types
+export type { GridCellContext, GridDetailContext, GridEditorContext, GridToolPanelContext } from './lib/context-types';
+
+// Re-export useful types from grid
+export type { CellRenderContext, ColumnConfig, ColumnEditorContext, GridConfig } from '@toolbox-web/grid';

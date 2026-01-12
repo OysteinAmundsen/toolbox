@@ -23,11 +23,13 @@
       "@toolbox-web/grid/all": ["dist/libs/grid/all.d.ts"],
       "@toolbox-web/grid/*": ["dist/libs/grid/*"],
       "@toolbox-web/grid-angular": ["dist/libs/grid-angular/index.d.ts"],
+      "@toolbox-web/grid-react": ["dist/libs/grid-react/index.d.ts"],
       "@toolbox/themes/*": ["libs/themes/*"],
       "@toolbox/datagrid": ["libs/datagrid/src/"],
       "@toolbox/datagrid/*": ["libs/datagrid/src/lib/*"],
       "@demo/shared": ["demos/employee-management/shared/index.ts"],
-      "@demo/shared/styles": ["demos/employee-management/shared/styles.ts"]
+      "@demo/shared/styles": ["demos/employee-management/shared/styles.ts"],
+      "@demo/shared/demo-styles.css": ["demos/employee-management/shared/demo-styles.css"]
     }
   }
 }

@@ -87,28 +87,7 @@ export function createGridConfig(options: GridConfigOptions) {
     shell: {
       header: {
         title: 'Employee Management System',
-        toolbarButtons: [
-          {
-            id: 'export-csv',
-            label: 'Export CSV',
-            icon: '📄',
-            order: 10,
-            action: () => {
-              const grid = resolveGrid();
-              grid?.getPlugin?.(ExportPlugin)?.exportCsv?.({ fileName: 'employees' });
-            },
-          },
-          {
-            id: 'export-excel',
-            label: 'Export Excel',
-            icon: '📊',
-            order: 11,
-            action: () => {
-              const grid = resolveGrid();
-              grid?.getPlugin?.(ExportPlugin)?.exportExcel?.({ fileName: 'employees' });
-            },
-          },
-        ],
+        // Toolbar buttons are now provided via light-dom HTML (see index.html)
       },
       toolPanel: { position: 'right' as const, width: 300 },
     },
@@ -190,7 +169,7 @@ export function createGridConfig(options: GridConfigOptions) {
         sortable: true,
         editable: enableEditing,
         editor: statusSelectEditor,
-        viewRenderer: statusViewRenderer,
+        renderer: statusViewRenderer,
       },
       {
         field: 'hireDate',
@@ -209,9 +188,9 @@ export function createGridConfig(options: GridConfigOptions) {
         sortable: true,
         editable: enableEditing,
         editor: starRatingEditor,
-        viewRenderer: ratingRenderer,
+        renderer: ratingRenderer,
       },
-      { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50, viewRenderer: topPerformerRenderer },
+      { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50, renderer: topPerformerRenderer },
       { field: 'location', header: 'Location', width: 110, sortable: true },
     ],
     editOn: 'dblClick' as const,
@@ -310,8 +289,30 @@ export function createEmployeeGrid(options: EmployeeGridOptions): GridElement {
 
   // Create the grid element
   const grid = document.createElement('tbw-grid') as unknown as GridElement;
-  (grid as unknown as HTMLElement).id = 'employee-grid';
-  (grid as unknown as HTMLElement).className = 'demo-grid';
+  const gridEl = grid as unknown as HTMLElement;
+  gridEl.id = 'employee-grid';
+  gridEl.className = 'demo-grid';
+
+  // Create toolbar buttons container (users have full control over button HTML)
+  const toolButtons = document.createElement('tbw-grid-tool-buttons');
+
+  const exportCsvBtn = document.createElement('button');
+  exportCsvBtn.className = 'tbw-toolbar-btn';
+  exportCsvBtn.setAttribute('title', 'Export CSV');
+  exportCsvBtn.setAttribute('aria-label', 'Export CSV');
+  exportCsvBtn.textContent = '📄';
+  exportCsvBtn.onclick = () => grid.getPlugin?.(ExportPlugin)?.exportCsv?.({ fileName: 'employees' });
+
+  const exportExcelBtn = document.createElement('button');
+  exportExcelBtn.className = 'tbw-toolbar-btn';
+  exportExcelBtn.setAttribute('title', 'Export Excel');
+  exportExcelBtn.setAttribute('aria-label', 'Export Excel');
+  exportExcelBtn.textContent = '📊';
+  exportExcelBtn.onclick = () => grid.getPlugin?.(ExportPlugin)?.exportExcel?.({ fileName: 'employees' });
+
+  toolButtons.appendChild(exportCsvBtn);
+  toolButtons.appendChild(exportExcelBtn);
+  gridEl.appendChild(toolButtons);
 
   // Apply configuration with self-reference for toolbar actions
   grid.gridConfig = createGridConfig({

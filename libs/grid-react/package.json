@@ -1,0 +1,50 @@
+{
+  "name": "@toolbox-web/grid-react",
+  "version": "0.0.1",
+  "description": "React adapter for @toolbox-web/grid data grid component",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "keywords": [
+    "react",
+    "data-grid",
+    "web-component",
+    "toolbox-web"
+  ],
+  "license": "MIT",
+  "author": "Oystein Amundsen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OysteinAmundsen/toolbox.git",
+    "directory": "libs/grid-react"
+  },
+  "homepage": "https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-react#readme",
+  "bugs": {
+    "url": "https://github.com/OysteinAmundsen/toolbox/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@toolbox-web/grid": ">=0.2.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "@toolbox-web/grid": ">=0.2.0"
+  }
+}

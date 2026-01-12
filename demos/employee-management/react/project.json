@@ -1,29 +1,30 @@
 {
-  "name": "demo-vanilla",
+  "name": "demo-react",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "sourceRoot": "demos/employee-management/vanilla",
+  "sourceRoot": "demos/employee-management/react",
   "targets": {
     "serve": {
       "executor": "nx:run-commands",
       "options": {
         "command": "vite",
-        "cwd": "demos/employee-management/vanilla",
-        "port": 4000
+        "cwd": "demos/employee-management/react",
+        "port": 4300
       }
     },
     "build": {
       "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
       "options": {
         "command": "vite build",
-        "cwd": "demos/employee-management/vanilla"
+        "cwd": "demos/employee-management/react"
       }
     },
     "lint": {
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["demos/employee-management/vanilla/**/*.ts"]
+        "lintFilePatterns": ["demos/employee-management/react/**/*.{ts,tsx}"]
       }
     }
   }

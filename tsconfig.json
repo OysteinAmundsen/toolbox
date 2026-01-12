@@ -11,6 +11,9 @@
     },
     {
       "path": "./libs/grid-angular"
+    },
+    {
+      "path": "./libs/grid-react"
     }
   ],
   "ts-node": {

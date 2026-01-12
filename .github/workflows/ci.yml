@@ -25,8 +25,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && 'release' || 'default' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   # ============================================
@@ -168,7 +168,7 @@ jobs:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
-        needs.release-please.outputs.releases_created == 'true' ||
+        needs.release-please.outputs.grid_release_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
@@ -208,7 +208,7 @@ jobs:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
-        needs.release-please.outputs.releases_created == 'true' ||
+        needs.release-please.outputs.grid_release_created == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
       )
     environment:

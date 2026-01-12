@@ -1,7 +1,8 @@
 # @toolbox-web/grid-angular
 
-[![npm version](https://img.shields.io/npm/v/@toolbox-web/grid-angular.svg)](https://www.npmjs.com/package/@toolbox-web/grid-angular)
+[![npm](https://img.shields.io/npm/v/@toolbox-web/grid-angular.svg)](https://www.npmjs.com/package/@toolbox-web/grid-angular)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 
 Angular adapter for `@toolbox-web/grid` data grid component. Provides directives for declarative template-driven cell renderers and editors.
 
@@ -296,6 +297,38 @@ import { Grid, GridToolPanel } from '@toolbox-web/grid-angular';
 })
 ```
 
+## Using Plugins
+
+Import plugins individually for smaller bundles:
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid [rows]="rows" [gridConfig]="config" />`,
+})
+export class MyGridComponent {
+  config = {
+    columns: [...],
+    plugins: [
+      new SelectionPlugin({ mode: 'row' }),
+      new FilteringPlugin({ debounceMs: 200 }),
+    ],
+  };
+}
+```
+
+Or import all plugins at once (larger bundle, but convenient):
+
+```typescript
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+```
+
 ## API Reference
 
 ### Exported Directives
@@ -309,6 +342,32 @@ import { Grid, GridToolPanel } from '@toolbox-web/grid-angular';
 | `GridColumnEditor` | `tbw-grid-column-editor` | Nested directive for cell editors      |
 | `GridDetailView`   | `tbw-grid-detail`        | Master-detail panel template           |
 | `GridToolPanel`    | `tbw-grid-tool-panel`    | Custom sidebar panel                   |
+
+### Grid Directive Outputs
+
+| Output         | Type                              | Description          |
+| -------------- | --------------------------------- | -------------------- |
+| `cellCommit`   | `EventEmitter<CellCommitEvent>`   | Cell value committed |
+| `rowCommit`    | `EventEmitter<RowCommitEvent>`    | Row edit committed   |
+| `sortChange`   | `EventEmitter<SortChangeEvent>`   | Sort state changed   |
+| `columnResize` | `EventEmitter<ColumnResizeEvent>` | Column resized       |
+
+### GridDetailView Inputs
+
+| Input              | Type                         | Default   | Description                         |
+| ------------------ | ---------------------------- | --------- | ----------------------------------- |
+| `showExpandColumn` | `boolean`                    | `true`    | Show expand/collapse chevron column |
+| `animation`        | `'slide' \| 'fade' \| false` | `'slide'` | Animation style for expand/collapse |
+
+### GridToolPanel Inputs
+
+| Input     | Type     | Default  | Description                       |
+| --------- | -------- | -------- | --------------------------------- |
+| `id`      | `string` | Required | Unique panel identifier           |
+| `title`   | `string` | Required | Panel title in accordion header   |
+| `icon`    | `string` | -        | Icon for the accordion header     |
+| `tooltip` | `string` | -        | Tooltip text for header           |
+| `order`   | `number` | `100`    | Panel sort order (lower = higher) |
 
 ### Exported Types
 
@@ -335,35 +394,6 @@ import { AngularGridAdapter } from '@toolbox-web/grid-angular';
 
 In most cases, the `Grid` directive handles adapter registration automatically.
 
-## Migration from TbwCellView/TbwCellEditor
-
-If you were using the previous directive names, update your imports and templates:
-
-```typescript
-// Before
-import { TbwCellView, TbwCellEditor } from '@toolbox-web/grid-angular';
-
-// After
-import { TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
-```
-
-```html
-<!-- Before -->
-<app-badge *tbwCellView="let value" [value]="value" />
-<app-editor *tbwCellEditor="let value" [value]="value" />
-
-<!-- After -->
-<app-badge *tbwRenderer="let value" [value]="value" />
-<app-editor *tbwEditor="let value" [value]="value" />
-```
-
-> **Backwards Compatibility:** The old names (`TbwCellView`, `TbwCellEditor`) are still exported as aliases but are deprecated. They will be removed in a future major version.
-
-## Requirements
-
-- Angular 17+ (standalone components)
-- `@toolbox-web/grid` >= 0.2.0
-
 ## Demo
 
 See the full Angular demo at [`demos/employee-management/angular/`](../../demos/employee-management/angular/) which demonstrates:
@@ -375,6 +405,11 @@ See the full Angular demo at [`demos/employee-management/angular/`](../../demos/
 - Signal-based reactivity
 - Shell integration (header, tool panels)
 - Master-detail expandable rows
+
+## Requirements
+
+- Angular 17+ (standalone components)
+- `@toolbox-web/grid` >= 0.2.0
 
 ## Development
 
@@ -388,6 +423,17 @@ bun nx test grid-angular
 # Lint
 bun nx lint grid-angular
 ```
+
+---
+
+## Support This Project
+
+This grid is built and maintained by a single developer in spare time. If it saves you time or money, consider sponsoring to keep development going:
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor_on_GitHub-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/OysteinAmundsen)
+[![Patreon](https://img.shields.io/badge/Support_on_Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/OysteinAmundsen)
+
+---
 
 ## License
 

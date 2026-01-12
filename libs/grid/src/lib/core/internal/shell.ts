@@ -16,6 +16,7 @@ import type {
   ToolPanelDefinition,
 } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
+import { escapeHtml } from './sanitize';
 
 /**
  * Convert an IconValue to a string for rendering in HTML.
@@ -176,7 +177,7 @@ export function renderShellHeader(
 
   return `
     <div class="tbw-shell-header" part="shell-header" role="presentation">
-      ${hasTitle ? `<div class="tbw-shell-title">${title}</div>` : ''}
+      ${hasTitle ? `<div class="tbw-shell-title">${escapeHtml(title)}</div>` : ''}
       <div class="tbw-shell-content" part="shell-content" role="presentation">
         <slot name="header-content"></slot>
       </div>

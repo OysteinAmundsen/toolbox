@@ -12,6 +12,23 @@ const FORBIDDEN =
 // #region HTML Sanitization
 
 /**
+ * Escape a plain text string for safe insertion into HTML.
+ * Converts special HTML characters to their entity equivalents.
+ *
+ * @param text - Plain text string to escape
+ * @returns HTML-safe string
+ */
+export function escapeHtml(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Tags that are considered dangerous and will be completely removed.
  * These can execute scripts, load external resources, or manipulate the page.
  */
@@ -174,7 +191,6 @@ function evalSingle(expr: string, ctx: EvalContext): string {
   const dotChain = expr.match(/\./g);
   if (dotChain && dotChain.length > 1) return EMPTY_SENTINEL;
   try {
-     
     const fn = new Function('value', 'row', `return (${expr});`);
     const out = fn(ctx.value, ctx.row);
     const str = out == null ? '' : String(out);

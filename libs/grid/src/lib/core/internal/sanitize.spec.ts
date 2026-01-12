@@ -1,5 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { compileTemplate, evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
+import { compileTemplate, escapeHtml, evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
+
+describe('escapeHtml', () => {
+  it('escapes HTML special characters', () => {
+    expect(escapeHtml('<script>alert("xss")</script>')).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+  });
+
+  it('escapes ampersands', () => {
+    expect(escapeHtml('Tom & Jerry')).toBe('Tom &amp; Jerry');
+  });
+
+  it('escapes single quotes', () => {
+    expect(escapeHtml("It's a test")).toBe('It&#39;s a test');
+  });
+
+  it('returns empty string for null/undefined', () => {
+    expect(escapeHtml(null as unknown as string)).toBe('');
+    expect(escapeHtml(undefined as unknown as string)).toBe('');
+  });
+
+  it('returns empty string for non-strings', () => {
+    expect(escapeHtml(123 as unknown as string)).toBe('');
+  });
+
+  it('handles mixed content', () => {
+    expect(escapeHtml('<div class="test">Hello & Goodbye</div>')).toBe(
+      '&lt;div class=&quot;test&quot;&gt;Hello &amp; Goodbye&lt;/div&gt;',
+    );
+  });
+});
 
 describe('sanitize functions', () => {
   it('evaluates simple expressions and blanks forbidden tokens', () => {

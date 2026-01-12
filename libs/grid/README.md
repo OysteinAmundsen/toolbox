@@ -1,6 +1,7 @@
 # @toolbox-web/grid
 
 [![npm](https://img.shields.io/npm/v/@toolbox-web/grid)](https://www.npmjs.com/package/@toolbox-web/grid)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
 
 A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies.
@@ -552,10 +553,10 @@ Modern browsers with Web Components support (Chrome, Firefox, Safari, Edge).
 ## Development
 
 ```bash
-bun nx build grid              # Build
-bun nx test grid               # Test
-bun nx test grid --coverage    # Test with coverage
-bun nx storybook storybook-app # Storybook (port 4400)
+bun run build
+bun run test
+bun run coverage
+bun run start
 ```
 
 For architecture details, rendering pipeline, and plugin development, see [ARCHITECTURE.md](./ARCHITECTURE.md).

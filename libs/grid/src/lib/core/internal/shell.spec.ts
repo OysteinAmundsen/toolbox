@@ -113,6 +113,23 @@ describe('shell module', () => {
       expect(html).toContain('tbw-shell-title');
     });
 
+    it('escapes HTML in title to prevent XSS', () => {
+      const config: ShellConfig = { header: { title: '<script>alert("xss")</script>' } };
+      const html = renderShellHeader(config, state);
+
+      expect(html).not.toContain('<script>');
+      expect(html).toContain('&lt;script&gt;');
+      expect(html).toContain('&lt;/script&gt;');
+    });
+
+    it('escapes HTML entities in light DOM title', () => {
+      state.lightDomTitle = '<img src=x onerror=alert(1)>';
+      const html = renderShellHeader(undefined, state);
+
+      expect(html).not.toContain('<img');
+      expect(html).toContain('&lt;img');
+    });
+
     it('renders header without title section when not configured', () => {
       const html = renderShellHeader(undefined, state);
 

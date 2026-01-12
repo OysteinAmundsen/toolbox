@@ -1,17 +1,54 @@
 # @toolbox-web/grid-react
 
-React adapter library for [@toolbox-web/grid](https://www.npmjs.com/package/@toolbox-web/grid) - a high-performance, framework-agnostic data grid web component.
+[![npm](https://img.shields.io/npm/v/@toolbox-web/grid-react.svg)](https://www.npmjs.com/package/@toolbox-web/grid-react)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-❤-ea4aaa?logo=github)](https://github.com/sponsors/OysteinAmundsen)
+
+React adapter for `@toolbox-web/grid` data grid component. Provides components and hooks for declarative React integration with custom cell renderers and editors.
+
+## Features
+
+- ✅ **Full React integration** - Use JSX for cell renderers and editors
+- ✅ **Declarative columns** - Define columns via props or `GridColumn` components
+- ✅ **Render props** - Clean `children` syntax for custom cells
+- ✅ **Hooks API** - `useGrid` and `useGridEvent` for programmatic access
+- ✅ **Ref forwarding** - Access grid instance via `DataGridRef`
+- ✅ **Master-detail** - `GridDetailPanel` for expandable rows
+- ✅ **Tool panels** - `GridToolPanel` for custom sidebar content
+- ✅ **Full type safety** - TypeScript generics support
+- ✅ **React 18+** - Concurrent features and Suspense compatible
 
 ## Installation
 
 ```bash
+# npm
 npm install @toolbox-web/grid @toolbox-web/grid-react
+
+# yarn
+yarn add @toolbox-web/grid @toolbox-web/grid-react
+
+# pnpm
+pnpm add @toolbox-web/grid @toolbox-web/grid-react
+
+# bun
+bun add @toolbox-web/grid @toolbox-web/grid-react
 ```
 
-## Basic Usage
+## Quick Start
+
+### 1. Register the Grid Component
+
+In your application entry point, import the grid registration:
+
+```typescript
+// main.tsx or index.tsx
+import '@toolbox-web/grid';
+```
+
+### 2. Use in Components
 
 ```tsx
-import { DataGrid, GridColumn } from '@toolbox-web/grid-react';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 interface Employee {
   id: number;
@@ -60,11 +97,7 @@ const config: ReactGridConfig<Employee> = {
       field: 'status',
       header: 'Status',
       // Custom React renderer - same property name as vanilla!
-      renderer: (ctx) => (
-        <span className={`badge badge-${ctx.value.toLowerCase()}`}>
-          {ctx.value}
-        </span>
-      ),
+      renderer: (ctx) => <span className={`badge badge-${ctx.value.toLowerCase()}`}>{ctx.value}</span>,
     },
   ],
 };
@@ -73,6 +106,14 @@ function EmployeeGrid() {
   return <DataGrid rows={employees} gridConfig={config} />;
 }
 ```
+
+**Renderer Context:**
+
+| Property | Type      | Description              |
+| -------- | --------- | ------------------------ |
+| `value`  | `TValue`  | The cell value           |
+| `row`    | `TRow`    | The full row data object |
+| `column` | `unknown` | The column configuration |
 
 ### Using GridColumn Components
 
@@ -124,6 +165,16 @@ const config: ReactGridConfig<Employee> = {
   ],
 };
 ```
+
+**Editor Context:**
+
+| Property | Type          | Description                  |
+| -------- | ------------- | ---------------------------- |
+| `value`  | `TValue`      | The current cell value       |
+| `row`    | `TRow`        | The full row data object     |
+| `column` | `unknown`     | The column configuration     |
+| `commit` | `(v) => void` | Callback to commit new value |
+| `cancel` | `() => void`  | Callback to cancel editing   |
 
 ### Using GridColumn
 
@@ -179,11 +230,11 @@ function EmployeeGrid() {
 
 **GridDetailPanel Props:**
 
-| Prop               | Type                                      | Default   | Description                          |
-| ------------------ | ----------------------------------------- | --------- | ------------------------------------ |
-| `children`         | `(ctx: DetailPanelContext) => ReactNode`  | Required  | Render function for panel content    |
-| `showExpandColumn` | `boolean`                                 | `true`    | Show expand/collapse chevron column  |
-| `animation`        | `'slide' \| 'fade' \| false`              | `'slide'` | Animation style for expand/collapse  |
+| Prop               | Type                                     | Default   | Description                         |
+| ------------------ | ---------------------------------------- | --------- | ----------------------------------- |
+| `children`         | `(ctx: DetailPanelContext) => ReactNode` | Required  | Render function for panel content   |
+| `showExpandColumn` | `boolean`                                | `true`    | Show expand/collapse chevron column |
+| `animation`        | `'slide' \| 'fade' \| false`             | `'slide'` | Animation style for expand/collapse |
 
 ## Custom Tool Panels with GridToolPanel
 
@@ -229,56 +280,58 @@ function EmployeeGrid() {
 
 **GridToolPanel Props:**
 
-| Prop       | Type                                    | Default    | Description                          |
-| ---------- | --------------------------------------- | ---------- | ------------------------------------ |
-| `id`       | `string`                                | Required   | Unique panel identifier              |
-| `title`    | `string`                                | Required   | Panel title in accordion header      |
-| `children` | `(ctx: ToolPanelContext) => ReactNode`  | Required   | Render function for panel content    |
-| `icon`     | `string`                                | -          | Icon for the accordion header        |
-| `tooltip`  | `string`                                | -          | Tooltip text for header              |
-| `order`    | `number`                                | `100`      | Panel sort order (lower = higher)    |
+| Prop       | Type                                   | Default  | Description                       |
+| ---------- | -------------------------------------- | -------- | --------------------------------- |
+| `id`       | `string`                               | Required | Unique panel identifier           |
+| `title`    | `string`                               | Required | Panel title in accordion header   |
+| `children` | `(ctx: ToolPanelContext) => ReactNode` | Required | Render function for panel content |
+| `icon`     | `string`                               | -        | Icon for the accordion header     |
+| `tooltip`  | `string`                               | -        | Tooltip text for header           |
+| `order`    | `number`                               | `100`    | Panel sort order (lower = higher) |
 
-## Using Refs
+## Hooks
+
+### useGrid
 
 Access the grid instance for programmatic control:
 
 ```tsx
-import { DataGrid, DataGridRef } from '@toolbox-web/grid-react';
-import { useRef } from 'react';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
 
 function MyComponent() {
-  const gridRef = useRef<DataGridRef>(null);
+  const { ref, isReady, forceLayout, getConfig } = useGrid<Employee>();
 
   const handleExport = async () => {
-    const config = await gridRef.current?.getConfig();
+    const config = await getConfig();
     console.log('Columns:', config?.columns);
   };
 
   return (
     <>
       <button onClick={handleExport}>Export</button>
-      <DataGrid ref={gridRef} rows={employees} />
+      <button onClick={() => forceLayout()}>Refresh Layout</button>
+      <DataGrid ref={ref} rows={employees} />
     </>
   );
 }
 ```
 
-## useGrid Hook
+### useGridEvent
 
-For more complex scenarios, use the `useGrid` hook:
+Type-safe event subscription with automatic cleanup:
 
 ```tsx
-import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+import { DataGrid, useGridEvent, DataGridRef } from '@toolbox-web/grid-react';
+import { useRef } from 'react';
 
 function MyComponent() {
-  const { ref, isReady, forceLayout } = useGrid<Employee>();
+  const gridRef = useRef<DataGridRef>(null);
 
-  return (
-    <>
-      <button onClick={() => forceLayout()}>Refresh Layout</button>
-      <DataGrid ref={ref} rows={employees} />
-    </>
-  );
+  useGridEvent(gridRef, 'selection-change', (event) => {
+    console.log('Selected:', event.detail.selectedRows);
+  });
+
+  return <DataGrid ref={gridRef} rows={employees} />;
 }
 ```
 
@@ -297,27 +350,16 @@ function MyComponent() {
 
 ### Via useGridEvent Hook
 
-```tsx
-import { DataGrid, useGridEvent, DataGridRef } from '@toolbox-web/grid-react';
+See [useGridEvent](#usegridevent) above.
 
-function MyComponent() {
-  const gridRef = useRef<DataGridRef>(null);
+## Using Plugins
 
-  useGridEvent(gridRef, 'selection-change', (event) => {
-    console.log('Selected:', event.detail.selectedRows);
-  });
-
-  return <DataGrid ref={gridRef} rows={employees} />;
-}
-```
-
-## Plugins
-
-Use plugins from `@toolbox-web/grid/all`:
+Import plugins individually for smaller bundles:
 
 ```tsx
 import { DataGrid } from '@toolbox-web/grid-react';
-import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
 function MyComponent() {
   return (
@@ -333,6 +375,12 @@ function MyComponent() {
     />
   );
 }
+```
+
+Or import all plugins at once (larger bundle, but convenient):
+
+```tsx
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 ```
 
 ## Custom Styles
@@ -352,6 +400,38 @@ Inject custom CSS into the grid's shadow DOM:
 ```
 
 ## API Reference
+
+### Exported Components
+
+| Component         | Description                          |
+| ----------------- | ------------------------------------ |
+| `DataGrid`        | Main grid component wrapper          |
+| `GridColumn`      | Declarative column with render props |
+| `GridDetailPanel` | Master-detail expandable panel       |
+| `GridToolPanel`   | Custom sidebar panel                 |
+| `GridToolButtons` | Toolbar button container             |
+
+### Exported Hooks
+
+| Hook           | Description                               |
+| -------------- | ----------------------------------------- |
+| `useGrid`      | Grid ref with ready state and methods     |
+| `useGridEvent` | Type-safe event subscription with cleanup |
+
+### Exported Types
+
+```typescript
+import type {
+  ReactGridConfig,
+  ReactColumnConfig,
+  CellRenderContext,
+  ColumnEditorContext,
+  DetailPanelContext,
+  ToolPanelContext,
+  DataGridRef,
+  DataGridProps,
+} from '@toolbox-web/grid-react';
+```
 
 ### DataGrid Props
 
@@ -384,18 +464,63 @@ Inject custom CSS into the grid's shadow DOM:
 ### DataGridRef Methods
 
 | Method                    | Description                 |
-| ------------------------- | --------------------------- |
+| ------------------------- | --------------------------- | -------------------- |
 | `getConfig()`             | Get effective configuration |
 | `ready()`                 | Wait for grid ready         |
 | `forceLayout()`           | Force layout recalculation  |
 | `toggleGroup(key)`        | Toggle group expansion      |
 | `registerStyles(id, css)` | Register custom styles      |
-| `unregisterStyles(id)`    | Remove custom styles        |
+| `unregisterStyles(id)`    | `void`                      | Remove custom styles |
+
+### ReactGridAdapter
+
+The adapter class is exported for advanced use cases:
+
+```typescript
+import { ReactGridAdapter } from '@toolbox-web/grid-react';
+```
+
+In most cases, the `DataGrid` component handles adapter registration automatically.
+
+## Demo
+
+See the full React demo at [`demos/employee-management/react/`](../../demos/employee-management/react/) which demonstrates:
+
+- 15+ plugins with full configuration
+- Custom editors (star rating, date picker, status select, bonus slider)
+- Custom renderers (status badges, rating colors, top performer stars)
+- Hooks for programmatic control
+- Shell integration (header, tool panels)
+- Master-detail expandable rows
 
 ## Requirements
 
 - React 18.0.0 or higher
-- @toolbox-web/grid 0.2.0 or higher
+- `@toolbox-web/grid` >= 0.2.0
+
+## Development
+
+```bash
+# Build the library
+bun nx build grid-react
+
+# Run tests
+bun nx test grid-react
+
+# Lint
+bun nx lint grid-react
+```
+
+---
+
+## Support This Project
+
+This grid is built and maintained by a single developer in spare time. If it saves you time or money, consider sponsoring to keep development going:
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor_on_GitHub-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/OysteinAmundsen)
+[![Patreon](https://img.shields.io/badge/Support_on_Patreon-f96854?style=for-the-badge&logo=patreon)](https://www.patreon.com/c/OysteinAmundsen)
+
+---
 
 ## License
 

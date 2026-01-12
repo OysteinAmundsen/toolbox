@@ -1,0 +1,237 @@
+{/* Accessibility.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Dev/Accessibility" />
+
+# Accessibility
+
+`@toolbox-web/grid` is built with accessibility in mind, following WAI-ARIA guidelines to ensure the grid is usable by everyone, including users who rely on assistive technologies.
+
+## ARIA Roles and Attributes
+
+The grid uses semantic ARIA roles to convey its structure to screen readers:
+
+| Element       | Role           | Description                           |
+| ------------- | -------------- | ------------------------------------- |
+| Grid root     | `grid`         | Identifies the component as a grid    |
+| Header row    | `row`          | Contains column headers               |
+| Header cell   | `columnheader` | Sortable/resizable column header      |
+| Body row      | `row`          | Data row container                    |
+| Body cell     | `gridcell`     | Individual data cell                  |
+| Group header  | `row`          | Expandable group row                  |
+
+### Dynamic ARIA States
+
+The grid automatically updates ARIA states as users interact:
+
+```html
+<!-- Sorted column -->
+<div role="columnheader" aria-sort="ascending">Name</div>
+
+<!-- Selected row -->
+<div role="row" aria-selected="true">...</div>
+
+<!-- Expanded group -->
+<div role="row" aria-expanded="true">...</div>
+
+<!-- Active/focused cell -->
+<div role="gridcell" tabindex="0" aria-current="true">...</div>
+```
+
+## Keyboard Navigation
+
+Full keyboard support ensures users can navigate and interact without a mouse.
+
+### Navigation Keys
+
+| Key                      | Action                             |
+| ------------------------ | ---------------------------------- |
+| `↑` `↓` `←` `→`          | Move focus between cells           |
+| `Home`                   | Move to first cell in row          |
+| `End`                    | Move to last cell in row           |
+| `Ctrl+Home`              | Move to first cell in grid         |
+| `Ctrl+End`               | Move to last cell in grid          |
+| `Page Up` / `Page Down`  | Scroll by one viewport             |
+
+### Interaction Keys
+
+| Key                 | Action                                    |
+| ------------------- | ----------------------------------------- |
+| `Enter`             | Start editing cell / Confirm edit         |
+| `Escape`            | Cancel editing / Clear selection          |
+| `F2`                | Start editing current cell                |
+| `Tab` / `Shift+Tab` | Move to next/previous editable cell       |
+| `Space`             | Toggle row selection (with SelectionPlugin) |
+
+### Sorting
+
+| Key                  | Action                          |
+| -------------------- | ------------------------------- |
+| `Enter` on header    | Sort by column                  |
+| `Shift+Enter`        | Add to multi-sort (with MultiSortPlugin) |
+
+## Focus Management
+
+The grid maintains a single roving tabindex for efficient keyboard navigation:
+
+```html
+<!-- Only the active cell is in tab order -->
+<div role="gridcell" tabindex="-1">...</div>
+<div role="gridcell" tabindex="0">Active cell</div>  <!-- Focused -->
+<div role="gridcell" tabindex="-1">...</div>
+```
+
+### Focus Indicators
+
+The grid provides clear visual focus indicators via CSS custom properties:
+
+```css
+tbw-grid {
+  /* Focus ring style */
+  --tbw-focus-outline: 2px solid var(--tbw-color-accent);
+  --tbw-focus-outline-offset: -2px;
+  --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 12%);
+}
+```
+
+You can customize these to match your application's focus style requirements.
+
+## Screen Reader Considerations
+
+The grid uses semantic ARIA roles to convey structure, but does not include built-in live region announcements. For applications requiring explicit announcements (e.g., "Sorted by Name, ascending"), implement your own live region:
+
+```typescript
+// Add a live region to your page
+const announcer = document.createElement('div');
+announcer.setAttribute('aria-live', 'polite');
+announcer.setAttribute('aria-atomic', 'true');
+announcer.className = 'sr-only'; // visually hidden
+document.body.appendChild(announcer);
+
+// Announce changes when handling grid events
+grid.addEventListener('sort-change', (e: CustomEvent) => {
+  const { field, direction } = e.detail;
+  announcer.textContent = `Sorted by ${field}, ${direction}`;
+});
+```
+
+```css
+/* Screen reader only class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+```
+
+## High Contrast Mode
+
+The grid supports Windows High Contrast mode via the `forced-colors` media query. When enabled, the grid automatically uses system colors for maximum visibility:
+
+```css
+@media (forced-colors: active) {
+  tbw-grid {
+    /* Automatically applied by the grid */
+    --tbw-color-border: CanvasText;
+    --tbw-color-fg: CanvasText;
+    --tbw-color-bg: Canvas;
+    --tbw-color-accent: Highlight;
+    --tbw-focus-outline: 2px solid Highlight;
+  }
+}
+```
+
+The following system colors are used:
+- `Canvas` / `CanvasText` - Background and text
+- `Highlight` / `HighlightText` - Selection and focus indicators
+- All borders use `CanvasText` for visibility
+
+## Reduced Motion
+
+Animations respect the `prefers-reduced-motion` media query by default:
+
+```typescript
+// Default behavior: respect user preference
+grid.gridConfig = {
+  animation: {
+    mode: 'reduced-motion', // Default - checks media query
+  },
+};
+
+// Or explicitly disable animations
+grid.gridConfig = {
+  animation: {
+    mode: 'off',
+  },
+};
+```
+
+When `prefers-reduced-motion: reduce` is set, all animations are disabled automatically.
+
+## Text Sizing and Zoom
+
+The grid is fully responsive to browser text scaling:
+
+- Cell heights adjust to accommodate larger text
+- Column widths respect minimum sizing constraints
+- Horizontal scrolling prevents text truncation at zoom levels
+- Virtualization recalculates with new dimensions
+
+Tested at 200% browser zoom and with custom font sizes.
+
+## Color Contrast
+
+Default theme colors meet WCAG 2.1 AA contrast requirements:
+
+| Element          | Contrast Ratio | Requirement |
+| ---------------- | -------------- | ----------- |
+| Body text        | 7.5:1          | ≥ 4.5:1 AA  |
+| Header text      | 7.0:1          | ≥ 4.5:1 AA  |
+| Focus ring       | 4.5:1          | ≥ 3:1 AA    |
+| Selected row     | 5.2:1          | ≥ 4.5:1 AA  |
+
+> **Note:** If you customize theme colors, ensure you maintain sufficient contrast ratios.
+
+## Testing Accessibility
+
+### Automated Testing
+
+Run axe-core or similar tools against your grid implementation:
+
+```typescript
+import { axe } from 'jest-axe';
+
+test('grid has no accessibility violations', async () => {
+  const grid = document.querySelector('tbw-grid');
+  const results = await axe(grid);
+  expect(results).toHaveNoViolations();
+});
+```
+
+### Manual Testing Checklist
+
+- [ ] Navigate all cells using only keyboard
+- [ ] Verify focus is visible at all times
+- [ ] Test with screen reader (NVDA, VoiceOver, JAWS)
+- [ ] Check at 200% browser zoom
+- [ ] Test in Windows High Contrast mode
+- [ ] Verify all interactive elements are announced
+
+## Known Limitations
+
+- **Screen reader announcements**: The grid does not include built-in live region announcements. Applications should implement their own announcements for sorting, selection, and editing events (see example above).
+- **Complex cell content**: Custom renderers should include appropriate ARIA labels for interactive elements.
+- **Virtual scrolling**: Some screen readers may not announce total row count correctly due to virtualization.
+- **Dynamic updates**: Large data updates may overwhelm screen reader buffers.
+
+## Resources
+
+- [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/)
+- [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
+- [Deque axe-core](https://github.com/dequelabs/axe-core)

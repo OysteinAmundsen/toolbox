@@ -1,0 +1,451 @@
+{/* CustomPlugins.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../apps/storybook-app/.storybook/components/Tabs';
+
+<Meta title="Grid/Plugins/Custom Plugins" />
+
+# Custom Plugin Development
+
+Learn how to extend `@toolbox-web/grid` with your own plugins. Plugins can add new features, modify data, inject styles, and respond to user interactions.
+
+## Plugin Architecture
+
+All plugins extend `BaseGridPlugin` and implement lifecycle hooks:
+
+```
+Plugin Lifecycle
+────────────────────────────────────────────────────────────
+  attach()        Called when plugin is added to grid
+       │
+       ▼
+  processColumns() Transform column definitions
+       │
+       ▼
+  processRows()    Transform row data
+       │
+       ▼
+  afterRender()    DOM manipulation after render
+       │
+       ▼
+  [user interactions: onCellClick, onKeyDown, etc.]
+       │
+       ▼
+  detach()         Cleanup when plugin is removed
+────────────────────────────────────────────────────────────
+```
+
+## Basic Plugin Structure
+
+```typescript
+import { BaseGridPlugin } from '@toolbox-web/grid';
+
+// 1. Define your config interface
+interface HighlightConfig {
+  field: string;
+  threshold: number;
+  className?: string;
+}
+
+// 2. Extend BaseGridPlugin with your config type
+export class HighlightPlugin extends BaseGridPlugin<HighlightConfig> {
+  // Required: unique plugin name
+  readonly name = 'highlight';
+
+  // Required: version for compatibility tracking
+  readonly version = '1.0.0';
+
+  // Optional: CSS styles to inject
+  override readonly styles = `
+    .highlight-cell {
+      background: linear-gradient(135deg, #fff3cd, #ffeeba);
+      font-weight: 600;
+    }
+  `;
+
+  // Called after grid renders
+  override afterRender(): void {
+    const { field, threshold, className = 'highlight-cell' } = this.config;
+
+    // Access grid's shadow DOM
+    const shadowRoot = (this.grid as unknown as Element).shadowRoot;
+    if (!shadowRoot) return;
+
+    // Find cells for the target field
+    const cells = shadowRoot.querySelectorAll(`[data-field="${field}"]`);
+    cells.forEach((cell) => {
+      const value = parseFloat(cell.textContent || '0');
+      if (value > threshold) {
+        cell.classList.add(className);
+      }
+    });
+  }
+}
+```
+
+## Using Your Plugin
+
+```typescript
+import { HighlightPlugin } from './highlight-plugin';
+
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new HighlightPlugin({
+      field: 'salary',
+      threshold: 100000,
+      className: 'high-earner',
+    }),
+  ],
+};
+```
+
+## Lifecycle Hooks
+
+### `attach(grid)`
+
+Called when the plugin is attached to the grid. Use for initial setup.
+
+```typescript
+override attach(grid: DataGridElement): void {
+  super.attach(grid); // Always call super first!
+
+  // Initialize plugin state
+  this.state = new Map();
+
+  // Access grid properties
+  console.log('Attached to grid with', grid.rows.length, 'rows');
+}
+```
+
+### `detach()`
+
+Called when the plugin is removed. Clean up event listeners, timers, etc.
+
+```typescript
+override detach(): void {
+  // Clean up resources
+  this.state.clear();
+  clearInterval(this.timer);
+
+  super.detach(); // Always call super last!
+}
+```
+
+### `processColumns(columns)`
+
+Transform column definitions before rendering. Return the modified array.
+
+```typescript
+override processColumns(columns: ColumnConfig[]): ColumnConfig[] {
+  // Add a custom column
+  return [
+    ...columns,
+    {
+      field: '__rowNumber',
+      header: '#',
+      width: 50,
+      renderer: (ctx) => String(ctx.rowIndex + 1),
+    },
+  ];
+}
+```
+
+### `processRows(rows)`
+
+Transform row data before rendering. Return the modified array.
+
+```typescript
+override processRows(rows: T[]): T[] {
+  // Filter, sort, or transform rows
+  return rows.filter(row => row.active);
+}
+```
+
+### `afterRender()`
+
+Called after each render cycle. Ideal for DOM manipulation.
+
+```typescript
+override afterRender(): void {
+  const shadowRoot = (this.grid as unknown as Element).shadowRoot;
+  if (!shadowRoot) return;
+
+  // Query and modify rendered elements
+  const rows = shadowRoot.querySelectorAll('[data-row-index]');
+  rows.forEach((row, i) => {
+    if (i % 2 === 0) row.classList.add('even-row');
+  });
+}
+```
+
+## Event Hooks
+
+### `onCellClick(event)`
+
+Handle cell click events. Return `true` to prevent default behavior.
+
+```typescript
+override onCellClick(event: CustomEvent): boolean {
+  const { row, field, value, cellElement } = event.detail;
+
+  if (field === 'delete') {
+    this.handleDelete(row);
+    return true; // Prevent default click handling
+  }
+
+  return false; // Allow normal processing
+}
+```
+
+### `onCellMouseDown(event)`
+
+Handle mousedown for drag operations or selection.
+
+```typescript
+override onCellMouseDown(event: CustomEvent): boolean {
+  const { row, field } = event.detail;
+
+  if (field === 'drag-handle') {
+    this.startDrag(row);
+    return true;
+  }
+
+  return false;
+}
+```
+
+### `onKeyDown(event)`
+
+Handle keyboard events. Return `true` to prevent default.
+
+```typescript
+override onKeyDown(event: KeyboardEvent): boolean {
+  if (event.ctrlKey && event.key === 'd') {
+    this.duplicateSelectedRow();
+    return true;
+  }
+
+  return false;
+}
+```
+
+### `onScroll(event)`
+
+Respond to scroll events (use sparingly - can impact performance).
+
+```typescript
+override onScroll(event: Event): void {
+  const scrollTop = (event.target as HTMLElement).scrollTop;
+  this.updateStickyElements(scrollTop);
+}
+```
+
+### `renderRow(row, rowEl, rowIndex)`
+
+Custom row rendering. Return `true` to skip default rendering.
+
+```typescript
+override renderRow(row: T, rowEl: HTMLElement, rowIndex: number): boolean {
+  if (row.type === 'section-header') {
+    rowEl.innerHTML = `<div class="section-header">${row.title}</div>`;
+    return true; // Skip normal cell rendering
+  }
+
+  return false; // Use default rendering
+}
+```
+
+## Injecting Styles
+
+Plugins can inject CSS into the grid's shadow DOM via the `styles` property:
+
+<Tabs>
+  <Tab label="External CSS File">
+
+```typescript
+// Import CSS as string (Vite)
+import styles from './my-plugin.css?inline';
+
+export class MyPlugin extends BaseGridPlugin {
+  override readonly styles = styles;
+}
+```
+
+```css
+/* my-plugin.css */
+.my-custom-class {
+  background: #f0f0f0;
+  border-left: 3px solid #1976d2;
+}
+```
+
+  </Tab>
+  <Tab label="Inline Styles">
+
+```typescript
+export class MyPlugin extends BaseGridPlugin {
+  override readonly styles = `
+    .my-custom-class {
+      background: #f0f0f0;
+      border-left: 3px solid #1976d2;
+    }
+
+    .my-custom-class:hover {
+      background: #e0e0e0;
+    }
+  `;
+}
+```
+
+  </Tab>
+</Tabs>
+
+## Accessing Grid State
+
+```typescript
+override afterRender(): void {
+  // Access current rows (after processing)
+  const rows = this.grid.rows;
+
+  // Access effective config
+  const config = this.grid.gridConfig;
+
+  // Access sort state
+  const sortState = this.grid.sortState;
+
+  // Access changed rows (editing)
+  const changes = this.grid.changedRows;
+
+  // Request a full re-render (internal API for plugins)
+  this.grid.requestRender();
+
+  // Request only afterRender hooks (lightweight update)
+  this.grid.requestAfterRender();
+}
+```
+
+## Plugin Communication
+
+Plugins can communicate via the grid's event system:
+
+```typescript
+// Plugin A: Dispatch custom event
+export class PluginA extends BaseGridPlugin {
+  doSomething(): void {
+    this.grid.dispatchEvent(new CustomEvent('plugin-a:action', {
+      detail: { data: 'hello' },
+    }));
+  }
+}
+
+// Plugin B: Listen for events
+export class PluginB extends BaseGridPlugin {
+  override attach(grid: DataGridElement): void {
+    super.attach(grid);
+
+    grid.addEventListener('plugin-a:action', (e: CustomEvent) => {
+      console.log('Received:', e.detail.data);
+    });
+  }
+}
+```
+
+## TypeScript Generics
+
+For type-safe row access, use generics:
+
+```typescript
+export class TypedPlugin<T extends { id: number }> extends BaseGridPlugin<{ idField: keyof T }> {
+  override processRows(rows: T[]): T[] {
+    const idField = this.config.idField;
+    return rows.filter(row => row[idField] != null);
+  }
+}
+
+// Usage
+new TypedPlugin<Employee>({ idField: 'employeeId' });
+```
+
+## Complete Example: Row Numbering Plugin
+
+```typescript
+import { BaseGridPlugin, type ColumnConfig } from '@toolbox-web/grid';
+
+interface RowNumberConfig {
+  header?: string;
+  width?: number;
+  startFrom?: number;
+}
+
+export class RowNumberPlugin extends BaseGridPlugin<RowNumberConfig> {
+  readonly name = 'rowNumber';
+  readonly version = '1.0.0';
+
+  override readonly styles = `
+    .row-number-cell {
+      color: #888;
+      font-size: 0.85em;
+      text-align: center;
+    }
+  `;
+
+  override processColumns(columns: ColumnConfig[]): ColumnConfig[] {
+    const { header = '#', width = 50, startFrom = 1 } = this.config;
+
+    // Prepend row number column
+    return [
+      {
+        field: '__rowNumber',
+        header,
+        width,
+        minWidth: 40,
+        maxWidth: 80,
+        resizable: false,
+        sortable: false,
+        renderer: (ctx) => {
+          const span = document.createElement('span');
+          span.className = 'row-number-cell';
+          span.textContent = String(ctx.rowIndex + startFrom);
+          return span;
+        },
+      },
+      ...columns,
+    ];
+  }
+}
+```
+
+## Best Practices
+
+1. **Always call `super`**: In `attach()` call it first, in `detach()` call it last
+2. **Use unique names**: Plugin `name` should be unique across all plugins
+3. **Clean up resources**: Remove event listeners and timers in `detach()`
+4. **Return modified data**: `processColumns` and `processRows` must return arrays
+5. **Use `ctx.signal`**: For automatic cleanup of event listeners in renderers
+6. **Avoid heavy operations**: Keep hooks fast, especially `onScroll` and `afterRender`
+7. **Document your config**: Use JSDoc comments for IDE support
+8. **Version your plugins**: Increment version when making breaking changes
+
+## Testing Plugins
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { RowNumberPlugin } from './row-number-plugin';
+
+describe('RowNumberPlugin', () => {
+  let plugin: RowNumberPlugin;
+
+  beforeEach(() => {
+    plugin = new RowNumberPlugin({ startFrom: 1 });
+  });
+
+  it('should add row number column', () => {
+    const columns = plugin.processColumns([
+      { field: 'name', header: 'Name' },
+    ]);
+
+    expect(columns).toHaveLength(2);
+    expect(columns[0].field).toBe('__rowNumber');
+  });
+});
+```

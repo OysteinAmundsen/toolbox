@@ -1,0 +1,424 @@
+{/* Troubleshooting.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../apps/storybook-app/.storybook/components/Tabs';
+
+<Meta title="Grid/Dev/Troubleshooting" />
+
+# Troubleshooting
+
+Solutions to common issues when working with `@toolbox-web/grid`.
+
+## Grid Not Rendering
+
+### Grid appears empty or collapsed
+
+**Problem**: The grid shows nothing or has zero height.
+
+**Solution**: The grid requires an explicit height for virtualization to work.
+
+```html
+<!-- ❌ Won't work - no height -->
+<tbw-grid></tbw-grid>
+
+<!-- ✅ Set height via style -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<!-- ✅ Or via CSS class -->
+<tbw-grid class="my-grid"></tbw-grid>
+
+<style>
+.my-grid {
+  height: 400px;
+  display: block; /* Important for some frameworks */
+}
+</style>
+```
+
+For non-virtualized mode (renders all rows), use `height: auto`:
+
+```html
+<tbw-grid style="height: auto;"></tbw-grid>
+```
+
+### Grid shows "No data" but rows are set
+
+**Problem**: You've set `rows` but the grid shows empty.
+
+**Causes**:
+1. Rows set before component is defined
+2. Columns don't match row data fields
+
+```typescript
+// ❌ Setting rows before import
+grid.rows = data;
+import '@toolbox-web/grid';
+
+// ✅ Import first, then configure
+import '@toolbox-web/grid';
+await customElements.whenDefined('tbw-grid');
+grid.rows = data;
+```
+
+Check that column `field` values match your data keys:
+
+```typescript
+// Data has 'firstName', not 'name'
+grid.rows = [{ id: 1, firstName: 'Alice' }];
+
+// ❌ Column field doesn't match
+grid.columns = [{ field: 'name', header: 'Name' }];
+
+// ✅ Field matches data key
+grid.columns = [{ field: 'firstName', header: 'Name' }];
+```
+
+## TypeScript Errors
+
+### "Property 'rows' does not exist on type 'HTMLElement'"
+
+**Solution**: Import the type or use type assertion:
+
+<Tabs>
+  <Tab label="Import Type">
+
+```typescript
+import '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid') as DataGridElement;
+grid.rows = [...]; // ✅ TypeScript knows about rows
+```
+
+  </Tab>
+  <Tab label="Inline Type">
+
+```typescript
+import '@toolbox-web/grid';
+import type { GridConfig } from '@toolbox-web/grid';
+
+interface Employee { id: number; name: string; }
+
+const grid = document.querySelector<HTMLElement & {
+  gridConfig: GridConfig<Employee>;
+  rows: Employee[]
+}>('tbw-grid')!;
+
+grid.rows = [...]; // ✅ Works
+```
+
+  </Tab>
+</Tabs>
+
+### Module not found: '@toolbox-web/grid/plugins/selection'
+
+**Solution**: Check your import path and ensure the package is installed:
+
+```typescript
+// ✅ Correct import paths
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+// ✅ Or import all from /all
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+```
+
+If using TypeScript, ensure your `tsconfig.json` has proper module resolution:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler", // or "node16"
+    "esModuleInterop": true
+  }
+}
+```
+
+## React Issues
+
+### "tbw-grid" is not a valid JSX element
+
+**Solution**: Declare the custom element for JSX:
+
+```typescript
+// In a global.d.ts or at top of component file
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'tbw-grid': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+    }
+  }
+}
+```
+
+Or use the `DataGrid` component from the React adapter:
+
+```typescript
+import { DataGrid } from '@toolbox-web/grid-react';
+
+// No type declaration needed
+<DataGrid rows={data} gridConfig={config} />
+```
+
+### Events not firing on DataGrid
+
+**Problem**: `onChange` or `onClick` don't work.
+
+**Solution**: Grid events use custom event names, not React synthetic events:
+
+```typescript
+// ❌ Won't work
+<DataGrid onChange={(e) => console.log(e)} />
+
+// ✅ Use grid-specific event props
+<DataGrid
+  onCellCommit={(e) => console.log(e.detail)}
+  onSortChange={(e) => console.log(e.detail)}
+/>
+
+// ✅ Or useGridEvent hook
+import { useGridEvent } from '@toolbox-web/grid-react';
+
+useGridEvent(gridRef, 'cell-commit', (e) => {
+  console.log(e.detail);
+});
+```
+
+## Angular Issues
+
+### "tbw-grid" is not a known element
+
+**Solution**: Add `CUSTOM_ELEMENTS_SCHEMA` to your component:
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+
+@Component({
+  selector: 'app-grid',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA], // Required!
+  template: `<tbw-grid></tbw-grid>`
+})
+export class GridComponent {}
+```
+
+### Property binding not working
+
+**Problem**: `[rows]="data"` doesn't update the grid.
+
+**Solution**: Import the `Grid` directive from the Angular adapter:
+
+```typescript
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid], // Enables property binding
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid [rows]="data" [gridConfig]="config"></tbw-grid>`
+})
+```
+
+## Event Issues
+
+### Events not firing
+
+**Problem**: `addEventListener` doesn't receive events.
+
+**Causes and solutions**:
+
+1. **Wrong event name**: Grid events use kebab-case:
+
+```typescript
+// ❌ Wrong
+grid.addEventListener('cellCommit', handler);
+grid.addEventListener('sortchange', handler);
+
+// ✅ Correct (kebab-case)
+grid.addEventListener('cell-commit', handler);
+grid.addEventListener('sort-change', handler);
+```
+
+2. **Listener added too late**:
+
+```typescript
+// ❌ Event might fire before listener is added
+grid.rows = data;
+grid.addEventListener('render-complete', handler);
+
+// ✅ Add listener first
+grid.addEventListener('render-complete', handler);
+grid.rows = data;
+```
+
+3. **Event bubbling**: Custom events don't bubble by default. Listen on the grid element itself, not a parent.
+
+### Event detail is undefined
+
+```typescript
+grid.addEventListener('cell-commit', (e) => {
+  console.log(e.detail); // undefined?
+});
+```
+
+**Solution**: Use `CustomEvent` type:
+
+```typescript
+grid.addEventListener('cell-commit', (e: CustomEvent) => {
+  console.log(e.detail); // ✅ Now typed
+});
+
+// Or with full typing
+import type { CellCommitDetail } from '@toolbox-web/grid';
+
+grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
+  const { row, field, value } = e.detail; // ✅ Fully typed
+});
+```
+
+## Plugin Issues
+
+### Plugin not working
+
+**Checklist**:
+
+1. **Plugin instantiated**: Pass `new Plugin()`, not the class:
+
+```typescript
+// ❌ Wrong - passing class, not instance
+plugins: [SelectionPlugin]
+
+// ✅ Correct - pass instance
+plugins: [new SelectionPlugin({ mode: 'row' })]
+```
+
+2. **Plugin imported**: Ensure import is from correct path:
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+// or
+import { SelectionPlugin } from '@toolbox-web/grid/all';
+```
+
+3. **Configuration valid**: Check plugin docs for required config options.
+
+### Plugins conflicting
+
+**Problem**: Two plugins don't work well together.
+
+**Solution**: Check plugin order - some plugins should come before others:
+
+```typescript
+plugins: [
+  new FilteringPlugin(),    // Filter first
+  new MultiSortPlugin(),    // Then sort
+  new GroupingRowsPlugin(), // Group the sorted results
+  new SelectionPlugin(),    // Track selection on final dataset
+]
+```
+
+## Styling Issues
+
+### Custom styles not applying
+
+**Problem**: CSS targeting `.data-grid-cell` doesn't work.
+
+**Cause**: The grid uses Shadow DOM, which encapsulates styles.
+
+**Solutions**:
+
+1. **Use CSS custom properties**:
+
+```css
+tbw-grid {
+  --tbw-row-hover-bg: #e0f7fa;
+  --tbw-cell-padding: 12px 16px;
+}
+```
+
+2. **Use `::part()` selectors** (limited):
+
+```css
+tbw-grid::part(header) {
+  background: #1976d2;
+  color: white;
+}
+```
+
+3. **Use custom renderers** for cell-level styling:
+
+```typescript
+renderer: (ctx) => {
+  const span = document.createElement('span');
+  span.style.color = ctx.value > 0 ? 'green' : 'red';
+  span.textContent = ctx.value;
+  return span;
+}
+```
+
+### Themes not loading
+
+**Problem**: Imported theme CSS has no effect.
+
+**Solution**: Ensure the import runs before the grid renders:
+
+```typescript
+// ✅ Import theme before grid setup
+import '@toolbox-web/grid/themes/dg-theme-material.css';
+import '@toolbox-web/grid';
+```
+
+Or in HTML:
+
+```html
+<link rel="stylesheet" href="node_modules/@toolbox-web/grid/themes/dg-theme-material.css">
+<script type="module" src="..."></script>
+```
+
+## Performance Issues
+
+### Slow initial render
+
+**Possible causes**:
+
+1. **Too many rows without virtualization**: Set a height
+2. **Many columns without column virtualization**: Add `ColumnVirtualizationPlugin`
+3. **Complex renderers**: Simplify or pre-compute values
+
+See the [Performance Guide](../?path=/docs/grid-performance--docs) for details.
+
+### Scroll stuttering
+
+**Solutions**:
+
+1. Reduce animation duration or disable:
+
+```typescript
+animation: { mode: 'off' }
+```
+
+2. Simplify cell renderers
+3. Add `ColumnVirtualizationPlugin` for many columns
+4. Check for layout thrashing in custom code
+
+## Still Stuck?
+
+1. **Check the console**: Look for error messages or warnings
+2. **Inspect the DOM**: Use browser DevTools to examine the shadow DOM
+3. **Minimal reproduction**: Create a minimal example to isolate the issue
+4. **Check GitHub Issues**: Someone may have encountered the same problem
+5. **Open an issue**: Provide a reproduction case for fastest help
+
+### Useful Debug Info
+
+When reporting issues, include:
+
+```typescript
+// Grid version
+import { version } from '@toolbox-web/grid';
+console.log('Grid version:', version);
+
+// Browser info
+console.log('User Agent:', navigator.userAgent);
+
+// Configuration
+console.log('Config:', JSON.stringify(grid.gridConfig, null, 2));
+console.log('Row count:', grid.rows.length);
+```

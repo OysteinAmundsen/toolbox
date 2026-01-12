@@ -1,16 +1,65 @@
+/* #region CSS Variables */
 :root {
+  /* Core theme */
   --sb-bg: light-dark(#fff, #1e1e1e);
   --sb-border: light-dark(#ddd, #444);
-  --tbw-code-bg: light-dark(#1e1e1e, #2d2d2d);
   --tbw-accent: light-dark(#2563eb, #3b82f6);
-}
 
+  /* Docs page */
+  --sbdocs-bg: light-dark(#fff, #1e1e1e);
+  --sbdocs-fg: light-dark(#2e3438, #c9d1d9);
+  --sbdocs-heading: light-dark(#1a1a1a, #e6e6e6);
+  --sbdocs-code-bg: light-dark(#f6f8fa, #2d2d2d);
+  --sbdocs-border: light-dark(#f6f8fa, #413f3f);
+  --sbdocs-table-bg: light-dark(#fafafa, #2a2d32);
+  --sbdocs-table-header: light-dark(#f0f0f0, #333);
+  --sbdocs-toc-link: light-dark(#555, #aaa);
+
+  /* Syntax highlighting (GitHub-style) */
+  --prism-fg: light-dark(#24292f, #e6e6e6);
+  --prism-comment: light-dark(#6a737d, #8b949e);
+  --prism-punctuation: light-dark(#24292f, #c9d1d9);
+  --prism-keyword: light-dark(#d73a49, #ff7b72);
+  --prism-string: light-dark(#032f62, #a5d6ff);
+  --prism-number: light-dark(#005cc5, #79c0ff);
+  --prism-function: light-dark(#6f42c1, #d2a8ff);
+  --prism-regex: light-dark(#e36209, #ffa657);
+
+  /* Args table */
+  --args-prop-name: light-dark(#c41d7f, #f472b6);
+  --args-type-badge: light-dark(#1677ff, #60a5fa);
+  --args-input-bg: light-dark(#fff, #2d2d2d);
+  --args-toggle-off: light-dark(#e0e0e0, #444);
+  --args-toggle-on: light-dark(#029cfd, #3b82f6);
+  --args-hover-bg: light-dark(#e0e0e0, #444);
+}
+/* #endregion */
+
+/* #region Base Styles & Dark Mode */
 html,
 body {
   background: var(--sb-bg);
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/*
+ * Dark mode toggle via color-scheme.
+ * The @vueless/storybook-dark-mode addon adds a 'dark' class
+ * to <html>, which triggers light-dark() to use dark values.
+ */
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+/* #endregion */
+
+/* #region Story Preview Components (.dg-*) */
+/*
+ * Used by performance.stories.ts for benchmark UI
+ */
 .dg-view-wrapper {
   position: relative;
   height: 100vh;
@@ -40,32 +89,25 @@ body {
   font-size: 13px;
   font-weight: 500;
 }
+
 .dg-toggle-btn:focus-visible {
   outline: 2px solid #133d82;
   outline-offset: 2px;
 }
 
-.dg-grid-container,
-.dg-code-container {
+.dg-grid-container {
   padding: 12px;
   box-sizing: border-box;
   flex: 1;
   min-height: 0;
-}
-
-.dg-code-container {
-  overflow: auto;
-}
-
-.dg-grid-container {
   display: grid;
   grid-template-rows: 1fr auto;
-  overflow: hidden; /* Grid handles its own scroll */
+  overflow: hidden;
 }
 
 .dg-grid-container > :first-child {
   min-height: 0;
-  min-width: 0; /* Allow shrinking for horizontal scroll */
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -73,30 +115,7 @@ body {
 .dg-grid-container > :first-child > tbw-grid {
   flex: 1;
   min-height: 0;
-  min-width: 0; /* Allow shrinking for horizontal scroll */
-}
-
-.dg-code-heading {
-  font-weight: 600;
-  margin: 0 0 4px 0;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  opacity: 0.75;
-}
-
-.dg-code-block {
-  margin: 0 0 16px 0;
-  background: var(--tbw-code-bg);
-  color: #e5e5e5;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow: auto;
-}
-.dg-code-block:last-of-type {
-  margin-bottom: 0;
+  min-width: 0;
 }
 
 .dg-description {
@@ -109,125 +128,45 @@ body {
   line-height: 1.5;
   color: light-dark(#374151, #d1d5db);
 }
+
 .dg-description p {
   margin: 0 0 8px 0;
 }
+
 .dg-description p:last-child {
   margin-bottom: 0;
 }
+
 .dg-description code {
   background: light-dark(#e5e7eb, #3f3f46);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
 }
+
 .dg-description ul,
 .dg-description ol {
   margin: 8px 0;
   padding-left: 20px;
 }
+
 .dg-description li {
   margin: 4px 0;
 }
+/* #endregion */
 
-/* ============================================
-   Dark Mode: Set color-scheme based on class
-   The @vueless/storybook-dark-mode addon adds
-   a 'dark' class to <html> when in dark mode.
-   This triggers all light-dark() functions to
-   use their dark values automatically.
-   ============================================ */
-html {
-  color-scheme: light;
-}
-
-html.dark {
-  color-scheme: dark;
-}
-
-/* ============================================
-   Storybook Docs Overrides
-   Storybook's Emotion CSS uses hardcoded colors.
-   Force them to use our CSS variables which
-   respect the color-scheme property.
-   ============================================ */
-:root {
-  --sbdocs-bg: light-dark(#fff, #1e1e1e);
-  --sbdocs-fg: light-dark(#2e3438, #c9d1d9);
-  --sbdocs-heading: light-dark(#1a1a1a, #e6e6e6);
-  --sbdocs-code-bg: light-dark(#f6f8fa, #2d2d2d);
-  --sbdocs-border: light-dark(#f6f8fa, #413f3f);
-  --sbdocs-table-bg: light-dark(#fafafa, #2a2d32);
-  --sbdocs-table-header: light-dark(#f0f0f0, #333);
-  --sbdocs-toc-bg: light-dark(#f8f9fa, #1a1a1a);
-  --sbdocs-toc-link: light-dark(#555, #aaa);
-}
-
+/* #region Docs Page Overrides (.sbdocs-*) */
+/*
+ * Override Storybook's hardcoded Emotion styles for dark mode support
+ */
 .sbdocs-wrapper {
   background: var(--sbdocs-bg) !important;
 }
 
-/* Canvas/Story preview containers */
-.sbdocs-content > div {
-  background: var(--sbdocs-bg) !important;
-  border-color: var(--sb-border) !important;
-}
-
-/* Canvas inner zoom wrapper */
-.innerZoomElementWrapper,
-.innerZoomElementWrapper > div {
-  background: transparent !important;
-}
-
-/* Canvas toolbar (zoom buttons, fullscreen link) - target by structure and aria-labels */
-.sbdocs-content button[aria-label='Zoom in'],
-.sbdocs-content button[aria-label='Zoom out'],
-.sbdocs-content button[aria-label='Reset zoom'],
-.sbdocs-content a[aria-label='Open canvas in new tab'] {
+.sbdocs-content {
   color: var(--sbdocs-fg) !important;
 }
 
-.sbdocs-content button[aria-label='Zoom in']:hover,
-.sbdocs-content button[aria-label='Zoom out']:hover,
-.sbdocs-content button[aria-label='Reset zoom']:hover,
-.sbdocs-content a[aria-label='Open canvas in new tab']:hover {
-  background: light-dark(#e0e0e0, #444) !important;
-}
-
-/* Canvas toolbar container - parent of zoom buttons */
-.sbdocs-content button[aria-label='Zoom in']:is(:first-child) ~ *,
-.sbdocs-content [aria-label='Zoom in'] {
-  color: var(--sbdocs-fg) !important;
-}
-
-/* Story preview frame - target via nesting under sbdocs-content */
-.sbdocs-content > div {
-  background: var(--sbdocs-bg) !important;
-  border-color: var(--sb-border) !important;
-}
-
-/* Nested containers in story previews */
-.sbdocs-content > div > div {
-  background: var(--sbdocs-bg) !important;
-}
-
-/* "Show code" toggle button and its container */
-.docblock-code-toggle {
-  background: var(--sbdocs-bg) !important;
-  color: var(--sbdocs-fg) !important;
-  border-color: var(--sb-border) !important;
-}
-
-.docblock-code-toggle:hover {
-  background: light-dark(#f0f0f0, #333) !important;
-}
-
-/* Container holding the "Show code" button */
-.docblock-code-toggle:is(:only-child) {
-  background: var(--sbdocs-bg) !important;
-}
-
-.sbdocs-content,
 .sbdocs-content p,
 .sbdocs-content li,
 .sbdocs-content strong {
@@ -245,91 +184,52 @@ html.dark {
   color: var(--tbw-accent) !important;
 }
 
-.sbdocs-content code {
-  background: var(--sbdocs-code-bg) !important;
-  color: var(--sbdocs-fg) !important;
-  border-color: var(--sbdocs-border) !important;
-}
-
-/* Code blocks - wrapper and content */
-.sbdocs-content .docblock-source {
-  background: var(--sbdocs-code-bg) !important;
+/* Story preview containers */
+.sbdocs-content > div,
+.sbdocs-content > div > div {
+  background: var(--sbdocs-bg) !important;
   border-color: var(--sb-border) !important;
 }
 
-.sbdocs-content .docblock-source pre,
-.sbdocs-content .docblock-source pre.prismjs {
-  background: var(--sbdocs-code-bg) !important;
-  color: light-dark(#24292f, #e6e6e6) !important;
+.innerZoomElementWrapper,
+.innerZoomElementWrapper > div {
+  background: transparent !important;
 }
 
-/* Prism token colors - use syntax highlighting that works in both modes */
-.sbdocs-content .token.comment,
-.sbdocs-content .token.prolog,
-.sbdocs-content .token.doctype,
-.sbdocs-content .token.cdata {
-  color: light-dark(#6a737d, #8b949e) !important;
+/* Canvas toolbar buttons */
+.sbdocs-content button[aria-label='Zoom in'],
+.sbdocs-content button[aria-label='Zoom out'],
+.sbdocs-content button[aria-label='Reset zoom'],
+.sbdocs-content a[aria-label='Open canvas in new tab'],
+.sbdocs-content [aria-label='Zoom in'] {
+  color: var(--sbdocs-fg) !important;
 }
 
-.sbdocs-content .token.punctuation {
-  color: light-dark(#24292f, #c9d1d9) !important;
+.sbdocs-content button[aria-label='Zoom in']:hover,
+.sbdocs-content button[aria-label='Zoom out']:hover,
+.sbdocs-content button[aria-label='Reset zoom']:hover,
+.sbdocs-content a[aria-label='Open canvas in new tab']:hover {
+  background: var(--args-hover-bg) !important;
 }
 
-.sbdocs-content .token.property,
-.sbdocs-content .token.tag,
-.sbdocs-content .token.boolean,
-.sbdocs-content .token.number,
-.sbdocs-content .token.constant,
-.sbdocs-content .token.symbol {
-  color: light-dark(#005cc5, #79c0ff) !important;
-}
-
-.sbdocs-content .token.selector,
-.sbdocs-content .token.attr-name,
-.sbdocs-content .token.string,
-.sbdocs-content .token.char,
-.sbdocs-content .token.builtin {
-  color: light-dark(#032f62, #a5d6ff) !important;
-}
-
-.sbdocs-content .token.operator,
-.sbdocs-content .token.entity,
-.sbdocs-content .token.url,
-.sbdocs-content .token.variable {
-  color: light-dark(#d73a49, #ff7b72) !important;
-}
-
-.sbdocs-content .token.atrule,
-.sbdocs-content .token.attr-value,
-.sbdocs-content .token.keyword {
-  color: light-dark(#d73a49, #ff7b72) !important;
-}
-
-.sbdocs-content .token.function,
-.sbdocs-content .token.class-name {
-  color: light-dark(#6f42c1, #d2a8ff) !important;
-}
-
-.sbdocs-content .token.regex,
-.sbdocs-content .token.important {
-  color: light-dark(#e36209, #ffa657) !important;
-}
-
+/* Tables in docs */
 .sbdocs-content table {
   border-color: var(--sb-border) !important;
 }
 
-.sbdocs-content th,
-.sbdocs-content td {
+.sbdocs-content th {
+  background: var(--sbdocs-table-header) !important;
   border-color: var(--sb-border) !important;
-  background: var(--sbdocs-table-bg) !important;
   color: var(--sbdocs-fg) !important;
 }
 
-.sbdocs-content th {
-  background: var(--sbdocs-table-header) !important;
+.sbdocs-content td {
+  background: var(--sbdocs-table-bg) !important;
+  border-color: var(--sb-border) !important;
+  color: var(--sbdocs-fg) !important;
 }
 
+/* Table of Contents sidebar */
 .sbdocs-toc--custom {
   background: transparent !important;
 }
@@ -338,7 +238,6 @@ html.dark {
   color: var(--sbdocs-fg) !important;
 }
 
-/* TOC left border line */
 .sbdocs-toc--custom .toc-list {
   border-left-color: light-dark(rgb(236, 242, 249), #333) !important;
 }
@@ -350,13 +249,96 @@ html.dark {
 .sbdocs-toc--custom a.is-active-link {
   color: var(--tbw-accent) !important;
 }
+/* #endregion */
+
+/* #region Code Blocks & Syntax Highlighting */
+/* Inline code */
+.sbdocs-content code {
+  background: var(--sbdocs-code-bg) !important;
+  color: var(--sbdocs-fg) !important;
+  border-color: var(--sbdocs-border) !important;
+}
+
+/* "Show code" toggle button */
+.docblock-code-toggle {
+  background: var(--sbdocs-bg) !important;
+  color: var(--sbdocs-fg) !important;
+  border-color: var(--sb-border) !important;
+}
+
+.docblock-code-toggle:hover {
+  background: light-dark(#f0f0f0, #333) !important;
+}
+
+/* Code block container */
+.sbdocs-content .docblock-source {
+  background: var(--sbdocs-code-bg) !important;
+  border-color: var(--sb-border) !important;
+}
+
+.sbdocs-content .docblock-source pre,
+.sbdocs-content .docblock-source pre.prismjs {
+  background: var(--sbdocs-code-bg) !important;
+  color: var(--prism-fg) !important;
+}
 
 .sbdocs-content .docblock-source button {
   background: light-dark(#e1e4e8, #30363d) !important;
   color: var(--sbdocs-fg) !important;
 }
 
-/* ===== Args Table / Controls Panel ===== */
+/* #region Prism Tokens */
+.sbdocs-content .token.comment,
+.sbdocs-content .token.prolog,
+.sbdocs-content .token.doctype,
+.sbdocs-content .token.cdata {
+  color: var(--prism-comment) !important;
+}
+
+.sbdocs-content .token.punctuation {
+  color: var(--prism-punctuation) !important;
+}
+
+.sbdocs-content .token.property,
+.sbdocs-content .token.tag,
+.sbdocs-content .token.boolean,
+.sbdocs-content .token.number,
+.sbdocs-content .token.constant,
+.sbdocs-content .token.symbol {
+  color: var(--prism-number) !important;
+}
+
+.sbdocs-content .token.selector,
+.sbdocs-content .token.attr-name,
+.sbdocs-content .token.string,
+.sbdocs-content .token.char,
+.sbdocs-content .token.builtin {
+  color: var(--prism-string) !important;
+}
+
+.sbdocs-content .token.operator,
+.sbdocs-content .token.entity,
+.sbdocs-content .token.url,
+.sbdocs-content .token.variable,
+.sbdocs-content .token.atrule,
+.sbdocs-content .token.attr-value,
+.sbdocs-content .token.keyword {
+  color: var(--prism-keyword) !important;
+}
+
+.sbdocs-content .token.function,
+.sbdocs-content .token.class-name {
+  color: var(--prism-function) !important;
+}
+
+.sbdocs-content .token.regex,
+.sbdocs-content .token.important {
+  color: var(--prism-regex) !important;
+}
+/* #endregion Prism Tokens */
+/* #endregion Code Blocks & Syntax Highlighting */
+
+/* #region Args Table / Controls Panel */
 .docblock-argstable {
   background: var(--sbdocs-bg) !important;
 }
@@ -378,24 +360,32 @@ html.dark {
   border-color: var(--sb-border) !important;
 }
 
-/* Category/group header rows (DATA, LAYOUT, etc.) */
+/* Override Storybook's hardcoded white backgrounds */
+.docblock-argstable tbody > tr > td,
+.docblock-argstable tbody > tr > th,
+[class*='css-'] tbody > tr > td,
+[class*='css-'] tbody > tr > th {
+  background: var(--sbdocs-bg) !important;
+  color: var(--sbdocs-fg) !important;
+}
+
+/* Category/group header rows */
 .docblock-argstable-body tr[title] td {
   background: var(--sbdocs-table-header) !important;
 }
 
-/* Only style the visible span, not the invisible button overlay */
 .docblock-argstable-body tr[title] td > span {
   color: var(--sbdocs-fg) !important;
 }
 
-/* Property name - first column spans in data rows */
+/* Property names */
 .docblock-argstable-body td:first-child span {
-  color: light-dark(#c41d7f, #f472b6) !important;
+  color: var(--args-prop-name) !important;
 }
 
-/* Type badges - description column */
+/* Type badges */
 .docblock-argstable-body td:nth-child(2) span {
-  color: light-dark(#1677ff, #60a5fa) !important;
+  color: var(--args-type-badge) !important;
 }
 
 /* Reset description text color */
@@ -403,58 +393,54 @@ html.dark {
   color: var(--sbdocs-fg) !important;
 }
 
-/* Input fields - textareas */
+/* Default value column */
+.docblock-argstable-body td:nth-of-type(3) span {
+  color: var(--sbdocs-fg) !important;
+}
+
+/* #region Args Table Inputs */
+/* Input fields */
 .docblock-argstable textarea {
-  background: light-dark(#fff, #2d2d2d) !important;
+  background: var(--args-input-bg) !important;
   color: var(--sbdocs-fg) !important;
   border-color: var(--sb-border) !important;
 }
 
-/* Toggle switches - labels with role=switch inside */
+/* Toggle switches */
 .docblock-argstable label:has(input[role='switch']) {
-  background: light-dark(#e0e0e0, #444) !important;
+  background: var(--args-toggle-off) !important;
 }
 
 .docblock-argstable label:has(input[role='switch']:checked) {
-  background: light-dark(#029cfd, #3b82f6) !important;
+  background: var(--args-toggle-on) !important;
 }
 
 .docblock-argstable label:has(input[role='switch']) span {
   color: light-dark(#666, #aaa) !important;
 }
 
-/* Radio buttons and checkboxes - labels containing input[type] */
+/* Radio buttons and checkboxes */
 .docblock-argstable label:has(input[type='radio']) span,
 .docblock-argstable label:has(input[type='checkbox']) span {
   color: var(--sbdocs-fg) !important;
 }
 
-/* Range slider */
+/* Range sliders */
 .docblock-argstable input[type='range'] {
-  accent-color: light-dark(#029cfd, #3b82f6);
+  accent-color: var(--args-toggle-on);
 }
 
-/* Range slider track (Firefox) */
 .docblock-argstable input[type='range']::-moz-range-track {
   background: light-dark(#d1d5db, #4b5563);
 }
 
-/* Range slider thumb */
-.docblock-argstable input[type='range']::-webkit-slider-thumb {
-  cursor: pointer;
-}
-
+.docblock-argstable input[type='range']::-webkit-slider-thumb,
 .docblock-argstable input[type='range']::-moz-range-thumb {
   cursor: pointer;
 }
 
-/* Range slider value labels - siblings of the input */
 .docblock-argstable input[type='range'] ~ span,
-.docblock-argstable input[type='range'] + span {
-  color: var(--sbdocs-fg) !important;
-}
-
-/* Min value label before slider */
+.docblock-argstable input[type='range'] + span,
 .docblock-argstable label:has(input[type='range']) span:first-of-type {
   color: var(--sbdocs-fg) !important;
 }
@@ -465,19 +451,91 @@ html.dark {
 }
 
 .docblock-argstable button[aria-label='Reset controls']:hover {
-  background: light-dark(#e0e0e0, #444) !important;
+  background: var(--args-hover-bg) !important;
+}
+/* #endregion Args Table Inputs */
+/* #endregion Args Table / Controls Panel */
+
+/* #region Custom Components */
+
+/* #region Tabs (.sb-tabs) */
+/*
+ * Used in MDX documentation for framework-specific examples
+ */
+.sb-tabs {
+  margin: 1rem 0;
 }
 
-/* Default value column - the 3rd td with the value display */
-.docblock-argstable-body td:nth-of-type(3) span {
-  color: var(--sbdocs-fg) !important;
+.sb-tabs__nav {
+  display: flex;
+  border-bottom: 1px solid var(--sb-border);
+  margin: 0;
+  padding: 0;
 }
 
-/* Args table rows - override Storybook's hardcoded white background */
-.docblock-argstable tbody > tr > td,
-.docblock-argstable tbody > tr > th,
-[class*='css-'] tbody > tr > td,
-[class*='css-'] tbody > tr > th {
-  background: var(--sbdocs-bg) !important;
-  color: var(--sbdocs-fg) !important;
+.sb-tabs__tab {
+  flex: 0 0 auto;
+  margin: 0;
+  border: none;
 }
+
+.sb-tabs__tab summary {
+  padding: 0.625rem 1.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  list-style: none;
+  user-select: none;
+  color: light-dark(#666, #999);
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.sb-tabs__tab summary::-webkit-details-marker {
+  display: none;
+}
+
+.sb-tabs__tab summary:hover {
+  color: light-dark(#333, #fff);
+}
+
+.sb-tabs__tab[open] summary {
+  color: var(--tbw-accent);
+  border-bottom-color: var(--tbw-accent);
+}
+
+.sb-tabs__icon {
+  font-size: 1.1em;
+}
+
+.sb-tabs__panels {
+  position: relative;
+  border: 1px solid var(--sb-border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.sb-tabs__panel {
+  padding: 1rem;
+}
+
+.sb-tabs__panel[hidden] {
+  display: block !important;
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  position: absolute;
+  pointer-events: none;
+}
+/* #endregion Tabs (.sb-tabs) */
+
+/* #endregion Custom Components */

@@ -52,12 +52,14 @@ All libraries in this suite are built as **standard web components** (custom ele
 
 - **`libs/grid/`** - First library in suite; single `<tbw-grid>` component with extensive internal modules
 - **`libs/grid-angular/`** - Angular adapter library (`@toolbox-web/grid-angular`) with directives for template-driven column renderers/editors
+- **`libs/grid-react/`** - React adapter library (`@toolbox-web/grid-react`) with DataGrid component, hooks, and JSX renderer/editor support
 - **`libs/*/`** - Additional component libraries will follow same pure TypeScript + web standards pattern
 - **`apps/storybook-app/`** - Unified Storybook for all components with live HMR via Vite
 - **`libs/themes/`** - Shared CSS theme system (currently Grid themes; will expand for suite-wide theming)
 - **`demos/employee-management/`** - Full-featured demo applications showcasing the grid:
   - `vanilla/` - Pure TypeScript/Vite demo (`demo-vanilla` project)
   - `angular/` - Angular demo using grid-angular adapter (`demo-angular` project)
+  - `react/` - React demo using grid-react adapter (`demo-react` project)
   - `shared/` - Shared types and mock data used by both demos
 
 ### Grid Component Architecture
@@ -84,31 +86,26 @@ The Angular adapter library provides directives for seamless Angular integration
 **Exported Directives:**
 
 - **`Grid`** - Auto-registers `AngularGridAdapter` on `<tbw-grid>` elements, enabling Angular template rendering
-- **`GridColumnView`** - Captures `<ng-template>` for custom cell renderers with typed context (`GridCellContext`)
-- **`GridColumnEditor`** - Captures `<ng-template>` for custom cell editors with commit/cancel support (`GridEditorContext`)
+- **`TbwRenderer`** - Structural directive (`*tbwRenderer`) for clean cell renderer syntax
+- **`TbwEditor`** - Structural directive (`*tbwEditor`) for clean cell editor syntax with auto-wired commit/cancel
+- **`GridColumnView`** / **`GridColumnEditor`** - Alternative nested element syntax with explicit `<ng-template>`
 
 **Usage Example:**
 
 ```typescript
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { Grid, GridColumnView, GridColumnEditor } from '@toolbox-web/grid-angular';
+import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 
 @Component({
-  imports: [Grid, GridColumnView, GridColumnEditor],
+  imports: [Grid, TbwRenderer, TbwEditor],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [rows]="data" [gridConfig]="config">
       <tbw-grid-column field="status">
-        <tbw-grid-column-view>
-          <ng-template let-value let-row="row">
-            <app-status-badge [value]="value" [row]="row" />
-          </ng-template>
-        </tbw-grid-column-view>
-        <tbw-grid-column-editor>
-          <ng-template let-value let-commit="commit" let-cancel="cancel">
-            <app-status-select [value]="value" (valueChange)="commit.emit($event)" />
-          </ng-template>
-        </tbw-grid-column-editor>
+        <!-- Clean structural directive syntax -->
+        <app-status-badge *tbwRenderer="let value; row as row" [value]="value" [row]="row" />
+        <!-- Editor with auto-wired commit/cancel outputs -->
+        <app-status-select *tbwEditor="let value" [value]="value" />
       </tbw-grid-column>
     </tbw-grid>
   `
@@ -121,6 +118,59 @@ export class GridComponent { ... }
 - Auto-adapter registration via `Grid` directive (no manual setup)
 - Template context provides `value`, `row`, `column`, and for editors: `commit`/`cancel` emitters
 - Works with Angular 17+ (standalone components)
+
+### React Adapter (`@toolbox-web/grid-react`)
+
+The React adapter library provides a complete React integration for `<tbw-grid>`:
+
+**Exported Components:**
+
+- **`DataGrid`** - Main component wrapper with React props and event handlers
+- **`GridColumn`** - Declarative column definition with render props
+- **`GridDetailPanel`** - Master-detail panels with React content
+- **`GridToolPanel`** - Custom sidebar panels
+- **`GridToolButtons`** - Toolbar button container
+
+**Exported Hooks:**
+
+- **`useGrid`** - Programmatic grid access (forceLayout, getConfig, etc.)
+- **`useGridEvent`** - Type-safe event subscription with auto-cleanup
+
+**Exported Types:**
+
+- **`ReactGridConfig`** - Extends `GridConfig` with `renderer` and `editor` accepting React components
+- **`ReactColumnConfig`** - Column config with React renderer/editor support
+
+**Usage Example:**
+
+```tsx
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { SelectionPlugin } from '@toolbox-web/grid/all';
+
+const config: ReactGridConfig<Employee> = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    {
+      field: 'status',
+      header: 'Status',
+      renderer: (ctx) => <StatusBadge value={ctx.value} />,
+      editor: (ctx) => <StatusSelect value={ctx.value} onCommit={ctx.commit} />,
+    },
+  ],
+  plugins: [new SelectionPlugin({ mode: 'row' })],
+};
+
+function App() {
+  return <DataGrid rows={employees} gridConfig={config} />;
+}
+```
+
+**Key Features:**
+
+- Inline React renderers/editors via `ReactGridConfig`
+- Auto-adapter registration (no manual setup)
+- Type-safe event handling via props or hooks
+- Full TypeScript generics support
 
 ### Configuration Precedence System (Single Source of Truth)
 
@@ -468,10 +518,12 @@ if (selection) {
 - **`libs/grid/src/lib/core/plugin/`** - Plugin system (registry, hooks, state management)
 - **`libs/grid/src/lib/plugins/`** - Individual plugin implementations
 - **`libs/grid/vite.config.ts`** - Vite build configuration with plugin bundling
-- **`libs/grid-angular/src/index.ts`** - Angular adapter exports (Grid, GridColumnView, GridColumnEditor directives)
+- **`libs/grid-angular/src/index.ts`** - Angular adapter exports (Grid, TbwRenderer, TbwEditor directives)
+- **`libs/grid-react/src/index.ts`** - React adapter exports (DataGrid, GridColumn, hooks)
 - **`demos/employee-management/shared/`** - Shared demo types, data, and utilities
 - **`demos/employee-management/vanilla/`** - Vanilla TypeScript demo application
 - **`demos/employee-management/angular/`** - Angular demo application
+- **`demos/employee-management/react/`** - React demo application
 - **`tsconfig.base.json`** - Workspace-wide TypeScript paths
 - **`nx.json`** - Nx workspace config with plugins and target defaults
 - **`.github/workflows/ci.yml`** - CI pipeline (Bun-based)

@@ -163,20 +163,28 @@ The grid includes a shell wrapper for toolbar, tool panels, and status bar.
 ## Methods
 
 ```ts
-// Refresh the grid display
-grid.requestRefresh();
+// Wait for grid to be ready
+await grid.ready();
 
-// Full re-render
-grid.requestRefresh({ full: true });
+// Force layout recalculation
+await grid.forceLayout();
 
-// Auto-size column to content
-grid.autoSizeColumn('fieldName');
+// Get current configuration (readonly)
+const config = await grid.getConfig();
 
-// Auto-size all columns
-grid.autoSizeAllColumns();
+// Column visibility
+grid.setColumnVisible('fieldName', false);
+grid.toggleColumnVisibility('fieldName');
+const visible = grid.isColumnVisible('fieldName');
+
+// Column state persistence
+const state = grid.getColumnState();
+grid.columnState = savedState;
+grid.resetColumnState();
 
 // Editing
-grid.startEdit(rowIndex, 'fieldName');
-grid.commitEdit();
-grid.cancelEdit();
+await grid.beginBulkEdit(rowIndex);
+await grid.commitActiveRowEdit();
+await grid.cancelActiveRowEdit();
+await grid.resetChangedRows();
 ```

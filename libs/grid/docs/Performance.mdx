@@ -1,0 +1,294 @@
+{/* Performance.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Dev/Performance" />
+
+# Performance Guide
+
+This guide covers best practices for optimizing `@toolbox-web/grid` performance with large datasets and complex configurations.
+
+## Row Virtualization
+
+The grid uses **row virtualization** by default, rendering only visible rows plus a configurable overscan buffer. This enables smooth scrolling with very large datasets.
+
+### How It Works
+
+```
+┌─────────────────────────────────────┐
+│ ▲ Overscan (8 rows above viewport)  │  ← Rendered but hidden
+├─────────────────────────────────────┤
+│                                     │
+│        Visible Viewport             │  ← Rendered and visible
+│        (~20-30 rows)                │
+│                                     │
+├─────────────────────────────────────┤
+│ ▼ Overscan (8 rows below viewport)  │  ← Rendered but hidden
+└─────────────────────────────────────┘
+│                                     │
+│    Virtual rows (not rendered)      │  ← Only calculated, no DOM
+│                                     │
+```
+
+### Configuration
+
+```typescript
+// Virtualization is automatic when height is set
+grid.style.height = '400px';
+
+// To disable virtualization (renders all rows)
+grid.style.height = 'auto';
+```
+
+## Column Virtualization
+
+For grids with many columns (20+), enable the **ColumnVirtualizationPlugin**:
+
+```typescript
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/all';
+
+grid.gridConfig = {
+  columns: Array.from({ length: 100 }, (_, i) => ({
+    field: `col${i}`,
+    header: `Column ${i}`,
+  })),
+  plugins: [
+    new ColumnVirtualizationPlugin({
+      overscan: 3, // Columns to render beyond viewport
+    }),
+  ],
+};
+```
+
+### When to Use
+
+| Columns | Recommendation                          |
+| ------- | --------------------------------------- |
+| < 15    | No column virtualization needed         |
+| 15-30   | Consider if performance issues arise    |
+| 30+     | Strongly recommended                    |
+| 100+    | Required for acceptable performance     |
+
+## Optimizing Renderers
+
+Custom cell renderers run frequently during scrolling. Follow these guidelines:
+
+### ✅ Good: Simple DOM Creation
+
+```typescript
+renderer: (ctx) => {
+  const span = document.createElement('span');
+  span.className = 'status-badge';
+  span.textContent = ctx.value;
+  return span;
+}
+```
+
+### ❌ Bad: Complex Operations in Renderer
+
+```typescript
+renderer: (ctx) => {
+  // Avoid heavy computation
+  const processed = expensiveCalculation(ctx.row);
+
+  // Avoid network requests
+  fetch(`/api/details/${ctx.row.id}`); // Never do this!
+
+  // Avoid querying the DOM
+  const parent = document.querySelector('.some-parent');
+
+  return document.createElement('span');
+}
+```
+
+### Best Practices
+
+1. **Pre-compute data**: Do heavy processing before passing to grid
+2. **Use CSS**: Prefer CSS classes over inline style manipulation
+3. **Avoid closures**: Don't capture large objects in renderer closures
+4. **Cache references**: Reuse DOM element templates when possible
+
+```typescript
+// Pre-compute display values
+const rows = rawData.map(row => ({
+  ...row,
+  displayStatus: formatStatus(row.status),
+  displayDate: formatDate(row.createdAt),
+}));
+
+grid.rows = rows;
+```
+
+## Optimizing Editors
+
+Editors are created on-demand when a cell enters edit mode.
+
+### Efficient Pattern
+
+```typescript
+editor: (ctx) => {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = ctx.value;
+
+  // Use event delegation
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') ctx.commit(input.value);
+    if (e.key === 'Escape') ctx.cancel();
+  });
+
+  // Auto-focus
+  requestAnimationFrame(() => input.focus());
+
+  return input;
+}
+```
+
+## Memory Management
+
+### Avoid Memory Leaks
+
+```typescript
+// ❌ Bad: Event listeners not cleaned up
+renderer: (ctx) => {
+  const button = document.createElement('button');
+  window.addEventListener('resize', handleResize); // Leak!
+  return button;
+}
+
+// ✅ Good: Use ctx.signal for cleanup
+renderer: (ctx) => {
+  const button = document.createElement('button');
+  window.addEventListener('resize', handleResize, {
+    signal: ctx.signal // Automatically aborted when cell is recycled
+  });
+  return button;
+}
+```
+
+### Large Datasets
+
+For very large datasets, consider:
+
+1. **Pagination**: Load data in pages via ServerSidePlugin
+2. **Lazy loading**: Fetch rows on-demand as user scrolls
+3. **Data windowing**: Keep only visible data + buffer in memory
+
+```typescript
+import { ServerSidePlugin } from '@toolbox-web/grid/all';
+
+grid.gridConfig = {
+  plugins: [
+    new ServerSidePlugin({
+      fetchRows: async ({ startRow, endRow, sortModel, filterModel }) => {
+        const response = await fetch(`/api/employees?start=${startRow}&end=${endRow}`);
+        const { rows, totalRows } = await response.json();
+        return { rows, totalRows };
+      },
+      blockSize: 100, // Fetch 100 rows at a time
+    }),
+  ],
+};
+```
+
+## Plugin Performance
+
+### Plugin Order Matters
+
+Plugins process in array order. Put filtering before sorting for efficiency:
+
+```typescript
+plugins: [
+  new FilteringPlugin(),  // First: reduce row count
+  new MultiSortPlugin(),  // Then: sort filtered results
+  new SelectionPlugin(),  // Last: track selection on final set
+]
+```
+
+### Disable Unused Features
+
+Only include plugins you need:
+
+```typescript
+// ❌ Loading all plugins
+import {
+  SelectionPlugin, FilteringPlugin, SortPlugin,
+  GroupingPlugin, TreePlugin, PivotPlugin, // Not using these!
+} from '@toolbox-web/grid/all';
+
+// ✅ Import only what you use
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+```
+
+## Animation Performance
+
+Animations can impact scroll performance. Configure appropriately:
+
+```typescript
+grid.gridConfig = {
+  animation: {
+    mode: 'reduced-motion', // Respects user preference
+    duration: 150,          // Keep under 200ms
+  },
+  plugins: [
+    // Disable animations on frequently-triggered features
+    new TreePlugin({ animation: false }),
+    new MasterDetailPlugin({ animation: 'fade' }), // Lighter than 'slide'
+  ],
+};
+```
+
+## Measuring Performance
+
+### Browser DevTools
+
+1. Open Chrome DevTools → Performance tab
+2. Record while scrolling
+3. Look for:
+   - Long tasks (> 50ms)
+   - Layout thrashing
+   - Excessive paint operations
+
+### Grid Metrics
+
+```typescript
+// Log render timing
+grid.addEventListener('render-complete', (e) => {
+  console.log('Render time:', e.detail.duration);
+});
+
+// Monitor scroll performance
+let lastScroll = performance.now();
+grid.shadowRoot?.querySelector('.scroll-container')?.addEventListener('scroll', () => {
+  const now = performance.now();
+  const fps = 1000 / (now - lastScroll);
+  if (fps < 30) console.warn('Low FPS:', fps);
+  lastScroll = now;
+});
+```
+
+## Performance Checklist
+
+- [ ] Set explicit height for virtualization
+- [ ] Use ColumnVirtualizationPlugin for 20+ columns
+- [ ] Pre-compute derived values outside renderers
+- [ ] Use `ctx.signal` for event listener cleanup
+- [ ] Import plugins individually, not from `/all`
+- [ ] Use ServerSidePlugin for very large datasets
+- [ ] Keep animation durations under 200ms
+- [ ] Test with production data volumes
+
+## Interactive Benchmarks
+
+We provide an interactive benchmark story that you can run in your own environment to measure actual performance characteristics on your hardware.
+
+**[Run Benchmarks →](../?path=/story/grid-benchmarks--performance-stress-test)**
+
+The benchmark suite tests:
+
+- **Initial Render**: Time to first paint with various row/column counts
+- **Scroll Performance**: Frame rates during rapid scrolling
+- **Operations**: Sorting, filtering, selection performance
+- **Memory Usage**: Heap allocation patterns
+
+> **Note**: Performance varies significantly based on hardware, browser, data complexity, and custom renderers. Always test with your actual data and configuration.

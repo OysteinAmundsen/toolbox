@@ -1174,10 +1174,10 @@ grid.registerToolPanel({
 /**
  * ## Toolbar Buttons
  *
- * Toolbar buttons can be configured via:
- * 1. `gridConfig.shell.header.toolbarButtons` - static config
- * 2. `grid.registerToolbarButton()` - dynamic API
- * 3. Light DOM `<tbw-grid-tool-button>` elements
+ * Toolbar buttons are provided via light-DOM HTML using the `<tbw-grid-tool-buttons>` container.
+ * The grid does NOT create buttons - developers have full control over button HTML.
+ *
+ * Put your buttons inside the container element:
  */
 export const ShellToolbarButtons: StoryObj = {
   argTypes: {
@@ -1195,8 +1195,14 @@ export const ShellToolbarButtons: StoryObj = {
     docs: {
       source: {
         code: `
-<!-- HTML -->
-<tbw-grid></tbw-grid>
+<!-- HTML - Toolbar buttons via light-DOM container -->
+<tbw-grid>
+  <tbw-grid-header title="Toolbar Demo"></tbw-grid-header>
+  <tbw-grid-tool-buttons>
+    <button class="tbw-toolbar-btn" title="Export" aria-label="Export">📥</button>
+    <button class="tbw-toolbar-btn" title="Print" aria-label="Print">🖨️</button>
+  </tbw-grid-tool-buttons>
+</tbw-grid>
 
 <script type="module">
 import '@toolbox-web/grid';
@@ -1204,16 +1210,14 @@ import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
 const grid = document.querySelector('tbw-grid');
 
+// Add click handlers
+const exportBtn = grid.querySelector('[title="Export"]');
+exportBtn.addEventListener('click', () => alert('Export!'));
+
+const printBtn = grid.querySelector('[title="Print"]');
+printBtn.addEventListener('click', () => window.print());
+
 grid.gridConfig = {
-  shell: {
-    header: {
-      title: 'Toolbar Demo',
-      toolbarButtons: [
-        { id: 'export', label: 'Export', icon: '📥', action: () => alert('Export!') },
-        { id: 'print', label: 'Print', icon: '🖨️', action: () => window.print() },
-      ],
-    },
-  },
   plugins: [new VisibilityPlugin()],
 };
 
@@ -1231,29 +1235,36 @@ grid.rows = [...];
 
     let exportCount = 0;
 
+    // Create header for title
+    const header = document.createElement('tbw-grid-header');
+    header.setAttribute('title', 'Toolbar Demo');
+    grid.appendChild(header);
+
+    // Create toolbar buttons container
+    const toolButtons = document.createElement('tbw-grid-tool-buttons');
+
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'tbw-toolbar-btn';
+    exportBtn.title = 'Export';
+    exportBtn.setAttribute('aria-label', 'Export');
+    exportBtn.textContent = '📥';
+    exportBtn.onclick = () => {
+      exportCount++;
+      alert(`Export clicked! (${exportCount})`);
+    };
+
+    const printBtn = document.createElement('button');
+    printBtn.className = 'tbw-toolbar-btn';
+    printBtn.title = 'Print';
+    printBtn.setAttribute('aria-label', 'Print');
+    printBtn.textContent = '🖨️';
+    printBtn.onclick = () => window.print();
+
+    toolButtons.appendChild(exportBtn);
+    toolButtons.appendChild(printBtn);
+    grid.appendChild(toolButtons);
+
     grid.gridConfig = {
-      shell: {
-        header: {
-          title: 'Toolbar Demo',
-          toolbarButtons: [
-            {
-              id: 'export',
-              label: 'Export',
-              icon: '📥',
-              action: () => {
-                exportCount++;
-                alert(`Export clicked! (${exportCount})`);
-              },
-            },
-            {
-              id: 'print',
-              label: 'Print',
-              icon: '🖨️',
-              action: () => window.print(),
-            },
-          ],
-        },
-      },
       plugins: [new VisibilityPlugin()],
     };
 

@@ -1,6 +1,6 @@
 {/* GettingStarted.mdx */}
 import { Meta, Source } from '@storybook/addon-docs/blocks';
-import { Tabs, Tab } from './components/Tabs';
+import { Tabs, Tab } from '../../../apps/storybook-app/.storybook/components/Tabs';
 
 <Meta title="Grid/Getting Started" />
 
@@ -102,101 +102,229 @@ The grid will:
 - Use the property name as the header (with basic formatting)
 - Apply appropriate built-in renderers for each type
 
-Use `gridConfig` when you need to customize sorting, editing, plugins, or column appearance.
-
-### Configuration via JavaScript
-
-```typescript
-const grid = document.querySelector('#my-grid');
-
-// Configure grid with gridConfig
-grid.gridConfig = {
-  columns: [
-    { field: 'id', header: 'ID', type: 'number', sortable: true },
-    { field: 'name', header: 'Name', sortable: true, editable: true },
-    { field: 'email', header: 'Email' },
-    { field: 'active', header: 'Active', type: 'boolean' },
-  ],
-  fitMode: 'stretch', // Columns stretch to fill width
-  editOn: 'dblClick', // Double-click to edit
-  plugins: [],        // Add plugins here
-};
-
-// Set row data
-grid.rows = [
-  { id: 1, name: 'Alice Johnson', email: 'alice@example.com', active: true },
-  { id: 2, name: 'Bob Smith', email: 'bob@example.com', active: false },
-  { id: 3, name: 'Carol White', email: 'carol@example.com', active: true },
-];
-```
-
 > **Tip:** You can also set `grid.columns` directly as a shorthand for `gridConfig.columns`, but using `gridConfig` is more versatile as it includes columns, plugins, and behavioral settings in one place.
 
 ## Framework Integration
 
-The examples above use vanilla JavaScript. Here's how to integrate the grid with popular frameworks:
+The grid is a standard web component that works in any JavaScript environment. For React and Angular, we provide dedicated adapter packages that enable custom component renderers and editors.
 
-<Tabs>
+<Tabs defaultTab={0}>
+  <Tab label="Vanilla JS">
+
+### Configuration via JavaScript
+
+```typescript
+import '@toolbox-web/grid';
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import type { GridConfig } from '@toolbox-web/grid';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive';
+}
+
+const grid = document.querySelector<HTMLElement & { gridConfig: GridConfig<Employee>; rows: Employee[] }>('#my-grid')!;
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    {
+      field: 'status',
+      header: 'Status',
+      // Custom renderer function
+      renderer: (ctx) => {
+        const badge = document.createElement('span');
+        badge.className = `status-badge status-${ctx.value}`;
+        badge.textContent = ctx.value;
+        return badge;
+      },
+      // Custom editor function
+      editor: (ctx) => {
+        const select = document.createElement('select');
+        select.innerHTML = `
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        `;
+        select.value = ctx.value;
+        select.onchange = () => ctx.commit(select.value);
+        select.onkeydown = (e) => e.key === 'Escape' && ctx.cancel();
+        return select;
+      },
+    },
+  ],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+    new FilteringPlugin({ debounceMs: 200 }),
+  ],
+  fitMode: 'stretch',
+  editOn: 'dblClick',
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice Johnson', status: 'active' },
+  { id: 2, name: 'Bob Smith', status: 'inactive' },
+  { id: 3, name: 'Carol White', status: 'active' },
+];
+
+// Listen for cell edits
+grid.addEventListener('cell-commit', (e: CustomEvent) => {
+  console.log('Edited:', e.detail);
+});
+```
+
+  </Tab>
   <Tab label="React">
 
+### React Adapter (Recommended)
+
+For React projects, use the `@toolbox-web/grid-react` adapter package for enhanced integration:
+
+```bash
+# Install both packages
+npm install @toolbox-web/grid @toolbox-web/grid-react
+```
+
 ```tsx
-import '@toolbox-web/grid';
-import { useEffect, useRef } from 'react';
-import type { DataGridElement } from '@toolbox-web/grid';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 
-function MyGrid({ data }) {
-  const gridRef = useRef<DataGridElement>(null);
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive';
+}
 
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [...],
-        fitMode: 'stretch',
-        editOn: 'dblClick',
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
+const employees: Employee[] = [
+  { id: 1, name: 'Alice Johnson', status: 'active' },
+  { id: 2, name: 'Bob Smith', status: 'inactive' },
+  { id: 3, name: 'Carol White', status: 'active' },
+];
 
-  return <tbw-grid ref={gridRef} style={{ height: '400px' }} />;
+function EmployeeGrid() {
+  const config: ReactGridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', editable: true },
+      {
+        field: 'status',
+        header: 'Status',
+        // Inline React renderer
+        renderer: (ctx) => (
+          <span className={`status-badge status-${ctx.value}`}>{ctx.value}</span>
+        ),
+        // Inline React editor
+        editor: (ctx) => (
+          <select
+            defaultValue={ctx.value}
+            onChange={(e) => ctx.commit(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && ctx.cancel()}
+            autoFocus
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        ),
+      },
+    ],
+    plugins: [
+      new SelectionPlugin({ mode: 'row' }),
+      new FilteringPlugin({ debounceMs: 200 }),
+    ],
+    fitMode: 'stretch',
+    editOn: 'dblClick',
+  };
+
+  return (
+    <DataGrid
+      rows={employees}
+      gridConfig={config}
+      onCellCommit={(e) => console.log('Edited:', e.detail)}
+      style={{ height: 400, display: 'block' }}
+    />
+  );
 }
 ```
+
+The `DataGrid` component provides:
+- **`ReactGridConfig`** - Extends `GridConfig` with `renderer` and `editor` accepting React components
+- **`GridColumn`** - Declarative column components with render props
+- **`GridDetailPanel`** - Master-detail panels with React content
+- **`GridToolPanel`** - Custom sidebar panels
+- **`useGrid` / `useGridEvent`** - Hooks for programmatic access and event handling
+
+See the [React adapter README](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-react#readme) for the complete API reference.
+
+> **Without the adapter:** You can also use the grid without the adapter package by following the Vanilla JS approach - it works in any framework since the grid is a standard web component.
 
   </Tab>
   <Tab label="Vue">
 
+### Vue Integration
+
+Vue works seamlessly with web components. Use the grid directly in your templates:
+
 ```vue
 <template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
+  <tbw-grid
+    ref="gridRef"
+    @cell-commit="onCellCommit"
+    style="height: 400px; display: block;"
+  />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import '@toolbox-web/grid';
-import { ref, onMounted, watch } from 'vue';
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import { ref, onMounted } from 'vue';
+import type { DataGridElement, GridConfig } from '@toolbox-web/grid';
 
-const gridRef = ref(null);
-const props = defineProps(['data']);
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive';
+}
+
+const gridRef = ref<DataGridElement<Employee> | null>(null);
+
+const employees: Employee[] = [
+  { id: 1, name: 'Alice Johnson', status: 'active' },
+  { id: 2, name: 'Bob Smith', status: 'inactive' },
+  { id: 3, name: 'Carol White', status: 'active' },
+];
 
 onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [...],
-    fitMode: 'stretch',
-    editOn: 'dblClick',
-  };
-  gridRef.value.rows = props.data;
+  if (gridRef.value) {
+    gridRef.value.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', type: 'number' },
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'status', header: 'Status' },
+      ],
+      plugins: [
+        new SelectionPlugin({ mode: 'row' }),
+        new FilteringPlugin({ debounceMs: 200 }),
+      ],
+      fitMode: 'stretch',
+      editOn: 'dblClick',
+    };
+    gridRef.value.rows = employees;
+  }
 });
 
-watch(
-  () => props.data,
-  (newData) => {
-    gridRef.value.rows = newData;
-  },
-);
+function onCellCommit(e: CustomEvent) {
+  console.log('Edited:', e.detail);
+}
 </script>
 ```
 
+> **Note:** Vue does not have a dedicated adapter package. Custom renderers and editors require using vanilla JS functions in the column config. A Vue adapter may be added in the future.
+
   </Tab>
   <Tab label="Angular">
+
+### Angular Adapter (Recommended)
 
 For Angular projects, use the `@toolbox-web/grid-angular` adapter package for enhanced integration:
 
@@ -209,73 +337,80 @@ npm install @toolbox-web/grid @toolbox-web/grid-angular
 // grid.component.ts
 import '@toolbox-web/grid';
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { Grid, GridColumnView, GridColumnEditor } from '@toolbox-web/grid-angular';
+import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import type { GridConfig, CellCommitDetail } from '@toolbox-web/grid';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive';
+}
 
 @Component({
-  selector: 'app-grid',
-  imports: [Grid, GridColumnView, GridColumnEditor],
+  selector: 'app-employee-grid',
+  imports: [Grid, TbwRenderer, TbwEditor],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
-      [rows]="rows"
+      [rows]="employees"
       [gridConfig]="config"
+      (cellCommit)="onCellCommit($event)"
       style="height: 400px; display: block;">
 
-      <!-- Custom cell renderer using Angular template -->
+      <!-- Inline renderer/editor using structural directives -->
       <tbw-grid-column field="status">
-        <tbw-grid-column-view>
-          <ng-template let-value let-row="row">
-            <span [class]="'badge badge--' + value">{{ value }}</span>
-          </ng-template>
-        </tbw-grid-column-view>
+        <span *tbwRenderer="let value" [class]="'status-badge status-' + value">
+          {{ value }}
+        </span>
+        <select
+          *tbwEditor="let value; commit as commit; cancel as cancel"
+          [value]="value"
+          (change)="commit($any($event.target).value)"
+          (keydown.escape)="cancel()">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
       </tbw-grid-column>
     </tbw-grid>
   `
 })
-export class GridComponent {
-  rows = [...];
-  config = {...};
+export class EmployeeGridComponent {
+  employees: Employee[] = [
+    { id: 1, name: 'Alice Johnson', status: 'active' },
+    { id: 2, name: 'Bob Smith', status: 'inactive' },
+    { id: 3, name: 'Carol White', status: 'active' },
+  ];
+
+  config: GridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'status', header: 'Status' }, // renderer/editor from template
+    ],
+    plugins: [
+      new SelectionPlugin({ mode: 'row' }),
+      new FilteringPlugin({ debounceMs: 200 }),
+    ],
+    fitMode: 'stretch',
+    editOn: 'dblClick',
+  };
+
+  onCellCommit(event: CustomEvent<CellCommitDetail>) {
+    console.log('Edited:', event.detail);
+  }
 }
 ```
 
 The `Grid` directive automatically registers the Angular adapter, enabling:
-- Template-driven cell renderers (`GridColumnView`)
-- Template-driven cell editors (`GridColumnEditor`)
-- Full Angular component support inside templates
+- **Structural directives** - `*tbwRenderer` and `*tbwEditor` for clean syntax
+- **Auto-wiring** - Editor components just emit `commit`/`cancel` events
+- **Template-driven** - Full Angular component support inside templates
+- **Grid-level events** - `(cellCommit)`, `(rowCommit)` outputs
 
-See the [Angular adapter documentation](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-angular#readme) for complete API reference.
+See the [Angular adapter README](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-angular#readme) for the complete API reference.
 
-### Basic Usage (Without Adapter)
-
-For simple use cases without custom renderers, you can still use the grid directly:
-
-```typescript
-// grid.component.ts
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
-import type { DataGridElement } from '@toolbox-web/grid';
-
-@Component({
-  selector: 'app-grid',
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid style="height: 400px; display: block;"></tbw-grid>`,
-})
-export class GridComponent {
-  gridRef = viewChild.required<ElementRef<DataGridElement>>('grid');
-
-  constructor() {
-    effect(() => {
-      const grid = this.gridRef().nativeElement;
-      grid.gridConfig = {
-        columns: [...],
-        fitMode: 'stretch',
-        editOn: 'dblClick',
-      };
-      grid.rows = [...];
-    });
-  }
-}
-```
+> **Without the adapter:** You can also use the grid without the adapter package by following the Vanilla JS approach - it works in any framework since the grid is a standard web component.
 
   </Tab>
 </Tabs>

@@ -93,11 +93,21 @@ const preview: Preview = {
             'Getting Started',
             'Core', // Core grid stories
             'Theming',
+            'Demos',
             'Plugins', // Plugin overview and individual plugins
-            ['Overview', 'Selection', 'Filtering', 'Multi Sort', 'Grouping Rows', 'Grouping Columns', '*'],
+            [
+              'Overview',
+              'Custom Plugins',
+              'Selection',
+              'Filtering',
+              'Multi Sort',
+              'Grouping Rows',
+              'Grouping Columns',
+              '*',
+            ],
             'API Reference',
             'All Features',
-            'Benchmarks', // Performance tests at the end
+            'Performance', // Performance tests at the end
             '*', // Everything else alphabetically
           ],
           '*',

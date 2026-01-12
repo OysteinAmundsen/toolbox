@@ -1,7 +1,7 @@
 {/* API.mdx */}
 import { Meta, ArgTypes } from '@storybook/addon-docs/blocks';
 
-<Meta title="Grid/API Reference" />
+<Meta title="Grid/Dev/API Reference" />
 
 # API Reference
 
@@ -73,43 +73,56 @@ The grid supports configuration via HTML attributes for declarative usage. JSON-
 // Update row data
 grid.rows = newData;
 
-// Refresh display without changing data
-grid.requestRefresh();
+// Wait for grid to be ready
+await grid.ready();
 
-// Full re-render
-grid.requestRefresh({ full: true });
+// Force layout recalculation
+await grid.forceLayout();
+
+// Get current configuration (readonly)
+const config = await grid.getConfig();
 ```
 
 ### Column Methods
 
 ```typescript
-// Get processed column definitions
-const columns = grid.getProcessedColumns();
+// Get all columns with visibility info
+const columns = grid.getAllColumns();
+// Returns: Array<{ field, header, visible, lockVisible? }>
 
-// Auto-size a column to fit content
-grid.autoSizeColumn('fieldName');
+// Show/hide columns
+grid.setColumnVisible('fieldName', false);
+grid.toggleColumnVisibility('fieldName');
+grid.showAllColumns();
 
-// Auto-size all columns
-grid.autoSizeAllColumns();
+// Check column visibility
+const isVisible = grid.isColumnVisible('fieldName');
+
+// Reorder columns
+grid.setColumnOrder(['id', 'name', 'email']);
+const order = grid.getColumnOrder();
 ```
 
 ### Editing Methods
 
 ```typescript
-// Start editing a cell programmatically
-grid.startEdit(rowIndex, 'fieldName');
+// Start bulk/row editing programmatically
+await grid.beginBulkEdit(rowIndex);
 
-// Commit current edit
-grid.commitEdit();
+// Commit active row edit
+await grid.commitActiveRowEdit();
 
-// Cancel current edit
-grid.cancelEdit();
+// Cancel active row edit
+await grid.cancelActiveRowEdit();
 
-// Get pending changes
+// Get pending changes (array of changed rows)
 const changes = grid.changedRows;
 
+// Get indices of changed rows
+const indices = grid.changedRowIndices;
+
 // Reset changed rows tracking
-grid.resetChangedRows();
+await grid.resetChangedRows();
 ```
 
 ### Plugin Methods
@@ -126,17 +139,21 @@ if (selection) {
 }
 ```
 
-### Scroll & Navigation
+### Column State Persistence
 
 ```typescript
-// Scroll to a specific row
-grid.scrollToRow(rowIndex);
+// Get current column state (for saving)
+const state = grid.getColumnState();
+localStorage.setItem('gridState', JSON.stringify(state));
 
-// Scroll to a specific cell
-grid.scrollToCell(rowIndex, columnIndex);
+// Restore column state
+const saved = localStorage.getItem('gridState');
+if (saved) {
+  grid.columnState = JSON.parse(saved);
+}
 
-// Ensure a cell is visible
-grid.ensureCellVisible(rowIndex, columnIndex);
+// Reset to initial configuration
+grid.resetColumnState();
 ```
 
 ### Shell Methods (Header/Toolbar)
@@ -152,10 +169,20 @@ grid.registerToolPanel({
   },
 });
 
-// Open/close/toggle panels
-grid.openToolPanel('myPanel');
+// Open/close/toggle the tool panel sidebar
+grid.openToolPanel();
 grid.closeToolPanel();
-grid.toggleToolPanel('myPanel');
+grid.toggleToolPanel();
+
+// Toggle specific accordion sections
+grid.toggleToolPanelSection('myPanel');
+
+// Check panel state
+const isOpen = grid.isToolPanelOpen;
+const sections = grid.expandedToolPanelSections;
+
+// Get registered panels
+const panels = grid.getToolPanels();
 ```
 
 ## Events

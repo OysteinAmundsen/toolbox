@@ -1,7 +1,8 @@
 /**
- * @toolbox-web/grid-react
+ * @packageDocumentation
+ * @toolbox-web/grid-react - React adapter for @toolbox-web/grid.
  *
- * React adapter library for @toolbox-web/grid providing:
+ * React adapter library providing:
  * - DataGrid component wrapper with full React props
  * - Custom cell renderer support via render props
  * - Custom cell editor support with commit/cancel handling
@@ -29,7 +30,7 @@ export { useGrid } from './lib/use-grid';
 export { useGridEvent } from './lib/use-grid-event';
 
 // React adapter (for advanced usage)
-export { getRegisteredFields, ReactGridAdapter } from './lib/react-grid-adapter';
+export { ReactGridAdapter, getRegisteredFields } from './lib/react-grid-adapter';
 
 // Context types
 export type { GridCellContext, GridDetailContext, GridEditorContext, GridToolPanelContext } from './lib/context-types';

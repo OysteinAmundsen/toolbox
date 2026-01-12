@@ -30,10 +30,47 @@ concurrency:
 
 jobs:
   # ============================================
-  # PR VALIDATION (runs on pull_request or push to release-please branch)
+  # SETUP: Detect if this is a release-please merge commit
+  # ============================================
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      is_release_merge: ${{ steps.check.outputs.is_release_merge }}
+      should_validate: ${{ steps.check.outputs.should_validate }}
+    steps:
+      - id: check
+        run: |
+          IS_RELEASE_MERGE="false"
+          SHOULD_VALIDATE="false"
+
+          # Check if this is a release-please merge commit
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
+              IS_RELEASE_MERGE="true"
+              echo "🚀 Detected release-please merge commit - skipping test/build"
+            fi
+          fi
+
+          # Determine if we should run validation (test/build)
+          # Run on: PRs, release-please branches, or regular pushes to main (not release merges)
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            SHOULD_VALIDATE="true"
+          elif [[ "${{ github.ref }}" == refs/heads/release-please--* ]]; then
+            SHOULD_VALIDATE="true"
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && "$IS_RELEASE_MERGE" == "false" ]]; then
+            SHOULD_VALIDATE="true"
+          fi
+
+          echo "is_release_merge=$IS_RELEASE_MERGE" >> $GITHUB_OUTPUT
+          echo "should_validate=$SHOULD_VALIDATE" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # VALIDATION: Test and Build (skipped for release-please merges)
   # ============================================
   test:
-    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/release-please--')
+    needs: setup
+    if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,7 +96,8 @@ jobs:
         run: bun run lint && bun run test
 
   build:
-    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/release-please--')
+    needs: [setup, test]
+    if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,11 +123,20 @@ jobs:
         run: bun run build
 
   # ============================================
-  # RELEASE PLEASE (runs on push to main, release, or workflow_dispatch)
-  # Creates/updates release PR on push, passes through on other events
+  # RELEASE PLEASE
+  # - Runs after test/build on regular pushes to main
+  # - Runs immediately on release-please merges (skips test/build)
+  # - Also runs on release events and workflow_dispatch
   # ============================================
   release-please:
-    if: github.event_name == 'push' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    needs: [setup, build]
+    if: |
+      always() && !cancelled() &&
+      (github.event_name == 'release' || github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && (
+        needs.setup.outputs.is_release_merge == 'true' ||
+        needs.build.result == 'success'
+      ))
     runs-on: ubuntu-latest
     outputs:
       # Grid package outputs

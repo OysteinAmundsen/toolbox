@@ -614,7 +614,9 @@ describe('PivotPlugin lifecycle and API', () => {
         return activeToolPanel;
       },
       getRenderCount: () => renderCount,
-      addEventListener: () => {},
+      addEventListener: () => {
+        /* noop */
+      },
       dispatchEvent: () => true,
     };
   }

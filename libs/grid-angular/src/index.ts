@@ -1,3 +1,10 @@
+/**
+ * @packageDocumentation
+ * @toolbox-web/grid-angular - Angular adapter for @toolbox-web/grid.
+ *
+ * Provides directives for seamless Angular integration with the grid component.
+ */
+
 export { AngularGridAdapter } from './lib/angular-grid-adapter';
 
 // Directives and context types

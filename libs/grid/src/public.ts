@@ -1,3 +1,10 @@
+/**
+ * @packageDocumentation
+ * @toolbox-web/grid - A high-performance, framework-agnostic data grid web component.
+ *
+ * This is the public API surface. Only symbols exported here are considered stable.
+ */
+
 // #region Public API surface - only export what consumers need
 export { DataGridElement, DataGridElement as GridElement } from './lib/core/grid';
 

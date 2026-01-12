@@ -61,7 +61,9 @@ describe('idle-scheduler', () => {
     });
 
     it('should add tasks to the queue', () => {
-      queue.add(() => {});
+      queue.add(() => {
+        /* noop */
+      });
       expect(queue.isEmpty).toBe(false);
     });
 
@@ -106,7 +108,9 @@ describe('idle-scheduler', () => {
     });
 
     it('should handle task errors gracefully', async () => {
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {
+        /* noop */
+      });
       const results: number[] = [];
 
       queue.add(() => {

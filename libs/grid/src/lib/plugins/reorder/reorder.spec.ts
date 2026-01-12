@@ -520,13 +520,19 @@ describe('ReorderPlugin', () => {
           currentOrder = order;
         },
         queryPlugins: () => [],
-        requestStateChange: () => {},
-        addEventListener: () => {},
+        requestStateChange: () => {
+          /* noop */
+        },
+        addEventListener: () => {
+          /* noop */
+        },
         dispatchEvent: (e: CustomEvent) => {
           events.push({ type: e.type, detail: e.detail });
           return true;
         },
-        refreshVirtualWindow: () => {},
+        refreshVirtualWindow: () => {
+          /* noop */
+        },
         getEvents: () => events,
       };
     }
@@ -682,10 +688,16 @@ describe('ReorderPlugin', () => {
           currentOrder = order;
         },
         queryPlugins: () => [],
-        requestStateChange: () => {},
-        addEventListener: () => {},
+        requestStateChange: () => {
+          /* noop */
+        },
+        addEventListener: () => {
+          /* noop */
+        },
         dispatchEvent: () => true,
-        refreshVirtualWindow: () => {},
+        refreshVirtualWindow: () => {
+          /* noop */
+        },
       };
     }
   });
@@ -710,14 +722,20 @@ describe('ReorderPlugin', () => {
         },
         effectiveConfig: { animation: { mode: 'off' } },
         getColumnOrder: () => ['a', 'b'],
-        setColumnOrder: () => {},
+        setColumnOrder: () => {
+          /* noop */
+        },
         queryPlugins: () => [],
-        requestStateChange: () => {},
+        requestStateChange: () => {
+          /* noop */
+        },
         addEventListener: (type: string, handler: EventListener) => {
           listeners.push({ type, handler });
         },
         dispatchEvent: () => true,
-        refreshVirtualWindow: () => {},
+        refreshVirtualWindow: () => {
+          /* noop */
+        },
       };
 
       const plugin = new ReorderPlugin();
@@ -765,12 +783,20 @@ describe('ReorderPlugin', () => {
         shadowRoot: mockShadowRoot,
         effectiveConfig: { animation: { mode: 'off' } },
         getColumnOrder: () => columns.map((c) => c.field),
-        setColumnOrder: () => {},
+        setColumnOrder: () => {
+          /* noop */
+        },
         queryPlugins: () => [],
-        requestStateChange: () => {},
-        addEventListener: () => {},
+        requestStateChange: () => {
+          /* noop */
+        },
+        addEventListener: () => {
+          /* noop */
+        },
         dispatchEvent: () => true,
-        refreshVirtualWindow: () => {},
+        refreshVirtualWindow: () => {
+          /* noop */
+        },
         headerCells,
       };
     }
@@ -923,10 +949,16 @@ describe('ReorderPlugin', () => {
           currentOrder = order;
         },
         queryPlugins: () => [],
-        requestStateChange: () => {},
-        addEventListener: () => {},
+        requestStateChange: () => {
+          /* noop */
+        },
+        addEventListener: () => {
+          /* noop */
+        },
         dispatchEvent: () => true,
-        refreshVirtualWindow: () => {},
+        refreshVirtualWindow: () => {
+          /* noop */
+        },
       };
     }
 

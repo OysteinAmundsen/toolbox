@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.2...grid-react-0.0.3) (2026-01-12)
+
+
+### Bug Fixes
+
+* **docs:** update README files for grid-angular, grid-react, and grid with new features and sponsorship links ([6b12d8a](https://github.com/OysteinAmundsen/toolbox/commit/6b12d8a01e4da19ff602af6ce896170239c44367))
+* **shell:** escape HTML in shell header title to prevent XSS vulnerabilities ([6b12d8a](https://github.com/OysteinAmundsen/toolbox/commit/6b12d8a01e4da19ff602af6ce896170239c44367))
+
 ## [0.0.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.1...grid-react-0.0.2) (2026-01-12)
 
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.1.0...grid-angular-0.1.1) (2026-01-12)
+
+
+### Bug Fixes
+
+* copy readme to build output ([5326377](https://github.com/OysteinAmundsen/toolbox/commit/532637797790ae346f8ec51051e2e42edd1bfae9))
+* resolve lint errors and improve package documentation ([2847835](https://github.com/OysteinAmundsen/toolbox/commit/2847835a3275e5df53a40e1868020d83c7a9406f))
+
+
+### Enhancements
+
+* **grid-angular:** improved developer ergonomics in creating grids ([2d77f07](https://github.com/OysteinAmundsen/toolbox/commit/2d77f071de68a15d64e5c2b8f80c13a89a13217b))
+
 ## [0.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.1.0...grid-angular-0.2.0) (2025-01-XX)
 
 ### Features

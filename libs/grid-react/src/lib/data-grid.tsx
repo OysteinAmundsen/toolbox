@@ -318,7 +318,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       }
 
       // Configure MasterDetailPlugin - either refresh existing or auto-add if GridDetailPanel present
-      // Import dynamically to avoid bundling the plugin if not used
+      // Dynamic import to avoid bundling the plugin when not used (tree-shaking)
       import('@toolbox-web/grid/all')
         .then(({ MasterDetailPlugin }) => {
           if (cancelled) return;

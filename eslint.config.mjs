@@ -56,5 +56,13 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },
+  {
+    // Disable module boundary checks for files that use intentional dynamic imports
+    // The rule causes performance issues when analyzing dynamic imports across library boundaries
+    files: ['**/grid-react/**/data-grid.tsx'],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
   ...storybook.configs['flat/recommended'],
 ];

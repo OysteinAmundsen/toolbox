@@ -314,7 +314,6 @@ flowchart TB
 | `computeVirtualWindow()`     | `virtualization.ts`   | Calculates visible row range       |
 | `buildGridDOM()`             | `dom-builder.ts`      | Direct DOM construction for grid   |
 | `setupCellEventDelegation()` | `event-delegation.ts` | Delegated event handlers for cells |
-| `createGridInternals()`      | `grid-internals.ts`   | Internal grid interface adapter    |
 | `scheduleIdle()`             | `idle-scheduler.ts`   | Defer work to browser idle time    |
 
 ---

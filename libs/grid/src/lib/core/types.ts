@@ -63,7 +63,11 @@ export interface PublicGrid<T = any> {
 }
 
 /**
- * Internal-only augmented interface for DataGrid component
+ * Internal-only augmented interface for DataGrid component.
+ *
+ * Member prefixes indicate accessibility:
+ * - `_underscore` = protected members - private outside core, accessible to plugins. Marked with @internal.
+ * - `__doubleUnderscore` = deeply internal members - private outside core, only for internal functions.
  */
 export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   shadowRoot: ShadowRoot | null;
@@ -73,14 +77,28 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _visibleColumns: ColumnInternal<T>[];
   _headerRowEl: HTMLElement;
   _bodyEl: HTMLElement;
-  _rowPool: HTMLElement[];
+  _rowPool: RowElementInternal[];
   _resizeController: ResizeController;
   _sortState: { field: string; direction: 1 | -1 } | null;
+  /** Original unfiltered/unprocessed rows. @internal */
+  sourceRows: T[];
+  /** Framework adapter instance (set by Grid directives). @internal */
+  __frameworkAdapter?: FrameworkAdapter;
   __originalOrder: T[];
   __rowRenderEpoch: number;
   __didInitialAutoSize?: boolean;
   __lightDomColumnsCache?: ColumnInternal[];
   __originalColumnNodes?: HTMLElement[];
+  /** Cell display value cache. @internal */
+  __cellDisplayCache?: Map<number, string[]>;
+  /** Cache epoch for cell display values. @internal */
+  __cellCacheEpoch?: number;
+  /** Cached header row count for virtualization. @internal */
+  __cachedHeaderRowCount?: number;
+  /** Cached flag for whether grid has special columns (custom renderers, etc.). @internal */
+  __hasSpecialColumns?: boolean;
+  /** Cached flag for whether any plugin has renderRow hooks. @internal */
+  __hasRenderRowPlugins?: boolean;
   _gridTemplate: string;
   _virtualization: VirtualState;
   _focusRow: number;
@@ -316,7 +334,25 @@ export interface FrameworkAdapter {
 }
 
 // #region Internal-only augmented types (not re-exported publicly)
-export interface ColumnInternal<T = any> extends ColumnConfig<T> {
+
+/**
+ * Column internal properties used during light DOM parsing.
+ * Stores attribute-based names before they're resolved to actual functions.
+ * @internal
+ */
+export interface ColumnParsedAttributes {
+  /** Editor name from `editor` attribute (resolved later) */
+  __editorName?: string;
+  /** Renderer name from `renderer` attribute (resolved later) */
+  __rendererName?: string;
+}
+
+/**
+ * Extended column config used internally.
+ * Includes all internal properties needed during grid lifecycle.
+ * @internal
+ */
+export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAttributes {
   __autoSized?: boolean;
   __userResized?: boolean;
   __renderedWidth?: number;
@@ -325,8 +361,42 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T> {
   __viewTemplate?: HTMLElement;
   __editorTemplate?: HTMLElement;
   __headerTemplate?: HTMLElement;
-  __compiledView?: (ctx: CellContext<T>) => string;
+  __compiledView?: CompiledViewFunction<T>;
   __compiledEditor?: (ctx: EditorExecContext<T>) => string;
+}
+
+/**
+ * Row element with internal tracking properties.
+ * Used during virtualization and row pooling.
+ * @internal
+ */
+export interface RowElementInternal extends HTMLElement {
+  /** Epoch marker for row render invalidation */
+  __epoch?: number;
+  /** Count of cells currently in edit mode */
+  __editingCellCount?: number;
+  /** Flag indicating this is a custom-rendered row (group row, etc.) */
+  __isCustomRow?: boolean;
+}
+
+/**
+ * Type-safe access to element.part API (DOMTokenList-like).
+ * Used for CSS ::part styling support.
+ * @internal
+ */
+export interface ElementWithPart extends HTMLElement {
+  part?: DOMTokenList;
+}
+
+/**
+ * Compiled view function type with optional blocked flag.
+ * The __blocked flag is set when a template contains unsafe expressions.
+ * @internal
+ */
+export interface CompiledViewFunction<T = any> {
+  (ctx: CellContext<T>): string;
+  /** Set to true when template was blocked due to unsafe expressions */
+  __blocked?: boolean;
 }
 
 /**
@@ -372,6 +442,15 @@ export interface VirtualState {
   /** Spacer element inside faux scrollbar for setting virtual height */
   totalHeightEl: HTMLElement | null;
 }
+
+// RowElementInternal is now defined earlier in the file with all internal properties
+
+/**
+ * Union type for input-like elements that have a `value` property.
+ * Covers standard form elements and custom elements with value semantics.
+ * @internal
+ */
+export type InputLikeElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | { value: unknown };
 // #endregion
 
 // #region Grouping & Footer Public Types

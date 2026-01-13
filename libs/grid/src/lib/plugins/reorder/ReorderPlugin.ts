@@ -10,7 +10,7 @@
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { BaseGridPlugin, PLUGIN_QUERIES } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, GridConfig } from '../../core/types';
+import type { ColumnConfig, GridConfig, InternalGrid } from '../../core/types';
 import { canMoveColumn, moveColumn } from './column-drag';
 import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
@@ -295,7 +295,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     // Update focus to follow the moved column and refresh visual focus state
     grid._focusCol = toIndex;
-    ensureCellVisible(this.grid as any);
+    ensureCellVisible(this.grid as unknown as InternalGrid);
 
     event.preventDefault();
     event.stopPropagation();

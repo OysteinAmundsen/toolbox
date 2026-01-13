@@ -52,22 +52,21 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
     case 'typeahead':
       return (ctx: EditorContext) => {
         const select = document.createElement('select');
-        if ((ctx.column as any).multi) select.multiple = true;
-        const options =
-          typeof (ctx.column as any).options === 'function'
-            ? (ctx.column as any).options()
-            : (ctx.column as any).options || [];
-        options.forEach((opt: any) => {
+        const col = ctx.column;
+        if (col.multi) select.multiple = true;
+        const rawOptions = col.options;
+        const options = typeof rawOptions === 'function' ? rawOptions() : rawOptions || [];
+        options.forEach((opt) => {
           const o = document.createElement('option');
           o.value = String(opt.value);
           o.textContent = opt.label;
-          if ((ctx.column as any).multi && Array.isArray(ctx.value) && ctx.value.includes(opt.value)) o.selected = true;
-          else if (!(ctx.column as any).multi && ctx.value === opt.value) o.selected = true;
+          if (col.multi && Array.isArray(ctx.value) && ctx.value.includes(opt.value)) o.selected = true;
+          else if (!col.multi && ctx.value === opt.value) o.selected = true;
           select.appendChild(o);
         });
         const commitValue = () => {
-          if ((ctx.column as any).multi) {
-            const values: any[] = [];
+          if (col.multi) {
+            const values: unknown[] = [];
             Array.from(select.selectedOptions).forEach((o) => {
               values.push(o.value);
             });

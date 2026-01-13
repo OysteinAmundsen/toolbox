@@ -13,6 +13,20 @@ import { booleanCellHTML, clearCellFocus, formatBooleanValue, formatDateValue, g
 /** Callback type for plugin row rendering hook */
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
 
+/**
+ * Extended row element with internal cache properties.
+ * These properties are used for change detection and optimized rendering.
+ * @internal
+ */
+interface RowElementInternal extends HTMLElement {
+  /** Render epoch when this row was last updated */
+  __epoch?: number;
+  /** Reference to the row data object */
+  __rowDataRef?: unknown;
+  /** Flag indicating this is a custom-rendered row (e.g., group header) */
+  __isCustomRow?: boolean;
+}
+
 // ============== Template Cloning System ==============
 // Using template cloning is 3-4x faster than document.createElement + setAttribute
 // for repetitive element creation because the browser can skip parsing.
@@ -48,14 +62,6 @@ export function createRowFromTemplate(): HTMLDivElement {
 // ============== End Template Cloning System ==============
 
 /**
- * Cell display value cache key on grid instance.
- * Structure: Map<rowIndex, Map<colIndex, displayString>>
- * This cache is invalidated when rows or columns change (epoch bump).
- */
-const CELL_CACHE_KEY = '__cellDisplayCache';
-const CELL_CACHE_EPOCH_KEY = '__cellCacheEpoch';
-
-/**
  * Get the cached display value for a cell, computing it if not cached.
  * This is the hot path during scroll - must be as fast as possible.
  */
@@ -68,19 +74,19 @@ function getCellDisplayValue(
   epoch: number | undefined,
 ): string {
   // Fast path: check cache first
-  let cache = (grid as any)[CELL_CACHE_KEY] as Map<number, string[]> | undefined;
-  const cacheEpoch = (grid as any)[CELL_CACHE_EPOCH_KEY];
+  let cache = grid.__cellDisplayCache;
+  const cacheEpoch = grid.__cellCacheEpoch;
 
   // Invalidate cache if epoch changed
   if (cache && cacheEpoch !== epoch) {
     cache = undefined;
-    (grid as any)[CELL_CACHE_KEY] = undefined;
+    grid.__cellDisplayCache = undefined;
   }
 
   if (!cache) {
     cache = new Map();
-    (grid as any)[CELL_CACHE_KEY] = cache;
-    (grid as any)[CELL_CACHE_EPOCH_KEY] = epoch;
+    grid.__cellDisplayCache = cache;
+    grid.__cellCacheEpoch = epoch;
   }
 
   let rowCache = cache.get(rowIndex);
@@ -109,12 +115,12 @@ function computeCellDisplayValue(rowData: any, col: ColumnConfig<any>): string {
   let value = rowData[col.field];
 
   // Apply format function if present
-  const format = (col as any).format;
-  if (format) {
+  if (col.format) {
     try {
-      value = format(value, rowData);
-    } catch {
-      // Keep original value on format error
+      value = col.format(value, rowData);
+    } catch (e) {
+      // Log format errors as warnings (user configuration issue)
+      console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);
     }
   }
 
@@ -134,9 +140,9 @@ function computeCellDisplayValue(rowData: any, col: ColumnConfig<any>): string {
  * Invalidate the cell cache (call when rows or columns change).
  */
 export function invalidateCellCache(grid: InternalGrid): void {
-  (grid as any)[CELL_CACHE_KEY] = undefined;
-  (grid as any)[CELL_CACHE_EPOCH_KEY] = undefined;
-  (grid as any).__hasSpecialColumns = undefined; // Reset fast-path check
+  grid.__cellDisplayCache = undefined;
+  grid.__cellCacheEpoch = undefined;
+  grid.__hasSpecialColumns = undefined; // Reset fast-path check
 }
 
 /**
@@ -159,10 +165,10 @@ export function renderVisibleRows(
   const colLen = columns.length;
 
   // Cache header row count once (check for group header row existence)
-  let headerRowCount = (grid as any).__cachedHeaderRowCount;
+  let headerRowCount = grid.__cachedHeaderRowCount;
   if (headerRowCount === undefined) {
     headerRowCount = grid.shadowRoot?.querySelector('.header-group-row') ? 2 : 1;
-    (grid as any).__cachedHeaderRowCount = headerRowCount;
+    grid.__cachedHeaderRowCount = headerRowCount;
   }
 
   // Pool management: grow pool if needed
@@ -184,26 +190,26 @@ export function renderVisibleRows(
   }
 
   // Check if any plugin has a renderRow hook (cache this)
-  const hasRenderRowPlugins = renderRowHook && (grid as any).__hasRenderRowPlugins !== false;
+  const hasRenderRowPlugins = renderRowHook && grid.__hasRenderRowPlugins !== false;
 
   for (let i = 0; i < needed; i++) {
     const rowIndex = start + i;
     const rowData = grid._rows[rowIndex];
-    const rowEl = grid._rowPool[i];
+    const rowEl = grid._rowPool[i] as RowElementInternal;
 
     // Always set aria-rowindex (1-based, accounting for header rows)
     rowEl.setAttribute('aria-rowindex', String(rowIndex + headerRowCount + 1));
 
     // Let plugins handle custom row rendering (e.g., group rows)
     if (hasRenderRowPlugins && renderRowHook!(rowData, rowEl, rowIndex)) {
-      (rowEl as any).__epoch = epoch;
-      (rowEl as any).__rowDataRef = rowData;
+      rowEl.__epoch = epoch;
+      rowEl.__rowDataRef = rowData;
       if (rowEl.parentNode !== bodyEl) bodyEl.appendChild(rowEl);
       continue;
     }
 
-    const rowEpoch = (rowEl as any).__epoch;
-    const prevRef = (rowEl as any).__rowDataRef;
+    const rowEpoch = rowEl.__epoch;
+    const prevRef = rowEl.__rowDataRef;
     const cellCount = rowEl.children.length;
 
     // Check if we need a full rebuild vs fast update
@@ -216,7 +222,7 @@ export function renderVisibleRows(
     if (structureValid && dataRefChanged) {
       for (let c = 0; c < colLen; c++) {
         const col = columns[c];
-        if ((col as any).externalView) {
+        if (col.externalView) {
           const cellCheck = rowEl.querySelector(`.cell[data-col="${c}"] [data-external-view]`);
           if (!cellCheck) {
             needsExternalRebuild = true;
@@ -236,35 +242,35 @@ export function renderVisibleRows(
       // (This happens when virtualization recycles the DOM element for a different row)
       if (hasEditing && !isActivelyEditedRow) {
         // Force full rebuild to clear stale editors
-        if ((rowEl as any).__isCustomRow) {
+        if (rowEl.__isCustomRow) {
           rowEl.className = 'data-grid-row';
           rowEl.setAttribute('role', 'row');
-          (rowEl as any).__isCustomRow = false;
+          rowEl.__isCustomRow = false;
         }
         clearEditingState(rowEl); // Clear editing state before rebuild
         renderInlineRow(grid, rowEl, rowData, rowIndex);
-        (rowEl as any).__epoch = epoch;
-        (rowEl as any).__rowDataRef = rowData;
+        rowEl.__epoch = epoch;
+        rowEl.__rowDataRef = rowData;
       } else if (hasEditing && isActivelyEditedRow) {
         // Row is in editing mode AND this is the correct row - preserve editors
         fastPatchRow(grid, rowEl, rowData, rowIndex);
-        (rowEl as any).__rowDataRef = rowData;
+        rowEl.__rowDataRef = rowData;
       } else {
-        if ((rowEl as any).__isCustomRow) {
+        if (rowEl.__isCustomRow) {
           rowEl.className = 'data-grid-row';
           rowEl.setAttribute('role', 'row');
-          (rowEl as any).__isCustomRow = false;
+          rowEl.__isCustomRow = false;
         }
         renderInlineRow(grid, rowEl, rowData, rowIndex);
-        (rowEl as any).__epoch = epoch;
-        (rowEl as any).__rowDataRef = rowData;
+        rowEl.__epoch = epoch;
+        rowEl.__rowDataRef = rowData;
 
         // If this is the actively edited row but DOM doesn't have editors, create them
         if (isActivelyEditedRow) {
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
             const col = grid._visibleColumns[c];
-            if (col && (col as any).editable) {
+            if (col?.editable) {
               // Skip focus - editors are being re-created during virtualization scroll
               inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
             }
@@ -281,18 +287,18 @@ export function renderVisibleRows(
       if (hasEditing && !isActivelyEditedRow) {
         clearEditingState(rowEl); // Clear editing state before rebuild
         renderInlineRow(grid, rowEl, rowData, rowIndex);
-        (rowEl as any).__epoch = epoch;
-        (rowEl as any).__rowDataRef = rowData;
+        rowEl.__epoch = epoch;
+        rowEl.__rowDataRef = rowData;
       } else {
         fastPatchRow(grid, rowEl, rowData, rowIndex);
-        (rowEl as any).__rowDataRef = rowData;
+        rowEl.__rowDataRef = rowData;
 
         // If this is the actively edited row but DOM doesn't have editors, create them
         if (isActivelyEditedRow && !hasEditing) {
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
             const col = grid._visibleColumns[c];
-            if (col && (col as any).editable) {
+            if (col?.editable) {
               // Skip focus - editors are being re-created during virtualization scroll
               inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
             }
@@ -309,8 +315,8 @@ export function renderVisibleRows(
       if (hasEditing && !isActivelyEditedRow) {
         clearEditingState(rowEl); // Clear editing state before rebuild
         renderInlineRow(grid, rowEl, rowData, rowIndex);
-        (rowEl as any).__epoch = epoch;
-        (rowEl as any).__rowDataRef = rowData;
+        rowEl.__epoch = epoch;
+        rowEl.__rowDataRef = rowData;
       } else {
         fastPatchRow(grid, rowEl, rowData, rowIndex);
 
@@ -319,7 +325,7 @@ export function renderVisibleRows(
           const children = rowEl.children;
           for (let c = 0; c < children.length; c++) {
             const col = grid._visibleColumns[c];
-            if (col && (col as any).editable) {
+            if (col?.editable) {
               // Skip focus - editors are being re-created during virtualization scroll
               inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
             }
@@ -356,11 +362,11 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
 
   // Ultra-fast path: if no special columns (templates, formatters, etc.), use direct assignment
   // Check is cached on grid to avoid repeated iteration
-  let hasSpecialCols = (grid as any).__hasSpecialColumns;
+  let hasSpecialCols = grid.__hasSpecialColumns;
   if (hasSpecialCols === undefined) {
     hasSpecialCols = false;
     for (let i = 0; i < colsLen; i++) {
-      const col = columns[i] as any;
+      const col = columns[i];
       if (
         col.__viewTemplate ||
         col.__compiledView ||
@@ -375,7 +381,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         break;
       }
     }
-    (grid as any).__hasSpecialColumns = hasSpecialCols;
+    grid.__hasSpecialColumns = hasSpecialCols;
   }
 
   const rowIndexStr = String(rowIndex);
@@ -404,7 +410,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
 
   // Check if any external view placeholder is missing - if so, do full rebuild
   for (let i = 0; i < minLen; i++) {
-    const col = columns[i] as any;
+    const col = columns[i];
     if (col.externalView) {
       const cell = children[i] as HTMLElement;
       if (!cell.querySelector('[data-external-view]')) {
@@ -416,7 +422,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
 
   // Standard path for grids with special columns
   for (let i = 0; i < minLen; i++) {
-    const col = columns[i] as any;
+    const col = columns[i];
     const cell = children[i] as HTMLElement;
 
     // Update data-row for click handling
@@ -436,23 +442,25 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     if (cell.classList.contains('editing')) continue;
 
     // Handle viewRenderer/renderer - must re-invoke to get updated content
-    const cellRenderer = (col as any).renderer || col.viewRenderer;
+    const cellRenderer = col.renderer || col.viewRenderer;
     if (cellRenderer) {
       const value = rowData[col.field];
       // Pass cellEl for framework adapters that want to cache per-cell
       const produced = cellRenderer({ row: rowData, value, field: col.field, column: col, cellEl: cell });
       if (typeof produced === 'string') {
         cell.innerHTML = sanitizeHTML(produced);
-      } else if (produced) {
+      } else if (produced instanceof Node) {
         // Check if this container is already a child of the cell (reused by framework adapter)
         if (produced.parentElement !== cell) {
           cell.innerHTML = '';
           cell.appendChild(produced);
         }
         // If already a child, the framework adapter has re-rendered in place
-      } else {
+      } else if (produced == null) {
+        // Renderer returned null/undefined - show raw value
         cell.textContent = value == null ? '' : String(value);
       }
+      // If produced is truthy but not a string or Node, the framework handles it
       continue;
     }
 
@@ -469,7 +477,9 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       try {
         const formatted = col.format(value, rowData);
         displayStr = formatted == null ? '' : String(formatted);
-      } catch {
+      } catch (e) {
+        // Log format errors as warnings (user configuration issue)
+        console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);
         displayStr = value == null ? '' : String(value);
       }
     } else if (col.type === 'date') {
@@ -497,14 +507,14 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
   const colsLen = columns.length;
   const focusRow = grid._focusRow;
   const focusCol = grid._focusCol;
-  const editMode = (grid as any).effectiveConfig?.editOn || grid.editOn;
+  const editMode = grid.effectiveConfig?.editOn || grid.editOn;
   const gridEl = grid as unknown as HTMLElement;
 
   // Use DocumentFragment for batch DOM insertion
   const fragment = document.createDocumentFragment();
 
   for (let colIndex = 0; colIndex < colsLen; colIndex++) {
-    const col: ColumnConfig<any> = columns[colIndex];
+    const col = columns[colIndex];
     // Use template cloning - 3-4x faster than createElement + setAttribute
     const cell = createCellFromTemplate();
 
@@ -515,23 +525,23 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     cell.setAttribute('data-row', String(rowIndex));
     cell.setAttribute('data-field', col.field); // Field name for column identification
     const isCheckbox = col.type === 'boolean';
-    if (col.type) cell.setAttribute('data-type', col.type as any);
+    if (col.type) cell.setAttribute('data-type', col.type);
 
-    let value = (rowData as any)[col.field];
-    const format = (col as any).format;
-    if (format) {
+    let value = (rowData as Record<string, unknown>)[col.field];
+    if (col.format) {
       try {
-        value = format(value, rowData);
-      } catch {
-        /* empty */
+        value = col.format(value, rowData);
+      } catch (e) {
+        // Log format errors as warnings (user configuration issue)
+        console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);
       }
     }
 
-    const compiled = (col as any).__compiledView as ((ctx: any) => string) | undefined;
-    const tplHolder = (col as any).__viewTemplate as HTMLElement | undefined;
+    const compiled = col.__compiledView;
+    const tplHolder = col.__viewTemplate;
     // Support both 'renderer' (ergonomic alias) and 'viewRenderer' (legacy)
-    const viewRenderer = (col as any).renderer || (col as any).viewRenderer;
-    const externalView = (col as any).externalView;
+    const viewRenderer = col.renderer || col.viewRenderer;
+    const externalView = col.externalView;
 
     // Track if we used a template that needs sanitization
     let needsSanitization = false;
@@ -543,7 +553,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
         // Sanitize HTML from viewRenderer to prevent XSS from user-controlled data
         cell.innerHTML = sanitizeHTML(produced);
         needsSanitization = true;
-      } else if (produced) {
+      } else if (produced instanceof Node) {
         // Check if this container is already a child of the cell (reused by framework adapter)
         if (produced.parentElement !== cell) {
           // Clear any existing content before appending new container
@@ -551,7 +561,12 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
           cell.appendChild(produced);
         }
         // If already a child, the framework adapter has re-rendered in place
-      } else cell.textContent = value == null ? '' : String(value);
+      } else if (produced == null) {
+        // Renderer returned null/undefined - show raw value
+        cell.textContent = value == null ? '' : String(value);
+      }
+      // If produced is truthy but not a string or Node (e.g., framework placeholder),
+      // don't modify the cell - the framework adapter handles rendering
     } else if (externalView) {
       const spec = externalView;
       const placeholder = document.createElement('div');
@@ -562,8 +577,9 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       if (spec.mount) {
         try {
           spec.mount({ placeholder, context, spec });
-        } catch {
-          /* empty */
+        } catch (e) {
+          // Log mount errors as warnings (user configuration issue)
+          console.warn(`[tbw-grid] External view mount error for column '${col.field}':`, e);
         }
       } else {
         queueMicrotask(() => {
@@ -575,15 +591,16 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
                 detail: { placeholder, spec, context },
               }),
             );
-          } catch {
-            /* empty */
+          } catch (e) {
+            // Log dispatch errors as warnings
+            console.warn(`[tbw-grid] External view event dispatch error for column '${col.field}':`, e);
           }
         });
       }
       placeholder.setAttribute('data-mounted', '');
     } else if (compiled) {
       const output = compiled({ row: rowData, value, field: col.field, column: col });
-      const blocked = (compiled as any).__blocked;
+      const blocked = compiled.__blocked;
       // Sanitize compiled template output to prevent XSS
       cell.innerHTML = blocked ? '' : sanitizeHTML(output);
       needsSanitization = true;
@@ -631,7 +648,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     }
     // Mark editable cells with tabindex for keyboard navigation
     // Event handlers are set up via delegation in setupCellEventDelegation()
-    if ((col as any).editable) {
+    if (col.editable) {
       cell.tabIndex = 0;
     } else if (col.type === 'boolean') {
       // Non-editable boolean cells should NOT toggle on space key
@@ -713,7 +730,7 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
         const colIndex = Number(cellEl.getAttribute('data-col'));
         const col = grid._visibleColumns[colIndex];
         // If clicking an editable cell, focus its editor
-        if (col && (col as any).editable && cellEl.classList.contains('editing')) {
+        if (col?.editable && cellEl.classList.contains('editing')) {
           const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
           try {
             editor?.focus({ preventScroll: true });
@@ -737,7 +754,7 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
     }
     clearEditingState(rowEl);
   }
-  const rawMode = (grid as any).effectiveConfig?.editOn ?? grid.editOn ?? 'dblClick';
+  const rawMode = grid.effectiveConfig?.editOn ?? grid.editOn ?? 'dblClick';
   // editOn: false disables all editing
   if (rawMode === false) return;
   // Normalize: accept both 'dblClick' and 'dblclick' (DOM event name)
@@ -750,10 +767,10 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
     }
     startRowEdit(grid, rowIndex, rowData);
   } else return;
-  Array.from(rowEl.children).forEach((c: any, i: number) => {
+  Array.from(rowEl.children).forEach((c, i: number) => {
     const col = grid._visibleColumns[i];
     // Skip focus - we'll focus the correct editor in the queueMicrotask below
-    if (col && (col as any).editable) inlineEnterEdit(grid, rowData, rowIndex, col, c as HTMLElement, true);
+    if (col?.editable) inlineEnterEdit(grid, rowData, rowIndex, col, c as HTMLElement, true);
   });
   if (cellEl) {
     queueMicrotask(() => {

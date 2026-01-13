@@ -16,7 +16,7 @@ function inferType(value: any): PrimitiveColumnType {
  */
 export function inferColumns<TRow extends Record<string, unknown>>(
   rows: TRow[],
-  provided?: ColumnConfigMap<TRow>
+  provided?: ColumnConfigMap<TRow>,
 ): InferredColumnResult<TRow> {
   if (provided && provided.length) {
     const typeMap: Record<string, PrimitiveColumnType> = {};
@@ -27,7 +27,7 @@ export function inferColumns<TRow extends Record<string, unknown>>(
   }
   const sample = rows[0] || ({} as TRow);
   const columns: ColumnConfigMap<TRow> = Object.keys(sample).map((k) => {
-    const v = (sample as any)[k];
+    const v = (sample as Record<string, unknown>)[k];
     const type = inferType(v);
     return { field: k as keyof TRow & string, header: k.charAt(0).toUpperCase() + k.slice(1), type };
   });

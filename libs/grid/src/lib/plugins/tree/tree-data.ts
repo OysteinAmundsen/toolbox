@@ -4,16 +4,13 @@
  * Pure functions for tree flattening, expansion, and traversal.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// The tree plugin intentionally uses `any` for maximum flexibility with user-defined row types.
-
-import type { FlattenedTreeRow, TreeConfig } from './types';
+import type { FlattenedTreeRow, TreeConfig, TreeRow } from './types';
 
 /**
  * Generates a unique key for a row.
  * Uses row.id if available, otherwise generates from path.
  */
-export function generateRowKey(row: any, index: number, parentKey: string | null): string {
+export function generateRowKey(row: TreeRow, index: number, parentKey: string | null): string {
   if (row.id !== undefined) return String(row.id);
   return parentKey ? `${parentKey}-${index}` : String(index);
 }
@@ -23,11 +20,11 @@ export function generateRowKey(row: any, index: number, parentKey: string | null
  * Only includes children of expanded nodes.
  */
 export function flattenTree(
-  rows: any[],
+  rows: readonly TreeRow[],
   config: TreeConfig,
   expandedKeys: Set<string>,
   parentKey: string | null = null,
-  depth = 0
+  depth = 0,
 ): FlattenedTreeRow[] {
   const childrenField = config.childrenField ?? 'children';
   const result: FlattenedTreeRow[] = [];
@@ -50,7 +47,7 @@ export function flattenTree(
 
     // Recursively add children if expanded
     if (hasChildren && isExpanded) {
-      const childRows = flattenTree(children, config, expandedKeys, key, depth + 1);
+      const childRows = flattenTree(children as TreeRow[], config, expandedKeys, key, depth + 1);
       result.push(...childRows);
     }
   }
@@ -76,7 +73,12 @@ export function toggleExpand(expandedKeys: Set<string>, key: string): Set<string
  * Expands all nodes in the tree.
  * Returns a Set of all parent row keys.
  */
-export function expandAll(rows: any[], config: TreeConfig, parentKey: string | null = null, depth = 0): Set<string> {
+export function expandAll(
+  rows: readonly TreeRow[],
+  config: TreeConfig,
+  parentKey: string | null = null,
+  depth = 0,
+): Set<string> {
   const childrenField = config.childrenField ?? 'children';
   const keys = new Set<string>();
 
@@ -87,7 +89,7 @@ export function expandAll(rows: any[], config: TreeConfig, parentKey: string | n
 
     if (Array.isArray(children) && children.length > 0) {
       keys.add(key);
-      const childKeys = expandAll(children, config, key, depth + 1);
+      const childKeys = expandAll(children as TreeRow[], config, key, depth + 1);
       for (const k of childKeys) keys.add(k);
     }
   }
@@ -136,11 +138,11 @@ export function getDescendants(flattenedRows: FlattenedTreeRow[], parentKey: str
  * Returns an array of keys from root to the target (inclusive).
  */
 export function getPathToKey(
-  rows: any[],
+  rows: readonly TreeRow[],
   targetKey: string,
   config: TreeConfig,
   parentKey: string | null = null,
-  depth = 0
+  depth = 0,
 ): string[] | null {
   const childrenField = config.childrenField ?? 'children';
 
@@ -154,7 +156,7 @@ export function getPathToKey(
 
     const children = row[childrenField];
     if (Array.isArray(children) && children.length > 0) {
-      const childPath = getPathToKey(children, targetKey, config, key, depth + 1);
+      const childPath = getPathToKey(children as TreeRow[], targetKey, config, key, depth + 1);
       if (childPath) {
         return [key, ...childPath];
       }
@@ -169,10 +171,10 @@ export function getPathToKey(
  * Returns a new Set with the required keys added.
  */
 export function expandToKey(
-  rows: any[],
+  rows: readonly TreeRow[],
   targetKey: string,
   config: TreeConfig,
-  existingExpanded: Set<string>
+  existingExpanded: Set<string>,
 ): Set<string> {
   const path = getPathToKey(rows, targetKey, config);
   if (!path) return existingExpanded;

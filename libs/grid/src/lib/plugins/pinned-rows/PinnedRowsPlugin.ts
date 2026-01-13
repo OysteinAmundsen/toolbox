@@ -217,8 +217,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   private getSelectionState(): { selected: Set<number> } | null {
     // Try to get selection plugin state
     try {
-      const grid = this.grid as any;
-      return grid?.getPluginState?.('selection') ?? null;
+      return (this.grid?.getPluginState?.('selection') as { selected: Set<number> } | null) ?? null;
     } catch {
       return null;
     }
@@ -226,8 +225,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
 
   private getFilterState(): { cachedResult: unknown[] | null } | null {
     try {
-      const grid = this.grid as any;
-      return grid?.getPluginState?.('filtering') ?? null;
+      return (this.grid?.getPluginState?.('filtering') as { cachedResult: unknown[] | null } | null) ?? null;
     } catch {
       return null;
     }

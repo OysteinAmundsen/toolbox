@@ -449,8 +449,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
         // React's useEffect runs too late (after paint), causing the grid to initialize without config
         if (el) {
           const grid = el as ExtendedGridElement;
-          if (gridConfig) {
-            grid.gridConfig = gridConfig as GridConfig<unknown>;
+          // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
+          if (processedGridConfig) {
+            grid.gridConfig = processedGridConfig as GridConfig<unknown>;
           }
           if (rows) {
             grid.rows = rows;

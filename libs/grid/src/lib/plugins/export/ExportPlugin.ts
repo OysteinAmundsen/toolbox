@@ -76,16 +76,16 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
     }
 
     // Get rows to export
-    let rows = [...this.rows] as any[];
+    let rows = [...this.rows] as Record<string, unknown>[];
     if (config.onlySelected) {
       const selectionState = this.getSelectionState();
       if (selectionState?.selected?.size) {
         const sortedIndices = [...selectionState.selected].sort((a, b) => a - b);
-        rows = sortedIndices.map((i) => this.rows[i]).filter(Boolean);
+        rows = sortedIndices.map((i) => this.rows[i]).filter(Boolean) as Record<string, unknown>[];
       }
     }
     if (params?.rowIndices) {
-      rows = params.rowIndices.map((i) => this.rows[i]).filter(Boolean);
+      rows = params.rowIndices.map((i) => this.rows[i]).filter(Boolean) as Record<string, unknown>[];
     }
 
     this.isExportingFlag = true;
@@ -142,8 +142,7 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
 
   private getSelectionState(): SelectionPluginState | null {
     try {
-      const grid = this.grid as any;
-      return grid?.getPluginState?.('selection') ?? null;
+      return (this.grid?.getPluginState?.('selection') as SelectionPluginState | null) ?? null;
     } catch {
       return null;
     }

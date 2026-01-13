@@ -86,7 +86,7 @@ function handleCellDblclick(grid: InternalGrid, cell: HTMLElement, e: MouseEvent
     const children = rowEl.children;
     for (let i = 0; i < children.length; i++) {
       const col2 = grid._visibleColumns[i];
-      if (col2 && (col2 as any).editable) {
+      if (col2?.editable) {
         inlineEnterEdit(grid, ctx.rowData, ctx.rowIndex, col2, children[i] as HTMLElement, true);
       }
     }
@@ -122,9 +122,9 @@ function handleCellKeydown(grid: InternalGrid, cell: HTMLElement, e: KeyboardEve
     if (grid._activeEditRows !== rowIndex) startRowEdit(grid, rowIndex, rowData);
     inlineEnterEdit(grid, rowData, rowIndex, col, cell);
     setTimeout(() => {
-      const selectEl = cell.querySelector('select') as HTMLSelectElement | null;
+      const selectEl = cell.querySelector('select');
       try {
-        (selectEl as any)?.showPicker?.();
+        selectEl?.showPicker?.();
       } catch {
         /* empty */
       }
@@ -174,7 +174,7 @@ function handleCellKeydown(grid: InternalGrid, cell: HTMLElement, e: KeyboardEve
  * @param signal - AbortSignal for cleanup
  */
 export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement, signal: AbortSignal): void {
-  const getEditMode = () => (grid as any).effectiveConfig?.editOn || (grid as any).editOn;
+  const getEditMode = () => grid.effectiveConfig?.editOn || grid.editOn;
 
   // Mousedown - update focus on editable cells
   bodyEl.addEventListener(
@@ -188,7 +188,7 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
       if (colIndex < 0) return;
 
       const col = grid._visibleColumns[colIndex];
-      if (col && (col as any).editable) {
+      if (col?.editable) {
         handleCellMousedown(grid, cell);
       }
     },
@@ -209,7 +209,7 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
       if (colIndex < 0) return;
 
       const col = grid._visibleColumns[colIndex];
-      if (col && (col as any).editable) {
+      if (col?.editable) {
         handleCellClick(grid, cell, e);
       }
     },
@@ -232,7 +232,7 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
       if (colIndex < 0) return;
 
       const col = grid._visibleColumns[colIndex];
-      if (col && (col as any).editable) {
+      if (col?.editable) {
         handleCellDblclick(grid, cell, e);
       }
     },
@@ -250,7 +250,7 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
       if (colIndex < 0) return;
 
       const col = grid._visibleColumns[colIndex];
-      if (col && (col as any).editable) {
+      if (col?.editable) {
         handleCellKeydown(grid, cell, e as KeyboardEvent);
       }
     },

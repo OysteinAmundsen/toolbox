@@ -196,20 +196,34 @@ export interface CellEditor {
 /**
  * Minimal grid interface for plugins.
  * This avoids circular imports with the full DataGridElement.
+ *
+ * Member prefixes indicate accessibility:
+ * - `_underscore` = protected members accessible to plugins (marked @internal in full interface)
  */
 export interface GridElementRef {
   shadowRoot: ShadowRoot | null;
+  /** Current rows (after plugin processing like grouping, filtering). */
   rows: unknown[];
+  /** Original unfiltered/unprocessed rows. */
+  sourceRows: unknown[];
+  /** Column configurations. */
   columns: ColumnConfig[];
+  /** Visible columns only (excludes hidden). Use for rendering. @internal */
+  _visibleColumns: ColumnConfig[];
+  /** Full grid configuration. */
   gridConfig: GridConfig;
-  /** Current focused row index */
+  /** Current focused row index. @internal */
   _focusRow: number;
-  /** Current focused column index */
+  /** Current focused column index. @internal */
   _focusCol: number;
-  /** AbortSignal that is aborted when the grid disconnects from the DOM */
+  /** AbortSignal that is aborted when the grid disconnects from the DOM. */
   disconnectSignal: AbortSignal;
+  /** Request a full re-render of the grid. */
   requestRender(): void;
+  /** Request a lightweight style update without rebuilding DOM. */
   requestAfterRender(): void;
+  /** Force a layout pass. */
   forceLayout(): Promise<void>;
+  /** Dispatch an event from the grid element. */
   dispatchEvent(event: Event): boolean;
 }

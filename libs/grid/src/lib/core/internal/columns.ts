@@ -1,7 +1,16 @@
-import type { ColumnConfig, ColumnInternal, InternalGrid } from '../types';
+import type { ColumnConfig, ColumnInternal, ElementWithPart, InternalGrid, PrimitiveColumnType } from '../types';
 import { FitModeEnum } from '../types';
 import { inferColumns } from './inference';
 import { compileTemplate } from './sanitize';
+
+/** Global DataGridElement class (may or may not be registered) */
+interface DataGridElementClass {
+  getAdapters?: () => Array<{
+    canHandle: (el: HTMLElement) => boolean;
+    createRenderer: (el: HTMLElement) => ((ctx: unknown) => Node | string | void) | undefined;
+    createEditor: (el: HTMLElement) => ((ctx: unknown) => HTMLElement | string) | undefined;
+  }>;
+}
 
 /**
  * Parse `<tbw-grid-column>` elements from the host light DOM into column config objects,
@@ -14,8 +23,9 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       const field = el.getAttribute('field') || '';
       if (!field) return null;
       const rawType = el.getAttribute('type') || undefined;
-      const allowedTypes = new Set(['number', 'string', 'date', 'boolean', 'select', 'typeahead']);
-      const type = rawType && allowedTypes.has(rawType) ? (rawType as any) : undefined;
+      const allowedTypes = new Set<PrimitiveColumnType>(['number', 'string', 'date', 'boolean', 'select', 'typeahead']);
+      const type =
+        rawType && allowedTypes.has(rawType as PrimitiveColumnType) ? (rawType as PrimitiveColumnType) : undefined;
       const header = el.getAttribute('header') || undefined;
       const sortable = el.hasAttribute('sortable');
       const editable = el.hasAttribute('editable');
@@ -41,19 +51,19 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
         }
       }
 
-      if (el.hasAttribute('resizable')) (config as any).resizable = true;
-      if (el.hasAttribute('sizable')) (config as any).resizable = true; // legacy attribute support
+      if (el.hasAttribute('resizable')) config.resizable = true;
+      if (el.hasAttribute('sizable')) config.resizable = true; // legacy attribute support
 
       // Parse editor and renderer attribute names for programmatic lookup
       const editorName = el.getAttribute('editor');
       const rendererName = el.getAttribute('renderer');
-      if (editorName) (config as any).__editorName = editorName;
-      if (rendererName) (config as any).__rendererName = rendererName;
+      if (editorName) config.__editorName = editorName;
+      if (rendererName) config.__rendererName = rendererName;
 
       // Parse options attribute for select/typeahead: "value1:Label1,value2:Label2" or "value1,value2"
       const optionsAttr = el.getAttribute('options');
       if (optionsAttr) {
-        (config as any).options = optionsAttr.split(',').map((item) => {
+        config.options = optionsAttr.split(',').map((item) => {
           const [value, label] = item.includes(':') ? item.split(':') : [item.trim(), item.trim()];
           return { value: value.trim(), label: label?.trim() || value.trim() };
         });
@@ -67,12 +77,12 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
 
       // Check if framework adapters can handle template wrapper elements or the column element itself
       // React adapter registers on the column element, Angular uses inner template wrappers
-      const DataGridElementClass = (globalThis as any).DataGridElement;
-      const adapters = DataGridElementClass?.getAdapters?.() ?? [];
+      const DataGridElementClassRef = (globalThis as { DataGridElement?: DataGridElementClass }).DataGridElement;
+      const adapters = DataGridElementClassRef?.getAdapters?.() ?? [];
 
       // First check inner view template, then column element itself
-      const viewTarget = viewTpl ?? el;
-      const viewAdapter = adapters.find((a: any) => a.canHandle(viewTarget));
+      const viewTarget = (viewTpl ?? el) as HTMLElement;
+      const viewAdapter = adapters.find((a) => a.canHandle(viewTarget));
       if (viewAdapter) {
         // Only assign if adapter returns a truthy renderer
         // Adapters return undefined when only an editor is registered (no view template)
@@ -83,8 +93,8 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       }
 
       // First check inner editor template, then column element itself
-      const editorTarget = editorTpl ?? el;
-      const editorAdapter = adapters.find((a: any) => a.canHandle(editorTarget));
+      const editorTarget = (editorTpl ?? el) as HTMLElement;
+      const editorAdapter = adapters.find((a) => a.canHandle(editorTarget));
       if (editorAdapter) {
         // Only assign if adapter returns a truthy editor
         const editor = editorAdapter.createEditor(editorTarget);
@@ -124,18 +134,18 @@ export function mergeColumns(
       if (c.type && !existing.type) existing.type = c.type;
       if (c.sortable) existing.sortable = true;
       if (c.editable) existing.editable = true;
-      if ((c as any).resizable) (existing as any).resizable = true;
+      if (c.resizable) existing.resizable = true;
       if (c.width != null && existing.width == null) existing.width = c.width;
       if (c.minWidth != null && existing.minWidth == null) existing.minWidth = c.minWidth;
-      if ((c as any).__viewTemplate) (existing as any).__viewTemplate = (c as any).__viewTemplate;
-      if ((c as any).__editorTemplate) (existing as any).__editorTemplate = (c as any).__editorTemplate;
-      if ((c as any).__headerTemplate) (existing as any).__headerTemplate = (c as any).__headerTemplate;
+      if (c.__viewTemplate) existing.__viewTemplate = c.__viewTemplate;
+      if (c.__editorTemplate) existing.__editorTemplate = c.__editorTemplate;
+      if (c.__headerTemplate) existing.__headerTemplate = c.__headerTemplate;
       // Support both 'renderer' alias and 'viewRenderer'
-      const cRenderer = (c as any).renderer || c.viewRenderer;
-      const existingRenderer = (existing as any).renderer || existing.viewRenderer;
+      const cRenderer = c.renderer || c.viewRenderer;
+      const existingRenderer = existing.renderer || existing.viewRenderer;
       if (cRenderer && !existingRenderer) {
         existing.viewRenderer = cRenderer;
-        if ((c as any).renderer) (existing as any).renderer = cRenderer;
+        if (c.renderer) existing.renderer = cRenderer;
       }
       if (c.editor && !existing.editor) existing.editor = c.editor;
     } else {
@@ -150,20 +160,20 @@ export function mergeColumns(
     if (d.header && !m.header) m.header = d.header;
     if (d.type && !m.type) m.type = d.type;
     m.sortable = c.sortable || d.sortable;
-    if ((c as any).resizable === true || (d as any).resizable === true) (m as any).resizable = true;
+    if (c.resizable === true || d.resizable === true) m.resizable = true;
     m.editable = c.editable || d.editable;
     // Merge width/minWidth from DOM if not set programmatically
     if (d.width != null && m.width == null) m.width = d.width;
     if (d.minWidth != null && m.minWidth == null) m.minWidth = d.minWidth;
-    if ((d as any).__viewTemplate) (m as any).__viewTemplate = (d as any).__viewTemplate;
-    if ((d as any).__editorTemplate) (m as any).__editorTemplate = (d as any).__editorTemplate;
-    if ((d as any).__headerTemplate) (m as any).__headerTemplate = (d as any).__headerTemplate;
+    if (d.__viewTemplate) m.__viewTemplate = d.__viewTemplate;
+    if (d.__editorTemplate) m.__editorTemplate = d.__editorTemplate;
+    if (d.__headerTemplate) m.__headerTemplate = d.__headerTemplate;
     // Merge framework adapter renderers/editors from DOM (support both 'renderer' alias and 'viewRenderer')
-    const dRenderer = (d as any).renderer || d.viewRenderer;
-    const mRenderer = (m as any).renderer || m.viewRenderer;
+    const dRenderer = d.renderer || d.viewRenderer;
+    const mRenderer = m.renderer || m.viewRenderer;
     if (dRenderer && !mRenderer) {
       m.viewRenderer = dRenderer;
-      if ((d as any).renderer) (m as any).renderer = dRenderer;
+      if (d.renderer) m.renderer = dRenderer;
     }
     if (d.editor && !m.editor) m.editor = d.editor;
     delete domMap[c.field];
@@ -179,7 +189,7 @@ export function mergeColumns(
  */
 export function addPart(el: HTMLElement, token: string): void {
   try {
-    (el as any).part?.add?.(token);
+    (el as ElementWithPart).part?.add?.(token);
   } catch {
     /* empty */
   }
@@ -212,10 +222,10 @@ export function getColumnConfiguration(grid: InternalGrid): void {
       c.__compiledView = compileTemplate((c.__viewTemplate as HTMLElement).innerHTML);
     }
     if (c.__editorTemplate && !c.__compiledEditor) {
-      c.__compiledEditor = compileTemplate((c.__editorTemplate as HTMLElement).innerHTML);
+      c.__compiledEditor = compileTemplate(c.__editorTemplate.innerHTML);
     }
   });
-  const { columns } = inferColumns(grid._rows, merged as any);
+  const { columns } = inferColumns(grid._rows, merged);
   grid._columns = columns as ColumnInternal[];
 }
 
@@ -224,17 +234,17 @@ export function getColumnConfiguration(grid: InternalGrid): void {
  * to columns when in `content` fit mode. Runs only once unless fit mode changes.
  */
 export function autoSizeColumns(grid: InternalGrid): void {
-  const mode = (grid as any).effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
+  const mode = grid.effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
   // Run for both stretch (to derive baseline pixel widths before fr distribution) and fixed.
   if (mode !== FitModeEnum.STRETCH && mode !== FitModeEnum.FIXED) return;
   if (grid.__didInitialAutoSize) return;
   if (!(grid as unknown as HTMLElement).isConnected) return;
-  const headerCells = (grid._headerRowEl?.children || []) as any;
+  const headerCells = Array.from(grid._headerRowEl?.children || []) as HTMLElement[];
   if (!headerCells.length) return;
   let changed = false;
   grid._visibleColumns.forEach((col: ColumnInternal, i: number) => {
     if (col.width) return;
-    const headerCell = headerCells[i] as HTMLElement | undefined;
+    const headerCell = headerCells[i];
     let max = headerCell ? headerCell.scrollWidth : 0;
     for (const rowEl of grid._rowPool) {
       const cell = rowEl.children[i] as HTMLElement | undefined;
@@ -245,7 +255,7 @@ export function autoSizeColumns(grid: InternalGrid): void {
     }
     if (max > 0) {
       col.width = max + 2;
-      (col as ColumnInternal).__autoSized = true;
+      col.__autoSized = true;
       changed = true;
     }
   });
@@ -265,14 +275,14 @@ export function updateTemplate(grid: InternalGrid): void {
   //               Uses minmax(minWidth, 1fr) when only min specified (grows unbounded)
   //               Uses minmax(defaultMin, maxWidth) when only max specified (capped growth)
   //  - 'fixed': columns with explicit width use that width; columns without width use max-content
-  const mode = (grid as any).effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
+  const mode = grid.effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
 
   if (mode === FitModeEnum.STRETCH) {
     grid._gridTemplate = grid._visibleColumns
       .map((c: ColumnInternal) => {
         if (c.width) return `${c.width}px`;
         // Flexible column: pure 1fr unless minWidth specified
-        const min = (c as any).minWidth;
+        const min = c.minWidth;
         return min != null ? `minmax(${min}px, 1fr)` : '1fr';
       })
       .join(' ')
@@ -283,5 +293,5 @@ export function updateTemplate(grid: InternalGrid): void {
       .map((c: ColumnInternal) => (c.width ? `${c.width}px` : 'max-content'))
       .join(' ');
   }
-  ((grid as unknown as HTMLElement).style as any).setProperty('--tbw-column-template', grid._gridTemplate);
+  (grid as unknown as HTMLElement).style.setProperty('--tbw-column-template', grid._gridTemplate);
 }

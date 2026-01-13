@@ -116,9 +116,9 @@ export type {
   // Sorting types
   SortHandler,
   SortState,
+  ToolbarButtonConfig,
   ToolPanelConfig,
   ToolPanelDefinition,
-  ToolbarButtonConfig,
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
@@ -128,52 +128,128 @@ export { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS, FitModeEnum } from './lib
 export { builtInSort, defaultComparator } from './lib/core/internal/sorting';
 // #endregion
 
-// #region Plugin Types
-// Only export types that consumers need to use plugins
-// Plugin classes are available via @toolbox-web/grid/plugins/<name> or from 'all.ts'
-
-// Selection plugin
-export type { CellRange, SelectionChangeDetail, SelectionConfig, SelectionMode } from './lib/plugins/selection/types';
-
-// Tree plugin
-export type { TreeConfig, TreeExpandDetail } from './lib/plugins/tree/types';
-
-// Filtering plugin
-export type {
-  FilterConfig,
-  FilterHandler,
-  FilterModel,
-  FilterOperator,
-  FilterType,
-  FilterValuesHandler,
-} from './lib/plugins/filtering/types';
-
-// Multi-sort plugin
-export type { MultiSortConfig, SortModel } from './lib/plugins/multi-sort/types';
-
-// Export plugin
-export type { ExportFormat, ExportParams } from './lib/plugins/export/types';
-
-// Pinned rows plugin
-export type { PinnedRowsContext, PinnedRowsPanel } from './lib/plugins/pinned-rows/types';
-
-// Pivot plugin
-export type { PivotConfig, PivotResult, PivotValueField } from './lib/plugins/pivot/types';
-
-// Server-side plugin
-export type { GetRowsParams, GetRowsResult, ServerSideDataSource } from './lib/plugins/server-side/types';
-
-// Undo/Redo plugin
-export type { EditAction } from './lib/plugins/undo-redo/types';
-
-// Grouping rows plugin
-export type { GroupingRowsConfig } from './lib/plugins/grouping-rows/types';
-
+// #region Plugin Development
 // Plugin base class - for creating custom plugins
 export { BaseGridPlugin, PLUGIN_QUERIES } from './lib/core/plugin';
 export type { PluginQuery } from './lib/core/plugin';
 
 // DOM constants - for querying grid elements and styling
-export { GridCSSVars, GridClasses, GridDataAttrs, GridSelectors } from './lib/core/constants';
-export type { GridCSSVar, GridClassName, GridDataAttr } from './lib/core/constants';
+export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';
+export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constants';
+
+// Note: Plugin-specific types (SelectionConfig, FilterConfig, etc.) are exported
+// from their respective plugin entry points:
+//   import { SelectionPlugin, type SelectionConfig } from '@toolbox-web/grid/plugins/selection';
+//   import { FilteringPlugin, type FilterConfig } from '@toolbox-web/grid/plugins/filtering';
+// Or import all plugins + types from: '@toolbox-web/grid/all'
+// #endregion
+
+// #region Advanced Types for Custom Plugins & Enterprise Extensions
+/**
+ * Internal types for advanced users building custom plugins or enterprise extensions.
+ *
+ * These types provide access to grid internals that may be needed for deep customization.
+ * While not part of the "stable" API, they are exported for power users who need them.
+ *
+ * @remarks
+ * Use with caution - these types expose internal implementation details.
+ * The underscore-prefixed members they reference are considered less stable
+ * than the public API surface.
+ *
+ * @example
+ * ```typescript
+ * import { BaseGridPlugin } from '@toolbox-web/grid';
+ * import type { InternalGrid, ColumnInternal } from '@toolbox-web/grid';
+ *
+ * export class MyPlugin extends BaseGridPlugin<MyConfig> {
+ *   afterRender(): void {
+ *     // Access grid internals with proper typing
+ *     const grid = this.grid as InternalGrid;
+ *     const columns = grid._columns as ColumnInternal[];
+ *     // ...
+ *   }
+ * }
+ * ```
+ */
+
+/**
+ * Column configuration with internal cache properties.
+ * Extends the public ColumnConfig with compiled template caches (__compiledView, __viewTemplate, etc.)
+ * @internal
+ */
+export type { ColumnInternal } from './lib/core/types';
+
+/**
+ * Compiled template function with __blocked property for error handling.
+ * @internal
+ */
+export type { CompiledViewFunction } from './lib/core/types';
+
+/**
+ * Full internal grid interface extending PublicGrid with internal state.
+ * Provides typed access to _columns, _rows, virtualization state, etc.
+ * @internal
+ */
+export type { InternalGrid } from './lib/core/types';
+
+/**
+ * Cell context for renderer/editor operations.
+ * @internal
+ */
+export type { CellContext } from './lib/core/types';
+
+/**
+ * Editor execution context extending CellContext with commit/cancel functions.
+ * @internal
+ */
+export type { EditorExecContext } from './lib/core/types';
+
+/**
+ * Template evaluation context for dynamic templates.
+ * @internal
+ */
+export type { EvalContext } from './lib/core/types';
+
+/**
+ * Column resize controller interface.
+ * @internal
+ */
+export type { ResizeController } from './lib/core/types';
+
+/**
+ * Row virtualization state interface.
+ * @internal
+ */
+export type { VirtualState } from './lib/core/types';
+
+/**
+ * Row element with internal editing state cache.
+ * Used for tracking editing cell count without querySelector.
+ * @internal
+ */
+export type { RowElementInternal } from './lib/core/types';
+
+/**
+ * Union type for input-like elements that have a `value` property.
+ * Covers standard form elements and custom elements with value semantics.
+ * @internal
+ */
+export type { InputLikeElement } from './lib/core/types';
+
+/**
+ * Utility type to safely cast a grid element to InternalGrid for plugin use.
+ *
+ * @example
+ * ```typescript
+ * import type { AsInternalGrid, InternalGrid } from '@toolbox-web/grid';
+ *
+ * class MyPlugin extends BaseGridPlugin {
+ *   get internalGrid(): InternalGrid {
+ *     return this.grid as AsInternalGrid;
+ *   }
+ * }
+ * ```
+ * @internal
+ */
+export type AsInternalGrid<T = unknown> = import('./lib/core/types').InternalGrid<T>;
 // #endregion

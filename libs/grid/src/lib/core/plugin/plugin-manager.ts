@@ -3,6 +3,11 @@
  *
  * Manages plugin instances for a single grid.
  * Each grid has its own PluginManager with its own set of plugin instances.
+ *
+ * **Plugin Order Matters**: Plugins are executed in the order they appear in the
+ * `plugins` array. This affects the order of hook execution (processRows, processColumns,
+ * afterRender, etc.). For example, if you want filtering to run before grouping,
+ * add FilteringPlugin before GroupingRowsPlugin in the array.
  */
 
 import type { ColumnConfig } from '../types';
@@ -12,6 +17,7 @@ import type {
   CellEditor,
   CellMouseEvent,
   CellRenderer,
+  GridElement,
   HeaderClickEvent,
   HeaderRenderer,
   PluginQuery,
@@ -21,6 +27,9 @@ import type {
 
 /**
  * Manages plugins for a single grid instance.
+ *
+ * Plugins are executed in array order. This is intentional and documented behavior.
+ * Place plugins in the order you want their hooks to execute.
  */
 export class PluginManager {
   /** Plugin instances in order of attachment */
@@ -38,7 +47,7 @@ export class PluginManager {
   /** Cell editors registered by plugins */
   private cellEditors: Map<string, CellEditor> = new Map();
 
-  constructor(private grid: any) {}
+  constructor(private grid: GridElement) {}
 
   /**
    * Attach all plugins from the config.
@@ -51,6 +60,7 @@ export class PluginManager {
 
   /**
    * Attach a plugin to this grid.
+   * Notifies other plugins of the new attachment via onPluginAttached hook.
    */
   attach(plugin: BaseGridPlugin): void {
     // Store by constructor for type-safe lookup
@@ -76,12 +86,29 @@ export class PluginManager {
 
     // Call attach lifecycle method
     plugin.attach(this.grid);
+
+    // Notify existing plugins of the new attachment
+    for (const existingPlugin of this.plugins) {
+      if (existingPlugin !== plugin && existingPlugin.onPluginAttached) {
+        existingPlugin.onPluginAttached(plugin.name, plugin);
+      }
+    }
   }
 
   /**
    * Detach all plugins and clean up.
+   * Notifies plugins of detachment via onPluginDetached hook.
    */
   detachAll(): void {
+    // Notify all plugins before detaching (in forward order)
+    for (const plugin of this.plugins) {
+      for (const otherPlugin of this.plugins) {
+        if (otherPlugin !== plugin && otherPlugin.onPluginDetached) {
+          otherPlugin.onPluginDetached(plugin.name);
+        }
+      }
+    }
+
     // Detach in reverse order
     for (let i = this.plugins.length - 1; i >= 0; i--) {
       this.plugins[i].detach();

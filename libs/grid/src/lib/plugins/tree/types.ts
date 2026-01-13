@@ -4,11 +4,18 @@
  * Type definitions for hierarchical tree data with expand/collapse functionality.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// The tree plugin intentionally uses `any` for maximum flexibility with user-defined row types.
-
 import type { ExpandCollapseAnimation } from '../../core/types';
 export type { ExpandCollapseAnimation } from '../../core/types';
+
+/** Generic tree row with dynamic property access */
+export type TreeRow = Record<string, unknown>;
+
+/** View renderer function with optional marker for tree-wrapped renderers */
+export interface TreeWrappedRenderer {
+  (ctx: { value: unknown; row: Record<string, unknown>; column: unknown }): Node | string | null;
+  /** Marker to prevent double-wrapping */
+  __treeWrapped?: boolean;
+}
 
 /** Configuration options for the tree plugin */
 export interface TreeConfig {
@@ -45,11 +52,11 @@ export interface TreeState {
 }
 
 /** A flattened tree row with hierarchy metadata */
-export interface FlattenedTreeRow {
+export interface FlattenedTreeRow<T = TreeRow> {
   /** Unique key identifying this row */
   key: string;
   /** Original row data */
-  data: any;
+  data: T;
   /** Depth level in the tree (0 = root) */
   depth: number;
   /** Whether this row has children */
@@ -61,11 +68,11 @@ export interface FlattenedTreeRow {
 }
 
 /** Event detail emitted when a tree node is expanded or collapsed */
-export interface TreeExpandDetail {
+export interface TreeExpandDetail<T = TreeRow> {
   /** The row key that was toggled */
   key: string;
   /** The original row data */
-  row: any;
+  row: T;
   /** Whether the row is now expanded */
   expanded: boolean;
   /** Depth level of the row */

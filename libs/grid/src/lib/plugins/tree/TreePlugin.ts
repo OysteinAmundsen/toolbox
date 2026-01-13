@@ -4,14 +4,19 @@
  * Enables hierarchical tree data with expand/collapse, sorting, and auto-detection.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { BaseGridPlugin, CellClickEvent, HeaderClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridConfig } from '../../core/types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
-import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandDetail } from './types';
+import type {
+  ExpandCollapseAnimation,
+  FlattenedTreeRow,
+  TreeConfig,
+  TreeExpandDetail,
+  TreeRow,
+  TreeWrappedRenderer,
+} from './types';
 
 interface GridWithConfig {
   effectiveConfig?: GridConfig;
@@ -86,26 +91,28 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   detect(rows: readonly unknown[]): boolean {
     if (!this.config.autoDetect) return false;
-    const field = this.config.childrenField ?? inferChildrenField(rows as any[]) ?? 'children';
-    return detectTreeStructure(rows as any[], field);
+    const treeRows = rows as readonly TreeRow[];
+    const field = this.config.childrenField ?? inferChildrenField(treeRows) ?? 'children';
+    return detectTreeStructure(treeRows, field);
   }
 
   // #endregion
 
   // #region Data Processing
 
-  override processRows(rows: readonly unknown[]): any[] {
+  override processRows(rows: readonly unknown[]): TreeRow[] {
     const childrenField = this.config.childrenField ?? 'children';
+    const treeRows = rows as readonly TreeRow[];
 
-    if (!detectTreeStructure(rows as any[], childrenField)) {
+    if (!detectTreeStructure(treeRows, childrenField)) {
       this.flattenedRows = [];
       this.rowKeyMap.clear();
       this.previousVisibleKeys.clear();
-      return [...rows];
+      return [...rows] as TreeRow[];
     }
 
     // Assign stable keys, then optionally sort
-    let data = this.withStableKeys(rows as any[]);
+    let data = this.withStableKeys(treeRows);
     if (this.sortState) {
       data = this.sortTree(data, this.sortState.field, this.sortState.direction);
     }
@@ -141,28 +148,28 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   }
 
   /** Assign stable keys to rows (preserves key across sort operations) */
-  private withStableKeys(rows: any[], parentKey: string | null = null): any[] {
+  private withStableKeys(rows: readonly TreeRow[], parentKey: string | null = null): TreeRow[] {
     const childrenField = this.config.childrenField ?? 'children';
     return rows.map((row, i) => {
-      const key =
-        row.id !== undefined ? String(row.id) : (row.__stableKey ?? (parentKey ? `${parentKey}-${i}` : String(i)));
+      const stableKey = row.__stableKey as string | undefined;
+      const key = row.id !== undefined ? String(row.id) : (stableKey ?? (parentKey ? `${parentKey}-${i}` : String(i)));
       const children = row[childrenField];
       const hasChildren = Array.isArray(children) && children.length > 0;
       return {
         ...row,
         __stableKey: key,
-        ...(hasChildren ? { [childrenField]: this.withStableKeys(children, key) } : {}),
+        ...(hasChildren ? { [childrenField]: this.withStableKeys(children as TreeRow[], key) } : {}),
       };
     });
   }
 
   /** Flatten tree using stable keys */
-  private flattenTree(rows: any[], expanded: Set<string>, depth = 0): FlattenedTreeRow[] {
+  private flattenTree(rows: readonly TreeRow[], expanded: Set<string>, depth = 0): FlattenedTreeRow[] {
     const childrenField = this.config.childrenField ?? 'children';
     const result: FlattenedTreeRow[] = [];
 
     for (const row of rows) {
-      const key = row.__stableKey ?? row.id ?? '?';
+      const key = (row.__stableKey as string) ?? String(row.id) ?? '?';
       const children = row[childrenField];
       const hasChildren = Array.isArray(children) && children.length > 0;
       const isExpanded = expanded.has(key);
@@ -177,14 +184,14 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       });
 
       if (hasChildren && isExpanded) {
-        result.push(...this.flattenTree(children, expanded, depth + 1));
+        result.push(...this.flattenTree(children as TreeRow[], expanded, depth + 1));
       }
     }
     return result;
   }
 
   /** Sort tree recursively, keeping children with parents */
-  private sortTree(rows: any[], field: string, dir: 1 | -1): any[] {
+  private sortTree(rows: readonly TreeRow[], field: string, dir: 1 | -1): TreeRow[] {
     const childrenField = this.config.childrenField ?? 'children';
     const sorted = [...rows].sort((a, b) => {
       const aVal = a[field],
@@ -197,7 +204,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return sorted.map((row) => {
       const children = row[childrenField];
       return Array.isArray(children) && children.length > 0
-        ? { ...row, [childrenField]: this.sortTree(children, field, dir) }
+        ? { ...row, [childrenField]: this.sortTree(children as TreeRow[], field, dir) }
         : row;
     });
   }
@@ -209,27 +216,28 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     if (cols.length === 0) return cols;
 
     const firstCol = { ...cols[0] };
-    const original = firstCol.viewRenderer;
-    if ((original as any)?.__treeWrapped) return cols;
+    const original = firstCol.viewRenderer as TreeWrappedRenderer | undefined;
+    if (original?.__treeWrapped) return cols;
 
     const getConfig = () => this.config;
     const setIcon = this.setIcon.bind(this);
     const resolveIcon = this.resolveIcon.bind(this);
 
-    const wrapped = (ctx: Parameters<NonNullable<typeof original>>[0]) => {
+    const wrapped: TreeWrappedRenderer = (ctx) => {
       const { value, row } = ctx;
       const { indentWidth = 20, showExpandIcons = true } = getConfig();
+      const treeRow = row as TreeRow;
 
       const container = document.createElement('span');
       container.className = 'tree-cell';
-      container.style.setProperty('--tree-depth', String(row.__treeDepth ?? 0));
+      container.style.setProperty('--tree-depth', String(treeRow.__treeDepth ?? 0));
       container.style.setProperty('--tbw-tree-indent', `${indentWidth}px`);
 
-      if (row.__treeHasChildren && showExpandIcons) {
+      if (treeRow.__treeHasChildren && showExpandIcons) {
         const icon = document.createElement('span');
-        icon.className = `tree-toggle${row.__treeExpanded ? ' expanded' : ''}`;
-        setIcon(icon, resolveIcon(row.__treeExpanded ? 'collapse' : 'expand'));
-        icon.setAttribute('data-tree-key', row.__treeKey);
+        icon.className = `tree-toggle${treeRow.__treeExpanded ? ' expanded' : ''}`;
+        setIcon(icon, resolveIcon(treeRow.__treeExpanded ? 'collapse' : 'expand'));
+        icon.setAttribute('data-tree-key', String(treeRow.__treeKey ?? ''));
         container.appendChild(icon);
       } else if (showExpandIcons) {
         const spacer = document.createElement('span');
@@ -252,7 +260,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
       return container;
     };
 
-    (wrapped as any).__treeWrapped = true;
+    wrapped.__treeWrapped = true;
     firstCol.viewRenderer = wrapped;
     cols[0] = firstCol;
     return cols;
@@ -345,7 +353,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   }
 
   expandAll(): void {
-    this.expandedKeys = expandAll(this.rows as any[], this.config);
+    this.expandedKeys = expandAll(this.rows as TreeRow[], this.config);
     this.requestRender();
   }
 
@@ -366,12 +374,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return [...this.flattenedRows];
   }
 
-  getRowByKey(key: string): any | undefined {
+  getRowByKey(key: string): TreeRow | undefined {
     return this.rowKeyMap.get(key)?.data;
   }
 
   expandToKey(key: string): void {
-    this.expandedKeys = expandToKey(this.rows as any[], key, this.config, this.expandedKeys);
+    this.expandedKeys = expandToKey(this.rows as TreeRow[], key, this.config, this.expandedKeys);
     this.requestRender();
   }
 

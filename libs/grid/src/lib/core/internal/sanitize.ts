@@ -1,7 +1,7 @@
 // Centralized template expression evaluation & sanitization utilities.
 // Responsible for safely interpolating {{ }} expressions while blocking
 // access to dangerous globals / reflective capabilities.
-import type { EvalContext } from '../types';
+import type { CompiledViewFunction, EvalContext } from '../types';
 
 const EXPR_RE = /{{\s*([^}]+)\s*}}/g;
 const EMPTY_SENTINEL = '__DG_EMPTY__';
@@ -229,11 +229,11 @@ export function finalCellScrub(cell: HTMLElement): void {
 
 export function compileTemplate(raw: string) {
   const forceBlank = /Reflect\.|\bProxy\b|ownKeys\(/.test(raw);
-  const fn = (ctx: EvalContext) => {
+  const fn = ((ctx: EvalContext) => {
     if (forceBlank) return '';
     const out = evalTemplateString(raw, ctx);
     return out;
-  };
-  (fn as any).__blocked = forceBlank;
+  }) as CompiledViewFunction;
+  fn.__blocked = forceBlank;
   return fn;
 }

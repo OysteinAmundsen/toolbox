@@ -152,17 +152,11 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * Get the selection plugin instance if available.
    */
   #getSelectionPlugin(): SelectionPluginInterface | undefined {
-    // Dynamically get the SelectionPlugin class to avoid import order issues
+    // Use getPluginByName for duck-typing approach to avoid import order issues
     try {
-      // Use getPlugin with the class - this requires the class to be imported
-      // For now, we'll use a duck-typing approach via the grid's plugin registry
-      const grid = this.grid as any;
-      if (grid?._plugins) {
-        for (const plugin of grid._plugins) {
-          if (plugin.name === 'selection') {
-            return plugin as SelectionPluginInterface;
-          }
-        }
+      const plugin = this.grid?.getPluginByName('selection');
+      if (plugin) {
+        return plugin as unknown as SelectionPluginInterface;
       }
     } catch {
       // Selection plugin not available

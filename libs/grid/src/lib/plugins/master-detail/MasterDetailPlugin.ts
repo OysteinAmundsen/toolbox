@@ -5,8 +5,6 @@
  * Animation style is plugin-configured; respects grid-level animation.mode.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridConfig } from '../../core/types';
@@ -18,7 +16,12 @@ import {
   toggleDetailRow,
 } from './master-detail';
 import styles from './master-detail.css?inline';
-import type { DetailExpandDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
+import type {
+  DetailExpandDetail,
+  ExpandCollapseAnimation,
+  MasterDetailConfig,
+  MasterDetailWrappedRenderer,
+} from './types';
 
 /** Extended grid interface for accessing effective config */
 interface GridWithConfig {
@@ -255,16 +258,16 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const cols = [...columns];
     if (cols.length > 0) {
       const firstCol = { ...cols[0] };
-      const originalRenderer = firstCol.viewRenderer;
+      const originalRenderer = firstCol.viewRenderer as MasterDetailWrappedRenderer | undefined;
 
       // Skip if already wrapped by this plugin (prevents double-wrapping on re-render)
-      if ((originalRenderer as any)?.__masterDetailWrapped) {
+      if (originalRenderer?.__masterDetailWrapped) {
         return cols;
       }
 
-      const wrappedRenderer = (renderCtx: Parameters<NonNullable<typeof originalRenderer>>[0]) => {
+      const wrappedRenderer: MasterDetailWrappedRenderer = (renderCtx) => {
         const { value, row } = renderCtx;
-        const isExpanded = this.expandedRows.has(row);
+        const isExpanded = this.expandedRows.has(row as object);
 
         const container = document.createElement('span');
         container.className = 'master-detail-cell-wrapper';
@@ -282,11 +285,11 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
         toggle.addEventListener('click', (e) => {
           e.stopPropagation();
           const rowIndex = this.rows.indexOf(row);
-          this.expandedRows = toggleDetailRow(this.expandedRows, row);
+          this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
           this.emit<DetailExpandDetail>('detail-expand', {
             rowIndex,
-            row,
-            expanded: this.expandedRows.has(row),
+            row: row as Record<string, unknown>,
+            expanded: this.expandedRows.has(row as object),
           });
           this.requestRender();
         });
@@ -310,7 +313,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       };
 
       // Mark renderer as wrapped to prevent double-wrapping
-      (wrappedRenderer as any).__masterDetailWrapped = true;
+      wrappedRenderer.__masterDetailWrapped = true;
       firstCol.viewRenderer = wrappedRenderer;
 
       cols[0] = firstCol;

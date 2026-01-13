@@ -869,6 +869,93 @@
   }
 }
 
+/* Slide-in animation (reusable across tree, grouping, pivot plugins) */
+@keyframes tbw-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+:host .tbw-slide-in {
+  animation: tbw-slide-in var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
+}
+
+/* Dragging state (reusable across reorder, visibility, pivot plugins) */
+:host .tbw-dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+/* Toggle button base class (for expand/collapse toggles in tree, grouping, pivot, master-detail) */
+:host .tbw-toggle-btn {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* Floating panel base (for filter panels, context menus, popovers) */
+:host .tbw-floating-panel {
+  position: fixed;
+  background: var(--tbw-color-panel-bg);
+  color: var(--tbw-color-fg);
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius);
+  box-shadow: 0 4px 16px var(--tbw-color-shadow);
+  z-index: 10000;
+  font-size: 13px;
+}
+
+/* Drop indicator classes (for drag-drop reordering) */
+:host .tbw-drop-before::before,
+:host .tbw-drop-after::after {
+  content: '';
+  position: absolute;
+  background: var(--tbw-drop-indicator-color, var(--tbw-color-accent));
+  pointer-events: none;
+}
+
+/* Vertical drop indicators (for column reordering) */
+:host .tbw-drop-before-v::before {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+:host .tbw-drop-after-v::after {
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+/* Horizontal drop indicators (for row reordering) */
+:host .tbw-drop-before-h::before {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+}
+
+:host .tbw-drop-after-h::after {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+}
+
 /* FLIP animation class for plugins */
 :host .tbw-flip-animating {
   will-change: transform;

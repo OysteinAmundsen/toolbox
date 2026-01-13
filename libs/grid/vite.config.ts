@@ -240,7 +240,10 @@ export default defineConfig(({ command }) => ({
     reportCompressedSize: true,
     commonjsOptions: { transformMixedEsModules: true },
     lib: {
-      entry: { index: resolve(__dirname, 'src/index.ts'), all: resolve(__dirname, 'src/all.ts') },
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        all: resolve(__dirname, 'src/all.ts'),
+      },
       formats: ['es'],
       fileName: (_format, name) => `${name}.js`,
     },

@@ -4,10 +4,8 @@
  * Enables hierarchical row grouping with expand/collapse and aggregations.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { BaseGridPlugin, CellClickEvent } from '../../core/plugin/base-plugin';
-import type { GridConfig } from '../../core/types';
+import type { GridConfig, RowElementInternal } from '../../core/types';
 import {
   buildGroupedRowModel,
   collapseAllGroups,
@@ -129,7 +127,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     // Build grouped model
     const grouped = buildGroupedRowModel({
-      rows: rows as any[],
+      rows: [...rows],
       config: config,
       expanded: this.expandedKeys,
     });
@@ -217,7 +215,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
       if (result) {
         rowEl.className = 'group-row';
-        (rowEl as any).__isCustomRow = true; // Mark for proper class reset on recycle
+        (rowEl as RowElementInternal).__isCustomRow = true; // Mark for proper class reset on recycle
         rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
         if (typeof result === 'string') {
           rowEl.innerHTML = result;
@@ -236,7 +234,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     // Default group row rendering
     rowEl.className = 'group-row';
-    (rowEl as any).__isCustomRow = true; // Mark for proper class reset on recycle
+    (rowEl as RowElementInternal).__isCustomRow = true; // Mark for proper class reset on recycle
     rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
     rowEl.setAttribute('role', 'row');
     rowEl.setAttribute('aria-expanded', String(row.__groupExpanded));

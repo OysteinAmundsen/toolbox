@@ -4,7 +4,7 @@
  * Handles row/cell editing state, commit/cancel operations, and value persistence.
  */
 
-import type { ColumnConfig, InternalGrid } from '../types';
+import type { ColumnConfig, ColumnInternal, InternalGrid, RowElementInternal } from '../types';
 import { defaultEditorFor } from './editors';
 import { invalidateCellCache, renderInlineRow } from './rows';
 
@@ -28,17 +28,17 @@ function isSafePropertyKey(key: any): boolean {
  * Check if a row element has any cells in editing mode.
  * Uses a cached count on the row element for O(1) lookup instead of querySelector.
  */
-export function hasEditingCells(rowEl: HTMLElement): boolean {
-  return ((rowEl as any).__editingCellCount ?? 0) > 0;
+export function hasEditingCells(rowEl: RowElementInternal): boolean {
+  return (rowEl.__editingCellCount ?? 0) > 0;
 }
 
 /**
  * Increment the editing cell count on a row element.
  * Called when a cell enters edit mode.
  */
-function incrementEditingCount(rowEl: HTMLElement): void {
-  const count = ((rowEl as any).__editingCellCount ?? 0) + 1;
-  (rowEl as any).__editingCellCount = count;
+function incrementEditingCount(rowEl: RowElementInternal): void {
+  const count = (rowEl.__editingCellCount ?? 0) + 1;
+  rowEl.__editingCellCount = count;
   rowEl.setAttribute('data-has-editing', '');
 }
 
@@ -46,9 +46,9 @@ function incrementEditingCount(rowEl: HTMLElement): void {
  * Decrement the editing cell count on a row element.
  * Called when a cell exits edit mode.
  */
-function decrementEditingCount(rowEl: HTMLElement): void {
-  const count = Math.max(0, ((rowEl as any).__editingCellCount ?? 0) - 1);
-  (rowEl as any).__editingCellCount = count;
+function decrementEditingCount(rowEl: RowElementInternal): void {
+  const count = Math.max(0, (rowEl.__editingCellCount ?? 0) - 1);
+  rowEl.__editingCellCount = count;
   if (count === 0) {
     rowEl.removeAttribute('data-has-editing');
   }
@@ -58,8 +58,8 @@ function decrementEditingCount(rowEl: HTMLElement): void {
  * Clear all editing state from a row element.
  * Called when the row is recycled or fully re-rendered.
  */
-export function clearEditingState(rowEl: HTMLElement): void {
-  (rowEl as any).__editingCellCount = 0;
+export function clearEditingState(rowEl: RowElementInternal): void {
+  rowEl.__editingCellCount = 0;
   rowEl.removeAttribute('data-has-editing');
 }
 
@@ -86,17 +86,19 @@ function wireEditorInputs(
     | null;
   if (!input) return;
 
-  const getInputValue = (): any => {
+  const getInputValue = (): unknown => {
     if (input instanceof HTMLInputElement) {
       if (input.type === 'checkbox') return input.checked;
       if (input.type === 'number') return input.value === '' ? null : Number(input.value);
       if (input.type === 'date') return input.valueAsDate;
+      return input.value;
     }
+    // HTMLTextAreaElement and HTMLSelectElement both have string .value
     // For select and textarea, convert to number if column type requires
-    if (column.type === 'number' && (input as any).value !== '') {
-      return Number((input as any).value);
+    if (column.type === 'number' && input.value !== '') {
+      return Number(input.value);
     }
-    return (input as any).value;
+    return input.value;
   };
 
   // Blur commits value (unless already handled by Enter/Escape)
@@ -274,11 +276,11 @@ export function inlineEnterEdit(
   cell.classList.add('editing');
 
   // Track editing state on the row element for fast O(1) lookup
-  const rowEl = cell.parentElement;
+  const rowEl = cell.parentElement as RowElementInternal | null;
   if (rowEl) incrementEditingCount(rowEl);
 
   let editFinalized = false; // Flag to prevent blur from committing after explicit Enter/Escape
-  const commit = (newValue: any) => {
+  const commit = (newValue: unknown) => {
     // Skip if edit was already finalized by Enter/Escape, or if we've exited edit mode
     // (handles bulk edit case where one cell's exit removes all editors)
     if (editFinalized || grid._activeEditRows === -1) return;
@@ -287,12 +289,12 @@ export function inlineEnterEdit(
   const cancel = () => {
     editFinalized = true; // Mark as finalized to prevent blur from re-committing
     rowData[column.field] = isSafePropertyKey(column.field) ? originalValue : undefined;
-    const inputLike = cell.querySelector('input,textarea,select') as any;
+    const inputLike = cell.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input,textarea,select',
+    );
     if (inputLike) {
-      const hasHTMLInput = typeof HTMLInputElement !== 'undefined';
-      if (hasHTMLInput && inputLike instanceof HTMLInputElement && inputLike.type === 'checkbox')
-        inputLike.checked = !!originalValue;
-      else if ('value' in inputLike) inputLike.value = originalValue ?? '';
+      if (inputLike instanceof HTMLInputElement && inputLike.type === 'checkbox') inputLike.checked = !!originalValue;
+      else inputLike.value = String(originalValue ?? '');
     }
   };
   const editorHost = document.createElement('div');
@@ -319,49 +321,51 @@ export function inlineEnterEdit(
     }
   });
 
-  const tplHolder = (column as any).__editorTemplate as HTMLElement | undefined;
-  const editorSpec = (column as any).editor || (tplHolder ? 'template' : defaultEditorFor(column));
+  // Cast column to ColumnInternal to access internal cached properties
+  const colInternal = column as ColumnInternal;
+  const tplHolder = colInternal.__editorTemplate;
+  const editorSpec = colInternal.editor || (tplHolder ? 'template' : defaultEditorFor(column));
   const value = originalValue;
   if (editorSpec === 'template' && tplHolder) {
     const clone = tplHolder.cloneNode(true) as HTMLElement;
-    const compiledEditor = (column as any).__compiledEditor as ((ctx: any) => string) | undefined;
+    const compiledEditor = colInternal.__compiledEditor;
     if (compiledEditor)
-      clone.innerHTML = compiledEditor({ row: rowData, value: originalValue, field: column.field, column });
+      clone.innerHTML = compiledEditor({
+        row: rowData,
+        value: originalValue,
+        field: column.field,
+        column: colInternal,
+      });
     else
       clone.querySelectorAll<HTMLElement>('*').forEach((node) => {
         if (node.childNodes.length === 1 && node.firstChild?.nodeType === Node.TEXT_NODE) {
           node.textContent =
             node.textContent
               ?.replace(/{{\s*value\s*}}/g, originalValue == null ? '' : String(originalValue))
-              .replace(/{{\s*row\.([a-zA-Z0-9_]+)\s*}}/g, (_m, g) => {
-                const v = (rowData as any)[g];
+              .replace(/{{\s*row\.([a-zA-Z0-9_]+)\s*}}/g, (_m, g: string) => {
+                if (!isSafePropertyKey(g)) return '';
+                const v = rowData[g];
                 return v == null ? '' : String(v);
               }) || '';
         }
       });
-    const input = clone.querySelector('input,textarea,select') as HTMLInputElement | HTMLSelectElement | null;
+    const input = clone.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input,textarea,select',
+    );
     if (input) {
-      const hasHTMLInput = typeof HTMLInputElement !== 'undefined';
-      if (hasHTMLInput && input instanceof HTMLInputElement && input.type === 'checkbox')
-        input.checked = !!originalValue;
-      else if ('value' in input) (input as any).value = originalValue ?? '';
+      if (input instanceof HTMLInputElement && input.type === 'checkbox') input.checked = !!originalValue;
+      else input.value = String(originalValue ?? '');
       input.addEventListener('blur', () => {
         // commit() will check editFinalized flag and skip if already handled
-        const val =
-          hasHTMLInput && input instanceof HTMLInputElement && input.type === 'checkbox'
-            ? input.checked
-            : (input as any).value;
+        const val = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
         commit(val);
       });
-      input.addEventListener('keydown', (e: any) => {
+      input.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Enter') {
           e.stopPropagation();
           e.preventDefault();
           editFinalized = true; // Prevent blur from committing again
-          const val =
-            hasHTMLInput && input instanceof HTMLInputElement && input.type === 'checkbox'
-              ? input.checked
-              : (input as any).value;
+          const val = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
           commit(val);
           exitRowEdit(grid, rowIndex, false);
         }
@@ -372,7 +376,7 @@ export function inlineEnterEdit(
           exitRowEdit(grid, rowIndex, true);
         }
       });
-      if (hasHTMLInput && input instanceof HTMLInputElement && input.type === 'checkbox') {
+      if (input instanceof HTMLInputElement && input.type === 'checkbox') {
         input.addEventListener('change', () => {
           const val = input.checked;
           commit(val);
@@ -384,9 +388,10 @@ export function inlineEnterEdit(
     }
     editorHost.appendChild(clone);
   } else if (typeof editorSpec === 'string') {
-    const el = document.createElement(editorSpec);
-    (el as any).value = value;
-    el.addEventListener('change', () => commit((el as any).value));
+    // Custom element editor (e.g., 'my-editor')
+    const el = document.createElement(editorSpec) as HTMLElement & { value?: unknown };
+    el.value = value;
+    el.addEventListener('change', () => commit(el.value));
     editorHost.appendChild(el);
     // Focus the custom element editor after DOM insertion
     if (!skipFocus) {
@@ -401,7 +406,7 @@ export function inlineEnterEdit(
       editorHost.innerHTML = produced;
       // Auto-wire commit/cancel for inputs in string-returned editors
       wireEditorInputs(editorHost, column, commit, cancel, editFinalized);
-    } else {
+    } else if (produced instanceof Node) {
       editorHost.appendChild(produced);
     }
     // Focus the editor after DOM insertion (editors no longer auto-focus)
@@ -420,8 +425,9 @@ export function inlineEnterEdit(
     if (editorSpec.mount) {
       try {
         editorSpec.mount({ placeholder, context, spec: editorSpec });
-      } catch {
-        /* empty */
+      } catch (e) {
+        // Log mount errors as warnings (user configuration issue)
+        console.warn(`[tbw-grid] External editor mount error for column '${column.field}':`, e);
       }
     } else {
       (grid as unknown as HTMLElement).dispatchEvent(
@@ -490,7 +496,7 @@ export function beginBulkEdit<T>(
   callbacks: { findRenderedRowElement: (rowIndex: number) => HTMLElement | null },
 ): void {
   // editOn: false disables all editing
-  if ((grid as any).effectiveConfig?.editOn === false) return;
+  if (grid.effectiveConfig?.editOn === false) return;
 
   // Check if any columns are editable - if not, skip edit mode entirely
   const hasEditableColumn = grid._columns.some((col) => col.editable);

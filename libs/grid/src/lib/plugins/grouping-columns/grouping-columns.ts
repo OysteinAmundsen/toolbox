@@ -4,9 +4,9 @@
  * Pure functions for computing and managing column header groups.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
+// Import types to enable module augmentation
 import type { ColumnConfig } from '../../core/types';
+import './types';
 import type { ColumnGroup, ColumnGroupInternal } from './types';
 
 /**
@@ -44,7 +44,7 @@ export function computeColumnGroups<T>(columns: ColumnConfig<T>[]): ColumnGroup<
   let runStart = 0;
 
   columns.forEach((col, idx) => {
-    const g: any = (col as any).group;
+    const g = col.group;
     if (!g) {
       if (run.length === 0) runStart = idx;
       run.push(col);
@@ -74,11 +74,7 @@ export function computeColumnGroups<T>(columns: ColumnConfig<T>[]): ColumnGroup<
   if (run.length) pushImplicit(runStart, run);
 
   // If we only have a single implicit group covering all columns, treat as no groups
-  if (
-    groupsOrdered.length === 1 &&
-    groupsOrdered[0].implicit &&
-    groupsOrdered[0].columns.length === columns.length
-  ) {
+  if (groupsOrdered.length === 1 && groupsOrdered[0].implicit && groupsOrdered[0].columns.length === columns.length) {
     return [];
   }
 
@@ -95,15 +91,15 @@ export function computeColumnGroups<T>(columns: ColumnConfig<T>[]): ColumnGroup<
 export function applyGroupedHeaderCellClasses(
   headerRowEl: HTMLElement | null,
   groups: ColumnGroup[],
-  columns: ColumnConfig<any>[]
+  columns: ColumnConfig[],
 ): void {
   if (!groups.length || !headerRowEl) return;
 
   const fieldToGroup = new Map<string, string>();
   for (const g of groups) {
     for (const c of g.columns) {
-      if ((c as any)?.field) {
-        fieldToGroup.set((c as any).field, g.id);
+      if (c.field) {
+        fieldToGroup.set(c.field, g.id);
       }
     }
   }
@@ -123,7 +119,7 @@ export function applyGroupedHeaderCellClasses(
   // Mark group end cells for styling
   for (const g of groups) {
     const last = g.columns[g.columns.length - 1];
-    const cell = headerCells.find((c) => c.getAttribute('data-field') === (last as any).field);
+    const cell = headerCells.find((c) => c.getAttribute('data-field') === last.field);
     if (cell) cell.classList.add('group-end');
   }
 }
@@ -135,10 +131,7 @@ export function applyGroupedHeaderCellClasses(
  * @param columns - The column configurations
  * @returns The group header row element, or null if no groups
  */
-export function buildGroupHeaderRow(
-  groups: ColumnGroup[],
-  columns: ColumnConfig<any>[]
-): HTMLElement | null {
+export function buildGroupHeaderRow(groups: ColumnGroup[], columns: ColumnConfig[]): HTMLElement | null {
   if (groups.length === 0) return null;
 
   const groupRow = document.createElement('div');
@@ -146,10 +139,7 @@ export function buildGroupHeaderRow(
   groupRow.setAttribute('role', 'row');
 
   for (const g of groups) {
-    const startIndex =
-      g.firstIndex != null
-        ? g.firstIndex
-        : columns.findIndex((c) => (g.columns as any[]).includes(c));
+    const startIndex = g.firstIndex != null ? g.firstIndex : columns.findIndex((c) => g.columns.includes(c));
 
     const isImplicit = String(g.id).startsWith('__implicit__');
     const label = isImplicit ? '' : g.label || g.id;
@@ -172,8 +162,8 @@ export function buildGroupHeaderRow(
  * @param columns - The column configurations
  * @returns True if at least one column has a group
  */
-export function hasColumnGroups(columns: ColumnConfig<any>[]): boolean {
-  return columns.some((col) => (col as any).group != null);
+export function hasColumnGroups(columns: ColumnConfig[]): boolean {
+  return columns.some((col) => col.group != null);
 }
 
 /**
@@ -182,8 +172,8 @@ export function hasColumnGroups(columns: ColumnConfig<any>[]): boolean {
  * @param column - The column configuration
  * @returns The group ID, or undefined if not grouped
  */
-export function getColumnGroupId(column: ColumnConfig<any>): string | undefined {
-  const g = (column as any).group;
+export function getColumnGroupId(column: ColumnConfig): string | undefined {
+  const g = column.group;
   if (!g) return undefined;
   return typeof g === 'string' ? g : g.id;
 }

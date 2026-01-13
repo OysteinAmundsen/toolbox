@@ -322,6 +322,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   __originalColumnNodes?: HTMLElement[];
   __originalOrder: T[] = [];
 
+  /**
+   * Framework adapter instance set by framework directives (Angular Grid, React DataGrid).
+   * Used to handle framework-specific component rendering.
+   * @internal
+   */
+  __frameworkAdapter?: FrameworkAdapter;
+
   // Cached DOM refs for hot path (refreshVirtualWindow) - avoid querySelector per scroll
   __rowsBodyEl: HTMLElement | null = null;
   // #endregion
@@ -674,10 +681,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #getToolPanelRendererFactory(): ToolPanelRendererFactory | undefined {
     const adapters = DataGridElement.getAdapters();
-    if (adapters.length === 0 && !(this as any).__frameworkAdapter) return undefined;
+    if (adapters.length === 0 && !this.__frameworkAdapter) return undefined;
 
     // Also check for instance-level adapter (e.g., __frameworkAdapter from Angular Grid directive)
-    const instanceAdapter = (this as any).__frameworkAdapter;
+    const instanceAdapter = this.__frameworkAdapter;
 
     return (element: HTMLElement) => {
       // Try instance adapter first (from Grid directive)
@@ -700,7 +707,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // ---------------- Lifecycle ----------------
   connectedCallback(): void {
-    if (!this.hasAttribute('tabindex')) (this as any).tabIndex = 0;
+    if (!this.hasAttribute('tabindex')) this.tabIndex = 0;
     if (!this.hasAttribute('version')) this.setAttribute('version', DataGridElement.version);
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
 
@@ -830,28 +837,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
     if (oldValue === newValue || !newValue || newValue === 'null' || newValue === 'undefined') return;
 
-    // Map kebab-case attributes to camelCase properties
-    const propMap: Record<string, keyof this> = {
-      rows: 'rows',
-      columns: 'columns',
-      'grid-config': 'gridConfig',
-      'fit-mode': 'fitMode',
-      'edit-on': 'editOn',
-    };
-
-    const prop = propMap[name];
-    if (!prop) return;
-
     // JSON attributes need parsing
     if (name === 'rows' || name === 'columns' || name === 'grid-config') {
       try {
-        (this as any)[prop] = JSON.parse(newValue);
+        const parsed = JSON.parse(newValue);
+        if (name === 'rows') this.rows = parsed;
+        else if (name === 'columns') this.columns = parsed;
+        else if (name === 'grid-config') this.gridConfig = parsed;
       } catch {
         console.warn(`[tbw-grid] Invalid JSON for '${name}' attribute:`, newValue);
       }
-    } else {
-      // String attributes (fit-mode, edit-on)
-      (this as any)[prop] = newValue;
+    } else if (name === 'fit-mode') {
+      this.fitMode = newValue as FitMode;
+    } else if (name === 'edit-on') {
+      this.editOn = newValue;
     }
   }
 
@@ -890,7 +889,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#connected = true;
 
     // Create resize controller BEFORE setup - renderHeader() needs it for resize handle mousedown events
-    this._resizeController = createResizeController(this as any);
+    this._resizeController = createResizeController(this as unknown as InternalGrid<T>);
 
     // Run setup
     this.#setup();
@@ -911,7 +910,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const signal = this.disconnectSignal;
 
     // Element-level keydown handler (uses signal for automatic cleanup)
-    this.addEventListener('keydown', (e) => handleGridKeyDown(this as any, e), { signal });
+    this.addEventListener('keydown', (e) => handleGridKeyDown(this as unknown as InternalGrid<T>, e), { signal });
 
     // Document-level listeners (also use signal for automatic cleanup)
     // Escape key to cancel row editing
@@ -961,6 +960,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Initialize ARIA selection state
     queueMicrotask(() => this.#updateAriaSelection());
 
+    // Resolve ready() promise after TWO animation frames to ensure:
+    // 1. First RAF: Framework adapters (React/Angular/Vue) have registered their renderers
+    //    via refreshColumns() which is debounced with its own RAF
+    // 2. Second RAF: Grid has re-rendered with framework renderers applied
+    // This timing is critical for framework integration - a single RAF resolves too early,
+    // before refreshColumns() has a chance to run its debounced column update.
     requestAnimationFrame(() => requestAnimationFrame(() => this.#readyResolve?.()));
   }
 
@@ -1098,7 +1103,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This replaces per-cell event listeners with a single set of delegated handlers
     // Dramatically reduces memory usage: 4 listeners total vs. 30,000+ for large grids
     if (this._bodyEl) {
-      setupCellEventDelegation(this as any, this._bodyEl, scrollSignal);
+      setupCellEventDelegation(this as unknown as InternalGrid<T>, this._bodyEl, scrollSignal);
     }
 
     // Disconnect existing resize observer before creating new one
@@ -1113,7 +1118,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           this.#scrollRaf = requestAnimationFrame(() => {
             this.#scrollRaf = 0;
             this.refreshVirtualWindow(true);
-            ensureCellVisible(this as any);
+            ensureCellVisible(this as unknown as InternalGrid<T>);
           });
         }
       });
@@ -1301,7 +1306,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This ensures plugin panels are collected first, then light DOM panels merge in
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
-    const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig as any, this.#shellState);
+    const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig?.shell, this.#shellState);
     const nowHasToolPanels = this.#shellState.toolPanels.size > 0;
 
     // Full re-render needed if:
@@ -1375,7 +1380,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       const sourceColumns = this.#baseColumns.length > 0 ? this.#baseColumns : this._columns;
       const visibleCols = sourceColumns.filter((c) => !c.hidden);
       const hiddenCols = sourceColumns.filter((c) => c.hidden);
-      const processedColumns = this.#pluginManager.processColumns([...visibleCols] as any[]);
+      const processedColumns = this.#pluginManager.processColumns([...visibleCols]);
 
       // If plugins modified visible columns, update them
       if (processedColumns !== visibleCols) {
@@ -1448,13 +1453,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     let columns: ColumnConfig<T>[] = Array.isArray(base.columns) ? [...base.columns] : [];
 
     // Light DOM cached parse (if already parsed by columns pipeline); non-invasive merge (fill gaps only)
-    const domCols: ColumnConfig<T>[] = ((this as any).__lightDomColumnsCache || []).map((c: ColumnConfig<T>) => ({
+    const domCols: ColumnConfig<T>[] = (this.__lightDomColumnsCache ?? []).map((c) => ({
       ...c,
-    }));
+    })) as ColumnConfig<T>[];
     if (domCols.length) {
       const map: Record<string, ColumnConfig<T>> = {};
-      columns.forEach((c) => (map[(c as any).field] = c));
-      domCols.forEach((c: any) => {
+      columns.forEach((c) => (map[c.field] = c));
+      domCols.forEach((c) => {
         const exist = map[c.field];
         if (!exist) {
           columns.push(c);
@@ -1466,11 +1471,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           if (c.resizable) exist.resizable = true;
           if (c.editable) exist.editable = true;
           // Merge framework adapter renderers/editors from DOM (support both 'renderer' alias and 'viewRenderer')
-          const cRenderer = (c as any).renderer || c.viewRenderer;
-          const existRenderer = (exist as any).renderer || exist.viewRenderer;
+          const cRenderer = c.renderer || c.viewRenderer;
+          const existRenderer = exist.renderer || exist.viewRenderer;
           if (cRenderer && !existRenderer) {
             exist.viewRenderer = cRenderer;
-            if ((c as any).renderer) (exist as any).renderer = cRenderer;
+            if (c.renderer) exist.renderer = cRenderer;
           }
           if (c.editor && !exist.editor) exist.editor = c.editor;
         }
@@ -1595,7 +1600,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         return this.#pluginManager?.renderRow(row, rowEl, rowIndex) ?? false;
       };
     }
-    renderVisibleRows(this as any, start, end, epoch, this.#renderRowHook);
+    renderVisibleRows(this as unknown as InternalGrid<T>, start, end, epoch, this.#renderRowHook);
   }
 
   // Cache for ARIA counts to avoid redundant DOM writes on scroll (hot path)
@@ -1769,7 +1774,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       rowIndex,
       colIndex,
       field: col.field,
-      value: (row as any)[col.field],
+      value: (row as Record<string, unknown>)[col.field],
       cellEl,
       originalEvent: event,
     };
@@ -1893,7 +1898,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         row = this._rows[rowIndex];
         column = this._columns[colIndex];
         field = column?.field;
-        value = row && field ? (row as any)[field] : undefined;
+        value = row && field ? (row as Record<string, unknown>)[field] : undefined;
       }
     }
 
@@ -1983,9 +1988,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   async forceLayout(): Promise<void> {
     this.#setup();
+    // Wait for two animation frames to ensure layout and framework adapter rendering is complete.
+    // Framework adapters (React/Angular) may trigger refreshColumns() which is debounced with RAF,
+    // so a single RAF may resolve before columns are fully processed.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   }
 
+  /**
+   * Trim the internal row pool to match the current visible window size.
+   *
+   * The grid maintains a pool of reusable row DOM elements for virtualization.
+   * When the dataset shrinks significantly (e.g., after filtering or deleting rows),
+   * the pool may have excess elements that consume memory unnecessarily.
+   *
   /** Public method: returns a frozen snapshot of the merged effective configuration */
   async getConfig(): Promise<Readonly<GridConfig<T>>> {
     return Object.freeze({ ...(this.#effectiveConfig || {}) });
@@ -2719,7 +2734,7 @@ if (!customElements.get(DataGridElement.tagName)) {
 }
 
 // Make DataGridElement accessible globally for framework adapters
-(globalThis as any).DataGridElement = DataGridElement;
+(globalThis as unknown as { DataGridElement: typeof DataGridElement }).DataGridElement = DataGridElement;
 
 // Type augmentation for querySelector/createElement
 declare global {

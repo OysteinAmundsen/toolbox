@@ -116,6 +116,17 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   /**
    * Called when the plugin is attached to a grid.
    * Override to set up event listeners, initialize state, etc.
+   *
+   * @example
+   * ```ts
+   * attach(grid: GridElement): void {
+   *   super.attach(grid);
+   *   // Set up document-level listeners with auto-cleanup
+   *   document.addEventListener('keydown', this.handleEscape, {
+   *     signal: this.disconnectSignal
+   *   });
+   * }
+   * ```
    */
   attach(grid: GridElement): void {
     this.grid = grid;
@@ -126,14 +137,67 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   /**
    * Called when the plugin is detached from a grid.
    * Override to clean up event listeners, timers, etc.
+   *
+   * @example
+   * ```ts
+   * detach(): void {
+   *   // Clean up any state not handled by disconnectSignal
+   *   this.selectedRows.clear();
+   *   this.cache = null;
+   * }
+   * ```
    */
   detach(): void {
     // Override in subclass
   }
 
   /**
+   * Called when another plugin is attached to the same grid.
+   * Use for inter-plugin coordination, e.g., to integrate with new plugins.
+   *
+   * @param name - The name of the plugin that was attached
+   * @param plugin - The plugin instance (for direct access if needed)
+   *
+   * @example
+   * ```ts
+   * onPluginAttached(name: string, plugin: BaseGridPlugin): void {
+   *   if (name === 'selection') {
+   *     // Integrate with selection plugin
+   *     this.selectionPlugin = plugin as SelectionPlugin;
+   *   }
+   * }
+   * ```
+   */
+  onPluginAttached?(name: string, plugin: BaseGridPlugin): void;
+
+  /**
+   * Called when another plugin is detached from the same grid.
+   * Use to clean up inter-plugin references.
+   *
+   * @param name - The name of the plugin that was detached
+   *
+   * @example
+   * ```ts
+   * onPluginDetached(name: string): void {
+   *   if (name === 'selection') {
+   *     this.selectionPlugin = undefined;
+   *   }
+   * }
+   * ```
+   */
+  onPluginDetached?(name: string): void;
+
+  /**
    * Get another plugin instance from the same grid.
    * Use for inter-plugin communication.
+   *
+   * @example
+   * ```ts
+   * const selection = this.getPlugin(SelectionPlugin);
+   * if (selection) {
+   *   const selectedRows = selection.getSelectedRows();
+   * }
+   * ```
    */
   protected getPlugin<T extends BaseGridPlugin>(PluginClass: new (...args: any[]) => T): T | undefined {
     return this.grid?.getPlugin(PluginClass);
@@ -173,7 +237,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Use this when you need all source data regardless of active filters.
    */
   protected get sourceRows(): any[] {
-    return (this.grid as any)?.sourceRows ?? [];
+    return this.grid?.sourceRows ?? [];
   }
 
   /**
@@ -188,7 +252,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Use this for rendering that needs to match the grid template.
    */
   protected get visibleColumns(): ColumnConfig[] {
-    return (this.grid as any)?._visibleColumns ?? [];
+    return this.grid?._visibleColumns ?? [];
   }
 
   /**

@@ -6,7 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { RenderRow, RowGroupingConfig } from './types';
+import type { GroupRowModelItem, RenderRow, RowGroupingConfig } from './types';
 
 // Re-export aggregator functions from core for backward compatibility
 export { getAggregator, listAggregators, registerAggregator, runAggregator } from '../../core/internal/aggregators';
@@ -147,7 +147,7 @@ export function collapseAllGroups(): Set<string> {
  * @returns Array of group keys
  */
 export function getGroupKeys(rows: RenderRow[]): string[] {
-  return rows.filter((r) => r.kind === 'group').map((r) => (r as any).key);
+  return rows.filter((r): r is GroupRowModelItem => r.kind === 'group').map((r) => r.key);
 }
 
 /**

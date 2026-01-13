@@ -36,12 +36,12 @@ export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnC
  * Apply sort result to grid and update UI.
  * Called after sync or async sort completes.
  */
-function finalizeSortResult(grid: InternalGrid, sortedRows: unknown[], col: ColumnConfig<any>, dir: 1 | -1): void {
-  grid._rows = sortedRows as any[];
+function finalizeSortResult<T>(grid: InternalGrid<T>, sortedRows: T[], col: ColumnConfig<T>, dir: 1 | -1): void {
+  grid._rows = sortedRows;
   // Bump epoch so renderVisibleRows triggers full inline rebuild
   grid.__rowRenderEpoch++;
   // Invalidate pooled rows to guarantee rebuild
-  grid._rowPool.forEach((r) => ((r as any).__epoch = -1));
+  grid._rowPool.forEach((r) => (r.__epoch = -1));
   renderHeader(grid);
   grid.refreshVirtualWindow(true);
   (grid as unknown as HTMLElement).dispatchEvent(
@@ -66,12 +66,12 @@ export function toggleSort(grid: InternalGrid, col: ColumnConfig<any>): void {
     // Force full row rebuild after clearing sort so templated cells reflect original order
     grid.__rowRenderEpoch++;
     // Invalidate existing pooled row epochs so virtualization triggers a full inline rebuild
-    grid._rowPool.forEach((r) => ((r as any).__epoch = -1));
+    grid._rowPool.forEach((r) => (r.__epoch = -1));
     grid._rows = grid.__originalOrder.slice();
     renderHeader(grid);
     // After re-render ensure cleared column shows aria-sort="none" baseline.
     const headers = grid._headerRowEl?.querySelectorAll('[role="columnheader"].sortable');
-    headers?.forEach((h: any) => {
+    headers?.forEach((h) => {
       if (!h.getAttribute('aria-sort')) h.setAttribute('aria-sort', 'none');
       else if (h.getAttribute('aria-sort') === 'ascending' || h.getAttribute('aria-sort') === 'descending') {
         // The active column was re-rendered already, but normalize any missing ones.
@@ -100,18 +100,18 @@ export function applySort(grid: InternalGrid, col: ColumnConfig<any>, dir: 1 | -
   const columns = grid._columns as ColumnConfig<any>[];
 
   // Get custom handler from effectiveConfig, or use built-in
-  const handler: SortHandler<any> = (grid as any).effectiveConfig?.sortHandler ?? builtInSort;
+  const handler: SortHandler<any> = grid.effectiveConfig?.sortHandler ?? builtInSort;
 
   const result = handler(grid._rows, sortState, columns);
 
   // Handle async (Promise) or sync result
-  if (result && typeof (result as Promise<any>).then === 'function') {
+  if (result && typeof (result as Promise<unknown[]>).then === 'function') {
     // Async handler - wait for result
-    (result as Promise<any[]>).then((sortedRows) => {
+    (result as Promise<unknown[]>).then((sortedRows) => {
       finalizeSortResult(grid, sortedRows, col, dir);
     });
   } else {
     // Sync handler - apply immediately
-    finalizeSortResult(grid, result as any[], col, dir);
+    finalizeSortResult(grid, result as unknown[], col, dir);
   }
 }

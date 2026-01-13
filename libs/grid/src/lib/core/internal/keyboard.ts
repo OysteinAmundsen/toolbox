@@ -17,8 +17,8 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   const editing = grid._activeEditRows !== undefined && grid._activeEditRows !== -1;
   const col = grid._visibleColumns[grid._focusCol];
   const colType = col?.type;
-  const path = (e as any).composedPath ? (e as any).composedPath() : [];
-  const target = (path && path.length ? path[0] : (e.target as any)) as HTMLElement | null;
+  const path = e.composedPath?.() ?? [];
+  const target = (path.length ? path[0] : e.target) as HTMLElement | null;
   const isFormField = (el: HTMLElement | null) => {
     if (!el) return false;
     const tag = el.tagName;
@@ -167,12 +167,12 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
   }
   clearCellFocus(grid._bodyEl);
   // Clear previous aria-selected markers
-  Array.from(grid._bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el: any) => {
+  Array.from(grid._bodyEl.querySelectorAll('[aria-selected="true"]')).forEach((el) => {
     el.setAttribute('aria-selected', 'false');
   });
   const rowIndex = grid._focusRow;
-  const vStart = (grid._virtualization as any).start ?? 0;
-  const vEnd = (grid._virtualization as any).end ?? grid._rows.length;
+  const vStart = grid._virtualization.start ?? 0;
+  const vEnd = grid._virtualization.end ?? grid._rows.length;
   if (rowIndex >= vStart && rowIndex < vEnd) {
     const rowEl = grid._bodyEl.querySelectorAll('.data-grid-row')[rowIndex - vStart] as HTMLElement | null;
     const cell = rowEl?.children[grid._focusCol] as HTMLElement | undefined;
@@ -228,7 +228,7 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
       } else if (!cell.contains(document.activeElement)) {
         if (!cell.hasAttribute('tabindex')) cell.setAttribute('tabindex', '-1');
         try {
-          (cell as HTMLElement).focus({ preventScroll: true } as any);
+          cell.focus({ preventScroll: true });
         } catch {
           /* empty */
         }

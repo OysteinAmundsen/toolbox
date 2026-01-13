@@ -4,7 +4,7 @@
  * Handles rendering of the grid header row with sorting and resize affordances.
  */
 
-import type { ColumnConfig, IconValue, InternalGrid } from '../types';
+import type { ColumnInternal, IconValue, InternalGrid } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 import { addPart } from './columns';
 import { toggleSort } from './sorting';
@@ -26,11 +26,11 @@ function setIcon(element: HTMLElement, icon: IconValue): void {
  * sorting and resize affordances where enabled.
  */
 export function renderHeader(grid: InternalGrid): void {
-  grid._headerRowEl = (grid.findHeaderRow! as any)();
+  grid._headerRowEl = grid.findHeaderRow!();
   const headerRow = grid._headerRowEl as HTMLElement;
   headerRow.innerHTML = '';
 
-  grid._visibleColumns.forEach((col: ColumnConfig<any>, i: number) => {
+  grid._visibleColumns.forEach((col: ColumnInternal, i: number) => {
     const cell = document.createElement('div');
     cell.className = 'cell';
     addPart(cell, 'header-cell');
@@ -42,10 +42,10 @@ export function renderHeader(grid: InternalGrid): void {
     cell.setAttribute('data-col', String(i)); // Add data-col for consistency with body cells
 
     // Column grouping styling is handled by the grouping-columns plugin via afterRender
-    const maybeTpl = (col as any).__headerTemplate as HTMLElement | undefined;
+    const maybeTpl = col.__headerTemplate;
     if (maybeTpl) Array.from(maybeTpl.childNodes).forEach((n) => cell.appendChild(n.cloneNode(true)));
     else {
-      const label = (col as any).header || col.field;
+      const label = col.header || col.field;
       const span = document.createElement('span');
       span.textContent = label;
       cell.appendChild(span);
@@ -54,7 +54,7 @@ export function renderHeader(grid: InternalGrid): void {
       cell.classList.add('sortable');
       cell.tabIndex = 0;
       const icon = document.createElement('span');
-      addPart(icon as any, 'sort-indicator');
+      addPart(icon, 'sort-indicator');
       const active = grid._sortState?.field === col.field ? grid._sortState.direction : 0;
       // Use grid-level icons (fall back to defaults)
       const icons = { ...DEFAULT_GRID_ICONS, ...grid.icons };

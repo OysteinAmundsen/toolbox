@@ -2011,6 +2011,127 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#scheduler.whenReady();
   }
 
+  // #region Debug API
+
+  /** Debug mode state */
+  #debugMode = false;
+
+  /**
+   * Enable or disable debug mode.
+   * When enabled, logs render operations and provides diagnostic information.
+   *
+   * @param enabled - Whether to enable debug mode
+   *
+   * @example
+   * ```typescript
+   * // Enable debug mode
+   * grid.setDebug(true);
+   *
+   * // Interact with the grid...
+   *
+   * // Get render log
+   * console.log(grid.getDebugInfo());
+   * ```
+   */
+  setDebug(enabled: boolean): void {
+    this.#debugMode = enabled;
+    this.#scheduler.setDebug(enabled);
+
+    if (enabled) {
+      console.log('[tbw-grid] Debug mode enabled. Use grid.getDebugInfo() to inspect state.');
+    }
+  }
+
+  /**
+   * Get comprehensive debug information about the grid's current state.
+   * Useful for diagnosing issues and understanding render behavior.
+   *
+   * @returns Debug information object
+   *
+   * @example
+   * ```typescript
+   * grid.setDebug(true);
+   * // ... interact with the grid ...
+   * const info = grid.getDebugInfo();
+   * console.table(info.renderLog);
+   * console.log('Visible rows:', info.virtualization);
+   * ```
+   */
+  getDebugInfo(): {
+    debugEnabled: boolean;
+    connected: boolean;
+    initialized: boolean;
+    renderLog: readonly { phase: number; source: string; timestamp: number }[];
+    pendingRender: { isPending: boolean; phase: number };
+    virtualization: {
+      rowHeight: number;
+      bypassThreshold: number;
+      start: number;
+      end: number;
+      totalRows: number;
+      visibleRows: number;
+      enabled: boolean;
+    };
+    columns: {
+      total: number;
+      visible: number;
+      hidden: string[];
+    };
+    rows: {
+      total: number;
+      processed: number;
+      editing: number;
+      changed: number;
+    };
+    plugins: string[];
+    customStyles: string[];
+  } {
+    const visibleCols = this._visibleColumns;
+    const hiddenCols = this._columns.filter((c) => c.hidden).map((c) => c.field);
+
+    return {
+      debugEnabled: this.#debugMode,
+      connected: this.#connected,
+      initialized: this.#initialized,
+      renderLog: this.#scheduler.getRenderLog(),
+      pendingRender: {
+        isPending: this.#scheduler.isPending,
+        phase: this.#scheduler.pendingPhase,
+      },
+      virtualization: {
+        rowHeight: this._virtualization.rowHeight,
+        bypassThreshold: this._virtualization.bypassThreshold,
+        start: this._virtualization.start,
+        end: this._virtualization.end,
+        totalRows: this._rows.length,
+        visibleRows: this._virtualization.end - this._virtualization.start,
+        enabled: this._virtualization.enabled,
+      },
+      columns: {
+        total: this._columns.length,
+        visible: visibleCols.length,
+        hidden: hiddenCols,
+      },
+      rows: {
+        total: this.#rows?.length ?? 0,
+        processed: this._rows.length,
+        editing: this.__editingCellCount,
+        changed: this._changedRowIndices.size,
+      },
+      plugins: this.#pluginManager?.getRegisteredPluginNames() ?? [],
+      customStyles: this.getRegisteredStyles(),
+    };
+  }
+
+  /**
+   * Clear the render log. Useful when starting a new debug session.
+   */
+  clearDebugLog(): void {
+    this.#scheduler.clearRenderLog();
+  }
+
+  // #endregion
+
   /**
    * Trim the internal row pool to match the current visible window size.
    *

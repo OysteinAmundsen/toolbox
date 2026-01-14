@@ -149,6 +149,13 @@ export class PluginManager {
   }
 
   /**
+   * Get names of all registered plugins (for debugging).
+   */
+  getRegisteredPluginNames(): string[] {
+    return this.plugins.map((p) => p.name);
+  }
+
+  /**
    * Get a cell renderer by type name.
    */
   getCellRenderer(type: string): CellRenderer | undefined {

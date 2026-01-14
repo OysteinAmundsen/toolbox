@@ -353,6 +353,45 @@ Configured in `vite.config.ts`:
 - **Affected commands**: Use `nx affected` to run tasks only on changed projects
 - **Sync TypeScript refs**: `nx sync` updates project references based on dependency graph
 
+### Centralized Render Scheduler
+
+All grid rendering is orchestrated through a **single RenderScheduler** (`internal/render-scheduler.ts`):
+
+**Key Principles:**
+
+- **Single RAF per frame**: All render requests batch into one `requestAnimationFrame` callback
+- **Phase-based execution**: Work organized into phases (STYLE → VIRTUALIZATION → HEADER → ROWS → COLUMNS → FULL)
+- **Highest phase wins**: Multiple requests merge - only the highest phase executes
+- **Deterministic order**: `mergeConfig → processRows → processColumns → renderHeader → virtualWindow → afterRender`
+
+**Render Phases:**
+| Phase | Value | Work Performed |
+|-------|-------|----------------|
+| `STYLE` | 1 | Plugin `afterRender()` hooks only |
+| `VIRTUALIZATION` | 2 | Recalculate virtual window |
+| `HEADER` | 3 | Re-render header row |
+| `ROWS` | 4 | Rebuild row model |
+| `COLUMNS` | 5 | Process columns, update CSS template |
+| `FULL` | 6 | Merge effective config + all lower phases |
+
+**When contributing:**
+
+- Use `this.#scheduler.requestPhase(RenderPhase.X, 'source')` to request renders
+- Never call `requestAnimationFrame` directly for rendering (exception: scroll hot path)
+- The scheduler handles `ready()` promise resolution after render completes
+
+### Custom Styles API (adoptedStyleSheets)
+
+Custom styles use browser's `adoptedStyleSheets` for efficiency:
+
+```typescript
+// Efficient - survives shadow DOM rebuilds
+grid.registerStyles('my-id', '.my-class { color: blue; }');
+grid.unregisterStyles('my-id');
+```
+
+**Do NOT** create `<style>` elements manually - they get wiped by `replaceChildren()`.
+
 ### Virtualization & Performance
 
 The Grid uses **row virtualization**:
@@ -361,7 +400,7 @@ The Grid uses **row virtualization**:
 - Default `rowHeight: 28px`, `overscan: 8` rows
 - Rows rendered only for visible viewport window
 - Row pooling via `rowPool: HTMLElement[]` for efficient DOM reuse
-- Update via `refreshVirtualWindow(full: boolean)`
+- Update via `refreshVirtualWindow(full: boolean)` - called via scheduler or directly for scroll
 
 ## Plugin Development Pattern
 
@@ -497,6 +536,8 @@ if (selection) {
 6. **Nx target names** - Use inferred targets from plugins (e.g., `test`, `build`, `lint`); check `project.json` for custom targets
 7. **Plugin shadowRoot access** - Always use `ctx.grid as Element` then `gridEl.shadowRoot`, never `(ctx.grid as any).shadowRoot`
 8. **Plugin container access** - Use `shadowRoot.children[0]`, not hardcoded selectors like `.data-grid-container`
+9. **Don't call RAF directly for rendering** - Use `this.#scheduler.requestPhase()` to batch work; exception: scroll hot path
+10. **Don't create `<style>` elements** - Use `registerStyles()` which uses `adoptedStyleSheets` (survives DOM rebuilds)
 
 ## External Dependencies
 
@@ -515,9 +556,11 @@ if (selection) {
 - **`libs/grid/src/lib/core/types.ts`** - Type definitions for grid configuration
 - **`libs/grid/src/lib/core/grid.ts`** - Main component implementation
 - **`libs/grid/src/lib/core/grid.css`** - Component styles (CSS variables for theming)
+- **`libs/grid/src/lib/core/internal/render-scheduler.ts`** - Centralized render orchestration
 - **`libs/grid/src/lib/core/plugin/`** - Plugin system (registry, hooks, state management)
 - **`libs/grid/src/lib/plugins/`** - Individual plugin implementations
 - **`libs/grid/vite.config.ts`** - Vite build configuration with plugin bundling
+- **`libs/grid/docs/RFC-RENDER-SCHEDULER.md`** - RFC document explaining the scheduler design
 - **`libs/grid-angular/src/index.ts`** - Angular adapter exports (Grid, TbwRenderer, TbwEditor directives)
 - **`libs/grid-react/src/index.ts`** - React adapter exports (DataGrid, GridColumn, hooks)
 - **`demos/employee-management/shared/`** - Shared demo types, data, and utilities

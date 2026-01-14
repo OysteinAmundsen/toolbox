@@ -288,25 +288,97 @@ class PluginManager {
 
 ## Rendering Pipeline
 
-The grid follows a predictable render flow:
+The grid uses a **centralized RenderScheduler** that batches all rendering work into a single `requestAnimationFrame` callback. This eliminates race conditions between different parts of the grid (ResizeObserver, framework adapters, virtualization) that previously scheduled independent RAFs.
+
+### RenderScheduler Architecture
 
 ```mermaid
 flowchart TB
-    A["Data/Config Change"] --> B["#scheduleSetup<br/><i>Debounced setup trigger</i>"]
-    B --> C["#setup()<br/><i>Main render orchestration</i>"]
-    C --> D["Process Columns"]
-    C --> E["Process Rows<br/><i>Plugin hooks</i>"]
-    D --> F["updateTemplate()<br/><i>CSS grid-template-columns</i>"]
+    subgraph sources["RENDER REQUESTS"]
+        A["Property Change<br/>(rows, columns, gridConfig)"]
+        B["Framework Adapter<br/>(React/Angular refreshColumns)"]
+        C["ResizeObserver<br/>(container resize)"]
+        D["Scroll Event<br/>(virtualization)"]
+        E["Plugin Request<br/>(afterRender needs)"]
+    end
+
+    A --> F["RenderScheduler.requestPhase()"]
+    B --> F
+    C --> F
+    D --> G["Direct Call<br/>(hot path)"]
     E --> F
-    F --> G["renderHeader()"]
-    F --> H["renderVisibleRows()<br/><i>Only visible rows</i>"]
-    H --> I["Plugin afterRender() hooks"]
+
+    F --> H["Single RAF<br/>#flush()"]
+    H --> I["Phase-Ordered Execution"]
+
+    subgraph phases["RENDER PHASES (in order)"]
+        P1["FULL (6): mergeConfig"]
+        P2["COLUMNS (5): processColumns + updateTemplate"]
+        P3["ROWS (4): processRows"]
+        P4["HEADER (3): renderHeader"]
+        P5["VIRTUALIZATION (2): refreshVirtualWindow"]
+        P6["STYLE (1): afterRender hooks"]
+    end
+
+    I --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
 ```
+
+### Render Phases
+
+Work is organized into ordered phases. Multiple requests merge to the **highest requested phase**:
+
+| Phase            | Value | Work Performed                                |
+| ---------------- | ----- | --------------------------------------------- |
+| `STYLE`          | 1     | Plugin `afterRender()` hooks only             |
+| `VIRTUALIZATION` | 2     | Recalculate virtual window (+ STYLE)          |
+| `HEADER`         | 3     | Re-render header row (+ VIRTUALIZATION)       |
+| `ROWS`           | 4     | Rebuild row model (+ HEADER)                  |
+| `COLUMNS`        | 5     | Process columns, update CSS template (+ ROWS) |
+| `FULL`           | 6     | Merge effective config (+ COLUMNS)            |
+
+**Example**: If React adapter requests `COLUMNS` and ResizeObserver requests `VIRTUALIZATION` in the same frame, only `COLUMNS` phase runs (which includes all lower phases).
+
+### Execution Order in `#flush()`
+
+The scheduler executes work in a deterministic order that respects data dependencies:
+
+```typescript
+// In RenderScheduler.#flush():
+if (phase >= RenderPhase.COLUMNS) mergeConfig(); // Config must be ready first
+if (phase >= RenderPhase.ROWS) processRows(); // Row model depends on config
+if (phase >= RenderPhase.COLUMNS) processColumns(); // Columns depend on rows (tree)
+if (phase >= RenderPhase.COLUMNS) updateTemplate(); // Template depends on columns
+if (phase >= RenderPhase.HEADER) renderHeader(); // Header depends on template
+if (phase >= RenderPhase.VIRTUALIZATION) renderVirtualWindow();
+if (phase >= RenderPhase.STYLE) afterRender(); // Plugins run last
+```
+
+### Intentional Bypasses
+
+Some operations intentionally bypass the scheduler for performance:
+
+| Operation              | Location              | Reason                                     |
+| ---------------------- | --------------------- | ------------------------------------------ |
+| Scroll rendering       | `#onScrollBatched()`  | Hot path - must be synchronous for 60fps   |
+| Shell rebuild          | `#render()`           | Creates DOM structure, not content updates |
+| Row height measurement | `#measureRowHeight()` | One-time post-paint measurement            |
+
+### Custom Styles (adoptedStyleSheets)
+
+Custom styles injected via `registerStyles()` use the browser's `adoptedStyleSheets` API:
+
+```typescript
+// Styles survive shadow DOM rebuilds (no re-injection needed)
+grid.registerStyles('my-styles', '.custom-cell { color: blue; }');
+```
+
+This is more efficient than `<style>` elements because `adoptedStyleSheets` is a property of the ShadowRoot that survives `replaceChildren()` calls.
 
 ### Key Functions
 
 | Function                     | File                  | Purpose                            |
 | ---------------------------- | --------------------- | ---------------------------------- |
+| `RenderScheduler`            | `render-scheduler.ts` | Central render orchestration       |
 | `getColumnConfiguration()`   | `columns.ts`          | Resolves effective column config   |
 | `updateTemplate()`           | `columns.ts`          | Generates CSS grid template        |
 | `renderHeader()`             | `header.ts`           | Renders header row                 |
@@ -315,6 +387,19 @@ flowchart TB
 | `buildGridDOM()`             | `dom-builder.ts`      | Direct DOM construction for grid   |
 | `setupCellEventDelegation()` | `event-delegation.ts` | Delegated event handlers for cells |
 | `scheduleIdle()`             | `idle-scheduler.ts`   | Defer work to browser idle time    |
+
+### Debugging Renders
+
+Enable debug mode to trace all render requests:
+
+```typescript
+// In browser console or code
+grid._scheduler.setDebug(true);
+
+// After interactions, inspect the log
+grid._scheduler.getRenderLog();
+// → [{ phase: 5, source: 'applyGridConfigUpdate', timestamp: 1234.56 }, ...]
+```
 
 ---
 
@@ -656,13 +741,14 @@ The grid employs multiple optimization strategies to achieve high performance wi
 
 ### Rendering Pipeline
 
-| Technique              | Implementation                                    | Benefit                         |
-| ---------------------- | ------------------------------------------------- | ------------------------------- |
-| **Batched Updates**    | `#queueUpdate()` coalesces property changes       | Single render for rapid changes |
-| **RAF Scheduling**     | Scroll handlers use `requestAnimationFrame`       | Smooth 60fps scrolling          |
-| **Idle Scheduling**    | `idle-scheduler.ts` defers non-critical work      | Faster time-to-interactive      |
-| **Fast-Path Patching** | `fastPatchRow()` for plain text grids             | Skip expensive template logic   |
-| **Cell Display Cache** | `getCellDisplayValue()` memoizes formatted values | Avoid recomputing during scroll |
+| Technique                 | Implementation                                     | Benefit                              |
+| ------------------------- | -------------------------------------------------- | ------------------------------------ |
+| **Centralized Scheduler** | `RenderScheduler` batches all work into single RAF | Eliminates race conditions           |
+| **Phase-Based Execution** | Multiple requests merge to highest phase           | No duplicate work                    |
+| **adoptedStyleSheets**    | Custom styles via `CSSStyleSheet` objects          | Survives DOM rebuilds, zero overhead |
+| **Idle Scheduling**       | `idle-scheduler.ts` defers non-critical work       | Faster time-to-interactive           |
+| **Fast-Path Patching**    | `fastPatchRow()` for plain text grids              | Skip expensive template logic        |
+| **Cell Display Cache**    | `getCellDisplayValue()` memoizes formatted values  | Avoid recomputing during scroll      |
 
 ### Event Handling
 

@@ -26,7 +26,8 @@ import { setupCellEventDelegation } from './internal/event-delegation';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
 import { inferColumns } from './internal/inference';
-import { ensureCellVisible, handleGridKeyDown } from './internal/keyboard';
+import { handleGridKeyDown } from './internal/keyboard';
+import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
@@ -215,6 +216,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     editMode: false,
   };
 
+  // ---------------- Render Scheduler ----------------
+  // Centralizes all rendering through a single RAF-based pipeline
+  #scheduler!: RenderScheduler;
+
   #scrollRaf = 0;
   #pendingScrollTop: number | null = null;
   #hasScrollPlugins = false; // Cached flag for plugin scroll handlers
@@ -224,7 +229,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #eventAbortController?: AbortController;
   #resizeObserver?: ResizeObserver;
   #rowHeightObserver?: ResizeObserver; // Watches first row for size changes (CSS loading, custom renderers)
-  #refreshColumnsRaf = 0; // RAF handle for debounced refreshColumns
   #lightDomObserver?: MutationObserver;
   #idleCallbackHandle?: number; // Handle for cancelling deferred idle work
 
@@ -437,6 +441,36 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     void this.#injectStyles(); // Fire and forget - styles load asynchronously
     this.#readyPromise = new Promise((res) => (this.#readyResolve = res));
 
+    // Initialize render scheduler with callbacks
+    this.#scheduler = new RenderScheduler({
+      mergeConfig: () => {
+        // Re-parse light DOM columns to pick up framework adapter renderers
+        // This is essential for React/Angular where renderers register asynchronously
+        getColumnConfiguration(this);
+        this.#mergeEffectiveConfig();
+        this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
+        // Store base columns before plugin transformation
+        this.#baseColumns = [...this._columns];
+      },
+      processColumns: () => this.#processColumns(),
+      processRows: () => this.#rebuildRowModel(),
+      renderHeader: () => renderHeader(this),
+      updateTemplate: () => updateTemplate(this),
+      renderVirtualWindow: () => this.refreshVirtualWindow(true),
+      afterRender: () => {
+        this.#pluginManager?.afterRender();
+        // Auto-size columns on first render if fitMode is 'fixed'
+        const mode = this.#effectiveConfig.fitMode;
+        if (mode === 'fixed' && !this.__didInitialAutoSize) {
+          this.__didInitialAutoSize = true;
+          autoSizeColumns(this);
+        }
+      },
+      isConnected: () => this.isConnected && this.#connected,
+    });
+    // Connect ready promise to scheduler
+    this.#scheduler.setInitialReadyResolver(() => this.#readyResolve?.());
+
     // Initialize shell controller with callbacks
     this.#shellController = createShellController(this.#shellState, {
       getShadow: () => this.#shadow,
@@ -534,11 +568,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Plugin API
    */
   requestRender(): void {
-    this.#rebuildRowModel();
-    this.#processColumns();
-    renderHeader(this);
-    updateTemplate(this);
-    this.refreshVirtualWindow(true);
+    this.#scheduler.requestPhase(RenderPhase.ROWS, 'plugin:requestRender');
   }
 
   /**
@@ -557,7 +587,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Plugin API
    */
   requestAfterRender(): void {
-    this.#pluginManager?.afterRender();
+    this.#scheduler.requestPhase(RenderPhase.STYLE, 'plugin:requestAfterRender');
   }
 
   /**
@@ -815,7 +845,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     invalidateCellCache(this);
     this._rowEditSnapshots.clear();
     this._changedRowIndices.clear();
-    this.#customStyles.clear();
+    this.#customStyleSheets.clear();
 
     // Clear row pool - detach from DOM and release references
     for (const rowEl of this._rowPool) {
@@ -960,13 +990,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Initialize ARIA selection state
     queueMicrotask(() => this.#updateAriaSelection());
 
-    // Resolve ready() promise after TWO animation frames to ensure:
-    // 1. First RAF: Framework adapters (React/Angular/Vue) have registered their renderers
-    //    via refreshColumns() which is debounced with its own RAF
-    // 2. Second RAF: Grid has re-rendered with framework renderers applied
-    // This timing is critical for framework integration - a single RAF resolves too early,
-    // before refreshColumns() has a chance to run its debounced column update.
-    requestAnimationFrame(() => requestAnimationFrame(() => this.#readyResolve?.()));
+    // Request initial render through the scheduler.
+    // The scheduler resolves ready() after the render cycle completes.
+    // Framework adapters (React/Angular) will request COLUMNS phase via refreshColumns(),
+    // which will be batched with this request - highest phase wins.
+    this.#scheduler.requestPhase(RenderPhase.FULL, 'afterConnect');
   }
 
   /**
@@ -991,7 +1019,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const measuredHeight = Math.max(rowRect.height, maxCellHeight);
     if (measuredHeight > 0 && measuredHeight !== this._virtualization.rowHeight) {
       this._virtualization.rowHeight = measuredHeight;
-      this.refreshVirtualWindow(true);
+      // Use scheduler to batch with other pending work
+      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
     }
   }
 
@@ -1114,24 +1143,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // (e.g., when footer is added, window resizes, or shell panel toggles)
     if (this._virtualization.viewportEl) {
       this.#resizeObserver = new ResizeObserver(() => {
-        if (!this.#scrollRaf) {
-          this.#scrollRaf = requestAnimationFrame(() => {
-            this.#scrollRaf = 0;
-            this.refreshVirtualWindow(true);
-            ensureCellVisible(this as unknown as InternalGrid<T>);
-          });
-        }
+        // Use scheduler for viewport resize - batches with other pending work
+        this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'resize-observer');
       });
       this.#resizeObserver.observe(this._virtualization.viewportEl);
     }
 
     if (this._virtualization.enabled) {
-      requestAnimationFrame(() => {
-        this.refreshVirtualWindow(true);
-        // Set up row height observer AFTER rows are rendered (not before)
-        // Observing cells before refreshVirtualWindow replaces them is useless
-        this.#setupRowHeightObserver();
-      });
+      // Schedule initial virtualization through scheduler
+      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'init-virtualization');
+      // Set up row height observer after first render
+      queueMicrotask(() => this.#setupRowHeightObserver());
     }
   }
 
@@ -1245,17 +1267,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Individual update applicators - these do the actual work
   #applyRowsUpdate(): void {
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
-    this.#rebuildRowModel();
-    const hasColumns =
-      this._columns.length > 0 ||
-      (Array.isArray(this.#effectiveConfig?.columns) && this.#effectiveConfig.columns.length > 0) ||
-      (Array.isArray(this.#columns) && this.#columns.length > 0);
-    if (!hasColumns) {
-      this.#setup();
-    } else {
-      this.#processColumns();
-      this.refreshVirtualWindow(true);
-    }
+    // Request a ROWS phase render through the scheduler.
+    // This batches with any other pending work (e.g., React adapter's refreshColumns).
+    this.#scheduler.requestPhase(RenderPhase.ROWS, 'applyRowsUpdate');
   }
 
   #applyColumnsUpdate(): void {
@@ -1283,7 +1297,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this._rowPool.length = 0;
     if (this._bodyEl) this._bodyEl.innerHTML = '';
     this.__rowRenderEpoch++;
-    this.refreshVirtualWindow(true);
+    // Request render through scheduler to batch with other pending work
+    this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'applyEditModeUpdate');
   }
 
   #applyGridConfigUpdate(): void {
@@ -1332,11 +1347,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#updateShellHeaderInPlace();
     }
 
-    this.#rebuildRowModel();
-    this.#processColumns();
-    renderHeader(this);
-    updateTemplate(this);
-    this.refreshVirtualWindow(true);
+    // Request a COLUMNS phase render through the scheduler.
+    // This batches with any other pending work (e.g., React adapter's refreshColumns).
+    // Previously this called rebuildRowModel, processColumns, renderHeader, updateTemplate,
+    // and refreshVirtualWindow directly - causing race conditions with framework adapters.
+    this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'applyGridConfigUpdate');
   }
 
   /**
@@ -1638,6 +1653,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   // ---------------- Core Helpers ----------------
+  /**
+   * Request a full grid re-setup through the render scheduler.
+   * This method queues all the config merging, column/row processing, and rendering
+   * to happen in the next animation frame via the scheduler.
+   *
+   * Previously this method executed rendering synchronously, but that caused race
+   * conditions with framework adapters that also schedule their own render work.
+   */
   #setup(): void {
     if (!this.isConnected) return;
     if (!this._headerRowEl || !this._bodyEl) {
@@ -1658,30 +1681,25 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this._columns = seeded as ColumnInternal<T>[];
     }
 
+    // Read light DOM column configuration (synchronous DOM read)
     getColumnConfiguration(this);
-    this.#mergeEffectiveConfig();
-    this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
 
-    // Store base columns before plugin transformation (like #rows for row processing)
-    this.#baseColumns = [...this._columns];
-
-    this.#rebuildRowModel(); // Runs processRows hooks (must run before processColumns for tree plugin)
-    this.#processColumns(); // Runs processColumns hooks
-
-    // Apply initial column state (from gridConfig.columnState or columnState setter)
+    // Apply initial column state synchronously if present
+    // (needs to happen before scheduler to avoid flash of unstyled content)
     if (this.#initialColumnState) {
       const state = this.#initialColumnState;
       this.#initialColumnState = undefined; // Clear to avoid re-applying
-      this.#applyColumnStateInternal(state);
-    }
-
-    renderHeader(this);
-    updateTemplate(this);
-    this.refreshVirtualWindow(true);
-
-    const mode = this.#effectiveConfig.fitMode;
-    if (mode === 'fixed' && !this.__didInitialAutoSize) {
-      requestAnimationFrame(() => autoSizeColumns(this));
+      // Temporarily merge config so applyColumnState has columns to work with
+      this.#mergeEffectiveConfig();
+      const allCols = (this.#effectiveConfig.columns ?? []) as ColumnInternal<T>[];
+      const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+      applyColumnState(this, state, allCols, plugins);
+      for (const colState of state.columns) {
+        const col = allCols.find((c) => c.field === colState.field);
+        if (col) {
+          col.hidden = !colState.visible;
+        }
+      }
     }
 
     // Ensure legacy inline grid styles are cleared from container
@@ -1690,8 +1708,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this._bodyEl.style.gridTemplateColumns = '';
     }
 
-    // Run plugin afterRender hooks (column groups, sticky, etc.)
-    queueMicrotask(() => this.#pluginManager?.afterRender());
+    // Request full render through scheduler - batches with framework adapter work
+    this.#scheduler.requestPhase(RenderPhase.FULL, 'setup');
   }
 
   /** Internal method to apply column state without triggering setup loop */
@@ -1987,11 +2005,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   async forceLayout(): Promise<void> {
-    this.#setup();
-    // Wait for two animation frames to ensure layout and framework adapter rendering is complete.
-    // Framework adapters (React/Angular) may trigger refreshColumns() which is debounced with RAF,
-    // so a single RAF may resolve before columns are fully processed.
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // Request a full render cycle through the scheduler
+    this.#scheduler.requestPhase(RenderPhase.FULL, 'forceLayout');
+    // Wait for the render cycle to complete
+    return this.#scheduler.whenReady();
   }
 
   /**
@@ -2045,7 +2062,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     setColumnOrder(this, order, {
       renderHeader: () => renderHeader(this),
       updateTemplate: () => updateTemplate(this),
-      refreshVirtualWindow: () => this.refreshVirtualWindow(true),
+      // Use scheduler to batch with other pending work and avoid race conditions
+      refreshVirtualWindow: () => this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'setColumnOrder'),
     });
   }
 
@@ -2273,12 +2291,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   // #region Custom Styles API
-  /** Map of registered custom style elements by ID */
-  #customStyles = new Map<string, HTMLStyleElement>();
+  /** Map of registered custom stylesheets by ID - uses adoptedStyleSheets which survive DOM rebuilds */
+  #customStyleSheets = new Map<string, CSSStyleSheet>();
 
   /**
    * Register custom CSS styles to be injected into the grid's shadow DOM.
    * Use this to style custom cell renderers, editors, or detail panels.
+   *
+   * Uses adoptedStyleSheets for efficiency - styles survive shadow DOM rebuilds.
    *
    * @param id - Unique identifier for the style block (for removal/updates)
    * @param css - CSS string to inject
@@ -2299,15 +2319,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   registerStyles(id: string, css: string): void {
-    // Remove existing style with same ID
-    this.unregisterStyles(id);
+    // Create or update the stylesheet
+    let sheet = this.#customStyleSheets.get(id);
+    if (!sheet) {
+      sheet = new CSSStyleSheet();
+      this.#customStyleSheets.set(id, sheet);
+    }
+    sheet.replaceSync(css);
 
-    // Create and inject new style element
-    const styleEl = document.createElement('style');
-    styleEl.id = `tbw-custom-${id}`;
-    styleEl.textContent = css;
-    this.#shadow.appendChild(styleEl);
-    this.#customStyles.set(id, styleEl);
+    // Update adoptedStyleSheets to include all custom sheets
+    this.#updateAdoptedStyleSheets();
   }
 
   /**
@@ -2315,10 +2336,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @param id - The ID used when registering the styles
    */
   unregisterStyles(id: string): void {
-    const existing = this.#customStyles.get(id);
-    if (existing) {
-      existing.remove();
-      this.#customStyles.delete(id);
+    if (this.#customStyleSheets.delete(id)) {
+      this.#updateAdoptedStyleSheets();
     }
   }
 
@@ -2326,7 +2345,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Get list of registered custom style IDs.
    */
   getRegisteredStyles(): string[] {
-    return Array.from(this.#customStyles.keys());
+    return Array.from(this.#customStyleSheets.keys());
+  }
+
+  /**
+   * Update the shadow root's adoptedStyleSheets to include base + custom sheets.
+   */
+  #updateAdoptedStyleSheets(): void {
+    // Keep the first stylesheet (base grid styles) and append custom ones
+    const baseSheet = this.#shadow.adoptedStyleSheets[0];
+    const customSheets = Array.from(this.#customStyleSheets.values());
+    this.#shadow.adoptedStyleSheets = baseSheet ? [baseSheet, ...customSheets] : customSheets;
   }
   // #endregion
 
@@ -2433,25 +2462,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Re-parse light DOM column elements and refresh the grid.
    * Call this after framework adapters have registered their templates.
-   * Debounced to coalesce multiple calls (e.g., from React StrictMode double-mounting).
+   * Uses the render scheduler to batch with other pending updates.
    * @internal Used by framework integration libraries (Angular, React, Vue)
    */
   refreshColumns(): void {
-    // Debounce: if already pending, skip this call
-    if (this.#refreshColumnsRaf) {
-      return;
-    }
-
-    this.#refreshColumnsRaf = requestAnimationFrame(() => {
-      this.#refreshColumnsRaf = 0;
-      this.#doRefreshColumns();
-    });
-  }
-
-  /**
-   * Internal implementation of refreshColumns, called after debounce.
-   */
-  #doRefreshColumns(): void {
     // Clear the column cache to force re-parsing
     this.__lightDomColumnsCache = undefined;
 
@@ -2459,6 +2473,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This is critical for frameworks like React where renderers are registered asynchronously
     // after the initial render (which may have cached __hasSpecialColumns = false)
     invalidateCellCache(this);
+
+    // Re-parse light DOM columns SYNCHRONOUSLY to pick up newly registered framework renderers
+    // This must happen before the scheduler runs processColumns
+    getColumnConfiguration(this);
 
     // Re-parse light DOM shell elements (may have been rendered asynchronously by frameworks)
     const hadTitle = this.#shellState.lightDomTitle;
@@ -2496,8 +2514,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
     }
 
-    // Re-run setup which handles column configuration, headers, and rows
-    this.#setup();
+    // Request a COLUMNS phase render through the scheduler
+    // This batches with any other pending work (e.g., afterConnect)
+    this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'refreshColumns');
   }
 
   // ---------------- Virtual Window ----------------
@@ -2628,8 +2647,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This indicates stale DOM references during recreation (e.g., shell toggle)
     // When both are 0 (test environment or not in DOM), proceed normally
     if (fauxScrollHeight === 0 && viewportHeight > 0) {
-      // Stale refs detected, schedule retry after layout stabilizes
-      requestAnimationFrame(() => this.refreshVirtualWindow(force));
+      // Stale refs detected, schedule retry through the scheduler
+      // Using scheduler ensures this batches with other pending work
+      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'stale-refs-retry');
       return;
     }
 

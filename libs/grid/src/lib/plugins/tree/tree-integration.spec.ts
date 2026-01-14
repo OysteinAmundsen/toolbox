@@ -389,31 +389,50 @@ describe('tree plugin integration', () => {
       const treePlugin = new TreePlugin({
         defaultExpanded: false,
         childrenField: 'children',
+        showExpandIcons: true,
       });
 
       grid.gridConfig = {
-        columns: [{ field: 'name', header: 'Name' }],
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'type', header: 'Type' },
+        ],
         plugins: [treePlugin],
       };
 
-      grid.rows = [{ id: 'folder1', name: 'Documents', children: [{ id: 'file1', name: 'Resume.pdf' }] }];
+      grid.rows = [
+        {
+          id: 'folder1',
+          name: 'Documents',
+          type: 'folder',
+          children: [{ id: 'file1', name: 'Resume.pdf', type: 'file' }],
+        },
+      ];
 
       await waitUpgrade(grid);
+
+      // Debug: Check if rows are rendered
+      const dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+      expect(dataRows?.length).toBeGreaterThan(0);
 
       // Find the tree toggle
       const toggle = grid.shadowRoot?.querySelector('.tree-toggle') as HTMLElement;
       expect(toggle).toBeDefined();
+      expect(toggle).not.toBeNull();
 
-      // Click the toggle
-      toggle?.click();
+      // Click the toggle - use dispatchEvent to ensure bubbling works correctly
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+      // Wait for scheduler to flush
+      await new Promise((r) => requestAnimationFrame(r));
       await new Promise((r) => requestAnimationFrame(r));
 
       // Should now be expanded
       expect(treePlugin.isExpanded('folder1')).toBe(true);
 
       // Should show child row
-      const dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
-      expect(dataRows?.length).toBe(2);
+      const dataRowsAfter = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+      expect(dataRowsAfter?.length).toBe(2);
     });
 
     it('should return false when clicking non-toggle element', () => {

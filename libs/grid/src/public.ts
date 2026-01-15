@@ -116,9 +116,9 @@ export type {
   // Sorting types
   SortHandler,
   SortState,
+  ToolbarButtonConfig,
   ToolPanelConfig,
   ToolPanelDefinition,
-  ToolbarButtonConfig,
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
@@ -134,8 +134,8 @@ export { BaseGridPlugin, PLUGIN_QUERIES } from './lib/core/plugin';
 export type { PluginQuery } from './lib/core/plugin';
 
 // DOM constants - for querying grid elements and styling
-export { GridCSSVars, GridClasses, GridDataAttrs, GridSelectors } from './lib/core/constants';
-export type { GridCSSVar, GridClassName, GridDataAttr } from './lib/core/constants';
+export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';
+export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constants';
 
 // Note: Plugin-specific types (SelectionConfig, FilterConfig, etc.) are exported
 // from their respective plugin entry points:
@@ -258,10 +258,4 @@ export type AsInternalGrid<T = unknown> = import('./lib/core/types').InternalGri
  * Higher phases include all lower phase work.
  */
 export { RenderPhase } from './lib/core/internal/render-scheduler';
-
-/**
- * Debug log entry from the render scheduler.
- * @see DataGridElement.getDebugInfo()
- */
-export type { RenderLogEntry } from './lib/core/internal/render-scheduler';
 // #endregion

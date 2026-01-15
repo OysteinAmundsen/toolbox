@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FitModeEnum } from '../types';
-import { autoSizeColumns, getColumnConfiguration, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
+import { autoSizeColumns, mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
 import { renderHeader } from './header';
 
 describe('parseLightDomColumns', () => {
@@ -173,32 +173,28 @@ describe('column configuration', () => {
       _sortState: null,
       querySelectorAll: (__sel: string) => [],
       isConnected: true,
+      effectiveConfig: opts,
     };
     return grid;
   }
-  it('getColumnConfiguration infers when no columns', () => {
-    const g = makeGrid({ columns: [] });
-    getColumnConfiguration(g);
-    expect(g._columns.length).toBeGreaterThan(0);
-  });
+
   it('updateTemplate assigns template string in stretch mode', () => {
     const g = makeGrid();
-    getColumnConfiguration(g);
     updateTemplate(g);
     expect(typeof g._gridTemplate).toBe('string');
     // Count occurrences of '1fr' to determine column count
     const frCount = (g._gridTemplate.match(/1fr/g) || []).length;
     expect(frCount).toBe(g._columns.length);
   });
+
   it('updateTemplate uses minmax when minWidth specified', () => {
     const g = makeGrid({ columns: [{ field: 'a', minWidth: 100 }, { field: 'b' }] });
-    getColumnConfiguration(g);
     updateTemplate(g);
     expect(g._gridTemplate).toBe('minmax(100px, 1fr) 1fr');
   });
+
   it('autoSizeColumns sets width when fit=stretch and not previously sized', () => {
     const g = makeGrid({ fitMode: FitModeEnum.STRETCH });
-    getColumnConfiguration(g);
     renderHeader(g);
     g._rowPool = [document.createElement('div')] as any;
     const row = g._rowPool[0];
@@ -213,31 +209,5 @@ describe('column configuration', () => {
     autoSizeColumns(g);
     const sized = g._columns.filter((c: any) => c.width);
     expect(sized.length).toBeGreaterThan(0);
-  });
-  it('defaults sortable/resizable true when undefined', () => {
-    const g = makeGrid({ columns: [{ field: 'id' }, { field: 'name', sortable: false }] });
-    getColumnConfiguration(g);
-    // simulate mergeEffectiveConfig defaults (we mimic by applying same logic here)
-    g._columns.forEach((c: any) => {
-      if (c.sortable === undefined) c.sortable = true;
-      if (c.resizable === undefined) c.resizable = true;
-    });
-    const id = g._columns.find((c: any) => c.field === 'id');
-    const name = g._columns.find((c: any) => c.field === 'name');
-    expect(id.sortable).toBe(true);
-    expect(id.resizable).toBe(true);
-    expect(name.sortable).toBe(false); // explicit false preserved
-  });
-  it('assigns default width 80 in fixed mode when missing', () => {
-    const g = makeGrid({ fitMode: FitModeEnum.FIXED, columns: [{ field: 'id' }, { field: 'name', width: 120 }] });
-    getColumnConfiguration(g);
-    // emulate fixed mode defaulting
-    g._columns.forEach((c: any) => {
-      if (c.width == null) c.width = 80;
-    });
-    const id = g._columns.find((c: any) => c.field === 'id');
-    const name = g._columns.find((c: any) => c.field === 'name');
-    expect(id.width).toBe(80);
-    expect(name.width).toBe(120);
   });
 });

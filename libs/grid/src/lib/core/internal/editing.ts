@@ -335,6 +335,8 @@ export function inlineEnterEdit(
         value: originalValue,
         field: column.field,
         column: colInternal,
+        commit,
+        cancel,
       });
     else
       clone.querySelectorAll<HTMLElement>('*').forEach((node) => {
@@ -360,18 +362,19 @@ export function inlineEnterEdit(
         const val = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
         commit(val);
       });
-      input.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
-          e.stopPropagation();
-          e.preventDefault();
+      input.addEventListener('keydown', (e) => {
+        const keyEvent = e as KeyboardEvent;
+        if (keyEvent.key === 'Enter') {
+          keyEvent.stopPropagation();
+          keyEvent.preventDefault();
           editFinalized = true; // Prevent blur from committing again
           const val = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
           commit(val);
           exitRowEdit(grid, rowIndex, false);
         }
-        if (e.key === 'Escape') {
-          e.stopPropagation();
-          e.preventDefault();
+        if (keyEvent.key === 'Escape') {
+          keyEvent.stopPropagation();
+          keyEvent.preventDefault();
           cancel(); // cancel() sets editFinalized = true
           exitRowEdit(grid, rowIndex, true);
         }

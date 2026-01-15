@@ -270,7 +270,7 @@ export interface CellRenderContext<TRow = any, TValue = any> {
 
 export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
   ctx: CellRenderContext<TRow, TValue>,
-) => Node | string | void;
+) => Node | string | void | null;
 
 /**
  * Framework adapter interface for handling framework-specific component instantiation.
@@ -384,7 +384,7 @@ export interface RowElementInternal extends HTMLElement {
  * Used for CSS ::part styling support.
  * @internal
  */
-export interface ElementWithPart extends HTMLElement {
+export interface ElementWithPart {
   part?: DOMTokenList;
 }
 
@@ -773,6 +773,18 @@ export interface ShellConfig {
   header?: ShellHeaderConfig;
   /** Tool panel configuration */
   toolPanel?: ToolPanelConfig;
+  /**
+   * Registered tool panels (from plugins, API, or Light DOM).
+   * These are the actual panel definitions that can be opened.
+   * @internal Set by ConfigManager during merge
+   */
+  toolPanels?: ToolPanelDefinition[];
+  /**
+   * Registered header content sections (from plugins or API).
+   * Content rendered in the center of the shell header.
+   * @internal Set by ConfigManager during merge
+   */
+  headerContents?: HeaderContentDefinition[];
 }
 
 /**
@@ -783,6 +795,16 @@ export interface ShellHeaderConfig {
   title?: string;
   /** Custom toolbar buttons (rendered before tool panel toggles) */
   toolbarButtons?: ToolbarButtonConfig[];
+  /**
+   * Light DOM header content elements (parsed from <tbw-grid-header> children).
+   * @internal Set by ConfigManager during merge
+   */
+  lightDomContent?: HTMLElement[];
+  /**
+   * Whether a tool buttons container was found in light DOM.
+   * @internal Set by ConfigManager during merge
+   */
+  hasToolButtonsContainer?: boolean;
 }
 
 /**

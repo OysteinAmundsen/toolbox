@@ -62,14 +62,6 @@ export enum RenderPhase {
 }
 
 /**
- * Debug log entry for render operations.
- */
-export interface RenderLogEntry {
-  phase: RenderPhase;
-  source: string;
-  timestamp: number;
-}
-
 /**
  * Callbacks that the scheduler invokes during flush.
  * Each callback corresponds to work done in a specific phase.
@@ -116,12 +108,6 @@ export class RenderScheduler {
   #initialReadyResolver: (() => void) | null = null;
   #initialReadyFired = false;
 
-  /** Debug mode - logs all render operations */
-  #debug = false;
-
-  /** Render log for debugging */
-  #renderLog: RenderLogEntry[] = [];
-
   constructor(callbacks: RenderCallbacks) {
     this.#callbacks = callbacks;
   }
@@ -138,15 +124,6 @@ export class RenderScheduler {
     if (phase > this.#pendingPhase) {
       this.#pendingPhase = phase;
       this.#pendingSource = source;
-    }
-
-    // Log if debug enabled
-    if (this.#debug) {
-      this.#renderLog.push({
-        phase,
-        source,
-        timestamp: performance.now(),
-      });
     }
 
     // Schedule RAF if not already scheduled
@@ -193,30 +170,6 @@ export class RenderScheduler {
       this.#readyResolve = null;
       this.#readyPromise = null;
     }
-  }
-
-  /**
-   * Enable or disable debug logging.
-   */
-  setDebug(enabled: boolean): void {
-    this.#debug = enabled;
-    if (!enabled) {
-      this.#renderLog = [];
-    }
-  }
-
-  /**
-   * Get the render log (only populated when debug is enabled).
-   */
-  getRenderLog(): readonly RenderLogEntry[] {
-    return this.#renderLog;
-  }
-
-  /**
-   * Clear the render log.
-   */
-  clearRenderLog(): void {
-    this.#renderLog = [];
   }
 
   /**

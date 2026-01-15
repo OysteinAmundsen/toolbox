@@ -84,7 +84,7 @@ flowchart TB
     D --> F
     E --> F
 
-    F["#mergeEffectiveConfig<br/><i>single merge</i>"]
+    F["ConfigManager.merge()<br/><i>single merge point</i>"]
     F --> G["#effectiveConfig<br/><i>canonical config</i><br/>◀ SINGLE SOURCE OF TRUTH"]
     G --> H["DERIVED STATE<br/>_columns (processed)<br/>_rows (processed)"]
 ```
@@ -151,14 +151,15 @@ The grid parses these light DOM elements on connection:
 
 The grid maintains three categories of state:
 
-1. **Input Properties** (`#rows`, `#columns`, `#gridConfig`, `#fitMode`, `#editOn`)
-   - Raw user input, never read directly for rendering
-   - Merged into `#effectiveConfig` by `#mergeEffectiveConfig()`
+1. **ConfigManager Sources** (owned by ConfigManager)
+   - Raw config sources: `gridConfig`, `columns`, `fitMode`, `editOn`
+   - Light DOM caches: `lightDomColumnsCache`, `lightDomTitle`
+   - ConfigManager owns the merge logic via `merge()` method
 
-2. **Effective Config** (`#effectiveConfig`)
+2. **Effective Config** (ConfigManager.effective → `#effectiveConfig` getter in grid.ts)
    - The **single source of truth** after merging all inputs
    - All rendering and logic reads from here
-   - Immutable during a render cycle
+   - ConfigManager maintains both frozen `original` and mutable `effective` layers
 
 3. **Derived State** (`_columns`, `_rows`)
    - Result of processing `effectiveConfig` through plugin hooks
@@ -167,7 +168,71 @@ The grid maintains three categories of state:
 
 4. **Runtime State** (`#hiddenColumns`, `sortState`, etc.)
    - User-driven changes at runtime (visibility, sorting)
-   - Managed separately for save/restore functionality
+   - Managed by ConfigManager for save/restore functionality
+
+### Two-Layer Config Architecture
+
+ConfigManager implements a two-layer architecture to separate the **original configuration** (from sources) from **runtime mutations**:
+
+```mermaid
+flowchart TB
+    subgraph sources["SOURCES"]
+        A["gridConfig"]
+        B["columns"]
+        C["fitMode/editOn"]
+        D["Light DOM"]
+        E["Shell State Maps"]
+    end
+
+    A --> F
+    B --> F
+    C --> F
+    D --> F
+    E --> F
+
+    F["ConfigManager.merge()"]
+    F -->|"sources changed"| G["#originalConfig<br/><i>(frozen, immutable)</i>"]
+    G -->|"clone"| H["#effectiveConfig<br/><i>(mutable, runtime changes)</i>"]
+
+    H -->|"user interaction"| I["Runtime Mutations<br/>hidden, width, sort order"]
+
+    J["resetState()"] -->|"clone original → effective"| H
+```
+
+**Layer 1: Original Config (`#originalConfig`)**
+
+- Built from all sources via `#collectAllSources()`
+- Frozen after creation (Object.freeze)
+- Immutable - never modified after merge
+- Serves as the "reset point" for the effective config
+
+**Layer 2: Effective Config (`#effectiveConfig`)**
+
+- Deep cloned from original config
+- Mutable - runtime changes go here
+- Column visibility, widths, sort order, etc.
+- All rendering reads from this layer
+
+**Key Behaviors:**
+
+| Operation                                  | What Happens                                               |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| Source changes (gridConfig, columns, etc.) | `markSourcesChanged()` → `merge()` rebuilds both layers    |
+| Runtime mutation (hide column, resize)     | Modify `effectiveConfig` only, `original` untouched        |
+| `resetState()`                             | Clone `original` → `effective`, discarding runtime changes |
+| `collectState()`                           | Diff `effective` vs `original` to get user changes         |
+
+**When Sources Change:**
+
+Sources are re-collected only when `#sourcesChanged` is `true` AND columns already exist:
+
+1. Setting `gridConfig`, `columns`, `fitMode`, `editOn` → auto-marks sources changed
+2. Setting Light DOM columns → auto-marks sources changed
+3. Shell state updates (tool panels, etc.) → call `markSourcesChanged()` explicitly
+4. `merge()` is a no-op if sources haven't changed AND columns exist
+5. If no columns exist yet, `merge()` always runs (to allow inference from rows)
+
+This optimization prevents unnecessary rebuilds when `merge()` is called multiple times per frame (e.g., by the RenderScheduler).
 
 ---
 
@@ -186,17 +251,17 @@ libs/grid/src/
    │  ├─ constants.ts        # DOM class/attribute constants
    │  ├─ internal/           # Pure helper functions
    │  │  ├─ aggregators.ts    # Footer aggregation functions
-   │  │  ├─ column-state.ts   # Column state management
    │  │  ├─ columns.ts        # Column resolution, sizing
+   │  │  ├─ config-manager.ts # Config lifecycle & column state
    │  │  ├─ dom-builder.ts    # Direct DOM construction utilities
    │  │  ├─ editing.ts        # Cell/row edit logic
    │  │  ├─ editors.ts        # Built-in cell editors
    │  │  ├─ event-delegation.ts # Delegated event handlers
-   │  │  ├─ grid-internals.ts # Internal grid interface adapter
    │  │  ├─ header.ts         # Header rendering
    │  │  ├─ idle-scheduler.ts # requestIdleCallback wrapper
    │  │  ├─ inference.ts      # Column type inference
    │  │  ├─ keyboard.ts       # Keyboard navigation
+   │  │  ├─ render-scheduler.ts # RAF-based render batching
    │  │  ├─ resize.ts         # Column resizing
    │  │  ├─ rows.ts           # Row rendering
    │  │  ├─ sanitize.ts       # Template security

@@ -30,6 +30,12 @@ function iconToString(icon: IconValue | undefined): string {
 
 /**
  * State for managing shell UI.
+ *
+ * NOTE: This interface is being refactored. Config-like properties are moving
+ * to effectiveConfig.shell. Only runtime state should remain here.
+ *
+ * @deprecated Properties that are configuration (toolPanels, headerContents, etc.)
+ * are moving to ShellConfig in types.ts. Use ShellRuntimeState for new code.
  */
 export interface ShellState {
   /** Registered tool panels (from plugins + consumer API) */
@@ -61,6 +67,47 @@ export interface ShellState {
 }
 
 /**
+ * Runtime-only shell state (not configuration).
+ *
+ * Configuration (toolPanels, headerContents, toolbarButtons, title) lives in
+ * effectiveConfig.shell. This state holds runtime UI state and cleanup functions.
+ */
+export interface ShellRuntimeState {
+  /** Whether the tool panel sidebar is currently open */
+  isPanelOpen: boolean;
+  /** Which accordion sections are currently expanded (by panel ID) */
+  expandedSections: Set<string>;
+  /** Cleanup functions for header content render returns */
+  headerContentCleanups: Map<string, () => void>;
+  /** Cleanup functions for each panel section's render return */
+  panelCleanups: Map<string, () => void>;
+  /** Cleanup functions for toolbar button render returns */
+  toolbarButtonCleanups: Map<string, () => void>;
+  /** IDs of tool panels registered from light DOM (to avoid re-parsing) */
+  lightDomToolPanelIds: Set<string>;
+  /** IDs of tool panels registered via registerToolPanel API */
+  apiToolPanelIds: Set<string>;
+  /** Whether a <tbw-grid-tool-buttons> container was found in light DOM */
+  hasToolButtonsContainer: boolean;
+}
+
+/**
+ * Create initial shell runtime state.
+ */
+export function createShellRuntimeState(): ShellRuntimeState {
+  return {
+    isPanelOpen: false,
+    expandedSections: new Set(),
+    headerContentCleanups: new Map(),
+    panelCleanups: new Map(),
+    toolbarButtonCleanups: new Map(),
+    lightDomToolPanelIds: new Set(),
+    apiToolPanelIds: new Set(),
+    hasToolButtonsContainer: false,
+  };
+}
+
+/**
  * Create initial shell state.
  */
 export function createShellState(): ShellState {
@@ -83,29 +130,26 @@ export function createShellState(): ShellState {
 
 /**
  * Determine if shell header should be rendered.
+ * Reads only from effectiveConfig.shell (single source of truth).
  */
-export function shouldRenderShellHeader(config: ShellConfig | undefined, state: ShellState): boolean {
-  // Check if title is configured (from config or light DOM)
+export function shouldRenderShellHeader(config: ShellConfig | undefined): boolean {
+  // Check if title is configured
   if (config?.header?.title) return true;
-  if (state.lightDomTitle) return true;
 
   // Check if config has toolbar buttons
   if (config?.header?.toolbarButtons?.length) return true;
 
-  // Check if any tool panels are registered (need toolbar buttons for them)
-  if (state.toolPanels.size > 0) return true;
+  // Check if any tool panels are registered
+  if (config?.toolPanels?.length) return true;
 
   // Check if any header content is registered
-  if (state.headerContents.size > 0) return true;
-
-  // Check if any API toolbar buttons registered
-  if (state.toolbarButtons.size > 0) return true;
+  if (config?.headerContents?.length) return true;
 
   // Check if light DOM has header elements
-  if (state.lightDomHeaderContent.length > 0) return true;
+  if (config?.header?.lightDomContent?.length) return true;
 
   // Check if a toolbar buttons container was found
-  if (state.hasToolButtonsContainer) return true;
+  if (config?.header?.hasToolButtonsContainer) return true;
 
   return false;
 }
@@ -1212,10 +1256,10 @@ import {
 export function buildGridDOMIntoShadow(
   shadowRoot: ShadowRoot,
   shellConfig: ShellConfig | undefined,
-  state: ShellState,
+  runtimeState: { isPanelOpen: boolean; expandedSections: Set<string> },
   icons?: { toolPanel?: IconValue; expand?: IconValue; collapse?: IconValue },
 ): boolean {
-  const hasShell = shouldRenderShellHeader(shellConfig, state);
+  const hasShell = shouldRenderShellHeader(shellConfig);
 
   // Clear existing content
   shadowRoot.replaceChildren();
@@ -1225,41 +1269,40 @@ export function buildGridDOMIntoShadow(
     const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
     const collapseIcon = iconToString(icons?.collapse ?? DEFAULT_GRID_ICONS.collapse);
 
-    // Prepare button arrays
-    const configButtons = shellConfig?.header?.toolbarButtons ?? [];
-    const sortedConfigButtons = [...configButtons].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-    const sortedApiButtons = [...state.toolbarButtons.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+    // All buttons now come from shellConfig (merged by ConfigManager)
+    const allButtons = shellConfig?.header?.toolbarButtons ?? [];
+    const sortedButtons = [...allButtons].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+
+    // All panels now come from shellConfig (merged by ConfigManager)
+    const allPanels = shellConfig?.toolPanels ?? [];
+    const sortedPanels = [...allPanels].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 
     // Build header options
     const headerOptions: ShellHeaderOptions = {
-      title: shellConfig?.header?.title ?? state.lightDomTitle ?? undefined,
-      hasPanels: state.toolPanels.size > 0,
-      isPanelOpen: state.isPanelOpen,
+      title: shellConfig?.header?.title ?? undefined,
+      hasPanels: sortedPanels.length > 0,
+      isPanelOpen: runtimeState.isPanelOpen,
       toolPanelIcon,
-      configButtons: sortedConfigButtons.map((b) => ({
+      // All buttons are now in config (no more separate config vs API distinction for rendering)
+      configButtons: sortedButtons.map((b) => ({
         id: b.id,
         hasElement: !!b.element,
         hasRender: !!b.render,
       })),
-      apiButtons: sortedApiButtons.map((b) => ({
-        id: b.id,
-        hasElement: !!b.element,
-        hasRender: !!b.render,
-      })),
+      apiButtons: [], // No longer needed - all buttons merged into configButtons
     };
 
     // Build body options
-    const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
     const bodyOptions: ShellBodyOptions = {
       position: shellConfig?.toolPanel?.position ?? 'right',
-      isPanelOpen: state.isPanelOpen,
+      isPanelOpen: runtimeState.isPanelOpen,
       expandIcon,
       collapseIcon,
       panels: sortedPanels.map((p) => ({
         id: p.id,
         title: p.title,
         icon: iconToString(p.icon),
-        isExpanded: state.expandedSections.has(p.id),
+        isExpanded: runtimeState.expandedSections.has(p.id),
       })),
     };
 

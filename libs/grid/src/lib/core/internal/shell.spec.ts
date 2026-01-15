@@ -37,13 +37,13 @@ describe('shell module', () => {
   });
 
   describe('shouldRenderShellHeader', () => {
-    it('returns false when no config and empty state', () => {
-      expect(shouldRenderShellHeader(undefined, state)).toBe(false);
+    it('returns false when no config', () => {
+      expect(shouldRenderShellHeader(undefined)).toBe(false);
     });
 
     it('returns true when config has title', () => {
       const config: ShellConfig = { header: { title: 'My Grid' } };
-      expect(shouldRenderShellHeader(config, state)).toBe(true);
+      expect(shouldRenderShellHeader(config)).toBe(true);
     });
 
     it('returns true when config has toolbar buttons with element/render', () => {
@@ -57,10 +57,10 @@ describe('shell module', () => {
           ],
         },
       };
-      expect(shouldRenderShellHeader(config, state)).toBe(true);
+      expect(shouldRenderShellHeader(config)).toBe(true);
     });
 
-    it('returns true when tool panels are registered', () => {
+    it('returns true when tool panels are configured', () => {
       const panel: ToolPanelDefinition = {
         id: 'columns',
         title: 'Columns',
@@ -69,37 +69,29 @@ describe('shell module', () => {
           /* noop */
         },
       };
-      state.toolPanels.set('columns', panel);
-      expect(shouldRenderShellHeader(undefined, state)).toBe(true);
+      const config: ShellConfig = { toolPanels: [panel] };
+      expect(shouldRenderShellHeader(config)).toBe(true);
     });
 
-    it('returns true when header contents are registered', () => {
+    it('returns true when header contents are configured', () => {
       const content: HeaderContentDefinition = {
         id: 'search',
         render: () => {
           /* noop */
         },
       };
-      state.headerContents.set('search', content);
-      expect(shouldRenderShellHeader(undefined, state)).toBe(true);
+      const config: ShellConfig = { headerContents: [content] };
+      expect(shouldRenderShellHeader(config)).toBe(true);
     });
 
-    it('returns true when API toolbar buttons are registered', () => {
-      state.toolbarButtons.set('custom', {
-        id: 'custom',
-        element: document.createElement('button'),
-      });
-      expect(shouldRenderShellHeader(undefined, state)).toBe(true);
+    it('returns true when light DOM header content exists in config', () => {
+      const config: ShellConfig = { header: { lightDomContent: [document.createElement('div')] } };
+      expect(shouldRenderShellHeader(config)).toBe(true);
     });
 
-    it('returns true when light DOM header content exists', () => {
-      state.lightDomHeaderContent = [document.createElement('div')];
-      expect(shouldRenderShellHeader(undefined, state)).toBe(true);
-    });
-
-    it('returns true when tool buttons container was found', () => {
-      state.hasToolButtonsContainer = true;
-      expect(shouldRenderShellHeader(undefined, state)).toBe(true);
+    it('returns true when tool buttons container was found in config', () => {
+      const config: ShellConfig = { header: { hasToolButtonsContainer: true } };
+      expect(shouldRenderShellHeader(config)).toBe(true);
     });
   });
 

@@ -55,6 +55,13 @@ import type {
 export interface GridElement extends GridElementRef {
   getPlugin<T extends BaseGridPlugin>(PluginClass: new (...args: any[]) => T): T | undefined;
   getPluginByName(name: string): BaseGridPlugin | undefined;
+  /**
+   * Get a plugin's state by plugin name.
+   * This is a loose-coupling method for plugins to access other plugins' state
+   * without importing the plugin class directly.
+   * @internal Plugin API
+   */
+  getPluginState?(name: string): unknown;
 }
 
 /**

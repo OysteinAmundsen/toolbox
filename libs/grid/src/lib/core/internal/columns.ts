@@ -1,7 +1,5 @@
 import type { ColumnConfig, ColumnInternal, ElementWithPart, InternalGrid, PrimitiveColumnType } from '../types';
 import { FitModeEnum } from '../types';
-import { inferColumns } from './inference';
-import { compileTemplate } from './sanitize';
 
 /** Global DataGridElement class (may or may not be registered) */
 interface DataGridElementClass {
@@ -196,37 +194,6 @@ export function addPart(el: HTMLElement, token: string): void {
   const existing = el.getAttribute('part');
   if (!existing) el.setAttribute('part', token);
   else if (!existing.split(/\s+/).includes(token)) el.setAttribute('part', existing + ' ' + token);
-}
-
-/**
- * Resolve the effective column list for the grid by combining:
- * 1. Programmatic columns (`grid._columns`)
- * 2. Light DOM `<tbw-grid-column>` definitions (cached)
- * 3. Inferred columns (if none provided)
- * Also compiles inline template expressions into fast functions.
- * Columns with `hidden: true` in config are added to hidden tracking.
- */
-export function getColumnConfiguration(grid: InternalGrid): void {
-  if (!grid.__lightDomColumnsCache) {
-    grid.__originalColumnNodes = Array.from(
-      (grid as unknown as HTMLElement).querySelectorAll('tbw-grid-column'),
-    ) as HTMLElement[];
-    grid.__lightDomColumnsCache = grid.__originalColumnNodes.length
-      ? parseLightDomColumns(grid as unknown as HTMLElement)
-      : [];
-  }
-  const lightDomColumns = grid.__lightDomColumnsCache;
-  const merged = mergeColumns(grid._columns, lightDomColumns);
-  merged.forEach((c: ColumnInternal) => {
-    if (c.__viewTemplate && !c.__compiledView) {
-      c.__compiledView = compileTemplate((c.__viewTemplate as HTMLElement).innerHTML);
-    }
-    if (c.__editorTemplate && !c.__compiledEditor) {
-      c.__compiledEditor = compileTemplate(c.__editorTemplate.innerHTML);
-    }
-  });
-  const { columns } = inferColumns(grid._rows, merged);
-  grid._columns = columns as ColumnInternal[];
 }
 
 /**

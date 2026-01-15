@@ -212,45 +212,6 @@ describe('RenderScheduler', () => {
     });
   });
 
-  describe('debug logging', () => {
-    it('should log render requests when debug enabled', async () => {
-      scheduler.setDebug(true);
-
-      scheduler.requestPhase(RenderPhase.STYLE, 'source1');
-      scheduler.requestPhase(RenderPhase.ROWS, 'source2');
-
-      const log = scheduler.getRenderLog();
-      expect(log).toHaveLength(2);
-      expect(log[0].phase).toBe(RenderPhase.STYLE);
-      expect(log[0].source).toBe('source1');
-      expect(log[1].phase).toBe(RenderPhase.ROWS);
-      expect(log[1].source).toBe('source2');
-    });
-
-    it('should not log when debug disabled', () => {
-      scheduler.requestPhase(RenderPhase.STYLE, 'test');
-      expect(scheduler.getRenderLog()).toHaveLength(0);
-    });
-
-    it('should clear log when debug disabled', () => {
-      scheduler.setDebug(true);
-      scheduler.requestPhase(RenderPhase.STYLE, 'test');
-      expect(scheduler.getRenderLog()).toHaveLength(1);
-
-      scheduler.setDebug(false);
-      expect(scheduler.getRenderLog()).toHaveLength(0);
-    });
-
-    it('should clear log manually', () => {
-      scheduler.setDebug(true);
-      scheduler.requestPhase(RenderPhase.STYLE, 'test');
-      expect(scheduler.getRenderLog()).toHaveLength(1);
-
-      scheduler.clearRenderLog();
-      expect(scheduler.getRenderLog()).toHaveLength(0);
-    });
-  });
-
   describe('batching behavior', () => {
     it('should only schedule one RAF for multiple requests', async () => {
       const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame');

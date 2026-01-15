@@ -329,7 +329,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
     this.emit<DetailExpandDetail>('detail-expand', {
       rowIndex: event.rowIndex,
-      row: event.row,
+      row: event.row as Record<string, unknown>,
       expanded: this.expandedRows.has(event.row as object),
     });
 

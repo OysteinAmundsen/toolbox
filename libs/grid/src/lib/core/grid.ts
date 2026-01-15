@@ -1,18 +1,6 @@
 import styles from './grid.css?inline';
-import {
-  applyColumnState,
-  collectColumnState,
-  createStateChangeHandler,
-  getAllColumns,
-  getColumnOrder,
-  isColumnVisible,
-  setColumnOrder,
-  setColumnVisible,
-  showAllColumns,
-  toggleColumnVisibility,
-  type VisibilityCallbacks,
-} from './internal/column-state';
-import { autoSizeColumns, getColumnConfiguration, updateTemplate } from './internal/columns';
+import { autoSizeColumns, updateTemplate } from './internal/columns';
+import { ConfigManager } from './internal/config-manager';
 import {
   beginBulkEdit,
   cancelActiveRowEdit,
@@ -25,7 +13,6 @@ import {
 import { setupCellEventDelegation } from './internal/event-delegation';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
-import { inferColumns } from './internal/inference';
 import { handleGridKeyDown } from './internal/keyboard';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
@@ -88,7 +75,7 @@ import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
  * ## Configuration Architecture
  *
  * The grid follows a **single source of truth** pattern where all configuration
- * converges into `#effectiveConfig`. Users can set configuration via multiple inputs:
+ * is managed by ConfigManager. Users can set configuration via multiple inputs:
  *
  * **Input Sources (precedence low → high):**
  * 1. `gridConfig` property - base configuration object
@@ -105,7 +92,7 @@ import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
  * - `_columns` - processed columns from `effectiveConfig.columns` after plugin hooks
  * - `_rows` - processed rows after plugin hooks (grouping, filtering, etc.)
  *
- * The `#mergeEffectiveConfig()` method is the single place where all inputs converge.
+ * ConfigManager.merge() is the single place where all inputs converge.
  * All rendering and logic should read from `effectiveConfig` or derived state.
  *
  * @element tbw-grid
@@ -188,20 +175,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #readyResolve?: () => void;
 
   // #region Input Properties
-  // These backing fields store raw user input. They are merged into
-  // #effectiveConfig by #mergeEffectiveConfig(). Never read directly
-  // for rendering logic - always use effectiveConfig or derived state.
+  // Raw rows are stored here. Config sources (gridConfig, columns, fitMode, editOn)
+  // are owned by ConfigManager. Grid.ts property setters delegate to ConfigManager.
   #rows: T[] = [];
-  #columns?: ColumnConfig<T>[] | ColumnConfigMap<T>;
-  #gridConfig?: GridConfig<T>;
-  #fitMode?: FitMode;
-  #editOn?: string | boolean;
   // #endregion
 
   // #region Private properties
-  // All input sources converge here. This is the canonical config
-  // that all rendering and logic should read from.
-  #effectiveConfig: GridConfig<T> = {};
+  // effectiveConfig is owned by ConfigManager - access via getter
+  get #effectiveConfig(): GridConfig<T> {
+    return this.#configManager?.effective ?? {};
+  }
+
   #connected = false;
 
   // ---------------- Batched Updates ----------------
@@ -229,7 +213,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #eventAbortController?: AbortController;
   #resizeObserver?: ResizeObserver;
   #rowHeightObserver?: ResizeObserver; // Watches first row for size changes (CSS loading, custom renderers)
-  #lightDomObserver?: MutationObserver;
   #idleCallbackHandle?: number; // Handle for cancelling deferred idle work
 
   // Pooled scroll event object (reused to avoid GC pressure during scroll)
@@ -250,8 +233,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #scrollAbortController?: AbortController; // Separate controller for DOM scroll listeners (recreated on DOM changes)
 
   // ---------------- Column State ----------------
-  #stateChangeHandler?: () => void;
   #initialColumnState?: GridColumnState;
+
+  // ---------------- Config Manager ----------------
+  #configManager!: ConfigManager<T>;
 
   // ---------------- Shell State ----------------
   #shellState: ShellState = createShellState();
@@ -322,8 +307,27 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #region Implementation Details (Internal only)
   __rowRenderEpoch = 0;
   __didInitialAutoSize = false;
-  __lightDomColumnsCache?: ColumnInternal[];
-  __originalColumnNodes?: HTMLElement[];
+
+  /** Light DOM columns cache - delegates to ConfigManager */
+  get __lightDomColumnsCache(): ColumnInternal[] | undefined {
+    return this.#configManager?.lightDomColumnsCache as ColumnInternal[] | undefined;
+  }
+  set __lightDomColumnsCache(value: ColumnInternal[] | undefined) {
+    if (this.#configManager) {
+      this.#configManager.lightDomColumnsCache = value as ColumnInternal<T>[] | undefined;
+    }
+  }
+
+  /** Original column nodes - delegates to ConfigManager */
+  get __originalColumnNodes(): HTMLElement[] | undefined {
+    return this.#configManager?.originalColumnNodes;
+  }
+  set __originalColumnNodes(value: HTMLElement[] | undefined) {
+    if (this.#configManager) {
+      this.#configManager.originalColumnNodes = value;
+    }
+  }
+
   __originalOrder: T[] = [];
 
   /**
@@ -365,8 +369,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return [...this._columns] as ColumnConfig<T>[];
   }
   set columns(value: ColumnConfig<T>[] | ColumnConfigMap<T> | undefined) {
-    const oldValue = this.#columns;
-    this.#columns = value;
+    const oldValue = this.#configManager?.getColumns();
+    this.#configManager?.setColumns(value);
     if (oldValue !== value) {
       this.#queueUpdate('columns');
     }
@@ -376,12 +380,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#effectiveConfig;
   }
   set gridConfig(value: GridConfig<T> | undefined) {
-    const oldValue = this.#gridConfig;
-    this.#gridConfig = value;
+    const oldValue = this.#configManager?.getGridConfig();
+    this.#configManager?.setGridConfig(value);
     if (oldValue !== value) {
       // Clear light DOM column cache so columns are re-parsed from light DOM
       // This is needed for frameworks like Angular that project content asynchronously
-      this.__lightDomColumnsCache = undefined;
+      this.#configManager.clearLightDomCache();
       this.#queueUpdate('gridConfig');
     }
   }
@@ -390,8 +394,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#effectiveConfig.fitMode ?? 'stretch';
   }
   set fitMode(value: FitMode | undefined) {
-    const oldValue = this.#fitMode;
-    this.#fitMode = value;
+    const oldValue = this.#configManager?.getFitMode();
+    this.#configManager?.setFitMode(value);
     if (oldValue !== value) {
       this.#queueUpdate('fitMode');
     }
@@ -401,8 +405,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#effectiveConfig.editOn;
   }
   set editOn(value: string | boolean | undefined) {
-    const oldValue = this.#editOn;
-    this.#editOn = value;
+    const oldValue = this.#configManager?.getEditOn();
+    this.#configManager?.setEditOn(value);
     if (oldValue !== value) {
       this.#queueUpdate('editMode');
     }
@@ -446,8 +450,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       mergeConfig: () => {
         // Re-parse light DOM columns to pick up framework adapter renderers
         // This is essential for React/Angular where renderers register asynchronously
-        getColumnConfiguration(this);
-        this.#mergeEffectiveConfig();
+        this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+        this.#configManager.merge();
         this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
         // Store base columns before plugin transformation
         this.#baseColumns = [...this._columns];
@@ -481,6 +485,39 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }),
       emit: (eventName, detail) => this.#emit(eventName, detail),
       refreshShellHeader: () => this.refreshShellHeader(),
+    });
+
+    // Initialize config manager with callbacks
+    this.#configManager = new ConfigManager<T>({
+      getRows: () => this.#rows,
+      getSortState: () => this._sortState,
+      setSortState: (state) => {
+        this._sortState = state;
+      },
+      onConfigChange: () => {
+        this.#scheduler.requestPhase(RenderPhase.FULL, 'configChange');
+      },
+      emit: (eventName, detail) => this.#emit(eventName, detail),
+      clearRowPool: () => {
+        this._rowPool.length = 0;
+        if (this._bodyEl) this._bodyEl.innerHTML = '';
+        this.__rowRenderEpoch++;
+      },
+      setup: () => this.#setup(),
+      renderHeader: () => renderHeader(this),
+      updateTemplate: () => updateTemplate(this),
+      refreshVirtualWindow: () => this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'configManager'),
+      getVirtualization: () => this._virtualization,
+      setRowHeight: (height) => {
+        this._virtualization.rowHeight = height;
+      },
+      applyAnimationConfig: (config) => this.#applyAnimationConfig(config),
+      getShellLightDomTitle: () => this.#shellState.lightDomTitle,
+      getShellToolPanels: () => this.#shellState.toolPanels,
+      getShellHeaderContents: () => this.#shellState.headerContents,
+      getShellToolbarButtons: () => this.#shellState.toolbarButtons,
+      getShellLightDomHeaderContent: () => this.#shellState.lightDomHeaderContent,
+      getShellHasToolButtonsContainer: () => this.#shellState.hasToolButtonsContainer,
     });
   }
 
@@ -764,9 +801,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     parseLightDomToolButtons(this, this.#shellState);
     // Parse light DOM tool panels (framework adapters may not be ready yet, but vanilla JS works)
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+    // Parse light DOM columns (must be before merge to pick up templates)
+    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
 
     // Merge all config sources into effectiveConfig (including columns and shell)
-    this.#mergeEffectiveConfig();
+    this.#configManager.merge();
 
     // Initialize plugin system (now plugins can access disconnectSignal)
     this.#initializePlugins();
@@ -784,9 +823,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // === DEFERRED WORK (idle) - not needed for first paint ===
     this.#idleCallbackHandle = scheduleIdle(
       () => {
-        // Set up MutationObserver to watch for light DOM changes
+        // Set up Light DOM observation via ConfigManager
         // This handles frameworks like Angular that project content asynchronously
-        this.#setupLightDomObserver();
+        this.#setupLightDomHandlers();
       },
       { timeout: 100 },
     );
@@ -835,10 +874,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#rowHeightObserver.disconnect();
       this.#rowHeightObserver = undefined;
       this.#rowHeightObserverSetup = false;
-    }
-    if (this.#lightDomObserver) {
-      this.#lightDomObserver.disconnect();
-      this.#lightDomObserver = undefined;
     }
 
     // Clear caches to prevent memory leaks
@@ -1274,12 +1309,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #applyColumnsUpdate(): void {
     invalidateCellCache(this);
-    this.#mergeEffectiveConfig();
+    this.#configManager.merge();
     this.#setup();
   }
 
   #applyFitModeUpdate(): void {
-    this.#mergeEffectiveConfig();
+    this.#configManager.merge();
     const mode = this.#effectiveConfig.fitMode;
     if (mode === 'fixed') {
       this.__didInitialAutoSize = false;
@@ -1293,7 +1328,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   #applyEditModeUpdate(): void {
-    this.#mergeEffectiveConfig();
+    this.#configManager.merge();
     this._rowPool.length = 0;
     if (this._bodyEl) this._bodyEl.innerHTML = '';
     this.__rowRenderEpoch++;
@@ -1313,22 +1348,29 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Count accordion sections before update (to detect new panels added)
     const accordionSectionsBefore = this.#shadow.querySelectorAll('.tbw-accordion-section').length;
 
-    getColumnConfiguration(this);
-    this.#mergeEffectiveConfig();
+    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+    this.#configManager.merge();
     this.#updatePluginConfigs();
 
     // Parse light DOM tool panels AFTER plugins are initialized
     // This ensures plugin panels are collected first, then light DOM panels merge in
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
-    const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig?.shell, this.#shellState);
-    const nowHasToolPanels = this.#shellState.toolPanels.size > 0;
+    // Mark sources as changed since parseLightDomToolPanels may have updated shell state maps
+    // This ensures the next merge() will pick up any new tool panels
+    this.#configManager.markSourcesChanged();
+
+    // Re-merge to pick up any light DOM tool panels
+    this.#configManager.merge();
+
+    const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig?.shell);
+    const nowHasToolPanels = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) > 0;
 
     // Full re-render needed if:
     // 1. Shell state changed (added or removed)
     // 2. Tool panels were added but sidebar doesn't exist in DOM yet
     // 3. Number of tool panels changed (plugin panels added/removed)
-    const toolPanelCountChanged = this.#shellState.toolPanels.size !== accordionSectionsBefore;
+    const toolPanelCountChanged = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) !== accordionSectionsBefore;
     const needsFullRerender =
       hadShell !== nowNeedsShell ||
       (!hadShell && nowNeedsShell) ||
@@ -1446,145 +1488,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Build the canonical effective configuration by merging all input sources.
-   *
-   * This is the **single source of truth** for the grid's configuration.
-   * All inputs (gridConfig, light DOM, individual props) converge here.
-   *
-   * **Precedence (lowest → highest):**
-   * 1. `gridConfig` property - base config object
-   * 2. Light DOM `<tbw-grid-column>` elements - declarative columns
-   * 3. `columns` property - programmatic columns override
-   * 4. Inferred columns - auto-detected from row data
-   * 5. Individual props (`fitMode`, `editOn`) - convenience overrides
-   *
-   * After this method runs:
-   * - `#effectiveConfig` contains the merged result
-   * - `_columns` is NOT set here (done by #getColumnConfiguration + #processColumns)
-   * - Plugins receive config via their attach() method
-   */
-  #mergeEffectiveConfig(): void {
-    const base: GridConfig<T> = this.#gridConfig ? { ...this.#gridConfig } : {};
-    let columns: ColumnConfig<T>[] = Array.isArray(base.columns) ? [...base.columns] : [];
-
-    // Light DOM cached parse (if already parsed by columns pipeline); non-invasive merge (fill gaps only)
-    const domCols: ColumnConfig<T>[] = (this.__lightDomColumnsCache ?? []).map((c) => ({
-      ...c,
-    })) as ColumnConfig<T>[];
-    if (domCols.length) {
-      const map: Record<string, ColumnConfig<T>> = {};
-      columns.forEach((c) => (map[c.field] = c));
-      domCols.forEach((c) => {
-        const exist = map[c.field];
-        if (!exist) {
-          columns.push(c);
-          map[c.field] = c;
-        } else {
-          if (c.header && !exist.header) exist.header = c.header;
-          if (c.type && !exist.type) exist.type = c.type;
-          exist.sortable = exist.sortable || c.sortable;
-          if (c.resizable) exist.resizable = true;
-          if (c.editable) exist.editable = true;
-          // Merge framework adapter renderers/editors from DOM (support both 'renderer' alias and 'viewRenderer')
-          const cRenderer = c.renderer || c.viewRenderer;
-          const existRenderer = exist.renderer || exist.viewRenderer;
-          if (cRenderer && !existRenderer) {
-            exist.viewRenderer = cRenderer;
-            if (c.renderer) exist.renderer = cRenderer;
-          }
-          if (c.editor && !exist.editor) exist.editor = c.editor;
-        }
-      });
-    }
-
-    // Columns prop highest structural precedence
-    if (this.#columns && (this.#columns as ColumnConfig<T>[]).length) {
-      columns = [...(this.#columns as ColumnConfig<T>[])];
-    }
-
-    // Inference if still empty
-    if ((!columns || columns.length === 0) && this._rows.length) {
-      const result = inferColumns(this._rows as Record<string, unknown>[]);
-      columns = result.columns as ColumnConfig<T>[];
-    }
-
-    if (columns.length) {
-      // Apply per-column defaults (sortable/resizable default true unless explicitly false)
-      columns.forEach((c) => {
-        if (c.sortable === undefined) c.sortable = true;
-        if (c.resizable === undefined) c.resizable = true;
-        // Store original configured width for reset on double-click (only numeric widths)
-        const internal = c as ColumnInternal<T>;
-        if (internal.__originalWidth === undefined && typeof c.width === 'number') {
-          internal.__originalWidth = c.width;
-        }
-      });
-      // Preserve processed columns (with __compiledView etc.) if already set by #getColumnConfiguration
-      // Only set base.columns if effectiveConfig.columns is empty or doesn't have compiled templates
-      const existingCols = this.#effectiveConfig.columns as ColumnInternal<T>[] | undefined;
-      const alreadyProcessed = existingCols?.some((c) => c.__compiledView || c.__compiledEditor);
-      if (alreadyProcessed) {
-        // Keep existing processed columns
-        base.columns = existingCols as ColumnConfig<T>[];
-      } else {
-        base.columns = columns;
-      }
-    } else {
-      // No new columns computed, but preserve existing if processed
-      const existingCols = this.#effectiveConfig.columns as ColumnInternal<T>[] | undefined;
-      if (existingCols?.some((c) => c.__compiledView || c.__compiledEditor)) {
-        base.columns = existingCols as ColumnConfig<T>[];
-      }
-    }
-
-    // Individual prop overrides (behavioral)
-    if (this.#fitMode) base.fitMode = this.#fitMode;
-    if (!base.fitMode) base.fitMode = 'stretch';
-    if (this.#editOn) base.editOn = this.#editOn;
-
-    // Merge light DOM shell configuration
-    if (this.#shellState.lightDomTitle) {
-      if (!base.shell) base.shell = {};
-      if (!base.shell.header) base.shell.header = {};
-      if (!base.shell.header.title) {
-        base.shell.header.title = this.#shellState.lightDomTitle;
-      }
-    }
-
-    // Apply rowHeight from config if specified
-    if (base.rowHeight && base.rowHeight > 0) {
-      this._virtualization.rowHeight = base.rowHeight;
-    }
-
-    // Store columnState from gridConfig if not already set
-    if (base.columnState && !this.#initialColumnState) {
-      this.#initialColumnState = base.columnState;
-    }
-
-    this.#effectiveConfig = base;
-    // Note: _columns is a getter/setter for effectiveConfig.columns
-    // #getColumnConfiguration() populates it, and we preserve those processed columns above
-    // Plugins (like ReorderPlugin) modify effectiveConfig.columns via the _columns setter
-
-    // If fixed mode and width not specified: assign default 80px
-    if (base.fitMode === 'fixed') {
-      this._columns.forEach((c) => {
-        if (c.width == null) (c as ColumnConfig<T>).width = 80;
-      });
-    }
-
-    // Apply animation configuration to CSS variables
-    this.#applyAnimationConfig();
-  }
-
-  /**
    * Apply animation configuration to CSS custom properties on the host element.
    * This makes the grid's animation settings available to plugins via CSS variables.
+   * Called by ConfigManager after merge.
    */
-  #applyAnimationConfig(): void {
+  #applyAnimationConfig(gridConfig: GridConfig<T>): void {
     const config: AnimationConfig = {
       ...DEFAULT_ANIMATION_CONFIG,
-      ...this.#effectiveConfig.animation,
+      ...gridConfig.animation,
     };
 
     // Resolve animation mode
@@ -1667,39 +1578,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       return;
     }
 
-    // Seed effectiveConfig.columns from config sources before getColumnConfiguration
-    // This ensures columns from gridConfig/columns prop are available for merging with light DOM
-    // Preserve hidden state from existing columns (visibility is runtime state)
-    const configCols = (this.#gridConfig?.columns || this.#columns || []) as ColumnConfig<T>[];
-    if (configCols.length) {
-      // Preserve hidden state from existing effectiveConfig.columns
-      const existingHiddenMap = new Map(this._columns.filter((c) => c.hidden).map((c) => [c.field, true]));
-      const seeded = configCols.map((c) => ({
-        ...c,
-        hidden: existingHiddenMap.get(c.field) ?? c.hidden,
-      }));
-      this._columns = seeded as ColumnInternal<T>[];
-    }
-
     // Read light DOM column configuration (synchronous DOM read)
-    getColumnConfiguration(this);
+    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
 
     // Apply initial column state synchronously if present
     // (needs to happen before scheduler to avoid flash of unstyled content)
     if (this.#initialColumnState) {
       const state = this.#initialColumnState;
       this.#initialColumnState = undefined; // Clear to avoid re-applying
-      // Temporarily merge config so applyColumnState has columns to work with
-      this.#mergeEffectiveConfig();
-      const allCols = (this.#effectiveConfig.columns ?? []) as ColumnInternal<T>[];
+      // Temporarily merge config so applyState has columns to work with
+      this.#configManager.merge();
       const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
-      applyColumnState(this, state, allCols, plugins);
-      for (const colState of state.columns) {
-        const col = allCols.find((c) => c.field === colState.field);
-        if (col) {
-          col.hidden = !colState.visible;
-        }
-      }
+      this.#configManager.applyState(state, plugins);
     }
 
     // Ensure legacy inline grid styles are cleared from container
@@ -1710,23 +1600,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Request full render through scheduler - batches with framework adapter work
     this.#scheduler.requestPhase(RenderPhase.FULL, 'setup');
-  }
-
-  /** Internal method to apply column state without triggering setup loop */
-  #applyColumnStateInternal(state: GridColumnState): void {
-    // Get all columns from effectiveConfig (single source of truth)
-    const allCols = (this.#effectiveConfig.columns ?? []) as ColumnInternal<T>[];
-
-    const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
-    applyColumnState(this, state, allCols, plugins);
-
-    // Update hidden property on columns based on state
-    for (const colState of state.columns) {
-      const col = allCols.find((c) => c.field === colState.field);
-      if (col) {
-        col.hidden = !colState.visible;
-      }
-    }
   }
 
   #onScrollBatched(scrollTop: number): void {
@@ -2011,127 +1884,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#scheduler.whenReady();
   }
 
-  // #region Debug API
-
-  /** Debug mode state */
-  #debugMode = false;
-
-  /**
-   * Enable or disable debug mode.
-   * When enabled, logs render operations and provides diagnostic information.
-   *
-   * @param enabled - Whether to enable debug mode
-   *
-   * @example
-   * ```typescript
-   * // Enable debug mode
-   * grid.setDebug(true);
-   *
-   * // Interact with the grid...
-   *
-   * // Get render log
-   * console.log(grid.getDebugInfo());
-   * ```
-   */
-  setDebug(enabled: boolean): void {
-    this.#debugMode = enabled;
-    this.#scheduler.setDebug(enabled);
-
-    if (enabled) {
-      console.log('[tbw-grid] Debug mode enabled. Use grid.getDebugInfo() to inspect state.');
-    }
-  }
-
-  /**
-   * Get comprehensive debug information about the grid's current state.
-   * Useful for diagnosing issues and understanding render behavior.
-   *
-   * @returns Debug information object
-   *
-   * @example
-   * ```typescript
-   * grid.setDebug(true);
-   * // ... interact with the grid ...
-   * const info = grid.getDebugInfo();
-   * console.table(info.renderLog);
-   * console.log('Visible rows:', info.virtualization);
-   * ```
-   */
-  getDebugInfo(): {
-    debugEnabled: boolean;
-    connected: boolean;
-    initialized: boolean;
-    renderLog: readonly { phase: number; source: string; timestamp: number }[];
-    pendingRender: { isPending: boolean; phase: number };
-    virtualization: {
-      rowHeight: number;
-      bypassThreshold: number;
-      start: number;
-      end: number;
-      totalRows: number;
-      visibleRows: number;
-      enabled: boolean;
-    };
-    columns: {
-      total: number;
-      visible: number;
-      hidden: string[];
-    };
-    rows: {
-      total: number;
-      processed: number;
-      editing: number;
-      changed: number;
-    };
-    plugins: string[];
-    customStyles: string[];
-  } {
-    const visibleCols = this._visibleColumns;
-    const hiddenCols = this._columns.filter((c) => c.hidden).map((c) => c.field);
-
-    return {
-      debugEnabled: this.#debugMode,
-      connected: this.#connected,
-      initialized: this.#initialized,
-      renderLog: this.#scheduler.getRenderLog(),
-      pendingRender: {
-        isPending: this.#scheduler.isPending,
-        phase: this.#scheduler.pendingPhase,
-      },
-      virtualization: {
-        rowHeight: this._virtualization.rowHeight,
-        bypassThreshold: this._virtualization.bypassThreshold,
-        start: this._virtualization.start,
-        end: this._virtualization.end,
-        totalRows: this._rows.length,
-        visibleRows: this._virtualization.end - this._virtualization.start,
-        enabled: this._virtualization.enabled,
-      },
-      columns: {
-        total: this._columns.length,
-        visible: visibleCols.length,
-        hidden: hiddenCols,
-      },
-      rows: {
-        total: this.#rows?.length ?? 0,
-        processed: this._rows.length,
-        editing: this.__editingCellCount,
-        changed: this._changedRowIndices.size,
-      },
-      plugins: this.#pluginManager?.getRegisteredPluginNames() ?? [],
-      customStyles: this.getRegisteredStyles(),
-    };
-  }
-
-  /**
-   * Clear the render log. Useful when starting a new debug session.
-   */
-  clearDebugLog(): void {
-    this.#scheduler.clearRenderLog();
-  }
-
-  // #endregion
-
   /**
    * Trim the internal row pool to match the current visible window size.
    *
@@ -2145,51 +1897,44 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   // ---------------- Column Visibility API ----------------
-  // Delegates to column-state.ts pure functions
-
-  /** Visibility callbacks for column-state.ts functions */
-  #visibilityCallbacks: VisibilityCallbacks = {
-    emit: (name, detail) => this.#emit(name, detail),
-    clearRowPool: () => {
-      this._rowPool.length = 0;
-      if (this._bodyEl) this._bodyEl.innerHTML = '';
-      this.__rowRenderEpoch++;
-    },
-    setup: () => this.#setup(),
-    requestStateChange: () => this.requestStateChange(),
-  };
+  // Delegates to ConfigManager
 
   setColumnVisible(field: string, visible: boolean): boolean {
-    return setColumnVisible(this, field, visible, this.#visibilityCallbacks);
+    const result = this.#configManager.setColumnVisible(field, visible);
+    if (result) {
+      this.requestStateChange();
+    }
+    return result;
   }
 
   toggleColumnVisibility(field: string): boolean {
-    return toggleColumnVisibility(this, field, this.#visibilityCallbacks);
+    const result = this.#configManager.toggleColumnVisibility(field);
+    if (result) {
+      this.requestStateChange();
+    }
+    return result;
   }
 
   isColumnVisible(field: string): boolean {
-    return isColumnVisible(this, field);
+    return this.#configManager.isColumnVisible(field);
   }
 
   showAllColumns(): void {
-    showAllColumns(this, this.#visibilityCallbacks);
+    this.#configManager.showAllColumns();
+    this.requestStateChange();
   }
 
   getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }> {
-    return getAllColumns(this);
+    return this.#configManager.getAllColumns();
   }
 
   setColumnOrder(order: string[]): void {
-    setColumnOrder(this, order, {
-      renderHeader: () => renderHeader(this),
-      updateTemplate: () => updateTemplate(this),
-      // Use scheduler to batch with other pending work and avoid race conditions
-      refreshVirtualWindow: () => this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'setColumnOrder'),
-    });
+    this.#configManager.setColumnOrder(order);
+    this.requestStateChange();
   }
 
   getColumnOrder(): string[] {
-    return getColumnOrder(this);
+    return this.#configManager.getColumnOrder();
   }
 
   // ---------------- Column State API ----------------
@@ -2200,7 +1945,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   getColumnState(): GridColumnState {
     const plugins = this.#pluginManager?.getAll() ?? [];
-    return collectColumnState(this, plugins as BaseGridPlugin[]);
+    return this.#configManager.collectState(plugins as BaseGridPlugin[]);
   }
 
   /**
@@ -2212,6 +1957,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Store for use after initialization if called before ready
     this.#initialColumnState = state;
+    this.#configManager.initialColumnState = state;
 
     // If already initialized, apply immediately
     if (this.#initialized) {
@@ -2230,13 +1976,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Apply column state internally.
    */
   #applyColumnState(state: GridColumnState): void {
-    // Clear hidden flags before applying state
-    const allCols = (this.#effectiveConfig.columns ?? []) as ColumnInternal<T>[];
-    allCols.forEach((c) => {
-      c.hidden = false;
-    });
-
-    this.#applyColumnStateInternal(state);
+    const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+    this.#configManager.applyState(state, plugins);
 
     // Re-setup to apply changes
     this.#setup();
@@ -2250,14 +1991,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Plugin API
    */
   requestStateChange(): void {
-    if (!this.#stateChangeHandler) {
-      this.#stateChangeHandler = createStateChangeHandler(
-        this,
-        () => (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[],
-        (state) => this.#emit('column-state-change', state),
-      );
-    }
-    this.#stateChangeHandler();
+    const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
+    this.#configManager.requestStateChange(plugins);
   }
 
   /**
@@ -2267,38 +2002,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   resetColumnState(): void {
     // Clear initial state
     this.#initialColumnState = undefined;
-
-    // Clear hidden flag on all columns
-    const allCols = (this.#effectiveConfig.columns ?? []) as ColumnInternal<T>[];
-    allCols.forEach((c) => {
-      c.hidden = false;
-    });
-
-    // Reset sort state
-    this._sortState = null;
     this.__originalOrder = [];
 
-    // Re-initialize columns from config
-    this.#mergeEffectiveConfig();
-    this.#setup();
-
-    // Notify plugins to reset their state
+    // Use ConfigManager to reset state
     const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
-    for (const plugin of plugins) {
-      if (plugin.applyColumnState) {
-        // Pass empty state to indicate reset
-        for (const col of this._columns) {
-          plugin.applyColumnState(col.field, {
-            field: col.field,
-            order: 0,
-            visible: true,
-          });
-        }
-      }
-    }
+    this.#configManager.resetState(plugins);
 
-    // Emit state change
-    this.requestStateChange();
+    // Re-initialize columns from config
+    this.#configManager.merge();
+    this.#setup();
   }
 
   // ---------------- Shell / Tool Panel API ----------------
@@ -2406,6 +2118,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     parseLightDomToolButtons(this, this.#shellState);
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
+    // Mark sources as changed since shell parsing may have updated state maps
+    this.#configManager.markSourcesChanged();
+
+    // Re-merge config to sync shell state changes into effectiveConfig.shell
+    this.#configManager.merge();
+
     // Re-render the entire grid (shell structure may change)
     this.#render();
     this.#afterConnect();
@@ -2481,103 +2199,65 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #endregion
 
   /**
-   * Set up MutationObserver to watch for light DOM changes.
+   * Set up Light DOM handlers via ConfigManager's observer infrastructure.
    * This handles frameworks like Angular that project content asynchronously.
-   * When shell-related elements are added/changed, the shell header is updated.
+   *
+   * The observer is owned by ConfigManager (generic infrastructure).
+   * The handlers (parsing logic) are owned here (eventually ShellPlugin).
+   *
+   * This separation allows plugins to register their own Light DOM elements
+   * and handle parsing themselves.
    */
-  #setupLightDomObserver(): void {
-    // Clean up any existing observer
-    if (this.#lightDomObserver) {
-      this.#lightDomObserver.disconnect();
-    }
+  #setupLightDomHandlers(): void {
+    // Handler for shell header element changes
+    const handleShellChange = () => {
+      const hadTitle = this.#shellState.lightDomTitle;
+      const hadToolButtons = this.#shellState.hasToolButtonsContainer;
+      parseLightDomShell(this, this.#shellState);
+      parseLightDomToolButtons(this, this.#shellState);
+      parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+      const hasTitle = this.#shellState.lightDomTitle;
+      const hasToolButtons = this.#shellState.hasToolButtonsContainer;
 
-    // Debounce multiple mutations into a single update
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let needsShellUpdate = false;
-    let needsColumnUpdate = false;
-
-    const processPendingUpdates = () => {
-      debounceTimer = null;
-
-      if (needsShellUpdate) {
-        // Re-parse shell and update header if title changed
-        const hadTitle = this.#shellState.lightDomTitle;
-        const hadToolButtons = this.#shellState.hasToolButtonsContainer;
-        parseLightDomShell(this, this.#shellState);
-        parseLightDomToolButtons(this, this.#shellState);
-        parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
-        const hasTitle = this.#shellState.lightDomTitle;
-        const hasToolButtons = this.#shellState.hasToolButtonsContainer;
-
-        if ((hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons)) {
-          this.#mergeEffectiveConfig();
-          const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
-          if (shellHeader) {
-            const newHeaderHtml = renderShellHeader(
-              this.#effectiveConfig.shell,
-              this.#shellState,
-              this.#effectiveConfig.icons?.toolPanel,
-            );
-            const temp = document.createElement('div');
-            temp.innerHTML = newHeaderHtml;
-            const newHeader = temp.firstElementChild;
-            if (newHeader) {
-              shellHeader.replaceWith(newHeader);
-              this.#setupShellListeners();
-            }
+      if ((hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons)) {
+        this.#configManager.markSourcesChanged();
+        this.#configManager.merge();
+        const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
+        if (shellHeader) {
+          const newHeaderHtml = renderShellHeader(
+            this.#effectiveConfig.shell,
+            this.#shellState,
+            this.#effectiveConfig.icons?.toolPanel,
+          );
+          const temp = document.createElement('div');
+          temp.innerHTML = newHeaderHtml;
+          const newHeader = temp.firstElementChild;
+          if (newHeader) {
+            shellHeader.replaceWith(newHeader);
+            this.#setupShellListeners();
           }
         }
-        needsShellUpdate = false;
-      }
-
-      if (needsColumnUpdate) {
-        // Clear column cache and re-run setup
-        this.__lightDomColumnsCache = undefined;
-        this.#setup();
-        needsColumnUpdate = false;
       }
     };
 
-    this.#lightDomObserver = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        // Check added nodes for shell/column elements
-        for (const node of mutation.addedNodes) {
-          if (node.nodeType !== Node.ELEMENT_NODE) continue;
-          const el = node as Element;
-          const tagName = el.tagName.toLowerCase();
+    // Handler for column element changes
+    const handleColumnChange = () => {
+      this.__lightDomColumnsCache = undefined;
+      this.#setup();
+    };
 
-          if (tagName === 'tbw-grid-header') {
-            needsShellUpdate = true;
-          } else if (tagName === 'tbw-grid-column' || tagName === 'tbw-grid-detail') {
-            needsColumnUpdate = true;
-          }
-        }
+    // Register handlers with ConfigManager
+    // Shell-related elements (eventually these move to ShellPlugin)
+    this.#configManager.registerLightDomHandler('tbw-grid-header', handleShellChange);
+    this.#configManager.registerLightDomHandler('tbw-grid-tool-buttons', handleShellChange);
+    this.#configManager.registerLightDomHandler('tbw-grid-tool-panel', handleShellChange);
 
-        // Check for attribute changes on shell elements
-        if (mutation.type === 'attributes' && mutation.target.nodeType === Node.ELEMENT_NODE) {
-          const el = mutation.target as Element;
-          const tagName = el.tagName.toLowerCase();
-          if (tagName === 'tbw-grid-header') {
-            needsShellUpdate = true;
-          } else if (tagName === 'tbw-grid-column') {
-            needsColumnUpdate = true;
-          }
-        }
-      }
+    // Column elements (core grid functionality)
+    this.#configManager.registerLightDomHandler('tbw-grid-column', handleColumnChange);
+    this.#configManager.registerLightDomHandler('tbw-grid-detail', handleColumnChange);
 
-      // Debounce updates
-      if ((needsShellUpdate || needsColumnUpdate) && !debounceTimer) {
-        debounceTimer = setTimeout(processPendingUpdates, 0);
-      }
-    });
-
-    // Observe direct children and their attributes
-    this.#lightDomObserver.observe(this, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['title', 'field', 'header', 'width', 'hidden'],
-    });
+    // Start observing
+    this.#configManager.observeLightDOM(this as unknown as HTMLElement);
   }
 
   /**
@@ -2597,7 +2277,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Re-parse light DOM columns SYNCHRONOUSLY to pick up newly registered framework renderers
     // This must happen before the scheduler runs processColumns
-    getColumnConfiguration(this);
+    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
 
     // Re-parse light DOM shell elements (may have been rendered asynchronously by frameworks)
     const hadTitle = this.#shellState.lightDomTitle;
@@ -2613,8 +2293,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // The shell may already be rendered (due to plugins/panels), but without the title
     const needsShellRefresh = (hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons);
     if (needsShellRefresh) {
+      // Mark sources as changed since shell parsing may have updated state maps
+      this.#configManager.markSourcesChanged();
       // Merge the new title into effectiveConfig
-      this.#mergeEffectiveConfig();
+      this.#configManager.merge();
       // Update the existing shell header element with new HTML
       const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
       if (shellHeader) {
@@ -2824,13 +2506,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     parseLightDomToolButtons(this, this.#shellState);
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
+    // Mark sources as changed since shell parsing may have updated state maps
+    this.#configManager.markSourcesChanged();
+
     // Re-merge config to pick up any newly parsed light DOM shell settings
-    this.#mergeEffectiveConfig();
+    this.#configManager.merge();
 
     const shellConfig = this.#effectiveConfig?.shell;
 
     // Render using direct DOM construction (2-3x faster than innerHTML)
-    const hasShell = buildGridDOMIntoShadow(this.#shadow, shellConfig, this.#shellState, this.#effectiveConfig?.icons);
+    // Pass only minimal runtime state (isPanelOpen, expandedSections) - config comes from effectiveConfig.shell
+    const hasShell = buildGridDOMIntoShadow(
+      this.#shadow,
+      shellConfig,
+      { isPanelOpen: this.#shellState.isPanelOpen, expandedSections: this.#shellState.expandedSections },
+      this.#effectiveConfig?.icons,
+    );
 
     if (hasShell) {
       this.#setupShellListeners();

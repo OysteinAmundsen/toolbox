@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.4...grid-react-0.0.5) (2026-01-16)
+
+
+### Enhancements
+
+* **grid:** Added inter-plugin dependencies ([05f9f8e](https://github.com/OysteinAmundsen/toolbox/commit/05f9f8e2bc39be8ea9b39debfd09771542d21dbc))
+
 ## [0.0.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.3...grid-react-0.0.4) (2026-01-16)
 
 

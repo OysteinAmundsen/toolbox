@@ -44,7 +44,7 @@ grid.style.height = 'auto';
 For grids with many columns (20+), enable the **ColumnVirtualizationPlugin**:
 
 ```typescript
-import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/all';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
 
 grid.gridConfig = {
   columns: Array.from({ length: 100 }, (_, i) => ({
@@ -174,7 +174,7 @@ For very large datasets, consider:
 3. **Data windowing**: Keep only visible data + buffer in memory
 
 ```typescript
-import { ServerSidePlugin } from '@toolbox-web/grid/all';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 
 grid.gridConfig = {
   plugins: [

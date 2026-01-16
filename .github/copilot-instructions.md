@@ -538,6 +538,34 @@ if (selection) {
 8. **Plugin container access** - Use `shadowRoot.children[0]`, not hardcoded selectors like `.data-grid-container`
 9. **Don't call RAF directly for rendering** - Use `this.#scheduler.requestPhase()` to batch work; exception: scroll hot path
 10. **Don't create `<style>` elements** - Use `registerStyles()` which uses `adoptedStyleSheets` (survives DOM rebuilds)
+11. **Editing is opt-in** - Using `editable: true` or `editor` requires `EditingPlugin`; the grid validates and throws helpful errors
+
+## Runtime Configuration Validation
+
+The grid validates plugin-owned properties at runtime and throws helpful errors if required plugins are missing:
+
+**Plugin-owned properties that require their respective plugins:**
+
+| Property       | Required Plugin         | Level  |
+| -------------- | ----------------------- | ------ |
+| `editable`     | `EditingPlugin`         | Column |
+| `editor`       | `EditingPlugin`         | Column |
+| `group`        | `GroupingColumnsPlugin` | Column |
+| `sticky`       | `PinnedColumnsPlugin`   | Column |
+| `columnGroups` | `GroupingColumnsPlugin` | Config |
+
+**Example error message:**
+
+```
+[tbw-grid] Configuration error:
+
+Column(s) [name, email] use the "editable" column property, but the required plugin is not loaded.
+  → Add the plugin to your gridConfig.plugins array:
+    import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+    plugins: [new EditingPlugin(), ...]
+```
+
+This validation is implemented in `libs/grid/src/lib/core/internal/validate-config.ts` and runs after plugins are initialized.
 
 ## External Dependencies
 
@@ -557,8 +585,11 @@ if (selection) {
 - **`libs/grid/src/lib/core/grid.ts`** - Main component implementation
 - **`libs/grid/src/lib/core/grid.css`** - Component styles (CSS variables for theming)
 - **`libs/grid/src/lib/core/internal/render-scheduler.ts`** - Centralized render orchestration
+- **`libs/grid/src/lib/core/internal/config-manager.ts`** - Centralized configuration management (single source of truth)
+- **`libs/grid/src/lib/core/internal/validate-config.ts`** - Runtime validation for plugin-owned properties
 - **`libs/grid/src/lib/core/plugin/`** - Plugin system (registry, hooks, state management)
 - **`libs/grid/src/lib/plugins/`** - Individual plugin implementations
+- **`libs/grid/src/lib/plugins/editing/`** - EditingPlugin (opt-in inline editing)
 - **`libs/grid/vite.config.ts`** - Vite build configuration with plugin bundling
 - **`libs/grid/docs/RFC-RENDER-SCHEDULER.md`** - RFC document explaining the scheduler design
 - **`libs/grid-angular/src/index.ts`** - Angular adapter exports (Grid, TbwRenderer, TbwEditor directives)

@@ -9,6 +9,15 @@ The `@toolbox-web/grid` plugin architecture allows you to extend the grid with p
 
 ## Available Plugins
 
+### Editing & Data Entry
+
+| Plugin                                                       | Description                                               |
+| ------------------------------------------------------------ | --------------------------------------------------------- |
+| [Editing](../?path=/docs/grid-plugins-editing--docs)         | Inline cell editing with built-in editors                 |
+| [Undo/Redo](../?path=/docs/grid-plugins-undo-redo--docs)     | Undo/redo for cell edits with history stack               |
+
+> **Note:** Editing is opt-in. To enable `editable` and `editor` column properties, you must register the `EditingPlugin`. This keeps the core bundle lightweight and provides runtime validation to catch misconfigurations early.
+
 ### Selection & Interaction
 
 | Plugin                                                         | Description                                          |
@@ -50,9 +59,41 @@ The `@toolbox-web/grid` plugin architecture allows you to extend the grid with p
 | ------------------------------------------------------------ | ------------------------------------- |
 | [Export](../?path=/docs/grid-plugins-export--docs)           | Export to CSV, JSON formats           |
 | [Server-Side](../?path=/docs/grid-plugins-server-side--docs) | Lazy loading from remote data sources |
-| [Undo/Redo](../?path=/docs/grid-plugins-undo-redo--docs)     | Undo/redo for cell edits              |
 
 ## Using Plugins
+
+### Import Paths
+
+The grid package provides multiple entry points for different use cases:
+
+| Entry Point | What It Includes | Tree-Shaking |
+| ----------- | ---------------- | ------------ |
+| `@toolbox-web/grid` | Core grid only (auto-registers `<tbw-grid>`) | N/A |
+| `@toolbox-web/grid/all` | Core + **all** plugins bundled | ❌ No* |
+| `@toolbox-web/grid/plugins/*` | Individual plugin (e.g., `/plugins/selection`) | ✅ Yes |
+
+> **Important:** Do not import from both `@toolbox-web/grid` and `@toolbox-web/grid/all` in the same application. The `all` entry point already includes the core grid, so importing both will register the custom element twice.
+
+#### Recommended Patterns
+
+**For production apps (best tree-shaking):**
+```typescript
+// Import core grid
+import '@toolbox-web/grid';
+
+// Import only the plugins you need
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+```
+
+**For prototyping or when bundle size is not critical:**
+```typescript
+// Import everything at once (includes core grid + all plugins)
+import { SelectionPlugin, FilteringPlugin, EditingPlugin } from '@toolbox-web/grid/all';
+```
+
+*\*Tree-shaking note: When importing from `/all`, all plugins are included in your bundle regardless of which ones you use. Modern bundlers cannot tree-shake unused exports from `/all` because they're all re-exported from a single file. For optimal bundle size, import plugins individually.*
 
 ### Installation
 

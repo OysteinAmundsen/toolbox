@@ -442,7 +442,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
         // Validate that plugin-specific column properties have their required plugins loaded
         // This runs after plugins are loaded and config is merged
-        validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.plugins ?? []);
+        validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.getPlugins() ?? []);
         // Store base columns before plugin transformation
         this.#baseColumns = [...this._columns];
       },

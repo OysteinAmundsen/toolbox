@@ -46,7 +46,7 @@ The grid is a standard web component—use it just like any HTML element:
 
   grid.columns = [
     { field: 'id', header: 'ID', type: 'number', sortable: true },
-    { field: 'name', header: 'Name', sortable: true, editable: true },
+    { field: 'name', header: 'Name', sortable: true },
     { field: 'email', header: 'Email' },
   ];
 
@@ -78,7 +78,7 @@ const columns = [
     type: 'string',          // 'string' | 'number' | 'boolean' | 'date' | 'select'
     sortable: true,          // Enable sorting
     resizable: true,         // Enable column resize
-    editable: true,          // Enable inline editing
+    editable: true,          // Enable inline editing (requires EditingPlugin)
     width: 200,              // Initial width in pixels
     minWidth: 100,           // Minimum width when resizing
     format: (val) => val.toUpperCase(),  // Custom formatter
@@ -98,13 +98,30 @@ Click column headers to sort. The grid supports:
 
 ### Inline Editing
 
-Enable editing with `editable: true` on columns. The grid provides:
+Enable editing with the `EditingPlugin` and set `editable: true` on columns:
+
+```typescript
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'name', editable: true },
+    // ...
+  ],
+  plugins: [new EditingPlugin()],
+  editOn: 'dblClick', // or 'click'
+};
+```
+
+The grid provides:
 
 - **Click** or **double-click** to edit (configurable via `editOn`)
 - Built-in editors for text, number, boolean (checkbox), date, and select
 - **Enter** to confirm, **Escape** to cancel
 - **Tab/Shift+Tab** navigation between editable cells
 - Change tracking with commit/reset lifecycle
+
+> **Note:** Editing is opt-in via the `EditingPlugin`. Using `editable: true` without the plugin will throw a helpful error with import instructions.
 
 ### Events
 

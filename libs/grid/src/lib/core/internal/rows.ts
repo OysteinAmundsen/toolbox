@@ -1,7 +1,7 @@
-import type { ColumnConfig, InternalGrid, RowElementInternal } from '../types';
+import type { InternalGrid, RowElementInternal } from '../types';
 import { ensureCellVisible } from './keyboard';
 import { evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
-import { booleanCellHTML, clearCellFocus, formatBooleanValue, formatDateValue, getRowIndexFromCell } from './utils';
+import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
 
 /** Callback type for plugin row rendering hook */
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
@@ -70,81 +70,6 @@ export function createRowFromTemplate(): HTMLDivElement {
 }
 
 // ============== End Template Cloning System ==============
-
-/**
- * Get the cached display value for a cell, computing it if not cached.
- * This is the hot path during scroll - must be as fast as possible.
- */
-function getCellDisplayValue(
-  grid: InternalGrid,
-  rowIndex: number,
-  colIndex: number,
-  rowData: any,
-  col: ColumnConfig<any>,
-  epoch: number | undefined,
-): string {
-  // Fast path: check cache first
-  let cache = grid.__cellDisplayCache;
-  const cacheEpoch = grid.__cellCacheEpoch;
-
-  // Invalidate cache if epoch changed
-  if (cache && cacheEpoch !== epoch) {
-    cache = undefined;
-    grid.__cellDisplayCache = undefined;
-  }
-
-  if (!cache) {
-    cache = new Map();
-    grid.__cellDisplayCache = cache;
-    grid.__cellCacheEpoch = epoch;
-  }
-
-  let rowCache = cache.get(rowIndex);
-  if (rowCache && rowCache[colIndex] !== undefined) {
-    return rowCache[colIndex];
-  }
-
-  // Compute the display value
-  const displayValue = computeCellDisplayValue(rowData, col);
-
-  // Cache it
-  if (!rowCache) {
-    rowCache = [];
-    cache.set(rowIndex, rowCache);
-  }
-  rowCache[colIndex] = displayValue;
-
-  return displayValue;
-}
-
-/**
- * Compute the display string for a cell value.
- * Handles formatting, date conversion, boolean display, etc.
- */
-function computeCellDisplayValue(rowData: any, col: ColumnConfig<any>): string {
-  let value = rowData[col.field];
-
-  // Apply format function if present
-  if (col.format) {
-    try {
-      value = col.format(value, rowData);
-    } catch (e) {
-      // Log format errors as warnings (user configuration issue)
-      console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);
-    }
-  }
-
-  // Type-specific conversion
-  if (col.type === 'date') {
-    return formatDateValue(value);
-  }
-
-  if (col.type === 'boolean') {
-    return formatBooleanValue(value);
-  }
-
-  return value == null ? '' : String(value);
-}
 
 /**
  * Invalidate the cell cache (call when rows or columns change).

@@ -1,14 +1,12 @@
 /**
  * Event Delegation Module
  *
- * Provides centralized event handling for grid cells using event delegation.
- * Instead of attaching 3-6 listeners per cell (30,000+ for large grids),
- * we attach a single listener per event type on the container.
+ * Handles delegated mousedown events on the grid body for focus management.
+ * Uses event delegation (single listener on container) rather than per-cell
+ * listeners to minimize memory usage.
  *
- * This dramatically reduces memory usage and improves initialization time.
- *
- * NOTE: This module only handles focus management. Edit triggering is handled
- * by the EditingPlugin via onCellClick and onKeyDown hooks.
+ * Edit triggering is handled separately by the EditingPlugin via
+ * onCellClick and onKeyDown hooks.
  */
 
 import type { InternalGrid } from '../types';

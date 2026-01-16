@@ -12,6 +12,7 @@ This document explains the internal architecture of the grid component for contr
 - [Virtualization](#virtualization)
 - [Column Configuration Precedence](#column-configuration-precedence)
 - [Plugin System](#plugin-system)
+- [Runtime Configuration Validation](#runtime-configuration-validation)
 - [Event Flow](#event-flow)
 - [Styling Architecture](#styling-architecture)
 
@@ -269,6 +270,7 @@ libs/grid/src/
    │  │  ├─ sorting.ts        # Sort comparators
    │  │  ├─ touch-scroll.ts   # Touch/momentum scrolling
    │  │  ├─ utils.ts          # Shared utilities
+   │  │  ├─ validate-config.ts # Runtime plugin property validation
    │  │  └─ virtualization.ts # Virtual scroll math
    │  └─ plugin/             # Plugin infrastructure
    │     ├─ base-plugin.ts    # Abstract base class
@@ -278,6 +280,7 @@ libs/grid/src/
       ├─ clipboard/            # Copy/paste support
       ├─ column-virtualization/ # Horizontal virtualization
       ├─ context-menu/         # Right-click menus
+      ├─ editing/              # Inline cell editing (opt-in)
       ├─ export/               # CSV/Excel export
       ├─ filtering/            # Column filters
       ├─ grouping-columns/     # Column header grouping
@@ -647,6 +650,53 @@ if (selection) {
   const selectedRows = selection.getSelectedRows();
 }
 ```
+
+---
+
+## Runtime Configuration Validation
+
+The grid validates plugin-owned properties at runtime and throws helpful errors if required plugins are missing. This catches common misconfigurations early during development.
+
+### Validated Properties
+
+| Property       | Required Plugin         | Level  | Description                |
+| -------------- | ----------------------- | ------ | -------------------------- |
+| `editable`     | `EditingPlugin`         | Column | Enable inline cell editing |
+| `editor`       | `EditingPlugin`         | Column | Custom editor function     |
+| `group`        | `GroupingColumnsPlugin` | Column | Column group assignment    |
+| `sticky`       | `PinnedColumnsPlugin`   | Column | Pin column left/right      |
+| `columnGroups` | `GroupingColumnsPlugin` | Config | Declarative column groups  |
+
+### Validation Timing
+
+Validation runs in the `RenderScheduler.mergeConfig` callback, **after** plugins are initialized via `#updatePluginConfigs()`. This ensures:
+
+1. Plugins have been attached and their `name` property is accessible
+2. Module augmentation has extended the type definitions
+3. Error messages can accurately report which plugin is missing
+
+### Error Messages
+
+If a plugin-owned property is used without its plugin, a clear error is thrown:
+
+```
+[tbw-grid] Configuration error:
+
+Column(s) [name, email] use the "editable" column property, but the required plugin is not loaded.
+  → Add the plugin to your gridConfig.plugins array:
+    import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+    plugins: [new EditingPlugin(), ...]
+
+This validation helps catch misconfigurations early.
+```
+
+### Implementation
+
+Validation is implemented in `internal/validate-config.ts`:
+
+- `PLUGIN_OWNED_COLUMN_PROPERTIES` - Registry of column properties that require plugins
+- `PLUGIN_OWNED_CONFIG_PROPERTIES` - Registry of config properties that require plugins
+- `validatePluginProperties(config, plugins)` - Main validation function
 
 ---
 

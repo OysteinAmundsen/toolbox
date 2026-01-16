@@ -11,12 +11,15 @@ The Undo/Redo plugin tracks all cell edits and lets users revert or replay chang
 ## Installation
 
 ```ts
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 ```
 
 ## Basic Usage
 
-Add the plugin to any grid with editable columns. History tracking is automatic—every cell edit is recorded, and users can navigate back and forth through the edit history.
+Add the plugin along with `EditingPlugin` to any grid with editable columns. History tracking is automatic—every cell edit is recorded, and users can navigate back and forth through the edit history.
+
+> **Note:** `UndoRedoPlugin` requires `EditingPlugin` since it tracks cell edits.
 
 <Tabs>
   <Tab label="Vanilla JS">
@@ -30,6 +33,7 @@ grid.gridConfig = {
   ],
   editOn: 'dblClick',
   plugins: [
+    new EditingPlugin(), // Required for editable columns
     new UndoRedoPlugin({
       maxHistorySize: 50, // Remember last 50 edits
     }),
@@ -41,6 +45,7 @@ grid.gridConfig = {
 ```tsx
 import { useRef, useEffect } from 'react';
 import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
 function EditableGrid({ data }) {
@@ -56,6 +61,7 @@ function EditableGrid({ data }) {
         ],
         editOn: 'dblClick',
         plugins: [
+          new EditingPlugin(), // Required for editable columns
           new UndoRedoPlugin({ maxHistorySize: 50 }),
         ],
       };
@@ -76,6 +82,7 @@ function EditableGrid({ data }) {
 <script setup>
 import { ref, onMounted } from 'vue';
 import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
 const props = defineProps(['data']);
@@ -90,6 +97,7 @@ onMounted(() => {
     ],
     editOn: 'dblClick',
     plugins: [
+      new EditingPlugin(), // Required for editable columns
       new UndoRedoPlugin({ maxHistorySize: 50 }),
     ],
   };
@@ -102,6 +110,7 @@ onMounted(() => {
 ```typescript
 import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
 @Component({
@@ -121,6 +130,7 @@ export class EditableGridComponent {
       ],
       editOn: 'dblClick',
       plugins: [
+        new EditingPlugin(), // Required for editable columns
         new UndoRedoPlugin({ maxHistorySize: 50 }),
       ],
     };

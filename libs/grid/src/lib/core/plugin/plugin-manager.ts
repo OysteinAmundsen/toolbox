@@ -35,6 +35,11 @@ export class PluginManager {
   /** Plugin instances in order of attachment */
   private plugins: BaseGridPlugin[] = [];
 
+  /** Get all registered plugins (read-only) */
+  getPlugins(): readonly BaseGridPlugin[] {
+    return this.plugins;
+  }
+
   /** Map from plugin class to instance for fast lookup */
   private pluginMap: Map<new (...args: unknown[]) => BaseGridPlugin, BaseGridPlugin> = new Map();
 

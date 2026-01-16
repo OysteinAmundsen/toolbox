@@ -1,0 +1,231 @@
+{/* editing.mdx */}
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../../../apps/storybook-app/.storybook/components/Tabs';
+import * as EditingStories from '../../core/grid.stories';
+
+<Meta title="Grid/Plugins/Editing" />
+
+# Editing Plugin
+
+The Editing plugin enables inline cell editing in the grid. It provides built-in editors for common data types and supports custom editor functions for specialized input scenarios.
+
+## Why Opt-In?
+
+Editing is delivered as a plugin rather than built into the core grid for several reasons:
+
+- **Smaller bundle size** — Applications that only display data don't pay for editing code
+- **Clear intent** — Explicit plugin registration makes editing capability obvious in code
+- **Runtime validation** — Using `editable: true` without the plugin throws a helpful error
+
+## Installation
+
+```ts
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+```
+
+## Basic Usage
+
+Add the plugin to enable `editable` and `editor` column properties:
+
+<Tabs>
+  <Tab label="Vanilla JS">
+```ts
+import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+    { field: 'active', header: 'Active', type: 'boolean', editable: true },
+  ],
+  plugins: [new EditingPlugin()],
+  editOn: 'dblClick', // or 'click'
+};
+
+// Listen for commits
+grid.addEventListener('cell-commit', (e) => {
+  console.log('Cell edited:', e.detail);
+});
+```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const config: ReactGridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+    { field: 'active', header: 'Active', type: 'boolean', editable: true },
+  ],
+  plugins: [new EditingPlugin()],
+  editOn: 'dblClick',
+};
+
+function MyGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      gridConfig={config}
+      onCellCommit={(e) => console.log('Edited:', e.detail)}
+    />
+  );
+}
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, TbwEditor } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import type { GridConfig } from '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid, TbwEditor],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [rows]="data" [gridConfig]="config" (cellCommit)="onCommit($event)" />
+  `
+})
+export class MyGridComponent {
+  data = [...];
+  config: GridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'price', header: 'Price', type: 'number', editable: true },
+    ],
+    plugins: [new EditingPlugin()],
+    editOn: 'dblClick',
+  };
+
+  onCommit(event: CustomEvent) {
+    console.log('Edited:', event.detail);
+  }
+}
+```
+  </Tab>
+</Tabs>
+
+## Edit Triggers
+
+Configure how editing is triggered with the `editOn` config property:
+
+| Value        | Behavior                                      |
+| ------------ | --------------------------------------------- |
+| `'click'`    | Single click on cell enters edit mode         |
+| `'dblClick'` | Double-click on cell enters edit mode         |
+| `'none'`     | Programmatic only via `startEdit(row, field)` |
+
+Additionally, pressing **Enter** or **F2** on a focused cell will start editing.
+
+## Built-in Editors
+
+The grid provides appropriate editors based on column `type`:
+
+| Column Type | Editor                              |
+| ----------- | ----------------------------------- |
+| `string`    | Text input                          |
+| `number`    | Number input with validation        |
+| `boolean`   | Checkbox                            |
+| `date`      | Date picker input                   |
+| `select`    | Dropdown (requires `options` array) |
+
+## Custom Editors
+
+For specialized input needs, provide a custom `editor` function:
+
+```ts
+{
+  field: 'status',
+  header: 'Status',
+  editable: true,
+  editor: (ctx) => {
+    const select = document.createElement('select');
+    select.innerHTML = `
+      <option value="pending">Pending</option>
+      <option value="active">Active</option>
+      <option value="completed">Completed</option>
+    `;
+    select.value = ctx.value;
+
+    // Commit on change
+    select.onchange = () => ctx.commit(select.value);
+
+    // Cancel on Escape
+    select.onkeydown = (e) => {
+      if (e.key === 'Escape') ctx.cancel();
+    };
+
+    return select;
+  },
+}
+```
+
+### Editor Context
+
+The `ctx` object passed to custom editors contains:
+
+| Property | Type | Description |
+| -------- | ---- | ----------- |
+| `value` | `unknown` | Current cell value |
+| `row` | `T` | Full row data |
+| `column` | `ColumnConfig` | Column configuration |
+| `field` | `string` | Field name |
+| `rowIndex` | `number` | Row index in data array |
+| `commit(value)` | `function` | Call to save new value |
+| `cancel()` | `function` | Call to discard changes |
+
+## Keyboard Navigation
+
+| Key | Action |
+| --- | ------ |
+| **Enter** / **F2** | Start editing focused cell |
+| **Enter** | Commit edit and move down |
+| **Tab** | Commit and move to next editable cell |
+| **Shift+Tab** | Commit and move to previous editable cell |
+| **Escape** | Cancel edit, restore original value |
+
+## Events
+
+| Event | Description |
+| ----- | ----------- |
+| `cell-commit` | Fired after a cell value is committed |
+| `row-commit` | Fired after row-based editing session ends |
+
+### `cell-commit` Detail
+
+```ts
+interface CellCommitDetail<T> {
+  row: T;           // Row data
+  field: string;    // Field name
+  value: unknown;   // New value
+  oldValue: unknown; // Previous value
+  rowIndex: number; // Row index
+}
+```
+
+## Configuration Validation
+
+If you use `editable: true` or `editor` without registering the `EditingPlugin`, the grid throws a helpful error:
+
+```
+[tbw-grid] Configuration error:
+
+Column(s) [name, price] use the "editable" column property, but the required plugin is not loaded.
+  → Add the plugin to your gridConfig.plugins array:
+    import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+    plugins: [new EditingPlugin(), ...]
+```
+
+This runtime validation helps catch misconfigurations early during development.
+
+## Related Plugins
+
+- **[Undo/Redo](../?path=/docs/grid-plugins-undo-redo--docs)** — Track edit history with Ctrl+Z/Y
+- **[Clipboard](../?path=/docs/grid-plugins-clipboard--docs)** — Copy/paste with Ctrl+C/V

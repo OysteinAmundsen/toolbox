@@ -1,0 +1,107 @@
+{/* Architecture.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Dev/Architecture" />
+
+# Grid Architecture
+
+This document explains the internal architecture of the grid component for contributors and plugin developers.
+
+> **Note:** This is a summary. The full architecture documentation with Mermaid diagrams is available in [ARCHITECTURE.md on GitHub](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/ARCHITECTURE.md). Mermaid diagrams render natively on GitHub and in VS Code.
+
+## Overview
+
+`<tbw-grid>` is a high-performance data grid implemented as a native Web Component using Shadow DOM. Key design principles:
+
+1. **Framework-Agnostic**: Pure TypeScript/HTML, no runtime framework dependencies
+2. **Virtualized**: Only visible rows are rendered; supports 100k+ rows
+3. **Extensible**: Plugin architecture for optional features
+4. **Type-Safe**: Strongly typed with TypeScript generics
+5. **Single Source of Truth**: All configuration converges into one effective config
+
+## Key Architecture Concepts
+
+### Configuration Architecture
+
+The grid follows a **single source of truth** pattern. All configuration inputs converge into one `effectiveConfig` object:
+
+- **ConfigManager** (`internal/config-manager.ts`) - Owns configuration lifecycle
+- **Two-layer design** - Immutable `original` config + mutable `effective` config
+- **Multiple input sources** - `gridConfig` prop, `columns` prop, light DOM elements, individual props
+
+### Rendering Pipeline
+
+The grid uses a **centralized RenderScheduler** (`internal/render-scheduler.ts`):
+
+- **Single RAF per frame** - All render requests batch into one `requestAnimationFrame`
+- **Phase-based execution** - Work organized into phases (STYLE → VIRTUALIZATION → HEADER → ROWS → COLUMNS → FULL)
+- **Highest phase wins** - Multiple requests merge to the highest phase
+
+| Phase | Value | Work Performed |
+|-------|-------|----------------|
+| `STYLE` | 1 | Plugin `afterRender()` hooks only |
+| `VIRTUALIZATION` | 2 | Recalculate virtual window |
+| `HEADER` | 3 | Re-render header row |
+| `ROWS` | 4 | Rebuild row model |
+| `COLUMNS` | 5 | Process columns, update CSS template |
+| `FULL` | 6 | Merge effective config + all lower phases |
+
+### Runtime Configuration Validation
+
+The grid validates plugin-owned properties at runtime and throws helpful errors:
+
+| Property | Required Plugin | Level |
+|----------|-----------------|-------|
+| `editable` | `EditingPlugin` | Column |
+| `editor` | `EditingPlugin` | Column |
+| `group` | `GroupingColumnsPlugin` | Column |
+| `sticky` | `PinnedColumnsPlugin` | Column |
+| `columnGroups` | `GroupingColumnsPlugin` | Config |
+
+Example error:
+```
+[tbw-grid] Configuration error:
+
+Column(s) [name, email] use the "editable" column property, but the required plugin is not loaded.
+  → Add the plugin to your gridConfig.plugins array:
+    import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+    plugins: [new EditingPlugin(), ...]
+```
+
+### Plugin System
+
+Plugins extend `BaseGridPlugin` and implement lifecycle hooks:
+
+- `attach(grid)` - Called when plugin is attached
+- `detach()` - Called when plugin is removed
+- `processColumns(columns)` - Transform column definitions
+- `processRows(rows)` - Transform row data
+- `afterRender()` - DOM manipulation after render
+- `onKeyDown(event)` - Handle keyboard events
+
+### Virtualization
+
+Row virtualization handles large datasets:
+
+- **Spacer element** - Creates scroll area (height = totalRows × rowHeight)
+- **Row pool** - Only ~20-50 row elements in DOM
+- **Window calculation** - Compute visible rows on scroll
+- **Row recycling** - Reuse elements, just update content
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `core/grid.ts` | Main component implementation |
+| `core/types.ts` | Type definitions |
+| `internal/config-manager.ts` | Configuration lifecycle |
+| `internal/render-scheduler.ts` | Render orchestration |
+| `internal/validate-config.ts` | Runtime validation |
+| `plugin/base-plugin.ts` | Plugin base class |
+
+## Full Documentation
+
+For complete architecture documentation with diagrams, see:
+
+- **[ARCHITECTURE.md](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/ARCHITECTURE.md)** - Full architecture docs with Mermaid diagrams
+- **[RFC-RENDER-SCHEDULER.md](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/docs/RFC-RENDER-SCHEDULER.md)** - Detailed render scheduler RFC

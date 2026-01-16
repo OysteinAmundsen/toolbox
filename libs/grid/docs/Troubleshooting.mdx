@@ -114,12 +114,12 @@ grid.rows = [...]; // ✅ Works
 **Solution**: Check your import path and ensure the package is installed:
 
 ```typescript
-// ✅ Correct import paths
+// ✅ Recommended: individual imports (best tree-shaking)
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
-// ✅ Or import all from /all
-import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+// ⚠️ Alternative: /all includes all plugins (larger bundle)
+// import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 ```
 
 If using TypeScript, ensure your `tsconfig.json` has proper module resolution:
@@ -292,9 +292,8 @@ plugins: [new SelectionPlugin({ mode: 'row' })]
 2. **Plugin imported**: Ensure import is from correct path:
 
 ```typescript
+// Recommended
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-// or
-import { SelectionPlugin } from '@toolbox-web/grid/all';
 ```
 
 3. **Configuration valid**: Check plugin docs for required config options.

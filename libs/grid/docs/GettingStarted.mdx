@@ -58,17 +58,18 @@ The grid is a standard web component. Use it like any HTML element:
 
 ### Configuration via HTML Attributes
 
-For simple use cases, configure the grid entirely via HTML attributes with JSON values:
+For simple use cases (without editing), configure the grid entirely via HTML attributes with JSON values:
 
 ```html
 <tbw-grid
   style="height: 400px;"
   fit-mode="stretch"
-  edit-on="dblClick"
-  columns='[{"field":"id","header":"ID","type":"number"},{"field":"name","header":"Name","editable":true}]'
+  columns='[{"field":"id","header":"ID","type":"number"},{"field":"name","header":"Name"}]'
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"},{"id":3,"name":"Carol"}]'>
 </tbw-grid>
 ```
+
+> **Note:** For inline editing, use JavaScript configuration to register the `EditingPlugin` - see the framework examples below.
 
 
 ### Declarative Configuration (Light DOM)
@@ -115,7 +116,9 @@ The grid is a standard web component that works in any JavaScript environment. F
 
 ```typescript
 import '@toolbox-web/grid';
-import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 import type { GridConfig } from '@toolbox-web/grid';
 
 interface Employee {
@@ -155,6 +158,7 @@ grid.gridConfig = {
     },
   ],
   plugins: [
+    new EditingPlugin(), // Required for editable columns
     new SelectionPlugin({ mode: 'row' }),
     new FilteringPlugin({ debounceMs: 200 }),
   ],
@@ -188,7 +192,9 @@ npm install @toolbox-web/grid @toolbox-web/grid-react
 
 ```tsx
 import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
-import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
 interface Employee {
   id: number;
@@ -229,6 +235,7 @@ function EmployeeGrid() {
       },
     ],
     plugins: [
+      new EditingPlugin(), // Required for editable columns
       new SelectionPlugin({ mode: 'row' }),
       new FilteringPlugin({ debounceMs: 200 }),
     ],
@@ -276,7 +283,9 @@ Vue works seamlessly with web components. Use the grid directly in your template
 
 <script setup lang="ts">
 import '@toolbox-web/grid';
-import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 import { ref, onMounted } from 'vue';
 import type { DataGridElement, GridConfig } from '@toolbox-web/grid';
 
@@ -303,6 +312,7 @@ onMounted(() => {
         { field: 'status', header: 'Status' },
       ],
       plugins: [
+        new EditingPlugin(), // Required for editable columns
         new SelectionPlugin({ mode: 'row' }),
         new FilteringPlugin({ debounceMs: 200 }),
       ],
@@ -338,7 +348,9 @@ npm install @toolbox-web/grid @toolbox-web/grid-angular
 import '@toolbox-web/grid';
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
-import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 import type { GridConfig, CellCommitDetail } from '@toolbox-web/grid';
 
 interface Employee {
@@ -389,6 +401,7 @@ export class EmployeeGridComponent {
       { field: 'status', header: 'Status' }, // renderer/editor from template
     ],
     plugins: [
+      new EditingPlugin(), // Required for editable columns
       new SelectionPlugin({ mode: 'row' }),
       new FilteringPlugin({ debounceMs: 200 }),
     ],
@@ -421,13 +434,20 @@ The package includes full TypeScript definitions. Import types for better IDE su
 
 ```typescript
 import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import type { ColumnConfig, GridConfig, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
 
-// Type-safe column configuration
+// Type-safe column configuration (editable requires EditingPlugin)
 const columns: ColumnConfig[] = [
   { field: 'id', header: 'ID', type: 'number' },
   { field: 'name', header: 'Name', editable: true },
 ];
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns,
+  plugins: [new EditingPlugin()], // Required for editable: true
+};
 
 // Type-safe event handling
 grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {

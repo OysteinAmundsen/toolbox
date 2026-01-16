@@ -97,9 +97,6 @@ export class RenderScheduler {
   /** RAF handle for cancellation */
   #rafHandle = 0;
 
-  /** Source that triggered the current pending render */
-  #pendingSource = '';
-
   /** Promise that resolves when current render completes */
   #readyPromise: Promise<void> | null = null;
   #readyResolve: (() => void) | null = null;
@@ -117,13 +114,12 @@ export class RenderScheduler {
    * Multiple requests are batched - the highest phase wins.
    *
    * @param phase - The render phase to execute
-   * @param source - Debug identifier for what triggered this request
+   * @param _source - Debug identifier for what triggered this request (unused, kept for API compatibility)
    */
-  requestPhase(phase: RenderPhase, source: string): void {
+  requestPhase(phase: RenderPhase, _source: string): void {
     // Merge to highest phase
     if (phase > this.#pendingPhase) {
       this.#pendingPhase = phase;
-      this.#pendingSource = source;
     }
 
     // Schedule RAF if not already scheduled
@@ -162,7 +158,6 @@ export class RenderScheduler {
       this.#rafHandle = 0;
     }
     this.#pendingPhase = 0;
-    this.#pendingSource = '';
 
     // Resolve any pending ready promise (don't leave it hanging)
     if (this.#readyResolve) {
@@ -208,7 +203,6 @@ export class RenderScheduler {
     // Bail if component disconnected
     if (!this.#callbacks.isConnected()) {
       this.#pendingPhase = 0;
-      this.#pendingSource = '';
       if (this.#readyResolve) {
         this.#readyResolve();
         this.#readyResolve = null;
@@ -219,7 +213,6 @@ export class RenderScheduler {
 
     const phase = this.#pendingPhase;
     this.#pendingPhase = 0;
-    this.#pendingSource = '';
 
     // Execute phases in order (higher phases include lower phase work)
     // The execution order respects data dependencies:

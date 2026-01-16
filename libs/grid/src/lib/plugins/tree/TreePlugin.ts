@@ -169,7 +169,8 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     const result: FlattenedTreeRow[] = [];
 
     for (const row of rows) {
-      const key = (row.__stableKey as string) ?? String(row.id) ?? '?';
+      const stableKey = row.__stableKey as string | undefined;
+      const key = stableKey ?? String(row.id ?? '?');
       const children = row[childrenField];
       const hasChildren = Array.isArray(children) && children.length > 0;
       const isExpanded = expanded.has(key);

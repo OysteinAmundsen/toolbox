@@ -38,10 +38,8 @@ function generateSitemap(): void {
   const manifest: StoriesManifest = JSON.parse(readFileSync(INDEX_JSON_PATH, 'utf-8'));
   const entries = Object.values(manifest.entries);
 
-  // Filter to docs pages (primary content) and main stories
-  // Prioritize docs pages as they contain the main documentation
+  // Filter to docs pages only (MDX documentation)
   const docsUrls: string[] = [];
-  const storyUrls: string[] = [];
 
   for (const entry of entries) {
     // Skip entries marked as hidden or internal
@@ -49,39 +47,24 @@ function generateSitemap(): void {
       continue;
     }
 
-    const path = entry.type === 'docs' ? `docs/${entry.id}` : `story/${entry.id}`;
-    const url = `${BASE_URL}/?path=/${path}`;
-
+    // Only include docs pages, not individual stories
     if (entry.type === 'docs') {
+      const url = `${BASE_URL}/?path=/docs/${entry.id}`;
       docsUrls.push(url);
-    } else if (entry.type === 'story') {
-      storyUrls.push(url);
     }
   }
 
-  // Generate sitemap XML with priority weighting
+  // Generate sitemap XML
   const today = new Date().toISOString().split('T')[0];
 
-  const urlElements = [
-    // Docs pages get higher priority
-    ...docsUrls.map(
-      (url) => `  <url>
+  const urlElements = docsUrls.map(
+    (url) => `  <url>
     <loc>${escapeXml(url)}</loc>
     <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>`,
-    ),
-    // Story pages get lower priority
-    ...storyUrls.map(
-      (url) => `  <url>
-    <loc>${escapeXml(url)}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>`,
-    ),
-  ];
+  );
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -95,7 +78,6 @@ ${urlElements.join('\n')}
 
   console.log(`✅ Generated sitemap.xml`);
   console.log(`   📄 ${docsUrls.length} docs pages`);
-  console.log(`   📖 ${storyUrls.length} story pages`);
   console.log(`   📍 ${sitemapPath}`);
 
   // Also generate robots.txt if it doesn't exist

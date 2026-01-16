@@ -213,20 +213,20 @@ describe('renderHeader', () => {
       expect(handle.getAttribute('aria-hidden')).toBe('true');
     });
 
-    it('sets position relative on non-sticky resizable cells', () => {
+    it('adds resizable class on resizable cells for positioning context', () => {
       const g = makeGrid({ columns: [{ field: 'name', resizable: true }] });
       renderHeader(g);
       const cell = g._headerRowEl.querySelector('.cell') as HTMLElement;
-      expect(cell.style.position).toBe('relative');
+      expect(cell.classList.contains('resizable')).toBe(true);
     });
 
-    it('sets position relative on all resizable cells (plugin overrides for sticky)', () => {
-      // Core always sets position: relative for resize handle positioning
+    it('adds resizable class on all resizable cells (plugin overrides for sticky)', () => {
+      // Core always adds resizable class for resize handle positioning
       // PinnedColumnsPlugin will override to position: sticky when it applies offsets
       const g = makeGrid({ columns: [{ field: 'name', resizable: true, sticky: 'left' }] });
       renderHeader(g);
       const cell = g._headerRowEl.querySelector('.cell') as HTMLElement;
-      expect(cell.style.position).toBe('relative');
+      expect(cell.classList.contains('resizable')).toBe(true);
     });
   });
 

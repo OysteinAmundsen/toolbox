@@ -60,6 +60,71 @@ The `@toolbox-web/grid` plugin architecture allows you to extend the grid with p
 | [Export](../?path=/docs/grid-plugins-export--docs)           | Export to CSV, JSON formats           |
 | [Server-Side](../?path=/docs/grid-plugins-server-side--docs) | Lazy loading from remote data sources |
 
+## Plugin Dependencies
+
+Some plugins depend on other plugins to function. Dependencies can be **hard** (required) or **soft** (optional enhancement).
+
+### Dependency Types
+
+| Type | Behavior | Example |
+| ---- | -------- | ------- |
+| **Hard (Required)** | Plugin will throw an error if the dependency is missing | UndoRedoPlugin → EditingPlugin |
+| **Soft (Optional)** | Plugin works without it, but gains extra features when present | VisibilityPlugin → ReorderPlugin |
+
+### Current Plugin Dependencies
+
+| Plugin | Depends On | Type | Reason |
+| ------ | ---------- | ---- | ------ |
+| **UndoRedoPlugin** | EditingPlugin | Hard | Tracks cell edit history for undo/redo |
+| **ClipboardPlugin** | SelectionPlugin | Hard | Needs selection to determine what cells to copy |
+| **VisibilityPlugin** | ReorderPlugin | Soft | Enables drag-to-reorder columns in visibility panel |
+
+### Plugin Load Order
+
+Dependencies must be loaded **before** the dependent plugin:
+
+```typescript
+// ✅ Correct - EditingPlugin loaded before UndoRedoPlugin
+plugins: [
+  new EditingPlugin(),
+  new UndoRedoPlugin(),
+]
+
+// ❌ Wrong - throws error at runtime
+plugins: [
+  new UndoRedoPlugin(), // Error: EditingPlugin required
+  new EditingPlugin(),
+]
+```
+
+### Declaring Dependencies in Custom Plugins
+
+Custom plugins can declare their own dependencies using the static `dependencies` property:
+
+```typescript
+import { BaseGridPlugin, type PluginDependency } from '@toolbox-web/grid';
+
+class MyPlugin extends BaseGridPlugin<MyConfig> {
+  // Declare dependencies
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'selection', required: true, reason: 'MyPlugin needs selection state' },
+    { name: 'filtering', required: false, reason: 'Enables filtered export' },
+  ];
+
+  readonly name = 'myPlugin';
+  // ...
+}
+```
+
+The grid validates dependencies at attachment time and provides helpful error messages:
+
+```
+[tbw-grid] Plugin dependency error: MyPlugin needs selection state.
+  → Add the plugin to your gridConfig.plugins array:
+    import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+    plugins: [new SelectionPlugin(), new MyPlugin(), ...]
+```
+
 ## Using Plugins
 
 ### Import Paths

@@ -753,7 +753,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     };
 
     const editorHost = document.createElement('div');
-    editorHost.style.display = 'contents';
+    editorHost.className = 'tbw-editor-host';
     cell.innerHTML = '';
     cell.appendChild(editorHost);
 

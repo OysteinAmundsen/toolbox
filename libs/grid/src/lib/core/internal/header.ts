@@ -80,9 +80,9 @@ export function renderHeader(grid: InternalGrid): void {
       });
     }
     if (col.resizable) {
-      // Set position: relative for the resize handle positioning context
+      // Add class for resize handle positioning context (CSS provides position: relative)
       // Note: If a plugin applies position: sticky (e.g., PinnedColumnsPlugin), it will override this
-      cell.style.position = 'relative';
+      cell.classList.add('resizable');
       const handle = document.createElement('div');
       handle.className = 'resize-handle';
       handle.setAttribute('aria-hidden', 'true');

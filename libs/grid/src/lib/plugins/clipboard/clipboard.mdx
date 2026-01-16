@@ -8,9 +8,7 @@ import * as ClipboardStories from './clipboard.stories';
 
 The Clipboard plugin brings familiar copy/cut/paste functionality to your grid with full keyboard shortcut support (Ctrl+C, Ctrl+X, Ctrl+V). It handles single cells, multi-cell selections, and integrates seamlessly with Excel and other spreadsheet applications via tab-delimited output.
 
-> **Tip:** For the best experience, combine with the [SelectionPlugin](/docs/grid-plugins-selection--docs).
-> Without selection, only the focused cell is copied. With selection enabled, you can copy entire rows
-> or rectangular cell ranges depending on your selection mode.
+> ⚠️ **Required Dependency:** This plugin requires [SelectionPlugin](/docs/grid-plugins-selection--docs) to be loaded first. Clipboard uses the selection state to determine which cells to copy.
 
 ## Installation
 

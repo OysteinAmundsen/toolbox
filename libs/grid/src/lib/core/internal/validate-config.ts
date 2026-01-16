@@ -99,38 +99,6 @@ const PLUGIN_OWNED_CONFIG_PROPERTIES: PluginConfigPropertyDefinition[] = [
 // ============================================================================
 
 /**
- * Plugin-to-plugin dependency definition.
- * Each entry defines what plugins require other plugins.
- */
-interface PluginDependencyDefinition {
-  /** The dependent plugin name (the one that needs the dependency) */
-  pluginName: string;
-  /** The required plugin name (the one being depended upon) */
-  requiresPlugin: string;
-  /** Is this a hard (required) or soft (optional) dependency? */
-  required: boolean;
-  /** Human-readable description for error messages */
-  description: string;
-  /** Import path hint for the error message */
-  importHint: string;
-}
-
-/**
- * Registry of plugin-to-plugin dependencies.
- * This is a fallback for backward compatibility with older plugins.
- *
- * **Preferred approach**: Plugins should declare dependencies using `static dependencies`
- * on their class. See UndoRedoPlugin, ClipboardPlugin, VisibilityPlugin for examples.
- *
- * Hard dependencies (required: true) throw an error if not satisfied.
- * Soft dependencies (required: false) log an info message but continue.
- */
-const PLUGIN_DEPENDENCIES: PluginDependencyDefinition[] = [
-  // Built-in plugins now declare their own dependencies via static class property.
-  // This registry is kept empty but available for backward compatibility.
-];
-
-/**
  * Helper to capitalize a plugin name for display.
  */
 function capitalize(s: string): string {
@@ -278,8 +246,6 @@ function getImportHint(pluginName: string): string {
  * Called by PluginManager when attaching a new plugin.
  *
  * Dependencies are read from the plugin's static `dependencies` property.
- * Falls back to the centralized PLUGIN_DEPENDENCIES registry for built-in plugins
- * that haven't been updated yet.
  *
  * For hard dependencies (required: true), throws an error if the dependency is not loaded.
  * For soft dependencies (required: false), logs an info message but continues.
@@ -292,33 +258,14 @@ export function validatePluginDependencies(plugin: BaseGridPlugin, loadedPlugins
   const pluginName = plugin.name;
   const PluginClass = plugin.constructor as typeof BaseGridPlugin;
 
-  // Get dependencies from plugin's static property (preferred)
-  const classDeps = PluginClass.dependencies ?? [];
-
-  // Get dependencies from centralized registry (fallback for backward compatibility)
-  const registryDeps = PLUGIN_DEPENDENCIES.filter((d) => d.pluginName === pluginName);
-
-  // Combine: class dependencies take precedence, registry fills in gaps
-  const allDeps = new Map<string, { required: boolean; reason?: string }>();
-
-  // Add registry deps first (lower priority)
-  for (const dep of registryDeps) {
-    allDeps.set(dep.requiresPlugin, {
-      required: dep.required,
-      reason: dep.description,
-    });
-  }
-
-  // Add class deps (higher priority - overwrites registry)
-  for (const dep of classDeps) {
-    allDeps.set(dep.name, {
-      required: dep.required ?? true, // Default to required
-      reason: dep.reason,
-    });
-  }
+  // Get dependencies from plugin's static property
+  const dependencies = PluginClass.dependencies ?? [];
 
   // Validate each dependency
-  for (const [requiredPlugin, { required, reason }] of allDeps) {
+  for (const dep of dependencies) {
+    const requiredPlugin = dep.name;
+    const required = dep.required ?? true; // Default to required
+    const reason = dep.reason;
     const hasRequired = loadedPlugins.some((p) => p.name === requiredPlugin);
 
     if (!hasRequired) {

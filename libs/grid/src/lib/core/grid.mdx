@@ -1,5 +1,6 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
 import * as GridStories from './grid.stories';
+import * as EditingStories from '../plugins/editing/editing.stories';
 
 <Meta of={GridStories} />
 
@@ -69,7 +70,7 @@ Define columns declaratively in HTML using `<tbw-grid-column>` elements.
 
 Enable inline cell editing with the EditingPlugin. Double-click a cell to edit.
 
-<Canvas of={GridStories.BasicEditing} withToolbar />
+<Canvas of={EditingStories.BasicEditing} withToolbar />
 
 ### Custom Formatters
 

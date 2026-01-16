@@ -8,6 +8,8 @@ import * as UndoRedoStories from './undo-redo.stories';
 
 The Undo/Redo plugin tracks all cell edits and lets users revert or replay changes with familiar keyboard shortcuts (Ctrl+Z / Ctrl+Y). It maintains an in-memory history stack with configurable depth—perfect for data entry workflows where mistakes happen.
 
+> ⚠️ **Required Dependency:** This plugin requires [EditingPlugin](/docs/grid-plugins-editing--docs) to be loaded first. UndoRedo tracks the edit history that EditingPlugin creates.
+
 ## Installation
 
 ```ts
@@ -18,8 +20,6 @@ import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 ## Basic Usage
 
 Add the plugin along with `EditingPlugin` to any grid with editable columns. History tracking is automatic—every cell edit is recorded, and users can navigate back and forth through the edit history.
-
-> **Note:** `UndoRedoPlugin` requires `EditingPlugin` since it tracks cell edits.
 
 <Tabs>
   <Tab label="Vanilla JS">

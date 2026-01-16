@@ -87,7 +87,7 @@ export function createGridConfig(options: GridConfigOptions) {
   return {
     shell: {
       header: {
-        title: 'Employee Management System',
+        title: 'Employee Management System (JS)',
         // Toolbar buttons are now provided via light-dom HTML (see index.html)
       },
       toolPanel: { position: 'right' as const, width: 300 },

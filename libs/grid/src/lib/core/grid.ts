@@ -219,6 +219,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // ---------------- Plugin System ----------------
   #pluginManager!: PluginManager;
+  #lastPluginsArray?: BaseGridPlugin[]; // Track last attached plugins to avoid unnecessary re-initialization
 
   // ---------------- Event Listeners ----------------
   #eventListenersAdded = false; // Guard against adding duplicate component-level listeners
@@ -650,10 +651,31 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Update plugins when grid config changes.
    * With class-based plugins, we need to detach old and attach new.
+   * Skips re-initialization if the plugins array hasn't changed.
    */
   #updatePluginConfigs(): void {
-    // With class-based plugins, config changes require re-initialization
-    // The new plugins are in the new config - detach old, attach new
+    // Get the new plugins array from config
+    const pluginsConfig = this.#effectiveConfig?.plugins;
+    const newPlugins = Array.isArray(pluginsConfig) ? (pluginsConfig as BaseGridPlugin[]) : [];
+
+    // Check if plugins have actually changed (same array reference or same contents)
+    // This avoids unnecessary detach/attach cycles on every render
+    if (this.#lastPluginsArray === newPlugins) {
+      return; // Same array reference - no change
+    }
+
+    // Check if the arrays have the same plugin instances
+    if (
+      this.#lastPluginsArray &&
+      this.#lastPluginsArray.length === newPlugins.length &&
+      this.#lastPluginsArray.every((p, i) => p === newPlugins[i])
+    ) {
+      // Same plugins in same order - just update the reference tracking
+      this.#lastPluginsArray = newPlugins;
+      return;
+    }
+
+    // Plugins have changed - detach old and attach new
     if (this.#pluginManager) {
       this.#pluginManager.detachAll();
     }
@@ -690,6 +712,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     this.#initializePlugins();
     this.#injectAllPluginStyles();
+
+    // Track the new plugins array
+    this.#lastPluginsArray = newPlugins;
 
     // Re-collect plugin shell contributions (tool panels, header content)
     // Now the new plugin instances will add their fresh panel definitions
@@ -800,6 +825,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Initialize plugin system (now plugins can access disconnectSignal)
     this.#initializePlugins();
 
+    // Track the initial plugins array to avoid unnecessary re-initialization
+    const pluginsConfig = this.#effectiveConfig?.plugins;
+    this.#lastPluginsArray = Array.isArray(pluginsConfig) ? (pluginsConfig as BaseGridPlugin[]) : [];
+
     // Collect tool panels and header content from plugins (must be before render)
     this.#collectPluginShellContributions();
 
@@ -869,6 +898,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Clear caches to prevent memory leaks
     invalidateCellCache(this);
     this.#customStyleSheets.clear();
+
+    // Clear plugin tracking to allow fresh initialization on reconnect
+    this.#lastPluginsArray = undefined;
 
     // Clear row pool - detach from DOM and release references
     for (const rowEl of this._rowPool) {
@@ -1341,6 +1373,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     if (needsFullRerender) {
       this.#render();
+      this.#injectAllPluginStyles(); // Re-inject after render clears shadow DOM
       this.#afterConnect();
       return;
     }
@@ -2061,6 +2094,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Re-render the entire grid (shell structure may change)
     this.#render();
+    this.#injectAllPluginStyles(); // Re-inject after render clears shadow DOM
     this.#afterConnect();
   }
 

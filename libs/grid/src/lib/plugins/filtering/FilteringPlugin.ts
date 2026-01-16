@@ -153,8 +153,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         this.toggleFilterPanel(field, col, filterBtn!);
       });
 
-      // Append to header cell
-      cell.appendChild(filterBtn);
+      // Insert before resize handle to maintain order: [label, sort-indicator, filter-btn, resize-handle]
+      const resizeHandle = cell.querySelector('.resize-handle');
+      if (resizeHandle) {
+        cell.insertBefore(filterBtn, resizeHandle);
+      } else {
+        cell.appendChild(filterBtn);
+      }
     });
   }
   // #endregion

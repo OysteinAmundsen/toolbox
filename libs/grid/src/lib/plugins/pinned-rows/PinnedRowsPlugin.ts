@@ -82,6 +82,22 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       shadowRoot.children[0];
     if (!container) return;
 
+    // Clear orphaned element references if they were removed from the DOM
+    // (e.g., by buildGridDOMIntoShadow calling replaceChildren())
+    // We check if the element is still inside the container rather than isConnected,
+    // because in unit tests the mock grid may not be attached to document.body
+    if (this.footerWrapper && !container.contains(this.footerWrapper)) {
+      this.footerWrapper = null;
+      this.bottomAggregationContainer = null;
+      this.infoBarElement = null;
+    }
+    if (this.topAggregationContainer && !container.contains(this.topAggregationContainer)) {
+      this.topAggregationContainer = null;
+    }
+    if (this.infoBarElement && !container.contains(this.infoBarElement)) {
+      this.infoBarElement = null;
+    }
+
     // Build context with plugin states
     const selectionState = this.getSelectionState();
     const filterState = this.getFilterState();

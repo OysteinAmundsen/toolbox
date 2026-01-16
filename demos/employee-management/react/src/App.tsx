@@ -86,7 +86,7 @@ export function App() {
     () => ({
       shell: {
         header: {
-          title: 'Employee Management System',
+          title: 'Employee Management System (React)',
         },
       },
       columnGroups: [

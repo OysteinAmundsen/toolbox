@@ -17,7 +17,7 @@
 }
 
 /* Header cell indicator when filtered */
-.header-cell.filtered::before {
+:host .header-cell.filtered::before {
   content: '';
   position: absolute;
   top: 4px;
@@ -27,7 +27,7 @@
   background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
   border-radius: 50%;
 }
-.tbw-filter-btn {
+:host .tbw-filter-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -41,10 +41,10 @@
   color: inherit;
   vertical-align: middle;
 }
-.tbw-filter-btn:hover,
-.tbw-filter-btn.active {
+:host .tbw-filter-btn:hover,
+:host .tbw-filter-btn.active {
   opacity: 1;
 }
-.tbw-filter-btn.active {
+:host .tbw-filter-btn.active {
   color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
 }

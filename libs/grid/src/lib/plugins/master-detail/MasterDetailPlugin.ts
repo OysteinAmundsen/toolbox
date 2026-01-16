@@ -6,7 +6,7 @@
  */
 
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
-import { BaseGridPlugin, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, GridConfig } from '../../core/types';
 import {
   collapseDetailRow,
@@ -282,17 +282,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
         toggle.setAttribute('tabindex', '0');
         toggle.setAttribute('aria-expanded', String(isExpanded));
         toggle.setAttribute('aria-label', isExpanded ? 'Collapse details' : 'Expand details');
-        toggle.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rowIndex = this.rows.indexOf(row);
-          this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
-          this.emit<DetailExpandDetail>('detail-expand', {
-            rowIndex,
-            row: row as Record<string, unknown>,
-            expanded: this.expandedRows.has(row as object),
-          });
-          this.requestRender();
-        });
+        // Click handling is done via onCellClick hook (not direct addEventListener)
+        // This ensures proper event delegation through the grid's event system
         container.appendChild(toggle);
 
         // Cell content
@@ -337,7 +328,22 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     return false;
   }
 
-  override onCellClick(): boolean | void {
+  override onCellClick(event: CellClickEvent): boolean | void {
+    // Handle click on master-detail toggle icon (same pattern as TreePlugin)
+    const target = event.originalEvent?.target as HTMLElement;
+    if (target?.classList.contains('master-detail-toggle')) {
+      const row = event.row;
+      const rowIndex = event.rowIndex;
+      this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
+      this.emit<DetailExpandDetail>('detail-expand', {
+        rowIndex,
+        row: row as Record<string, unknown>,
+        expanded: this.expandedRows.has(row as object),
+      });
+      this.requestRender();
+      return true; // Prevent default handling
+    }
+
     // Sync detail rows after cell click triggers refreshVirtualWindow
     // This runs in microtask to ensure DOM updates are complete
     if (this.expandedRows.size > 0) {
@@ -625,6 +631,20 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     // If no new renderer was found, restore the original
     if (!this.config.detailRenderer && currentRenderer) {
       this.config = { ...this.config, detailRenderer: currentRenderer };
+    }
+
+    // Request a COLUMNS phase re-render so processColumns runs again with the new detailRenderer
+    // This ensures the expand toggle is added to the first column.
+    // Must use refreshColumns() (COLUMNS phase) not requestRender() (ROWS phase)
+    // because processColumns only runs at COLUMNS phase or higher.
+    if (this.config.detailRenderer) {
+      const grid = this.grid as unknown as { refreshColumns?: () => void };
+      if (typeof grid.refreshColumns === 'function') {
+        grid.refreshColumns();
+      } else {
+        // Fallback to requestRender if refreshColumns not available
+        this.requestRender();
+      }
     }
   }
   // #endregion

@@ -91,19 +91,34 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
         cell.setAttribute('data-sort', sortDir);
 
-        // Add sort arrow indicator
+        // Add sort arrow indicator - insert BEFORE filter button and resize handle
+        // to maintain consistent order: [label, sort-indicator, sort-index, filter-btn, resize-handle]
         const indicator = document.createElement('span');
         indicator.className = 'sort-indicator';
         // Use grid-level icons (fall back to defaults)
         this.setIcon(indicator, this.resolveIcon(sortDir === 'asc' ? 'sortAsc' : 'sortDesc'));
-        cell.appendChild(indicator);
+
+        // Find insertion point: before filter button or resize handle
+        const filterBtn = cell.querySelector('.tbw-filter-btn');
+        const resizeHandle = cell.querySelector('.resize-handle');
+        const insertBefore = filterBtn ?? resizeHandle;
+        if (insertBefore) {
+          cell.insertBefore(indicator, insertBefore);
+        } else {
+          cell.appendChild(indicator);
+        }
 
         // Add sort index badge if multiple columns sorted and showSortIndex is enabled
         if (showIndex && this.sortModel.length > 1 && sortIndex !== undefined) {
           const badge = document.createElement('span');
           badge.className = 'sort-index';
           badge.textContent = String(sortIndex);
-          cell.appendChild(badge);
+          // Insert badge right after the indicator
+          if (indicator.nextSibling) {
+            cell.insertBefore(badge, indicator.nextSibling);
+          } else {
+            cell.appendChild(badge);
+          }
         }
       } else {
         cell.removeAttribute('data-sort');

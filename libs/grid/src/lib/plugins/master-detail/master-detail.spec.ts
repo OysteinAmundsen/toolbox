@@ -697,7 +697,7 @@ describe('masterDetail', () => {
       const columns = [{ field: 'name' }];
       const result = plugin.processColumns(columns);
 
-      const element = result[0].viewRenderer!({
+      const cellEl = result[0].viewRenderer!({
         value: 'Test',
         row,
         rowIndex: 0,
@@ -705,8 +705,17 @@ describe('masterDetail', () => {
         colIndex: 0,
       }) as HTMLElement;
 
-      const toggle = element.querySelector('.master-detail-toggle')!;
-      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const toggle = cellEl.querySelector('.master-detail-toggle')!;
+      // Simulate click via onCellClick hook (matches how the grid routes events)
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row,
+        cellEl,
+        originalEvent: { target: toggle } as unknown as MouseEvent,
+      });
 
       expect(mockGrid.dispatchEvent).toHaveBeenCalled();
       const dispatchedEvent = mockGrid.dispatchEvent.mock.calls[0][0];

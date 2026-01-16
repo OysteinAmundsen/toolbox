@@ -42,11 +42,11 @@ ensureAdapterRegistered();
  *
  * This matches the behavior of Angular's Grid directive.
  */
-function configureMasterDetail(gridElement: Element, MasterDetailPlugin: any, adapter: ReactGridAdapter): void {
+function configureMasterDetail(gridElement: Element, adapter: ReactGridAdapter): void {
   const grid = gridElement as any;
 
-  // Check if plugin already exists
-  const existingPlugin = grid.getPlugin?.(MasterDetailPlugin);
+  // Check if plugin already exists by name (avoids needing to import the plugin class)
+  const existingPlugin = grid.getPluginByName?.('masterDetail');
   if (existingPlugin && typeof existingPlugin.refreshDetailRenderer === 'function') {
     // Plugin exists - just refresh the renderer to pick up React templates
     existingPlugin.refreshDetailRenderer();
@@ -61,34 +61,42 @@ function configureMasterDetail(gridElement: Element, MasterDetailPlugin: any, ad
   const detailRenderer = getDetailRenderer(gridElement as HTMLElement);
   if (!detailRenderer) return;
 
-  // Create React detail renderer function
-  const reactDetailRenderer = adapter.createDetailRenderer(gridElement as HTMLElement);
-  if (!reactDetailRenderer) return;
+  // No existing plugin - we need to dynamically create one
+  // This requires importing the plugin class, so we do it async
+  import('@toolbox-web/grid/all')
+    .then(({ MasterDetailPlugin }) => {
+      // Create React detail renderer function
+      const reactDetailRenderer = adapter.createDetailRenderer(gridElement as HTMLElement);
+      if (!reactDetailRenderer) return;
 
-  // Parse configuration from attributes
-  const animationAttr = detailElement.getAttribute('animation');
-  let animation: 'slide' | 'fade' | false = 'slide';
-  if (animationAttr === 'false') {
-    animation = false;
-  } else if (animationAttr === 'fade') {
-    animation = 'fade';
-  }
+      // Parse configuration from attributes
+      const animationAttr = detailElement.getAttribute('animation');
+      let animation: 'slide' | 'fade' | false = 'slide';
+      if (animationAttr === 'false') {
+        animation = false;
+      } else if (animationAttr === 'fade') {
+        animation = 'fade';
+      }
 
-  const showExpandColumn = detailElement.getAttribute('showExpandColumn') !== 'false';
+      const showExpandColumn = detailElement.getAttribute('showExpandColumn') !== 'false';
 
-  // Create and add the plugin
-  const plugin = new MasterDetailPlugin({
-    detailRenderer: reactDetailRenderer,
-    showExpandColumn,
-    animation,
-  });
+      // Create and add the plugin
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: reactDetailRenderer,
+        showExpandColumn,
+        animation,
+      });
 
-  const currentConfig = grid.gridConfig || {};
-  const existingPlugins = currentConfig.plugins || [];
-  grid.gridConfig = {
-    ...currentConfig,
-    plugins: [...existingPlugins, plugin],
-  };
+      const currentConfig = grid.gridConfig || {};
+      const existingPlugins = currentConfig.plugins || [];
+      grid.gridConfig = {
+        ...currentConfig,
+        plugins: [...existingPlugins, plugin],
+      };
+    })
+    .catch(() => {
+      // Plugin not available - ignore
+    });
 }
 
 /**
@@ -305,8 +313,13 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     const adapter = ensureAdapterRegistered();
     (grid as any).__frameworkAdapter = adapter;
 
-    // Use a single RAF - React 18+ batches updates, so one frame is usually enough
-    // The grid's refreshColumns() internally handles any necessary debouncing
+    // Configure MasterDetailPlugin SYNCHRONOUSLY to avoid visible flash
+    // Uses getPluginByName() so no async import needed for the common case
+    // where user already added MasterDetailPlugin to their plugins array
+    configureMasterDetail(grid as unknown as Element, adapter);
+
+    // Use a single RAF for column/shell refresh
+    // React 18+ batches updates, so one frame is usually enough
     let cancelled = false;
 
     const timer = requestAnimationFrame(() => {
@@ -316,17 +329,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       if (typeof (grid as any).refreshColumns === 'function') {
         (grid as any).refreshColumns();
       }
-
-      // Configure MasterDetailPlugin - either refresh existing or auto-add if GridDetailPanel present
-      // Dynamic import to avoid bundling the plugin when not used (tree-shaking)
-      import('@toolbox-web/grid/all')
-        .then(({ MasterDetailPlugin }) => {
-          if (cancelled) return;
-          configureMasterDetail(grid as unknown as Element, MasterDetailPlugin, adapter);
-        })
-        .catch(() => {
-          // Plugin not available - ignore
-        });
 
       // Refresh shell header to pick up tool panel templates
       if (typeof (grid as any).refreshShellHeader === 'function') {

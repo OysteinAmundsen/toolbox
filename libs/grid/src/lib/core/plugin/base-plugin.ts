@@ -108,6 +108,13 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   protected readonly userConfig: Partial<TConfig>;
 
   /**
+   * Plugin-level AbortController for event listener cleanup.
+   * Created fresh in attach(), aborted in detach().
+   * This ensures event listeners are properly cleaned up when plugins are re-attached.
+   */
+  #abortController?: AbortController;
+
+  /**
    * Default configuration - subclasses should override this getter.
    * Note: This must be a getter (not property initializer) for proper inheritance
    * since property initializers run after parent constructor.
@@ -136,6 +143,11 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   attach(grid: GridElement): void {
+    // Abort any previous abort controller (in case of re-attach without detach)
+    this.#abortController?.abort();
+    // Create fresh abort controller for this attachment
+    this.#abortController = new AbortController();
+
     this.grid = grid;
     // Merge config here (after subclass construction is complete)
     this.config = { ...this.defaultConfig, ...this.userConfig } as TConfig;
@@ -155,7 +167,11 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   detach(): void {
-    // Override in subclass
+    // Abort the plugin's abort controller to clean up all event listeners
+    // registered with { signal: this.disconnectSignal }
+    this.#abortController?.abort();
+    this.#abortController = undefined;
+    // Override in subclass for additional cleanup
   }
 
   /**
@@ -287,7 +303,9 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * document.addEventListener('keydown', handler, { signal: this.disconnectSignal });
    */
   protected get disconnectSignal(): AbortSignal {
-    return this.grid?.disconnectSignal;
+    // Return the plugin's own abort signal for proper cleanup on detach/re-attach
+    // Falls back to grid's signal if plugin's controller not yet created
+    return this.#abortController?.signal ?? this.grid?.disconnectSignal;
   }
 
   /**

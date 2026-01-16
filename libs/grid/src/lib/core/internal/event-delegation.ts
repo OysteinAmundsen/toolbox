@@ -10,12 +10,19 @@
  */
 
 import type { InternalGrid } from '../types';
-import { ensureCellVisible } from './keyboard';
-import { getColIndexFromCell, getRowIndexFromCell } from './utils';
+import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell } from './utils';
 
 /**
  * Handle delegated mousedown on cells.
  * Updates focus position for navigation.
+ *
+ * IMPORTANT: This must NOT call refreshVirtualWindow or any function that
+ * re-renders DOM elements. Doing so would replace the element the user clicked on,
+ * causing the subsequent click event to fire on a detached element and not bubble
+ * to parent handlers (like handleRowClick).
+ *
+ * For mouse interactions, the cell is already visible (user clicked on it),
+ * so we only need to update focus state without scrolling or re-rendering.
  */
 function handleCellMousedown(grid: InternalGrid, cell: HTMLElement): void {
   const rowIndex = getRowIndexFromCell(cell);
@@ -24,7 +31,13 @@ function handleCellMousedown(grid: InternalGrid, cell: HTMLElement): void {
 
   grid._focusRow = rowIndex;
   grid._focusCol = colIndex;
-  ensureCellVisible(grid);
+
+  // Update focus styling directly without triggering re-render.
+  // ensureCellVisible() would call refreshVirtualWindow() which replaces DOM elements,
+  // breaking the click event that follows this mousedown.
+  clearCellFocus(grid._bodyEl);
+  cell.classList.add('cell-focus');
+  cell.setAttribute('aria-selected', 'true');
 }
 
 /**

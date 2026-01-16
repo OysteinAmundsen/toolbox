@@ -7,6 +7,13 @@
 
 * **grid:** Added inter-plugin dependencies ([05f9f8e](https://github.com/OysteinAmundsen/toolbox/commit/05f9f8e2bc39be8ea9b39debfd09771542d21dbc))
 
+## [0.1.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.1.2...grid-angular-0.1.3) (2026-01-16)
+
+
+### Enhancements
+
+* **grid:** Added inter-plugin dependencies ([05f9f8e](https://github.com/OysteinAmundsen/toolbox/commit/05f9f8e2bc39be8ea9b39debfd09771542d21dbc))
+
 ## [0.1.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.1.1...grid-angular-0.1.2) (2026-01-12)
 
 

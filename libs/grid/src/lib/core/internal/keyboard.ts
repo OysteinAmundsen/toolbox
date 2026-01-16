@@ -3,7 +3,7 @@
  * and edit lifecycle triggers while respecting active form field interactions.
  */
 import type { InternalGrid } from '../types';
-import { FOCUSABLE_EDITOR_SELECTOR } from './editing';
+import { FOCUSABLE_EDITOR_SELECTOR } from './rows';
 import { clearCellFocus } from './utils';
 
 export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
@@ -113,17 +113,14 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       grid._focusRow = Math.max(0, grid._focusRow - 20);
       e.preventDefault();
       break;
+    // NOTE: Enter key is handled by EditingPlugin. If no plugin handles it,
+    // we dispatch an activate-cell event for custom handling but don't block navigation.
     case 'Enter':
-      if (typeof grid.beginBulkEdit === 'function') {
-        grid.beginBulkEdit(grid._focusRow);
-        // Don't call ensureCellVisible - beginBulkEdit handles focus
-        return;
-      } else {
-        (grid as unknown as HTMLElement).dispatchEvent(
-          new CustomEvent('activate-cell', { detail: { row: grid._focusRow, col: grid._focusCol } }),
-        );
-      }
-      return ensureCellVisible(grid);
+      (grid as unknown as HTMLElement).dispatchEvent(
+        new CustomEvent('activate-cell', { detail: { row: grid._focusRow, col: grid._focusCol } }),
+      );
+      // Don't prevent default or return - allow normal keyboard processing
+      break;
     default:
       return;
   }

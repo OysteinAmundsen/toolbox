@@ -8,7 +8,7 @@
  * inlineEnterEdit) is responsible for focusing the correct editor after insertion.
  */
 
-import type { ColumnConfig, EditorContext } from '../types';
+import type { ColumnConfig, EditorContext } from '../../core/types';
 
 /**
  * Returns a default editor factory function for the given column type.

@@ -27,6 +27,7 @@ export type { GridPlugin } from './lib/core/types';
 export * from './lib/plugins/clipboard';
 export * from './lib/plugins/column-virtualization';
 export * from './lib/plugins/context-menu';
+export * from './lib/plugins/editing';
 export * from './lib/plugins/export';
 export * from './lib/plugins/filtering';
 export * from './lib/plugins/grouping-columns';

@@ -4,6 +4,7 @@ import {
   ClipboardPlugin,
   ColumnVirtualizationPlugin,
   ContextMenuPlugin,
+  EditingPlugin,
   ExportPlugin,
   FilteringPlugin,
   GroupingColumnsPlugin,
@@ -149,7 +150,6 @@ export function createGridConfig(options: GridConfigOptions): GridConfig {
       { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50 },
       { field: 'location', header: 'Location', width: 110, sortable: true },
     ],
-    editOn: 'dblClick',
     // Shell configuration
     shell: {
       toolPanel: { position: 'right', width: 300 },
@@ -158,6 +158,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig {
       ...(enableSelection ? [new SelectionPlugin({ mode: 'range' })] : []),
       ...(enableSorting ? [new MultiSortPlugin()] : []),
       ...(enableFiltering ? [new FilteringPlugin({ debounceMs: 200 })] : []),
+      ...(enableEditing ? [new EditingPlugin({ editOn: 'dblclick' })] : []),
       new ClipboardPlugin(),
       new ContextMenuPlugin(),
       new ReorderPlugin(),

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import '../../lib/core/grid';
 import { FitModeEnum } from '../../lib/core/types';
+import { EditingPlugin } from '../../lib/plugins/editing';
 import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
 
 async function waitForUpgraded(el: HTMLElement, timeout = 5000) {
@@ -201,7 +202,8 @@ describe('HTML attribute configuration', () => {
     `;
 
     // Simulate Angular setting gridConfig (which should trigger re-parse)
-    grid.gridConfig = {};
+    // Include EditingPlugin since the light DOM uses editable attribute
+    grid.gridConfig = { plugins: [new EditingPlugin()] };
     grid.rows = [{ id: 1, name: 'Test' }];
 
     // Wait for update

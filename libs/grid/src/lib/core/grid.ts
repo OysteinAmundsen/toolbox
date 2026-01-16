@@ -1,15 +1,6 @@
 import styles from './grid.css?inline';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
-import {
-  beginBulkEdit,
-  cancelActiveRowEdit,
-  commitActiveRowEdit,
-  exitRowEdit,
-  getChangedRowIndices,
-  getChangedRows,
-  resetChangedRows,
-} from './internal/editing';
 import { setupCellEventDelegation } from './internal/event-delegation';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
@@ -41,6 +32,7 @@ import {
   setupTouchScrollListeners,
   type TouchScrollState,
 } from './internal/touch-scroll';
+import { validatePluginProperties } from './internal/validate-config';
 import type { CellMouseEvent, ScrollEvent } from './plugin';
 import type {
   BaseGridPlugin,
@@ -295,11 +287,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Sort state
   _sortState: { field: string; direction: 1 | -1 } | null = null;
 
-  // Edit state
-  _activeEditRows = -1;
-  _rowEditSnapshots = new Map<number, T>();
-  _changedRowIndices = new Set<number>();
-
   // Layout
   _gridTemplate = '';
   // #endregion
@@ -453,6 +440,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
         this.#configManager.merge();
         this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
+        // Validate that plugin-specific column properties have their required plugins loaded
+        // This runs after plugins are loaded and config is merged
+        validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.plugins ?? []);
         // Store base columns before plugin transformation
         this.#baseColumns = [...this._columns];
       },
@@ -878,8 +868,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Clear caches to prevent memory leaks
     invalidateCellCache(this);
-    this._rowEditSnapshots.clear();
-    this._changedRowIndices.clear();
     this.#customStyleSheets.clear();
 
     // Clear row pool - detach from DOM and release references
@@ -976,32 +964,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Element-level keydown handler (uses signal for automatic cleanup)
     this.addEventListener('keydown', (e) => handleGridKeyDown(this as unknown as InternalGrid<T>, e), { signal });
-
-    // Document-level listeners (also use signal for automatic cleanup)
-    // Escape key to cancel row editing
-    document.addEventListener(
-      'keydown',
-      (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && this._activeEditRows !== -1) {
-          exitRowEdit(this, this._activeEditRows, true);
-        }
-      },
-      { capture: true, signal },
-    );
-
-    // Click outside to commit row editing
-    document.addEventListener(
-      'mousedown',
-      (e: MouseEvent) => {
-        if (this._activeEditRows === -1) return;
-        const rowEl = this.findRenderedRowElement(this._activeEditRows);
-        if (!rowEl) return;
-        const path = (e.composedPath && e.composedPath()) || [];
-        if (path.includes(rowEl)) return;
-        exitRowEdit(this, this._activeEditRows, false);
-      },
-      { signal },
-    );
 
     // Central mouse event handling for plugins (uses signal for automatic cleanup)
     this.#shadow.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent), { signal });
@@ -1844,33 +1806,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const event = this.#buildCellMouseEvent(e, 'mouseup');
     this.#pluginManager?.onCellMouseUp(event);
     this.#isDragging = false;
-  }
-
-  // API consumed by internal utils (rows.ts) - delegates to editing.ts
-  get changedRows(): T[] {
-    return getChangedRows(this);
-  }
-
-  get changedRowIndices(): number[] {
-    return getChangedRowIndices(this);
-  }
-
-  async resetChangedRows(silent?: boolean): Promise<void> {
-    resetChangedRows(this, silent);
-  }
-
-  async beginBulkEdit(rowIndex: number): Promise<void> {
-    beginBulkEdit(this, rowIndex, {
-      findRenderedRowElement: (idx) => this.findRenderedRowElement?.(idx) ?? null,
-    });
-  }
-
-  async commitActiveRowEdit(): Promise<void> {
-    commitActiveRowEdit(this);
-  }
-
-  async cancelActiveRowEdit(): Promise<void> {
-    cancelActiveRowEdit(this);
   }
 
   async ready(): Promise<void> {

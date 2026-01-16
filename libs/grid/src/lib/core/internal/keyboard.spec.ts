@@ -175,20 +175,27 @@ describe('keyboard navigation', () => {
     key(g, 'PageDown');
     expect(g._focusRow).toBe(49); // clamped to last row (49)
   });
-  it('Enter invokes beginBulkEdit when provided', () => {
+  // NOTE: Enter key editing is now handled by EditingPlugin, not core keyboard handler
+  it('Enter dispatches activate-cell event', () => {
     const g = makeGrid(5, 2);
-    g.beginBulkEdit = vi.fn();
-    key(g, 'Enter');
-    expect(g.beginBulkEdit).toHaveBeenCalledWith(0);
-  });
-  it('Enter dispatches activate-cell when no beginBulkEdit', () => {
-    const g = makeGrid(5, 2);
-    const events: any[] = [];
-    g.dispatchEvent = (ev: any) => events.push(ev);
+    const events: CustomEvent[] = [];
+    g.dispatchEvent = (ev: Event) => {
+      events.push(ev as CustomEvent);
+      return true;
+    };
     key(g, 'Enter');
     const activate = events.find((e) => e.type === 'activate-cell');
     expect(activate).toBeTruthy();
-    expect(activate.detail).toEqual({ row: 0, col: 0 });
+    expect(activate!.detail).toEqual({ row: 0, col: 0 });
+  });
+  it('Enter does not block keyboard navigation', () => {
+    const g = makeGrid(5, 2);
+    g._focusRow = 0;
+    // Press Enter - should not prevent further navigation
+    key(g, 'Enter');
+    // Arrow Down should still work
+    key(g, 'ArrowDown');
+    expect(g._focusRow).toBe(1);
   });
 
   describe('Home/End scroll behavior', () => {

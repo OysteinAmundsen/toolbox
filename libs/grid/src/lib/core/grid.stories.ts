@@ -4,6 +4,7 @@ import { FitModeEnum } from '../../public';
 
 // Import from source for HMR
 import '../../index';
+import { EditingPlugin } from '../plugins/editing';
 import { VisibilityPlugin } from '../plugins/visibility';
 
 type GridElement = HTMLElement & {
@@ -259,8 +260,14 @@ grid.addEventListener('cell-commit', (e) => {
 
     // Set props BEFORE grid is connected to DOM for single render pass
     grid.fitMode = args.fitMode;
-    grid.editOn = args.editOn;
-    grid.columns = columns;
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new EditingPlugin({
+          editOn: args.editOn === 'click' ? 'click' : 'dblclick',
+        }),
+      ],
+    };
     grid.rows = generateRows(args.rowCount);
 
     grid.addEventListener('cell-commit', (e: Event) => {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 // Import plugins used by integration tests
+import { EditingPlugin } from '../../lib/plugins/editing';
 import { GroupingColumnsPlugin } from '../../lib/plugins/grouping-columns';
 import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
 import { PinnedColumnsPlugin } from '../../lib/plugins/pinned-columns';
@@ -65,17 +66,26 @@ describe('tbw-grid integration: inference, sorting, editing', () => {
   });
 
   it('row editing commit & revert (Escape)', async () => {
+    grid.gridConfig = {
+      columns: [{ field: 'id' }, { field: 'name', editable: true }],
+      plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+    };
     grid.rows = [{ id: 1, name: 'Alpha' }];
-    grid.columns = [{ field: 'id' }, { field: 'name', editable: true }];
+    await nextFrame();
     await nextFrame();
     const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
-    row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await nextFrame();
     const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+    nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await nextFrame();
+    await nextFrame();
     const input = nameCell.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
     input.value = 'Beta';
-    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+    await nextFrame();
+    expect(grid.rows[0].name).toBe('Beta');
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await nextFrame();
     expect(grid.rows[0].name).toBe('Alpha');
     expect(grid.changedRows.length).toBe(0);
   });
@@ -335,6 +345,10 @@ describe('tbw-grid integration: aria row/col indices', () => {
 });
 
 describe('tbw-grid integration: public API & events', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
   it('exposes DGEvents and registers custom element', async () => {
     const mod = await import('../../index');
     expect(mod.DGEvents).toBeTruthy();
@@ -344,19 +358,24 @@ describe('tbw-grid integration: public API & events', () => {
 
   it('dispatches and listens for a public event (cell-commit)', async () => {
     const grid = document.createElement('tbw-grid') as any;
+    grid.gridConfig = {
+      columns: [{ field: 'id' }, { field: 'name', editable: true }],
+      plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+    };
     grid.rows = [{ id: 1, name: 'Alpha' }];
-    grid.columns = [{ field: 'id' }, { field: 'name', editable: true }];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
-    const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
-    row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await nextFrame();
-    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
-    const input = nameCell.querySelector('input') as HTMLInputElement;
     const commits: any[] = [];
     grid.addEventListener('cell-commit', (e: any) => commits.push(e.detail));
+    const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+    nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await nextFrame();
+    await nextFrame();
+    const input = nameCell.querySelector('input') as HTMLInputElement;
+    expect(input).toBeTruthy();
     input.value = 'Beta';
-    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
     await nextFrame();
     expect(commits.length).toBe(1);
     expect(commits[0]).toMatchObject({ field: 'name', value: 'Beta' });

@@ -103,17 +103,24 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _virtualization: VirtualState;
   _focusRow: number;
   _focusCol: number;
-  _activeEditRows: number;
-  _rowEditSnapshots: Map<number, T>;
-  _changedRowIndices: Set<number>;
+  /** Currently active edit row index. Injected by EditingPlugin. @internal */
+  _activeEditRows?: number;
+  /** Snapshots of row data before editing. Injected by EditingPlugin. @internal */
+  _rowEditSnapshots?: Map<number, T>;
+  /** Set of row indices that have been modified. Injected by EditingPlugin. @internal */
+  _changedRowIndices?: Set<number>;
+  /** Get all changed rows. Injected by EditingPlugin. */
   changedRows?: T[];
+  /** Get indices of all changed rows. Injected by EditingPlugin. */
   changedRowIndices?: number[];
   effectiveConfig?: GridConfig<T>;
   findHeaderRow?: () => HTMLElement;
   refreshVirtualWindow: (full: boolean) => void;
   updateTemplate?: () => void;
   findRenderedRowElement?: (rowIndex: number) => HTMLElement | null;
+  /** Begin bulk edit on a row. Injected by EditingPlugin. */
   beginBulkEdit?: (rowIndex: number) => void;
+  /** Commit active row edit. Injected by EditingPlugin. */
   commitActiveRowEdit?: () => void;
   /** Dispatch cell click to plugin system, returns true if handled */
   _dispatchCellClick?: (event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement) => boolean;
@@ -157,10 +164,6 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   resizable?: boolean;
   /** Optional custom comparator for sorting (a,b) -> number */
   sortComparator?: (a: TValue, b: TValue, rowA: TRow, rowB: TRow) => number;
-  /** Whether the field is editable (enables editors) */
-  editable?: boolean;
-  /** Optional custom editor factory or element tag name */
-  editor?: ColumnEditorSpec<TRow, TValue>;
   /** For select/typeahead types - available options */
   options?: Array<{ label: string; value: unknown }> | (() => Array<{ label: string; value: unknown }>);
   /** For select/typeahead - allow multi select */
@@ -373,6 +376,8 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAt
 export interface RowElementInternal extends HTMLElement {
   /** Epoch marker for row render invalidation */
   __epoch?: number;
+  /** Reference to the row data object for change detection */
+  __rowDataRef?: unknown;
   /** Count of cells currently in edit mode */
   __editingCellCount?: number;
   /** Flag indicating this is a custom-rendered row (group row, etc.) */

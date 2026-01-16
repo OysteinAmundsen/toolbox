@@ -1,11 +1,4 @@
-import type { ColumnConfig, InternalGrid } from '../types';
-import {
-  clearEditingState,
-  FOCUSABLE_EDITOR_SELECTOR,
-  hasEditingCells,
-  inlineEnterEdit,
-  startRowEdit,
-} from './editing';
+import type { ColumnConfig, InternalGrid, RowElementInternal } from '../types';
 import { ensureCellVisible } from './keyboard';
 import { evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatBooleanValue, formatDateValue, getRowIndexFromCell } from './utils';
@@ -13,18 +6,35 @@ import { booleanCellHTML, clearCellFocus, formatBooleanValue, formatDateValue, g
 /** Callback type for plugin row rendering hook */
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
 
+// ============================================================================
+// DOM State Helpers (used for virtualization cleanup)
+// ============================================================================
+
 /**
- * Extended row element with internal cache properties.
- * These properties are used for change detection and optimized rendering.
- * @internal
+ * CSS selector for focusable editor elements within a cell.
+ * Used by EditingPlugin and keyboard navigation.
  */
-interface RowElementInternal extends HTMLElement {
-  /** Render epoch when this row was last updated */
-  __epoch?: number;
-  /** Reference to the row data object */
-  __rowDataRef?: unknown;
-  /** Flag indicating this is a custom-rendered row (e.g., group header) */
-  __isCustomRow?: boolean;
+export const FOCUSABLE_EDITOR_SELECTOR =
+  'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Check if a row element has any cells in editing mode.
+ * This is a DOM-level check used for virtualization recycling.
+ */
+function hasEditingCells(rowEl: RowElementInternal): boolean {
+  return (rowEl.__editingCellCount ?? 0) > 0;
+}
+
+/**
+ * Clear all editing state from a row element.
+ * Called when a row element is recycled for a different data row.
+ */
+function clearEditingState(rowEl: RowElementInternal): void {
+  rowEl.__editingCellCount = 0;
+  rowEl.removeAttribute('data-has-editing');
+  // Clear editing class from all cells
+  const cells = rowEl.querySelectorAll('.cell.editing');
+  cells.forEach((cell) => cell.classList.remove('editing'));
 }
 
 // ============== Template Cloning System ==============
@@ -264,18 +274,7 @@ export function renderVisibleRows(
         renderInlineRow(grid, rowEl, rowData, rowIndex);
         rowEl.__epoch = epoch;
         rowEl.__rowDataRef = rowData;
-
-        // If this is the actively edited row but DOM doesn't have editors, create them
-        if (isActivelyEditedRow) {
-          const children = rowEl.children;
-          for (let c = 0; c < children.length; c++) {
-            const col = grid._visibleColumns[c];
-            if (col?.editable) {
-              // Skip focus - editors are being re-created during virtualization scroll
-              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
-            }
-          }
-        }
+        // NOTE: If this is the actively edited row, EditingPlugin's onScrollRender() will inject editors
       }
     } else if (dataRefChanged) {
       // Same structure, different row data - fast update
@@ -292,18 +291,7 @@ export function renderVisibleRows(
       } else {
         fastPatchRow(grid, rowEl, rowData, rowIndex);
         rowEl.__rowDataRef = rowData;
-
-        // If this is the actively edited row but DOM doesn't have editors, create them
-        if (isActivelyEditedRow && !hasEditing) {
-          const children = rowEl.children;
-          for (let c = 0; c < children.length; c++) {
-            const col = grid._visibleColumns[c];
-            if (col?.editable) {
-              // Skip focus - editors are being re-created during virtualization scroll
-              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
-            }
-          }
-        }
+        // NOTE: If this is the actively edited row, EditingPlugin's onScrollRender() will inject editors
       }
     } else {
       // Same row data reference - just patch if any values changed
@@ -319,23 +307,12 @@ export function renderVisibleRows(
         rowEl.__rowDataRef = rowData;
       } else {
         fastPatchRow(grid, rowEl, rowData, rowIndex);
-
-        // If this is the actively edited row but DOM doesn't have editors, create them
-        if (isActivelyEditedRow && !hasEditing) {
-          const children = rowEl.children;
-          for (let c = 0; c < children.length; c++) {
-            const col = grid._visibleColumns[c];
-            if (col?.editable) {
-              // Skip focus - editors are being re-created during virtualization scroll
-              inlineEnterEdit(grid, rowData, rowIndex, col, children[c] as HTMLElement, true);
-            }
-          }
-        }
+        // NOTE: If this is the actively edited row, EditingPlugin's onScrollRender() will inject editors
       }
     }
 
-    // Changed class toggle
-    const isChanged = grid._changedRowIndices.has(rowIndex);
+    // Changed class toggle - only if EditingPlugin has initialized the Set
+    const isChanged = grid._changedRowIndices?.has(rowIndex) ?? false;
     const hasChangedClass = rowEl.classList.contains('changed');
     if (isChanged !== hasChangedClass) {
       rowEl.classList.toggle('changed', isChanged);
@@ -507,7 +484,6 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
   const colsLen = columns.length;
   const focusRow = grid._focusRow;
   const focusCol = grid._focusCol;
-  const editMode = grid.effectiveConfig?.editOn || grid.editOn;
   const gridEl = grid as unknown as HTMLElement;
 
   // Use DocumentFragment for batch DOM insertion
@@ -524,7 +500,6 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     cell.setAttribute('data-col', String(colIndex));
     cell.setAttribute('data-row', String(rowIndex));
     cell.setAttribute('data-field', col.field); // Field name for column identification
-    const isCheckbox = col.type === 'boolean';
     if (col.type) cell.setAttribute('data-type', col.type);
 
     let value = (rowData as Record<string, unknown>)[col.field];
@@ -672,10 +647,11 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
 }
 
 /**
- * Handle click / double click interaction to focus cells and optionally start row editing
- * according to the grid's configured edit activation mode.
+ * Handle click / double click interaction to focus cells.
+ * Edit triggering is handled by EditingPlugin via onCellClick hook.
  */
-export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLElement, isDbl: boolean): void {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLElement, _isDbl: boolean): void {
   if ((e.target as HTMLElement)?.closest('.resize-handle')) return;
   const firstCell = rowEl.querySelector('.cell[data-row]') as HTMLElement | null;
   const rowIndex = getRowIndexFromCell(firstCell);
@@ -692,7 +668,7 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
   if (cellEl) {
     const colIndex = Number(cellEl.getAttribute('data-col'));
     if (!isNaN(colIndex)) {
-      // Dispatch to plugin system first - if handled, stop propagation
+      // Dispatch to plugin system first - if handled (e.g., edit triggered), stop propagation
       if (grid._dispatchCellClick?.(e, rowIndex, colIndex, cellEl)) {
         return;
       }
@@ -709,80 +685,17 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
           clearCellFocus(grid.shadowRoot ?? grid._bodyEl);
           cellEl.classList.add('cell-focus');
         }
-        return;
-      }
-
-      ensureCellVisible(grid);
-    }
-  }
-
-  // If this row is already in edit mode, don't re-render editors
-  // Just update focus if clicking an editable cell
-  const isRowAlreadyEditing = grid._activeEditRows === rowIndex;
-  if (isRowAlreadyEditing) {
-    // For single-click on already-editing row, just update focus to the clicked cell
-    if (cellEl) {
-      // Clear all cell-focus markers and set focus on the clicked cell
-      clearCellFocus(grid.shadowRoot ?? grid._bodyEl);
-      cellEl.classList.add('cell-focus');
-
-      queueMicrotask(() => {
-        const colIndex = Number(cellEl.getAttribute('data-col'));
-        const col = grid._visibleColumns[colIndex];
-        // If clicking an editable cell, focus its editor
-        if (col?.editable && cellEl.classList.contains('editing')) {
-          const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-          try {
-            editor?.focus({ preventScroll: true });
-          } catch {
-            /* empty */
-          }
-        }
-      });
-    }
-    return;
-  }
-
-  // Use cached editing state check (O(1) vs querySelector)
-  if (hasEditingCells(rowEl)) {
-    // If clicking (not double-clicking) on an already-editing row, do nothing
-    if (!isDbl) return;
-    // Double-click on editing row - clear editing classes
-    const children = rowEl.children;
-    for (let i = 0; i < children.length; i++) {
-      (children[i] as HTMLElement).classList.remove('editing');
-    }
-    clearEditingState(rowEl);
-  }
-  const rawMode = grid.effectiveConfig?.editOn ?? grid.editOn ?? 'dblClick';
-  // editOn: false disables all editing
-  if (rawMode === false) return;
-  // Normalize: accept both 'dblClick' and 'dblclick' (DOM event name)
-  const mode = rawMode === 'dblclick' ? 'dblClick' : rawMode;
-  if (mode === 'click' || (mode === 'dblClick' && isDbl)) {
-    // Use beginBulkEdit if available for consistent behavior with Enter key
-    if (typeof grid.beginBulkEdit === 'function') {
-      grid.beginBulkEdit(rowIndex);
-      return;
-    }
-    startRowEdit(grid, rowIndex, rowData);
-  } else return;
-  Array.from(rowEl.children).forEach((c, i: number) => {
-    const col = grid._visibleColumns[i];
-    // Skip focus - we'll focus the correct editor in the queueMicrotask below
-    if (col?.editable) inlineEnterEdit(grid, rowData, rowIndex, col, c as HTMLElement, true);
-  });
-  if (cellEl) {
-    queueMicrotask(() => {
-      const targetCell = rowEl.querySelector(`.cell[data-col="${grid._focusCol}"]`);
-      if (targetCell?.classList.contains('editing')) {
-        const editor = (targetCell as HTMLElement).querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+        // Focus the editor in the cell
+        const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
         try {
           editor?.focus({ preventScroll: true });
         } catch {
           /* empty */
         }
+        return;
       }
-    });
+
+      ensureCellVisible(grid);
+    }
   }
 }

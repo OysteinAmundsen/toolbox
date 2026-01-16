@@ -12,7 +12,6 @@ vi.mock('./columns', async (importOriginal) => {
   };
 });
 
-import { setupCellEventDelegation } from './event-delegation';
 import { handleRowClick, renderVisibleRows } from './rows';
 
 /**
@@ -157,23 +156,6 @@ describe('renderVisibleRows', () => {
     expect(rowEl.querySelector('[data-external-view]')).toBeTruthy();
   });
 
-  it('boolean cell toggles via space keydown', () => {
-    const g = makeGrid();
-    // Set up event delegation (required since handlers moved from per-cell to delegated)
-    const controller = new AbortController();
-    setupCellEventDelegation(g, g._bodyEl, controller.signal);
-
-    renderVisibleRows(g, 0, 1, 1);
-    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
-    const boolCell = rowEl.querySelector('.cell[data-col="2"]') as HTMLElement;
-    expect(g._rows[0].active).toBe(true);
-    boolCell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
-    expect(g._rows[0].active).toBe(false);
-
-    // Cleanup
-    controller.abort();
-  });
-
   it('shrinks row pool when fewer rows needed', () => {
     const g = makeGrid();
     renderVisibleRows(g, 0, 2, 1);
@@ -302,17 +284,6 @@ describe('handleRowClick', () => {
     expect(targetCell.classList.contains('editing')).toBe(false);
   });
 
-  it('enters edit on single click in click mode', () => {
-    const g = gridForClickMode('click');
-    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
-    const targetCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
-    const ev = new MouseEvent('click', { bubbles: true });
-    Object.defineProperty(ev, 'target', { value: targetCell });
-    handleRowClick(g, ev, rowEl, false);
-    expect(g._activeEditRows).toBe(0);
-    expect(targetCell.classList.contains('editing')).toBe(true);
-  });
-
   it('sets focus row and column on click', () => {
     const g = gridForClickMode('click');
     const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
@@ -334,16 +305,6 @@ describe('handleRowClick', () => {
     expect(g._activeEditRows).toBe(-1);
   });
 
-  it('enters edit on double click in dblClick mode', () => {
-    const g = gridForClickMode('dblClick');
-    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
-    const targetCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
-    const ev = new MouseEvent('dblclick', { bubbles: true });
-    Object.defineProperty(ev, 'target', { value: targetCell });
-    handleRowClick(g, ev, rowEl, true);
-    expect(g._activeEditRows).toBe(0);
-  });
-
   it('clears existing editing cells on double click', () => {
     const g = gridForClickMode('dblClick');
     const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
@@ -354,103 +315,5 @@ describe('handleRowClick', () => {
     handleRowClick(g, ev, rowEl, true);
     const editingCells = rowEl.querySelectorAll('.cell.editing');
     expect(editingCells.length).toBeGreaterThan(0);
-  });
-
-  it('starts row edit even when clicking non-cell row area', () => {
-    const g = gridForClickMode('click');
-    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
-    const ev = new MouseEvent('click', { bubbles: true });
-    Object.defineProperty(ev, 'target', { value: rowEl });
-    handleRowClick(g, ev, rowEl, false);
-    // Row edit starts but no cell focus since we didn't click a cell
-    expect(g._activeEditRows).toBe(0);
-    expect(g._focusRow).toBe(-1);
-    expect(g._focusCol).toBe(-1);
-  });
-
-  it('does not re-render editors when double-clicking same row already in edit mode', () => {
-    const g = gridForClickMode('dblClick');
-    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
-    const editableCell = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
-    const nonEditableCell = rowEl.querySelector('.cell[data-col="0"]') as HTMLElement;
-
-    // First double-click to enter edit mode
-    const ev1 = new MouseEvent('dblclick', { bubbles: true });
-    Object.defineProperty(ev1, 'target', { value: editableCell });
-    handleRowClick(g, ev1, rowEl, true);
-    expect(g._activeEditRows).toBe(0);
-
-    // Get reference to the input that was created
-    const originalInput = editableCell.querySelector('input');
-    expect(originalInput).toBeTruthy();
-
-    // Double-click on non-editable cell on same row
-    const ev2 = new MouseEvent('dblclick', { bubbles: true });
-    Object.defineProperty(ev2, 'target', { value: nonEditableCell });
-    handleRowClick(g, ev2, rowEl, true);
-
-    // Should still be in edit mode
-    expect(g._activeEditRows).toBe(0);
-
-    // The same input should still exist (not re-created)
-    const inputAfter = editableCell.querySelector('input');
-    expect(inputAfter).toBe(originalInput);
-  });
-
-  it('does not re-render editors when clicking editable cell on same row already in edit mode', () => {
-    const g = gridForClickMode('dblClick');
-    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
-    const cellA = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
-    const cellB = rowEl.querySelector('.cell[data-col="2"]') as HTMLElement;
-
-    // First double-click to enter edit mode on cell A
-    const ev1 = new MouseEvent('dblclick', { bubbles: true });
-    Object.defineProperty(ev1, 'target', { value: cellA });
-    handleRowClick(g, ev1, rowEl, true);
-    expect(g._activeEditRows).toBe(0);
-
-    // Get references to both inputs
-    const inputA = cellA.querySelector('input');
-    const inputB = cellB.querySelector('input');
-    expect(inputA).toBeTruthy();
-    expect(inputB).toBeTruthy();
-
-    // Double-click on editable cell B on same row
-    const ev2 = new MouseEvent('dblclick', { bubbles: true });
-    Object.defineProperty(ev2, 'target', { value: cellB });
-    handleRowClick(g, ev2, rowEl, true);
-
-    // Should still be in edit mode
-    expect(g._activeEditRows).toBe(0);
-
-    // Both inputs should still be the same DOM elements (not re-created)
-    expect(cellA.querySelector('input')).toBe(inputA);
-    expect(cellB.querySelector('input')).toBe(inputB);
-  });
-
-  it('updates focusCol when clicking an editing cell', () => {
-    const g = gridForClickMode('dblClick');
-    const rowEl = g._bodyEl.querySelector('.data-grid-row')!;
-    const cellA = rowEl.querySelector('.cell[data-col="1"]') as HTMLElement;
-    const cellB = rowEl.querySelector('.cell[data-col="2"]') as HTMLElement;
-
-    // Double-click on cell A to enter edit mode
-    const ev1 = new MouseEvent('dblclick', { bubbles: true });
-    Object.defineProperty(ev1, 'target', { value: cellA });
-    handleRowClick(g, ev1, rowEl, true);
-    expect(g._activeEditRows).toBe(0);
-    expect(g._focusCol).toBe(1);
-
-    // Click on cell B (which is now in editing state)
-    const ev2 = new MouseEvent('click', { bubbles: true });
-    Object.defineProperty(ev2, 'target', { value: cellB });
-    handleRowClick(g, ev2, rowEl, false);
-
-    // Focus should have moved to cell B
-    expect(g._focusCol).toBe(2);
-
-    // Cell B should have cell-focus class, cell A should not
-    expect(cellB.classList.contains('cell-focus')).toBe(true);
-    expect(cellA.classList.contains('cell-focus')).toBe(false);
   });
 });

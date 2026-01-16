@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.3.3...grid-0.4.0) (2026-01-16)
+
+
+### Features
+
+* **grid:** Moved editing capabilities out of core. This is now an opt-in plugin instead. ([4e1ee94](https://github.com/OysteinAmundsen/toolbox/commit/4e1ee94faee560c477993d65424b7e0058bba1a0))
+* **grid:** moved to a centralized configuration manager ([06286e7](https://github.com/OysteinAmundsen/toolbox/commit/06286e7d570f64592b3cd400d2e9b828b2de8d95))
+
+
+### Bug Fixes
+
+* **docs:** Examples for angular. ([2b9fdca](https://github.com/OysteinAmundsen/toolbox/commit/2b9fdcabf50f986e00a01d3dbf874189554e2d09))
+* **rendering:** plugins did not render correctly after refactor ([4dd6d12](https://github.com/OysteinAmundsen/toolbox/commit/4dd6d120396a87f767c8bdaeba54a8ddfe65729e))
+
+
+### Enhancements
+
+* **docs:** improved documentation with the opt-in and good and bad practice. ([605d951](https://github.com/OysteinAmundsen/toolbox/commit/605d9515f973356c3c68eaa4d160ceaa9f3dabe8))
+* **grid:** added a centralized rendering pipeline to prevent race conditions in rendering. ([8981998](https://github.com/OysteinAmundsen/toolbox/commit/898199873bd5691b020fe621a596c7fa43ce5707))
+* **grid:** added a non-intrusive debug log. ([16dc37a](https://github.com/OysteinAmundsen/toolbox/commit/16dc37a5cf5e8ad5658ff1a6d21f5010ee0e1275))
+* **grid:** increased typesafety and documentation ([bd63078](https://github.com/OysteinAmundsen/toolbox/commit/bd630784ecf3043ecb1a37ca2a3498d91ef4a20b))
+
 ## [0.3.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.3.2...grid-0.3.3) (2026-01-12)
 
 

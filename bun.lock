@@ -55,17 +55,17 @@
         "vitest": "4.0.16",
       },
     },
-    "apps/storybook-app": {
-      "name": "@toolbox/storybook-app",
+    "apps/docs": {
+      "name": "@toolbox/docs",
       "version": "0.0.1",
     },
     "libs/grid": {
       "name": "@toolbox-web/grid",
-      "version": "0.3.1",
+      "version": "0.3.3",
     },
     "libs/grid-angular": {
       "name": "@toolbox-web/grid-angular",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "devDependencies": {
         "@angular/build": "^21.0.4",
         "@angular/cli": "^21.0.4",
@@ -84,7 +84,7 @@
     },
     "libs/grid-react": {
       "name": "@toolbox-web/grid-react",
-      "version": "0.0.1",
+      "version": "0.0.3",
       "devDependencies": {
         "@toolbox-web/grid": ">=0.2.0",
         "@types/react": "^19.0.0",
@@ -1020,7 +1020,7 @@
 
     "@toolbox-web/grid-react": ["@toolbox-web/grid-react@workspace:libs/grid-react"],
 
-    "@toolbox/storybook-app": ["@toolbox/storybook-app@workspace:apps/storybook-app"],
+    "@toolbox/docs": ["@toolbox/docs@workspace:apps/docs"],
 
     "@trysound/sax": ["@trysound/sax@0.2.0", "", {}, "sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA=="],
 

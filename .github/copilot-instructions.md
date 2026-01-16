@@ -54,7 +54,7 @@ All libraries in this suite are built as **standard web components** (custom ele
 - **`libs/grid-angular/`** - Angular adapter library (`@toolbox-web/grid-angular`) with directives for template-driven column renderers/editors
 - **`libs/grid-react/`** - React adapter library (`@toolbox-web/grid-react`) with DataGrid component, hooks, and JSX renderer/editor support
 - **`libs/*/`** - Additional component libraries will follow same pure TypeScript + web standards pattern
-- **`apps/storybook-app/`** - Unified Storybook for all components with live HMR via Vite
+- **`apps/docs/`** - Storybook documentation site with live HMR via Vite
 - **`libs/themes/`** - Shared CSS theme system (currently Grid themes; will expand for suite-wide theming)
 - **`demos/employee-management/`** - Full-featured demo applications showcasing the grid:
   - `vanilla/` - Pure TypeScript/Vite demo (`demo-vanilla` project)
@@ -221,8 +221,8 @@ See `ARCHITECTURE.md` for detailed diagrams and `config-precedence.spec.ts` for 
 - **Demo stories**: `demos/employee-management/employee-management.stories.ts` for full-featured demo
 - **Live source imports**: `import '../src/index'` enables HMR without rebuilds
 - **Autodocs**: All stories auto-generate documentation pages from JSDoc comments
-- Run Storybook: `bun nx storybook` (port 4400)
-- Build Storybook: `bun nx build-storybook storybook-app` (outputs to `dist/storybook/`)
+- Run Storybook: `bun nx serve docs` (port 4400)
+- Build Storybook: `bun nx build docs` (outputs to `dist/docs/`)
 
 ### MDX Documentation
 
@@ -252,10 +252,10 @@ Key Doc Blocks:
 
 ```bash
 # Start Storybook with live reload
-bun nx storybook
+bun nx serve docs
 
 # Build Storybook (documentation site)
-bun nx build-storybook storybook-app
+bun nx build docs
 
 # Build grid library (Vite compilation)
 bun nx build grid

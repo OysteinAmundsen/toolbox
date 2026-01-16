@@ -4,7 +4,7 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/storybook-app"
+      "path": "./apps/docs"
     },
     {
       "path": "./libs/grid"

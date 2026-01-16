@@ -35,6 +35,7 @@
     },
     {
       "plugin": "@nx/storybook/plugin",
+      "exclude": ["apps/docs"],
       "options": {
         "serveStorybookTargetName": "storybook",
         "buildStorybookTargetName": "build-storybook",

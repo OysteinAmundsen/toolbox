@@ -1,21 +1,21 @@
 {
-  "name": "storybook-app",
+  "name": "docs",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "sourceRoot": "apps/storybook-app",
+  "sourceRoot": "apps/docs",
   "prefix": "toolbox",
-  "tags": ["type:app", "scope:storybook"],
+  "tags": ["type:app", "scope:docs"],
   "targets": {
     "build": {
       "executor": "nx:run-commands",
-      "outputs": ["dist/storybook"],
+      "outputs": ["{workspaceRoot}/dist/docs"],
       "options": {
-        "commands": ["nx run storybook-app:_build-storybook", "bun apps/storybook-app/scripts/generate-sitemap.ts"],
+        "commands": ["nx run docs:_build-storybook", "bun apps/docs/scripts/generate-sitemap.ts"],
         "parallel": false
       },
       "configurations": {
         "ci": {
-          "commands": ["nx run storybook-app:_build-storybook:ci", "bun apps/storybook-app/scripts/generate-sitemap.ts"]
+          "commands": ["nx run docs:_build-storybook:ci", "bun apps/docs/scripts/generate-sitemap.ts"]
         }
       }
     },
@@ -23,7 +23,7 @@
       "executor": "@nx/storybook:storybook",
       "options": {
         "port": 4400,
-        "configDir": "apps/storybook-app/.storybook"
+        "configDir": "apps/docs/.storybook"
       },
       "configurations": {
         "ci": {
@@ -35,8 +35,8 @@
       "executor": "@nx/storybook:build",
       "outputs": ["{options.outputDir}"],
       "options": {
-        "outputDir": "dist/storybook",
-        "configDir": "apps/storybook-app/.storybook"
+        "outputDir": "dist/docs",
+        "configDir": "apps/docs/.storybook"
       },
       "configurations": {
         "ci": {
@@ -48,7 +48,7 @@
       "executor": "@nx/web:file-server",
       "dependsOn": ["build"],
       "options": {
-        "staticFilePath": "dist/storybook",
+        "staticFilePath": "dist/docs",
         "spa": true
       }
     },
@@ -57,14 +57,14 @@
       "outputs": ["{options.reportsDirectory}"],
       "options": {
         "passWithNoTests": true,
-        "reportsDirectory": "../../coverage/apps/storybook-app"
+        "reportsDirectory": "../../coverage/apps/docs"
       }
     },
     "lint": {
       "executor": "@nx/eslint:eslint",
       "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["apps/storybook-app/**/*.{ts,tsx,js,jsx}"]
+        "lintFilePatterns": ["apps/docs/**/*.{ts,tsx,js,jsx}"]
       }
     }
   }

@@ -40,7 +40,7 @@ demos/
     vanilla/             # Pure TypeScript/Vite demo
     angular/             # Angular 21 demo
 apps/
-  storybook-app/  # Unified Storybook application
+  docs/           # Storybook documentation site
 ```
 
 ## Commit Convention

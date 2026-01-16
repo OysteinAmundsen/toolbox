@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.4.0...grid-0.4.1) (2026-01-16)
+
+
+### Enhancements
+
+* added plugin dependency manifest ([7daecc2](https://github.com/OysteinAmundsen/toolbox/commit/7daecc2f98cebe10d66eced951fa57f44ff6d95d))
+* **grid:** Added inter-plugin dependencies ([05f9f8e](https://github.com/OysteinAmundsen/toolbox/commit/05f9f8e2bc39be8ea9b39debfd09771542d21dbc))
+
 ## [0.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.3.3...grid-0.4.0) (2026-01-16)
 
 

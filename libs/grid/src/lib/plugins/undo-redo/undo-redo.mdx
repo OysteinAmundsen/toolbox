@@ -108,7 +108,7 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
@@ -119,10 +119,10 @@ import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
   template: `<tbw-grid #grid />`
 })
 export class EditableGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    this.gridRef()?.nativeElement.gridConfig = {
       columns: [
         { field: 'name', header: 'Name', editable: true },
         { field: 'price', header: 'Price', type: 'number', editable: true },
@@ -134,7 +134,7 @@ export class EditableGridComponent {
         new UndoRedoPlugin({ maxHistorySize: 50 }),
       ],
     };
-  }
+  });
 }
 ```
   </Tab>

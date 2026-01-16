@@ -117,7 +117,7 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA, Output, EventEmitter } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, output, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
 
@@ -127,11 +127,13 @@ import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
   template: `<tbw-grid #grid />`
 })
 export class DataGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
-  @Output() deleteRow = new EventEmitter<number>();
+  gridRef = viewChild<ElementRef>('grid');
+  deleteRow = output<number>();
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    const grid = this.gridRef()?.nativeElement;
+    if (!grid) return;
+    grid.gridConfig = {
       columns: [
         { field: 'name', header: 'Name' },
         { field: 'email', header: 'Email' },
@@ -141,14 +143,14 @@ export class DataGridComponent {
         new ContextMenuPlugin({
           items: [
             { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
-            { id: 'edit', label: 'Edit Row', action: (ctx) => this.gridRef.nativeElement.startEditing(ctx.rowIndex, ctx.colIndex) },
+            { id: 'edit', label: 'Edit Row', action: (ctx) => grid.startEditing(ctx.rowIndex, ctx.colIndex) },
             { type: 'separator' },
             { id: 'delete', label: 'Delete Row', action: (ctx) => this.deleteRow.emit(ctx.rowIndex) },
           ],
         }),
       ],
     };
-  }
+  });
 }
 ```
   </Tab>

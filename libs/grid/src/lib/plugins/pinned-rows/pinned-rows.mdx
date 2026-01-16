@@ -127,7 +127,7 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 
@@ -137,10 +137,10 @@ import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
   template: `<tbw-grid #grid />`
 })
 export class OrderGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    this.gridRef()?.nativeElement.gridConfig = {
       columns: [
         { field: 'product', header: 'Product' },
         { field: 'quantity', header: 'Qty', type: 'number' },
@@ -159,7 +159,7 @@ export class OrderGridComponent {
         }),
       ],
     };
-  }
+  });
 }
 ```
   </Tab>

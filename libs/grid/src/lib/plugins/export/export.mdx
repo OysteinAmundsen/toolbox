@@ -131,7 +131,7 @@ const handleExport = () => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 
@@ -144,10 +144,10 @@ import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
   `
 })
 export class DataGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    this.gridRef()?.nativeElement.gridConfig = {
       columns: [
         { field: 'name', header: 'Name' },
         { field: 'email', header: 'Email' },
@@ -161,11 +161,11 @@ export class DataGridComponent {
         }),
       ],
     };
-  }
+  });
 
   handleExport() {
-    const plugin = this.gridRef.nativeElement.getPlugin(ExportPlugin);
-    plugin.exportToCSV();
+    const plugin = this.gridRef()?.nativeElement.getPlugin(ExportPlugin);
+    plugin?.exportToCSV();
   }
 }
 ```

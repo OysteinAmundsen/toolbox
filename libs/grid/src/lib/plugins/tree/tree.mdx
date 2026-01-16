@@ -118,7 +118,7 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
 
@@ -128,11 +128,13 @@ import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
   template: `<tbw-grid #grid />`
 })
 export class FileExplorerComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
   files = [/* hierarchical data */];
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    const grid = this.gridRef()?.nativeElement;
+    if (!grid) return;
+    grid.gridConfig = {
       columns: [
         { field: 'name', header: 'Name' },
         { field: 'type', header: 'Type' },
@@ -145,8 +147,8 @@ export class FileExplorerComponent {
         }),
       ],
     };
-    this.gridRef.nativeElement.rows = this.files;
-  }
+    grid.rows = this.files;
+  });
 }
 ```
   </Tab>

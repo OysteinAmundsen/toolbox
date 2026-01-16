@@ -122,7 +122,7 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
 
@@ -132,10 +132,10 @@ import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
   template: `<tbw-grid #grid />`
 })
 export class OrderGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    this.gridRef()?.nativeElement.gridConfig = {
       columns: [
         { field: 'orderId', header: 'Order ID' },
         { field: 'customer', header: 'Customer' },
@@ -154,7 +154,7 @@ export class OrderGridComponent {
         }),
       ],
     };
-  }
+  });
 }
 ```
   </Tab>

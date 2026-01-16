@@ -107,7 +107,7 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
 
@@ -117,10 +117,10 @@ import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
   template: `<tbw-grid #grid />`
 })
 export class EmployeeGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    this.gridRef()?.nativeElement.gridConfig = {
       columns: [
         { field: 'name', header: 'Employee' },
         { field: 'department', header: 'Department' },
@@ -133,7 +133,7 @@ export class EmployeeGridComponent {
         }),
       ],
     };
-  }
+  });
 }
 ```
   </Tab>

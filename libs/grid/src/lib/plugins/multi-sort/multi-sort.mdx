@@ -108,7 +108,7 @@ const onSortChange = (e) => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 
@@ -118,10 +118,12 @@ import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
   template: `<tbw-grid #grid />`
 })
 export class SortableGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    const grid = this.gridRef()?.nativeElement;
+    if (!grid) return;
+    grid.gridConfig = {
       columns: [
         { field: 'name', header: 'Name', sortable: true },
         { field: 'department', header: 'Department', sortable: true },
@@ -132,10 +134,10 @@ export class SortableGridComponent {
       ],
     };
 
-    this.gridRef.nativeElement.addEventListener('sort-change', (e: CustomEvent) => {
+    grid.addEventListener('sort-change', (e: CustomEvent) => {
       console.log('Sort changed:', e.detail);
     });
-  }
+  });
 }
 ```
   </Tab>

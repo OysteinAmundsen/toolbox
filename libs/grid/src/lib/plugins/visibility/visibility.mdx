@@ -98,7 +98,7 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, ViewChild, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import '@toolbox-web/grid';
 import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
@@ -108,10 +108,10 @@ import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
   template: `<tbw-grid #grid />`
 })
 export class ConfigurableGridComponent {
-  @ViewChild('grid') gridRef!: ElementRef;
+  gridRef = viewChild<ElementRef>('grid');
 
-  ngAfterViewInit() {
-    this.gridRef.nativeElement.gridConfig = {
+  onGrid = effect(() => {
+    this.gridRef()?.nativeElement.gridConfig = {
       columns: [
         { field: 'id', header: 'ID' },
         { field: 'name', header: 'Name' },
@@ -120,7 +120,7 @@ export class ConfigurableGridComponent {
       ],
       plugins: [new VisibilityPlugin()],
     };
-  }
+  });
 }
 ```
   </Tab>

@@ -485,8 +485,12 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (animation === 'flip' && this.shadowRoot) {
       const oldPositions = this.captureHeaderPositions();
       gridEl.setColumnOrder(newOrder);
-      void (this.shadowRoot.host as HTMLElement).offsetHeight;
-      this.animateFLIP(oldPositions);
+      // Wait for the scheduler to process the virtual window update (RAF)
+      // before running FLIP animation on the new cells
+      requestAnimationFrame(() => {
+        void (this.shadowRoot?.host as HTMLElement)?.offsetHeight;
+        this.animateFLIP(oldPositions);
+      });
     } else if (animation === 'fade') {
       this.animateFade(() => gridEl.setColumnOrder(newOrder));
     } else {

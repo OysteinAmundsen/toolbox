@@ -31,5 +31,9 @@ export type {
 export { PluginManager } from './plugin-manager';
 // #endregion
 
+// #region Plugin Dependencies
+export type { PluginDependency } from './base-plugin';
+// #endregion
+
 // Re-export ColumnConfig for plugins that need it
 export type { ColumnConfig } from '../types';

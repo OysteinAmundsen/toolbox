@@ -13,7 +13,7 @@
  * Drag-drop emits 'column-reorder-request' events that the ReorderPlugin can listen for.
  */
 
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type PluginDependency } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import type { VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
@@ -63,6 +63,15 @@ interface GridWithVisibility {
  * ```
  */
 export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
+  /**
+   * Plugin dependencies - VisibilityPlugin optionally uses ReorderPlugin for drag-drop reordering.
+   *
+   * When ReorderPlugin is present, columns in the visibility panel become draggable.
+   */
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'reorder', required: false, reason: 'Enables drag-to-reorder columns in visibility panel' },
+  ];
+
   readonly name = 'visibility';
   override readonly version = '1.0.0';
 

@@ -5,7 +5,7 @@
  * Supports Ctrl+Z/Cmd+Z for undo and Ctrl+Y/Cmd+Y (or Ctrl+Shift+Z) for redo.
  */
 
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type PluginDependency } from '../../core/plugin/base-plugin';
 import { canRedo, canUndo, clearHistory, createEditAction, pushAction, redo, undo } from './history';
 import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
 
@@ -16,6 +16,15 @@ import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
  * or programmatic API.
  */
 export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
+  /**
+   * Plugin dependencies - UndoRedoPlugin requires EditingPlugin to track edits.
+   *
+   * The EditingPlugin must be loaded BEFORE this plugin in the plugins array.
+   */
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'editing', required: true, reason: 'UndoRedoPlugin tracks cell edit history' },
+  ];
+
   readonly name = 'undoRedo';
   override readonly version = '1.0.0';
 

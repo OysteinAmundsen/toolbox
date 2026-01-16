@@ -44,10 +44,10 @@
     "@angular/build": "^21.0.4",
     "@angular/cli": "^21.0.4",
     "@angular/compiler-cli": "^21.0.0",
-    "@toolbox-web/grid": ">=0.2.0"
+    "@toolbox-web/grid": ">=0.4.0"
   },
   "peerDependencies": {
     "@angular/core": ">=17.0.0",
-    "@toolbox-web/grid": ">=0.2.0"
+    "@toolbox-web/grid": ">=0.4.0"
   }
 }

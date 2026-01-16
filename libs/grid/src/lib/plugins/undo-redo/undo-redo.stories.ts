@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
 import type { GridElement } from '../../../public';
+import { EditingPlugin } from '../editing/EditingPlugin';
 import { UndoRedoPlugin } from './UndoRedoPlugin';
 
 // Import grid component
@@ -53,6 +54,7 @@ export const Default: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
 const grid = document.querySelector('tbw-grid');
@@ -64,6 +66,7 @@ grid.gridConfig = {
     { field: 'price', header: 'Price', type: 'number', editable: true },
   ],
   plugins: [
+    new EditingPlugin(),
     new UndoRedoPlugin({
       maxHistorySize: 100,
     }),
@@ -90,6 +93,7 @@ grid.rows = [
     grid.gridConfig = {
       columns,
       plugins: [
+        new EditingPlugin(),
         new UndoRedoPlugin({
           maxHistorySize: args.maxHistorySize,
         }),
@@ -114,6 +118,7 @@ export const LimitedHistory: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
 const grid = document.querySelector('tbw-grid');
@@ -125,6 +130,7 @@ grid.gridConfig = {
     { field: 'price', header: 'Price', type: 'number', editable: true },
   ],
   plugins: [
+    new EditingPlugin(),
     new UndoRedoPlugin({
       maxHistorySize: 20, // Limit history to 20 actions
     }),
@@ -152,6 +158,7 @@ grid.rows = [
     grid.gridConfig = {
       columns,
       plugins: [
+        new EditingPlugin(),
         new UndoRedoPlugin({
           maxHistorySize: args.maxHistorySize,
         }),

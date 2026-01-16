@@ -486,6 +486,62 @@ Override these methods in your plugin class (implement only what's needed):
 - `onKeyDown(event)` - Handle keyboard events; return `true` to prevent default
 - `renderRow(row, rowEl, rowIndex)` - Custom row rendering; return `true` to skip default
 
+### Plugin Dependencies
+
+Plugins can declare dependencies on other plugins using a static `dependencies` property. This enables runtime validation with helpful error messages when dependencies are missing.
+
+**Declaring Dependencies:**
+
+```typescript
+import { BaseGridPlugin, type PluginDependency } from '@toolbox-web/grid';
+
+export class MyPlugin extends BaseGridPlugin<MyConfig> {
+  /**
+   * Declare dependencies on other plugins.
+   * Use `override` since it overrides the base class property.
+   */
+  static override readonly dependencies: PluginDependency[] = [
+    // Required dependency - throws error if missing
+    { name: 'editing', required: true, reason: 'MyPlugin tracks edit history' },
+    // Optional dependency - logs info if missing, continues working
+    { name: 'selection', required: false, reason: 'Enables advanced selection features' },
+  ];
+
+  readonly name = 'myPlugin';
+  readonly version = '1.0.0';
+  // ... rest of plugin
+}
+```
+
+**Dependency Types:**
+
+| Property   | Type      | Default | Description                                    |
+| ---------- | --------- | ------- | ---------------------------------------------- |
+| `name`     | `string`  | -       | Plugin name (matches `plugin.name` property)   |
+| `required` | `boolean` | `true`  | Hard dependency throws, soft logs info message |
+| `reason`   | `string`  | -       | Human-readable explanation shown in errors     |
+
+**Built-in Plugin Dependencies:**
+
+| Plugin             | Depends On        | Required | Reason                                      |
+| ------------------ | ----------------- | -------- | ------------------------------------------- |
+| `UndoRedoPlugin`   | `EditingPlugin`   | Yes      | Tracks cell edit history                    |
+| `ClipboardPlugin`  | `SelectionPlugin` | Yes      | Needs selection to know what cells to copy  |
+| `VisibilityPlugin` | `ReorderPlugin`   | No       | Enables drag-to-reorder in visibility panel |
+
+**Plugin Order Matters:**
+
+Dependencies must be loaded **before** the dependent plugin:
+
+```typescript
+// ✅ Correct - EditingPlugin loaded before UndoRedoPlugin
+plugins: [new EditingPlugin(), new UndoRedoPlugin()];
+
+// ❌ Wrong - UndoRedoPlugin loaded before its dependency
+plugins: [new UndoRedoPlugin(), new EditingPlugin()];
+// Throws: "[tbw-grid] Plugin dependency error: UndoRedoPlugin tracks cell edit history..."
+```
+
 ### Type Exports
 
 The `index.ts` barrel file exports the plugin class and types:

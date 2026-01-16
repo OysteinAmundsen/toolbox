@@ -79,18 +79,6 @@ const meta: Meta = {
       description: 'Enable column resizing',
       table: { category: 'Features' },
     },
-    editable: {
-      control: 'boolean',
-      description: 'Enable cell editing',
-      table: { category: 'Features' },
-    },
-    editOn: {
-      control: { type: 'radio' },
-      options: ['click', 'dblClick'],
-      description: 'Edit trigger mode',
-      table: { category: 'Features' },
-      if: { arg: 'editable' },
-    },
   },
   args: {
     rowCount: 100,
@@ -100,8 +88,6 @@ const meta: Meta = {
     visibleColumns: [...ALL_COLUMNS],
     sortable: true,
     resizable: true,
-    editable: true,
-    editOn: 'dblClick',
   },
 };
 export default meta;
@@ -114,15 +100,13 @@ interface GridArgs {
   visibleColumns: ColumnKey[];
   sortable: boolean;
   resizable: boolean;
-  editable: boolean;
-  editOn: 'click' | 'dblClick';
 }
 type Story = StoryObj<GridArgs>;
 
 // Column definitions factory
 function buildColumnDefs(
   visibleColumns: ColumnKey[],
-  opts: { sortable: boolean; resizable: boolean; editable: boolean },
+  opts: { sortable: boolean; resizable: boolean; },
 ): ColumnConfig[] {
   const columnDefs: Record<ColumnKey, ColumnConfig> = {
     id: { field: 'id', header: 'ID', type: 'number', sortable: opts.sortable, resizable: opts.resizable },
@@ -131,16 +115,14 @@ function buildColumnDefs(
       header: 'Name',
       sortable: opts.sortable,
       resizable: opts.resizable,
-      editable: opts.editable,
     },
-    active: { field: 'active', header: 'Active', type: 'boolean', sortable: opts.sortable, editable: opts.editable },
+    active: { field: 'active', header: 'Active', type: 'boolean', sortable: opts.sortable},
     score: {
       field: 'score',
       header: 'Score',
       type: 'number',
       sortable: opts.sortable,
       resizable: opts.resizable,
-      editable: opts.editable,
     },
     created: { field: 'created', header: 'Created', type: 'date', sortable: opts.sortable, resizable: opts.resizable },
     role: {
@@ -148,7 +130,6 @@ function buildColumnDefs(
       header: 'Role',
       type: 'select',
       sortable: opts.sortable,
-      editable: opts.editable,
       options: [
         { label: 'Admin', value: 'admin' },
         { label: 'User', value: 'user' },
@@ -191,7 +172,7 @@ function generateRows(count: number) {
  * - Arrow keys: Move focus between cells
  * - Enter: Start editing / confirm edit
  * - Escape: Cancel editing
- * - Tab/Shift+Tab: Move to next/previous editable cell
+ * - Tab/Shift+Tab: Move to next/previous cell
  * - Home/End: Jump to first/last column
  * - Ctrl+Home/End: Jump to first/last row
  * - Page Up/Down: Scroll by page
@@ -215,16 +196,15 @@ grid.editOn = 'dblClick';
 
 grid.columns = [
   { field: 'id', header: 'ID', type: 'number', sortable: true, resizable: true },
-  { field: 'name', header: 'Name', sortable: true, resizable: true, editable: true },
-  { field: 'active', header: 'Active', type: 'boolean', sortable: true, editable: true },
-  { field: 'score', header: 'Score', type: 'number', sortable: true, resizable: true, editable: true },
+  { field: 'name', header: 'Name', sortable: true, resizable: true },
+  { field: 'active', header: 'Active', type: 'boolean', sortable: true },
+  { field: 'score', header: 'Score', type: 'number', sortable: true, resizable: true },
   { field: 'created', header: 'Created', type: 'date', sortable: true, resizable: true },
   {
     field: 'role',
     header: 'Role',
     type: 'select',
     sortable: true,
-    editable: true,
     options: [
       { label: 'Admin', value: 'admin' },
       { label: 'User', value: 'user' },
@@ -255,7 +235,6 @@ grid.addEventListener('cell-commit', (e) => {
     const columns = buildColumnDefs(args.visibleColumns, {
       sortable: args.sortable,
       resizable: args.resizable,
-      editable: args.editable,
     });
 
     // Set props BEFORE grid is connected to DOM for single render pass
@@ -296,8 +275,6 @@ export const ColumnInference: Story = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editable: { table: { disable: true } },
-    editOn: { table: { disable: true } },
   },
   parameters: {
     docs: {
@@ -362,7 +339,6 @@ export const LightDOMColumns: Story = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editOn: { table: { disable: true } },
   },
   parameters: {
     docs: {
@@ -370,9 +346,9 @@ export const LightDOMColumns: Story = {
         code: `
 <!-- HTML -->
 <tbw-grid>
-  <tbw-grid-column field="name" header="Name" sortable editable resizable></tbw-grid-column>
-  <tbw-grid-column field="score" header="Score" type="number" sortable editable></tbw-grid-column>
-  <tbw-grid-column field="role" header="Role" type="select" editable options="admin:Admin,user:User,guest:Guest"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Name" sortable resizable></tbw-grid-column>
+  <tbw-grid-column field="score" header="Score" type="number" sortable></tbw-grid-column>
+  <tbw-grid-column field="role" header="Role" type="select" options="admin:Admin,user:User,guest:Guest"></tbw-grid-column>
 </tbw-grid>
 
 <script type="module">
@@ -391,13 +367,13 @@ grid.rows = [
       },
     },
   },
-  render: (args: GridArgs) => {
+  render: () => {
     const host = document.createElement('div');
     host.innerHTML = `
 <tbw-grid style="height: 300px;">
-  <tbw-grid-column field="name" header="Name" sortable ${args.editable ? 'editable' : ''} resizable></tbw-grid-column>
-  <tbw-grid-column field="score" header="Score" type="number" sortable ${args.editable ? 'editable' : ''}></tbw-grid-column>
-  <tbw-grid-column field="role" header="Role" type="select" ${args.editable ? 'editable' : ''} options="admin:Admin,user:User,guest:Guest"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Name" sortable resizable></tbw-grid-column>
+  <tbw-grid-column field="score" header="Score" type="number" sortable></tbw-grid-column>
+  <tbw-grid-column field="role" header="Role" type="select" options="admin:Admin,user:User,guest:Guest"></tbw-grid-column>
 </tbw-grid>`;
     const grid = host.querySelector('tbw-grid') as GridElement;
 
@@ -426,8 +402,6 @@ export const CustomFormatters: Story = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editable: { table: { disable: true } },
-    editOn: { table: { disable: true } },
   },
   parameters: {
     docs: {
@@ -758,8 +732,6 @@ export const ShellBasic: StoryObj<ShellArgs> = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editable: { table: { disable: true } },
-    editOn: { table: { disable: true } },
     showTitle: {
       control: 'boolean',
       description: 'Show title in shell header',
@@ -966,8 +938,6 @@ export const ShellLightDOMConfig: StoryObj = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editable: { table: { disable: true } },
-    editOn: { table: { disable: true } },
   },
   parameters: {
     docs: {
@@ -1037,7 +1007,6 @@ export const ShellMultiplePanels: StoryObj = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editable: { table: { disable: true } },
     editOn: { table: { disable: true } },
   },
   render: () => {
@@ -1195,8 +1164,6 @@ export const ShellToolbarButtons: StoryObj = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editable: { table: { disable: true } },
-    editOn: { table: { disable: true } },
   },
   parameters: {
     docs: {
@@ -1296,8 +1263,6 @@ export const ShellLeftPanelPosition: StoryObj = {
     visibleColumns: { table: { disable: true } },
     sortable: { table: { disable: true } },
     resizable: { table: { disable: true } },
-    editable: { table: { disable: true } },
-    editOn: { table: { disable: true } },
   },
   parameters: {
     docs: {

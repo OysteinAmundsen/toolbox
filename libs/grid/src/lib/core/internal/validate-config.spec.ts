@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { BaseGridPlugin } from '../plugin';
 import type { GridConfig } from '../types';
-import { validatePluginProperties } from './validate-config';
+import { validatePluginDependencies, validatePluginProperties } from './validate-config';
 
 // Mock plugins for testing
 const mockEditingPlugin: BaseGridPlugin = {
@@ -325,6 +325,197 @@ describe('validatePluginProperties', () => {
       expect(() => {
         validatePluginProperties(config, [mockEditingPlugin]);
       }).not.toThrow(/EditingPlugin/);
+    });
+  });
+});
+// Mock plugins for dependency testing - using classes to support static dependencies
+
+/** Mock plugin with static dependencies - simulates UndoRedoPlugin requiring EditingPlugin */
+class MockUndoRedoPlugin {
+  static readonly dependencies = [{ name: 'editing', required: true, reason: 'UndoRedoPlugin tracks edit history' }];
+  readonly name = 'undoRedo';
+  readonly version = '1.0.0';
+  attach() {
+    /* noop */
+  }
+  detach() {
+    /* noop */
+  }
+}
+
+/** Mock plugin with static dependencies - simulates ClipboardPlugin requiring SelectionPlugin */
+class MockClipboardPlugin {
+  static readonly dependencies = [
+    { name: 'selection', required: true, reason: 'ClipboardPlugin needs cell selection' },
+  ];
+  readonly name = 'clipboard';
+  readonly version = '1.0.0';
+  attach() {
+    /* noop */
+  }
+  detach() {
+    /* noop */
+  }
+}
+
+/** Mock plugin with static optional dependency - simulates VisibilityPlugin optionally using ReorderPlugin */
+class MockVisibilityPlugin {
+  static readonly dependencies = [{ name: 'reorder', required: false, reason: 'Enables drag-to-hide column feature' }];
+  readonly name = 'visibility';
+  readonly version = '1.0.0';
+  attach() {
+    /* noop */
+  }
+  detach() {
+    /* noop */
+  }
+}
+
+/** Mock plugin with no dependencies */
+class MockSelectionPlugin {
+  readonly name = 'selection';
+  readonly version = '1.0.0';
+  attach() {
+    /* noop */
+  }
+  detach() {
+    /* noop */
+  }
+}
+
+/** Mock plugin with no dependencies */
+class MockReorderPlugin {
+  readonly name = 'reorder';
+  readonly version = '1.0.0';
+  attach() {
+    /* noop */
+  }
+  detach() {
+    /* noop */
+  }
+}
+
+// Create instances for tests
+const mockUndoRedoPlugin = new MockUndoRedoPlugin() as unknown as BaseGridPlugin;
+const mockClipboardPlugin = new MockClipboardPlugin() as unknown as BaseGridPlugin;
+const mockVisibilityPlugin = new MockVisibilityPlugin() as unknown as BaseGridPlugin;
+const mockSelectionPlugin = new MockSelectionPlugin() as unknown as BaseGridPlugin;
+const mockReorderPlugin = new MockReorderPlugin() as unknown as BaseGridPlugin;
+
+describe('validatePluginDependencies', () => {
+  describe('hard dependencies (required)', () => {
+    it('throws when UndoRedoPlugin is used without EditingPlugin', () => {
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, []);
+      }).toThrow(/Plugin dependency error/);
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, []);
+      }).toThrow(/UndoRedoPlugin tracks edit history/);
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, []);
+      }).toThrow(/EditingPlugin/);
+    });
+
+    it('does not throw when UndoRedoPlugin is used with EditingPlugin', () => {
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, [mockEditingPlugin]);
+      }).not.toThrow();
+    });
+
+    it('throws when ClipboardPlugin is used without SelectionPlugin', () => {
+      expect(() => {
+        validatePluginDependencies(mockClipboardPlugin, []);
+      }).toThrow(/Plugin dependency error/);
+      expect(() => {
+        validatePluginDependencies(mockClipboardPlugin, []);
+      }).toThrow(/ClipboardPlugin needs cell selection/);
+    });
+
+    it('does not throw when ClipboardPlugin is used with SelectionPlugin', () => {
+      expect(() => {
+        validatePluginDependencies(mockClipboardPlugin, [mockSelectionPlugin]);
+      }).not.toThrow();
+    });
+
+    it('includes helpful import hints in error message', () => {
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, []);
+      }).toThrow(/@toolbox-web\/grid\/plugins\/editing/);
+    });
+
+    it('includes plugin order guidance in error message', () => {
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, []);
+      }).toThrow(/BEFORE UndoRedoPlugin/);
+    });
+  });
+
+  describe('soft dependencies (optional)', () => {
+    it('does not throw when VisibilityPlugin is used without ReorderPlugin', () => {
+      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {
+        /* intentionally empty - suppress console output */
+      });
+
+      expect(() => {
+        validatePluginDependencies(mockVisibilityPlugin, []);
+      }).not.toThrow();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('logs info message for missing optional dependency', () => {
+      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {
+        /* intentionally empty - suppress console output */
+      });
+
+      validatePluginDependencies(mockVisibilityPlugin, []);
+
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Optional "reorder" plugin not found'));
+
+      consoleSpy.mockRestore();
+    });
+
+    it('does not log when optional dependency is present', () => {
+      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => {
+        /* intentionally empty - suppress console output */
+      });
+
+      validatePluginDependencies(mockVisibilityPlugin, [mockReorderPlugin]);
+
+      expect(consoleSpy).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('plugins without dependencies', () => {
+    it('does not throw for plugins with no dependencies', () => {
+      // Plugins without static dependencies property - should just pass through
+      expect(() => {
+        validatePluginDependencies(mockEditingPlugin, []);
+      }).not.toThrow();
+
+      expect(() => {
+        validatePluginDependencies(mockSelectionPlugin, []);
+      }).not.toThrow();
+    });
+  });
+
+  describe('correct plugin order', () => {
+    it('validates that dependency is already loaded', () => {
+      // Simulating: plugins: [EditingPlugin, UndoRedoPlugin]
+      // When UndoRedoPlugin is being attached, EditingPlugin should already be in the array
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, [mockEditingPlugin]);
+      }).not.toThrow();
+    });
+
+    it('fails when dependency is not yet loaded', () => {
+      // Simulating: plugins: [UndoRedoPlugin, EditingPlugin]
+      // When UndoRedoPlugin is being attached, EditingPlugin is NOT yet in the array
+      expect(() => {
+        validatePluginDependencies(mockUndoRedoPlugin, []);
+      }).toThrow(/Plugin dependency error/);
     });
   });
 });

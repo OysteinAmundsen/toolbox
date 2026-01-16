@@ -13,7 +13,7 @@
  * - includeHeaders: false → value only
  */
 
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type PluginDependency } from '../../core/plugin/base-plugin';
 import { buildClipboardText, copyToClipboard } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
 import type { ClipboardConfig, CopyDetail, PasteDetail } from './types';
@@ -27,6 +27,15 @@ import type { ClipboardConfig, CopyDetail, PasteDetail } from './types';
  * ```
  */
 export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
+  /**
+   * Plugin dependencies - ClipboardPlugin requires SelectionPlugin to know what to copy.
+   *
+   * The SelectionPlugin must be loaded BEFORE this plugin in the plugins array.
+   */
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'selection', required: true, reason: 'ClipboardPlugin needs selection to determine what cells to copy' },
+  ];
+
   readonly name = 'clipboard';
   override readonly version = '1.0.0';
 

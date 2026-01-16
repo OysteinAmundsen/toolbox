@@ -10,6 +10,7 @@
  * add FilteringPlugin before GroupingRowsPlugin in the array.
  */
 
+import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
 import type {
   BaseGridPlugin,
@@ -65,9 +66,13 @@ export class PluginManager {
 
   /**
    * Attach a plugin to this grid.
-   * Notifies other plugins of the new attachment via onPluginAttached hook.
+   * Validates dependencies and notifies other plugins of the new attachment.
    */
   attach(plugin: BaseGridPlugin): void {
+    // Validate plugin dependencies BEFORE attaching
+    // This throws if a required dependency is missing
+    validatePluginDependencies(plugin, this.plugins);
+
     // Store by constructor for type-safe lookup
     this.pluginMap.set(plugin.constructor as new (...args: unknown[]) => BaseGridPlugin, plugin);
     this.plugins.push(plugin);

@@ -74,12 +74,68 @@ export interface PluginHeaderRenderContext {
   colIndex: number;
 }
 
+// ============================================================================
+// Plugin Dependency Types
+// ============================================================================
+
+/**
+ * Declares a dependency on another plugin.
+ *
+ * @example
+ * ```typescript
+ * export class UndoRedoPlugin extends BaseGridPlugin {
+ *   static readonly dependencies: PluginDependency[] = [
+ *     { name: 'editing', required: true },
+ *   ];
+ * }
+ * ```
+ */
+export interface PluginDependency {
+  /**
+   * The name of the required plugin (matches the plugin's `name` property).
+   * Use string names for loose coupling - avoids static imports.
+   */
+  name: string;
+
+  /**
+   * Whether this dependency is required (hard) or optional (soft).
+   * - `true`: Plugin cannot function without it. Throws error if missing.
+   * - `false`: Plugin works with reduced functionality. Logs info if missing.
+   * @default true
+   */
+  required?: boolean;
+
+  /**
+   * Human-readable reason for this dependency.
+   * Shown in error/info messages to help users understand why.
+   * @example "UndoRedoPlugin needs EditingPlugin to track cell edits"
+   */
+  reason?: string;
+}
+
 /**
  * Abstract base class for all grid plugins.
  *
  * @template TConfig - Configuration type for the plugin
  */
 export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
+  /**
+   * Plugin dependencies - declare other plugins this one requires.
+   *
+   * Dependencies are validated when the plugin is attached.
+   * Required dependencies throw an error if missing.
+   * Optional dependencies log an info message if missing.
+   *
+   * @example
+   * ```typescript
+   * static readonly dependencies: PluginDependency[] = [
+   *   { name: 'editing', required: true, reason: 'Tracks cell edits for undo/redo' },
+   *   { name: 'selection', required: false, reason: 'Enables selection-based undo' },
+   * ];
+   * ```
+   */
+  static readonly dependencies?: PluginDependency[];
+
   /** Unique plugin identifier (derived from class name by default) */
   abstract readonly name: string;
 

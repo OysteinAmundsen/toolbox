@@ -94,6 +94,49 @@ const PLUGIN_OWNED_CONFIG_PROPERTIES: PluginConfigPropertyDefinition[] = [
   },
 ];
 
+// ============================================================================
+// Plugin-to-Plugin Dependencies
+// ============================================================================
+
+/**
+ * Plugin-to-plugin dependency definition.
+ * Each entry defines what plugins require other plugins.
+ */
+interface PluginDependencyDefinition {
+  /** The dependent plugin name (the one that needs the dependency) */
+  pluginName: string;
+  /** The required plugin name (the one being depended upon) */
+  requiresPlugin: string;
+  /** Is this a hard (required) or soft (optional) dependency? */
+  required: boolean;
+  /** Human-readable description for error messages */
+  description: string;
+  /** Import path hint for the error message */
+  importHint: string;
+}
+
+/**
+ * Registry of plugin-to-plugin dependencies.
+ * This is a fallback for backward compatibility with older plugins.
+ *
+ * **Preferred approach**: Plugins should declare dependencies using `static dependencies`
+ * on their class. See UndoRedoPlugin, ClipboardPlugin, VisibilityPlugin for examples.
+ *
+ * Hard dependencies (required: true) throw an error if not satisfied.
+ * Soft dependencies (required: false) log an info message but continue.
+ */
+const PLUGIN_DEPENDENCIES: PluginDependencyDefinition[] = [
+  // Built-in plugins now declare their own dependencies via static class property.
+  // This registry is kept empty but available for backward compatibility.
+];
+
+/**
+ * Helper to capitalize a plugin name for display.
+ */
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 /**
  * Check if a plugin with the given name is present in the plugins array.
  */
@@ -188,5 +231,115 @@ export function validatePluginProperties<T>(config: GridConfig<T>, plugins: read
         `This validation helps catch misconfigurations early. ` +
         `The properties listed above require their respective plugins to function.`,
     );
+  }
+}
+// ============================================================================
+// Plugin Dependency Validation
+// ============================================================================
+
+/**
+ * Map of known plugin names to their npm import paths.
+ * Used to generate helpful error messages with import hints.
+ */
+const PLUGIN_IMPORT_HINTS: Record<string, string> = {
+  editing: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
+  selection: "import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';",
+  reorder: "import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';",
+  clipboard: "import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';",
+  filtering: "import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';",
+  multiSort: "import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';",
+  groupingRows: "import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';",
+  groupingColumns: "import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';",
+  tree: "import { TreePlugin } from '@toolbox-web/grid/plugins/tree';",
+  masterDetail: "import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';",
+  pinnedColumns: "import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';",
+  pinnedRows: "import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';",
+  visibility: "import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';",
+  undoRedo: "import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';",
+  export: "import { ExportPlugin } from '@toolbox-web/grid/plugins/export';",
+  contextMenu: "import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';",
+  pivot: "import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';",
+  serverSide: "import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';",
+  columnVirtualization: "import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';",
+};
+
+/**
+ * Get the import hint for a plugin, with a fallback for unknown plugins.
+ */
+function getImportHint(pluginName: string): string {
+  return (
+    PLUGIN_IMPORT_HINTS[pluginName] ??
+    `import { ${capitalize(pluginName)}Plugin } from '@toolbox-web/grid/plugins/${pluginName}';`
+  );
+}
+
+/**
+ * Validate plugin-to-plugin dependencies.
+ * Called by PluginManager when attaching a new plugin.
+ *
+ * Dependencies are read from the plugin's static `dependencies` property.
+ * Falls back to the centralized PLUGIN_DEPENDENCIES registry for built-in plugins
+ * that haven't been updated yet.
+ *
+ * For hard dependencies (required: true), throws an error if the dependency is not loaded.
+ * For soft dependencies (required: false), logs an info message but continues.
+ *
+ * @param plugin - The plugin instance being attached
+ * @param loadedPlugins - The array of already-loaded plugins
+ * @throws Error if a required dependency is missing
+ */
+export function validatePluginDependencies(plugin: BaseGridPlugin, loadedPlugins: readonly BaseGridPlugin[]): void {
+  const pluginName = plugin.name;
+  const PluginClass = plugin.constructor as typeof BaseGridPlugin;
+
+  // Get dependencies from plugin's static property (preferred)
+  const classDeps = PluginClass.dependencies ?? [];
+
+  // Get dependencies from centralized registry (fallback for backward compatibility)
+  const registryDeps = PLUGIN_DEPENDENCIES.filter((d) => d.pluginName === pluginName);
+
+  // Combine: class dependencies take precedence, registry fills in gaps
+  const allDeps = new Map<string, { required: boolean; reason?: string }>();
+
+  // Add registry deps first (lower priority)
+  for (const dep of registryDeps) {
+    allDeps.set(dep.requiresPlugin, {
+      required: dep.required,
+      reason: dep.description,
+    });
+  }
+
+  // Add class deps (higher priority - overwrites registry)
+  for (const dep of classDeps) {
+    allDeps.set(dep.name, {
+      required: dep.required ?? true, // Default to required
+      reason: dep.reason,
+    });
+  }
+
+  // Validate each dependency
+  for (const [requiredPlugin, { required, reason }] of allDeps) {
+    const hasRequired = loadedPlugins.some((p) => p.name === requiredPlugin);
+
+    if (!hasRequired) {
+      const reasonText = reason ?? `${capitalize(pluginName)}Plugin requires ${capitalize(requiredPlugin)}Plugin`;
+      const importHint = getImportHint(requiredPlugin);
+
+      if (required) {
+        throw new Error(
+          `[tbw-grid] Plugin dependency error:\n\n` +
+            `${reasonText}.\n\n` +
+            `  → Add the plugin to your gridConfig.plugins array BEFORE ${capitalize(pluginName)}Plugin:\n` +
+            `    ${importHint}\n` +
+            `    plugins: [new ${capitalize(requiredPlugin)}Plugin(), new ${capitalize(pluginName)}Plugin()]`,
+        );
+      } else {
+        // Soft dependency - log info message but continue
+        console.info(
+          `[tbw-grid] ${capitalize(pluginName)}Plugin: Optional "${requiredPlugin}" plugin not found. ` +
+            `Some features may be unavailable.`,
+        );
+      }
+    }
   }
 }

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.3...grid-react-0.0.4) (2026-01-16)
+
+
+### Bug Fixes
+
+* **rendering:** plugins did not render correctly after refactor ([4dd6d12](https://github.com/OysteinAmundsen/toolbox/commit/4dd6d120396a87f767c8bdaeba54a8ddfe65729e))
+
+
+### Enhancements
+
+* **grid:** increased typesafety and documentation ([bd63078](https://github.com/OysteinAmundsen/toolbox/commit/bd630784ecf3043ecb1a37ca2a3498d91ef4a20b))
+
 ## [0.0.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.2...grid-react-0.0.3) (2026-01-12)
 
 

@@ -72,7 +72,7 @@ export function clearEditingState(rowEl: RowElementInternal): void {
  */
 function getInputValue(
   input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
-  column?: ColumnConfig<unknown>,
+  column?: ColumnConfig<any>,
 ): unknown {
   if (input instanceof HTMLInputElement) {
     if (input.type === 'checkbox') return input.checked;

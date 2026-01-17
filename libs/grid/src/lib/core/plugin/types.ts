@@ -317,9 +317,15 @@ export interface GridElementRef {
 
   /**
    * Get all columns including hidden ones.
-   * Returns field, header, visibility status, and lock state.
+   * Returns field, header, visibility status, lock state, and utility flag.
    */
-  getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }>;
+  getAllColumns(): Array<{
+    field: string;
+    header: string;
+    visible: boolean;
+    lockVisible?: boolean;
+    utility?: boolean;
+  }>;
 
   /**
    * Set visibility for a specific column.

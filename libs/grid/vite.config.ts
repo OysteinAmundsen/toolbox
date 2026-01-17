@@ -230,7 +230,7 @@ export default defineConfig(({ command }) => ({
       entryRoot: 'src',
       tsconfigPath: resolve(__dirname, 'tsconfig.lib.json'),
       rollupTypes: false, // Disable type bundling to avoid import() resolution errors
-      skipDiagnostics: true,
+      skipDiagnostics: false, // Fail build on TypeScript errors
     }),
     // Only run build-specific plugins during actual build, not during tests
     ...(command === 'build' ? [copyThemes(), copyReadme(), buildPluginModules(), buildUmdBundles()] : []),

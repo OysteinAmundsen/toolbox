@@ -1208,19 +1208,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Track focus state via data attribute (shadow DOM doesn't reliably support :focus-within)
     // Listen on shadow root to catch focus events from shadow DOM elements
-    this.#shadow.addEventListener(
+    // Cast to EventTarget since TypeScript's lib.dom doesn't include focus events on ShadowRoot
+    (this.#shadow as EventTarget).addEventListener(
       'focusin',
       () => {
         this.dataset.hasFocus = '';
       },
       { signal: scrollSignal },
     );
-    this.#shadow.addEventListener(
+    (this.#shadow as EventTarget).addEventListener(
       'focusout',
-      (e: FocusEvent) => {
+      (e) => {
         // Only remove if focus is leaving the grid entirely
         // relatedTarget is null when focus leaves the document, or the new focus target
-        const newFocus = e.relatedTarget as Node | null;
+        const newFocus = (e as FocusEvent).relatedTarget as Node | null;
         if (!newFocus || !this.#shadow.contains(newFocus)) {
           delete this.dataset.hasFocus;
         }

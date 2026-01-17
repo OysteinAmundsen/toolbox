@@ -12,8 +12,23 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
-      release:
-        description: "Trigger release jobs (build storybook, deploy pages, publish npm)"
+      deploy_pages:
+        description: "Build and deploy Storybook to GitHub Pages"
+        required: false
+        type: boolean
+        default: true
+      publish_grid:
+        description: "Publish @toolbox-web/grid to npm"
+        required: false
+        type: boolean
+        default: false
+      publish_grid_react:
+        description: "Publish @toolbox-web/grid-react to npm"
+        required: false
+        type: boolean
+        default: false
+      publish_grid_angular:
+        description: "Publish @toolbox-web/grid-angular to npm"
         required: false
         type: boolean
         default: false
@@ -169,7 +184,7 @@ jobs:
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -209,7 +224,7 @@ jobs:
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     environment:
       name: github-pages
@@ -226,7 +241,7 @@ jobs:
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -272,7 +287,7 @@ jobs:
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_angular_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_angular == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -318,7 +333,7 @@ jobs:
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_react_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.release == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_react == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
     runs-on: ubuntu-latest

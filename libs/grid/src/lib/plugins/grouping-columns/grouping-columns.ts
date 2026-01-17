@@ -128,7 +128,7 @@ export function applyGroupedHeaderCellClasses(
  * Build the group header row element.
  *
  * @param groups - The computed column groups
- * @param columns - The column configurations
+ * @param columns - The column configurations (final array including any plugin-added columns)
  * @returns The group header row element, or null if no groups
  */
 export function buildGroupHeaderRow(groups: ColumnGroup[], columns: ColumnConfig[]): HTMLElement | null {
@@ -139,7 +139,12 @@ export function buildGroupHeaderRow(groups: ColumnGroup[], columns: ColumnConfig
   groupRow.setAttribute('role', 'row');
 
   for (const g of groups) {
-    const startIndex = g.firstIndex != null ? g.firstIndex : columns.findIndex((c) => g.columns.includes(c));
+    // Always compute start index from the current columns array, not stored firstIndex.
+    // This accounts for plugin-added columns (e.g., expander) that weren't present
+    // when the groups were initially computed during processColumns.
+    const firstGroupCol = g.columns[0];
+    const startIndex = firstGroupCol ? columns.findIndex((c) => c.field === firstGroupCol.field) : -1;
+    if (startIndex === -1) continue; // Group columns not in final column list
 
     const isImplicit = String(g.id).startsWith('__implicit__');
     const label = isImplicit ? '' : g.label || g.id;

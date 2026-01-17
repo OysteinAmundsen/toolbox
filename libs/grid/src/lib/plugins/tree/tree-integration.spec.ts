@@ -230,20 +230,16 @@ describe('tree plugin integration', () => {
     dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
     expect(dataRows?.length).toBe(6);
 
-    // Check that row order is correct by checking first cell of each row
-    const firstCells = Array.from(dataRows!).map((row) =>
-      row.querySelector('.cell[data-col="0"]')?.textContent?.trim(),
-    );
+    // Check that row order is correct by checking the name column (data-col="0" since tree wraps first column)
+    const nameCells = Array.from(dataRows!).map((row) => {
+      // The tree-cell-wrapper contains a .tree-content span with the actual text
+      const cell = row.querySelector('.cell[data-col="0"]');
+      const treeContent = cell?.querySelector('.tree-content');
+      return treeContent?.textContent?.trim() ?? cell?.textContent?.trim();
+    });
 
-    // The name should appear after the tree toggle icon
-    expect(firstCells).toEqual([
-      expect.stringContaining('Documents'),
-      expect.stringContaining('Resume.pdf'),
-      expect.stringContaining('Cover Letter.docx'),
-      expect.stringContaining('Projects'),
-      expect.stringContaining('Pictures'),
-      expect.stringContaining('readme.md'),
-    ]);
+    // The name should appear in the first column (tree wraps first column)
+    expect(nameCells).toEqual(['Documents', 'Resume.pdf', 'Cover Letter.docx', 'Projects', 'Pictures', 'readme.md']);
   });
 
   describe('TreePlugin public API', () => {
@@ -415,8 +411,12 @@ describe('tree plugin integration', () => {
       const dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
       expect(dataRows?.length).toBeGreaterThan(0);
 
-      // Find the tree toggle
-      const toggle = grid.shadowRoot?.querySelector('.tree-toggle') as HTMLElement;
+      // With wrap-first-column approach, tree toggle is inside the first column's cell
+      const firstCell = grid.shadowRoot?.querySelector('.data-grid-row .cell[data-col="0"]') as HTMLElement;
+      expect(firstCell).not.toBeNull();
+
+      // Find the tree toggle inside the first cell's tree-cell-wrapper
+      const toggle = firstCell?.querySelector('.tree-toggle') as HTMLElement;
       expect(toggle).toBeDefined();
       expect(toggle).not.toBeNull();
 

@@ -390,8 +390,9 @@
   background: var(--tbw-resize-handle-color-hover);
 }
 
-:host .cell-focus,
-:host .row-focus {
+/* Only show focus styling when grid has focus (data attribute set via JS) */
+:host([data-has-focus]) .cell-focus,
+:host([data-has-focus]) .row-focus {
   outline: var(--tbw-focus-outline);
   outline-offset: var(--tbw-focus-outline-offset);
 }

@@ -230,13 +230,14 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return pivotColumns;
   }
 
-  override renderRow(row: Record<string, unknown>, rowEl: HTMLElement): boolean {
+  override renderRow(row: Record<string, unknown>, rowEl: HTMLElement, rowIndex: number): boolean {
     const pivotRow = row as PivotRowData;
 
     // Handle pivot group row (has children)
     if (pivotRow.__pivotRowKey && pivotRow.__pivotHasChildren) {
       return renderPivotGroupRow(pivotRow, rowEl, {
         columns: this.gridColumns,
+        rowIndex,
         onToggle: (key) => this.toggle(key),
         resolveIcon: (iconKey) => this.resolveIcon(iconKey),
         setIcon: (el, icon) => this.setIcon(el, icon),
@@ -245,7 +246,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Handle pivot leaf row (no children but in pivot mode)
     if (pivotRow.__pivotRowKey !== undefined && this.isActive) {
-      return renderPivotLeafRow(pivotRow, rowEl, this.gridColumns);
+      return renderPivotLeafRow(pivotRow, rowEl, this.gridColumns, rowIndex);
     }
 
     // Clean up any leftover pivot styling from pooled row elements
@@ -277,6 +278,25 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       // Clear the row content so the default renderer can rebuild it
       rowEl.innerHTML = '';
     }
+  }
+
+  override onKeyDown(event: KeyboardEvent): boolean | void {
+    // SPACE toggles expansion on pivot group rows
+    if (event.key !== ' ') return;
+    if (!this.isActive) return;
+
+    const focusRow = this.grid._focusRow;
+    const row = this.rows[focusRow] as Record<string, unknown> | undefined;
+
+    // Only handle SPACE on pivot group rows with children
+    if (!row?.__pivotIsGroup || !row.__pivotHasChildren) return;
+
+    event.preventDefault();
+    this.toggle(row.__pivotRowKey as string);
+
+    // Restore focus styling after render completes via render pipeline
+    this.requestRenderWithFocus();
+    return true;
   }
 
   override afterRender(): void {

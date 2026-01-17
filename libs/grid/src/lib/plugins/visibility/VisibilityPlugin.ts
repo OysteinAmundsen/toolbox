@@ -228,7 +228,13 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * Useful for building visibility UI.
    * @returns Array of column info with visibility status
    */
-  getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }> {
+  getAllColumns(): Array<{
+    field: string;
+    header: string;
+    visible: boolean;
+    lockVisible?: boolean;
+    utility?: boolean;
+  }> {
     return this.grid.getAllColumns();
   }
 
@@ -302,7 +308,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     columnList.innerHTML = '';
 
     // getAllColumns() now returns columns in their effective display order
-    const allColumns = this.grid.getAllColumns();
+    // Filter out utility columns (e.g., expander column) as they're internal
+    const allColumns = this.grid.getAllColumns().filter((c) => !c.utility);
 
     for (let i = 0; i < allColumns.length; i++) {
       const col = allColumns[i];

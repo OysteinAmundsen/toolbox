@@ -7,13 +7,6 @@
 import type { ExpandCollapseAnimation } from '../../core/types';
 export type { ExpandCollapseAnimation } from '../../core/types';
 
-/** View renderer function with optional marker for master-detail-wrapped renderers */
-export interface MasterDetailWrappedRenderer {
-  (ctx: { value: unknown; row: Record<string, unknown>; column: unknown }): Node | string | null;
-  /** Marker to prevent double-wrapping */
-  __masterDetailWrapped?: boolean;
-}
-
 /** Configuration options for the master-detail plugin */
 export interface MasterDetailConfig {
   /** Renderer function that returns detail content for a row */

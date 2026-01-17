@@ -551,18 +551,21 @@ describe('masterDetail', () => {
       expect(result).toEqual(columns);
     });
 
-    it('should wrap first column renderer when detailRenderer is configured', () => {
+    it('should prepend expander column when detailRenderer is configured', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
       plugin.attach(createMockGrid());
 
       const columns = [{ field: 'name' }, { field: 'age' }];
       const result = plugin.processColumns(columns);
 
+      expect(result.length).toBe(3); // expander + 2 original
+      expect(result[0].field).toBe('__tbw_expander');
       expect(result[0].viewRenderer).toBeDefined();
-      expect((result[0].viewRenderer as any).__masterDetailWrapped).toBe(true);
+      expect(result[1].field).toBe('name');
+      expect(result[2].field).toBe('age');
     });
 
-    it('should not double-wrap an already wrapped renderer', () => {
+    it('should not add duplicate expander column', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
       plugin.attach(createMockGrid());
 
@@ -570,10 +573,12 @@ describe('masterDetail', () => {
       const result1 = plugin.processColumns(columns);
       const result2 = plugin.processColumns(result1);
 
-      expect(result2[0].viewRenderer).toBe(result1[0].viewRenderer);
+      // Should not add another expander column
+      expect(result2.length).toBe(3);
+      expect(result2[0].field).toBe('__tbw_expander');
     });
 
-    it('should render toggle icon in wrapped renderer', () => {
+    it('should render toggle icon in expander column', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
       plugin.attach(createMockGrid([{ name: 'John' }]));
 
@@ -581,7 +586,7 @@ describe('masterDetail', () => {
       const result = plugin.processColumns(columns);
 
       const element = result[0].viewRenderer!({
-        value: 'John',
+        value: undefined,
         row: { name: 'John' },
         rowIndex: 0,
         column: result[0],
@@ -590,11 +595,11 @@ describe('masterDetail', () => {
 
       expect(element).toBeInstanceOf(HTMLElement);
       const container = element as HTMLElement;
-      expect(container.className).toBe('master-detail-cell-wrapper');
+      expect(container.className).toContain('expander-cell');
       expect(container.querySelector('.master-detail-toggle')).not.toBeNull();
     });
 
-    it('should use original renderer output for cell content', () => {
+    it('should not affect original column renderers', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
       plugin.attach(createMockGrid([{ name: 'Jane' }]));
 
@@ -608,38 +613,17 @@ describe('masterDetail', () => {
       const columns = [{ field: 'name', viewRenderer: originalRenderer }, { field: 'age' }];
       const result = plugin.processColumns(columns);
 
-      const element = result[0].viewRenderer!({
+      // Original column is now at index 1
+      const element = result[1].viewRenderer!({
         value: 'Jane',
         row: { name: 'Jane' },
         rowIndex: 0,
-        column: result[0],
-        colIndex: 0,
+        column: result[1],
+        colIndex: 1,
       }) as HTMLElement;
 
-      const customContent = element.querySelector('.custom-content');
-      expect(customContent).not.toBeNull();
-      expect(customContent?.textContent).toBe('Name: Jane');
-    });
-
-    it('should handle original renderer returning string', () => {
-      const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
-      plugin.attach(createMockGrid([{ name: 'Bob' }]));
-
-      const originalRenderer = (ctx: any) => `Formatted: ${ctx.value}`;
-
-      const columns = [{ field: 'name', viewRenderer: originalRenderer }, { field: 'age' }];
-      const result = plugin.processColumns(columns);
-
-      const element = result[0].viewRenderer!({
-        value: 'Bob',
-        row: { name: 'Bob' },
-        rowIndex: 0,
-        column: result[0],
-        colIndex: 0,
-      }) as HTMLElement;
-
-      const spans = element.querySelectorAll('span');
-      expect(spans[1].textContent).toBe('Formatted: Bob');
+      expect(element.className).toBe('custom-content');
+      expect(element.textContent).toBe('Name: Jane');
     });
 
     it('should set aria attributes on toggle', () => {
@@ -649,8 +633,9 @@ describe('masterDetail', () => {
       const columns = [{ field: 'name' }];
       const result = plugin.processColumns(columns);
 
+      // Expander column is at index 0
       const element = result[0].viewRenderer!({
-        value: 'Test',
+        value: undefined,
         row: { name: 'Test' },
         rowIndex: 0,
         column: result[0],
@@ -675,8 +660,9 @@ describe('masterDetail', () => {
       const columns = [{ field: 'name' }];
       const result = plugin.processColumns(columns);
 
+      // Expander column is at index 0
       const element = result[0].viewRenderer!({
-        value: 'Expanded',
+        value: undefined,
         row,
         rowIndex: 0,
         column: result[0],
@@ -697,8 +683,9 @@ describe('masterDetail', () => {
       const columns = [{ field: 'name' }];
       const result = plugin.processColumns(columns);
 
+      // Expander column is at index 0
       const cellEl = result[0].viewRenderer!({
-        value: 'Test',
+        value: undefined,
         row,
         rowIndex: 0,
         column: result[0],
@@ -710,8 +697,8 @@ describe('masterDetail', () => {
       plugin.onCellClick({
         rowIndex: 0,
         colIndex: 0,
-        field: 'name',
-        value: 'Test',
+        field: '__tbw_expander',
+        value: undefined,
         row,
         cellEl,
         originalEvent: { target: toggle } as unknown as MouseEvent,

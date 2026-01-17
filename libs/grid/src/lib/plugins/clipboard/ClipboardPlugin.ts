@@ -9,6 +9,7 @@
  */
 
 import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
+import { isUtilityColumn } from '../../core/plugin/expander-column';
 import { copyToClipboard } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
 import {
@@ -254,6 +255,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   /**
    * Build text for a rectangular range of cells.
+   * Utility columns (like expander columns) are automatically excluded.
    */
   #buildRangeText(range: { startRow: number; startCol: number; endRow: number; endCol: number }): {
     text: string;
@@ -270,8 +272,8 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const newline = this.config.newline ?? '\n';
     const lines: string[] = [];
 
-    // Get columns in the range
-    const rangeColumns = this.columns.slice(minCol, maxCol + 1);
+    // Get columns in the range, excluding utility columns (expander, etc.)
+    const rangeColumns = this.columns.slice(minCol, maxCol + 1).filter((col) => !isUtilityColumn(col));
 
     // Add header row if configured
     if (this.config.includeHeaders) {

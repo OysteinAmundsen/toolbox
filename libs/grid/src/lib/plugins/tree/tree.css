@@ -1,7 +1,34 @@
-.tree-cell {
+/* Expander column data cells - always first, borderless right edge */
+.cell[data-field='__tbw_expander'] {
+  border-right: none !important;
+  padding: 0;
   display: flex;
   align-items: center;
-  padding-left: calc(var(--tree-depth, 0) * var(--tbw-tree-indent, 20px));
+  justify-content: flex-start;
+}
+
+/* Expander column header - completely hidden */
+.header-row .cell[data-field='__tbw_expander'] {
+  visibility: hidden;
+  border: none !important;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The column after the expander should visually extend into the expander header space */
+.header-row .cell[data-field='__tbw_expander'] + .cell {
+  margin-left: -32px;
+  padding-left: calc(var(--tbw-cell-padding, 8px) + 32px);
+}
+
+/* Tree expander cell with indentation */
+.tree-expander {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .tree-toggle {
@@ -10,7 +37,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-right: 4px;
 }
 .tree-toggle:hover {
   color: var(--tbw-tree-accent, var(--tbw-color-accent));

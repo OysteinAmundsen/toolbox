@@ -114,13 +114,21 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       e.preventDefault();
       break;
     // NOTE: Enter key is handled by EditingPlugin. If no plugin handles it,
-    // we dispatch an activate-cell event for custom handling but don't block navigation.
-    case 'Enter':
-      (grid as unknown as HTMLElement).dispatchEvent(
-        new CustomEvent('activate-cell', { detail: { row: grid._focusRow, col: grid._focusCol } }),
-      );
-      // Don't prevent default or return - allow normal keyboard processing
+    // we dispatch a cancelable activate-cell event for custom handling.
+    case 'Enter': {
+      const event = new CustomEvent('activate-cell', {
+        cancelable: true,
+        detail: { row: grid._focusRow, col: grid._focusCol },
+      });
+      (grid as unknown as HTMLElement).dispatchEvent(event);
+      // If consumer prevented, block further keyboard processing
+      if (event.defaultPrevented) {
+        e.preventDefault();
+        return;
+      }
+      // Otherwise allow normal keyboard processing
       break;
+    }
     default:
       return;
   }
@@ -172,7 +180,12 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
   const vEnd = grid._virtualization.end ?? grid._rows.length;
   if (rowIndex >= vStart && rowIndex < vEnd) {
     const rowEl = grid._bodyEl.querySelectorAll('.data-grid-row')[rowIndex - vStart] as HTMLElement | null;
-    const cell = rowEl?.children[grid._focusCol] as HTMLElement | undefined;
+    // Try exact column match first, then query by data-col, then fallback to first cell (for full-width group rows)
+    let cell = rowEl?.children[grid._focusCol] as HTMLElement | undefined;
+    if (!cell || !cell.classList?.contains('cell')) {
+      cell = (rowEl?.querySelector(`.cell[data-col="${grid._focusCol}"]`) ??
+        rowEl?.querySelector('.cell[data-col]')) as HTMLElement | undefined;
+    }
     if (cell) {
       cell.classList.add('cell-focus');
       cell.setAttribute('aria-selected', 'true');

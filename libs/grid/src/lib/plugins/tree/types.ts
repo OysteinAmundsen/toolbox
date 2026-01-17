@@ -10,13 +10,6 @@ export type { ExpandCollapseAnimation } from '../../core/types';
 /** Generic tree row with dynamic property access */
 export type TreeRow = Record<string, unknown>;
 
-/** View renderer function with optional marker for tree-wrapped renderers */
-export interface TreeWrappedRenderer {
-  (ctx: { value: unknown; row: Record<string, unknown>; column: unknown }): Node | string | null;
-  /** Marker to prevent double-wrapping */
-  __treeWrapped?: boolean;
-}
-
 /** Configuration options for the tree plugin */
 export interface TreeConfig {
   /** Field name containing child rows (default: 'children') */

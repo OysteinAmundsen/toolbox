@@ -4,7 +4,7 @@ import { ConfigManager } from './internal/config-manager';
 import { setupCellEventDelegation } from './internal/event-delegation';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
-import { handleGridKeyDown } from './internal/keyboard';
+import { ensureCellVisible, handleGridKeyDown } from './internal/keyboard';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
@@ -284,6 +284,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Focus & navigation
   _focusRow = 0;
   _focusCol = 0;
+  /** Flag to restore focus styling after next render. @internal */
+  _restoreFocusAfterRender = false;
 
   // Sort state
   _sortState: { field: string; direction: 1 | -1 } | null = null;
@@ -460,6 +462,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           this.__didInitialAutoSize = true;
           autoSizeColumns(this);
         }
+        // Restore focus styling if requested by a plugin
+        if (this._restoreFocusAfterRender) {
+          this._restoreFocusAfterRender = false;
+          ensureCellVisible(this);
+        }
+        // Set up row height observer after first render (rows are now in DOM)
+        if (this._virtualization.enabled && !this.#rowHeightObserverSetup) {
+          this.#setupRowHeightObserver();
+        }
       },
       isConnected: () => this.isConnected && this.#connected,
     });
@@ -597,6 +608,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   requestRender(): void {
     this.#scheduler.requestPhase(RenderPhase.ROWS, 'plugin:requestRender');
+  }
+
+  /**
+   * Request a full re-render and restore focus styling afterward.
+   * Use this when a plugin action (like expand/collapse) triggers a render
+   * but needs to maintain keyboard navigation focus.
+   * @internal Plugin API
+   */
+  requestRenderWithFocus(): void {
+    this._restoreFocusAfterRender = true;
+    this.#scheduler.requestPhase(RenderPhase.ROWS, 'plugin:requestRenderWithFocus');
   }
 
   /**
@@ -1181,35 +1203,64 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this._virtualization.enabled) {
       // Schedule initial virtualization through scheduler
       this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'init-virtualization');
-      // Set up row height observer after first render
-      queueMicrotask(() => this.#setupRowHeightObserver());
+      // Row height observer is set up in afterRender callback when rows are in DOM
     }
+
+    // Track focus state via data attribute (shadow DOM doesn't reliably support :focus-within)
+    // Listen on shadow root to catch focus events from shadow DOM elements
+    this.#shadow.addEventListener(
+      'focusin',
+      () => {
+        this.dataset.hasFocus = '';
+      },
+      { signal: scrollSignal },
+    );
+    this.#shadow.addEventListener(
+      'focusout',
+      (e: FocusEvent) => {
+        // Only remove if focus is leaving the grid entirely
+        // relatedTarget is null when focus leaves the document, or the new focus target
+        const newFocus = e.relatedTarget as Node | null;
+        if (!newFocus || !this.#shadow.contains(newFocus)) {
+          delete this.dataset.hasFocus;
+        }
+      },
+      { signal: scrollSignal },
+    );
   }
 
   /**
-   * Set up ResizeObserver on first row's cells to detect height changes.
-   * Called after rows are rendered to observe the actual content cells.
-   * Handles dynamic CSS loading, lazy images, font loading, etc.
+   * Set up ResizeObserver on first row to detect height changes.
+   * Called after rows are rendered to observe the actual content.
+   * Handles dynamic CSS loading, lazy images, font loading, column virtualization, etc.
    */
   #rowHeightObserverSetup = false; // Only set up once per lifecycle
   #setupRowHeightObserver(): void {
     // Only set up once - row height measurement is one-time during initialization
     if (this.#rowHeightObserverSetup) return;
 
-    const firstRow = this._bodyEl?.querySelector('.data-grid-row');
+    const firstRow = this._bodyEl?.querySelector('.data-grid-row') as HTMLElement | null;
     if (!firstRow) return;
 
     this.#rowHeightObserverSetup = true;
     this.#rowHeightObserver?.disconnect();
 
-    const cells = firstRow.querySelectorAll('.cell');
-    if (cells.length > 0) {
-      this.#rowHeightObserver = new ResizeObserver(() => {
-        this.#measureRowHeight();
-      });
-      // Observe all cells - any one might have a custom renderer that changes size
-      cells.forEach((cell) => this.#rowHeightObserver!.observe(cell));
-    }
+    // Observe the row element itself, not individual cells.
+    // This catches all height changes including:
+    // - Custom renderers that push cell height
+    // - Column virtualization adding/removing columns
+    // - Dynamic content loading (images, fonts)
+    this.#rowHeightObserver = new ResizeObserver(() => {
+      this.#measureRowHeight();
+    });
+    this.#rowHeightObserver.observe(firstRow);
+
+    // Measure row height after a paint cycle to ensure custom renderers have fully rendered.
+    // ResizeObserver only fires on size changes, not initial size, and custom renderers
+    // may not have painted their content yet when this function is first called.
+    requestAnimationFrame(() => {
+      this.#measureRowHeight();
+    });
   }
 
   // ---------------- Event Emitters ----------------
@@ -1436,27 +1487,26 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
       // If plugins modified visible columns, update them
       if (processedColumns !== visibleCols) {
-        // Build a map of processed columns by field for quick lookup
-        const processedMap = new Map(processedColumns.map((c: any, i: number) => [c.field, { col: c, order: i }]));
+        // Build sets for quick lookup
+        const sourceFields = new Set(visibleCols.map((c) => c.field));
+        const processedFields = new Set(processedColumns.map((c: any) => c.field));
 
         // Check if this is a complete column replacement (e.g., pivot mode)
         // If no processed columns match original columns, use processed columns directly
-        const hasMatchingFields = visibleCols.some((c) => processedMap.has(c.field));
+        const hasMatchingFields = visibleCols.some((c) => processedFields.has(c.field));
 
         if (!hasMatchingFields && processedColumns.length > 0) {
           // Complete replacement: use processed columns directly (pivot mode)
           // Preserve hidden columns at the end
           this._columns = [...processedColumns, ...hiddenCols] as ColumnInternal<T>[];
         } else {
-          // Plugins returned original fields (possibly modified) - merge back
-          // Use source columns as base, not current _columns
-          const updatedColumns = sourceColumns.map((c) => {
-            if (c.hidden) return c; // Keep hidden columns unchanged
-            const processed = processedMap.get(c.field);
-            return processed ? processed.col : c;
-          });
-
-          this._columns = updatedColumns as ColumnInternal<T>[];
+          // Plugins may have:
+          // 1. Modified existing columns
+          // 2. Added new columns (e.g., expander column)
+          // 3. Reordered columns
+          // We trust the plugin's output order and include all columns they returned
+          // plus any hidden columns at the end
+          this._columns = [...processedColumns, ...hiddenCols] as ColumnInternal<T>[];
         }
       } else {
         // Plugins returned columns unchanged, but we may need to restore from base
@@ -1892,7 +1942,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.requestStateChange();
   }
 
-  getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }> {
+  getAllColumns(): Array<{
+    field: string;
+    header: string;
+    visible: boolean;
+    lockVisible?: boolean;
+    utility?: boolean;
+  }> {
     return this.#configManager.getAllColumns();
   }
 

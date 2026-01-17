@@ -41,12 +41,27 @@ export function formatBooleanValue(value: unknown): string {
 
 /**
  * Get the row index from a cell element's data-row attribute.
+ * Falls back to calculating from parent row's DOM position if data-row is missing.
  * Returns -1 if no valid row index is found.
  */
 export function getRowIndexFromCell(cell: Element | null): number {
   if (!cell) return -1;
   const attr = cell.getAttribute('data-row');
-  return attr ? parseInt(attr, 10) : -1;
+  if (attr) return parseInt(attr, 10);
+
+  // Fallback: find the parent .data-grid-row and calculate index from siblings
+  const rowEl = cell.closest('.data-grid-row');
+  if (!rowEl) return -1;
+
+  const parent = rowEl.parentElement;
+  if (!parent) return -1;
+
+  // Get all data-grid-row siblings and find this row's index
+  const rows = parent.querySelectorAll(':scope > .data-grid-row');
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i] === rowEl) return i;
+  }
+  return -1;
 }
 
 /**

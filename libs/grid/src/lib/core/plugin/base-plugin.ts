@@ -297,10 +297,29 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
+   * Emit a cancelable custom event from the grid.
+   * @returns `true` if the event was cancelled (preventDefault called), `false` otherwise
+   */
+  protected emitCancelable<T>(eventName: string, detail: T): boolean {
+    const event = new CustomEvent(eventName, { detail, bubbles: true, cancelable: true });
+    this.grid?.dispatchEvent?.(event);
+    return event.defaultPrevented;
+  }
+
+  /**
    * Request a re-render of the grid.
    */
   protected requestRender(): void {
     this.grid?.requestRender?.();
+  }
+
+  /**
+   * Request a re-render and restore focus styling afterward.
+   * Use this when a plugin action (like expand/collapse) triggers a render
+   * but needs to maintain keyboard navigation focus.
+   */
+  protected requestRenderWithFocus(): void {
+    this.grid?.requestRenderWithFocus?.();
   }
 
   /**

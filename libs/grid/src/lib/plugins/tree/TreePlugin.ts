@@ -5,18 +5,11 @@
  */
 
 import { BaseGridPlugin, CellClickEvent, HeaderClickEvent } from '../../core/plugin/base-plugin';
-import type { ColumnConfig } from '../../core/types';
+import type { ColumnConfig, ColumnViewRenderer } from '../../core/types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
-import type {
-  ExpandCollapseAnimation,
-  FlattenedTreeRow,
-  TreeConfig,
-  TreeExpandDetail,
-  TreeRow,
-  TreeWrappedRenderer,
-} from './types';
+import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandDetail, TreeRow } from './types';
 
 interface GridWithSortState {
   _sortState?: { field: string; direction: 1 | -1 } | null;
@@ -209,54 +202,61 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     const cols = [...columns] as ColumnConfig[];
     if (cols.length === 0) return cols;
 
-    const firstCol = { ...cols[0] };
-    const original = firstCol.viewRenderer as TreeWrappedRenderer | undefined;
-    if (original?.__treeWrapped) return cols;
-
+    // Wrap the first column's renderer to add tree indentation and expand icons
+    // This is the correct approach for trees because:
+    // 1. Indentation can grow naturally with depth
+    // 2. Expand icons appear inline with content
+    // 3. Works with column reordering (icons stay with first visible column)
+    const firstCol = cols[0];
+    const originalRenderer = firstCol.viewRenderer;
     const getConfig = () => this.config;
     const setIcon = this.setIcon.bind(this);
     const resolveIcon = this.resolveIcon.bind(this);
 
-    const wrapped: TreeWrappedRenderer = (ctx) => {
-      const { value, row } = ctx;
+    const wrappedRenderer: ColumnViewRenderer = (ctx) => {
+      const { row, value } = ctx;
       const { indentWidth = 20, showExpandIcons = true } = getConfig();
       const treeRow = row as TreeRow;
+      const depth = treeRow.__treeDepth ?? 0;
 
       const container = document.createElement('span');
-      container.className = 'tree-cell';
-      container.style.setProperty('--tree-depth', String(treeRow.__treeDepth ?? 0));
-      container.style.setProperty('--tbw-tree-indent', `${indentWidth}px`);
+      container.className = 'tree-cell-wrapper';
+      container.style.paddingLeft = `${Number(depth) * indentWidth}px`;
 
-      if (treeRow.__treeHasChildren && showExpandIcons) {
-        const icon = document.createElement('span');
-        icon.className = `tree-toggle${treeRow.__treeExpanded ? ' expanded' : ''}`;
-        setIcon(icon, resolveIcon(treeRow.__treeExpanded ? 'collapse' : 'expand'));
-        icon.setAttribute('data-tree-key', String(treeRow.__treeKey ?? ''));
-        container.appendChild(icon);
-      } else if (showExpandIcons) {
-        const spacer = document.createElement('span');
-        spacer.className = 'tree-spacer';
-        container.appendChild(spacer);
+      // Add expand/collapse icon or spacer
+      if (showExpandIcons) {
+        if (treeRow.__treeHasChildren) {
+          const icon = document.createElement('span');
+          icon.className = `tree-toggle${treeRow.__treeExpanded ? ' expanded' : ''}`;
+          setIcon(icon, resolveIcon(treeRow.__treeExpanded ? 'collapse' : 'expand'));
+          icon.setAttribute('data-tree-key', String(treeRow.__treeKey ?? ''));
+          container.appendChild(icon);
+        } else {
+          const spacer = document.createElement('span');
+          spacer.className = 'tree-spacer';
+          container.appendChild(spacer);
+        }
       }
 
+      // Add the original content
       const content = document.createElement('span');
-      if (original) {
-        const rendered = original(ctx);
-        if (rendered instanceof Node) {
-          content.appendChild(rendered);
-        } else {
-          content.textContent = String(rendered ?? value ?? '');
+      content.className = 'tree-content';
+      if (originalRenderer) {
+        const result = originalRenderer(ctx);
+        if (result instanceof Node) {
+          content.appendChild(result);
+        } else if (typeof result === 'string') {
+          content.innerHTML = result;
         }
       } else {
-        content.textContent = String(value ?? '');
+        content.textContent = value != null ? String(value) : '';
       }
       container.appendChild(content);
+
       return container;
     };
 
-    wrapped.__treeWrapped = true;
-    firstCol.viewRenderer = wrapped;
-    cols[0] = firstCol;
+    cols[0] = { ...firstCol, viewRenderer: wrappedRenderer };
     return cols;
   }
 
@@ -269,17 +269,39 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     if (!target?.classList.contains('tree-toggle')) return false;
 
     const key = target.getAttribute('data-tree-key');
-    const flatRow = key ? this.rowKeyMap.get(key) : null;
+    if (!key) return false;
+
+    const flatRow = this.rowKeyMap.get(key);
     if (!flatRow) return false;
 
-    this.expandedKeys = toggleExpand(this.expandedKeys, key!);
+    this.expandedKeys = toggleExpand(this.expandedKeys, key);
     this.emit<TreeExpandDetail>('tree-expand', {
-      key: key!,
+      key,
       row: flatRow.data,
-      expanded: this.expandedKeys.has(key!),
+      expanded: this.expandedKeys.has(key),
       depth: flatRow.depth,
     });
     this.requestRender();
+    return true;
+  }
+
+  override onKeyDown(event: KeyboardEvent): boolean | void {
+    // SPACE toggles expansion when on a row with children
+    if (event.key !== ' ') return;
+
+    const focusRow = this.grid._focusRow;
+    const flatRow = this.flattenedRows[focusRow];
+    if (!flatRow?.hasChildren) return;
+
+    event.preventDefault();
+    this.expandedKeys = toggleExpand(this.expandedKeys, flatRow.key);
+    this.emit<TreeExpandDetail>('tree-expand', {
+      key: flatRow.key,
+      row: flatRow.data,
+      expanded: this.expandedKeys.has(flatRow.key),
+      depth: flatRow.depth,
+    });
+    this.requestRenderWithFocus();
     return true;
   }
 

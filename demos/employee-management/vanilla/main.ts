@@ -93,7 +93,7 @@ export function createGridConfig(options: GridConfigOptions) {
       toolPanel: { position: 'right' as const, width: 300 },
     },
     columnGroups: [
-      { id: 'employee', header: 'Employee Info', children: ['id', 'firstName', 'lastName', 'email'] },
+      { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
       { id: 'organization', header: 'Organization', children: ['department', 'team', 'title', 'level'] },
       { id: 'compensation', header: 'Compensation', children: ['salary', 'bonus'] },
       {

@@ -10,6 +10,7 @@
 
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
+import { isUtilityColumn } from '../../core/plugin/expander-column';
 import {
   createRangeFromAnchor,
   getAllCellsInRanges,
@@ -124,15 +125,22 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const { rowIndex, colIndex, originalEvent } = event;
     const { mode } = this.config;
 
-    // CELL MODE: Single cell selection
+    // Check if this is a utility column (expander columns, etc.)
+    const column = this.columns[colIndex];
+    const isUtility = column && isUtilityColumn(column);
+
+    // CELL MODE: Single cell selection - skip utility columns
     if (mode === 'cell') {
+      if (isUtility) {
+        return false; // Allow event to propagate, but don't select utility cells
+      }
       this.selectedCell = { row: rowIndex, col: colIndex };
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
       this.requestAfterRender();
       return false;
     }
 
-    // ROW MODE: Select entire row
+    // ROW MODE: Select entire row - utility column clicks still select the row
     if (mode === 'row') {
       this.selected.clear();
       this.selected.add(rowIndex);
@@ -145,6 +153,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     // RANGE MODE: Shift+click extends selection, click starts new
     if (mode === 'range') {
+      // Skip utility columns in range mode - don't start selection from them
+      if (isUtility) {
+        return false;
+      }
+
       const shiftKey = originalEvent.shiftKey;
       const ctrlKey = originalEvent.ctrlKey || originalEvent.metaKey;
 
@@ -290,6 +303,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return; // Header
 
+    // Skip utility columns (expander columns, etc.)
+    const column = this.columns[event.colIndex];
+    if (column && isUtilityColumn(column)) {
+      return; // Don't start selection on utility columns
+    }
+
     // Let onCellClick handle shift+click for range extension
     if (event.originalEvent.shiftKey && this.cellAnchor) {
       return;
@@ -326,7 +345,18 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return;
 
-    const newRange = createRangeFromAnchor(this.cellAnchor, { row: event.rowIndex, col: event.colIndex });
+    // When dragging, clamp to first data column (skip utility columns)
+    let targetCol = event.colIndex;
+    const column = this.columns[targetCol];
+    if (column && isUtilityColumn(column)) {
+      // Find the first non-utility column
+      const firstDataCol = this.columns.findIndex((col) => !isUtilityColumn(col));
+      if (firstDataCol >= 0) {
+        targetCol = firstDataCol;
+      }
+    }
+
+    const newRange = createRangeFromAnchor(this.cellAnchor, { row: event.rowIndex, col: targetCol });
 
     if (this.ranges.length > 0) {
       this.ranges[this.ranges.length - 1] = newRange;
@@ -390,11 +420,21 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
       const normalized = this.activeRange ? normalizeRange(this.activeRange) : null;
 
+      // Find the first non-utility column index for proper .first class application
+      const firstDataColIndex = this.columns.findIndex((col) => !isUtilityColumn(col));
+      const lastDataColIndex = this.columns.length - 1; // Last column is always data
+
       const cells = shadowRoot.querySelectorAll('.cell[data-row][data-col]');
       cells.forEach((cell) => {
         const rowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
         const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
         if (rowIndex >= 0 && colIndex >= 0) {
+          // Skip utility columns entirely - don't add any selection classes
+          const column = this.columns[colIndex];
+          if (column && isUtilityColumn(column)) {
+            return;
+          }
+
           const inRange = isCellInAnyRange(rowIndex, colIndex, this.ranges);
 
           if (inRange) {
@@ -403,7 +443,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
             if (normalized) {
               if (rowIndex === normalized.startRow) cell.classList.add('top');
               if (rowIndex === normalized.endRow) cell.classList.add('bottom');
-              if (colIndex === normalized.startCol) cell.classList.add('first');
+              // Apply .first to the first data column in range (skip utility columns)
+              const effectiveStartCol = Math.max(normalized.startCol, firstDataColIndex);
+              if (colIndex === effectiveStartCol) cell.classList.add('first');
               if (colIndex === normalized.endCol) cell.classList.add('last');
             }
           }

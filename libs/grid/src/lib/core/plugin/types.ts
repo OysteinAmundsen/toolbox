@@ -274,6 +274,8 @@ export interface GridElementRef {
 
   /** Request a full re-render of the grid. */
   requestRender(): void;
+  /** Request a full re-render and restore focus styling afterward. */
+  requestRenderWithFocus(): void;
   /** Request a lightweight style update without rebuilding DOM. */
   requestAfterRender(): void;
   /** Force a layout pass. */

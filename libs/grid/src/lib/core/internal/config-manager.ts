@@ -786,12 +786,19 @@ export class ConfigManager<T = unknown> {
   /**
    * Get all columns with visibility info.
    */
-  getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }> {
+  getAllColumns(): Array<{
+    field: string;
+    header: string;
+    visible: boolean;
+    lockVisible?: boolean;
+    utility?: boolean;
+  }> {
     return this.columns.map((c) => ({
       field: c.field,
       header: c.header || c.field,
       visible: !c.hidden,
       lockVisible: c.lockVisible,
+      utility: c.meta?.utility,
     }));
   }
 

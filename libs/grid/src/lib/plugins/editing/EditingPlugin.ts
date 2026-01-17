@@ -679,24 +679,31 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const oldValue = (rowData as Record<string, unknown>)[field];
     if (oldValue === newValue) return;
 
-    (rowData as Record<string, unknown>)[field] = newValue;
     const firstTime = !this.#changedRowIndices.has(rowIndex);
-    this.#changedRowIndices.add(rowIndex);
-    this.#syncGridEditState();
 
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
-    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
-    if (rowEl) rowEl.classList.add('changed');
-
-    this.emit<CellCommitDetail<T>>('cell-commit', {
+    // Emit cancelable event BEFORE applying the value
+    const cancelled = this.emitCancelable<CellCommitDetail<T>>('cell-commit', {
       row: rowData,
       field,
+      oldValue,
       value: newValue,
       rowIndex,
       changedRows: this.changedRows,
       changedRowIndices: this.changedRowIndices,
       firstTimeForRow: firstTime,
     });
+
+    // If consumer called preventDefault(), abort the commit
+    if (cancelled) return;
+
+    // Apply the value and mark row as changed
+    (rowData as Record<string, unknown>)[field] = newValue;
+    this.#changedRowIndices.add(rowIndex);
+    this.#syncGridEditState();
+
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
+    if (rowEl) rowEl.classList.add('changed');
   }
 
   /**

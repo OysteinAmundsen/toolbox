@@ -294,4 +294,50 @@ describe('keyboard navigation', () => {
       expect(scrollArea.scrollLeft).toBe(500); // 1000 - 500
     });
   });
+
+  describe('activate-cell event', () => {
+    it('dispatches activate-cell event on Enter key with correct detail', () => {
+      const grid = makeGrid(3, 3);
+      grid._focusRow = 1;
+      grid._focusCol = 2;
+
+      key(grid, 'Enter');
+
+      // The mock grid captures events in __events array
+      const activateEvent = grid.__events.find((e: CustomEvent) => e.type === 'activate-cell');
+      expect(activateEvent).toBeDefined();
+      expect(activateEvent.detail.row).toBe(1);
+      expect(activateEvent.detail.col).toBe(2);
+    });
+
+    it('dispatches cancelable activate-cell event', () => {
+      const grid = makeGrid(3, 3);
+      grid._focusRow = 1;
+      grid._focusCol = 1;
+
+      key(grid, 'Enter');
+
+      const activateEvent = grid.__events.find((e: CustomEvent) => e.type === 'activate-cell');
+      expect(activateEvent).toBeDefined();
+      expect(activateEvent.cancelable).toBe(true);
+    });
+
+    it('prevents keyboard default when event.preventDefault() is called', () => {
+      // Override dispatchEvent to simulate preventDefault
+      const grid = makeGrid(3, 3);
+      grid._focusRow = 1;
+      grid._focusCol = 1;
+      grid.dispatchEvent = (ev: CustomEvent) => {
+        grid.__events.push(ev);
+        // Simulate consumer calling preventDefault
+        ev.preventDefault();
+        return false;
+      };
+
+      const e = key(grid, 'Enter');
+
+      // The keyboard handler should have called preventDefault on the original keydown event
+      expect(e.defaultPrevented).toBe(true);
+    });
+  });
 });

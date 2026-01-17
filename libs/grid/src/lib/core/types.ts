@@ -961,11 +961,13 @@ export interface GridColumnState {
 
 // #region Public Event Detail Interfaces
 export interface CellCommitDetail<TRow = unknown> {
-  /** The mutated row after commit. */
+  /** The row object (not yet mutated if event is cancelable). */
   row: TRow;
   /** Field name whose value changed. */
   field: string;
-  /** New value stored. */
+  /** Previous value before change. */
+  oldValue: unknown;
+  /** New value to be stored. */
   value: unknown;
   /** Index of the row in current data set. */
   rowIndex: number;

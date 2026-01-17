@@ -5,35 +5,37 @@ import { GroupingColumnsPlugin } from './GroupingColumnsPlugin';
 // Import grid component
 import '../../../index';
 
-const sampleData = [
-  {
-    id: 1,
-    firstName: 'Alice',
-    lastName: 'Johnson',
-    email: 'alice@example.com',
-    department: 'Engineering',
-    title: 'Senior Engineer',
-    salary: 95000,
-  },
-  {
-    id: 2,
-    firstName: 'Bob',
-    lastName: 'Smith',
-    email: 'bob@example.com',
-    department: 'Marketing',
-    title: 'Marketing Manager',
-    salary: 85000,
-  },
-  {
-    id: 3,
-    firstName: 'Carol',
-    lastName: 'Williams',
-    email: 'carol@example.com',
-    department: 'Engineering',
-    title: 'Lead Engineer',
-    salary: 115000,
-  },
-];
+const firstNames = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack'];
+const lastNames = ['Johnson', 'Smith', 'Williams', 'Brown', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Anderson'];
+const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+const titlesByDept: Record<string, string[]> = {
+  Engineering: ['Senior Engineer', 'Software Engineer', 'Lead Engineer', 'DevOps Engineer', 'QA Engineer'],
+  Marketing: ['Marketing Manager', 'Content Writer', 'Brand Manager', 'SEO Specialist'],
+  Sales: ['Sales Rep', 'Sales Manager', 'Account Executive'],
+  HR: ['HR Manager', 'Recruiter', 'Training Coordinator'],
+  Finance: ['Accountant', 'Financial Analyst', 'Controller'],
+};
+
+function generateData(count: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const firstName = firstNames[i % firstNames.length];
+    const lastName = lastNames[i % lastNames.length];
+    const department = departments[i % departments.length];
+    const titles = titlesByDept[department];
+    const title = titles[i % titles.length];
+    return {
+      id: i + 1,
+      firstName,
+      lastName,
+      email: `${firstName.toLowerCase()}@example.com`,
+      department,
+      title,
+      salary: 50000 + Math.floor((i * 3456) % 70000),
+    };
+  });
+}
+
+const sampleData = generateData(20);
 
 const meta: Meta = {
   title: 'Grid/Plugins/Column Grouping',

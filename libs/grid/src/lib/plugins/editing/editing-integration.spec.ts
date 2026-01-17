@@ -301,6 +301,73 @@ describe('EditingPlugin', () => {
       expect(detail.value).toBe('Beta');
       expect(detail.rowIndex).toBe(0);
     });
+
+    it('includes oldValue in event detail for validation', async () => {
+      const commitHandler = vi.fn();
+      grid.addEventListener('cell-commit', commitHandler);
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alpha' }];
+      await waitUpgrade(grid);
+
+      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = nameCell.querySelector('input') as HTMLInputElement;
+      input.value = 'Beta';
+      input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      expect(commitHandler).toHaveBeenCalled();
+      const detail = commitHandler.mock.calls[0][0].detail;
+      expect(detail.oldValue).toBe('Alpha');
+      expect(detail.value).toBe('Beta');
+    });
+
+    it('prevents value change when event.preventDefault() is called', async () => {
+      const commitHandler = vi.fn((e: Event) => e.preventDefault());
+      grid.addEventListener('cell-commit', commitHandler);
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alpha' }];
+      await waitUpgrade(grid);
+
+      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = nameCell.querySelector('input') as HTMLInputElement;
+      input.value = 'Beta';
+      input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      expect(commitHandler).toHaveBeenCalled();
+      // Value should NOT have been applied
+      expect(grid.rows![0].name).toBe('Alpha');
+      // Row should NOT be marked as changed
+      expect(grid.changedRows?.length).toBe(0);
+    });
   });
 
   describe('manual mode', () => {

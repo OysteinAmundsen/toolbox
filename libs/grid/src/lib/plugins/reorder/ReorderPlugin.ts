@@ -210,7 +210,11 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         // Update the grid's column order (with optional view transition)
         this.updateColumnOrder(newOrder);
 
-        this.emit('column-move', detail);
+        // Emit cancelable event - if cancelled, restore original order
+        const cancelled = this.emitCancelable('column-move', detail);
+        if (cancelled) {
+          this.updateColumnOrder(currentOrder);
+        }
       });
     });
   }
@@ -282,12 +286,16 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     // Update with view transition
     this.updateColumnOrder(newOrder);
 
-    this.emit<ColumnMoveDetail>('column-move', {
+    // Emit cancelable event - if cancelled, restore original order
+    const cancelled = this.emitCancelable<ColumnMoveDetail>('column-move', {
       field,
       fromIndex,
       toIndex,
       columnOrder: newOrder,
     });
+    if (cancelled) {
+      this.updateColumnOrder(currentOrder);
+    }
   }
 
   /**

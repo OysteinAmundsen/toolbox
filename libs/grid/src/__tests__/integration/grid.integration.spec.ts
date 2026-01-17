@@ -135,7 +135,8 @@ describe('tbw-grid integration: config-based row grouping', () => {
     await waitUpgrade(grid);
     const groupRows = grid.shadowRoot.querySelectorAll('.group-row');
     expect(groupRows.length).toBe(2);
-    const dataRowsInitial = grid.shadowRoot.querySelectorAll('.data-grid-row');
+    // Use :not(.group-row) to select actual data rows only (group rows also have .data-grid-row for keyboard navigation)
+    const dataRowsInitial = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsInitial.length).toBe(0);
   });
 
@@ -156,11 +157,12 @@ describe('tbw-grid integration: config-based row grouping', () => {
     const firstToggle = grid.shadowRoot.querySelector('.group-row .group-toggle') as HTMLButtonElement;
     firstToggle.click();
     await nextFrame();
-    const dataRowsExpandedOnce = grid.shadowRoot.querySelectorAll('.data-grid-row');
+    // Use :not(.group-row) to select actual data rows only
+    const dataRowsExpandedOnce = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsExpandedOnce.length).toBe(2);
     firstToggle.click();
     await nextFrame();
-    const dataRowsAfterCollapse = grid.shadowRoot.querySelectorAll('.data-grid-row');
+    const dataRowsAfterCollapse = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsAfterCollapse.length).toBe(0);
   });
 
@@ -189,12 +191,13 @@ describe('tbw-grid integration: config-based row grouping', () => {
     await nextFrame();
     const allGroupRowsAfter = grid.shadowRoot.querySelectorAll('.group-row');
     expect(allGroupRowsAfter.length).toBe(4);
-    const dataRowsNow = grid.shadowRoot.querySelectorAll('.data-grid-row');
+    // Use :not(.group-row) to select actual data rows only
+    const dataRowsNow = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsNow.length).toBe(0);
     const deGroup = (Array.from(allGroupRowsAfter) as HTMLElement[]).find((g) => g.textContent?.includes('DE'))!;
     (deGroup.querySelector('.group-toggle') as HTMLButtonElement).click();
     await nextFrame();
-    const dataRowsAfterDE = grid.shadowRoot.querySelectorAll('.data-grid-row');
+    const dataRowsAfterDE = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsAfterDE.length).toBe(2);
   });
 

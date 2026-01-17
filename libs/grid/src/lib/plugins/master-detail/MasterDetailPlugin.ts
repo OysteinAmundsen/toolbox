@@ -7,6 +7,7 @@
 
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, CellClickEvent, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
+import { createExpanderColumnConfig, findExpanderColumn, isExpanderColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig } from '../../core/types';
 import {
   collapseDetailRow,
@@ -16,12 +17,7 @@ import {
   toggleDetailRow,
 } from './master-detail';
 import styles from './master-detail.css?inline';
-import type {
-  DetailExpandDetail,
-  ExpandCollapseAnimation,
-  MasterDetailConfig,
-  MasterDetailWrappedRenderer,
-} from './types';
+import type { DetailExpandDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
 
 /**
  * Master/Detail Plugin for tbw-grid
@@ -240,67 +236,46 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   // #region Hooks
 
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    if (!this.config.detailRenderer) {
+    if (!this.config.detailRenderer || this.config.showExpandColumn === false) {
       return [...columns];
     }
 
-    // Wrap first column's renderer to add expand/collapse toggle
     const cols = [...columns];
-    if (cols.length > 0) {
-      const firstCol = { ...cols[0] };
-      const originalRenderer = firstCol.viewRenderer as MasterDetailWrappedRenderer | undefined;
 
-      // Skip if already wrapped by this plugin (prevents double-wrapping on re-render)
-      if (originalRenderer?.__masterDetailWrapped) {
-        return cols;
-      }
-
-      const wrappedRenderer: MasterDetailWrappedRenderer = (renderCtx) => {
-        const { value, row } = renderCtx;
-        const isExpanded = this.expandedRows.has(row as object);
-
-        const container = document.createElement('span');
-        container.className = 'master-detail-cell-wrapper';
-
-        // Expand/collapse toggle icon
-        const toggle = document.createElement('span');
-        toggle.className = `master-detail-toggle${isExpanded ? ' expanded' : ''}`;
-        // Use grid-level icons (fall back to defaults)
-        this.setIcon(toggle, this.resolveIcon(isExpanded ? 'collapse' : 'expand'));
-        // role="button" is required for aria-expanded to be valid
-        toggle.setAttribute('role', 'button');
-        toggle.setAttribute('tabindex', '0');
-        toggle.setAttribute('aria-expanded', String(isExpanded));
-        toggle.setAttribute('aria-label', isExpanded ? 'Collapse details' : 'Expand details');
-        // Click handling is done via onCellClick hook (not direct addEventListener)
-        // This ensures proper event delegation through the grid's event system
-        container.appendChild(toggle);
-
-        // Cell content
-        const content = document.createElement('span');
-        if (originalRenderer) {
-          const rendered = originalRenderer(renderCtx);
-          if (rendered instanceof Node) {
-            content.appendChild(rendered);
-          } else {
-            content.textContent = String(rendered ?? value ?? '');
-          }
-        } else {
-          content.textContent = String(value ?? '');
-        }
-        container.appendChild(content);
-
-        return container;
-      };
-
-      // Mark renderer as wrapped to prevent double-wrapping
-      wrappedRenderer.__masterDetailWrapped = true;
-      firstCol.viewRenderer = wrappedRenderer;
-
-      cols[0] = firstCol;
+    // Check if expander column already exists (from this or another plugin)
+    const existingExpander = findExpanderColumn(cols);
+    if (existingExpander) {
+      // Another plugin already added an expander column - don't add duplicate
+      // Our expand logic will be handled via onCellClick on the expander column
+      return cols;
     }
 
-    return cols;
+    // Create dedicated expander column that stays fixed at position 0
+    const expanderCol = createExpanderColumnConfig(this.name);
+    expanderCol.viewRenderer = (renderCtx) => {
+      const { row } = renderCtx;
+      const isExpanded = this.expandedRows.has(row as object);
+
+      const container = document.createElement('span');
+      container.className = 'master-detail-expander expander-cell';
+
+      // Expand/collapse toggle icon
+      const toggle = document.createElement('span');
+      toggle.className = `master-detail-toggle${isExpanded ? ' expanded' : ''}`;
+      // Use grid-level icons (fall back to defaults)
+      this.setIcon(toggle, this.resolveIcon(isExpanded ? 'collapse' : 'expand'));
+      // role="button" is required for aria-expanded to be valid
+      toggle.setAttribute('role', 'button');
+      toggle.setAttribute('tabindex', '0');
+      toggle.setAttribute('aria-expanded', String(isExpanded));
+      toggle.setAttribute('aria-label', isExpanded ? 'Collapse details' : 'Expand details');
+      container.appendChild(toggle);
+
+      return container;
+    };
+
+    // Prepend expander column to ensure it's always first
+    return [expanderCol, ...cols];
   }
 
   override onRowClick(event: RowClickEvent): boolean | void {
@@ -323,6 +298,28 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       queueMicrotask(() => this.#syncDetailRows());
     }
     return; // Don't prevent default
+  }
+
+  override onKeyDown(event: KeyboardEvent): boolean | void {
+    // SPACE toggles expansion when focus is on the expander column
+    if (event.key !== ' ') return;
+
+    const focusCol = this.grid._focusCol;
+    const focusRow = this.grid._focusRow;
+    const column = this.columns[focusCol];
+
+    // Only handle SPACE on expander column
+    if (!column || !isExpanderColumn(column)) return;
+
+    const row = this.rows[focusRow];
+    if (!row) return;
+
+    event.preventDefault();
+    this.toggleAndEmit(row, focusRow);
+
+    // Restore focus styling after render completes via render pipeline
+    this.requestRenderWithFocus();
+    return true;
   }
 
   override afterRender(): void {

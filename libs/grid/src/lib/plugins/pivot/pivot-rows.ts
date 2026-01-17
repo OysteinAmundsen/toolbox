@@ -23,6 +23,7 @@ export interface PivotRowData {
 /** Context for row rendering */
 export interface RowRenderContext {
   columns: ColumnConfig[];
+  rowIndex: number;
   onToggle: (key: string) => void;
   resolveIcon: (iconKey: 'expand' | 'collapse') => IconValue;
   setIcon: (element: HTMLElement, icon: IconValue) => void;
@@ -32,7 +33,7 @@ export interface RowRenderContext {
  * Render a pivot group row (has children, can expand/collapse).
  */
 export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: RowRenderContext): boolean {
-  rowEl.className = 'pivot-group-row';
+  rowEl.className = 'data-grid-row pivot-group-row';
   rowEl.setAttribute('data-pivot-depth', String(row.__pivotDepth ?? 0));
   rowEl.setAttribute('data-pivot-key', String(row.__pivotRowKey ?? ''));
   rowEl.setAttribute('role', 'row');
@@ -44,6 +45,7 @@ export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: 
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.setAttribute('data-col', String(colIdx));
+    cell.setAttribute('data-row', String(ctx.rowIndex));
     cell.setAttribute('role', 'gridcell');
 
     if (colIdx === 0) {
@@ -90,8 +92,13 @@ export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: 
 /**
  * Render a pivot leaf row (no children, just indentation).
  */
-export function renderPivotLeafRow(row: PivotRowData, rowEl: HTMLElement, columns: ColumnConfig[]): boolean {
-  rowEl.className = 'pivot-leaf-row';
+export function renderPivotLeafRow(
+  row: PivotRowData,
+  rowEl: HTMLElement,
+  columns: ColumnConfig[],
+  rowIndex: number,
+): boolean {
+  rowEl.className = 'data-grid-row pivot-leaf-row';
   rowEl.setAttribute('data-pivot-depth', String(row.__pivotDepth ?? 0));
   rowEl.setAttribute('data-pivot-key', String(row.__pivotRowKey ?? ''));
   rowEl.innerHTML = '';
@@ -100,6 +107,7 @@ export function renderPivotLeafRow(row: PivotRowData, rowEl: HTMLElement, column
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.setAttribute('data-col', String(colIdx));
+    cell.setAttribute('data-row', String(rowIndex));
     cell.setAttribute('role', 'gridcell');
 
     if (colIdx === 0) {

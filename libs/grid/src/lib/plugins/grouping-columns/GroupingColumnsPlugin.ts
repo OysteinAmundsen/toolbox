@@ -114,7 +114,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   }
 
   override afterRender(): void {
-    if (!this.isActive || this.groups.length === 0) {
+    if (!this.isActive) {
       // Remove any existing group header
       const header = this.shadowRoot?.querySelector('.header');
       const existingGroupRow = header?.querySelector('.header-group-row');
@@ -129,8 +129,14 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     const existingGroupRow = header.querySelector('.header-group-row');
     if (existingGroupRow) existingGroupRow.remove();
 
+    // Recompute groups from the final column list (which includes plugin-added columns like expander).
+    // The groups computed during processColumns may be stale if other plugins added columns.
+    const finalColumns = this.columns as ColumnConfig[];
+    const groups = computeColumnGroups(finalColumns);
+    if (groups.length === 0) return;
+
     // Build and insert group header row
-    const groupRow = buildGroupHeaderRow(this.groups, this.columns as ColumnConfig[]);
+    const groupRow = buildGroupHeaderRow(groups, finalColumns);
     if (groupRow) {
       // Toggle border visibility class
       groupRow.classList.toggle('no-borders', !this.config.showGroupBorders);
@@ -148,7 +154,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     if (headerRow) {
       // Toggle border visibility on header cells
       headerRow.classList.toggle('no-group-borders', !this.config.showGroupBorders);
-      applyGroupedHeaderCellClasses(headerRow, this.groups, this.columns as ColumnConfig[]);
+      applyGroupedHeaderCellClasses(headerRow, groups, finalColumns);
     }
   }
   // #endregion

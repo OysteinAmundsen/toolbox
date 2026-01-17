@@ -234,24 +234,32 @@ export function commitCellValue(
   if (!isSafePropertyKey(field)) return;
   const oldValue = rowData[field];
   if (oldValue === newValue) return;
-  rowData[field] = newValue;
+
+  // Emit cancelable event BEFORE applying the value
   const firstTime = !grid._changedRowIndices.has(rowIndex);
+  const event = new CustomEvent('cell-commit', {
+    cancelable: true,
+    detail: {
+      row: rowData,
+      field,
+      oldValue,
+      value: newValue,
+      rowIndex,
+      changedRows: grid.changedRows,
+      changedRowIndices: grid.changedRowIndices,
+      firstTimeForRow: firstTime,
+    },
+  });
+  (grid as unknown as HTMLElement).dispatchEvent(event);
+
+  // If consumer called preventDefault(), abort the commit
+  if (event.defaultPrevented) return;
+
+  // Apply the value and mark row as changed
+  rowData[field] = newValue;
   grid._changedRowIndices.add(rowIndex);
   const rowEl = grid.findRenderedRowElement?.(rowIndex);
   if (rowEl) rowEl.classList.add('changed');
-  (grid as unknown as HTMLElement).dispatchEvent(
-    new CustomEvent('cell-commit', {
-      detail: {
-        row: rowData,
-        field,
-        value: newValue,
-        rowIndex,
-        changedRows: grid.changedRows,
-        changedRowIndices: grid.changedRowIndices,
-        firstTimeForRow: firstTime,
-      },
-    }),
-  );
 }
 
 /**

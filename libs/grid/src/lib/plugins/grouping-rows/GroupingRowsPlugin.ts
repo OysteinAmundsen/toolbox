@@ -5,6 +5,7 @@
  */
 
 import { BaseGridPlugin, CellClickEvent } from '../../core/plugin/base-plugin';
+import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
 import {
   buildGroupedRowModel,
@@ -178,6 +179,24 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     }
   }
 
+  override onKeyDown(event: KeyboardEvent): boolean | void {
+    // SPACE toggles expansion on group rows
+    if (event.key !== ' ') return;
+
+    const focusRow = this.grid._focusRow;
+    const row = this.rows[focusRow] as Record<string, unknown> | undefined;
+
+    // Only handle SPACE on group rows
+    if (!row?.__isGroupRow) return;
+
+    event.preventDefault();
+    this.toggle(row.__groupKey as string);
+
+    // Restore focus styling after render completes via render pipeline
+    this.requestRenderWithFocus();
+    return true;
+  }
+
   /**
    * Render a row. Returns true if we handled the row (group row), false otherwise.
    */
@@ -205,7 +224,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       });
 
       if (result) {
-        rowEl.className = 'group-row';
+        rowEl.className = 'data-grid-row group-row';
         (rowEl as RowElementInternal).__isCustomRow = true; // Mark for proper class reset on recycle
         rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
         if (typeof result === 'string') {
@@ -223,8 +242,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       this.toggle(row.__groupKey);
     };
 
-    // Default group row rendering
-    rowEl.className = 'group-row';
+    // Default group row rendering - keep data-grid-row class for focus/keyboard navigation
+    rowEl.className = 'data-grid-row group-row';
     (rowEl as RowElementInternal).__isCustomRow = true; // Mark for proper class reset on recycle
     rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
     rowEl.setAttribute('role', 'row');
@@ -300,6 +319,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     cell.className = 'cell group-full';
     cell.style.gridColumn = '1 / -1';
     cell.setAttribute('role', 'gridcell');
+    cell.setAttribute('data-col', '0'); // Required for focus/click delegation
 
     // Toggle button
     cell.appendChild(this.createToggleButton(row.__groupExpanded, handleToggle));
@@ -335,14 +355,26 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       rowEl.style.gridTemplateColumns = gridTemplate;
     }
 
+    // Track whether we've rendered the toggle button yet (should be in first non-expander column)
+    let toggleRendered = false;
+
     columns.forEach((col, colIdx) => {
       const cell = document.createElement('div');
       cell.className = 'cell group-cell';
       cell.setAttribute('data-col', String(colIdx));
       cell.setAttribute('role', 'gridcell');
 
-      if (colIdx === 0) {
-        // First column: toggle button + label
+      // Skip expander columns (they're handled by other plugins like MasterDetail/Tree)
+      // but still render an empty cell to maintain grid structure
+      if (isExpanderColumn(col)) {
+        cell.setAttribute('data-field', col.field);
+        rowEl.appendChild(cell);
+        return;
+      }
+
+      // First non-expander column gets the toggle button + label
+      if (!toggleRendered) {
+        toggleRendered = true;
         cell.appendChild(this.createToggleButton(row.__groupExpanded, handleToggle));
 
         const label = document.createElement('span');

@@ -116,3 +116,25 @@ plugin.getGroupColumns('personal'); // ColumnConfig[]
 // Force refresh of column groups
 plugin.refresh();
 ```
+## Usage with Column Reordering
+
+When using `GroupingColumnsPlugin` together with `ReorderPlugin`, be aware that **column reordering does not enforce group boundaries**. Users can drag columns out of their groups, which will cause the groups to be recomputed based on the new column order.
+
+The `column-move` event is **cancelable**, so you can prevent moves that break group boundaries:
+
+```ts
+grid.addEventListener('column-move', (e) => {
+  const { field, fromIndex, toIndex, columnOrder } = e.detail;
+
+  // Example: prevent moves that break group boundaries
+  if (!isValidMoveWithinGroup(field, fromIndex, toIndex)) {
+    e.preventDefault(); // Column snaps back to original position
+    return;
+  }
+
+  // Persist the new order
+  saveColumnOrder(columnOrder);
+});
+```
+
+The `column-move` event includes the complete `columnOrder` array, making it easy to persist user preferences.

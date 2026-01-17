@@ -30,6 +30,7 @@ describe('pivot-rows', () => {
         { field: 'value', header: 'Value' },
         { field: 'count', header: 'Count' },
       ] as ColumnConfig[],
+      rowIndex: 0,
       onToggle: vi.fn(),
       resolveIcon: vi.fn((key) => (key === 'expand' ? '▶' : '▼')),
       setIcon: vi.fn((el, icon) => {
@@ -52,7 +53,7 @@ describe('pivot-rows', () => {
       const result = renderPivotGroupRow(row, rowEl, ctx);
 
       expect(result).toBe(true);
-      expect(rowEl.className).toBe('pivot-group-row');
+      expect(rowEl.className).toBe('data-grid-row pivot-group-row');
       expect(rowEl.getAttribute('data-pivot-depth')).toBe('1');
       expect(rowEl.getAttribute('data-pivot-key')).toBe('group-1');
       expect(rowEl.getAttribute('role')).toBe('row');
@@ -239,10 +240,10 @@ describe('pivot-rows', () => {
         __pivotDepth: 2,
       };
 
-      const result = renderPivotLeafRow(row, rowEl, columns);
+      const result = renderPivotLeafRow(row, rowEl, columns, 0);
 
       expect(result).toBe(true);
-      expect(rowEl.className).toBe('pivot-leaf-row');
+      expect(rowEl.className).toBe('data-grid-row pivot-leaf-row');
       expect(rowEl.getAttribute('data-pivot-depth')).toBe('2');
       expect(rowEl.getAttribute('data-pivot-key')).toBe('leaf-1');
     });
@@ -255,7 +256,7 @@ describe('pivot-rows', () => {
         amount: 50,
       };
 
-      renderPivotLeafRow(row, rowEl, columns);
+      renderPivotLeafRow(row, rowEl, columns, 0);
 
       const cells = rowEl.querySelectorAll('.cell');
       expect(cells).toHaveLength(2);
@@ -270,7 +271,7 @@ describe('pivot-rows', () => {
         __pivotIndent: 40,
       };
 
-      renderPivotLeafRow(row, rowEl, columns);
+      renderPivotLeafRow(row, rowEl, columns, 0);
 
       const firstCell = rowEl.querySelector('.cell') as HTMLElement;
       // Extra 20px for toggle button alignment
@@ -288,7 +289,7 @@ describe('pivot-rows', () => {
         amount: 75.5,
       };
 
-      renderPivotLeafRow(row, rowEl, columns);
+      renderPivotLeafRow(row, rowEl, columns, 0);
 
       const cells = rowEl.querySelectorAll('.cell');
       expect(cells[1].textContent).toBe('75.5');
@@ -302,7 +303,7 @@ describe('pivot-rows', () => {
         amount: undefined,
       };
 
-      renderPivotLeafRow(row, rowEl, columns);
+      renderPivotLeafRow(row, rowEl, columns, 0);
 
       const cells = rowEl.querySelectorAll('.cell');
       expect(cells[1].textContent).toBe('');
@@ -311,7 +312,7 @@ describe('pivot-rows', () => {
     it('should handle missing metadata with defaults', () => {
       const row: PivotRowData = {};
 
-      renderPivotLeafRow(row, rowEl, columns);
+      renderPivotLeafRow(row, rowEl, columns, 0);
 
       expect(rowEl.getAttribute('data-pivot-depth')).toBe('0');
       expect(rowEl.getAttribute('data-pivot-key')).toBe('');

@@ -1,0 +1,33 @@
+{
+  "name": "Toolbox Grid Documentation",
+  "short_name": "Toolbox Grid",
+  "description": "High-performance, framework-agnostic data grid web component for JavaScript, React, Angular, and Vue",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0969da",
+  "orientation": "any",
+  "categories": ["developer tools", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [
+    {
+      "platform": "npm",
+      "url": "https://www.npmjs.com/package/@toolbox-web/grid",
+      "id": "@toolbox-web/grid"
+    }
+  ],
+  "prefer_related_applications": false
+}

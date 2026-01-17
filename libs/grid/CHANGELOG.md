@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.4.1...grid-0.4.2) (2026-01-17)
+
+
+### Bug Fixes
+
+* build errors ([cccfdc5](https://github.com/OysteinAmundsen/toolbox/commit/cccfdc5806d7bed4bac447ccfcbfd63318315582))
+* finetuning plugins ([88d1d6a](https://github.com/OysteinAmundsen/toolbox/commit/88d1d6a3e387455f5d150ae3a503a8212f10b3d2))
+
+
+### Enhancements
+
+* streamlined DX for plugin development ([f69dd4d](https://github.com/OysteinAmundsen/toolbox/commit/f69dd4d48d0fe4f84eddd8e03ee10240cdf35d38))
+
 ## [0.4.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.4.0...grid-0.4.1) (2026-01-16)
 
 

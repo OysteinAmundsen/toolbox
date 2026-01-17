@@ -8,7 +8,7 @@ import * as ClipboardStories from './clipboard.stories';
 
 The Clipboard plugin brings familiar copy/cut/paste functionality to your grid with full keyboard shortcut support (Ctrl+C, Ctrl+X, Ctrl+V). It handles single cells, multi-cell selections, and integrates seamlessly with Excel and other spreadsheet applications via tab-delimited output.
 
-> ⚠️ **Required Dependency:** This plugin requires [SelectionPlugin](/docs/grid-plugins-selection--docs) to be loaded first. Clipboard uses the selection state to determine which cells to copy.
+> 💡 **Optional Dependency:** Works best with [SelectionPlugin](/docs/grid-plugins-selection--docs) for copying/pasting selected cells. Without SelectionPlugin, copies the entire grid and pastes at row 0, column 0.
 
 ## Installation
 
@@ -159,15 +159,42 @@ Wrap text values in quotes for CSV compatibility.
 
 <Canvas of={ClipboardStories.QuotedStrings} withToolbar />
 
+### Copy & Paste (Auto-Paste)
+
+By default, the ClipboardPlugin handles paste operations automatically—no event handling needed.
+Just add the plugin and paste works out of the box.
+
+<Canvas of={ClipboardStories.CopyPaste} withToolbar />
+
+### Custom Paste Handler
+
+For advanced use cases, provide a custom `pasteHandler` to validate, transform, or integrate with state management.
+
+<Canvas of={ClipboardStories.CustomPasteHandler} withToolbar />
+
 ## Configuration Options
 
-| Option           | Type                            | Default | Description                                    |
-| ---------------- | ------------------------------- | ------- | ---------------------------------------------- |
-| `includeHeaders` | `boolean`                       | `false` | Include column headers in copied data          |
-| `delimiter`      | `string`                        | `'\t'`  | Column delimiter (tab for Excel compatibility) |
-| `newline`        | `string`                        | `'\n'`  | Row delimiter                                  |
-| `quoteStrings`   | `boolean`                       | `false` | Wrap string values in quotes                   |
-| `processCell`    | `(value, field, row) => string` | -       | Custom cell value processor for copy           |
+| Option           | Type                                  | Default              | Description                                                                                              |
+| ---------------- | ------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `includeHeaders` | `boolean`                             | `false`              | Include column headers in copied data                                                                    |
+| `delimiter`      | `string`                              | `'\t'`               | Column delimiter (tab for Excel compatibility)                                                           |
+| `newline`        | `string`                              | `'\n'`               | Row delimiter                                                                                            |
+| `quoteStrings`   | `boolean`                             | `false`              | Wrap string values in quotes                                                                             |
+| `processCell`    | `(value, field, row) => string`       | -                    | Custom cell value processor for copy operations                                                          |
+| `pasteHandler`   | `PasteHandler \| null`                | `defaultPasteHandler`| Custom paste handler. Set to `null` to disable auto-paste and handle the `paste` event manually         |
+
+## Paste Behavior
+
+The clipboard plugin respects selection bounds when pasting:
+
+| Selection Type  | Paste Behavior                                                                 |
+| --------------- | ------------------------------------------------------------------------------ |
+| Single cell     | Paste expands freely from that cell, adding rows if needed                     |
+| Range selection | Paste is clipped to fit within the selected range                              |
+| Row selection   | Paste is clipped to the selected rows (all columns within those rows)          |
+| No selection    | Paste starts at row 0, column 0                                                |
+
+**Example:** If you have a 2×2 range selected and paste 3×3 data, only the 2×2 portion that fits will be applied.
 
 ## Keyboard Shortcuts
 

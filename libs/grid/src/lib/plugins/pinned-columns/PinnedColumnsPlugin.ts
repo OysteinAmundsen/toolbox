@@ -25,7 +25,6 @@ import type { PinnedColumnsConfig } from './types';
  */
 export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   readonly name = 'pinnedColumns';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<PinnedColumnsConfig> {
     return {};

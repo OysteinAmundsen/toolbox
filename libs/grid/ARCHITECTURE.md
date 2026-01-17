@@ -598,6 +598,7 @@ flowchart TB
 
 ```typescript
 import { BaseGridPlugin, CellClickEvent } from '@toolbox-web/grid';
+import styles from './my-plugin.css?inline';
 
 interface MyPluginConfig {
   enabled?: boolean;
@@ -606,34 +607,30 @@ interface MyPluginConfig {
 
 export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
   readonly name = 'myPlugin';
-  readonly version = '1.0.0';
+  override readonly styles = styles; // CSS imported via Vite
 
-  // CSS injected into shadow DOM
-  readonly styles = `
-    .my-highlight { background: yellow; }
-  `;
-
-  protected get defaultConfig(): Partial<MyPluginConfig> {
+  protected override get defaultConfig(): Partial<MyPluginConfig> {
     return { enabled: true, myOption: 'default' };
   }
 
   // Lifecycle
-  attach(grid: GridElement): void {
+  override attach(grid: GridElement): void {
     super.attach(grid); // MUST call super
-    // Setup listeners, state, etc.
+    // Setup listeners with this.disconnectSignal for auto-cleanup
   }
 
-  detach(): void {
-    // Cleanup
+  override detach(): void {
+    // Cleanup (listeners with disconnectSignal auto-cleanup)
   }
 
   // Hooks
-  afterRender(): void {
+  override afterRender(): void {
     if (!this.config.enabled) return;
-    // Manipulate rendered DOM
+    // Access DOM via this.shadowRoot
+    // Access grid element via this.gridElement
   }
 
-  onCellClick(event: CellClickEvent): boolean | void {
+  override onCellClick(event: CellClickEvent): boolean | void {
     // Return true to prevent default behavior
   }
 }

@@ -61,6 +61,28 @@ export interface SelectionChangeDetail {
   ranges: CellRange[];
 }
 
+/**
+ * Unified selection result returned by getSelection().
+ * Provides a consistent interface regardless of selection mode.
+ *
+ * @example
+ * ```ts
+ * const selection = plugin.getSelection();
+ * if (selection.ranges.length > 0) {
+ *   const firstRange = selection.ranges[0];
+ *   console.log(`Selected from (${firstRange.from.row}, ${firstRange.from.col}) to (${firstRange.to.row}, ${firstRange.to.col})`);
+ * }
+ * ```
+ */
+export interface SelectionResult {
+  /** The current selection mode */
+  mode: SelectionMode;
+  /** All selected ranges. Empty if nothing is selected. */
+  ranges: CellRange[];
+  /** The anchor cell for range extension (Shift+click/arrow). Null if no anchor is set. */
+  anchor: { row: number; col: number } | null;
+}
+
 /** Internal state for selection plugin */
 export interface SelectionPluginState extends SelectionState {
   /** All selected cell ranges (for range mode) - uses internal format */

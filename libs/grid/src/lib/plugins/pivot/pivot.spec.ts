@@ -587,7 +587,8 @@ describe('PivotPlugin lifecycle and API', () => {
       { field: 'region', header: 'Region', visible: true },
       { field: 'sales', header: 'Sales', visible: true },
     ];
-    let activeToolPanel: string | undefined;
+    let toolPanelOpen = false;
+    const expandedSections: string[] = [];
 
     return {
       columns,
@@ -601,17 +602,34 @@ describe('PivotPlugin lifecycle and API', () => {
       effectiveConfig: {},
       requestRender: () => renderCount++,
       getAllColumns: () => columns,
-      openToolPanel: (id: string) => {
-        activeToolPanel = id;
-      },
-      closeToolPanel: () => {
-        activeToolPanel = undefined;
-      },
-      toggleToolPanel: (id: string) => {
-        activeToolPanel = activeToolPanel === id ? undefined : id;
+      // Tool panel accordion API
+      get isToolPanelOpen() {
+        return toolPanelOpen;
       },
       get activeToolPanel() {
-        return activeToolPanel;
+        return toolPanelOpen ? 'tool-panel' : undefined;
+      },
+      get expandedToolPanelSections() {
+        return expandedSections;
+      },
+      openToolPanel: () => {
+        toolPanelOpen = true;
+      },
+      closeToolPanel: () => {
+        toolPanelOpen = false;
+        expandedSections.length = 0;
+      },
+      toggleToolPanel: () => {
+        toolPanelOpen = !toolPanelOpen;
+        if (!toolPanelOpen) expandedSections.length = 0;
+      },
+      toggleToolPanelSection: (sectionId: string) => {
+        const idx = expandedSections.indexOf(sectionId);
+        if (idx >= 0) {
+          expandedSections.splice(idx, 1);
+        } else {
+          expandedSections.push(sectionId);
+        }
       },
       getRenderCount: () => renderCount,
       addEventListener: () => {
@@ -798,7 +816,8 @@ describe('PivotPlugin lifecycle and API', () => {
       plugin.attach(mockGrid as any);
 
       plugin.showPanel();
-      expect(mockGrid.activeToolPanel).toBe('pivot');
+      expect(mockGrid.isToolPanelOpen).toBe(true);
+      expect(mockGrid.expandedToolPanelSections).toContain('pivot');
     });
 
     it('hidePanel closes the tool panel', () => {
@@ -806,23 +825,24 @@ describe('PivotPlugin lifecycle and API', () => {
       const mockGrid = createMockGrid();
       plugin.attach(mockGrid as any);
 
-      mockGrid.openToolPanel('pivot');
-      expect(mockGrid.activeToolPanel).toBe('pivot');
+      plugin.showPanel();
+      expect(mockGrid.isToolPanelOpen).toBe(true);
 
       plugin.hidePanel();
-      expect(mockGrid.activeToolPanel).toBeUndefined();
+      expect(mockGrid.isToolPanelOpen).toBe(false);
     });
 
-    it('togglePanel toggles the pivot panel', () => {
+    it('togglePanel toggles the pivot panel section', () => {
       const plugin = new PivotPlugin({});
       const mockGrid = createMockGrid();
       plugin.attach(mockGrid as any);
 
-      expect(mockGrid.activeToolPanel).toBeUndefined();
+      expect(mockGrid.isToolPanelOpen).toBe(false);
       plugin.togglePanel();
-      expect(mockGrid.activeToolPanel).toBe('pivot');
+      expect(mockGrid.isToolPanelOpen).toBe(true);
+      expect(mockGrid.expandedToolPanelSections).toContain('pivot');
       plugin.togglePanel();
-      expect(mockGrid.activeToolPanel).toBeUndefined();
+      expect(mockGrid.expandedToolPanelSections).not.toContain('pivot');
     });
 
     it('isPanelVisible returns correct state', () => {

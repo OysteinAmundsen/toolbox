@@ -7,7 +7,7 @@
 
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, CellClickEvent, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, GridConfig } from '../../core/types';
+import type { ColumnConfig } from '../../core/types';
 import {
   collapseDetailRow,
   createDetailElement,
@@ -23,11 +23,6 @@ import type {
   MasterDetailWrappedRenderer,
 } from './types';
 
-/** Extended grid interface for accessing effective config */
-interface GridWithConfig {
-  effectiveConfig?: GridConfig;
-}
-
 /**
  * Master/Detail Plugin for tbw-grid
  *
@@ -42,7 +37,7 @@ interface GridWithConfig {
  */
 export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   readonly name = 'masterDetail';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<MasterDetailConfig> {
     return {
@@ -157,44 +152,12 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   // #region Animation Helpers
 
   /**
-   * Check if animations are enabled at the grid level.
-   * Respects gridConfig.animation.mode and CSS variable.
-   */
-  private get isAnimationEnabled(): boolean {
-    const gridEl = this.grid as unknown as GridWithConfig;
-    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
-
-    if (mode === false || mode === 'off') return false;
-    if (mode === true || mode === 'on') return true;
-
-    // reduced-motion: check CSS variable
-    const host = this.shadowRoot?.host as HTMLElement | undefined;
-    if (host) {
-      const enabled = getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim();
-      return enabled !== '0';
-    }
-    return true;
-  }
-
-  /**
    * Get expand/collapse animation style from plugin config.
+   * Uses base class isAnimationEnabled to respect grid-level settings.
    */
   private get animationStyle(): ExpandCollapseAnimation {
     if (!this.isAnimationEnabled) return false;
-    return this.config.animation ?? 'slide'; // Plugin default
-  }
-
-  /**
-   * Get animation duration from CSS variable (set by grid).
-   */
-  private get animationDuration(): number {
-    const host = this.shadowRoot?.host as HTMLElement | undefined;
-    if (host) {
-      const durationStr = getComputedStyle(host).getPropertyValue('--tbw-animation-duration').trim();
-      const parsed = parseInt(durationStr, 10);
-      if (!isNaN(parsed)) return parsed;
-    }
-    return 200; // Default
+    return this.config.animation ?? 'slide';
   }
 
   /**
@@ -237,6 +200,33 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   // #region Internal State
   private expandedRows: Set<any> = new Set();
   private detailElements: Map<any, HTMLElement> = new Map();
+
+  /** Default height for detail rows when not configured */
+  private static readonly DEFAULT_DETAIL_HEIGHT = 150;
+
+  /**
+   * Get the estimated height for a detail row.
+   */
+  private getDetailHeight(row: any): number {
+    const detailEl = this.detailElements.get(row);
+    if (detailEl) return detailEl.offsetHeight;
+    return typeof this.config?.detailHeight === 'number'
+      ? this.config.detailHeight
+      : MasterDetailPlugin.DEFAULT_DETAIL_HEIGHT;
+  }
+
+  /**
+   * Toggle a row's detail and emit event.
+   */
+  private toggleAndEmit(row: any, rowIndex: number): void {
+    this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
+    this.emit<DetailExpandDetail>('detail-expand', {
+      rowIndex,
+      row: row as Record<string, unknown>,
+      expanded: this.expandedRows.has(row as object),
+    });
+    this.requestRender();
+  }
   // #endregion
 
   // #region Lifecycle
@@ -315,16 +305,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   override onRowClick(event: RowClickEvent): boolean | void {
     if (!this.config.expandOnRowClick || !this.config.detailRenderer) return;
-
-    this.expandedRows = toggleDetailRow(this.expandedRows, event.row as object);
-
-    this.emit<DetailExpandDetail>('detail-expand', {
-      rowIndex: event.rowIndex,
-      row: event.row as Record<string, unknown>,
-      expanded: this.expandedRows.has(event.row as object),
-    });
-
-    this.requestRender();
+    this.toggleAndEmit(event.row, event.rowIndex);
     return false;
   }
 
@@ -332,15 +313,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     // Handle click on master-detail toggle icon (same pattern as TreePlugin)
     const target = event.originalEvent?.target as HTMLElement;
     if (target?.classList.contains('master-detail-toggle')) {
-      const row = event.row;
-      const rowIndex = event.rowIndex;
-      this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
-      this.emit<DetailExpandDetail>('detail-expand', {
-        rowIndex,
-        row: row as Record<string, unknown>,
-        expanded: this.expandedRows.has(row as object),
-      });
-      this.requestRender();
+      this.toggleAndEmit(event.row, event.rowIndex);
       return true; // Prevent default handling
     }
 
@@ -442,14 +415,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override getExtraHeight(): number {
     let totalHeight = 0;
     for (const row of this.expandedRows) {
-      const detailEl = this.detailElements.get(row);
-      if (detailEl) {
-        totalHeight += detailEl.offsetHeight;
-      } else {
-        // Detail not yet rendered - estimate based on config or default
-        const configHeight = this.config?.detailHeight;
-        totalHeight += typeof configHeight === 'number' ? configHeight : 150;
-      }
+      totalHeight += this.getDetailHeight(row);
     }
     return totalHeight;
   }
@@ -464,13 +430,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       const rowIndex = this.rows.indexOf(row);
       // Include detail if it's for a row before the given index
       if (rowIndex >= 0 && rowIndex < beforeRowIndex) {
-        const detailEl = this.detailElements.get(row);
-        if (detailEl) {
-          totalHeight += detailEl.offsetHeight;
-        } else {
-          const configHeight = this.config?.detailHeight;
-          totalHeight += typeof configHeight === 'number' ? configHeight : 150;
-        }
+        totalHeight += this.getDetailHeight(row);
       }
     }
     return totalHeight;
@@ -502,9 +462,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     for (const { index: rowIndex, row } of expandedIndices) {
       // Actual position includes all detail heights before this row
       const actualRowTop = rowIndex * rowHeight + cumulativeExtraHeight;
-      const detailEl = this.detailElements.get(row);
-      const detailHeight =
-        detailEl?.offsetHeight ?? (typeof this.config?.detailHeight === 'number' ? this.config.detailHeight : 150);
+      const detailHeight = this.getDetailHeight(row);
       const actualDetailBottom = actualRowTop + rowHeight + detailHeight;
 
       // Update cumulative height for next iteration
@@ -647,9 +605,5 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       }
     }
   }
-  // #endregion
-
-  // #region Styles
-  override readonly styles = styles;
   // #endregion
 }

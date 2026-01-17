@@ -18,7 +18,14 @@ import {
   toPublicRanges,
 } from './range-selection';
 import styles from './selection.css?inline';
-import type { CellRange, InternalCellRange, SelectionChangeDetail, SelectionConfig, SelectionMode } from './types';
+import type {
+  CellRange,
+  InternalCellRange,
+  SelectionChangeDetail,
+  SelectionConfig,
+  SelectionMode,
+  SelectionResult,
+} from './types';
 
 /**
  * Build the selection change event detail for the current state.
@@ -69,7 +76,7 @@ function buildSelectionEvent(
  */
 export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   readonly name = 'selection';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<SelectionConfig> {
     return {
@@ -466,24 +473,58 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #region Public API
 
   /**
+   * Get the current selection as a unified result.
+   * Works for all selection modes and always returns ranges.
+   *
+   * @example
+   * ```ts
+   * const selection = plugin.getSelection();
+   * if (selection.ranges.length > 0) {
+   *   const { from, to } = selection.ranges[0];
+   *   // For cell mode: from === to (single cell)
+   *   // For row mode: from.col = 0, to.col = lastCol (full row)
+   *   // For range mode: rectangular selection
+   * }
+   * ```
+   */
+  getSelection(): SelectionResult {
+    return {
+      mode: this.config.mode,
+      ranges: this.#buildEvent().ranges,
+      anchor: this.cellAnchor,
+    };
+  }
+
+  /**
    * Get the selected cell (cell mode only).
+   * @deprecated Use `getSelection()` instead for a unified API across all modes.
    */
   getSelectedCell(): { row: number; col: number } | null {
-    return this.selectedCell;
+    const { mode, ranges } = this.getSelection();
+    if (mode === 'cell' && ranges.length > 0) {
+      return ranges[0].from;
+    }
+    return null;
   }
 
   /**
    * Get all selected row indices (row mode).
+   * @deprecated Use `getSelection().ranges` instead - each range represents a full row.
    */
   getSelectedRows(): number[] {
-    return [...this.selected];
+    const { mode, ranges } = this.getSelection();
+    if (mode === 'row') {
+      return ranges.map((r) => r.from.row);
+    }
+    return [];
   }
 
   /**
    * Get all selected cell ranges in public format.
+   * @deprecated Use `getSelection().ranges` instead.
    */
   getRanges(): CellRange[] {
-    return toPublicRanges(this.ranges);
+    return this.getSelection().ranges;
   }
 
   /**
@@ -547,12 +588,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       this.columns.length,
     );
   }
-
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
 
   // #endregion
 }

@@ -7,7 +7,7 @@
  */
 
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, GridConfig, ToolPanelDefinition } from '../../core/types';
+import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import { buildPivot, flattenPivotRows, getAllGroupKeys, type PivotDataRow } from './pivot-engine';
 import { createValueKey, validatePivotConfig } from './pivot-model';
 import { renderPivotPanel, type FieldInfo, type PanelCallbacks } from './pivot-panel';
@@ -16,20 +16,6 @@ import type { AggFunc, ExpandCollapseAnimation, PivotConfig, PivotResult, PivotV
 
 // Import CSS as inline string (Vite handles this)
 import styles from './pivot.css?inline';
-
-/** Extended grid interface with column access */
-interface GridWithColumns {
-  shadowRoot: ShadowRoot | null;
-  effectiveConfig?: GridConfig;
-  getAllColumns(): Array<{ field: string; header: string; visible: boolean }>;
-  columns: unknown[];
-  rows: unknown[];
-  requestRender(): void;
-  openToolPanel(id: string): void;
-  closeToolPanel(): void;
-  toggleToolPanel(id: string): void;
-  activeToolPanel: string | undefined;
-}
 
 /**
  * Pivot Plugin for tbw-grid
@@ -45,7 +31,7 @@ interface GridWithColumns {
  */
 export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   readonly name = 'pivot';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   /** Tool panel ID for shell integration */
   static readonly PANEL_ID = 'pivot';
@@ -81,19 +67,11 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   }
 
   /**
-   * Get animation style respecting grid-level animation mode.
+   * Get expand/collapse animation style from plugin config.
+   * Uses base class isAnimationEnabled to respect grid-level settings.
    */
   private get animationStyle(): ExpandCollapseAnimation {
-    const gridEl = this.grid as unknown as GridWithColumns;
-    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
-
-    if (mode === false || mode === 'off') return false;
-    if (mode !== true && mode !== 'on') {
-      const host = this.shadowRoot?.host as HTMLElement | undefined;
-      if (host && getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim() === '0') {
-        return false;
-      }
-    }
+    if (!this.isAnimationEnabled) return false;
     return this.config.animation ?? 'slide';
   }
 
@@ -161,10 +139,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Initialize expanded state with defaults if first build
     if (this.expandedKeys.size === 0 && this.defaultExpanded && this.pivotResult) {
-      const allKeys = getAllGroupKeys(this.pivotResult.rows);
-      for (const key of allKeys) {
-        this.expandedKeys.add(key);
-      }
+      this.expandAllKeys();
     }
 
     // Build pivot
@@ -172,10 +147,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // If default expanded and we just built the pivot, add all group keys
     if (this.expandedKeys.size === 0 && this.defaultExpanded) {
-      const allKeys = getAllGroupKeys(this.pivotResult.rows);
-      for (const key of allKeys) {
-        this.expandedKeys.add(key);
-      }
+      this.expandAllKeys();
     }
 
     // Return flattened pivot rows respecting expanded state
@@ -403,18 +375,24 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   }
 
   expandAll(): void {
-    if (this.pivotResult) {
-      const allKeys = getAllGroupKeys(this.pivotResult.rows);
-      for (const key of allKeys) {
-        this.expandedKeys.add(key);
-      }
-      this.requestRender();
-    }
+    this.expandAllKeys();
+    this.requestRender();
   }
 
   collapseAll(): void {
     this.expandedKeys.clear();
     this.requestRender();
+  }
+
+  /**
+   * Add all group keys from the current pivot result to expandedKeys.
+   */
+  private expandAllKeys(): void {
+    if (!this.pivotResult) return;
+    const allKeys = getAllGroupKeys(this.pivotResult.rows);
+    for (const key of allKeys) {
+      this.expandedKeys.add(key);
+    }
   }
 
   isExpanded(key: string): boolean {
@@ -471,24 +449,41 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   // #region Tool Panel API
 
+  /**
+   * Show the pivot tool panel.
+   * Opens the tool panel and ensures this section is expanded.
+   */
   showPanel(): void {
-    const grid = this.grid as unknown as GridWithColumns;
-    grid.openToolPanel(PivotPlugin.PANEL_ID);
+    this.grid.openToolPanel();
+    // Ensure our section is expanded
+    if (!this.grid.expandedToolPanelSections.includes(PivotPlugin.PANEL_ID)) {
+      this.grid.toggleToolPanelSection(PivotPlugin.PANEL_ID);
+    }
   }
 
+  /**
+   * Hide the tool panel.
+   */
   hidePanel(): void {
-    const grid = this.grid as unknown as GridWithColumns;
-    grid.closeToolPanel();
+    this.grid.closeToolPanel();
   }
 
+  /**
+   * Toggle the pivot tool panel section.
+   */
   togglePanel(): void {
-    const grid = this.grid as unknown as GridWithColumns;
-    grid.toggleToolPanel(PivotPlugin.PANEL_ID);
+    // If tool panel is closed, open it first
+    if (!this.grid.isToolPanelOpen) {
+      this.grid.openToolPanel();
+    }
+    this.grid.toggleToolPanelSection(PivotPlugin.PANEL_ID);
   }
 
+  /**
+   * Check if the pivot panel section is currently expanded.
+   */
   isPanelVisible(): boolean {
-    const grid = this.grid as unknown as GridWithColumns;
-    return grid.activeToolPanel === PivotPlugin.PANEL_ID;
+    return this.grid.isToolPanelOpen && this.grid.expandedToolPanelSections.includes(PivotPlugin.PANEL_ID);
   }
 
   // #endregion
@@ -496,8 +491,15 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   // #region Private Helpers
 
   private get gridColumns(): ColumnConfig[] {
-    const grid = this.grid as unknown as GridWithColumns;
-    return (grid.columns ?? []) as ColumnConfig[];
+    return (this.grid.columns ?? []) as ColumnConfig[];
+  }
+
+  /**
+   * Refresh pivot and update tool panel if active.
+   */
+  private refreshIfActive(): void {
+    if (this.isActive) this.refresh();
+    this.refreshPanel();
   }
 
   private buildFieldHeaderMap(): void {
@@ -516,9 +518,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   }
 
   private captureOriginalColumns(): FieldInfo[] {
-    const grid = this.grid as unknown as GridWithColumns;
     try {
-      const columns = grid.getAllColumns?.() ?? grid.columns ?? [];
+      const columns = this.grid.getAllColumns?.() ?? this.grid.columns ?? [];
       this.originalColumns = columns
         .filter((col: { field: string }) => !col.field.startsWith('__pivot'))
         .map((col: { field: string; header?: string }) => ({
@@ -582,8 +583,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
 
     this.removeFromOtherZones(field, zoneType);
-    if (this.isActive) this.refresh();
-    this.refreshPanel();
+    this.refreshIfActive();
   }
 
   private removeFieldFromZone(field: string, zoneType: 'rowGroups' | 'columnGroups'): void {
@@ -593,8 +593,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       this.config.columnGroupFields = (this.config.columnGroupFields ?? []).filter((f) => f !== field);
     }
 
-    if (this.isActive) this.refresh();
-    this.refreshPanel();
+    this.refreshIfActive();
   }
 
   private removeFromOtherZones(field: string, targetZone: 'rowGroups' | 'columnGroups' | 'values'): void {
@@ -616,14 +615,12 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
 
     this.removeFromOtherZones(field, 'values');
-    if (this.isActive) this.refresh();
-    this.refreshPanel();
+    this.refreshIfActive();
   }
 
   private removeValueField(field: string): void {
     this.config.valueFields = (this.config.valueFields ?? []).filter((v) => v.field !== field);
-    if (this.isActive) this.refresh();
-    this.refreshPanel();
+    this.refreshIfActive();
   }
 
   private updateValueAggFunc(field: string, aggFunc: AggFunc): void {
@@ -635,12 +632,6 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
     if (this.isActive) this.refresh();
   }
-
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
 
   // #endregion
 }

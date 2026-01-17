@@ -5,7 +5,7 @@
  */
 
 import { BaseGridPlugin, CellClickEvent } from '../../core/plugin/base-plugin';
-import type { GridConfig, RowElementInternal } from '../../core/types';
+import type { RowElementInternal } from '../../core/types';
 import {
   buildGroupedRowModel,
   collapseAllGroups,
@@ -22,10 +22,6 @@ import type {
   GroupToggleDetail,
   RenderRow,
 } from './types';
-
-interface GridWithConfig {
-  effectiveConfig?: GridConfig;
-}
 
 /**
  * Group state information returned by getGroupState()
@@ -56,7 +52,7 @@ export interface GroupState {
  */
 export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   readonly name = 'groupingRows';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<GroupingRowsConfig> {
     return {
@@ -78,17 +74,12 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   // #region Animation
 
+  /**
+   * Get expand/collapse animation style from plugin config.
+   * Uses base class isAnimationEnabled to respect grid-level settings.
+   */
   private get animationStyle(): ExpandCollapseAnimation {
-    const gridEl = this.grid as unknown as GridWithConfig;
-    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
-
-    if (mode === false || mode === 'off') return false;
-    if (mode !== true && mode !== 'on') {
-      const host = this.shadowRoot?.host as HTMLElement | undefined;
-      if (host && getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim() === '0') {
-        return false;
-      }
-    }
+    if (!this.isAnimationEnabled) return false;
     return this.config.animation ?? 'slide';
   }
 
@@ -277,6 +268,30 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   // #region Private Rendering Helpers
 
+  /**
+   * Create a toggle button for expanding/collapsing a group.
+   */
+  private createToggleButton(expanded: boolean, handleToggle: () => void): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `group-toggle${expanded ? ' expanded' : ''}`;
+    btn.setAttribute('aria-label', expanded ? 'Collapse group' : 'Expand group');
+    this.setIcon(btn, this.resolveIcon(expanded ? 'collapse' : 'expand'));
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleToggle();
+    });
+    return btn;
+  }
+
+  /**
+   * Get the formatted label text for a group.
+   */
+  private getGroupLabelText(value: unknown, depth: number, key: string): string {
+    const config = this.config;
+    return config.formatLabel ? config.formatLabel(value, depth, key) : String(value);
+  }
+
   private renderFullWidthGroupRow(row: any, rowEl: HTMLElement, handleToggle: () => void): void {
     const config = this.config;
 
@@ -286,25 +301,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     cell.style.gridColumn = '1 / -1';
     cell.setAttribute('role', 'gridcell');
 
-    // Toggle button with click handler
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `group-toggle${row.__groupExpanded ? ' expanded' : ''}`;
-    btn.setAttribute('aria-label', row.__groupExpanded ? 'Collapse group' : 'Expand group');
-    this.setIcon(btn, this.resolveIcon(row.__groupExpanded ? 'collapse' : 'expand'));
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleToggle();
-    });
-    cell.appendChild(btn);
+    // Toggle button
+    cell.appendChild(this.createToggleButton(row.__groupExpanded, handleToggle));
 
-    // Group label - use formatLabel if provided
+    // Group label
     const label = document.createElement('span');
     label.className = 'group-label';
-    const labelText = config.formatLabel
-      ? config.formatLabel(row.__groupValue, row.__groupDepth || 0, row.__groupKey)
-      : String(row.__groupValue);
-    label.textContent = labelText;
+    label.textContent = this.getGroupLabelText(row.__groupValue, row.__groupDepth || 0, row.__groupKey);
     cell.appendChild(label);
 
     // Row count
@@ -340,16 +343,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
       if (colIdx === 0) {
         // First column: toggle button + label
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `group-toggle${row.__groupExpanded ? ' expanded' : ''}`;
-        btn.setAttribute('aria-label', row.__groupExpanded ? 'Collapse group' : 'Expand group');
-        this.setIcon(btn, this.resolveIcon(row.__groupExpanded ? 'collapse' : 'expand'));
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          handleToggle();
-        });
-        cell.appendChild(btn);
+        cell.appendChild(this.createToggleButton(row.__groupExpanded, handleToggle));
 
         const label = document.createElement('span');
         const firstColAgg = aggregators[col.field];
@@ -357,10 +351,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
           const aggResult = runAggregator(firstColAgg, groupRows, col.field, col);
           label.textContent = aggResult != null ? String(aggResult) : String(row.__groupValue);
         } else {
-          const labelText = config.formatLabel
-            ? config.formatLabel(row.__groupValue, row.__groupDepth || 0, row.__groupKey)
-            : String(row.__groupValue);
-          label.textContent = labelText;
+          label.textContent = this.getGroupLabelText(row.__groupValue, row.__groupDepth || 0, row.__groupKey);
         }
         cell.appendChild(label);
 
@@ -519,10 +510,5 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     (this.config as GroupingRowsConfig).groupOn = fn;
     this.requestRender();
   }
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
   // #endregion
 }

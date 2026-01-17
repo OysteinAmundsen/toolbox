@@ -3,4 +3,11 @@
  * Re-exports plugin class and types for tree-shakeable imports.
  */
 export { ClipboardPlugin } from './ClipboardPlugin';
-export type { ClipboardConfig } from './types';
+export {
+  defaultPasteHandler,
+  type ClipboardConfig,
+  type CopyDetail,
+  type PasteDetail,
+  type PasteHandler,
+  type PasteTarget,
+} from './types';

@@ -411,6 +411,7 @@ Plugins extend the `BaseGridPlugin` class:
 
 ```typescript
 import { BaseGridPlugin } from '@toolbox-web/grid';
+import styles from './my-plugin.css?inline';
 
 interface MyPluginConfig {
   myOption?: boolean;
@@ -418,32 +419,28 @@ interface MyPluginConfig {
 
 export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
   readonly name = 'myPlugin';
-  readonly version = '1.0.0';
-
-  // CSS injected into shadow DOM
-  readonly styles = `
-    .my-element { color: red; }
-  `;
+  override readonly styles = styles; // CSS imported via Vite
 
   // Default config (override in constructor)
-  protected get defaultConfig(): Partial<MyPluginConfig> {
+  protected override get defaultConfig(): Partial<MyPluginConfig> {
     return { myOption: true };
   }
 
   // Called when plugin is attached to grid
-  attach(grid: GridElement): void {
+  override attach(grid: GridElement): void {
     super.attach(grid);
-    // Setup event listeners, etc.
+    // Setup event listeners using this.disconnectSignal for auto-cleanup
   }
 
   // Called when plugin is detached
-  detach(): void {
-    // Cleanup
+  override detach(): void {
+    // Cleanup (listeners with disconnectSignal auto-cleanup)
   }
 
   // Hook: Called after grid renders
-  afterRender(): void {
-    // DOM manipulation
+  override afterRender(): void {
+    // Access DOM via this.shadowRoot
+    // Access grid element via this.gridElement
   }
 }
 ```

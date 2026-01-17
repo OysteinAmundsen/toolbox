@@ -32,6 +32,13 @@
   --args-toggle-off: light-dark(#e0e0e0, #444);
   --args-toggle-on: light-dark(#029cfd, #3b82f6);
   --args-hover-bg: light-dark(#e0e0e0, #444);
+
+  /* Story demo components */
+  --demo-sample-bg: light-dark(#fefce8, #3d3820);
+  --demo-sample-border: light-dark(#fef08a, #5c5530);
+  --demo-info-bg: light-dark(#f0f9ff, #1e293b);
+  --demo-info-border: light-dark(#bae6fd, #334155);
+  --demo-info-fg: light-dark(#1e293b, #e2e8f0);
 }
 /* #endregion */
 

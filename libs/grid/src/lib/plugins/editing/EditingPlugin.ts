@@ -68,6 +68,25 @@ export function clearEditingState(rowEl: RowElementInternal): void {
 }
 
 /**
+ * Get the typed value from an input element based on its type and column config.
+ */
+function getInputValue(
+  input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+  column?: ColumnConfig<unknown>,
+): unknown {
+  if (input instanceof HTMLInputElement) {
+    if (input.type === 'checkbox') return input.checked;
+    if (input.type === 'number') return input.value === '' ? null : Number(input.value);
+    if (input.type === 'date') return input.valueAsDate;
+    return input.value;
+  }
+  if (column?.type === 'number' && input.value !== '') {
+    return Number(input.value);
+  }
+  return input.value;
+}
+
+/**
  * Auto-wire commit/cancel lifecycle for input elements in string-returned editors.
  */
 function wireEditorInputs(
@@ -82,27 +101,14 @@ function wireEditorInputs(
     | null;
   if (!input) return;
 
-  const getInputValue = (): unknown => {
-    if (input instanceof HTMLInputElement) {
-      if (input.type === 'checkbox') return input.checked;
-      if (input.type === 'number') return input.value === '' ? null : Number(input.value);
-      if (input.type === 'date') return input.valueAsDate;
-      return input.value;
-    }
-    if (column.type === 'number' && input.value !== '') {
-      return Number(input.value);
-    }
-    return input.value;
-  };
-
   input.addEventListener('blur', () => {
-    commit(getInputValue());
+    commit(getInputValue(input, column));
   });
 
   if (input instanceof HTMLInputElement && input.type === 'checkbox') {
     input.addEventListener('change', () => commit(input.checked));
   } else if (input instanceof HTMLSelectElement) {
-    input.addEventListener('change', () => commit(getInputValue()));
+    input.addEventListener('change', () => commit(getInputValue(input, column)));
   }
 }
 
@@ -132,7 +138,6 @@ function wireEditorInputs(
  */
 export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   readonly name = 'editing';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<EditingConfig> {
     return {
@@ -231,20 +236,6 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#changedRowIndices.clear();
     this.#editingCells.clear();
     super.detach();
-  }
-
-  // #endregion
-
-  // #region Config Augmentation (processColumns hook)
-
-  /**
-   * Augment columns with editing metadata.
-   * This enables the grid to recognize editable columns without core knowledge.
-   */
-  override processColumns?(columns: readonly ColumnConfig<T>[]): ColumnConfig<T>[] {
-    // For now, just pass through - the column config already has `editable` and `editor`
-    // This hook could be used to inject default editors based on column type
-    return columns as ColumnConfig<T>[];
   }
 
   // #endregion
@@ -619,15 +610,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           | HTMLSelectElement
           | null;
         if (input) {
-          let val: unknown;
-          if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-            val = input.checked;
-          } else {
-            val = input.value;
-            if (col.type === 'number' && val !== '') {
-              val = Number(val);
-            }
-          }
+          const val = getInputValue(input, col);
           if (current[col.field as keyof T] !== val) {
             this.#commitCellValue(rowIndex, col, val, current);
           }
@@ -886,8 +869,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       let editFinalized = false;
       input.addEventListener('blur', () => {
         if (editFinalized) return;
-        const val = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
-        commit(val);
+        commit(getInputValue(input, column));
       });
       input.addEventListener('keydown', (evt) => {
         const e = evt as KeyboardEvent;
@@ -895,8 +877,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           e.stopPropagation();
           e.preventDefault();
           editFinalized = true;
-          const val = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked : input.value;
-          commit(val);
+          commit(getInputValue(input, column));
           this.#exitRowEdit(rowIndex, false);
         }
         if (e.key === 'Escape') {

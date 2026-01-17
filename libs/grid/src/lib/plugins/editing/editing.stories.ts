@@ -9,12 +9,143 @@ const meta: Meta = {
   title: 'Grid/Plugins/Editing',
   tags: ['!dev'],
   parameters: {
-    layout: 'padded',
+    layout: 'fullscreen',
   },
 };
 export default meta;
 
 type Story = StoryObj;
+
+/**
+ * ## Add/Remove Rows
+ *
+ * Demonstrates how to dynamically add and remove rows from the grid.
+ * Click "+ Add Row" to insert a new editable row, or click the delete button to remove a row.
+ */
+export const AddRemoveRows: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const grid = document.querySelector('tbw-grid');
+const addButton = document.querySelector('#add-row-btn');
+
+let idCounter = 4;
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'email', header: 'Email', editable: true },
+    {
+      field: 'actions',
+      header: 'Actions',
+      renderer: (ctx) => {
+        const btn = document.createElement('button');
+        btn.textContent = 'Delete';
+        btn.onclick = () => {
+          grid.rows = grid.rows.filter(r => r.id !== ctx.row.id);
+        };
+        return btn;
+      },
+    },
+  ],
+  plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice', email: 'alice@example.com' },
+  { id: 2, name: 'Bob', email: 'bob@example.com' },
+  { id: 3, name: 'Carol', email: 'carol@example.com' },
+];
+
+// Add new row when button is clicked
+addButton.addEventListener('click', () => {
+  grid.rows = [
+    ...grid.rows,
+    { id: idCounter++, name: '', email: '' },
+  ];
+});
+`,
+        language: 'ts',
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'display: flex; flex-direction: column; height: 350px;';
+
+    // Toolbar with Add Row button
+    const toolbar = document.createElement('div');
+    toolbar.style.cssText = 'padding: 8px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 8px;';
+
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '+ Add Row';
+    addBtn.style.cssText = `
+      padding: 6px 12px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    `;
+    toolbar.appendChild(addBtn);
+    container.appendChild(toolbar);
+
+    // Grid
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.cssText = 'flex: 1;';
+
+    let idCounter = 4;
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'email', header: 'Email', editable: true },
+        {
+          field: 'actions',
+          header: 'Actions',
+          renderer: (ctx) => {
+            const btn = document.createElement('button');
+            btn.textContent = 'Delete';
+            btn.style.cssText = `
+              padding: 4px 8px;
+              background: #ef4444;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+              font-size: 12px;
+            `;
+            btn.onclick = () => {
+              grid.rows = grid.rows.filter((r) => r.id !== ctx.row.id);
+            };
+            return btn;
+          },
+        },
+      ],
+      plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+    };
+
+    grid.rows = [
+      { id: 1, name: 'Alice', email: 'alice@example.com' },
+      { id: 2, name: 'Bob', email: 'bob@example.com' },
+      { id: 3, name: 'Carol', email: 'carol@example.com' },
+    ];
+
+    addBtn.addEventListener('click', () => {
+      grid.rows = [...grid.rows, { id: idCounter++, name: '', email: '' }];
+    });
+
+    container.appendChild(grid);
+    return container;
+  },
+};
 
 /**
  * ## Basic Editing

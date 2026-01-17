@@ -116,7 +116,13 @@ export class MyGridComponent {
 
 Double-click any cell to start editing. Press Enter to commit or Escape to cancel.
 
-<Canvas of={EditingStories.BasicEditing} />
+<Canvas of={EditingStories.BasicEditing} withToolbar />
+
+## Add/Remove Rows
+
+To dynamically add or remove rows from the grid, simply assign a new array to the `rows` property. The grid reactively updates to display the new data. Use a custom `renderer` in an "Actions" column to provide a delete button for each row.
+
+<Canvas of={EditingStories.AddRemoveRows} withToolbar />
 
 ## Edit Triggers
 
@@ -142,7 +148,7 @@ The grid provides appropriate editors based on column `type`:
 | `date`      | Date picker input                   |
 | `select`    | Dropdown (requires `options` array) |
 
-<Canvas of={EditingStories.AllColumnTypes} />
+<Canvas of={EditingStories.AllColumnTypes} withToolbar />
 
 ## Custom Editors
 
@@ -177,7 +183,7 @@ For specialized input needs, provide a custom `editor` function:
 
 Double-click the Priority column to see button-based editing:
 
-<Canvas of={EditingStories.CustomEditor} />
+<Canvas of={EditingStories.CustomEditor} withToolbar />
 
 ### Editor Context
 

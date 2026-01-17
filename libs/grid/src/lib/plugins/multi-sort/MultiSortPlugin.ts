@@ -21,7 +21,7 @@ import type { MultiSortConfig, SortModel } from './types';
  */
 export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   readonly name = 'multiSort';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<MultiSortConfig> {
     return {
@@ -224,10 +224,5 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     // Re-sort the model by priority to ensure correct order
     // This is handled after all columns are processed, but we maintain order here
   }
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
   // #endregion
 }

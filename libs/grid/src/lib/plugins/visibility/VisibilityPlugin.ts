@@ -39,21 +39,6 @@ function canMoveColumn(column: ColumnConfig): boolean {
   return meta.lockPosition !== true && meta.suppressMovable !== true;
 }
 
-/** Extended grid interface with visibility methods */
-interface GridWithVisibility {
-  shadowRoot: ShadowRoot | null;
-  getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }>;
-  setColumnVisible(field: string, visible: boolean): void;
-  toggleColumnVisibility(field: string): void;
-  showAllColumns(): void;
-  isColumnVisible(field: string): boolean;
-  requestRender(): void;
-  openToolPanel(id: string): void;
-  closeToolPanel(): void;
-  toggleToolPanel(id: string): void;
-  activeToolPanel: string | undefined;
-}
-
 /**
  * Column Visibility Plugin for tbw-grid
  *
@@ -73,10 +58,10 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   ];
 
   readonly name = 'visibility';
-  override readonly version = '1.0.0';
 
   /** Tool panel ID for shell integration */
   static readonly PANEL_ID = 'columns';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<VisibilityConfig> {
     return {
@@ -92,6 +77,13 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   private draggedField: string | null = null;
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
+
+  /** Clear drag-related classes from all rows in a list. */
+  private clearDragClasses(container: HTMLElement): void {
+    container.querySelectorAll('.tbw-visibility-row').forEach((r) => {
+      r.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after');
+    });
+  }
   // #endregion
 
   // #region Lifecycle
@@ -126,26 +118,32 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   /**
    * Show the visibility sidebar panel.
+   * Opens the tool panel and ensures this section is expanded.
    */
   show(): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.openToolPanel(VisibilityPlugin.PANEL_ID);
+    this.grid.openToolPanel();
+    // Ensure our section is expanded
+    if (!this.grid.expandedToolPanelSections.includes(VisibilityPlugin.PANEL_ID)) {
+      this.grid.toggleToolPanelSection(VisibilityPlugin.PANEL_ID);
+    }
   }
 
   /**
    * Hide the visibility sidebar panel.
    */
   hide(): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.closeToolPanel();
+    this.grid.closeToolPanel();
   }
 
   /**
-   * Toggle the visibility sidebar panel.
+   * Toggle the visibility sidebar panel section.
    */
   toggle(): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.toggleToolPanel(VisibilityPlugin.PANEL_ID);
+    // If tool panel is closed, open it first
+    if (!this.grid.isToolPanelOpen) {
+      this.grid.openToolPanel();
+    }
+    this.grid.toggleToolPanelSection(VisibilityPlugin.PANEL_ID);
   }
 
   /**
@@ -155,8 +153,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @returns True if the column is visible
    */
   isColumnVisible(field: string): boolean {
-    const grid = this.grid as unknown as GridWithVisibility;
-    return grid.isColumnVisible(field);
+    return this.grid.isColumnVisible(field);
   }
 
   /**
@@ -166,8 +163,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @param visible - Whether the column should be visible
    */
   setColumnVisible(field: string, visible: boolean): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.setColumnVisible(field, visible);
+    this.grid.setColumnVisible(field, visible);
   }
 
   /**
@@ -175,8 +171,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @returns Array of visible field names
    */
   getVisibleColumns(): string[] {
-    const grid = this.grid as unknown as GridWithVisibility;
-    return grid
+    return this.grid
       .getAllColumns()
       .filter((c) => c.visible)
       .map((c) => c.field);
@@ -187,8 +182,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @returns Array of hidden field names
    */
   getHiddenColumns(): string[] {
-    const grid = this.grid as unknown as GridWithVisibility;
-    return grid
+    return this.grid
       .getAllColumns()
       .filter((c) => !c.visible)
       .map((c) => c.field);
@@ -199,8 +193,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * Delegates to grid.showAllColumns().
    */
   showAll(): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.showAllColumns();
+    this.grid.showAllColumns();
   }
 
   /**
@@ -209,8 +202,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @param field - The field name of the column
    */
   toggleColumn(field: string): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.toggleColumnVisibility(field);
+    this.grid.toggleColumnVisibility(field);
   }
 
   /**
@@ -219,8 +211,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @param field - The field name of the column to show
    */
   showColumn(field: string): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.setColumnVisible(field, true);
+    this.setColumnVisible(field, true);
   }
 
   /**
@@ -229,8 +220,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @param field - The field name of the column to hide
    */
   hideColumn(field: string): void {
-    const grid = this.grid as unknown as GridWithVisibility;
-    grid.setColumnVisible(field, false);
+    this.setColumnVisible(field, false);
   }
 
   /**
@@ -239,17 +229,15 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * @returns Array of column info with visibility status
    */
   getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }> {
-    const grid = this.grid as unknown as GridWithVisibility;
-    return grid.getAllColumns();
+    return this.grid.getAllColumns();
   }
 
   /**
    * Check if the sidebar panel is currently open.
-   * @returns True if the panel is open
+   * @returns True if the panel section is expanded
    */
   isPanelVisible(): boolean {
-    const grid = this.grid as unknown as GridWithVisibility;
-    return grid.activeToolPanel === VisibilityPlugin.PANEL_ID;
+    return this.grid.isToolPanelOpen && this.grid.expandedToolPanelSections.includes(VisibilityPlugin.PANEL_ID);
   }
   // #endregion
 
@@ -260,8 +248,6 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * Returns a cleanup function.
    */
   private renderPanelContent(container: HTMLElement): (() => void) | void {
-    const grid = this.grid as unknown as GridWithVisibility;
-
     // Create content wrapper
     const wrapper = document.createElement('div');
     wrapper.className = 'tbw-visibility-content';
@@ -276,7 +262,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     showAllBtn.className = 'tbw-visibility-show-all';
     showAllBtn.textContent = 'Show All';
     showAllBtn.addEventListener('click', () => {
-      grid.showAllColumns();
+      this.grid.showAllColumns();
       this.rebuildToggles(columnList);
     });
     wrapper.appendChild(showAllBtn);
@@ -311,13 +297,12 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * When a reorder plugin is present, adds drag handles for reordering.
    */
   private rebuildToggles(columnList: HTMLElement): void {
-    const grid = this.grid as unknown as GridWithVisibility;
     const reorderEnabled = this.hasReorderPlugin();
 
     columnList.innerHTML = '';
 
     // getAllColumns() now returns columns in their effective display order
-    const allColumns = grid.getAllColumns();
+    const allColumns = this.grid.getAllColumns();
 
     for (let i = 0; i < allColumns.length; i++) {
       const col = allColumns[i];
@@ -344,7 +329,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       checkbox.checked = col.visible;
       checkbox.disabled = col.lockVisible ?? false;
       checkbox.addEventListener('change', () => {
-        grid.toggleColumnVisibility(col.field);
+        this.grid.toggleColumnVisibility(col.field);
         // Refresh after toggle (grid may re-render)
         setTimeout(() => this.rebuildToggles(columnList), 0);
       });
@@ -393,10 +378,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       this.draggedField = null;
       this.draggedIndex = null;
       this.dropIndex = null;
-
-      columnList.querySelectorAll('.tbw-visibility-row').forEach((r) => {
-        r.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after');
-      });
+      this.clearDragClasses(columnList);
     });
 
     row.addEventListener('dragover', (e: DragEvent) => {
@@ -451,10 +433,5 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       }
     });
   }
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
   // #endregion
 }

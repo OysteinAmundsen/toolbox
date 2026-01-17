@@ -5,7 +5,7 @@
  */
 
 import { BaseGridPlugin, CellClickEvent, HeaderClickEvent } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, GridConfig } from '../../core/types';
+import type { ColumnConfig } from '../../core/types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
@@ -18,8 +18,7 @@ import type {
   TreeWrappedRenderer,
 } from './types';
 
-interface GridWithConfig {
-  effectiveConfig?: GridConfig;
+interface GridWithSortState {
   _sortState?: { field: string; direction: 1 | -1 } | null;
 }
 
@@ -33,7 +32,6 @@ interface GridWithConfig {
  */
 export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   readonly name = 'tree';
-  override readonly version = '1.0.0';
   override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<TreeConfig> {
@@ -71,17 +69,12 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   // #region Animation
 
+  /**
+   * Get expand/collapse animation style from plugin config.
+   * Uses base class isAnimationEnabled to respect grid-level settings.
+   */
   private get animationStyle(): ExpandCollapseAnimation {
-    const gridEl = this.grid as unknown as GridWithConfig;
-    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
-
-    if (mode === false || mode === 'off') return false;
-    if (mode !== true && mode !== 'on') {
-      const host = this.shadowRoot?.host as HTMLElement | undefined;
-      if (host && getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim() === '0') {
-        return false;
-      }
-    }
+    if (!this.isAnimationEnabled) return false;
     return this.config.animation ?? 'slide';
   }
 
@@ -303,7 +296,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     }
 
     // Sync grid sort indicator
-    const gridEl = this.grid as unknown as GridWithConfig;
+    const gridEl = this.grid as unknown as GridWithSortState;
     if (gridEl._sortState !== undefined) {
       gridEl._sortState = this.sortState ? { ...this.sortState } : null;
     }

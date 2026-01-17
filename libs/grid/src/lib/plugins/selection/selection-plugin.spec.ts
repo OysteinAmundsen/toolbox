@@ -500,6 +500,57 @@ describe('SelectionPlugin', () => {
   });
 
   describe('public API', () => {
+    describe('getSelection (unified API)', () => {
+      it('should return selection with ranges in cell mode', () => {
+        const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }, { field: 'email' }]);
+        const plugin = new SelectionPlugin({ mode: 'cell' });
+        plugin.attach(mockGrid);
+
+        plugin['selectedCell'] = { row: 2, col: 3 };
+
+        const selection = plugin.getSelection();
+        expect(selection.mode).toBe('cell');
+        expect(selection.ranges).toEqual([{ from: { row: 2, col: 3 }, to: { row: 2, col: 3 } }]);
+      });
+
+      it('should return selection with full-row ranges in row mode', () => {
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }], [{ field: 'name' }, { field: 'email' }]);
+        const plugin = new SelectionPlugin({ mode: 'row' });
+        plugin.attach(mockGrid);
+
+        plugin['selected'].add(1);
+
+        const selection = plugin.getSelection();
+        expect(selection.mode).toBe('row');
+        expect(selection.ranges).toEqual([{ from: { row: 1, col: 0 }, to: { row: 1, col: 1 } }]);
+      });
+
+      it('should return selection with rectangular ranges in range mode', () => {
+        const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'range' });
+        plugin.attach(mockGrid);
+
+        plugin['ranges'].push({ startRow: 0, startCol: 0, endRow: 2, endCol: 3 });
+        plugin['cellAnchor'] = { row: 0, col: 0 };
+
+        const selection = plugin.getSelection();
+        expect(selection.mode).toBe('range');
+        expect(selection.ranges).toEqual([{ from: { row: 0, col: 0 }, to: { row: 2, col: 3 } }]);
+        expect(selection.anchor).toEqual({ row: 0, col: 0 });
+      });
+
+      it('should return empty ranges when nothing selected', () => {
+        const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'range' });
+        plugin.attach(mockGrid);
+
+        const selection = plugin.getSelection();
+        expect(selection.mode).toBe('range');
+        expect(selection.ranges).toEqual([]);
+        expect(selection.anchor).toBeNull();
+      });
+    });
+
     describe('getSelectedCell', () => {
       it('should return selected cell in cell mode', () => {
         const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);

@@ -24,7 +24,7 @@ import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams }
  */
 export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   readonly name = 'filtering';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<FilterConfig> {
     return {
@@ -50,6 +50,20 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private static readonly LIST_ITEM_HEIGHT = 28;
   private static readonly LIST_OVERSCAN = 3;
   private static readonly LIST_BYPASS_THRESHOLD = 50; // Don't virtualize if < 50 items
+
+  /**
+   * Sync excludedValues map from a filter model (for set filters).
+   */
+  private syncExcludedValues(field: string, filter: FilterModel | null): void {
+    if (!filter) {
+      this.excludedValues.delete(field);
+    } else if (filter.type === 'set' && filter.operator === 'notIn' && Array.isArray(filter.value)) {
+      this.excludedValues.set(field, new Set(filter.value));
+    } else if (filter.type === 'set') {
+      // Other set operators may have different semantics; clear for safety
+      this.excludedValues.delete(field);
+    }
+  }
   // #endregion
 
   // #region Lifecycle
@@ -173,16 +187,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   setFilter(field: string, filter: Omit<FilterModel, 'field'> | null): void {
     if (filter === null) {
       this.filters.delete(field);
-      this.excludedValues.delete(field);
+      this.syncExcludedValues(field, null);
     } else {
-      this.filters.set(field, { ...filter, field });
-      // Sync excludedValues for set filters so the panel reflects correct state
-      if (filter.type === 'set' && filter.operator === 'notIn' && Array.isArray(filter.value)) {
-        this.excludedValues.set(field, new Set(filter.value));
-      } else if (filter.type === 'set') {
-        // Other set operators may have different semantics; clear for safety
-        this.excludedValues.delete(field);
-      }
+      const fullFilter = { ...filter, field };
+      this.filters.set(field, fullFilter);
+      this.syncExcludedValues(field, fullFilter);
     }
     // Invalidate cache
     this.cachedResult = null;
@@ -224,10 +233,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.excludedValues.clear();
     for (const filter of filters) {
       this.filters.set(filter.field, filter);
-      // Sync excludedValues for set filters so the panel reflects correct state
-      if (filter.type === 'set' && filter.operator === 'notIn' && Array.isArray(filter.value)) {
-        this.excludedValues.set(filter.field, new Set(filter.value));
-      }
+      this.syncExcludedValues(filter.field, filter);
     }
     this.cachedResult = null;
     this.cacheKey = null;
@@ -846,10 +852,5 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.cachedResult = null;
     this.cacheKey = null;
   }
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
   // #endregion
 }

@@ -59,7 +59,6 @@ const defaultItems: ContextMenuItem[] = [
  */
 export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   readonly name = 'contextMenu';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<ContextMenuConfig> {
     return {

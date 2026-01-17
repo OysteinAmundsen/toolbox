@@ -26,7 +26,6 @@ import type { ColumnVirtualizationConfig } from './types';
  */
 export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizationConfig> {
   readonly name = 'columnVirtualization';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<ColumnVirtualizationConfig> {
     return {

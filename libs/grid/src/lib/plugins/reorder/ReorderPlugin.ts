@@ -10,21 +10,10 @@
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { BaseGridPlugin, PLUGIN_QUERIES } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, GridConfig, InternalGrid } from '../../core/types';
+import type { ColumnConfig, InternalGrid } from '../../core/types';
 import { canMoveColumn, moveColumn } from './column-drag';
 import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
-
-/** Extended grid interface with column order methods */
-interface GridWithColumnOrder {
-  setColumnOrder(order: string[]): void;
-  getColumnOrder(): string[];
-  requestStateChange?: () => void;
-  /** Query plugins for inter-plugin communication */
-  queryPlugins<T>(query: { type: string; context: unknown }): T[];
-  /** Effective grid config */
-  effectiveConfig?: GridConfig;
-}
 
 /**
  * Column Reordering Plugin for tbw-grid
@@ -36,7 +25,7 @@ interface GridWithColumnOrder {
  */
 export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   readonly name = 'reorder';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<ReorderConfig> {
     return {
@@ -46,7 +35,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   /**
    * Resolve animation type from plugin config.
-   * Respects grid-level animation.mode (disabled = no animation).
+   * Uses base class isAnimationEnabled to respect grid-level settings.
    */
   private get animationType(): false | 'flip' | 'fade' {
     // Check if animations are globally disabled
@@ -63,47 +52,15 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   }
 
   /**
-   * Check if animations are enabled at the grid level.
-   * Respects gridConfig.animation.mode and CSS variable.
+   * Get animation duration, allowing plugin config override.
+   * Uses base class animationDuration for default.
    */
-  private get isAnimationEnabled(): boolean {
-    const gridEl = this.grid as unknown as GridWithColumnOrder;
-    const mode = gridEl.effectiveConfig?.animation?.mode ?? 'reduced-motion';
-
-    // Explicit off = disabled
-    if (mode === false || mode === 'off') return false;
-
-    // Explicit on = always enabled
-    if (mode === true || mode === 'on') return true;
-
-    // reduced-motion: check CSS variable (set by grid based on media query)
-    const host = this.shadowRoot?.host as HTMLElement | undefined;
-    if (host) {
-      const enabled = getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim();
-      return enabled !== '0';
-    }
-
-    return true; // Default to enabled
-  }
-
-  /**
-   * Get animation duration from CSS variable (set by grid config).
-   */
-  private get animationDuration(): number {
+  protected override get animationDuration(): number {
     // Plugin config override
     if (this.config.animationDuration !== undefined) {
       return this.config.animationDuration;
     }
-
-    // Read from CSS variable (already set by grid from gridConfig.animation.duration)
-    const host = this.shadowRoot?.host as HTMLElement | undefined;
-    if (host) {
-      const durationStr = getComputedStyle(host).getPropertyValue('--tbw-animation-duration').trim();
-      const parsed = parseInt(durationStr, 10);
-      if (!isNaN(parsed)) return parsed;
-    }
-
-    return 200; // Default
+    return super.animationDuration;
   }
 
   // #region Internal State
@@ -111,6 +68,27 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   private draggedField: string | null = null;
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
+
+  /**
+   * Check if a column can be moved, considering both column config and plugin queries.
+   */
+  private canMoveColumnWithPlugins(column: ColumnConfig | undefined): boolean {
+    if (!column || !canMoveColumn(column)) return false;
+    const responses = this.grid.queryPlugins<boolean>({
+      type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
+      context: column,
+    });
+    return !responses.includes(false);
+  }
+
+  /**
+   * Clear all drag-related classes from header cells.
+   */
+  private clearDragClasses(): void {
+    this.shadowRoot?.querySelectorAll('.header-row > .cell').forEach((h) => {
+      h.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after');
+    });
+  }
   // #endregion
 
   // #region Lifecycle
@@ -154,14 +132,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
       if (!field) return;
 
       const column = this.columns.find((c) => c.field === field);
-      // Check both local metadata and plugin queries (e.g., PinnedColumnsPlugin)
-      const gridEl = this.grid as unknown as GridWithColumnOrder;
-      const pluginResponses = gridEl.queryPlugins<boolean>({
-        type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
-        context: column as ColumnConfig,
-      });
-      const pluginAllows = !pluginResponses.includes(false);
-      if (!column || !canMoveColumn(column) || !pluginAllows) {
+      if (!this.canMoveColumnWithPlugins(column)) {
         headerEl.draggable = false;
         return;
       }
@@ -192,10 +163,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         this.draggedField = null;
         this.draggedIndex = null;
         this.dropIndex = null;
-
-        shadowRoot.querySelectorAll('.header-row > .cell').forEach((h) => {
-          h.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after');
-        });
+        this.clearDragClasses();
       });
 
       headerEl.addEventListener('dragover', (e: DragEvent) => {
@@ -262,15 +230,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (focusCol < 0 || focusCol >= columns.length) return;
 
     const column = columns[focusCol];
-    if (!column || !canMoveColumn(column)) return;
-
-    // Check plugin queries (e.g., PinnedColumnsPlugin)
-    const gridEl = this.grid as unknown as GridWithColumnOrder;
-    const pluginResponses = gridEl.queryPlugins<boolean>({
-      type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
-      context: column,
-    });
-    if (pluginResponses.includes(false)) return;
+    if (!this.canMoveColumnWithPlugins(column)) return;
 
     const currentOrder = this.getColumnOrder();
     const fromIndex = currentOrder.indexOf(column.field);
@@ -283,13 +243,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     // Check if target position is allowed (e.g., not into pinned area)
     const targetColumn = columns.find((c) => c.field === currentOrder[toIndex]);
-    if (targetColumn) {
-      const targetResponses = gridEl.queryPlugins<boolean>({
-        type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
-        context: targetColumn,
-      });
-      if (targetResponses.includes(false)) return;
-    }
+    if (!this.canMoveColumnWithPlugins(targetColumn)) return;
 
     this.moveColumn(column.field, toIndex);
 
@@ -310,7 +264,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * @returns Array of field names in display order
    */
   getColumnOrder(): string[] {
-    return (this.grid as unknown as GridWithColumnOrder).getColumnOrder();
+    return this.grid.getColumnOrder();
   }
 
   /**
@@ -479,12 +433,11 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * Update column order with configured animation.
    */
   private updateColumnOrder(newOrder: string[]): void {
-    const gridEl = this.grid as unknown as GridWithColumnOrder;
     const animation = this.animationType;
 
     if (animation === 'flip' && this.shadowRoot) {
       const oldPositions = this.captureHeaderPositions();
-      gridEl.setColumnOrder(newOrder);
+      this.grid.setColumnOrder(newOrder);
       // Wait for the scheduler to process the virtual window update (RAF)
       // before running FLIP animation on the new cells
       requestAnimationFrame(() => {
@@ -492,17 +445,12 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         this.animateFLIP(oldPositions);
       });
     } else if (animation === 'fade') {
-      this.animateFade(() => gridEl.setColumnOrder(newOrder));
+      this.animateFade(() => this.grid.setColumnOrder(newOrder));
     } else {
-      gridEl.setColumnOrder(newOrder);
+      this.grid.setColumnOrder(newOrder);
     }
 
-    gridEl.requestStateChange?.();
+    this.grid.requestStateChange?.();
   }
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
   // #endregion
 }

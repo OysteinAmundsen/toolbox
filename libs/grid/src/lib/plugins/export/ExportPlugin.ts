@@ -33,7 +33,6 @@ interface SelectionPluginState {
  */
 export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
   readonly name = 'export';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<ExportConfig> {
     return {

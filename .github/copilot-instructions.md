@@ -423,17 +423,24 @@ libs/grid/src/lib/plugins/[plugin-name]/
 
 ### Accessing the Grid's Shadow DOM
 
-In class-based plugins, access the grid via `this.grid`:
+In class-based plugins, use the built-in helpers:
 
 ```typescript
 class MyPlugin extends BaseGridPlugin<MyConfig> {
   afterRender(): void {
-    const gridEl = this.grid as unknown as Element;
-    const shadowRoot = gridEl.shadowRoot;
+    // Use this.shadowRoot (typed getter)
+    const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
     // ... work with shadow DOM
   }
 }
+```
+
+For HTMLElement access (e.g., clientWidth, classList):
+
+```typescript
+const width = this.gridElement.clientWidth;
+this.gridElement.classList.add('my-plugin-active');
 ```
 
 To access the root container element inside the shadow DOM:
@@ -452,9 +459,6 @@ import styles from './my-plugin.css?inline';
 
 export class MyPlugin extends BaseGridPlugin<MyConfig> {
   readonly name = 'myPlugin';
-  readonly version = '1.0.0';
-
-  // Assign imported styles to the styles property
   override readonly styles = styles;
 
   // ... hooks
@@ -470,6 +474,30 @@ The CSS file (`my-plugin.css`) contains the styles:
 ```
 
 **Do NOT** use inline template literal styles or create `<style>` elements manually.
+
+### Built-in Plugin Helpers
+
+BaseGridPlugin provides these protected helpers - use them instead of type casting:
+
+| Helper                         | Description                                     |
+| ------------------------------ | ----------------------------------------------- |
+| `this.grid`                    | Typed `GridElementRef` with all plugin APIs     |
+| `this.gridElement`             | Grid as `HTMLElement` for DOM operations        |
+| `this.shadowRoot`              | Grid's shadow root for DOM queries              |
+| `this.columns`                 | Current column configurations                   |
+| `this.visibleColumns`          | Only visible columns (for rendering)            |
+| `this.rows`                    | Processed rows (after filtering, grouping)      |
+| `this.sourceRows`              | Original unfiltered rows                        |
+| `this.disconnectSignal`        | AbortSignal for auto-cleanup of event listeners |
+| `this.isAnimationEnabled`      | Whether grid animations are enabled             |
+| `this.animationDuration`       | Animation duration in ms (default: 200)         |
+| `this.gridIcons`               | Merged icon configuration                       |
+| `this.getPlugin(PluginClass)`  | Get another plugin instance                     |
+| `this.emit(eventName, detail)` | Dispatch custom event from grid                 |
+| `this.requestRender()`         | Request full re-render                          |
+| `this.requestAfterRender()`    | Request lightweight style update                |
+| `this.resolveIcon(name)`       | Get icon value by name                          |
+| `this.setIcon(el, icon)`       | Set icon on element (string or SVG)             |
 
 ### Plugin Hooks (Class Methods)
 

@@ -157,7 +157,7 @@ When creating a new plugin:
    ```typescript
    export class MyPlugin extends BaseGridPlugin<MyConfig> {
      readonly name = 'myPlugin';
-     readonly version = '1.0.0';
+     override readonly styles = styles; // CSS imported via Vite
      // ...
    }
    ```

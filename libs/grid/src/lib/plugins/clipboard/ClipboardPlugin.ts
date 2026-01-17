@@ -4,19 +4,20 @@
  * Provides copy/paste functionality for tbw-grid.
  * Supports Ctrl+C/Cmd+C for copying and Ctrl+V/Cmd+V for pasting.
  *
- * **With Selection plugin:** Copy selected rows as a range
- * - includeHeaders: true → adds header row at top
- * - includeHeaders: false → data rows only
- *
- * **Without Selection plugin:** Copy focused cell only
- * - includeHeaders: true → "Header: value" format
- * - includeHeaders: false → value only
+ * **With Selection plugin:** Copies selected cells/rows/range
+ * **Without Selection plugin:** Copies entire grid
  */
 
-import { BaseGridPlugin, type PluginDependency } from '../../core/plugin/base-plugin';
-import { buildClipboardText, copyToClipboard } from './copy';
+import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
+import { copyToClipboard } from './copy';
 import { parseClipboardText, readFromClipboard } from './paste';
-import type { ClipboardConfig, CopyDetail, PasteDetail } from './types';
+import {
+  defaultPasteHandler,
+  type ClipboardConfig,
+  type CopyDetail,
+  type PasteDetail,
+  type PasteTarget,
+} from './types';
 
 /**
  * Clipboard Plugin for tbw-grid
@@ -28,16 +29,16 @@ import type { ClipboardConfig, CopyDetail, PasteDetail } from './types';
  */
 export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   /**
-   * Plugin dependencies - ClipboardPlugin requires SelectionPlugin to know what to copy.
+   * Plugin dependencies - ClipboardPlugin works best with SelectionPlugin.
    *
-   * The SelectionPlugin must be loaded BEFORE this plugin in the plugins array.
+   * Without SelectionPlugin: copies entire grid, pastes at row 0 col 0.
+   * With SelectionPlugin: copies/pastes based on selection.
    */
   static override readonly dependencies: PluginDependency[] = [
-    { name: 'selection', required: true, reason: 'ClipboardPlugin needs selection to determine what cells to copy' },
+    { name: 'selection', required: false, reason: 'Enables copy/paste of selected cells instead of entire grid' },
   ];
 
   readonly name = 'clipboard';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<ClipboardConfig> {
     return {
@@ -55,6 +56,19 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   // #region Lifecycle
 
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+
+    // Listen for native paste events to get clipboard data synchronously
+    // This is more reliable than the async Clipboard API in iframe contexts
+    // Cast to HTMLElement since GridElement is an interface
+    (grid as unknown as HTMLElement).addEventListener(
+      'paste',
+      (e: Event) => this.#handleNativePaste(e as ClipboardEvent),
+      { signal: this.disconnectSignal },
+    );
+  }
+
   override detach(): void {
     this.lastCopied = null;
   }
@@ -64,18 +78,14 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   override onKeyDown(event: KeyboardEvent): boolean {
     const isCopy = (event.ctrlKey || event.metaKey) && event.key === 'c';
-    const isPaste = (event.ctrlKey || event.metaKey) && event.key === 'v';
 
     if (isCopy) {
       this.#handleCopy(event.target as HTMLElement);
       return true; // Prevent default browser behavior
     }
 
-    if (isPaste) {
-      this.#handlePaste();
-      return true; // Prevent default browser behavior
-    }
-
+    // For paste, we do NOT return true - let the native paste event fire
+    // so we can access clipboardData synchronously in #handleNativePaste
     return false;
   }
   // #endregion
@@ -83,78 +93,147 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   // #region Private Methods
 
   /**
-   * Handle copy operation
+   * Handle copy operation.
+   *
+   * Everything is treated as a range:
+   * - With selection: copies the selected range
+   * - Row mode: range spanning all columns for selected rows
+   * - No selection plugin: entire grid as a range
+   * - No selection: try to get focused cell from DOM as 1x1 range
    */
   #handleCopy(target: HTMLElement): void {
-    // Try to get selection from selection plugin (if available)
-    // Use dynamic import to avoid circular dependency issues
     const selectionPlugin = this.#getSelectionPlugin();
+    const selection = selectionPlugin?.getSelection();
+    const lastCol = this.columns.length - 1;
+    const lastRow = this.rows.length - 1;
 
-    // Check for different selection types
-    const selectedRows = selectionPlugin?.getSelectedRows() ?? [];
-    const hasRowSelection = selectedRows.length > 0;
-    const ranges = selectionPlugin?.getRanges() ?? [];
-    const hasRangeSelection = ranges.length > 0;
-    const hasCellSelection = selectionPlugin?.getSelectedCell() != null;
+    let range: { startRow: number; startCol: number; endRow: number; endCol: number };
 
-    let text: string;
-    let rowCount: number;
-    let columnCount: number;
+    if (selection && selection.ranges.length > 0) {
+      const { mode, ranges } = selection;
+      const activeRange = ranges[ranges.length - 1];
 
-    if (hasRowSelection && selectionPlugin) {
-      // Row selection mode - copy full rows
-      text = buildClipboardText({
-        rows: this.rows as unknown[],
-        columns: [...this.columns],
-        selectedIndices: selectedRows,
-        config: this.config,
-      });
-      rowCount = selectedRows.length;
-      columnCount = this.columns.filter((c) => !c.hidden && !c.field.startsWith('__')).length;
-    } else if (hasRangeSelection && selectionPlugin) {
-      // Range selection mode - copy rectangular range (use last range as active)
-      const range = ranges[ranges.length - 1];
-      const result = this.#buildRangeText({
-        startRow: range.from.row,
-        startCol: range.from.col,
-        endRow: range.to.row,
-        endCol: range.to.col,
-      });
-      text = result.text;
-      rowCount = result.rowCount;
-      columnCount = result.columnCount;
-    } else if (hasCellSelection && selectionPlugin) {
-      // Cell selection mode - copy single cell
-      const cell = selectionPlugin.getSelectedCell()!;
-      const result = this.#buildCellText(cell.row, cell.col);
-      if (!result) return;
-      text = result.text;
-      rowCount = 1;
-      columnCount = 1;
+      if (mode === 'row') {
+        // Row mode: use row bounds, but span all columns
+        range = {
+          startRow: activeRange.from.row,
+          startCol: 0,
+          endRow: activeRange.to.row,
+          endCol: lastCol,
+        };
+      } else {
+        // Cell or range mode: use the selection as-is
+        range = {
+          startRow: activeRange.from.row,
+          startCol: activeRange.from.col,
+          endRow: activeRange.to.row,
+          endCol: activeRange.to.col,
+        };
+      }
+    } else if (!selectionPlugin) {
+      // No selection plugin: copy entire grid
+      range = { startRow: 0, startCol: 0, endRow: lastRow, endCol: lastCol };
     } else {
-      // Fallback: try to find focused cell from DOM
-      const result = this.#buildSingleCellText(target);
-      if (!result) return;
-      text = result.text;
-      rowCount = 1;
-      columnCount = 1;
+      // Selection plugin exists but no selection: try focused cell from DOM
+      const focused = this.#getFocusedCellFromDOM(target);
+      if (!focused) return;
+      range = { startRow: focused.row, startCol: focused.col, endRow: focused.row, endCol: focused.col };
     }
 
-    copyToClipboard(text).then(() => {
-      this.lastCopied = { text, timestamp: Date.now() };
-      this.emit<CopyDetail>('copy', { text, rowCount, columnCount });
+    const result = this.#buildRangeText(range);
+
+    copyToClipboard(result.text).then(() => {
+      this.lastCopied = { text: result.text, timestamp: Date.now() };
+      this.emit<CopyDetail>('copy', {
+        text: result.text,
+        rowCount: result.rowCount,
+        columnCount: result.columnCount,
+      });
     });
   }
 
   /**
-   * Handle paste operation
+   * Handle native paste event (preferred method - works in iframes).
+   * Uses synchronous clipboardData from the native paste event.
+   *
+   * Flow:
+   * 1. Parse clipboard text
+   * 2. Build target/fields info from selection
+   * 3. Emit 'paste' event (for listeners)
+   * 4. Call paste handler (if configured) to apply data to grid
+   *
+   * Selection behavior:
+   * - Single cell: paste starts at cell, expands freely
+   * - Range/row: paste is clipped to fit within selection bounds
+   * - No selection: paste starts at row 0, col 0
    */
-  #handlePaste(): void {
-    readFromClipboard().then((text) => {
-      if (!text) return;
-      const parsed = parseClipboardText(text, this.config);
-      this.emit<PasteDetail>('paste', { rows: parsed, text });
-    });
+  #handleNativePaste(event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData('text/plain');
+    if (!text) return;
+
+    // Prevent default to avoid pasting into contenteditable elements
+    event.preventDefault();
+
+    const parsed = parseClipboardText(text, this.config);
+
+    // Get target cell from selection plugin
+    const selectionPlugin = this.#getSelectionPlugin();
+    const selection = selectionPlugin?.getSelection();
+    const firstRange = selection?.ranges?.[0];
+
+    // Determine target cell and bounds
+    const targetRow = firstRange?.from.row ?? 0;
+    const targetCol = firstRange?.from.col ?? 0;
+
+    // Check if multi-cell selection (range with different start/end)
+    const isMultiCell =
+      firstRange &&
+      (selection?.mode === 'range' || selection?.mode === 'row') &&
+      (firstRange.from.row !== firstRange.to.row || firstRange.from.col !== firstRange.to.col);
+
+    const bounds = isMultiCell ? { endRow: firstRange.to.row, endCol: firstRange.to.col } : null;
+    const maxCol = bounds?.endCol ?? this.columns.length - 1;
+
+    // Build target info
+    const column = this.columns[targetCol];
+    const target: PasteTarget | null = column ? { row: targetRow, col: targetCol, field: column.field, bounds } : null;
+
+    // Build field list for paste width (constrained by bounds if set)
+    const fields: string[] = [];
+    const pasteWidth = parsed[0]?.length ?? 0;
+    for (let i = 0; i < pasteWidth && targetCol + i <= maxCol; i++) {
+      const col = this.columns[targetCol + i];
+      if (col && !col.hidden) {
+        fields.push(col.field);
+      }
+    }
+
+    const detail: PasteDetail = { rows: parsed, text, target, fields };
+
+    // Emit the event for any listeners
+    this.emit<PasteDetail>('paste', detail);
+
+    // Apply paste data using the configured handler (or default)
+    this.#applyPasteHandler(detail);
+  }
+
+  /**
+   * Apply the paste handler to update grid data.
+   *
+   * Uses the configured `pasteHandler`, or the default handler if not specified.
+   * Set `pasteHandler: null` in config to disable auto-paste.
+   */
+  #applyPasteHandler(detail: PasteDetail): void {
+    if (!this.grid) return;
+
+    const { pasteHandler } = this.config;
+
+    // pasteHandler: null means explicitly disabled
+    if (pasteHandler === null) return;
+
+    // Use custom handler or default
+    const handler = pasteHandler ?? defaultPasteHandler;
+    handler(detail, this.grid);
   }
 
   /**
@@ -171,30 +250,6 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       // Selection plugin not available
     }
     return undefined;
-  }
-
-  /**
-   * Build text for a single cell by row/col index.
-   */
-  #buildCellText(rowIndex: number, colIndex: number): { text: string } | null {
-    const rowData = this.rows[rowIndex] as Record<string, unknown> | undefined;
-    if (!rowData) return null;
-
-    const column = this.columns[colIndex];
-    if (!column) return null;
-
-    const value = rowData[column.field];
-    const header = column.header || column.field;
-
-    let text: string;
-    if (this.config.includeHeaders) {
-      const formattedValue = value == null ? '' : String(value);
-      text = `${header}: ${formattedValue}`;
-    } else {
-      text = value == null ? '' : String(value);
-    }
-
-    return { text };
   }
 
   /**
@@ -246,43 +301,24 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   }
 
   /**
-   * Build text for a single focused cell from DOM.
-   * Used when selection plugin is not available or no rows are selected.
+   * Get focused cell coordinates from DOM.
+   * Used as fallback when SelectionPlugin has no selection.
    */
-  #buildSingleCellText(target: HTMLElement): { text: string; field: string; value: unknown } | null {
-    // Find the cell element - cells use data-field-cache for the field name
+  #getFocusedCellFromDOM(target: HTMLElement): { row: number; col: number } | null {
     const cell = target.closest('[data-field-cache]') as HTMLElement | null;
     if (!cell) return null;
 
     const field = cell.dataset.fieldCache;
-    if (!field) return null;
-
-    // Get row index from data-row attribute on the cell
     const rowIndexStr = cell.dataset.row;
-    if (!rowIndexStr) return null;
+    if (!field || !rowIndexStr) return null;
 
-    const rowIndex = parseInt(rowIndexStr, 10);
-    if (isNaN(rowIndex)) return null;
+    const row = parseInt(rowIndexStr, 10);
+    if (isNaN(row)) return null;
 
-    const rowData = this.rows[rowIndex] as Record<string, unknown> | undefined;
-    if (!rowData) return null;
+    const col = this.columns.findIndex((c) => c.field === field);
+    if (col === -1) return null;
 
-    const value = rowData[field];
-    const column = this.columns.find((c) => c.field === field);
-    const header = column?.header || field;
-
-    // Format the text based on includeHeaders config
-    let text: string;
-    if (this.config.includeHeaders) {
-      // Format: "{header}: {value}"
-      const formattedValue = value == null ? '' : String(value);
-      text = `${header}: ${formattedValue}`;
-    } else {
-      // Just the value
-      text = value == null ? '' : String(value);
-    }
-
-    return { text, field, value };
+    return { row, col };
   }
   // #endregion
 
@@ -294,18 +330,30 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    */
   async copy(): Promise<string> {
     const selectionPlugin = this.#getSelectionPlugin();
-    const indices = selectionPlugin?.getSelectedRows() ?? [];
+    const selection = selectionPlugin?.getSelection();
+    const lastCol = this.columns.length - 1;
 
-    const text = buildClipboardText({
-      rows: this.rows as unknown[],
-      columns: [...this.columns],
-      selectedIndices: indices,
-      config: this.config,
-    });
+    // Default to entire grid if no selection
+    let range = { startRow: 0, startCol: 0, endRow: this.rows.length - 1, endCol: lastCol };
 
-    await copyToClipboard(text);
-    this.lastCopied = { text, timestamp: Date.now() };
-    return text;
+    if (selection && selection.ranges.length > 0) {
+      const activeRange = selection.ranges[selection.ranges.length - 1];
+      if (selection.mode === 'row') {
+        range = { startRow: activeRange.from.row, startCol: 0, endRow: activeRange.to.row, endCol: lastCol };
+      } else {
+        range = {
+          startRow: activeRange.from.row,
+          startCol: activeRange.from.col,
+          endRow: activeRange.to.row,
+          endCol: activeRange.to.col,
+        };
+      }
+    }
+
+    const result = this.#buildRangeText(range);
+    await copyToClipboard(result.text);
+    this.lastCopied = { text: result.text, timestamp: Date.now() };
+    return result.text;
   }
 
   /**
@@ -314,16 +362,24 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * @returns The copied text
    */
   async copyRows(indices: number[]): Promise<string> {
-    const text = buildClipboardText({
-      rows: this.rows as unknown[],
-      columns: [...this.columns],
-      selectedIndices: indices,
-      config: this.config,
-    });
+    if (indices.length === 0) return '';
 
-    await copyToClipboard(text);
-    this.lastCopied = { text, timestamp: Date.now() };
-    return text;
+    const sortedIndices = [...indices].sort((a, b) => a - b);
+    const lastCol = this.columns.length - 1;
+
+    // For non-contiguous rows, we need to copy each row separately
+    // For now, copy the range from first to last selected row
+    const range = {
+      startRow: sortedIndices[0],
+      startCol: 0,
+      endRow: sortedIndices[sortedIndices.length - 1],
+      endCol: lastCol,
+    };
+
+    const result = this.#buildRangeText(range);
+    await copyToClipboard(result.text);
+    this.lastCopied = { text: result.text, timestamp: Date.now() };
+    return result.text;
   }
 
   /**
@@ -349,16 +405,33 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 // #region Internal Types
 
 /**
+ * Range representation for clipboard operations.
+ */
+interface CellRange {
+  from: { row: number; col: number };
+  to: { row: number; col: number };
+}
+
+/**
  * Interface for SelectionPlugin methods we need.
  * This avoids circular imports while providing type safety.
  */
 interface SelectionPluginInterface {
   name: string;
-  /** Get selected row indices (row mode) */
+  /**
+   * Get unified selection result (preferred API).
+   * Works for all selection modes.
+   */
+  getSelection(): {
+    mode: 'cell' | 'row' | 'range';
+    ranges: CellRange[];
+    anchor: { row: number; col: number } | null;
+  };
+  /** @deprecated Use getSelection() instead */
   getSelectedRows(): number[];
-  /** Get all selected cell ranges (range mode) */
-  getRanges(): Array<{ from: { row: number; col: number }; to: { row: number; col: number } }>;
-  /** Get selected cell (cell mode) */
+  /** @deprecated Use getSelection() instead */
+  getRanges(): CellRange[];
+  /** @deprecated Use getSelection() instead */
   getSelectedCell(): { row: number; col: number } | null;
 }
 // #endregion

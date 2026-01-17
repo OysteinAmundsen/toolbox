@@ -26,7 +26,6 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   ];
 
   readonly name = 'undoRedo';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<UndoRedoConfig> {
     return {

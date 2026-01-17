@@ -5,7 +5,7 @@
  * Centralizing them here avoids circular imports and reduces duplication.
  */
 
-import type { ColumnConfig, GridConfig } from '../types';
+import type { ColumnConfig, GridConfig, ToolPanelDefinition } from '../types';
 
 /**
  * Keyboard modifier flags
@@ -201,7 +201,49 @@ export interface CellEditor {
  * - `_underscore` = protected members accessible to plugins (marked @internal in full interface)
  */
 export interface GridElementRef {
+  // =========================================================================
+  // HTMLElement-like Properties (avoid casting to HTMLElement)
+  // =========================================================================
+
+  /** The grid's shadow root. */
   shadowRoot: ShadowRoot | null;
+  /** Grid element width in pixels. */
+  readonly clientWidth: number;
+  /** Grid element height in pixels. */
+  readonly clientHeight: number;
+  /** Add an event listener to the grid element. */
+  addEventListener<K extends keyof HTMLElementEventMap>(
+    type: K,
+    listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => unknown,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  /** Remove an event listener from the grid element. */
+  removeEventListener<K extends keyof HTMLElementEventMap>(
+    type: K,
+    listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => unknown,
+    options?: boolean | EventListenerOptions,
+  ): void;
+  removeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+  ): void;
+  /** Set an attribute on the grid element. */
+  setAttribute(name: string, value: string): void;
+  /** Get an attribute from the grid element. */
+  getAttribute(name: string): string | null;
+  /** Remove an attribute from the grid element. */
+  removeAttribute(name: string): void;
+
+  // =========================================================================
+  // Grid Data & Configuration
+  // =========================================================================
+
   /** Current rows (after plugin processing like grouping, filtering). */
   rows: unknown[];
   /** Original unfiltered/unprocessed rows. */
@@ -212,12 +254,24 @@ export interface GridElementRef {
   _visibleColumns: ColumnConfig[];
   /** Full grid configuration. */
   gridConfig: GridConfig;
+  /** Effective (merged) configuration - the single source of truth. */
+  effectiveConfig: GridConfig;
+
+  // =========================================================================
+  // Focus & Lifecycle
+  // =========================================================================
+
   /** Current focused row index. @internal */
   _focusRow: number;
   /** Current focused column index. @internal */
   _focusCol: number;
   /** AbortSignal that is aborted when the grid disconnects from the DOM. */
   disconnectSignal: AbortSignal;
+
+  // =========================================================================
+  // Rendering
+  // =========================================================================
+
   /** Request a full re-render of the grid. */
   requestRender(): void;
   /** Request a lightweight style update without rebuilding DOM. */
@@ -226,4 +280,131 @@ export interface GridElementRef {
   forceLayout(): Promise<void>;
   /** Dispatch an event from the grid element. */
   dispatchEvent(event: Event): boolean;
+
+  // =========================================================================
+  // Inter-plugin Communication
+  // =========================================================================
+
+  /**
+   * Query all plugins with a generic query and collect responses.
+   * Used for inter-plugin communication (e.g., asking PinnedColumnsPlugin
+   * if a column can be moved).
+   *
+   * @example
+   * const responses = grid.queryPlugins<boolean>({
+   *   type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
+   *   context: column
+   * });
+   * const canMove = !responses.includes(false);
+   */
+  queryPlugins<T>(query: PluginQuery): T[];
+
+  // =========================================================================
+  // DOM Access
+  // =========================================================================
+
+  /**
+   * Find the rendered DOM element for a row by its data index.
+   * Returns null if the row is not currently rendered (virtualized out).
+   */
+  findRenderedRowElement(rowIndex: number): HTMLElement | null;
+
+  // =========================================================================
+  // Column Visibility API
+  // =========================================================================
+
+  /**
+   * Get all columns including hidden ones.
+   * Returns field, header, visibility status, and lock state.
+   */
+  getAllColumns(): Array<{ field: string; header: string; visible: boolean; lockVisible?: boolean }>;
+
+  /**
+   * Set visibility for a specific column.
+   * @returns true if state changed, false if column not found or already in state
+   */
+  setColumnVisible(field: string, visible: boolean): boolean;
+
+  /**
+   * Toggle visibility for a specific column.
+   * @returns true if state changed, false if column not found
+   */
+  toggleColumnVisibility(field: string): boolean;
+
+  /**
+   * Check if a column is currently visible.
+   */
+  isColumnVisible(field: string): boolean;
+
+  /**
+   * Show all hidden columns.
+   */
+  showAllColumns(): void;
+
+  // =========================================================================
+  // Column Order API
+  // =========================================================================
+
+  /**
+   * Get the current column display order as array of field names.
+   */
+  getColumnOrder(): string[];
+
+  /**
+   * Set the column display order.
+   * @param order Array of field names in desired order
+   */
+  setColumnOrder(order: string[]): void;
+
+  /**
+   * Request emission of column-state-change event (debounced).
+   * Call after programmatic column changes that should notify consumers.
+   */
+  requestStateChange?(): void;
+
+  // =========================================================================
+  // Tool Panel API (Shell Integration)
+  // =========================================================================
+
+  /**
+   * Whether the tool panel sidebar is currently open.
+   */
+  readonly isToolPanelOpen: boolean;
+
+  /**
+   * Get the currently active tool panel ID, or null if none is open.
+   * @deprecated Use isToolPanelOpen and expandedToolPanelSections instead.
+   */
+  readonly activeToolPanel: string | null;
+
+  /**
+   * Get the IDs of expanded accordion sections.
+   */
+  readonly expandedToolPanelSections: string[];
+
+  /**
+   * Open the tool panel sidebar (accordion view with all registered panels).
+   */
+  openToolPanel(): void;
+
+  /**
+   * Close the tool panel sidebar.
+   */
+  closeToolPanel(): void;
+
+  /**
+   * Toggle the tool panel sidebar open/closed.
+   */
+  toggleToolPanel(): void;
+
+  /**
+   * Toggle a specific accordion section expanded/collapsed.
+   * @param sectionId - The panel ID to toggle (matches ToolPanelDefinition.id)
+   */
+  toggleToolPanelSection(sectionId: string): void;
+
+  /**
+   * Get registered tool panel definitions.
+   */
+  getToolPanels(): ToolPanelDefinition[];
 }

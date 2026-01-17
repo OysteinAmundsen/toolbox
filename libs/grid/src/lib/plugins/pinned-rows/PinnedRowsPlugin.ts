@@ -30,7 +30,7 @@ import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedR
  */
 export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   readonly name = 'pinnedRows';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<PinnedRowsConfig> {
     return {
@@ -318,9 +318,5 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
       this.requestRender();
     }
   }
-  // #endregion
-
-  // #region Styles
-  override readonly styles = styles;
   // #endregion
 }

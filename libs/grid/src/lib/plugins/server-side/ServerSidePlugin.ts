@@ -22,7 +22,6 @@ const SCROLL_DEBOUNCE_MS = 100;
  */
 export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
   readonly name = 'serverSide';
-  override readonly version = '1.0.0';
 
   protected override get defaultConfig(): Partial<ServerSideConfig> {
     return {

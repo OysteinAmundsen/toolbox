@@ -51,9 +51,6 @@ export class HighlightPlugin extends BaseGridPlugin<HighlightConfig> {
   // Required: unique plugin name
   readonly name = 'highlight';
 
-  // Required: version for compatibility tracking
-  readonly version = '1.0.0';
-
   // Optional: CSS styles to inject
   override readonly styles = `
     .highlight-cell {
@@ -66,8 +63,8 @@ export class HighlightPlugin extends BaseGridPlugin<HighlightConfig> {
   override afterRender(): void {
     const { field, threshold, className = 'highlight-cell' } = this.config;
 
-    // Access grid's shadow DOM
-    const shadowRoot = (this.grid as unknown as Element).shadowRoot;
+    // Access grid's shadow DOM (use built-in helper)
+    const shadowRoot = this.shadowRoot;
     if (!shadowRoot) return;
 
     // Find cells for the target field
@@ -167,7 +164,8 @@ Called after each render cycle. Ideal for DOM manipulation.
 
 ```typescript
 override afterRender(): void {
-  const shadowRoot = (this.grid as unknown as Element).shadowRoot;
+  // Use built-in helper for shadow DOM access
+  const shadowRoot = this.shadowRoot;
   if (!shadowRoot) return;
 
   // Query and modify rendered elements
@@ -177,6 +175,30 @@ override afterRender(): void {
   });
 }
 ```
+
+## Built-in Plugin Helpers
+
+`BaseGridPlugin` provides protected helpers to simplify common operations:
+
+| Helper | Description |
+|--------|-------------|
+| `this.grid` | Typed `GridElementRef` with all plugin APIs |
+| `this.gridElement` | Grid as `HTMLElement` for DOM operations |
+| `this.shadowRoot` | Grid's shadow root for DOM queries |
+| `this.columns` | Current column configurations |
+| `this.visibleColumns` | Only visible columns (for rendering) |
+| `this.rows` | Processed rows (after filtering, grouping) |
+| `this.sourceRows` | Original unfiltered rows |
+| `this.disconnectSignal` | `AbortSignal` for auto-cleanup of event listeners |
+| `this.isAnimationEnabled` | Whether grid animations are enabled |
+| `this.animationDuration` | Animation duration in ms (default: 200) |
+| `this.gridIcons` | Merged icon configuration |
+| `this.getPlugin(PluginClass)` | Get another plugin instance |
+| `this.emit(eventName, detail)` | Dispatch custom event from grid |
+| `this.requestRender()` | Request full re-render |
+| `this.requestAfterRender()` | Request lightweight style update |
+| `this.resolveIcon(name)` | Get icon value by name |
+| `this.setIcon(el, icon)` | Set icon on element (string or SVG) |
 
 ## Event Hooks
 
@@ -379,7 +401,6 @@ interface RowNumberConfig {
 
 export class RowNumberPlugin extends BaseGridPlugin<RowNumberConfig> {
   readonly name = 'rowNumber';
-  readonly version = '1.0.0';
 
   override readonly styles = `
     .row-number-cell {

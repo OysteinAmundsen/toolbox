@@ -30,7 +30,7 @@ import type { ColumnGroup, GroupingColumnsConfig } from './types';
  */
 export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig> {
   readonly name = 'groupingColumns';
-  override readonly version = '1.0.0';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<GroupingColumnsConfig> {
     return {
@@ -187,10 +187,5 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   refresh(): void {
     this.requestRender();
   }
-  // #endregion
-
-  // #region Styles
-
-  override readonly styles = styles;
   // #endregion
 }

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
 import { buildClipboardText, formatCellValue, type CopyParams } from './copy';
 import { parseClipboardText } from './paste';
-import type { ClipboardConfig } from './types';
+import type { ClipboardConfig, PasteDetail } from './types';
+import { defaultPasteHandler } from './types';
 
 describe('clipboard', () => {
   describe('formatCellValue', () => {
@@ -420,6 +421,197 @@ describe('clipboard', () => {
 
       const result = buildClipboardText(params);
       expect(result).toBe('1\t\n\t2');
+    });
+  });
+
+  describe('defaultPasteHandler', () => {
+    // Mock grid element with minimal interface
+    const createMockGrid = (
+      rows: Record<string, unknown>[],
+      columns: ColumnConfig[],
+    ): { rows: unknown[]; effectiveConfig: { columns: ColumnConfig[] } } => ({
+      rows: [...rows],
+      effectiveConfig: { columns },
+    });
+
+    const columns: ColumnConfig[] = [
+      { field: 'col1', header: 'Column 1' },
+      { field: 'col2', header: 'Column 2' },
+      { field: 'col3', header: 'Column 3' },
+    ];
+
+    it('should apply paste data starting at target cell', () => {
+      const rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+      ];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [['X', 'Y']],
+        text: 'X\tY',
+        target: { row: 0, col: 1, field: 'col2', bounds: null },
+        fields: ['col2', 'col3'],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'X', col3: 'Y' });
+      expect(grid.rows[1]).toEqual({ col1: 'A2', col2: 'B2', col3: 'C2' });
+    });
+
+    it('should handle multi-row paste', () => {
+      const rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+        { col1: 'A3', col2: 'B3', col3: 'C3' },
+      ];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [
+          ['X1', 'Y1'],
+          ['X2', 'Y2'],
+        ],
+        text: 'X1\tY1\nX2\tY2',
+        target: { row: 1, col: 0, field: 'col1', bounds: null },
+        fields: ['col1', 'col2'],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
+      expect(grid.rows[1]).toEqual({ col1: 'X1', col2: 'Y1', col3: 'C2' });
+      expect(grid.rows[2]).toEqual({ col1: 'X2', col2: 'Y2', col3: 'C3' });
+    });
+
+    it('should add new rows when pasting beyond current data (no bounds)', () => {
+      const rows = [{ col1: 'A1', col2: 'B1', col3: 'C1' }];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [
+          ['X1', 'Y1'],
+          ['X2', 'Y2'],
+          ['X3', 'Y3'],
+        ],
+        text: 'X1\tY1\nX2\tY2\nX3\tY3',
+        target: { row: 0, col: 0, field: 'col1', bounds: null },
+        fields: ['col1', 'col2'],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      expect(grid.rows).toHaveLength(3);
+      expect(grid.rows[0]).toEqual({ col1: 'X1', col2: 'Y1', col3: 'C1' });
+      expect(grid.rows[1]).toEqual({ col1: 'X2', col2: 'Y2', col3: '' });
+      expect(grid.rows[2]).toEqual({ col1: 'X3', col2: 'Y3', col3: '' });
+    });
+
+    it('should clip paste to selection bounds (row constraint)', () => {
+      // User's example: clipboard has 2 rows, selection is 2 rows, should paste both
+      const rows = [
+        { col1: 'A1', col2: 'A2', col3: 'A3' },
+        { col1: 'B1', col2: 'B2', col3: 'B3' },
+      ];
+      const grid = createMockGrid(rows, columns);
+
+      // Clipboard: X1 X2 X3 / Y1 Y2 Y3
+      // Selection: from (0,1) to (1,2) -> A2:B3
+      // Result: A1 X1 X2 / B1 Y1 Y2
+      const detail: PasteDetail = {
+        rows: [
+          ['X1', 'X2', 'X3'],
+          ['Y1', 'Y2', 'Y3'],
+        ],
+        text: 'X1\tX2\tX3\nY1\tY2\tY3',
+        target: { row: 0, col: 1, field: 'col2', bounds: { endRow: 1, endCol: 2 } },
+        fields: ['col2', 'col3'], // Only 2 fields because bounds.endCol = 2
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      // X3 and Y3 should be clipped (only col2 and col3 in selection)
+      expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'X1', col3: 'X2' });
+      expect(grid.rows[1]).toEqual({ col1: 'B1', col2: 'Y1', col3: 'Y2' });
+    });
+
+    it('should not add rows when bounds are set', () => {
+      const rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+      ];
+      const grid = createMockGrid(rows, columns);
+
+      // Try to paste 4 rows into a 2-row selection
+      const detail: PasteDetail = {
+        rows: [['X1'], ['X2'], ['X3'], ['X4']],
+        text: 'X1\nX2\nX3\nX4',
+        target: { row: 0, col: 0, field: 'col1', bounds: { endRow: 1, endCol: 0 } },
+        fields: ['col1'],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      // Only first 2 rows should be updated
+      expect(grid.rows).toHaveLength(2);
+      expect(grid.rows[0]).toEqual({ col1: 'X1', col2: 'B1', col3: 'C1' });
+      expect(grid.rows[1]).toEqual({ col1: 'X2', col2: 'B2', col3: 'C2' });
+    });
+
+    it('should do nothing when target is null', () => {
+      const rows = [{ col1: 'A1', col2: 'B1', col3: 'C1' }];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [['X', 'Y']],
+        text: 'X\tY',
+        target: null,
+        fields: [],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      // Should remain unchanged
+      expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
+    });
+
+    it('should handle paste with fewer columns than fields', () => {
+      const rows = [{ col1: 'A1', col2: 'B1', col3: 'C1' }];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [['X']], // Only one value
+        text: 'X',
+        target: { row: 0, col: 0, field: 'col1', bounds: null },
+        fields: ['col1', 'col2'], // But two fields
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      // Only first field should be updated
+      expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'C1' });
+    });
+
+    it('should maintain immutability of original rows', () => {
+      const originalRow = { col1: 'A1', col2: 'B1', col3: 'C1' };
+      const rows = [originalRow];
+      const grid = createMockGrid(rows, columns);
+
+      const detail: PasteDetail = {
+        rows: [['X']],
+        text: 'X',
+        target: { row: 0, col: 0, field: 'col1', bounds: null },
+        fields: ['col1'],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      // Original row object should be unchanged
+      expect(originalRow).toEqual({ col1: 'A1', col2: 'B1', col3: 'C1' });
+      // Grid should have new row object
+      expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'C1' });
+      expect(grid.rows[0]).not.toBe(originalRow);
     });
   });
 });

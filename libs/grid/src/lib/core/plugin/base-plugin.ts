@@ -5,6 +5,9 @@
  * Plugins are instantiated per-grid and manage their own state.
  */
 
+// Injected by Vite at build time from package.json (same as grid.ts)
+declare const __GRID_VERSION__: string;
+
 import type {
   ColumnConfig,
   ColumnState,
@@ -51,6 +54,7 @@ import type {
 /**
  * Grid element interface for plugins.
  * Extends GridElementRef with plugin-specific methods.
+ * Note: effectiveConfig is already available from GridElementRef.
  */
 export interface GridElement extends GridElementRef {
   getPlugin<T extends BaseGridPlugin>(PluginClass: new (...args: any[]) => T): T | undefined;
@@ -139,8 +143,11 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   /** Unique plugin identifier (derived from class name by default) */
   abstract readonly name: string;
 
-  /** Plugin version - override in subclass if needed */
-  readonly version: string = '1.0.0';
+  /**
+   * Plugin version - defaults to grid version for built-in plugins.
+   * Third-party plugins can override with their own semver.
+   */
+  readonly version: string = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
 
   /** CSS styles to inject into the grid's shadow DOM */
   readonly styles?: string;
@@ -335,6 +342,20 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
+   * Get the grid as an HTMLElement for direct DOM operations.
+   * Use sparingly - prefer the typed GridElementRef API when possible.
+   *
+   * @example
+   * ```ts
+   * const width = this.gridElement.clientWidth;
+   * this.gridElement.classList.add('my-plugin-active');
+   * ```
+   */
+  protected get gridElement(): HTMLElement {
+    return this.grid as unknown as HTMLElement;
+  }
+
+  /**
    * Get the shadow root of the grid.
    */
   protected get shadowRoot(): ShadowRoot | null {
@@ -372,6 +393,67 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
     const userIcons = this.grid?.gridConfig?.icons ?? {};
     return { ...DEFAULT_GRID_ICONS, ...userIcons };
   }
+
+  // #region Animation Helpers
+
+  /**
+   * Check if animations are enabled at the grid level.
+   * Respects gridConfig.animation.mode and the CSS variable set by the grid.
+   *
+   * Plugins should use this to skip animations when:
+   * - Animation mode is 'off' or `false`
+   * - User prefers reduced motion and mode is 'reduced-motion' (default)
+   *
+   * @example
+   * ```ts
+   * private get animationStyle(): 'slide' | 'fade' | false {
+   *   if (!this.isAnimationEnabled) return false;
+   *   return this.config.animation ?? 'slide';
+   * }
+   * ```
+   */
+  protected get isAnimationEnabled(): boolean {
+    const mode = this.grid?.effectiveConfig?.animation?.mode ?? 'reduced-motion';
+
+    // Explicit off = disabled
+    if (mode === false || mode === 'off') return false;
+
+    // Explicit on = always enabled
+    if (mode === true || mode === 'on') return true;
+
+    // reduced-motion: check CSS variable (set by grid based on media query)
+    const host = this.shadowRoot?.host as HTMLElement | undefined;
+    if (host) {
+      const enabled = getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim();
+      return enabled !== '0';
+    }
+
+    return true; // Default to enabled
+  }
+
+  /**
+   * Get the animation duration in milliseconds from CSS variable.
+   * Falls back to 200ms if not set.
+   *
+   * Plugins can use this for their animation timing to stay consistent
+   * with the grid-level animation.duration setting.
+   *
+   * @example
+   * ```ts
+   * element.animate(keyframes, { duration: this.animationDuration });
+   * ```
+   */
+  protected get animationDuration(): number {
+    const host = this.shadowRoot?.host as HTMLElement | undefined;
+    if (host) {
+      const durationStr = getComputedStyle(host).getPropertyValue('--tbw-animation-duration').trim();
+      const parsed = parseInt(durationStr, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return 200; // Default
+  }
+
+  // #endregion
 
   /**
    * Resolve an icon value to string or HTMLElement.

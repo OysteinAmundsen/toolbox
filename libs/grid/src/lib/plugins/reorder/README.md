@@ -83,7 +83,7 @@ grid.gridConfig = {
 
 ### `column-move`
 
-Fired when columns are reordered.
+Fired when columns are reordered. This event is **cancelable** - call `preventDefault()` to block the move.
 
 ```typescript
 grid.addEventListener('column-move', (e) => {
@@ -91,6 +91,11 @@ grid.addEventListener('column-move', (e) => {
   console.log('From index:', e.detail.fromIndex);
   console.log('To index:', e.detail.toIndex);
   console.log('New order:', e.detail.columnOrder);
+
+  // Optionally prevent the move
+  if (shouldBlockMove(e.detail)) {
+    e.preventDefault();
+  }
 });
 ```
 

@@ -171,9 +171,9 @@ new ReorderPlugin({ animation: 'fade' });
 
 ## Events
 
-| Event         | Detail                          | Description  |
-| ------------- | ------------------------------- | ------------ |
-| `column-move` | `{ field, fromIndex, toIndex }` | Column moved |
+| Event         | Detail                                        | Cancelable | Description                                       |
+| ------------- | --------------------------------------------- | ---------- | ------------------------------------------------- |
+| `column-move` | `{ field, fromIndex, toIndex, columnOrder }` | Yes        | Fired when a column move is attempted. Call `preventDefault()` to block the move. |
 
 ## Keyboard Support
 

@@ -52,6 +52,16 @@ All libraries in this suite are built as **standard web components** (custom ele
 
 Prompt the user to commit at logical stopping points during work sessions. Small, focused commits are preferred over large omnibus commits.
 
+**Before suggesting a commit, review documentation:**
+
+After completing a feature or fix, check if any documentation needs updating:
+
+- **README.md files** - Plugin READMEs, library READMEs, demo READMEs
+- **MDX documentation** - Theming.mdx, plugin-specific .mdx files in `libs/grid/src/lib/plugins/*/`
+- **API documentation** - If public API changed, update API.mdx
+- **Copilot instructions** - If workflow or conventions changed, update `.github/copilot-instructions.md`
+- **AGENTS.md** - If Nx or workspace conventions changed
+
 **When to suggest a commit:**
 
 - After each discrete bug fix

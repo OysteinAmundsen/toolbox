@@ -187,13 +187,11 @@ export class PluginManager {
   }
 
   /**
-   * Get all CSS styles from all plugins.
+   * Get all CSS styles from all plugins as structured data.
+   * Returns an array of { name, styles } for each plugin with styles.
    */
-  getAllStyles(): string {
-    return this.plugins
-      .filter((p) => p.styles)
-      .map((p) => p.styles)
-      .join('\n');
+  getPluginStyles(): Array<{ name: string; styles: string }> {
+    return this.plugins.filter((p) => p.styles).map((p) => ({ name: p.name, styles: p.styles! }));
   }
 
   // #region Hook execution methods

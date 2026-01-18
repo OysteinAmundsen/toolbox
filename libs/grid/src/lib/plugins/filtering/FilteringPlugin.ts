@@ -8,6 +8,7 @@
 
 import { computeVirtualWindow, shouldBypassVirtualization } from '../../core/internal/virtualization';
 import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
+import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
 import { computeFilterCacheKey, filterRows, getUniqueValues } from './filter-model';
 import styles from './filtering.css?inline';
@@ -135,6 +136,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       // Use visibleColumns since data-col is the index within _visibleColumns
       const col = this.visibleColumns[parseInt(colIndex, 10)] as ColumnConfig;
       if (!col || col.filterable === false) return;
+
+      // Skip utility columns (expander, selection checkbox, etc.)
+      if (isUtilityColumn(col)) return;
 
       const field = col.field;
       if (!field) return;
@@ -454,7 +458,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
     // Clean up anchor name from header cell
     if (this.panelAnchorElement) {
-      this.panelAnchorElement.style.anchorName = '';
+      (this.panelAnchorElement.style as any).anchorName = '';
       this.panelAnchorElement = null;
     }
     this.openPanelField = null;
@@ -486,7 +490,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const anchorEl = headerCell ?? buttonEl;
 
     // Set anchor name on the header cell for CSS anchor positioning
-    anchorEl.style.anchorName = '--tbw-filter-anchor';
+    (anchorEl.style as any).anchorName = '--tbw-filter-anchor';
     this.panelAnchorElement = anchorEl; // Store for cleanup
 
     // If CSS Anchor Positioning is supported, CSS handles positioning

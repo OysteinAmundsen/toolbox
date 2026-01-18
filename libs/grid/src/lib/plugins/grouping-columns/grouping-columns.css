@@ -14,7 +14,8 @@
     font-size: var(--tbw-font-size-sm, 0.9em);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-right: 1px solid var(--tbw-grouping-columns-border, var(--tbw-color-border));
+    border-right: 2px solid
+      var(--tbw-grouping-columns-separator, var(--tbw-color-border-strong, var(--tbw-color-border)));
   }
   .header-group-cell:last-child {
     border-right: none;
@@ -23,7 +24,8 @@
     border-top: none;
   }
   .header-row .cell.group-end {
-    border-right: 2px solid var(--tbw-grouping-columns-separator, var(--tbw-color-border-strong));
+    border-right: 2px solid
+      var(--tbw-grouping-columns-separator, var(--tbw-color-border-strong, var(--tbw-color-border)));
   }
   /* Last cell shouldn't have right border - avoids double border with grid edge */
   .header-row .cell.group-end:last-child {

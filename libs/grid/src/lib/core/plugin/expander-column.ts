@@ -65,6 +65,7 @@ export function createExpanderColumnConfig(pluginName: string): ColumnConfig {
     width: EXPANDER_COLUMN_WIDTH,
     resizable: false,
     sortable: false,
+    filterable: false, // No filter button for expander column
     meta: {
       lockPosition: true,
       suppressMovable: true,

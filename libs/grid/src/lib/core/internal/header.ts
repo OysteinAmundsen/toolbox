@@ -51,7 +51,8 @@ export function renderHeader(grid: InternalGrid): void {
     const maybeTpl = col.__headerTemplate;
     if (maybeTpl) Array.from(maybeTpl.childNodes).forEach((n) => cell.appendChild(n.cloneNode(true)));
     else {
-      const label = col.header || col.field;
+      // Use header if defined (including empty string), otherwise fall back to field name
+      const label = col.header ?? col.field;
       const span = document.createElement('span');
       span.textContent = label;
       cell.appendChild(span);

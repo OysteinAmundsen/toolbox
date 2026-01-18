@@ -550,8 +550,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** Track injected base styles CSS text */
   static #baseStyles = '';
 
-  /** Track injected plugin styles CSS text */
-  static #pluginStyles = '';
+  /** Track injected plugin styles by plugin name (accumulates across all grid instances) */
+  static #pluginStylesMap = new Map<string, string>();
 
   /**
    * Get or create the consolidated style element in document.head.
@@ -573,8 +573,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   static #updateStyleElement(): void {
     const styleEl = this.#getStyleElement();
-    // Combine base styles and plugin styles
-    styleEl.textContent = `${this.#baseStyles}\n\n/* Plugin Styles */\n${this.#pluginStyles}`;
+    // Combine base styles and all accumulated plugin styles
+    const pluginStyles = Array.from(this.#pluginStylesMap.values()).join('\n');
+    styleEl.textContent = `${this.#baseStyles}\n\n/* Plugin Styles */\n${pluginStyles}`;
   }
 
   /**
@@ -721,11 +722,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Inject all plugin styles into the consolidated style element.
    * Plugin styles are appended after base grid styles in the same <style> element.
+   * Uses a Map to accumulate styles from all grid instances on the page.
    */
   #injectAllPluginStyles(): void {
-    const allStyles = this.#pluginManager?.getAllStyles() ?? '';
-    if (allStyles && allStyles !== DataGridElement.#pluginStyles) {
-      DataGridElement.#pluginStyles = allStyles;
+    const pluginStyles = this.#pluginManager?.getPluginStyles() ?? [];
+    let hasNewStyles = false;
+
+    for (const { name, styles } of pluginStyles) {
+      if (!DataGridElement.#pluginStylesMap.has(name)) {
+        DataGridElement.#pluginStylesMap.set(name, styles);
+        hasNewStyles = true;
+      }
+    }
+
+    if (hasNewStyles) {
       DataGridElement.#updateStyleElement();
     }
   }

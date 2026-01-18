@@ -1,70 +1,78 @@
+/**
+ * Tree Plugin Styles
+ *
+ * Scoped to tbw-grid using CSS nesting for light DOM compatibility.
+ */
 @layer tbw-plugins {
-  /* Expander column data cells - always first, borderless right edge */
-  .cell[data-field='__tbw_expander'] {
-    border-right: none !important;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-  }
+  tbw-grid {
+    /* Expander column data cells - always first, borderless right edge */
+    .cell[data-field='__tbw_expander'] {
+      border-right: none !important;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
 
-  /* Expander column header - completely hidden */
-  .header-row .cell[data-field='__tbw_expander'] {
-    visibility: hidden;
-    border: none !important;
-    padding: 0;
-    overflow: hidden;
-  }
+    /* Expander column header - completely hidden, next column spans both */
+    .header-row .cell[data-field='__tbw_expander'] {
+      display: none;
+    }
 
-  /* The column after the expander should visually extend into the expander header space */
-  .header-row .cell[data-field='__tbw_expander'] + .cell {
-    margin-left: -32px;
-    padding-left: calc(var(--tbw-cell-padding, 0.5rem) + 32px);
-  }
+    .header-row .cell[data-field='__tbw_expander'] + .cell {
+      grid-column: 1 / 3;
+    }
 
-  /* Tree cell wrapper with depth-based indentation */
-  .tree-cell-wrapper {
-    display: inline-flex;
-    align-items: center;
-    /* Indent must be >= toggle icon width to keep leaf nodes aligned */
-    padding-left: calc(var(--tbw-tree-depth, 0) * var(--tbw-tree-indent-width, var(--tbw-tree-toggle-size, 1.25em)));
-  }
+    /* Tree cell wrapper with depth-based indentation */
+    .tree-cell-wrapper {
+      display: inline-flex;
+      align-items: center;
+      /* Indent must be >= toggle icon width to keep leaf nodes aligned */
+      padding-left: calc(var(--tbw-tree-depth, 0) * var(--tbw-tree-indent-width, var(--tbw-tree-toggle-size, 1.25em)));
+    }
 
-  /* Tree expander cell with indentation */
-  .tree-expander {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-  }
+    /* Tree expander cell with indentation */
+    .tree-expander {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
 
-  .tree-toggle {
-    cursor: pointer;
-    user-select: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* Explicit size ensures consistent spacing with tree-spacer */
-    width: var(--tbw-tree-toggle-size, 1.25em);
-    height: var(--tbw-tree-toggle-size, 1.25em);
-    flex-shrink: 0;
-  }
-  .tree-toggle:hover {
-    color: var(--tbw-tree-accent, var(--tbw-color-accent));
-  }
+    .tree-toggle {
+      cursor: pointer;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      /* Explicit size ensures consistent spacing with tree-spacer */
+      width: var(--tbw-tree-toggle-size, 1.25em);
+      height: var(--tbw-tree-toggle-size, 1.25em);
+      flex-shrink: 0;
+    }
 
-  .tree-spacer {
-    /* Must match tree-toggle width for alignment */
-    width: var(--tbw-tree-toggle-size, 1.25em);
-    display: inline-block;
-    flex-shrink: 0;
-  }
+    .tree-toggle:hover {
+      color: var(--tbw-tree-accent, var(--tbw-color-accent));
+    }
 
-  /* Slide animation for child rows appearing */
-  .data-grid-row.tbw-tree-slide-in {
-    animation: tbw-tree-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+    .tree-spacer {
+      /* Must match tree-toggle width for alignment */
+      width: var(--tbw-tree-toggle-size, 1.25em);
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
+    /* Slide animation for child rows appearing */
+    .data-grid-row.tbw-tree-slide-in {
+      animation: tbw-tree-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+    }
+
+    /* Fade animation for child rows appearing */
+    .data-grid-row.tbw-tree-fade-in {
+      animation: tbw-tree-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+    }
   }
 
   @keyframes tbw-tree-slide-in {
@@ -76,11 +84,6 @@
       opacity: 1;
       transform: translateX(0);
     }
-  }
-
-  /* Fade animation for child rows appearing */
-  .data-grid-row.tbw-tree-fade-in {
-    animation: tbw-tree-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
   }
 
   @keyframes tbw-tree-fade-in {

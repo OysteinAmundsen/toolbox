@@ -1,67 +1,72 @@
+/**
+ * Master-Detail Plugin Styles
+ *
+ * Scoped to tbw-grid using CSS nesting for light DOM compatibility.
+ */
 @layer tbw-plugins {
-  /* Expander column data cells - always first, borderless right edge */
-  .cell[data-field='__tbw_expander'] {
-    border-right: none !important;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+  tbw-grid {
+    /* Expander column data cells - always first, borderless right edge */
+    & .cell[data-field='__tbw_expander'] {
+      border-right: none !important;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-  /* Expander column header - completely hidden */
-  .header-row .cell[data-field='__tbw_expander'] {
-    visibility: hidden;
-    border: none !important;
-    padding: 0;
-    overflow: hidden;
-  }
+    /* Expander column header - completely hidden, next column spans both */
+    & .header-row .cell[data-field='__tbw_expander'] {
+      display: none;
+    }
 
-  /* The column after the expander should visually extend into the expander header space */
-  .header-row .cell[data-field='__tbw_expander'] + .cell {
-    margin-left: -32px;
-    padding-left: calc(var(--tbw-cell-padding, 0.5rem) + 32px);
-  }
+    & .header-row .cell[data-field='__tbw_expander'] + .cell {
+      grid-column: 1 / 3;
+    }
 
-  /* Master-detail expander cell */
-  .master-detail-expander {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-  }
+    /* Master-detail expander cell */
+    .master-detail-expander {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
 
-  .master-detail-toggle {
-    cursor: pointer;
-    opacity: 0.7;
-    user-select: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .master-detail-toggle:hover {
-    opacity: 1;
-  }
-  .master-detail-row {
-    grid-column: 1 / -1;
-    display: grid;
-    background: var(--tbw-master-detail-bg, var(--tbw-color-row-alt));
-    border-bottom: 1px solid var(--tbw-master-detail-border, var(--tbw-color-border));
-    overflow: hidden;
-  }
-  .master-detail-cell {
-    padding: var(--tbw-detail-padding, var(--tbw-spacing-xl, 1rem));
-    overflow: auto;
-  }
+    .master-detail-toggle {
+      cursor: pointer;
+      opacity: 0.7;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-  /* Animation for expanding detail rows */
-  .master-detail-row.tbw-expanding {
-    animation: tbw-detail-expand var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
-  }
+    .master-detail-toggle:hover {
+      opacity: 1;
+    }
 
-  /* Animation for collapsing detail rows */
-  .master-detail-row.tbw-collapsing {
-    animation: tbw-detail-collapse var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+    .master-detail-row {
+      grid-column: 1 / -1;
+      display: grid;
+      background: var(--tbw-master-detail-bg, var(--tbw-color-row-alt));
+      border-bottom: 1px solid var(--tbw-master-detail-border, var(--tbw-color-border));
+      overflow: hidden;
+    }
+
+    .master-detail-cell {
+      padding: var(--tbw-detail-padding, var(--tbw-spacing-xl, 1rem));
+      overflow: auto;
+    }
+
+    /* Animation for expanding detail rows */
+    .master-detail-row.tbw-expanding {
+      animation: tbw-detail-expand var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+    }
+
+    /* Animation for collapsing detail rows */
+    .master-detail-row.tbw-collapsing {
+      animation: tbw-detail-collapse var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+    }
   }
 
   @keyframes tbw-detail-expand {

@@ -1,28 +1,28 @@
 @layer tbw-plugins {
   .tbw-context-menu {
     position: fixed;
-    background: light-dark(#f5f5f5, #2a2a2a);
-    color: light-dark(#222, #eee);
-    border: 1px solid light-dark(#d0d0d4, #454545);
-    border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-    min-width: 160px;
-    padding: 4px 0;
+    background: var(--tbw-context-menu-bg, var(--tbw-color-panel-bg, light-dark(#f5f5f5, #2a2a2a)));
+    color: var(--tbw-context-menu-fg, var(--tbw-color-fg, light-dark(#222, #eee)));
+    border: 1px solid var(--tbw-context-menu-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
+    border-radius: var(--tbw-border-radius, 0.25rem);
+    box-shadow: 0 2px 10px var(--tbw-color-shadow, rgba(0, 0, 0, 0.15));
+    min-width: var(--tbw-menu-min-width, 10rem);
+    padding: var(--tbw-spacing-xs, 0.25rem) 0;
     z-index: 10000;
-    font-size: 13px;
-    font-family: system-ui, sans-serif;
+    font-size: var(--tbw-font-size-sm, 0.8125rem);
+    font-family: var(--tbw-font-family, system-ui, sans-serif);
   }
 
   .tbw-context-menu-item {
     display: flex;
     align-items: center;
-    padding: 6px 12px;
+    padding: var(--tbw-menu-item-padding, 0.375rem 0.75rem);
     cursor: pointer;
-    gap: 8px;
+    gap: var(--tbw-menu-item-gap, 0.5rem);
   }
 
   .tbw-context-menu-item:hover:not(.disabled) {
-    background: light-dark(#e8e8e8, #3a3a3a);
+    background: var(--tbw-context-menu-hover, var(--tbw-color-row-hover, light-dark(#e8e8e8, #3a3a3a)));
   }
 
   .tbw-context-menu-item.disabled {
@@ -35,7 +35,7 @@
   }
 
   .tbw-context-menu-icon {
-    width: 16px;
+    width: var(--tbw-icon-size, 1rem);
     text-align: center;
   }
 
@@ -44,18 +44,18 @@
   }
 
   .tbw-context-menu-shortcut {
-    color: light-dark(#888, #888);
-    font-size: 11px;
+    color: var(--tbw-color-fg-muted, light-dark(#888, #888));
+    font-size: var(--tbw-font-size-xs, 0.6875rem);
   }
 
   .tbw-context-menu-arrow {
-    font-size: 10px;
-    color: light-dark(#888, #888);
+    font-size: var(--tbw-font-size-2xs, 0.625rem);
+    color: var(--tbw-color-fg-muted, light-dark(#888, #888));
   }
 
   .tbw-context-menu-separator {
     height: 1px;
-    background: light-dark(#d0d0d4, #454545);
-    margin: 4px 0;
+    background: var(--tbw-context-menu-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
+    margin: var(--tbw-spacing-xs, 0.25rem) 0;
   }
 } /* End @layer tbw-plugins */

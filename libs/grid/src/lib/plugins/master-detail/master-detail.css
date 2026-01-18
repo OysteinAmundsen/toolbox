@@ -19,7 +19,7 @@
   /* The column after the expander should visually extend into the expander header space */
   .header-row .cell[data-field='__tbw_expander'] + .cell {
     margin-left: -32px;
-    padding-left: calc(var(--tbw-cell-padding, 8px) + 32px);
+    padding-left: calc(var(--tbw-cell-padding, 0.5rem) + 32px);
   }
 
   /* Master-detail expander cell */
@@ -50,7 +50,7 @@
     overflow: hidden;
   }
   .master-detail-cell {
-    padding: 16px;
+    padding: var(--tbw-detail-padding, var(--tbw-spacing-xl, 1rem));
     overflow: auto;
   }
 
@@ -73,16 +73,16 @@
     }
     to {
       opacity: 1;
-      max-height: 500px;
-      padding-top: 16px;
-      padding-bottom: 16px;
+      max-height: var(--tbw-detail-max-height, 31.25rem);
+      padding-top: var(--tbw-detail-padding, var(--tbw-spacing-xl, 1rem));
+      padding-bottom: var(--tbw-detail-padding, var(--tbw-spacing-xl, 1rem));
     }
   }
 
   @keyframes tbw-detail-collapse {
     from {
       opacity: 1;
-      max-height: 500px;
+      max-height: var(--tbw-detail-max-height, 31.25rem);
     }
     to {
       opacity: 0;

@@ -40,7 +40,7 @@
 
     /* Selection summary in header */
     .tbw-selection-summary {
-      font-size: 13px;
+      font-size: var(--tbw-font-size-sm, 0.8125rem);
       color: var(--tbw-color-fg-muted);
       white-space: nowrap;
     }

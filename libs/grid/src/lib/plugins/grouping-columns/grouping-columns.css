@@ -9,9 +9,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px 8px;
+    padding: var(--tbw-button-padding-sm, 0.25rem 0.5rem);
     font-weight: 600;
-    font-size: 0.9em;
+    font-size: var(--tbw-font-size-sm, 0.9em);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-right: 1px solid var(--tbw-grouping-columns-border, var(--tbw-color-border));

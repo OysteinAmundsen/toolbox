@@ -142,11 +142,11 @@
   .tbw-pivot-panel {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 12px;
+    gap: var(--tbw-panel-padding, var(--tbw-spacing-lg, 0.75rem));
+    padding: var(--tbw-panel-padding, var(--tbw-spacing-lg, 0.75rem));
     height: 100%;
     overflow-y: auto;
-    font-size: 13px;
+    font-size: var(--tbw-font-size-sm, 0.8125rem);
   }
 
   .tbw-pivot-section {
@@ -156,7 +156,7 @@
   }
 
   .tbw-pivot-section-header {
-    padding: 8px 12px;
+    padding: var(--tbw-button-padding, var(--tbw-spacing-md, 0.5rem) var(--tbw-spacing-lg, 0.75rem));
     font-weight: 600;
     background: var(--tbw-pivot-header-bg, var(--tbw-color-header-bg));
     border-bottom: 1px solid var(--tbw-pivot-border, var(--tbw-color-border));
@@ -164,7 +164,7 @@
   }
 
   .tbw-pivot-section-content {
-    padding: 8px;
+    padding: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
   }
 
   .tbw-pivot-toggle-wrapper {
@@ -175,13 +175,13 @@
   .tbw-pivot-toggle-label {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
     cursor: pointer;
   }
 
   .tbw-pivot-toggle-label input {
-    width: 16px;
-    height: 16px;
+    width: var(--tbw-icon-size, 1rem);
+    height: var(--tbw-icon-size, 1rem);
     cursor: pointer;
   }
 
@@ -189,13 +189,13 @@
 
   .tbw-pivot-drop-zone {
     min-height: 60px;
-    padding: 8px;
+    padding: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
     border: 2px dashed var(--tbw-pivot-drop-border, var(--tbw-color-border));
     border-radius: var(--tbw-border-radius);
     background: var(--tbw-pivot-drop-bg, var(--tbw-color-row-alt));
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--tbw-spacing-sm, 0.375rem);
     align-content: flex-start;
     transition: all 0.15s ease;
   }
@@ -208,7 +208,7 @@
   .tbw-pivot-placeholder {
     color: var(--tbw-color-fg-muted);
     font-style: italic;
-    padding: 8px;
+    padding: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
     text-align: center;
     width: 100%;
   }
@@ -218,13 +218,13 @@
   .tbw-pivot-field-chip {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
+    gap: var(--tbw-spacing-sm, 0.375rem);
+    padding: var(--tbw-button-padding-sm, var(--tbw-spacing-xs, 0.25rem) var(--tbw-spacing-md, 0.5rem));
     background: var(--tbw-pivot-chip-bg, var(--tbw-color-header-bg));
     border: 1px solid var(--tbw-pivot-chip-border, var(--tbw-color-border));
     border-radius: var(--tbw-border-radius);
     cursor: grab;
-    font-size: 12px;
+    font-size: var(--tbw-font-size-xs, 0.75rem);
     transition: all 0.15s ease;
   }
 
@@ -253,13 +253,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: var(--tbw-icon-size, 1rem);
+    height: var(--tbw-icon-size, 1rem);
     padding: 0;
     border: none;
     background: transparent;
     color: var(--tbw-color-fg-muted);
-    font-size: 14px;
+    font-size: var(--tbw-font-size-sm, 0.875rem);
     font-weight: bold;
     cursor: pointer;
     border-radius: 50%;
@@ -275,20 +275,20 @@
 
   .tbw-pivot-value-chip {
     /* Keep inline-flex from parent, just adjust padding */
-    padding: 4px 8px;
+    padding: var(--tbw-button-padding-sm, var(--tbw-spacing-xs, 0.25rem) var(--tbw-spacing-md, 0.5rem));
   }
 
   .tbw-pivot-value-label-wrapper {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
     flex: 1;
     min-width: 0;
   }
 
   .tbw-pivot-agg-select {
-    padding: 2px 4px;
-    font-size: 11px;
+    padding: var(--tbw-spacing-xs, 0.125rem) var(--tbw-spacing-xs, 0.25rem);
+    font-size: var(--tbw-font-size-xs, 0.6875rem);
     border: 1px solid var(--tbw-color-border);
     border-radius: var(--tbw-border-radius);
     background: var(--tbw-color-bg);
@@ -300,7 +300,7 @@
   .tbw-pivot-available-fields {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--tbw-spacing-sm, 0.375rem);
     min-height: 40px;
   }
 
@@ -309,19 +309,19 @@
   .tbw-pivot-options {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
   }
 
   .tbw-pivot-checkbox {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
     cursor: pointer;
   }
 
   .tbw-pivot-checkbox input {
-    width: 14px;
-    height: 14px;
+    width: var(--tbw-icon-size-sm, 0.875rem);
+    height: var(--tbw-icon-size-sm, 0.875rem);
     cursor: pointer;
   }
 

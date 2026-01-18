@@ -19,7 +19,7 @@
   /* The column after the expander should visually extend into the expander header space */
   .header-row .cell[data-field='__tbw_expander'] + .cell {
     margin-left: -32px;
-    padding-left: calc(var(--tbw-cell-padding, 8px) + 32px);
+    padding-left: calc(var(--tbw-cell-padding, 0.5rem) + 32px);
   }
 
   /* Tree expander cell with indentation */
@@ -44,7 +44,7 @@
   }
 
   .tree-spacer {
-    width: 14px;
+    width: var(--tbw-icon-size-sm, 0.875rem);
     display: inline-block;
   }
 

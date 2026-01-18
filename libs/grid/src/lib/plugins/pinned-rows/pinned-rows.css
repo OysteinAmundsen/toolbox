@@ -12,10 +12,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    padding: var(--tbw-button-padding, var(--tbw-spacing-md, 0.5rem) var(--tbw-spacing-lg, 0.75rem));
     background: var(--tbw-pinned-rows-bg, var(--tbw-color-panel-bg));
     border-top: 1px solid var(--tbw-pinned-rows-border, var(--tbw-color-border));
-    font-size: 12px;
+    font-size: var(--tbw-font-size-xs, 0.75rem);
     color: var(--tbw-pinned-rows-color, var(--tbw-color-fg-muted));
     min-height: 32px;
     box-sizing: border-box;
@@ -26,7 +26,7 @@
   .tbw-pinned-rows-right {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--tbw-spacing-xl, 1rem);
   }
   .tbw-pinned-rows-left {
     justify-content: flex-start;
@@ -59,8 +59,8 @@
     font-weight: var(--tbw-aggregation-font-weight, 600);
   }
   .tbw-aggregation-cell {
-    padding: var(--tbw-cell-padding, 2px 8px);
-    min-height: var(--tbw-row-height, 28px);
+    padding: var(--tbw-cell-padding, 0.125rem 0.5rem);
+    min-height: var(--tbw-row-height, 1.75rem);
     display: flex;
     align-items: center;
     border-right: 1px solid var(--tbw-color-border-cell);

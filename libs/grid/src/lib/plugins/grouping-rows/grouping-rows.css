@@ -11,7 +11,7 @@
   .group-row .cell {
     display: flex;
     align-items: center;
-    padding: var(--tbw-cell-padding, 2px 8px);
+    padding: var(--tbw-cell-padding, 0.125rem 0.5rem);
   }
   .group-row:hover {
     background: var(--tbw-grouping-rows-bg-hover, var(--tbw-color-row-hover));
@@ -22,25 +22,25 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
-    margin-right: 4px;
+    width: var(--tbw-toggle-size, 1.25rem);
+    height: var(--tbw-toggle-size, 1.25rem);
+    margin-right: 0.25rem;
     background: none;
     border: 0;
     font: inherit;
   }
   .group-toggle:hover {
     background: var(--tbw-grouping-rows-toggle-hover, var(--tbw-color-row-hover));
-    border-radius: 2px;
+    border-radius: var(--tbw-border-radius, 0.125rem);
   }
   .group-label {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
   }
   .group-count {
     color: var(--tbw-grouping-rows-count-color, var(--tbw-color-fg-muted));
-    font-size: 0.85em;
+    font-size: var(--tbw-font-size-xs, 0.85em);
     font-weight: normal;
   }
   [data-group-depth='0'] .group-label {

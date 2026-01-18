@@ -31,7 +31,39 @@
   tbw-grid {
     /* ========== CSS Custom Properties ========== */
 
-    /* Core palette */
+    /* ========== Base Design Tokens ========== */
+    /* Override these for bulk changes. Uses em units so everything
+       scales proportionally with font size. */
+
+    --tbw-base-icon-size: 1em; /* Icons scale with font */
+    --tbw-base-radius: 0.25em; /* Border radius */
+
+    /* ========== Typography ========== */
+    /* All em-based, relative to inherited font size */
+    --tbw-font-size: 1em;
+    --tbw-font-size-sm: 0.9285em;
+    --tbw-font-size-xs: 0.7857em;
+    --tbw-font-size-2xs: 0.7142em;
+
+    /* ========== Spacing Scale ========== */
+    /* Em-based spacing scales with font size */
+    --tbw-spacing-xs: 0.25em; /* ~4px at 16px font */
+    --tbw-spacing-sm: 0.375em; /* ~6px */
+    --tbw-spacing-md: 0.5em; /* ~8px */
+    --tbw-spacing-lg: 0.75em; /* ~12px */
+    --tbw-spacing-xl: 1em; /* ~16px */
+
+    /* ========== Icon Sizes ========== */
+    --tbw-icon-size: var(--tbw-base-icon-size);
+    --tbw-icon-size-sm: 0.875em;
+    --tbw-checkbox-size: var(--tbw-base-icon-size);
+    --tbw-toggle-size: 1.25em;
+
+    /* ========== Border Radius ========== */
+    --tbw-border-radius: var(--tbw-base-radius);
+
+    /* ========== Core Palette ========== */
+    /* Colors use light-dark() for automatic theme support */
     --tbw-color-bg: transparent;
     --tbw-color-panel-bg: light-dark(#eeeeee, #222222);
     --tbw-color-fg: light-dark(#222222, #eeeeee);
@@ -50,20 +82,20 @@
     --tbw-color-border-header: var(--tbw-color-border);
     --tbw-color-shadow: light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3));
 
-    /* Typography & spacing */
+    /* ========== Typography (derived from base) ========== */
     --tbw-font-family: inherit;
-    --tbw-font-size: inherit;
     --tbw-font-size-header: var(--tbw-font-size);
     --tbw-font-weight-header: bold;
-    --tbw-cell-padding-header: 2px 8px;
-    --tbw-cell-padding: 2px 8px;
-    --tbw-cell-padding-input: 2px 6px;
-    --tbw-row-height: 28px;
-    --tbw-header-height: 30px;
+
+    /* ========== Cell & Row Dimensions ========== */
+    --tbw-cell-padding-header: var(--tbw-spacing-xs) var(--tbw-spacing-md);
+    --tbw-cell-padding: var(--tbw-spacing-xs) var(--tbw-spacing-md);
+    --tbw-cell-padding-input: var(--tbw-spacing-xs) var(--tbw-spacing-sm);
+    --tbw-row-height: 1.75em; /* ~28px at 16px font */
+    --tbw-header-height: 1.875em; /* ~30px at 16px font */
     --tbw-cell-white-space: nowrap;
 
-    /* Borders & radii */
-    --tbw-border-radius: 4px;
+    /* ========== Borders ========== */
     --tbw-border-input: 1px solid var(--tbw-color-border-strong);
     --tbw-border-header: 1px solid var(--tbw-color-border-header);
     --tbw-row-divider: 1px solid var(--tbw-color-border-cell);
@@ -71,7 +103,7 @@
     --tbw-color-active-row-bg: var(--tbw-color-selection);
     --tbw-active-row-outline: 0;
 
-    /* Focus & outline */
+    /* ========== Focus & Outline ========== */
     --tbw-focus-outline: 2px solid var(--tbw-color-accent);
     --tbw-focus-outline-offset: -2px;
     --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 12%);
@@ -80,55 +112,66 @@
     --tbw-range-border-color: var(--tbw-color-accent);
     --tbw-range-selection-bg: rgba(from var(--tbw-range-border-color) r g b / 12%);
 
-    /* Resize */
-    --tbw-resize-handle-width: 6px;
+    /* ========== Resize Handle ========== */
+    --tbw-resize-handle-width: var(--tbw-spacing-sm);
     --tbw-resize-handle-color: transparent;
     --tbw-resize-handle-color-hover: var(--tbw-color-accent);
     --tbw-resize-handle-border-radius: 0;
 
-    /* Scrollbar */
+    /* ========== Scrollbar ========== */
     --tbw-scrollbar-thumb: var(--tbw-color-border-strong);
     --tbw-scrollbar-track: var(--tbw-color-bg);
 
-    /* Animation / transitions */
+    /* ========== Animation / Transitions ========== */
     --tbw-transition-duration: 120ms;
     --tbw-transition-ease: ease;
     --tbw-animation-duration: 200ms;
     --tbw-animation-easing: ease-out;
     --tbw-animation-enabled: 1;
 
-    /* Sorting indicators */
+    /* ========== Sorting Indicators ========== */
     --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
     --tbw-sort-indicator-active-color: var(--tbw-color-accent);
 
-    /* Column headers */
+    /* ========== Column Headers ========== */
     --tbw-header-text-transform: none;
     --tbw-header-letter-spacing: normal;
     --tbw-color-header-separator: var(--tbw-color-border-cell);
 
-    /* Checkbox size */
-    --tbw-checkbox-size: 16px;
-
-    /* Density scaling */
+    /* ========== Density Scaling ========== */
     --tbw-density-scale: 1;
 
-    /* Shell header CSS variables */
-    --tbw-shell-header-height: 44px;
+    /* ========== Shell Header ========== */
+    --tbw-shell-header-height: 2.75em; /* ~44px at 16px font */
     --tbw-shell-header-bg: var(--tbw-color-panel-bg);
     --tbw-shell-header-border: var(--tbw-color-border);
-    --tbw-shell-title-font-size: 14px;
+    --tbw-shell-title-font-size: var(--tbw-font-size);
     --tbw-shell-title-font-weight: 600;
 
-    /* Tool panel CSS variables */
-    --tbw-tool-panel-width: 280px;
+    /* ========== Tool Panel ========== */
+    --tbw-tool-panel-width: 17.5em; /* ~280px at 16px font */
     --tbw-tool-panel-bg: var(--tbw-color-panel-bg);
     --tbw-tool-panel-border: var(--tbw-color-border);
-    --tbw-tool-panel-header-height: 40px;
+    --tbw-tool-panel-header-height: 2.5em; /* ~40px at 16px font */
     --tbw-tool-panel-transition: var(--tbw-animation-duration) var(--tbw-animation-easing);
 
-    /* Toolbar CSS variables */
-    --tbw-toolbar-button-size: 32px;
-    --tbw-toolbar-button-gap: 4px;
+    /* ========== Toolbar ========== */
+    --tbw-toolbar-button-size: 2em; /* ~32px at 16px font */
+    --tbw-toolbar-button-gap: var(--tbw-spacing-xs);
+
+    /* ========== Component Shortcuts ========== */
+    --tbw-panel-padding: var(--tbw-spacing-lg);
+    --tbw-panel-gap: var(--tbw-spacing-md);
+    --tbw-menu-item-padding: var(--tbw-spacing-sm) var(--tbw-spacing-lg);
+    --tbw-menu-item-gap: var(--tbw-spacing-md);
+    --tbw-menu-min-width: 10rem; /* ~160px */
+    --tbw-button-padding: var(--tbw-spacing-sm) var(--tbw-spacing-lg);
+    --tbw-button-padding-sm: var(--tbw-spacing-xs) var(--tbw-spacing-md);
+    --tbw-input-height: var(--tbw-row-height);
+    --tbw-input-padding: 0 var(--tbw-spacing-md);
+    --tbw-detail-padding: var(--tbw-spacing-xl);
+    --tbw-detail-max-height: 31.25rem; /* ~500px */
+    --tbw-indicator-size: var(--tbw-spacing-sm);
 
     /* ========== Element Styles ========== */
 

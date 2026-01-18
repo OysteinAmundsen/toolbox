@@ -250,22 +250,25 @@ grid.gridConfig = {
   plugins: [
     new ContextMenuPlugin({
       items: [
-        { id: 'activate', name: 'Activate', icon: '✅', action: (p) => console.log('Activate', p.row) },
-        { id: 'deactivate', name: 'Deactivate', icon: '⏸️', action: (p) => console.log('Deactivate', p.row) },
+        {
+          id: 'activate',
+          name: 'Activate',
+          icon: '✅',
+          // Disable when row is already active
+          disabled: (params) => params.row?.status === 'active',
+          action: (p) => console.log('Activate', p.row),
+        },
+        {
+          id: 'deactivate',
+          name: 'Deactivate',
+          icon: '⏸️',
+          // Disable when row is not active
+          disabled: (params) => params.row?.status !== 'active',
+          action: (p) => console.log('Deactivate', p.row),
+        },
         { id: 'sep1', name: '', separator: true },
         { id: 'delete', name: 'Delete', icon: '🗑️', cssClass: 'danger', action: (p) => console.log('Delete', p.row) },
       ],
-      // Conditionally enable/disable menu items based on row status
-      getItemState: (item, params) => {
-        const status = params.row?.status;
-        if (item.id === 'activate') {
-          return { disabled: status === 'active' };
-        }
-        if (item.id === 'deactivate') {
-          return { disabled: status !== 'active' };
-        }
-        return {};
-      },
     }),
   ],
 };
@@ -287,29 +290,27 @@ grid.rows = [
     grid.style.height = '350px';
 
     const menuItems: ContextMenuItem[] = [
-      { id: 'activate', name: 'Activate', icon: '✅', action: (p) => console.log('Activate', p.row) },
-      { id: 'deactivate', name: 'Deactivate', icon: '⏸️', action: (p) => console.log('Deactivate', p.row) },
+      {
+        id: 'activate',
+        name: 'Activate',
+        icon: '✅',
+        disabled: (params) => (params.row as { status?: string })?.status === 'active',
+        action: (p) => console.log('Activate', p.row),
+      },
+      {
+        id: 'deactivate',
+        name: 'Deactivate',
+        icon: '⏸️',
+        disabled: (params) => (params.row as { status?: string })?.status !== 'active',
+        action: (p) => console.log('Deactivate', p.row),
+      },
       { id: 'sep1', name: '', separator: true },
       { id: 'delete', name: 'Delete', icon: '🗑️', cssClass: 'danger', action: (p) => console.log('Delete', p.row) },
     ];
 
     grid.gridConfig = {
       columns,
-      plugins: [
-        new ContextMenuPlugin({
-          items: menuItems,
-          getItemState: (item, params) => {
-            const status = params.row?.status;
-            if (item.id === 'activate') {
-              return { disabled: status === 'active' };
-            }
-            if (item.id === 'deactivate') {
-              return { disabled: status !== 'active' };
-            }
-            return {};
-          },
-        }),
-      ],
+      plugins: [new ContextMenuPlugin({ items: menuItems })],
     };
     grid.rows = sampleData;
 

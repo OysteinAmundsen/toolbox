@@ -383,6 +383,7 @@ X2\tY2\tZ2`;
     banner.innerHTML = `
       <strong>Try it:</strong> Select the sample data above → Ctrl+C → Click a cell in the grid → Ctrl+V to paste.
       <br>Or paste tab/comma-separated data from Excel or Sheets!
+      <br>Also try to select an area to paste in. Pasting will be restricted to that area only.
     `;
     container.appendChild(banner);
 

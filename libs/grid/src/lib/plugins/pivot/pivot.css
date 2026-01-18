@@ -5,355 +5,357 @@
  * falling back to grid-level variables.
  */
 
-/* ===== Pivot Row Styles ===== */
+@layer tbw-plugins {
+  /* ===== Pivot Row Styles ===== */
 
-.pivot-group-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  font-weight: 600;
-  background: var(--tbw-pivot-group-bg, var(--tbw-color-row-alt));
-  min-height: var(--tbw-row-height);
-  border-bottom: var(--tbw-row-divider);
-}
-
-.pivot-group-row:hover {
-  background: var(--tbw-pivot-group-hover, var(--tbw-color-row-hover));
-}
-
-.pivot-leaf-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  background: var(--tbw-pivot-leaf-bg, var(--tbw-color-bg));
-  min-height: var(--tbw-row-height);
-  border-bottom: var(--tbw-row-divider);
-}
-
-.pivot-grand-total-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  font-weight: 700;
-  background: var(--tbw-pivot-grand-total-bg, var(--tbw-color-header-bg));
-  min-height: var(--tbw-row-height);
-  border-top: 2px solid var(--tbw-color-border-strong);
-}
-
-.pivot-grand-total-row > .cell {
-  display: flex;
-  align-items: center;
-  padding: var(--tbw-cell-padding);
-  border-right: 1px solid var(--tbw-color-border-cell);
-  overflow: hidden;
-  min-width: 0;
-}
-
-.pivot-grand-total-row > .cell:last-child {
-  border-right: 0;
-}
-
-/* ===== Sticky Grand Total Footer ===== */
-
-.pivot-grand-total-footer {
-  position: sticky;
-  bottom: 0;
-  z-index: var(--tbw-z-layer-pinned-rows, 20);
-  background: var(--tbw-pivot-grand-total-bg, var(--tbw-color-header-bg));
-  min-width: fit-content;
-}
-
-/* Cells within pivot rows */
-.pivot-group-row > .cell,
-.pivot-leaf-row > .cell {
-  display: flex;
-  align-items: center;
-  padding: var(--tbw-cell-padding);
-  border-right: 1px solid var(--tbw-color-border-cell);
-  overflow: hidden;
-  min-width: 0;
-}
-
-.pivot-group-row > .cell:last-child,
-.pivot-leaf-row > .cell:last-child {
-  border-right: 0;
-}
-
-/* ===== Toggle Button ===== */
-
-.pivot-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 6px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: var(--tbw-pivot-toggle-color, var(--tbw-color-fg-muted));
-  border-radius: var(--tbw-border-radius);
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.pivot-toggle:hover {
-  background: var(--tbw-pivot-toggle-hover-bg, var(--tbw-color-row-hover));
-  color: var(--tbw-pivot-toggle-hover-color, var(--tbw-color-fg));
-}
-
-.pivot-toggle:focus {
-  outline: var(--tbw-focus-outline);
-  outline-offset: var(--tbw-focus-outline-offset);
-}
-
-/* ===== Labels & Counts ===== */
-
-.pivot-label {
-  font-weight: inherit;
-}
-
-.pivot-count {
-  color: var(--tbw-pivot-count-color, var(--tbw-color-fg-muted));
-  font-size: 0.9em;
-  font-weight: normal;
-}
-
-.pivot-total-row {
-  font-weight: bold;
-  border-top: 2px solid var(--tbw-pivot-border, var(--tbw-color-border-strong));
-}
-
-/* Depth-based styling (for non-custom rendered rows) */
-[data-pivot-depth='1'] {
-  --tbw-pivot-depth: 1;
-}
-[data-pivot-depth='2'] {
-  --tbw-pivot-depth: 2;
-}
-[data-pivot-depth='3'] {
-  --tbw-pivot-depth: 3;
-}
-[data-pivot-depth='4'] {
-  --tbw-pivot-depth: 4;
-}
-
-/* ===== Tool Panel Styles ===== */
-
-.tbw-pivot-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-  height: 100%;
-  overflow-y: auto;
-  font-size: 13px;
-}
-
-.tbw-pivot-section {
-  border: 1px solid var(--tbw-pivot-border, var(--tbw-color-border));
-  border-radius: var(--tbw-border-radius);
-  background: var(--tbw-pivot-section-bg, var(--tbw-color-bg));
-}
-
-.tbw-pivot-section-header {
-  padding: 8px 12px;
-  font-weight: 600;
-  background: var(--tbw-pivot-header-bg, var(--tbw-color-header-bg));
-  border-bottom: 1px solid var(--tbw-pivot-border, var(--tbw-color-border));
-  border-radius: var(--tbw-border-radius) var(--tbw-border-radius) 0 0;
-}
-
-.tbw-pivot-section-content {
-  padding: 8px;
-}
-
-.tbw-pivot-toggle-wrapper {
-  display: flex;
-  align-items: center;
-}
-
-.tbw-pivot-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.tbw-pivot-toggle-label input {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
-
-/* ===== Drop Zones ===== */
-
-.tbw-pivot-drop-zone {
-  min-height: 60px;
-  padding: 8px;
-  border: 2px dashed var(--tbw-pivot-drop-border, var(--tbw-color-border));
-  border-radius: var(--tbw-border-radius);
-  background: var(--tbw-pivot-drop-bg, var(--tbw-color-row-alt));
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-content: flex-start;
-  transition: all 0.15s ease;
-}
-
-.tbw-pivot-drop-zone.drag-over {
-  border-color: var(--tbw-color-accent);
-  background: var(--tbw-pivot-drop-active, var(--tbw-focus-background));
-}
-
-.tbw-pivot-placeholder {
-  color: var(--tbw-color-fg-muted);
-  font-style: italic;
-  padding: 8px;
-  text-align: center;
-  width: 100%;
-}
-
-/* ===== Field Chips ===== */
-
-.tbw-pivot-field-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: var(--tbw-pivot-chip-bg, var(--tbw-color-header-bg));
-  border: 1px solid var(--tbw-pivot-chip-border, var(--tbw-color-border));
-  border-radius: var(--tbw-border-radius);
-  cursor: grab;
-  font-size: 12px;
-  transition: all 0.15s ease;
-}
-
-.tbw-pivot-field-chip:hover {
-  background: var(--tbw-pivot-chip-hover, var(--tbw-color-row-hover));
-  border-color: var(--tbw-color-accent);
-}
-
-.tbw-pivot-field-chip.available {
-  background: var(--tbw-color-bg);
-}
-
-.tbw-pivot-field-chip.dragging {
-  opacity: 0.5;
-  cursor: grabbing;
-}
-
-.tbw-pivot-chip-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
-}
-
-.tbw-pivot-chip-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--tbw-color-fg-muted);
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: all 0.15s ease;
-}
-
-.tbw-pivot-chip-remove:hover {
-  background: var(--tbw-pivot-chip-remove-hover-bg, var(--tbw-color-accent));
-  color: var(--tbw-pivot-chip-remove-hover-fg, var(--tbw-color-accent-fg));
-}
-
-/* ===== Value Chips ===== */
-
-.tbw-pivot-value-chip {
-  /* Keep inline-flex from parent, just adjust padding */
-  padding: 4px 8px;
-}
-
-.tbw-pivot-value-label-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.tbw-pivot-agg-select {
-  padding: 2px 4px;
-  font-size: 11px;
-  border: 1px solid var(--tbw-color-border);
-  border-radius: var(--tbw-border-radius);
-  background: var(--tbw-color-bg);
-  cursor: pointer;
-}
-
-/* ===== Available Fields ===== */
-
-.tbw-pivot-available-fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  min-height: 40px;
-}
-
-/* ===== Options Panel ===== */
-
-.tbw-pivot-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.tbw-pivot-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.tbw-pivot-checkbox input {
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-}
-
-/* ===== Expand/Collapse Animations ===== */
-
-/* Slide animation for rows appearing */
-.pivot-group-row.tbw-pivot-slide-in,
-.pivot-leaf-row.tbw-pivot-slide-in {
-  animation: tbw-pivot-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
-}
-
-@keyframes tbw-pivot-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
+  .pivot-group-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    font-weight: 600;
+    background: var(--tbw-pivot-group-bg, var(--tbw-color-row-alt));
+    min-height: var(--tbw-row-height);
+    border-bottom: var(--tbw-row-divider);
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
 
-/* Fade animation for rows appearing */
-.pivot-group-row.tbw-pivot-fade-in,
-.pivot-leaf-row.tbw-pivot-fade-in {
-  animation: tbw-pivot-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
-}
+  .pivot-group-row:hover {
+    background: var(--tbw-pivot-group-hover, var(--tbw-color-row-hover));
+  }
 
-@keyframes tbw-pivot-fade-in {
-  from {
-    opacity: 0;
+  .pivot-leaf-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    background: var(--tbw-pivot-leaf-bg, var(--tbw-color-bg));
+    min-height: var(--tbw-row-height);
+    border-bottom: var(--tbw-row-divider);
   }
-  to {
-    opacity: 1;
+
+  .pivot-grand-total-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    font-weight: 700;
+    background: var(--tbw-pivot-grand-total-bg, var(--tbw-color-header-bg));
+    min-height: var(--tbw-row-height);
+    border-top: 2px solid var(--tbw-color-border-strong);
   }
-}
+
+  .pivot-grand-total-row > .cell {
+    display: flex;
+    align-items: center;
+    padding: var(--tbw-cell-padding);
+    border-right: 1px solid var(--tbw-color-border-cell);
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .pivot-grand-total-row > .cell:last-child {
+    border-right: 0;
+  }
+
+  /* ===== Sticky Grand Total Footer ===== */
+
+  .pivot-grand-total-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--tbw-z-layer-pinned-rows, 20);
+    background: var(--tbw-pivot-grand-total-bg, var(--tbw-color-header-bg));
+    min-width: fit-content;
+  }
+
+  /* Cells within pivot rows */
+  .pivot-group-row > .cell,
+  .pivot-leaf-row > .cell {
+    display: flex;
+    align-items: center;
+    padding: var(--tbw-cell-padding);
+    border-right: 1px solid var(--tbw-color-border-cell);
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .pivot-group-row > .cell:last-child,
+  .pivot-leaf-row > .cell:last-child {
+    border-right: 0;
+  }
+
+  /* ===== Toggle Button ===== */
+
+  .pivot-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--tbw-pivot-toggle-color, var(--tbw-color-fg-muted));
+    border-radius: var(--tbw-border-radius);
+    transition:
+      background 0.15s,
+      color 0.15s;
+  }
+
+  .pivot-toggle:hover {
+    background: var(--tbw-pivot-toggle-hover-bg, var(--tbw-color-row-hover));
+    color: var(--tbw-pivot-toggle-hover-color, var(--tbw-color-fg));
+  }
+
+  .pivot-toggle:focus {
+    outline: var(--tbw-focus-outline);
+    outline-offset: var(--tbw-focus-outline-offset);
+  }
+
+  /* ===== Labels & Counts ===== */
+
+  .pivot-label {
+    font-weight: inherit;
+  }
+
+  .pivot-count {
+    color: var(--tbw-pivot-count-color, var(--tbw-color-fg-muted));
+    font-size: 0.9em;
+    font-weight: normal;
+  }
+
+  .pivot-total-row {
+    font-weight: bold;
+    border-top: 2px solid var(--tbw-pivot-border, var(--tbw-color-border-strong));
+  }
+
+  /* Depth-based styling (for non-custom rendered rows) */
+  [data-pivot-depth='1'] {
+    --tbw-pivot-depth: 1;
+  }
+  [data-pivot-depth='2'] {
+    --tbw-pivot-depth: 2;
+  }
+  [data-pivot-depth='3'] {
+    --tbw-pivot-depth: 3;
+  }
+  [data-pivot-depth='4'] {
+    --tbw-pivot-depth: 4;
+  }
+
+  /* ===== Tool Panel Styles ===== */
+
+  .tbw-pivot-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    height: 100%;
+    overflow-y: auto;
+    font-size: 13px;
+  }
+
+  .tbw-pivot-section {
+    border: 1px solid var(--tbw-pivot-border, var(--tbw-color-border));
+    border-radius: var(--tbw-border-radius);
+    background: var(--tbw-pivot-section-bg, var(--tbw-color-bg));
+  }
+
+  .tbw-pivot-section-header {
+    padding: 8px 12px;
+    font-weight: 600;
+    background: var(--tbw-pivot-header-bg, var(--tbw-color-header-bg));
+    border-bottom: 1px solid var(--tbw-pivot-border, var(--tbw-color-border));
+    border-radius: var(--tbw-border-radius) var(--tbw-border-radius) 0 0;
+  }
+
+  .tbw-pivot-section-content {
+    padding: 8px;
+  }
+
+  .tbw-pivot-toggle-wrapper {
+    display: flex;
+    align-items: center;
+  }
+
+  .tbw-pivot-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .tbw-pivot-toggle-label input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  /* ===== Drop Zones ===== */
+
+  .tbw-pivot-drop-zone {
+    min-height: 60px;
+    padding: 8px;
+    border: 2px dashed var(--tbw-pivot-drop-border, var(--tbw-color-border));
+    border-radius: var(--tbw-border-radius);
+    background: var(--tbw-pivot-drop-bg, var(--tbw-color-row-alt));
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-content: flex-start;
+    transition: all 0.15s ease;
+  }
+
+  .tbw-pivot-drop-zone.drag-over {
+    border-color: var(--tbw-color-accent);
+    background: var(--tbw-pivot-drop-active, var(--tbw-focus-background));
+  }
+
+  .tbw-pivot-placeholder {
+    color: var(--tbw-color-fg-muted);
+    font-style: italic;
+    padding: 8px;
+    text-align: center;
+    width: 100%;
+  }
+
+  /* ===== Field Chips ===== */
+
+  .tbw-pivot-field-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--tbw-pivot-chip-bg, var(--tbw-color-header-bg));
+    border: 1px solid var(--tbw-pivot-chip-border, var(--tbw-color-border));
+    border-radius: var(--tbw-border-radius);
+    cursor: grab;
+    font-size: 12px;
+    transition: all 0.15s ease;
+  }
+
+  .tbw-pivot-field-chip:hover {
+    background: var(--tbw-pivot-chip-hover, var(--tbw-color-row-hover));
+    border-color: var(--tbw-color-accent);
+  }
+
+  .tbw-pivot-field-chip.available {
+    background: var(--tbw-color-bg);
+  }
+
+  .tbw-pivot-field-chip.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+  }
+
+  .tbw-pivot-chip-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .tbw-pivot-chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--tbw-color-fg-muted);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+  }
+
+  .tbw-pivot-chip-remove:hover {
+    background: var(--tbw-pivot-chip-remove-hover-bg, var(--tbw-color-accent));
+    color: var(--tbw-pivot-chip-remove-hover-fg, var(--tbw-color-accent-fg));
+  }
+
+  /* ===== Value Chips ===== */
+
+  .tbw-pivot-value-chip {
+    /* Keep inline-flex from parent, just adjust padding */
+    padding: 4px 8px;
+  }
+
+  .tbw-pivot-value-label-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tbw-pivot-agg-select {
+    padding: 2px 4px;
+    font-size: 11px;
+    border: 1px solid var(--tbw-color-border);
+    border-radius: var(--tbw-border-radius);
+    background: var(--tbw-color-bg);
+    cursor: pointer;
+  }
+
+  /* ===== Available Fields ===== */
+
+  .tbw-pivot-available-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 40px;
+  }
+
+  /* ===== Options Panel ===== */
+
+  .tbw-pivot-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tbw-pivot-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+
+  .tbw-pivot-checkbox input {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  /* ===== Expand/Collapse Animations ===== */
+
+  /* Slide animation for rows appearing */
+  .pivot-group-row.tbw-pivot-slide-in,
+  .pivot-leaf-row.tbw-pivot-slide-in {
+    animation: tbw-pivot-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+  }
+
+  @keyframes tbw-pivot-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Fade animation for rows appearing */
+  .pivot-group-row.tbw-pivot-fade-in,
+  .pivot-leaf-row.tbw-pivot-fade-in {
+    animation: tbw-pivot-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+  }
+
+  @keyframes tbw-pivot-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+} /* End @layer tbw-plugins */

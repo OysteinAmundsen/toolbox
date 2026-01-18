@@ -1,89 +1,91 @@
-/* Group row layout - uses grid template from parent */
-.group-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  background: var(--tbw-grouping-rows-bg, var(--tbw-color-panel-bg));
-  font-weight: 500;
-  border-bottom: var(--tbw-row-divider);
-  min-height: var(--tbw-row-height);
-}
-.group-row .cell {
-  display: flex;
-  align-items: center;
-  padding: var(--tbw-cell-padding, 2px 8px);
-}
-.group-row:hover {
-  background: var(--tbw-grouping-rows-bg-hover, var(--tbw-color-row-hover));
-}
-.group-toggle {
-  cursor: pointer;
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-right: 4px;
-  background: none;
-  border: 0;
-  font: inherit;
-}
-.group-toggle:hover {
-  background: var(--tbw-grouping-rows-toggle-hover, var(--tbw-color-row-hover));
-  border-radius: 2px;
-}
-.group-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.group-count {
-  color: var(--tbw-grouping-rows-count-color, var(--tbw-color-fg-muted));
-  font-size: 0.85em;
-  font-weight: normal;
-}
-[data-group-depth='0'] .group-label {
-  padding-left: 0;
-}
-[data-group-depth='1'] .group-label {
-  padding-left: 20px;
-}
-[data-group-depth='2'] .group-label {
-  padding-left: 40px;
-}
-[data-group-depth='3'] .group-label {
-  padding-left: 60px;
-}
-[data-group-depth='4'] .group-label {
-  padding-left: 80px;
-}
-
-/* Slide animation for child rows appearing */
-.data-grid-row.tbw-group-slide-in {
-  animation: tbw-group-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
-}
-
-@keyframes tbw-group-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
+@layer tbw-plugins {
+  /* Group row layout - uses grid template from parent */
+  .group-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    background: var(--tbw-grouping-rows-bg, var(--tbw-color-panel-bg));
+    font-weight: 500;
+    border-bottom: var(--tbw-row-divider);
+    min-height: var(--tbw-row-height);
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+  .group-row .cell {
+    display: flex;
+    align-items: center;
+    padding: var(--tbw-cell-padding, 2px 8px);
   }
-}
+  .group-row:hover {
+    background: var(--tbw-grouping-rows-bg-hover, var(--tbw-color-row-hover));
+  }
+  .group-toggle {
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+    background: none;
+    border: 0;
+    font: inherit;
+  }
+  .group-toggle:hover {
+    background: var(--tbw-grouping-rows-toggle-hover, var(--tbw-color-row-hover));
+    border-radius: 2px;
+  }
+  .group-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .group-count {
+    color: var(--tbw-grouping-rows-count-color, var(--tbw-color-fg-muted));
+    font-size: 0.85em;
+    font-weight: normal;
+  }
+  [data-group-depth='0'] .group-label {
+    padding-left: 0;
+  }
+  [data-group-depth='1'] .group-label {
+    padding-left: 20px;
+  }
+  [data-group-depth='2'] .group-label {
+    padding-left: 40px;
+  }
+  [data-group-depth='3'] .group-label {
+    padding-left: 60px;
+  }
+  [data-group-depth='4'] .group-label {
+    padding-left: 80px;
+  }
 
-/* Fade animation for child rows appearing */
-.data-grid-row.tbw-group-fade-in {
-  animation: tbw-group-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
-}
+  /* Slide animation for child rows appearing */
+  .data-grid-row.tbw-group-slide-in {
+    animation: tbw-group-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+  }
 
-@keyframes tbw-group-fade-in {
-  from {
-    opacity: 0;
+  @keyframes tbw-group-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
-  to {
-    opacity: 1;
+
+  /* Fade animation for child rows appearing */
+  .data-grid-row.tbw-group-fade-in {
+    animation: tbw-group-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
   }
-}
+
+  @keyframes tbw-group-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+} /* End @layer tbw-plugins */

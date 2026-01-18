@@ -3,67 +3,69 @@
  * Matches the clean, minimal look of Angular Material's mat-table
  * https://material.angular.io/components/table/overview
  */
-tbw-grid {
-  /* Clean white/dark surface - no tinting */
-  --tbw-color-bg: light-dark(#ffffff, #272727);
-  --tbw-color-panel-bg: light-dark(#ffffff, #272727);
-  --tbw-color-fg: light-dark(rgba(0, 0, 0, 0.87), #ffffff);
-  --tbw-color-fg-muted: light-dark(rgba(0, 0, 0, 0.54), rgba(255, 255, 255, 0.7));
+@layer tbw-theme {
+  tbw-grid {
+    /* Clean white/dark surface - no tinting */
+    --tbw-color-bg: light-dark(#ffffff, #272727);
+    --tbw-color-panel-bg: light-dark(#ffffff, #272727);
+    --tbw-color-fg: light-dark(rgba(0, 0, 0, 0.87), #ffffff);
+    --tbw-color-fg-muted: light-dark(rgba(0, 0, 0, 0.54), rgba(255, 255, 255, 0.7));
 
-  /* Minimal borders - only horizontal row dividers */
-  --tbw-color-border: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
-  --tbw-color-border-strong: light-dark(rgba(0, 0, 0, 0.42), rgba(255, 255, 255, 0.5));
-  --tbw-color-border-cell: transparent; /* No vertical cell borders */
-  --tbw-color-border-header: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
+    /* Minimal borders - only horizontal row dividers */
+    --tbw-color-border: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
+    --tbw-color-border-strong: light-dark(rgba(0, 0, 0, 0.42), rgba(255, 255, 255, 0.5));
+    --tbw-color-border-cell: transparent; /* No vertical cell borders */
+    --tbw-color-border-header: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
 
-  /* Row divider - thin horizontal line only */
-  --tbw-row-divider: 1px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
+    /* Row divider - thin horizontal line only */
+    --tbw-row-divider: 1px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
 
-  /* Angular Material accent colors */
-  --tbw-color-accent: light-dark(#3f51b5, #7986cb); /* Indigo primary */
-  --tbw-color-accent-fg: #ffffff;
+    /* Angular Material accent colors */
+    --tbw-color-accent: light-dark(#3f51b5, #7986cb); /* Indigo primary */
+    --tbw-color-accent-fg: #ffffff;
 
-  /* Selection & interaction */
-  --tbw-color-selection: light-dark(rgba(63, 81, 181, 0.08), rgba(121, 134, 203, 0.16));
-  --tbw-color-row-alt: transparent; /* No zebra striping in Material */
-  --tbw-color-row-hover: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.04));
-  --tbw-color-active-row-bg: light-dark(rgba(63, 81, 181, 0.08), rgba(121, 134, 203, 0.16));
+    /* Selection & interaction */
+    --tbw-color-selection: light-dark(rgba(63, 81, 181, 0.08), rgba(121, 134, 203, 0.16));
+    --tbw-color-row-alt: transparent; /* No zebra striping in Material */
+    --tbw-color-row-hover: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.04));
+    --tbw-color-active-row-bg: light-dark(rgba(63, 81, 181, 0.08), rgba(121, 134, 203, 0.16));
 
-  /* Header - same as body, no distinct background */
-  --tbw-color-header-bg: light-dark(#ffffff, #272727);
-  --tbw-color-header-fg: light-dark(rgba(0, 0, 0, 0.54), rgba(255, 255, 255, 0.7));
+    /* Header - same as body, no distinct background */
+    --tbw-color-header-bg: light-dark(#ffffff, #272727);
+    --tbw-color-header-fg: light-dark(rgba(0, 0, 0, 0.54), rgba(255, 255, 255, 0.7));
 
-  /* No outer border or radius - clean rectangular look */
-  --tbw-border-radius: 0;
+    /* No outer border or radius - clean rectangular look */
+    --tbw-border-radius: 0;
 
-  /* Focus styling */
-  --tbw-focus-outline: 2px solid var(--tbw-color-accent);
-  --tbw-focus-outline-offset: -2px;
-  --tbw-resize-handle-color-hover: var(--tbw-color-accent);
+    /* Focus styling */
+    --tbw-focus-outline: 2px solid var(--tbw-color-accent);
+    --tbw-focus-outline-offset: -2px;
+    --tbw-resize-handle-color-hover: var(--tbw-color-accent);
 
-  /* Roboto typography - Material standard */
-  --tbw-font-family: 'Roboto', 'Helvetica Neue', sans-serif;
-  --tbw-font-size: 14px;
-  --tbw-font-size-header: 12px;
-  --tbw-font-weight-header: 500;
-  --tbw-header-text-transform: none;
-  --tbw-header-letter-spacing: normal;
+    /* Roboto typography - Material standard */
+    --tbw-font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+    --tbw-font-size: 14px;
+    --tbw-font-size-header: 12px;
+    --tbw-font-weight-header: 500;
+    --tbw-header-text-transform: none;
+    --tbw-header-letter-spacing: normal;
 
-  /* Generous padding like Material tables */
-  --tbw-cell-padding: 4px 16px;
-  --tbw-cell-padding-header: 4px 16px;
-  --tbw-row-height: 48px;
-  --tbw-header-height: 56px;
+    /* Generous padding like Material tables */
+    --tbw-cell-padding: 4px 16px;
+    --tbw-cell-padding-header: 4px 16px;
+    --tbw-row-height: 48px;
+    --tbw-header-height: 56px;
 
-  /* Sort indicator styling */
-  --tbw-sort-indicator-color: light-dark(rgba(0, 0, 0, 0.54), rgba(255, 255, 255, 0.7));
-  --tbw-sort-indicator-active-color: light-dark(rgba(0, 0, 0, 0.87), #ffffff);
+    /* Sort indicator styling */
+    --tbw-sort-indicator-color: light-dark(rgba(0, 0, 0, 0.54), rgba(255, 255, 255, 0.7));
+    --tbw-sort-indicator-active-color: light-dark(rgba(0, 0, 0, 0.87), #ffffff);
 
-  /* Header border - only bottom */
-  --tbw-border-header: 1px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
+    /* Header border - only bottom */
+    --tbw-border-header: 1px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
 
-  /* Input styling for editing */
-  --tbw-border-input: 1px solid light-dark(rgba(0, 0, 0, 0.42), rgba(255, 255, 255, 0.5));
-  --tbw-editing-bg: transparent;
-  --tbw-editing-border: 2px solid var(--tbw-color-accent);
-}
+    /* Input styling for editing */
+    --tbw-border-input: 1px solid light-dark(rgba(0, 0, 0, 0.42), rgba(255, 255, 255, 0.5));
+    --tbw-editing-bg: transparent;
+    --tbw-editing-border: 2px solid var(--tbw-color-accent);
+  }
+} /* End @layer tbw-theme */

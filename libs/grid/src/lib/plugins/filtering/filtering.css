@@ -3,58 +3,60 @@
  *
  * Scoped to tbw-grid using CSS nesting for light DOM compatibility.
  */
-tbw-grid {
-  /* Quick filter input in header */
-  .tbw-quick-filter-input {
-    flex: 1;
-    max-width: 300px;
-    height: 28px;
-    padding: 0 8px;
-    border: 1px solid var(--tbw-color-border);
-    border-radius: var(--tbw-border-radius);
-    background: var(--tbw-color-bg);
-    color: var(--tbw-color-fg);
-    font-size: 13px;
+@layer tbw-plugins {
+  tbw-grid {
+    /* Quick filter input in header */
+    .tbw-quick-filter-input {
+      flex: 1;
+      max-width: 300px;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid var(--tbw-color-border);
+      border-radius: var(--tbw-border-radius);
+      background: var(--tbw-color-bg);
+      color: var(--tbw-color-fg);
+      font-size: 13px;
 
-    &:focus {
-      outline: none;
-      border-color: var(--tbw-color-accent);
-    }
-  }
-
-  /* Header cell indicator when filtered */
-  .header-cell.filtered::before {
-    content: '';
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 6px;
-    height: 6px;
-    background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-    border-radius: 50%;
-  }
-
-  .tbw-filter-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 2px;
-    margin-left: 4px;
-    opacity: 0.4;
-    transition: opacity 0.15s;
-    color: inherit;
-    vertical-align: middle;
-
-    &:hover,
-    &.active {
-      opacity: 1;
+      &:focus {
+        outline: none;
+        border-color: var(--tbw-color-accent);
+      }
     }
 
-    &.active {
-      color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+    /* Header cell indicator when filtered */
+    .header-cell.filtered::before {
+      content: '';
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 6px;
+      height: 6px;
+      background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+      border-radius: 50%;
+    }
+
+    .tbw-filter-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 2px;
+      margin-left: 4px;
+      opacity: 0.4;
+      transition: opacity 0.15s;
+      color: inherit;
+      vertical-align: middle;
+
+      &:hover,
+      &.active {
+        opacity: 1;
+      }
+
+      &.active {
+        color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+      }
     }
   }
-}
+} /* End @layer tbw-plugins */

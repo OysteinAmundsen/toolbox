@@ -1,73 +1,75 @@
-.tbw-footer {
-  /* Use normal flow (not sticky) so footer takes space in flex layout
-   * rather than overlapping content. Parent .tbw-scroll-area is flex column,
-   * so this footer becomes a flex child that shrinks the rows area. */
-  flex-shrink: 0;
-  z-index: var(--tbw-z-layer-pinned-rows, 20);
-  background: var(--tbw-color-panel-bg);
-}
+@layer tbw-plugins {
+  .tbw-footer {
+    /* Use normal flow (not sticky) so footer takes space in flex layout
+     * rather than overlapping content. Parent .tbw-scroll-area is flex column,
+     * so this footer becomes a flex child that shrinks the rows area. */
+    flex-shrink: 0;
+    z-index: var(--tbw-z-layer-pinned-rows, 20);
+    background: var(--tbw-color-panel-bg);
+  }
 
-.tbw-pinned-rows {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--tbw-pinned-rows-bg, var(--tbw-color-panel-bg));
-  border-top: 1px solid var(--tbw-pinned-rows-border, var(--tbw-color-border));
-  font-size: 12px;
-  color: var(--tbw-pinned-rows-color, var(--tbw-color-fg-muted));
-  min-height: 32px;
-  box-sizing: border-box;
-  min-width: fit-content;
-}
-.tbw-pinned-rows-left,
-.tbw-pinned-rows-center,
-.tbw-pinned-rows-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.tbw-pinned-rows-left {
-  justify-content: flex-start;
-}
-.tbw-pinned-rows-center {
-  justify-content: center;
-  flex: 1;
-}
-.tbw-pinned-rows-right {
-  justify-content: flex-end;
-}
-.tbw-status-panel {
-  white-space: nowrap;
-}
+  .tbw-pinned-rows {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--tbw-pinned-rows-bg, var(--tbw-color-panel-bg));
+    border-top: 1px solid var(--tbw-pinned-rows-border, var(--tbw-color-border));
+    font-size: 12px;
+    color: var(--tbw-pinned-rows-color, var(--tbw-color-fg-muted));
+    min-height: 32px;
+    box-sizing: border-box;
+    min-width: fit-content;
+  }
+  .tbw-pinned-rows-left,
+  .tbw-pinned-rows-center,
+  .tbw-pinned-rows-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .tbw-pinned-rows-left {
+    justify-content: flex-start;
+  }
+  .tbw-pinned-rows-center {
+    justify-content: center;
+    flex: 1;
+  }
+  .tbw-pinned-rows-right {
+    justify-content: flex-end;
+  }
+  .tbw-status-panel {
+    white-space: nowrap;
+  }
 
-.tbw-aggregation-rows {
-  min-width: fit-content;
-  background: var(--tbw-aggregation-bg, var(--tbw-color-header-bg));
-}
-.tbw-aggregation-rows-top {
-  border-bottom: 1px solid var(--tbw-aggregation-border, var(--tbw-color-border));
-}
-.tbw-aggregation-rows-bottom {
-  border-top: 1px solid var(--tbw-aggregation-border, var(--tbw-color-border));
-}
-.tbw-aggregation-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  font-size: var(--tbw-aggregation-font-size, 0.8em);
-  font-weight: var(--tbw-aggregation-font-weight, 600);
-}
-.tbw-aggregation-cell {
-  padding: var(--tbw-cell-padding, 2px 8px);
-  min-height: var(--tbw-row-height, 28px);
-  display: flex;
-  align-items: center;
-  border-right: 1px solid var(--tbw-color-border-cell);
-}
-.tbw-aggregation-cell:last-child {
-  border-right: 0;
-}
-.tbw-aggregation-cell-full {
-  grid-column: 1 / -1;
-  border-right: 0;
-}
+  .tbw-aggregation-rows {
+    min-width: fit-content;
+    background: var(--tbw-aggregation-bg, var(--tbw-color-header-bg));
+  }
+  .tbw-aggregation-rows-top {
+    border-bottom: 1px solid var(--tbw-aggregation-border, var(--tbw-color-border));
+  }
+  .tbw-aggregation-rows-bottom {
+    border-top: 1px solid var(--tbw-aggregation-border, var(--tbw-color-border));
+  }
+  .tbw-aggregation-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    font-size: var(--tbw-aggregation-font-size, 0.8em);
+    font-weight: var(--tbw-aggregation-font-weight, 600);
+  }
+  .tbw-aggregation-cell {
+    padding: var(--tbw-cell-padding, 2px 8px);
+    min-height: var(--tbw-row-height, 28px);
+    display: flex;
+    align-items: center;
+    border-right: 1px solid var(--tbw-color-border-cell);
+  }
+  .tbw-aggregation-cell:last-child {
+    border-right: 0;
+  }
+  .tbw-aggregation-cell-full {
+    grid-column: 1 / -1;
+    border-right: 0;
+  }
+} /* End @layer tbw-plugins */

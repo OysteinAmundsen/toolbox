@@ -50,18 +50,23 @@ hljs.registerLanguage('js', javascript);
 
 function applyTheme(name: string) {
   const id = 'dg-active-theme-style';
+
   if (name === 'default') {
     const existing = document.getElementById(id);
     if (existing) existing.remove();
     return; // rely on component's bundled internal styles only
   }
-  let styleEl = document.getElementById(id) as HTMLStyleElement | null;
-  if (!styleEl) {
-    styleEl = document.createElement('style');
-    styleEl.id = id;
-    document.head.appendChild(styleEl);
-  }
+
+  // Remove existing theme style element first
+  const existing = document.getElementById(id);
+  if (existing) existing.remove();
+
+  // Create new style element
+  // Theme CSS uses @layer tbw-theme which has higher priority than tbw-base and tbw-plugins
+  const styleEl = document.createElement('style');
+  styleEl.id = id;
   styleEl.textContent = THEME_MAP[name] || THEME_MAP.standard;
+  document.head.appendChild(styleEl);
 }
 
 const preview: Preview = {

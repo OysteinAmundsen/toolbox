@@ -1,78 +1,80 @@
-/* Expander column data cells - always first, borderless right edge */
-.cell[data-field='__tbw_expander'] {
-  border-right: none !important;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
-
-/* Expander column header - completely hidden */
-.header-row .cell[data-field='__tbw_expander'] {
-  visibility: hidden;
-  border: none !important;
-  padding: 0;
-  overflow: hidden;
-}
-
-/* The column after the expander should visually extend into the expander header space */
-.header-row .cell[data-field='__tbw_expander'] + .cell {
-  margin-left: -32px;
-  padding-left: calc(var(--tbw-cell-padding, 8px) + 32px);
-}
-
-/* Tree expander cell with indentation */
-.tree-expander {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-}
-
-.tree-toggle {
-  cursor: pointer;
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.tree-toggle:hover {
-  color: var(--tbw-tree-accent, var(--tbw-color-accent));
-}
-
-.tree-spacer {
-  width: 14px;
-  display: inline-block;
-}
-
-/* Slide animation for child rows appearing */
-.data-grid-row.tbw-tree-slide-in {
-  animation: tbw-tree-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
-}
-
-@keyframes tbw-tree-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
+@layer tbw-plugins {
+  /* Expander column data cells - always first, borderless right edge */
+  .cell[data-field='__tbw_expander'] {
+    border-right: none !important;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
 
-/* Fade animation for child rows appearing */
-.data-grid-row.tbw-tree-fade-in {
-  animation: tbw-tree-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
-}
+  /* Expander column header - completely hidden */
+  .header-row .cell[data-field='__tbw_expander'] {
+    visibility: hidden;
+    border: none !important;
+    padding: 0;
+    overflow: hidden;
+  }
 
-@keyframes tbw-tree-fade-in {
-  from {
-    opacity: 0;
+  /* The column after the expander should visually extend into the expander header space */
+  .header-row .cell[data-field='__tbw_expander'] + .cell {
+    margin-left: -32px;
+    padding-left: calc(var(--tbw-cell-padding, 8px) + 32px);
   }
-  to {
-    opacity: 1;
+
+  /* Tree expander cell with indentation */
+  .tree-expander {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
   }
-}
+
+  .tree-toggle {
+    cursor: pointer;
+    user-select: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tree-toggle:hover {
+    color: var(--tbw-tree-accent, var(--tbw-color-accent));
+  }
+
+  .tree-spacer {
+    width: 14px;
+    display: inline-block;
+  }
+
+  /* Slide animation for child rows appearing */
+  .data-grid-row.tbw-tree-slide-in {
+    animation: tbw-tree-slide-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+  }
+
+  @keyframes tbw-tree-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Fade animation for child rows appearing */
+  .data-grid-row.tbw-tree-fade-in {
+    animation: tbw-tree-fade-in var(--tbw-animation-duration, 200ms) var(--tbw-animation-easing, ease-out) forwards;
+  }
+
+  @keyframes tbw-tree-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+} /* End @layer tbw-plugins */

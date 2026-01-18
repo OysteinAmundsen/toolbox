@@ -1,18 +1,20 @@
 /* Standard balanced theme with light-dark() adaptive palette */
-tbw-grid {
-  --tbw-color-bg: light-dark(#ffffff, #1f2125);
-  --tbw-color-fg: light-dark(#1f2329, #e5e7eb);
-  --tbw-color-fg-muted: light-dark(#586069, #9ca3af);
-  --tbw-color-border: light-dark(#d0d4d9, #3a3d44);
-  --tbw-color-border-strong: light-dark(#888d94, #5a5f66);
-  --tbw-color-accent: light-dark(#2563eb, #3b82f6);
-  --tbw-color-accent-fg: #ffffff;
-  --tbw-color-selection: light-dark(#fff7d6, #374151);
-  --tbw-color-row-alt: light-dark(#f8f9fa, #252830);
-  --tbw-color-row-hover: light-dark(#eef6ff, #2d313b);
-  --tbw-color-header-bg: light-dark(#f5f6f8, #262a30);
-  --tbw-color-border-cell: light-dark(#eee, #333);
-  --tbw-color-border-header: light-dark(#ccc, #444);
-  --tbw-resize-handle-color-hover: var(--tbw-color-accent);
-  --tbw-align-header-group: center;
-}
+@layer tbw-theme {
+  tbw-grid {
+    --tbw-color-bg: light-dark(#ffffff, #1f2125);
+    --tbw-color-fg: light-dark(#1f2329, #e5e7eb);
+    --tbw-color-fg-muted: light-dark(#586069, #9ca3af);
+    --tbw-color-border: light-dark(#d0d4d9, #3a3d44);
+    --tbw-color-border-strong: light-dark(#888d94, #5a5f66);
+    --tbw-color-accent: light-dark(#2563eb, #3b82f6);
+    --tbw-color-accent-fg: #ffffff;
+    --tbw-color-selection: light-dark(#fff7d6, #374151);
+    --tbw-color-row-alt: light-dark(#f8f9fa, #252830);
+    --tbw-color-row-hover: light-dark(#eef6ff, #2d313b);
+    --tbw-color-header-bg: light-dark(#f5f6f8, #262a30);
+    --tbw-color-border-cell: light-dark(#eee, #333);
+    --tbw-color-border-header: light-dark(#ccc, #444);
+    --tbw-resize-handle-color-hover: var(--tbw-color-accent);
+    --tbw-align-header-group: center;
+  }
+} /* End @layer tbw-theme */

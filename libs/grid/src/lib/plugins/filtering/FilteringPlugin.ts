@@ -453,21 +453,30 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
-   * Position the panel below the button
+   * Position the panel below the header cell
+   * - Default: top-left of panel aligns with bottom-left of header cell
+   * - If overflows right: top-right of panel aligns with bottom-right of header cell
+   * - If overflows bottom: flip vertically (panel above header cell)
    */
   private positionPanel(panel: HTMLElement, buttonEl: HTMLElement): void {
-    const rect = buttonEl.getBoundingClientRect();
+    // Find the parent header cell
+    const headerCell = buttonEl.closest('.cell') as HTMLElement | null;
+    const rect = headerCell?.getBoundingClientRect() ?? buttonEl.getBoundingClientRect();
+
     panel.style.position = 'fixed';
     panel.style.top = `${rect.bottom + 4}px`;
     panel.style.left = `${rect.left}px`;
 
-    // Adjust if overflows right edge
+    // Adjust if overflows viewport edges
     requestAnimationFrame(() => {
       const panelRect = panel.getBoundingClientRect();
+
+      // Check horizontal overflow - align right edge to header cell right edge
       if (panelRect.right > window.innerWidth - 8) {
-        panel.style.left = `${window.innerWidth - panelRect.width - 8}px`;
+        panel.style.left = `${rect.right - panelRect.width}px`;
       }
-      // Adjust if overflows bottom
+
+      // Check vertical overflow - flip to above header cell
       if (panelRect.bottom > window.innerHeight - 8) {
         panel.style.top = `${rect.top - panelRect.height - 4}px`;
       }

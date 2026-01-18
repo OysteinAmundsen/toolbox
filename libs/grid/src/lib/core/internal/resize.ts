@@ -59,7 +59,9 @@ export function createResizeController(grid: InternalGrid): ResizeController {
       // The bounding rect can be incorrect if CSS grid-column spanning is in effect
       // (e.g., when previous columns are display:none and this cell spans multiple tracks).
       const col = grid._visibleColumns[colIndex];
-      const startWidth = col?.__renderedWidth ?? col?.width ?? cell.getBoundingClientRect().width;
+      // Only use numeric widths; string widths (e.g., "100px", "20%") fall back to bounding rect
+      const colWidth = typeof col?.width === 'number' ? col.width : undefined;
+      const startWidth = col?.__renderedWidth ?? colWidth ?? cell.getBoundingClientRect().width;
       resizeState = { startX: e.clientX, colIndex, startWidth };
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);

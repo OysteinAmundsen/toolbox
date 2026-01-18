@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.4.2...grid-0.5.0) (2026-01-18)
+
+
+### Features
+
+* **grid:** add vertical resize indicator line on column resize hover ([ce42745](https://github.com/OysteinAmundsen/toolbox/commit/ce4274537958aa099ec19dc24546a79e81b6541f))
+* **grid:** extend column group borders through all data rows ([75d8c2c](https://github.com/OysteinAmundsen/toolbox/commit/75d8c2c0d76965e410a1b11131ae8560be193867))
+* **grid:** implement CSS Cascade Layers for styling architecture ([b0c5067](https://github.com/OysteinAmundsen/toolbox/commit/b0c50678d5527c042707916821dc89c67f960d76))
+* **grid:** refactor CSS variables to use base tokens and relative units ([6ac52f4](https://github.com/OysteinAmundsen/toolbox/commit/6ac52f43bcdc8a7f13fbb7c39e9bd6eb19ddcfa3))
+* **grid:** removed shadowDom to allow for easier styling of the grid ([#42](https://github.com/OysteinAmundsen/toolbox/issues/42)) ([da1c6d4](https://github.com/OysteinAmundsen/toolbox/commit/da1c6d46d14fa338878253e1d52913aab381b17e))
+* **grid:** use CSS Anchor Positioning for filter panel with JS fallback ([22a51da](https://github.com/OysteinAmundsen/toolbox/commit/22a51da19effac648724828532f2984f42be070c))
+
+
+### Bug Fixes
+
+* **editing:** fix editing plugin not rendering custom editors properly. ([e67adeb](https://github.com/OysteinAmundsen/toolbox/commit/e67adeb0f34ec1c7bca31490060b0fb47b9a0bee))
+* **grid:** accumulate plugin styles across multiple grid instances ([25d093a](https://github.com/OysteinAmundsen/toolbox/commit/25d093ad7a5819613329e42e4eceafe107c42e8b))
+* **grid:** align filter panel to header cell instead of filter icon ([7378677](https://github.com/OysteinAmundsen/toolbox/commit/737867750057df11265c43653c9b88537c5a494e))
+* **grid:** correct context menu conditional items story to use disabled function ([f7e38bd](https://github.com/OysteinAmundsen/toolbox/commit/f7e38bd7ebcf776f42cd8e086e2f22455fad29ae))
+* **grid:** ensure numeric widths are used for column resizing ([5cd4076](https://github.com/OysteinAmundsen/toolbox/commit/5cd4076a82be0a0225aefb84b76d87a306ba6088))
+* **grid:** respect caseSensitive in filter panel search ([1048336](https://github.com/OysteinAmundsen/toolbox/commit/104833648b50a130b5ccff14fb0054070351addf))
+* **reorder:** column-move event must be emitted before actual move in order to cancel it ([55a4026](https://github.com/OysteinAmundsen/toolbox/commit/55a4026d5ccc83c04a5cddfd5663af00b6abbeb6))
+* **visibility:** account for utility columns in reorder index ([d26d1ae](https://github.com/OysteinAmundsen/toolbox/commit/d26d1aebaff923678b9635ec7a6c944f412001c7))
+
 ## [0.4.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.4.1...grid-0.4.2) (2026-01-17)
 
 

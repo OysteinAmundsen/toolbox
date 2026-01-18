@@ -37,6 +37,9 @@ describe('keyboard navigation', () => {
       dispatchEvent(ev: any) {
         grid.__events.push(ev);
       },
+      querySelector(selector: string) {
+        return null; // Mock - no DOM elements in unit tests
+      },
     };
     return grid;
   }
@@ -208,14 +211,6 @@ describe('keyboard navigation', () => {
       Object.defineProperty(scrollArea, 'clientWidth', { value: 500, configurable: true });
       scrollArea.scrollLeft = 250; // Start in the middle
 
-      const shadowRoot = {
-        querySelector: (selector: string) => {
-          if (selector === '.tbw-scroll-area') return scrollArea;
-          return null;
-        },
-        querySelectorAll: () => [],
-      };
-
       const bodyEl = document.createElement('div');
       // Create mock rows with cells
       for (let r = 0; r < rows; r++) {
@@ -239,7 +234,11 @@ describe('keyboard navigation', () => {
         _focusCol: 5, // Start in the middle column
         _virtualization: { enabled: false, start: 0, end: rows },
         _bodyEl: bodyEl,
-        shadowRoot,
+        // Mock querySelector for light DOM grid element
+        querySelector: (selector: string) => {
+          if (selector === '.tbw-scroll-area') return scrollArea;
+          return null;
+        },
         refreshVirtualWindow: () => {
           /* empty */
         },

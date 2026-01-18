@@ -93,6 +93,8 @@ export function button(className?: string, attrs?: Record<string, string>, conte
 
 /**
  * Create a slot element for light DOM projection.
+ * @deprecated The grid now uses light DOM without Shadow DOM, so slots are no longer used.
+ * This function is kept for backward compatibility but should not be used in new code.
  */
 export function slot(name?: string): HTMLSlotElement {
   const el = document.createElement('slot');
@@ -234,9 +236,12 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
     header.appendChild(titleEl);
   }
 
-  // Shell content with slot for header content
-  const content = div('tbw-shell-content', { part: 'shell-content', role: 'presentation' });
-  content.appendChild(slot('header-content'));
+  // Shell content with placeholder for light DOM header content
+  const content = div('tbw-shell-content', {
+    part: 'shell-content',
+    role: 'presentation',
+    'data-light-dom-header-content': '',
+  });
   header.appendChild(content);
 
   // Toolbar
@@ -255,8 +260,8 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
     }
   }
 
-  // Light DOM slot for toolbar - always include for async rendering (React)
-  toolbar.appendChild(slot('toolbar'));
+  // Light DOM placeholder for toolbar buttons - content moved here from <tbw-grid-tool-buttons>
+  toolbar.appendChild(div('tbw-toolbar-light-dom', { 'data-light-dom-toolbar': '' }));
 
   // Separator between config/API buttons and panel toggle
   const hasCustomButtons =

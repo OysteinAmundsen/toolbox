@@ -551,12 +551,15 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
-    // Light-dom container is slotted, so check for the slot
-    const slot = shadow.querySelector('slot[name="toolbar"]') as HTMLSlotElement;
-    expect(slot).not.toBeNull();
+    // Check that toolbar placeholder exists (light DOM uses placeholder instead of slot)
+    const placeholder = grid.querySelector('[data-light-dom-toolbar]');
+    expect(placeholder).not.toBeNull();
 
-    // Click the actual button (in light DOM)
+    // Verify the button was moved from the container to the placeholder
+    expect(placeholder?.contains(refreshBtn)).toBe(true);
+    expect(toolButtons.contains(refreshBtn)).toBe(false);
+
+    // Click the button (should work since it's now in the placeholder)
     refreshBtn.click();
     expect(clicked).toBe(true);
   });

@@ -58,6 +58,10 @@ export interface ShellState {
   isPanelOpen: boolean;
   /** Which accordion sections are expanded (by panel ID) */
   expandedSections: Set<string>;
+  /** Whether light DOM header content has been moved to placeholder (perf optimization) */
+  lightDomContentMoved: boolean;
+  /** Whether light DOM toolbar buttons have been moved to placeholder (perf optimization) */
+  lightDomToolButtonsMoved: boolean;
   /** Cleanup functions for header content render returns */
   headerContentCleanups: Map<string, () => void>;
   /** Cleanup functions for each panel section's render return */
@@ -125,6 +129,8 @@ export function createShellState(): ShellState {
     headerContentCleanups: new Map(),
     panelCleanups: new Map(),
     toolbarButtonCleanups: new Map(),
+    lightDomContentMoved: false,
+    lightDomToolButtonsMoved: false,
   };
 }
 
@@ -614,7 +620,7 @@ export function setupToolPanelResize(
 
 /**
  * Render custom button elements/render functions into toolbar slots.
- * Also moves light DOM toolbar buttons to the placeholder.
+ * Also moves light DOM toolbar buttons to the placeholder (once).
  */
 export function renderCustomToolbarButtons(
   renderRoot: Element,
@@ -624,16 +630,13 @@ export function renderCustomToolbarButtons(
 ): void {
   const allButtons = [...(config?.header?.toolbarButtons ?? []), ...state.toolbarButtons.values()];
 
+  // Only process buttons that need rendering (have element/render and cleanup not already set)
   for (const btn of allButtons) {
+    // Skip if already rendered (element appended or render cleanup exists)
+    if (btn.element?.parentNode || state.toolbarButtonCleanups.has(btn.id)) continue;
+
     const slot = renderRoot.querySelector(`[data-btn-slot="${btn.id}"]`);
     if (!slot) continue;
-
-    // Clean up previous render if any
-    const existingCleanup = state.toolbarButtonCleanups.get(btn.id);
-    if (existingCleanup) {
-      existingCleanup();
-      state.toolbarButtonCleanups.delete(btn.id);
-    }
 
     if (btn.element) {
       slot.appendChild(btn.element);
@@ -645,36 +648,40 @@ export function renderCustomToolbarButtons(
     }
   }
 
-  // Move light DOM toolbar buttons to the placeholder (light DOM replaces Shadow DOM slots)
-  if (host && state.hasToolButtonsContainer) {
+  // Move light DOM toolbar buttons to placeholder - only once (perf: skip if already moved)
+  if (host && state.hasToolButtonsContainer && !state.lightDomToolButtonsMoved) {
     const placeholder = renderRoot.querySelector('[data-light-dom-toolbar]');
     const toolButtonsContainer = host.querySelector(':scope > tbw-grid-tool-buttons');
-    if (placeholder && toolButtonsContainer) {
+    if (placeholder && toolButtonsContainer && toolButtonsContainer.firstChild) {
       // Move all children from the container to the placeholder
       while (toolButtonsContainer.firstChild) {
         placeholder.appendChild(toolButtonsContainer.firstChild);
       }
+      state.lightDomToolButtonsMoved = true;
     }
   }
 }
 
 /**
  * Render header content from plugins into the shell content area.
- * Also moves light DOM header content to the placeholder.
+ * Also moves light DOM header content to the placeholder (once).
  */
 export function renderHeaderContent(renderRoot: Element, state: ShellState): void {
+  // Early exit if nothing to do (most common path after initial render)
+  const hasLightDomContent = state.lightDomHeaderContent.length > 0 && !state.lightDomContentMoved;
+  const hasPluginContent = state.headerContents.size > 0;
+  if (!hasLightDomContent && !hasPluginContent) return;
+
   const contentArea = renderRoot.querySelector('.tbw-shell-content');
   if (!contentArea) return;
 
-  // Move light DOM header content to the placeholder (light DOM replaces Shadow DOM slots)
-  if (state.lightDomHeaderContent.length > 0) {
+  // Move light DOM header content to placeholder - only once (perf optimization)
+  if (hasLightDomContent) {
     for (const el of state.lightDomHeaderContent) {
-      // Only move if not already in the content area
-      if (el.parentNode !== contentArea) {
-        el.style.display = ''; // Show it (was hidden in the original container)
-        contentArea.appendChild(el);
-      }
+      el.style.display = ''; // Show it (was hidden in the original container)
+      contentArea.appendChild(el);
     }
+    state.lightDomContentMoved = true;
   }
 
   // Sort by order
@@ -860,6 +867,10 @@ export function cleanupShellState(state: ShellState): void {
   state.headerContents.clear();
   state.toolbarButtons.clear();
   state.lightDomHeaderContent = [];
+
+  // Reset move tracking flags (allow re-initialization)
+  state.lightDomContentMoved = false;
+  state.lightDomToolButtonsMoved = false;
 }
 
 // ============================================================================
@@ -1272,8 +1283,22 @@ export function buildGridDOMIntoElement(
 ): boolean {
   const hasShell = shouldRenderShellHeader(shellConfig);
 
-  // Clear existing content
+  // Preserve light DOM elements before clearing (they contain user content)
+  // These are custom elements used for declarative configuration
+  const lightDomElements: Element[] = [];
+  const lightDomSelectors = ['tbw-grid-header', 'tbw-grid-tool-buttons', 'tbw-grid-tool-panel', 'tbw-grid-column'];
+  for (const selector of lightDomSelectors) {
+    const elements = renderRoot.querySelectorAll(`:scope > ${selector}`);
+    elements.forEach((el) => lightDomElements.push(el));
+  }
+
+  // Clear existing content (this would delete light DOM elements, so we preserved them first)
   renderRoot.replaceChildren();
+
+  // Re-append preserved light DOM elements (hidden, they're used for config)
+  for (const el of lightDomElements) {
+    renderRoot.appendChild(el);
+  }
 
   if (hasShell) {
     const toolPanelIcon = iconToString(icons?.toolPanel ?? DEFAULT_GRID_ICONS.toolPanel);

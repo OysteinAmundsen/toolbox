@@ -375,10 +375,21 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
-   * Get the shadow root of the grid.
+   * Get the render root of the grid for DOM queries.
+   * @deprecated Use `gridElement` instead. This getter exists only for backward compatibility.
+   *
+   * With Shadow DOM removed, the grid element itself is the render root.
+   * All new code should use `this.gridElement` for DOM queries.
+   *
+   * @example
+   * // OLD (deprecated)
+   * const rows = this.shadowRoot?.querySelector('.rows');
+   *
+   * // NEW (preferred)
+   * const rows = this.gridElement.querySelector('.rows');
    */
-  protected get shadowRoot(): ShadowRoot | null {
-    return this.grid?.shadowRoot ?? null;
+  protected get shadowRoot(): HTMLElement | null {
+    return this.gridElement;
   }
 
   /**
@@ -441,7 +452,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
     if (mode === true || mode === 'on') return true;
 
     // reduced-motion: check CSS variable (set by grid based on media query)
-    const host = this.shadowRoot?.host as HTMLElement | undefined;
+    const host = this.gridElement;
     if (host) {
       const enabled = getComputedStyle(host).getPropertyValue('--tbw-animation-enabled').trim();
       return enabled !== '0';
@@ -463,7 +474,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   protected get animationDuration(): number {
-    const host = this.shadowRoot?.host as HTMLElement | undefined;
+    const host = this.gridElement;
     if (host) {
       const durationStr = getComputedStyle(host).getPropertyValue('--tbw-animation-duration').trim();
       const parsed = parseInt(durationStr, 10);

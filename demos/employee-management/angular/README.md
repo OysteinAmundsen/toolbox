@@ -45,7 +45,7 @@ angular/
 
 shared/                                # Shared between Angular and Vanilla demos
 ├── demo-styles.css                    # Global demo styles (light/dark mode)
-├── shadow-dom-styles.css              # Injected into grid shadow DOM
+├── custom-styles.css                  # Custom styles for grid styling
 ├── data.ts                            # Employee data generator
 ├── types.ts                           # Shared TypeScript types
 └── styles.ts                          # Style exports for bundlers

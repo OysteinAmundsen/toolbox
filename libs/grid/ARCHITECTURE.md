@@ -20,7 +20,7 @@ This document explains the internal architecture of the grid component for contr
 
 ## Overview
 
-`<tbw-grid>` is a high-performance data grid implemented as a native Web Component using Shadow DOM. Key design principles:
+`<tbw-grid>` is a high-performance data grid implemented as a native Web Component using light DOM with CSS nesting for style scoping. Key design principles:
 
 1. **Framework-Agnostic**: Pure TypeScript/HTML, no runtime framework dependencies
 2. **Virtualized**: Only visible rows are rendered; supports 100k+ rows
@@ -32,7 +32,7 @@ This document explains the internal architecture of the grid component for contr
 ┌───────────────────────────────────────────────────────┐
 │                        <tbw-grid>                     │
 │  ┌─────────────────────────────────────────────────┐  │
-│  │                    Shadow DOM                   │  │
+│  │                    Light DOM                    │  │
 │  │  ┌───────────────────────────────────────────┐  │  │
 │  │  │              Header Row                   │  │  │
 │  │  └───────────────────────────────────────────┘  │  │
@@ -313,7 +313,7 @@ libs/grid/src/
 The main custom element class (~1100 lines). Responsibilities:
 
 1. **Property Management**: `rows`, `columns`, `gridConfig` with reactive setters
-2. **Shadow DOM Setup**: Creates internal structure, injects styles
+2. **Light DOM Setup**: Creates internal structure, injects styles via adoptedStyleSheets
 3. **Render Orchestration**: Triggers re-renders on data/config changes
 4. **Event Dispatch**: Publishes events like `cell-commit`, `sort-change`
 5. **Plugin Coordination**: Manages plugin lifecycle via PluginManager
@@ -436,11 +436,11 @@ Some operations intentionally bypass the scheduler for performance:
 Custom styles injected via `registerStyles()` use the browser's `adoptedStyleSheets` API:
 
 ```typescript
-// Styles survive shadow DOM rebuilds (no re-injection needed)
+// Styles survive DOM rebuilds (no re-injection needed)
 grid.registerStyles('my-styles', '.custom-cell { color: blue; }');
 ```
 
-This is more efficient than `<style>` elements because `adoptedStyleSheets` is a property of the ShadowRoot that survives `replaceChildren()` calls.
+This is more efficient than `<style>` elements because `adoptedStyleSheets` survives `replaceChildren()` calls and provides a singleton pattern for style injection.
 
 ### Key Functions
 
@@ -626,8 +626,7 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
   // Hooks
   override afterRender(): void {
     if (!this.config.enabled) return;
-    // Access DOM via this.shadowRoot
-    // Access grid element via this.gridElement
+    // Access DOM via this.gridElement
   }
 
   override onCellClick(event: CellClickEvent): boolean | void {
@@ -789,7 +788,7 @@ class SelectionPlugin extends BaseGridPlugin {
 }
 ```
 
-Styles are injected once per plugin into the grid's shadow DOM.
+Styles are injected once per plugin using `document.adoptedStyleSheets`.
 
 ### Layered Fallback Pattern
 

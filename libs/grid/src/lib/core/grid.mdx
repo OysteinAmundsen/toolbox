@@ -158,14 +158,15 @@ The grid includes a shell wrapper for toolbar, tool panels, and status bar.
 
 ## Events
 
-| Event                 | Detail                                | Description         |
-| --------------------- | ------------------------------------- | ------------------- |
-| `tbw-cell-click`      | `{ row, column, rowIndex }`           | Cell clicked        |
-| `tbw-cell-dblclick`   | `{ row, column, rowIndex }`           | Cell double-clicked |
-| `tbw-cell-edit-start` | `{ row, column, value }`              | Edit started        |
-| `tbw-cell-edit-end`   | `{ row, column, oldValue, newValue }` | Edit completed      |
-| `tbw-sort-change`     | `{ field, direction }`                | Sort changed        |
-| `tbw-column-resize`   | `{ field, width }`                    | Column resized      |
+| Event               | Detail                                       | Description                                     |
+| ------------------- | -------------------------------------------- | ----------------------------------------------- |
+| `cell-commit`       | `{ row, rowIndex, field, oldValue, newValue }` | Cell value committed (requires EditingPlugin)   |
+| `row-commit`        | `{ row, rowIndex, changes }`                 | Row committed after bulk edit                   |
+| `changed-rows-reset`| `{ changedRows }`                            | Changed rows tracking reset                     |
+| `sort-change`       | `{ field, direction }`                       | Sort state changed (0=none, 1=asc, -1=desc)     |
+| `column-resize`     | `{ field, width }`                           | Column width changed                            |
+| `activate-cell`     | `{ rowIndex, colIndex }`                     | Cell activated via keyboard                     |
+| `column-state-change` | `GridColumnState`                          | Column state (widths, order, visibility) changed |
 
 ## Methods
 

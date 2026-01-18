@@ -439,8 +439,7 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
 
   // Hook: Called after grid renders
   override afterRender(): void {
-    // Access DOM via this.shadowRoot
-    // Access grid element via this.gridElement
+    // Access DOM via this.gridElement
   }
 }
 ```

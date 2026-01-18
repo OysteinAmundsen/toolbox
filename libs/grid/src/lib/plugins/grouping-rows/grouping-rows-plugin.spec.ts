@@ -9,12 +9,11 @@ import type { ColumnConfig } from '../../core/types';
 import { GroupingRowsPlugin } from './GroupingRowsPlugin';
 
 describe('GroupingRowsPlugin', () => {
-  // Mock grid element with shadow DOM
+  // Mock grid element (light DOM)
   function createMockGrid(opts: { rows?: unknown[]; columns?: ColumnConfig[] } = {}): HTMLElement {
     const grid = document.createElement('div');
-    const shadowRoot = grid.attachShadow({ mode: 'open' });
 
-    // Create grid structure
+    // Create grid structure (light DOM - directly in element)
     const container = document.createElement('div');
     container.className = 'tbw-grid-container';
 
@@ -23,7 +22,7 @@ describe('GroupingRowsPlugin', () => {
     body.style.gridTemplateColumns = '1fr 1fr 1fr';
 
     container.appendChild(body);
-    shadowRoot.appendChild(container);
+    grid.appendChild(container);
 
     // Attach mock properties
     Object.defineProperty(grid, 'rows', { get: () => opts.rows ?? [], configurable: true });

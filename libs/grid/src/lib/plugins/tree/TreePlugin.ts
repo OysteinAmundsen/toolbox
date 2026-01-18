@@ -332,7 +332,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     const style = this.animationStyle;
     if (style === false || this.keysToAnimate.size === 0) return;
 
-    const body = this.shadowRoot?.querySelector('.rows');
+    const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
     const animClass = style === 'fade' ? 'tbw-tree-fade-in' : 'tbw-tree-slide-in';

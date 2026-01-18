@@ -71,15 +71,13 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
 
   // #region Hooks
   override afterRender(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     // Use .tbw-scroll-area so footer is inside the horizontal scroll area,
     // otherwise fall back to .tbw-grid-content or root container
     const container =
-      shadowRoot.querySelector('.tbw-scroll-area') ??
-      shadowRoot.querySelector('.tbw-grid-content') ??
-      shadowRoot.children[0];
+      gridEl.querySelector('.tbw-scroll-area') ?? gridEl.querySelector('.tbw-grid-content') ?? gridEl.children[0];
     if (!container) return;
 
     // Clear orphaned element references if they were removed from the DOM
@@ -119,7 +117,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     if (topRows.length > 0) {
       if (!this.topAggregationContainer) {
         this.topAggregationContainer = createAggregationContainer('top');
-        const header = shadowRoot.querySelector('.header');
+        const header = gridEl.querySelector('.header');
         if (header && header.nextSibling) {
           container.insertBefore(this.topAggregationContainer, header.nextSibling);
         } else {

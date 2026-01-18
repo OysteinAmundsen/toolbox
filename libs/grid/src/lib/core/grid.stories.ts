@@ -104,10 +104,7 @@ interface GridArgs {
 type Story = StoryObj<GridArgs>;
 
 // Column definitions factory
-function buildColumnDefs(
-  visibleColumns: ColumnKey[],
-  opts: { sortable: boolean; resizable: boolean; },
-): ColumnConfig[] {
+function buildColumnDefs(visibleColumns: ColumnKey[], opts: { sortable: boolean; resizable: boolean }): ColumnConfig[] {
   const columnDefs: Record<ColumnKey, ColumnConfig> = {
     id: { field: 'id', header: 'ID', type: 'number', sortable: opts.sortable, resizable: opts.resizable },
     name: {
@@ -116,7 +113,7 @@ function buildColumnDefs(
       sortable: opts.sortable,
       resizable: opts.resizable,
     },
-    active: { field: 'active', header: 'Active', type: 'boolean', sortable: opts.sortable},
+    active: { field: 'active', header: 'Active', type: 'boolean', sortable: opts.sortable },
     score: {
       field: 'score',
       header: 'Score',
@@ -679,7 +676,7 @@ grid.resetColumnState();
 // Shell-specific columns
 const shellColumns: ColumnConfig[] = [
   { field: 'id', header: 'ID', type: 'number', width: 80 },
-  { field: 'name', header: 'Name', width: 150 },
+  { field: 'name', header: 'Name', minWidth: 150 },
   { field: 'department', header: 'Department', width: 150 },
   { field: 'salary', header: 'Salary', type: 'number', width: 120 },
   { field: 'active', header: 'Active', type: 'boolean', width: 80 },

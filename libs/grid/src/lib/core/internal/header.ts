@@ -28,6 +28,12 @@ function setIcon(element: HTMLElement, icon: IconValue): void {
 export function renderHeader(grid: InternalGrid): void {
   grid._headerRowEl = grid.findHeaderRow!();
   const headerRow = grid._headerRowEl as HTMLElement;
+
+  // Guard: DOM may not be built yet
+  if (!headerRow) {
+    return;
+  }
+
   headerRow.innerHTML = '';
 
   grid._visibleColumns.forEach((col: ColumnInternal, i: number) => {

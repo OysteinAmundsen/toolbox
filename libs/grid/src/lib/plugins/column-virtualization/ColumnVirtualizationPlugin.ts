@@ -106,14 +106,14 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
   override afterRender(): void {
     if (!this.isVirtualized) return;
 
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     // Apply left padding to offset scrolled-out columns
     const leftPadding = this.columnOffsets[this.startCol] ?? 0;
 
-    const headerRow = shadowRoot.querySelector('.header-row');
-    const bodyRows = shadowRoot.querySelectorAll('.data-grid-row');
+    const headerRow = gridEl.querySelector('.header-row');
+    const bodyRows = gridEl.querySelectorAll('.data-grid-row');
 
     if (headerRow) {
       (headerRow as HTMLElement).style.paddingLeft = `${leftPadding}px`;
@@ -124,7 +124,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     });
 
     // Set total width for horizontal scrolling on the rows container
-    const rowsContainer = shadowRoot.querySelector('.rows-viewport .rows');
+    const rowsContainer = gridEl.querySelector('.rows-viewport .rows');
     if (rowsContainer) {
       (rowsContainer as HTMLElement).style.width = `${this.totalWidth}px`;
     }

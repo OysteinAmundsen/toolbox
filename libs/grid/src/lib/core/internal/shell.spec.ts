@@ -178,10 +178,10 @@ describe('shell module', () => {
       expect(html).toContain('data-btn-slot="custom"');
     });
 
-    it('always includes toolbar slot for light DOM buttons', () => {
+    it('always includes light DOM toolbar placeholder for light DOM buttons', () => {
       const html = renderShellHeader(undefined, state);
 
-      expect(html).toContain('slot name="toolbar"');
+      expect(html).toContain('data-light-dom-toolbar');
     });
 
     it('renders separator when both element buttons and panel toggles exist', () => {

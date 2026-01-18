@@ -1,38 +1,46 @@
-/* Prevent text selection during range drag */
-:host .selecting .data-grid-row > .cell {
-  user-select: none;
-}
+/**
+ * Selection Plugin Styles
+ *
+ * Scoped to tbw-grid using CSS nesting for light DOM compatibility.
+ */
+tbw-grid {
+  /* Prevent text selection during range drag */
+  &.selecting .data-grid-row > .cell {
+    user-select: none;
+  }
 
-/* Row selection - use accent color for row focus (only when grid is focused) */
-:host([data-has-focus]) .data-grid-row.row-focus {
-  background-color: var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%));
-}
+  /* Row selection - use accent color for row focus (only when grid is focused) */
+  &[data-has-focus] .data-grid-row.row-focus {
+    background-color: var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%));
+  }
 
-/* Disable cell-focus outline in row mode - row is the focus unit */
-:host([data-selection-mode='row']) .cell-focus {
-  outline: none;
-}
+  /* Disable cell-focus outline in row mode - row is the focus unit */
+  &[data-selection-mode='row'] .cell-focus {
+    outline: none;
+  }
 
-/* Selection cell styles - for range mode */
-:host .data-grid-row > .cell.selected {
-  background-color: var(--tbw-range-selection-bg);
-}
-:host .data-grid-row > .cell.selected.top {
-  border-top: 2px solid var(--tbw-range-border-color);
-}
-:host .data-grid-row > .cell.selected.bottom {
-  border-bottom: 2px solid var(--tbw-range-border-color);
-}
-:host .data-grid-row > .cell.selected.first {
-  border-left: 2px solid var(--tbw-range-border-color);
-}
-:host .data-grid-row > .cell.selected.last {
-  border-right: 2px solid var(--tbw-range-border-color);
-}
+  /* Selection cell styles - for range mode */
+  .data-grid-row > .cell.selected {
+    background-color: var(--tbw-range-selection-bg);
 
-/* Selection summary in header */
-:host .tbw-selection-summary {
-  font-size: 13px;
-  color: var(--tbw-color-fg-muted);
-  white-space: nowrap;
+    &.top {
+      border-top: 2px solid var(--tbw-range-border-color);
+    }
+    &.bottom {
+      border-bottom: 2px solid var(--tbw-range-border-color);
+    }
+    &.first {
+      border-left: 2px solid var(--tbw-range-border-color);
+    }
+    &.last {
+      border-right: 2px solid var(--tbw-range-border-color);
+    }
+  }
+
+  /* Selection summary in header */
+  .tbw-selection-summary {
+    font-size: 13px;
+    color: var(--tbw-color-fg-muted);
+    white-space: nowrap;
+  }
 }

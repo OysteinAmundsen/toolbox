@@ -1,8 +1,25 @@
-/* Pure TypeScript Web Component styles */
+/**
+ * tbw-grid Light DOM Styles
+ *
+ * This stylesheet uses CSS nesting to scope all styles to the tbw-grid element.
+ * All selectors are automatically prefixed with `tbw-grid` for encapsulation.
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_nesting
+ */
+
 :root {
   color-scheme: light dark;
 }
-:host {
+
+/* ============================================================================
+   Main Grid Element
+   ============================================================================
+   All styles are nested inside tbw-grid for automatic scoping.
+   ============================================================================ */
+
+tbw-grid {
+  /* ========== CSS Custom Properties ========== */
+
   /* Core palette */
   --tbw-color-bg: transparent;
   --tbw-color-panel-bg: light-dark(#eeeeee, #222222);
@@ -30,18 +47,18 @@
   --tbw-cell-padding-header: 2px 8px;
   --tbw-cell-padding: 2px 8px;
   --tbw-cell-padding-input: 2px 6px;
-  --tbw-row-height: 28px; /* data rows */
-  --tbw-header-height: 30px; /* header row */
-  --tbw-cell-white-space: nowrap; /* set to 'normal' for multi-line cells (requires rowHeight adjustment) */
+  --tbw-row-height: 28px;
+  --tbw-header-height: 30px;
+  --tbw-cell-white-space: nowrap;
 
   /* Borders & radii */
   --tbw-border-radius: 4px;
   --tbw-border-input: 1px solid var(--tbw-color-border-strong);
   --tbw-border-header: 1px solid var(--tbw-color-border-header);
   --tbw-row-divider: 1px solid var(--tbw-color-border-cell);
-  --tbw-row-hover-outline: 0; /* e.g. 1px solid var(--tbw-color-accent) */
+  --tbw-row-hover-outline: 0;
   --tbw-color-active-row-bg: var(--tbw-color-selection);
-  --tbw-active-row-outline: 0; /* focus ring for active row */
+  --tbw-active-row-outline: 0;
 
   /* Focus & outline */
   --tbw-focus-outline: 2px solid var(--tbw-color-accent);
@@ -58,18 +75,16 @@
   --tbw-resize-handle-color-hover: var(--tbw-color-accent);
   --tbw-resize-handle-border-radius: 0;
 
-  /* Scrollbar (opt-in usage by consumer) */
+  /* Scrollbar */
   --tbw-scrollbar-thumb: var(--tbw-color-border-strong);
   --tbw-scrollbar-track: var(--tbw-color-bg);
 
   /* Animation / transitions */
   --tbw-transition-duration: 120ms;
   --tbw-transition-ease: ease;
-
-  /* Animation system - controlled via gridConfig.animation */
   --tbw-animation-duration: 200ms;
   --tbw-animation-easing: ease-out;
-  --tbw-animation-enabled: 1; /* 0 = disabled, 1 = enabled */
+  --tbw-animation-enabled: 1;
 
   /* Sorting indicators */
   --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
@@ -83,307 +98,9 @@
   /* Checkbox size */
   --tbw-checkbox-size: 16px;
 
-  /* Density scaling (future) */
-  --tbw-density-scale: 1; /* multiply paddings/heights if needed */
-}
-:host {
-  position: relative;
-  display: block; /* host is now the grid container */
-  width: 100%;
-  height: 100%; /* allow parent to define overall component height */
-  min-height: 0; /* allow shrinking in flex contexts */
-  contain: content;
-  font-family: var(--tbw-font-family);
-  font-size: var(--tbw-font-size);
-  background: var(--tbw-color-bg);
-  color: var(--tbw-color-fg);
-  border: 1px solid var(--tbw-color-border);
-  border-radius: var(--tbw-border-radius);
-  overflow: clip; /* Use clip instead of hidden - clips visually but doesn't break sticky positioning */
-  outline: none;
-}
-:host,
-:host * {
-  box-sizing: border-box;
-}
-/* tbw-grid-root layout is defined in faux scrollbar section below */
+  /* Density scaling */
+  --tbw-density-scale: 1;
 
-/* Header container - fixed at top of rows-body */
-:host .header {
-  display: block;
-  flex-shrink: 0;
-  z-index: var(--tbw-z-layer-header, 30);
-  background: var(--tbw-color-header-bg);
-  overflow: visible; /* Must be visible for sticky columns to work */
-}
-/* Grouped column header row */
-:host .header-group-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  background: var(--tbw-color-header-bg);
-  z-index: var(--tbw-z-layer-header, 30);
-}
-:host .header-group-cell {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: var(--tbw-cell-padding-header, 2px 8px);
-  color: var(--tbw-color-header-group-fg, var(--tbw-color-header-fg));
-  font-weight: var(--tbw-font-weight-header-group, var(--tbw-font-weight-header));
-  justify-content: var(--tbw-align-header-group, var(--tbw-align-header, flex-start));
-}
-
-/* Column header row - no longer sticky since content doesn't scroll */
-:host .header-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  /* min-width: max-content; */
-  color: var(--tbw-color-header-fg);
-  font-size: var(--tbw-font-size-header);
-  min-height: var(--tbw-header-height);
-  border-bottom: var(--tbw-border-header);
-  z-index: var(--tbw-z-layer-header, 30);
-}
-:host .header-row > .cell {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: var(--tbw-cell-padding-header, 2px 8px);
-  background-color: var(--tbw-color-header-bg);
-  font-weight: var(--tbw-font-weight-header);
-  border-right: 1px solid var(--tbw-color-border-cell);
-  overflow: hidden;
-  min-width: 0;
-}
-:host .header-row > .cell > span:first-child {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-:host .header-row > .cell > span[part~='sort-indicator'] {
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-:host .header-row > .cell:last-child {
-  border-right: 0;
-}
-
-:host .header-group-cell:not(:last-child),
-:host .header-row > .cell.grouped.group-end:not(:last-child) {
-  border-right: 2px solid var(--tbw-color-border);
-}
-
-/* ==========================================================================
-   Faux Scrollbar Pattern (AG Grid-style)
-   ==========================================================================
-   The grid uses a separate scrollbar element that provides the scroll events.
-   The content area (.rows-body) doesn't scroll - rows are positioned via transforms.
-   This prevents blank viewport during fast scrolling:
-   - Scroll events update transforms in RAF
-   - Old content stays visible until new transforms are applied
-   - No native scroll = no blank content during reflow
-   ========================================================================== */
-
-/* Main container - column flex so footer can go below rows-body */
-:host .tbw-grid-root {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-/* Wrapper for rows-body - allows horizontal scrolling of content */
-:host .rows-body-wrapper {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  min-width: fit-content;
-}
-
-/* Content body: holds header + rows-container in column layout */
-:host .rows-body {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: visible; /* Must be visible for sticky columns to work */
-}
-
-/* Rows container: holds rows-viewport */
-:host .rows-container {
-  display: flex;
-  flex-direction: row;
-  flex: 1;
-  min-height: 0;
-  overflow: visible; /* Must be visible for sticky columns to work */
-}
-
-/* Rows viewport - fills remaining space, no scroll */
-:host .rows-viewport {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  display: block;
-  overflow: clip; /* Clips content without breaking sticky positioning */
-}
-
-/* Faux vertical scrollbar - sits at end of scroll area row */
-/* Uses sticky so it stays at viewport edge during horizontal scroll */
-:host .faux-vscroll {
-  position: sticky;
-  inset-inline-end: 0; /* Stick to right edge in LTR, left in RTL during horizontal scroll */
-  flex-shrink: 0;
-  width: auto; /* Scrollbar determines width; collapses when not scrollable */
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: var(--tbw-z-layer-header, 30); /* Above rows content */
-}
-
-/* Spacer inside faux scrollbar sets the virtual height */
-:host .faux-vscroll-spacer {
-  width: 1px;
-  /* Height is set dynamically via JS */
-}
-
-/* Data rows - positioned via transforms, never scrolled */
-/* Width determined by grid template, not constrained to viewport */
-:host .rows-viewport .rows {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-width: 100%; /* At least viewport width, but can grow with content */
-  will-change: transform;
-  /* Rows get their own stacking context because of transform; explicitly keep them below header */
-  z-index: var(--tbw-z-layer-rows, 1);
-}
-
-:host .data-grid-row {
-  display: grid;
-  grid-template-columns: var(--tbw-column-template);
-  contain: layout style; /* Limit layout recalc scope for scroll perf */
-  /* content-visibility allows browser to skip rendering off-screen rows entirely.
-     This dramatically improves performance when many rows are in the DOM. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto var(--tbw-row-height);
-  /* min-width: max-content; */
-}
-
-/* Data cells */
-:host .selecting .data-grid-row > .cell {
-  user-select: none;
-}
-:host .data-grid-row > .cell.selected:focus-visible,
-:host .data-grid-row > .cell:focus-visible:not(.cell-focus) {
-  outline: none;
-}
-:host .data-grid-row > .cell {
-  /* Block display allows text-overflow: ellipsis to work on direct text content */
-  display: block;
-  padding: var(--tbw-cell-padding, 2px 8px);
-  border-bottom: var(--tbw-row-divider);
-  min-height: var(--tbw-row-height);
-  /* Line-height for vertical centering: subtract padding (4px) and border (1px) from row height */
-  line-height: calc(var(--tbw-row-height) - 5px);
-  border-right: 1px solid var(--tbw-color-border-cell);
-  overflow: hidden;
-  min-width: 0; /* Allow shrinking below content size */
-  /* Prevent text wrapping for consistent row heights in virtualization.
-     Set --tbw-cell-white-space: normal and increase --tbw-row-height for multi-line cells. */
-  white-space: var(--tbw-cell-white-space, nowrap);
-  text-overflow: ellipsis;
-}
-:host .data-grid-row > .cell > * {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: inherit;
-  min-width: 0; /* Allow shrinking below content size for ellipsis to work */
-}
-:host .data-grid-row > .cell:last-child {
-  border-right: 0;
-}
-
-:host .data-grid-row > .cell[data-type='boolean'] {
-  text-align: center;
-}
-:host .data-grid-row > .cell[data-type='boolean'] input[type='checkbox'] {
-  margin: 0;
-  width: var(--tbw-checkbox-size);
-  height: var(--tbw-checkbox-size);
-  vertical-align: middle;
-}
-
-:host .data-grid-row:nth-child(even) {
-  background: var(--tbw-color-row-alt);
-}
-:host .data-grid-row:hover {
-  background: var(--tbw-color-row-hover);
-}
-
-:host .sortable {
-  cursor: pointer;
-  user-select: none;
-}
-
-/* Resizable header cells need relative positioning for resize handle */
-:host .header-row > .cell.resizable {
-  position: relative;
-}
-
-:host .resize-handle {
-  position: absolute;
-  top: 0;
-  right: calc(var(--tbw-resize-handle-width) / -2);
-  width: var(--tbw-resize-handle-width);
-  height: 100%;
-  cursor: e-resize;
-  user-select: none;
-  touch-action: none;
-  z-index: 20;
-  background: var(--tbw-resize-handle-color);
-  transition: background 120ms ease;
-  border-radius: var(--tbw-resize-handle-border-radius);
-}
-:host .resize-handle:hover {
-  background: var(--tbw-resize-handle-color-hover);
-}
-
-/* Only show focus styling when grid has focus (data attribute set via JS) */
-:host([data-has-focus]) .cell-focus,
-:host([data-has-focus]) .row-focus {
-  outline: var(--tbw-focus-outline);
-  outline-offset: var(--tbw-focus-outline-offset);
-}
-
-/* ================= Sticky Columns ================= */
-:host .sticky-left,
-:host .sticky-right {
-  position: sticky;
-  z-index: 25;
-}
-/* Header sticky cells need higher z-index since header wrapper has z-index: 30 */
-:host .header-row > .cell.sticky-left,
-:host .header-row > .cell.sticky-right {
-  background: var(--tbw-color-header-bg);
-  z-index: 35;
-}
-/* Body sticky cells use row background (fallback to panel bg for visibility) */
-:host .data-grid-row > .cell.sticky-left,
-:host .data-grid-row > .cell.sticky-right {
-  background: var(--tbw-color-panel-bg);
-}
-:host .sticky-left {
-  box-shadow: 1px 0 0 var(--tbw-color-border);
-}
-:host .sticky-right {
-  box-shadow: -1px 0 0 var(--tbw-color-border);
-}
-
-/* ================= Shell Layout ================= */
-:host {
   /* Shell header CSS variables */
   --tbw-shell-header-height: 44px;
   --tbw-shell-header-bg: var(--tbw-color-panel-bg);
@@ -401,321 +118,626 @@
   /* Toolbar CSS variables */
   --tbw-toolbar-button-size: 32px;
   --tbw-toolbar-button-gap: 4px;
-}
 
-/* Shell root has-shell modifier */
-:host .tbw-grid-root.has-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
+  /* ========== Element Styles ========== */
 
-/* Shell header bar */
-:host .tbw-shell-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--tbw-shell-header-height);
-  padding: 0 8px;
-  background: var(--tbw-shell-header-bg);
-  border-bottom: 1px solid var(--tbw-shell-header-border);
-  flex-shrink: 0;
-}
-
-/* Shell title (left section) */
-:host .tbw-shell-title {
-  font-size: var(--tbw-shell-title-font-size);
-  font-weight: var(--tbw-shell-title-font-weight);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Shell content (center section - flexible) */
-:host .tbw-shell-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* Shell toolbar (right section) */
-:host .tbw-shell-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--tbw-toolbar-button-gap);
-  flex-shrink: 0;
-}
-
-/* Toolbar button base */
-:host .tbw-toolbar-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--tbw-toolbar-button-size);
-  height: var(--tbw-toolbar-button-size);
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--tbw-border-radius);
-  background: transparent;
-  color: var(--tbw-color-fg);
-  cursor: pointer;
-  font-size: 16px;
-  transition:
-    background var(--tbw-transition-duration) var(--tbw-transition-ease),
-    border-color var(--tbw-transition-duration) var(--tbw-transition-ease);
-}
-
-:host .tbw-toolbar-btn:hover {
-  background: var(--tbw-color-row-hover);
-}
-
-:host .tbw-toolbar-btn:focus-visible {
-  outline: var(--tbw-focus-outline);
-  outline-offset: var(--tbw-focus-outline-offset);
-}
-
-:host .tbw-toolbar-btn.active {
-  background: var(--tbw-focus-background);
-  border-color: var(--tbw-color-accent);
-}
-
-:host .tbw-toolbar-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Toolbar separator */
-:host .tbw-toolbar-separator {
-  width: 1px;
-  height: 20px;
-  background: var(--tbw-color-border);
-  margin: 0 4px;
-}
-
-/* Shell body (contains grid content + tool panel) */
-:host .tbw-shell-body {
   position: relative;
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: visible; /* Must be visible for sticky columns to work */
-}
-
-/* Grid content wrapper - row layout: scroll-area + faux-vscroll */
-:host .tbw-grid-content {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
-}
-
-/* Scroll area - column layout with horizontal scroll */
-/* Contains rows-body-wrapper + footer; scrollbar at bottom includes footer */
-:host .tbw-scroll-area {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow-x: auto; /* Horizontal scroll for wide content (includes footer) */
-  overflow-y: hidden; /* Vertical scroll handled by faux scrollbar */
-  overflow-anchor: none; /* Prevent browser auto-scrolling when content changes */
-}
-
-/* Tool panel container - overlays grid content */
-:host .tbw-tool-panel {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 0;
-  overflow: hidden;
-  background: var(--tbw-tool-panel-bg);
-  border-left: 1px solid var(--tbw-tool-panel-border);
-  transition: width var(--tbw-tool-panel-transition);
-  display: flex;
-  flex-direction: column;
-  z-index: 30;
-  box-shadow: -2px 0 8px var(--tbw-color-shadow);
-}
-
-:host .tbw-tool-panel[data-position='left'] {
-  right: auto;
-  left: 0;
-  border-left: none;
-  border-right: 1px solid var(--tbw-tool-panel-border);
-  box-shadow: 2px 0 8px var(--tbw-color-shadow);
-}
-
-:host .tbw-tool-panel.open {
-  width: var(--tbw-tool-panel-width);
-}
-
-/* Tool panel resize handle */
-:host .tbw-tool-panel-resize {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: col-resize;
-  background: transparent;
-  z-index: 10;
-  transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
-}
-
-:host .tbw-tool-panel-resize[data-handle-position='left'] {
-  left: 0;
-}
-
-:host .tbw-tool-panel-resize[data-handle-position='right'] {
-  right: 0;
-}
-
-:host .tbw-tool-panel-resize:hover,
-:host .tbw-tool-panel-resize.resizing {
-  background: var(--tbw-color-accent);
-}
-
-/* Tool panel header */
-:host .tbw-tool-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: var(--tbw-tool-panel-header-height);
-  padding: 0 12px;
-  border-bottom: 1px solid var(--tbw-tool-panel-border);
-  flex-shrink: 0;
-}
-
-:host .tbw-tool-panel-title {
-  font-weight: 600;
-  font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-:host .tbw-tool-panel-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: none;
-  border-radius: var(--tbw-border-radius);
-  background: transparent;
-  color: var(--tbw-color-fg-muted);
-  cursor: pointer;
-  font-size: 14px;
-}
-
-:host .tbw-tool-panel-close:hover {
-  background: var(--tbw-color-row-hover);
-  color: var(--tbw-color-fg);
-}
-
-/* Tool panel content */
-:host .tbw-tool-panel-content {
-  flex: 1;
-  overflow: auto;
-}
-
-/* Accordion sections in tool panel */
-:host .tbw-accordion {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-:host .tbw-accordion-section {
-  border-bottom: 1px solid var(--tbw-tool-panel-border);
-}
-
-:host .tbw-accordion-section:last-child {
-  border-bottom: none;
-}
-
-:host .tbw-accordion-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  background: transparent;
-  color: var(--tbw-color-fg);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  user-select: none;
-}
-
-:host .tbw-accordion-header:hover {
-  background: var(--tbw-color-row-hover);
-}
-
-/* Single panel: disable accordion toggle behavior */
-:host .tbw-accordion-section.single .tbw-accordion-header {
-  cursor: default;
-}
-
-:host .tbw-accordion-section.single .tbw-accordion-header:hover {
-  background: transparent;
-}
-
-:host .tbw-accordion-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  font-size: 10px;
-  color: var(--tbw-color-fg-muted);
-  transition: transform 0.15s ease;
-  flex-shrink: 0;
-}
-
-:host .tbw-accordion-section.expanded .tbw-accordion-chevron {
-  transform: rotate(90deg);
-}
-
-:host .tbw-accordion-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-:host .tbw-accordion-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-:host .tbw-accordion-content {
-  display: none;
-}
-
-:host .tbw-accordion-section.expanded .tbw-accordion-content {
   display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  contain: content;
+  font-family: var(--tbw-font-family);
+  font-size: var(--tbw-font-size);
+  background: var(--tbw-color-bg);
+  color: var(--tbw-color-fg);
+  border: 1px solid var(--tbw-color-border);
+  border-radius: var(--tbw-border-radius);
+  overflow: clip;
+  outline: none;
+
+  /* Box sizing for all descendants */
+  &,
+  & * {
+    box-sizing: border-box;
+  }
+
+  /* ========== Header ========== */
+
+  .header {
+    display: block;
+    flex-shrink: 0;
+    z-index: var(--tbw-z-layer-header, 30);
+    background: var(--tbw-color-header-bg);
+    overflow: visible;
+  }
+
+  .header-group-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    background: var(--tbw-color-header-bg);
+    z-index: var(--tbw-z-layer-header, 30);
+  }
+
+  .header-group-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: var(--tbw-cell-padding-header, 2px 8px);
+    color: var(--tbw-color-header-group-fg, var(--tbw-color-header-fg));
+    font-weight: var(--tbw-font-weight-header-group, var(--tbw-font-weight-header));
+    justify-content: var(--tbw-align-header-group, var(--tbw-align-header, flex-start));
+
+    &:not(:last-child) {
+      border-right: 2px solid var(--tbw-color-border);
+    }
+  }
+
+  .header-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    color: var(--tbw-color-header-fg);
+    font-size: var(--tbw-font-size-header);
+    min-height: var(--tbw-header-height);
+    border-bottom: var(--tbw-border-header);
+    z-index: var(--tbw-z-layer-header, 30);
+
+    > .cell {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: var(--tbw-cell-padding-header, 2px 8px);
+      background-color: var(--tbw-color-header-bg);
+      font-weight: var(--tbw-font-weight-header);
+      border-right: 1px solid var(--tbw-color-border-cell);
+      overflow: hidden;
+      min-width: 0;
+
+      > span:first-child {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      > span[part~='sort-indicator'] {
+        flex-shrink: 0;
+        opacity: 0.6;
+      }
+
+      &:last-child {
+        border-right: 0;
+      }
+
+      &.grouped.group-end:not(:last-child) {
+        border-right: 2px solid var(--tbw-color-border);
+      }
+
+      &.resizable {
+        position: relative;
+      }
+
+      &.sticky-left,
+      &.sticky-right {
+        background: var(--tbw-color-header-bg);
+        z-index: 35;
+      }
+    }
+  }
+
+  /* ========== Grid Root Layout ========== */
+
+  .tbw-grid-root {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    &.has-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+  }
+
+  .rows-body-wrapper {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    min-width: fit-content;
+  }
+
+  .rows-body {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .rows-container {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .rows-viewport {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: block;
+    overflow: clip;
+
+    .rows {
+      position: absolute;
+      top: 0;
+      left: 0;
+      min-width: 100%;
+      will-change: transform;
+      z-index: var(--tbw-z-layer-rows, 1);
+    }
+  }
+
+  /* ========== Faux Scrollbar ========== */
+
+  .faux-vscroll {
+    position: sticky;
+    inset-inline-end: 0;
+    flex-shrink: 0;
+    width: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: var(--tbw-z-layer-header, 30);
+  }
+
+  .faux-vscroll-spacer {
+    width: 1px;
+  }
+
+  /* ========== Data Rows ========== */
+
+  .data-grid-row {
+    display: grid;
+    grid-template-columns: var(--tbw-column-template);
+    contain: layout style;
+    content-visibility: auto;
+    contain-intrinsic-size: auto var(--tbw-row-height);
+
+    &:nth-child(even) {
+      background: var(--tbw-color-row-alt);
+    }
+
+    &:hover {
+      background: var(--tbw-color-row-hover);
+    }
+
+    > .cell {
+      display: block;
+      padding: var(--tbw-cell-padding, 2px 8px);
+      border-bottom: var(--tbw-row-divider);
+      min-height: var(--tbw-row-height);
+      line-height: calc(var(--tbw-row-height) - 5px);
+      border-right: 1px solid var(--tbw-color-border-cell);
+      overflow: hidden;
+      min-width: 0;
+      white-space: var(--tbw-cell-white-space, nowrap);
+      text-overflow: ellipsis;
+
+      > * {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: inherit;
+        min-width: 0;
+      }
+
+      &:last-child {
+        border-right: 0;
+      }
+
+      &[data-type='boolean'] {
+        text-align: center;
+
+        input[type='checkbox'] {
+          margin: 0;
+          width: var(--tbw-checkbox-size);
+          height: var(--tbw-checkbox-size);
+          vertical-align: middle;
+        }
+      }
+
+      &.selected:focus-visible,
+      &:focus-visible:not(.cell-focus) {
+        outline: none;
+      }
+
+      &.sticky-left,
+      &.sticky-right {
+        background: var(--tbw-color-panel-bg);
+      }
+    }
+  }
+
+  .selecting .data-grid-row > .cell {
+    user-select: none;
+  }
+
+  /* ========== Sorting & Resize ========== */
+
+  .sortable {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    right: calc(var(--tbw-resize-handle-width) / -2);
+    width: var(--tbw-resize-handle-width);
+    height: 100%;
+    cursor: e-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 20;
+    background: var(--tbw-resize-handle-color);
+    transition: background 120ms ease;
+    border-radius: var(--tbw-resize-handle-border-radius);
+
+    &:hover {
+      background: var(--tbw-resize-handle-color-hover);
+    }
+  }
+
+  /* ========== Focus Styling ========== */
+
+  &[data-has-focus] {
+    .cell-focus,
+    .row-focus {
+      outline: var(--tbw-focus-outline);
+      outline-offset: var(--tbw-focus-outline-offset);
+    }
+  }
+
+  /* ========== Sticky Columns ========== */
+
+  .sticky-left,
+  .sticky-right {
+    position: sticky;
+    z-index: 25;
+  }
+
+  .sticky-left {
+    box-shadow: 1px 0 0 var(--tbw-color-border);
+  }
+
+  .sticky-right {
+    box-shadow: -1px 0 0 var(--tbw-color-border);
+  }
+
+  /* ========== Shell Layout ========== */
+
+  .tbw-shell-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--tbw-shell-header-height);
+    padding: 0 8px;
+    background: var(--tbw-shell-header-bg);
+    border-bottom: 1px solid var(--tbw-shell-header-border);
+    flex-shrink: 0;
+  }
+
+  .tbw-shell-title {
+    font-size: var(--tbw-shell-title-font-size);
+    font-weight: var(--tbw-shell-title-font-weight);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tbw-shell-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .tbw-shell-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--tbw-toolbar-button-gap);
+    flex-shrink: 0;
+  }
+
+  .tbw-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--tbw-toolbar-button-size);
+    height: var(--tbw-toolbar-button-size);
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--tbw-border-radius);
+    background: transparent;
+    color: var(--tbw-color-fg);
+    cursor: pointer;
+    font-size: 16px;
+    transition:
+      background var(--tbw-transition-duration) var(--tbw-transition-ease),
+      border-color var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+    &:hover {
+      background: var(--tbw-color-row-hover);
+    }
+
+    &:focus-visible {
+      outline: var(--tbw-focus-outline);
+      outline-offset: var(--tbw-focus-outline-offset);
+    }
+
+    &.active {
+      background: var(--tbw-focus-background);
+      border-color: var(--tbw-color-accent);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .tbw-toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--tbw-color-border);
+    margin: 0 4px;
+  }
+
+  .tbw-shell-body {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .tbw-grid-content {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+  }
+
+  .tbw-scroll-area {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overflow-anchor: none;
+  }
+
+  /* ========== Tool Panel ========== */
+
+  .tbw-tool-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    overflow: hidden;
+    background: var(--tbw-tool-panel-bg);
+    border-left: 1px solid var(--tbw-tool-panel-border);
+    transition: width var(--tbw-tool-panel-transition);
+    display: flex;
+    flex-direction: column;
+    z-index: 30;
+    box-shadow: -2px 0 8px var(--tbw-color-shadow);
+
+    &[data-position='left'] {
+      right: auto;
+      left: 0;
+      border-left: none;
+      border-right: 1px solid var(--tbw-tool-panel-border);
+      box-shadow: 2px 0 8px var(--tbw-color-shadow);
+    }
+
+    &.open {
+      width: var(--tbw-tool-panel-width);
+    }
+  }
+
+  .tbw-tool-panel-resize {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 10;
+    transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+    &[data-handle-position='left'] {
+      left: 0;
+    }
+
+    &[data-handle-position='right'] {
+      right: 0;
+    }
+
+    &:hover,
+    &.resizing {
+      background: var(--tbw-color-accent);
+    }
+  }
+
+  .tbw-tool-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--tbw-tool-panel-header-height);
+    padding: 0 12px;
+    border-bottom: 1px solid var(--tbw-tool-panel-border);
+    flex-shrink: 0;
+  }
+
+  .tbw-tool-panel-title {
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tbw-tool-panel-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: var(--tbw-border-radius);
+    background: transparent;
+    color: var(--tbw-color-fg-muted);
+    cursor: pointer;
+    font-size: 14px;
+
+    &:hover {
+      background: var(--tbw-color-row-hover);
+      color: var(--tbw-color-fg);
+    }
+  }
+
+  .tbw-tool-panel-content {
+    flex: 1;
+    overflow: auto;
+  }
+
+  /* ========== Accordion ========== */
+
+  .tbw-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .tbw-accordion-section {
+    border-bottom: 1px solid var(--tbw-tool-panel-border);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.single .tbw-accordion-header {
+      cursor: default;
+
+      &:hover {
+        background: transparent;
+      }
+    }
+
+    &.expanded {
+      .tbw-accordion-chevron {
+        transform: rotate(90deg);
+      }
+
+      .tbw-accordion-content {
+        display: block;
+      }
+    }
+  }
+
+  .tbw-accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    color: var(--tbw-color-fg);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+
+    &:hover {
+      background: var(--tbw-color-row-hover);
+    }
+  }
+
+  .tbw-accordion-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    color: var(--tbw-color-fg-muted);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .tbw-accordion-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .tbw-accordion-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tbw-accordion-content {
+    display: none;
+  }
+
+  /* ========== Animation Classes ========== */
+
+  .tbw-expanding {
+    animation: tbw-expand var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
+    overflow: hidden;
+  }
+
+  .tbw-collapsing {
+    animation: tbw-collapse var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
+    overflow: hidden;
+  }
+
+  /* ========== Animation Mode Attributes ========== */
+
+  &[data-animation-mode='off'] {
+    --tbw-animation-enabled: 0;
+    --tbw-animation-duration: 0ms;
+  }
 }
 
-/* ========== Accessibility ========== */
+/* ============================================================================
+   Media Queries (outside nesting for proper CSS structure)
+   ============================================================================ */
 
 /* Windows High Contrast / forced-colors mode support */
 @media (forced-colors: active) {
-  :host {
+  tbw-grid {
     --tbw-color-border: CanvasText;
     --tbw-color-border-strong: CanvasText;
     --tbw-color-border-cell: CanvasText;
@@ -731,48 +753,31 @@
     --tbw-color-row-hover: Highlight;
     --tbw-focus-outline: 2px solid Highlight;
     --tbw-range-border-color: Highlight;
-  }
 
-  /* Ensure focus is always visible in high contrast */
-  :host .cell:focus,
-  :host .cell.active-cell {
-    outline: 2px solid Highlight !important;
-    outline-offset: -2px;
-  }
+    .cell:focus,
+    .cell.active-cell {
+      outline: 2px solid Highlight !important;
+      outline-offset: -2px;
+    }
 
-  /* Selected rows use system highlight */
-  :host .data-grid-row[aria-selected='true'] {
-    background: Highlight !important;
-    color: HighlightText !important;
+    .data-grid-row[aria-selected='true'] {
+      background: Highlight !important;
+      color: HighlightText !important;
+    }
   }
 }
 
-/* ========== Animation System ========== */
-
-/* Respect prefers-reduced-motion when animation mode is 'reduced-motion' */
+/* Respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  :host([data-animation-mode='reduced-motion']) {
+  tbw-grid[data-animation-mode='reduced-motion'] {
     --tbw-animation-enabled: 0;
     --tbw-animation-duration: 0ms;
   }
 }
 
-/* Animation disabled mode */
-:host([data-animation-mode='off']) {
-  --tbw-animation-enabled: 0;
-  --tbw-animation-duration: 0ms;
-}
-
-/* Expand/collapse animation classes for plugins */
-:host .tbw-expanding {
-  animation: tbw-expand var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
-  overflow: hidden;
-}
-
-:host .tbw-collapsing {
-  animation: tbw-collapse var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
-  overflow: hidden;
-}
+/* ============================================================================
+   Keyframes (must be at root level)
+   ============================================================================ */
 
 @keyframes tbw-expand {
   from {

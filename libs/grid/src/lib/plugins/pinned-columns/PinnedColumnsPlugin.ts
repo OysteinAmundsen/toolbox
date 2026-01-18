@@ -172,17 +172,14 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     } else {
       // Fall back to header row if no row element provided
       const host = this.grid as unknown as HTMLElement;
-      const shadowRoot = host.shadowRoot;
-      if (shadowRoot) {
-        const headerCells = shadowRoot.querySelectorAll('.header-row .cell');
-        headerCells.forEach((cell) => {
-          if (cell.classList.contains('sticky-left')) {
-            left += (cell as HTMLElement).offsetWidth;
-          } else if (cell.classList.contains('sticky-right')) {
-            right += (cell as HTMLElement).offsetWidth;
-          }
-        });
-      }
+      const headerCells = host.querySelectorAll('.header-row .cell');
+      headerCells.forEach((cell) => {
+        if (cell.classList.contains('sticky-left')) {
+          left += (cell as HTMLElement).offsetWidth;
+        } else if (cell.classList.contains('sticky-right')) {
+          right += (cell as HTMLElement).offsetWidth;
+        }
+      });
     }
 
     // Skip horizontal scrolling if focused cell is pinned (it's always visible)

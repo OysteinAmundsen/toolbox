@@ -116,13 +116,13 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   override afterRender(): void {
     if (!this.isActive) {
       // Remove any existing group header
-      const header = this.shadowRoot?.querySelector('.header');
+      const header = this.gridElement?.querySelector('.header');
       const existingGroupRow = header?.querySelector('.header-group-row');
       if (existingGroupRow) existingGroupRow.remove();
       return;
     }
 
-    const header = this.shadowRoot?.querySelector('.header');
+    const header = this.gridElement?.querySelector('.header');
     if (!header) return;
 
     // Remove existing group row if present

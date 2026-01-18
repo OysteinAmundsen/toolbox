@@ -343,7 +343,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   #syncDetailRows(): void {
     if (!this.config.detailRenderer) return;
 
-    const body = this.shadowRoot?.querySelector('.rows');
+    const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
     // Build a map of row index -> row element for visible rows

@@ -158,10 +158,10 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   // #region Hooks
 
   override afterRender(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
-    const container = shadowRoot.children[0];
+    const container = gridEl.children[0];
     if (!container) return;
 
     // Check if handler already attached

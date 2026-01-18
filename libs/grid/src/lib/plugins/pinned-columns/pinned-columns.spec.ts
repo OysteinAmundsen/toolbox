@@ -149,9 +149,8 @@ describe('sticky-columns', () => {
 
     beforeEach(() => {
       host = document.createElement('div');
-      const shadow = host.attachShadow({ mode: 'open' });
-      // Header cells use data-field, body cells use data-col (column index)
-      shadow.innerHTML = `
+      // With light DOM, content is added directly to the element
+      host.innerHTML = `
         <div class="header-row">
           <div class="cell" data-field="a">A</div>
           <div class="cell" data-field="b">B</div>
@@ -174,12 +173,12 @@ describe('sticky-columns', () => {
       const cols = [{ field: 'a', sticky: 'left' }, { field: 'b' }, { field: 'c' }];
       applyStickyOffsets(host, cols);
 
-      const headerCell = host.shadowRoot!.querySelector('.header-row .cell[data-field="a"]') as HTMLElement;
+      const headerCell = host.querySelector('.header-row .cell[data-field="a"]') as HTMLElement;
       expect(headerCell.classList.contains('sticky-left')).toBe(true);
       expect(headerCell.style.left).toBe('0px');
 
       // Body cell uses data-col="0" for the first column
-      const bodyCell = host.shadowRoot!.querySelector('.data-grid-row .cell[data-col="0"]') as HTMLElement;
+      const bodyCell = host.querySelector('.data-grid-row .cell[data-col="0"]') as HTMLElement;
       expect(bodyCell.classList.contains('sticky-left')).toBe(true);
     });
 
@@ -187,18 +186,18 @@ describe('sticky-columns', () => {
       const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c', sticky: 'right' }];
       applyStickyOffsets(host, cols);
 
-      const headerCell = host.shadowRoot!.querySelector('.header-row .cell[data-field="c"]') as HTMLElement;
+      const headerCell = host.querySelector('.header-row .cell[data-field="c"]') as HTMLElement;
       expect(headerCell.classList.contains('sticky-right')).toBe(true);
       expect(headerCell.style.right).toBe('0px');
 
       // Body cell uses data-col="2" for the third column
-      const bodyCell = host.shadowRoot!.querySelector('.data-grid-row .cell[data-col="2"]') as HTMLElement;
+      const bodyCell = host.querySelector('.data-grid-row .cell[data-col="2"]') as HTMLElement;
       expect(bodyCell.classList.contains('sticky-right')).toBe(true);
     });
 
     it('does nothing if no header cells found', () => {
       const emptyHost = document.createElement('div');
-      emptyHost.attachShadow({ mode: 'open' });
+      // With light DOM, an empty element has no cells
       const cols = [{ field: 'a', sticky: 'left' }];
 
       // Should not throw
@@ -209,8 +208,8 @@ describe('sticky-columns', () => {
   describe('clearStickyOffsets', () => {
     it('removes sticky classes and styles from cells', () => {
       const host = document.createElement('div');
-      const shadow = host.attachShadow({ mode: 'open' });
-      shadow.innerHTML = `
+      // With light DOM, content is added directly to the element
+      host.innerHTML = `
         <div class="cell sticky-left" style="left: 50px;">A</div>
         <div class="cell sticky-right" style="right: 100px;">B</div>
       `;
@@ -218,7 +217,7 @@ describe('sticky-columns', () => {
 
       clearStickyOffsets(host);
 
-      const cells = Array.from(shadow.querySelectorAll('.cell')) as HTMLElement[];
+      const cells = Array.from(host.querySelectorAll('.cell')) as HTMLElement[];
       cells.forEach((cell) => {
         expect(cell.classList.contains('sticky-left')).toBe(false);
         expect(cell.classList.contains('sticky-right')).toBe(false);
@@ -331,10 +330,9 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
     let mockGrid: any;
 
     beforeEach(() => {
-      // Create a mock grid with shadow DOM
+      // Create a mock grid element (light DOM)
       mockGrid = document.createElement('div');
-      const shadow = mockGrid.attachShadow({ mode: 'open' });
-      shadow.innerHTML = `
+      mockGrid.innerHTML = `
         <div class="header-row">
           <div class="cell sticky-left" style="width: 100px;">ID</div>
           <div class="cell" style="width: 150px;">Name</div>
@@ -367,7 +365,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
 
     it('clearStickyPositions removes sticky classes and styles', () => {
       // First apply some sticky styling
-      const cells = mockGrid.shadowRoot.querySelectorAll('.cell');
+      const cells = mockGrid.querySelectorAll('.cell');
       cells[0].classList.add('sticky-left');
       cells[0].style.left = '0px';
       cells[2].classList.add('sticky-right');
@@ -393,8 +391,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
 
     beforeEach(() => {
       mockGrid = document.createElement('div');
-      const shadow = mockGrid.attachShadow({ mode: 'open' });
-      shadow.innerHTML = `
+      mockGrid.innerHTML = `
         <div class="header-row">
           <div class="cell sticky-left" style="width: 100px;">ID</div>
           <div class="cell" style="width: 150px;">Name</div>

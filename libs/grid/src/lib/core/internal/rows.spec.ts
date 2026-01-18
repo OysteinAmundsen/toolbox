@@ -19,39 +19,46 @@ import { handleRowClick, renderVisibleRows } from './rows';
  */
 function makeGrid() {
   const bodyEl = document.createElement('div');
-  const grid: any = {
-    _rows: [
-      { id: 1, name: 'Alpha', active: true, date: new Date('2024-01-01') },
-      { id: 2, name: 'Beta', active: false, date: '2024-01-02' },
-    ],
-    _columns: [
-      { field: 'id' },
-      { field: 'name' },
-      { field: 'active', type: 'boolean', editable: true },
-      { field: 'date', type: 'date' },
-    ],
-    get _visibleColumns() {
+  // Create a real DOM element for the grid to support querySelector
+  const gridEl = document.createElement('div') as any;
+  gridEl._rows = [
+    { id: 1, name: 'Alpha', active: true, date: new Date('2024-01-01') },
+    { id: 2, name: 'Beta', active: false, date: '2024-01-02' },
+  ];
+  gridEl._columns = [
+    { field: 'id' },
+    { field: 'name' },
+    { field: 'active', type: 'boolean', editable: true },
+    { field: 'date', type: 'date' },
+  ];
+  Object.defineProperty(gridEl, '_visibleColumns', {
+    get() {
       return this._columns.filter((c: any) => !c.hidden);
     },
-    _bodyEl: bodyEl,
-    _rowPool: [],
-    _changedRowIndices: new Set<number>(),
-    _rowEditSnapshots: new Map<number, any>(),
-    _activeEditRows: -1,
-    get changedRows() {
+  });
+  gridEl._bodyEl = bodyEl;
+  gridEl._rowPool = [];
+  gridEl._changedRowIndices = new Set<number>();
+  gridEl._rowEditSnapshots = new Map<number, any>();
+  gridEl._activeEditRows = -1;
+  Object.defineProperty(gridEl, 'changedRows', {
+    get() {
       return (Array.from(this._changedRowIndices) as number[]).map((i) => this._rows[i]);
     },
-    get changedRowIndices() {
+  });
+  Object.defineProperty(gridEl, 'changedRowIndices', {
+    get() {
       return Array.from(this._changedRowIndices) as number[];
     },
-    findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-    _focusRow: -1,
-    _focusCol: -1,
-    dispatchEvent: (ev: any) => {
-      (grid.__events || (grid.__events = [])).push(ev);
-    },
+  });
+  gridEl.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
+  gridEl._focusRow = -1;
+  gridEl._focusCol = -1;
+  gridEl.__events = [];
+  gridEl.dispatchEvent = (ev: any) => {
+    gridEl.__events.push(ev);
   };
-  return grid;
+  return gridEl;
 }
 
 describe('renderVisibleRows', () => {
@@ -121,32 +128,33 @@ describe('renderVisibleRows', () => {
 
   it('rebuilds external view placeholder when missing', () => {
     const bodyEl = document.createElement('div');
-    const g: any = {
-      _rows: [{ id: 1, viewval: 'A' }],
-      _columns: [
-        {
-          field: 'viewval',
-          externalView: {
-            mount: ({ placeholder, context }: any) => {
-              placeholder.textContent = context.value;
-            },
+    const g = document.createElement('div') as any;
+    g._rows = [{ id: 1, viewval: 'A' }];
+    g._columns = [
+      {
+        field: 'viewval',
+        externalView: {
+          mount: ({ placeholder, context }: any) => {
+            placeholder.textContent = context.value;
           },
         },
-      ],
-      get _visibleColumns() {
+      },
+    ];
+    Object.defineProperty(g, '_visibleColumns', {
+      get() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      _bodyEl: bodyEl,
-      _rowPool: [],
-      _changedRowIndices: new Set<number>(),
-      _rowEditSnapshots: new Map<number, any>(),
-      _activeEditRows: -1,
-      findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-      _focusRow: 0,
-      _focusCol: 0,
-      dispatchEvent: () => {
-        /* noop */
-      },
+    });
+    g._bodyEl = bodyEl;
+    g._rowPool = [];
+    g._changedRowIndices = new Set<number>();
+    g._rowEditSnapshots = new Map<number, any>();
+    g._activeEditRows = -1;
+    g.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
+    g._focusRow = 0;
+    g._focusCol = 0;
+    g.dispatchEvent = () => {
+      /* noop */
     };
     renderVisibleRows(g, 0, 1, 1);
     const rowEl = bodyEl.querySelector('.data-grid-row')!;
@@ -167,29 +175,30 @@ describe('renderVisibleRows', () => {
 
   it('supports renderer as an alias for viewRenderer (string template)', () => {
     const bodyEl = document.createElement('div');
-    const g: any = {
-      _rows: [{ id: 1, status: 'active' }],
-      _columns: [
-        {
-          field: 'status',
-          // Using 'renderer' alias instead of 'viewRenderer'
-          renderer: (ctx: any) => `<span class="badge">${ctx.value}</span>`,
-        },
-      ],
-      get _visibleColumns() {
+    const g = document.createElement('div') as any;
+    g._rows = [{ id: 1, status: 'active' }];
+    g._columns = [
+      {
+        field: 'status',
+        // Using 'renderer' alias instead of 'viewRenderer'
+        renderer: (ctx: any) => `<span class="badge">${ctx.value}</span>`,
+      },
+    ];
+    Object.defineProperty(g, '_visibleColumns', {
+      get() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      _bodyEl: bodyEl,
-      _rowPool: [],
-      _changedRowIndices: new Set<number>(),
-      _rowEditSnapshots: new Map<number, any>(),
-      _activeEditRows: -1,
-      findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-      _focusRow: 0,
-      _focusCol: 0,
-      dispatchEvent: () => {
-        /* noop */
-      },
+    });
+    g._bodyEl = bodyEl;
+    g._rowPool = [];
+    g._changedRowIndices = new Set<number>();
+    g._rowEditSnapshots = new Map<number, any>();
+    g._activeEditRows = -1;
+    g.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
+    g._focusRow = 0;
+    g._focusCol = 0;
+    g.dispatchEvent = () => {
+      /* noop */
     };
     renderVisibleRows(g, 0, 1, 1);
     const cell = bodyEl.querySelector('.cell') as HTMLElement;
@@ -200,34 +209,35 @@ describe('renderVisibleRows', () => {
 
   it('supports renderer as an alias for viewRenderer (DOM element)', () => {
     const bodyEl = document.createElement('div');
-    const g: any = {
-      _rows: [{ id: 1, name: 'Test' }],
-      _columns: [
-        {
-          field: 'name',
-          // Using 'renderer' alias with DOM element return
-          renderer: (ctx: any) => {
-            const btn = document.createElement('button');
-            btn.className = 'action-btn';
-            btn.textContent = ctx.value;
-            return btn;
-          },
+    const g = document.createElement('div') as any;
+    g._rows = [{ id: 1, name: 'Test' }];
+    g._columns = [
+      {
+        field: 'name',
+        // Using 'renderer' alias with DOM element return
+        renderer: (ctx: any) => {
+          const btn = document.createElement('button');
+          btn.className = 'action-btn';
+          btn.textContent = ctx.value;
+          return btn;
         },
-      ],
-      get _visibleColumns() {
+      },
+    ];
+    Object.defineProperty(g, '_visibleColumns', {
+      get() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      _bodyEl: bodyEl,
-      _rowPool: [],
-      _changedRowIndices: new Set<number>(),
-      _rowEditSnapshots: new Map<number, any>(),
-      _activeEditRows: -1,
-      findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-      _focusRow: 0,
-      _focusCol: 0,
-      dispatchEvent: () => {
-        /* noop */
-      },
+    });
+    g._bodyEl = bodyEl;
+    g._rowPool = [];
+    g._changedRowIndices = new Set<number>();
+    g._rowEditSnapshots = new Map<number, any>();
+    g._activeEditRows = -1;
+    g.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
+    g._focusRow = 0;
+    g._focusCol = 0;
+    g.dispatchEvent = () => {
+      /* noop */
     };
     renderVisibleRows(g, 0, 1, 1);
     const cell = bodyEl.querySelector('.cell') as HTMLElement;
@@ -240,27 +250,29 @@ describe('renderVisibleRows', () => {
 describe('handleRowClick', () => {
   function gridForClickMode(editOn: 'click' | 'dblClick' | false = 'dblClick') {
     const bodyEl = document.createElement('div');
-    const grid: any = {
-      _rows: [{ id: 1, a: 'A', b: 'B' }],
-      _columns: [{ field: 'id' }, { field: 'a', editable: true }, { field: 'b', editable: true }],
-      get _visibleColumns() {
+    const grid = document.createElement('div') as any;
+    grid._rows = [{ id: 1, a: 'A', b: 'B' }];
+    grid._columns = [{ field: 'id' }, { field: 'a', editable: true }, { field: 'b', editable: true }];
+    Object.defineProperty(grid, '_visibleColumns', {
+      get() {
         return this._columns.filter((c: any) => !c.hidden);
       },
-      _bodyEl: bodyEl,
-      _rowPool: [],
-      _changedRowIndices: new Set<number>(),
-      _rowEditSnapshots: new Map<number, any>(),
-      _activeEditRows: -1,
-      _focusRow: -1,
-      _focusCol: -1,
-      editOn: editOn,
-      refreshVirtualWindow: () => {
-        /* noop */
-      },
-      _virtualization: { start: 0, end: 1, enabled: false },
-      findRenderedRowElement: (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null,
-      dispatchEvent: (ev: any) => (grid.__events || (grid.__events = [])).push(ev),
+    });
+    grid._bodyEl = bodyEl;
+    grid._rowPool = [];
+    grid._changedRowIndices = new Set<number>();
+    grid._rowEditSnapshots = new Map<number, any>();
+    grid._activeEditRows = -1;
+    grid._focusRow = -1;
+    grid._focusCol = -1;
+    grid.editOn = editOn;
+    grid.refreshVirtualWindow = () => {
+      /* noop */
     };
+    grid._virtualization = { start: 0, end: 1, enabled: false };
+    grid.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
+    grid.__events = [];
+    grid.dispatchEvent = (ev: any) => grid.__events.push(ev);
     renderVisibleRows(grid, 0, 1, 1);
     return grid;
   }

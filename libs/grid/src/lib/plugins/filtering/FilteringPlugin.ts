@@ -122,11 +122,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   override afterRender(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     // Find all header cells (using part attribute, not class)
-    const headerCells = shadowRoot.querySelectorAll('[part~="header-cell"]');
+    const headerCells = gridEl.querySelectorAll('[part~="header-cell"]');
     headerCells.forEach((cell) => {
       const colIndex = cell.getAttribute('data-col');
       if (colIndex === null) return;

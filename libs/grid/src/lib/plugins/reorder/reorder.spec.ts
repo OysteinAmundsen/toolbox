@@ -315,27 +315,24 @@ describe('ReorderPlugin', () => {
       const columnOrder = columns.map((c) => c.field);
       let currentOrder = [...columnOrder];
 
-      // Create a minimal mock body element
-      const mockBodyEl = {
-        querySelectorAll: () => [],
-      };
+      // Create a real DOM element that plugins can query
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
 
-      // Create mock shadowRoot with required methods
-      const mockShadowRoot = {
-        querySelectorAll: () => [],
-        querySelector: () => null,
-        host: { offsetHeight: 0 },
-      };
+      // Create a body element inside the grid
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'tbw-grid-body';
+      grid.appendChild(bodyEl);
 
-      return {
+      // Add mock properties to the real DOM element
+      Object.assign(grid, {
         _focusCol: focusCol,
         _focusRow: 0,
         _visibleColumns: columns,
-        _bodyEl: mockBodyEl,
+        _bodyEl: bodyEl,
         _virtualization: { enabled: false, start: 0, end: 0 },
         _activeEditRows: undefined,
         _rows: [],
-        shadowRoot: mockShadowRoot,
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {
           currentOrder = order;
@@ -344,14 +341,12 @@ describe('ReorderPlugin', () => {
         requestStateChange: () => {
           /* noop */
         },
-        addEventListener: () => {
-          /* noop */
-        },
-        dispatchEvent: () => true,
         refreshVirtualWindow: () => {
           /* noop */
         },
-      };
+      });
+
+      return grid as any;
     }
 
     function createKeyEvent(key: string, altKey = true): KeyboardEvent {
@@ -499,21 +494,25 @@ describe('ReorderPlugin', () => {
       let currentOrder = columns.map((c) => c.field);
       const events: Array<{ type: string; detail: unknown }> = [];
 
-      return {
+      // Create a real DOM element that plugins can query
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+
+      // Create a body element inside the grid
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'tbw-grid-body';
+      grid.appendChild(bodyEl);
+
+      // Add mock properties to the real DOM element
+      Object.assign(grid, {
         _focusCol: 0,
         _focusRow: 0,
         _visibleColumns: columns,
-        _bodyEl: { querySelectorAll: () => [] },
+        _bodyEl: bodyEl,
         _virtualization: { enabled: false, start: 0, end: 0 },
         _activeEditRows: undefined,
         _rows: [],
         columns,
-        shadowRoot: {
-          querySelectorAll: () => [],
-          querySelector: () => null,
-          host: { offsetHeight: 0 },
-          children: [],
-        },
         effectiveConfig: { animation: { mode: 'off' } },
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {
@@ -521,9 +520,6 @@ describe('ReorderPlugin', () => {
         },
         queryPlugins: () => [],
         requestStateChange: () => {
-          /* noop */
-        },
-        addEventListener: () => {
           /* noop */
         },
         dispatchEvent: (e: CustomEvent) => {
@@ -534,7 +530,9 @@ describe('ReorderPlugin', () => {
           /* noop */
         },
         getEvents: () => events,
-      };
+      });
+
+      return grid as any;
     }
 
     describe('getColumnOrder', () => {
@@ -705,21 +703,29 @@ describe('ReorderPlugin', () => {
   describe('attach', () => {
     it('sets up column-reorder-request listener', () => {
       const listeners: Array<{ type: string; handler: EventListener }> = [];
-      const grid = {
+
+      // Create a real DOM element that plugins can query
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+
+      // Create a body element
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'tbw-grid-body';
+      grid.appendChild(bodyEl);
+
+      // Store the original addEventListener to track calls
+      const originalAddEventListener = grid.addEventListener.bind(grid);
+
+      // Add mock properties to the real DOM element
+      Object.assign(grid, {
         _focusCol: 0,
         _focusRow: 0,
         _visibleColumns: [{ field: 'a' }, { field: 'b' }],
-        _bodyEl: { querySelectorAll: () => [] },
+        _bodyEl: bodyEl,
         _virtualization: { enabled: false, start: 0, end: 0 },
         _activeEditRows: undefined,
         _rows: [],
         columns: [{ field: 'a' }, { field: 'b' }],
-        shadowRoot: {
-          querySelectorAll: () => [],
-          querySelector: () => null,
-          host: { offsetHeight: 0 },
-          children: [],
-        },
         effectiveConfig: { animation: { mode: 'off' } },
         getColumnOrder: () => ['a', 'b'],
         setColumnOrder: () => {
@@ -729,14 +735,14 @@ describe('ReorderPlugin', () => {
         requestStateChange: () => {
           /* noop */
         },
-        addEventListener: (type: string, handler: EventListener) => {
+        addEventListener: (type: string, handler: EventListener, options?: AddEventListenerOptions | boolean) => {
           listeners.push({ type, handler });
+          originalAddEventListener(type, handler, options);
         },
-        dispatchEvent: () => true,
         refreshVirtualWindow: () => {
           /* noop */
         },
-      };
+      });
 
       const plugin = new ReorderPlugin();
       plugin.attach(grid as any);
@@ -748,39 +754,38 @@ describe('ReorderPlugin', () => {
 
   describe('afterRender', () => {
     function createMockGridWithShadowDOM(columns: ColumnConfig[]) {
+      // Create a real DOM element that plugins can query via gridElement
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+
+      // Create header row with cells
+      const headerRow = document.createElement('div');
+      headerRow.className = 'header-row';
+      grid.appendChild(headerRow);
+
       const headerCells: HTMLElement[] = columns.map((col) => {
         const cell = document.createElement('div');
         cell.className = 'cell';
         cell.setAttribute('data-field', col.field);
+        headerRow.appendChild(cell);
         return cell;
       });
 
-      const headerRow = document.createElement('div');
-      headerRow.className = 'header-row';
-      headerCells.forEach((cell) => headerRow.appendChild(cell));
+      // Create a body element
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'tbw-grid-body';
+      grid.appendChild(bodyEl);
 
-      const mockShadowRoot = {
-        querySelectorAll: (selector: string) => {
-          if (selector === '.header-row > .cell') {
-            return headerCells;
-          }
-          return [];
-        },
-        querySelector: () => null,
-        host: { offsetHeight: 0 },
-        children: [headerRow],
-      };
-
-      return {
+      // Add mock properties to the real DOM element
+      Object.assign(grid, {
         _focusCol: 0,
         _focusRow: 0,
         _visibleColumns: columns,
-        _bodyEl: { querySelectorAll: () => [] },
+        _bodyEl: bodyEl,
         _virtualization: { enabled: false, start: 0, end: 0 },
         _activeEditRows: undefined,
         _rows: [],
         columns,
-        shadowRoot: mockShadowRoot,
         effectiveConfig: { animation: { mode: 'off' } },
         getColumnOrder: () => columns.map((c) => c.field),
         setColumnOrder: () => {
@@ -790,15 +795,13 @@ describe('ReorderPlugin', () => {
         requestStateChange: () => {
           /* noop */
         },
-        addEventListener: () => {
-          /* noop */
-        },
-        dispatchEvent: () => true,
         refreshVirtualWindow: () => {
           /* noop */
         },
         headerCells,
-      };
+      });
+
+      return grid as any;
     }
 
     it('makes header cells draggable', () => {
@@ -860,14 +863,9 @@ describe('ReorderPlugin', () => {
       expect(() => plugin.afterRender()).not.toThrow();
     });
 
-    it('does not throw when shadowRoot is null', () => {
-      const columns: ColumnConfig[] = [{ field: 'a' }];
-      const grid = createMockGridWithShadowDOM(columns);
-      grid.shadowRoot = null;
-
+    it('does not throw when grid is not attached', () => {
       const plugin = new ReorderPlugin();
-      plugin.attach(grid as any);
-
+      // Plugin not attached to any grid
       expect(() => plugin.afterRender()).not.toThrow();
     });
 
@@ -928,21 +926,37 @@ describe('ReorderPlugin', () => {
       const columns: ColumnConfig[] = [{ field: 'a' }, { field: 'b' }];
       let currentOrder = columns.map((c) => c.field);
 
-      return {
+      // Create a real DOM element that plugins can query
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+
+      // Create header row with cells
+      const headerRow = document.createElement('div');
+      headerRow.className = 'header-row';
+      grid.appendChild(headerRow);
+
+      columns.forEach((col) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-field', col.field);
+        headerRow.appendChild(cell);
+      });
+
+      // Create a body element
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'tbw-grid-body';
+      grid.appendChild(bodyEl);
+
+      // Add mock properties to the real DOM element
+      Object.assign(grid, {
         _focusCol: 0,
         _focusRow: 0,
         _visibleColumns: columns,
-        _bodyEl: { querySelectorAll: () => [] },
+        _bodyEl: bodyEl,
         _virtualization: { enabled: false, start: 0, end: 0 },
         _activeEditRows: undefined,
         _rows: [],
         columns,
-        shadowRoot: {
-          querySelectorAll: () => [],
-          querySelector: () => null,
-          host: { offsetHeight: 0 },
-          children: [],
-        },
         effectiveConfig: { animation: { mode } },
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {
@@ -952,14 +966,12 @@ describe('ReorderPlugin', () => {
         requestStateChange: () => {
           /* noop */
         },
-        addEventListener: () => {
-          /* noop */
-        },
-        dispatchEvent: () => true,
         refreshVirtualWindow: () => {
           /* noop */
         },
-      };
+      });
+
+      return grid as any;
     }
 
     it('respects animation mode = off', () => {

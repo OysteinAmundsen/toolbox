@@ -201,3 +201,45 @@ plugin.expandAll();
 plugin.collapseAll();
 const isExpanded = plugin.isGroupExpanded(['Engineering']);
 ```
+
+## Styling
+
+The row grouping plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-grouping-rows-bg` | `var(--tbw-color-panel-bg)` | Group row background |
+| `--tbw-grouping-rows-bg-hover` | `var(--tbw-color-row-hover)` | Group row hover |
+| `--tbw-grouping-rows-toggle-hover` | `var(--tbw-color-row-hover)` | Toggle button hover |
+| `--tbw-grouping-rows-count-color` | `var(--tbw-color-fg-muted)` | Count badge color |
+| `--tbw-toggle-size` | `1.25em` | Toggle button size |
+| `--tbw-font-size-xs` | `0.7857em` | Count text size |
+| `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
+| `--tbw-animation-easing` | `ease-out` | Animation curve |
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom row grouping styling */
+  --tbw-grouping-rows-bg: #e8f5e9;
+  --tbw-grouping-rows-bg-hover: #c8e6c9;
+  --tbw-grouping-rows-count-color: #388e3c;
+}
+```
+
+### CSS Classes
+
+The row grouping plugin uses these class names:
+
+| Class | Element |
+| --- | --- |
+| `.group-row` | Group header row |
+| `.group-toggle` | Expand/collapse button |
+| `.group-label` | Group name and value |
+| `.group-count` | Row count badge |
+| `.tbw-group-slide-in` | Child row slide animation |
+| `.tbw-group-fade-in` | Child row fade animation |
+| `[data-group-depth="N"]` | Group nesting level (0-4) |

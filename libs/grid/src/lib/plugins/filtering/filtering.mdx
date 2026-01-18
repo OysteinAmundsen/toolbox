@@ -313,22 +313,50 @@ plugin.clearFilter('name');
 
 ## Styling
 
+The filter panel and inputs support CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-filter-panel-bg` | `var(--tbw-color-panel-bg)` | Panel background |
+| `--tbw-filter-panel-fg` | `var(--tbw-color-fg)` | Panel text color |
+| `--tbw-filter-panel-border` | `var(--tbw-color-border)` | Panel border |
+| `--tbw-filter-panel-radius` | `var(--tbw-border-radius)` | Panel border radius |
+| `--tbw-filter-panel-shadow` | `var(--tbw-color-shadow)` | Panel shadow |
+| `--tbw-filter-input-bg` | `var(--tbw-color-bg)` | Input background |
+| `--tbw-filter-input-border` | `var(--tbw-color-border)` | Input border |
+| `--tbw-filter-input-focus` | `var(--tbw-color-accent)` | Input focus border |
+| `--tbw-filter-active-color` | `var(--tbw-color-accent)` | Active filter indicator |
+| `--tbw-panel-padding` | `0.75em` | Panel padding |
+| `--tbw-panel-gap` | `0.5em` | Gap between elements |
+| `--tbw-animation-duration` | `200ms` | Panel open/close animation |
+
+### Example
+
 ```css
-/* Filter input */
-tbw-grid::part(filter-input) {
-  border: 1px solid var(--tbw-border-color);
-  border-radius: 4px;
-  padding: 4px 8px;
-}
-
-/* Filter input focused */
-tbw-grid::part(filter-input):focus {
-  border-color: var(--tbw-primary-color);
-  outline: none;
-}
-
-/* Filter row */
-tbw-grid::part(filter-row) {
-  background: var(--tbw-filter-row-bg, #fafafa);
+tbw-grid {
+  /* Custom filter panel styling */
+  --tbw-filter-panel-bg: #1e1e1e;
+  --tbw-filter-panel-fg: #ffffff;
+  --tbw-filter-panel-border: #444444;
+  --tbw-filter-input-bg: #2d2d2d;
+  --tbw-filter-input-border: #555555;
+  --tbw-filter-active-color: #4fc3f7;
 }
 ```
+
+### CSS Classes
+
+The filter panel uses these class names for advanced customization:
+
+| Class | Element |
+| --- | --- |
+| `.tbw-filter-panel` | Dropdown panel container |
+| `.tbw-filter-search` | Text search input |
+| `.tbw-filter-list` | Options list container |
+| `.tbw-filter-option` | Individual filter option |
+| `.tbw-filter-option.selected` | Selected option |
+| `.tbw-filter-buttons` | Action button group |
+| `.tbw-filter-clear` | Clear filter button |
+| `.tbw-filter-apply` | Apply filter button |

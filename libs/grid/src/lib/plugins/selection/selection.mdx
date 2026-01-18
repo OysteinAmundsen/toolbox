@@ -202,24 +202,42 @@ plugin.selectAll();
 
 ## Styling
 
-Customize selection appearance using CSS custom properties:
+The selection plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-focus-background` | `rgba(accent, 12%)` | Focused row background |
+| `--tbw-range-selection-bg` | `rgba(accent, 12%)` | Range selection fill |
+| `--tbw-range-border-color` | `var(--tbw-color-accent)` | Range selection border |
+| `--tbw-color-accent` | `#3b82f6` | Primary accent color |
+| `--tbw-font-size-sm` | `0.9285em` | Selection summary text |
+| `--tbw-color-fg-muted` | `#888` | Summary text color |
+
+### Example
 
 ```css
-/* Selected cell background */
-tbw-grid::part(cell-selected) {
-  background: var(--tbw-selection-bg, rgba(0, 120, 215, 0.1));
-}
-
-/* Selected row background */
-tbw-grid::part(row-selected) {
-  background: var(--tbw-selection-bg, rgba(0, 120, 215, 0.15));
-}
-
-/* Selection range border */
-tbw-grid::part(selection-range) {
-  border: 2px solid var(--tbw-selection-border, #0078d7);
+tbw-grid {
+  /* Custom selection styling */
+  --tbw-range-selection-bg: rgba(76, 175, 80, 0.15);
+  --tbw-range-border-color: #4caf50;
+  --tbw-focus-background: rgba(76, 175, 80, 0.1);
 }
 ```
-  border: 2px solid var(--tbw-selection-border, #0078d7);
-}
-```
+
+### CSS Classes
+
+The selection plugin uses these class names:
+
+| Class | Element |
+| --- | --- |
+| `.selecting` | Grid during range drag (disables text selection) |
+| `.row-focus` | Currently focused row (row mode) |
+| `.cell-focus` | Currently focused cell (cell mode) |
+| `.selected` | Selected cell in range |
+| `.selected.top` | Top edge of selection range |
+| `.selected.bottom` | Bottom edge of selection range |
+| `.selected.first` | Left edge of selection range |
+| `.selected.last` | Right edge of selection range |
+| `.tbw-selection-summary` | Selection count in header |

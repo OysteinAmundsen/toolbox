@@ -243,36 +243,47 @@ new ContextMenuPlugin({
 
 ## Styling
 
+The context menu supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-context-menu-bg` | `var(--tbw-color-panel-bg)` | Menu background |
+| `--tbw-context-menu-fg` | `var(--tbw-color-fg)` | Menu text color |
+| `--tbw-context-menu-border` | `var(--tbw-color-border)` | Menu border |
+| `--tbw-context-menu-hover` | `var(--tbw-color-row-hover)` | Item hover background |
+| `--tbw-menu-min-width` | `10rem` | Minimum menu width |
+| `--tbw-menu-item-padding` | `0.375rem 0.75rem` | Menu item padding |
+| `--tbw-menu-item-gap` | `0.5rem` | Gap between icon and label |
+| `--tbw-font-size-sm` | `0.9285em` | Menu font size |
+| `--tbw-font-size-xs` | `0.7857em` | Shortcut text size |
+| `--tbw-icon-size` | `1em` | Icon width |
+
+### Example
+
 ```css
-/* Menu container */
-tbw-grid::part(context-menu) {
-  background: var(--tbw-surface-color);
-  border: 1px solid var(--tbw-border-color);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  min-width: 160px;
-}
-
-/* Menu item */
-tbw-grid::part(context-menu-item) {
-  padding: 8px 12px;
-  cursor: pointer;
-}
-
-tbw-grid::part(context-menu-item):hover {
-  background: var(--tbw-hover-bg);
-}
-
-/* Disabled item */
-tbw-grid::part(context-menu-item-disabled) {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Separator */
-tbw-grid::part(context-menu-separator) {
-  height: 1px;
-  background: var(--tbw-border-color);
-  margin: 4px 0;
+tbw-grid {
+  /* Custom context menu styling */
+  --tbw-context-menu-bg: #2d2d2d;
+  --tbw-context-menu-fg: #ffffff;
+  --tbw-context-menu-border: #444444;
+  --tbw-context-menu-hover: #3d3d3d;
+  --tbw-menu-item-padding: 0.5rem 1rem;
 }
 ```
+
+### CSS Classes
+
+The menu uses these class names for advanced customization:
+
+| Class | Element |
+| --- | --- |
+| `.tbw-context-menu` | Menu container |
+| `.tbw-context-menu-item` | Menu item row |
+| `.tbw-context-menu-item.disabled` | Disabled item |
+| `.tbw-context-menu-item.danger` | Danger/delete action |
+| `.tbw-context-menu-icon` | Item icon container |
+| `.tbw-context-menu-label` | Item label text |
+| `.tbw-context-menu-shortcut` | Keyboard shortcut |
+| `.tbw-context-menu-separator` | Divider line |

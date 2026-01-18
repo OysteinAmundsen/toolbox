@@ -138,3 +138,40 @@ grid.addEventListener('column-move', (e) => {
 ```
 
 The `column-move` event includes the complete `columnOrder` array, making it easy to persist user preferences.
+
+## Styling
+
+The column grouping plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-grouping-columns-header-bg` | `var(--tbw-color-header-bg)` | Group header row background |
+| `--tbw-grouping-columns-border` | `var(--tbw-color-border)` | Group borders |
+| `--tbw-grouping-columns-separator` | `var(--tbw-color-border-strong)` | Separator between groups |
+| `--tbw-button-padding-sm` | `0.25rem 0.5rem` | Group header cell padding |
+| `--tbw-font-size-sm` | `0.9285em` | Group header font size |
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom column grouping styling */
+  --tbw-grouping-columns-header-bg: #e3f2fd;
+  --tbw-grouping-columns-border: #90caf9;
+  --tbw-grouping-columns-separator: #1976d2;
+}
+```
+
+### CSS Classes
+
+The column grouping plugin uses these class names:
+
+| Class | Element |
+| --- | --- |
+| `.header-group-row` | Group header row container |
+| `.header-group-row.no-borders` | Borderless mode |
+| `.header-group-cell` | Individual group header cell |
+| `.header-row .cell.grouped` | Column under a group |
+| `.header-row .cell.group-end` | Last column in a group |

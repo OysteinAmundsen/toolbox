@@ -104,3 +104,46 @@ plugin.collapseGroup(['North']);
 plugin.expandAll();
 plugin.collapseAll();
 ```
+
+## Styling
+
+The pivot plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-pivot-group-bg` | `var(--tbw-color-row-alt)` | Group row background |
+| `--tbw-pivot-group-hover` | `var(--tbw-color-row-hover)` | Group row hover |
+| `--tbw-pivot-leaf-bg` | `var(--tbw-color-bg)` | Leaf row background |
+| `--tbw-pivot-grand-total-bg` | `var(--tbw-color-header-bg)` | Grand total row |
+| `--tbw-pivot-toggle-hover` | `var(--tbw-color-row-hover)` | Toggle button hover |
+| `--tbw-pivot-panel-section-bg` | `var(--tbw-color-panel-bg)` | Panel section background |
+| `--tbw-toggle-size` | `1.25em` | Toggle button size |
+| `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom pivot styling */
+  --tbw-pivot-group-bg: #fff3e0;
+  --tbw-pivot-grand-total-bg: #ffcc80;
+  --tbw-pivot-toggle-hover: #ffe0b2;
+}
+```
+
+### CSS Classes
+
+The pivot plugin uses these class names:
+
+| Class | Element |
+| --- | --- |
+| `.pivot-group-row` | Grouped summary row |
+| `.pivot-leaf-row` | Detail/leaf row |
+| `.pivot-grand-total-row` | Grand total row |
+| `.pivot-grand-total-footer` | Sticky footer container |
+| `.pivot-toggle` | Expand/collapse button |
+| `.pivot-group-label` | Group name display |
+| `.tbw-pivot-slide-in` | Row slide animation |
+| `.tbw-pivot-fade-in` | Row fade animation |

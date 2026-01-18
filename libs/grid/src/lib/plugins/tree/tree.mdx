@@ -209,3 +209,39 @@ plugin.expandAll();
 plugin.collapseAll();
 const expanded = plugin.getExpandedNodes();
 ```
+
+## Styling
+
+The tree plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-tree-accent` | `var(--tbw-color-accent)` | Toggle icon hover color |
+| `--tbw-icon-size-sm` | `0.875em` | Spacer/indent width |
+| `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
+| `--tbw-animation-easing` | `ease-out` | Animation curve |
+| `--tbw-cell-padding` | `0.25em 0.5em` | Cell padding for indent calc |
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom tree styling */
+  --tbw-tree-accent: #10b981;
+  --tbw-animation-duration: 150ms;
+}
+```
+
+### CSS Classes
+
+The tree plugin uses these class names:
+
+| Class | Element |
+| --- | --- |
+| `.tree-expander` | Expander cell container |
+| `.tree-toggle` | Expand/collapse icon |
+| `.tree-spacer` | Indent spacer element |
+| `.tbw-tree-slide-in` | Child row slide animation |
+| `.tbw-tree-fade-in` | Child row fade animation |

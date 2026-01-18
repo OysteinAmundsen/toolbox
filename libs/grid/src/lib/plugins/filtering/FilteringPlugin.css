@@ -15,6 +15,64 @@
   flex-direction: column;
   font-family: var(--tbw-font-family, system-ui, sans-serif);
   font-size: var(--tbw-font-size, 13px);
+  /* Transform origin at top for drawer effect (panel below header) */
+  transform-origin: top center;
+}
+
+/* When panel is positioned above header, animate from bottom */
+.tbw-filter-panel.tbw-filter-panel-above {
+  transform-origin: bottom center;
+}
+
+/* Panel enter animation - controlled by class added via JS */
+.tbw-filter-panel.tbw-filter-panel-animated {
+  animation: tbw-filter-panel-enter var(--tbw-animation-duration, 150ms) var(--tbw-animation-easing, ease-out);
+}
+
+/* When above header, use upward animation */
+.tbw-filter-panel.tbw-filter-panel-above.tbw-filter-panel-animated {
+  animation: tbw-filter-panel-enter-above var(--tbw-animation-duration, 150ms) var(--tbw-animation-easing, ease-out);
+}
+
+/* Drawer-like animation: scales down vertically + fades, like opening from header */
+@keyframes tbw-filter-panel-enter {
+  from {
+    opacity: 0;
+    transform: scaleY(0.3) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+/* Upward animation for when panel is above header */
+@keyframes tbw-filter-panel-enter-above {
+  from {
+    opacity: 0;
+    transform: scaleY(0.3) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+/* CSS Anchor Positioning - modern browsers */
+@supports (anchor-name: --test) {
+  .tbw-filter-panel {
+    position-anchor: --tbw-filter-anchor;
+    /* Default: position below header cell, aligned to left */
+    top: anchor(bottom);
+    left: anchor(left);
+    margin-top: 4px;
+    /* Fallback positions when overflowing viewport */
+    position-try-fallbacks:
+      /* Try aligning to right edge instead */
+      flip-inline,
+      /* Try flipping to above the anchor */ flip-block,
+      /* Try both flips */ flip-block flip-inline;
+  }
 }
 
 .tbw-filter-search {

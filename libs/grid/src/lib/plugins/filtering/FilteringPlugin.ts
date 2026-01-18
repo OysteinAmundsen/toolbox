@@ -41,6 +41,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private cacheKey: string | null = null;
   private openPanelField: string | null = null;
   private panelElement: HTMLElement | null = null;
+  private panelAnchorElement: HTMLElement | null = null; // For CSS anchor positioning cleanup
   private searchText: Map<string, string> = new Map();
   private excludedValues: Map<string, Set<unknown>> = new Map();
   private panelAbortController: AbortController | null = null; // For panel-scoped listeners
@@ -337,6 +338,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Create panel
     const panel = document.createElement('div');
     panel.className = 'tbw-filter-panel';
+    // Add animation class if animations are enabled
+    if (this.isAnimationEnabled) {
+      panel.classList.add('tbw-filter-panel-animated');
+    }
     this.panelElement = panel;
     this.openPanelField = field;
 
@@ -442,9 +447,15 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * Close the filter panel
    */
   private closeFilterPanel(): void {
-    if (this.panelElement) {
-      this.panelElement.remove();
+    const panel = this.panelElement;
+    if (panel) {
+      panel.remove();
       this.panelElement = null;
+    }
+    // Clean up anchor name from header cell
+    if (this.panelAnchorElement) {
+      this.panelAnchorElement.style.anchorName = '';
+      this.panelAnchorElement = null;
     }
     this.openPanelField = null;
     // Abort panel-scoped listeners (document click handler)
@@ -452,16 +463,49 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.panelAbortController = null;
   }
 
+  /** Cache for CSS anchor positioning support check */
+  private static supportsAnchorPositioning: boolean | null = null;
+
+  /**
+   * Check if browser supports CSS Anchor Positioning
+   */
+  private static checkAnchorPositioningSupport(): boolean {
+    if (FilteringPlugin.supportsAnchorPositioning === null) {
+      FilteringPlugin.supportsAnchorPositioning = CSS.supports('anchor-name', '--test');
+    }
+    return FilteringPlugin.supportsAnchorPositioning;
+  }
+
   /**
    * Position the panel below the header cell
-   * - Default: top-left of panel aligns with bottom-left of header cell
-   * - If overflows right: top-right of panel aligns with bottom-right of header cell
-   * - If overflows bottom: flip vertically (panel above header cell)
+   * Uses CSS Anchor Positioning if supported, falls back to JS positioning
    */
   private positionPanel(panel: HTMLElement, buttonEl: HTMLElement): void {
     // Find the parent header cell
     const headerCell = buttonEl.closest('.cell') as HTMLElement | null;
-    const rect = headerCell?.getBoundingClientRect() ?? buttonEl.getBoundingClientRect();
+    const anchorEl = headerCell ?? buttonEl;
+
+    // Set anchor name on the header cell for CSS anchor positioning
+    anchorEl.style.anchorName = '--tbw-filter-anchor';
+    this.panelAnchorElement = anchorEl; // Store for cleanup
+
+    // If CSS Anchor Positioning is supported, CSS handles positioning
+    // but we need to detect if it flipped above to adjust animation
+    if (FilteringPlugin.checkAnchorPositioningSupport()) {
+      // Check position after CSS anchor positioning takes effect
+      requestAnimationFrame(() => {
+        const panelRect = panel.getBoundingClientRect();
+        const anchorRect = anchorEl.getBoundingClientRect();
+        // If panel top is above anchor top, it flipped to above
+        if (panelRect.top < anchorRect.top) {
+          panel.classList.add('tbw-filter-panel-above');
+        }
+      });
+      return;
+    }
+
+    // Fallback: JS-based positioning for older browsers
+    const rect = anchorEl.getBoundingClientRect();
 
     panel.style.position = 'fixed';
     panel.style.top = `${rect.bottom + 4}px`;
@@ -479,6 +523,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       // Check vertical overflow - flip to above header cell
       if (panelRect.bottom > window.innerHeight - 8) {
         panel.style.top = `${rect.top - panelRect.height - 4}px`;
+        panel.classList.add('tbw-filter-panel-above');
       }
     });
   }

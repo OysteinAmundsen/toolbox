@@ -218,17 +218,21 @@ The tree plugin supports CSS custom properties for theming. Override these on `t
 
 | Property | Default | Description |
 | --- | --- | --- |
+| `--tbw-tree-toggle-size` | `1.25em` (~20px) | Toggle icon and spacer width |
+| `--tbw-tree-indent-width` | `var(--tbw-tree-toggle-size)` | Indentation per level (must be ≥ toggle size) |
 | `--tbw-tree-accent` | `var(--tbw-color-accent)` | Toggle icon hover color |
-| `--tbw-icon-size-sm` | `0.875em` | Spacer/indent width |
 | `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
 | `--tbw-animation-easing` | `ease-out` | Animation curve |
-| `--tbw-cell-padding` | `0.25em 0.5em` | Cell padding for indent calc |
+
+> **Note:** `--tbw-tree-indent-width` defaults to `--tbw-tree-toggle-size` to ensure leaf nodes align with parent nodes. If you override indent width, ensure it's at least as wide as the toggle icon.
 
 ### Example
 
 ```css
 tbw-grid {
   /* Custom tree styling */
+  --tbw-tree-toggle-size: 1.5em; /* Larger toggle icons */
+  --tbw-tree-indent-width: 1.75em; /* Slightly wider indent */
   --tbw-tree-accent: #10b981;
   --tbw-animation-duration: 150ms;
 }
@@ -240,6 +244,7 @@ The tree plugin uses these class names:
 
 | Class | Element |
 | --- | --- |
+| `.tree-cell-wrapper` | Cell content wrapper with indentation |
 | `.tree-expander` | Expander cell container |
 | `.tree-toggle` | Expand/collapse icon |
 | `.tree-spacer` | Indent spacer element |

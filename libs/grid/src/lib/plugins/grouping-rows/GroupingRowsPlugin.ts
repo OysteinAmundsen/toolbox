@@ -248,7 +248,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     rowEl.setAttribute('data-group-depth', String(row.__groupDepth));
     rowEl.setAttribute('role', 'row');
     rowEl.setAttribute('aria-expanded', String(row.__groupExpanded));
-    rowEl.style.paddingLeft = `${(row.__groupDepth || 0) * (config.indentWidth ?? 20)}px`;
+    // Use CSS variable for depth-based indentation
+    rowEl.style.setProperty('--tbw-group-depth', String(row.__groupDepth || 0));
+    if (config.indentWidth !== undefined) {
+      rowEl.style.setProperty('--tbw-group-indent-width', `${config.indentWidth}px`);
+    }
     rowEl.innerHTML = '';
 
     const isFullWidth = config.fullWidth !== false; // default true

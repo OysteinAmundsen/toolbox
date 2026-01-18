@@ -43,20 +43,10 @@
     font-size: var(--tbw-font-size-xs, 0.85em);
     font-weight: normal;
   }
-  [data-group-depth='0'] .group-label {
-    padding-left: 0;
-  }
-  [data-group-depth='1'] .group-label {
-    padding-left: 20px;
-  }
-  [data-group-depth='2'] .group-label {
-    padding-left: 40px;
-  }
-  [data-group-depth='3'] .group-label {
-    padding-left: 60px;
-  }
-  [data-group-depth='4'] .group-label {
-    padding-left: 80px;
+
+  /* Depth-based indentation using CSS custom property */
+  .group-row {
+    padding-left: calc(var(--tbw-group-depth, 0) * var(--tbw-group-indent-width, 1.25em));
   }
 
   /* Slide animation for child rows appearing */

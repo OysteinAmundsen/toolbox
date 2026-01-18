@@ -215,13 +215,17 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
     const wrappedRenderer: ColumnViewRenderer = (ctx) => {
       const { row, value } = ctx;
-      const { indentWidth = 20, showExpandIcons = true } = getConfig();
+      const { showExpandIcons = true, indentWidth } = getConfig();
       const treeRow = row as TreeRow;
       const depth = treeRow.__treeDepth ?? 0;
 
       const container = document.createElement('span');
       container.className = 'tree-cell-wrapper';
-      container.style.paddingLeft = `${Number(depth) * indentWidth}px`;
+      container.style.setProperty('--tbw-tree-depth', String(depth));
+      // Allow config-based indentWidth to override CSS default
+      if (indentWidth !== undefined) {
+        container.style.setProperty('--tbw-tree-indent-width', `${indentWidth}px`);
+      }
 
       // Add expand/collapse icon or spacer
       if (showExpandIcons) {

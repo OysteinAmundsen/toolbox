@@ -22,6 +22,14 @@
     padding-left: calc(var(--tbw-cell-padding, 0.5rem) + 32px);
   }
 
+  /* Tree cell wrapper with depth-based indentation */
+  .tree-cell-wrapper {
+    display: inline-flex;
+    align-items: center;
+    /* Indent must be >= toggle icon width to keep leaf nodes aligned */
+    padding-left: calc(var(--tbw-tree-depth, 0) * var(--tbw-tree-indent-width, var(--tbw-tree-toggle-size, 1.25em)));
+  }
+
   /* Tree expander cell with indentation */
   .tree-expander {
     display: flex;
@@ -38,14 +46,20 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* Explicit size ensures consistent spacing with tree-spacer */
+    width: var(--tbw-tree-toggle-size, 1.25em);
+    height: var(--tbw-tree-toggle-size, 1.25em);
+    flex-shrink: 0;
   }
   .tree-toggle:hover {
     color: var(--tbw-tree-accent, var(--tbw-color-accent));
   }
 
   .tree-spacer {
-    width: var(--tbw-icon-size-sm, 0.875rem);
+    /* Must match tree-toggle width for alignment */
+    width: var(--tbw-tree-toggle-size, 1.25em);
     display: inline-block;
+    flex-shrink: 0;
   }
 
   /* Slide animation for child rows appearing */

@@ -210,6 +210,7 @@ The row grouping plugin supports CSS custom properties for theming. Override the
 
 | Property | Default | Description |
 | --- | --- | --- |
+| `--tbw-group-indent-width` | `1.25em` (~20px) | Indentation per group level |
 | `--tbw-grouping-rows-bg` | `var(--tbw-color-panel-bg)` | Group row background |
 | `--tbw-grouping-rows-bg-hover` | `var(--tbw-color-row-hover)` | Group row hover |
 | `--tbw-grouping-rows-toggle-hover` | `var(--tbw-color-row-hover)` | Toggle button hover |
@@ -224,6 +225,7 @@ The row grouping plugin supports CSS custom properties for theming. Override the
 ```css
 tbw-grid {
   /* Custom row grouping styling */
+  --tbw-group-indent-width: 1.5em; /* Wider indentation */
   --tbw-grouping-rows-bg: #e8f5e9;
   --tbw-grouping-rows-bg-hover: #c8e6c9;
   --tbw-grouping-rows-count-color: #388e3c;

@@ -207,13 +207,11 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
           columnOrder: newOrder,
         };
 
-        // Update the grid's column order (with optional view transition)
-        this.updateColumnOrder(newOrder);
-
-        // Emit cancelable event - if cancelled, restore original order
+        // Emit cancelable event first - only update if not cancelled
         const cancelled = this.emitCancelable('column-move', detail);
-        if (cancelled) {
-          this.updateColumnOrder(currentOrder);
+        if (!cancelled) {
+          // Update the grid's column order (with optional view transition)
+          this.updateColumnOrder(newOrder);
         }
       });
     });
@@ -283,18 +281,16 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     const newOrder = moveColumn(currentOrder, fromIndex, toIndex);
 
-    // Update with view transition
-    this.updateColumnOrder(newOrder);
-
-    // Emit cancelable event - if cancelled, restore original order
+    // Emit cancelable event first - only update if not cancelled
     const cancelled = this.emitCancelable<ColumnMoveDetail>('column-move', {
       field,
       fromIndex,
       toIndex,
       columnOrder: newOrder,
     });
-    if (cancelled) {
-      this.updateColumnOrder(currentOrder);
+    if (!cancelled) {
+      // Update with view transition
+      this.updateColumnOrder(newOrder);
     }
   }
 

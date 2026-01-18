@@ -421,15 +421,25 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
         return;
       }
 
-      // Calculate the effective target index
+      // Calculate the effective target index (in the filtered non-utility list)
       const effectiveToIndex = dropIndex > draggedIndex ? dropIndex - 1 : dropIndex;
 
       if (effectiveToIndex !== draggedIndex) {
+        // Convert from non-utility index to full column order index
+        // by counting how many utility columns come before the target position
+        const allColumns = this.grid.getAllColumns();
+        const nonUtilityColumns = allColumns.filter((c) => !c.utility);
+
+        // Find the target field at effectiveToIndex in non-utility list
+        const targetField = nonUtilityColumns[effectiveToIndex]?.field;
+        // Find its actual index in the full column order
+        const fullOrderToIndex = targetField ? allColumns.findIndex((c) => c.field === targetField) : allColumns.length;
+
         // Emit a request event - other plugins (like ReorderPlugin) can listen and handle
         const detail: ColumnReorderRequestDetail = {
           field: draggedField,
-          fromIndex: draggedIndex,
-          toIndex: effectiveToIndex,
+          fromIndex: draggedIndex, // Not used by ReorderPlugin, just for info
+          toIndex: fullOrderToIndex,
         };
         this.emit<ColumnReorderRequestDetail>('column-reorder-request', detail);
 

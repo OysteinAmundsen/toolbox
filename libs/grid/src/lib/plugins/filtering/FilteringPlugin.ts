@@ -640,12 +640,14 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // Filter and re-render values
     const renderValues = (filterText: string) => {
-      const lowerFilter = filterText.toLowerCase();
+      const caseSensitive = this.config.caseSensitive ?? false;
+      const compareFilter = caseSensitive ? filterText : filterText.toLowerCase();
 
       // Filter the unique values
       filteredValues = uniqueValues.filter((value) => {
         const strValue = value == null ? '(Blank)' : String(value);
-        return !filterText || strValue.toLowerCase().includes(lowerFilter);
+        const compareValue = caseSensitive ? strValue : strValue.toLowerCase();
+        return !filterText || compareValue.includes(compareFilter);
       });
 
       if (filteredValues.length === 0) {

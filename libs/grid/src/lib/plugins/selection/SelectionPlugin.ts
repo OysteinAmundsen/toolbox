@@ -453,11 +453,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       });
     }
 
-    // CELL MODE: Remove cell-focus when selection plugin handles focus
-    if (mode === 'cell' && this.selectedCell) {
-      // Remove all cell-focus - the selection plugin manages focus styling
-      clearCellFocus(gridEl);
-    }
+    // CELL MODE: Let the grid's native .cell-focus styling handle cell highlighting
+    // No additional action needed - the grid already manages focus styling
   }
 
   override afterRender(): void {

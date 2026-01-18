@@ -168,16 +168,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Override shadowRoot to return the element itself for DOM queries.
-   * Without Shadow DOM, the grid renders content directly into its element.
-   * This provides backward compatibility for code that used grid.shadowRoot for queries.
+   * Access the grid's ShadowRoot.
    *
-   * @returns The grid element itself (acts as a substitute for ShadowRoot)
+   * Note: The grid renders into its light DOM and does not attach a shadow root,
+   * so this getter returns `null`. Use `grid.querySelector()` directly for DOM queries.
+   *
+   * @deprecated This property returns `null` since Shadow DOM was removed.
+   *             Use `grid.querySelector()` or `grid.querySelectorAll()` directly.
+   * @returns null (no shadow root is attached)
    */
-  override get shadowRoot(): ShadowRoot {
-    // Return `this` cast to ShadowRoot for API compatibility
-    // ShadowRoot and HTMLElement share querySelector/querySelectorAll methods
-    return this as unknown as ShadowRoot;
+  override get shadowRoot(): ShadowRoot | null {
+    return super.shadowRoot;
   }
 
   #initialized = false;
@@ -543,27 +544,54 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     });
   }
 
-  /** Track the base stylesheet to prevent duplicate injection */
-  static #baseStyleSheet: CSSStyleSheet | null = null;
+  /** ID for the consolidated grid stylesheet in document.head */
+  static readonly #STYLE_ELEMENT_ID = 'tbw-grid-styles';
+
+  /** Track injected base styles CSS text */
+  static #baseStyles = '';
+
+  /** Track injected plugin styles CSS text */
+  static #pluginStyles = '';
+
+  /**
+   * Get or create the consolidated style element in document.head.
+   * All grid and plugin styles are combined into this single element.
+   */
+  static #getStyleElement(): HTMLStyleElement {
+    let styleEl = document.getElementById(this.#STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = this.#STYLE_ELEMENT_ID;
+      styleEl.setAttribute('data-tbw-grid', 'true');
+      document.head.appendChild(styleEl);
+    }
+    return styleEl;
+  }
+
+  /**
+   * Update the consolidated stylesheet with current base + plugin styles.
+   */
+  static #updateStyleElement(): void {
+    const styleEl = this.#getStyleElement();
+    // Combine base styles and plugin styles
+    styleEl.textContent = `${this.#baseStyles}\n\n/* Plugin Styles */\n${this.#pluginStyles}`;
+  }
 
   /**
    * Inject grid styles into the document.
-   * Without Shadow DOM, styles are injected into document.adoptedStyleSheets.
+   * All styles go into a single <style id="tbw-grid-styles"> element in document.head.
    * Uses a singleton pattern to avoid duplicate injection across multiple grid instances.
    */
   async #injectStyles(): Promise<void> {
-    // If already injected by another grid instance, skip
-    if (DataGridElement.#baseStyleSheet) {
+    // If base styles already injected, nothing to do
+    if (DataGridElement.#baseStyles) {
       return;
     }
 
-    const sheet = new CSSStyleSheet();
-
     // If styles is a string (from ?inline import in Vite builds), use it directly
     if (typeof styles === 'string' && styles.length > 0) {
-      sheet.replaceSync(styles);
-      DataGridElement.#baseStyleSheet = sheet;
-      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+      DataGridElement.#baseStyles = styles;
+      DataGridElement.#updateStyleElement();
       return;
     }
 
@@ -599,9 +627,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
 
       if (gridCssText) {
-        sheet.replaceSync(gridCssText);
-        DataGridElement.#baseStyleSheet = sheet;
-        document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+        DataGridElement.#baseStyles = gridCssText;
+        DataGridElement.#updateStyleElement();
       } else if (typeof process === 'undefined' || process.env?.['NODE_ENV'] !== 'test') {
         // Only warn in non-test environments - test environments (happy-dom, jsdom) don't load stylesheets
         console.warn(
@@ -691,27 +718,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#pluginManager.attachAll(plugins);
   }
 
-  /** Track the plugin stylesheet to prevent duplicate injection */
-  static #pluginStyleSheet: CSSStyleSheet | null = null;
-
   /**
-   * Inject all plugin styles into the document.
-   * Without Shadow DOM, plugin styles are injected into document.adoptedStyleSheets.
+   * Inject all plugin styles into the consolidated style element.
+   * Plugin styles are appended after base grid styles in the same <style> element.
    */
   #injectAllPluginStyles(): void {
     const allStyles = this.#pluginManager?.getAllStyles() ?? '';
-    if (allStyles) {
-      // If already injected, update the existing sheet
-      if (DataGridElement.#pluginStyleSheet) {
-        DataGridElement.#pluginStyleSheet.replaceSync(allStyles);
-        return;
-      }
-
-      // Create new plugin stylesheet and add to document
-      const sheet = new CSSStyleSheet();
-      sheet.replaceSync(allStyles);
-      DataGridElement.#pluginStyleSheet = sheet;
-      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    if (allStyles && allStyles !== DataGridElement.#pluginStyles) {
+      DataGridElement.#pluginStyles = allStyles;
+      DataGridElement.#updateStyleElement();
     }
   }
 

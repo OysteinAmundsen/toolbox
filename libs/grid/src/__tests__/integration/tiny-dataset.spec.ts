@@ -37,7 +37,7 @@ describe('tiny dataset virtualization bypass', () => {
     await nextFrame();
     await nextFrame();
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     const rowsContainer = shadow.querySelector('.rows') as HTMLElement;
     const renderedRows = shadow.querySelectorAll('.rows .data-grid-row');
 

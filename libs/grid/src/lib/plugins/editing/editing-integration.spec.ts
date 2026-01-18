@@ -62,7 +62,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Double-click to enter edit
@@ -87,7 +87,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Single click should not enter edit
@@ -112,7 +112,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Single click to enter edit
@@ -138,7 +138,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ active: true }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const cell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
 
       // Set focus to this cell so keydown works
@@ -167,7 +167,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ ok: false }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const cell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
       const checkboxEl = cell.querySelector('[role="checkbox"]') as HTMLElement | null;
 
@@ -200,7 +200,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Enter edit mode
@@ -238,7 +238,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Enter edit mode
@@ -281,7 +281,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Enter edit and commit change
@@ -316,7 +316,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
@@ -349,7 +349,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
@@ -382,7 +382,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Single click should not enter edit
@@ -413,7 +413,7 @@ describe('EditingPlugin', () => {
       await nextFrame();
       await nextFrame();
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
       expect(nameCell.querySelector('input')).toBeTruthy();
     });
@@ -432,7 +432,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha', email: 'alpha@test.com' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Double-click on one editable cell
@@ -473,7 +473,7 @@ describe('EditingPlugin', () => {
       expect(grid._activeEditRows).toBe(0);
 
       // The editable cell should have an editor
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
       expect(nameCell.querySelector('input')).toBeTruthy();
     });
@@ -489,7 +489,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const idCell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
 
       // Double-click on non-editable cell
@@ -595,7 +595,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ id: 1, name: 'Alpha' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Make a change
@@ -645,7 +645,7 @@ describe('EditingPlugin', () => {
       ];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const priorityCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Double-click to enter edit on first row (row index 0)
@@ -697,7 +697,7 @@ describe('EditingPlugin', () => {
       grid.rows = [{ name: 'Task A', priority: 'High' }];
       await waitUpgrade(grid);
 
-      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
       const priorityCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
 
       // Double-click to enter edit

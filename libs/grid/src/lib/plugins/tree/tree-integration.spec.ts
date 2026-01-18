@@ -207,7 +207,7 @@ describe('tree plugin integration', () => {
     await waitUpgrade(grid);
 
     // Initially should have 3 rows
-    let dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+    let dataRows = grid.querySelectorAll('.data-grid-row');
     expect(dataRows?.length).toBe(3);
 
     // Check grid's internal _rows before expansion
@@ -227,7 +227,7 @@ describe('tree plugin integration', () => {
     expect(internalRowsAfter[2].name).toBe('Cover Letter.docx');
 
     // After expansion should have 6 rows
-    dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+    dataRows = grid.querySelectorAll('.data-grid-row');
     expect(dataRows?.length).toBe(6);
 
     // Check that row order is correct by checking the name column (data-col="0" since tree wraps first column)
@@ -408,11 +408,11 @@ describe('tree plugin integration', () => {
       await waitUpgrade(grid);
 
       // Debug: Check if rows are rendered
-      const dataRows = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+      const dataRows = grid.querySelectorAll('.data-grid-row');
       expect(dataRows?.length).toBeGreaterThan(0);
 
       // With wrap-first-column approach, tree toggle is inside the first column's cell
-      const firstCell = grid.shadowRoot?.querySelector('.data-grid-row .cell[data-col="0"]') as HTMLElement;
+      const firstCell = grid.querySelector('.data-grid-row .cell[data-col="0"]') as HTMLElement;
       expect(firstCell).not.toBeNull();
 
       // Find the tree toggle inside the first cell's tree-cell-wrapper
@@ -431,7 +431,7 @@ describe('tree plugin integration', () => {
       expect(treePlugin.isExpanded('folder1')).toBe(true);
 
       // Should show child row
-      const dataRowsAfter = grid.shadowRoot?.querySelectorAll('.data-grid-row');
+      const dataRowsAfter = grid.querySelectorAll('.data-grid-row');
       expect(dataRowsAfter?.length).toBe(2);
     });
 

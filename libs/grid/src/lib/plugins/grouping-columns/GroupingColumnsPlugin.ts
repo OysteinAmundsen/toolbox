@@ -156,6 +156,40 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
       headerRow.classList.toggle('no-group-borders', !this.config.showGroupBorders);
       applyGroupedHeaderCellClasses(headerRow, groups, finalColumns);
     }
+
+    // Apply group-end class to data cells for continuous border styling
+    this.#applyGroupEndToDataCells(groups);
+  }
+
+  /**
+   * Apply group-end class to all data cells in the last column of each group.
+   * This extends the strong border separator through all data rows.
+   */
+  #applyGroupEndToDataCells(groups: ColumnGroup[]): void {
+    if (!this.config.showGroupBorders) return;
+
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
+
+    // Collect the field names of all group-end columns
+    const groupEndFields = new Set<string>();
+    for (const g of groups) {
+      const lastCol = g.columns[g.columns.length - 1];
+      if (lastCol?.field) {
+        groupEndFields.add(lastCol.field);
+      }
+    }
+
+    // Apply group-end class to all data cells with those fields
+    const allDataCells = gridEl.querySelectorAll('.rows .cell[data-field]');
+    for (const cell of allDataCells) {
+      const field = cell.getAttribute('data-field');
+      if (field && groupEndFields.has(field)) {
+        cell.classList.add('group-end');
+      } else {
+        cell.classList.remove('group-end');
+      }
+    }
   }
   // #endregion
 

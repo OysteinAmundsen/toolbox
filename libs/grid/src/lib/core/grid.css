@@ -77,7 +77,7 @@
     --tbw-color-header-bg: color-mix(in hsl, var(--tbw-color-panel-bg) 85%, var(--tbw-color-fg));
     --tbw-color-header-fg: color-mix(in hsl, var(--tbw-color-fg) 75%, var(--tbw-color-panel-bg));
     --tbw-color-border: light-dark(#d0d0d4, #454545);
-    --tbw-color-border-strong: light-dark(#777777, #adacac);
+    --tbw-color-border-strong: light-dark(#777777, #666666);
     --tbw-color-border-cell: var(--tbw-color-border);
     --tbw-color-border-header: var(--tbw-color-border);
     --tbw-color-shadow: light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.3));

@@ -32,6 +32,16 @@
     border-right: none;
   }
 
+  /* Data cells in group-end columns - extends the strong border through all rows */
+  .rows .cell.group-end {
+    border-right: 2px solid
+      var(--tbw-grouping-columns-separator, var(--tbw-color-border-strong, var(--tbw-color-border)));
+  }
+  /* Last cell in row shouldn't have right border */
+  .rows .cell.group-end:last-child {
+    border-right: none;
+  }
+
   /* Hide borders when showGroupBorders is false */
   .header-group-row.no-borders {
     border-bottom: none;

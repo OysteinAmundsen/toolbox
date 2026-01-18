@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.5...grid-react-0.1.0) (2026-01-18)
+
+
+### Features
+
+* **grid:** removed shadowDom to allow for easier styling of the grid ([#42](https://github.com/OysteinAmundsen/toolbox/issues/42)) ([da1c6d4](https://github.com/OysteinAmundsen/toolbox/commit/da1c6d46d14fa338878253e1d52913aab381b17e))
+
 ## [0.0.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.0.4...grid-react-0.0.5) (2026-01-16)
 
 

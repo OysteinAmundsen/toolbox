@@ -193,7 +193,7 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
       // Horizontal scroll: ensure focused cell is visible in the horizontal scroll area
       // The .tbw-scroll-area element handles horizontal scrolling
       // Skip horizontal scrolling when in edit mode to prevent scroll jumps when editors are created
-      const scrollArea = grid.shadowRoot?.querySelector('.tbw-scroll-area') as HTMLElement | null;
+      const scrollArea = grid.querySelector('.tbw-scroll-area') as HTMLElement | null;
       if (scrollArea && cell && !isEditing) {
         // Handle forced scroll for Home/End keys - always scroll to edge
         if (options?.forceScrollLeft) {

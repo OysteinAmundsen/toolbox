@@ -58,6 +58,10 @@ export interface ShellState {
   isPanelOpen: boolean;
   /** Which accordion sections are expanded (by panel ID) */
   expandedSections: Set<string>;
+  /** Whether light DOM header content has been moved to placeholder (perf optimization) */
+  lightDomContentMoved: boolean;
+  /** Whether light DOM toolbar buttons have been moved to placeholder (perf optimization) */
+  lightDomToolButtonsMoved: boolean;
   /** Cleanup functions for header content render returns */
   headerContentCleanups: Map<string, () => void>;
   /** Cleanup functions for each panel section's render return */
@@ -125,6 +129,8 @@ export function createShellState(): ShellState {
     headerContentCleanups: new Map(),
     panelCleanups: new Map(),
     toolbarButtonCleanups: new Map(),
+    lightDomContentMoved: false,
+    lightDomToolButtonsMoved: false,
   };
 }
 
@@ -203,9 +209,9 @@ export function renderShellHeader(
     }
   }
 
-  // Light DOM slot - user provides their own button HTML
-  // Always include slot so light-dom buttons can be added later (e.g., React async rendering)
-  toolbarHtml += '<slot name="toolbar"></slot>';
+  // Light DOM placeholder - content will be moved here from <tbw-grid-tool-buttons>
+  // Using a placeholder div instead of <slot> since light DOM doesn't support slots
+  toolbarHtml += '<div class="tbw-toolbar-light-dom" data-light-dom-toolbar></div>';
 
   // Separator between custom buttons and panel toggle
   if (showSeparator) {
@@ -222,9 +228,7 @@ export function renderShellHeader(
   return `
     <div class="tbw-shell-header" part="shell-header" role="presentation">
       ${hasTitle ? `<div class="tbw-shell-title">${escapeHtml(title)}</div>` : ''}
-      <div class="tbw-shell-content" part="shell-content" role="presentation">
-        <slot name="header-content"></slot>
-      </div>
+      <div class="tbw-shell-content" part="shell-content" role="presentation" data-light-dom-header-content></div>
       <div class="tbw-shell-toolbar" part="shell-toolbar" role="presentation">
         ${toolbarHtml}
       </div>
@@ -329,15 +333,10 @@ export function parseLightDomShell(host: HTMLElement, state: ShellState): void {
     }
   }
 
-  // Parse header content elements
+  // Parse header content elements - store references but don't set slot (light DOM doesn't use slots)
   const headerContents = headerEl.querySelectorAll('tbw-grid-header-content');
   if (headerContents.length > 0 && state.lightDomHeaderContent.length === 0) {
     state.lightDomHeaderContent = Array.from(headerContents) as HTMLElement[];
-
-    // Assign slot names for slotting into shadow DOM
-    state.lightDomHeaderContent.forEach((el) => {
-      el.setAttribute('slot', 'header-content');
-    });
   }
 
   // Hide the light DOM header container (it was just for declarative config)
@@ -346,7 +345,7 @@ export function parseLightDomShell(host: HTMLElement, state: ShellState): void {
 
 /**
  * Parse toolbar buttons container element (<tbw-grid-tool-buttons>).
- * This is a container element that gets slotted as-is into the toolbar.
+ * This is a container element that holds custom toolbar buttons.
  * Users put their buttons inside and have full control over their HTML.
  *
  * Example:
@@ -359,7 +358,7 @@ export function parseLightDomShell(host: HTMLElement, state: ShellState): void {
  * </tbw-grid>
  * ```
  *
- * The container is assigned slot="toolbar" and slotted directly.
+ * The container's children are moved to the toolbar placeholder after shell renders.
  */
 export function parseLightDomToolButtons(host: HTMLElement, state: ShellState): void {
   // Look for the toolbar buttons container element
@@ -369,8 +368,8 @@ export function parseLightDomToolButtons(host: HTMLElement, state: ShellState): 
   // Mark that we found the container (for shouldRenderShellHeader)
   state.hasToolButtonsContainer = true;
 
-  // Assign slot so it gets slotted into the toolbar area
-  toolButtonsContainer.setAttribute('slot', 'toolbar');
+  // Hide the original container (content will be moved to placeholder)
+  (toolButtonsContainer as HTMLElement).style.display = 'none';
 }
 
 /**
@@ -491,7 +490,7 @@ export function parseLightDomToolPanels(
  * Set up event listeners for shell toolbar buttons and accordion.
  */
 export function setupShellEventListeners(
-  shadowRoot: ShadowRoot,
+  renderRoot: Element,
   config: ShellConfig | undefined,
   state: ShellState,
   callbacks: {
@@ -500,7 +499,7 @@ export function setupShellEventListeners(
     onToolbarButtonClick: (buttonId: string) => void;
   },
 ): void {
-  const toolbar = shadowRoot.querySelector('.tbw-shell-toolbar');
+  const toolbar = renderRoot.querySelector('.tbw-shell-toolbar');
   if (toolbar) {
     toolbar.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -524,7 +523,7 @@ export function setupShellEventListeners(
   }
 
   // Accordion header clicks
-  const accordion = shadowRoot.querySelector('.tbw-accordion');
+  const accordion = renderRoot.querySelector('.tbw-accordion');
   if (accordion) {
     accordion.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -545,13 +544,13 @@ export function setupShellEventListeners(
  * Returns a cleanup function to remove event listeners.
  */
 export function setupToolPanelResize(
-  shadowRoot: ShadowRoot,
+  renderRoot: Element,
   config: ShellConfig | undefined,
   onResize: (width: number) => void,
 ): () => void {
-  const panel = shadowRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
-  const handle = shadowRoot.querySelector('[data-resize-handle]') as HTMLElement | null;
-  const shellBody = shadowRoot.querySelector('.tbw-shell-body') as HTMLElement | null;
+  const panel = renderRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
+  const handle = renderRoot.querySelector('[data-resize-handle]') as HTMLElement | null;
+  const shellBody = renderRoot.querySelector('.tbw-shell-body') as HTMLElement | null;
   if (!panel || !handle || !shellBody) {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return () => {};
@@ -621,24 +620,23 @@ export function setupToolPanelResize(
 
 /**
  * Render custom button elements/render functions into toolbar slots.
+ * Also moves light DOM toolbar buttons to the placeholder (once).
  */
 export function renderCustomToolbarButtons(
-  shadowRoot: ShadowRoot,
+  renderRoot: Element,
   config: ShellConfig | undefined,
   state: ShellState,
+  host?: HTMLElement,
 ): void {
   const allButtons = [...(config?.header?.toolbarButtons ?? []), ...state.toolbarButtons.values()];
 
+  // Only process buttons that need rendering (have element/render and cleanup not already set)
   for (const btn of allButtons) {
-    const slot = shadowRoot.querySelector(`[data-btn-slot="${btn.id}"]`);
-    if (!slot) continue;
+    // Skip if already rendered (element appended or render cleanup exists)
+    if (btn.element?.parentNode || state.toolbarButtonCleanups.has(btn.id)) continue;
 
-    // Clean up previous render if any
-    const existingCleanup = state.toolbarButtonCleanups.get(btn.id);
-    if (existingCleanup) {
-      existingCleanup();
-      state.toolbarButtonCleanups.delete(btn.id);
-    }
+    const slot = renderRoot.querySelector(`[data-btn-slot="${btn.id}"]`);
+    if (!slot) continue;
 
     if (btn.element) {
       slot.appendChild(btn.element);
@@ -649,20 +647,45 @@ export function renderCustomToolbarButtons(
       }
     }
   }
+
+  // Move light DOM toolbar buttons to placeholder - only once (perf: skip if already moved)
+  if (host && state.hasToolButtonsContainer && !state.lightDomToolButtonsMoved) {
+    const placeholder = renderRoot.querySelector('[data-light-dom-toolbar]');
+    const toolButtonsContainer = host.querySelector(':scope > tbw-grid-tool-buttons');
+    if (placeholder && toolButtonsContainer && toolButtonsContainer.firstChild) {
+      // Move all children from the container to the placeholder
+      while (toolButtonsContainer.firstChild) {
+        placeholder.appendChild(toolButtonsContainer.firstChild);
+      }
+      state.lightDomToolButtonsMoved = true;
+    }
+  }
 }
 
 /**
  * Render header content from plugins into the shell content area.
+ * Also moves light DOM header content to the placeholder (once).
  */
-export function renderHeaderContent(shadowRoot: ShadowRoot, state: ShellState): void {
-  const contentArea = shadowRoot.querySelector('.tbw-shell-content');
+export function renderHeaderContent(renderRoot: Element, state: ShellState): void {
+  // Early exit if nothing to do (most common path after initial render)
+  const hasLightDomContent = state.lightDomHeaderContent.length > 0 && !state.lightDomContentMoved;
+  const hasPluginContent = state.headerContents.size > 0;
+  if (!hasLightDomContent && !hasPluginContent) return;
+
+  const contentArea = renderRoot.querySelector('.tbw-shell-content');
   if (!contentArea) return;
+
+  // Move light DOM header content to placeholder - only once (perf optimization)
+  if (hasLightDomContent) {
+    for (const el of state.lightDomHeaderContent) {
+      el.style.display = ''; // Show it (was hidden in the original container)
+      contentArea.appendChild(el);
+    }
+    state.lightDomContentMoved = true;
+  }
 
   // Sort by order
   const sortedContents = [...state.headerContents.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-
-  // Create containers for each content piece (before the slot)
-  const slot = contentArea.querySelector('slot[name="header-content"]');
 
   for (const content of sortedContents) {
     // Clean up previous render if any
@@ -677,12 +700,7 @@ export function renderHeaderContent(shadowRoot: ShadowRoot, state: ShellState): 
     if (!container) {
       container = document.createElement('div');
       container.setAttribute('data-header-content', content.id);
-      // Insert before the slot
-      if (slot) {
-        contentArea.insertBefore(container, slot);
-      } else {
-        contentArea.appendChild(container);
-      }
+      contentArea.appendChild(container);
     }
 
     const cleanup = content.render(container);
@@ -697,7 +715,7 @@ export function renderHeaderContent(shadowRoot: ShadowRoot, state: ShellState): 
  * @param icons - Optional icons for expand/collapse chevrons (from grid config)
  */
 export function renderPanelContent(
-  shadowRoot: ShadowRoot,
+  renderRoot: Element,
   state: ShellState,
   icons?: { expand?: IconValue; collapse?: IconValue },
 ): void {
@@ -708,7 +726,7 @@ export function renderPanelContent(
 
   for (const [panelId, panel] of state.toolPanels) {
     const isExpanded = state.expandedSections.has(panelId);
-    const section = shadowRoot.querySelector(`[data-section="${panelId}"]`);
+    const section = renderRoot.querySelector(`[data-section="${panelId}"]`);
     const contentArea = section?.querySelector('.tbw-accordion-content') as HTMLElement | null;
 
     if (!section || !contentArea) continue;
@@ -748,9 +766,9 @@ export function renderPanelContent(
 /**
  * Update toolbar button active states.
  */
-export function updateToolbarActiveStates(shadowRoot: ShadowRoot, state: ShellState): void {
+export function updateToolbarActiveStates(renderRoot: Element, state: ShellState): void {
   // Update single panel toggle button
-  const panelToggle = shadowRoot.querySelector('[data-panel-toggle]');
+  const panelToggle = renderRoot.querySelector('[data-panel-toggle]');
   if (panelToggle) {
     panelToggle.classList.toggle('active', state.isPanelOpen);
     panelToggle.setAttribute('aria-pressed', String(state.isPanelOpen));
@@ -760,8 +778,8 @@ export function updateToolbarActiveStates(shadowRoot: ShadowRoot, state: ShellSt
 /**
  * Update tool panel open/close state.
  */
-export function updatePanelState(shadowRoot: ShadowRoot, state: ShellState): void {
-  const panel = shadowRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
+export function updatePanelState(renderRoot: Element, state: ShellState): void {
+  const panel = renderRoot.querySelector('.tbw-tool-panel') as HTMLElement | null;
   if (!panel) return;
 
   panel.classList.toggle('open', state.isPanelOpen);
@@ -849,6 +867,10 @@ export function cleanupShellState(state: ShellState): void {
   state.headerContents.clear();
   state.toolbarButtons.clear();
   state.lightDomHeaderContent = [];
+
+  // Reset move tracking flags (allow re-initialization)
+  state.lightDomContentMoved = false;
+  state.lightDomToolButtonsMoved = false;
 }
 
 // ============================================================================
@@ -860,8 +882,8 @@ export function cleanupShellState(state: ShellState): void {
  * This interface decouples the controller from grid internals.
  */
 export interface ShellControllerCallbacks {
-  /** Get the shadow root for DOM queries */
-  getShadow: () => ShadowRoot;
+  /** Get the render root for DOM queries (the grid element) */
+  getShadow: () => Element;
   /** Get the current shell config */
   getShellConfig: () => ShellConfig | undefined;
   /** Get accordion expand/collapse icons */
@@ -1180,8 +1202,8 @@ export function createShellController(state: ShellState, callbacks: ShellControl
 /**
  * Update accordion section visual state.
  */
-function updateAccordionSectionState(shadow: ShadowRoot, sectionId: string, expanded: boolean): void {
-  const section = shadow.querySelector(`[data-section="${sectionId}"]`);
+function updateAccordionSectionState(renderRoot: Element, sectionId: string, expanded: boolean): void {
+  const section = renderRoot.querySelector(`[data-section="${sectionId}"]`);
   if (section) {
     section.classList.toggle('expanded', expanded);
   }
@@ -1190,11 +1212,11 @@ function updateAccordionSectionState(shadow: ShadowRoot, sectionId: string, expa
 /**
  * Render content for a single accordion section.
  */
-function renderAccordionSectionContent(shadow: ShadowRoot, state: ShellState, sectionId: string): void {
+function renderAccordionSectionContent(renderRoot: Element, state: ShellState, sectionId: string): void {
   const panel = state.toolPanels.get(sectionId);
   if (!panel?.render) return;
 
-  const contentEl = shadow.querySelector(`[data-section="${sectionId}"] .tbw-accordion-content`);
+  const contentEl = renderRoot.querySelector(`[data-section="${sectionId}"] .tbw-accordion-content`);
   if (!contentEl) return;
 
   const cleanup = panel.render(contentEl as HTMLElement);
@@ -1247,22 +1269,36 @@ import {
  * Build the complete grid DOM structure using direct DOM construction.
  * This is 2-3x faster than innerHTML for initial render.
  *
- * @param shadowRoot - The shadow root to render into (will be cleared)
+ * @param renderRoot - The element to render into (will be cleared)
  * @param shellConfig - Shell configuration
  * @param state - Shell state
  * @param icons - Optional icons
  * @returns Whether shell is active (for post-render setup)
  */
-export function buildGridDOMIntoShadow(
-  shadowRoot: ShadowRoot,
+export function buildGridDOMIntoElement(
+  renderRoot: Element,
   shellConfig: ShellConfig | undefined,
   runtimeState: { isPanelOpen: boolean; expandedSections: Set<string> },
   icons?: { toolPanel?: IconValue; expand?: IconValue; collapse?: IconValue },
 ): boolean {
   const hasShell = shouldRenderShellHeader(shellConfig);
 
-  // Clear existing content
-  shadowRoot.replaceChildren();
+  // Preserve light DOM elements before clearing (they contain user content)
+  // These are custom elements used for declarative configuration
+  const lightDomElements: Element[] = [];
+  const lightDomSelectors = ['tbw-grid-header', 'tbw-grid-tool-buttons', 'tbw-grid-tool-panel', 'tbw-grid-column'];
+  for (const selector of lightDomSelectors) {
+    const elements = renderRoot.querySelectorAll(`:scope > ${selector}`);
+    elements.forEach((el) => lightDomElements.push(el));
+  }
+
+  // Clear existing content (this would delete light DOM elements, so we preserved them first)
+  renderRoot.replaceChildren();
+
+  // Re-append preserved light DOM elements (hidden, they're used for config)
+  for (const el of lightDomElements) {
+    renderRoot.appendChild(el);
+  }
 
   if (hasShell) {
     const toolPanelIcon = iconToString(icons?.toolPanel ?? DEFAULT_GRID_ICONS.toolPanel);
@@ -1316,11 +1352,11 @@ export function buildGridDOMIntoShadow(
       shellHeader,
       shellBody,
     });
-    shadowRoot.appendChild(fragment);
+    renderRoot.appendChild(fragment);
   } else {
     // No shell - just grid content
     const fragment = buildGridDOM({ hasShell: false });
-    shadowRoot.appendChild(fragment);
+    renderRoot.appendChild(fragment);
   }
 
   return hasShell;

@@ -102,7 +102,7 @@ export function renderVisibleRows(
   // Cache header row count once (check for group header row existence)
   let headerRowCount = grid.__cachedHeaderRowCount;
   if (headerRowCount === undefined) {
-    headerRowCount = grid.shadowRoot?.querySelector('.header-group-row') ? 2 : 1;
+    headerRowCount = grid.querySelector('.header-group-row') ? 2 : 1;
     grid.__cachedHeaderRowCount = headerRowCount;
   }
 
@@ -610,8 +610,8 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
       // If clicking an already-editing cell, just update focus styling and return
       if (cellEl.classList.contains('editing')) {
         if (focusChanged) {
-          // Update .cell-focus class to reflect new focus (clear from entire shadow root)
-          clearCellFocus(grid.shadowRoot ?? grid._bodyEl);
+          // Update .cell-focus class to reflect new focus (clear from grid element)
+          clearCellFocus(grid._bodyEl ?? grid);
           cellEl.classList.add('cell-focus');
         }
         // Focus the editor in the cell

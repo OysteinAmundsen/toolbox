@@ -9,7 +9,7 @@ import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
-  buildGridDOMIntoShadow,
+  buildGridDOMIntoElement,
   cleanupShellState,
   createShellController,
   createShellState,
@@ -159,7 +159,28 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return ['rows', 'columns', 'grid-config', 'fit-mode', 'edit-on'];
   }
 
-  readonly #shadow: ShadowRoot;
+  /**
+   * The render root for the grid. Without Shadow DOM, this is the element itself.
+   * This abstraction allows internal code to work the same way regardless of DOM mode.
+   */
+  get #renderRoot(): HTMLElement {
+    return this;
+  }
+
+  /**
+   * Access the grid's ShadowRoot.
+   *
+   * Note: The grid renders into its light DOM and does not attach a shadow root,
+   * so this getter returns `null`. Use `grid.querySelector()` directly for DOM queries.
+   *
+   * @deprecated This property returns `null` since Shadow DOM was removed.
+   *             Use `grid.querySelector()` or `grid.querySelectorAll()` directly.
+   * @returns null (no shadow root is attached)
+   */
+  override get shadowRoot(): ShadowRoot | null {
+    return super.shadowRoot;
+  }
+
   #initialized = false;
 
   // ---------------- Ready Promise ----------------
@@ -431,7 +452,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   constructor() {
     super();
-    this.#shadow = this.attachShadow({ mode: 'open' });
+    // No Shadow DOM - render directly into the element
     void this.#injectStyles(); // Fire and forget - styles load asynchronously
     this.#readyPromise = new Promise((res) => (this.#readyResolve = res));
 
@@ -479,7 +500,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Initialize shell controller with callbacks
     this.#shellController = createShellController(this.#shellState, {
-      getShadow: () => this.#shadow,
+      getShadow: () => this.#renderRoot,
       getShellConfig: () => this.#effectiveConfig?.shell,
       getAccordionIcons: () => ({
         expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
@@ -523,13 +544,54 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     });
   }
 
+  /** ID for the consolidated grid stylesheet in document.head */
+  static readonly #STYLE_ELEMENT_ID = 'tbw-grid-styles';
+
+  /** Track injected base styles CSS text */
+  static #baseStyles = '';
+
+  /** Track injected plugin styles CSS text */
+  static #pluginStyles = '';
+
+  /**
+   * Get or create the consolidated style element in document.head.
+   * All grid and plugin styles are combined into this single element.
+   */
+  static #getStyleElement(): HTMLStyleElement {
+    let styleEl = document.getElementById(this.#STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = this.#STYLE_ELEMENT_ID;
+      styleEl.setAttribute('data-tbw-grid', 'true');
+      document.head.appendChild(styleEl);
+    }
+    return styleEl;
+  }
+
+  /**
+   * Update the consolidated stylesheet with current base + plugin styles.
+   */
+  static #updateStyleElement(): void {
+    const styleEl = this.#getStyleElement();
+    // Combine base styles and plugin styles
+    styleEl.textContent = `${this.#baseStyles}\n\n/* Plugin Styles */\n${this.#pluginStyles}`;
+  }
+
+  /**
+   * Inject grid styles into the document.
+   * All styles go into a single <style id="tbw-grid-styles"> element in document.head.
+   * Uses a singleton pattern to avoid duplicate injection across multiple grid instances.
+   */
   async #injectStyles(): Promise<void> {
-    const sheet = new CSSStyleSheet();
+    // If base styles already injected, nothing to do
+    if (DataGridElement.#baseStyles) {
+      return;
+    }
 
     // If styles is a string (from ?inline import in Vite builds), use it directly
     if (typeof styles === 'string' && styles.length > 0) {
-      sheet.replaceSync(styles);
-      this.#shadow.adoptedStyleSheets = [sheet];
+      DataGridElement.#baseStyles = styles;
+      DataGridElement.#updateStyleElement();
       return;
     }
 
@@ -551,8 +613,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           const cssText = rules.map((rule) => rule.cssText).join('\n');
 
           // Check if this stylesheet contains grid CSS by looking for distinctive selectors
-          // The grid.css uses :host selectors which appear as-is in cssText
-          if (cssText.includes('.tbw-grid-root') && cssText.includes(':host')) {
+          // Without Shadow DOM, we look for tbw-grid nesting selectors
+          if (cssText.includes('.tbw-grid-root') && cssText.includes('tbw-grid')) {
             // Found the bundled stylesheet with grid CSS - use ALL of it
             // This includes core grid.css + all plugin CSS files
             gridCssText = cssText;
@@ -565,8 +627,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
 
       if (gridCssText) {
-        sheet.replaceSync(gridCssText);
-        this.#shadow.adoptedStyleSheets = [sheet];
+        DataGridElement.#baseStyles = gridCssText;
+        DataGridElement.#updateStyleElement();
       } else if (typeof process === 'undefined' || process.env?.['NODE_ENV'] !== 'test') {
         // Only warn in non-test environments - test environments (happy-dom, jsdom) don't load stylesheets
         console.warn(
@@ -657,16 +719,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Inject all plugin styles into the shadow DOM.
-   * Must be called after #render() since innerHTML wipes existing content.
+   * Inject all plugin styles into the consolidated style element.
+   * Plugin styles are appended after base grid styles in the same <style> element.
    */
   #injectAllPluginStyles(): void {
     const allStyles = this.#pluginManager?.getAllStyles() ?? '';
-    if (allStyles) {
-      const styleEl = document.createElement('style');
-      styleEl.setAttribute('data-plugin', 'all');
-      styleEl.textContent = allStyles;
-      this.#shadow.appendChild(styleEl);
+    if (allStyles && allStyles !== DataGridElement.#pluginStyles) {
+      DataGridElement.#pluginStyles = allStyles;
+      DataGridElement.#updateStyleElement();
     }
   }
 
@@ -963,8 +1023,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #afterConnect(): void {
     // Shell changes the DOM structure - need to find elements appropriately
-    const gridContent = this.#shadow.querySelector('.tbw-grid-content');
-    const gridRoot = gridContent ?? this.#shadow.querySelector('.tbw-grid-root');
+    const gridContent = this.#renderRoot.querySelector('.tbw-grid-content');
+    const gridRoot = gridContent ?? this.#renderRoot.querySelector('.tbw-grid-root');
 
     this._headerRowEl = gridRoot?.querySelector('.header-row') as HTMLElement;
     // Faux scrollbar pattern:
@@ -980,9 +1040,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Initialize shell header content and custom buttons if shell is active
     if (this.#shellController.isInitialized) {
       // Render plugin header content
-      renderHeaderContent(this.#shadow, this.#shellState);
-      // Render custom toolbar buttons (element/render modes)
-      renderCustomToolbarButtons(this.#shadow, this.#effectiveConfig?.shell, this.#shellState);
+      renderHeaderContent(this.#renderRoot, this.#shellState);
+      // Render custom toolbar buttons (element/render modes) and move light DOM buttons
+      renderCustomToolbarButtons(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState, this);
       // Open default section if configured
       const defaultOpen = this.#effectiveConfig?.shell?.toolPanel?.defaultOpen;
       if (defaultOpen && this.#shellState.toolPanels.has(defaultOpen)) {
@@ -1020,7 +1080,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.addEventListener('keydown', (e) => handleGridKeyDown(this as unknown as InternalGrid<T>, e), { signal });
 
     // Central mouse event handling for plugins (uses signal for automatic cleanup)
-    this.#shadow.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent), { signal });
+    this.#renderRoot.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent), { signal });
 
     // Track global mousemove/mouseup for drag operations (uses signal for automatic cleanup)
     document.addEventListener('mousemove', (e: MouseEvent) => this.#handleMouseMove(e), { signal });
@@ -1141,8 +1201,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Without this, mouse wheel over content wouldn't scroll
       // Listen on .tbw-grid-content to capture wheel events from entire grid area
       // Note: gridRoot may already BE .tbw-grid-content when shell is active, so search from shadow root
-      const gridContentEl = this.#shadow.querySelector('.tbw-grid-content') as HTMLElement;
-      const scrollArea = this.#shadow.querySelector('.tbw-scroll-area') as HTMLElement;
+      const gridContentEl = this.#renderRoot.querySelector('.tbw-grid-content') as HTMLElement;
+      const scrollArea = this.#renderRoot.querySelector('.tbw-scroll-area') as HTMLElement;
       if (gridContentEl) {
         gridContentEl.addEventListener(
           'wheel',
@@ -1209,20 +1269,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Track focus state via data attribute (shadow DOM doesn't reliably support :focus-within)
     // Listen on shadow root to catch focus events from shadow DOM elements
     // Cast to EventTarget since TypeScript's lib.dom doesn't include focus events on ShadowRoot
-    (this.#shadow as EventTarget).addEventListener(
+    (this.#renderRoot as EventTarget).addEventListener(
       'focusin',
       () => {
         this.dataset.hasFocus = '';
       },
       { signal: scrollSignal },
     );
-    (this.#shadow as EventTarget).addEventListener(
+    (this.#renderRoot as EventTarget).addEventListener(
       'focusout',
       (e) => {
         // Only remove if focus is leaving the grid entirely
         // relatedTarget is null when focus leaves the document, or the new focus target
         const newFocus = (e as FocusEvent).relatedTarget as Node | null;
-        if (!newFocus || !this.#shadow.contains(newFocus)) {
+        if (!newFocus || !this.#renderRoot.contains(newFocus)) {
           delete this.dataset.hasFocus;
         }
       },
@@ -1388,11 +1448,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Parse tool buttons container before checking shell state
     parseLightDomToolButtons(this, this.#shellState);
 
-    const hadShell = !!this.#shadow.querySelector('.has-shell');
-    const hadToolPanel = !!this.#shadow.querySelector('.tbw-tool-panel');
+    const hadShell = !!this.#renderRoot.querySelector('.has-shell');
+    const hadToolPanel = !!this.#renderRoot.querySelector('.tbw-tool-panel');
 
     // Count accordion sections before update (to detect new panels added)
-    const accordionSectionsBefore = this.#shadow.querySelectorAll('.tbw-accordion-section').length;
+    const accordionSectionsBefore = this.#renderRoot.querySelectorAll('.tbw-accordion-section').length;
 
     this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
     this.#configManager.merge();
@@ -1448,7 +1508,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Handles title, toolbar buttons, and other shell header changes.
    */
   #updateShellHeaderInPlace(): void {
-    const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
+    const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
     if (!shellHeader) return;
 
     const title = this.#effectiveConfig.shell?.header?.title ?? this.#shellState.lightDomTitle;
@@ -1678,7 +1738,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Plugin API
    */
   findHeaderRow(): HTMLElement {
-    return this.#shadow.querySelector('.header-row') as HTMLElement;
+    return this.#renderRoot.querySelector('.header-row') as HTMLElement;
   }
 
   /**
@@ -1806,10 +1866,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       target = e.target as Element;
     }
 
-    // If target is still not inside our shadow root (e.g., for document-level events),
+    // If target is not inside our element (e.g., for document-level events),
     // use elementFromPoint to find the actual element under the mouse
-    if (target && !this.#shadow.contains(target)) {
-      const elAtPoint = this.#shadow.elementFromPoint(e.clientX, e.clientY);
+    if (target && !this.#renderRoot.contains(target)) {
+      const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
       if (elAtPoint) {
         target = elAtPoint;
       }
@@ -2214,13 +2274,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Update the shadow root's adoptedStyleSheets to include base + custom sheets.
+   * Update document.adoptedStyleSheets to include custom sheets.
+   * Without Shadow DOM, all custom styles go into the document.
    */
   #updateAdoptedStyleSheets(): void {
-    // Keep the first stylesheet (base grid styles) and append custom ones
-    const baseSheet = this.#shadow.adoptedStyleSheets[0];
     const customSheets = Array.from(this.#customStyleSheets.values());
-    this.#shadow.adoptedStyleSheets = baseSheet ? [baseSheet, ...customSheets] : customSheets;
+
+    // Start with document's existing sheets (excluding any we've added before)
+    // We track custom sheets by their presence in our map
+    const existingSheets = document.adoptedStyleSheets.filter(
+      (sheet) => !Array.from(this.#customStyleSheets.values()).includes(sheet),
+    );
+
+    document.adoptedStyleSheets = [...existingSheets, ...customSheets];
   }
   // #endregion
 
@@ -2248,7 +2314,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if ((hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons)) {
         this.#configManager.markSourcesChanged();
         this.#configManager.merge();
-        const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
+        const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
         if (shellHeader) {
           const newHeaderHtml = renderShellHeader(
             this.#effectiveConfig.shell,
@@ -2324,7 +2390,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Merge the new title into effectiveConfig
       this.#configManager.merge();
       // Update the existing shell header element with new HTML
-      const shellHeader = this.#shadow.querySelector('.tbw-shell-header');
+      const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
       if (shellHeader) {
         const newHeaderHtml = renderShellHeader(
           this.#effectiveConfig.shell,
@@ -2542,8 +2608,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Render using direct DOM construction (2-3x faster than innerHTML)
     // Pass only minimal runtime state (isPanelOpen, expandedSections) - config comes from effectiveConfig.shell
-    const hasShell = buildGridDOMIntoShadow(
-      this.#shadow,
+    const hasShell = buildGridDOMIntoElement(
+      this.#renderRoot,
       shellConfig,
       { isPanelOpen: this.#shellState.isPanelOpen, expandedSections: this.#shellState.expandedSections },
       this.#effectiveConfig?.icons,
@@ -2559,7 +2625,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Set up shell event listeners after render.
    */
   #setupShellListeners(): void {
-    setupShellEventListeners(this.#shadow, this.#effectiveConfig?.shell, this.#shellState, {
+    setupShellEventListeners(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState, {
       onPanelToggle: () => this.toggleToolPanel(),
       onSectionToggle: (sectionId: string) => this.toggleToolPanelSection(sectionId),
       onToolbarButtonClick: (buttonId) => this.#handleToolbarButtonClick(buttonId),
@@ -2567,7 +2633,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Set up tool panel resize
     this.#resizeCleanup?.();
-    this.#resizeCleanup = setupToolPanelResize(this.#shadow, this.#effectiveConfig?.shell, (width: number) => {
+    this.#resizeCleanup = setupToolPanelResize(this.#renderRoot, this.#effectiveConfig?.shell, (width: number) => {
       // Update the CSS variable to persist the new width
       this.style.setProperty('--tbw-tool-panel-width', `${width}px`);
     });

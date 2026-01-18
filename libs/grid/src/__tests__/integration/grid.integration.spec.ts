@@ -56,7 +56,7 @@ describe('tbw-grid integration: inference, sorting, editing', () => {
     grid.rows = [{ id: 2 }, { id: 1 }];
     grid.columns = [{ field: 'id', sortable: true }];
     await nextFrame();
-    const header = grid.shadowRoot!.querySelector('.header-row .cell') as HTMLElement;
+    const header = grid.querySelector('.header-row .cell') as HTMLElement;
     const directions: number[] = [];
     grid.addEventListener('sort-change', (e: any) => directions.push(e.detail.direction));
     header.click();
@@ -73,7 +73,7 @@ describe('tbw-grid integration: inference, sorting, editing', () => {
     grid.rows = [{ id: 1, name: 'Alpha' }];
     await nextFrame();
     await nextFrame();
-    const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+    const row = grid.querySelector('.data-grid-row') as HTMLElement;
     const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
     nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await nextFrame();
@@ -113,9 +113,9 @@ describe('tbw-grid integration: config-based row grouping', () => {
       { dept: 'B', name: 'Three' },
     ];
     await waitUpgrade(grid);
-    const groupRow = grid.shadowRoot.querySelector('.group-row');
+    const groupRow = grid.querySelector('.group-row');
     expect(groupRow).toBeFalsy();
-    const dataRows = grid.shadowRoot.querySelectorAll('.data-grid-row');
+    const dataRows = grid.querySelectorAll('.data-grid-row');
     expect(dataRows.length).toBeGreaterThan(0);
   });
 
@@ -133,10 +133,10 @@ describe('tbw-grid integration: config-based row grouping', () => {
       plugins: [new GroupingRowsPlugin({ groupOn: (r: any) => r.dept })],
     };
     await waitUpgrade(grid);
-    const groupRows = grid.shadowRoot.querySelectorAll('.group-row');
+    const groupRows = grid.querySelectorAll('.group-row');
     expect(groupRows.length).toBe(2);
     // Use :not(.group-row) to select actual data rows only (group rows also have .data-grid-row for keyboard navigation)
-    const dataRowsInitial = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
+    const dataRowsInitial = grid.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsInitial.length).toBe(0);
   });
 
@@ -154,15 +154,15 @@ describe('tbw-grid integration: config-based row grouping', () => {
       plugins: [new GroupingRowsPlugin({ groupOn: (r: any) => r.dept })],
     };
     await waitUpgrade(grid);
-    const firstToggle = grid.shadowRoot.querySelector('.group-row .group-toggle') as HTMLButtonElement;
+    const firstToggle = grid.querySelector('.group-row .group-toggle') as HTMLButtonElement;
     firstToggle.click();
     await nextFrame();
     // Use :not(.group-row) to select actual data rows only
-    const dataRowsExpandedOnce = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
+    const dataRowsExpandedOnce = grid.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsExpandedOnce.length).toBe(2);
     firstToggle.click();
     await nextFrame();
-    const dataRowsAfterCollapse = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
+    const dataRowsAfterCollapse = grid.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsAfterCollapse.length).toBe(0);
   });
 
@@ -182,22 +182,22 @@ describe('tbw-grid integration: config-based row grouping', () => {
       plugins: [new GroupingRowsPlugin({ groupOn: (r: any) => [r.region, r.country] })],
     };
     await waitUpgrade(grid);
-    const topGroups = grid.shadowRoot.querySelectorAll('.group-row');
+    const topGroups = grid.querySelectorAll('.group-row');
     expect(topGroups.length).toBe(2);
     const euToggle = (Array.from(topGroups) as HTMLElement[])
       .find((g) => g.textContent?.includes('EU'))!
       .querySelector('.group-toggle') as HTMLButtonElement;
     euToggle.click();
     await nextFrame();
-    const allGroupRowsAfter = grid.shadowRoot.querySelectorAll('.group-row');
+    const allGroupRowsAfter = grid.querySelectorAll('.group-row');
     expect(allGroupRowsAfter.length).toBe(4);
     // Use :not(.group-row) to select actual data rows only
-    const dataRowsNow = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
+    const dataRowsNow = grid.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsNow.length).toBe(0);
     const deGroup = (Array.from(allGroupRowsAfter) as HTMLElement[]).find((g) => g.textContent?.includes('DE'))!;
     (deGroup.querySelector('.group-toggle') as HTMLButtonElement).click();
     await nextFrame();
-    const dataRowsAfterDE = grid.shadowRoot.querySelectorAll('.data-grid-row:not(.group-row)');
+    const dataRowsAfterDE = grid.querySelectorAll('.data-grid-row:not(.group-row)');
     expect(dataRowsAfterDE.length).toBe(2);
   });
 
@@ -225,7 +225,7 @@ describe('tbw-grid integration: config-based row grouping', () => {
       ],
     };
     await waitUpgrade(grid);
-    const groupRows = grid.shadowRoot.querySelectorAll('.group-row');
+    const groupRows = grid.querySelectorAll('.group-row');
     expect(groupRows.length).toBe(2);
     // Check that Jan group row has per-column cells with aggregated values
     const janRow = (Array.from(groupRows) as HTMLElement[]).find((g) => g.textContent?.includes('Jan'))!;
@@ -262,7 +262,7 @@ describe('tbw-grid integration: config-based row grouping', () => {
       ],
     };
     await waitUpgrade(grid);
-    const groupRow = grid.shadowRoot.querySelector('.group-row');
+    const groupRow = grid.querySelector('.group-row');
     expect(groupRow.textContent).toContain('Jan 2024');
   });
 });
@@ -295,19 +295,19 @@ describe('tbw-grid integration: column grouping / sticky', () => {
   });
 
   it('renders grouped header row', () => {
-    const groupHeaders = (grid.shadowRoot as any).querySelectorAll('.header-group-cell');
+    const groupHeaders = grid.querySelectorAll('.header-group-cell');
     expect(groupHeaders.length).toBeGreaterThan(0);
   });
 
   it('renders data rows (no group rows in header-only grouping mode)', () => {
-    const groupRow = (grid.shadowRoot as any).querySelector('.group-row');
+    const groupRow = grid.querySelector('.group-row');
     expect(groupRow).toBeFalsy();
-    const dataRows = grid.shadowRoot.querySelectorAll('.data-grid-row');
+    const dataRows = grid.querySelectorAll('.data-grid-row');
     expect(dataRows.length).toBeGreaterThan(0);
   });
 
   it('applies sticky class to left column', () => {
-    const stickyHeader = (grid.shadowRoot as any).querySelector('.header-row .cell.sticky-left');
+    const stickyHeader = grid.querySelector('.header-row .cell.sticky-left');
     expect(stickyHeader).toBeTruthy();
   });
 });
@@ -329,7 +329,7 @@ describe('tbw-grid integration: aria row/col indices', () => {
     ];
     document.body.appendChild(grid);
     await waitUpgrade(grid);
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     const headerRow = shadow.querySelector('.header-row') as HTMLElement;
     expect(headerRow.getAttribute('aria-rowindex')).toBe('1');
     const headerCells = Array.from(headerRow.querySelectorAll('.cell')) as HTMLElement[];
@@ -370,7 +370,7 @@ describe('tbw-grid integration: public API & events', () => {
     await waitUpgrade(grid);
     const commits: any[] = [];
     grid.addEventListener('cell-commit', (e: any) => commits.push(e.detail));
-    const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+    const row = grid.querySelector('.data-grid-row') as HTMLElement;
     const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
     nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     await nextFrame();
@@ -425,7 +425,7 @@ describe('tbw-grid integration: template sandbox rendering', () => {
   blocked.forEach((tpl) => {
     it(`blocks expression: ${tpl}`, async () => {
       const grid = await setupGrid(`<span>${tpl}</span>`);
-      const shadow = grid.shadowRoot!;
+      const shadow = grid;
       const texts = Array.from(shadow.querySelectorAll('.rows .data-grid-row .cell')).map(
         (el) => (el as HTMLElement).textContent || '',
       );
@@ -435,13 +435,13 @@ describe('tbw-grid integration: template sandbox rendering', () => {
 
   it('allows simple arithmetic & row reference', async () => {
     const grid = await setupGrid('<span>{{ value + 2 }}</span>', [{ v: 3 }]);
-    const cell = grid.shadowRoot!.querySelector('.rows .data-grid-row .cell') as HTMLElement;
+    const cell = grid.querySelector('.rows .data-grid-row .cell') as HTMLElement;
     expect(cell.textContent?.trim()).toBe('5');
   });
 
   it('allows row.field direct access', async () => {
     const grid = await setupGrid('<span>{{ row.v }}</span>', [{ v: 42 }]);
-    const cell = grid.shadowRoot!.querySelector('.rows .data-grid-row .cell') as HTMLElement;
+    const cell = grid.querySelector('.rows .data-grid-row .cell') as HTMLElement;
     expect(cell.textContent?.trim()).toBe('42');
   });
 });
@@ -475,7 +475,7 @@ describe('tbw-grid integration: inline plugin registration', () => {
     await nextFrame();
 
     // Verify grid initialized correctly
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     const dataRows = shadow.querySelectorAll('.data-grid-row');
     expect(dataRows.length).toBe(2);
   });
@@ -503,7 +503,7 @@ describe('tbw-grid integration: inline plugin registration', () => {
     await nextFrame();
 
     // Verify grouping is active (group rows should be rendered)
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     const groupRows = shadow.querySelectorAll('.group-row');
     expect(groupRows.length).toBeGreaterThan(0);
   });
@@ -525,7 +525,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     expect(shadow.querySelector('.tbw-shell-header')).not.toBeNull();
     expect(shadow.querySelector('.tbw-shell-title')?.textContent).toBe('My Grid');
   });
@@ -551,12 +551,15 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
-    // Light-dom container is slotted, so check for the slot
-    const slot = shadow.querySelector('slot[name="toolbar"]') as HTMLSlotElement;
-    expect(slot).not.toBeNull();
+    // Check that toolbar placeholder exists (light DOM uses placeholder instead of slot)
+    const placeholder = grid.querySelector('[data-light-dom-toolbar]');
+    expect(placeholder).not.toBeNull();
 
-    // Click the actual button (in light DOM)
+    // Verify the button was moved from the container to the placeholder
+    expect(placeholder?.contains(refreshBtn)).toBe(true);
+    expect(toolButtons.contains(refreshBtn)).toBe(false);
+
+    // Click the button (should work since it's now in the placeholder)
     refreshBtn.click();
     expect(clicked).toBe(true);
   });
@@ -585,7 +588,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     // First (and only) panel should be auto-expanded
     expect(grid.expandedToolPanelSections).toContain('test-panel');
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     const panel = shadow.querySelector('.tbw-tool-panel');
     expect(panel?.classList.contains('open')).toBe(true);
     expect(shadow.querySelector('.test-content')?.textContent).toBe('Hello');
@@ -633,7 +636,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     const toggleBtn = shadow.querySelector('[data-panel-toggle]') as HTMLButtonElement;
     expect(toggleBtn).not.toBeNull();
 
@@ -662,7 +665,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(grid.isToolPanelOpen).toBe(true);
 
     // Toggle via toolbar button to close
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     const toggleBtn = shadow.querySelector('[data-panel-toggle]') as HTMLButtonElement;
     expect(toggleBtn).not.toBeNull();
 
@@ -684,7 +687,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     expect(shadow.querySelector('.tbw-shell-header')).not.toBeNull();
     expect(shadow.querySelector('.status-text')?.textContent).toBe('Ready');
   });
@@ -714,7 +717,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     grid.refreshShellHeader();
     await nextFrame();
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     let slot = shadow.querySelector('[data-btn-slot="dynamic"]');
     expect(slot).not.toBeNull();
 
@@ -733,7 +736,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
     expect(shadow.querySelector('.tbw-shell-header')).toBeNull();
     expect(shadow.querySelector('.tbw-grid-root.has-shell')).toBeNull();
   });
@@ -786,7 +789,7 @@ describe('tbw-grid integration: selection plugin', () => {
     grid.rows = rows;
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
 
     // Find a cell in the first visible row and click it to select
     const firstVisibleCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
@@ -859,7 +862,7 @@ describe('tbw-grid integration: selection plugin', () => {
     grid.rows = rows;
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
 
     // Find a cell in the first visible row and click it to select the row
     const firstVisibleCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
@@ -933,7 +936,7 @@ describe('tbw-grid integration: core cell focus', () => {
     grid.rows = rows;
     await waitUpgrade(grid);
 
-    const shadow = grid.shadowRoot!;
+    const shadow = grid;
 
     // Find a cell in the first visible row and click it to set focus
     const firstVisibleCell = shadow.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
@@ -1035,7 +1038,7 @@ describe('tbw-grid integration: async filtering state persistence', () => {
     await nextFrame();
 
     // Check initial state: no filters, button should not be active
-    const shadow = grid.shadowRoot as ShadowRoot;
+    const shadow = grid;
     const nameHeaderCell = shadow.querySelector('[part~="header-cell"][data-col="1"]');
     expect(nameHeaderCell).not.toBeNull();
 
@@ -1114,7 +1117,7 @@ describe('tbw-grid integration: async filtering state persistence', () => {
     await waitUpgrade(grid);
     await nextFrame();
 
-    const shadow = grid.shadowRoot as ShadowRoot;
+    const shadow = grid;
     const statusHeaderCell = shadow.querySelector('[part~="header-cell"][data-col="1"]');
     expect(statusHeaderCell).not.toBeNull();
 
@@ -1241,7 +1244,7 @@ describe('tbw-grid scroll height calculation', () => {
     await nextFrame();
     await nextFrame();
 
-    const shadow = grid.shadowRoot;
+    const shadow = grid;
 
     // Verify all critical DOM elements exist for scroll height calculation
     const fauxScrollbar = shadow.querySelector('.faux-vscroll');

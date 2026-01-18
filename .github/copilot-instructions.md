@@ -13,7 +13,7 @@ Currently houses `@toolbox-web/grid` as the flagship component (`<tbw-grid>`), w
 All libraries in this suite are built as **standard web components** (custom elements) using pure TypeScript:
 
 - **Zero framework lock-in**: Components work in any JavaScript environment (vanilla, React, Vue, Angular, Svelte, etc.)
-- **Native browser APIs**: Leverage shadow DOM, custom elements, CSSStyleSheet adoption, and web standards
+- **Native browser APIs**: Leverage custom elements, CSS nesting, CSSStyleSheet adoption, and web standards
 - **Optional framework adapters**: Future work may include React/Vue/Angular wrappers for improved TypeScript types and framework-specific ergonomics, but core components remain framework-free
 - **Shared conventions**: All libraries follow consistent patterns for configuration, theming, testing, and Storybook integration
 - **Component prefix**: All web components use `tbw-` prefix (toolbox-web), e.g., `<tbw-grid>`
@@ -102,7 +102,7 @@ type(scope): short description
 
 ### Grid Component Architecture
 
-The `<tbw-grid>` component ([libs/grid/src/lib/core/grid.ts](libs/grid/src/lib/core/grid.ts)) is a shadow DOM web component with:
+The `<tbw-grid>` component ([libs/grid/src/lib/core/grid.ts](libs/grid/src/lib/core/grid.ts)) is a light DOM web component with:
 
 - **Single Source of Truth**: `#effectiveConfig` holds the merged canonical configuration
 - **Public API surface** defined in `src/public.ts` - only export types/functions meant for external consumption
@@ -345,7 +345,7 @@ bun nx serve demo-angular
 - **Methods**: Public methods callable from JS, use `async` for operations that need component ready
 - **Element ref**: Access via `this` (extends HTMLElement)
 - **Lifecycle**: `connectedCallback()`, `disconnectedCallback()`, `attributeChangedCallback()`
-- **Shadow DOM**: Use `attachShadow({ mode: 'open' })` with `CSSStyleSheet` adoption for styles
+- **Light DOM**: Render directly to element with CSS nesting (`tbw-grid { }`) for style scoping
 
 ### Path Mappings
 
@@ -423,7 +423,7 @@ All grid rendering is orchestrated through a **single RenderScheduler** (`intern
 Custom styles use browser's `adoptedStyleSheets` for efficiency:
 
 ```typescript
-// Efficient - survives shadow DOM rebuilds
+// Efficient - survives DOM rebuilds
 grid.registerStyles('my-id', '.my-class { color: blue; }');
 grid.unregisterStyles('my-id');
 ```
@@ -459,17 +459,20 @@ libs/grid/src/lib/plugins/[plugin-name]/
 └── README.md               # Package-level documentation (optional)
 ```
 
-### Accessing the Grid's Shadow DOM
+### Accessing the Grid's DOM
 
-In class-based plugins, use the built-in helpers:
+In class-based plugins, use the built-in `gridElement` helper:
 
 ```typescript
 class MyPlugin extends BaseGridPlugin<MyConfig> {
   afterRender(): void {
-    // Use this.shadowRoot (typed getter)
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
-    // ... work with shadow DOM
+    // Use this.gridElement for DOM queries
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
+
+    // Query elements directly
+    const cells = gridEl.querySelectorAll('.dg-cell');
+    // ... work with DOM
   }
 }
 ```
@@ -481,10 +484,10 @@ const width = this.gridElement.clientWidth;
 this.gridElement.classList.add('my-plugin-active');
 ```
 
-To access the root container element inside the shadow DOM:
+To access the root container element:
 
 ```typescript
-const container = shadowRoot.children[0]; // NOT querySelector('.some-class')
+const container = this.gridElement.children[0];
 ```
 
 ### Injecting Styles
@@ -517,25 +520,25 @@ The CSS file (`my-plugin.css`) contains the styles:
 
 BaseGridPlugin provides these protected helpers - use them instead of type casting:
 
-| Helper                         | Description                                     |
-| ------------------------------ | ----------------------------------------------- |
-| `this.grid`                    | Typed `GridElementRef` with all plugin APIs     |
-| `this.gridElement`             | Grid as `HTMLElement` for DOM operations        |
-| `this.shadowRoot`              | Grid's shadow root for DOM queries              |
-| `this.columns`                 | Current column configurations                   |
-| `this.visibleColumns`          | Only visible columns (for rendering)            |
-| `this.rows`                    | Processed rows (after filtering, grouping)      |
-| `this.sourceRows`              | Original unfiltered rows                        |
-| `this.disconnectSignal`        | AbortSignal for auto-cleanup of event listeners |
-| `this.isAnimationEnabled`      | Whether grid animations are enabled             |
-| `this.animationDuration`       | Animation duration in ms (default: 200)         |
-| `this.gridIcons`               | Merged icon configuration                       |
-| `this.getPlugin(PluginClass)`  | Get another plugin instance                     |
-| `this.emit(eventName, detail)` | Dispatch custom event from grid                 |
-| `this.requestRender()`         | Request full re-render                          |
-| `this.requestAfterRender()`    | Request lightweight style update                |
-| `this.resolveIcon(name)`       | Get icon value by name                          |
-| `this.setIcon(el, icon)`       | Set icon on element (string or SVG)             |
+| Helper                         | Description                                       |
+| ------------------------------ | ------------------------------------------------- |
+| `this.grid`                    | Typed `GridElementRef` with all plugin APIs       |
+| `this.gridElement`             | Grid as `HTMLElement` for DOM queries (preferred) |
+| `this.shadowRoot`              | **Deprecated** - use `this.gridElement` instead   |
+| `this.columns`                 | Current column configurations                     |
+| `this.visibleColumns`          | Only visible columns (for rendering)              |
+| `this.rows`                    | Processed rows (after filtering, grouping)        |
+| `this.sourceRows`              | Original unfiltered rows                          |
+| `this.disconnectSignal`        | AbortSignal for auto-cleanup of event listeners   |
+| `this.isAnimationEnabled`      | Whether grid animations are enabled               |
+| `this.animationDuration`       | Animation duration in ms (default: 200)           |
+| `this.gridIcons`               | Merged icon configuration                         |
+| `this.getPlugin(PluginClass)`  | Get another plugin instance                       |
+| `this.emit(eventName, detail)` | Dispatch custom event from grid                   |
+| `this.requestRender()`         | Request full re-render                            |
+| `this.requestAfterRender()`    | Request lightweight style update                  |
+| `this.resolveIcon(name)`       | Get icon value by name                            |
+| `this.setIcon(el, icon)`       | Set icon on element (string or SVG)               |
 
 ### Plugin Hooks (Class Methods)
 
@@ -656,8 +659,8 @@ if (selection) {
 4. **Test isolation** - Clean up DOM with `afterEach(() => { document.body.innerHTML = '' })`
 5. **TypeScript paths** - Use workspace paths (`@toolbox/*`) not relative paths between libs
 6. **Nx target names** - Use inferred targets from plugins (e.g., `test`, `build`, `lint`); check `project.json` for custom targets
-7. **Plugin shadowRoot access** - Always use `ctx.grid as Element` then `gridEl.shadowRoot`, never `(ctx.grid as any).shadowRoot`
-8. **Plugin container access** - Use `shadowRoot.children[0]`, not hardcoded selectors like `.data-grid-container`
+7. **Plugin DOM access** - Use `this.gridElement` for DOM queries; `shadowRoot` is deprecated
+8. **Plugin container access** - Use `this.gridElement.children[0]`, not hardcoded selectors like `.data-grid-container`
 9. **Don't call RAF directly for rendering** - Use `this.#scheduler.requestPhase()` to batch work; exception: scroll hot path
 10. **Don't create `<style>` elements** - Use `registerStyles()` which uses `adoptedStyleSheets` (survives DOM rebuilds)
 11. **Editing is opt-in** - Using `editable: true` or `editor` requires `EditingPlugin`; the grid validates and throws helpful errors

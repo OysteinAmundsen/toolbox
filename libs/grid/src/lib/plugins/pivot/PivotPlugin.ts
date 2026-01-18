@@ -311,7 +311,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     const style = this.animationStyle;
     if (style === false || this.keysToAnimate.size === 0) return;
 
-    const body = this.shadowRoot?.querySelector('.rows');
+    const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
     const animClass = style === 'fade' ? 'tbw-pivot-fade-in' : 'tbw-pivot-slide-in';
@@ -331,14 +331,12 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private renderGrandTotalFooter(): void {
     if (!this.pivotResult) return;
 
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     // Find the scroll container to append the footer
     const container =
-      shadowRoot.querySelector('.tbw-scroll-area') ??
-      shadowRoot.querySelector('.tbw-grid-content') ??
-      shadowRoot.children[0];
+      gridEl.querySelector('.tbw-scroll-area') ?? gridEl.querySelector('.tbw-grid-content') ?? gridEl.children[0];
     if (!container) return;
 
     // Create footer if it doesn't exist

@@ -85,7 +85,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * Clear all drag-related classes from header cells.
    */
   private clearDragClasses(): void {
-    this.shadowRoot?.querySelectorAll('.header-row > .cell').forEach((h) => {
+    this.gridElement?.querySelectorAll('.header-row > .cell').forEach((h) => {
       h.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after');
     });
   }
@@ -121,10 +121,10 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   // #region Hooks
 
   override afterRender(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
-    const headers = shadowRoot.querySelectorAll('.header-row > .cell');
+    const headers = gridEl.querySelectorAll('.header-row > .cell');
 
     headers.forEach((header) => {
       const headerEl = header as HTMLElement;
@@ -322,7 +322,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    */
   private captureHeaderPositions(): Map<string, number> {
     const positions = new Map<string, number>();
-    this.shadowRoot?.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
+    this.gridElement?.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
       const field = cell.getAttribute('data-field');
       if (field) positions.set(field, cell.getBoundingClientRect().left);
     });
@@ -335,12 +335,12 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * @param oldPositions - Header positions captured before DOM change
    */
   private animateFLIP(oldPositions: Map<string, number>): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot || oldPositions.size === 0) return;
+    const gridEl = this.gridElement;
+    if (!gridEl || oldPositions.size === 0) return;
 
     // Compute deltas from header cells (stable reference points)
     const deltas = new Map<string, number>();
-    shadowRoot.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
+    gridEl.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
       const field = cell.getAttribute('data-field');
       if (!field) return;
       const oldLeft = oldPositions.get(field);
@@ -353,7 +353,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     // Set initial transform (First → Last position offset)
     const cells: HTMLElement[] = [];
-    shadowRoot.querySelectorAll('.cell[data-field]').forEach((cell) => {
+    gridEl.querySelectorAll('.cell[data-field]').forEach((cell) => {
       const deltaX = deltas.get(cell.getAttribute('data-field') ?? '');
       if (deltaX !== undefined) {
         const el = cell as HTMLElement;
@@ -365,7 +365,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (cells.length === 0) return;
 
     // Force reflow then animate to final position via CSS transition
-    void (shadowRoot.host as HTMLElement).offsetHeight;
+    void this.gridElement.offsetHeight;
 
     const duration = this.animationDuration;
 
@@ -390,8 +390,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    * Uses CSS keyframes - JS just toggles classes.
    */
   private animateFade(applyChange: () => void): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) {
+    const gridEl = this.gridElement;
+    if (!gridEl) {
       applyChange();
       return;
     }
@@ -404,7 +404,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     // Find which columns changed position
     const movedFields = new Set<string>();
-    shadowRoot.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
+    gridEl.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
       const field = cell.getAttribute('data-field');
       if (!field) return;
       const oldLeft = oldPositions.get(field);
@@ -419,7 +419,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     // Add animation class to moved columns (headers + body cells)
     const cells: HTMLElement[] = [];
-    shadowRoot.querySelectorAll('.cell[data-field]').forEach((cell) => {
+    gridEl.querySelectorAll('.cell[data-field]').forEach((cell) => {
       const field = cell.getAttribute('data-field');
       if (field && movedFields.has(field)) {
         const el = cell as HTMLElement;
@@ -443,13 +443,13 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   private updateColumnOrder(newOrder: string[]): void {
     const animation = this.animationType;
 
-    if (animation === 'flip' && this.shadowRoot) {
+    if (animation === 'flip' && this.gridElement) {
       const oldPositions = this.captureHeaderPositions();
       this.grid.setColumnOrder(newOrder);
       // Wait for the scheduler to process the virtual window update (RAF)
       // before running FLIP animation on the new cells
       requestAnimationFrame(() => {
-        void (this.shadowRoot?.host as HTMLElement)?.offsetHeight;
+        void this.gridElement.offsetHeight;
         this.animateFLIP(oldPositions);
       });
     } else if (animation === 'fade') {

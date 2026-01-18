@@ -18,10 +18,11 @@ describe('DataGridElement', () => {
     expect(grid).toBeInstanceOf(DataGridElement);
   });
 
-  it('should have shadow DOM', () => {
+  it('should return null for shadowRoot (no Shadow DOM)', () => {
     const grid = document.createElement('tbw-grid') as DataGridElement;
     document.body.appendChild(grid);
-    expect(grid.shadowRoot).toBeTruthy();
+    // Grid uses light DOM, so shadowRoot should be null
+    expect(grid.shadowRoot).toBeNull();
   });
 
   it('should resolve ready() promise when connected', async () => {

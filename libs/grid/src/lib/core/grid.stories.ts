@@ -104,10 +104,7 @@ interface GridArgs {
 type Story = StoryObj<GridArgs>;
 
 // Column definitions factory
-function buildColumnDefs(
-  visibleColumns: ColumnKey[],
-  opts: { sortable: boolean; resizable: boolean; },
-): ColumnConfig[] {
+function buildColumnDefs(visibleColumns: ColumnKey[], opts: { sortable: boolean; resizable: boolean }): ColumnConfig[] {
   const columnDefs: Record<ColumnKey, ColumnConfig> = {
     id: { field: 'id', header: 'ID', type: 'number', sortable: opts.sortable, resizable: opts.resizable },
     name: {
@@ -116,7 +113,7 @@ function buildColumnDefs(
       sortable: opts.sortable,
       resizable: opts.resizable,
     },
-    active: { field: 'active', header: 'Active', type: 'boolean', sortable: opts.sortable},
+    active: { field: 'active', header: 'Active', type: 'boolean', sortable: opts.sortable },
     score: {
       field: 'score',
       header: 'Score',
@@ -679,7 +676,7 @@ grid.resetColumnState();
 // Shell-specific columns
 const shellColumns: ColumnConfig[] = [
   { field: 'id', header: 'ID', type: 'number', width: 80 },
-  { field: 'name', header: 'Name', width: 150 },
+  { field: 'name', header: 'Name', minWidth: 150 },
   { field: 'department', header: 'Department', width: 150 },
   { field: 'salary', header: 'Salary', type: 'number', width: 120 },
   { field: 'active', header: 'Active', type: 'boolean', width: 80 },
@@ -954,12 +951,12 @@ export const ShellLightDOMConfig: StoryObj = {
 
 <script type="module">
 import '@toolbox-web/grid';
-import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
 const grid = document.querySelector('tbw-grid');
 grid.columns = columns;
 grid.rows = rows;
-grid.gridConfig = { plugins: [new VisibilityPlugin()] };
+// Shell renders automatically from light DOM - no plugins needed!
+// Add plugins like VisibilityPlugin if you want a tool panel sidebar.
 </script>
 `,
         language: 'html',
@@ -982,10 +979,8 @@ grid.gridConfig = { plugins: [new VisibilityPlugin()] };
     grid.columns = shellColumns;
     grid.rows = generateShellRows(20);
 
-    // Need to register at least one panel to show shell (or enable visibility plugin)
-    grid.gridConfig = {
-      plugins: [new VisibilityPlugin()],
-    };
+    // Shell renders automatically when <tbw-grid-header> is present in light DOM.
+    // No plugins needed - the shell displays header, title, and content without tool panels.
 
     return grid;
   },
@@ -1180,7 +1175,6 @@ export const ShellToolbarButtons: StoryObj = {
 
 <script type="module">
 import '@toolbox-web/grid';
-import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
 const grid = document.querySelector('tbw-grid');
 
@@ -1190,10 +1184,6 @@ exportBtn.addEventListener('click', () => alert('Export!'));
 
 const printBtn = grid.querySelector('[title="Print"]');
 printBtn.addEventListener('click', () => window.print());
-
-grid.gridConfig = {
-  plugins: [new VisibilityPlugin()],
-};
 
 grid.columns = [...];
 grid.rows = [...];
@@ -1237,10 +1227,6 @@ grid.rows = [...];
     toolButtons.appendChild(exportBtn);
     toolButtons.appendChild(printBtn);
     grid.appendChild(toolButtons);
-
-    grid.gridConfig = {
-      plugins: [new VisibilityPlugin()],
-    };
 
     grid.columns = shellColumns;
     grid.rows = generateShellRows(20);

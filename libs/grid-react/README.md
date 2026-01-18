@@ -385,7 +385,7 @@ import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 
 ## Custom Styles
 
-Inject custom CSS into the grid's shadow DOM:
+Inject custom CSS into the grid:
 
 ```tsx
 <DataGrid
@@ -435,17 +435,17 @@ import type {
 
 ### DataGrid Props
 
-| Prop           | Type                                       | Description                   |
-| -------------- | ------------------------------------------ | ----------------------------- |
-| `rows`         | `TRow[]`                                   | Row data to display           |
-| `columns`      | `ColumnConfig[]`                           | Column definitions            |
-| `gridConfig`   | `GridConfig`                               | Full configuration object     |
-| `fitMode`      | `'stretch' \| 'fit-columns' \| 'auto-fit'` | Column sizing mode            |
-| `editOn`       | `'click' \| 'dblclick' \| 'none'`          | Edit trigger                  |
-| `customStyles` | `string`                                   | CSS to inject into shadow DOM |
-| `onRowsChange` | `(rows: TRow[]) => void`                   | Rows changed callback         |
-| `onCellEdit`   | `(event: CustomEvent) => void`             | Cell edited callback          |
-| `onRowClick`   | `(event: CustomEvent) => void`             | Row clicked callback          |
+| Prop           | Type                                       | Description               |
+| -------------- | ------------------------------------------ | ------------------------- |
+| `rows`         | `TRow[]`                                   | Row data to display       |
+| `columns`      | `ColumnConfig[]`                           | Column definitions        |
+| `gridConfig`   | `GridConfig`                               | Full configuration object |
+| `fitMode`      | `'stretch' \| 'fit-columns' \| 'auto-fit'` | Column sizing mode        |
+| `editOn`       | `'click' \| 'dblclick' \| 'none'`          | Edit trigger              |
+| `customStyles` | `string`                                   | CSS to inject into grid   |
+| `onRowsChange` | `(rows: TRow[]) => void`                   | Rows changed callback     |
+| `onCellEdit`   | `(event: CustomEvent) => void`             | Cell edited callback      |
+| `onRowClick`   | `(event: CustomEvent) => void`             | Row clicked callback      |
 
 ### GridColumn Props
 

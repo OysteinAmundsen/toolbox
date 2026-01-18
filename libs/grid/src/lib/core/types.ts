@@ -70,7 +70,11 @@ export interface PublicGrid<T = any> {
  * - `__doubleUnderscore` = deeply internal members - private outside core, only for internal functions.
  */
 export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
-  shadowRoot: ShadowRoot | null;
+  // Element methods available because DataGridElement extends HTMLElement
+  querySelector<K extends keyof HTMLElementTagNameMap>(selectors: K): HTMLElementTagNameMap[K] | null;
+  querySelector<E extends Element = Element>(selectors: string): E | null;
+  querySelectorAll<K extends keyof HTMLElementTagNameMap>(selectors: K): NodeListOf<HTMLElementTagNameMap[K]>;
+  querySelectorAll<E extends Element = Element>(selectors: string): NodeListOf<E>;
   _rows: T[];
   _columns: ColumnInternal<T>[];
   /** Visible columns only (excludes hidden). Use for rendering. */

@@ -9,7 +9,7 @@ employee-management/
 ├── shared/                              # Shared code between demos
 │   ├── types.ts                         # Data model interfaces
 │   ├── data.ts                          # Data generators and constants
-│   ├── styles.ts                        # Shadow DOM custom styles
+│   ├── styles.ts                        # Custom styles
 │   └── index.ts                         # Barrel exports
 ├── vanilla/                             # Pure TypeScript/Vite demo
 │   ├── index.html                       # Entry point
@@ -38,13 +38,13 @@ employee-management/
 
 ### Shared Code (`shared/`)
 
-All three demos share the same data model, generators, and shadow DOM styles:
+All three demos share the same data model, generators, and custom styles:
 
 | File                            | Description                                                        |
 | ------------------------------- | ------------------------------------------------------------------ |
 | [types.ts](./shared/types.ts)   | Data model interfaces (`Employee`, `Project`, `PerformanceReview`) |
 | [data.ts](./shared/data.ts)     | Data generators and constants (`generateEmployees`, `DEPARTMENTS`) |
-| [styles.ts](./shared/styles.ts) | Shadow DOM styles for custom editors/renderers                     |
+| [styles.ts](./shared/styles.ts) | Custom styles for editors/renderers                                |
 | [index.ts](./shared/index.ts)   | Barrel exports                                                     |
 
 ## 🚀 Running the Demos
@@ -209,7 +209,7 @@ All demos share styles in [employee-management.css](./employee-management.css) u
 .stat-card { ... }
 ```
 
-Custom styles are injected into the grid's shadow DOM via `customStyles` (React), `[customStyles]` (Angular), or `registerStyles()` (Vanilla).
+Custom styles are injected into the grid via `customStyles` (React), `[customStyles]` (Angular), or `registerStyles()` (Vanilla).
 
 ## 🔗 View in Storybook
 

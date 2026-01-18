@@ -266,7 +266,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     const style = this.animationStyle;
     if (style === false || this.keysToAnimate.size === 0) return;
 
-    const body = this.shadowRoot?.querySelector('.rows');
+    const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
     const animClass = style === 'fade' ? 'tbw-group-fade-in' : 'tbw-group-slide-in';
@@ -348,7 +348,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     const groupRows = row.__groupRows ?? [];
 
     // Get grid template from the grid element
-    const bodyEl = this.shadowRoot?.querySelector('.body') as HTMLElement | null;
+    const bodyEl = this.gridElement?.querySelector('.body') as HTMLElement | null;
     const gridTemplate = bodyEl?.style.gridTemplateColumns || '';
     if (gridTemplate) {
       rowEl.style.display = 'grid';

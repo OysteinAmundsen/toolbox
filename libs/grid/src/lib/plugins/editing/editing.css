@@ -1,8 +1,9 @@
 /**
  * Editing Plugin Styles
  *
- * These styles are injected into the grid's shadow DOM when the EditingPlugin is loaded.
+ * These styles are injected into the document when the EditingPlugin is loaded.
  * CSS custom properties use fallbacks to core grid variables for consistency.
+ * Uses CSS nesting for scoping to tbw-grid elements.
  */
 
 /* ============================================================================
@@ -11,7 +12,7 @@
    These are defined here so they can be overridden by consumers.
    They reference core grid variables with sensible defaults.
    ============================================================================ */
-:host {
+tbw-grid {
   /* Editing cell/row backgrounds */
   --tbw-editing-bg: var(--tbw-color-selection);
   --tbw-editing-row-bg: var(--tbw-editing-bg);
@@ -24,62 +25,62 @@
   /* Row outline when editing */
   --tbw-editing-row-outline-color: var(--tbw-color-accent);
   --tbw-editing-row-outline-width: 1px;
-}
 
-/* ============================================================================
-   Row Editing State
-   ============================================================================ */
+  /* ============================================================================
+     Row Editing State
+     ============================================================================ */
 
-/* Highlight entire row when any cell is being edited */
-:host .data-grid-row:has(.editing) {
-  background: var(--tbw-editing-row-bg);
-  outline: var(--tbw-editing-row-outline-width) solid var(--tbw-editing-row-outline-color);
-  outline-offset: calc(-1 * var(--tbw-editing-row-outline-width));
-}
+  /* Highlight entire row when any cell is being edited */
+  .data-grid-row:has(.editing) {
+    background: var(--tbw-editing-row-bg);
+    outline: var(--tbw-editing-row-outline-width) solid var(--tbw-editing-row-outline-color);
+    outline-offset: calc(-1 * var(--tbw-editing-row-outline-width));
+  }
 
-/* ============================================================================
-   Cell Editing State
-   ============================================================================ */
+  /* ============================================================================
+     Cell Editing State
+     ============================================================================ */
 
-/* Cell in edit mode */
-:host .data-grid-row > .cell.editing {
-  overflow: hidden;
-  padding: 0;
-  /* Override block to flex for editing inputs */
-  display: flex;
-  /* Match the height that non-editing cells naturally have from line-height + padding */
-  min-height: calc(var(--tbw-row-height) + 2px);
-  align-items: center;
-  justify-content: center;
-}
+  /* Cell in edit mode */
+  .data-grid-row > .cell.editing {
+    overflow: hidden;
+    padding: 0;
+    /* Override block to flex for editing inputs */
+    display: flex;
+    /* Match the height that non-editing cells naturally have from line-height + padding */
+    min-height: calc(var(--tbw-row-height) + 2px);
+    align-items: center;
+    justify-content: center;
+  }
 
-/* Standard form inputs inside editing cells */
-:host .data-grid-row > .cell.editing input:not([type='checkbox']),
-:host .data-grid-row > .cell.editing select,
-:host .data-grid-row > .cell.editing textarea {
-  width: 100%;
-  height: 100%;
-  flex: 1 1 auto;
-  min-width: 0;
-  border: var(--tbw-editing-border);
-  padding: var(--tbw-padding-editing-input);
-  font-size: var(--tbw-font-size-editor);
-}
+  /* Standard form inputs inside editing cells */
+  .data-grid-row > .cell.editing input:not([type='checkbox']),
+  .data-grid-row > .cell.editing select,
+  .data-grid-row > .cell.editing textarea {
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    border: var(--tbw-editing-border);
+    padding: var(--tbw-padding-editing-input);
+    font-size: var(--tbw-font-size-editor);
+  }
 
-/* ============================================================================
-   Editor Host
-   ============================================================================ */
+  /* ============================================================================
+     Editor Host
+     ============================================================================ */
 
-/* Editor host wrapper uses display:contents to let editor fill cell */
-:host .tbw-editor-host {
-  display: contents;
-}
+  /* Editor host wrapper uses display:contents to let editor fill cell */
+  .tbw-editor-host {
+    display: contents;
+  }
 
-/* ============================================================================
-   Changed Row Indicator
-   ============================================================================ */
+  /* ============================================================================
+     Changed Row Indicator
+     ============================================================================ */
 
-/* Visual indicator for rows that have been modified */
-:host .data-grid-row.changed {
-  /* Could add a left border or background tint here */
+  /* Visual indicator for rows that have been modified */
+  .data-grid-row.changed {
+    /* Could add a left border or background tint here */
+  }
 }

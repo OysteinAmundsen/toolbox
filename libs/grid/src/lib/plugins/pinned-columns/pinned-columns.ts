@@ -106,14 +106,12 @@ export function calculateRightStickyOffsets(
  * Apply sticky offsets to header and body cells.
  * This modifies the DOM elements in place.
  *
- * @param host - The grid host element
+ * @param host - The grid host element (render root for DOM queries)
  * @param columns - Array of column configurations
  */
 export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
-  const shadowRoot = host.shadowRoot;
-  if (!shadowRoot) return;
-
-  const headerCells = Array.from(shadowRoot.querySelectorAll('.header-row .cell')) as HTMLElement[];
+  // With light DOM, query the host element directly
+  const headerCells = Array.from(host.querySelectorAll('.header-row .cell')) as HTMLElement[];
   if (!headerCells.length) return;
 
   // Build column index map for matching body cells (which use data-col, not data-field)
@@ -134,7 +132,7 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
         cell.style.left = left + 'px';
         // Body cells use data-col (column index), not data-field
         if (colIndex !== undefined) {
-          shadowRoot.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
+          host.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
             el.classList.add('sticky-left');
             (el as HTMLElement).style.position = 'sticky';
             (el as HTMLElement).style.left = left + 'px';
@@ -157,7 +155,7 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
         cell.style.right = right + 'px';
         // Body cells use data-col (column index), not data-field
         if (colIndex !== undefined) {
-          shadowRoot.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
+          host.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
             el.classList.add('sticky-right');
             (el as HTMLElement).style.position = 'sticky';
             (el as HTMLElement).style.right = right + 'px';
@@ -172,13 +170,11 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
 /**
  * Clear sticky positioning from all cells.
  *
- * @param host - The grid host element
+ * @param host - The grid host element (render root for DOM queries)
  */
 export function clearStickyOffsets(host: HTMLElement): void {
-  const shadowRoot = host.shadowRoot;
-  if (!shadowRoot) return;
-
-  const cells = shadowRoot.querySelectorAll('.sticky-left, .sticky-right');
+  // With light DOM, query the host element directly
+  const cells = host.querySelectorAll('.sticky-left, .sticky-right');
   cells.forEach((cell) => {
     cell.classList.remove('sticky-left', 'sticky-right');
     (cell as HTMLElement).style.position = '';

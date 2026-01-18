@@ -5,10 +5,17 @@
   "projectType": "library",
   "tags": ["type:lib", "scope:grid"],
   "targets": {
+    "typecheck": {
+      "command": "bunx tsc -p libs/grid/tsconfig.lib.json --noEmit",
+      "options": {
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "build": {
       "executor": "@nx/vite:build",
       "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
+      "dependsOn": ["typecheck"],
       "options": {
         "outputPath": "dist/libs/grid",
         "emptyOutDir": true

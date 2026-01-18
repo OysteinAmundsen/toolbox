@@ -17,7 +17,7 @@ describe('tbw-grid accessibility', () => {
     document.body.appendChild(grid);
     await nextFrame();
     // role="grid" is on inner .rows-body element (not host) to keep shell chrome outside grid semantics
-    const innerGrid = grid.shadowRoot!.querySelector('.rows-body');
+    const innerGrid = grid.querySelector('.rows-body');
     expect(innerGrid?.getAttribute('role')).toBe('grid');
     // virtualization may update counts after frame
     await nextFrame();
@@ -31,7 +31,7 @@ describe('tbw-grid accessibility', () => {
     grid.columns = [{ field: 'id' }];
     document.body.appendChild(grid);
     await nextFrame();
-    const headerCell = grid.shadowRoot!.querySelector('.header-row .cell');
+    const headerCell = grid.querySelector('.header-row .cell');
     expect(headerCell?.getAttribute('role')).toBe('columnheader');
   });
 
@@ -54,7 +54,7 @@ describe('tbw-grid accessibility', () => {
     const waitForHeader = async (): Promise<HTMLElement> => {
       for (let i = 0; i < 12; i++) {
         await nextFrame();
-        const h = grid.shadowRoot!.querySelector('.header-row .cell.sortable[data-field="id"]') as HTMLElement | null;
+        const h = grid.querySelector('.header-row .cell.sortable[data-field="id"]') as HTMLElement | null;
         if (h) return h;
       }
       throw new Error('Header cell not rendered in time');
@@ -96,7 +96,7 @@ describe('tbw-grid accessibility', () => {
     await grid.ready?.();
     await nextFrame();
     await nextFrame();
-    const cell = grid.shadowRoot!.querySelector('.data-grid-row .cell') as HTMLElement;
+    const cell = grid.querySelector('.data-grid-row .cell') as HTMLElement;
     // Checkbox semantics are on inner span (cell remains gridcell for ARIA compliance)
     const checkboxEl = cell.querySelector('[role="checkbox"]') as HTMLElement | null;
     expect(checkboxEl).toBeTruthy();
@@ -124,7 +124,7 @@ describe('tbw-grid accessibility', () => {
     grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     await nextFrame();
     await nextFrame();
-    const selected = grid.shadowRoot!.querySelector('[aria-selected="true"]');
+    const selected = grid.querySelector('[aria-selected="true"]');
     expect(selected).toBeTruthy();
   });
 
@@ -135,7 +135,7 @@ describe('tbw-grid accessibility', () => {
     document.body.appendChild(grid);
     await grid.ready?.();
     await nextFrame();
-    const innerGrid = grid.shadowRoot!.querySelector('.rows-body');
+    const innerGrid = grid.querySelector('.rows-body');
     // Static role from template is always present
     expect(innerGrid?.getAttribute('role')).toBe('grid');
     // Counts are 0 for empty grid
@@ -150,7 +150,7 @@ describe('tbw-grid accessibility', () => {
     document.body.appendChild(grid);
     await grid.ready?.();
     await nextFrame();
-    const innerGrid = grid.shadowRoot!.querySelector('.rows-body');
+    const innerGrid = grid.querySelector('.rows-body');
     // Static role always present
     expect(innerGrid?.getAttribute('role')).toBe('grid');
     expect(innerGrid?.getAttribute('aria-rowcount')).toBe('1');

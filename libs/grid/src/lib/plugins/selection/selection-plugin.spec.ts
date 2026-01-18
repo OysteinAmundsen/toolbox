@@ -13,14 +13,17 @@ describe('SelectionPlugin', () => {
   });
 
   const createMockGrid = (rows: any[] = [], columns: any[] = []) => {
-    const shadowRoot = document.createElement('div') as unknown as ShadowRoot;
+    // Create a real DOM element that plugins can query
+    const grid = document.createElement('div');
+    grid.className = 'tbw-grid';
+
     // Add a container element
     const container = document.createElement('div');
     container.className = 'tbw-grid-root';
-    shadowRoot.appendChild(container);
+    grid.appendChild(container);
 
-    return {
-      shadowRoot,
+    // Add mock properties and methods
+    Object.assign(grid, {
       rows,
       columns,
       gridConfig: {},
@@ -32,9 +35,13 @@ describe('SelectionPlugin', () => {
       forceLayout: vi.fn().mockResolvedValue(undefined),
       getPlugin: vi.fn(),
       getPluginByName: vi.fn(),
-      dispatchEvent: vi.fn(),
       setAttribute: vi.fn(),
-    } as any;
+    });
+
+    // Override dispatchEvent to track calls
+    grid.dispatchEvent = vi.fn();
+
+    return grid as any;
   };
 
   describe('lifecycle', () => {
@@ -732,7 +739,8 @@ describe('SelectionPlugin', () => {
       plugin['isDragging'] = true;
       plugin.afterRender();
 
-      const container = mockGrid.shadowRoot.children[0];
+      // With light DOM, query the grid directly
+      const container = mockGrid.children[0];
       expect(container.classList.contains('selecting')).toBe(true);
     });
   });

@@ -10,7 +10,7 @@ import type { AggregationRowConfig, PinnedRowsPanel } from './types';
  * Pure function tests are in pinned-rows.spec.ts
  */
 describe('PinnedRowsPlugin', () => {
-  // Mock grid element with shadow DOM
+  // Mock grid element (light DOM)
   function createMockGrid(
     opts: {
       rows?: unknown[];
@@ -21,9 +21,8 @@ describe('PinnedRowsPlugin', () => {
     } = {},
   ): HTMLElement {
     const grid = document.createElement('div');
-    const shadowRoot = grid.attachShadow({ mode: 'open' });
 
-    // Create grid structure
+    // Create grid structure (light DOM - directly in element)
     const container = document.createElement('div');
     container.className = 'tbw-grid-container';
 
@@ -35,7 +34,7 @@ describe('PinnedRowsPlugin', () => {
 
     scrollArea.appendChild(header);
     container.appendChild(scrollArea);
-    shadowRoot.appendChild(container);
+    grid.appendChild(container);
 
     // Attach mock properties
     Object.defineProperty(grid, 'rows', { get: () => opts.rows ?? [], configurable: true });
@@ -112,13 +111,12 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      expect(shadowRoot?.querySelector('.tbw-footer')).not.toBeNull();
+      expect(grid.querySelector('.tbw-footer')).not.toBeNull();
 
       plugin.detach();
 
-      expect(shadowRoot?.querySelector('.tbw-footer')).toBeNull();
-      expect(shadowRoot?.querySelector('.tbw-pinned-rows')).toBeNull();
+      expect(grid.querySelector('.tbw-footer')).toBeNull();
+      expect(grid.querySelector('.tbw-pinned-rows')).toBeNull();
     });
   });
 
@@ -130,8 +128,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const footer = shadowRoot?.querySelector('.tbw-footer');
+      const footer = grid.querySelector('.tbw-footer');
       expect(footer).not.toBeNull();
       expect(footer?.querySelector('.tbw-pinned-rows')).not.toBeNull();
     });
@@ -143,8 +140,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const scrollArea = shadowRoot?.querySelector('.tbw-scroll-area');
+      const scrollArea = grid.querySelector('.tbw-scroll-area');
       expect(scrollArea?.firstElementChild?.classList.contains('tbw-pinned-rows')).toBe(true);
     });
 
@@ -155,8 +151,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const rowCount = shadowRoot?.querySelector('.tbw-status-panel-row-count');
+      const rowCount = grid.querySelector('.tbw-status-panel-row-count');
       expect(rowCount?.textContent).toBe('Total: 3 rows');
     });
 
@@ -170,8 +165,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const selectedCount = shadowRoot?.querySelector('.tbw-status-panel-selected-count');
+      const selectedCount = grid.querySelector('.tbw-status-panel-selected-count');
       expect(selectedCount?.textContent).toBe('Selected: 2');
     });
 
@@ -185,8 +179,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const filteredCount = shadowRoot?.querySelector('.tbw-status-panel-filtered-count');
+      const filteredCount = grid.querySelector('.tbw-status-panel-filtered-count');
       expect(filteredCount?.textContent).toBe('Filtered: 1');
     });
 
@@ -200,8 +193,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const filteredCount = shadowRoot?.querySelector('.tbw-status-panel-filtered-count');
+      const filteredCount = grid.querySelector('.tbw-status-panel-filtered-count');
       expect(filteredCount).toBeNull();
     });
 
@@ -219,8 +211,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const topContainer = shadowRoot?.querySelector('.tbw-aggregation-rows-top');
+      const topContainer = grid.querySelector('.tbw-aggregation-rows-top');
       expect(topContainer).not.toBeNull();
       expect(topContainer?.querySelector('[data-aggregation-id="header-row"]')).not.toBeNull();
     });
@@ -239,8 +230,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      const footer = shadowRoot?.querySelector('.tbw-footer');
+      const footer = grid.querySelector('.tbw-footer');
       const aggRow = footer?.querySelector('[data-aggregation-id="totals"]');
       expect(aggRow).not.toBeNull();
       expect(aggRow?.querySelector('[data-field="amount"]')?.textContent).toBe('300');
@@ -253,15 +243,13 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      let shadowRoot = grid.shadowRoot;
-      expect(shadowRoot?.querySelector('.tbw-status-panel-row-count')?.textContent).toBe('Total: 1 rows');
+      expect(grid.querySelector('.tbw-status-panel-row-count')?.textContent).toBe('Total: 1 rows');
 
       // Simulate row change
       Object.defineProperty(grid, 'rows', { get: () => [{ id: 1 }, { id: 2 }, { id: 3 }] });
       plugin.afterRender();
 
-      shadowRoot = grid.shadowRoot;
-      expect(shadowRoot?.querySelector('.tbw-status-panel-row-count')?.textContent).toBe('Total: 3 rows');
+      expect(grid.querySelector('.tbw-status-panel-row-count')?.textContent).toBe('Total: 3 rows');
     });
 
     it('should clean up top aggregation when removed', () => {
@@ -278,13 +266,13 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      expect(grid.shadowRoot?.querySelector('.tbw-aggregation-rows-top')).not.toBeNull();
+      expect(grid.querySelector('.tbw-aggregation-rows-top')).not.toBeNull();
 
       // Remove aggregation rows
       plugin.config.aggregationRows = [];
       plugin.afterRender();
 
-      expect(grid.shadowRoot?.querySelector('.tbw-aggregation-rows-top')).toBeNull();
+      expect(grid.querySelector('.tbw-aggregation-rows-top')).toBeNull();
     });
 
     it('should not render footer when no content', () => {
@@ -298,8 +286,7 @@ describe('PinnedRowsPlugin', () => {
       plugin.attach(grid);
       plugin.afterRender();
 
-      const shadowRoot = grid.shadowRoot;
-      expect(shadowRoot?.querySelector('.tbw-footer')).toBeNull();
+      expect(grid.querySelector('.tbw-footer')).toBeNull();
     });
   });
 
@@ -482,9 +469,9 @@ describe('PinnedRowsPlugin', () => {
   });
 
   describe('edge cases', () => {
-    it('should handle missing shadow root gracefully', () => {
+    it('should handle missing container gracefully', () => {
       const plugin = new PinnedRowsPlugin({});
-      const grid = document.createElement('div'); // No shadow root
+      const grid = document.createElement('div'); // No container
 
       plugin.attach(grid);
 
@@ -511,8 +498,7 @@ describe('PinnedRowsPlugin', () => {
     it('should handle empty container', () => {
       const plugin = new PinnedRowsPlugin({});
       const grid = document.createElement('div');
-      const shadowRoot = grid.attachShadow({ mode: 'open' });
-      // Empty shadow root - no container
+      // Empty element - no container
 
       plugin.attach(grid);
 
@@ -527,7 +513,7 @@ describe('PinnedRowsPlugin', () => {
       pluginTop.attach(grid1);
       pluginTop.afterRender();
 
-      const scrollArea1 = grid1.shadowRoot?.querySelector('.tbw-scroll-area');
+      const scrollArea1 = grid1.querySelector('.tbw-scroll-area');
       expect(scrollArea1?.querySelector('.tbw-pinned-rows')).not.toBeNull();
 
       // Test rendering at bottom with fresh plugin
@@ -537,7 +523,7 @@ describe('PinnedRowsPlugin', () => {
       pluginBottom.attach(grid2);
       pluginBottom.afterRender();
 
-      expect(grid2.shadowRoot?.querySelector('.tbw-footer .tbw-pinned-rows')).not.toBeNull();
+      expect(grid2.querySelector('.tbw-footer .tbw-pinned-rows')).not.toBeNull();
     });
   });
 

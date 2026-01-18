@@ -66,13 +66,13 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   }
 
   override afterRender(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     const showIndex = this.config.showSortIndex !== false;
 
     // Update all sortable header cells with sort indicators
-    const headerCells = shadowRoot.querySelectorAll('.header-row .cell[data-field]');
+    const headerCells = gridEl.querySelectorAll('.header-row .cell[data-field]');
     headerCells.forEach((cell) => {
       const field = cell.getAttribute('data-field');
       if (!field) return;

@@ -383,18 +383,18 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * Shared by afterRender and onScrollRender.
    */
   #applySelectionClasses(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     const { mode } = this.config;
 
     // Clear all selection classes first
-    const allCells = shadowRoot.querySelectorAll('.cell');
+    const allCells = gridEl.querySelectorAll('.cell');
     allCells.forEach((cell) => {
       cell.classList.remove('selected', 'top', 'bottom', 'first', 'last');
     });
 
-    const allRows = shadowRoot.querySelectorAll('.data-grid-row');
+    const allRows = gridEl.querySelectorAll('.data-grid-row');
     allRows.forEach((row) => {
       row.classList.remove('selected', 'row-focus');
     });
@@ -402,7 +402,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // ROW MODE: Add row-focus class to selected rows, disable cell-focus
     if (mode === 'row') {
       // In row mode, disable ALL cell-focus styling - row selection takes precedence
-      clearCellFocus(shadowRoot);
+      clearCellFocus(gridEl);
 
       allRows.forEach((row) => {
         const firstCell = row.querySelector('.cell[data-row]');
@@ -416,7 +416,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // RANGE MODE: Add selected and edge classes to cells
     if (mode === 'range' && this.ranges.length > 0) {
       // Clear all cell-focus first - selection plugin manages focus styling in range mode
-      clearCellFocus(shadowRoot);
+      clearCellFocus(gridEl);
 
       const normalized = this.activeRange ? normalizeRange(this.activeRange) : null;
 
@@ -424,7 +424,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       const firstDataColIndex = this.columns.findIndex((col) => !isUtilityColumn(col));
       const lastDataColIndex = this.columns.length - 1; // Last column is always data
 
-      const cells = shadowRoot.querySelectorAll('.cell[data-row][data-col]');
+      const cells = gridEl.querySelectorAll('.cell[data-row][data-col]');
       cells.forEach((cell) => {
         const rowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
         const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
@@ -456,15 +456,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // CELL MODE: Remove cell-focus when selection plugin handles focus
     if (mode === 'cell' && this.selectedCell) {
       // Remove all cell-focus - the selection plugin manages focus styling
-      clearCellFocus(shadowRoot);
+      clearCellFocus(gridEl);
     }
   }
 
   override afterRender(): void {
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
-    const container = shadowRoot.children[0];
+    const container = gridEl.children[0];
     const { mode } = this.config;
 
     // Process pending keyboard navigation update (range mode)

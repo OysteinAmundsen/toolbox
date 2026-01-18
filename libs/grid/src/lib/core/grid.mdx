@@ -1,6 +1,5 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
 import * as GridStories from './grid.stories';
-import * as EditingStories from '../plugins/editing/editing.stories';
 
 <Meta of={GridStories} />
 
@@ -65,12 +64,6 @@ The grid can automatically infer column types from your data.
 Define columns declaratively in HTML using `<tbw-grid-column>` elements.
 
 <Canvas of={GridStories.LightDOMColumns} withToolbar />
-
-### Basic Editing
-
-Enable inline cell editing with the EditingPlugin. Double-click a cell to edit.
-
-<Canvas of={EditingStories.BasicEditing} withToolbar />
 
 ### Custom Formatters
 
@@ -142,30 +135,39 @@ The grid includes a shell wrapper for toolbar, tool panels, and status bar.
 
 ### Basic Shell
 
+The shell provides a wrapper with toolbar, title, and optional tool panel sidebar. Use the controls to explore different configurations.
+
 <Canvas of={GridStories.ShellBasic} withToolbar />
 
 ### Light DOM Shell Configuration
+
+Configure the shell declaratively using `<tbw-grid-header>` elements. Set the title via attribute and add custom content with `<tbw-grid-header-content>`.
 
 <Canvas of={GridStories.ShellLightDOMConfig} withToolbar />
 
 ### Multiple Tool Panels
 
+Multiple plugins can register tool panels. The toolbar shows toggle buttons for each panel; clicking one opens it while closing any other open panel.
+
 <Canvas of={GridStories.ShellMultiplePanels} withToolbar />
 
 ### Toolbar Buttons
+
+Add custom toolbar buttons using the `<tbw-grid-tool-buttons>` container. Buttons are automatically styled and positioned in the toolbar.
 
 <Canvas of={GridStories.ShellToolbarButtons} withToolbar />
 
 ## Events
 
-| Event                 | Detail                                | Description         |
-| --------------------- | ------------------------------------- | ------------------- |
-| `tbw-cell-click`      | `{ row, column, rowIndex }`           | Cell clicked        |
-| `tbw-cell-dblclick`   | `{ row, column, rowIndex }`           | Cell double-clicked |
-| `tbw-cell-edit-start` | `{ row, column, value }`              | Edit started        |
-| `tbw-cell-edit-end`   | `{ row, column, oldValue, newValue }` | Edit completed      |
-| `tbw-sort-change`     | `{ field, direction }`                | Sort changed        |
-| `tbw-column-resize`   | `{ field, width }`                    | Column resized      |
+| Event               | Detail                                       | Description                                     |
+| ------------------- | -------------------------------------------- | ----------------------------------------------- |
+| `cell-commit`       | `{ row, rowIndex, field, oldValue, newValue }` | Cell value committed (requires EditingPlugin)   |
+| `row-commit`        | `{ row, rowIndex, changes }`                 | Row committed after bulk edit                   |
+| `changed-rows-reset`| `{ changedRows }`                            | Changed rows tracking reset                     |
+| `sort-change`       | `{ field, direction }`                       | Sort state changed (0=none, 1=asc, -1=desc)     |
+| `column-resize`     | `{ field, width }`                           | Column width changed                            |
+| `activate-cell`     | `{ rowIndex, colIndex }`                     | Cell activated via keyboard                     |
+| `column-state-change` | `GridColumnState`                          | Column state (widths, order, visibility) changed |
 
 ## Methods
 

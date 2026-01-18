@@ -10,7 +10,7 @@ It matches the visual design and functionality of the Angular demo.
 - **Editor prop** with React components for custom cell editors
 - **Master-detail** with expandable rows using React components
 - **Multiple plugins** (filtering, sorting, selection, export, etc.)
-- **customStyles** injection for shadow DOM styling
+- **customStyles** injection for custom styling
 
 ## The React Way
 
@@ -19,7 +19,7 @@ This demo follows React idioms:
 1. **Render Props Pattern** - Custom cell renderers use the render props pattern via `GridColumn` children
 2. **Component-based Editors** - Custom editors are React components with props for commit/cancel
 3. **Light DOM** - `GridColumn` elements are rendered in the light DOM, just like Angular's `tbw-grid-column`
-4. **Shared Styles** - Uses `customStyles` prop to inject shared demo-styles.css into shadow DOM
+4. **Shared Styles** - Uses `customStyles` prop to inject shared demo-styles.css into the grid
 
 ## Quick Start
 
@@ -120,15 +120,15 @@ function StarRatingEditor({ value, onCommit, onCancel }) {
 }
 ```
 
-### Shadow DOM Styling
+### Custom Styling
 
 ```tsx
-import { shadowDomStyles } from '@demo/shared/styles';
+import { customStyles } from '@demo/shared/styles';
 
 <DataGrid
   rows={rows}
   gridConfig={config}
-  customStyles={shadowDomStyles}  // Injects CSS into grid's shadow DOM
+  customStyles={customStyles}  // Injects CSS into grid
 >
 ```
 
@@ -139,7 +139,7 @@ import { shadowDomStyles } from '@demo/shared/styles';
 | Custom Renderers   | `<ng-template let-value>`        | Render props `{(ctx) => ...}` |
 | Custom Editors     | `(commit)="commit.emit($event)"` | `onCommit={ctx.commit}`       |
 | Light DOM Elements | `<tbw-grid-column>`              | `<GridColumn>`                |
-| Shadow DOM Styles  | `[customStyles]`                 | `customStyles={}`             |
+| Custom Styles      | `[customStyles]`                 | `customStyles={}`             |
 | Framework Adapter  | `AngularGridAdapter`             | `ReactGridAdapter`            |
 
 Both demos share:

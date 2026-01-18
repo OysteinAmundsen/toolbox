@@ -147,12 +147,11 @@ describe('utils', () => {
       expect(focused.length).toBe(0);
     });
 
-    it('should work with shadowRoot', () => {
+    it('should work with element root', () => {
       const host = document.createElement('div');
-      const shadow = host.attachShadow({ mode: 'open' });
-      shadow.innerHTML = `<div class="cell cell-focus"></div>`;
-      clearCellFocus(shadow);
-      expect(shadow.querySelectorAll('.cell-focus').length).toBe(0);
+      host.innerHTML = `<div class="cell cell-focus"></div>`;
+      clearCellFocus(host);
+      expect(host.querySelectorAll('.cell-focus').length).toBe(0);
     });
   });
 });

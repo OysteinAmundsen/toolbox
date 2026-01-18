@@ -65,7 +65,7 @@ bun run test                 # Test all libraries
 ### Design Philosophy
 
 - **Zero framework lock-in**: Pure web components using standard APIs
-- **Shadow DOM**: Encapsulated styles that don't leak
+- **Light DOM + CSS Nesting**: Render directly to element with scoped styles
 - **Plugin system**: Extend functionality without bloating core
 - **Virtualization**: Handle large datasets efficiently
 - **Theming**: CSS custom properties for easy customization

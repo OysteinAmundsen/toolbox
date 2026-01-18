@@ -71,15 +71,6 @@
   --tbw-animation-easing: ease-out;
   --tbw-animation-enabled: 1; /* 0 = disabled, 1 = enabled */
 
-  /* Editing */
-  --tbw-editing-bg: var(--tbw-color-selection);
-  --tbw-editing-border: var(--tbw-border-input, 1px solid var(--tbw-color-border-strong));
-  --tbw-padding-editing-input: var(--tbw-cell-padding-input, 2px 6px);
-  --tbw-font-size-editor: inherit;
-  --tbw-editing-row-bg: var(--tbw-editing-bg);
-  --tbw-editing-row-outline-color: var(--tbw-color-accent);
-  --tbw-editing-row-outline-width: 1px;
-
   /* Sorting indicators */
   --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
   --tbw-sort-indicator-active-color: var(--tbw-color-accent);
@@ -280,11 +271,6 @@
   contain-intrinsic-size: auto var(--tbw-row-height);
   /* min-width: max-content; */
 }
-:host .data-grid-row:has(.editing) {
-  background: var(--tbw-editing-row-bg);
-  outline: var(--tbw-editing-row-outline-width) solid var(--tbw-editing-row-outline-color);
-  outline-offset: calc(-1 * var(--tbw-editing-row-outline-width));
-}
 
 /* Data cells */
 :host .selecting .data-grid-row > .cell {
@@ -330,26 +316,6 @@
   vertical-align: middle;
 }
 
-:host .data-grid-row > .cell.editing {
-  overflow: hidden;
-  padding: 0;
-  /* Override block to flex for editing inputs */
-  display: flex;
-  /* Match the height that non-editing cells naturally have from line-height + padding */
-  min-height: calc(var(--tbw-row-height) + 2px);
-}
-:host .data-grid-row > .cell.editing input:not([type='checkbox']),
-:host .data-grid-row > .cell.editing select,
-:host .data-grid-row > .cell.editing textarea {
-  width: 100%;
-  height: 100%;
-  flex: 1 1 auto;
-  min-width: 0;
-  border: var(--tbw-editing-border);
-  padding: var(--tbw-padding-editing-input);
-  font-size: var(--tbw-font-size-editor);
-}
-
 :host .data-grid-row:nth-child(even) {
   background: var(--tbw-color-row-alt);
 }
@@ -365,11 +331,6 @@
 /* Resizable header cells need relative positioning for resize handle */
 :host .header-row > .cell.resizable {
   position: relative;
-}
-
-/* Editor host wrapper uses display:contents to let editor fill cell */
-:host .tbw-editor-host {
-  display: contents;
 }
 
 :host .resize-handle {

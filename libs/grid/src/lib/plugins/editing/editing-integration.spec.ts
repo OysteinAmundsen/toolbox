@@ -616,4 +616,105 @@ describe('EditingPlugin', () => {
       expect(grid.changedRows?.length).toBe(0);
     });
   });
+
+  describe('custom editor', () => {
+    it('preserves custom editor across forced re-renders on first row', async () => {
+      // Custom editor that creates button elements
+      const editorFn = vi.fn((ctx: { value: unknown; commit: (v: unknown) => void }) => {
+        const container = document.createElement('div');
+        container.className = 'custom-priority-editor';
+        ['Low', 'Medium', 'High'].forEach((level) => {
+          const btn = document.createElement('button');
+          btn.textContent = level;
+          btn.onclick = () => ctx.commit(level);
+          container.appendChild(btn);
+        });
+        return container;
+      });
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'priority', header: 'Priority', editable: true, editor: editorFn },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [
+        { name: 'Task A', priority: 'High' },
+        { name: 'Task B', priority: 'Medium' },
+      ];
+      await waitUpgrade(grid);
+
+      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const priorityCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Double-click to enter edit on first row (row index 0)
+      priorityCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Custom editor should be present
+      expect(priorityCell.querySelector('.custom-priority-editor')).toBeTruthy();
+      expect(editorFn).toHaveBeenCalledTimes(1);
+
+      // Simulate a forced refresh (like what ResizeObserver might trigger)
+      // This increments the epoch and calls renderVisibleRows
+      grid.__rowRenderEpoch++;
+      grid.refreshVirtualWindow?.(true);
+      await nextFrame();
+      await nextFrame();
+
+      // Custom editor should still be present (not wiped by re-render)
+      const editorAfterRefresh = priorityCell.querySelector('.custom-priority-editor');
+      expect(editorAfterRefresh).toBeTruthy();
+      expect(priorityCell.classList.contains('editing')).toBe(true);
+
+      // Editor function should NOT have been called again (editor preserved)
+      expect(editorFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('custom editor button click commits value correctly', async () => {
+      const editorFn = (ctx: { value: unknown; commit: (v: unknown) => void }) => {
+        const container = document.createElement('div');
+        container.className = 'custom-priority-editor';
+        ['Low', 'Medium', 'High'].forEach((level) => {
+          const btn = document.createElement('button');
+          btn.textContent = level;
+          btn.className = 'priority-btn';
+          btn.onclick = () => ctx.commit(level);
+          container.appendChild(btn);
+        });
+        return container;
+      };
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'priority', header: 'Priority', editable: true, editor: editorFn },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ name: 'Task A', priority: 'High' }];
+      await waitUpgrade(grid);
+
+      const row = grid.shadowRoot!.querySelector('.data-grid-row') as HTMLElement;
+      const priorityCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Double-click to enter edit
+      priorityCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Find and click the "Low" button
+      const buttons = priorityCell.querySelectorAll('.priority-btn');
+      expect(buttons.length).toBe(3);
+      const lowBtn = Array.from(buttons).find((b) => b.textContent === 'Low') as HTMLButtonElement;
+      lowBtn.click();
+      await nextFrame();
+
+      // Value should be committed
+      expect(grid.rows[0].priority).toBe('Low');
+      expect(grid.changedRows?.length).toBe(1);
+    });
+  });
 });

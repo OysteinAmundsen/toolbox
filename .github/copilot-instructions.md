@@ -48,6 +48,44 @@ All libraries in this suite are built as **standard web components** (custom ele
 3. Consider deprecation period with console warnings before removal
 4. Bump major version
 
+### Commit Hygiene
+
+Prompt the user to commit at logical stopping points during work sessions. Small, focused commits are preferred over large omnibus commits.
+
+**When to suggest a commit:**
+
+- After each discrete bug fix
+- After adding or modifying a single feature
+- After updating tests for a specific change
+- After documentation updates
+- After refactoring a single module or function
+- After fixing build/config issues
+
+**Commit message format (Conventional Commits):**
+
+```
+type(scope): short description
+
+[optional body with more detail]
+```
+
+**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `chore`, `perf`
+
+**Scopes:** `grid`, `grid-angular`, `grid-react`, `themes`, `docs`, `demo`
+
+**Examples:**
+
+- `feat(grid): make cell-commit event cancelable`
+- `fix(grid): filter utility columns from visibility panel`
+- `test(grid): add tests for cancelable events`
+- `docs(grid): document cancelable events in API.mdx`
+- `refactor(grid): remove unused internal/editing.ts`
+- `build(grid): fail on TypeScript errors in vite config`
+
+**Prompt format:** After completing a logical unit of work, suggest:
+
+> 📦 **Good commit point:** `type(scope): description`
+
 ### Monorepo Structure
 
 - **`libs/grid/`** - First library in suite; single `<tbw-grid>` component with extensive internal modules

@@ -343,12 +343,38 @@ grid.gridConfig = {
  * ## Custom Editor
  *
  * Provide a custom `editor` function for specialized input controls.
+ * Use CSS classes to manage selection state instead of inline styles.
+ * Register styles via `grid.registerStyles()` to inject CSS into the shadow DOM.
  */
 export const CustomEditor: Story = {
   parameters: {
     docs: {
       source: {
         code: `
+// Register CSS in the grid's shadow DOM (required for shadow DOM styling)
+grid.registerStyles('priority-editor', \`
+  .priority-editor {
+    display: flex;
+    gap: 4px;
+    padding: 2px;
+  }
+  .priority-editor button {
+    --button-background: light-dark(#ffffff, #333333);
+    --button-color: light-dark(#333333, #ffffff);
+    padding: 2px 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: var(--button-background);
+    color: var(--button-color);
+    cursor: pointer;
+    user-select: none;
+  }
+  .priority-editor button.selected {
+    --button-background: #3b82f6;
+    --button-color: #ffffff;
+  }
+\`);
+
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name', editable: true },
@@ -358,18 +384,19 @@ grid.gridConfig = {
       editable: true,
       editor: (ctx) => {
         const container = document.createElement('div');
-        container.style.cssText = 'display: flex; gap: 4px; padding: 2px;';
+        container.className = 'priority-editor';
 
         ['Low', 'Medium', 'High'].forEach(level => {
           const btn = document.createElement('button');
           btn.textContent = level;
-          btn.style.cssText = \`
-            padding: 2px 8px; border: 1px solid #ccc; border-radius: 3px;
-            background: \${ctx.value === level ? '#3b82f6' : '#fff'};
-            color: \${ctx.value === level ? '#fff' : '#333'};
-            cursor: pointer;
-          \`;
-          btn.onclick = () => ctx.commit(level);
+          if (ctx.value === level) btn.classList.add('selected');
+
+          btn.onclick = () => {
+            // Remove selected from siblings, add to clicked
+            container.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            ctx.commit(level);
+          };
           container.appendChild(btn);
         });
 
@@ -386,6 +413,33 @@ grid.gridConfig = {
   },
   render: () => {
     const grid = document.createElement('tbw-grid') as GridElement;
+
+    // Register styles in the grid's shadow DOM using adoptedStyleSheets
+    grid.registerStyles(
+      'priority-editor',
+      `
+      .priority-editor {
+        display: flex;
+        gap: 4px;
+        padding: 2px;
+      }
+      .priority-editor button {
+        --button-background: light-dark(#ffffff, #333333);
+        --button-color: light-dark(#333333, #ffffff);
+        padding: 2px 8px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        background: var(--button-background);
+        color: var(--button-color);
+        cursor: pointer;
+        user-select: none;
+      }
+      .priority-editor button.selected {
+        --button-background: #3b82f6;
+        --button-color: #ffffff;
+      }
+    `,
+    );
     grid.style.height = '250px';
 
     grid.gridConfig = {
@@ -396,23 +450,24 @@ grid.gridConfig = {
           header: 'Priority',
           editable: true,
           editor: (ctx) => {
-            const container = document.createElement('div');
-            container.style.cssText = 'display: flex; gap: 4px; padding: 2px;';
+            const editorEl = document.createElement('div');
+            editorEl.className = 'priority-editor';
 
             ['Low', 'Medium', 'High'].forEach((level) => {
               const btn = document.createElement('button');
               btn.textContent = level;
-              btn.style.cssText = `
-                padding: 2px 8px; border: 1px solid #ccc; border-radius: 3px;
-                background: ${ctx.value === level ? '#3b82f6' : '#fff'};
-                color: ${ctx.value === level ? '#fff' : '#333'};
-                cursor: pointer;
-              `;
-              btn.onclick = () => ctx.commit(level);
-              container.appendChild(btn);
+              if (ctx.value === level) btn.classList.add('selected');
+
+              btn.onclick = () => {
+                // Remove selected from siblings, add to clicked
+                editorEl.querySelectorAll('button').forEach((b) => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                ctx.commit(level);
+              };
+              editorEl.appendChild(btn);
             });
 
-            return container;
+            return editorEl;
           },
         },
       ],

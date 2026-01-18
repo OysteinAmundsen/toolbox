@@ -292,6 +292,10 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
   if (!hasSpecialCols) {
     for (let i = 0; i < minLen; i++) {
       const cell = children[i] as HTMLElement;
+
+      // Skip cells in edit mode - they have editors that must be preserved
+      if (cell.classList.contains('editing')) continue;
+
       const value = rowData[columns[i].field];
       cell.textContent = value == null ? '' : String(value);
       // Update data-row for click handling

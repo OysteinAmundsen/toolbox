@@ -17,6 +17,7 @@
 
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnInternal, InternalGrid, RowElementInternal } from '../../core/types';
+import styles from './editing.css?inline';
 import { defaultEditorFor } from './editors';
 import type { CellCommitDetail, ChangedRowsResetDetail, EditingConfig, EditorContext, RowCommitDetail } from './types';
 
@@ -138,6 +139,7 @@ function wireEditorInputs(
  */
 export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   readonly name = 'editing';
+  override readonly styles = styles;
 
   protected override get defaultConfig(): Partial<EditingConfig> {
     return {

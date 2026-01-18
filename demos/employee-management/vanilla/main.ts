@@ -20,6 +20,7 @@ import '@demo/shared/demo-styles.css';
 import '@toolbox-web/grid';
 
 // Import all plugins from the all-in-one bundle
+import type { GridElement } from '@toolbox-web/grid/all';
 import {
   ClipboardPlugin,
   ColumnVirtualizationPlugin,
@@ -37,11 +38,11 @@ import {
   SelectionPlugin,
   UndoRedoPlugin,
   VisibilityPlugin,
+  type ColumnMoveDetail,
 } from '@toolbox-web/grid/all';
 
 // Import shared data generators and types
 import { DEPARTMENTS, generateEmployees, type Employee } from '@demo/shared';
-import type { GridElement } from '@toolbox-web/grid';
 
 // Import demo-specific components
 import { bonusSliderEditor, dateEditor, starRatingEditor, statusSelectEditor } from './editors';
@@ -51,6 +52,21 @@ import { injectToolPanelStyles, registerAnalyticsPanel, registerQuickFiltersPane
 // =============================================================================
 // GRID CONFIGURATION
 // =============================================================================
+
+/**
+ * Column groups for the employee grid.
+ * Exported so the column-move constraint handler can reference them.
+ */
+export const COLUMN_GROUPS = [
+  { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
+  { id: 'organization', header: 'Organization', children: ['department', 'team', 'title', 'level'] },
+  { id: 'compensation', header: 'Compensation', children: ['salary', 'bonus'] },
+  {
+    id: 'status',
+    header: 'Status & Performance',
+    children: ['status', 'hireDate', 'rating', 'isTopPerformer', 'location'],
+  },
+];
 
 /**
  * Grid configuration options for the demo.
@@ -92,16 +108,7 @@ export function createGridConfig(options: GridConfigOptions) {
       },
       toolPanel: { position: 'right' as const, width: 300 },
     },
-    columnGroups: [
-      { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
-      { id: 'organization', header: 'Organization', children: ['department', 'team', 'title', 'level'] },
-      { id: 'compensation', header: 'Compensation', children: ['salary', 'bonus'] },
-      {
-        id: 'status',
-        header: 'Status & Performance',
-        children: ['status', 'hireDate', 'rating', 'isTopPerformer', 'location'],
-      },
-    ],
+    columnGroups: COLUMN_GROUPS,
     columns: [
       { field: 'id', header: 'ID', type: 'number', width: 70, sortable: true },
       {
@@ -328,6 +335,45 @@ export function createEmployeeGrid(options: EmployeeGridOptions): GridElement {
 
   // Set initial data
   grid.rows = generateEmployees(rowCount);
+
+  // Demonstrate cancelable events: prevent columns from moving outside their groups
+  // This shows the error flash animation when a move would break group contiguity
+  gridEl.addEventListener('column-move', (e) => {
+    const event = e as CustomEvent<ColumnMoveDetail>;
+    const { field, columnOrder } = event.detail;
+
+    // Find which group this field belongs to
+    const sourceGroup = COLUMN_GROUPS.find((g) => g.children.includes(field));
+    if (!sourceGroup) return; // Not in a group, allow the move
+
+    // Get the indices of all columns in the source group (in the new/proposed order)
+    const groupColumnIndices = sourceGroup.children
+      .map((f) => columnOrder.indexOf(f))
+      .filter((i) => i !== -1)
+      .sort((a, b) => a - b);
+
+    if (groupColumnIndices.length <= 1) return;
+
+    // Check if the group columns are contiguous (no gaps between them)
+    const minIndex = groupColumnIndices[0];
+    const maxIndex = groupColumnIndices[groupColumnIndices.length - 1];
+    const isContiguous = groupColumnIndices.length === maxIndex - minIndex + 1;
+
+    if (!isContiguous) {
+      console.log(`[Column Move Cancelled] Cannot move "${field}" outside its group "${sourceGroup.id}"`);
+      event.preventDefault();
+
+      // Flash the column header with error color to indicate cancellation
+      const headerCell = gridEl.querySelector(`.header-row .cell[data-field="${field}"]`) as HTMLElement;
+      if (headerCell) {
+        headerCell.style.setProperty('--_flash-color', 'var(--tbw-color-error)');
+        headerCell.animate(
+          [{ backgroundColor: 'rgba(from var(--_flash-color) r g b / 30%)' }, { backgroundColor: 'transparent' }],
+          { duration: 400, easing: 'ease-out' },
+        );
+      }
+    }
+  });
 
   // Register tool panels and inject styles after grid is ready
   (grid as { ready?: () => Promise<void>; refreshShellHeader?: () => void }).ready?.().then(() => {

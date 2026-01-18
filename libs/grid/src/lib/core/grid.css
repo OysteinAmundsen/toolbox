@@ -71,6 +71,7 @@
     --tbw-color-accent: light-dark(#3b82f6, #3b82f6);
     --tbw-color-accent-fg: light-dark(#ffffff, #000000);
     --tbw-color-success: light-dark(hsl(122, 39%, 40%), hsl(122, 39%, 49%));
+    --tbw-color-error: light-dark(hsl(0, 65%, 51%), hsl(0, 65%, 55%));
     --tbw-color-selection: light-dark(#fff7d6, #333333);
     --tbw-color-row-alt: var(--tbw-color-bg);
     --tbw-color-row-hover: light-dark(#f0f6ff, #1c1c1c);

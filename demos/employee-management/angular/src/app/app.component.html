@@ -39,6 +39,7 @@
       [gridConfig]="gridConfig()"
       [customStyles]="customStyles"
       (cellCommit)="onCellCommit($event)"
+      (column-move)="onColumnMove($event)"
     >
       <!-- Shell configuration with title -->
       <tbw-grid-header title="Employee Management System (Angular)"></tbw-grid-header>

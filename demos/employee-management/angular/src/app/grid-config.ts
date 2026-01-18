@@ -25,29 +25,31 @@ export interface GridConfigOptions {
   enableMasterDetail: boolean;
 }
 
+/**
+ * Column groups for the employee grid.
+ * Exported so the column-move constraint handler can reference them.
+ */
+export const COLUMN_GROUPS = [
+  { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
+  {
+    id: 'organization',
+    header: 'Organization',
+    children: ['department', 'team', 'title', 'level'],
+  },
+  { id: 'compensation', header: 'Compensation', children: ['salary', 'bonus'] },
+  {
+    id: 'status',
+    header: 'Status & Performance',
+    children: ['status', 'hireDate', 'rating', 'isTopPerformer', 'location'],
+  },
+];
+
 export function createGridConfig(options: GridConfigOptions): GridConfig {
   const { enableSelection, enableFiltering, enableSorting, enableEditing } = options;
 
   return {
     // Column groups (augmented by GroupingColumnsPlugin)
-    columnGroups: [
-      {
-        id: 'employee',
-        header: 'Employee Info',
-        children: ['id', 'firstName', 'lastName', 'email'],
-      },
-      {
-        id: 'organization',
-        header: 'Organization',
-        children: ['department', 'team', 'title', 'level'],
-      },
-      { id: 'compensation', header: 'Compensation', children: ['salary', 'bonus'] },
-      {
-        id: 'status',
-        header: 'Status & Performance',
-        children: ['status', 'hireDate', 'rating', 'isTopPerformer', 'location'],
-      },
-    ],
+    columnGroups: COLUMN_GROUPS,
     // Column definitions - templates come from light DOM via Angular adapter
     columns: [
       { field: 'id', header: 'ID', type: 'number', width: 70, sortable: true },

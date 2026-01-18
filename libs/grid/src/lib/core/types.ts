@@ -45,7 +45,7 @@ export interface PublicGrid<T = any> {
 
   // Custom Styles API
   /**
-   * Register custom CSS styles to be injected into the grid's shadow DOM.
+   * Register custom CSS styles to be injected into the grid.
    * Use this to style custom cell renderers, editors, or detail panels.
    * @param id - Unique identifier for the style block (for removal/updates)
    * @param css - CSS string to inject
@@ -504,7 +504,7 @@ export interface GridPlugin {
   readonly name: string;
   /** Plugin version */
   readonly version: string;
-  /** CSS styles to inject into grid's shadow DOM */
+  /** CSS styles to inject into the grid */
   readonly styles?: string;
 }
 // #endregion

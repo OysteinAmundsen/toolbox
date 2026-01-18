@@ -344,15 +344,18 @@ grid.gridConfig = {
  *
  * Provide a custom `editor` function for specialized input controls.
  * Use CSS classes to manage selection state instead of inline styles.
- * Register styles via `grid.registerStyles()` to inject CSS into the shadow DOM.
+ * Register styles via `grid.registerStyles()` to inject CSS for your custom editor.
  */
 export const CustomEditor: Story = {
   parameters: {
     docs: {
       source: {
         code: `
-// Register CSS in the grid's shadow DOM (required for shadow DOM styling)
+// Register custom styles for the editor
 grid.registerStyles('priority-editor', \`
+  .data-grid-row > .cell.editing:has(.priority-editor) {
+    justify-content: start;
+  }
   .priority-editor {
     display: flex;
     gap: 4px;
@@ -414,10 +417,13 @@ grid.gridConfig = {
   render: () => {
     const grid = document.createElement('tbw-grid') as GridElement;
 
-    // Register styles in the grid's shadow DOM using adoptedStyleSheets
+    // Register custom styles for the editor
     grid.registerStyles(
       'priority-editor',
       `
+      .data-grid-row > .cell.editing:has(.priority-editor) {
+        justify-content: start;
+      }
       .priority-editor {
         display: flex;
         gap: 4px;

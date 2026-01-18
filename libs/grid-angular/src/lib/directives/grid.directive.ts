@@ -83,7 +83,7 @@ export interface RowCommitEvent<TRow = unknown> {
  * The directive automatically:
  * - Creates an AngularGridAdapter instance
  * - Registers it with the GridElement
- * - Injects custom styles into the grid's shadow DOM
+ * - Injects custom styles into the grid
  * - Handles cleanup on destruction
  */
 @Directive({ selector: 'tbw-grid' })
@@ -98,7 +98,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   private rowCommitListener: ((e: Event) => void) | null = null;
 
   /**
-   * Custom CSS styles to inject into the grid's shadow DOM.
+   * Custom CSS styles to inject into the grid.
    * Use this to style custom cell renderers, editors, or detail panels.
    *
    * @example
@@ -194,7 +194,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   }
 
   /**
-   * Registers custom styles into the grid's shadow DOM.
+   * Registers custom styles into the grid.
    * Uses the grid's registerStyles() API for clean encapsulation.
    */
   private registerCustomStyles(grid: GridElement): void {

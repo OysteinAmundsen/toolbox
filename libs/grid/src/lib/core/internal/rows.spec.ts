@@ -381,7 +381,9 @@ describe('rowClass callback', () => {
 
   it('handles errors in rowClass callback gracefully', () => {
     const g = makeGrid();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      /* noop */
+    });
     g.effectiveConfig = {
       rowClass: () => {
         throw new Error('Test error');
@@ -423,7 +425,9 @@ describe('cellClass callback', () => {
 
   it('handles errors in cellClass callback gracefully', () => {
     const g = makeGrid();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      /* noop */
+    });
     g._columns[0].cellClass = () => {
       throw new Error('Test error');
     };

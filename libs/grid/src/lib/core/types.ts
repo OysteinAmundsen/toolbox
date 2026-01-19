@@ -216,6 +216,20 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
   hidden?: boolean;
   /** Prevent this column from being hidden programmatically */
   lockVisible?: boolean;
+  /**
+   * Dynamic CSS class(es) for cells in this column.
+   * Called for each cell during rendering. Return class names to add to the cell element.
+   *
+   * @example
+   * ```typescript
+   * // Highlight negative values
+   * cellClass: (value, row, column) => value < 0 ? ['negative', 'text-red'] : []
+   *
+   * // Status-based styling
+   * cellClass: (value) => [`status-${value}`]
+   * ```
+   */
+  cellClass?: (value: unknown, row: TRow, column: ColumnConfig<TRow>) => string[];
 }
 
 export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
@@ -545,6 +559,20 @@ export interface GridPlugin {
 export interface GridConfig<TRow = any> {
   /** Column definitions. Can also be set via `columns` prop or `<tbw-grid-column>` light DOM. */
   columns?: ColumnConfigMap<TRow>;
+  /**
+   * Dynamic CSS class(es) for data rows.
+   * Called for each row during rendering. Return class names to add to the row element.
+   *
+   * @example
+   * ```typescript
+   * // Highlight inactive rows
+   * rowClass: (row) => row.active ? [] : ['inactive', 'dimmed']
+   *
+   * // Status-based row styling
+   * rowClass: (row) => [`priority-${row.priority}`]
+   * ```
+   */
+  rowClass?: (row: TRow) => string[];
   /** Sizing mode for columns. Can also be set via `fitMode` prop. */
   fitMode?: FitMode;
   /** Edit activation mode ('click' | 'dblClick' | false). Set to false to disable editing. Can also be set via `editOn` prop. */

@@ -27,7 +27,7 @@ document.body.appendChild(grid);
 ```
 
 > [!TIP]
-> For complete examples, see the [Storybook documentation](https://oysteinamundsen.github.io/toolbox/).
+> For complete examples, see the [Storybook documentation](https://toolboxjs.com/).
 
 ---
 

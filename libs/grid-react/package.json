@@ -27,7 +27,7 @@
     "url": "https://github.com/OysteinAmundsen/toolbox.git",
     "directory": "libs/grid-react"
   },
-  "homepage": "https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-react#readme",
+  "homepage": "https://toolboxjs.com",
   "bugs": {
     "url": "https://github.com/OysteinAmundsen/toolbox/issues"
   },

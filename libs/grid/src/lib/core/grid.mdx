@@ -71,6 +71,28 @@ Use format functions and templates to customize cell display.
 
 <Canvas of={GridStories.CustomFormatters} withToolbar />
 
+### Dynamic Row & Cell Styling
+
+Apply CSS classes dynamically based on row data or cell values using `rowClass` and `cellClass` callbacks.
+
+#### Row Classes
+
+Style entire rows based on data properties like status, role, or priority.
+
+<Canvas of={GridStories.RowClass} withToolbar />
+
+#### Cell Classes
+
+Style individual cells based on their value - perfect for data validation or conditional formatting.
+
+<Canvas of={GridStories.CellClass} withToolbar />
+
+#### Combined Styling
+
+Use both `rowClass` and `cellClass` together for comprehensive conditional styling.
+
+<Canvas of={GridStories.CombinedDynamicClasses} withToolbar />
+
 ### Column State Persistence
 
 Persist column widths, order, and visibility to localStorage.

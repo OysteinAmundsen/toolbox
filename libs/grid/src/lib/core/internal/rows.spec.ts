@@ -58,6 +58,7 @@ function makeGrid() {
   gridEl.dispatchEvent = (ev: any) => {
     gridEl.__events.push(ev);
   };
+  gridEl.effectiveConfig = {};
   return gridEl;
 }
 
@@ -327,5 +328,117 @@ describe('handleRowClick', () => {
     handleRowClick(g, ev, rowEl, true);
     const editingCells = rowEl.querySelectorAll('.cell.editing');
     expect(editingCells.length).toBeGreaterThan(0);
+  });
+});
+
+describe('rowClass callback', () => {
+  it('applies dynamic classes from rowClass callback', () => {
+    const g = makeGrid();
+    g.effectiveConfig = {
+      rowClass: (row: any) => (row.active ? ['active-row'] : ['inactive-row']),
+    };
+    renderVisibleRows(g, 0, 2, 1);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    expect(rows[0].classList.contains('active-row')).toBe(true);
+    expect(rows[1].classList.contains('inactive-row')).toBe(true);
+  });
+
+  it('stores dynamic classes in data attribute for cleanup', () => {
+    const g = makeGrid();
+    g.effectiveConfig = {
+      rowClass: (row: any) => ['dynamic-class', 'another-class'],
+    };
+    renderVisibleRows(g, 0, 1, 1);
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+    expect(row.getAttribute('data-dynamic-classes')).toBe('dynamic-class another-class');
+  });
+
+  it('removes previous dynamic classes when row data changes', () => {
+    const g = makeGrid();
+    g.effectiveConfig = {
+      rowClass: (row: any) => (row.active ? ['active'] : ['inactive']),
+    };
+    renderVisibleRows(g, 0, 1, 1);
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+    expect(row.classList.contains('active')).toBe(true);
+
+    // Change the row data
+    g._rows[0] = { ...g._rows[0], active: false };
+    renderVisibleRows(g, 0, 1, 2);
+    expect(row.classList.contains('active')).toBe(false);
+    expect(row.classList.contains('inactive')).toBe(true);
+  });
+
+  it('handles empty array from rowClass callback', () => {
+    const g = makeGrid();
+    g.effectiveConfig = {
+      rowClass: () => [],
+    };
+    renderVisibleRows(g, 0, 1, 1);
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+    expect(row.hasAttribute('data-dynamic-classes')).toBe(false);
+  });
+
+  it('handles errors in rowClass callback gracefully', () => {
+    const g = makeGrid();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    g.effectiveConfig = {
+      rowClass: () => {
+        throw new Error('Test error');
+      },
+    };
+    renderVisibleRows(g, 0, 1, 1);
+    expect(warnSpy).toHaveBeenCalledWith('[tbw-grid] rowClass callback error:', expect.any(Error));
+    warnSpy.mockRestore();
+  });
+});
+
+describe('cellClass callback', () => {
+  it('applies dynamic classes from cellClass callback', () => {
+    const g = makeGrid();
+    g._columns[0].cellClass = (value: any) => (value > 1 ? ['high-id'] : ['low-id']);
+    renderVisibleRows(g, 0, 2, 1);
+    const rows = g._bodyEl.querySelectorAll('.data-grid-row');
+    const cell0 = rows[0].querySelector('.cell[data-col="0"]')!;
+    const cell1 = rows[1].querySelector('.cell[data-col="0"]')!;
+    expect(cell0.classList.contains('low-id')).toBe(true);
+    expect(cell1.classList.contains('high-id')).toBe(true);
+  });
+
+  it('stores dynamic classes in data attribute for cleanup', () => {
+    const g = makeGrid();
+    g._columns[1].cellClass = () => ['highlight', 'bold'];
+    renderVisibleRows(g, 0, 1, 1);
+    const cell = g._bodyEl.querySelector('.cell[data-col="1"]')!;
+    expect(cell.getAttribute('data-dynamic-classes')).toBe('highlight bold');
+  });
+
+  it('receives value, row, and column in callback', () => {
+    const g = makeGrid();
+    const callbackSpy = vi.fn().mockReturnValue(['test-class']);
+    g._columns[1].cellClass = callbackSpy;
+    renderVisibleRows(g, 0, 1, 1);
+    expect(callbackSpy).toHaveBeenCalledWith('Alpha', g._rows[0], g._columns[1]);
+  });
+
+  it('handles errors in cellClass callback gracefully', () => {
+    const g = makeGrid();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    g._columns[0].cellClass = () => {
+      throw new Error('Test error');
+    };
+    renderVisibleRows(g, 0, 1, 1);
+    expect(warnSpy).toHaveBeenCalledWith("[tbw-grid] cellClass callback error for column 'id':", expect.any(Error));
+    warnSpy.mockRestore();
+  });
+
+  it('filters out invalid class names', () => {
+    const g = makeGrid();
+    g._columns[0].cellClass = () => ['valid-class', '', null as any, undefined as any, 'another-valid'];
+    renderVisibleRows(g, 0, 1, 1);
+    const cell = g._bodyEl.querySelector('.cell[data-col="0"]')!;
+    expect(cell.getAttribute('data-dynamic-classes')).toBe('valid-class another-valid');
+    expect(cell.classList.contains('valid-class')).toBe(true);
+    expect(cell.classList.contains('another-valid')).toBe(true);
   });
 });

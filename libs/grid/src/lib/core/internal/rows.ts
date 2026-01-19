@@ -243,6 +243,29 @@ export function renderVisibleRows(
       rowEl.classList.toggle('changed', isChanged);
     }
 
+    // Apply rowClass callback if configured
+    const rowClassFn = grid.effectiveConfig?.rowClass;
+    if (rowClassFn) {
+      // Remove previous dynamic classes (stored in data attribute)
+      const prevClasses = rowEl.getAttribute('data-dynamic-classes');
+      if (prevClasses) {
+        prevClasses.split(' ').forEach((cls) => cls && rowEl.classList.remove(cls));
+      }
+      try {
+        const newClasses = rowClassFn(rowData);
+        if (newClasses && newClasses.length > 0) {
+          const validClasses = newClasses.filter((c) => c && typeof c === 'string');
+          validClasses.forEach((cls) => rowEl.classList.add(cls));
+          rowEl.setAttribute('data-dynamic-classes', validClasses.join(' '));
+        } else {
+          rowEl.removeAttribute('data-dynamic-classes');
+        }
+      } catch (e) {
+        console.warn(`[tbw-grid] rowClass callback error:`, e);
+        rowEl.removeAttribute('data-dynamic-classes');
+      }
+    }
+
     if (rowEl.parentNode !== bodyEl) bodyEl.appendChild(rowEl);
   }
 }
@@ -342,6 +365,30 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     if (shouldHaveFocus !== hasFocus) {
       cell.classList.toggle('cell-focus', shouldHaveFocus);
       cell.setAttribute('aria-selected', String(shouldHaveFocus));
+    }
+
+    // Apply cellClass callback if configured
+    const cellClassFn = col.cellClass;
+    if (cellClassFn) {
+      // Remove previous dynamic classes
+      const prevClasses = cell.getAttribute('data-dynamic-classes');
+      if (prevClasses) {
+        prevClasses.split(' ').forEach((cls) => cls && cell.classList.remove(cls));
+      }
+      try {
+        const value = rowData[col.field];
+        const cellClasses = cellClassFn(value, rowData, col);
+        if (cellClasses && cellClasses.length > 0) {
+          const validClasses = cellClasses.filter((c: string) => c && typeof c === 'string');
+          validClasses.forEach((cls: string) => cell.classList.add(cls));
+          cell.setAttribute('data-dynamic-classes', validClasses.join(' '));
+        } else {
+          cell.removeAttribute('data-dynamic-classes');
+        }
+      } catch (e) {
+        console.warn(`[tbw-grid] cellClass callback error for column '${col.field}':`, e);
+        cell.removeAttribute('data-dynamic-classes');
+      }
     }
 
     // Skip cells in edit mode
@@ -566,6 +613,22 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       cell.setAttribute('aria-selected', 'true');
     } else {
       cell.setAttribute('aria-selected', 'false');
+    }
+
+    // Apply cellClass callback if configured
+    const cellClassFn = col.cellClass;
+    if (cellClassFn) {
+      try {
+        const cellValue = (rowData as Record<string, unknown>)[col.field];
+        const cellClasses = cellClassFn(cellValue, rowData, col);
+        if (cellClasses && cellClasses.length > 0) {
+          const validClasses = cellClasses.filter((c) => c && typeof c === 'string');
+          validClasses.forEach((cls) => cell.classList.add(cls));
+          cell.setAttribute('data-dynamic-classes', validClasses.join(' '));
+        }
+      } catch (e) {
+        console.warn(`[tbw-grid] cellClass callback error for column '${col.field}':`, e);
+      }
     }
 
     fragment.appendChild(cell);

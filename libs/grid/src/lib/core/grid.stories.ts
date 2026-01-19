@@ -1305,3 +1305,232 @@ grid.rows = [...];
 };
 
 // #endregion
+
+// #region Dynamic Classes
+
+/**
+ * ## Row Class Callback
+ *
+ * Use the `rowClass` callback to apply dynamic CSS classes to rows based on row data.
+ * Perfect for conditional row styling like highlighting inactive users or priority items.
+ *
+ * In this example:
+ * - Inactive rows have a red tint
+ * - Admin rows have a blue tint
+ */
+export const RowClass: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<tbw-grid id="grid"></tbw-grid>
+<script>
+  const grid = document.getElementById('grid');
+  grid.gridConfig = {
+    rowClass: (row) => {
+      const classes = [];
+      if (!row.active) classes.push('row-inactive');
+      if (row.role === 'admin') classes.push('row-admin');
+      return classes;
+    },
+  };
+  grid.rows = data;
+</script>
+<style>
+  .row-inactive { background-color: rgba(255, 100, 100, 0.15); }
+  .row-admin { background-color: rgba(100, 150, 255, 0.15); }
+</style>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.cssText = 'height: 400px; display: block;';
+
+    // Add custom styles with light-dark() for theme support
+    const style = document.createElement('style');
+    style.textContent = `
+      .row-inactive { background-color: light-dark(rgba(255, 100, 100, 0.15), rgba(255, 120, 120, 0.25)); }
+      .row-admin { background-color: light-dark(rgba(100, 150, 255, 0.15), rgba(120, 160, 255, 0.25)); }
+      /* Combined: admin and inactive */
+      .row-inactive.row-admin { background-color: light-dark(rgba(200, 100, 200, 0.2), rgba(220, 120, 220, 0.3)); }
+    `;
+
+    grid.gridConfig = {
+      rowClass: (row: any) => {
+        const classes: string[] = [];
+        if (!row.active) classes.push('row-inactive');
+        if (row.role === 'admin') classes.push('row-admin');
+        return classes;
+      },
+    };
+
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name' },
+      { field: 'role', header: 'Role', width: 100 },
+      { field: 'active', header: 'Active', type: 'boolean', width: 80 },
+    ];
+    grid.rows = generateRows(20);
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(style);
+    wrapper.appendChild(grid);
+    return wrapper;
+  },
+};
+
+/**
+ * ## Cell Class Callback
+ *
+ * Use the `cellClass` column property to apply dynamic CSS classes to individual cells.
+ * Perfect for conditional cell styling like data validation or value-based formatting.
+ *
+ * In this example:
+ * - Score cells below 30 are red (low)
+ * - Score cells 30-70 are yellow (medium)
+ * - Score cells above 70 are green (high)
+ */
+export const CellClass: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<tbw-grid id="grid"></tbw-grid>
+<script>
+  grid.columns = [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    {
+      field: 'score',
+      header: 'Score',
+      cellClass: (value) => {
+        if (value < 30) return ['score-low'];
+        if (value > 70) return ['score-high'];
+        return ['score-medium'];
+      },
+    },
+  ];
+</script>
+<style>
+  .score-low { background-color: rgba(255, 100, 100, 0.3); color: #a00; }
+  .score-medium { background-color: rgba(255, 200, 100, 0.3); color: #850; }
+  .score-high { background-color: rgba(100, 200, 100, 0.3); color: #060; }
+</style>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.cssText = 'height: 400px; display: block;';
+
+    // Add custom styles with light-dark() for theme support
+    const style = document.createElement('style');
+    style.textContent = `
+      .score-low { background-color: light-dark(rgba(255, 100, 100, 0.3), rgba(255, 120, 120, 0.35)); color: light-dark(#a00, #f88); font-weight: 500; }
+      .score-medium { background-color: light-dark(rgba(255, 200, 100, 0.3), rgba(255, 210, 120, 0.35)); color: light-dark(#850, #fc6); }
+      .score-high { background-color: light-dark(rgba(100, 200, 100, 0.3), rgba(120, 220, 120, 0.35)); color: light-dark(#060, #8f8); font-weight: 500; }
+    `;
+
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name' },
+      {
+        field: 'score',
+        header: 'Score',
+        width: 100,
+        cellClass: (value: number) => {
+          if (value < 30) return ['score-low'];
+          if (value > 70) return ['score-high'];
+          return ['score-medium'];
+        },
+      },
+      { field: 'role', header: 'Role', width: 100 },
+    ];
+    grid.rows = generateRows(20);
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(style);
+    wrapper.appendChild(grid);
+    return wrapper;
+  },
+};
+
+/**
+ * ## Combined Row and Cell Classes
+ *
+ * You can use both `rowClass` and `cellClass` together for comprehensive styling.
+ *
+ * In this example:
+ * - Rows are styled based on active status
+ * - Score cells have gradient colors based on value
+ * - Role cells have badges styled by role type
+ */
+export const CombinedDynamicClasses: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+grid.gridConfig = {
+  rowClass: (row) => row.active ? [] : ['row-inactive'],
+};
+grid.columns = [
+  { field: 'score', cellClass: (v) => v > 70 ? ['score-high'] : [] },
+  { field: 'role', cellClass: (_, row) => [\`role-\${row.role}\`] },
+];
+`,
+        language: 'javascript',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.cssText = 'height: 400px; display: block;';
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .row-inactive { opacity: 0.6; }
+      .score-high { background: light-dark(
+        linear-gradient(90deg, rgba(100,200,100,0.3) 0%, transparent 100%),
+        linear-gradient(90deg, rgba(120,220,120,0.35) 0%, transparent 100%)
+      ); }
+      .role-admin { background: light-dark(rgba(100,150,255,0.2), rgba(120,170,255,0.3)); font-weight: 600; }
+      .role-user { background: light-dark(rgba(100,200,100,0.2), rgba(120,220,120,0.3)); }
+      .role-guest { background: light-dark(rgba(200,200,200,0.2), rgba(180,180,180,0.25)); font-style: italic; }
+    `;
+
+    grid.gridConfig = {
+      rowClass: (row: any) => (row.active ? [] : ['row-inactive']),
+    };
+
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name' },
+      {
+        field: 'score',
+        header: 'Score',
+        width: 100,
+        cellClass: (value: number) => (value > 70 ? ['score-high'] : []),
+      },
+      {
+        field: 'role',
+        header: 'Role',
+        width: 100,
+        cellClass: (_: any, row: any) => [`role-${row.role}`],
+      },
+      { field: 'active', header: 'Active', type: 'boolean', width: 80 },
+    ];
+    grid.rows = generateRows(20);
+
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(style);
+    wrapper.appendChild(grid);
+    return wrapper;
+  },
+};
+
+// #endregion

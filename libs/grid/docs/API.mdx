@@ -369,9 +369,35 @@ interface ColumnConfig {
   formatter?: (value: any, row: T) => string;
   renderer?: (value: any, row: T, cell: HTMLElement) => void;
 
+  // Dynamic cell styling
+  cellClass?: (value: any, row: T, column: ColumnConfig) => string[];
+
   // Select type options
   options?: Array<{ label: string; value: any }>;
 }
+```
+
+#### cellClass Callback
+
+Apply dynamic CSS classes to individual cells based on cell value, row data, or column configuration.
+
+```typescript
+const columns: ColumnConfig[] = [
+  {
+    field: 'score',
+    header: 'Score',
+    cellClass: (value, row, column) => {
+      if (value < 30) return ['score-low'];
+      if (value > 70) return ['score-high'];
+      return ['score-medium'];
+    },
+  },
+  {
+    field: 'status',
+    header: 'Status',
+    cellClass: (value) => [`status-${value}`], // e.g., 'status-active', 'status-pending'
+  },
+];
 ```
 
 ### Grid Configuration
@@ -384,8 +410,34 @@ interface GridConfig<T> {
   plugins?: BaseGridPlugin[];
   shell?: ShellConfig;
   animation?: AnimationConfig;
+
+  // Dynamic row styling
+  rowClass?: (row: T) => string[];
 }
 ```
+
+#### rowClass Callback
+
+Apply dynamic CSS classes to entire rows based on row data.
+
+```typescript
+const config: GridConfig<Employee> = {
+  rowClass: (row) => {
+    const classes: string[] = [];
+    if (!row.active) classes.push('row-inactive');
+    if (row.priority === 'high') classes.push('row-priority');
+    if (row.role === 'admin') classes.push('row-admin');
+    return classes;
+  },
+};
+```
+
+**Notes:**
+- Both callbacks return `string[]` (array of class names to apply)
+- Empty array `[]` means no dynamic classes
+- Classes are automatically cleaned up when row/cell data changes
+- Errors in callbacks are caught and logged to console (rendering continues)
+- See the [RowClass](?path=/story/grid-core--row-class) and [CellClass](?path=/story/grid-core--cell-class) stories for live demos
 
 ### Animation Configuration
 

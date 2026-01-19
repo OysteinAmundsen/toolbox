@@ -1,10 +1,10 @@
 import styles from './grid.css?inline';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
-import { setupCellEventDelegation } from './internal/event-delegation';
+import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
-import { ensureCellVisible, handleGridKeyDown } from './internal/keyboard';
+import { ensureCellVisible } from './internal/keyboard';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
@@ -1086,15 +1086,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Get the signal for event listener cleanup (AbortController created in connectedCallback)
     const signal = this.disconnectSignal;
 
-    // Element-level keydown handler (uses signal for automatic cleanup)
-    this.addEventListener('keydown', (e) => handleGridKeyDown(this as unknown as InternalGrid<T>, e), { signal });
+    // Set up all root-level and document-level event listeners
+    // Consolidates keydown, mousedown, mousemove, mouseup in one place
+    setupRootEventDelegation(
+      this as unknown as InternalGrid<T>,
+      this,
+      this.#renderRoot,
+      {
+        onMouseDown: (e) => this.#handleMouseDown(e),
+        onMouseMove: (e) => this.#handleMouseMove(e),
+        onMouseUp: (e) => this.#handleMouseUp(e),
+      },
+      signal,
+    );
 
-    // Central mouse event handling for plugins (uses signal for automatic cleanup)
-    this.#renderRoot.addEventListener('mousedown', (e) => this.#handleMouseDown(e as MouseEvent), { signal });
-
-    // Track global mousemove/mouseup for drag operations (uses signal for automatic cleanup)
-    document.addEventListener('mousemove', (e: MouseEvent) => this.#handleMouseMove(e), { signal });
-    document.addEventListener('mouseup', (e: MouseEvent) => this.#handleMouseUp(e), { signal });
+    // Note: click/dblclick handlers are set up via setupCellEventDelegation in #setupScrollListeners
+    // This consolidates all body-level delegated event handlers in one place (event-delegation.ts)
 
     // Determine row height for virtualization:
     // 1. User-configured rowHeight in gridConfig takes precedence

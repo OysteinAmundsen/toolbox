@@ -107,11 +107,10 @@ export function renderVisibleRows(
   }
 
   // Pool management: grow pool if needed
+  // Note: click/dblclick handlers are delegated at grid level for efficiency
   while (grid._rowPool.length < needed) {
     // Use template cloning - 3-4x faster than createElement + setAttribute
     const rowEl = createRowFromTemplate();
-    rowEl.addEventListener('click', (e) => handleRowClick(grid, e, rowEl, false));
-    rowEl.addEventListener('dblclick', (e) => handleRowClick(grid, e, rowEl, true));
     grid._rowPool.push(rowEl);
   }
 
@@ -642,8 +641,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
  * Handle click / double click interaction to focus cells.
  * Edit triggering is handled by EditingPlugin via onCellClick hook.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLElement, _isDbl: boolean): void {
+export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLElement): void {
   if ((e.target as HTMLElement)?.closest('.resize-handle')) return;
   const firstCell = rowEl.querySelector('.cell[data-row]') as HTMLElement | null;
   const rowIndex = getRowIndexFromCell(firstCell);

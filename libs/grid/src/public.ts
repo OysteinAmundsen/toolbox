@@ -8,6 +8,65 @@
 // #region Public API surface - only export what consumers need
 export { DataGridElement, DataGridElement as GridElement } from './lib/core/grid';
 
+// Import types needed for factory functions
+import type { DataGridElement } from './lib/core/grid';
+import type { GridConfig } from './lib/core/types';
+
+// #region Factory Functions
+/**
+ * Create a new typed grid element programmatically.
+ *
+ * This avoids the need to cast when creating grids in TypeScript:
+ * ```typescript
+ * // Before: manual cast required
+ * const grid = document.createElement('tbw-grid') as DataGridElement<Employee>;
+ *
+ * // After: fully typed
+ * const grid = createGrid<Employee>({
+ *   columns: [{ field: 'name' }],
+ *   plugins: [new SelectionPlugin()],
+ * });
+ * grid.rows = employees; // ✓ Typed!
+ * ```
+ *
+ * @param config - Optional initial grid configuration
+ * @returns A typed DataGridElement instance
+ */
+export function createGrid<TRow = unknown>(config?: Partial<GridConfig<TRow>>): DataGridElement<TRow> {
+  const grid = document.createElement('tbw-grid') as DataGridElement<TRow>;
+  if (config) {
+    grid.gridConfig = config as GridConfig<TRow>;
+  }
+  return grid;
+}
+
+/**
+ * Query an existing grid element from the DOM with proper typing.
+ *
+ * This avoids the need to cast when querying grids:
+ * ```typescript
+ * // Before: manual cast required
+ * const grid = document.querySelector('tbw-grid') as DataGridElement<Employee>;
+ *
+ * // After: fully typed
+ * const grid = queryGrid<Employee>('#my-grid');
+ * if (grid) {
+ *   grid.rows = employees; // ✓ Typed!
+ * }
+ * ```
+ *
+ * @param selector - CSS selector to find the grid element
+ * @param parent - Parent node to search within (defaults to document)
+ * @returns The typed grid element or null if not found
+ */
+export function queryGrid<TRow = unknown>(
+  selector: string,
+  parent: ParentNode = document,
+): DataGridElement<TRow> | null {
+  return parent.querySelector(selector) as DataGridElement<TRow> | null;
+}
+// #endregion
+
 // Event name constants for DataGrid (public API)
 export const DGEvents = {
   CELL_COMMIT: 'cell-commit',

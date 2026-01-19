@@ -20,11 +20,11 @@ import '@demo/shared/demo-styles.css';
 import '@toolbox-web/grid';
 
 // Import all plugins from the all-in-one bundle
-import type { GridElement } from '@toolbox-web/grid/all';
 import {
   ClipboardPlugin,
   ColumnVirtualizationPlugin,
   ContextMenuPlugin,
+  createGrid,
   EditingPlugin,
   ExportPlugin,
   FilteringPlugin,
@@ -39,6 +39,7 @@ import {
   UndoRedoPlugin,
   VisibilityPlugin,
   type ColumnMoveDetail,
+  type DataGridElement,
 } from '@toolbox-web/grid/all';
 
 // Import shared data generators and types
@@ -79,7 +80,7 @@ export interface GridConfigOptions {
   enableMasterDetail: boolean;
   enableRowGrouping?: boolean;
   /** Callback to get the grid element (for toolbar button actions) */
-  getGrid?: () => GridElement | null;
+  getGrid?: () => DataGridElement<Employee> | null;
 }
 
 /**
@@ -98,7 +99,7 @@ export function createGridConfig(options: GridConfigOptions) {
   } = options;
 
   // Default getGrid falls back to DOM lookup
-  const resolveGrid = getGrid ?? (() => document.getElementById('employee-grid') as GridElement | null);
+  const resolveGrid = getGrid ?? (() => document.getElementById('employee-grid') as DataGridElement<Employee> | null);
 
   return {
     shell: {
@@ -284,7 +285,7 @@ export interface EmployeeGridOptions extends Omit<GridConfigOptions, 'getGrid'> 
  * @param options - Configuration options for the grid
  * @returns The configured grid element
  */
-export function createEmployeeGrid(options: EmployeeGridOptions): GridElement {
+export function createEmployeeGrid(options: EmployeeGridOptions): DataGridElement<Employee> {
   const {
     rowCount,
     enableSelection,
@@ -295,11 +296,10 @@ export function createEmployeeGrid(options: EmployeeGridOptions): GridElement {
     enableRowGrouping,
   } = options;
 
-  // Create the grid element
-  const grid = document.createElement('tbw-grid') as unknown as GridElement;
-  const gridEl = grid as unknown as HTMLElement;
-  gridEl.id = 'employee-grid';
-  gridEl.className = 'demo-grid';
+  // Create the grid element using the typed factory function
+  const grid = createGrid<Employee>();
+  grid.id = 'employee-grid';
+  grid.className = 'demo-grid';
 
   // Create toolbar buttons container (users have full control over button HTML)
   const toolButtons = document.createElement('tbw-grid-tool-buttons');
@@ -320,7 +320,7 @@ export function createEmployeeGrid(options: EmployeeGridOptions): GridElement {
 
   toolButtons.appendChild(exportCsvBtn);
   toolButtons.appendChild(exportExcelBtn);
-  gridEl.appendChild(toolButtons);
+  grid.appendChild(toolButtons);
 
   // Apply configuration with self-reference for toolbar actions
   grid.gridConfig = createGridConfig({
@@ -338,7 +338,7 @@ export function createEmployeeGrid(options: EmployeeGridOptions): GridElement {
 
   // Demonstrate cancelable events: prevent columns from moving outside their groups
   // This shows the error flash animation when a move would break group contiguity
-  gridEl.addEventListener('column-move', (e) => {
+  grid.addEventListener('column-move', (e) => {
     const event = e as CustomEvent<ColumnMoveDetail>;
     const { field, columnOrder } = event.detail;
 
@@ -364,7 +364,7 @@ export function createEmployeeGrid(options: EmployeeGridOptions): GridElement {
       event.preventDefault();
 
       // Flash the column header with error color to indicate cancellation
-      const headerCell = gridEl.querySelector(`.header-row .cell[data-field="${field}"]`) as HTMLElement;
+      const headerCell = grid.querySelector(`.header-row .cell[data-field="${field}"]`) as HTMLElement;
       if (headerCell) {
         headerCell.style.setProperty('--_flash-color', 'var(--tbw-color-error)');
         headerCell.animate(

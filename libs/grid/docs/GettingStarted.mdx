@@ -42,6 +42,9 @@ For quick prototyping, you can use the UMD bundle directly:
 // Import the component (registers <tbw-grid> custom element)
 import '@toolbox-web/grid';
 
+// Import factory functions for typed grid creation
+import { createGrid, queryGrid } from '@toolbox-web/grid';
+
 // TypeScript users: import types
 import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
 ```
@@ -116,10 +119,10 @@ The grid is a standard web component that works in any JavaScript environment. F
 
 ```typescript
 import '@toolbox-web/grid';
+import { createGrid, queryGrid } from '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
-import type { GridConfig } from '@toolbox-web/grid';
 
 interface Employee {
   id: number;
@@ -127,9 +130,8 @@ interface Employee {
   status: 'active' | 'inactive';
 }
 
-const grid = document.querySelector<HTMLElement & { gridConfig: GridConfig<Employee>; rows: Employee[] }>('#my-grid')!;
-
-grid.gridConfig = {
+// Option 1: Create a new grid programmatically (typed!)
+const grid = createGrid<Employee>({
   columns: [
     { field: 'id', header: 'ID', type: 'number' },
     { field: 'name', header: 'Name', editable: true },
@@ -140,7 +142,7 @@ grid.gridConfig = {
       renderer: (ctx) => {
         const badge = document.createElement('span');
         badge.className = `status-badge status-${ctx.value}`;
-        badge.textContent = ctx.value;
+        badge.textContent = ctx.value as string;
         return badge;
       },
       // Custom editor function
@@ -150,7 +152,7 @@ grid.gridConfig = {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         `;
-        select.value = ctx.value;
+        select.value = ctx.value as string;
         select.onchange = () => ctx.commit(select.value);
         select.onkeydown = (e) => e.key === 'Escape' && ctx.cancel();
         return select;
@@ -164,13 +166,20 @@ grid.gridConfig = {
   ],
   fitMode: 'stretch',
   editOn: 'dblClick',
-};
+});
 
+document.getElementById('grid-container')!.appendChild(grid);
 grid.rows = [
   { id: 1, name: 'Alice Johnson', status: 'active' },
   { id: 2, name: 'Bob Smith', status: 'inactive' },
   { id: 3, name: 'Carol White', status: 'active' },
 ];
+
+// Option 2: Query an existing grid from DOM (typed!)
+const existingGrid = queryGrid<Employee>('#my-grid');
+if (existingGrid) {
+  existingGrid.rows = [{ id: 4, name: 'Dave Brown', status: 'active' }];
+}
 
 // Listen for cell edits
 grid.addEventListener('cell-commit', (e: CustomEvent) => {

@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.5.0...grid-0.6.0) (2026-01-19)
+
+
+### Features
+
+* **grid:** add cellClass and rowClass callbacks for dynamic styling ([5a5121c](https://github.com/OysteinAmundsen/toolbox/commit/5a5121c3c1cec3666d646c4615d86e17d83c2a57))
+* **grid:** add createGrid/queryGrid factory functions ([c00fba0](https://github.com/OysteinAmundsen/toolbox/commit/c00fba0b306f19e73106e59d3ec5a90d4c2fc5b3))
+
+
+### Bug Fixes
+
+* **grid:** narrow sideEffects to enable tree-shaking ([6e006fe](https://github.com/OysteinAmundsen/toolbox/commit/6e006fe57a335eb0d94e3b1bbcd63a48508d2bcd))
+* lint errors ([21af95d](https://github.com/OysteinAmundsen/toolbox/commit/21af95d0716d53d4d261f5852eccd86030a32163))
+
+
+### Performance Improvements
+
+* **grid:** delegate row click/dblclick events ([923ba46](https://github.com/OysteinAmundsen/toolbox/commit/923ba46b8c4a67843f0bf1b58cb1695e7653c226))
+
 ## [0.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.4.2...grid-0.5.0) (2026-01-18)
 
 

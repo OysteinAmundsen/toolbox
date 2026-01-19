@@ -31,10 +31,10 @@
   ],
   "sideEffects": [
     "*.css",
-    "**/index.ts",
-    "**/index.js",
-    "**/grid.ts",
-    "**/grid.js"
+    "./src/index.ts",
+    "./src/index.js",
+    "./src/lib/core/grid.ts",
+    "./src/lib/core/grid.js"
   ],
   "keywords": [
     "web-component",

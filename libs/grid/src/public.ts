@@ -1,8 +1,10 @@
 /**
- * @packageDocumentation
  * @toolbox-web/grid - A high-performance, framework-agnostic data grid web component.
  *
  * This is the public API surface. Only symbols exported here are considered stable.
+ *
+ * @packageDocumentation
+ * @module Core
  */
 
 // #region Public API surface - only export what consumers need
@@ -67,7 +69,11 @@ export function queryGrid<TRow = unknown>(
 }
 // #endregion
 
-// Event name constants for DataGrid (public API)
+/**
+ * Event name constants for DataGrid (public API).
+ *
+ * @category Events
+ */
 export const DGEvents = {
   CELL_COMMIT: 'cell-commit',
   ROW_COMMIT: 'row-commit',
@@ -81,9 +87,18 @@ export const DGEvents = {
   COLUMN_STATE_CHANGE: 'column-state-change',
 } as const;
 
+/**
+ * Union type of all DataGrid event names.
+ *
+ * @category Events
+ */
 export type DGEventName = (typeof DGEvents)[keyof typeof DGEvents];
 
-// Plugin event constants (mirrors DGEvents pattern)
+/**
+ * Plugin event constants (mirrors DGEvents pattern).
+ *
+ * @category Events
+ */
 export const PluginEvents = {
   // Selection plugin
   SELECTION_CHANGE: 'selection-change',
@@ -117,6 +132,11 @@ export const PluginEvents = {
   GROUP_EXPAND: 'group-expand',
 } as const;
 
+/**
+ * Union type of all plugin event names.
+ *
+ * @category Events
+ */
 export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
 
 // Public type exports

@@ -49,6 +49,12 @@ vite.config.*.timestamp*
 vitest.config.*.timestamp*
 test-output
 
+# Generated API documentation (regenerate with `nx typedoc grid`)
+# Raw TypeDoc markdown output - always regenerated
+**/api-generated/
+**/api/
+# Note: libs/grid/docs/api/ is NOT ignored - Storybook needs to index it
+
 # RFC and analysis documents (local only)
 RFC-*.md
 ANALYSIS-*.md

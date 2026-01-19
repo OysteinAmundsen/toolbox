@@ -18,20 +18,91 @@ import styles from './grouping-columns.css?inline';
 import type { ColumnGroup, GroupingColumnsConfig } from './types';
 
 /**
- * Column Groups Plugin for tbw-grid
+ * Column Grouping Plugin for tbw-grid
  *
- * @example
+ * Enables visual grouping of columns under shared headers. Supports two approaches:
+ * declarative `columnGroups` at the grid level, or inline `group` property on columns.
+ *
+ * ## Installation
+ *
  * ```ts
- * new GroupingColumnsPlugin({
- *   enabled: true,
- *   showGroupBorders: true,
- * })
+ * import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `showGroupBorders` | `boolean` | `true` | Show borders between groups |
+ * | `groupHeaderRenderer` | `function` | - | Custom renderer for group header content |
+ *
+ * ## Grid Config: `columnGroups`
+ *
+ * | Property | Type | Description |
+ * |----------|------|-------------|
+ * | `id` | `string` | Unique group identifier |
+ * | `header` | `string` | Display label for the group header |
+ * | `children` | `string[]` | Array of column field names in this group |
+ *
+ * ## Column Config: `group`
+ *
+ * | Type | Description |
+ * |------|-------------|
+ * | `string` | Simple group ID (used as both id and label) |
+ * | `{ id: string; label?: string }` | Group object with explicit id and optional label |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `isGroupingActive` | `() => boolean` | Check if grouping is active |
+ * | `getGroups` | `() => ColumnGroup[]` | Get all computed groups |
+ * | `getGroupColumns` | `(groupId) => ColumnConfig[]` | Get columns in a specific group |
+ * | `refresh` | `() => void` | Force refresh of column groups |
+ *
+ * @example Declarative columnGroups (Recommended)
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
+ *
+ * grid.gridConfig = {
+ *   columnGroups: [
+ *     { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+ *     { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+ *   ],
+ *   columns: [
+ *     { field: 'firstName', header: 'First Name' },
+ *     { field: 'lastName', header: 'Last Name' },
+ *     // ...
+ *   ],
+ *   plugins: [new GroupingColumnsPlugin()],
+ * };
+ * ```
+ *
+ * @example Inline group Property
+ * ```ts
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'firstName', header: 'First Name', group: { id: 'personal', label: 'Personal Info' } },
+ *     { field: 'lastName', header: 'Last Name', group: 'personal' }, // string shorthand
+ *   ],
+ *   plugins: [new GroupingColumnsPlugin()],
+ * };
+ * ```
+ *
+ * @see {@link GroupingColumnsConfig} for all configuration options
+ * @see {@link ColumnGroup} for the group structure
+ * @see {@link ReorderPlugin} for drag-to-reorder within groups
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig> {
+  /** @internal */
   readonly name = 'groupingColumns';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<GroupingColumnsConfig> {
     return {
       showGroupBorders: true,
@@ -45,6 +116,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.groups = [];
     this.isActive = false;
@@ -71,6 +143,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
 
   // #region Hooks
 
+  /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     // First, check if gridConfig.columnGroups is defined and apply to columns
     const columnGroups = this.grid?.gridConfig?.columnGroups;
@@ -113,6 +186,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     return processedColumns;
   }
 
+  /** @internal */
   override afterRender(): void {
     if (!this.isActive) {
       // Remove any existing group header

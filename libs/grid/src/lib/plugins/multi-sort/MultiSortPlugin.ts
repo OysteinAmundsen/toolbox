@@ -14,15 +14,90 @@ import type { MultiSortConfig, SortModel } from './types';
 /**
  * Multi-Sort Plugin for tbw-grid
  *
- * @example
+ * Enables sorting by multiple columns at once—hold Shift and click additional column
+ * headers to build up a sort stack. Priority badges show the sort order, so users
+ * always know which column takes precedence.
+ *
+ * ## Installation
+ *
  * ```ts
- * new MultiSortPlugin({ maxSortColumns: 3, showSortIndex: true })
+ * import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `maxSortColumns` | `number` | `3` | Maximum columns to sort by |
+ * | `showSortIndex` | `boolean` | `true` | Show sort priority badges |
+ * | `initialSort` | `SortModel[]` | - | Pre-configured sort order on load |
+ *
+ * ## Keyboard Shortcuts
+ *
+ * | Shortcut | Action |
+ * |----------|--------|
+ * | `Click header` | Sort by column (clears other sorts) |
+ * | `Shift + Click` | Add column to multi-sort stack |
+ * | `Ctrl + Click` | Toggle sort direction |
+ *
+ * ## Events
+ *
+ * | Event | Detail | Description |
+ * |-------|--------|-------------|
+ * | `sort-change` | `{ sortModel: SortModel[] }` | Fired when sort changes |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `setSort` | `(sortModel: SortModel[]) => void` | Set sort programmatically |
+ * | `getSortModel` | `() => SortModel[]` | Get current sort model |
+ * | `clearSort` | `() => void` | Clear all sorting |
+ * | `addSort` | `(field, direction) => void` | Add a column to sort |
+ * | `removeSort` | `(field) => void` | Remove a column from sort |
+ *
+ * @example Basic Multi-Column Sorting
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'name', header: 'Name', sortable: true },
+ *     { field: 'department', header: 'Department', sortable: true },
+ *     { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+ *   ],
+ *   plugins: [new MultiSortPlugin({ maxSortColumns: 3, showSortIndex: true })],
+ * };
+ *
+ * grid.addEventListener('sort-change', (e) => {
+ *   console.log('Active sorts:', e.detail.sortModel);
+ * });
+ * ```
+ *
+ * @example Initial Sort Configuration
+ * ```ts
+ * new MultiSortPlugin({
+ *   initialSort: [
+ *     { field: 'department', direction: 'asc' },
+ *     { field: 'salary', direction: 'desc' },
+ *   ],
+ * })
+ * ```
+ *
+ * @see {@link MultiSortConfig} for all configuration options
+ * @see {@link SortModel} for the sort model structure
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
+  /** @internal */
   readonly name = 'multiSort';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<MultiSortConfig> {
     return {
       maxSortColumns: 3,
@@ -36,6 +111,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.sortModel = [];
   }
@@ -43,6 +119,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override processRows(rows: readonly unknown[]): unknown[] {
     if (this.sortModel.length === 0) {
       return [...rows];
@@ -50,6 +127,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     return applySorts([...rows], this.sortModel, [...this.columns]);
   }
 
+  /** @internal */
   override onHeaderClick(event: HeaderClickEvent): boolean {
     const column = this.columns.find((c) => c.field === event.field);
     if (!column?.sortable) return false;
@@ -65,6 +143,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     return true;
   }
 
+  /** @internal */
   override afterRender(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;
@@ -180,6 +259,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   /**
    * Return sort state for a column if it's in the sort model.
+   * @internal
    */
   override getColumnState(field: string): Partial<ColumnState> | undefined {
     const index = this.sortModel.findIndex((s) => s.field === field);
@@ -197,6 +277,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   /**
    * Apply sort state from column state.
    * Rebuilds the sort model from all column states.
+   * @internal
    */
   override applyColumnState(field: string, state: ColumnState): void {
     // Only process if the column has sort state

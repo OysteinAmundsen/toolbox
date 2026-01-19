@@ -5,10 +5,31 @@
  */
 
 /**
- * Selection mode for the grid:
- * - 'cell': Single cell selection (default). No border, just focus highlight.
- * - 'row': Row selection. Clicking a cell selects the entire row. Uses focus outline color.
- * - 'range': Range selection. Shift+click or drag to select rectangular cell ranges. Uses success border color.
+ * Selection mode for the grid.
+ *
+ * Each mode offers different selection behavior suited to different use cases:
+ *
+ * | Mode | Use Case | Behavior |
+ * |------|----------|----------|
+ * | `'cell'` | Spreadsheet-style editing | Single cell focus. Click to select one cell at a time. |
+ * | `'row'` | Record-based operations | Full row selection. Click anywhere to select the entire row. |
+ * | `'range'` | Bulk operations, export | Rectangular selection. Drag or Shift+Click to select ranges. |
+ *
+ * @example
+ * ```ts
+ * // Cell mode (default) - for spreadsheet-like interaction
+ * new SelectionPlugin({ mode: 'cell' })
+ *
+ * // Row mode - for selecting complete records
+ * new SelectionPlugin({ mode: 'row' })
+ *
+ * // Range mode - for bulk copy/paste operations
+ * new SelectionPlugin({ mode: 'range' })
+ * ```
+ *
+ * @see [Cell Mode Demo](?path=/story/grid-plugins-selection--default) - Click cells to select
+ * @see [Row Mode Demo](?path=/story/grid-plugins-selection--row-mode) - Full row selection
+ * @see [Range Mode Demo](?path=/story/grid-plugins-selection--range-mode) - Drag to select ranges
  */
 export type SelectionMode = 'cell' | 'row' | 'range';
 

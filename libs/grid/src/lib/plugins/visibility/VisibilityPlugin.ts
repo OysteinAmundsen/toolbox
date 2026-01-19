@@ -42,27 +42,109 @@ function canMoveColumn(column: ColumnConfig): boolean {
 /**
  * Column Visibility Plugin for tbw-grid
  *
- * @example
+ * Gives users control over which columns are displayed. Hide less important columns
+ * by default, let users toggle them via a column chooser UI, or programmatically
+ * show/hide columns based on user preferences or screen size.
+ *
+ * > **Optional Enhancement:** When ReorderPlugin is also loaded, columns in the
+ * > visibility panel become draggable for reordering.
+ *
+ * ## Installation
+ *
  * ```ts
- * new VisibilityPlugin({ enabled: true, allowHideAll: false })
+ * import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `allowHideAll` | `boolean` | `false` | Allow hiding all columns (no minimum) |
+ *
+ * ## Column Configuration
+ *
+ * | Property | Type | Default | Description |
+ * |----------|------|---------|-------------|
+ * | `visible` | `boolean` | `true` | Initial visibility state |
+ * | `meta.lockVisibility` | `boolean` | `false` | Prevent user from toggling |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `hideColumn` | `(field: string) => void` | Hide a column |
+ * | `showColumn` | `(field: string) => void` | Show a column |
+ * | `toggleColumn` | `(field: string) => void` | Toggle visibility |
+ * | `showAllColumns` | `() => void` | Show all columns |
+ * | `getHiddenColumns` | `() => string[]` | Get list of hidden column fields |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-visibility-hover` | `var(--tbw-color-row-hover)` | Row hover background |
+ * | `--tbw-panel-padding` | `0.75em` | Panel content padding |
+ * | `--tbw-panel-gap` | `0.5em` | Gap between items |
+ *
+ * @example Columns Hidden by Default
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'id', header: 'ID' },
+ *     { field: 'name', header: 'Name' },
+ *     { field: 'phone', header: 'Phone', visible: false }, // Hidden by default
+ *     { field: 'address', header: 'Address', visible: false },
+ *   ],
+ *   plugins: [new VisibilityPlugin()],
+ * };
+ *
+ * // Toggle programmatically
+ * const plugin = grid.getPlugin(VisibilityPlugin);
+ * plugin.showColumn('phone');
+ * ```
+ *
+ * @example With Drag-to-Reorder
+ * ```ts
+ * import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+ * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+ *
+ * grid.gridConfig = {
+ *   plugins: [
+ *     new ReorderPlugin(),      // Enables drag-drop in visibility panel
+ *     new VisibilityPlugin(),
+ *   ],
+ * };
+ * ```
+ *
+ * @see {@link VisibilityConfig} for configuration options
+ * @see {@link ReorderPlugin} for drag-to-reorder integration
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   /**
    * Plugin dependencies - VisibilityPlugin optionally uses ReorderPlugin for drag-drop reordering.
    *
    * When ReorderPlugin is present, columns in the visibility panel become draggable.
+   * @internal
    */
   static override readonly dependencies: PluginDependency[] = [
     { name: 'reorder', required: false, reason: 'Enables drag-to-reorder columns in visibility panel' },
   ];
 
+  /** @internal */
   readonly name = 'visibility';
 
   /** Tool panel ID for shell integration */
   static readonly PANEL_ID = 'columns';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<VisibilityConfig> {
     return {
       allowHideAll: false,
@@ -88,6 +170,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.columnListElement = null;
     this.isDragging = false;
@@ -101,6 +184,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   /**
    * Register the column visibility tool panel with the shell.
+   * @internal
    */
   override getToolPanel(): ToolPanelDefinition | undefined {
     return {

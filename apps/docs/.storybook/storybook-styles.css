@@ -241,6 +241,10 @@ html.dark {
   background: transparent !important;
 }
 
+.sbdocs-toc--custom nav {
+  width: 15rem;
+}
+
 .sbdocs-toc--custom h2 {
   color: var(--sbdocs-fg) !important;
 }

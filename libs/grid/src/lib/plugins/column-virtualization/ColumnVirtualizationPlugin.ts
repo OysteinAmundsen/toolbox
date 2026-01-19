@@ -19,14 +19,64 @@ import type { ColumnVirtualizationConfig } from './types';
 /**
  * Column Virtualization Plugin for tbw-grid
  *
- * @example
+ * Provides horizontal column virtualization for grids with many columns (30+).
+ * Only renders visible columns plus overscan, significantly improving rendering
+ * performance for wide grids.
+ *
+ * ## Installation
+ *
  * ```ts
- * new ColumnVirtualizationPlugin({ threshold: 30, overscan: 3 })
+ * import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `autoEnable` | `boolean` | `true` | Auto-enable when column count exceeds threshold |
+ * | `threshold` | `number` | `30` | Column count threshold for auto-enable |
+ * | `overscan` | `number` | `3` | Extra columns to render beyond visible |
+ *
+ * ## Requirements
+ *
+ * - Grid must use `fitMode: 'fixed'`
+ * - Columns must have explicit widths
+ * - Grid must have fixed height
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `isEnabled` | `() => boolean` | Check if virtualization is active |
+ * | `setEnabled` | `(enabled: boolean) => void` | Enable/disable virtualization |
+ * | `getVisibleRange` | `() => { start, end }` | Get visible column range |
+ *
+ * @example Wide Grid with Column Virtualization
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+ *
+ * grid.gridConfig = {
+ *   columns: generateManyColumns(100), // 100 columns
+ *   fitMode: 'fixed',                  // Required
+ *   plugins: [
+ *     new ColumnVirtualizationPlugin({
+ *       threshold: 30,  // Enable when >30 columns
+ *       overscan: 3,    // Render 3 extra columns each side
+ *     }),
+ *   ],
+ * };
+ * ```
+ *
+ * @see {@link ColumnVirtualizationConfig} for configuration options
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizationConfig> {
+  /** @internal */
   readonly name = 'columnVirtualization';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<ColumnVirtualizationConfig> {
     return {
       autoEnable: true,
@@ -47,6 +97,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
   // #region Lifecycle
 
+  /** @internal */
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
 
@@ -58,6 +109,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     this.endCol = columns.length - 1;
   }
 
+  /** @internal */
   override detach(): void {
     this.columnWidths = [];
     this.columnOffsets = [];
@@ -71,6 +123,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
   // #region Hooks
 
+  /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     const isVirtualized = shouldVirtualize(columns.length, this.config.threshold ?? 30, this.config.autoEnable ?? true);
 
@@ -103,6 +156,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     return viewport.visibleColumns.map((i) => columns[i]);
   }
 
+  /** @internal */
   override afterRender(): void {
     if (!this.isVirtualized) return;
 
@@ -130,6 +184,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     }
   }
 
+  /** @internal */
   override onScroll(event: ScrollEvent): void {
     if (!this.isVirtualized) return;
 

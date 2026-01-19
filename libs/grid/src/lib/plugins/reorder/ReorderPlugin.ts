@@ -16,17 +16,81 @@ import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
 
 /**
- * Column Reordering Plugin for tbw-grid
+ * Column Reorder Plugin for tbw-grid
  *
- * @example
+ * Lets users rearrange columns by dragging and dropping column headers. Supports smooth
+ * FLIP animations, fade transitions, or instant reordering. Animation respects the
+ * grid-level `animation.mode` setting.
+ *
+ * ## Installation
+ *
  * ```ts
- * new ReorderPlugin()
+ * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `animation` | `false \| 'flip' \| 'fade'` | `'flip'` | Animation type for column moves |
+ * | `animationDuration` | `number` | `200` | Animation duration in ms |
+ *
+ * ## Keyboard Shortcuts
+ *
+ * | Key | Action |
+ * |-----|--------|
+ * | `Alt + ←` | Move focused column left |
+ * | `Alt + →` | Move focused column right |
+ *
+ * ## Events
+ *
+ * | Event | Detail | Cancelable | Description |
+ * |-------|--------|------------|-------------|
+ * | `column-move` | `{ field, fromIndex, toIndex, columnOrder }` | Yes | Fired when a column move is attempted |
+ *
+ * @example Basic Drag-and-Drop Reordering
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'id', header: 'ID' },
+ *     { field: 'name', header: 'Name' },
+ *     { field: 'email', header: 'Email' },
+ *   ],
+ *   plugins: [new ReorderPlugin({ animation: 'flip', animationDuration: 200 })],
+ * };
+ *
+ * // Persist column order
+ * grid.addEventListener('column-move', (e) => {
+ *   localStorage.setItem('columnOrder', JSON.stringify(e.detail.columnOrder));
+ * });
+ * ```
+ *
+ * @example Prevent Moves That Break Group Boundaries
+ * ```ts
+ * grid.addEventListener('column-move', (e) => {
+ *   if (!isValidMoveWithinGroup(e.detail.field, e.detail.fromIndex, e.detail.toIndex)) {
+ *     e.preventDefault(); // Column snaps back to original position
+ *   }
+ * });
+ * ```
+ *
+ * @see {@link ReorderConfig} for all configuration options
+ * @see {@link ColumnMoveDetail} for the event detail structure
+ * @see {@link GroupingColumnsPlugin} for column group integration
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
+  /** @internal */
   readonly name = 'reorder';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<ReorderConfig> {
     return {
       animation: 'flip', // Plugin's own default
@@ -93,6 +157,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
 
@@ -110,6 +175,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     );
   }
 
+  /** @internal */
   override detach(): void {
     this.isDragging = false;
     this.draggedField = null;
@@ -120,6 +186,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override afterRender(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;
@@ -219,6 +286,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
   /**
    * Handle Alt+Arrow keyboard shortcuts for column reordering.
+   * @internal
    */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     if (!event.altKey || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) {

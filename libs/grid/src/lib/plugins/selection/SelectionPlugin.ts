@@ -70,15 +70,89 @@ function buildSelectionEvent(
 /**
  * Selection Plugin for tbw-grid
  *
- * @example
+ * Adds cell, row, and range selection capabilities to the grid with full keyboard support.
+ * Whether you need simple cell highlighting or complex multi-range selections, this plugin has you covered.
+ *
+ * ## Installation
+ *
  * ```ts
- * new SelectionPlugin({ mode: 'range' })
+ * import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
  * ```
+ *
+ * ## Selection Modes
+ *
+ * Configure the plugin with one of three modes via {@link SelectionConfig}:
+ *
+ * - **`'cell'`** - Single cell selection (default). Click cells to select individually.
+ * - **`'row'`** - Full row selection. Click anywhere in a row to select the entire row.
+ * - **`'range'`** - Rectangular selection. Click and drag or Shift+Click to select ranges.
+ *
+ * ## Keyboard Shortcuts
+ *
+ * | Shortcut | Action |
+ * |----------|--------|
+ * | `Arrow Keys` | Move selection |
+ * | `Shift + Arrow` | Extend selection (range mode) |
+ * | `Ctrl/Cmd + Click` | Toggle selection (multi-select) |
+ * | `Shift + Click` | Extend to clicked cell/row |
+ * | `Ctrl/Cmd + A` | Select all (range mode) |
+ * | `Escape` | Clear selection |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Description |
+ * |----------|-------------|
+ * | `--tbw-focus-background` | Focused row background |
+ * | `--tbw-range-selection-bg` | Range selection fill |
+ * | `--tbw-range-border-color` | Range selection border |
+ *
+ * @example Basic row selection
+ * ```ts
+ * grid.gridConfig = {
+ *   columns: [...],
+ *   plugins: [new SelectionPlugin({ mode: 'row' })],
+ * };
+ * ```
+ *
+ * @example Range selection with event handling
+ * ```ts
+ * grid.gridConfig = {
+ *   plugins: [new SelectionPlugin({ mode: 'range' })],
+ * };
+ *
+ * grid.addEventListener('selection-change', (e) => {
+ *   const { mode, ranges } = e.detail;
+ *   console.log(`Selected ${ranges.length} ranges in ${mode} mode`);
+ * });
+ * ```
+ *
+ * @example Programmatic selection control
+ * ```ts
+ * const plugin = grid.getPlugin(SelectionPlugin);
+ *
+ * // Get current selection
+ * const selection = plugin.getSelection();
+ * console.log(selection.ranges);
+ *
+ * // Set selection programmatically
+ * plugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } }]);
+ *
+ * // Clear all selection
+ * plugin.clearSelection();
+ * ```
+ *
+ * @see {@link SelectionMode} for detailed mode descriptions
+ * @see {@link SelectionConfig} for configuration options
+ * @see {@link SelectionResult} for the selection result structure
+ * @see [Live Demos](?path=/docs/grid-plugins-selection--docs) for interactive examples
  */
 export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
+  /** @internal */
   readonly name = 'selection';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<SelectionConfig> {
     return {
       mode: 'cell',
@@ -107,6 +181,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.selected.clear();
     this.ranges = [];
@@ -121,6 +196,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   // #region Event Handlers
 
+  /** @internal */
   override onCellClick(event: CellClickEvent): boolean {
     const { rowIndex, colIndex, originalEvent } = event;
     const { mode } = this.config;
@@ -206,6 +282,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     return false;
   }
 
+  /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean {
     const { mode } = this.config;
     const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', 'PageUp', 'PageDown'];
@@ -298,6 +375,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     return false;
   }
 
+  /** @internal */
   override onCellMouseDown(event: CellMouseEvent): boolean | void {
     if (this.config.mode !== 'range') return;
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
@@ -339,6 +417,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     return true;
   }
 
+  /** @internal */
   override onCellMouseMove(event: CellMouseEvent): boolean | void {
     if (this.config.mode !== 'range') return;
     if (!this.isDragging || !this.cellAnchor) return;
@@ -370,6 +449,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     return true;
   }
 
+  /** @internal */
   override onCellMouseUp(_event: CellMouseEvent): boolean | void {
     if (this.config.mode !== 'range') return;
     if (this.isDragging) {
@@ -457,6 +537,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     // No additional action needed - the grid already manages focus styling
   }
 
+  /** @internal */
   override afterRender(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;
@@ -502,6 +583,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /**
    * Called after scroll-triggered row rendering.
    * Reapplies selection classes to recycled DOM elements.
+   * @internal
    */
   override onScrollRender(): void {
     this.#applySelectionClasses();

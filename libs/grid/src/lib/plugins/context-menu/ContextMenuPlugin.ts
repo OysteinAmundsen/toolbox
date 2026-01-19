@@ -45,21 +45,88 @@ const defaultItems: ContextMenuItem[] = [
 /**
  * Context Menu Plugin for tbw-grid
  *
- * @example
+ * Adds a customizable right-click menu to grid cells. Build anything from simple
+ * copy/paste actions to complex nested menus with conditional visibility, icons,
+ * and keyboard shortcuts.
+ *
+ * ## Installation
+ *
+ * ```ts
+ * import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+ * ```
+ *
+ * ## Menu Item Structure
+ *
+ * | Property | Type | Description |
+ * |----------|------|-------------|
+ * | `id` | `string` | Unique item identifier |
+ * | `name` | `string` | Display label |
+ * | `icon` | `string` | Icon class or HTML |
+ * | `shortcut` | `string` | Keyboard shortcut hint |
+ * | `action` | `(params) => void` | Click handler |
+ * | `disabled` | `boolean \| (params) => boolean` | Disable condition |
+ * | `visible` | `boolean \| (params) => boolean` | Visibility condition |
+ * | `items` | `MenuItem[]` | Submenu items |
+ * | `separator` | `boolean` | Create a divider line |
+ *
+ * ## Menu Context (params)
+ *
+ * | Property | Type | Description |
+ * |----------|------|-------------|
+ * | `rowIndex` | `number` | Clicked row index |
+ * | `colIndex` | `number` | Clicked column index |
+ * | `field` | `string` | Column field name |
+ * | `value` | `any` | Cell value |
+ * | `row` | `any` | Full row data |
+ * | `column` | `ColumnConfig` | Column configuration |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-context-menu-bg` | `var(--tbw-color-panel-bg)` | Menu background |
+ * | `--tbw-context-menu-fg` | `var(--tbw-color-fg)` | Menu text color |
+ * | `--tbw-context-menu-hover` | `var(--tbw-color-row-hover)` | Item hover background |
+ *
+ * @example Basic Context Menu
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+ *
+ * grid.gridConfig = {
+ *   plugins: [
+ *     new ContextMenuPlugin({
+ *       items: [
+ *         { id: 'copy', name: 'Copy', shortcut: 'Ctrl+C', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+ *         { separator: true, id: 'sep1', name: '' },
+ *         { id: 'delete', name: 'Delete', action: (ctx) => removeRow(ctx.rowIndex) },
+ *       ],
+ *     }),
+ *   ],
+ * };
+ * ```
+ *
+ * @example Conditional Menu Items
  * ```ts
  * new ContextMenuPlugin({
- *   enabled: true,
  *   items: [
- *     { id: 'edit', name: 'Edit', action: (params) => console.log('Edit', params) },
- *     { separator: true, id: 'sep', name: '' },
- *     { id: 'delete', name: 'Delete', action: (params) => console.log('Delete', params) },
+ *     { id: 'edit', name: 'Edit', visible: (ctx) => ctx.column.editable === true },
+ *     { id: 'delete', name: 'Delete', disabled: (ctx) => ctx.row.locked === true },
  *   ],
  * })
  * ```
+ *
+ * @see {@link ContextMenuConfig} for configuration options
+ * @see {@link ContextMenuItem} for menu item structure
+ * @see {@link ContextMenuParams} for action callback parameters
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
+  /** @internal */
   readonly name = 'contextMenu';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<ContextMenuConfig> {
     return {
       items: defaultItems,
@@ -75,12 +142,14 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
     super.attach(grid);
     this.installGlobalHandlers();
     globalHandlerRefCount++;
   }
 
+  /** @internal */
   override detach(): void {
     if (this.menuElement) {
       this.menuElement.remove();
@@ -157,6 +226,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override afterRender(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;

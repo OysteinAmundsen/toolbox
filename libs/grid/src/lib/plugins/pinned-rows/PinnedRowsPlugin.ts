@@ -13,25 +13,84 @@ import styles from './pinned-rows.css?inline';
 import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedRowsPanel } from './types';
 
 /**
- * Pinned Rows Plugin for tbw-grid
+ * Pinned Rows (Status Bar) Plugin for tbw-grid
  *
- * @example
+ * Creates fixed status bars at the top or bottom of the grid for displaying aggregations,
+ * row counts, or custom content. Think of it as the "totals row" you'd see in a spreadsheet—
+ * always visible regardless of scroll position.
+ *
+ * ## Installation
+ *
  * ```ts
- * new PinnedRowsPlugin({
- *   enabled: true,
- *   position: 'bottom',
- *   showRowCount: true,
- *   showSelectedCount: true,
- *   aggregationRows: [
- *     { id: 'totals', position: 'bottom', values: { amount: 'sum' } },
- *   ],
- * })
+ * import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `position` | `'top' \| 'bottom'` | `'bottom'` | Status bar position |
+ * | `showRowCount` | `boolean` | `true` | Show total row count |
+ * | `showSelectedCount` | `boolean` | `true` | Show selected row count |
+ * | `showFilteredCount` | `boolean` | `true` | Show filtered row count |
+ * | `aggregationRows` | `AggregationRowConfig[]` | - | Aggregation row configs |
+ *
+ * ## Built-in Aggregation Functions
+ *
+ * | Function | Description |
+ * |----------|-------------|
+ * | `sum` | Sum of values |
+ * | `avg` | Average of values |
+ * | `count` | Count of rows |
+ * | `min` | Minimum value |
+ * | `max` | Maximum value |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-pinned-rows-bg` | `var(--tbw-color-panel-bg)` | Status bar background |
+ * | `--tbw-pinned-rows-border` | `var(--tbw-color-border)` | Status bar border |
+ *
+ * @example Status Bar with Aggregation
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+ *
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'product', header: 'Product' },
+ *     { field: 'quantity', header: 'Qty', type: 'number' },
+ *     { field: 'price', header: 'Price', type: 'currency' },
+ *   ],
+ *   plugins: [
+ *     new PinnedRowsPlugin({
+ *       position: 'bottom',
+ *       showRowCount: true,
+ *       aggregationRows: [
+ *         {
+ *           id: 'totals',
+ *           aggregators: { quantity: 'sum', price: 'sum' },
+ *           cells: { product: 'Totals:' },
+ *         },
+ *       ],
+ *     }),
+ *   ],
+ * };
+ * ```
+ *
+ * @see {@link PinnedRowsConfig} for all configuration options
+ * @see {@link AggregationRowConfig} for aggregation row structure
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
+  /** @internal */
   readonly name = 'pinnedRows';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<PinnedRowsConfig> {
     return {
       position: 'bottom',
@@ -49,6 +108,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   // #endregion
 
   // #region Lifecycle
+  /** @internal */
   override detach(): void {
     if (this.infoBarElement) {
       this.infoBarElement.remove();
@@ -70,6 +130,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
   // #endregion
 
   // #region Hooks
+  /** @internal */
   override afterRender(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;

@@ -1,7 +1,9 @@
 /**
  * Editing Plugin Entry Point
  * Re-exports plugin class and types for tree-shakeable imports.
+ *
+ * @module Plugins/Editing
  */
-export { EditingPlugin, FOCUSABLE_EDITOR_SELECTOR, clearEditingState, hasEditingCells } from './EditingPlugin';
+export { EditingPlugin } from './EditingPlugin';
 export { defaultEditorFor } from './editors';
-export type { CellCommitDetail, ChangedRowsResetDetail, EditingConfig, EditorContext, RowCommitDetail } from './types';
+export type { EditingConfig, EditorContext } from './types';

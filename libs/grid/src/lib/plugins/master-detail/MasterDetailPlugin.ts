@@ -20,21 +20,98 @@ import styles from './master-detail.css?inline';
 import type { DetailExpandDetail, ExpandCollapseAnimation, MasterDetailConfig } from './types';
 
 /**
- * Master/Detail Plugin for tbw-grid
+ * Master-Detail Plugin for tbw-grid
  *
- * @example
+ * Creates expandable detail rows that reveal additional content beneath each master row.
+ * Perfect for order/line-item UIs, employee/department views, or any scenario where
+ * you need to show related data without navigating away.
+ *
+ * ## Installation
+ *
+ * ```ts
+ * import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+ * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `detailRenderer` | `(row) => HTMLElement \| string` | required | Render function for detail content |
+ * | `expandOnRowClick` | `boolean` | `false` | Expand when clicking the row |
+ * | `detailHeight` | `number \| 'auto'` | `'auto'` | Fixed height or auto-size |
+ * | `collapseOnClickOutside` | `boolean` | `false` | Collapse when clicking outside |
+ * | `showExpandColumn` | `boolean` | `true` | Show expand/collapse column |
+ * | `animation` | `false \| 'slide' \| 'fade'` | `'slide'` | Animation style |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `expandRow` | `(rowIndex) => void` | Expand a specific row |
+ * | `collapseRow` | `(rowIndex) => void` | Collapse a specific row |
+ * | `toggleRow` | `(rowIndex) => void` | Toggle row expansion |
+ * | `expandAll` | `() => void` | Expand all rows |
+ * | `collapseAll` | `() => void` | Collapse all rows |
+ * | `isRowExpanded` | `(rowIndex) => boolean` | Check if row is expanded |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-master-detail-bg` | `var(--tbw-color-row-alt)` | Detail row background |
+ * | `--tbw-master-detail-border` | `var(--tbw-color-border)` | Detail row border |
+ * | `--tbw-detail-padding` | `1em` | Detail content padding |
+ * | `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
+ *
+ * @example Basic Master-Detail with HTML Template
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+ *
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'orderId', header: 'Order ID' },
+ *     { field: 'customer', header: 'Customer' },
+ *     { field: 'total', header: 'Total', type: 'currency' },
+ *   ],
+ *   plugins: [
+ *     new MasterDetailPlugin({
+ *       detailRenderer: (row) => `
+ *         <div class="order-details">
+ *           <h4>Order Items</h4>
+ *           <ul>${row.items.map(i => `<li>${i.name} - $${i.price}</li>`).join('')}</ul>
+ *         </div>
+ *       `,
+ *     }),
+ *   ],
+ * };
+ * ```
+ *
+ * @example Nested Grid in Detail
  * ```ts
  * new MasterDetailPlugin({
- *   enabled: true,
- *   detailRenderer: (row) => `<div>Details for ${row.name}</div>`,
- *   expandOnRowClick: true,
+ *   detailRenderer: (row) => {
+ *     const childGrid = document.createElement('tbw-grid');
+ *     childGrid.style.height = '200px';
+ *     childGrid.gridConfig = { columns: [...] };
+ *     childGrid.rows = row.items || [];
+ *     return childGrid;
+ *   },
  * })
  * ```
+ *
+ * @see {@link MasterDetailConfig} for all configuration options
+ * @see {@link DetailExpandDetail} for expand/collapse event details
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
+  /** @internal */
   readonly name = 'masterDetail';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<MasterDetailConfig> {
     return {
       detailHeight: 'auto',
@@ -50,6 +127,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Called when plugin is attached to the grid.
    * Parses light DOM for `<tbw-grid-detail>` elements to configure detail templates.
+   * @internal
    */
   override attach(grid: GridElement): void {
     super.attach(grid);
@@ -227,6 +305,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.expandedRows.clear();
     this.detailElements.clear();
@@ -235,6 +314,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (!this.config.detailRenderer || this.config.showExpandColumn === false) {
       return [...columns];
@@ -278,12 +358,14 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     return [expanderCol, ...cols];
   }
 
+  /** @internal */
   override onRowClick(event: RowClickEvent): boolean | void {
     if (!this.config.expandOnRowClick || !this.config.detailRenderer) return;
     this.toggleAndEmit(event.row, event.rowIndex);
     return false;
   }
 
+  /** @internal */
   override onCellClick(event: CellClickEvent): boolean | void {
     // Handle click on master-detail toggle icon (same pattern as TreePlugin)
     const target = event.originalEvent?.target as HTMLElement;
@@ -300,6 +382,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     return; // Don't prevent default
   }
 
+  /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     // SPACE toggles expansion when focus is on the expander column
     if (event.key !== ' ') return;
@@ -322,6 +405,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     return true;
   }
 
+  /** @internal */
   override afterRender(): void {
     this.#syncDetailRows();
   }
@@ -329,6 +413,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Called on scroll to sync detail elements with visible rows.
    * Removes details for rows that scrolled out of view and reattaches for visible rows.
+   * @internal
    */
   override onScrollRender(): void {
     if (!this.config.detailRenderer || this.expandedRows.size === 0) return;

@@ -85,6 +85,7 @@ export interface PluginHeaderRenderContext {
 /**
  * Declares a dependency on another plugin.
  *
+ * @category Plugin Development
  * @example
  * ```typescript
  * export class UndoRedoPlugin extends BaseGridPlugin {
@@ -120,6 +121,7 @@ export interface PluginDependency {
 /**
  * Abstract base class for all grid plugins.
  *
+ * @category Plugin Development
  * @template TConfig - Configuration type for the plugin
  */
 export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {

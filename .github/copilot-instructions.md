@@ -378,10 +378,15 @@ TypeScript paths defined in `tsconfig.base.json` for all libraries:
 - **Strict TypeScript**: `strict: true`, no implicit any, prefer explicit types
 - **ESLint config**: Flat config in `eslint.config.mjs` using `@nx/eslint-plugin`
 - **Formatting**: Prettier v3.7.4 (no explicit config file; uses defaults)
-- **Naming**:
-  - Private/internal fields prefixed with `#` (ES private fields) or `__` (legacy)
-  - Public API uses camelCase, no prefixes
-  - Internal state/cache uses `_` prefix (e.g., `_rows`, `_columns`)
+- **Naming & Visibility**:
+  | Prefix/Tag | Meaning | In API Docs? |
+  |------------|---------|--------------|
+  | `#` | ES private field (truly private) | ❌ No |
+  | `__` | Deeply internal (implementation detail) | ❌ No |
+  | `_` | Protected/plugin-accessible state | ✅ Yes |
+  | `@internal Plugin API` | Plugin hook/method | ✅ Yes |
+  | `@internal` (alone) | Internal, not for plugins | ❌ No |
+  | (no prefix) | Public API | ✅ Yes |
 
 ### Vite Build Outputs
 

@@ -10,23 +10,85 @@ import { canRedo, canUndo, clearHistory, createEditAction, pushAction, redo, und
 import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
 
 /**
- * Class-based Undo/Redo plugin for tbw-grid.
+ * Undo/Redo Plugin for tbw-grid
  *
- * Tracks cell edits and provides undo/redo functionality via keyboard shortcuts
- * or programmatic API.
+ * Tracks all cell edits and lets users revert or replay changes with familiar keyboard
+ * shortcuts (Ctrl+Z / Ctrl+Y). Maintains an in-memory history stack with configurable
+ * depth—perfect for data entry workflows where mistakes happen.
+ *
+ * > **Required Dependency:** This plugin requires EditingPlugin to be loaded first.
+ * > UndoRedo tracks the edit history that EditingPlugin creates.
+ *
+ * ## Installation
+ *
+ * ```ts
+ * import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+ * import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+ * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `maxHistorySize` | `number` | `100` | Maximum actions in history stack |
+ *
+ * ## Keyboard Shortcuts
+ *
+ * | Shortcut | Action |
+ * |----------|--------|
+ * | `Ctrl+Z` / `Cmd+Z` | Undo last edit |
+ * | `Ctrl+Y` / `Cmd+Shift+Z` | Redo last undone edit |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `undo` | `() => void` | Undo the last edit |
+ * | `redo` | `() => void` | Redo the last undone edit |
+ * | `canUndo` | `() => boolean` | Check if undo is available |
+ * | `canRedo` | `() => boolean` | Check if redo is available |
+ * | `clearHistory` | `() => void` | Clear the entire history stack |
+ *
+ * @example Basic Usage with EditingPlugin
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+ * import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'name', header: 'Name', editable: true },
+ *     { field: 'price', header: 'Price', type: 'number', editable: true },
+ *   ],
+ *   editOn: 'dblClick',
+ *   plugins: [
+ *     new EditingPlugin(),              // Required - must be first
+ *     new UndoRedoPlugin({ maxHistorySize: 50 }),
+ *   ],
+ * };
+ * ```
+ *
+ * @see {@link UndoRedoConfig} for configuration options
+ * @see {@link EditingPlugin} for the required dependency
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   /**
    * Plugin dependencies - UndoRedoPlugin requires EditingPlugin to track edits.
    *
    * The EditingPlugin must be loaded BEFORE this plugin in the plugins array.
+   * @internal
    */
   static override readonly dependencies: PluginDependency[] = [
     { name: 'editing', required: true, reason: 'UndoRedoPlugin tracks cell edit history' },
   ];
 
+  /** @internal */
   readonly name = 'undoRedo';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<UndoRedoConfig> {
     return {
       maxHistorySize: 100,
@@ -39,6 +101,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
   /**
    * Clean up state when plugin is detached.
+   * @internal
    */
   override detach(): void {
     this.undoStack = [];
@@ -49,6 +112,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * Handle keyboard shortcuts for undo/redo.
    * - Ctrl+Z / Cmd+Z: Undo
    * - Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z: Redo
+   * @internal
    */
   override onKeyDown(event: KeyboardEvent): boolean {
     const isUndo = (event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey;

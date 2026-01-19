@@ -18,14 +18,68 @@ import type { PinnedColumnsConfig } from './types';
 /**
  * Pinned Columns Plugin for tbw-grid
  *
- * @example
+ * Freezes columns to the left or right edge of the grid—essential for keeping key
+ * identifiers or action buttons visible while scrolling through wide datasets. Just set
+ * `pinned: 'left'` or `pinned: 'right'` on your column definitions.
+ *
+ * ## Installation
+ *
  * ```ts
- * new PinnedColumnsPlugin({ enabled: true })
+ * import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
  * ```
+ *
+ * ## Column Configuration
+ *
+ * | Property | Type | Description |
+ * |----------|------|-------------|
+ * | `pinned` | `'left' \| 'right'` | Pin column to left or right edge |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-pinned-shadow` | `4px 0 8px rgba(0,0,0,0.1)` | Shadow on pinned column edge |
+ * | `--tbw-pinned-border` | `var(--tbw-color-border)` | Border between pinned and scrollable |
+ *
+ * @example Pin ID Left and Actions Right
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'id', header: 'ID', pinned: 'left', width: 80 },
+ *     { field: 'name', header: 'Name' },
+ *     { field: 'email', header: 'Email' },
+ *     { field: 'department', header: 'Department' },
+ *     { field: 'actions', header: 'Actions', pinned: 'right', width: 120 },
+ *   ],
+ *   plugins: [new PinnedColumnsPlugin()],
+ * };
+ * ```
+ *
+ * @example Left Pinned Only
+ * ```ts
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'id', header: 'ID', pinned: 'left' },
+ *     { field: 'name', header: 'Name' },
+ *     // ... scrollable columns
+ *   ],
+ *   plugins: [new PinnedColumnsPlugin()],
+ * };
+ * ```
+ *
+ * @see {@link PinnedColumnsConfig} for configuration options
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
+  /** @internal */
   readonly name = 'pinnedColumns';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<PinnedColumnsConfig> {
     return {};
   }
@@ -38,6 +92,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.leftOffsets.clear();
     this.rightOffsets.clear();
@@ -59,12 +114,14 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     // Mark that we have sticky columns to apply
     this.isApplied = hasStickyColumns([...columns]);
     return [...columns];
   }
 
+  /** @internal */
   override afterRender(): void {
     if (!this.isApplied) {
       return;
@@ -87,6 +144,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   /**
    * Handle inter-plugin queries.
+   * @internal
    */
   override onPluginQuery(query: PluginQuery): unknown {
     switch (query.type) {
@@ -147,6 +205,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   /**
    * Report horizontal scroll boundary offsets for pinned columns.
    * Used by keyboard navigation to ensure focused cells aren't hidden behind sticky columns.
+   * @internal
    */
   override getHorizontalScrollOffsets(
     rowEl?: HTMLElement,

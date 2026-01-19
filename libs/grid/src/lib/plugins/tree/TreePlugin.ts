@@ -18,15 +18,95 @@ interface GridWithSortState {
 /**
  * Tree Data Plugin for tbw-grid
  *
- * @example
+ * Transforms your flat grid into a hierarchical tree view with expandable parent-child
+ * relationships. Ideal for file explorers, organizational charts, nested categories,
+ * or any data with a natural hierarchy.
+ *
+ * ## Installation
+ *
  * ```ts
- * new TreePlugin({ defaultExpanded: true, indentWidth: 24 })
+ * import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `childrenField` | `string` | `'children'` | Field containing child array |
+ * | `autoDetect` | `boolean` | `true` | Auto-detect tree structure from data |
+ * | `defaultExpanded` | `boolean` | `false` | Expand all nodes initially |
+ * | `indentWidth` | `number` | `20` | Indentation per level (pixels) |
+ * | `showExpandIcons` | `boolean` | `true` | Show expand/collapse toggle icons |
+ * | `animation` | `false \| 'slide' \| 'fade'` | `'slide'` | Animation style for expand/collapse |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `expand` | `(nodeId) => void` | Expand a specific node |
+ * | `collapse` | `(nodeId) => void` | Collapse a specific node |
+ * | `toggle` | `(nodeId) => void` | Toggle a node's expanded state |
+ * | `expandAll` | `() => void` | Expand all nodes |
+ * | `collapseAll` | `() => void` | Collapse all nodes |
+ * | `getExpandedNodes` | `() => Set<string>` | Get currently expanded node keys |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-tree-toggle-size` | `1.25em` | Toggle icon width |
+ * | `--tbw-tree-indent-width` | `var(--tbw-tree-toggle-size)` | Indentation per level |
+ * | `--tbw-tree-accent` | `var(--tbw-color-accent)` | Toggle icon hover color |
+ * | `--tbw-animation-duration` | `200ms` | Expand/collapse animation duration |
+ * | `--tbw-animation-easing` | `ease-out` | Animation curve |
+ *
+ * @example Basic Tree with Nested Children
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'name', header: 'Name' },
+ *     { field: 'type', header: 'Type' },
+ *     { field: 'size', header: 'Size' },
+ *   ],
+ *   plugins: [new TreePlugin({ childrenField: 'children', indentWidth: 24 })],
+ * };
+ * grid.rows = [
+ *   {
+ *     id: 1,
+ *     name: 'Documents',
+ *     type: 'folder',
+ *     children: [
+ *       { id: 2, name: 'Report.docx', type: 'file', size: '24 KB' },
+ *     ],
+ *   },
+ * ];
+ * ```
+ *
+ * @example Expanded by Default with Custom Animation
+ * ```ts
+ * new TreePlugin({
+ *   defaultExpanded: true,
+ *   animation: 'fade', // 'slide' | 'fade' | false
+ *   indentWidth: 32,
+ * })
+ * ```
+ *
+ * @see {@link TreeConfig} for all configuration options
+ * @see {@link FlattenedTreeRow} for the flattened row structure
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class TreePlugin extends BaseGridPlugin<TreeConfig> {
+  /** @internal */
   readonly name = 'tree';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<TreeConfig> {
     return {
       childrenField: 'children',
@@ -48,6 +128,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   private keysToAnimate = new Set<string>();
   private sortState: { field: string; direction: 1 | -1 } | null = null;
 
+  /** @internal */
   override detach(): void {
     this.expandedKeys.clear();
     this.initialExpansionDone = false;
@@ -86,6 +167,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   // #region Data Processing
 
+  /** @internal */
   override processRows(rows: readonly unknown[]): TreeRow[] {
     const childrenField = this.config.childrenField ?? 'children';
     const treeRows = rows as readonly TreeRow[];
@@ -196,6 +278,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     });
   }
 
+  /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (this.flattenedRows.length === 0) return [...columns];
 
@@ -268,6 +351,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   // #region Event Handlers
 
+  /** @internal */
   override onCellClick(event: CellClickEvent): boolean {
     const target = event.originalEvent?.target as HTMLElement;
     if (!target?.classList.contains('tree-toggle')) return false;
@@ -289,6 +373,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return true;
   }
 
+  /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     // SPACE toggles expansion when on a row with children
     if (event.key !== ' ') return;
@@ -309,6 +394,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return true;
   }
 
+  /** @internal */
   override onHeaderClick(event: HeaderClickEvent): boolean {
     if (this.flattenedRows.length === 0 || !event.column.sortable) return false;
 
@@ -332,6 +418,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     return true;
   }
 
+  /** @internal */
   override afterRender(): void {
     const style = this.animationStyle;
     if (style === false || this.keysToAnimate.size === 0) return;

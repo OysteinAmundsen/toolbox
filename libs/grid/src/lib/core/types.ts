@@ -69,6 +69,8 @@ export interface PublicGrid<T = any> {
  * Member prefixes indicate accessibility:
  * - `_underscore` = protected members - private outside core, accessible to plugins. Marked with @internal.
  * - `__doubleUnderscore` = deeply internal members - private outside core, only for internal functions.
+ *
+ * @category Plugin Development
  */
 export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   // Element methods available because DataGridElement extends HTMLElement
@@ -334,6 +336,7 @@ export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
  * // User registers adapter once in their app
  * GridElement.registerAdapter(new AngularGridAdapter(injector, appRef));
  * ```
+ * @category Framework Adapters
  */
 export interface FrameworkAdapter {
   /**
@@ -378,6 +381,8 @@ export interface ColumnParsedAttributes {
 /**
  * Extended column config used internally.
  * Includes all internal properties needed during grid lifecycle.
+ *
+ * @category Plugin Development
  * @internal
  */
 export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAttributes {
@@ -396,6 +401,8 @@ export interface ColumnInternal<T = any> extends ColumnConfig<T>, ColumnParsedAt
 /**
  * Row element with internal tracking properties.
  * Used during virtualization and row pooling.
+ *
+ * @category Plugin Development
  * @internal
  */
 export interface RowElementInternal extends HTMLElement {
@@ -421,6 +428,8 @@ export interface ElementWithPart {
 /**
  * Compiled view function type with optional blocked flag.
  * The __blocked flag is set when a template contains unsafe expressions.
+ *
+ * @category Plugin Development
  * @internal
  */
 export interface CompiledViewFunction<T = any> {
@@ -431,6 +440,8 @@ export interface CompiledViewFunction<T = any> {
 
 /**
  * Runtime cell context used internally for compiled template execution.
+ *
+ * @category Plugin Development
  */
 export interface CellContext<T = any> {
   row: T;
@@ -441,13 +452,19 @@ export interface CellContext<T = any> {
 
 /**
  * Internal editor execution context extending the generic cell context with commit helpers.
+ *
+ * @category Plugin Development
  */
 export interface EditorExecContext<T = any> extends CellContext<T> {
   commit: (newValue: unknown) => void;
   cancel: () => void;
 }
 
-/** Controller managing drag-based column resize lifecycle. */
+/**
+ * Controller managing drag-based column resize lifecycle.
+ *
+ * @category Plugin Development
+ */
 export interface ResizeController {
   start: (e: MouseEvent, colIndex: number, cell: HTMLElement) => void;
   /** Reset a column to its configured width (or auto-size if none configured). */
@@ -457,7 +474,11 @@ export interface ResizeController {
   isResizing: boolean;
 }
 
-/** Virtual window bookkeeping; modified in-place as scroll position changes. */
+/**
+ * Virtual window bookkeeping; modified in-place as scroll position changes.
+ *
+ * @category Plugin Development
+ */
 export interface VirtualState {
   enabled: boolean;
   rowHeight: number;
@@ -478,6 +499,8 @@ export interface VirtualState {
 /**
  * Union type for input-like elements that have a `value` property.
  * Covers standard form elements and custom elements with value semantics.
+ *
+ * @category Plugin Development
  * @internal
  */
 export type InputLikeElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | { value: unknown };
@@ -519,6 +542,8 @@ export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum]; // evaluat
  * Minimal plugin interface for type-checking.
  * This interface is defined here to avoid circular imports with BaseGridPlugin.
  * All plugins must satisfy this shape (BaseGridPlugin implements it).
+ *
+ * @category Plugin Development
  */
 export interface GridPlugin {
   /** Unique plugin identifier */
@@ -1036,6 +1061,11 @@ export interface GridColumnState {
 // #endregion
 
 // #region Public Event Detail Interfaces
+/**
+ * Event detail for cell value commit.
+ *
+ * @category Events
+ */
 export interface CellCommitDetail<TRow = unknown> {
   /** The row object (not yet mutated if event is cancelable). */
   row: TRow;
@@ -1055,7 +1085,11 @@ export interface CellCommitDetail<TRow = unknown> {
   firstTimeForRow: boolean;
 }
 
-/** Detail payload for a committed row edit (may or may not include changes). */
+/**
+ * Detail payload for a committed row edit (may or may not include changes).
+ *
+ * @category Events
+ */
 export interface RowCommitDetail<TRow = unknown> {
   /** Row index that lost edit focus. */
   rowIndex: number;
@@ -1069,7 +1103,11 @@ export interface RowCommitDetail<TRow = unknown> {
   changedRowIndices: number[];
 }
 
-/** Emitted when the changed rows tracking set is cleared programmatically. */
+/**
+ * Emitted when the changed rows tracking set is cleared programmatically.
+ *
+ * @category Events
+ */
 export interface ChangedRowsResetDetail<TRow = unknown> {
   /** New (empty) changed rows array after reset. */
   rows: TRow[];
@@ -1077,7 +1115,11 @@ export interface ChangedRowsResetDetail<TRow = unknown> {
   indices: number[];
 }
 
-/** Detail for a sort change (direction 0 indicates cleared sort). */
+/**
+ * Detail for a sort change (direction 0 indicates cleared sort).
+ *
+ * @category Events
+ */
 export interface SortChangeDetail {
   /** Sorted field key. */
   field: string;
@@ -1085,7 +1127,11 @@ export interface SortChangeDetail {
   direction: 1 | -1 | 0;
 }
 
-/** Column resize event detail containing final pixel width. */
+/**
+ * Column resize event detail containing final pixel width.
+ *
+ * @category Events
+ */
 export interface ColumnResizeDetail {
   /** Resized column field key. */
   field: string;
@@ -1093,7 +1139,11 @@ export interface ColumnResizeDetail {
   width: number;
 }
 
-/** Fired when keyboard navigation or programmatic focus changes active cell. */
+/**
+ * Fired when keyboard navigation or programmatic focus changes active cell.
+ *
+ * @category Events
+ */
 export interface ActivateCellDetail {
   /** Zero-based row index now focused. */
   row: number;
@@ -1101,12 +1151,22 @@ export interface ActivateCellDetail {
   col: number;
 }
 
+/**
+ * Event detail for mounting external view renderers.
+ *
+ * @category Events
+ */
 export interface ExternalMountViewDetail<TRow = unknown> {
   placeholder: HTMLElement;
   spec: unknown;
   context: { row: TRow; value: unknown; field: string; column: unknown };
 }
 
+/**
+ * Event detail for mounting external editor renderers.
+ *
+ * @category Events
+ */
 export interface ExternalMountEditorDetail<TRow = unknown> {
   placeholder: HTMLElement;
   spec: unknown;
@@ -1120,6 +1180,11 @@ export interface ExternalMountEditorDetail<TRow = unknown> {
   };
 }
 
+/**
+ * Maps event names to their detail payload types.
+ *
+ * @category Events
+ */
 export interface DataGridEventMap<TRow = unknown> {
   'cell-commit': CellCommitDetail<TRow>;
   'row-commit': RowCommitDetail<TRow>;
@@ -1132,7 +1197,18 @@ export interface DataGridEventMap<TRow = unknown> {
   'column-state-change': GridColumnState;
 }
 
+/**
+ * Extracts the event detail type for a given event name.
+ *
+ * @category Events
+ */
 export type DataGridEventDetail<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = DataGridEventMap<TRow>[K];
+
+/**
+ * Custom event type for DataGrid events with typed detail payload.
+ *
+ * @category Events
+ */
 export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = CustomEvent<
   DataGridEventMap<TRow>[K]
 >;
@@ -1140,6 +1216,11 @@ export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow 
 // Internal code now reuses the public ColumnEditorContext; provide alias for backward compatibility
 export type EditorContext<T = unknown> = ColumnEditorContext<T, unknown>;
 
+/**
+ * Template evaluation context for dynamic templates.
+ *
+ * @category Plugin Development
+ */
 export interface EvalContext {
   value: unknown;
   row: Record<string, unknown> | null;

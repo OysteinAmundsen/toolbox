@@ -120,27 +120,99 @@ function wireEditorInputs(
 /**
  * Editing Plugin for tbw-grid
  *
- * Provides complete cell/row editing functionality. Without this plugin,
- * the grid has no editing capability.
+ * Enables inline cell editing in the grid. Provides built-in editors for common data types
+ * and supports custom editor functions for specialized input scenarios.
  *
- * @example
+ * ## Why Opt-In?
+ *
+ * Editing is delivered as a plugin rather than built into the core grid:
+ *
+ * - **Smaller bundle** — Apps that only display data don't pay for editing code
+ * - **Clear intent** — Explicit plugin registration makes editing capability obvious
+ * - **Runtime validation** — Using `editable: true` without the plugin throws a helpful error
+ *
+ * ## Installation
+ *
  * ```ts
  * import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+ * ```
  *
- * const grid = document.createElement('tbw-grid');
+ * ## Edit Triggers
+ *
+ * Configure how editing is triggered with the `editOn` option:
+ *
+ * | Value | Behavior |
+ * |-------|----------|
+ * | `'click'` | Single click enters edit mode (default) |
+ * | `'dblclick'` | Double-click enters edit mode |
+ *
+ * ## Keyboard Shortcuts
+ *
+ * | Key | Action |
+ * |-----|--------|
+ * | `Enter` | Commit edit and move down |
+ * | `Tab` | Commit edit and move right |
+ * | `Escape` | Cancel edit, restore original value |
+ * | `Arrow Keys` | Navigate between cells (when not editing) |
+ *
+ * ## Events
+ *
+ * | Event | Description |
+ * |-------|-------------|
+ * | `cell-commit` | Fired when a cell value is committed |
+ * | `row-commit` | Fired when focus leaves an edited row |
+ * | `changed-rows-reset` | Fired when `resetChangedRows()` is called |
+ *
+ * @example Basic editing with double-click trigger
+ * ```ts
  * grid.gridConfig = {
  *   columns: [
  *     { field: 'name', editable: true },
- *     { field: 'age', editable: true, type: 'number' }
+ *     { field: 'price', type: 'number', editable: true },
+ *     { field: 'active', type: 'boolean', editable: true },
  *   ],
- *   plugins: [new EditingPlugin({ editOn: 'dblclick' })]
+ *   plugins: [new EditingPlugin({ editOn: 'dblclick' })],
  * };
+ *
+ * grid.addEventListener('cell-commit', (e) => {
+ *   const { field, oldValue, newValue } = e.detail;
+ *   console.log(`${field}: ${oldValue} → ${newValue}`);
+ * });
  * ```
+ *
+ * @example Custom editor function
+ * ```ts
+ * columns: [
+ *   {
+ *     field: 'status',
+ *     editable: true,
+ *     editor: (ctx) => {
+ *       const select = document.createElement('select');
+ *       ['pending', 'active', 'completed'].forEach(opt => {
+ *         const option = document.createElement('option');
+ *         option.value = opt;
+ *         option.textContent = opt;
+ *         option.selected = ctx.value === opt;
+ *         select.appendChild(option);
+ *       });
+ *       select.addEventListener('change', () => ctx.commit(select.value));
+ *       return select;
+ *     },
+ *   },
+ * ]
+ * ```
+ *
+ * @see {@link EditingConfig} for configuration options
+ * @see {@link EditorContext} for custom editor context
+ * @see [Live Demos](?path=/docs/grid-plugins-editing--docs) for interactive examples
  */
 export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
+  /** @internal */
   readonly name = 'editing';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<EditingConfig> {
     return {
       editOn: 'click',
@@ -171,6 +243,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override attach(grid: GridElement): void {
     super.attach(grid);
 
@@ -231,6 +304,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     );
   }
 
+  /** @internal */
   override detach(): void {
     this.#activeEditRow = -1;
     this.#activeEditCol = -1;
@@ -248,6 +322,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Handle cell clicks - start editing if configured for click mode.
    * Both click and dblclick events come through this handler.
    * Starts row-based editing (all editable cells in the row get editors).
+   * @internal
    */
   override onCellClick(event: CellClickEvent): boolean | void {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
@@ -278,6 +353,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Handle keyboard events for edit lifecycle.
+   * @internal
    */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
@@ -348,6 +424,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * After render, reapply editors to cells in edit mode.
    * This handles virtualization - when a row scrolls back into view,
    * we need to re-inject the editor.
+   * @internal
    */
   override afterRender(): void {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
@@ -383,6 +460,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * On scroll render, reapply editors to recycled cells.
+   * @internal
    */
   override onScrollRender(): void {
     this.afterRender();

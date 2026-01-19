@@ -41,20 +41,90 @@ export interface GroupState {
 /**
  * Row Grouping Plugin for tbw-grid
  *
- * @example
+ * Organizes rows into collapsible hierarchical groups. Perfect for organizing data
+ * by category, department, status, or any other dimension—or even multiple dimensions
+ * for nested grouping. Includes aggregation support for summarizing group data.
+ *
+ * ## Installation
+ *
+ * ```ts
+ * import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+ * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `groupOn` | `(row) => string[]` | - | Callback returning group path array |
+ * | `defaultExpanded` | `boolean` | `false` | Start all groups expanded |
+ * | `showRowCount` | `boolean` | `true` | Show row count in group header |
+ * | `indentWidth` | `number` | `20` | Indentation per level (pixels) |
+ * | `fullWidth` | `boolean` | `true` | Group row spans full width |
+ * | `animation` | `false \| 'slide' \| 'fade'` | `'slide'` | Expand/collapse animation |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `expandGroup` | `(path: string[]) => void` | Expand a specific group |
+ * | `collapseGroup` | `(path: string[]) => void` | Collapse a specific group |
+ * | `expandAll` | `() => void` | Expand all groups |
+ * | `collapseAll` | `() => void` | Collapse all groups |
+ * | `isGroupExpanded` | `(path: string[]) => boolean` | Check if group is expanded |
+ * | `getGroupState` | `() => GroupState` | Get current grouping state |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-group-indent-width` | `1.25em` | Indentation per group level |
+ * | `--tbw-grouping-rows-bg` | `var(--tbw-color-panel-bg)` | Group row background |
+ * | `--tbw-grouping-rows-count-color` | `var(--tbw-color-fg-muted)` | Count badge color |
+ * | `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
+ *
+ * @example Single-Level Grouping by Department
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'name', header: 'Employee' },
+ *     { field: 'department', header: 'Department' },
+ *     { field: 'salary', header: 'Salary', type: 'currency' },
+ *   ],
+ *   plugins: [
+ *     new GroupingRowsPlugin({
+ *       groupOn: (row) => [row.department],
+ *       showRowCount: true,
+ *       defaultExpanded: false,
+ *     }),
+ *   ],
+ * };
+ * ```
+ *
+ * @example Multi-Level Grouping
  * ```ts
  * new GroupingRowsPlugin({
- *   enabled: true,
- *   groupOn: (row) => row.category,
- *   defaultExpanded: false,
- *   showRowCount: true,
+ *   groupOn: (row) => [row.region, row.department, row.team],
+ *   indentWidth: 24,
+ *   animation: 'slide',
  * })
  * ```
+ *
+ * @see {@link GroupingRowsConfig} for all configuration options
+ * @see {@link GroupState} for the group state structure
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
+  /** @internal */
   readonly name = 'groupingRows';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<GroupingRowsConfig> {
     return {
       defaultExpanded: false,
@@ -88,6 +158,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.expandedKeys.clear();
     this.flattenedRows = [];
@@ -107,6 +178,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     return typeof config?.groupOn === 'function' || typeof config?.enableRowGrouping === 'boolean';
   }
 
+  /** @internal */
   override processRows(rows: readonly any[]): any[] {
     const config = this.config;
 
@@ -166,6 +238,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     });
   }
 
+  /** @internal */
   override onCellClick(event: CellClickEvent): boolean | void {
     const row = event.row as Record<string, unknown> | undefined;
 
@@ -179,6 +252,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     }
   }
 
+  /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     // SPACE toggles expansion on group rows
     if (event.key !== ' ') return;
@@ -199,6 +273,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /**
    * Render a row. Returns true if we handled the row (group row), false otherwise.
+   * @internal
    */
   override renderRow(row: any, rowEl: HTMLElement, _rowIndex: number): boolean {
     // Only handle group rows
@@ -266,6 +341,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     return true;
   }
 
+  /** @internal */
   override afterRender(): void {
     const style = this.animationStyle;
     if (style === false || this.keysToAnimate.size === 0) return;

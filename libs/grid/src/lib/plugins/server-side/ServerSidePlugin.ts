@@ -12,17 +12,75 @@ import type { ServerSideConfig, ServerSideDataSource } from './types';
 const SCROLL_DEBOUNCE_MS = 100;
 
 /**
- * Server-Side Plugin for tbw-grid
+ * Server-Side Data Plugin for tbw-grid
  *
- * @example
+ * Enables lazy loading of data from a remote server with caching and block-based fetching.
+ * Ideal for large datasets where loading all data upfront is impractical.
+ *
+ * ## Installation
+ *
  * ```ts
- * const plugin = new ServerSidePlugin({ cacheBlockSize: 100 });
- * plugin.setDataSource(myDataSource);
+ * import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `pageSize` | `number` | `100` | Rows per block |
+ * | `cacheBlockSize` | `number` | `pageSize` | Cache block size |
+ * | `maxConcurrentRequests` | `number` | `2` | Max parallel data requests |
+ *
+ * ## DataSource Interface
+ *
+ * ```ts
+ * interface ServerSideDataSource {
+ *   getRows(params: GetRowsParams): Promise<GetRowsResult>;
+ * }
+ * ```
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `setDataSource` | `(ds: ServerSideDataSource) => void` | Set the data source |
+ * | `refresh` | `() => void` | Refresh current data |
+ * | `clearCache` | `() => void` | Clear all cached blocks |
+ *
+ * @example Basic Server-Side Loading
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+ *
+ * const dataSource = {
+ *   async getRows(params) {
+ *     const response = await fetch(
+ *       `/api/data?start=${params.startRow}&end=${params.endRow}`
+ *     );
+ *     const data = await response.json();
+ *     return { rows: data.rows, totalRowCount: data.total };
+ *   },
+ * };
+ *
+ * const plugin = new ServerSidePlugin({ pageSize: 50 });
+ * grid.gridConfig = {
+ *   columns: [...],
+ *   plugins: [plugin],
+ * };
+ *
+ * grid.ready().then(() => plugin.setDataSource(dataSource));
+ * ```
+ *
+ * @see {@link ServerSideConfig} for configuration options
+ * @see {@link ServerSideDataSource} for data source interface
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
+  /** @internal */
   readonly name = 'serverSide';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<ServerSideConfig> {
     return {
       pageSize: 100,
@@ -42,6 +100,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.dataSource = null;
     this.totalRowCount = 0;
@@ -102,6 +161,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override processRows(rows: readonly unknown[]): unknown[] {
     if (!this.dataSource) return [...rows];
 
@@ -115,6 +175,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     return result;
   }
 
+  /** @internal */
   override onScroll(event: ScrollEvent): void {
     if (!this.dataSource) return;
 

@@ -21,19 +21,85 @@ interface SelectionPluginState {
 /**
  * Export Plugin for tbw-grid
  *
- * @example
+ * Lets users download grid data as CSV, Excel (XML), or JSON with a single click
+ * or API call. Great for reporting, data backup, or letting users work with data
+ * in Excel. Integrates with SelectionPlugin to export only selected rows.
+ *
+ * ## Installation
+ *
  * ```ts
- * new ExportPlugin({
- *   enabled: true,
- *   fileName: 'my-data',
- *   includeHeaders: true,
- *   onlyVisible: true,
- * })
+ * import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `fileName` | `string` | `'export'` | Base filename (without extension) |
+ * | `includeHeaders` | `boolean` | `true` | Include column headers in export |
+ * | `onlyVisible` | `boolean` | `true` | Export only visible columns |
+ * | `onlySelected` | `boolean` | `false` | Export only selected rows (requires SelectionPlugin) |
+ *
+ * ## Supported Formats
+ *
+ * | Format | Method | Description |
+ * |--------|--------|-------------|
+ * | CSV | `exportToCSV()` | Comma-separated values |
+ * | Excel | `exportToExcel()` | Excel XML format (.xlsx) |
+ * | JSON | `exportToJSON()` | JSON array of objects |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `exportToCSV` | `(params?) => void` | Export as CSV file |
+ * | `exportToExcel` | `(params?) => void` | Export as Excel file |
+ * | `exportToJSON` | `(params?) => void` | Export as JSON file |
+ * | `isExporting` | `() => boolean` | Check if export is in progress |
+ *
+ * @example Basic Export with Button
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'name', header: 'Name' },
+ *     { field: 'email', header: 'Email' },
+ *   ],
+ *   plugins: [new ExportPlugin({ fileName: 'employees', includeHeaders: true })],
+ * };
+ *
+ * // Trigger export via button
+ * document.getElementById('export-btn').addEventListener('click', () => {
+ *   grid.getPlugin(ExportPlugin).exportToCSV();
+ * });
+ * ```
+ *
+ * @example Export Selected Rows Only
+ * ```ts
+ * import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+ *
+ * grid.gridConfig = {
+ *   plugins: [
+ *     new SelectionPlugin({ mode: 'row' }),
+ *     new ExportPlugin({ onlySelected: true }),
+ *   ],
+ * };
+ * ```
+ *
+ * @see {@link ExportConfig} for all configuration options
+ * @see {@link ExportParams} for method parameters
+ * @see {@link SelectionPlugin} for exporting selected rows
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
+  /** @internal */
   readonly name = 'export';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<ExportConfig> {
     return {
       fileName: 'export',

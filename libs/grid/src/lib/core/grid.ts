@@ -65,6 +65,33 @@ import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
 /**
  * High-performance data grid web component.
  *
+ * ## Instantiation
+ *
+ * **Do not call the constructor directly.** Web components must be created via
+ * the DOM API. Use one of these approaches:
+ *
+ * ```typescript
+ * // Recommended: Use the createGrid() factory for TypeScript type safety
+ * import { createGrid, SelectionPlugin } from '@toolbox-web/grid/all';
+ *
+ * const grid = createGrid<Employee>({
+ *   columns: [
+ *     { field: 'name', header: 'Name' },
+ *     { field: 'email', header: 'Email' }
+ *   ],
+ *   plugins: [new SelectionPlugin()]
+ * });
+ * grid.rows = employees;
+ * document.body.appendChild(grid);
+ *
+ * // Alternative: Query existing element from DOM
+ * import { queryGrid } from '@toolbox-web/grid';
+ * const grid = queryGrid<Employee>('#my-grid');
+ *
+ * // Alternative: Use document.createElement (loses type inference)
+ * const grid = document.createElement('tbw-grid');
+ * ```
+ *
  * ## Configuration Architecture
  *
  * The grid follows a **single source of truth** pattern where all configuration
@@ -135,6 +162,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * // One-time setup in app
    * GridElement.registerAdapter(new AngularGridAdapter(injector, appRef));
    * ```
+   * @category Framework Adapters
    */
   static registerAdapter(adapter: FrameworkAdapter): void {
     this.adapters.push(adapter);
@@ -143,6 +171,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get all registered framework adapters.
    * Used internally by light DOM parsing to find adapters that can handle templates.
+   * @category Framework Adapters
    */
   static getAdapters(): readonly FrameworkAdapter[] {
     return this.adapters;
@@ -150,6 +179,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Clear all registered adapters (primarily for testing).
+   * @category Framework Adapters
    */
   static clearAdapters(): void {
     this.adapters = [];
@@ -357,6 +387,24 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // This is what consumers and plugins need - the current resolved state.
   // Setters update input properties which trigger re-merge into effectiveConfig.
 
+  /**
+   * Get or set the row data displayed in the grid.
+   *
+   * The getter returns processed rows (after filtering, sorting, grouping by plugins).
+   * The setter accepts new source data and triggers a re-render.
+   *
+   * @example
+   * ```typescript
+   * // Set initial data
+   * grid.rows = employees;
+   *
+   * // Update with new data (triggers re-render)
+   * grid.rows = [...employees, newEmployee];
+   *
+   * // Read current (processed) rows
+   * console.log(`Displaying ${grid.rows.length} rows`);
+   * ```
+   */
   get rows(): T[] {
     return this._rows;
   }
@@ -369,13 +417,53 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Get the original unfiltered/unprocessed rows.
-   * Use this when you need access to all source data regardless of active filters.
+   * Get the original unfiltered/unprocessed source rows.
+   *
+   * Use this when you need access to all source data regardless of active
+   * filters, sorting, or grouping applied by plugins. The `rows` property
+   * returns processed data, while `sourceRows` returns the original input.
+   *
+   * @example
+   * ```typescript
+   * // Get total count including filtered-out rows
+   * console.log(`${grid.rows.length} of ${grid.sourceRows.length} rows visible`);
+   *
+   * // Export all data, not just visible
+   * exportToCSV(grid.sourceRows);
+   * ```
    */
   get sourceRows(): T[] {
     return this.#rows;
   }
 
+  /**
+   * Get or set the column configurations.
+   *
+   * The getter returns processed columns (after plugin transformations).
+   * The setter accepts an array of column configs or a column config map.
+   *
+   * @example
+   * ```typescript
+   * // Set columns as array
+   * grid.columns = [
+   *   { field: 'name', header: 'Name', width: 200 },
+   *   { field: 'email', header: 'Email' },
+   *   { field: 'role', header: 'Role', width: 120 }
+   * ];
+   *
+   * // Set columns as map (keyed by field)
+   * grid.columns = {
+   *   name: { header: 'Name', width: 200 },
+   *   email: { header: 'Email' },
+   *   role: { header: 'Role', width: 120 }
+   * };
+   *
+   * // Read current columns
+   * grid.columns.forEach(col => {
+   *   console.log(`${col.field}: ${col.width ?? 'auto'}`);
+   * });
+   * ```
+   */
   get columns(): ColumnConfig<T>[] {
     return [...this._columns] as ColumnConfig<T>[];
   }
@@ -387,6 +475,34 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
+  /**
+   * Get or set the full grid configuration object.
+   *
+   * The getter returns the effective (merged) configuration.
+   * The setter accepts a new configuration and triggers a full re-render.
+   *
+   * @example
+   * ```typescript
+   * import { SelectionPlugin, SortingPlugin } from '@toolbox-web/grid/all';
+   *
+   * // Set full configuration
+   * grid.gridConfig = {
+   *   columns: [
+   *     { field: 'name', header: 'Name' },
+   *     { field: 'status', header: 'Status' }
+   *   ],
+   *   fitMode: 'stretch',
+   *   plugins: [
+   *     new SelectionPlugin({ mode: 'row' }),
+   *     new SortingPlugin()
+   *   ]
+   * };
+   *
+   * // Read current configuration
+   * console.log('Fit mode:', grid.gridConfig.fitMode);
+   * console.log('Columns:', grid.gridConfig.columns?.length);
+   * ```
+   */
   get gridConfig(): GridConfig<T> {
     return this.#effectiveConfig;
   }
@@ -401,6 +517,25 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
+  /**
+   * Get or set the column sizing mode.
+   *
+   * - `'stretch'` (default): Columns stretch to fill available width
+   * - `'fixed'`: Columns use explicit widths; horizontal scroll if needed
+   * - `'auto'`: Columns auto-size to content on initial render
+   *
+   * @example
+   * ```typescript
+   * // Use fixed widths with horizontal scroll
+   * grid.fitMode = 'fixed';
+   *
+   * // Stretch columns to fill container
+   * grid.fitMode = 'stretch';
+   *
+   * // Auto-size columns based on content
+   * grid.fitMode = 'auto';
+   * ```
+   */
   get fitMode(): FitMode {
     return this.#effectiveConfig.fitMode ?? 'stretch';
   }
@@ -412,6 +547,27 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
+  /**
+   * Get or set the edit trigger mode.
+   *
+   * Requires `EditingPlugin` to be loaded. Controls how cell editing is triggered:
+   * - `'click'`: Single click to edit
+   * - `'dblclick'`: Double-click to edit (default)
+   * - `true`: Same as `'dblclick'`
+   * - `false`: Disable click-triggered editing (keyboard only)
+   *
+   * @example
+   * ```typescript
+   * // Edit on single click
+   * grid.editOn = 'click';
+   *
+   * // Edit on double-click
+   * grid.editOn = 'dblclick';
+   *
+   * // Disable click editing (use Enter key)
+   * grid.editOn = false;
+   * ```
+   */
   get editOn(): string | boolean | undefined {
     return this.#effectiveConfig.editOn;
   }
@@ -450,6 +606,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   // #endregion
 
+  /**
+   * @internal Do not call directly. Use `createGrid()` or `document.createElement('tbw-grid')`.
+   */
   constructor() {
     super();
     // No Shadow DOM - render directly into the element
@@ -687,7 +846,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Update the grid's column template CSS.
    * Called by resize controller during column resize operations.
-   * @internal
+   * @internal Plugin API
    */
   updateTemplate(): void {
     updateTemplate(this);
@@ -880,6 +1039,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   // ---------------- Lifecycle ----------------
+  /** @internal Web component lifecycle - not part of public API */
   connectedCallback(): void {
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0;
     if (!this.hasAttribute('version')) this.setAttribute('version', DataGridElement.version);
@@ -942,6 +1102,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     );
   }
 
+  /** @internal Web component lifecycle - not part of public API */
   disconnectedCallback(): void {
     // Cancel any pending idle work
     if (this.#idleCallbackHandle) {
@@ -1010,6 +1171,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Handle HTML attribute changes.
    * Only processes attribute values when SET (non-null).
    * Removing an attribute does NOT clear JS-set properties.
+   * @internal Web component lifecycle - not part of public API
    */
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
     if (oldValue === newValue || !newValue || newValue === 'null' || newValue === 'undefined') return;
@@ -1881,10 +2043,39 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#pluginManager?.onCellMouseUp(event);
   }
 
+  /**
+   * Wait for the grid to be ready.
+   * Resolves once the component has finished initial setup, including
+   * column inference, plugin initialization, and first render.
+   *
+   * @returns Promise that resolves when the grid is ready
+   *
+   * @example
+   * ```typescript
+   * const grid = document.querySelector('tbw-grid');
+   * await grid.ready();
+   * console.log('Grid is ready, rows:', grid.rows.length);
+   * ```
+   */
   async ready(): Promise<void> {
     return this.#readyPromise;
   }
 
+  /**
+   * Force a full layout/render cycle.
+   * Use this after programmatic changes that require re-measurement,
+   * such as container resize or dynamic style changes.
+   *
+   * @returns Promise that resolves when the render cycle completes
+   *
+   * @example
+   * ```typescript
+   * // After resizing the container
+   * container.style.width = '800px';
+   * await grid.forceLayout();
+   * console.log('Grid re-rendered');
+   * ```
+   */
   async forceLayout(): Promise<void> {
     // Request a full render cycle through the scheduler
     this.#scheduler.requestPhase(RenderPhase.FULL, 'forceLayout');
@@ -1893,13 +2084,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Trim the internal row pool to match the current visible window size.
+   * Get a frozen snapshot of the current effective configuration.
+   * The returned object is read-only and reflects all merged config sources.
    *
-   * The grid maintains a pool of reusable row DOM elements for virtualization.
-   * When the dataset shrinks significantly (e.g., after filtering or deleting rows),
-   * the pool may have excess elements that consume memory unnecessarily.
+   * @returns Promise resolving to frozen configuration object
    *
-  /** Public method: returns a frozen snapshot of the merged effective configuration */
+   * @example
+   * ```typescript
+   * const config = await grid.getConfig();
+   * console.log('Columns:', config.columns?.length);
+   * console.log('Fit mode:', config.fitMode);
+   * ```
+   */
   async getConfig(): Promise<Readonly<GridConfig<T>>> {
     return Object.freeze({ ...(this.#effectiveConfig || {}) });
   }
@@ -1907,6 +2103,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Column Visibility API ----------------
   // Delegates to ConfigManager
 
+  /**
+   * Show or hide a column by field name.
+   *
+   * @param field - The field name of the column to modify
+   * @param visible - Whether the column should be visible
+   * @returns `true` if the visibility changed, `false` if unchanged
+   *
+   * @example
+   * ```typescript
+   * // Hide the email column
+   * grid.setColumnVisible('email', false);
+   *
+   * // Show it again
+   * grid.setColumnVisible('email', true);
+   * ```
+   */
   setColumnVisible(field: string, visible: boolean): boolean {
     const result = this.#configManager.setColumnVisible(field, visible);
     if (result) {
@@ -1915,6 +2127,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return result;
   }
 
+  /**
+   * Toggle a column's visibility.
+   *
+   * @param field - The field name of the column to toggle
+   * @returns The new visibility state (`true` = visible, `false` = hidden)
+   *
+   * @example
+   * ```typescript
+   * // Toggle the notes column visibility
+   * const isNowVisible = grid.toggleColumnVisibility('notes');
+   * console.log(`Notes column is now ${isNowVisible ? 'visible' : 'hidden'}`);
+   * ```
+   */
   toggleColumnVisibility(field: string): boolean {
     const result = this.#configManager.toggleColumnVisibility(field);
     if (result) {
@@ -1923,15 +2148,61 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return result;
   }
 
+  /**
+   * Check if a column is currently visible.
+   *
+   * @param field - The field name to check
+   * @returns `true` if the column is visible, `false` if hidden
+   *
+   * @example
+   * ```typescript
+   * if (grid.isColumnVisible('email')) {
+   *   console.log('Email column is showing');
+   * }
+   * ```
+   */
   isColumnVisible(field: string): boolean {
     return this.#configManager.isColumnVisible(field);
   }
 
+  /**
+   * Show all columns, resetting any hidden columns to visible.
+   *
+   * @example
+   * ```typescript
+   * // Reset button handler
+   * resetButton.onclick = () => grid.showAllColumns();
+   * ```
+   */
   showAllColumns(): void {
     this.#configManager.showAllColumns();
     this.requestStateChange();
   }
 
+  /**
+   * Get metadata for all columns including visibility state.
+   * Useful for building a column picker UI.
+   *
+   * @returns Array of column info objects
+   *
+   * @example
+   * ```typescript
+   * // Build a column visibility menu
+   * const columns = grid.getAllColumns();
+   * columns.forEach(col => {
+   *   if (!col.utility) { // Skip utility columns like selection checkbox
+   *     const menuItem = document.createElement('label');
+   *     menuItem.innerHTML = `
+   *       <input type="checkbox" ${col.visible ? 'checked' : ''}>
+   *       ${col.header}
+   *     `;
+   *     menuItem.querySelector('input').onchange = () =>
+   *       grid.toggleColumnVisibility(col.field);
+   *     menu.appendChild(menuItem);
+   *   }
+   * });
+   * ```
+   */
   getAllColumns(): Array<{
     field: string;
     header: string;
@@ -1942,11 +2213,35 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#configManager.getAllColumns();
   }
 
+  /**
+   * Set the display order of columns.
+   *
+   * @param order - Array of field names in desired order
+   *
+   * @example
+   * ```typescript
+   * // Move 'status' column to first position
+   * const currentOrder = grid.getColumnOrder();
+   * const newOrder = ['status', ...currentOrder.filter(f => f !== 'status')];
+   * grid.setColumnOrder(newOrder);
+   * ```
+   */
   setColumnOrder(order: string[]): void {
     this.#configManager.setColumnOrder(order);
     this.requestStateChange();
   }
 
+  /**
+   * Get the current column display order.
+   *
+   * @returns Array of field names in display order
+   *
+   * @example
+   * ```typescript
+   * const order = grid.getColumnOrder();
+   * console.log('Columns:', order.join(', '));
+   * ```
+   */
   getColumnOrder(): string[] {
     return this.#configManager.getColumnOrder();
   }
@@ -1954,8 +2249,26 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Column State API ----------------
 
   /**
-   * Get the current column state, including order, width, visibility, sort, and plugin state.
-   * Returns a serializable object suitable for localStorage or database storage.
+   * Get the current column state for persistence.
+   * Returns a serializable object including column order, widths, visibility,
+   * sort state, and any plugin-specific state.
+   *
+   * Use this to save user preferences to localStorage or a database.
+   *
+   * @returns Serializable column state object
+   *
+   * @example
+   * ```typescript
+   * // Save state to localStorage
+   * const state = grid.getColumnState();
+   * localStorage.setItem('gridState', JSON.stringify(state));
+   *
+   * // Later, restore the state
+   * const saved = localStorage.getItem('gridState');
+   * if (saved) {
+   *   grid.columnState = JSON.parse(saved);
+   * }
+   * ```
    */
   getColumnState(): GridColumnState {
     const plugins = this.#pluginManager?.getAll() ?? [];
@@ -1963,8 +2276,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Set the column state, restoring order, width, visibility, sort, and plugin state.
-   * Use this to restore previously saved column state.
+   * Set the column state, restoring all saved preferences.
+   * Can be set before or after grid initialization.
+   *
+   * @example
+   * ```typescript
+   * // Restore saved state on page load
+   * const grid = document.querySelector('tbw-grid');
+   * const saved = localStorage.getItem('myGridState');
+   * if (saved) {
+   *   grid.columnState = JSON.parse(saved);
+   * }
+   * ```
    */
   set columnState(state: GridColumnState | undefined) {
     if (!state) return;
@@ -1981,6 +2304,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Get the current column state.
+   * Alias for `getColumnState()` for property-style access.
    */
   get columnState(): GridColumnState | undefined {
     return this.getColumnState();
@@ -2011,7 +2335,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Reset column state to initial configuration.
-   * Clears all user modifications (order, width, visibility, sort).
+   * Clears all user modifications including order, widths, visibility, and sort.
+   *
+   * @example
+   * ```typescript
+   * // Reset button handler
+   * resetBtn.onclick = () => {
+   *   grid.resetColumnState();
+   *   localStorage.removeItem('gridState');
+   * };
+   * ```
    */
   resetColumnState(): void {
     // Clear initial state
@@ -2030,9 +2363,25 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Shell / Tool Panel API ----------------
   // These methods delegate to ShellController for implementation.
   // The controller encapsulates all tool panel logic while grid.ts
-  // exposes the public API surface.
+  // ════════════════════════════════════════════════════════════════════════════
+  // Tool Panel API
+  // ════════════════════════════════════════════════════════════════════════════
+  // The tool panel is a collapsible sidebar that contains accordion sections.
+  // Each section can contain plugin UI (e.g., column visibility, filtering).
 
-  /** Check if the tool panel is currently open. */
+  /**
+   * Check if the tool panel sidebar is currently open.
+   *
+   * The tool panel is an accordion-based sidebar that contains sections
+   * registered by plugins or via `registerToolPanel()`.
+   *
+   * @example
+   * ```typescript
+   * // Conditionally show/hide a "toggle panel" button
+   * const isPanelOpen = grid.isToolPanelOpen;
+   * toggleButton.textContent = isPanelOpen ? 'Close Panel' : 'Open Panel';
+   * ```
+   */
   get isToolPanelOpen(): boolean {
     return this.#shellController.isPanelOpen;
   }
@@ -2045,74 +2394,310 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#shellController.activePanel;
   }
 
-  /** Get the IDs of expanded accordion sections. */
+  /**
+   * Get the IDs of currently expanded accordion sections in the tool panel.
+   *
+   * Multiple sections can be expanded simultaneously in the accordion view.
+   *
+   * @example
+   * ```typescript
+   * // Check which sections are expanded
+   * const expanded = grid.expandedToolPanelSections;
+   * console.log('Expanded sections:', expanded);
+   * // e.g., ['columnVisibility', 'filtering']
+   * ```
+   */
   get expandedToolPanelSections(): string[] {
     return this.#shellController.expandedSections;
   }
 
-  /** Open the tool panel (accordion view with all registered panels). */
+  /**
+   * Open the tool panel sidebar.
+   *
+   * The tool panel displays an accordion view with all registered panel sections.
+   * Each section can be expanded/collapsed independently.
+   *
+   * @example
+   * ```typescript
+   * // Open the tool panel when a toolbar button is clicked
+   * settingsButton.addEventListener('click', () => {
+   *   grid.openToolPanel();
+   * });
+   * ```
+   */
   openToolPanel(): void {
     this.#shellController.openToolPanel();
   }
 
-  /** Close the tool panel. */
+  /**
+   * Close the tool panel sidebar.
+   *
+   * @example
+   * ```typescript
+   * // Close the panel after user makes a selection
+   * grid.closeToolPanel();
+   * ```
+   */
   closeToolPanel(): void {
     this.#shellController.closeToolPanel();
   }
 
-  /** Toggle the tool panel open/closed. */
+  /**
+   * Toggle the tool panel sidebar open or closed.
+   *
+   * @example
+   * ```typescript
+   * // Wire up a toggle button
+   * toggleButton.addEventListener('click', () => {
+   *   grid.toggleToolPanel();
+   * });
+   * ```
+   */
   toggleToolPanel(): void {
     this.#shellController.toggleToolPanel();
   }
 
-  /** Toggle an accordion section expanded/collapsed. */
+  /**
+   * Toggle an accordion section expanded or collapsed within the tool panel.
+   *
+   * @param sectionId - The ID of the section to toggle (matches `ToolPanelDefinition.id`)
+   *
+   * @example
+   * ```typescript
+   * // Expand the column visibility section programmatically
+   * grid.openToolPanel();
+   * grid.toggleToolPanelSection('columnVisibility');
+   * ```
+   */
   toggleToolPanelSection(sectionId: string): void {
     this.#shellController.toggleToolPanelSection(sectionId);
   }
 
-  /** Get registered tool panel definitions. */
+  /**
+   * Get all registered tool panel definitions.
+   *
+   * Returns both plugin-registered panels and panels registered via `registerToolPanel()`.
+   *
+   * @returns Array of tool panel definitions
+   *
+   * @example
+   * ```typescript
+   * // List all available panels
+   * const panels = grid.getToolPanels();
+   * panels.forEach(panel => {
+   *   console.log(`Panel: ${panel.title} (${panel.id})`);
+   * });
+   * ```
+   */
   getToolPanels(): ToolPanelDefinition[] {
     return this.#shellController.getToolPanels();
   }
 
-  /** Register a custom tool panel (without creating a plugin). */
+  /**
+   * Register a custom tool panel section.
+   *
+   * Use this API to add custom UI sections to the tool panel sidebar
+   * without creating a full plugin. The panel will appear as an accordion
+   * section in the tool panel.
+   *
+   * @param panel - The tool panel definition
+   *
+   * @example
+   * ```typescript
+   * // Register a custom "Export" panel
+   * grid.registerToolPanel({
+   *   id: 'export',
+   *   title: 'Export Options',
+   *   icon: '📥',
+   *   order: 50, // Lower order = higher in list
+   *   render: (container) => {
+   *     container.innerHTML = `
+   *       <button id="export-csv">Export CSV</button>
+   *       <button id="export-json">Export JSON</button>
+   *     `;
+   *     container.querySelector('#export-csv')?.addEventListener('click', () => {
+   *       exportToCSV(grid.rows);
+   *     });
+   *   }
+   * });
+   * ```
+   */
   registerToolPanel(panel: ToolPanelDefinition): void {
     this.#shellState.apiToolPanelIds.add(panel.id);
     this.#shellController.registerToolPanel(panel);
   }
 
-  /** Unregister a custom tool panel. */
+  /**
+   * Unregister a custom tool panel section.
+   *
+   * @param panelId - The ID of the panel to remove
+   *
+   * @example
+   * ```typescript
+   * // Remove the export panel when no longer needed
+   * grid.unregisterToolPanel('export');
+   * ```
+   */
   unregisterToolPanel(panelId: string): void {
     this.#shellState.apiToolPanelIds.delete(panelId);
     this.#shellController.unregisterToolPanel(panelId);
   }
 
-  /** Get registered header content definitions. */
+  // ════════════════════════════════════════════════════════════════════════════
+  // Header Content API
+  // ════════════════════════════════════════════════════════════════════════════
+  // Header content appears in the grid's header bar area (above the column headers).
+
+  /**
+   * Get all registered header content definitions.
+   *
+   * @returns Array of header content definitions
+   *
+   * @example
+   * ```typescript
+   * const contents = grid.getHeaderContents();
+   * console.log('Header sections:', contents.map(c => c.id));
+   * ```
+   */
   getHeaderContents(): HeaderContentDefinition[] {
     return this.#shellController.getHeaderContents();
   }
 
-  /** Register custom header content (without creating a plugin). */
+  /**
+   * Register custom header content.
+   *
+   * Header content appears in the grid's header bar area, which is displayed
+   * above the column headers. Use this for search boxes, filters, or other
+   * controls that should be prominently visible.
+   *
+   * @param content - The header content definition
+   *
+   * @example
+   * ```typescript
+   * // Add a global search box to the header
+   * grid.registerHeaderContent({
+   *   id: 'global-search',
+   *   order: 10,
+   *   render: (container) => {
+   *     const input = document.createElement('input');
+   *     input.type = 'search';
+   *     input.placeholder = 'Search all columns...';
+   *     input.addEventListener('input', (e) => {
+   *       const term = (e.target as HTMLInputElement).value;
+   *       filterGrid(term);
+   *     });
+   *     container.appendChild(input);
+   *   }
+   * });
+   * ```
+   */
   registerHeaderContent(content: HeaderContentDefinition): void {
     this.#shellController.registerHeaderContent(content);
   }
 
-  /** Unregister custom header content. */
+  /**
+   * Unregister custom header content.
+   *
+   * @param contentId - The ID of the content to remove
+   *
+   * @example
+   * ```typescript
+   * grid.unregisterHeaderContent('global-search');
+   * ```
+   */
   unregisterHeaderContent(contentId: string): void {
     this.#shellController.unregisterHeaderContent(contentId);
   }
 
-  /** Get all registered toolbar contents. */
+  // ════════════════════════════════════════════════════════════════════════════
+  // Toolbar Content API
+  // ════════════════════════════════════════════════════════════════════════════
+  // Toolbar content appears in the grid's toolbar area (typically below header,
+  // above column headers). Use for action buttons, dropdowns, etc.
+
+  /**
+   * Get all registered toolbar content definitions.
+   *
+   * @returns Array of toolbar content definitions
+   *
+   * @example
+   * ```typescript
+   * const contents = grid.getToolbarContents();
+   * console.log('Toolbar items:', contents.map(c => c.id));
+   * ```
+   */
   getToolbarContents(): ToolbarContentDefinition[] {
     return this.#shellController.getToolbarContents();
   }
 
-  /** Register custom toolbar content programmatically. */
+  /**
+   * Register custom toolbar content.
+   *
+   * Toolbar content appears in the grid's toolbar area. Use this for action
+   * buttons, dropdowns, or other controls that should be easily accessible.
+   * Content is rendered in order of the `order` property (lower = first).
+   *
+   * @param content - The toolbar content definition
+   *
+   * @example
+   * ```typescript
+   * // Add export buttons to the toolbar
+   * grid.registerToolbarContent({
+   *   id: 'export-buttons',
+   *   order: 100, // Position in toolbar (lower = first)
+   *   render: (container) => {
+   *     const csvBtn = document.createElement('button');
+   *     csvBtn.textContent = 'Export CSV';
+   *     csvBtn.className = 'dg-toolbar-btn';
+   *     csvBtn.addEventListener('click', () => exportToCSV(grid.rows));
+   *
+   *     const jsonBtn = document.createElement('button');
+   *     jsonBtn.textContent = 'Export JSON';
+   *     jsonBtn.className = 'dg-toolbar-btn';
+   *     jsonBtn.addEventListener('click', () => exportToJSON(grid.rows));
+   *
+   *     container.append(csvBtn, jsonBtn);
+   *   }
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Add a dropdown filter to the toolbar
+   * grid.registerToolbarContent({
+   *   id: 'status-filter',
+   *   order: 50,
+   *   render: (container) => {
+   *     const select = document.createElement('select');
+   *     select.innerHTML = `
+   *       <option value="">All Statuses</option>
+   *       <option value="active">Active</option>
+   *       <option value="inactive">Inactive</option>
+   *     `;
+   *     select.addEventListener('change', (e) => {
+   *       const status = (e.target as HTMLSelectElement).value;
+   *       applyStatusFilter(status);
+   *     });
+   *     container.appendChild(select);
+   *   }
+   * });
+   * ```
+   */
   registerToolbarContent(content: ToolbarContentDefinition): void {
     this.#shellController.registerToolbarContent(content);
   }
 
-  /** Unregister custom toolbar content. */
+  /**
+   * Unregister custom toolbar content.
+   *
+   * @param contentId - The ID of the content to remove
+   *
+   * @example
+   * ```typescript
+   * // Remove export buttons when switching to read-only mode
+   * grid.unregisterToolbarContent('export-buttons');
+   * ```
+   */
   unregisterToolbarContent(contentId: string): void {
     this.#shellController.unregisterToolbarContent(contentId);
   }
@@ -2166,6 +2751,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Re-parse light DOM shell elements and refresh shell header.
    * Call this after dynamically modifying <tbw-grid-header> children.
+   * @internal Plugin API
    */
   refreshShellHeader(): void {
     // Re-parse light DOM (header, tool buttons, and tool panels)
@@ -2326,7 +2912,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Re-parse light DOM column elements and refresh the grid.
    * Call this after framework adapters have registered their templates.
    * Uses the render scheduler to batch with other pending updates.
-   * @internal Used by framework integration libraries (Angular, React, Vue)
+   * @category Framework Adapters
    */
   refreshColumns(): void {
     // Clear the column cache to force re-parsing

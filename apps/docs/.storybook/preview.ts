@@ -91,6 +91,8 @@ const preview: Preview = {
     options: {
       // Control sidebar navigation order
       storySort: {
+        // Include unnamed stories first (puts root docs before subfolders)
+        includeNames: true,
         order: [
           'Grid',
           [
@@ -103,12 +105,46 @@ const preview: Preview = {
             [
               'Overview',
               'Custom Plugins',
+              // Each plugin: curated docs first (stories), then API folders alphabetically
               'Selection',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               'Filtering',
-              'Multi Sort',
-              'Grouping Rows',
-              'Grouping Columns',
-              '*',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Editing',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Multi-Sort', // hyphenated
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Row Grouping',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Column Grouping',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Tree',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Master-Detail',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Clipboard',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Export',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Reorder',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Pinned Columns',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Pinned Rows',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Visibility',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Context Menu',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Undo-Redo',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Server-Side',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Pivot',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Column-Virtualization', // hyphenated
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              '*', // Any other plugins
             ],
             'API Reference',
             'All Features',

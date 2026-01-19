@@ -23,10 +23,91 @@ import {
 /**
  * Clipboard Plugin for tbw-grid
  *
- * @example
+ * Brings familiar copy/cut/paste functionality with full keyboard shortcut support
+ * (Ctrl+C, Ctrl+X, Ctrl+V). Handles single cells, multi-cell selections, and integrates
+ * seamlessly with Excel and other spreadsheet applications via tab-delimited output.
+ *
+ * > **Optional Dependency:** Works best with SelectionPlugin for copying/pasting selected
+ * > cells. Without SelectionPlugin, copies the entire grid and pastes at row 0, column 0.
+ *
+ * ## Installation
+ *
  * ```ts
- * new ClipboardPlugin({ includeHeaders: true })
+ * import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `includeHeaders` | `boolean` | `false` | Include column headers in copied data |
+ * | `delimiter` | `string` | `'\t'` | Column delimiter (tab for Excel compatibility) |
+ * | `newline` | `string` | `'\n'` | Row delimiter |
+ * | `quoteStrings` | `boolean` | `false` | Wrap string values in quotes |
+ * | `processCell` | `(value, field, row) => string` | - | Custom cell value processor |
+ * | `pasteHandler` | `PasteHandler \| null` | `defaultPasteHandler` | Custom paste handler |
+ *
+ * ## Keyboard Shortcuts
+ *
+ * | Shortcut | Action |
+ * |----------|--------|
+ * | `Ctrl+C` / `Cmd+C` | Copy selected cells |
+ * | `Ctrl+V` / `Cmd+V` | Paste into selected cells |
+ * | `Ctrl+X` / `Cmd+X` | Cut selected cells |
+ *
+ * ## Paste Behavior by Selection Type
+ *
+ * | Selection Type | Paste Behavior |
+ * |----------------|----------------|
+ * | Single cell | Paste expands freely from that cell |
+ * | Range selection | Paste is clipped to fit within the selected range |
+ * | Row selection | Paste is clipped to the selected rows |
+ * | No selection | Paste starts at row 0, column 0 |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `copy` | `(options?) => Promise<void>` | Copy selection to clipboard |
+ * | `paste` | `() => Promise<void>` | Paste from clipboard |
+ * | `getSelectionAsText` | `() => string` | Get clipboard text without copying |
+ *
+ * @example Basic Usage with Excel Compatibility
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+ * import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+ *
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'name', header: 'Name' },
+ *     { field: 'email', header: 'Email' },
+ *   ],
+ *   plugins: [
+ *     new SelectionPlugin({ mode: 'range' }),
+ *     new ClipboardPlugin({
+ *       includeHeaders: true,
+ *       delimiter: '\t', // Tab for Excel
+ *     }),
+ *   ],
+ * };
+ * ```
+ *
+ * @example Custom Paste Handler
+ * ```ts
+ * new ClipboardPlugin({
+ *   pasteHandler: (grid, target, data) => {
+ *     // Validate or transform data before applying
+ *     console.log('Pasting', data.length, 'rows');
+ *     return defaultPasteHandler(grid, target, data);
+ *   },
+ * })
+ * ```
+ *
+ * @see {@link ClipboardConfig} for all configuration options
+ * @see {@link SelectionPlugin} for enhanced copy/paste with selection
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   /**
@@ -35,12 +116,15 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * Without SelectionPlugin: copies entire grid, pastes at row 0 col 0.
    * With SelectionPlugin: copies/pastes based on selection.
    */
+  /** @internal */
   static override readonly dependencies: PluginDependency[] = [
     { name: 'selection', required: false, reason: 'Enables copy/paste of selected cells instead of entire grid' },
   ];
 
+  /** @internal */
   readonly name = 'clipboard';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<ClipboardConfig> {
     return {
       includeHeaders: false,
@@ -57,6 +141,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override attach(grid: GridElement): void {
     super.attach(grid);
 
@@ -70,6 +155,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     );
   }
 
+  /** @internal */
   override detach(): void {
     this.lastCopied = null;
   }
@@ -77,6 +163,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   // #region Event Handlers
 
+  /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean {
     const isCopy = (event.ctrlKey || event.metaKey) && event.key === 'c';
 

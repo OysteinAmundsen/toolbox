@@ -21,6 +21,8 @@
  * Classes are organized by:
  * - Core: Used by the grid core for structure and basic functionality
  * - Shared: Used by multiple features/plugins, styled by core CSS
+ *
+ * @category Plugin Development
  */
 export const GridClasses = {
   // ─── Core Structure ───────────────────────────────────────────────
@@ -91,6 +93,8 @@ export const GridClasses = {
 /**
  * Data attribute names used on grid elements.
  * Use these when getting/setting data attributes.
+ *
+ * @category Plugin Development
  */
 export const GridDataAttrs = {
   // ─── Core Attributes ──────────────────────────────────────────────
@@ -111,6 +115,8 @@ export const GridDataAttrs = {
 /**
  * Common CSS selectors for querying grid elements.
  * Built from the class constants for consistency.
+ *
+ * @category Plugin Development
  */
 export const GridSelectors = {
   ROOT: `.${GridClasses.ROOT}`,
@@ -141,6 +147,8 @@ export const GridSelectors = {
 /**
  * CSS custom property names for theming.
  * Use these when programmatically setting styles.
+ *
+ * @category Plugin Development
  */
 export const GridCSSVars = {
   // Colors

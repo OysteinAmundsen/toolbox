@@ -45,6 +45,8 @@
 /**
  * Render phases in order of execution.
  * Higher phases include all lower phase work.
+ *
+ * @category Plugin Development
  */
 export enum RenderPhase {
   /** Lightweight style updates only (plugin afterRender hooks) */

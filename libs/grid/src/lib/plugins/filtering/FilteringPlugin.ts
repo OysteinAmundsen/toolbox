@@ -18,15 +18,105 @@ import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams }
 /**
  * Filtering Plugin for tbw-grid
  *
- * @example
+ * Adds column header filters with text search, dropdown options, and custom filter panels.
+ * Supports both **local filtering** for small datasets and **async handlers** for server-side
+ * filtering on large datasets.
+ *
+ * ## Installation
+ *
  * ```ts
- * new FilteringPlugin({ enabled: true, debounceMs: 300 })
+ * import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
  * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `debounceMs` | `number` | `300` | Debounce delay for filter input |
+ * | `caseSensitive` | `boolean` | `false` | Case-sensitive string matching |
+ * | `trimInput` | `boolean` | `true` | Trim whitespace from filter input |
+ * | `useWorker` | `boolean` | `true` | Use Web Worker for datasets >1000 rows |
+ * | `filterPanelRenderer` | `FilterPanelRenderer` | - | Custom filter panel renderer |
+ * | `valuesHandler` | `FilterValuesHandler` | - | Async handler to fetch unique filter values |
+ * | `filterHandler` | `FilterHandler<TRow>` | - | Async handler to apply filters remotely |
+ *
+ * ## Column Configuration
+ *
+ * | Property | Type | Description |
+ * |----------|------|-------------|
+ * | `filterable` | `boolean` | Enable filtering for this column |
+ * | `filterType` | `'text' \| 'select' \| 'number' \| 'date'` | Filter UI type |
+ * | `filterOptions` | `unknown[]` | Predefined options for select filters |
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `setFilter` | `(field, value) => void` | Set filter value for a column |
+ * | `getFilters` | `() => FilterModel[]` | Get all current filters |
+ * | `clearFilters` | `() => void` | Clear all filters |
+ * | `clearFilter` | `(field) => void` | Clear filter for a specific column |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-filter-panel-bg` | `var(--tbw-color-panel-bg)` | Panel background |
+ * | `--tbw-filter-panel-fg` | `var(--tbw-color-fg)` | Panel text color |
+ * | `--tbw-filter-panel-border` | `var(--tbw-color-border)` | Panel border |
+ * | `--tbw-filter-active-color` | `var(--tbw-color-accent)` | Active filter indicator |
+ * | `--tbw-filter-input-bg` | `var(--tbw-color-bg)` | Input background |
+ * | `--tbw-filter-input-focus` | `var(--tbw-color-accent)` | Input focus border |
+ *
+ * @example Basic Usage with Filterable Columns
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+ *
+ * const grid = document.querySelector('tbw-grid');
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'name', header: 'Name', filterable: true },
+ *     { field: 'status', header: 'Status', filterable: true, filterType: 'select' },
+ *     { field: 'email', header: 'Email', filterable: true },
+ *   ],
+ *   plugins: [new FilteringPlugin({ debounceMs: 300 })],
+ * };
+ * grid.rows = data;
+ * ```
+ *
+ * @example Server-Side Filtering with Async Handlers
+ * ```ts
+ * new FilteringPlugin({
+ *   // Fetch unique values from server for filter dropdown
+ *   valuesHandler: async (field, column) => {
+ *     const response = await fetch(`/api/distinct-values?field=${field}`);
+ *     return response.json();
+ *   },
+ *   // Apply filters on the server
+ *   filterHandler: async (filters, currentRows) => {
+ *     const response = await fetch('/api/data', {
+ *       method: 'POST',
+ *       body: JSON.stringify({ filters }),
+ *     });
+ *     return response.json();
+ *   },
+ * });
+ * ```
+ *
+ * @see {@link FilterConfig} for all configuration options
+ * @see {@link FilterModel} for filter data structure
+ * @see {@link FilterPanelParams} for custom panel renderer parameters
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
+  /** @internal */
   readonly name = 'filtering';
+  /** @internal */
   override readonly styles = styles;
 
+  /** @internal */
   protected override get defaultConfig(): Partial<FilterConfig> {
     return {
       debounceMs: 300,
@@ -70,11 +160,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override attach(grid: GridElement): void {
     super.attach(grid);
     this.injectGlobalStyles();
   }
 
+  /** @internal */
   override detach(): void {
     this.filters.clear();
     this.cachedResult = null;
@@ -94,6 +186,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override processRows(rows: readonly unknown[]): unknown[] {
     const filterList = [...this.filters.values()];
     if (!filterList.length) return [...rows];
@@ -123,6 +216,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     return result;
   }
 
+  /** @internal */
   override afterRender(): void {
     const gridEl = this.gridElement;
     if (!gridEl) return;
@@ -873,6 +967,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   /**
    * Return filter state for a column if it has an active filter.
+   * @internal
    */
   override getColumnState(field: string): Partial<ColumnState> | undefined {
     const filterModel = this.filters.get(field);
@@ -890,6 +985,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   /**
    * Apply filter state from column state.
+   * @internal
    */
   override applyColumnState(field: string, state: ColumnState): void {
     // Only process if the column has filter state

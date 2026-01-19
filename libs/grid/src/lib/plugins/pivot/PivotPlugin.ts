@@ -18,24 +18,94 @@ import type { AggFunc, ExpandCollapseAnimation, PivotConfig, PivotResult, PivotV
 import styles from './pivot.css?inline';
 
 /**
- * Pivot Plugin for tbw-grid
+ * Pivot Table Plugin for tbw-grid
  *
- * @example
+ * Transforms flat data into a pivot table view with grouped rows, grouped columns,
+ * and aggregated values. Includes an interactive tool panel for configuring
+ * row groups, column groups, and value aggregations at runtime.
+ *
+ * ## Installation
+ *
+ * ```ts
+ * import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+ * ```
+ *
+ * ## Configuration Options
+ *
+ * | Option | Type | Default | Description |
+ * |--------|------|---------|-------------|
+ * | `active` | `boolean` | `true` | Whether pivot is active on load |
+ * | `rowGroupFields` | `string[]` | `[]` | Fields for row grouping |
+ * | `columnGroupFields` | `string[]` | `[]` | Fields for column grouping |
+ * | `valueFields` | `ValueField[]` | `[]` | Aggregation value fields |
+ * | `showTotals` | `boolean` | `true` | Show row subtotals |
+ * | `showGrandTotal` | `boolean` | `true` | Show grand total row |
+ * | `showToolPanel` | `boolean` | `true` | Show interactive pivot panel |
+ * | `defaultExpanded` | `boolean` | `true` | Groups expanded by default |
+ * | `indentWidth` | `number` | `20` | Indent per depth level (px) |
+ * | `animation` | `false \| 'slide' \| 'fade'` | `'slide'` | Expand/collapse animation |
+ *
+ * ## Aggregation Functions
+ *
+ * `sum`, `avg`, `count`, `min`, `max`, `first`, `last`
+ *
+ * ## Programmatic API
+ *
+ * | Method | Signature | Description |
+ * |--------|-----------|-------------|
+ * | `expandGroup` | `(path: string[]) => void` | Expand a specific group |
+ * | `collapseGroup` | `(path: string[]) => void` | Collapse a specific group |
+ * | `expandAll` | `() => void` | Expand all groups |
+ * | `collapseAll` | `() => void` | Collapse all groups |
+ *
+ * ## CSS Custom Properties
+ *
+ * | Property | Default | Description |
+ * |----------|---------|-------------|
+ * | `--tbw-pivot-group-bg` | `var(--tbw-color-row-alt)` | Group row background |
+ * | `--tbw-pivot-grand-total-bg` | `var(--tbw-color-header-bg)` | Grand total row |
+ *
+ * @example Basic Pivot Table
+ * ```ts
+ * import '@toolbox-web/grid';
+ * import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+ *
+ * grid.gridConfig = {
+ *   columns: [...],
+ *   plugins: [
+ *     new PivotPlugin({
+ *       rowGroupFields: ['region', 'product'],
+ *       columnGroupFields: ['quarter'],
+ *       valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+ *     }),
+ *   ],
+ * };
+ * ```
+ *
+ * @example Programmatic-Only (No Tool Panel)
  * ```ts
  * new PivotPlugin({
+ *   showToolPanel: false,
  *   rowGroupFields: ['category'],
- *   columnGroupFields: ['region'],
- *   valueFields: [{ field: 'sales', aggFunc: 'sum' }]
+ *   valueFields: [{ field: 'amount', aggFunc: 'sum' }],
  * })
  * ```
+ *
+ * @see {@link PivotConfig} for all configuration options
+ * @see {@link PivotValueField} for value field structure
+ *
+ * @internal Extends BaseGridPlugin
  */
 export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
+  /** @internal */
   readonly name = 'pivot';
+  /** @internal */
   override readonly styles = styles;
 
   /** Tool panel ID for shell integration */
   static readonly PANEL_ID = 'pivot';
 
+  /** @internal */
   protected override get defaultConfig(): Partial<PivotConfig> {
     return {
       active: true,
@@ -79,6 +149,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   // #region Lifecycle
 
+  /** @internal */
   override detach(): void {
     this.isActive = false;
     this.hasInitialized = false;
@@ -95,6 +166,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   // #region Shell Integration
 
+  /** @internal */
   override getToolPanel(): ToolPanelDefinition | undefined {
     // Allow users to disable the tool panel for programmatic-only pivot
     // Check userConfig first (works before attach), then merged config
@@ -117,6 +189,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   // #region Hooks
 
+  /** @internal */
   override processRows(rows: readonly unknown[]): PivotDataRow[] {
     // Auto-enable pivot if config.active is true and we have valid pivot fields
     if (!this.hasInitialized && this.config.active !== false && this.hasValidPivotConfig()) {
@@ -188,6 +261,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return flatRows;
   }
 
+  /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     if (!this.isActive || !this.pivotResult) {
       return [...columns];
@@ -230,6 +304,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return pivotColumns;
   }
 
+  /** @internal */
   override renderRow(row: Record<string, unknown>, rowEl: HTMLElement, rowIndex: number): boolean {
     const pivotRow = row as PivotRowData;
 
@@ -280,6 +355,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
   }
 
+  /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean | void {
     // SPACE toggles expansion on pivot group rows
     if (event.key !== ' ') return;
@@ -299,6 +375,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return true;
   }
 
+  /** @internal */
   override afterRender(): void {
     // Render grand total as a sticky pinned footer when pivot is active
     if (this.isActive && this.config.showGrandTotal && this.pivotResult) {

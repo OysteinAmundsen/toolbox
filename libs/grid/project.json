@@ -37,6 +37,14 @@
         "reportsDirectory": "../../coverage/libs/grid"
       }
     },
+    "typedoc": {
+      "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
+      "options": {
+        "cwd": "{projectRoot}"
+      },
+      "inputs": ["{projectRoot}/src/**/*.ts", "{projectRoot}/typedoc.json", "{projectRoot}/scripts/typedoc-to-mdx.ts"],
+      "outputs": ["{projectRoot}/docs/api-generated", "{projectRoot}/docs/api"]
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],

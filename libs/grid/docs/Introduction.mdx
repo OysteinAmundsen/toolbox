@@ -9,16 +9,18 @@ A **high-performance, framework-agnostic data grid** web component built with pu
 
 ## Why Choose @toolbox-web/grid?
 
-We built this grid because we needed something that works everywhere without the baggage of framework-specific implementations. Whether you're building a vanilla JavaScript app, a React dashboard, or an Angular enterprise application, you get the same powerful grid with zero lock-in.
+We built this grid because we needed something that works everywhere without framework lock-in or expensive licensing. Whether you're building a vanilla JavaScript prototype, a React dashboard, or an Angular enterprise application, you get the same powerful grid with a single codebase.
 
 | Feature                    | Description                                                         |
 | -------------------------- | ------------------------------------------------------------------- |
-| 🚀 **High Performance**    | Virtualized rendering handles 100k+ rows smoothly                   |
-| 🔧 **Framework Agnostic**  | Works in vanilla JS, React, Vue, Angular, Svelte—no wrappers needed |
-| ⌨️ **Keyboard Navigation** | Full arrow key, Tab, Enter, Escape, Home/End, Page Up/Down support  |
+| 🚀 **Enterprise Performance** | Virtualized rendering handles 100k+ rows at 60fps                |
+| 🔧 **True Framework Agnostic** | Single codebase works in vanilla JS, React, Vue, Angular, Svelte |
+| 📦 **Lightweight & Self-Contained** | ~45KB gzipped with zero runtime dependencies           |
+| 🧩 **Best-in-Class Plugin System** | 19+ hooks, dependency validation, type-safe config extension |
+| ⌨️ **Full Keyboard Support** | Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down            |
 | 🎨 **Themeable**           | CSS custom properties for complete visual customization             |
-| 📦 **Plugin Architecture** | Extend with selection, filtering, grouping, and more                |
-| 🪶 **Lightweight**         | Zero dependencies, tree-shakeable plugins (~37kB gzipped core)      |
+| 💡 **Developer-Friendly Errors** | Actionable error messages with import hints and fix suggestions |
+| 🆓 **Free & Open Source**  | MIT licensed—no enterprise tiers or feature gates                   |
 
 ## Quick Start
 
@@ -60,11 +62,26 @@ The grid is a standard web component—use it just like any HTML element:
 
 That's it—no build step required for basic usage. The grid auto-registers the `<tbw-grid>` custom element when you import it.
 
+## Architecture Highlights
+
+Under the hood, the grid employs patterns typically found in enterprise-grade solutions:
+
+| Pattern | What It Does |
+| ------- | ------------ |
+| **Centralized Render Scheduler** | Batches all updates into a single `requestAnimationFrame` per frame—no layout thrashing |
+| **Phase-Based Execution** | Prioritizes work (config → rows → columns → render) for predictable updates |
+| **DOM Recycling** | Reuses row elements via a pool with epoch-based invalidation—minimal GC pressure |
+| **Template Cloning** | Pre-created templates cloned via `cloneNode(true)`—3-4x faster than `createElement` |
+| **Event Delegation** | Single listener per event type on the container—scales to any dataset size |
+| **Faux Scrollbar** | Separates scroll container from content—no reflow during scroll |
+
+These aren't just implementation details—they're why the grid stays smooth when others start to stutter.
+
 ## Features Overview
 
 ### Virtualization
 
-The grid uses row virtualization by default, rendering only visible rows plus a small overscan buffer. This means you can throw a million rows at it and still get smooth 60fps scrolling. The DOM stays lean regardless of dataset size.
+The grid uses row virtualization by default, rendering only visible rows plus a configurable overscan buffer. Small datasets (under ~24 rows) bypass virtualization entirely for maximum simplicity. Throw a million rows at it and you'll still get smooth 60fps scrolling—the DOM stays lean regardless of dataset size.
 
 ### Column Configuration
 
@@ -144,17 +161,27 @@ grid.addEventListener('cell-commit', (e) => {
 
 ## Plugin Architecture
 
-The core grid is intentionally minimal. Advanced features are delivered through plugins that you can import as needed:
+The core grid is intentionally minimal (~45KB gzipped). Advanced features are delivered through plugins that you can import as needed—pay only for what you use:
 
-- **SelectionPlugin** — Cell, row, or range selection
-- **FilteringPlugin** — Column header filters with custom panels
-- **GroupingRowsPlugin** — Hierarchical row grouping with aggregations
-- **TreePlugin** — Expandable tree data structures
-- **MasterDetailPlugin** — Expandable detail rows
+- **SelectionPlugin** — Cell, row, or range selection with Shift/Ctrl modifiers
+- **FilteringPlugin** — Column header filters with custom filter panels
+- **GroupingRowsPlugin** — Hierarchical row grouping with footer aggregations
+- **TreePlugin** — Expandable tree data with lazy loading support
+- **MasterDetailPlugin** — Expandable detail rows with custom content
 - **PinnedColumnsPlugin** — Sticky columns on left/right edges
 - **ExportPlugin** — Export to CSV, Excel, or JSON
-- **ClipboardPlugin** — Copy/paste support
+- **ClipboardPlugin** — Copy/paste with Excel-compatible formatting
+- **UndoRedoPlugin** — Ctrl+Z/Ctrl+Y for edit history
+- **ContextMenuPlugin** — Right-click menus with custom actions
 - ...and many more
+
+### Why the Plugin System Stands Out
+
+- **19+ extension hooks** — From data transforms to cell rendering to keyboard handling
+- **Dependency validation** — Plugins declare dependencies; missing ones throw helpful errors
+- **Type-safe config extension** — Plugins can add properties to `ColumnConfig` via module augmentation
+- **Auto-cleanup** — Plugins receive an `AbortSignal` for automatic listener cleanup on detach
+- **Third-party friendly** — Build and distribute your own plugins with full type support
 
 Plugins are tree-shakeable—only what you import ends up in your bundle.
 

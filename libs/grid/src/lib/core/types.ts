@@ -1,4 +1,5 @@
 import type { PluginQuery } from './plugin/base-plugin';
+import type { CellMouseEvent } from './plugin/types';
 
 /**
  * The compiled webcomponent interface for DataGrid
@@ -134,6 +135,12 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _dispatchHeaderClick?: (event: MouseEvent, colIndex: number, headerEl: HTMLElement) => boolean;
   /** Dispatch keydown to plugin system, returns true if handled */
   _dispatchKeyDown?: (event: KeyboardEvent) => boolean;
+  /** Dispatch cell mouse events for drag operations. Returns true if any plugin started a drag. */
+  _dispatchCellMouseDown?: (event: CellMouseEvent) => boolean;
+  /** Dispatch cell mouse move during drag. */
+  _dispatchCellMouseMove?: (event: CellMouseEvent) => void;
+  /** Dispatch cell mouse up to end drag. */
+  _dispatchCellMouseUp?: (event: CellMouseEvent) => void;
   /** Get horizontal scroll boundary offsets from plugins */
   _getHorizontalScrollOffsets?: (
     rowEl?: HTMLElement,

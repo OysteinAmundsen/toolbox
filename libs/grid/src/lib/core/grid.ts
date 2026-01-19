@@ -221,7 +221,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #pendingScrollTop: number | null = null;
   #hasScrollPlugins = false; // Cached flag for plugin scroll handlers
   #renderRowHook?: (row: any, rowEl: HTMLElement, rowIndex: number) => boolean; // Cached hook to avoid closures
-  #isDragging = false;
   #touchState: TouchScrollState = createTouchScrollState();
   #eventAbortController?: AbortController;
   #resizeObserver?: ResizeObserver;
@@ -1087,18 +1086,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const signal = this.disconnectSignal;
 
     // Set up all root-level and document-level event listeners
-    // Consolidates keydown, mousedown, mousemove, mouseup in one place
-    setupRootEventDelegation(
-      this as unknown as InternalGrid<T>,
-      this,
-      this.#renderRoot,
-      {
-        onMouseDown: (e) => this.#handleMouseDown(e),
-        onMouseMove: (e) => this.#handleMouseMove(e),
-        onMouseUp: (e) => this.#handleMouseUp(e),
-      },
-      signal,
-    );
+    // Consolidates keydown, mousedown, mousemove, mouseup in one place (event-delegation.ts)
+    setupRootEventDelegation(this as unknown as InternalGrid<T>, this, this.#renderRoot, signal);
 
     // Note: click/dblclick handlers are set up via setupCellEventDelegation in #setupScrollListeners
     // This consolidates all body-level delegated event handlers in one place (event-delegation.ts)
@@ -1867,106 +1856,28 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Build a CellMouseEvent from a native MouseEvent.
-   * Extracts cell/row information from the event target.
+   * Dispatch cell mouse events for drag operations.
+   * Returns true if any plugin started a drag.
+   * @internal Plugin API - called by event-delegation.ts
    */
-  #buildCellMouseEvent(e: MouseEvent, type: 'mousedown' | 'mousemove' | 'mouseup'): CellMouseEvent {
-    // For document-level events (mousemove/mouseup during drag), e.target won't be inside shadow DOM.
-    // Use composedPath to find elements inside shadow roots, or fall back to elementFromPoint.
-    let target: Element | null = null;
-
-    // composedPath gives us the full path including shadow DOM elements
-    const path = e.composedPath?.() as Element[] | undefined;
-    if (path && path.length > 0) {
-      target = path[0];
-    } else {
-      target = e.target as Element;
-    }
-
-    // If target is not inside our element (e.g., for document-level events),
-    // use elementFromPoint to find the actual element under the mouse
-    if (target && !this.#renderRoot.contains(target)) {
-      const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
-      if (elAtPoint) {
-        target = elAtPoint;
-      }
-    }
-
-    // Cells have data-col and data-row attributes
-    const cellEl = target?.closest?.('[data-col]') as HTMLElement | null;
-    const rowEl = target?.closest?.('.data-grid-row') as HTMLElement | null;
-    const headerEl = target?.closest?.('.header-row') as HTMLElement | null;
-
-    let rowIndex: number | undefined;
-    let colIndex: number | undefined;
-    let row: T | undefined;
-    let field: string | undefined;
-    let value: unknown;
-    let column: any;
-
-    if (cellEl) {
-      // Get indices from cell attributes
-      rowIndex = parseInt(cellEl.getAttribute('data-row') ?? '-1', 10);
-      colIndex = parseInt(cellEl.getAttribute('data-col') ?? '-1', 10);
-      if (rowIndex >= 0 && colIndex >= 0) {
-        row = this._rows[rowIndex];
-        column = this._columns[colIndex];
-        field = column?.field;
-        value = row && field ? (row as Record<string, unknown>)[field] : undefined;
-      }
-    }
-
-    return {
-      type,
-      row,
-      rowIndex: rowIndex !== undefined && rowIndex >= 0 ? rowIndex : undefined,
-      colIndex: colIndex !== undefined && colIndex >= 0 ? colIndex : undefined,
-      field,
-      value,
-      column,
-      originalEvent: e,
-      cellElement: cellEl ?? undefined,
-      rowElement: rowEl ?? undefined,
-      isHeader: !!headerEl,
-      cell:
-        rowIndex !== undefined && colIndex !== undefined && rowIndex >= 0 && colIndex >= 0
-          ? { row: rowIndex, col: colIndex }
-          : undefined,
-    };
+  _dispatchCellMouseDown(event: CellMouseEvent): boolean {
+    return this.#pluginManager?.onCellMouseDown(event) ?? false;
   }
 
   /**
-   * Handle mousedown events and dispatch to plugin system.
+   * Dispatch cell mouse move during drag.
+   * @internal Plugin API - called by event-delegation.ts
    */
-  #handleMouseDown(e: MouseEvent): void {
-    const event = this.#buildCellMouseEvent(e, 'mousedown');
-    const handled = this.#pluginManager?.onCellMouseDown(event) ?? false;
-
-    // If any plugin handled mousedown, start tracking for drag
-    if (handled) {
-      this.#isDragging = true;
-    }
-  }
-
-  /**
-   * Handle mousemove events (only when dragging).
-   */
-  #handleMouseMove(e: MouseEvent): void {
-    if (!this.#isDragging) return;
-
-    const event = this.#buildCellMouseEvent(e, 'mousemove');
+  _dispatchCellMouseMove(event: CellMouseEvent): void {
     this.#pluginManager?.onCellMouseMove(event);
   }
 
   /**
-   * Handle mouseup events.
+   * Dispatch cell mouse up to end drag.
+   * @internal Plugin API - called by event-delegation.ts
    */
-  #handleMouseUp(e: MouseEvent): void {
-    if (!this.#isDragging) return;
-
-    const event = this.#buildCellMouseEvent(e, 'mouseup');
+  _dispatchCellMouseUp(event: CellMouseEvent): void {
     this.#pluginManager?.onCellMouseUp(event);
-    this.#isDragging = false;
   }
 
   async ready(): Promise<void> {

@@ -13,10 +13,14 @@
  * onCellClick and onKeyDown hooks.
  */
 
+import type { CellMouseEvent } from '../plugin/types';
 import type { InternalGrid } from '../types';
 import { handleGridKeyDown } from './keyboard';
 import { handleRowClick } from './rows';
 import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell } from './utils';
+
+// Track drag state per grid instance (avoids polluting InternalGrid interface)
+const dragState = new WeakMap<InternalGrid, boolean>();
 
 /**
  * Handle delegated mousedown on cells.
@@ -44,6 +48,114 @@ function handleCellMousedown(grid: InternalGrid, cell: HTMLElement): void {
   clearCellFocus(grid._bodyEl);
   cell.classList.add('cell-focus');
   cell.setAttribute('aria-selected', 'true');
+}
+
+/**
+ * Build a CellMouseEvent from a native MouseEvent.
+ * Extracts cell/row information from the event target.
+ */
+function buildCellMouseEvent(
+  grid: InternalGrid,
+  renderRoot: HTMLElement,
+  e: MouseEvent,
+  type: 'mousedown' | 'mousemove' | 'mouseup',
+): CellMouseEvent {
+  // For document-level events (mousemove/mouseup during drag), e.target won't be inside shadow DOM.
+  // Use composedPath to find elements inside shadow roots, or fall back to elementFromPoint.
+  let target: Element | null = null;
+
+  // composedPath gives us the full path including shadow DOM elements
+  const path = e.composedPath?.() as Element[] | undefined;
+  if (path && path.length > 0) {
+    target = path[0];
+  } else {
+    target = e.target as Element;
+  }
+
+  // If target is not inside our element (e.g., for document-level events),
+  // use elementFromPoint to find the actual element under the mouse
+  if (target && !renderRoot.contains(target)) {
+    const elAtPoint = document.elementFromPoint(e.clientX, e.clientY);
+    if (elAtPoint) {
+      target = elAtPoint;
+    }
+  }
+
+  // Cells have data-col and data-row attributes
+  const cellEl = target?.closest?.('[data-col]') as HTMLElement | null;
+  const rowEl = target?.closest?.('.data-grid-row') as HTMLElement | null;
+  const headerEl = target?.closest?.('.header-row') as HTMLElement | null;
+
+  let rowIndex: number | undefined;
+  let colIndex: number | undefined;
+  let row: unknown;
+  let field: string | undefined;
+  let value: unknown;
+  let column: unknown;
+
+  if (cellEl) {
+    // Get indices from cell attributes
+    rowIndex = parseInt(cellEl.getAttribute('data-row') ?? '-1', 10);
+    colIndex = parseInt(cellEl.getAttribute('data-col') ?? '-1', 10);
+    if (rowIndex >= 0 && colIndex >= 0) {
+      row = grid._rows[rowIndex];
+      column = grid._columns[colIndex];
+      field = (column as { field?: string })?.field;
+      value = row && field ? (row as Record<string, unknown>)[field] : undefined;
+    }
+  }
+
+  return {
+    type,
+    row,
+    rowIndex: rowIndex !== undefined && rowIndex >= 0 ? rowIndex : undefined,
+    colIndex: colIndex !== undefined && colIndex >= 0 ? colIndex : undefined,
+    field,
+    value,
+    column: column as CellMouseEvent['column'],
+    originalEvent: e,
+    cellElement: cellEl ?? undefined,
+    rowElement: rowEl ?? undefined,
+    isHeader: !!headerEl,
+    cell:
+      rowIndex !== undefined && colIndex !== undefined && rowIndex >= 0 && colIndex >= 0
+        ? { row: rowIndex, col: colIndex }
+        : undefined,
+  };
+}
+
+/**
+ * Handle mousedown events and dispatch to plugin system.
+ */
+function handleMouseDown(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEvent): void {
+  const event = buildCellMouseEvent(grid, renderRoot, e, 'mousedown');
+  const handled = grid._dispatchCellMouseDown?.(event) ?? false;
+
+  // If any plugin handled mousedown, start tracking for drag
+  if (handled) {
+    dragState.set(grid, true);
+  }
+}
+
+/**
+ * Handle mousemove events (only when dragging).
+ */
+function handleMouseMove(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEvent): void {
+  if (!dragState.get(grid)) return;
+
+  const event = buildCellMouseEvent(grid, renderRoot, e, 'mousemove');
+  grid._dispatchCellMouseMove?.(event);
+}
+
+/**
+ * Handle mouseup events.
+ */
+function handleMouseUp(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEvent): void {
+  if (!dragState.get(grid)) return;
+
+  const event = buildCellMouseEvent(grid, renderRoot, e, 'mouseup');
+  grid._dispatchCellMouseUp?.(event);
+  dragState.set(grid, false);
 }
 
 /**
@@ -98,19 +210,6 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
 }
 
 /**
- * Handlers for root-level event delegation.
- * These are passed from the grid instance since they reference private methods.
- */
-export interface RootEventHandlers {
-  /** Handle mousedown on the grid root (for plugin dispatch) */
-  onMouseDown: (e: MouseEvent) => void;
-  /** Handle global mousemove (for drag operations) */
-  onMouseMove: (e: MouseEvent) => void;
-  /** Handle global mouseup (for drag operations) */
-  onMouseUp: (e: MouseEvent) => void;
-}
-
-/**
  * Set up root-level and document-level event listeners.
  * These are added once per grid lifetime (not re-attached on DOM recreation).
  *
@@ -122,23 +221,21 @@ export interface RootEventHandlers {
  * @param grid - The grid instance
  * @param gridElement - The grid element (for keydown)
  * @param renderRoot - The render root element (for mousedown)
- * @param handlers - Callbacks for mouse events (bound to grid instance)
  * @param signal - AbortSignal for cleanup
  */
 export function setupRootEventDelegation(
   grid: InternalGrid,
   gridElement: HTMLElement,
   renderRoot: HTMLElement,
-  handlers: RootEventHandlers,
   signal: AbortSignal,
 ): void {
   // Element-level keydown handler for keyboard navigation
   gridElement.addEventListener('keydown', (e) => handleGridKeyDown(grid, e), { signal });
 
   // Central mouse event handling for plugins
-  renderRoot.addEventListener('mousedown', (e) => handlers.onMouseDown(e as MouseEvent), { signal });
+  renderRoot.addEventListener('mousedown', (e) => handleMouseDown(grid, renderRoot, e as MouseEvent), { signal });
 
   // Track global mousemove/mouseup for drag operations (column resize, selection, etc.)
-  document.addEventListener('mousemove', (e: MouseEvent) => handlers.onMouseMove(e), { signal });
-  document.addEventListener('mouseup', (e: MouseEvent) => handlers.onMouseUp(e), { signal });
+  document.addEventListener('mousemove', (e: MouseEvent) => handleMouseMove(grid, renderRoot, e), { signal });
+  document.addEventListener('mouseup', (e: MouseEvent) => handleMouseUp(grid, renderRoot, e), { signal });
 }

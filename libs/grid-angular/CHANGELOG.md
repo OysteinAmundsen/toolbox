@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.1.3...grid-angular-0.2.0) (2026-01-19)
+
+
+### Features
+
+* **grid:** add cellClass and rowClass callbacks for dynamic styling ([5a5121c](https://github.com/OysteinAmundsen/toolbox/commit/5a5121c3c1cec3666d646c4615d86e17d83c2a57))
+
 ## [0.1.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.1.2...grid-angular-0.1.3) (2026-01-16)
 
 

@@ -516,12 +516,6 @@ interface SelectionPluginInterface {
     ranges: CellRange[];
     anchor: { row: number; col: number } | null;
   };
-  /** @deprecated Use getSelection() instead */
-  getSelectedRows(): number[];
-  /** @deprecated Use getSelection() instead */
-  getRanges(): CellRange[];
-  /** @deprecated Use getSelection() instead */
-  getSelectedCell(): { row: number; col: number } | null;
 }
 // #endregion
 

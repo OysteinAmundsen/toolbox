@@ -54,8 +54,6 @@ import type {
   HeaderContentDefinition,
   InternalGrid,
   ResizeController,
-  ToolbarButtonConfig,
-  ToolbarButtonInfo,
   ToolbarContentDefinition,
   ToolPanelDefinition,
   VirtualState,
@@ -197,20 +195,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   get #renderRoot(): HTMLElement {
     return this;
-  }
-
-  /**
-   * Access the grid's ShadowRoot.
-   *
-   * Note: The grid renders into its light DOM and does not attach a shadow root,
-   * so this getter returns `null`. Use `grid.querySelector()` directly for DOM queries.
-   *
-   * @deprecated This property returns `null` since Shadow DOM was removed.
-   *             Use `grid.querySelector()` or `grid.querySelectorAll()` directly.
-   * @returns null (no shadow root is attached)
-   */
-  override get shadowRoot(): ShadowRoot | null {
-    return super.shadowRoot;
   }
 
   #initialized = false;
@@ -2375,14 +2359,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Get the currently active tool panel ID, or null if none is open.
-   * @deprecated Use isToolPanelOpen and expandedToolPanelSections instead.
-   */
-  get activeToolPanel(): string | null {
-    return this.#shellController.activePanel;
-  }
-
-  /**
    * Get the IDs of currently expanded accordion sections in the tool panel.
    *
    * Multiple sections can be expanded simultaneously in the accordion view.
@@ -2702,52 +2678,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   unregisterToolbarContent(contentId: string): void {
     this.#shellController.unregisterToolbarContent(contentId);
-  }
-
-  /**
-   * Get all registered toolbar buttons.
-   * @deprecated Use `getToolbarContents()` instead.
-   */
-  getToolbarButtons(): ToolbarButtonInfo[] {
-    console.warn('[tbw-grid] getToolbarButtons() is deprecated. Use getToolbarContents() instead.');
-    return [];
-  }
-
-  /**
-   * Register a custom toolbar button programmatically.
-   * @deprecated Use `registerToolbarContent()` instead.
-   */
-  registerToolbarButton(button: ToolbarButtonConfig): void {
-    console.warn('[tbw-grid] registerToolbarButton() is deprecated. Use registerToolbarContent() instead.');
-    // Migrate to new API for backward compatibility
-    this.#shellController.registerToolbarContent({
-      id: button.id,
-      order: button.order ?? 100,
-      render:
-        button.render ??
-        ((container) => {
-          if (button.element) container.appendChild(button.element);
-        }),
-    });
-  }
-
-  /**
-   * Unregister a custom toolbar button.
-   * @deprecated Use `unregisterToolbarContent()` instead.
-   */
-  unregisterToolbarButton(buttonId: string): void {
-    console.warn('[tbw-grid] unregisterToolbarButton() is deprecated. Use unregisterToolbarContent() instead.');
-    this.#shellController.unregisterToolbarContent(buttonId);
-  }
-
-  /**
-   * Enable/disable a toolbar button by ID.
-   * @deprecated Manage your own button disabled state directly.
-   */
-  setToolbarButtonDisabled(_buttonId: string, _disabled: boolean): void {
-    console.warn(
-      '[tbw-grid] setToolbarButtonDisabled() is deprecated. Manage your own button disabled state directly.',
-    );
   }
 
   /**
@@ -3191,7 +3121,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     setupShellEventListeners(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState, {
       onPanelToggle: () => this.toggleToolPanel(),
       onSectionToggle: (sectionId: string) => this.toggleToolPanelSection(sectionId),
-      onToolbarButtonClick: (buttonId) => this.#handleToolbarButtonClick(buttonId),
     });
 
     // Set up tool panel resize
@@ -3200,18 +3129,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Update the CSS variable to persist the new width
       this.style.setProperty('--tbw-tool-panel-width', `${width}px`);
     });
-  }
-
-  /**
-   * Handle toolbar button click.
-   * Note: Config/API buttons use element or render, so they handle their own clicks.
-   * This method is kept for backwards compatibility but may emit an event in the future.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  #handleToolbarButtonClick(_buttonId: string): void {
-    // No-op: Config and API buttons now use element/render and handle their own events.
-    // Light DOM buttons use slot and handle their own events.
-    // This callback may be used for future extensibility (e.g., emitting an event).
   }
 }
 

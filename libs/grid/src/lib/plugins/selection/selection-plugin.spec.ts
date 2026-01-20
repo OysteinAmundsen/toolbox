@@ -92,7 +92,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('click'),
       });
 
-      expect(plugin.getSelectedCell()).toEqual({ row: 0, col: 0 });
+      expect(plugin.getSelection().ranges[0]?.from).toEqual({ row: 0, col: 0 });
       expect(mockGrid.dispatchEvent).toHaveBeenCalled();
     });
 
@@ -138,7 +138,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('click'),
       });
 
-      expect(plugin.getSelectedRows()).toEqual([1]);
+      expect(plugin.getSelection().ranges.map((r) => r.from.row)).toEqual([1]);
     });
 
     it('should emit selection-change with row range', () => {
@@ -194,7 +194,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('click'),
       });
 
-      expect(plugin.getSelectedRows()).toEqual([2]);
+      expect(plugin.getSelection().ranges.map((r) => r.from.row)).toEqual([2]);
     });
   });
 
@@ -215,7 +215,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('click'),
       });
 
-      expect(plugin.getRanges()).toEqual([{ from: { row: 0, col: 0 }, to: { row: 0, col: 0 } }]);
+      expect(plugin.getSelection().ranges).toEqual([{ from: { row: 0, col: 0 }, to: { row: 0, col: 0 } }]);
     });
 
     it('should extend range with shift+click', () => {
@@ -247,7 +247,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('click', { shiftKey: true }),
       });
 
-      const ranges = plugin.getRanges();
+      const ranges = plugin.getSelection().ranges;
       expect(ranges.length).toBe(1);
       expect(ranges[0]).toEqual({
         from: { row: 0, col: 0 },
@@ -284,7 +284,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('click', { ctrlKey: true }),
       });
 
-      const ranges = plugin.getRanges();
+      const ranges = plugin.getSelection().ranges;
       expect(ranges.length).toBe(2);
     });
   });
@@ -300,7 +300,7 @@ describe('SelectionPlugin', () => {
       const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }));
 
       expect(handled).toBe(true);
-      expect(plugin.getSelectedCell()).toBeNull();
+      expect(plugin.getSelection().ranges.length).toBe(0);
     });
 
     it('should clear selection on Escape in row mode', () => {
@@ -313,7 +313,7 @@ describe('SelectionPlugin', () => {
       const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }));
 
       expect(handled).toBe(true);
-      expect(plugin.getSelectedRows()).toEqual([]);
+      expect(plugin.getSelection().ranges.map((r) => r.from.row)).toEqual([]);
     });
 
     it('should clear selection on Escape in range mode', () => {
@@ -326,7 +326,7 @@ describe('SelectionPlugin', () => {
       const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }));
 
       expect(handled).toBe(true);
-      expect(plugin.getRanges()).toEqual([]);
+      expect(plugin.getSelection().ranges).toEqual([]);
     });
 
     it('should select all with Ctrl+A in range mode', () => {
@@ -339,7 +339,7 @@ describe('SelectionPlugin', () => {
       const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }));
 
       expect(handled).toBe(true);
-      const ranges = plugin.getRanges();
+      const ranges = plugin.getSelection().ranges;
       expect(ranges.length).toBe(1);
       expect(ranges[0]).toEqual({
         from: { row: 0, col: 0 },
@@ -447,7 +447,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('mousemove'),
       });
 
-      const ranges = plugin.getRanges();
+      const ranges = plugin.getSelection().ranges;
       expect(ranges[0]).toEqual({
         from: { row: 0, col: 0 },
         to: { row: 1, col: 1 },
@@ -486,7 +486,7 @@ describe('SelectionPlugin', () => {
         originalEvent: new MouseEvent('mousemove'),
       });
 
-      expect(plugin.getRanges()).toEqual([]);
+      expect(plugin.getSelection().ranges).toEqual([]);
     });
 
     it('should ignore mousedown on header rows', () => {
@@ -558,60 +558,6 @@ describe('SelectionPlugin', () => {
       });
     });
 
-    describe('getSelectedCell', () => {
-      it('should return selected cell in cell mode', () => {
-        const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
-        const plugin = new SelectionPlugin({ mode: 'cell' });
-        plugin.attach(mockGrid);
-
-        plugin['selectedCell'] = { row: 2, col: 3 };
-
-        expect(plugin.getSelectedCell()).toEqual({ row: 2, col: 3 });
-      });
-
-      it('should return null when no cell selected', () => {
-        const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
-        const plugin = new SelectionPlugin({ mode: 'cell' });
-        plugin.attach(mockGrid);
-
-        expect(plugin.getSelectedCell()).toBeNull();
-      });
-    });
-
-    describe('getSelectedRows', () => {
-      it('should return selected row indices', () => {
-        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }], [{ field: 'name' }]);
-        const plugin = new SelectionPlugin({ mode: 'row' });
-        plugin.attach(mockGrid);
-
-        plugin['selected'].add(0);
-        plugin['selected'].add(2);
-
-        expect(plugin.getSelectedRows()).toContain(0);
-        expect(plugin.getSelectedRows()).toContain(2);
-      });
-
-      it('should return empty array when no rows selected', () => {
-        const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
-        const plugin = new SelectionPlugin({ mode: 'row' });
-        plugin.attach(mockGrid);
-
-        expect(plugin.getSelectedRows()).toEqual([]);
-      });
-    });
-
-    describe('getRanges', () => {
-      it('should return ranges in public format', () => {
-        const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
-        const plugin = new SelectionPlugin({ mode: 'range' });
-        plugin.attach(mockGrid);
-
-        plugin['ranges'].push({ startRow: 0, startCol: 0, endRow: 2, endCol: 3 });
-
-        expect(plugin.getRanges()).toEqual([{ from: { row: 0, col: 0 }, to: { row: 2, col: 3 } }]);
-      });
-    });
-
     describe('getSelectedCells', () => {
       it('should return all cells in ranges', () => {
         const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
@@ -664,9 +610,7 @@ describe('SelectionPlugin', () => {
 
         plugin.clearSelection();
 
-        expect(plugin.getSelectedCell()).toBeNull();
-        expect(plugin.getSelectedRows()).toEqual([]);
-        expect(plugin.getRanges()).toEqual([]);
+        expect(plugin.getSelection().ranges.length).toBe(0);
         expect(plugin['cellAnchor']).toBeNull();
         expect(mockGrid.dispatchEvent).toHaveBeenCalled();
       });
@@ -683,7 +627,7 @@ describe('SelectionPlugin', () => {
           { from: { row: 3, col: 2 }, to: { row: 4, col: 3 } },
         ]);
 
-        expect(plugin.getRanges().length).toBe(2);
+        expect(plugin.getSelection().ranges.length).toBe(2);
         expect(mockGrid.dispatchEvent).toHaveBeenCalled();
       });
 
@@ -714,7 +658,7 @@ describe('SelectionPlugin', () => {
 
         plugin.setRanges([]);
 
-        expect(plugin.getRanges()).toEqual([]);
+        expect(plugin.getSelection().ranges).toEqual([]);
         expect(plugin['activeRange']).toBeNull();
       });
     });

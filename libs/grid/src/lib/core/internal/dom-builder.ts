@@ -92,17 +92,6 @@ export function button(className?: string, attrs?: Record<string, string>, conte
 }
 
 /**
- * Create a slot element for light DOM projection.
- * @deprecated The grid now uses light DOM without Shadow DOM, so slots are no longer used.
- * This function is kept for backward compatibility but should not be used in new code.
- */
-export function slot(name?: string): HTMLSlotElement {
-  const el = document.createElement('slot');
-  if (name) el.name = name;
-  return el;
-}
-
-/**
  * Append multiple children to a parent element.
  */
 export function appendChildren(parent: Element, children: (Node | null | undefined)[]): void {

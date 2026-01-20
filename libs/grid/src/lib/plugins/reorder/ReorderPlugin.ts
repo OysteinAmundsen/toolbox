@@ -108,10 +108,6 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     // Plugin config (with default from defaultConfig)
     if (this.config.animation !== undefined) return this.config.animation;
 
-    // Legacy viewTransition fallback
-    if (this.config.viewTransition === false) return false;
-    if (this.config.viewTransition === true) return 'flip';
-
     return 'flip'; // Plugin default
   }
 

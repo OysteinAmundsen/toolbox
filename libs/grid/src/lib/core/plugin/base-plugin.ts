@@ -377,24 +377,6 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
-   * Get the render root of the grid for DOM queries.
-   * @deprecated Use `gridElement` instead. This getter exists only for backward compatibility.
-   *
-   * With Shadow DOM removed, the grid element itself is the render root.
-   * All new code should use `this.gridElement` for DOM queries.
-   *
-   * @example
-   * // OLD (deprecated)
-   * const rows = this.shadowRoot?.querySelector('.rows');
-   *
-   * // NEW (preferred)
-   * const rows = this.gridElement.querySelector('.rows');
-   */
-  protected get shadowRoot(): HTMLElement | null {
-    return this.gridElement;
-  }
-
-  /**
    * Get the disconnect signal for event listener cleanup.
    * This signal is aborted when the grid disconnects from the DOM.
    * Use this when adding event listeners that should be cleaned up automatically.

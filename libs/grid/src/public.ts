@@ -195,7 +195,6 @@ export type {
   // Sorting types
   SortHandler,
   SortState,
-  ToolbarButtonConfig,
   ToolbarContentDefinition,
   ToolPanelConfig,
   ToolPanelDefinition,

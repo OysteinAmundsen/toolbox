@@ -806,7 +806,7 @@ describe('tbw-grid integration: selection plugin', () => {
     expect(firstVisibleCell.classList.contains('selected')).toBe(true);
 
     // Verify the selection plugin tracks the correct data indices
-    const ranges = selectionPlugin.getRanges();
+    const ranges = selectionPlugin.getSelection().ranges;
     expect(ranges.length).toBe(1);
     expect(ranges[0].from).toEqual({ row: 0, col: 0 });
     expect(ranges[0].to).toEqual({ row: 0, col: 0 });
@@ -878,7 +878,7 @@ describe('tbw-grid integration: selection plugin', () => {
     expect(firstRow.classList.contains('row-focus')).toBe(true);
 
     // Verify the selection plugin tracks the correct data index
-    const selectedRows = selectionPlugin.getSelectedRows();
+    const selectedRows = selectionPlugin.getSelection().ranges.map((r) => r.from.row);
     expect(selectedRows).toEqual([0]);
 
     // Simulate scroll

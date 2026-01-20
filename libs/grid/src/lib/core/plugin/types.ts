@@ -380,12 +380,6 @@ export interface GridElementRef {
   readonly isToolPanelOpen: boolean;
 
   /**
-   * Get the currently active tool panel ID, or null if none is open.
-   * @deprecated Use isToolPanelOpen and expandedToolPanelSections instead.
-   */
-  readonly activeToolPanel: string | null;
-
-  /**
    * Get the IDs of expanded accordion sections.
    */
   readonly expandedToolPanelSections: string[];

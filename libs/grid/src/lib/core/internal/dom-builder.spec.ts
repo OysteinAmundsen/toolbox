@@ -9,7 +9,6 @@ import {
   createElement,
   div,
   setAttrs,
-  slot,
   text,
 } from './dom-builder';
 
@@ -92,18 +91,6 @@ describe('dom-builder', () => {
       icon.textContent = '★';
       const el = button('btn', undefined, icon);
       expect(el.firstChild).toBe(icon);
-    });
-  });
-
-  describe('slot', () => {
-    it('should create a slot element', () => {
-      const el = slot();
-      expect(el.tagName).toBe('SLOT');
-    });
-
-    it('should set the name attribute', () => {
-      const el = slot('my-slot');
-      expect(el.name).toBe('my-slot');
     });
   });
 

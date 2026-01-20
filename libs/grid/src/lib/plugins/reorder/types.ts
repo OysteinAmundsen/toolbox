@@ -24,12 +24,6 @@ export interface ReorderConfig {
    * @default 200
    */
   animationDuration?: number;
-
-  /**
-   * @deprecated Use `animation` instead. Will be removed in next major version.
-   * Use View Transitions API for smooth column movement.
-   */
-  viewTransition?: boolean;
 }
 
 /** Internal state managed by the reorder plugin */

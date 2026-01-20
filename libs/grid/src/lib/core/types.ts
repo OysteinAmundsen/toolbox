@@ -874,11 +874,6 @@ export interface ShellHeaderConfig {
   /** Custom toolbar content (rendered before tool panel toggle) */
   toolbarContents?: ToolbarContentDefinition[];
   /**
-   * Custom toolbar buttons (rendered before tool panel toggles)
-   * @deprecated Use `toolbarContents` instead. Will be removed in a future version.
-   */
-  toolbarButtons?: ToolbarButtonConfig[];
-  /**
    * Light DOM header content elements (parsed from <tbw-grid-header> children).
    * @internal Set by ConfigManager during merge
    */
@@ -902,58 +897,6 @@ export interface ToolPanelConfig {
   defaultOpen?: string;
   /** Whether to persist open/closed state (requires Column State Events) */
   persistState?: boolean;
-}
-
-/**
- * Toolbar button defined via config (programmatic approach).
- *
- * The grid does NOT create buttons - developers have full control over their own buttons.
- * Provide either:
- * - `element`: A ready-made DOM element (grid appends it to toolbar)
- * - `render`: A factory function that receives a container and appends content
- *
- * For declarative HTML buttons, use light-dom instead:
- * ```html
- * <tbw-grid>
- *   <tbw-grid-header>
- *     <button slot="toolbar">My Button</button>
- *   </tbw-grid-header>
- * </tbw-grid>
- * ```
- * @deprecated Use ToolbarContentDefinition with registerToolbarContent() instead.
- */
-export interface ToolbarButtonConfig {
-  /** Unique button ID */
-  id: string;
-  /** Tooltip / aria-label (for accessibility, used when grid generates panel toggle) */
-  label?: string;
-  /** Order priority (lower = first, default: 100) */
-  order?: number;
-
-  /**
-   * User-provided element. Grid appends it to the toolbar.
-   * User is responsible for styling, event handlers, accessibility, etc.
-   */
-  element?: HTMLElement;
-  /**
-   * Render function called once. Receives container, user appends their DOM.
-   * User is responsible for event handlers.
-   * Return a cleanup function (optional).
-   */
-  render?: (container: HTMLElement) => void | (() => void);
-}
-
-/**
- * Toolbar button info returned by getToolbarButtons().
- * @deprecated Use getToolbarContents() instead.
- */
-export interface ToolbarButtonInfo {
-  id: string;
-  label: string;
-  /** Source of this button: 'config' | 'light-dom' | 'panel-toggle' */
-  source: 'config' | 'light-dom' | 'panel-toggle';
-  /** For panel toggles, the associated panel ID */
-  panelId?: string;
 }
 
 /**

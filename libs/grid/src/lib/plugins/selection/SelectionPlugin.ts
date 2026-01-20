@@ -617,38 +617,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   }
 
   /**
-   * Get the selected cell (cell mode only).
-   * @deprecated Use `getSelection()` instead for a unified API across all modes.
-   */
-  getSelectedCell(): { row: number; col: number } | null {
-    const { mode, ranges } = this.getSelection();
-    if (mode === 'cell' && ranges.length > 0) {
-      return ranges[0].from;
-    }
-    return null;
-  }
-
-  /**
-   * Get all selected row indices (row mode).
-   * @deprecated Use `getSelection().ranges` instead - each range represents a full row.
-   */
-  getSelectedRows(): number[] {
-    const { mode, ranges } = this.getSelection();
-    if (mode === 'row') {
-      return ranges.map((r) => r.from.row);
-    }
-    return [];
-  }
-
-  /**
-   * Get all selected cell ranges in public format.
-   * @deprecated Use `getSelection().ranges` instead.
-   */
-  getRanges(): CellRange[] {
-    return this.getSelection().ranges;
-  }
-
-  /**
    * Get all selected cells across all ranges.
    */
   getSelectedCells(): Array<{ row: number; col: number }> {

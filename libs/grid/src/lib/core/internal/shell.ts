@@ -30,11 +30,9 @@ function iconToString(icon: IconValue | undefined): string {
 /**
  * State for managing shell UI.
  *
- * NOTE: This interface is being refactored. Config-like properties are moving
- * to effectiveConfig.shell. Only runtime state should remain here.
- *
- * @deprecated Properties that are configuration (toolPanels, headerContents, etc.)
- * are moving to ShellConfig in types.ts. Use ShellRuntimeState for new code.
+ * This interface holds both configuration-like properties (toolPanels, headerContents)
+ * and runtime state (isPanelOpen, expandedSections). The Maps allow for efficient
+ * registration/unregistration of panels and content.
  */
 export interface ShellState {
   /** Registered tool panels (from plugins + consumer API) */
@@ -536,7 +534,6 @@ export function setupShellEventListeners(
   callbacks: {
     onPanelToggle: () => void;
     onSectionToggle: (sectionId: string) => void;
-    onToolbarButtonClick: (buttonId: string) => void;
   },
 ): void {
   const toolbar = renderRoot.querySelector('.tbw-shell-toolbar');
@@ -549,15 +546,6 @@ export function setupShellEventListeners(
       if (panelToggle) {
         callbacks.onPanelToggle();
         return;
-      }
-
-      // Handle custom toolbar buttons
-      const customBtn = target.closest('[data-btn]') as HTMLElement | null;
-      if (customBtn) {
-        const btnId = customBtn.getAttribute('data-btn');
-        if (btnId) {
-          callbacks.onToolbarButtonClick(btnId);
-        }
       }
     });
   }

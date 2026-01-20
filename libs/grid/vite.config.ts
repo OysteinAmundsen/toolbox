@@ -3,6 +3,7 @@ import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite';
 import dts from 'vite-plugin-dts';
+import cleanup from 'rollup-plugin-cleanup';
 import { gzipSync } from 'zlib';
 
 // Read package.json version for build-time injection
@@ -248,6 +249,12 @@ export default defineConfig(({ command }) => ({
       fileName: (_format, name) => `${name}.js`,
     },
     rollupOptions: {
+      plugins: [
+        cleanup({
+          comments: 'none', // Remove all comments
+          extensions: ['ts', 'js'],
+        }),
+      ],
       output: {
         compact: true,
         // Force each entry to be self-contained (duplicate shared code)

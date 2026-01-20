@@ -222,29 +222,29 @@ grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
 
 ### Interaction Events
 
-| Event           | Detail Type          | Cancelable | Description                  |
-| --------------- | -------------------- | ---------- | ---------------------------- |
-| `activate-cell` | `ActivateCellDetail` | ✅ Yes      | Cell was focused/activated   |
-| `column-resize` | `ColumnResizeDetail` | No         | Column was resized           |
-| `column-move`   | `ColumnMoveDetail`   | ✅ Yes      | Column was reordered         |
-| `group-toggle`  | `GroupToggleDetail`  | No         | Group row expanded/collapsed |
+| Event                 | Detail Type          | Cancelable | Description                            |
+| --------------------- | -------------------- | ---------- | -------------------------------------- |
+| `activate-cell`       | `ActivateCellDetail` | ✅ Yes      | Cell was focused/activated             |
+| `column-resize`       | `ColumnResizeDetail` | No         | Column was resized                     |
+| `column-state-change` | `GridColumnState`    | No         | Column visibility or order changed     |
 
 ### External Rendering Events
 
-| Event                   | Detail Type           | Description                      |
-| ----------------------- | --------------------- | -------------------------------- |
-| `mount-external-view`   | `MountExternalDetail` | Request external view renderer   |
-| `mount-external-editor` | `MountExternalDetail` | Request external editor renderer |
+| Event                   | Detail Type                 | Description                      |
+| ----------------------- | --------------------------- | -------------------------------- |
+| `mount-external-view`   | `ExternalMountViewDetail`   | Request external view renderer   |
+| `mount-external-editor` | `ExternalMountEditorDetail` | Request external editor renderer |
 
 ### Cancelable Events
 
 Some events are **cancelable**, meaning you can call `event.preventDefault()` to stop the default behavior. This enables validation, conditional blocking, and state rollback scenarios.
 
-| Event         | Cancelable | Effect when cancelled                         |
-| ------------- | ---------- | --------------------------------------------- |
-| `cell-commit` | ✅ Yes      | Value change is rejected; cell keeps old value |
-| `activate-cell` | ✅ Yes    | Cell activation is blocked                    |
-| `column-move` | ✅ Yes      | Column reorder is reverted to original position |
+#### Core Grid Events
+
+| Event           | Cancelable | Effect when cancelled                          |
+| --------------- | ---------- | ---------------------------------------------- |
+| `cell-commit`   | ✅ Yes      | Value change is rejected; cell keeps old value |
+| `activate-cell` | ✅ Yes      | Cell activation is blocked                     |
 
 #### `cell-commit` — Validation Before Save
 
@@ -286,23 +286,9 @@ grid.addEventListener('activate-cell', (e: CustomEvent<ActivateCellDetail>) => {
 });
 ```
 
-#### `column-move` — Enforce Column Constraints
-
-Prevent column reordering that violates business rules (e.g., keeping grouped columns together).
-
-```typescript
-grid.addEventListener('column-move', (e: CustomEvent<ColumnMoveDetail>) => {
-  const { field, fromIndex, toIndex } = e.detail;
-
-  // Example: Keep 'id' column always first
-  if (field === 'id' || toIndex === 0) {
-    e.preventDefault();
-    return;
-  }
-});
-```
-
 > **Note:** Non-cancelable events like `sort-change` and `column-resize` are informational—use column-level flags (`sortable: false`, `resizable: false`) to disable those features entirely.
+>
+> Plugins may emit their own cancelable events. See individual plugin documentation for details.
 
 ## CSS Custom Properties
 

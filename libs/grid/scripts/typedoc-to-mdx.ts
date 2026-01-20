@@ -145,6 +145,45 @@ const getAllExamples = (comment?: TypeDocComment): { title?: string; code: strin
 };
 
 /**
+ * Get all @fires tags from a comment.
+ * Returns an array of event descriptions with the event name and optional description.
+ * Format: @fires eventName - Description
+ */
+const getAllFires = (comment?: TypeDocComment): { event: string; description: string }[] => {
+  if (!comment?.blockTags) return [];
+  return comment.blockTags
+    .filter((b) => b.tag === '@fires')
+    .map((b) => {
+      const text = b.content
+        .map((c) => c.text)
+        .join('')
+        .trim();
+      // Parse "eventName - description" or just "eventName"
+      const match = text.match(/^(\S+)(?:\s*-\s*(.*))?$/);
+      if (match) {
+        return { event: match[1], description: match[2]?.trim() ?? '' };
+      }
+      return { event: text, description: '' };
+    });
+};
+
+/**
+ * Format all @fires tags as an "Events" section for MDX output.
+ */
+function formatFires(comment?: TypeDocComment): string {
+  const fires = getAllFires(comment);
+  if (fires.length === 0) return '';
+
+  let out = `#### Events\n\n`;
+  out += `| Event | Description |\n`;
+  out += `| ----- | ----------- |\n`;
+  for (const f of fires) {
+    out += `| \`${f.event}\` | ${escape(f.description)} |\n`;
+  }
+  return out + '\n';
+}
+
+/**
  * Format all @example blocks for MDX output.
  * Uses a single "## Examples" header when there are multiple examples.
  */
@@ -357,6 +396,9 @@ function genMethod(node: TypeDocNode, showOverride = false): string {
   const returns = getTag(sig.comment, '@returns');
   if (returns) out += `#### Returns\n\n\`${escapeCode(returnType)}\` - ${escape(returns)}\n\n`;
 
+  // Add @fires events section
+  out += formatFires(sig.comment);
+
   const example = getTag(sig.comment, '@example');
   if (example) out += formatExample(example);
 
@@ -369,7 +411,7 @@ function genClass(node: TypeDocNode, title: string, filter?: (m: TypeDocNode) =>
   if (desc) out += `${escape(desc)}\n\n`;
 
   const members = (node.children ?? []).filter(filter ?? (() => true));
-  return genClassBody(node.name, out, members);
+  return genClassBody(node.name, out, members, {}, node.comment);
 }
 
 /**
@@ -396,7 +438,7 @@ function genPluginClass(node: TypeDocNode, title: string): string {
 
   // Filter out inherited members AND @internal members
   const members = (node.children ?? []).filter((m) => !m.inheritedFrom && !m.flags?.isInherited && !isNodeInternal(m));
-  return genClassBody(node.name, out, members, { showOverride: true });
+  return genClassBody(node.name, out, members, { showOverride: true }, node.comment);
 }
 
 /** Options for class body generation */
@@ -405,13 +447,112 @@ interface ClassBodyOptions {
   showOverride?: boolean;
 }
 
+/**
+ * Collect all @fires tags from class members and class-level comment, then deduplicate.
+ * Returns a map of event name -> { description, methods[] }
+ *
+ * @param members - Class members (methods, accessors)
+ * @param classComment - Optional class-level comment for class-level @fires tags
+ * @param additionalEvents - Optional array of additional events to include (for internal events)
+ */
+function collectClassEvents(
+  members: TypeDocNode[],
+  classComment?: TypeDocComment,
+  additionalEvents?: { event: string; description: string }[],
+): Map<string, { description: string; methods: string[] }> {
+  const eventMap = new Map<string, { description: string; methods: string[] }>();
+
+  // First, add additional events (for internally-triggered events like sort-change, column-resize)
+  if (additionalEvents) {
+    for (const ev of additionalEvents) {
+      eventMap.set(ev.event, {
+        description: ev.description,
+        methods: ['(internal)'], // Mark as internally triggered
+      });
+    }
+  }
+
+  // Then, collect class-level @fires tags (if TypeDoc captured them)
+  if (classComment) {
+    const classFires = getAllFires(classComment);
+    for (const fire of classFires) {
+      if (!eventMap.has(fire.event)) {
+        eventMap.set(fire.event, {
+          description: fire.description,
+          methods: ['(internal)'],
+        });
+      }
+    }
+  }
+
+  // Finally, collect @fires from individual members
+  for (const member of members) {
+    // Get comment from method signature or accessor
+    const comment = member.signatures?.[0]?.comment ?? member.getSignature?.comment ?? member.setSignature?.comment;
+    const fires = getAllFires(comment);
+
+    for (const fire of fires) {
+      const existing = eventMap.get(fire.event);
+      if (existing) {
+        // Add method to existing event, prefer longer description
+        // Remove "(internal)" if we now have a real method
+        if (existing.methods.length === 1 && existing.methods[0] === '(internal)') {
+          existing.methods = [member.name];
+        } else if (!existing.methods.includes(member.name)) {
+          existing.methods.push(member.name);
+        }
+        if (fire.description.length > existing.description.length) {
+          existing.description = fire.description;
+        }
+      } else {
+        eventMap.set(fire.event, {
+          description: fire.description,
+          methods: [member.name],
+        });
+      }
+    }
+  }
+
+  return eventMap;
+}
+
+/**
+ * Format collected class events as a summary table.
+ */
+function formatClassEventsTable(eventMap: Map<string, { description: string; methods: string[] }>): string {
+  if (eventMap.size === 0) return '';
+
+  let out = `## Events\n\n`;
+  out += `| Event | Description | Triggered By |\n`;
+  out += `| ----- | ----------- | ------------ |\n`;
+
+  for (const [event, info] of eventMap) {
+    // Format methods - don't add () to "(internal)" marker
+    const methodLinks = info.methods.map((m) => (m === '(internal)' ? '*(internal)*' : `\`${m}()\``)).join(', ');
+    out += `| \`${event}\` | ${escape(info.description)} | ${methodLinks} |\n`;
+  }
+
+  return out + '\n';
+}
+
 /** Shared class body generator for both regular and plugin classes */
-function genClassBody(className: string, out: string, members: TypeDocNode[], options: ClassBodyOptions = {}): string {
+function genClassBody(
+  className: string,
+  out: string,
+  members: TypeDocNode[],
+  options: ClassBodyOptions = {},
+  classComment?: TypeDocComment,
+): string {
   const { showOverride = false } = options;
   const props = members.filter((m) => m.kind === KIND.Property);
   const accessors = members.filter((m) => m.kind === KIND.Accessor);
   const methods = members.filter((m) => m.kind === KIND.Method);
   const ctors = members.filter((m) => m.kind === KIND.Constructor);
+
+  // Collect and display events summary at the top (including class-level @fires)
+  const allMembers = [...accessors, ...methods];
+  const eventMap = collectClassEvents(allMembers, classComment);
+  out += formatClassEventsTable(eventMap);
 
   if (ctors.length) {
     out += `## Constructors\n\n`;
@@ -538,11 +679,20 @@ const isFrameworkAdapterMember = (m: TypeDocNode): boolean => {
 };
 
 /** Generate members section (properties, accessors, methods) */
-function genMembersSection(members: TypeDocNode[]): string {
+function genMembersSection(
+  members: TypeDocNode[],
+  classComment?: TypeDocComment,
+  additionalEvents?: { event: string; description: string }[],
+): string {
   let out = '';
   const props = members.filter((m) => m.kind === KIND.Property);
   const accessors = members.filter((m) => m.kind === KIND.Accessor);
   const methods = members.filter((m) => m.kind === KIND.Method);
+
+  // Collect and display events summary at the top (including class-level @fires and additional events)
+  const allMembers = [...accessors, ...methods];
+  const eventMap = collectClassEvents(allMembers, classComment, additionalEvents);
+  out += formatClassEventsTable(eventMap);
 
   out += genPropertiesTable(props);
   if (accessors.length) {
@@ -563,6 +713,19 @@ function writeMdx(outDir: string, relativePath: string, content: string, label: 
   writeFileSync(fullPath, content);
   console.log(`    ✓ ${relativePath} (${label})`);
 }
+
+/**
+ * Core grid events that are emitted internally (not via public method calls).
+ * These are documented at the class level since they're triggered by user interaction
+ * or internal lifecycle, not by calling a specific public method.
+ */
+const CORE_INTERNAL_EVENTS: { event: string; description: string }[] = [
+  { event: 'sort-change', description: 'Column header clicked to change sort order' },
+  { event: 'column-resize', description: 'Column resized by dragging' },
+  { event: 'activate-cell', description: 'Cell activated (Enter key pressed)' },
+  { event: 'mount-external-view', description: 'External view renderer needed (framework adapters)' },
+  { event: 'mount-external-editor', description: 'External editor renderer needed (framework adapters)' },
+];
 
 function genDataGridSplit(node: TypeDocNode, outDir: string): void {
   // Public API
@@ -598,7 +761,8 @@ const grid = document.createElement('tbw-grid');
 \`\`\`
 
 `;
-  publicMdx += genMembersSection((node.children ?? []).filter(isPublicMember));
+  // Pass class comment and core internal events for the events table
+  publicMdx += genMembersSection((node.children ?? []).filter(isPublicMember), node.comment, CORE_INTERNAL_EVENTS);
   writeMdx(outDir, 'API/Core/Classes/DataGridElement.mdx', publicMdx, 'public');
 
   // Plugin API

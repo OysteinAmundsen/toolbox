@@ -119,16 +119,6 @@ import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
  * @csspart header - The header row container
  * @csspart body - The body/rows container
  *
- * @fires cell-commit - Fired when a cell value is committed
- * @fires row-commit - Fired when a bulk row edit session commits
- * @fires changed-rows-reset - Fired after resetChangedRows() unless silent
- * @fires mount-external-view - Fired to request mounting of an external view renderer
- * @fires mount-external-editor - Fired to request mounting of an external editor renderer
- * @fires sort-change - Fired when sort state changes for a column
- * @fires column-resize - Fired after a column resize drag completes
- * @fires activate-cell - Fired when a cell activation intent occurs
- * @fires group-toggle - Fired when a group row is toggled
- *
  * @cssprop --tbw-color-bg - Background color
  * @cssprop --tbw-color-fg - Foreground/text color
  */
@@ -2069,6 +2059,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @param field - The field name of the column to modify
    * @param visible - Whether the column should be visible
    * @returns `true` if the visibility changed, `false` if unchanged
+   * @fires column-state-change - Emitted when the visibility changes
    *
    * @example
    * ```typescript
@@ -2093,6 +2084,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @group Column Visibility
    * @param field - The field name of the column to toggle
    * @returns The new visibility state (`true` = visible, `false` = hidden)
+   * @fires column-state-change - Emitted when the visibility changes
    *
    * @example
    * ```typescript
@@ -2131,6 +2123,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Show all columns, resetting any hidden columns to visible.
    *
    * @group Column Visibility
+   * @fires column-state-change - Emitted when column visibility changes
    * @example
    * ```typescript
    * // Reset button handler
@@ -2182,6 +2175,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * @group Column Order
    * @param order - Array of field names in desired order
+   * @fires column-state-change - Emitted when column order changes
    *
    * @example
    * ```typescript
@@ -2247,6 +2241,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Can be set before or after grid initialization.
    *
    * @group State Persistence
+   * @fires column-state-change - Emitted after state is applied (if grid is initialized)
    * @example
    * ```typescript
    * // Restore saved state on page load
@@ -2308,6 +2303,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Clears all user modifications including order, widths, visibility, and sort.
    *
    * @group State Persistence
+   * @fires column-state-change - Emitted after state is reset
    * @example
    * ```typescript
    * // Reset button handler

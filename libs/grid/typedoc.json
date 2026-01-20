@@ -32,5 +32,17 @@
   "excludeExternals": true,
   "externalPattern": ["**/node_modules/**"],
   "sort": ["source-order"],
-  "categoryOrder": ["Factory Functions", "Core Types", "Plugin Development", "Events", "*"]
+  "categoryOrder": ["Factory Functions", "Core Types", "Plugin Development", "Events", "*"],
+  "blockTags": [
+    "@category",
+    "@deprecated",
+    "@example",
+    "@fires",
+    "@internal",
+    "@param",
+    "@remarks",
+    "@returns",
+    "@see",
+    "@throws"
+  ]
 }

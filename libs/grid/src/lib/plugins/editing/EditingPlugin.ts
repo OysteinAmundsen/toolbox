@@ -155,14 +155,6 @@ function wireEditorInputs(
  * | `Escape` | Cancel edit, restore original value |
  * | `Arrow Keys` | Navigate between cells (when not editing) |
  *
- * ## Events
- *
- * | Event | Description |
- * |-------|-------------|
- * | `cell-commit` | Fired when a cell value is committed |
- * | `row-commit` | Fired when focus leaves an edited row |
- * | `changed-rows-reset` | Fired when `resetChangedRows()` is called |
- *
  * @example Basic editing with double-click trigger
  * ```ts
  * grid.gridConfig = {
@@ -522,6 +514,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Reset all change tracking.
+   * @param silent - If true, suppresses the `changed-rows-reset` event
+   * @fires changed-rows-reset - Emitted when tracking is reset (unless silent)
    */
   resetChangedRows(silent?: boolean): void {
     const rows = this.changedRows;
@@ -540,6 +534,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Programmatically begin editing a cell.
+   * @param rowIndex - Index of the row to edit
+   * @param field - Field name of the column to edit
+   * @fires cell-commit - Emitted when the cell value is committed (on blur or Enter)
    */
   beginCellEdit(rowIndex: number, field: string): void {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
@@ -558,6 +555,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Programmatically begin editing all editable cells in a row.
+   * @param rowIndex - Index of the row to edit
+   * @fires cell-commit - Emitted for each cell value that is committed
+   * @fires row-commit - Emitted when focus leaves the row
    */
   beginBulkEdit(rowIndex: number): void {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
@@ -604,6 +604,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Commit the currently active row edit.
+   * @fires row-commit - Emitted after the row edit is committed
    */
   commitActiveRowEdit(): void {
     if (this.#activeEditRow !== -1) {

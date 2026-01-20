@@ -28,8 +28,8 @@ describe('shell module', () => {
       expect(state.toolPanels.size).toBe(0);
       expect(state.headerContents).toBeInstanceOf(Map);
       expect(state.headerContents.size).toBe(0);
-      expect(state.toolbarButtons).toBeInstanceOf(Map);
-      expect(state.toolbarButtons.size).toBe(0);
+      expect(state.toolbarContents).toBeInstanceOf(Map);
+      expect(state.toolbarContents.size).toBe(0);
       expect(state.hasToolButtonsContainer).toBe(false);
       expect(state.lightDomHeaderContent).toEqual([]);
       expect(state.isPanelOpen).toBe(false);
@@ -46,13 +46,13 @@ describe('shell module', () => {
       expect(shouldRenderShellHeader(config)).toBe(true);
     });
 
-    it('returns true when config has toolbar buttons with element/render', () => {
+    it('returns true when config has toolbar contents with render', () => {
       const config: ShellConfig = {
         header: {
-          toolbarButtons: [
+          toolbarContents: [
             {
               id: 'refresh',
-              element: document.createElement('button'),
+              render: () => {},
             },
           ],
         },
@@ -166,31 +166,40 @@ describe('shell module', () => {
       expect(html).toContain('aria-pressed="true"');
     });
 
-    it('renders slot placeholders for element/render toolbar buttons', () => {
+    it('renders slot placeholders for toolbar contents with render', () => {
       const config: ShellConfig = {
         header: {
-          toolbarButtons: [{ id: 'custom', element: document.createElement('button') }],
+          toolbarContents: [{ id: 'custom', render: () => {} }],
         },
       };
 
       const html = renderShellHeader(config, state);
 
-      expect(html).toContain('data-btn-slot="custom"');
+      expect(html).toContain('data-toolbar-content="custom"');
     });
 
-    it('always includes light DOM toolbar placeholder for light DOM buttons', () => {
+    it('renders slot for light DOM toolbar content when registered in state', () => {
+      // Simulate light DOM parsing - adds a content entry to state.toolbarContents
+      state.toolbarContents.set('light-dom-toolbar-content', {
+        id: 'light-dom-toolbar-content',
+        order: 0,
+        render: () => {},
+      });
+      state.lightDomToolbarContentIds.add('light-dom-toolbar-content');
+
       const html = renderShellHeader(undefined, state);
 
-      expect(html).toContain('data-light-dom-toolbar');
+      // Should create a slot for the light DOM toolbar content
+      expect(html).toContain('data-toolbar-content="light-dom-toolbar-content"');
     });
 
-    it('renders separator when both element buttons and panel toggles exist', () => {
+    it('renders separator when both toolbar contents and panel toggles exist', () => {
       const config: ShellConfig = {
         header: {
-          toolbarButtons: [
+          toolbarContents: [
             {
               id: 'refresh',
-              element: document.createElement('button'),
+              render: () => {},
             },
           ],
         },
@@ -406,7 +415,7 @@ describe('shell module', () => {
       state.panelCleanups.set('columns', () => {
         panelCleanupCalled = true;
       });
-      state.toolbarButtonCleanups.set('custom', () => {
+      state.toolbarContentCleanups.set('custom', () => {
         buttonCleanupCalled = true;
       });
 
@@ -432,18 +441,16 @@ describe('shell module', () => {
           /* noop */
         },
       });
-      state.toolbarButtons.set('custom', {
+      state.toolbarContents.set('custom', {
         id: 'custom',
-        label: 'Custom',
-        icon: '★',
-        action: () => {
+        render: () => {
           /* noop */
         },
       });
       state.headerContentCleanups.set('search', () => {
         /* noop */
       });
-      state.toolbarButtonCleanups.set('custom', () => {
+      state.toolbarContentCleanups.set('custom', () => {
         /* noop */
       });
 
@@ -451,9 +458,9 @@ describe('shell module', () => {
 
       expect(state.toolPanels.size).toBe(0);
       expect(state.headerContents.size).toBe(0);
-      expect(state.toolbarButtons.size).toBe(0);
+      expect(state.toolbarContents.size).toBe(0);
       expect(state.headerContentCleanups.size).toBe(0);
-      expect(state.toolbarButtonCleanups.size).toBe(0);
+      expect(state.toolbarContentCleanups.size).toBe(0);
     });
 
     it('clears arrays', () => {

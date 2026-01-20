@@ -176,6 +176,7 @@ export type {
   SortHandler,
   SortState,
   ToolbarButtonConfig,
+  ToolbarContentDefinition,
   ToolPanelConfig,
   ToolPanelDefinition,
 } from './lib/core/types';

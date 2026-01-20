@@ -209,16 +209,14 @@ export interface ShellHeaderOptions {
   hasPanels: boolean;
   isPanelOpen: boolean;
   toolPanelIcon: string;
-  /** Config toolbar buttons with element/render (pre-sorted by order) */
+  /** Config toolbar contents with render function (pre-sorted by order) */
   configButtons: Array<{
     id: string;
-    hasElement?: boolean;
     hasRender?: boolean;
   }>;
-  /** API toolbar buttons with element/render (pre-sorted by order) */
+  /** API toolbar contents with render function (pre-sorted by order) */
   apiButtons: Array<{
     id: string;
-    hasElement?: boolean;
     hasRender?: boolean;
   }>;
 }
@@ -247,27 +245,23 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
   // Toolbar
   const toolbar = div('tbw-shell-toolbar', { part: 'shell-toolbar', role: 'presentation' });
 
-  // Placeholders for config buttons with element or render function
+  // Placeholders for config toolbar contents with render function
   for (const btn of options.configButtons) {
-    if (btn.hasElement || btn.hasRender) {
-      toolbar.appendChild(div('tbw-toolbar-btn-slot', { 'data-btn-slot': btn.id }));
+    if (btn.hasRender) {
+      toolbar.appendChild(div('tbw-toolbar-content-slot', { 'data-toolbar-content': btn.id }));
     }
   }
-  // Placeholders for API buttons with element or render function
+  // Placeholders for API toolbar contents with render function
   for (const btn of options.apiButtons) {
-    if (btn.hasElement || btn.hasRender) {
-      toolbar.appendChild(div('tbw-toolbar-btn-slot', { 'data-btn-slot': btn.id }));
+    if (btn.hasRender) {
+      toolbar.appendChild(div('tbw-toolbar-content-slot', { 'data-toolbar-content': btn.id }));
     }
   }
 
-  // Light DOM placeholder for toolbar buttons - content moved here from <tbw-grid-tool-buttons>
-  toolbar.appendChild(div('tbw-toolbar-light-dom', { 'data-light-dom-toolbar': '' }));
-
-  // Separator between config/API buttons and panel toggle
-  const hasCustomButtons =
-    options.configButtons.some((b) => b.hasElement || b.hasRender) ||
-    options.apiButtons.some((b) => b.hasElement || b.hasRender);
-  if (hasCustomButtons && options.hasPanels) {
+  // Separator between custom content and panel toggle
+  const hasCustomContent =
+    options.configButtons.some((b) => b.hasRender) || options.apiButtons.some((b) => b.hasRender);
+  if (hasCustomContent && options.hasPanels) {
     toolbar.appendChild(div('tbw-toolbar-separator'));
   }
 

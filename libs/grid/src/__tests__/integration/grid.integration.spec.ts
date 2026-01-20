@@ -551,15 +551,16 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     document.body.appendChild(grid);
     await waitUpgrade(grid);
 
-    // Check that toolbar placeholder exists (light DOM uses placeholder instead of slot)
-    const placeholder = grid.querySelector('[data-light-dom-toolbar]');
-    expect(placeholder).not.toBeNull();
+    // Light DOM toolbar content is now unified - rendered into a slot
+    // The content is registered as a single entry with id 'light-dom-toolbar-content'
+    const slot = grid.querySelector('[data-toolbar-content="light-dom-toolbar-content"]');
+    expect(slot).not.toBeNull();
 
-    // Verify the button was moved from the container to the placeholder
-    expect(placeholder?.contains(refreshBtn)).toBe(true);
+    // Verify the button was moved from the container to the slot
+    expect(slot?.contains(refreshBtn)).toBe(true);
     expect(toolButtons.contains(refreshBtn)).toBe(false);
 
-    // Click the button (should work since it's now in the placeholder)
+    // Click the button (should work since it's now in the slot)
     refreshBtn.click();
     expect(clicked).toBe(true);
   });
@@ -692,7 +693,7 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shadow.querySelector('.status-text')?.textContent).toBe('Ready');
   });
 
-  it('registers and unregisters toolbar buttons dynamically via render function', async () => {
+  it('registers and unregisters toolbar content dynamically via render function', async () => {
     grid = document.createElement('tbw-grid');
     grid.gridConfig = { shell: { header: { title: 'Test' } } };
     grid.rows = [{ id: 1 }];
@@ -705,28 +706,28 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     customBtn.id = 'custom-dynamic';
     customBtn.textContent = '★';
 
-    // Register button with render function
-    grid.registerToolbarButton({
+    // Register content with render function
+    grid.registerToolbarContent({
       id: 'dynamic',
       render: (container) => {
         container.appendChild(customBtn);
       },
     });
 
-    // Need to refresh shell to see the button
+    // Need to refresh shell to see the content
     grid.refreshShellHeader();
     await nextFrame();
 
     const shadow = grid;
-    let slot = shadow.querySelector('[data-btn-slot="dynamic"]');
+    let slot = shadow.querySelector('[data-toolbar-content="dynamic"]');
     expect(slot).not.toBeNull();
 
-    // Unregister button
-    grid.unregisterToolbarButton('dynamic');
+    // Unregister content
+    grid.unregisterToolbarContent('dynamic');
     grid.refreshShellHeader();
     await nextFrame();
 
-    slot = shadow.querySelector('[data-btn-slot="dynamic"]');
+    slot = shadow.querySelector('[data-toolbar-content="dynamic"]');
     expect(slot).toBeNull();
   });
 

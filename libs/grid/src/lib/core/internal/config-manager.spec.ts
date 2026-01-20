@@ -25,7 +25,7 @@ describe('ConfigManager', () => {
       getShellLightDomTitle: vi.fn(() => null),
       getShellToolPanels: vi.fn(() => new Map()),
       getShellHeaderContents: vi.fn(() => new Map()),
-      getShellToolbarButtons: vi.fn(() => new Map()),
+      getShellToolbarContents: vi.fn(() => new Map()),
       getShellLightDomHeaderContent: vi.fn(() => []),
       getShellHasToolButtonsContainer: vi.fn(() => false),
     };

@@ -22,7 +22,7 @@ import type {
   GridColumnState,
   GridConfig,
   HeaderContentDefinition,
-  ToolbarButtonConfig,
+  ToolbarContentDefinition,
   ToolPanelDefinition,
 } from '../types';
 import { mergeColumns, parseLightDomColumns } from './columns';
@@ -68,8 +68,8 @@ export interface ConfigManagerCallbacks<T> {
   getShellToolPanels: () => Map<string, ToolPanelDefinition>;
   /** Get registered header contents from shell state */
   getShellHeaderContents: () => Map<string, HeaderContentDefinition>;
-  /** Get registered toolbar buttons from shell state */
-  getShellToolbarButtons: () => Map<string, ToolbarButtonConfig>;
+  /** Get registered toolbar contents from shell state */
+  getShellToolbarContents: () => Map<string, ToolbarContentDefinition>;
   /** Get light DOM header content elements */
   getShellLightDomHeaderContent: () => HTMLElement[];
   /** Get whether a tool buttons container was found in light DOM */
@@ -506,28 +506,28 @@ export class ConfigManager<T = unknown> {
       base.shell.headerContents = contents;
     }
 
-    // Sync toolbar buttons (from API - config buttons are already in base.shell.header.toolbarButtons)
-    // We need to merge config buttons (from gridConfig) with API buttons (from registerToolbarButton)
-    // API buttons can be added/removed dynamically, so we need to rebuild from current state each time
-    const toolbarButtonsMap = this.#callbacks.getShellToolbarButtons();
-    const apiButtons = Array.from(toolbarButtonsMap.values());
+    // Sync toolbar contents (from API - config contents are already in base.shell.header.toolbarContents)
+    // We need to merge config contents (from gridConfig) with API contents (from registerToolbarContent)
+    // API contents can be added/removed dynamically, so we need to rebuild from current state each time
+    const toolbarContentsMap = this.#callbacks.getShellToolbarContents();
+    const apiContents = Array.from(toolbarContentsMap.values());
 
-    // Get ORIGINAL config buttons (from gridConfig, not from previous merges)
-    // We use a fresh read from gridConfig to avoid accumulating stale API buttons
-    const originalConfigButtons = this.#gridConfig?.shell?.header?.toolbarButtons ?? [];
+    // Get ORIGINAL config contents (from gridConfig, not from previous merges)
+    // We use a fresh read from gridConfig to avoid accumulating stale API contents
+    const originalConfigContents = this.#gridConfig?.shell?.header?.toolbarContents ?? [];
 
-    // Merge: config buttons + API buttons (config takes precedence by id)
-    const configIds = new Set(originalConfigButtons.map((b) => b.id));
-    const mergedButtons = [...originalConfigButtons];
-    for (const btn of apiButtons) {
-      if (!configIds.has(btn.id)) {
-        mergedButtons.push(btn);
+    // Merge: config contents + API contents (config takes precedence by id)
+    const configIds = new Set(originalConfigContents.map((c) => c.id));
+    const mergedContents = [...originalConfigContents];
+    for (const content of apiContents) {
+      if (!configIds.has(content.id)) {
+        mergedContents.push(content);
       }
     }
 
     // Sort by order
-    mergedButtons.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
-    base.shell.header.toolbarButtons = mergedButtons;
+    mergedContents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    base.shell.header.toolbarContents = mergedContents;
   }
 
   // ============================================================================

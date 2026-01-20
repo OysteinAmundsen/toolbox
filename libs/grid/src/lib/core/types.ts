@@ -837,7 +837,12 @@ export interface ShellConfig {
 export interface ShellHeaderConfig {
   /** Grid title displayed on the left (optional) */
   title?: string;
-  /** Custom toolbar buttons (rendered before tool panel toggles) */
+  /** Custom toolbar content (rendered before tool panel toggle) */
+  toolbarContents?: ToolbarContentDefinition[];
+  /**
+   * Custom toolbar buttons (rendered before tool panel toggles)
+   * @deprecated Use `toolbarContents` instead. Will be removed in a future version.
+   */
   toolbarButtons?: ToolbarButtonConfig[];
   /**
    * Light DOM header content elements (parsed from <tbw-grid-header> children).
@@ -881,6 +886,7 @@ export interface ToolPanelConfig {
  *   </tbw-grid-header>
  * </tbw-grid>
  * ```
+ * @deprecated Use ToolbarContentDefinition with registerToolbarContent() instead.
  */
 export interface ToolbarButtonConfig {
   /** Unique button ID */
@@ -905,6 +911,7 @@ export interface ToolbarButtonConfig {
 
 /**
  * Toolbar button info returned by getToolbarButtons().
+ * @deprecated Use getToolbarContents() instead.
  */
 export interface ToolbarButtonInfo {
   id: string;
@@ -913,6 +920,36 @@ export interface ToolbarButtonInfo {
   source: 'config' | 'light-dom' | 'panel-toggle';
   /** For panel toggles, the associated panel ID */
   panelId?: string;
+}
+
+/**
+ * Toolbar content definition for the shell header toolbar area.
+ * Register via `registerToolbarContent()` or use light DOM `<tbw-grid-tool-buttons>`.
+ *
+ * @example
+ * ```typescript
+ * grid.registerToolbarContent({
+ *   id: 'my-toolbar',
+ *   order: 10,
+ *   render: (container) => {
+ *     const btn = document.createElement('button');
+ *     btn.textContent = 'Refresh';
+ *     btn.onclick = () => console.log('clicked');
+ *     container.appendChild(btn);
+ *     return () => btn.remove();
+ *   },
+ * });
+ * ```
+ */
+export interface ToolbarContentDefinition {
+  /** Unique content ID */
+  id: string;
+  /** Content factory - called once when shell header renders */
+  render: (container: HTMLElement) => void | (() => void);
+  /** Called when content is removed (for cleanup) */
+  onDestroy?: () => void;
+  /** Order priority (lower = first, default: 100) */
+  order?: number;
 }
 
 /**

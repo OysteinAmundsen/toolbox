@@ -220,20 +220,6 @@ describe('dom-builder', () => {
       expect(title?.textContent).toBe('My Grid');
     });
 
-    it('should include toolbar placeholder when hasLightDomButtons is true', () => {
-      const header = buildShellHeader({
-        title: 'Test',
-        hasLightDomButtons: true,
-        hasPanels: false,
-        isPanelOpen: false,
-        toolPanelIcon: '⚙️',
-        configButtons: [],
-        apiButtons: [],
-      });
-      const placeholder = header.querySelector('[data-light-dom-toolbar]');
-      expect(placeholder).not.toBeNull();
-    });
-
     it('should include panel toggle button when hasPanels is true', () => {
       const header = buildShellHeader({
         title: 'Test',

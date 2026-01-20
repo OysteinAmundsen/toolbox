@@ -16,7 +16,7 @@ import {
   parseLightDomShell,
   parseLightDomToolButtons,
   parseLightDomToolPanels,
-  renderCustomToolbarButtons,
+  renderCustomToolbarContents,
   renderHeaderContent,
   renderShellHeader,
   setupShellEventListeners,
@@ -56,6 +56,7 @@ import type {
   ResizeController,
   ToolbarButtonConfig,
   ToolbarButtonInfo,
+  ToolbarContentDefinition,
   ToolPanelDefinition,
   VirtualState,
 } from './types';
@@ -537,7 +538,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       getShellLightDomTitle: () => this.#shellState.lightDomTitle,
       getShellToolPanels: () => this.#shellState.toolPanels,
       getShellHeaderContents: () => this.#shellState.headerContents,
-      getShellToolbarButtons: () => this.#shellState.toolbarButtons,
+      getShellToolbarContents: () => this.#shellState.toolbarContents,
       getShellLightDomHeaderContent: () => this.#shellState.lightDomHeaderContent,
       getShellHasToolButtonsContainer: () => this.#shellState.hasToolButtonsContainer,
     });
@@ -1050,8 +1051,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this.#shellController.isInitialized) {
       // Render plugin header content
       renderHeaderContent(this.#renderRoot, this.#shellState);
-      // Render custom toolbar buttons (element/render modes) and move light DOM buttons
-      renderCustomToolbarButtons(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState, this);
+      // Render custom toolbar contents (render modes) - all contents unified in effectiveConfig
+      renderCustomToolbarContents(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState);
       // Open default section if configured
       const defaultOpen = this.#effectiveConfig?.shell?.toolPanel?.defaultOpen;
       if (defaultOpen && this.#shellState.toolPanels.has(defaultOpen)) {
@@ -2101,24 +2102,65 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#shellController.unregisterHeaderContent(contentId);
   }
 
-  /** Get all registered toolbar buttons. */
+  /** Get all registered toolbar contents. */
+  getToolbarContents(): ToolbarContentDefinition[] {
+    return this.#shellController.getToolbarContents();
+  }
+
+  /** Register custom toolbar content programmatically. */
+  registerToolbarContent(content: ToolbarContentDefinition): void {
+    this.#shellController.registerToolbarContent(content);
+  }
+
+  /** Unregister custom toolbar content. */
+  unregisterToolbarContent(contentId: string): void {
+    this.#shellController.unregisterToolbarContent(contentId);
+  }
+
+  /**
+   * Get all registered toolbar buttons.
+   * @deprecated Use `getToolbarContents()` instead.
+   */
   getToolbarButtons(): ToolbarButtonInfo[] {
-    return this.#shellController.getToolbarButtons();
+    console.warn('[tbw-grid] getToolbarButtons() is deprecated. Use getToolbarContents() instead.');
+    return [];
   }
 
-  /** Register a custom toolbar button programmatically. */
+  /**
+   * Register a custom toolbar button programmatically.
+   * @deprecated Use `registerToolbarContent()` instead.
+   */
   registerToolbarButton(button: ToolbarButtonConfig): void {
-    this.#shellController.registerToolbarButton(button);
+    console.warn('[tbw-grid] registerToolbarButton() is deprecated. Use registerToolbarContent() instead.');
+    // Migrate to new API for backward compatibility
+    this.#shellController.registerToolbarContent({
+      id: button.id,
+      order: button.order ?? 100,
+      render:
+        button.render ??
+        ((container) => {
+          if (button.element) container.appendChild(button.element);
+        }),
+    });
   }
 
-  /** Unregister a custom toolbar button. */
+  /**
+   * Unregister a custom toolbar button.
+   * @deprecated Use `unregisterToolbarContent()` instead.
+   */
   unregisterToolbarButton(buttonId: string): void {
-    this.#shellController.unregisterToolbarButton(buttonId);
+    console.warn('[tbw-grid] unregisterToolbarButton() is deprecated. Use unregisterToolbarContent() instead.');
+    this.#shellController.unregisterToolbarContent(buttonId);
   }
 
-  /** Enable/disable a toolbar button by ID. */
-  setToolbarButtonDisabled(buttonId: string, disabled: boolean): void {
-    this.#shellController.setToolbarButtonDisabled(buttonId, disabled);
+  /**
+   * Enable/disable a toolbar button by ID.
+   * @deprecated Manage your own button disabled state directly.
+   */
+  setToolbarButtonDisabled(_buttonId: string, _disabled: boolean): void {
+    console.warn(
+      '[tbw-grid] setToolbarButtonDisabled() is deprecated. Manage your own button disabled state directly.',
+    );
   }
 
   /**

@@ -140,6 +140,7 @@ declare const __GRID_VERSION__: string;
 export class DataGridElement<T = any> extends HTMLElement implements InternalGrid<T> {
   // TODO: Rename to 'data-grid' when migration is complete
   static readonly tagName = 'tbw-grid';
+  /** Version of the grid component, injected at build time from package.json */
   static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
 
   // ---------------- Framework Adapters ----------------
@@ -187,7 +188,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // ---------------- Observed Attributes ----------------
   static get observedAttributes(): string[] {
-    return ['rows', 'columns', 'grid-config', 'fit-mode', 'edit-on'];
+    return ['rows', 'columns', 'grid-config', 'fit-mode'];
   }
 
   /**
@@ -241,7 +242,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     columns: false,
     gridConfig: false,
     fitMode: false,
-    editMode: false,
   };
 
   // ---------------- Render Scheduler ----------------
@@ -544,38 +544,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#configManager?.setFitMode(value);
     if (oldValue !== value) {
       this.#queueUpdate('fitMode');
-    }
-  }
-
-  /**
-   * Get or set the edit trigger mode.
-   *
-   * Requires `EditingPlugin` to be loaded. Controls how cell editing is triggered:
-   * - `'click'`: Single click to edit
-   * - `'dblclick'`: Double-click to edit (default)
-   * - `true`: Same as `'dblclick'`
-   * - `false`: Disable click-triggered editing (keyboard only)
-   *
-   * @example
-   * ```typescript
-   * // Edit on single click
-   * grid.editOn = 'click';
-   *
-   * // Edit on double-click
-   * grid.editOn = 'dblclick';
-   *
-   * // Disable click editing (use Enter key)
-   * grid.editOn = false;
-   * ```
-   */
-  get editOn(): string | boolean | undefined {
-    return this.#effectiveConfig.editOn;
-  }
-  set editOn(value: string | boolean | undefined) {
-    const oldValue = this.#configManager?.getEditOn();
-    this.#configManager?.setEditOn(value);
-    if (oldValue !== value) {
-      this.#queueUpdate('editMode');
     }
   }
 
@@ -1188,8 +1156,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
     } else if (name === 'fit-mode') {
       this.fitMode = newValue as FitMode;
-    } else if (name === 'edit-on') {
-      this.editOn = newValue;
     }
   }
 
@@ -1519,7 +1485,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Queue an update for a specific property type.
    * All updates queued within the same microtask are batched together.
    */
-  #queueUpdate(type: 'rows' | 'columns' | 'gridConfig' | 'fitMode' | 'editMode'): void {
+  #queueUpdate(type: 'rows' | 'columns' | 'gridConfig' | 'fitMode'): void {
     this.#pendingUpdateFlags[type] = true;
 
     // If already queued, skip scheduling
@@ -1549,7 +1515,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       columns: false,
       gridConfig: false,
       fitMode: false,
-      editMode: false,
     };
 
     // If gridConfig changed, it supersedes columns/rows/fit/edit changes
@@ -1568,9 +1533,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
     if (flags.fitMode) {
       this.#applyFitModeUpdate();
-    }
-    if (flags.editMode) {
-      this.#applyEditModeUpdate();
     }
   }
 
@@ -1600,15 +1562,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       });
       updateTemplate(this);
     }
-  }
-
-  #applyEditModeUpdate(): void {
-    this.#configManager.merge();
-    this._rowPool.length = 0;
-    if (this._bodyEl) this._bodyEl.innerHTML = '';
-    this.__rowRenderEpoch++;
-    // Request render through scheduler to batch with other pending work
-    this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'applyEditModeUpdate');
   }
 
   #applyGridConfigUpdate(): void {

@@ -71,7 +71,7 @@ flowchart TB
         direction TB
         A["gridConfig<br/>property"]
         B["columns<br/>property"]
-        C["fitMode/editOn<br/>properties"]
+        C["fitMode<br/>property"]
 
         subgraph lightdom["LIGHT DOM"]
             D["&lt;tbw-grid-column&gt;<br/>field, header"]
@@ -112,7 +112,6 @@ The grid supports JSON-serialized configuration via HTML attributes:
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
   columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
   fit-mode="stretch"
-  edit-on="dblClick"
 >
 </tbw-grid>
 ```
@@ -123,7 +122,6 @@ Supported attributes:
 - `columns` - JSON array of column configurations
 - `grid-config` - JSON object with full GridConfig
 - `fit-mode` - String: `'stretch'` or `'fixed'`
-- `edit-on` - String: `'click'` or `'dblClick'`
 
 ### Light DOM Configuration
 
@@ -153,7 +151,7 @@ The grid parses these light DOM elements on connection:
 The grid maintains three categories of state:
 
 1. **ConfigManager Sources** (owned by ConfigManager)
-   - Raw config sources: `gridConfig`, `columns`, `fitMode`, `editOn`
+   - Raw config sources: `gridConfig`, `columns`, `fitMode`
    - Light DOM caches: `lightDomColumnsCache`, `lightDomTitle`
    - ConfigManager owns the merge logic via `merge()` method
 
@@ -180,7 +178,7 @@ flowchart TB
     subgraph sources["SOURCES"]
         A["gridConfig"]
         B["columns"]
-        C["fitMode/editOn"]
+        C["fitMode"]
         D["Light DOM"]
         E["Shell State Maps"]
     end
@@ -227,7 +225,7 @@ flowchart TB
 
 Sources are re-collected only when `#sourcesChanged` is `true` AND columns already exist:
 
-1. Setting `gridConfig`, `columns`, `fitMode`, `editOn` → auto-marks sources changed
+1. Setting `gridConfig`, `columns`, `fitMode` → auto-marks sources changed
 2. Setting Light DOM columns → auto-marks sources changed
 3. Shell state updates (tool panels, etc.) → call `markSourcesChanged()` explicitly
 4. `merge()` is a no-op if sources haven't changed AND columns exist
@@ -536,7 +534,7 @@ Columns can be configured from multiple sources. They're merged with this preced
 2. Light DOM <tbw-grid-column> (declarative)
 3. columns prop                (direct assignment)
 4. Inferred columns            (from first row)
-5. Individual props            (fitMode, editOn, etc.)
+5. Individual props            (fitMode, etc.)
 ```
 
 ### Resolution Flow

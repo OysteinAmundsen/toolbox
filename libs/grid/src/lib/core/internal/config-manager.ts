@@ -92,7 +92,6 @@ export class ConfigManager<T = unknown> {
   #gridConfig?: GridConfig<T>;
   #columns?: ColumnConfig<T>[] | ColumnConfigMap<T>;
   #fitMode?: FitMode;
-  #editOn?: string | boolean;
 
   // Light DOM cache
   #lightDomColumnsCache?: ColumnInternal<T>[];
@@ -253,17 +252,6 @@ export class ConfigManager<T = unknown> {
   /** Get the raw fitMode source */
   getFitMode(): FitMode | undefined {
     return this.#fitMode;
-  }
-
-  /** Set editOn source */
-  setEditOn(editOn: string | boolean | undefined): void {
-    this.#editOn = editOn;
-    this.#sourcesChanged = true;
-  }
-
-  /** Get the raw editOn source */
-  getEditOn(): string | boolean | undefined {
-    return this.#editOn;
   }
 
   // ============================================================================
@@ -439,7 +427,6 @@ export class ConfigManager<T = unknown> {
     // Individual prop overrides
     if (this.#fitMode) base.fitMode = this.#fitMode;
     if (!base.fitMode) base.fitMode = 'stretch';
-    if (this.#editOn) base.editOn = this.#editOn;
 
     // ========================================================================
     // Merge shell configuration from ShellState into effectiveConfig.shell

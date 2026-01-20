@@ -566,12 +566,11 @@ export interface GridPlugin {
  * - `gridConfig` property - direct assignment of this object
  * - `columns` property - shorthand for `gridConfig.columns`
  * - `fitMode` property - shorthand for `gridConfig.fitMode`
- * - `editOn` property - shorthand for `gridConfig.editOn`
  * - Light DOM `<tbw-grid-column>` - declarative columns (merged into `columns`)
  * - Light DOM `<tbw-grid-header>` - declarative shell header (merged into `shell.header`)
  *
  * **Precedence (when same property set multiple ways):**
- * Individual props (`fitMode`, `editOn`) > `columns` prop > Light DOM > `gridConfig`
+ * Individual props (`fitMode`) > `columns` prop > Light DOM > `gridConfig`
  *
  * @example
  * ```ts
@@ -607,8 +606,18 @@ export interface GridConfig<TRow = any> {
   rowClass?: (row: TRow) => string[];
   /** Sizing mode for columns. Can also be set via `fitMode` prop. */
   fitMode?: FitMode;
-  /** Edit activation mode ('click' | 'dblClick' | false). Set to false to disable editing. Can also be set via `editOn` prop. */
-  editOn?: string | boolean;
+  /**
+   * Edit trigger mode. Requires `EditingPlugin` to be loaded.
+   *
+   * Configure via `new EditingPlugin({ editOn: 'click' })` or set on gridConfig.
+   * Plugin config takes precedence over gridConfig.
+   *
+   * - `'click'`: Single click to edit
+   * - `'dblclick'`: Double-click to edit (default)
+   * - `'manual'`: Only via programmatic API (beginEdit)
+   * - `false`: Disable editing entirely
+   */
+  editOn?: 'click' | 'dblclick' | 'manual' | false;
   /**
    * Row height in pixels for virtualization calculations.
    * The virtualization system assumes uniform row heights for performance.

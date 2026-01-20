@@ -107,20 +107,6 @@ describe('HTML attribute configuration', () => {
     expect(grid.fitMode).toBe('fixed');
   }, 20000);
 
-  it('parses edit-on from string attribute', async () => {
-    const grid: any = document.createElement('tbw-grid');
-    document.body.innerHTML = '';
-    document.body.appendChild(grid);
-
-    grid.setAttribute('edit-on', 'click');
-    grid.rows = [{ id: 1 }];
-
-    await customElements.whenDefined('tbw-grid');
-    await waitForUpgraded(grid);
-
-    expect(grid.editOn).toBe('click');
-  }, 20000);
-
   it('parses grid-config from JSON attribute', async () => {
     const grid: any = document.createElement('tbw-grid');
     document.body.innerHTML = '';
@@ -130,7 +116,6 @@ describe('HTML attribute configuration', () => {
       'grid-config',
       JSON.stringify({
         fitMode: 'stretch',
-        editOn: 'dblClick',
         columns: [{ field: 'name', header: 'Full Name' }],
       }),
     );
@@ -141,7 +126,6 @@ describe('HTML attribute configuration', () => {
 
     const cfg = await grid.getConfig();
     expect(cfg.fitMode).toBe('stretch');
-    expect(cfg.editOn).toBe('dblClick');
     expect(cfg.columns[0].header).toBe('Full Name');
   }, 20000);
 

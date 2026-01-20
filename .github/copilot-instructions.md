@@ -230,7 +230,7 @@ Users can configure via:
 
 - `gridConfig` property - full config object
 - `columns` property - shorthand for `gridConfig.columns`
-- `fitMode` / `editOn` properties - shortcuts for those settings
+- `fitMode` property - shortcut for `gridConfig.fitMode`
 - Light DOM elements (`<tbw-grid-column>`, `<tbw-grid-header>`)
 
 **Precedence (low → high):**
@@ -239,11 +239,11 @@ Users can configure via:
 2. Light DOM elements (declarative)
 3. `columns` prop (direct array)
 4. Inferred columns (auto-detected from first row)
-5. Individual props (`fitMode`, `editOn`) - highest
+5. Individual props (`fitMode`) - highest
 
 **Internal State Categories:**
 
-- **Input Properties** (`#rows`, `#columns`, `#gridConfig`, `#fitMode`, `#editOn`) - raw user input
+- **Input Properties** (`#rows`, `#columns`, `#gridConfig`, `#fitMode`) - raw user input
 - **Effective Config** (`#effectiveConfig`) - **THE single source of truth**
 - **Derived State** (`_columns`, `_rows`) - result of plugin processing hooks
 - **Runtime State** (`#hiddenColumns`, `sortState`) - user-driven changes at runtime

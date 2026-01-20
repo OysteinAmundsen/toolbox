@@ -52,11 +52,6 @@ describe('ConfigManager', () => {
       configManager.setFitMode('fit');
       expect(configManager.getFitMode()).toBe('fit');
     });
-
-    it('should set and get editOn', () => {
-      configManager.setEditOn('dblclick');
-      expect(configManager.getEditOn()).toBe('dblclick');
-    });
   });
 
   describe('Config Merge', () => {

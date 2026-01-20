@@ -52,7 +52,9 @@ describe('shell module', () => {
           toolbarContents: [
             {
               id: 'refresh',
-              render: () => {},
+              render: () => {
+                /* noop */
+              },
             },
           ],
         },
@@ -169,7 +171,14 @@ describe('shell module', () => {
     it('renders slot placeholders for toolbar contents with render', () => {
       const config: ShellConfig = {
         header: {
-          toolbarContents: [{ id: 'custom', render: () => {} }],
+          toolbarContents: [
+            {
+              id: 'custom',
+              render: () => {
+                /* noop */
+              },
+            },
+          ],
         },
       };
 
@@ -183,7 +192,9 @@ describe('shell module', () => {
       state.toolbarContents.set('light-dom-toolbar-content', {
         id: 'light-dom-toolbar-content',
         order: 0,
-        render: () => {},
+        render: () => {
+          /* noop */
+        },
       });
       state.lightDomToolbarContentIds.add('light-dom-toolbar-content');
 
@@ -199,7 +210,9 @@ describe('shell module', () => {
           toolbarContents: [
             {
               id: 'refresh',
-              render: () => {},
+              render: () => {
+                /* noop */
+              },
             },
           ],
         },

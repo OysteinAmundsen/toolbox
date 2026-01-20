@@ -393,6 +393,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * The getter returns processed rows (after filtering, sorting, grouping by plugins).
    * The setter accepts new source data and triggers a re-render.
    *
+   * @group Configuration
    * @example
    * ```typescript
    * // Set initial data
@@ -423,6 +424,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * filters, sorting, or grouping applied by plugins. The `rows` property
    * returns processed data, while `sourceRows` returns the original input.
    *
+   * @group Configuration
    * @example
    * ```typescript
    * // Get total count including filtered-out rows
@@ -442,6 +444,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * The getter returns processed columns (after plugin transformations).
    * The setter accepts an array of column configs or a column config map.
    *
+   * @group Configuration
    * @example
    * ```typescript
    * // Set columns as array
@@ -481,6 +484,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * The getter returns the effective (merged) configuration.
    * The setter accepts a new configuration and triggers a full re-render.
    *
+   * @group Configuration
    * @example
    * ```typescript
    * import { SelectionPlugin, SortingPlugin } from '@toolbox-web/grid/all';
@@ -524,6 +528,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * - `'fixed'`: Columns use explicit widths; horizontal scroll if needed
    * - `'auto'`: Columns auto-size to content on initial render
    *
+   * @group Configuration
    * @example
    * ```typescript
    * // Use fixed widths with horizontal scroll
@@ -551,6 +556,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Effective config accessor for internal modules and plugins.
    * Returns the merged config (single source of truth) before plugin processing.
    * Use this when you need the raw merged config (e.g., for column definitions including hidden).
+   * @group State Access
    * @internal Plugin API
    */
   get effectiveConfig(): GridConfig<T> {
@@ -561,6 +567,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Get the disconnect signal for event listener cleanup.
    * This signal is aborted when the grid disconnects from the DOM.
    * Plugins and internal code can use this for automatic listener cleanup.
+   * @group State Access
    * @internal Plugin API
    * @example
    * element.addEventListener('click', handler, { signal: this.grid.disconnectSignal });
@@ -775,6 +782,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get a plugin instance by its class.
    * Used by plugins for inter-plugin communication.
+   * @group Plugin Communication
    * @internal Plugin API
    */
   getPlugin<P extends BaseGridPlugin>(PluginClass: new (...args: any[]) => P): P | undefined {
@@ -784,6 +792,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get a plugin instance by its name.
    * Used for loose coupling between plugins (avoids static imports).
+   * @group Plugin Communication
    * @internal Plugin API
    */
   getPluginByName(name: string): BaseGridPlugin | undefined {
@@ -794,6 +803,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Request a full re-render of the grid.
    * Called by plugins when they need the grid to update.
    * Note: This does NOT reset plugin state - just re-processes rows/columns and renders.
+   * @group Rendering
    * @internal Plugin API
    */
   requestRender(): void {
@@ -804,6 +814,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Request a full re-render and restore focus styling afterward.
    * Use this when a plugin action (like expand/collapse) triggers a render
    * but needs to maintain keyboard navigation focus.
+   * @group Rendering
    * @internal Plugin API
    */
   requestRenderWithFocus(): void {
@@ -814,6 +825,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Update the grid's column template CSS.
    * Called by resize controller during column resize operations.
+   * @group Rendering
    * @internal Plugin API
    */
   updateTemplate(): void {
@@ -824,6 +836,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Request a lightweight style update without rebuilding DOM.
    * Called by plugins when they only need to update CSS classes/styles.
    * This runs all plugin afterRender hooks without rebuilding row/column DOM.
+   * @group Rendering
    * @internal Plugin API
    */
   requestAfterRender(): void {
@@ -1857,6 +1870,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Find the header row element in the shadow DOM.
    * Used by plugins that need to access header cells for styling or measurement.
+   * @group DOM Access
    * @internal Plugin API
    */
   findHeaderRow(): HTMLElement {
@@ -1867,6 +1881,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Find a rendered row element by its data row index.
    * Returns null if the row is not currently rendered (virtualized out of view).
    * Used by plugins that need to access specific row elements for styling or measurement.
+   * @group DOM Access
    * @internal Plugin API
    * @param rowIndex - The data row index (not the DOM position)
    */
@@ -1960,6 +1975,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Query all plugins with a generic query and collect responses.
    * This enables inter-plugin communication without the core knowing plugin-specific concepts.
+   * @group Plugin Communication
    * @internal Plugin API
    *
    * @example
@@ -1974,6 +1990,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Dispatch cell mouse events for drag operations.
    * Returns true if any plugin started a drag.
+   * @group Event Dispatching
    * @internal Plugin API - called by event-delegation.ts
    */
   _dispatchCellMouseDown(event: CellMouseEvent): boolean {
@@ -1982,6 +1999,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Dispatch cell mouse move during drag.
+   * @group Event Dispatching
    * @internal Plugin API - called by event-delegation.ts
    */
   _dispatchCellMouseMove(event: CellMouseEvent): void {
@@ -1990,6 +2008,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Dispatch cell mouse up to end drag.
+   * @group Event Dispatching
    * @internal Plugin API - called by event-delegation.ts
    */
   _dispatchCellMouseUp(event: CellMouseEvent): void {
@@ -2001,6 +2020,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Resolves once the component has finished initial setup, including
    * column inference, plugin initialization, and first render.
    *
+   * @group Lifecycle
    * @returns Promise that resolves when the grid is ready
    *
    * @example
@@ -2019,6 +2039,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Use this after programmatic changes that require re-measurement,
    * such as container resize or dynamic style changes.
    *
+   * @group Lifecycle
    * @returns Promise that resolves when the render cycle completes
    *
    * @example
@@ -2040,6 +2061,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Get a frozen snapshot of the current effective configuration.
    * The returned object is read-only and reflects all merged config sources.
    *
+   * @group Configuration
    * @returns Promise resolving to frozen configuration object
    *
    * @example
@@ -2059,6 +2081,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Show or hide a column by field name.
    *
+   * @group Column Visibility
    * @param field - The field name of the column to modify
    * @param visible - Whether the column should be visible
    * @returns `true` if the visibility changed, `false` if unchanged
@@ -2083,6 +2106,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Toggle a column's visibility.
    *
+   * @group Column Visibility
    * @param field - The field name of the column to toggle
    * @returns The new visibility state (`true` = visible, `false` = hidden)
    *
@@ -2104,6 +2128,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Check if a column is currently visible.
    *
+   * @group Column Visibility
    * @param field - The field name to check
    * @returns `true` if the column is visible, `false` if hidden
    *
@@ -2121,6 +2146,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Show all columns, resetting any hidden columns to visible.
    *
+   * @group Column Visibility
    * @example
    * ```typescript
    * // Reset button handler
@@ -2136,6 +2162,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Get metadata for all columns including visibility state.
    * Useful for building a column picker UI.
    *
+   * @group Column Visibility
    * @returns Array of column info objects
    *
    * @example
@@ -2169,6 +2196,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Set the display order of columns.
    *
+   * @group Column Order
    * @param order - Array of field names in desired order
    *
    * @example
@@ -2187,6 +2215,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get the current column display order.
    *
+   * @group Column Order
    * @returns Array of field names in display order
    *
    * @example
@@ -2208,6 +2237,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * Use this to save user preferences to localStorage or a database.
    *
+   * @group State Persistence
    * @returns Serializable column state object
    *
    * @example
@@ -2232,6 +2262,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Set the column state, restoring all saved preferences.
    * Can be set before or after grid initialization.
    *
+   * @group State Persistence
    * @example
    * ```typescript
    * // Restore saved state on page load
@@ -2258,6 +2289,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get the current column state.
    * Alias for `getColumnState()` for property-style access.
+   * @group State Persistence
    */
   get columnState(): GridColumnState | undefined {
     return this.getColumnState();
@@ -2279,6 +2311,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Called internally after resize, reorder, visibility, or sort changes.
    * Plugins should call this after changing their state.
    * The event is debounced to avoid excessive events during drag operations.
+   * @group State Persistence
    * @internal Plugin API
    */
   requestStateChange(): void {
@@ -2290,6 +2323,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Reset column state to initial configuration.
    * Clears all user modifications including order, widths, visibility, and sort.
    *
+   * @group State Persistence
    * @example
    * ```typescript
    * // Reset button handler
@@ -2328,6 +2362,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * The tool panel is an accordion-based sidebar that contains sections
    * registered by plugins or via `registerToolPanel()`.
    *
+   * @group Tool Panel
    * @example
    * ```typescript
    * // Conditionally show/hide a "toggle panel" button
@@ -2352,6 +2387,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * Multiple sections can be expanded simultaneously in the accordion view.
    *
+   * @group Tool Panel
    * @example
    * ```typescript
    * // Check which sections are expanded
@@ -2370,6 +2406,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * The tool panel displays an accordion view with all registered panel sections.
    * Each section can be expanded/collapsed independently.
    *
+   * @group Tool Panel
    * @example
    * ```typescript
    * // Open the tool panel when a toolbar button is clicked
@@ -2385,6 +2422,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Close the tool panel sidebar.
    *
+   * @group Tool Panel
    * @example
    * ```typescript
    * // Close the panel after user makes a selection
@@ -2398,6 +2436,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Toggle the tool panel sidebar open or closed.
    *
+   * @group Tool Panel
    * @example
    * ```typescript
    * // Wire up a toggle button
@@ -2413,6 +2452,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Toggle an accordion section expanded or collapsed within the tool panel.
    *
+   * @group Tool Panel
    * @param sectionId - The ID of the section to toggle (matches `ToolPanelDefinition.id`)
    *
    * @example
@@ -2431,6 +2471,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * Returns both plugin-registered panels and panels registered via `registerToolPanel()`.
    *
+   * @group Tool Panel
    * @returns Array of tool panel definitions
    *
    * @example
@@ -2453,6 +2494,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * without creating a full plugin. The panel will appear as an accordion
    * section in the tool panel.
    *
+   * @group Tool Panel
    * @param panel - The tool panel definition
    *
    * @example
@@ -2483,6 +2525,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Unregister a custom tool panel section.
    *
+   * @group Tool Panel
    * @param panelId - The ID of the panel to remove
    *
    * @example
@@ -2504,6 +2547,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get all registered header content definitions.
    *
+   * @group Header Content
    * @returns Array of header content definitions
    *
    * @example
@@ -2523,6 +2567,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * above the column headers. Use this for search boxes, filters, or other
    * controls that should be prominently visible.
    *
+   * @group Header Content
    * @param content - The header content definition
    *
    * @example
@@ -2551,6 +2596,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Unregister custom header content.
    *
+   * @group Header Content
    * @param contentId - The ID of the content to remove
    *
    * @example
@@ -2571,6 +2617,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Get all registered toolbar content definitions.
    *
+   * @group Toolbar
    * @returns Array of toolbar content definitions
    *
    * @example
@@ -2590,6 +2637,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * buttons, dropdowns, or other controls that should be easily accessible.
    * Content is rendered in order of the `order` property (lower = first).
    *
+   * @group Toolbar
    * @param content - The toolbar content definition
    *
    * @example
@@ -2643,6 +2691,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Unregister custom toolbar content.
    *
+   * @group Toolbar
    * @param contentId - The ID of the content to remove
    *
    * @example
@@ -2734,6 +2783,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * Uses adoptedStyleSheets for efficiency - styles survive shadow DOM rebuilds.
    *
+   * @group Custom Styles
    * @param id - Unique identifier for the style block (for removal/updates)
    * @param css - CSS string to inject
    *
@@ -2767,6 +2817,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Remove previously registered custom styles.
+   *
+   * @group Custom Styles
    * @param id - The ID used when registering the styles
    */
   unregisterStyles(id: string): void {
@@ -2777,6 +2829,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Get list of registered custom style IDs.
+   *
+   * @group Custom Styles
    */
   getRegisteredStyles(): string[] {
     return Array.from(this.#customStyleSheets.keys());

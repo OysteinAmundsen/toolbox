@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.2.0...grid-angular-0.3.0) (2026-01-21)
+
+
+### Features
+
+* **grid-angular:** support component classes in column config ([9c0bb3b](https://github.com/OysteinAmundsen/toolbox/commit/9c0bb3b7fce871685ef05e702ca09c93d608bdef))
+* **grid:** add type-level default renderers and editors ([b13421d](https://github.com/OysteinAmundsen/toolbox/commit/b13421d8abad014d3e3e486545db6c9ff7126d6e))
+
 ## [0.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.1.3...grid-angular-0.2.0) (2026-01-19)
 
 

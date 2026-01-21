@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.6.0...grid-1.0.0) (2026-01-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **grid:** remove all deprecated APIs for v1.0.0
+* **grid:** move editOn from core to EditingPlugin ownership
+
+### Features
+
+* **grid-angular:** support component classes in column config ([9c0bb3b](https://github.com/OysteinAmundsen/toolbox/commit/9c0bb3b7fce871685ef05e702ca09c93d608bdef))
+* **grid:** add cell-click and row-click events for consumers ([0e8366f](https://github.com/OysteinAmundsen/toolbox/commit/0e8366f0b603f16032b2a6dfd33b6c26175b7ae9))
+* **grid:** add editorParams for built-in editor configuration ([#49](https://github.com/OysteinAmundsen/toolbox/issues/49)) ([ef73c16](https://github.com/OysteinAmundsen/toolbox/commit/ef73c164c8d8522e03abbd1cf65a454b5456d7b5))
+* **grid:** add row update api ([#51](https://github.com/OysteinAmundsen/toolbox/issues/51)) ([c75010c](https://github.com/OysteinAmundsen/toolbox/commit/c75010c2128d54e6874a060375d8c1b540db1ac9))
+* **grid:** add type-level default renderers and editors ([b13421d](https://github.com/OysteinAmundsen/toolbox/commit/b13421d8abad014d3e3e486545db6c9ff7126d6e))
+* **grid:** add unified cell-activate event with trigger discriminator ([723eaf6](https://github.com/OysteinAmundsen/toolbox/commit/723eaf63c00423d1759b083349d131c711ea32b4))
+* **grid:** support [@group](https://github.com/group) tags in typedoc-to-mdx script ([1a0512b](https://github.com/OysteinAmundsen/toolbox/commit/1a0512bce36d66429b3c94e3cc350007f36dec8c))
+
+
+### Miscellaneous
+
+* **grid:** remove all deprecated APIs for v1.0.0 ([16bdefa](https://github.com/OysteinAmundsen/toolbox/commit/16bdefa57d1f3166cb05c678438e4a1027596d83))
+
+
+### Code Refactoring
+
+* **grid:** move editOn from core to EditingPlugin ownership ([01d5708](https://github.com/OysteinAmundsen/toolbox/commit/01d570854dd0fc2fa2982183ef36515e37bfeb33))
+
 ## [0.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.5.0...grid-0.6.0) (2026-01-19)
 
 

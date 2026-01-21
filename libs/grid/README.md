@@ -250,7 +250,7 @@ interface GridConfig {
 
 ### Row Identification
 
-The grid uses row IDs for the [Row Update API](#methods). By default, it looks for `id` or `rowId` properties on row objects. For custom ID fields, provide a `getRowId` function:
+The grid uses row IDs for the [Row Update API](#methods). By default, it looks for `id` or `_id` properties on row objects. Rows without an identifiable ID are not accessible via the Row Update API. For custom ID fields, provide a `getRowId` function:
 
 ```typescript
 grid.gridConfig = {

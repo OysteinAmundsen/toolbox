@@ -2251,6 +2251,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         field,
         oldValue,
         newValue,
+        changes,
         source,
       } as CellChangeDetail<T>);
     }
@@ -2308,6 +2309,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             field,
             oldValue,
             newValue,
+            changes,
             source,
           } as CellChangeDetail<T>);
         }

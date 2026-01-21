@@ -90,8 +90,9 @@ The grid automatically determines row IDs using these sources (in order of prece
 
 1. `getRowId` function in gridConfig (custom ID resolution)
 2. `id` property on the row object
-3. `rowId` property on the row object
-4. Falls back to row index (not recommended for mutable data)
+3. `_id` property on the row object
+
+> **Note:** Rows without any of these will not be accessible via the Row Update API. Calls to `getRow()` or `updateRow()` for such rows will return `undefined` or have no effect.
 
 ```typescript
 // Configure custom row ID resolution
@@ -131,9 +132,10 @@ grid.updateRows([
   { id: 'EMP-456', changes: { department: 'Engineering' } },
 ]);
 
-// Track the update source for debugging/logging
-grid.updateRow('EMP-123', { status: 'inactive' }, 'api-sync');
-grid.updateRows(updates, 'websocket');
+// Specify the update source (default: 'api')
+// Valid sources: 'user' | 'cascade' | 'api'
+grid.updateRow('EMP-123', { status: 'inactive' }, 'api');
+grid.updateRows(updates, 'api');
 ```
 
 #### Listening to Row Updates
@@ -612,6 +614,17 @@ interface CellCommitDetail<T = any> {
   value: any;
   oldValue: any;
   rowIndex: number;
+}
+
+interface CellChangeDetail<T = any> {
+  row: T;              // Row object after mutation
+  rowId: string;       // Stable row identifier
+  rowIndex: number;    // Current index in rows array
+  field: string;       // Field that changed
+  oldValue: any;       // Value before change
+  newValue: any;       // Value after change
+  changes: Partial<T>; // All changes passed to updateRow/updateRows
+  source: string;      // Origin: 'api', 'websocket', etc.
 }
 
 interface SortChangeDetail {

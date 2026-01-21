@@ -797,6 +797,8 @@ export interface CellChangeDetail<TRow = unknown> {
   oldValue: unknown;
   /** Value after change */
   newValue: unknown;
+  /** All changes passed to updateRow/updateRows (for context) */
+  changes: Partial<TRow>;
   /** Origin of this change */
   source: UpdateSource;
 }

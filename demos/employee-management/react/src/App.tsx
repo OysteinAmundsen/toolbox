@@ -99,8 +99,9 @@ export function App() {
   // Demonstrate cancelable events: prevent columns from moving outside their groups
   // This shows the error flash animation when a move would break group contiguity
   useEffect(() => {
-    const grid = ref.current;
-    if (!grid) return;
+    // Access the actual DOM element via ref.current.element (DataGridRef wrapper)
+    const grid = ref.current?.element;
+    if (!grid || !isReady) return;
 
     const handler = (e: Event) => {
       const event = e as CustomEvent<ColumnMoveDetail>;
@@ -141,7 +142,7 @@ export function App() {
 
     grid.addEventListener('column-move', handler);
     return () => grid.removeEventListener('column-move', handler);
-  }, [ref, columnGroups]);
+  }, [ref, columnGroups, isReady]);
 
   // Create grid config with plugins and React renderers/editors inline
   // Using ReactGridConfig allows reactRenderer/reactEditor properties
@@ -370,7 +371,7 @@ export function App() {
                 title="Export CSV"
                 aria-label="Export CSV"
                 onClick={() => {
-                  const grid = ref.current as TbwGrid<Employee> | null;
+                  const grid = ref.current?.element as TbwGrid<Employee> | null;
                   grid?.getPlugin?.(ExportPlugin)?.exportCsv?.({ fileName: 'employees' });
                 }}
               >
@@ -381,7 +382,7 @@ export function App() {
                 title="Export Excel"
                 aria-label="Export Excel"
                 onClick={() => {
-                  const grid = ref.current as TbwGrid<Employee> | null;
+                  const grid = ref.current?.element as TbwGrid<Employee> | null;
                   grid?.getPlugin?.(ExportPlugin)?.exportExcel?.({ fileName: 'employees' });
                 }}
               >

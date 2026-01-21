@@ -23,6 +23,17 @@ declare module '../../core/types' {
     editable?: boolean;
     /** Optional custom editor factory or element tag name. Requires EditingPlugin. */
     editor?: ColumnEditorSpec<TRow, TValue>;
+    /**
+     * Configuration parameters for built-in editors.
+     * Shape depends on column type (NumberEditorParams, TextEditorParams, DateEditorParams, SelectEditorParams).
+     * Requires EditingPlugin.
+     *
+     * @example
+     * ```typescript
+     * { field: 'price', type: 'number', editable: true, editorParams: { min: 0, max: 1000, step: 0.01 } }
+     * ```
+     */
+    editorParams?: EditorParams;
   }
 }
 
@@ -69,3 +80,81 @@ export interface EditorContext<T = any, V = unknown> {
    */
   updateRow: (changes: Partial<T>) => void;
 }
+
+// ============================================================================
+// Editor Parameters - Configuration for built-in editors
+// ============================================================================
+
+/**
+ * Configuration parameters for the built-in number editor.
+ *
+ * @example
+ * ```typescript
+ * { field: 'price', type: 'number', editable: true, editorParams: { min: 0, max: 1000, step: 0.01 } }
+ * ```
+ */
+export interface NumberEditorParams {
+  /** Minimum allowed value */
+  min?: number;
+  /** Maximum allowed value */
+  max?: number;
+  /** Step increment for up/down arrows */
+  step?: number;
+  /** Placeholder text when empty */
+  placeholder?: string;
+}
+
+/**
+ * Configuration parameters for the built-in text editor.
+ *
+ * @example
+ * ```typescript
+ * { field: 'name', editable: true, editorParams: { maxLength: 50, placeholder: 'Enter name...' } }
+ * ```
+ */
+export interface TextEditorParams {
+  /** Maximum character length */
+  maxLength?: number;
+  /** Regex pattern for validation (HTML5 pattern attribute) */
+  pattern?: string;
+  /** Placeholder text when empty */
+  placeholder?: string;
+}
+
+/**
+ * Configuration parameters for the built-in date editor.
+ *
+ * @example
+ * ```typescript
+ * { field: 'startDate', type: 'date', editable: true, editorParams: { min: '2024-01-01' } }
+ * ```
+ */
+export interface DateEditorParams {
+  /** Minimum date (ISO string: 'YYYY-MM-DD') */
+  min?: string;
+  /** Maximum date (ISO string: 'YYYY-MM-DD') */
+  max?: string;
+  /** Placeholder text when empty */
+  placeholder?: string;
+}
+
+/**
+ * Configuration parameters for the built-in select editor.
+ *
+ * @example
+ * ```typescript
+ * { field: 'status', type: 'select', editable: true, editorParams: { includeEmpty: true, emptyLabel: '-- Select --' } }
+ * ```
+ */
+export interface SelectEditorParams {
+  /** Include an empty option at the start */
+  includeEmpty?: boolean;
+  /** Label for the empty option (default: '') */
+  emptyLabel?: string;
+}
+
+/**
+ * Union type of all editor parameter configurations.
+ * The applicable shape depends on the column type.
+ */
+export type EditorParams = NumberEditorParams | TextEditorParams | DateEditorParams | SelectEditorParams;

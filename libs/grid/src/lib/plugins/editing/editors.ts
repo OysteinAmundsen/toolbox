@@ -9,6 +9,7 @@
  */
 
 import type { ColumnConfig, EditorContext } from '../../core/types';
+import type { DateEditorParams, NumberEditorParams, SelectEditorParams, TextEditorParams } from './types';
 
 /**
  * Returns a default editor factory function for the given column type.
@@ -19,9 +20,15 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
   switch (column.type) {
     case 'number':
       return (ctx: EditorContext) => {
+        const params = column.editorParams as NumberEditorParams | undefined;
         const input = document.createElement('input');
         input.type = 'number';
         input.value = ctx.value != null ? String(ctx.value) : '';
+        // Apply editorParams
+        if (params?.min !== undefined) input.min = String(params.min);
+        if (params?.max !== undefined) input.max = String(params.max);
+        if (params?.step !== undefined) input.step = String(params.step);
+        if (params?.placeholder) input.placeholder = params.placeholder;
         input.addEventListener('blur', () => ctx.commit(input.value === '' ? null : Number(input.value)));
         input.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') ctx.commit(input.value === '' ? null : Number(input.value));
@@ -39,9 +46,14 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
       };
     case 'date':
       return (ctx: EditorContext) => {
+        const params = column.editorParams as DateEditorParams | undefined;
         const input = document.createElement('input');
         input.type = 'date';
         if (ctx.value instanceof Date) input.valueAsDate = ctx.value;
+        // Apply editorParams
+        if (params?.min) input.min = params.min;
+        if (params?.max) input.max = params.max;
+        if (params?.placeholder) input.placeholder = params.placeholder;
         input.addEventListener('change', () => ctx.commit(input.valueAsDate));
         input.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') ctx.cancel();
@@ -51,9 +63,19 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
     case 'select':
     case 'typeahead':
       return (ctx: EditorContext) => {
+        const params = column.editorParams as SelectEditorParams | undefined;
         const select = document.createElement('select');
         const col = ctx.column;
         if (col.multi) select.multiple = true;
+
+        // Add empty option if requested
+        if (params?.includeEmpty) {
+          const emptyOpt = document.createElement('option');
+          emptyOpt.value = '';
+          emptyOpt.textContent = params.emptyLabel ?? '';
+          select.appendChild(emptyOpt);
+        }
+
         const rawOptions = col.options;
         const options = typeof rawOptions === 'function' ? rawOptions() : rawOptions || [];
         options.forEach((opt) => {
@@ -84,9 +106,14 @@ export function defaultEditorFor(column: ColumnConfig<any>): (ctx: EditorContext
       };
     default:
       return (ctx: EditorContext) => {
+        const params = column.editorParams as TextEditorParams | undefined;
         const input = document.createElement('input');
         input.type = 'text';
         input.value = ctx.value != null ? String(ctx.value) : '';
+        // Apply editorParams
+        if (params?.maxLength !== undefined) input.maxLength = params.maxLength;
+        if (params?.pattern) input.pattern = params.pattern;
+        if (params?.placeholder) input.placeholder = params.placeholder;
         input.addEventListener('blur', () => ctx.commit(input.value));
         input.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') ctx.commit(input.value);

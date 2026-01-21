@@ -63,6 +63,12 @@ const PLUGIN_OWNED_COLUMN_PROPERTIES: PluginPropertyDefinition[] = [
     description: 'the "editor" column property',
     importHint: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
   },
+  {
+    property: 'editorParams',
+    pluginName: 'editing',
+    description: 'the "editorParams" column property',
+    importHint: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
+  },
   // GroupingColumnsPlugin
   {
     property: 'group',

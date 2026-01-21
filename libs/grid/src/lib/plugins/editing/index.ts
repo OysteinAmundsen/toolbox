@@ -6,4 +6,12 @@
  */
 export { EditingPlugin } from './EditingPlugin';
 export { defaultEditorFor } from './editors';
-export type { EditingConfig, EditorContext } from './types';
+export type {
+  DateEditorParams,
+  EditingConfig,
+  EditorContext,
+  EditorParams,
+  NumberEditorParams,
+  SelectEditorParams,
+  TextEditorParams,
+} from './types';

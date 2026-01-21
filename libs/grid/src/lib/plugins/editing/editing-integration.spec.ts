@@ -717,4 +717,167 @@ describe('EditingPlugin', () => {
       expect(grid.changedRows?.length).toBe(1);
     });
   });
+
+  describe('editorParams', () => {
+    it('applies NumberEditorParams to number input', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'price',
+            header: 'Price',
+            type: 'number',
+            editable: true,
+            editorParams: { min: 0, max: 1000, step: 0.01, placeholder: 'Enter price' },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, price: 50 }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const priceCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Click to enter edit
+      priceCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = priceCell.querySelector('input') as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.type).toBe('number');
+      expect(input.min).toBe('0');
+      expect(input.max).toBe('1000');
+      expect(input.step).toBe('0.01');
+      expect(input.placeholder).toBe('Enter price');
+    });
+
+    it('applies TextEditorParams to text input', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'name',
+            header: 'Name',
+            editable: true,
+            editorParams: { maxLength: 50, pattern: '[A-Za-z]+', placeholder: 'Enter name' },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Click to enter edit
+      nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = nameCell.querySelector('input') as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.type).toBe('text');
+      expect(input.maxLength).toBe(50);
+      expect(input.pattern).toBe('[A-Za-z]+');
+      expect(input.placeholder).toBe('Enter name');
+    });
+
+    it('applies DateEditorParams to date input', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'startDate',
+            header: 'Start Date',
+            type: 'date',
+            editable: true,
+            editorParams: { min: '2024-01-01', max: '2024-12-31' },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, startDate: new Date('2024-06-15') }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const dateCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Click to enter edit
+      dateCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = dateCell.querySelector('input') as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.type).toBe('date');
+      expect(input.min).toBe('2024-01-01');
+      expect(input.max).toBe('2024-12-31');
+    });
+
+    it('applies SelectEditorParams with empty option', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'status',
+            header: 'Status',
+            type: 'select',
+            editable: true,
+            options: [
+              { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+            ],
+            editorParams: { includeEmpty: true, emptyLabel: '-- Select --' },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, status: 'active' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const statusCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Click to enter edit
+      statusCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const select = statusCell.querySelector('select') as HTMLSelectElement;
+      expect(select).toBeTruthy();
+      expect(select.options.length).toBe(3); // empty + 2 options
+      expect(select.options[0].value).toBe('');
+      expect(select.options[0].textContent).toBe('-- Select --');
+    });
+
+    it('works without editorParams (backwards compatible)', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, quantity: 10 }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const qtyCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Click to enter edit
+      qtyCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = qtyCell.querySelector('input') as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.type).toBe('number');
+      // No min/max/step set
+      expect(input.min).toBe('');
+      expect(input.max).toBe('');
+    });
+  });
 });

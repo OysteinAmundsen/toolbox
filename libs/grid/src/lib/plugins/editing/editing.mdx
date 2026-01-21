@@ -175,6 +175,85 @@ The grid provides appropriate editors based on column `type`:
 
 <Canvas of={EditingStories.AllColumnTypes} withToolbar />
 
+## Editor Parameters
+
+Configure built-in editors using the `editorParams` property. This allows you to set constraints and attributes without creating a custom editor.
+
+### Number Editor
+
+```ts
+{
+  field: 'price',
+  type: 'number',
+  editable: true,
+  editorParams: {
+    min: 0,           // Minimum value
+    max: 1000000,     // Maximum value
+    step: 0.01,       // Increment for up/down arrows
+    placeholder: 'Enter price'
+  }
+}
+```
+
+### Text Editor
+
+```ts
+{
+  field: 'name',
+  editable: true,
+  editorParams: {
+    maxLength: 100,          // Maximum character length
+    pattern: '[A-Za-z\\s]+', // HTML5 validation pattern
+    placeholder: 'Enter name'
+  }
+}
+```
+
+### Date Editor
+
+```ts
+{
+  field: 'startDate',
+  type: 'date',
+  editable: true,
+  editorParams: {
+    min: '2024-01-01',  // Minimum date (ISO format)
+    max: '2024-12-31',  // Maximum date (ISO format)
+    placeholder: 'Select date'
+  }
+}
+```
+
+### Select Editor
+
+```ts
+{
+  field: 'status',
+  type: 'select',
+  editable: true,
+  options: [
+    { label: 'Active', value: 'active' },
+    { label: 'Inactive', value: 'inactive' }
+  ],
+  editorParams: {
+    includeEmpty: true,          // Add empty option at start
+    emptyLabel: '-- Select --'   // Label for empty option
+  }
+}
+```
+
+### TypeScript Types
+
+```ts
+import type {
+  EditorParams,
+  NumberEditorParams,
+  TextEditorParams,
+  DateEditorParams,
+  SelectEditorParams
+} from '@toolbox-web/grid/plugins/editing';
+```
+
 ## Custom Editors
 
 For specialized input needs, provide a custom `editor` function:

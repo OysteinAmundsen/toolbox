@@ -41,8 +41,7 @@ grid.gridConfig = {
     { field: 'price', header: 'Price', type: 'number', editable: true },
     { field: 'active', header: 'Active', type: 'boolean', editable: true },
   ],
-  plugins: [new EditingPlugin()],
-  editOn: 'dblClick', // or 'click'
+  plugins: [new EditingPlugin({ editOn: 'dblclick' })], // or 'click'
 };
 
 // Listen for commits
@@ -63,8 +62,7 @@ const config: ReactGridConfig = {
     { field: 'price', header: 'Price', type: 'number', editable: true },
     { field: 'active', header: 'Active', type: 'boolean', editable: true },
   ],
-  plugins: [new EditingPlugin()],
-  editOn: 'dblClick',
+  plugins: [new EditingPlugin({ editOn: 'dblclick' })],
 };
 
 function MyGrid({ data }) {
@@ -100,8 +98,7 @@ export class MyGridComponent {
       { field: 'name', header: 'Name', editable: true },
       { field: 'price', header: 'Price', type: 'number', editable: true },
     ],
-    plugins: [new EditingPlugin()],
-    editOn: 'dblClick',
+    plugins: [new EditingPlugin({ editOn: 'dblclick' })],
   };
 
   onCommit(event: CustomEvent) {
@@ -150,13 +147,17 @@ See the [API Reference](../?path=/docs/grid-api--docs#row-update-api) for full d
 
 ## Edit Triggers
 
-Configure how editing is triggered with the `editOn` config property:
+Configure how editing is triggered with the `editOn` option in the EditingPlugin:
 
-| Value        | Behavior                                      |
-| ------------ | --------------------------------------------- |
-| `'click'`    | Single click on cell enters edit mode         |
-| `'dblClick'` | Double-click on cell enters edit mode         |
-| `'none'`     | Programmatic only via `startEdit(row, field)` |
+```ts
+new EditingPlugin({ editOn: 'dblclick' }) // or 'click', 'manual'
+```
+
+| Value       | Behavior                                      |
+| ----------- | --------------------------------------------- |
+| `'click'`   | Single click on cell enters edit mode         |
+| `'dblclick'`| Double-click on cell enters edit mode (default) |
+| `'manual'`  | Programmatic only via `startEdit(row, field)` |
 
 Additionally, pressing **Enter** or **F2** on a focused cell will start editing.
 

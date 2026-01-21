@@ -160,12 +160,11 @@ const grid = createGrid<Employee>({
     },
   ],
   plugins: [
-    new EditingPlugin(), // Required for editable columns
+    new EditingPlugin({ editOn: 'dblclick' }), // Required for editable columns
     new SelectionPlugin({ mode: 'row' }),
     new FilteringPlugin({ debounceMs: 200 }),
   ],
   fitMode: 'stretch',
-  editOn: 'dblClick',
 });
 
 document.getElementById('grid-container')!.appendChild(grid);
@@ -244,12 +243,11 @@ function EmployeeGrid() {
       },
     ],
     plugins: [
-      new EditingPlugin(), // Required for editable columns
+      new EditingPlugin({ editOn: 'dblclick' }), // Required for editable columns
       new SelectionPlugin({ mode: 'row' }),
       new FilteringPlugin({ debounceMs: 200 }),
     ],
     fitMode: 'stretch',
-    editOn: 'dblClick',
   };
 
   return (
@@ -321,12 +319,11 @@ onMounted(() => {
         { field: 'status', header: 'Status' },
       ],
       plugins: [
-        new EditingPlugin(), // Required for editable columns
+        new EditingPlugin({ editOn: 'dblclick' }), // Required for editable columns
         new SelectionPlugin({ mode: 'row' }),
         new FilteringPlugin({ debounceMs: 200 }),
       ],
       fitMode: 'stretch',
-      editOn: 'dblClick',
     };
     gridRef.value.rows = employees;
   }
@@ -410,12 +407,11 @@ export class EmployeeGridComponent {
       { field: 'status', header: 'Status' }, // renderer/editor from template
     ],
     plugins: [
-      new EditingPlugin(), // Required for editable columns
+      new EditingPlugin({ editOn: 'dblclick' }), // Required for editable columns
       new SelectionPlugin({ mode: 'row' }),
       new FilteringPlugin({ debounceMs: 200 }),
     ],
     fitMode: 'stretch',
-    editOn: 'dblClick',
   };
 
   onCellCommit(event: CustomEvent<CellCommitDetail>) {

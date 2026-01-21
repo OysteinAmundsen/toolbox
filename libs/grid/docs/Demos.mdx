@@ -110,8 +110,8 @@ import {
 grid.gridConfig = {
   columnGroups: [...],
   columns: [...],
-  editOn: 'dblClick',
   plugins: [
+    new EditingPlugin({ editOn: 'dblclick' }),
     new SelectionPlugin({ mode: 'range' }),
     new MultiSortPlugin(),
     new FilteringPlugin({ debounceMs: 200 }),

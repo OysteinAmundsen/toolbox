@@ -105,8 +105,7 @@ import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
  *    - `<tbw-grid-header-content>` → `effectiveConfig.shell.header.content`
  * 3. `columns` property → merged into `effectiveConfig.columns`
  * 4. `fitMode` property → merged into `effectiveConfig.fitMode`
- * 5. `editOn` property → merged into `effectiveConfig.editOn`
- * 6. Column inference from first row (if no columns defined)
+ * 5. Column inference from first row (if no columns defined)
  *
  * **Derived State:**
  * - `_columns` - processed columns from `effectiveConfig.columns` after plugin hooks
@@ -196,7 +195,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #readyResolve?: () => void;
 
   // #region Input Properties
-  // Raw rows are stored here. Config sources (gridConfig, columns, fitMode, editOn)
+  // Raw rows are stored here. Config sources (gridConfig, columns, fitMode)
   // are owned by ConfigManager. Grid.ts property setters delegate to ConfigManager.
   #rows: T[] = [];
   // #endregion

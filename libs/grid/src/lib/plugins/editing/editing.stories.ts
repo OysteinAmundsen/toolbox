@@ -340,6 +340,95 @@ grid.gridConfig = {
 };
 
 /**
+ * ## Editor Parameters
+ *
+ * Use `editorParams` to configure built-in editors with constraints and placeholders.
+ * Each editor type has its own set of parameters.
+ */
+export const EditorParameters: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+grid.gridConfig = {
+  columns: [
+    // Number with min/max/step
+    { field: 'price', header: 'Price', type: 'number', editable: true,
+      editorParams: { min: 0, max: 1000, step: 0.01, placeholder: '0.00' }
+    },
+    // Text with maxLength and pattern
+    { field: 'code', header: 'Product Code', editable: true,
+      editorParams: { maxLength: 10, pattern: '[A-Z0-9]+', placeholder: 'ABC123' }
+    },
+    // Date with min/max range
+    { field: 'expiry', header: 'Expiry Date', type: 'date', editable: true,
+      editorParams: { min: '2024-01-01', max: '2030-12-31' }
+    },
+    // Select with empty option
+    { field: 'status', header: 'Status', type: 'select', editable: true,
+      options: [{ label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }],
+      editorParams: { includeEmpty: true, emptyLabel: '-- Select --' }
+    },
+  ],
+  plugins: [new EditingPlugin()],
+};
+`,
+        language: 'ts',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '300px';
+
+    grid.gridConfig = {
+      columns: [
+        {
+          field: 'price',
+          header: 'Price',
+          type: 'number',
+          editable: true,
+          editorParams: { min: 0, max: 1000, step: 0.01, placeholder: '0.00' },
+        },
+        {
+          field: 'code',
+          header: 'Product Code',
+          editable: true,
+          editorParams: { maxLength: 10, pattern: '[A-Z0-9]+', placeholder: 'ABC123' },
+        },
+        {
+          field: 'expiry',
+          header: 'Expiry Date',
+          type: 'date',
+          editable: true,
+          editorParams: { min: '2024-01-01', max: '2030-12-31' },
+        },
+        {
+          field: 'status',
+          header: 'Status',
+          type: 'select',
+          editable: true,
+          options: [
+            { label: 'Active', value: 'active' },
+            { label: 'Inactive', value: 'inactive' },
+          ],
+          editorParams: { includeEmpty: true, emptyLabel: '-- Select --' },
+        },
+      ],
+      plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+    };
+
+    grid.rows = [
+      { price: 29.99, code: 'PROD001', expiry: new Date('2025-06-15'), status: 'active' },
+      { price: 149.5, code: 'PROD002', expiry: new Date('2026-01-01'), status: 'inactive' },
+      { price: null, code: '', expiry: null, status: '' },
+    ];
+
+    return grid;
+  },
+};
+
+/**
  * ## Custom Editor
  *
  * Provide a custom `editor` function for specialized input controls.

@@ -17,7 +17,7 @@ describe('parseLightDomColumns', () => {
     expect(name).toMatchObject({ field: 'name' });
   });
 
-  it('parses options attribute for select/typeahead columns', () => {
+  it('parses options attribute for select columns', () => {
     const host = document.createElement('div');
     host.innerHTML = `
       <tbw-grid-column field="role" type="select" options="admin:Admin,user:User,guest"></tbw-grid-column>

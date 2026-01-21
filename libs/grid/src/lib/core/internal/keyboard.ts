@@ -34,8 +34,7 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   if (isFormField(target) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
   // Let Enter/Escape be handled by the input's own handlers first
   if (isFormField(target) && (e.key === 'Enter' || e.key === 'Escape')) return;
-  if (editing && (colType === 'select' || colType === 'typeahead') && (e.key === 'ArrowDown' || e.key === 'ArrowUp'))
-    return;
+  if (editing && colType === 'select' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) return;
   switch (e.key) {
     case 'Tab': {
       e.preventDefault();

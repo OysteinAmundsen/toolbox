@@ -21,7 +21,7 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       const field = el.getAttribute('field') || '';
       if (!field) return null;
       const rawType = el.getAttribute('type') || undefined;
-      const allowedTypes = new Set<PrimitiveColumnType>(['number', 'string', 'date', 'boolean', 'select', 'typeahead']);
+      const allowedTypes = new Set<PrimitiveColumnType>(['number', 'string', 'date', 'boolean', 'select']);
       const type =
         rawType && allowedTypes.has(rawType as PrimitiveColumnType) ? (rawType as PrimitiveColumnType) : undefined;
       const header = el.getAttribute('header') || undefined;

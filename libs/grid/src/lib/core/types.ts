@@ -158,7 +158,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   requestStateChange?: () => void;
 }
 
-export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'select' | 'typeahead';
+export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'select';
 
 /**
  * Base contract for a column. Public; kept intentionally lean so host apps can extend via intersection types.
@@ -181,9 +181,9 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   resizable?: boolean;
   /** Optional custom comparator for sorting (a,b) -> number */
   sortComparator?: (a: TValue, b: TValue, rowA: TRow, rowB: TRow) => number;
-  /** For select/typeahead types - available options */
+  /** For select type - available options */
   options?: Array<{ label: string; value: unknown }> | (() => Array<{ label: string; value: unknown }>);
-  /** For select/typeahead - allow multi select */
+  /** For select - allow multi select */
   multi?: boolean;
   /** Optional formatter */
   format?: (value: TValue, row: TRow) => string;

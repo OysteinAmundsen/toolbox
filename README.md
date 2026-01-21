@@ -8,10 +8,11 @@ A monorepo for **framework-agnostic web component libraries** built with pure Ty
 
 ## Libraries
 
-| Package                                           | Description                                                           | Docs                                  |
-| ------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------- |
-| [`@toolbox-web/grid`](libs/grid/)                 | High-performance data grid with virtualization, plugins, and theming  | [README](libs/grid/README.md)         |
-| [`@toolbox-web/grid-angular`](libs/grid-angular/) | Angular adapter with directives for template-driven renderers/editors | [README](libs/grid-angular/README.md) |
+| Package                                                                                | Description                                                           | Docs                                  |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------- |
+| [`@toolbox-web/grid`](https://www.npmjs.com/package/@toolbox-web/grid)                 | High-performance data grid with virtualization, plugins, and theming  | [README](libs/grid/README.md)         |
+| [`@toolbox-web/grid-angular`](https://www.npmjs.com/package/@toolbox-web/grid-angular) | Angular adapter with directives for template-driven renderers/editors | [README](libs/grid-angular/README.md) |
+| [`@toolbox-web/grid-react`](https://www.npmjs.com/package/@toolbox-web/grid-react)     | React adapter                                                         | [README](libs/grid-react/README.md)   |
 
 ## Quick Start
 
@@ -37,12 +38,14 @@ bun run test
 libs/
   grid/           # @toolbox-web/grid - Data grid component
   grid-angular/   # @toolbox-web/grid-angular - Angular adapter
+  grid-react/     # @toolbox-web/grid-react - React adapter
   themes/         # Shared theme system
 demos/
   employee-management/   # Full-featured demo applications
     shared/              # Shared types and data generators
     vanilla/             # Pure TypeScript/Vite demo
     angular/             # Angular 21 demo
+    react/               # React 19 demo
 apps/
   docs/           # Storybook documentation site
 ```

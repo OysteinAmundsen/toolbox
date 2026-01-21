@@ -114,17 +114,21 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _activeEditRows?: number;
   /** Snapshots of row data before editing. Injected by EditingPlugin. @internal */
   _rowEditSnapshots?: Map<number, T>;
-  /** Set of row indices that have been modified. Injected by EditingPlugin. @internal */
-  _changedRowIndices?: Set<number>;
   /** Get all changed rows. Injected by EditingPlugin. */
   changedRows?: T[];
-  /** Get indices of all changed rows. Injected by EditingPlugin. */
-  changedRowIndices?: number[];
+  /** Get IDs of all changed rows. Injected by EditingPlugin. */
+  changedRowIds?: string[];
   effectiveConfig?: GridConfig<T>;
   findHeaderRow?: () => HTMLElement;
   refreshVirtualWindow: (full: boolean) => void;
   updateTemplate?: () => void;
   findRenderedRowElement?: (rowIndex: number) => HTMLElement | null;
+  /** Get a row by its ID. Implemented in grid.ts */
+  getRow?: (id: string) => T | undefined;
+  /** Get the unique ID for a row. Implemented in grid.ts */
+  getRowId?: (row: T) => string;
+  /** Update a row by ID. Implemented in grid.ts */
+  updateRow?: (id: string, changes: Partial<T>, source?: UpdateSource) => void;
   /** Begin bulk edit on a row. Injected by EditingPlugin. */
   beginBulkEdit?: (rowIndex: number) => void;
   /** Commit active row edit. Injected by EditingPlugin. */
@@ -709,6 +713,28 @@ export interface GridConfig<TRow = any> {
    * ```
    */
   sortHandler?: SortHandler<TRow>;
+
+  /**
+   * Function to extract a unique identifier from a row.
+   * Used by `updateRow()`, `getRow()`, and ID-based tracking.
+   *
+   * If not provided, falls back to `row.id` or `row._id` if present.
+   * Rows without IDs are silently skipped during map building.
+   * Only throws when explicitly calling `getRowId()` or `updateRow()` on a row without an ID.
+   *
+   * @example
+   * ```ts
+   * // Simple field
+   * getRowId: (row) => row.id
+   *
+   * // Composite key
+   * getRowId: (row) => `${row.voyageId}-${row.legNumber}`
+   *
+   * // UUID field
+   * getRowId: (row) => row.uuid
+   * ```
+   */
+  getRowId?: (row: TRow) => string;
 }
 // #endregion
 
@@ -737,6 +763,59 @@ export type SortHandler<TRow = any> = (
   sortState: SortState,
   columns: ColumnConfig<TRow>[],
 ) => TRow[] | Promise<TRow[]>;
+
+// #region Data Update Management
+
+/**
+ * Indicates the origin of a data change.
+ * Used to prevent infinite loops in cascade update handlers.
+ *
+ * - `'user'`: Direct user interaction via EditingPlugin (typing, selecting)
+ * - `'cascade'`: Triggered by `updateRow()` in an event handler
+ * - `'api'`: External programmatic update via `grid.updateRow()`
+ *
+ * @category Data Management
+ */
+export type UpdateSource = 'user' | 'cascade' | 'api';
+
+/**
+ * Detail for cell-change event (emitted by core after mutation).
+ * This is an informational event that fires for ALL data mutations.
+ *
+ * @category Events
+ */
+export interface CellChangeDetail<TRow = unknown> {
+  /** The row object (after mutation) */
+  row: TRow;
+  /** Stable row identifier */
+  rowId: string;
+  /** Current index in rows array */
+  rowIndex: number;
+  /** Field that changed */
+  field: string;
+  /** Value before change */
+  oldValue: unknown;
+  /** Value after change */
+  newValue: unknown;
+  /** All changes passed to updateRow/updateRows (for context) */
+  changes: Partial<TRow>;
+  /** Origin of this change */
+  source: UpdateSource;
+}
+
+/**
+ * Batch update specification for updateRows().
+ *
+ * @category Data Management
+ */
+export interface RowUpdate<TRow = unknown> {
+  /** Row identifier (from getRowId) */
+  id: string;
+  /** Fields to update */
+  changes: Partial<TRow>;
+}
+
+// #endregion
 
 /**
  * Animation behavior mode.
@@ -1021,6 +1100,8 @@ export interface GridColumnState {
 export interface CellCommitDetail<TRow = unknown> {
   /** The row object (not yet mutated if event is cancelable). */
   row: TRow;
+  /** Stable row identifier (from getRowId). */
+  rowId: string;
   /** Field name whose value changed. */
   field: string;
   /** Previous value before change. */
@@ -1031,10 +1112,16 @@ export interface CellCommitDetail<TRow = unknown> {
   rowIndex: number;
   /** All rows that have at least one committed change (snapshot list). */
   changedRows: TRow[];
-  /** Indices parallel to changedRows. */
-  changedRowIndices: number[];
+  /** IDs of changed rows. */
+  changedRowIds: string[];
   /** True if this row just entered the changed set. */
   firstTimeForRow: boolean;
+  /**
+   * Update other fields in this row.
+   * Convenience wrapper for grid.updateRow(rowId, changes, 'cascade').
+   * Useful for cascade updates (e.g., calculating totals).
+   */
+  updateRow: (changes: Partial<TRow>) => void;
 }
 
 /**
@@ -1045,14 +1132,16 @@ export interface CellCommitDetail<TRow = unknown> {
 export interface RowCommitDetail<TRow = unknown> {
   /** Row index that lost edit focus. */
   rowIndex: number;
+  /** Stable row identifier (from getRowId). */
+  rowId: string;
   /** Row object reference. */
   row: TRow;
   /** Whether any cell changes were actually committed in this row during the session. */
   changed: boolean;
   /** Current changed row collection. */
   changedRows: TRow[];
-  /** Indices of changed rows. */
-  changedRowIndices: number[];
+  /** IDs of changed rows. */
+  changedRowIds: string[];
 }
 
 /**
@@ -1063,8 +1152,8 @@ export interface RowCommitDetail<TRow = unknown> {
 export interface ChangedRowsResetDetail<TRow = unknown> {
   /** New (empty) changed rows array after reset. */
   rows: TRow[];
-  /** Parallel indices (likely empty). */
-  indices: number[];
+  /** IDs of changed rows (likely empty). */
+  ids: string[];
 }
 
 /**
@@ -1216,6 +1305,7 @@ export interface DataGridEventMap<TRow = unknown> {
   'cell-click': CellClickDetail<TRow>;
   'row-click': RowClickDetail<TRow>;
   'cell-activate': CellActivateDetail<TRow>;
+  'cell-change': CellChangeDetail<TRow>;
   'cell-commit': CellCommitDetail<TRow>;
   'row-commit': RowCommitDetail<TRow>;
   'changed-rows-reset': ChangedRowsResetDetail<TRow>;

@@ -41,8 +41,7 @@ grid.gridConfig = {
     { field: 'price', header: 'Price', type: 'number', editable: true },
     { field: 'active', header: 'Active', type: 'boolean', editable: true },
   ],
-  plugins: [new EditingPlugin()],
-  editOn: 'dblClick', // or 'click'
+  plugins: [new EditingPlugin({ editOn: 'dblclick' })], // or 'click'
 };
 
 // Listen for commits
@@ -63,8 +62,7 @@ const config: ReactGridConfig = {
     { field: 'price', header: 'Price', type: 'number', editable: true },
     { field: 'active', header: 'Active', type: 'boolean', editable: true },
   ],
-  plugins: [new EditingPlugin()],
-  editOn: 'dblClick',
+  plugins: [new EditingPlugin({ editOn: 'dblclick' })],
 };
 
 function MyGrid({ data }) {
@@ -100,8 +98,7 @@ export class MyGridComponent {
       { field: 'name', header: 'Name', editable: true },
       { field: 'price', header: 'Price', type: 'number', editable: true },
     ],
-    plugins: [new EditingPlugin()],
-    editOn: 'dblClick',
+    plugins: [new EditingPlugin({ editOn: 'dblclick' })],
   };
 
   onCommit(event: CustomEvent) {
@@ -124,15 +121,43 @@ To dynamically add or remove rows from the grid, simply assign a new array to th
 
 <Canvas of={EditingStories.AddRemoveRows} withToolbar />
 
+## Programmatic Row Updates
+
+To update individual row values without reassigning the entire `rows` array, use the **Row Update API**:
+
+```typescript
+// Update a single row by ID
+grid.updateRow('emp-123', { status: 'active', salary: 75000 });
+
+// Batch update multiple rows
+grid.updateRows([
+  { id: 'emp-123', changes: { status: 'active' } },
+  { id: 'emp-456', changes: { department: 'Engineering' } },
+]);
+
+// Listen for programmatic updates
+grid.addEventListener('cell-change', (e) => {
+  console.log('Row updated:', e.detail.rowId, e.detail.changes);
+});
+```
+
+> **Note:** The `cell-change` event fires for programmatic updates via `updateRow()`/`updateRows()`. The `cell-commit` event fires for inline edits made by users.
+
+See the [API Reference](../?path=/docs/grid-api--docs#row-update-api) for full documentation.
+
 ## Edit Triggers
 
-Configure how editing is triggered with the `editOn` config property:
+Configure how editing is triggered with the `editOn` option in the EditingPlugin:
 
-| Value        | Behavior                                      |
-| ------------ | --------------------------------------------- |
-| `'click'`    | Single click on cell enters edit mode         |
-| `'dblClick'` | Double-click on cell enters edit mode         |
-| `'none'`     | Programmatic only via `startEdit(row, field)` |
+```ts
+new EditingPlugin({ editOn: 'dblclick' }) // or 'click', 'manual'
+```
+
+| Value       | Behavior                                      |
+| ----------- | --------------------------------------------- |
+| `'click'`   | Single click on cell enters edit mode         |
+| `'dblclick'`| Double-click on cell enters edit mode (default) |
+| `'manual'`  | Programmatic only via `startEdit(row, field)` |
 
 Additionally, pressing **Enter** or **F2** on a focused cell will start editing.
 

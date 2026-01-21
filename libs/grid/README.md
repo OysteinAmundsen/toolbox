@@ -43,7 +43,6 @@ The grid supports multiple configuration methods, all converging into a **single
 grid.gridConfig = {
   columns: [{ field: 'name' }, { field: 'age', type: 'number' }],
   fitMode: 'stretch',
-  editOn: 'dblClick',
   plugins: [new SelectionPlugin({ mode: 'row' })],
   shell: { header: { title: 'My Data Grid' } },
 };
@@ -54,7 +53,6 @@ grid.gridConfig = {
 ```typescript
 grid.columns = [{ field: 'name' }, { field: 'age' }];
 grid.fitMode = 'stretch';
-grid.editOn = 'dblClick';
 ```
 
 **3. Via Light DOM (declarative HTML):**
@@ -75,7 +73,7 @@ grid.editOn = 'dblClick';
 
 When the same property is set via multiple methods, higher precedence wins:
 
-1. Individual props (`fitMode`, `editOn`) - highest
+1. Individual props (`fitMode`) - highest
 2. `columns` prop
 3. Light DOM elements
 4. `gridConfig` property - lowest
@@ -137,7 +135,6 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `columns`     | JSON   | Column definitions (JSON-serialized)        |
 | `grid-config` | JSON   | Full configuration object (JSON-serialized) |
 | `fit-mode`    | string | Column sizing: `'stretch'` or `'fixed'`     |
-| `edit-on`     | string | Edit trigger: `'click'` or `'dblClick'`     |
 
 **Example with HTML attributes:**
 
@@ -146,21 +143,19 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
   columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
   fit-mode="stretch"
-  edit-on="dblClick"
 >
 </tbw-grid>
 ```
 
 ### Properties
 
-| Property     | Type                             | Description                                                              |
-| ------------ | -------------------------------- | ------------------------------------------------------------------------ |
-| `rows`       | `T[]`                            | Data array                                                               |
-| `sourceRows` | `T[]` (readonly)                 | Original unfiltered/unprocessed rows                                     |
-| `columns`    | `ColumnConfig[]`                 | Column definitions (→ `gridConfig.columns`)                              |
-| `gridConfig` | `GridConfig`                     | Full configuration object (single source of truth)                       |
-| `fitMode`    | `'stretch' \| 'fixed'`           | Column sizing behavior (→ `gridConfig.fitMode`)                          |
-| `editOn`     | `'click' \| 'dblClick' \| false` | Edit trigger (→ `gridConfig.editOn`). Set to `false` to disable editing. |
+| Property     | Type                   | Description                                        |
+| ------------ | ---------------------- | -------------------------------------------------- |
+| `rows`       | `T[]`                  | Data array                                         |
+| `sourceRows` | `T[]` (readonly)       | Original unfiltered/unprocessed rows               |
+| `columns`    | `ColumnConfig[]`       | Column definitions (→ `gridConfig.columns`)        |
+| `gridConfig` | `GridConfig`           | Full configuration object (single source of truth) |
+| `fitMode`    | `'stretch' \| 'fixed'` | Column sizing behavior (→ `gridConfig.fitMode`)    |
 
 ### Methods
 
@@ -169,6 +164,10 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `ready()`                          | `Promise<void>`       | Resolves when fully initialized        |
 | `forceLayout()`                    | `Promise<void>`       | Force re-layout                        |
 | `getConfig()`                      | `Promise<GridConfig>` | Get effective configuration            |
+| `getRowId(row)`                    | `string`              | Get unique identifier for a row        |
+| `getRow(id)`                       | `T \| undefined`      | Get row by its ID                      |
+| `updateRow(id, changes, source?)`  | `void`                | Update a single row by ID              |
+| `updateRows(updates, source?)`     | `void`                | Batch update multiple rows             |
 | `resetChangedRows(silent?)`        | `Promise<void>`       | Clear change tracking                  |
 | `beginBulkEdit(rowIndex)`          | `Promise<void>`       | Start row editing                      |
 | `commitActiveRowEdit()`            | `Promise<void>`       | Commit current edit                    |
@@ -180,18 +179,19 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 
 ### Events
 
-| Event                   | Detail                      | Description                   |
-| ----------------------- | --------------------------- | ----------------------------- |
-| `cell-commit`           | `CellCommitDetail`          | Cell value committed          |
-| `row-commit`            | `RowCommitDetail`           | Row edit committed            |
-| `changed-rows-reset`    | `ChangedRowsResetDetail`    | Change tracking cleared       |
-| `sort-change`           | `SortChangeDetail`          | Sort state changed            |
-| `column-resize`         | `ColumnResizeDetail`        | Column resized                |
-| `column-state-change`   | `ColumnState`               | Column state changed          |
-| `activate-cell`         | `ActivateCellDetail`        | Cell activated                |
-| `group-toggle`          | `GroupToggleDetail`         | Row group expanded/collapsed  |
-| `mount-external-view`   | `ExternalMountViewDetail`   | External view mount request   |
-| `mount-external-editor` | `ExternalMountEditorDetail` | External editor mount request |
+| Event                   | Detail                      | Description                        |
+| ----------------------- | --------------------------- | ---------------------------------- |
+| `cell-commit`           | `CellCommitDetail`          | Cell value committed (inline edit) |
+| `cell-change`           | `CellChangeDetail`          | Row updated via Row Update API     |
+| `row-commit`            | `RowCommitDetail`           | Row edit committed                 |
+| `changed-rows-reset`    | `ChangedRowsResetDetail`    | Change tracking cleared            |
+| `sort-change`           | `SortChangeDetail`          | Sort state changed                 |
+| `column-resize`         | `ColumnResizeDetail`        | Column resized                     |
+| `column-state-change`   | `ColumnState`               | Column state changed               |
+| `activate-cell`         | `ActivateCellDetail`        | Cell activated                     |
+| `group-toggle`          | `GroupToggleDetail`         | Row group expanded/collapsed       |
+| `mount-external-view`   | `ExternalMountViewDetail`   | External view mount request        |
+| `mount-external-editor` | `ExternalMountEditorDetail` | External editor mount request      |
 
 Import event names from the `DGEvents` constant:
 
@@ -241,11 +241,22 @@ See [Storybook](https://oysteinamundsen.github.io/toolbox/) for complete configu
 interface GridConfig {
   columns?: ColumnConfig[];
   fitMode?: 'stretch' | 'fixed';
-  editOn?: 'click' | 'dblClick' | false;
   plugins?: BaseGridPlugin[]; // Array of plugin class instances
   icons?: GridIcons; // Centralized icon configuration
   shell?: ShellConfig; // Optional header bar and tool panels
+  getRowId?: (row: T) => string; // Custom row ID resolver
 }
+```
+
+### Row Identification
+
+The grid uses row IDs for the [Row Update API](#methods). By default, it looks for `id` or `_id` properties on row objects. Rows without an identifiable ID are not accessible via the Row Update API. For custom ID fields, provide a `getRowId` function:
+
+```typescript
+grid.gridConfig = {
+  columns: [...],
+  getRowId: (row) => row.employeeNumber, // Use custom field as ID
+};
 ```
 
 ### Icons Configuration

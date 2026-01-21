@@ -61,9 +61,8 @@ import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
  *     { field: 'name', header: 'Name', editable: true },
  *     { field: 'price', header: 'Price', type: 'number', editable: true },
  *   ],
- *   editOn: 'dblClick',
  *   plugins: [
- *     new EditingPlugin(),              // Required - must be first
+ *     new EditingPlugin({ editOn: 'dblclick' }), // Required - must be first
  *     new UndoRedoPlugin({ maxHistorySize: 50 }),
  *   ],
  * };

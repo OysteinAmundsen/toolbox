@@ -31,9 +31,8 @@ grid.gridConfig = {
     { field: 'price', header: 'Price', type: 'number', editable: true },
     { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
   ],
-  editOn: 'dblClick',
   plugins: [
-    new EditingPlugin(), // Required for editable columns
+    new EditingPlugin({ editOn: 'dblclick' }),
     new UndoRedoPlugin({
       maxHistorySize: 50, // Remember last 50 edits
     }),
@@ -59,9 +58,8 @@ function EditableGrid({ data }) {
           { field: 'price', header: 'Price', type: 'number', editable: true },
           { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
         ],
-        editOn: 'dblClick',
         plugins: [
-          new EditingPlugin(), // Required for editable columns
+          new EditingPlugin({ editOn: 'dblclick' }),
           new UndoRedoPlugin({ maxHistorySize: 50 }),
         ],
       };
@@ -95,9 +93,8 @@ onMounted(() => {
       { field: 'price', header: 'Price', type: 'number', editable: true },
       { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
     ],
-    editOn: 'dblClick',
     plugins: [
-      new EditingPlugin(), // Required for editable columns
+      new EditingPlugin({ editOn: 'dblclick' }),
       new UndoRedoPlugin({ maxHistorySize: 50 }),
     ],
   };
@@ -128,9 +125,8 @@ export class EditableGridComponent {
         { field: 'price', header: 'Price', type: 'number', editable: true },
         { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
       ],
-      editOn: 'dblClick',
       plugins: [
-        new EditingPlugin(), // Required for editable columns
+        new EditingPlugin({ editOn: 'dblclick' }),
         new UndoRedoPlugin({ maxHistorySize: 50 }),
       ],
     };

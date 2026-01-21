@@ -5,7 +5,7 @@
  * Centralizing them here avoids circular imports and reduces duplication.
  */
 
-import type { ColumnConfig, GridConfig, ToolPanelDefinition } from '../types';
+import type { ColumnConfig, GridConfig, ToolPanelDefinition, UpdateSource } from '../types';
 
 /**
  * Keyboard modifier flags
@@ -256,6 +256,43 @@ export interface GridElementRef {
   gridConfig: GridConfig;
   /** Effective (merged) configuration - the single source of truth. */
   effectiveConfig: GridConfig;
+
+  // =========================================================================
+  // Row Update API
+  // =========================================================================
+
+  /**
+   * Get the unique ID for a row.
+   * Uses configured `getRowId` function or falls back to `row.id` / `row._id`.
+   * @throws Error if no ID can be determined
+   */
+  getRowId(row: unknown): string;
+
+  /**
+   * Get a row by its ID.
+   * O(1) lookup via internal Map.
+   * @returns The row object, or undefined if not found
+   */
+  getRow(id: string): unknown | undefined;
+
+  /**
+   * Update a row by ID.
+   * Mutates the row in-place and emits `cell-change` for each changed field.
+   * @param id - Row identifier (from getRowId)
+   * @param changes - Partial row data to merge
+   * @param source - Origin of update (default: 'api')
+   * @throws Error if row is not found
+   */
+  updateRow(id: string, changes: Record<string, unknown>, source?: UpdateSource): void;
+
+  /**
+   * Batch update multiple rows.
+   * More efficient than multiple `updateRow()` calls - single render cycle.
+   * @param updates - Array of { id, changes } objects
+   * @param source - Origin of updates (default: 'api')
+   * @throws Error if any row is not found
+   */
+  updateRows(updates: Array<{ id: string; changes: Record<string, unknown> }>, source?: UpdateSource): void;
 
   // =========================================================================
   // Focus & Lifecycle

@@ -27,10 +27,9 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 
 ### Layout Properties
 
-| Property  | Type                                | Default      | Description            |
-| --------- | ----------------------------------- | ------------ | ---------------------- |
-| `fitMode` | `'stretch' \| 'fixed'`              | `'stretch'`  | Column sizing strategy |
-| `editOn`  | `'click' \| 'dblClick' \| false`    | `'dblClick'` | Edit trigger mode. Set to `false` to disable editing. |
+| Property  | Type                   | Default     | Description            |
+| --------- | ---------------------- | ----------- | ---------------------- |
+| `fitMode` | `'stretch' \| 'fixed'` | `'stretch'` | Column sizing strategy |
 
 ### Read-only Properties
 
@@ -43,13 +42,12 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 
 The grid supports configuration via HTML attributes for declarative usage. JSON-serialized values are used for complex types.
 
-| Attribute     | Maps to Property | Type   | Description                           |
-| ------------- | ---------------- | ------ | ------------------------------------- |
-| `rows`        | `rows`           | JSON   | Row data as JSON array                |
-| `columns`     | `columns`        | JSON   | Column config as JSON array           |
-| `grid-config` | `gridConfig`     | JSON   | Full config object as JSON            |
-| `fit-mode`    | `fitMode`        | string | `'stretch'` or `'fixed'`              |
-| `edit-on`     | `editOn`         | string | `'click'`, `'dblClick'`, or `'false'` |
+| Attribute     | Maps to Property | Type   | Description                |
+| ------------- | ---------------- | ------ | -------------------------- |
+| `rows`        | `rows`           | JSON   | Row data as JSON array     |
+| `columns`     | `columns`        | JSON   | Column config as JSON array|
+| `grid-config` | `gridConfig`     | JSON   | Full config object as JSON |
+| `fit-mode`    | `fitMode`        | string | `'stretch'` or `'fixed'`   |
 
 ### Example
 
@@ -58,7 +56,6 @@ The grid supports configuration via HTML attributes for declarative usage. JSON-
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
   columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
   fit-mode="stretch"
-  edit-on="dblClick"
 >
 </tbw-grid>
 ```
@@ -82,6 +79,82 @@ await grid.forceLayout();
 // Get current configuration (readonly)
 const config = await grid.getConfig();
 ```
+
+### Row Update API
+
+The Row Update API provides ID-based access to individual rows for reading and updating data. This is especially useful when you need to update rows after external changes (e.g., API responses, WebSocket events) without replacing the entire dataset.
+
+#### Row Identification
+
+The grid automatically determines row IDs using these sources (in order of precedence):
+
+1. `getRowId` function in gridConfig (custom ID resolution)
+2. `id` property on the row object
+3. `_id` property on the row object
+
+> **Note:** Rows without any of these will not be accessible via the Row Update API. Calls to `getRow()` or `updateRow()` for such rows will return `undefined` or have no effect.
+
+```typescript
+// Configure custom row ID resolution
+grid.gridConfig = {
+  columns: [...],
+  getRowId: (row) => row.employeeId, // Use a custom field as ID
+};
+
+// Get a row's ID
+const id = grid.getRowId(row);
+console.log(id); // "EMP-123"
+```
+
+#### Reading Rows
+
+```typescript
+// Get a single row by its ID
+const employee = grid.getRow('EMP-123');
+if (employee) {
+  console.log(employee.name);
+}
+
+// Returns undefined if the row is not found
+const missing = grid.getRow('unknown-id');
+console.log(missing); // undefined
+```
+
+#### Updating Rows
+
+```typescript
+// Update a single row by ID
+grid.updateRow('EMP-123', { status: 'active', salary: 75000 });
+
+// Batch update multiple rows
+grid.updateRows([
+  { id: 'EMP-123', changes: { status: 'active' } },
+  { id: 'EMP-456', changes: { department: 'Engineering' } },
+]);
+
+// Specify the update source (default: 'api')
+// Valid sources: 'user' | 'cascade' | 'api'
+grid.updateRow('EMP-123', { status: 'inactive' }, 'api');
+grid.updateRows(updates, 'api');
+```
+
+#### Listening to Row Updates
+
+The `cell-change` event fires whenever row data is updated via the Row Update API:
+
+```typescript
+import type { CellChangeDetail } from '@toolbox-web/grid';
+
+grid.addEventListener('cell-change', (e: CustomEvent<CellChangeDetail>) => {
+  const { rowId, changes, source, row } = e.detail;
+
+  console.log(`Row ${rowId} updated via ${source}:`);
+  console.log('Changes:', changes); // { status: 'active' }
+  console.log('Full row:', row);    // Complete row object after update
+});
+```
+
+> **Note:** The `cell-change` event is distinct from `cell-commit`, which fires during inline editing. Use `cell-change` for programmatic updates via `updateRow()`/`updateRows()`.
 
 ### Column Methods
 
@@ -189,11 +262,12 @@ const panels = grid.getToolPanels();
 
 ### Edit Events
 
-| Event                | Detail Type        | Cancelable | Description             |
-| -------------------- | ------------------ | ---------- | ----------------------- |
-| `cell-commit`        | `CellCommitDetail` | ✅ Yes      | Cell value was edited   |
-| `row-commit`         | `RowCommitDetail`  | No         | Bulk row edit completed |
-| `changed-rows-reset` | -                  | No         | Changed rows were reset |
+| Event                | Detail Type         | Cancelable | Description                         |
+| -------------------- | ------------------- | ---------- | ----------------------------------- |
+| `cell-commit`        | `CellCommitDetail`  | ✅ Yes     | Cell value was edited (inline)      |
+| `cell-change`        | `CellChangeDetail`  | No         | Row updated via Row Update API      |
+| `row-commit`         | `RowCommitDetail`   | No         | Bulk row edit completed             |
+| `changed-rows-reset` | -                   | No         | Changed rows were reset             |
 
 ```typescript
 grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
@@ -413,10 +487,10 @@ const columns: ColumnConfig[] = [
 interface GridConfig<T> {
   columns?: ColumnConfig[];
   fitMode?: 'stretch' | 'fixed';
-  editOn?: 'click' | 'dblClick' | false;
   plugins?: BaseGridPlugin[];
   shell?: ShellConfig;
   animation?: AnimationConfig;
+  getRowId?: (row: T) => string; // Custom row ID resolver
 
   // Dynamic row styling
   rowClass?: (row: T) => string[];
@@ -540,6 +614,17 @@ interface CellCommitDetail<T = any> {
   value: any;
   oldValue: any;
   rowIndex: number;
+}
+
+interface CellChangeDetail<T = any> {
+  row: T;              // Row object after mutation
+  rowId: string;       // Stable row identifier
+  rowIndex: number;    // Current index in rows array
+  field: string;       // Field that changed
+  oldValue: any;       // Value before change
+  newValue: any;       // Value after change
+  changes: Partial<T>; // All changes passed to updateRow/updateRows
+  source: string;      // Origin: 'api', 'websocket', etc.
 }
 
 interface SortChangeDetail {

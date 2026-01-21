@@ -441,7 +441,6 @@ import type {
 | `columns`      | `ColumnConfig[]`                           | Column definitions        |
 | `gridConfig`   | `GridConfig`                               | Full configuration object |
 | `fitMode`      | `'stretch' \| 'fit-columns' \| 'auto-fit'` | Column sizing mode        |
-| `editOn`       | `'click' \| 'dblclick' \| 'none'`          | Edit trigger              |
 | `customStyles` | `string`                                   | CSS to inject into grid   |
 | `onRowsChange` | `(rows: TRow[]) => void`                   | Rows changed callback     |
 | `onCellEdit`   | `(event: CustomEvent) => void`             | Cell edited callback      |

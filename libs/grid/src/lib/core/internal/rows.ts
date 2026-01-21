@@ -235,8 +235,19 @@ export function renderVisibleRows(
       }
     }
 
-    // Changed class toggle - only if EditingPlugin has initialized the Set
-    const isChanged = grid._changedRowIndices?.has(rowIndex) ?? false;
+    // Changed class toggle - check if row ID is in changedRowIds Set (EditingPlugin)
+    let isChanged = false;
+    const changedRowIds = grid.changedRowIds;
+    if (changedRowIds && changedRowIds.length > 0) {
+      try {
+        const rowId = grid.getRowId?.(rowData);
+        if (rowId) {
+          isChanged = changedRowIds.includes(rowId);
+        }
+      } catch {
+        // Row has no ID - not tracked as changed
+      }
+    }
     const hasChangedClass = rowEl.classList.contains('changed');
     if (isChanged !== hasChangedClass) {
       rowEl.classList.toggle('changed', isChanged);

@@ -75,6 +75,8 @@ export function queryGrid<TRow = unknown>(
  * @category Events
  */
 export const DGEvents = {
+  /** Emitted by core after any data mutation */
+  CELL_CHANGE: 'cell-change',
   CELL_COMMIT: 'cell-commit',
   ROW_COMMIT: 'row-commit',
   CHANGED_ROWS_RESET: 'changed-rows-reset',
@@ -154,6 +156,7 @@ export type {
   // Event detail types
   CellActivateDetail,
   CellActivateTrigger,
+  CellChangeDetail,
   CellClickDetail,
   CellCommitDetail,
   CellRenderContext,
@@ -196,6 +199,8 @@ export type {
   RowCommitDetail,
   // Grouping & Footer types
   RowGroupRenderConfig,
+  // Data update management
+  RowUpdate,
   ShellConfig,
   ShellHeaderConfig,
   SortChangeDetail,
@@ -205,6 +210,7 @@ export type {
   ToolbarContentDefinition,
   ToolPanelConfig,
   ToolPanelDefinition,
+  UpdateSource,
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage

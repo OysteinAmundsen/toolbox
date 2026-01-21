@@ -88,6 +88,15 @@ function getInputValue(
 }
 
 /**
+ * No-op updateRow function for rows without IDs.
+ * Extracted to a named function to satisfy eslint no-empty-function.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function noopUpdateRow(_changes: unknown): void {
+  // Row has no ID - cannot update
+}
+
+/**
  * Auto-wire commit/cancel lifecycle for input elements in string-returned editors.
  */
 function wireEditorInputs(
@@ -222,8 +231,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Snapshots of row data before editing started */
   #rowEditSnapshots = new Map<number, T>();
 
-  /** Set of row indices that have been modified */
-  #changedRowIndices = new Set<number>();
+  /** Set of row IDs that have been modified (ID-based for stability) */
+  #changedRowIds = new Set<string>();
 
   /** Set of cells currently in edit mode: "rowIndex:colIndex" */
   #editingCells = new Set<string>();
@@ -245,7 +254,6 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Inject editing state and methods onto grid for backward compatibility
     internalGrid._activeEditRows = -1;
     internalGrid._rowEditSnapshots = new Map();
-    internalGrid._changedRowIndices = new Set();
 
     // Inject changedRows getter
     Object.defineProperty(grid, 'changedRows', {
@@ -253,9 +261,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       configurable: true,
     });
 
-    // Inject changedRowIndices getter
-    Object.defineProperty(grid, 'changedRowIndices', {
-      get: () => this.changedRowIndices,
+    // Inject changedRowIds getter (new ID-based API)
+    Object.defineProperty(grid, 'changedRowIds', {
+      get: () => this.changedRowIds,
       configurable: true,
     });
 
@@ -301,7 +309,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#activeEditRow = -1;
     this.#activeEditCol = -1;
     this.#rowEditSnapshots.clear();
-    this.#changedRowIndices.clear();
+    this.#changedRowIds.clear();
     this.#editingCells.clear();
     super.detach();
   }
@@ -505,17 +513,22 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Get all rows that have been modified.
+   * Uses ID-based lookup for stability when rows are reordered.
    */
   get changedRows(): T[] {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
-    return Array.from(this.#changedRowIndices).map((i) => internalGrid._rows[i]);
+    const rows: T[] = [];
+    for (const id of this.#changedRowIds) {
+      const row = this.grid.getRow(id) as T | undefined;
+      if (row) rows.push(row);
+    }
+    return rows;
   }
 
   /**
-   * Get indices of all modified rows.
+   * Get IDs of all modified rows.
    */
-  get changedRowIndices(): number[] {
-    return Array.from(this.#changedRowIndices);
+  get changedRowIds(): string[] {
+    return Array.from(this.#changedRowIds);
   }
 
   /**
@@ -548,9 +561,26 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Check if a specific row has been modified.
+   * @param rowIndex - Row index to check (will be converted to ID internally)
    */
   isRowChanged(rowIndex: number): boolean {
-    return this.#changedRowIndices.has(rowIndex);
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const row = internalGrid._rows[rowIndex];
+    if (!row) return false;
+    try {
+      const rowId = internalGrid.getRowId?.(row);
+      return rowId ? this.#changedRowIds.has(rowId) : false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Check if a row with the given ID has been modified.
+   * @param rowId - Row ID to check
+   */
+  isRowChangedById(rowId: string): boolean {
+    return this.#changedRowIds.has(rowId);
   }
 
   /**
@@ -560,12 +590,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   resetChangedRows(silent?: boolean): void {
     const rows = this.changedRows;
-    const indices = this.changedRowIndices;
-    this.#changedRowIndices.clear();
+    const ids = this.changedRowIds;
+    this.#changedRowIds.clear();
     this.#syncGridEditState();
 
     if (!silent) {
-      this.emit<ChangedRowsResetDetail<T>>('changed-rows-reset', { rows, indices });
+      this.emit<ChangedRowsResetDetail<T>>('changed-rows-reset', { rows, ids });
     }
 
     // Clear visual indicators
@@ -693,7 +723,6 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
     internalGrid._activeEditRows = this.#activeEditRow;
     internalGrid._rowEditSnapshots = this.#rowEditSnapshots;
-    internalGrid._changedRowIndices = this.#changedRowIndices;
   }
 
   /**
@@ -717,6 +746,16 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const snapshot = this.#rowEditSnapshots.get(rowIndex);
     const current = internalGrid._rows[rowIndex];
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
+
+    // Get row ID for change tracking
+    let rowId: string | undefined;
+    if (current) {
+      try {
+        rowId = internalGrid.getRowId?.(current);
+      } catch {
+        // Row has no ID - skip ID-based tracking
+      }
+    }
 
     // Collect and commit values from active editors before re-rendering
     if (!revert && rowEl && current) {
@@ -745,15 +784,18 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       Object.keys(snapshot as object).forEach((k) => {
         (current as Record<string, unknown>)[k] = (snapshot as Record<string, unknown>)[k];
       });
-      this.#changedRowIndices.delete(rowIndex);
-    } else if (!revert) {
-      const changed = this.#changedRowIndices.has(rowIndex);
+      if (rowId) {
+        this.#changedRowIds.delete(rowId);
+      }
+    } else if (!revert && current) {
+      const changed = rowId ? this.#changedRowIds.has(rowId) : false;
       this.emit<RowCommitDetail<T>>('row-commit', {
         rowIndex,
+        rowId: rowId ?? '',
         row: current,
         changed,
         changedRows: this.changedRows,
-        changedRowIndices: this.changedRowIndices,
+        changedRowIds: this.changedRowIds,
       });
     }
 
@@ -794,6 +836,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Commit a single cell value change.
+   * Uses ID-based change tracking for stability when rows are reordered.
    */
   #commitCellValue(rowIndex: number, column: ColumnConfig<T>, newValue: unknown, rowData: T): void {
     const field = column.field;
@@ -801,18 +844,35 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const oldValue = (rowData as Record<string, unknown>)[field];
     if (oldValue === newValue) return;
 
-    const firstTime = !this.#changedRowIndices.has(rowIndex);
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+
+    // Get row ID for change tracking (may not exist if getRowId not configured)
+    let rowId: string | undefined;
+    try {
+      rowId = this.grid.getRowId(rowData);
+    } catch {
+      // Row has no ID - will still work but won't be tracked in changedRowIds
+    }
+
+    const firstTime = rowId ? !this.#changedRowIds.has(rowId) : true;
+
+    // Create updateRow helper for cascade updates (noop if row has no ID)
+    const updateRow: (changes: Partial<T>) => void = rowId
+      ? (changes) => this.grid.updateRow(rowId!, changes as Record<string, unknown>, 'cascade')
+      : noopUpdateRow;
 
     // Emit cancelable event BEFORE applying the value
     const cancelled = this.emitCancelable<CellCommitDetail<T>>('cell-commit', {
       row: rowData,
+      rowId: rowId ?? '',
       field,
       oldValue,
       value: newValue,
       rowIndex,
       changedRows: this.changedRows,
-      changedRowIndices: this.changedRowIndices,
+      changedRowIds: this.changedRowIds,
       firstTimeForRow: firstTime,
+      updateRow,
     });
 
     // If consumer called preventDefault(), abort the commit
@@ -820,10 +880,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Apply the value and mark row as changed
     (rowData as Record<string, unknown>)[field] = newValue;
-    this.#changedRowIndices.add(rowIndex);
+    if (rowId) {
+      this.#changedRowIds.add(rowId);
+    }
     this.#syncGridEditState();
 
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
     if (rowEl) rowEl.classList.add('changed');
   }
@@ -841,6 +902,19 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   ): void {
     if (!column.editable) return;
     if (cell.classList.contains('editing')) return;
+
+    // Get row ID for updateRow helper (may not exist)
+    let rowId: string | undefined;
+    try {
+      rowId = this.grid.getRowId(rowData);
+    } catch {
+      // Row has no ID
+    }
+
+    // Create updateRow helper for cascade updates (noop if row has no ID)
+    const updateRow: (changes: Partial<T>) => void = rowId
+      ? (changes) => this.grid.updateRow(rowId!, changes as Record<string, unknown>, 'cascade')
+      : noopUpdateRow;
 
     const originalValue = isSafePropertyKey(column.field)
       ? (rowData as Record<string, unknown>)[column.field]
@@ -904,7 +978,16 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         });
       }
     } else if (typeof editorSpec === 'function') {
-      const ctx: EditorContext<T> = { row: rowData, value, field: column.field, column, commit, cancel };
+      const ctx: EditorContext<T> = {
+        row: rowData,
+        rowId: rowId ?? '',
+        value,
+        field: column.field,
+        column,
+        commit,
+        cancel,
+        updateRow,
+      };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const produced = (editorSpec as any)(ctx);
       if (typeof produced === 'string') {
@@ -921,12 +1004,20 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         });
       }
     } else if (editorSpec && typeof editorSpec === 'object') {
-      const internalGrid = this.grid as unknown as InternalGrid<T>;
       const placeholder = document.createElement('div');
       placeholder.setAttribute('data-external-editor', '');
       placeholder.setAttribute('data-field', column.field);
       editorHost.appendChild(placeholder);
-      const context: EditorContext<T> = { row: rowData, value, field: column.field, column, commit, cancel };
+      const context: EditorContext<T> = {
+        row: rowData,
+        rowId: rowId ?? '',
+        value,
+        field: column.field,
+        column,
+        commit,
+        cancel,
+        updateRow,
+      };
       if (editorSpec.mount) {
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -935,7 +1026,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           console.warn(`[tbw-grid] External editor mount error for column '${column.field}':`, e);
         }
       } else {
-        (internalGrid as unknown as HTMLElement).dispatchEvent(
+        (this.grid as unknown as HTMLElement).dispatchEvent(
           new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context } }),
         );
       }

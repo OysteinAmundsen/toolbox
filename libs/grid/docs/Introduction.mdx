@@ -131,14 +131,13 @@ grid.gridConfig = {
     { field: 'name', editable: true },
     // ...
   ],
-  plugins: [new EditingPlugin()],
-  editOn: 'dblClick', // or 'click'
+  plugins: [new EditingPlugin({ editOn: 'dblclick' })], // or 'click'
 };
 ```
 
 The grid provides:
 
-- **Click** or **double-click** to edit (configurable via `editOn`)
+- **Click** or **double-click** to edit (configurable via `EditingPlugin({ editOn })`)}
 - Built-in editors for text, number, boolean (checkbox), date, and select
 - **Enter** to confirm, **Escape** to cancel
 - **Tab/Shift+Tab** navigation between editable cells

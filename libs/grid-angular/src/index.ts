@@ -7,6 +7,10 @@
 
 export { AngularGridAdapter } from './lib/angular-grid-adapter';
 
+// Type registry for application-wide type defaults
+export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from './lib/grid-type-registry';
+export type { AngularTypeDefault } from './lib/grid-type-registry';
+
 // Directives and context types
 export { GridColumnEditor } from './lib/directives/grid-column-editor.directive';
 export type { GridEditorContext } from './lib/directives/grid-column-editor.directive';

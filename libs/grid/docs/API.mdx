@@ -491,6 +491,7 @@ interface GridConfig<T> {
   shell?: ShellConfig;
   animation?: AnimationConfig;
   getRowId?: (row: T) => string; // Custom row ID resolver
+  typeDefaults?: Record<string, TypeDefault<T>>; // Type-level renderer/editor defaults
 
   // Dynamic row styling
   rowClass?: (row: T) => string[];
@@ -519,6 +520,46 @@ const config: GridConfig<Employee> = {
 - Classes are automatically cleaned up when row/cell data changes
 - Errors in callbacks are caught and logged to console (rendering continues)
 - See the [RowClass](?path=/story/grid-core--row-class) and [CellClass](?path=/story/grid-core--cell-class) stories for live demos
+
+#### typeDefaults
+
+Define renderers and editors at the type level, applying to all columns with matching `type`:
+
+```typescript
+interface TypeDefault<TRow = unknown> {
+  renderer?: ColumnViewRenderer<TRow>;  // Custom cell renderer
+  editor?: ColumnEditorSpec<TRow>;      // Custom cell editor
+  editorParams?: Record<string, unknown>; // Default editor parameters
+}
+
+const config: GridConfig<Employee> = {
+  typeDefaults: {
+    country: {
+      renderer: (ctx) => {
+        const span = document.createElement('span');
+        span.textContent = `🌍 ${ctx.value}`;
+        return span;
+      },
+      editor: (ctx) => {
+        const select = document.createElement('select');
+        // ... build country dropdown
+        return select;
+      },
+    },
+    currency: {
+      editorParams: { min: 0, step: 0.01 },
+    },
+  },
+  columns: [
+    { field: 'country', type: 'country', editable: true }, // Uses country renderer/editor
+    { field: 'salary', type: 'currency', editable: true }, // Uses currency editorParams
+  ],
+};
+```
+
+**Resolution Priority**: Column-level → Grid typeDefaults → App-level (framework adapter) → Built-in
+
+See the [Editing Plugin docs](?path=/docs/grid-plugins-editing--docs#type-level-defaults) for detailed examples.
 
 ### Animation Configuration
 

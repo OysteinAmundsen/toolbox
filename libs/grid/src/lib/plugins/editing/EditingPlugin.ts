@@ -16,7 +16,13 @@
  */
 
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ColumnInternal, InternalGrid, RowElementInternal } from '../../core/types';
+import type {
+  ColumnConfig,
+  ColumnEditorSpec,
+  ColumnInternal,
+  InternalGrid,
+  RowElementInternal,
+} from '../../core/types';
 import styles from './editing.css?inline';
 import { defaultEditorFor } from './editors';
 import type { CellCommitDetail, ChangedRowsResetDetail, EditingConfig, EditorContext, RowCommitDetail } from './types';
@@ -34,6 +40,47 @@ export const FOCUSABLE_EDITOR_SELECTOR =
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Resolves the editor for a column using the priority chain:
+ * 1. Column-level (`column.editor`)
+ * 2. Light DOM template (`__editorTemplate` → returns 'template')
+ * 3. Grid-level (`gridConfig.typeDefaults[column.type]`)
+ * 4. App-level (framework adapter's `getTypeDefault`)
+ * 5. Returns undefined (caller uses built-in defaultEditorFor)
+ */
+function resolveEditor<TRow>(
+  grid: InternalGrid<TRow>,
+  col: ColumnInternal<TRow>,
+): ColumnEditorSpec<TRow, unknown> | 'template' | undefined {
+  // 1. Column-level editor (highest priority)
+  if (col.editor) return col.editor;
+
+  // 2. Light DOM template
+  const tplHolder = col.__editorTemplate;
+  if (tplHolder) return 'template';
+
+  // No type specified - no type defaults to check
+  if (!col.type) return undefined;
+
+  // 3. Grid-level typeDefaults (access via effectiveConfig)
+  const gridTypeDefaults = (grid as any).effectiveConfig?.typeDefaults;
+  if (gridTypeDefaults?.[col.type]?.editor) {
+    return gridTypeDefaults[col.type].editor as ColumnEditorSpec<TRow, unknown>;
+  }
+
+  // 4. App-level registry (via framework adapter)
+  const adapter = grid.__frameworkAdapter;
+  if (adapter?.getTypeDefault) {
+    const appDefault = adapter.getTypeDefault<TRow>(col.type);
+    if (appDefault?.editor) {
+      return appDefault.editor as ColumnEditorSpec<TRow, unknown>;
+    }
+  }
+
+  // 5. No custom editor - caller uses built-in defaultEditorFor
+  return undefined;
+}
 
 /**
  * Returns true if the given property key is safe to use on a plain object.
@@ -460,6 +507,49 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   // #endregion
 
   // #region Render Hooks
+
+  /**
+   * Process columns to merge type-level editorParams with column-level.
+   * Column-level params take precedence.
+   * @internal
+   */
+  override processColumns(columns: ColumnConfig<T>[]): ColumnConfig<T>[] {
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const typeDefaults = (internalGrid as any).effectiveConfig?.typeDefaults;
+    const adapter = internalGrid.__frameworkAdapter;
+
+    // If no type defaults configured anywhere, skip processing
+    if (!typeDefaults && !adapter?.getTypeDefault) return columns;
+
+    return columns.map((col) => {
+      if (!col.type) return col;
+
+      // Get type-level editorParams
+      let typeEditorParams: Record<string, unknown> | undefined;
+
+      // Check grid-level typeDefaults first
+      if (typeDefaults?.[col.type]?.editorParams) {
+        typeEditorParams = typeDefaults[col.type].editorParams;
+      }
+
+      // Then check app-level (adapter) typeDefaults
+      if (!typeEditorParams && adapter?.getTypeDefault) {
+        const appDefault = adapter.getTypeDefault<T>(col.type);
+        if (appDefault?.editorParams) {
+          typeEditorParams = appDefault.editorParams;
+        }
+      }
+
+      // No type-level params to merge
+      if (!typeEditorParams) return col;
+
+      // Merge: type-level as base, column-level wins on conflicts
+      return {
+        ...col,
+        editorParams: { ...typeEditorParams, ...col.editorParams },
+      };
+    });
+  }
 
   /**
    * After render, reapply editors to cells in edit mode.
@@ -961,7 +1051,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     const colInternal = column as ColumnInternal<T>;
     const tplHolder = colInternal.__editorTemplate;
-    const editorSpec = colInternal.editor || (tplHolder ? 'template' : defaultEditorFor(column));
+    // Resolve editor using priority chain: column → template → typeDefaults → adapter → built-in
+    const editorSpec = resolveEditor(this.grid as InternalGrid<T>, colInternal) ?? defaultEditorFor(column);
     const value = originalValue;
 
     if (editorSpec === 'template' && tplHolder) {

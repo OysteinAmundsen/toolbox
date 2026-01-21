@@ -245,6 +245,7 @@ interface GridConfig {
   icons?: GridIcons; // Centralized icon configuration
   shell?: ShellConfig; // Optional header bar and tool panels
   getRowId?: (row: T) => string; // Custom row ID resolver
+  typeDefaults?: Record<string, TypeDefault<T>>; // Type-level renderers/editors
 }
 ```
 
@@ -280,6 +281,47 @@ grid.gridConfig = {
 ```
 
 Icons can be strings (text or HTML) or `HTMLElement` instances. Plugins use grid-level icons by default but can override with their own config when needed.
+
+### Type-Level Defaults
+
+Define renderers and editors at the type level that apply to all columns with matching `type`:
+
+```typescript
+grid.gridConfig = {
+  typeDefaults: {
+    country: {
+      renderer: (ctx) => {
+        const span = document.createElement('span');
+        span.textContent = `🌍 ${ctx.value}`;
+        return span;
+      },
+      editor: (ctx) => {
+        const select = document.createElement('select');
+        ['USA', 'UK', 'Germany'].forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          select.appendChild(opt);
+        });
+        select.value = ctx.value;
+        select.onchange = () => ctx.commit(select.value);
+        return select;
+      },
+    },
+    currency: {
+      editorParams: { min: 0, step: 0.01 },
+    },
+  },
+  columns: [
+    { field: 'country', type: 'country', editable: true }, // Uses country renderer/editor
+    { field: 'salary', type: 'currency', editable: true }, // Uses currency editorParams
+  ],
+};
+```
+
+**Resolution Priority:** Column-level → `gridConfig.typeDefaults` → Framework adapter → Built-in
+
+Framework adapters (`@toolbox-web/grid-react`, `@toolbox-web/grid-angular`) provide app-level type registries for React/Angular components.
 
 ### Plugin Configuration Example
 

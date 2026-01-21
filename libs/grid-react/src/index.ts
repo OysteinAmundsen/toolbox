@@ -8,6 +8,7 @@
  * - Custom cell editor support with commit/cancel handling
  * - Master-detail panel support with GridDetailPanel
  * - Custom tool panels with GridToolPanel
+ * - Type-level default renderers/editors via GridTypeProvider
  * - TypeScript generics for row type safety
  * - Ref-based access to underlying grid element
  */
@@ -21,6 +22,16 @@ export { GridColumn } from './lib/grid-column';
 export { GridDetailPanel, type DetailPanelContext, type GridDetailPanelProps } from './lib/grid-detail-panel';
 export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-button';
 export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
+
+// Type registry for application-wide type defaults
+export {
+  GridTypeProvider,
+  useGridTypeDefaults,
+  useTypeDefault,
+  type GridTypeProviderProps,
+  type ReactTypeDefault,
+  type TypeDefaultsMap,
+} from './lib/grid-type-registry';
 
 // React column config types (for defining renderers/editors in gridConfig)
 export type { ReactColumnConfig, ReactGridConfig } from './lib/react-column-config';

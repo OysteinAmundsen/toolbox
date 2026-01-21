@@ -254,6 +254,276 @@ import type {
 } from '@toolbox-web/grid/plugins/editing';
 ```
 
+## Type-Level Defaults
+
+Instead of configuring renderers and editors on every column, you can define **type-level defaults** that apply to all columns of a given type. This is especially useful for custom types like `country`, `currency`, or `status` that appear across multiple grids.
+
+### Grid-Level Type Defaults
+
+Define type defaults in your grid configuration:
+
+<Tabs>
+  <Tab label="Vanilla JS">
+```ts
+import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const grid = document.querySelector('tbw-grid');
+
+// Define custom renderers/editors for types
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'country', header: 'Country', type: 'country', editable: true },
+    { field: 'priority', header: 'Priority', type: 'priority' },
+  ],
+  // Type defaults apply to all columns with matching type
+  typeDefaults: {
+    country: {
+      renderer: (ctx) => {
+        const span = document.createElement('span');
+        span.textContent = `🌍 ${ctx.value}`;
+        return span;
+      },
+      editor: (ctx) => {
+        const select = document.createElement('select');
+        ['USA', 'UK', 'Germany', 'France'].forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          select.appendChild(opt);
+        });
+        select.value = ctx.value;
+        select.onchange = () => ctx.commit(select.value);
+        return select;
+      },
+    },
+    priority: {
+      renderer: (ctx) => {
+        const div = document.createElement('div');
+        div.className = `priority-${ctx.value}`;
+        div.textContent = ctx.value;
+        return div;
+      },
+    },
+  },
+  plugins: [new EditingPlugin()],
+};
+```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+// Type defaults with React components
+const config: ReactGridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'country', header: 'Country', type: 'country', editable: true },
+    { field: 'priority', header: 'Priority', type: 'priority' },
+  ],
+  typeDefaults: {
+    country: {
+      renderer: (ctx) => <span>🌍 {ctx.value}</span>,
+      editor: (ctx) => (
+        <select
+          defaultValue={ctx.value}
+          onChange={(e) => ctx.commit(e.target.value)}
+        >
+          <option value="USA">USA</option>
+          <option value="UK">UK</option>
+          <option value="Germany">Germany</option>
+        </select>
+      ),
+    },
+    priority: {
+      renderer: (ctx) => (
+        <span className={`priority-${ctx.value}`}>{ctx.value}</span>
+      ),
+    },
+  },
+  plugins: [new EditingPlugin()],
+};
+
+function MyGrid({ data }) {
+  return <DataGrid rows={data} gridConfig={config} />;
+}
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import type { GridConfig } from '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid [rows]="data" [gridConfig]="config" />`
+})
+export class MyGridComponent {
+  data = [...];
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'country', header: 'Country', type: 'country', editable: true },
+    ],
+    typeDefaults: {
+      country: {
+        renderer: (ctx) => {
+          const span = document.createElement('span');
+          span.textContent = `🌍 ${ctx.value}`;
+          return span;
+        },
+      },
+    },
+    plugins: [new EditingPlugin()],
+  };
+}
+```
+  </Tab>
+</Tabs>
+
+### Application-Level Type Defaults
+
+For defaults that apply across **all grids** in your application, use the framework adapter's type registry:
+
+<Tabs>
+  <Tab label="React">
+```tsx
+// app.tsx
+import { GridTypeProvider, type TypeDefaultsMap } from '@toolbox-web/grid-react';
+import { CountryBadge, CountryEditor } from './components';
+
+// Define app-wide type defaults
+const typeDefaults: TypeDefaultsMap = {
+  country: {
+    renderer: (ctx) => <CountryBadge code={ctx.value} />,
+    editor: (ctx) => (
+      <CountryEditor value={ctx.value} onCommit={ctx.commit} />
+    ),
+  },
+  currency: {
+    renderer: (ctx) => <span>${ctx.value.toFixed(2)}</span>,
+  },
+};
+
+function App() {
+  return (
+    <GridTypeProvider defaults={typeDefaults}>
+      <Dashboard />
+    </GridTypeProvider>
+  );
+}
+
+// Any grid with type: 'country' columns now uses these components
+function Dashboard() {
+  return (
+    <DataGrid
+      rows={employees}
+      gridConfig={{
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'country', type: 'country', editable: true }, // Uses CountryBadge/Editor
+          { field: 'salary', type: 'currency' }, // Uses currency renderer
+        ],
+        plugins: [new EditingPlugin()],
+      }}
+    />
+  );
+}
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+// app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideGridTypeDefaults } from '@toolbox-web/grid-angular';
+import { CountryBadgeComponent, CountryEditorComponent } from './components';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideGridTypeDefaults({
+      country: {
+        renderer: CountryBadgeComponent,
+        editor: CountryEditorComponent,
+      },
+      currency: {
+        renderer: CurrencyCellComponent,
+      },
+    }),
+  ],
+};
+
+// grid.component.ts - type defaults automatically apply
+@Component({
+  template: `<tbw-grid [rows]="data" [gridConfig]="config" />`
+})
+export class GridComponent {
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'country', type: 'country', editable: true }, // Uses registered components
+      { field: 'salary', type: 'currency' },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+```
+  </Tab>
+</Tabs>
+
+### Resolution Priority
+
+When resolving a renderer or editor, the grid checks in this order:
+
+1. **Column-level** — `column.renderer` or `column.editor`
+2. **Grid-level** — `gridConfig.typeDefaults[column.type]`
+3. **App-level** — Framework adapter's type registry
+4. **Built-in** — Default editors for `string`, `number`, `boolean`, etc.
+
+A column-level renderer/editor always takes precedence, allowing overrides when needed.
+
+### Editor Parameters Merging
+
+When using type defaults with `editorParams`, parameters are merged with column-level params taking precedence:
+
+```ts
+// Grid config
+typeDefaults: {
+  number: {
+    editorParams: { min: 0, step: 1 }, // Type-level defaults
+  },
+}
+
+// Column config
+{ field: 'price', type: 'number', editorParams: { step: 0.01 } }
+
+// Result: { min: 0, step: 0.01 } — column's step overrides type default
+```
+
+### Custom Type Names
+
+The `type` property accepts any string, not just built-in types. Use descriptive names for your domain:
+
+```ts
+type: 'country'    // Geographic data
+type: 'currency'   // Money values
+type: 'priority'   // High/Medium/Low
+type: 'status'     // Active/Pending/Archived
+type: 'rating'     // Star ratings
+```
+
+TypeScript provides IntelliSense for built-in types while allowing custom strings:
+
+```ts
+import type { ColumnType } from '@toolbox-web/grid';
+
+const type: ColumnType = 'country'; // Works! Custom types allowed
+```
+
 ## Custom Editors
 
 For specialized input needs, provide a custom `editor` function:

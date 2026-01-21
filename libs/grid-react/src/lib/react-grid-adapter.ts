@@ -4,12 +4,14 @@ import type {
   ColumnEditorSpec,
   ColumnViewRenderer,
   FrameworkAdapter,
+  TypeDefault,
 } from '@toolbox-web/grid';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
+import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 
 /**
  * Registry mapping grid elements to their React render functions.
@@ -167,6 +169,17 @@ interface CellRootCache {
  */
 export class ReactGridAdapter implements FrameworkAdapter {
   private mountedViews: MountedView[] = [];
+  private typeDefaults: TypeDefaultsMap | null = null;
+
+  /**
+   * Sets the type defaults map for this adapter.
+   * Called by DataGrid when it receives type defaults from context.
+   *
+   * @internal
+   */
+  setTypeDefaults(defaults: TypeDefaultsMap | null): void {
+    this.typeDefaults = defaults;
+  }
 
   /**
    * Determines if this adapter can handle the given element.
@@ -373,6 +386,101 @@ export class ReactGridAdapter implements FrameworkAdapter {
           this.mountedViews.splice(index, 1);
         }
       };
+    };
+  }
+
+  /**
+   * Gets type-level defaults from the type defaults map.
+   *
+   * This enables application-wide type defaults configured via GridTypeProvider.
+   * The returned TypeDefault contains renderer/editor functions that render
+   * React components into the grid's cells.
+   *
+   * @example
+   * ```tsx
+   * // App.tsx
+   * const typeDefaults = {
+   *   country: {
+   *     renderer: (ctx) => <CountryBadge code={ctx.value} />,
+   *     editor: (ctx) => <CountrySelect value={ctx.value} onCommit={ctx.commit} />
+   *   }
+   * };
+   *
+   * <GridTypeProvider defaults={typeDefaults}>
+   *   <App />
+   * </GridTypeProvider>
+   *
+   * // Any grid with type: 'country' columns will use these components
+   * ```
+   */
+  getTypeDefault(type: string): TypeDefault | undefined {
+    if (!this.typeDefaults) {
+      return undefined;
+    }
+
+    const reactDefault = this.typeDefaults[type] as ReactTypeDefault | undefined;
+    if (!reactDefault) {
+      return undefined;
+    }
+
+    const typeDefault: TypeDefault = {
+      editorParams: reactDefault.editorParams,
+    };
+
+    // Create renderer function that renders React component
+    if (reactDefault.renderer) {
+      typeDefault.renderer = this.createTypeRenderer(reactDefault.renderer);
+    }
+
+    // Create editor function that renders React component
+    if (reactDefault.editor) {
+      typeDefault.editor = this.createTypeEditor(reactDefault.editor);
+    }
+
+    return typeDefault;
+  }
+
+  /**
+   * Creates a renderer function from a React render function for type defaults.
+   * @internal
+   */
+  private createTypeRenderer<TRow = unknown, TValue = unknown>(
+    renderFn: (ctx: CellRenderContext<TRow, TValue>) => ReactNode,
+  ): ColumnViewRenderer<TRow, TValue> {
+    return (ctx: CellRenderContext<TRow, TValue>) => {
+      const container = document.createElement('span');
+      container.style.display = 'contents';
+
+      const root = createRoot(container);
+      this.mountedViews.push({ root, container });
+
+      flushSync(() => {
+        root.render(renderFn(ctx) as React.ReactElement);
+      });
+
+      return container;
+    };
+  }
+
+  /**
+   * Creates an editor function from a React render function for type defaults.
+   * @internal
+   */
+  private createTypeEditor<TRow = unknown, TValue = unknown>(
+    renderFn: (ctx: ColumnEditorContext<TRow, TValue>) => ReactNode,
+  ): ColumnEditorSpec<TRow, TValue> {
+    return (ctx: ColumnEditorContext<TRow, TValue>) => {
+      const container = document.createElement('span');
+      container.style.display = 'contents';
+
+      const root = createRoot(container);
+      this.mountedViews.push({ root, container });
+
+      flushSync(() => {
+        root.render(renderFn(ctx) as React.ReactElement);
+      });
+
+      return container;
     };
   }
 

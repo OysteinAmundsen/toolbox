@@ -1,9 +1,12 @@
 import {
   ApplicationRef,
+  ComponentRef,
+  createComponent,
   EmbeddedViewRef,
   EnvironmentInjector,
   EventEmitter,
   TemplateRef,
+  Type,
   ViewContainerRef,
 } from '@angular/core';
 import type {
@@ -12,12 +15,14 @@ import type {
   ColumnEditorSpec,
   ColumnViewRenderer,
   FrameworkAdapter,
+  TypeDefault,
 } from '@toolbox-web/grid';
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
 import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
 import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';
+import { GridTypeRegistry } from './grid-type-registry';
 
 /**
  * Helper to get view template from either structural directive or nested directive.
@@ -106,6 +111,8 @@ function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorConte
  */
 export class AngularGridAdapter implements FrameworkAdapter {
   private viewRefs: EmbeddedViewRef<unknown>[] = [];
+  private componentRefs: ComponentRef<unknown>[] = [];
+  private typeRegistry: GridTypeRegistry | null = null;
 
   constructor(
     private injector: EnvironmentInjector,
@@ -114,6 +121,13 @@ export class AngularGridAdapter implements FrameworkAdapter {
   ) {
     // Register globally for directive access
     (window as any).__ANGULAR_GRID_ADAPTER__ = this;
+
+    // Try to get the type registry from the injector
+    try {
+      this.typeRegistry = this.injector.get(GridTypeRegistry, null);
+    } catch {
+      // GridTypeRegistry not available - type defaults won't be resolved
+    }
   }
 
   /**
@@ -352,11 +366,164 @@ export class AngularGridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Clean up all view references.
+   * Gets type-level defaults from the application's GridTypeRegistry.
+   *
+   * This enables application-wide type defaults configured via `provideGridTypeDefaults()`.
+   * The returned TypeDefault contains renderer/editor functions that instantiate
+   * Angular components dynamically.
+   *
+   * @example
+   * ```typescript
+   * // app.config.ts
+   * export const appConfig: ApplicationConfig = {
+   *   providers: [
+   *     provideGridTypeDefaults({
+   *       country: {
+   *         renderer: CountryCellComponent,
+   *         editor: CountryEditorComponent
+   *       }
+   *     })
+   *   ]
+   * };
+   *
+   * // Any grid with type: 'country' columns will use these components
+   * gridConfig = {
+   *   columns: [{ field: 'country', type: 'country' }]
+   * };
+   * ```
+   */
+  getTypeDefault(type: string): TypeDefault | undefined {
+    if (!this.typeRegistry) {
+      return undefined;
+    }
+
+    const config = this.typeRegistry.get(type);
+    if (!config) {
+      return undefined;
+    }
+
+    const typeDefault: TypeDefault = {
+      editorParams: config.editorParams,
+    };
+
+    // Create renderer function that instantiates the Angular component
+    if (config.renderer) {
+      typeDefault.renderer = this.createComponentRenderer(config.renderer);
+    }
+
+    // Create editor function that instantiates the Angular component
+    if (config.editor) {
+      typeDefault.editor = this.createComponentEditor(config.editor);
+    }
+
+    return typeDefault;
+  }
+
+  /**
+   * Creates a renderer function from an Angular component class.
+   * @internal
+   */
+  private createComponentRenderer<TRow = unknown, TValue = unknown>(
+    componentClass: Type<unknown>,
+  ): ColumnViewRenderer<TRow, TValue> {
+    return (ctx: CellRenderContext<TRow, TValue>) => {
+      // Create a host element for the component
+      const hostElement = document.createElement('span');
+      hostElement.style.display = 'contents';
+
+      // Create the component dynamically
+      const componentRef = createComponent(componentClass, {
+        environmentInjector: this.injector,
+        hostElement,
+      });
+
+      // Set inputs - components should have value, row, column inputs
+      this.setComponentInputs(componentRef, {
+        value: ctx.value,
+        row: ctx.row,
+        column: ctx.column,
+      });
+
+      // Attach to app for change detection
+      this.appRef.attachView(componentRef.hostView);
+      this.componentRefs.push(componentRef);
+
+      // Trigger change detection
+      componentRef.changeDetectorRef.detectChanges();
+
+      return hostElement;
+    };
+  }
+
+  /**
+   * Creates an editor function from an Angular component class.
+   * @internal
+   */
+  private createComponentEditor<TRow = unknown, TValue = unknown>(
+    componentClass: Type<unknown>,
+  ): ColumnEditorSpec<TRow, TValue> {
+    return (ctx: ColumnEditorContext<TRow, TValue>) => {
+      // Create a host element for the component
+      const hostElement = document.createElement('span');
+      hostElement.style.display = 'contents';
+
+      // Create the component dynamically
+      const componentRef = createComponent(componentClass, {
+        environmentInjector: this.injector,
+        hostElement,
+      });
+
+      // Set inputs - components should have value, row, column inputs
+      // Also provide commit/cancel callbacks
+      this.setComponentInputs(componentRef, {
+        value: ctx.value,
+        row: ctx.row,
+        column: ctx.column,
+      });
+
+      // Attach to app for change detection
+      this.appRef.attachView(componentRef.hostView);
+      this.componentRefs.push(componentRef);
+
+      // Trigger change detection
+      componentRef.changeDetectorRef.detectChanges();
+
+      // Auto-wire: Listen for commit/cancel events on the component's host element.
+      // Components can emit (commit) and (cancel) CustomEvents.
+      hostElement.addEventListener('commit', (e: Event) => {
+        const customEvent = e as CustomEvent<TValue>;
+        ctx.commit(customEvent.detail);
+      });
+      hostElement.addEventListener('cancel', () => {
+        ctx.cancel();
+      });
+
+      return hostElement;
+    };
+  }
+
+  /**
+   * Sets component inputs using Angular's setInput API.
+   * @internal
+   */
+  private setComponentInputs(componentRef: ComponentRef<unknown>, inputs: Record<string, unknown>): void {
+    for (const [key, value] of Object.entries(inputs)) {
+      try {
+        componentRef.setInput(key, value);
+      } catch {
+        // Input doesn't exist on component - that's okay, some inputs are optional
+      }
+    }
+  }
+
+  /**
+   * Clean up all view references and component references.
    * Call this when your app/component is destroyed.
    */
   destroy(): void {
     this.viewRefs.forEach((ref) => ref.destroy());
     this.viewRefs = [];
+    this.componentRefs.forEach((ref) => ref.destroy());
+    this.componentRefs = [];
   }
 }

@@ -11,6 +11,7 @@ React adapter for `@toolbox-web/grid` data grid component. Provides components a
 - ✅ **Full React integration** - Use JSX for cell renderers and editors
 - ✅ **Declarative columns** - Define columns via props or `GridColumn` components
 - ✅ **Render props** - Clean `children` syntax for custom cells
+- ✅ **Type-level defaults** - App-wide renderers/editors via `GridTypeProvider`
 - ✅ **Hooks API** - `useGrid` and `useGridEvent` for programmatic access
 - ✅ **Ref forwarding** - Access grid instance via `DataGridRef`
 - ✅ **Master-detail** - `GridDetailPanel` for expandable rows
@@ -352,6 +353,65 @@ function MyComponent() {
 
 See [useGridEvent](#usegridevent) above.
 
+## Type-Level Defaults
+
+Define app-wide renderers and editors for custom column types using `GridTypeProvider`:
+
+```tsx
+import { GridTypeProvider, DataGrid, type TypeDefaultsMap } from '@toolbox-web/grid-react';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+// Define type defaults at app level
+const typeDefaults: TypeDefaultsMap = {
+  country: {
+    renderer: (ctx) => <span>🌍 {ctx.value}</span>,
+    editor: (ctx) => (
+      <select defaultValue={ctx.value} onChange={(e) => ctx.commit(e.target.value)}>
+        <option value="USA">USA</option>
+        <option value="UK">UK</option>
+        <option value="Germany">Germany</option>
+      </select>
+    ),
+  },
+  currency: {
+    renderer: (ctx) => <span>${ctx.value.toFixed(2)}</span>,
+  },
+};
+
+// Wrap your app with the provider
+function App() {
+  return (
+    <GridTypeProvider defaults={typeDefaults}>
+      <Dashboard />
+    </GridTypeProvider>
+  );
+}
+
+// All grids with type: 'country' columns use these components
+function Dashboard() {
+  return (
+    <DataGrid
+      rows={employees}
+      gridConfig={{
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'country', type: 'country', editable: true },
+          { field: 'salary', type: 'currency' },
+        ],
+        plugins: [new EditingPlugin()],
+      }}
+    />
+  );
+}
+```
+
+**Hooks:**
+
+| Hook                    | Description                        |
+| ----------------------- | ---------------------------------- |
+| `useGridTypeDefaults()` | Get all type defaults from context |
+| `useTypeDefault(type)`  | Get defaults for a specific type   |
+
 ## Using Plugins
 
 Import plugins individually for smaller bundles:
@@ -403,20 +463,23 @@ Inject custom CSS into the grid:
 
 ### Exported Components
 
-| Component         | Description                          |
-| ----------------- | ------------------------------------ |
-| `DataGrid`        | Main grid component wrapper          |
-| `GridColumn`      | Declarative column with render props |
-| `GridDetailPanel` | Master-detail expandable panel       |
-| `GridToolPanel`   | Custom sidebar panel                 |
-| `GridToolButtons` | Toolbar button container             |
+| Component          | Description                          |
+| ------------------ | ------------------------------------ |
+| `DataGrid`         | Main grid component wrapper          |
+| `GridColumn`       | Declarative column with render props |
+| `GridDetailPanel`  | Master-detail expandable panel       |
+| `GridToolPanel`    | Custom sidebar panel                 |
+| `GridToolButtons`  | Toolbar button container             |
+| `GridTypeProvider` | App-level type defaults context      |
 
 ### Exported Hooks
 
-| Hook           | Description                               |
-| -------------- | ----------------------------------------- |
-| `useGrid`      | Grid ref with ready state and methods     |
-| `useGridEvent` | Type-safe event subscription with cleanup |
+| Hook                    | Description                               |
+| ----------------------- | ----------------------------------------- |
+| `useGrid`               | Grid ref with ready state and methods     |
+| `useGridEvent`          | Type-safe event subscription with cleanup |
+| `useGridTypeDefaults()` | Get all type defaults from context        |
+| `useTypeDefault(type)`  | Get defaults for a specific type          |
 
 ### Exported Types
 
@@ -430,6 +493,10 @@ import type {
   ToolPanelContext,
   DataGridRef,
   DataGridProps,
+  // Type-level defaults
+  ReactTypeDefault,
+  TypeDefaultsMap,
+  GridTypeProviderProps,
 } from '@toolbox-web/grid-react';
 ```
 

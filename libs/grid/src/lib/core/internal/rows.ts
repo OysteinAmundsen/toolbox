@@ -1,10 +1,51 @@
-import type { InternalGrid, RowElementInternal } from '../types';
+import type { ColumnInternal, ColumnViewRenderer, InternalGrid, RowElementInternal } from '../types';
 import { ensureCellVisible } from './keyboard';
 import { evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
 
 /** Callback type for plugin row rendering hook */
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
+
+// ============================================================================
+// Type Defaults Resolution
+// ============================================================================
+
+/**
+ * Resolves the renderer for a column using the priority chain:
+ * 1. Column-level (`column.renderer` / `column.viewRenderer`)
+ * 2. Grid-level (`gridConfig.typeDefaults[column.type]`)
+ * 3. App-level (framework adapter's `getTypeDefault`)
+ * 4. Returns undefined (caller uses built-in or fallback)
+ */
+export function resolveRenderer<TRow>(
+  grid: InternalGrid<TRow>,
+  col: ColumnInternal<TRow>,
+): ColumnViewRenderer<TRow, unknown> | undefined {
+  // 1. Column-level renderer (highest priority)
+  const columnRenderer = col.renderer || col.viewRenderer;
+  if (columnRenderer) return columnRenderer;
+
+  // No type specified - no type defaults to check
+  if (!col.type) return undefined;
+
+  // 2. Grid-level typeDefaults (access via effectiveConfig)
+  const gridTypeDefaults = (grid as any).effectiveConfig?.typeDefaults;
+  if (gridTypeDefaults?.[col.type]?.renderer) {
+    return gridTypeDefaults[col.type].renderer;
+  }
+
+  // 3. App-level registry (via framework adapter)
+  const adapter = grid.__frameworkAdapter;
+  if (adapter?.getTypeDefault) {
+    const appDefault = adapter.getTypeDefault<TRow>(col.type);
+    if (appDefault?.renderer) {
+      return appDefault.renderer;
+    }
+  }
+
+  // 4. No custom renderer - caller uses built-in/fallback
+  return undefined;
+}
 
 // ============================================================================
 // DOM State Helpers (used for virtualization cleanup)
@@ -300,6 +341,8 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
   let hasSpecialCols = grid.__hasSpecialColumns;
   if (hasSpecialCols === undefined) {
     hasSpecialCols = false;
+    const typeDefaults = (grid as any).effectiveConfig?.typeDefaults;
+    const adapter = grid.__frameworkAdapter;
     for (let i = 0; i < colsLen; i++) {
       const col = columns[i];
       if (
@@ -310,7 +353,10 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         col.externalView ||
         col.format ||
         col.type === 'date' ||
-        col.type === 'boolean'
+        col.type === 'boolean' ||
+        // Check for type-level renderers (grid-level or adapter-level)
+        (col.type && typeDefaults?.[col.type]?.renderer) ||
+        (col.type && adapter?.getTypeDefault?.(col.type)?.renderer)
       ) {
         hasSpecialCols = true;
         break;
@@ -405,7 +451,8 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     if (cell.classList.contains('editing')) continue;
 
     // Handle viewRenderer/renderer - must re-invoke to get updated content
-    const cellRenderer = col.renderer || col.viewRenderer;
+    // Uses priority chain: column → typeDefaults → adapter → built-in
+    const cellRenderer = resolveRenderer(grid, col);
     if (cellRenderer) {
       const value = rowData[col.field];
       // Pass cellEl for framework adapters that want to cache per-cell
@@ -500,8 +547,8 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
 
     const compiled = col.__compiledView;
     const tplHolder = col.__viewTemplate;
-    // Support both 'renderer' (ergonomic alias) and 'viewRenderer' (legacy)
-    const viewRenderer = col.renderer || col.viewRenderer;
+    // Resolve renderer using priority chain: column → typeDefaults → adapter → built-in
+    const viewRenderer = resolveRenderer(grid, col);
     const externalView = col.externalView;
 
     // Track if we used a template that needs sanitization

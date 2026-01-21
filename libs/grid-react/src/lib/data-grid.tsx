@@ -1,8 +1,9 @@
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, type ReactNode } from 'react';
+import { forwardRef, useContext, useEffect, useImperativeHandle, useMemo, useRef, type ReactNode } from 'react';
 import '../jsx.d.ts';
 import { getDetailRenderer } from './grid-detail-panel';
+import { GridTypeContextInternal } from './grid-type-registry';
 import { processReactGridConfig, type ReactGridConfig } from './react-column-config';
 import { ReactGridAdapter } from './react-grid-adapter';
 
@@ -262,8 +263,17 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   const gridRef = useRef<ExtendedGridElement>(null);
   const customStylesIdRef = useRef<string | null>(null);
 
+  // Get type defaults from context
+  const typeDefaults = useContext(GridTypeContextInternal);
+
   // Process gridConfig to convert React renderers/editors to DOM functions
   const processedGridConfig = useMemo(() => processReactGridConfig(gridConfig), [gridConfig]);
+
+  // Sync type defaults to the global adapter
+  useEffect(() => {
+    const adapter = ensureAdapterRegistered();
+    adapter.setTypeDefaults(typeDefaults);
+  }, [typeDefaults]);
 
   // Sync rows
   useEffect(() => {

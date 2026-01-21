@@ -161,6 +161,41 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
 export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'select';
 
 /**
+ * Column type - built-in primitives or custom type strings.
+ * Custom types (e.g., 'currency', 'country') can have type-level defaults via `typeDefaults`.
+ */
+export type ColumnType = PrimitiveColumnType | (string & {});
+
+/**
+ * Type-level defaults for renderers and editors.
+ * Applied to all columns of a given type unless overridden at column level.
+ *
+ * @example
+ * ```typescript
+ * typeDefaults: {
+ *   country: {
+ *     renderer: (ctx) => {
+ *       const span = document.createElement('span');
+ *       span.innerHTML = `<img src="/flags/${ctx.value}.svg" /> ${ctx.value}`;
+ *       return span;
+ *     }
+ *   },
+ *   date: {
+ *     editor: (ctx) => createDatePickerEditor(ctx)
+ *   }
+ * }
+ * ```
+ */
+export interface TypeDefault<TRow = unknown> {
+  /** Renderer template for this type */
+  renderer?: ColumnViewRenderer<TRow, unknown>;
+  /** Editor template for this type (requires EditingPlugin) */
+  editor?: ColumnEditorSpec<TRow, unknown>;
+  /** Default editorParams for this type */
+  editorParams?: Record<string, unknown>;
+}
+
+/**
  * Base contract for a column. Public; kept intentionally lean so host apps can extend via intersection types.
  * Prefer adding optional properties here only when broadly useful to most grids.
  */
@@ -169,8 +204,17 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   field: keyof TRow & string;
   /** Visible header label; defaults to capitalized field */
   header?: string;
-  /** Column data type; inferred if omitted */
-  type?: PrimitiveColumnType;
+  /**
+   * Column data type.
+   *
+   * Built-in types: `'string'`, `'number'`, `'date'`, `'boolean'`, `'select'`
+   *
+   * Custom types (e.g., `'currency'`, `'country'`) can have type-level defaults
+   * via `gridConfig.typeDefaults` or framework adapter registries.
+   *
+   * @default Inferred from first row data
+   */
+  type?: ColumnType;
   /** Column width in pixels; fixed size (no flexibility) */
   width?: string | number;
   /** Minimum column width in pixels (stretch mode only); when set, column uses minmax(minWidth, 1fr) */
@@ -366,6 +410,15 @@ export interface FrameworkAdapter {
    * The renderer receives a container element and optionally returns a cleanup function.
    */
   createToolPanelRenderer?(element: HTMLElement): ((container: HTMLElement) => void | (() => void)) | undefined;
+
+  /**
+   * Gets type-level defaults from an application-level registry.
+   * Used by Angular's `GridTypeRegistry` and React's `GridTypeProvider`.
+   *
+   * @param type - The column type (e.g., 'date', 'currency', 'country')
+   * @returns Type defaults for renderer/editor, or undefined if not registered
+   */
+  getTypeDefault?<TRow = unknown>(type: string): TypeDefault<TRow> | undefined;
 }
 
 // #region Internal-only augmented types (not re-exported publicly)
@@ -735,6 +788,37 @@ export interface GridConfig<TRow = any> {
    * ```
    */
   getRowId?: (row: TRow) => string;
+
+  /**
+   * Type-level renderer and editor defaults.
+   *
+   * Keys can be:
+   * - Built-in types: `'string'`, `'number'`, `'date'`, `'boolean'`, `'select'`
+   * - Custom types: `'currency'`, `'country'`, `'status'`, etc.
+   *
+   * Resolution order (highest priority first):
+   * 1. Column-level (`column.renderer` / `column.editor`)
+   * 2. Grid-level (`gridConfig.typeDefaults[column.type]`)
+   * 3. App-level (Angular `GridTypeRegistry`, React `GridTypeProvider`)
+   * 4. Built-in (checkbox for boolean, select for select, etc.)
+   * 5. Fallback (plain text / text input)
+   *
+   * @example
+   * ```typescript
+   * typeDefaults: {
+   *   date: { editor: myDatePickerEditor },
+   *   country: {
+   *     renderer: (ctx) => {
+   *       const span = document.createElement('span');
+   *       span.innerHTML = `<img src="/flags/${ctx.value}.svg" /> ${ctx.value}`;
+   *       return span;
+   *     },
+   *     editor: (ctx) => createCountrySelect(ctx)
+   *   }
+   * }
+   * ```
+   */
+  typeDefaults?: Record<string, TypeDefault<TRow>>;
 }
 // #endregion
 

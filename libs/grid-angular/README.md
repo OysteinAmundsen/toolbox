@@ -12,6 +12,7 @@ Angular adapter for `@toolbox-web/grid` data grid component. Provides directives
 - ✅ **Structural directives** - Clean `*tbwRenderer` and `*tbwEditor` syntax
 - ✅ **Template-driven renderers** - Use `<ng-template>` for custom cell views
 - ✅ **Template-driven editors** - Use `<ng-template>` for custom cell editors
+- ✅ **Type-level defaults** - App-wide renderers/editors via `provideGridTypeDefaults()`
 - ✅ **Auto-wiring** - Editor components just emit events, no manual binding needed
 - ✅ **Full type safety** - Typed template contexts (`GridCellContext`, `GridEditorContext`)
 - ✅ **Angular 17+** - Standalone components, signals support
@@ -297,6 +298,64 @@ import { Grid, GridToolPanel } from '@toolbox-web/grid-angular';
 })
 ```
 
+## Type-Level Defaults
+
+Define app-wide renderers and editors for custom column types using `provideGridTypeDefaults()`:
+
+```typescript
+// app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideGridTypeDefaults } from '@toolbox-web/grid-angular';
+import { CountryBadgeComponent, CountryEditorComponent, CurrencyCellComponent } from './components';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideGridTypeDefaults({
+      country: {
+        renderer: CountryBadgeComponent,
+        editor: CountryEditorComponent,
+      },
+      currency: {
+        renderer: CurrencyCellComponent,
+      },
+    }),
+  ],
+};
+```
+
+Then any grid with columns using `type: 'country'` will automatically use the registered components:
+
+```typescript
+// my-grid.component.ts
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import type { GridConfig } from '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid [rows]="data" [gridConfig]="config" />`,
+})
+export class MyGridComponent {
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'country', type: 'country', editable: true }, // Uses registered components
+      { field: 'salary', type: 'currency' },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+```
+
+**Services:**
+
+| Service              | Description                                 |
+| -------------------- | ------------------------------------------- |
+| `GridTypeRegistry`   | Injectable service for dynamic registration |
+| `GRID_TYPE_DEFAULTS` | Injection token for type defaults           |
+
 ## Using Plugins
 
 Import plugins individually for smaller bundles:
@@ -343,6 +402,14 @@ import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 | `GridDetailView`   | `tbw-grid-detail`        | Master-detail panel template           |
 | `GridToolPanel`    | `tbw-grid-tool-panel`    | Custom sidebar panel                   |
 
+### Type Registry
+
+| Export                      | Description                                  |
+| --------------------------- | -------------------------------------------- |
+| `provideGridTypeDefaults()` | Provider factory for app-level type defaults |
+| `GridTypeRegistry`          | Injectable service for dynamic registration  |
+| `GRID_TYPE_DEFAULTS`        | Injection token for type defaults            |
+
 ### Grid Directive Outputs
 
 | Output         | Type                              | Description          |
@@ -381,6 +448,8 @@ import type {
   RowCommitEvent,
   StructuralCellContext,
   StructuralEditorContext,
+  // Type-level defaults
+  AngularTypeDefault,
 } from '@toolbox-web/grid-angular';
 ```
 

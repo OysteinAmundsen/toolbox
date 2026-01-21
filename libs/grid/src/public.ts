@@ -170,6 +170,8 @@ export type {
   // Column state types
   ColumnSortState,
   ColumnState,
+  // Type-level defaults
+  ColumnType,
   ColumnViewRenderer,
   DataGridCustomEvent,
   DataGridElement as DataGridElementInterface,
@@ -210,6 +212,7 @@ export type {
   ToolbarContentDefinition,
   ToolPanelConfig,
   ToolPanelDefinition,
+  TypeDefault,
   UpdateSource,
 } from './lib/core/types';
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.2.0...grid-react-0.3.0) (2026-01-21)
+
+
+### Features
+
+* **grid:** add row update api ([#51](https://github.com/OysteinAmundsen/toolbox/issues/51)) ([c75010c](https://github.com/OysteinAmundsen/toolbox/commit/c75010c2128d54e6874a060375d8c1b540db1ac9))
+* **grid:** add type-level default renderers and editors ([b13421d](https://github.com/OysteinAmundsen/toolbox/commit/b13421d8abad014d3e3e486545db6c9ff7126d6e))
+
 ## [0.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.1.0...grid-react-0.2.0) (2026-01-19)
 
 

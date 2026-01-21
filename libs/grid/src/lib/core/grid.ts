@@ -1869,8 +1869,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Dispatch a cell click event to the plugin system.
-   * Returns true if any plugin handled the event.
+   * Dispatch a cell click event to the plugin system, then emit a public event.
+   * Plugins get first chance to handle the event. After plugins process it,
+   * a `cell-click` CustomEvent is dispatched for external listeners.
+   *
+   * @returns `true` if any plugin handled (consumed) the event
+   * @fires cell-click - Emitted after plugins process the click, with full cell context
    */
   _dispatchCellClick(event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement): boolean {
     const row = this._rows[rowIndex];
@@ -1887,12 +1891,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       originalEvent: event,
     };
 
-    return this.#pluginManager?.onCellClick(cellClickEvent) ?? false;
+    // Let plugins handle first
+    const handled = this.#pluginManager?.onCellClick(cellClickEvent) ?? false;
+
+    // Emit public event for external listeners (reuse same event object)
+    this.#emit('cell-click', cellClickEvent);
+
+    return handled;
   }
 
   /**
-   * Dispatch a row click event to the plugin system.
-   * Returns true if any plugin handled the event.
+   * Dispatch a row click event to the plugin system, then emit a public event.
+   * Plugins get first chance to handle the event. After plugins process it,
+   * a `row-click` CustomEvent is dispatched for external listeners.
+   *
+   * @returns `true` if any plugin handled (consumed) the event
+   * @fires row-click - Emitted after plugins process the click, with full row context
    */
   _dispatchRowClick(event: MouseEvent, rowIndex: number, row: any, rowEl: HTMLElement): boolean {
     if (!row) return false;
@@ -1904,7 +1918,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       originalEvent: event,
     };
 
-    return this.#pluginManager?.onRowClick(rowClickEvent) ?? false;
+    // Let plugins handle first
+    const handled = this.#pluginManager?.onRowClick(rowClickEvent) ?? false;
+
+    // Emit public event for external listeners (reuse same event object)
+    this.#emit('row-click', rowClickEvent);
+
+    return handled;
   }
 
   /**

@@ -149,6 +149,7 @@ export type {
   AnimationStyle,
   BaseColumnConfig,
   // Event detail types
+  CellClickDetail,
   CellCommitDetail,
   CellRenderContext,
   ChangedRowsResetDetail,
@@ -186,6 +187,7 @@ export type {
   PrimitiveColumnType,
   // Public interface
   PublicGrid,
+  RowClickDetail,
   RowCommitDetail,
   // Grouping & Footer types
   RowGroupRenderConfig,

@@ -1068,6 +1068,46 @@ export interface ChangedRowsResetDetail<TRow = unknown> {
 }
 
 /**
+ * Detail for a cell click event.
+ * Provides full context about the clicked cell including row data.
+ *
+ * @category Events
+ */
+export interface CellClickDetail<TRow = unknown> {
+  /** Zero-based row index of the clicked cell. */
+  rowIndex: number;
+  /** Zero-based column index of the clicked cell. */
+  colIndex: number;
+  /** Field name of the clicked column. */
+  field: string;
+  /** Cell value at the clicked position. */
+  value: unknown;
+  /** Full row data object. */
+  row: TRow;
+  /** The clicked cell element. */
+  cellEl: HTMLElement;
+  /** The original mouse event. */
+  originalEvent: MouseEvent;
+}
+
+/**
+ * Detail for a row click event.
+ * Provides context about the clicked row.
+ *
+ * @category Events
+ */
+export interface RowClickDetail<TRow = unknown> {
+  /** Zero-based row index of the clicked row. */
+  rowIndex: number;
+  /** Full row data object. */
+  row: TRow;
+  /** The clicked row element. */
+  rowEl: HTMLElement;
+  /** The original mouse event. */
+  originalEvent: MouseEvent;
+}
+
+/**
  * Detail for a sort change (direction 0 indicates cleared sort).
  *
  * @category Events
@@ -1138,6 +1178,8 @@ export interface ExternalMountEditorDetail<TRow = unknown> {
  * @category Events
  */
 export interface DataGridEventMap<TRow = unknown> {
+  'cell-click': CellClickDetail<TRow>;
+  'row-click': RowClickDetail<TRow>;
   'cell-commit': CellCommitDetail<TRow>;
   'row-commit': RowCommitDetail<TRow>;
   'changed-rows-reset': ChangedRowsResetDetail<TRow>;

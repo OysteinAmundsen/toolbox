@@ -65,6 +65,59 @@ describe('tbw-grid integration: inference, sorting, editing', () => {
     expect(directions).toEqual([1, -1, 0]);
   });
 
+  it('emits cell-click with full cell context', async () => {
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    grid.columns = [{ field: 'id' }, { field: 'name' }];
+    await nextFrame();
+    await nextFrame();
+
+    const events: any[] = [];
+    grid.addEventListener('cell-click', (e: CustomEvent) => events.push(e.detail));
+
+    // Click on the "name" cell of the second row (row=1, col=1)
+    const rows = grid.querySelectorAll('.data-grid-row');
+    const secondRow = rows[1] as HTMLElement;
+    const nameCell = secondRow.querySelector('.cell[data-col="1"]') as HTMLElement;
+    nameCell.click();
+
+    expect(events.length).toBe(1);
+    expect(events[0].rowIndex).toBe(1);
+    expect(events[0].colIndex).toBe(1);
+    expect(events[0].field).toBe('name');
+    expect(events[0].value).toBe('Bob');
+    expect(events[0].row).toEqual({ id: 2, name: 'Bob' });
+    expect(events[0].cellEl).toBe(nameCell);
+    expect(events[0].originalEvent).toBeInstanceOf(MouseEvent);
+  });
+
+  it('emits row-click with full row context', async () => {
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    grid.columns = [{ field: 'id' }, { field: 'name' }];
+    await nextFrame();
+    await nextFrame();
+
+    const events: any[] = [];
+    grid.addEventListener('row-click', (e: CustomEvent) => events.push(e.detail));
+
+    // Click on the second row
+    const rows = grid.querySelectorAll('.data-grid-row');
+    const secondRow = rows[1] as HTMLElement;
+    const cell = secondRow.querySelector('.cell') as HTMLElement;
+    cell.click();
+
+    expect(events.length).toBe(1);
+    expect(events[0].rowIndex).toBe(1);
+    expect(events[0].row).toEqual({ id: 2, name: 'Bob' });
+    expect(events[0].rowEl).toBe(secondRow);
+    expect(events[0].originalEvent).toBeInstanceOf(MouseEvent);
+  });
+
   it('row editing commit & revert (Escape)', async () => {
     grid.gridConfig = {
       columns: [{ field: 'id' }, { field: 'name', editable: true }],

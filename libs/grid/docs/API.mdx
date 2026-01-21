@@ -224,7 +224,9 @@ grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
 
 | Event                 | Detail Type          | Cancelable | Description                            |
 | --------------------- | -------------------- | ---------- | -------------------------------------- |
-| `activate-cell`       | `ActivateCellDetail` | ✅ Yes      | Cell was focused/activated             |
+| `cell-click`          | `CellClickDetail`    | No         | Cell was clicked (after plugin handling) |
+| `row-click`           | `RowClickDetail`     | No         | Row was clicked (after plugin handling) |
+| `activate-cell`       | `ActivateCellDetail` | ✅ Yes      | Enter key pressed on focused cell      |
 | `column-resize`       | `ColumnResizeDetail` | No         | Column was resized                     |
 | `column-state-change` | `GridColumnState`    | No         | Column visibility or order changed     |
 

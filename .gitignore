@@ -58,3 +58,4 @@ test-output
 # RFC and analysis documents (local only)
 RFC-*.md
 ANALYSIS-*.md
+tsconfig.tsbuildinfo

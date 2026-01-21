@@ -38,19 +38,26 @@ function makeGrid() {
   });
   gridEl._bodyEl = bodyEl;
   gridEl._rowPool = [];
-  gridEl._changedRowIndices = new Set<number>();
+  gridEl._changedRowIdsSet = new Set<string>();
   gridEl._rowEditSnapshots = new Map<number, any>();
   gridEl._activeEditRows = -1;
+  Object.defineProperty(gridEl, 'changedRowIds', {
+    get() {
+      return Array.from(this._changedRowIdsSet) as string[];
+    },
+  });
   Object.defineProperty(gridEl, 'changedRows', {
     get() {
-      return (Array.from(this._changedRowIndices) as number[]).map((i) => this._rows[i]);
+      return this._rows.filter((row: any) => {
+        const id = row.id != null ? String(row.id) : undefined;
+        return id && this._changedRowIdsSet.has(id);
+      });
     },
   });
-  Object.defineProperty(gridEl, 'changedRowIndices', {
-    get() {
-      return Array.from(this._changedRowIndices) as number[];
-    },
-  });
+  gridEl.getRowId = (row: any) => {
+    if (row.id != null) return String(row.id);
+    throw new Error('No ID');
+  };
   gridEl.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
   gridEl._focusRow = -1;
   gridEl._focusCol = -1;
@@ -148,7 +155,9 @@ describe('renderVisibleRows', () => {
     });
     g._bodyEl = bodyEl;
     g._rowPool = [];
-    g._changedRowIndices = new Set<number>();
+    g._changedRowIdsSet = new Set<string>();
+    g.changedRowIds = [];
+    g.getRowId = (row: any) => (row.id != null ? String(row.id) : undefined);
     g._rowEditSnapshots = new Map<number, any>();
     g._activeEditRows = -1;
     g.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
@@ -192,7 +201,9 @@ describe('renderVisibleRows', () => {
     });
     g._bodyEl = bodyEl;
     g._rowPool = [];
-    g._changedRowIndices = new Set<number>();
+    g._changedRowIdsSet = new Set<string>();
+    g.changedRowIds = [];
+    g.getRowId = (row: any) => (row.id != null ? String(row.id) : undefined);
     g._rowEditSnapshots = new Map<number, any>();
     g._activeEditRows = -1;
     g.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
@@ -231,7 +242,9 @@ describe('renderVisibleRows', () => {
     });
     g._bodyEl = bodyEl;
     g._rowPool = [];
-    g._changedRowIndices = new Set<number>();
+    g._changedRowIdsSet = new Set<string>();
+    g.changedRowIds = [];
+    g.getRowId = (row: any) => (row.id != null ? String(row.id) : undefined);
     g._rowEditSnapshots = new Map<number, any>();
     g._activeEditRows = -1;
     g.findRenderedRowElement = (ri: number) => bodyEl.querySelectorAll('.data-grid-row')[ri] || null;
@@ -261,7 +274,9 @@ describe('handleRowClick', () => {
     });
     grid._bodyEl = bodyEl;
     grid._rowPool = [];
-    grid._changedRowIndices = new Set<number>();
+    grid._changedRowIdsSet = new Set<string>();
+    grid.changedRowIds = [];
+    grid.getRowId = (row: any) => (row.id != null ? String(row.id) : undefined);
     grid._rowEditSnapshots = new Map<number, any>();
     grid._activeEditRows = -1;
     grid._focusRow = -1;

@@ -124,6 +124,30 @@ To dynamically add or remove rows from the grid, simply assign a new array to th
 
 <Canvas of={EditingStories.AddRemoveRows} withToolbar />
 
+## Programmatic Row Updates
+
+To update individual row values without reassigning the entire `rows` array, use the **Row Update API**:
+
+```typescript
+// Update a single row by ID
+grid.updateRow('emp-123', { status: 'active', salary: 75000 });
+
+// Batch update multiple rows
+grid.updateRows([
+  { id: 'emp-123', changes: { status: 'active' } },
+  { id: 'emp-456', changes: { department: 'Engineering' } },
+]);
+
+// Listen for programmatic updates
+grid.addEventListener('cell-change', (e) => {
+  console.log('Row updated:', e.detail.rowId, e.detail.changes);
+});
+```
+
+> **Note:** The `cell-change` event fires for programmatic updates via `updateRow()`/`updateRows()`. The `cell-commit` event fires for inline edits made by users.
+
+See the [API Reference](../?path=/docs/grid-api--docs#row-update-api) for full documentation.
+
 ## Edit Triggers
 
 Configure how editing is triggered with the `editOn` config property:

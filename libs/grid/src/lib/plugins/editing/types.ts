@@ -50,6 +50,8 @@ export interface EditingConfig {
 export interface EditorContext<T = any, V = unknown> {
   /** The row data object */
   row: T;
+  /** Stable row identifier (from getRowId) */
+  rowId: string;
   /** Current cell value */
   value: V;
   /** Field name being edited */
@@ -60,4 +62,10 @@ export interface EditorContext<T = any, V = unknown> {
   commit: (newValue: V) => void;
   /** Call to cancel editing */
   cancel: () => void;
+  /**
+   * Update other fields in this row.
+   * Useful for editors that affect multiple fields (e.g., address lookup).
+   * Changes will be committed with source: 'cascade'.
+   */
+  updateRow: (changes: Partial<T>) => void;
 }

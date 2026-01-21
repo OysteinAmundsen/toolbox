@@ -44,6 +44,7 @@ import type {
 import { PluginManager } from './plugin/plugin-manager';
 import type {
   AnimationConfig,
+  CellChangeDetail,
   ColumnConfig,
   ColumnConfigMap,
   ColumnInternal,
@@ -56,6 +57,7 @@ import type {
   ResizeController,
   ToolbarContentDefinition,
   ToolPanelDefinition,
+  UpdateSource,
   VirtualState,
 } from './types';
 import { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS } from './types';
@@ -260,6 +262,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #shellState: ShellState = createShellState();
   #shellController!: ShellController;
   #resizeCleanup?: () => void;
+
+  // ---------------- Row ID Map ----------------
+  // O(1) lookup for rows by ID. Rebuilt when rows change.
+  #rowIdMap = new Map<string, { row: T; index: number }>();
   // #endregion
 
   // #region Derived State
@@ -1504,11 +1510,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       fitMode: false,
     };
 
-    // If gridConfig changed, it supersedes columns/rows/fit/edit changes
-    // because gridConfig includes all of those
+    // If gridConfig changed, it supersedes columns/fit changes
+    // but we still need to handle rows if set separately
     if (flags.gridConfig) {
       this.#applyGridConfigUpdate();
-      return; // gridConfig handles everything
+      // Still process rows if set separately (e.g., grid.gridConfig = ...; grid.rows = ...;)
+      if (flags.rows) {
+        this.#applyRowsUpdate();
+      }
+      return;
     }
 
     // Process remaining changes in dependency order
@@ -1526,9 +1536,61 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Individual update applicators - these do the actual work
   #applyRowsUpdate(): void {
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
+    // Rebuild row ID map for O(1) lookups
+    this.#rebuildRowIdMap();
     // Request a ROWS phase render through the scheduler.
     // This batches with any other pending work (e.g., React adapter's refreshColumns).
     this.#scheduler.requestPhase(RenderPhase.ROWS, 'applyRowsUpdate');
+  }
+
+  /**
+   * Rebuild the row ID map for O(1) lookups.
+   * Called when rows array changes.
+   */
+  #rebuildRowIdMap(): void {
+    this.#rowIdMap.clear();
+    const getRowId = this.#effectiveConfig.getRowId;
+
+    this._rows.forEach((row, index) => {
+      const id = this.#tryResolveRowId(row, getRowId);
+      if (id !== undefined) {
+        this.#rowIdMap.set(id, { row, index });
+      }
+      // Rows without IDs are skipped - they won't be accessible via getRow/updateRow
+    });
+  }
+
+  /**
+   * Try to resolve the ID for a row using configured getRowId or fallback.
+   * Returns undefined if no ID can be determined (non-throwing).
+   * Used internally by #rebuildRowIdMap.
+   */
+  #tryResolveRowId(row: T, getRowId?: (row: T) => string): string | undefined {
+    if (getRowId) {
+      return getRowId(row);
+    }
+
+    // Fallback: common ID fields
+    const r = row as Record<string, unknown>;
+    if ('id' in r && r.id != null) return String(r.id);
+    if ('_id' in r && r._id != null) return String(r._id);
+
+    return undefined;
+  }
+
+  /**
+   * Resolve the ID for a row, throwing if not found.
+   * Used by public getRowId() method.
+   */
+  #resolveRowIdOrThrow(row: T, getRowId?: (row: T) => string): string {
+    const id = this.#tryResolveRowId(row, getRowId);
+    if (id === undefined) {
+      throw new Error(
+        '[tbw-grid] Cannot determine row ID. ' +
+          'Configure getRowId in gridConfig or ensure rows have an "id" property.',
+      );
+    }
+    return id;
   }
 
   #applyColumnsUpdate(): void {
@@ -1596,6 +1658,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#render();
       this.#injectAllPluginStyles(); // Re-inject after render clears shadow DOM
       this.#afterConnect();
+      // Rebuild row ID map in case getRowId changed
+      this.#rebuildRowIdMap();
       return;
     }
 
@@ -1604,6 +1668,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (hadShell) {
       this.#updateShellHeaderInPlace();
     }
+
+    // Rebuild row ID map in case getRowId changed
+    this.#rebuildRowIdMap();
 
     // Request a COLUMNS phase render through the scheduler.
     // This batches with any other pending work (e.g., React adapter's refreshColumns).
@@ -2094,6 +2161,164 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   async getConfig(): Promise<Readonly<GridConfig<T>>> {
     return Object.freeze({ ...(this.#effectiveConfig || {}) });
+  }
+
+  // ---------------- Row Update API ----------------
+
+  /**
+   * Get the unique ID for a row.
+   * Uses the configured `getRowId` function or falls back to `row.id` / `row._id`.
+   *
+   * @group Data Management
+   * @param row - The row object
+   * @returns The row's unique identifier
+   * @throws Error if no ID can be determined
+   *
+   * @example
+   * ```typescript
+   * const id = grid.getRowId(row);
+   * console.log('Row ID:', id);
+   * ```
+   */
+  getRowId(row: T): string {
+    return this.#resolveRowIdOrThrow(row, this.#effectiveConfig.getRowId);
+  }
+
+  /**
+   * Get a row by its ID.
+   * O(1) lookup via internal Map.
+   *
+   * @group Data Management
+   * @param id - Row identifier (from getRowId)
+   * @returns The row object, or undefined if not found
+   *
+   * @example
+   * ```typescript
+   * const row = grid.getRow('cargo-123');
+   * if (row) {
+   *   console.log('Found:', row.name);
+   * }
+   * ```
+   */
+  getRow(id: string): T | undefined {
+    return this.#rowIdMap.get(id)?.row;
+  }
+
+  /**
+   * Update a row by ID.
+   * Mutates the row in-place and emits `cell-change` for each changed field.
+   *
+   * @group Data Management
+   * @param id - Row identifier (from getRowId)
+   * @param changes - Partial row data to merge
+   * @param source - Origin of update (default: 'api')
+   * @throws Error if row is not found
+   * @fires cell-change - For each field that changed
+   *
+   * @example
+   * ```typescript
+   * // WebSocket update handler
+   * socket.on('cargo-update', (data) => {
+   *   grid.updateRow(data.id, { status: data.status, eta: data.eta });
+   * });
+   * ```
+   */
+  updateRow(id: string, changes: Partial<T>, source: UpdateSource = 'api'): void {
+    const entry = this.#rowIdMap.get(id);
+    if (!entry) {
+      throw new Error(
+        `[tbw-grid] Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+      );
+    }
+
+    const { row, index } = entry;
+    const changedFields: Array<{ field: string; oldValue: unknown; newValue: unknown }> = [];
+
+    // Compute changes and apply in-place
+    for (const [field, newValue] of Object.entries(changes)) {
+      const oldValue = (row as Record<string, unknown>)[field];
+      if (oldValue !== newValue) {
+        changedFields.push({ field, oldValue, newValue });
+        (row as Record<string, unknown>)[field] = newValue;
+      }
+    }
+
+    // Emit cell-change for each changed field
+    for (const { field, oldValue, newValue } of changedFields) {
+      this.#emit('cell-change', {
+        row,
+        rowId: id,
+        rowIndex: index,
+        field,
+        oldValue,
+        newValue,
+        source,
+      } as CellChangeDetail<T>);
+    }
+
+    // Schedule re-render if anything changed
+    if (changedFields.length > 0) {
+      this.#scheduler.requestPhase(RenderPhase.ROWS, 'updateRow');
+    }
+  }
+
+  /**
+   * Batch update multiple rows.
+   * More efficient than multiple `updateRow()` calls - single render cycle.
+   *
+   * @group Data Management
+   * @param updates - Array of { id, changes } objects
+   * @param source - Origin of updates (default: 'api')
+   * @throws Error if any row is not found
+   * @fires cell-change - For each field that changed on each row
+   *
+   * @example
+   * ```typescript
+   * // Bulk status update
+   * grid.updateRows([
+   *   { id: 'cargo-1', changes: { status: 'shipped' } },
+   *   { id: 'cargo-2', changes: { status: 'shipped' } },
+   * ]);
+   * ```
+   */
+  updateRows(updates: Array<{ id: string; changes: Partial<T> }>, source: UpdateSource = 'api'): void {
+    let anyChanged = false;
+
+    for (const { id, changes } of updates) {
+      const entry = this.#rowIdMap.get(id);
+      if (!entry) {
+        throw new Error(
+          `[tbw-grid] Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+        );
+      }
+
+      const { row, index } = entry;
+
+      // Compute changes and apply in-place
+      for (const [field, newValue] of Object.entries(changes)) {
+        const oldValue = (row as Record<string, unknown>)[field];
+        if (oldValue !== newValue) {
+          anyChanged = true;
+          (row as Record<string, unknown>)[field] = newValue;
+
+          // Emit cell-change for each changed field
+          this.#emit('cell-change', {
+            row,
+            rowId: id,
+            rowIndex: index,
+            field,
+            oldValue,
+            newValue,
+            source,
+          } as CellChangeDetail<T>);
+        }
+      }
+    }
+
+    // Schedule single re-render for all changes
+    if (anyChanged) {
+      this.#scheduler.requestPhase(RenderPhase.ROWS, 'updateRows');
+    }
   }
 
   // ---------------- Column Visibility API ----------------

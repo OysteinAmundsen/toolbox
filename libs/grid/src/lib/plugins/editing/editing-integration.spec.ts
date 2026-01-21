@@ -222,9 +222,9 @@ describe('EditingPlugin', () => {
       // Value should be committed
       expect(grid.rows[0].name).toBe('Beta');
 
-      // Changed rows should track this
+      // Changed rows should track this (using ID-based tracking)
       expect(grid.changedRows?.length).toBe(1);
-      expect(grid.changedRowIndices?.includes(0)).toBe(true);
+      expect(grid.changedRowIds?.includes('1')).toBe(true);
     });
 
     it('reverts changes on Escape key', async () => {
@@ -694,7 +694,7 @@ describe('EditingPlugin', () => {
         ],
         plugins: [new EditingPlugin({ editOn: 'dblclick' })],
       };
-      grid.rows = [{ name: 'Task A', priority: 'High' }];
+      grid.rows = [{ id: 1, name: 'Task A', priority: 'High' }];
       await waitUpgrade(grid);
 
       const row = grid.querySelector('.data-grid-row') as HTMLElement;

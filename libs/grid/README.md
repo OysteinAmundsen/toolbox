@@ -169,6 +169,10 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `ready()`                          | `Promise<void>`       | Resolves when fully initialized        |
 | `forceLayout()`                    | `Promise<void>`       | Force re-layout                        |
 | `getConfig()`                      | `Promise<GridConfig>` | Get effective configuration            |
+| `getRowId(row)`                    | `string`              | Get unique identifier for a row        |
+| `getRow(id)`                       | `T \| undefined`      | Get row by its ID                      |
+| `updateRow(id, changes, source?)`  | `void`                | Update a single row by ID              |
+| `updateRows(updates, source?)`     | `void`                | Batch update multiple rows             |
 | `resetChangedRows(silent?)`        | `Promise<void>`       | Clear change tracking                  |
 | `beginBulkEdit(rowIndex)`          | `Promise<void>`       | Start row editing                      |
 | `commitActiveRowEdit()`            | `Promise<void>`       | Commit current edit                    |
@@ -180,18 +184,19 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 
 ### Events
 
-| Event                   | Detail                      | Description                   |
-| ----------------------- | --------------------------- | ----------------------------- |
-| `cell-commit`           | `CellCommitDetail`          | Cell value committed          |
-| `row-commit`            | `RowCommitDetail`           | Row edit committed            |
-| `changed-rows-reset`    | `ChangedRowsResetDetail`    | Change tracking cleared       |
-| `sort-change`           | `SortChangeDetail`          | Sort state changed            |
-| `column-resize`         | `ColumnResizeDetail`        | Column resized                |
-| `column-state-change`   | `ColumnState`               | Column state changed          |
-| `activate-cell`         | `ActivateCellDetail`        | Cell activated                |
-| `group-toggle`          | `GroupToggleDetail`         | Row group expanded/collapsed  |
-| `mount-external-view`   | `ExternalMountViewDetail`   | External view mount request   |
-| `mount-external-editor` | `ExternalMountEditorDetail` | External editor mount request |
+| Event                   | Detail                      | Description                        |
+| ----------------------- | --------------------------- | ---------------------------------- |
+| `cell-commit`           | `CellCommitDetail`          | Cell value committed (inline edit) |
+| `cell-change`           | `CellChangeDetail`          | Row updated via Row Update API     |
+| `row-commit`            | `RowCommitDetail`           | Row edit committed                 |
+| `changed-rows-reset`    | `ChangedRowsResetDetail`    | Change tracking cleared            |
+| `sort-change`           | `SortChangeDetail`          | Sort state changed                 |
+| `column-resize`         | `ColumnResizeDetail`        | Column resized                     |
+| `column-state-change`   | `ColumnState`               | Column state changed               |
+| `activate-cell`         | `ActivateCellDetail`        | Cell activated                     |
+| `group-toggle`          | `GroupToggleDetail`         | Row group expanded/collapsed       |
+| `mount-external-view`   | `ExternalMountViewDetail`   | External view mount request        |
+| `mount-external-editor` | `ExternalMountEditorDetail` | External editor mount request      |
 
 Import event names from the `DGEvents` constant:
 
@@ -245,7 +250,19 @@ interface GridConfig {
   plugins?: BaseGridPlugin[]; // Array of plugin class instances
   icons?: GridIcons; // Centralized icon configuration
   shell?: ShellConfig; // Optional header bar and tool panels
+  getRowId?: (row: T) => string; // Custom row ID resolver
 }
+```
+
+### Row Identification
+
+The grid uses row IDs for the [Row Update API](#methods). By default, it looks for `id` or `rowId` properties on row objects. For custom ID fields, provide a `getRowId` function:
+
+```typescript
+grid.gridConfig = {
+  columns: [...],
+  getRowId: (row) => row.employeeNumber, // Use custom field as ID
+};
 ```
 
 ### Icons Configuration

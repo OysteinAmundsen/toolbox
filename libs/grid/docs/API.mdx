@@ -83,6 +83,80 @@ await grid.forceLayout();
 const config = await grid.getConfig();
 ```
 
+### Row Update API
+
+The Row Update API provides ID-based access to individual rows for reading and updating data. This is especially useful when you need to update rows after external changes (e.g., API responses, WebSocket events) without replacing the entire dataset.
+
+#### Row Identification
+
+The grid automatically determines row IDs using these sources (in order of precedence):
+
+1. `getRowId` function in gridConfig (custom ID resolution)
+2. `id` property on the row object
+3. `rowId` property on the row object
+4. Falls back to row index (not recommended for mutable data)
+
+```typescript
+// Configure custom row ID resolution
+grid.gridConfig = {
+  columns: [...],
+  getRowId: (row) => row.employeeId, // Use a custom field as ID
+};
+
+// Get a row's ID
+const id = grid.getRowId(row);
+console.log(id); // "EMP-123"
+```
+
+#### Reading Rows
+
+```typescript
+// Get a single row by its ID
+const employee = grid.getRow('EMP-123');
+if (employee) {
+  console.log(employee.name);
+}
+
+// Returns undefined if the row is not found
+const missing = grid.getRow('unknown-id');
+console.log(missing); // undefined
+```
+
+#### Updating Rows
+
+```typescript
+// Update a single row by ID
+grid.updateRow('EMP-123', { status: 'active', salary: 75000 });
+
+// Batch update multiple rows
+grid.updateRows([
+  { id: 'EMP-123', changes: { status: 'active' } },
+  { id: 'EMP-456', changes: { department: 'Engineering' } },
+]);
+
+// Track the update source for debugging/logging
+grid.updateRow('EMP-123', { status: 'inactive' }, 'api-sync');
+grid.updateRows(updates, 'websocket');
+```
+
+#### Listening to Row Updates
+
+The `cell-change` event fires whenever row data is updated via the Row Update API:
+
+```typescript
+import type { CellChangeDetail } from '@toolbox-web/grid';
+
+grid.addEventListener('cell-change', (e: CustomEvent<CellChangeDetail>) => {
+  const { rowId, changes, source, row } = e.detail;
+
+  console.log(`Row ${rowId} updated via ${source}:`);
+  console.log('Changes:', changes); // { status: 'active' }
+  console.log('Full row:', row);    // Complete row object after update
+});
+```
+
+> **Note:** The `cell-change` event is distinct from `cell-commit`, which fires during inline editing. Use `cell-change` for programmatic updates via `updateRow()`/`updateRows()`.
+
 ### Column Methods
 
 ```typescript
@@ -189,11 +263,12 @@ const panels = grid.getToolPanels();
 
 ### Edit Events
 
-| Event                | Detail Type        | Cancelable | Description             |
-| -------------------- | ------------------ | ---------- | ----------------------- |
-| `cell-commit`        | `CellCommitDetail` | ✅ Yes      | Cell value was edited   |
-| `row-commit`         | `RowCommitDetail`  | No         | Bulk row edit completed |
-| `changed-rows-reset` | -                  | No         | Changed rows were reset |
+| Event                | Detail Type         | Cancelable | Description                         |
+| -------------------- | ------------------- | ---------- | ----------------------------------- |
+| `cell-commit`        | `CellCommitDetail`  | ✅ Yes     | Cell value was edited (inline)      |
+| `cell-change`        | `CellChangeDetail`  | No         | Row updated via Row Update API      |
+| `row-commit`         | `RowCommitDetail`   | No         | Bulk row edit completed             |
+| `changed-rows-reset` | -                   | No         | Changed rows were reset             |
 
 ```typescript
 grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {

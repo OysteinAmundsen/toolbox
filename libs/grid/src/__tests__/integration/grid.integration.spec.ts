@@ -118,6 +118,118 @@ describe('tbw-grid integration: inference, sorting, editing', () => {
     expect(events[0].originalEvent).toBeInstanceOf(MouseEvent);
   });
 
+  it('emits cell-activate with trigger:pointer on click', async () => {
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    grid.columns = [{ field: 'id' }, { field: 'name' }];
+    await nextFrame();
+    await nextFrame();
+
+    const events: any[] = [];
+    grid.addEventListener('cell-activate', (e: CustomEvent) => events.push(e.detail));
+
+    // Click on the "name" cell of the second row
+    const rows = grid.querySelectorAll('.data-grid-row');
+    const secondRow = rows[1] as HTMLElement;
+    const nameCell = secondRow.querySelector('.cell[data-col="1"]') as HTMLElement;
+    nameCell.click();
+
+    expect(events.length).toBe(1);
+    expect(events[0].trigger).toBe('pointer');
+    expect(events[0].rowIndex).toBe(1);
+    expect(events[0].colIndex).toBe(1);
+    expect(events[0].field).toBe('name');
+    expect(events[0].value).toBe('Bob');
+    expect(events[0].row).toEqual({ id: 2, name: 'Bob' });
+    expect(events[0].originalEvent).toBeInstanceOf(MouseEvent);
+  });
+
+  it('emits cell-activate with trigger:keyboard on Enter', async () => {
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    grid.columns = [{ field: 'id' }, { field: 'name' }];
+    await nextFrame();
+    await nextFrame();
+
+    const events: any[] = [];
+    grid.addEventListener('cell-activate', (e: CustomEvent) => events.push(e.detail));
+
+    // Focus the first cell, then navigate to second row, second column
+    grid._focusRow = 1;
+    grid._focusCol = 1;
+
+    // Press Enter on the focused cell
+    grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(events.length).toBe(1);
+    expect(events[0].trigger).toBe('keyboard');
+    expect(events[0].rowIndex).toBe(1);
+    expect(events[0].colIndex).toBe(1);
+    expect(events[0].field).toBe('name');
+    expect(events[0].value).toBe('Bob');
+    expect(events[0].row).toEqual({ id: 2, name: 'Bob' });
+    expect(events[0].originalEvent).toBeInstanceOf(KeyboardEvent);
+  });
+
+  it('cell-activate preventDefault blocks editing on click', async () => {
+    grid.gridConfig = {
+      columns: [{ field: 'id' }, { field: 'name', editable: true }],
+      plugins: [new EditingPlugin({ editOn: 'click' })],
+    };
+    grid.rows = [{ id: 1, name: 'Alpha' }];
+    await nextFrame();
+    await nextFrame();
+
+    // Block activation via preventDefault
+    grid.addEventListener('cell-activate', (e: CustomEvent) => {
+      e.preventDefault();
+    });
+
+    const row = grid.querySelector('.data-grid-row') as HTMLElement;
+    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+    nameCell.click();
+    await nextFrame();
+    await nextFrame();
+
+    // Should NOT have entered edit mode
+    const input = nameCell.querySelector('input');
+    expect(input).toBeNull();
+  });
+
+  it('cell-activate preventDefault blocks editing on Enter key', async () => {
+    grid.gridConfig = {
+      columns: [{ field: 'id' }, { field: 'name', editable: true }],
+      plugins: [new EditingPlugin()],
+    };
+    grid.rows = [{ id: 1, name: 'Alpha' }];
+    await nextFrame();
+    await nextFrame();
+
+    // Block activation via preventDefault
+    grid.addEventListener('cell-activate', (e: CustomEvent) => {
+      e.preventDefault();
+    });
+
+    // Focus the editable cell
+    grid._focusRow = 0;
+    grid._focusCol = 1;
+
+    // Press Enter
+    grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await nextFrame();
+    await nextFrame();
+
+    // Should NOT have entered edit mode
+    const row = grid.querySelector('.data-grid-row') as HTMLElement;
+    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+    const input = nameCell.querySelector('input');
+    expect(input).toBeNull();
+  });
+
   it('row editing commit & revert (Escape)', async () => {
     grid.gridConfig = {
       columns: [{ field: 'id' }, { field: 'name', editable: true }],

@@ -392,10 +392,51 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       if (editOn === false || editOn === 'manual') return false;
 
       const focusRow = internalGrid._focusRow;
+      const focusCol = internalGrid._focusCol;
       if (focusRow >= 0) {
         // Check if ANY column in the row is editable
         const hasEditableColumn = internalGrid._columns?.some((col) => col.editable);
         if (hasEditableColumn) {
+          // Emit cell-activate event BEFORE starting edit
+          // This ensures consumers always get the activation event
+          const column = internalGrid._visibleColumns[focusCol];
+          const row = internalGrid._rows[focusRow];
+          const field = column?.field ?? '';
+          const value = field && row ? (row as Record<string, unknown>)[field] : undefined;
+          const cellEl = this.gridElement.querySelector(`[data-row="${focusRow}"][data-col="${focusCol}"]`) as
+            | HTMLElement
+            | undefined;
+
+          const activateEvent = new CustomEvent('cell-activate', {
+            cancelable: true,
+            bubbles: true,
+            detail: {
+              rowIndex: focusRow,
+              colIndex: focusCol,
+              field,
+              value,
+              row,
+              cellEl,
+              trigger: 'keyboard' as const,
+              originalEvent: event,
+            },
+          });
+          this.gridElement.dispatchEvent(activateEvent);
+
+          // Also emit deprecated activate-cell for backwards compatibility
+          const legacyEvent = new CustomEvent('activate-cell', {
+            cancelable: true,
+            bubbles: true,
+            detail: { row: focusRow, col: focusCol },
+          });
+          this.gridElement.dispatchEvent(legacyEvent);
+
+          // If consumer canceled the activation, don't start editing
+          if (activateEvent.defaultPrevented || legacyEvent.defaultPrevented) {
+            event.preventDefault();
+            return true;
+          }
+
           this.beginBulkEdit(focusRow);
           return true;
         }

@@ -83,6 +83,8 @@ export const DGEvents = {
   SORT_CHANGE: 'sort-change',
   COLUMN_RESIZE: 'column-resize',
   ACTIVATE_CELL: 'activate-cell',
+  /** Unified cell activation event (keyboard or pointer) */
+  CELL_ACTIVATE: 'cell-activate',
   GROUP_TOGGLE: 'group-toggle',
   COLUMN_STATE_CHANGE: 'column-state-change',
 } as const;
@@ -141,6 +143,7 @@ export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
 
 // Public type exports
 export type {
+  /** @deprecated Use CellActivateDetail instead */
   ActivateCellDetail,
   AggregatorRef,
   // Animation types
@@ -149,6 +152,8 @@ export type {
   AnimationStyle,
   BaseColumnConfig,
   // Event detail types
+  CellActivateDetail,
+  CellActivateTrigger,
   CellClickDetail,
   CellCommitDetail,
   CellRenderContext,

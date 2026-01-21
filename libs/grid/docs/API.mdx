@@ -222,13 +222,14 @@ grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
 
 ### Interaction Events
 
-| Event                 | Detail Type          | Cancelable | Description                            |
-| --------------------- | -------------------- | ---------- | -------------------------------------- |
-| `cell-click`          | `CellClickDetail`    | No         | Cell was clicked (after plugin handling) |
-| `row-click`           | `RowClickDetail`     | No         | Row was clicked (after plugin handling) |
-| `activate-cell`       | `ActivateCellDetail` | ✅ Yes      | Enter key pressed on focused cell      |
-| `column-resize`       | `ColumnResizeDetail` | No         | Column was resized                     |
-| `column-state-change` | `GridColumnState`    | No         | Column visibility or order changed     |
+| Event                 | Detail Type            | Cancelable | Description                                        |
+| --------------------- | ---------------------- | ---------- | -------------------------------------------------- |
+| `cell-click`          | `CellClickDetail`      | No         | Cell was clicked (after plugin handling)           |
+| `row-click`           | `RowClickDetail`       | No         | Row was clicked (after plugin handling)            |
+| `cell-activate`       | `CellActivateDetail`   | ✅ Yes     | Cell activated via Enter or click. Check `trigger` |
+| `activate-cell`       | `ActivateCellDetail`   | ✅ Yes     | ⚠️ **Deprecated.** Use `cell-activate` instead     |
+| `column-resize`       | `ColumnResizeDetail`   | No         | Column was resized                                 |
+| `column-state-change` | `GridColumnState`      | No         | Column visibility or order changed                 |
 
 ### External Rendering Events
 
@@ -245,8 +246,8 @@ Some events are **cancelable**, meaning you can call `event.preventDefault()` to
 
 | Event           | Cancelable | Effect when cancelled                          |
 | --------------- | ---------- | ---------------------------------------------- |
-| `cell-commit`   | ✅ Yes      | Value change is rejected; cell keeps old value |
-| `activate-cell` | ✅ Yes      | Cell activation is blocked                     |
+| `cell-commit`   | ✅ Yes     | Value change is rejected; cell keeps old value |
+| `cell-activate` | ✅ Yes     | Cell activation is blocked                     |
 
 #### `cell-commit` — Validation Before Save
 
@@ -271,22 +272,40 @@ grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
 });
 ```
 
-#### `activate-cell` — Conditional Cell Activation
+#### `cell-activate` — Unified Cell Activation
 
-Block cell activation (Enter key) based on row/cell state. Useful for preventing interaction with certain cells.
+The `cell-activate` event fires when a cell is activated via **Enter key** or **click**. Use the `trigger` property to distinguish between keyboard and pointer activation.
+
+**This event fires BEFORE plugins process the activation**, allowing you to:
+- Block editing from starting by calling `e.preventDefault()`
+- Prevent selection changes on certain cells
+- Implement custom activation logic
 
 ```typescript
-grid.addEventListener('activate-cell', (e: CustomEvent<ActivateCellDetail>) => {
-  const { row, col } = e.detail;
-  const rowData = grid.rows?.[row];
+import type { CellActivateDetail } from '@toolbox-web/grid';
 
-  // Example: Prevent activation on locked rows
-  if (rowData?.locked) {
+grid.addEventListener('cell-activate', (e: CustomEvent<CellActivateDetail>) => {
+  const { rowIndex, colIndex, field, value, row, trigger } = e.detail;
+
+  // Handle both keyboard and pointer activation uniformly
+  console.log(`Cell ${field} activated via ${trigger}`);
+
+  // Or differentiate if needed
+  if (trigger === 'keyboard') {
+    // Enter key pressed
+  } else {
+    // Click/tap
+  }
+
+  // Block activation on locked rows (prevents editing from starting)
+  if ((row as any)?.locked) {
     e.preventDefault();
     return;
   }
 });
 ```
+
+> **Note:** The legacy `activate-cell` event is deprecated but still emitted for backwards compatibility. Migrate to `cell-activate` for unified keyboard/pointer handling.
 
 > **Note:** Non-cancelable events like `sort-change` and `column-resize` are informational—use column-level flags (`sortable: false`, `resizable: false`) to disable those features entirely.
 >

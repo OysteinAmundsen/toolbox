@@ -114,15 +114,45 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       e.preventDefault();
       break;
     // NOTE: Enter key is handled by EditingPlugin. If no plugin handles it,
-    // we dispatch a cancelable activate-cell event for custom handling.
+    // we dispatch the unified cell-activate event for custom handling.
     case 'Enter': {
-      const event = new CustomEvent('activate-cell', {
+      const rowIndex = grid._focusRow;
+      const colIndex = grid._focusCol;
+      const column = grid._visibleColumns[colIndex];
+      const row = grid._rows[rowIndex];
+      const field = column?.field ?? '';
+      const value = field && row ? (row as Record<string, unknown>)[field] : undefined;
+      const cellEl = (grid as unknown as HTMLElement).querySelector(
+        `[data-row="${rowIndex}"][data-col="${colIndex}"]`,
+      ) as HTMLElement | undefined;
+
+      const detail = {
+        rowIndex,
+        colIndex,
+        field,
+        value,
+        row,
+        cellEl,
+        trigger: 'keyboard' as const,
+        originalEvent: e,
+      };
+
+      // Emit unified cell-activate event
+      const activateEvent = new CustomEvent('cell-activate', {
         cancelable: true,
-        detail: { row: grid._focusRow, col: grid._focusCol },
+        detail,
       });
-      (grid as unknown as HTMLElement).dispatchEvent(event);
-      // If consumer prevented, block further keyboard processing
-      if (event.defaultPrevented) {
+      (grid as unknown as HTMLElement).dispatchEvent(activateEvent);
+
+      // Also emit deprecated activate-cell for backwards compatibility
+      const legacyEvent = new CustomEvent('activate-cell', {
+        cancelable: true,
+        detail: { row: rowIndex, col: colIndex },
+      });
+      (grid as unknown as HTMLElement).dispatchEvent(legacyEvent);
+
+      // If either event was prevented, block further keyboard processing
+      if (activateEvent.defaultPrevented || legacyEvent.defaultPrevented) {
         e.preventDefault();
         return;
       }

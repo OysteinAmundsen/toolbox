@@ -1873,7 +1873,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Plugins get first chance to handle the event. After plugins process it,
    * a `cell-click` CustomEvent is dispatched for external listeners.
    *
-   * @returns `true` if any plugin handled (consumed) the event
+   * @returns `true` if any plugin handled (consumed) the event, or if consumer canceled
+   * @fires cell-activate - Unified activation event (cancelable) - fires FIRST
    * @fires cell-click - Emitted after plugins process the click, with full cell context
    */
   _dispatchCellClick(event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement): boolean {
@@ -1881,20 +1882,46 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const col = this._columns[colIndex];
     if (!row || !col) return false;
 
+    const field = col.field;
+    const value = (row as Record<string, unknown>)[field];
+
+    // Emit cell-activate FIRST (cancelable) - consumers can prevent plugin behavior
+    const activateEvent = new CustomEvent('cell-activate', {
+      cancelable: true,
+      bubbles: true,
+      composed: true,
+      detail: {
+        rowIndex,
+        colIndex,
+        field,
+        value,
+        row,
+        cellEl,
+        trigger: 'pointer' as const,
+        originalEvent: event,
+      },
+    });
+    this.dispatchEvent(activateEvent);
+
+    // If consumer canceled, don't let plugins handle it
+    if (activateEvent.defaultPrevented) {
+      return true; // Treated as "handled"
+    }
+
     const cellClickEvent: CellClickEvent = {
       row,
       rowIndex,
       colIndex,
-      field: col.field,
-      value: (row as Record<string, unknown>)[col.field],
+      field,
+      value,
       cellEl,
       originalEvent: event,
     };
 
-    // Let plugins handle first
+    // Let plugins handle (editing, selection, etc.)
     const handled = this.#pluginManager?.onCellClick(cellClickEvent) ?? false;
 
-    // Emit public event for external listeners (reuse same event object)
+    // Emit informational cell-click event for external listeners
     this.#emit('cell-click', cellClickEvent);
 
     return handled;

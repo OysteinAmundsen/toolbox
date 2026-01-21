@@ -1132,7 +1132,42 @@ export interface ColumnResizeDetail {
 }
 
 /**
- * Fired when keyboard navigation or programmatic focus changes active cell.
+ * Trigger type for cell activation.
+ * - `'keyboard'`: Enter key pressed on focused cell
+ * - `'pointer'`: Mouse/touch/pen click on cell
+ *
+ * @category Events
+ */
+export type CellActivateTrigger = 'keyboard' | 'pointer';
+
+/**
+ * Fired when a cell is activated by user interaction (Enter key or click).
+ * Unified event for both keyboard and pointer activation.
+ *
+ * @category Events
+ */
+export interface CellActivateDetail<TRow = unknown> {
+  /** Zero-based row index of the activated cell. */
+  rowIndex: number;
+  /** Zero-based column index of the activated cell. */
+  colIndex: number;
+  /** Field name of the activated column. */
+  field: string;
+  /** Cell value at the activated position. */
+  value: unknown;
+  /** Full row data object. */
+  row: TRow;
+  /** The activated cell element. */
+  cellEl: HTMLElement;
+  /** What triggered the activation. */
+  trigger: CellActivateTrigger;
+  /** The original event (KeyboardEvent for keyboard, MouseEvent/PointerEvent for pointer). */
+  originalEvent: KeyboardEvent | MouseEvent | PointerEvent;
+}
+
+/**
+ * @deprecated Use `CellActivateDetail` instead. Will be removed in next major version.
+ * Kept for backwards compatibility.
  *
  * @category Events
  */
@@ -1180,6 +1215,7 @@ export interface ExternalMountEditorDetail<TRow = unknown> {
 export interface DataGridEventMap<TRow = unknown> {
   'cell-click': CellClickDetail<TRow>;
   'row-click': RowClickDetail<TRow>;
+  'cell-activate': CellActivateDetail<TRow>;
   'cell-commit': CellCommitDetail<TRow>;
   'row-commit': RowCommitDetail<TRow>;
   'changed-rows-reset': ChangedRowsResetDetail<TRow>;
@@ -1187,6 +1223,7 @@ export interface DataGridEventMap<TRow = unknown> {
   'mount-external-editor': ExternalMountEditorDetail<TRow>;
   'sort-change': SortChangeDetail;
   'column-resize': ColumnResizeDetail;
+  /** @deprecated Use 'cell-activate' instead */
   'activate-cell': ActivateCellDetail;
   'column-state-change': GridColumnState;
 }

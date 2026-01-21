@@ -9,6 +9,9 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import type { Employee } from '@demo/shared';
+import type { ColumnConfig } from '@toolbox-web/grid';
+import type { AngularCellEditor } from '@toolbox-web/grid-angular';
 
 interface StatusConfig {
   bg: string;
@@ -16,6 +19,10 @@ interface StatusConfig {
   icon: string;
 }
 
+/**
+ * Status select editor component implementing AngularCellEditor interface.
+ * Can be used via both template syntax (*tbwEditor) and component-class column config.
+ */
 @Component({
   selector: 'app-status-select-editor',
   imports: [CommonModule, FormsModule],
@@ -36,10 +43,18 @@ interface StatusConfig {
   `,
   styles: [],
 })
-export class StatusSelectEditorComponent implements AfterViewInit {
+export class StatusSelectEditorComponent
+  implements AngularCellEditor<Employee, string>, AfterViewInit
+{
+  // AngularCellEditor interface inputs
   value = input<string>('Active');
+  row = input<Employee>();
+  column = input<ColumnConfig<Employee>>();
+
+  // Outputs for commit/cancel
   commit = output<string>();
   cancel = output<void>();
+
   selectEl = viewChild.required<ElementRef<HTMLSelectElement>>('selectEl');
 
   currentValueModel = 'Active';

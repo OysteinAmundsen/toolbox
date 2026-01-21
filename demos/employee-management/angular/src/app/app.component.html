@@ -36,7 +36,7 @@
       id="employee-grid"
       class="demo-grid"
       [rows]="rows()"
-      [gridConfig]="gridConfig()"
+      [angularConfig]="gridConfig()"
       [customStyles]="customStyles"
       (cellCommit)="onCellCommit($event)"
       (column-move)="onColumnMove($event)"
@@ -78,10 +78,8 @@
           [salary]="row.salary"
         />
       </tbw-grid-column>
-      <tbw-grid-column field="rating">
-        <app-rating-display *tbwRenderer="let value" [value]="value" />
-        <app-star-rating-editor *tbwEditor="let value" [value]="value" />
-      </tbw-grid-column>
+      <!-- Rating column uses component-class config in gridConfig instead of templates -->
+      <!-- See grid-config.ts: { field: 'rating', renderer: RatingDisplayComponent, editor: StarRatingEditorComponent } -->
       <tbw-grid-column field="hireDate">
         <app-date-editor *tbwEditor="let value" [value]="value" />
       </tbw-grid-column>

@@ -2,6 +2,7 @@ import {
   AfterContentInit,
   ApplicationRef,
   Directive,
+  effect,
   ElementRef,
   EnvironmentInjector,
   inject,
@@ -13,6 +14,7 @@ import {
 } from '@angular/core';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import { MasterDetailPlugin } from '@toolbox-web/grid/all';
+import type { AngularGridConfig } from '../angular-column-config';
 import { AngularGridAdapter } from '../angular-grid-adapter';
 
 /**
@@ -95,6 +97,21 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
   private adapter: AngularGridAdapter | null = null;
   private cellCommitListener: ((e: Event) => void) | null = null;
+
+  constructor() {
+    // Effect to process angularConfig and apply to grid
+    effect(() => {
+      const config = this.angularConfig();
+      if (!config || !this.adapter) return;
+
+      // Process the config to convert component classes to actual renderer/editor functions
+      const processedConfig = this.adapter.processGridConfig(config);
+
+      // Apply to the grid element
+      const grid = this.elementRef.nativeElement;
+      grid.gridConfig = processedConfig;
+    });
+  }
   private rowCommitListener: ((e: Event) => void) | null = null;
 
   /**
@@ -115,6 +132,44 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   customStyles = input<string>();
+
+  /**
+   * Angular-specific grid configuration that supports component classes for renderers/editors.
+   *
+   * Use this input when you want to specify Angular component classes directly in column configs.
+   * Components must implement the appropriate interfaces:
+   * - Renderers: `AngularCellRenderer<TRow, TValue>` - requires `value()` and `row()` signal inputs
+   * - Editors: `AngularCellEditor<TRow, TValue>` - adds `commit` and `cancel` outputs
+   *
+   * The directive automatically processes component classes and converts them to grid-compatible
+   * renderer/editor functions before applying to the grid.
+   *
+   * @example
+   * ```typescript
+   * // Component that implements AngularCellEditor
+   * @Component({...})
+   * export class BonusEditorComponent implements AngularCellEditor<Employee, number> {
+   *   value = input.required<number>();
+   *   row = input.required<Employee>();
+   *   commit = output<number>();
+   *   cancel = output<void>();
+   * }
+   *
+   * // In your grid config
+   * config: AngularGridConfig<Employee> = {
+   *   columns: [
+   *     { field: 'name', header: 'Name' },
+   *     { field: 'bonus', header: 'Bonus', editable: true, editor: BonusEditorComponent }
+   *   ]
+   * };
+   * ```
+   *
+   * ```html
+   * <tbw-grid [angularConfig]="config" [rows]="employees"></tbw-grid>
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  angularConfig = input<AngularGridConfig<any>>();
 
   /**
    * Emitted when a cell value is committed (inline editing).

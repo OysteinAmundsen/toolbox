@@ -584,7 +584,7 @@ export type AggregatorRef = string | ((rows: unknown[], field: string, column?: 
 /** Result of automatic column inference from sample rows. */
 export interface InferredColumnResult<TRow = unknown> {
   columns: ColumnConfigMap<TRow>;
-  typeMap: Record<string, PrimitiveColumnType>;
+  typeMap: Record<string, ColumnType>;
 }
 
 export const FitModeEnum = {

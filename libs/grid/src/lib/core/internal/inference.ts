@@ -1,4 +1,4 @@
-import type { ColumnConfigMap, InferredColumnResult, PrimitiveColumnType } from '../types';
+import type { ColumnConfigMap, ColumnType, InferredColumnResult, PrimitiveColumnType } from '../types';
 /**
  * Best-effort primitive type inference for a cell value used during automatic column generation.
  */
@@ -19,7 +19,7 @@ export function inferColumns<TRow extends Record<string, unknown>>(
   provided?: ColumnConfigMap<TRow>,
 ): InferredColumnResult<TRow> {
   if (provided && provided.length) {
-    const typeMap: Record<string, PrimitiveColumnType> = {};
+    const typeMap: Record<string, ColumnType> = {};
     provided.forEach((col) => {
       if (col.type) typeMap[col.field] = col.type;
     });
@@ -31,7 +31,7 @@ export function inferColumns<TRow extends Record<string, unknown>>(
     const type = inferType(v);
     return { field: k as keyof TRow & string, header: k.charAt(0).toUpperCase() + k.slice(1), type };
   });
-  const typeMap: Record<string, PrimitiveColumnType> = {};
+  const typeMap: Record<string, ColumnType> = {};
   columns.forEach((c) => {
     typeMap[c.field] = c.type || 'string';
   });

@@ -26,12 +26,12 @@ import {
 import { COLUMN_GROUPS, createGridConfig } from './grid-config';
 
 // Import components so they're available in templates
+// Note: RatingDisplayComponent and StarRatingEditorComponent are configured via gridConfig,
+// not imported here (they use component-class column config instead of templates)
 import { BonusSliderEditorComponent } from './editors/bonus-slider-editor.component';
 import { DateEditorComponent } from './editors/date-editor.component';
-import { StarRatingEditorComponent } from './editors/star-rating-editor.component';
 import { StatusSelectEditorComponent } from './editors/status-select-editor.component';
 import { DetailPanelComponent } from './renderers/detail-panel.component';
-import { RatingDisplayComponent } from './renderers/rating-display.component';
 import { StatusBadgeComponent } from './renderers/status-badge.component';
 import { TopPerformerComponent } from './renderers/top-performer.component';
 import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-panels';
@@ -45,15 +45,13 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
     GridToolPanel,
     TbwRenderer,
     TbwEditor,
-    // Renderer components
+    // Renderer components (RatingDisplayComponent is configured in gridConfig instead)
     StatusBadgeComponent,
-    RatingDisplayComponent,
     TopPerformerComponent,
     DetailPanelComponent,
-    // Editor components
+    // Editor components (StarRatingEditorComponent is configured in gridConfig instead)
     StatusSelectEditorComponent,
     BonusSliderEditorComponent,
-    StarRatingEditorComponent,
     DateEditorComponent,
     // Tool panel components
     QuickFiltersPanelComponent,

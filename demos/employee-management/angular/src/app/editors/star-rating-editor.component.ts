@@ -9,7 +9,14 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import type { Employee } from '@demo/shared';
+import type { ColumnConfig } from '@toolbox-web/grid';
+import type { AngularCellEditor } from '@toolbox-web/grid-angular';
 
+/**
+ * Star rating editor implementing AngularCellEditor interface.
+ * Can be used via template syntax (*tbwEditor) or component-class column config.
+ */
 @Component({
   selector: 'app-star-rating-editor',
   imports: [CommonModule],
@@ -30,10 +37,18 @@ import {
   `,
   styles: [],
 })
-export class StarRatingEditorComponent implements AfterViewInit {
+export class StarRatingEditorComponent
+  implements AngularCellEditor<Employee, number>, AfterViewInit
+{
+  // AngularCellEditor interface inputs
   value = input<number>(3);
+  row = input<Employee>();
+  column = input<ColumnConfig<Employee>>();
+
+  // Outputs for commit/cancel
   commit = output<number>();
   cancel = output<void>();
+
   container = viewChild.required<ElementRef<HTMLDivElement>>('container');
 
   currentValue = signal(3);

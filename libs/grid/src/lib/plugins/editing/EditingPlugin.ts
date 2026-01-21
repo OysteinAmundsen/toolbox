@@ -1052,7 +1052,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const colInternal = column as ColumnInternal<T>;
     const tplHolder = colInternal.__editorTemplate;
     // Resolve editor using priority chain: column → template → typeDefaults → adapter → built-in
-    const editorSpec = resolveEditor(this.grid as InternalGrid<T>, colInternal) ?? defaultEditorFor(column);
+    const editorSpec = resolveEditor(this.grid as unknown as InternalGrid<T>, colInternal) ?? defaultEditorFor(column);
     const value = originalValue;
 
     if (editorSpec === 'template' && tplHolder) {

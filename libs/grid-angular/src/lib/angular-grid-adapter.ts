@@ -11,12 +11,15 @@ import {
 } from '@angular/core';
 import type {
   CellRenderContext,
+  ColumnConfig,
   ColumnEditorContext,
   ColumnEditorSpec,
   ColumnViewRenderer,
   FrameworkAdapter,
+  GridConfig,
   TypeDefault,
 } from '@toolbox-web/grid';
+import { isComponentClass, type AngularColumnConfig, type AngularGridConfig } from './angular-column-config';
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
@@ -128,6 +131,68 @@ export class AngularGridAdapter implements FrameworkAdapter {
     } catch {
       // GridTypeRegistry not available - type defaults won't be resolved
     }
+  }
+
+  /**
+   * Processes an Angular grid configuration, converting component class references
+   * to actual renderer/editor functions.
+   *
+   * Call this method on your gridConfig before passing it to the grid.
+   *
+   * @example
+   * ```typescript
+   * import { AngularGridAdapter, type AngularGridConfig } from '@toolbox-web/grid-angular';
+   *
+   * const config: AngularGridConfig<Employee> = {
+   *   columns: [
+   *     { field: 'status', renderer: StatusBadgeComponent, editor: StatusEditorComponent },
+   *   ],
+   * };
+   *
+   * // In component
+   * constructor() {
+   *   const adapter = inject(AngularGridAdapter); // or create new instance
+   *   this.processedConfig = adapter.processGridConfig(config);
+   * }
+   * ```
+   *
+   * @param config - Angular grid configuration with possible component class references
+   * @returns Processed GridConfig with actual renderer/editor functions
+   */
+  processGridConfig<TRow = unknown>(config: AngularGridConfig<TRow>): GridConfig<TRow> {
+    if (!config.columns) {
+      return config as GridConfig<TRow>;
+    }
+
+    const processedColumns = config.columns.map((col) => this.processColumn(col));
+
+    return {
+      ...config,
+      columns: processedColumns,
+    } as GridConfig<TRow>;
+  }
+
+  /**
+   * Processes a single column configuration, converting component class references
+   * to actual renderer/editor functions.
+   *
+   * @param column - Angular column configuration
+   * @returns Processed ColumnConfig
+   */
+  processColumn<TRow = unknown>(column: AngularColumnConfig<TRow>): ColumnConfig<TRow> {
+    const processed = { ...column } as ColumnConfig<TRow>;
+
+    // Convert renderer component class to function
+    if (column.renderer && isComponentClass(column.renderer)) {
+      processed.renderer = this.createComponentRenderer(column.renderer);
+    }
+
+    // Convert editor component class to function
+    if (column.editor && isComponentClass(column.editor)) {
+      processed.editor = this.createComponentEditor(column.editor);
+    }
+
+    return processed;
   }
 
   /**
@@ -392,7 +457,7 @@ export class AngularGridAdapter implements FrameworkAdapter {
    * };
    * ```
    */
-  getTypeDefault(type: string): TypeDefault | undefined {
+  getTypeDefault<TRow = unknown>(type: string): TypeDefault<TRow> | undefined {
     if (!this.typeRegistry) {
       return undefined;
     }
@@ -402,18 +467,18 @@ export class AngularGridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    const typeDefault: TypeDefault = {
+    const typeDefault: TypeDefault<TRow> = {
       editorParams: config.editorParams,
     };
 
     // Create renderer function that instantiates the Angular component
     if (config.renderer) {
-      typeDefault.renderer = this.createComponentRenderer(config.renderer);
+      typeDefault.renderer = this.createComponentRenderer<TRow, unknown>(config.renderer);
     }
 
     // Create editor function that instantiates the Angular component
     if (config.editor) {
-      typeDefault.editor = this.createComponentEditor(config.editor);
+      typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor);
     }
 
     return typeDefault;
@@ -474,7 +539,6 @@ export class AngularGridAdapter implements FrameworkAdapter {
       });
 
       // Set inputs - components should have value, row, column inputs
-      // Also provide commit/cancel callbacks
       this.setComponentInputs(componentRef, {
         value: ctx.value,
         row: ctx.row,
@@ -488,8 +552,13 @@ export class AngularGridAdapter implements FrameworkAdapter {
       // Trigger change detection
       componentRef.changeDetectorRef.detectChanges();
 
-      // Auto-wire: Listen for commit/cancel events on the component's host element.
-      // Components can emit (commit) and (cancel) CustomEvents.
+      // Subscribe to Angular outputs (commit/cancel) on the component instance.
+      // This works with Angular's output() signal API.
+      const instance = componentRef.instance as Record<string, unknown>;
+      this.subscribeToOutput(instance, 'commit', (value: TValue) => ctx.commit(value));
+      this.subscribeToOutput(instance, 'cancel', () => ctx.cancel());
+
+      // Also listen for DOM events as fallback (for components that dispatch CustomEvents)
       hostElement.addEventListener('commit', (e: Event) => {
         const customEvent = e as CustomEvent<TValue>;
         ctx.commit(customEvent.detail);
@@ -500,6 +569,25 @@ export class AngularGridAdapter implements FrameworkAdapter {
 
       return hostElement;
     };
+  }
+
+  /**
+   * Subscribes to an Angular output on a component instance.
+   * Works with both EventEmitter and OutputEmitterRef (signal outputs).
+   * @internal
+   */
+  private subscribeToOutput<T>(
+    instance: Record<string, unknown>,
+    outputName: string,
+    callback: (value: T) => void,
+  ): void {
+    const output = instance[outputName];
+    if (!output) return;
+
+    // Check if it's an Observable-like (EventEmitter or OutputEmitterRef)
+    if (typeof (output as { subscribe?: unknown }).subscribe === 'function') {
+      (output as { subscribe: (fn: (v: T) => void) => void }).subscribe(callback);
+    }
   }
 
   /**

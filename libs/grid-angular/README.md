@@ -12,6 +12,7 @@ Angular adapter for `@toolbox-web/grid` data grid component. Provides directives
 - ✅ **Structural directives** - Clean `*tbwRenderer` and `*tbwEditor` syntax
 - ✅ **Template-driven renderers** - Use `<ng-template>` for custom cell views
 - ✅ **Template-driven editors** - Use `<ng-template>` for custom cell editors
+- ✅ **Component-class column config** - Specify component classes directly in `gridConfig.columns`
 - ✅ **Type-level defaults** - App-wide renderers/editors via `provideGridTypeDefaults()`
 - ✅ **Auto-wiring** - Editor components just emit events, no manual binding needed
 - ✅ **Full type safety** - Typed template contexts (`GridCellContext`, `GridEditorContext`)
@@ -356,6 +357,102 @@ export class MyGridComponent {
 | `GridTypeRegistry`   | Injectable service for dynamic registration |
 | `GRID_TYPE_DEFAULTS` | Injection token for type defaults           |
 
+## Component-Class Column Config
+
+For maximum flexibility and type safety, you can specify Angular component classes directly in your `gridConfig.columns`. This approach gives you full control over the component lifecycle while keeping your grid configuration clean and concise.
+
+### Component Interfaces
+
+Your components should implement one of these interfaces:
+
+**Renderer components:**
+
+```typescript
+import { Component, input } from '@angular/core';
+import type { AngularCellRenderer, ColumnConfig } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-status-badge',
+  template: `<span [class]="'badge badge--' + value()">{{ value() }}</span>`,
+  standalone: true,
+})
+export class StatusBadgeComponent implements AngularCellRenderer<Employee, string> {
+  value = input.required<string>();
+  row = input.required<Employee>();
+  column = input<ColumnConfig>(); // Optional
+}
+```
+
+**Editor components:**
+
+```typescript
+import { Component, input, output } from '@angular/core';
+import type { AngularCellEditor, ColumnConfig } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-bonus-editor',
+  template: `
+    <input type="range" [min]="0" [max]="maxBonus()" [value]="value()" (input)="onInput($event)" />
+    <button (click)="cancel.emit()">Cancel</button>
+  `,
+  standalone: true,
+})
+export class BonusEditorComponent implements AngularCellEditor<Employee, number> {
+  value = input.required<number>();
+  row = input.required<Employee>();
+  column = input<ColumnConfig>(); // Optional
+
+  commit = output<number>();
+  cancel = output<void>();
+
+  // Computed property using row data
+  maxBonus = computed(() => this.row().salary * 0.5);
+
+  onInput(event: Event) {
+    const newValue = Number((event.target as HTMLInputElement).value);
+    this.commit.emit(newValue);
+  }
+}
+```
+
+### Using Components in Grid Config
+
+Use `AngularGridConfig` and `angularConfig` input for type-safe component references:
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, type AngularGridConfig } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { StatusBadgeComponent, BonusEditorComponent } from './components';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid [angularConfig]="config" [rows]="employees" />`,
+})
+export class MyGridComponent {
+  config: AngularGridConfig<Employee> = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'status', header: 'Status', renderer: StatusBadgeComponent },
+      { field: 'bonus', header: 'Bonus', editable: true, editor: BonusEditorComponent },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+```
+
+> **Note:** Use `[angularConfig]` instead of `[gridConfig]` when using component classes. The directive automatically processes the config and converts component classes to grid-compatible functions.
+
+### Interfaces Reference
+
+| Interface             | Required Inputs    | Required Outputs   | Description        |
+| --------------------- | ------------------ | ------------------ | ------------------ |
+| `AngularCellRenderer` | `value()`, `row()` | -                  | Read-only renderer |
+| `AngularCellEditor`   | `value()`, `row()` | `commit`, `cancel` | Editable cell      |
+
+Both interfaces also support an optional `column()` input for accessing the column configuration.
+
 ## Using Plugins
 
 Import plugins individually for smaller bundles:
@@ -410,6 +507,13 @@ import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 | `GridTypeRegistry`          | Injectable service for dynamic registration  |
 | `GRID_TYPE_DEFAULTS`        | Injection token for type defaults            |
 
+### Grid Directive Inputs
+
+| Input           | Type                      | Description                                            |
+| --------------- | ------------------------- | ------------------------------------------------------ |
+| `angularConfig` | `AngularGridConfig<TRow>` | Grid config with component class support (recommended) |
+| `customStyles`  | `string`                  | Custom CSS styles to inject into the grid              |
+
 ### Grid Directive Outputs
 
 | Output         | Type                              | Description          |
@@ -440,17 +544,27 @@ import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 
 ```typescript
 import type {
+  // Template contexts
   GridCellContext,
   GridEditorContext,
   GridDetailContext,
   GridToolPanelContext,
-  CellCommitEvent,
-  RowCommitEvent,
   StructuralCellContext,
   StructuralEditorContext,
+  // Events
+  CellCommitEvent,
+  RowCommitEvent,
   // Type-level defaults
   AngularTypeDefault,
+  // Component-class column config
+  AngularCellRenderer,
+  AngularCellEditor,
+  AngularColumnConfig,
+  AngularGridConfig,
 } from '@toolbox-web/grid-angular';
+
+// Type guard for component class detection
+import { isComponentClass } from '@toolbox-web/grid-angular';
 ```
 
 ### AngularGridAdapter

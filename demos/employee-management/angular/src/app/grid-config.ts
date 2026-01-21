@@ -1,5 +1,5 @@
 import { DEPARTMENTS, type Employee } from '@demo/shared';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { AngularGridConfig } from '@toolbox-web/grid-angular';
 import {
   ClipboardPlugin,
   ColumnVirtualizationPlugin,
@@ -16,6 +16,8 @@ import {
   UndoRedoPlugin,
   VisibilityPlugin,
 } from '@toolbox-web/grid/all';
+import { StarRatingEditorComponent } from './editors/star-rating-editor.component';
+import { RatingDisplayComponent } from './renderers/rating-display.component';
 
 export interface GridConfigOptions {
   enableSelection: boolean;
@@ -44,7 +46,7 @@ export const COLUMN_GROUPS = [
   },
 ];
 
-export function createGridConfig(options: GridConfigOptions): GridConfig {
+export function createGridConfig(options: GridConfigOptions): AngularGridConfig<Employee> {
   const { enableSelection, enableFiltering, enableSorting, enableEditing } = options;
 
   return {
@@ -147,7 +149,9 @@ export function createGridConfig(options: GridConfigOptions): GridConfig {
         width: 120,
         sortable: true,
         editable: enableEditing,
-        // editor and viewRenderer come from light DOM templates
+        // Component-class based renderer and editor (no template needed!)
+        renderer: RatingDisplayComponent,
+        editor: StarRatingEditorComponent,
       },
       { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50 },
       { field: 'location', header: 'Location', width: 110, sortable: true },

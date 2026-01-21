@@ -7,6 +7,15 @@
 
 export { AngularGridAdapter } from './lib/angular-grid-adapter';
 
+// Angular-specific column/grid config types (for component-based renderers/editors)
+export { isComponentClass } from './lib/angular-column-config';
+export type {
+  AngularCellEditor,
+  AngularCellRenderer,
+  AngularColumnConfig,
+  AngularGridConfig,
+} from './lib/angular-column-config';
+
 // Type registry for application-wide type defaults
 export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from './lib/grid-type-registry';
 export type { AngularTypeDefault } from './lib/grid-type-registry';

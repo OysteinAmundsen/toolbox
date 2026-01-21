@@ -303,6 +303,15 @@ const isPluginApi = (c?: TypeDocComment): boolean =>
 /** Get @category tag value */
 const getCategoryTag = (c?: TypeDocComment): string | undefined => getTag(c, '@category') || undefined;
 
+/** Get @group tag value from a comment */
+const getGroup = (c?: TypeDocComment): string | undefined => getTag(c, '@group') || undefined;
+
+/** Get group for a class member (handles accessors, methods, properties) */
+const getMemberGroup = (m: TypeDocNode): string | undefined => {
+  const c = m.getSignature?.comment ?? m.signatures?.[0]?.comment ?? m.comment;
+  return getGroup(c);
+};
+
 function formatType(type?: TypeDocType): string {
   if (!type) return 'unknown';
   switch (type.type) {
@@ -706,6 +715,111 @@ function genMembersSection(
   return out;
 }
 
+/**
+ * Generate members section organized by @group tags.
+ * Members without a group are placed in an "Other" section at the end.
+ * Within each group, members are organized by type (accessors, then methods).
+ */
+function genMembersSectionByGroup(
+  members: TypeDocNode[],
+  classComment?: TypeDocComment,
+  additionalEvents?: { event: string; description: string }[],
+): string {
+  let out = '';
+
+  // Collect and display events summary at the top
+  const allMembers = members.filter((m) => m.kind === KIND.Accessor || m.kind === KIND.Method);
+  const eventMap = collectClassEvents(allMembers, classComment, additionalEvents);
+  out += formatClassEventsTable(eventMap);
+
+  // Group members by their @group tag
+  const grouped = new Map<string, TypeDocNode[]>();
+  const ungrouped: TypeDocNode[] = [];
+
+  for (const m of members) {
+    // Skip properties (they're typically config, not grouped)
+    if (m.kind === KIND.Property) continue;
+
+    const group = getMemberGroup(m);
+    if (group) {
+      if (!grouped.has(group)) grouped.set(group, []);
+      grouped.get(group)!.push(m);
+    } else {
+      ungrouped.push(m);
+    }
+  }
+
+  // Handle properties separately (usually small set)
+  const props = members.filter((m) => m.kind === KIND.Property);
+  if (props.length) {
+    out += genPropertiesTable(props);
+  }
+
+  // Define group order for consistent output (matches @group tags in grid.ts)
+  const groupOrder = [
+    'Configuration',
+    'Lifecycle',
+    'Data Management',
+    'Column Visibility',
+    'Column Order',
+    'State Access',
+    'State Persistence',
+    'Rendering',
+    'DOM Access',
+    'Tool Panel',
+    'Header Content',
+    'Toolbar',
+    'Custom Styles',
+    'Plugin Communication',
+    'Event Dispatching',
+  ];
+
+  // Output grouped members in defined order
+  for (const groupName of groupOrder) {
+    const groupMembers = grouped.get(groupName);
+    if (!groupMembers?.length) continue;
+
+    out += `## ${groupName}\n\n`;
+
+    // Sort by kind: accessors first, then methods
+    const accessors = groupMembers.filter((m) => m.kind === KIND.Accessor);
+    const methods = groupMembers.filter((m) => m.kind === KIND.Method);
+
+    for (const a of accessors) out += genAccessor(a);
+    for (const m of methods) out += genMethod(m);
+
+    grouped.delete(groupName); // Remove processed group
+  }
+
+  // Output any remaining groups not in the defined order
+  for (const [groupName, groupMembers] of grouped) {
+    out += `## ${groupName}\n\n`;
+
+    const accessors = groupMembers.filter((m) => m.kind === KIND.Accessor);
+    const methods = groupMembers.filter((m) => m.kind === KIND.Method);
+
+    for (const a of accessors) out += genAccessor(a);
+    for (const m of methods) out += genMethod(m);
+  }
+
+  // Output ungrouped members
+  if (ungrouped.length) {
+    const accessors = ungrouped.filter((m) => m.kind === KIND.Accessor);
+    const methods = ungrouped.filter((m) => m.kind === KIND.Method);
+
+    if (accessors.length) {
+      out += `## Accessors\n\n`;
+      for (const a of accessors) out += genAccessor(a);
+    }
+    if (methods.length) {
+      out += `## Methods\n\n`;
+      for (const m of methods) out += genMethod(m);
+    }
+  }
+
+  return out;
+}
+
 /** Write MDX file with directory creation */
 function writeMdx(outDir: string, relativePath: string, content: string, label: string): void {
   const fullPath = join(outDir, ...relativePath.split('/'));
@@ -762,10 +876,15 @@ const grid = document.createElement('tbw-grid');
 
 `;
   // Pass class comment and core internal events for the events table
-  publicMdx += genMembersSection((node.children ?? []).filter(isPublicMember), node.comment, CORE_INTERNAL_EVENTS);
+  // Use group-based organization for public API (members are tagged with @group)
+  publicMdx += genMembersSectionByGroup(
+    (node.children ?? []).filter(isPublicMember),
+    node.comment,
+    CORE_INTERNAL_EVENTS,
+  );
   writeMdx(outDir, 'API/Core/Classes/DataGridElement.mdx', publicMdx, 'public');
 
-  // Plugin API
+  // Plugin API - also uses @group tags for organization
   let pluginMdx = mdxHeader('Grid/API/Plugin Development/Classes/DataGridElement');
   pluginMdx += `# Class: DataGridElement (Plugin API)
 
@@ -781,7 +900,7 @@ See the [public API documentation](?path=/docs/grid-api-core-classes-datagridele
 | \`__\` | Deeply internal (not documented) |
 
 `;
-  pluginMdx += genMembersSection((node.children ?? []).filter(isPluginMember));
+  pluginMdx += genMembersSectionByGroup((node.children ?? []).filter(isPluginMember));
   writeMdx(outDir, 'API/Plugin Development/Classes/DataGridElement-PluginAPI.mdx', pluginMdx, 'plugin');
 
   // Framework Adapters

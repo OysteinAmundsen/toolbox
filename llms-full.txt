@@ -1,0 +1,629 @@
+# @toolbox-web/grid - Complete AI Implementation Guide
+
+> A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies. Works in vanilla JS, React, Angular, Vue, Svelte, and any JavaScript environment.
+
+Important notes:
+
+- This is a **Web Component** (`<tbw-grid>`) that works natively in all frameworks without wrappers
+- Optional adapter packages (`@toolbox-web/grid-angular`, `@toolbox-web/grid-react`) enable JSX/template renderers
+- All features are **opt-in via plugins** - import only what you need for tree-shaking
+- Configuration uses a **single source of truth** pattern via `gridConfig` property
+- Editing requires `EditingPlugin` - using `editable: true` without it throws a helpful error
+- Uses **light DOM** (not Shadow DOM) for CSS cascade and accessibility
+- All sizing uses `em` units - change font-size to scale the entire grid
+
+---
+
+## Quick Start by Framework
+
+### Vanilla JavaScript / TypeScript
+
+```typescript
+import '@toolbox-web/grid';
+import { createGrid } from '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+interface Employee {
+  id: number;
+  name: string;
+  email: string;
+  department: string;
+}
+
+const grid = createGrid<Employee>({
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', width: 60 },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department', sortable: true },
+  ],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+    new EditingPlugin(),
+  ],
+});
+
+grid.rows = employees;
+grid.style.height = '400px';
+document.body.appendChild(grid);
+```
+
+### React
+
+```tsx
+import '@toolbox-web/grid';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive';
+}
+
+const config: ReactGridConfig<Employee> = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    {
+      field: 'status',
+      header: 'Status',
+      // React component as renderer
+      renderer: (ctx) => (
+        <span className={`badge badge-${ctx.value}`}>{ctx.value}</span>
+      ),
+      // React component as editor
+      editor: (ctx) => (
+        <select
+          defaultValue={ctx.value}
+          onChange={(e) => ctx.commit(e.target.value)}
+          autoFocus
+        >
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      ),
+      editable: true,
+    },
+  ],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+    new EditingPlugin(),
+  ],
+};
+
+function EmployeeGrid({ employees }: { employees: Employee[] }) {
+  const [data, setData] = useState(employees);
+
+  return (
+    <DataGrid
+      rows={data}
+      gridConfig={config}
+      onRowsChange={setData}
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+
+### Angular
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import type { GridConfig } from '@toolbox-web/grid';
+
+// Import grid registration
+import '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-employee-grid',
+  standalone: true,
+  imports: [Grid, TbwRenderer, TbwEditor],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [rows]="employees" [gridConfig]="config" style="height: 400px; display: block;">
+      <tbw-grid-column field="status">
+        <!-- Structural directive for renderer -->
+        <app-status-badge *tbwRenderer="let value; row as row" [status]="value" />
+        <!-- Structural directive for editor - auto-wires commit/cancel -->
+        <app-status-select *tbwEditor="let value" [value]="value" />
+      </tbw-grid-column>
+    </tbw-grid>
+  `,
+})
+export class EmployeeGridComponent {
+  employees = [
+    { id: 1, name: 'Alice', status: 'active' },
+    { id: 2, name: 'Bob', status: 'inactive' },
+  ];
+
+  config: GridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'status', header: 'Status', editable: true },
+    ],
+    plugins: [
+      new SelectionPlugin({ mode: 'row' }),
+      new EditingPlugin(),
+    ],
+  };
+}
+```
+
+---
+
+## Core Concepts
+
+### Configuration Precedence
+
+The grid merges configuration from multiple sources (lowest to highest priority):
+
+1. `gridConfig` property (base configuration)
+2. Light DOM elements (`<tbw-grid-column>`, `<tbw-grid-header>`)
+3. `columns` property (direct array)
+4. Individual props (`fitMode`)
+
+### Column Configuration
+
+```typescript
+interface ColumnConfig {
+  field: string;              // Required: property key in row data
+  header?: string;            // Display label (defaults to field)
+  type?: 'string' | 'number' | 'date' | 'boolean' | 'select';
+  width?: number | string;    // Pixels, '1fr', or percentage
+  sortable?: boolean;         // Enable sorting (default: true)
+  resizable?: boolean;        // Enable resize (default: true)
+  editable?: boolean;         // Enable editing (requires EditingPlugin)
+  hidden?: boolean;           // Initially hidden
+  lockVisible?: boolean;      // Prevent hiding via UI
+  format?: (value: any, row: T) => string;  // Display formatter
+  renderer?: (ctx: CellContext) => HTMLElement | string;  // Custom render
+  editor?: (ctx: EditorContext) => HTMLElement;  // Custom editor
+}
+```
+
+### Plugin System
+
+Plugins are class instances passed via `gridConfig.plugins`:
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { RowGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new SelectionPlugin({ mode: 'row', checkbox: true }),
+    new EditingPlugin({ mode: 'cell', trigger: 'dblclick' }),
+    new FilteringPlugin({ debounceMs: 300 }),
+    new MultiSortPlugin({ maxSortColumns: 3 }),
+    new RowGroupingPlugin(),
+    new PinnedColumnsPlugin(),
+    new ExportPlugin({ formats: ['csv', 'json'] }),
+    new ContextMenuPlugin({ items: [...] }),
+  ],
+};
+```
+
+### Events
+
+Listen to grid events via `addEventListener`:
+
+```typescript
+import { DGEvents } from '@toolbox-web/grid';
+
+grid.addEventListener(DGEvents.CELL_COMMIT, (e) => {
+  console.log('Cell edited:', e.detail);
+  // { field, value, oldValue, row, rowIndex }
+});
+
+grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
+  console.log('Sort changed:', e.detail);
+});
+
+grid.addEventListener(DGEvents.ROW_COMMIT, (e) => {
+  console.log('Row committed:', e.detail);
+});
+```
+
+---
+
+## Migration Guides
+
+### From AG Grid
+
+AG Grid uses a different configuration model. Here's how to translate:
+
+| AG Grid | @toolbox-web/grid |
+|---------|-------------------|
+| `<ag-grid-angular>` | `<tbw-grid>` with `Grid` directive |
+| `<AgGridReact>` | `<DataGrid>` from `@toolbox-web/grid-react` |
+| `columnDefs` | `columns` or `gridConfig.columns` |
+| `rowData` | `rows` |
+| `defaultColDef` | Use `typeDefaults` for type-level defaults |
+| `getRowId` | `gridConfig.getRowId` |
+| `onCellValueChanged` | `addEventListener('cell-commit', ...)` |
+| `onSortChanged` | `addEventListener('sort-change', ...)` |
+| `modules` | `plugins` (class instances, not module imports) |
+
+**AG Grid Column Definition → @toolbox-web/grid:**
+
+```typescript
+// AG Grid
+{
+  field: 'name',
+  headerName: 'Name',
+  editable: true,
+  sortable: true,
+  filter: true,
+  pinned: 'left',
+  cellRenderer: (params) => `<b>${params.value}</b>`,
+}
+
+// @toolbox-web/grid
+{
+  field: 'name',
+  header: 'Name',           // headerName → header
+  editable: true,           // requires EditingPlugin
+  sortable: true,           // same
+  filterable: true,         // requires FilteringPlugin
+  sticky: 'left',           // pinned → sticky, requires PinnedColumnsPlugin
+  renderer: (ctx) => {      // cellRenderer → renderer
+    const b = document.createElement('b');
+    b.textContent = ctx.value;
+    return b;
+  },
+}
+```
+
+**Plugin Migration:**
+
+```typescript
+// AG Grid modules
+import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
+import { RowGroupingModule } from '@ag-grid-enterprise/row-grouping';
+
+// @toolbox-web/grid plugins
+import { RowGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+gridConfig: {
+  plugins: [
+    new RowGroupingPlugin(),
+    new SelectionPlugin({ mode: 'row' }),
+  ],
+}
+```
+
+### From TanStack Table (React Table)
+
+TanStack Table is headless; @toolbox-web/grid provides the complete UI:
+
+| TanStack Table | @toolbox-web/grid |
+|----------------|-------------------|
+| `useReactTable()` | No hook needed - use `<DataGrid>` |
+| `columnHelper.accessor()` | Column config with `field` |
+| `cell: (info) => ...` | `renderer: (ctx) => ...` |
+| `getSortedRowModel()` | `sortable: true` on columns |
+| `getFilteredRowModel()` | `FilteringPlugin` |
+| `getGroupedRowModel()` | `RowGroupingPlugin` |
+| `useVirtualizer()` | Built-in row virtualization |
+
+**TanStack Table → @toolbox-web/grid:**
+
+```tsx
+// TanStack Table
+const columns = [
+  columnHelper.accessor('name', {
+    header: 'Name',
+    cell: (info) => <b>{info.getValue()}</b>,
+  }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: (info) => <Badge status={info.getValue()} />,
+  }),
+];
+
+const table = useReactTable({
+  data,
+  columns,
+  getCoreRowModel: getCoreRowModel(),
+  getSortedRowModel: getSortedRowModel(),
+});
+
+// @toolbox-web/grid
+const config: ReactGridConfig<Employee> = {
+  columns: [
+    {
+      field: 'name',
+      header: 'Name',
+      renderer: (ctx) => <b>{ctx.value}</b>,
+    },
+    {
+      field: 'status',
+      header: 'Status',
+      renderer: (ctx) => <Badge status={ctx.value} />,
+    },
+  ],
+};
+
+<DataGrid rows={data} gridConfig={config} />
+```
+
+### From ngx-datatable
+
+ngx-datatable uses similar concepts but different syntax:
+
+| ngx-datatable | @toolbox-web/grid |
+|---------------|-------------------|
+| `<ngx-datatable>` | `<tbw-grid>` with `Grid` directive |
+| `[rows]` | `[rows]` (same!) |
+| `<ngx-datatable-column>` | `<tbw-grid-column>` |
+| `[name]` | `header` |
+| `[prop]` | `field` |
+| `<ng-template let-value>` | `*tbwRenderer="let value"` |
+| `[sortable]` | `sortable` |
+| `(sort)` | `addEventListener('sort-change', ...)` |
+
+**ngx-datatable → @toolbox-web/grid:**
+
+```html
+<!-- ngx-datatable -->
+<ngx-datatable [rows]="employees" [columns]="columns">
+  <ngx-datatable-column name="Status" prop="status">
+    <ng-template let-value="value">
+      <app-status-badge [status]="value"></app-status-badge>
+    </ng-template>
+  </ngx-datatable-column>
+</ngx-datatable>
+
+<!-- @toolbox-web/grid -->
+<tbw-grid [rows]="employees" [gridConfig]="config">
+  <tbw-grid-column field="status" header="Status">
+    <app-status-badge *tbwRenderer="let value" [status]="value" />
+  </tbw-grid-column>
+</tbw-grid>
+```
+
+---
+
+## Common Patterns
+
+### Custom Cell Renderers
+
+```typescript
+// Vanilla - return HTMLElement or string
+{
+  field: 'status',
+  renderer: (ctx) => {
+    const span = document.createElement('span');
+    span.className = `badge badge-${ctx.value}`;
+    span.textContent = ctx.value;
+    return span;
+  },
+}
+
+// React - return JSX
+{
+  field: 'status',
+  renderer: (ctx) => (
+    <span className={`badge badge-${ctx.value}`}>{ctx.value}</span>
+  ),
+}
+
+// Angular - use structural directive
+<tbw-grid-column field="status">
+  <span *tbwRenderer="let value" [class]="'badge badge-' + value">{{ value }}</span>
+</tbw-grid-column>
+```
+
+### Custom Cell Editors
+
+```typescript
+// Vanilla
+{
+  field: 'status',
+  editable: true,
+  editor: (ctx) => {
+    const select = document.createElement('select');
+    ['active', 'inactive'].forEach(opt => {
+      const option = document.createElement('option');
+      option.value = opt;
+      option.textContent = opt;
+      option.selected = opt === ctx.value;
+      select.appendChild(option);
+    });
+    select.addEventListener('change', () => ctx.commit(select.value));
+    select.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') ctx.cancel();
+    });
+    return select;
+  },
+}
+
+// React
+{
+  field: 'status',
+  editable: true,
+  editor: (ctx) => (
+    <select
+      defaultValue={ctx.value}
+      onChange={(e) => ctx.commit(e.target.value)}
+      onKeyDown={(e) => e.key === 'Escape' && ctx.cancel()}
+      autoFocus
+    >
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  ),
+}
+```
+
+### Server-Side Data
+
+```typescript
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+
+const serverSide = new ServerSidePlugin({
+  fetchData: async ({ startRow, endRow, sortModel, filterModel }) => {
+    const response = await fetch('/api/employees', {
+      method: 'POST',
+      body: JSON.stringify({ startRow, endRow, sortModel, filterModel }),
+    });
+    const { rows, totalRows } = await response.json();
+    return { rows, totalRows };
+  },
+  blockSize: 100,
+});
+
+gridConfig: {
+  plugins: [serverSide],
+}
+```
+
+### Row Grouping with Aggregations
+
+```typescript
+import { RowGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+gridConfig: {
+  columns: [
+    { field: 'department', header: 'Department' },
+    { field: 'name', header: 'Name' },
+    { field: 'salary', header: 'Salary', type: 'number', aggregator: 'sum' },
+  ],
+  plugins: [
+    new RowGroupingPlugin({
+      groupBy: ['department'],
+      expanded: true, // Start expanded
+    }),
+  ],
+}
+```
+
+### Theming
+
+```css
+/* Override CSS custom properties */
+tbw-grid {
+  --tbw-color-bg: #ffffff;
+  --tbw-color-fg: #333333;
+  --tbw-color-border: #e0e0e0;
+  --tbw-color-header-bg: #f5f5f5;
+  --tbw-color-row-hover: #f0f7ff;
+  --tbw-color-row-selected: #e3f2fd;
+  --tbw-color-accent: #1976d2;
+}
+
+/* Scale the entire grid */
+tbw-grid.large {
+  font-size: 1.25em;
+}
+
+tbw-grid.compact {
+  font-size: 0.875em;
+}
+```
+
+### Built-in Themes
+
+```typescript
+// Import a pre-built theme
+import '@toolbox-web/themes/dg-theme-material.css';
+// or
+import '@toolbox-web/themes/dg-theme-bootstrap.css';
+// or
+import '@toolbox-web/themes/dg-theme-vibrant.css';
+```
+
+---
+
+## Key Differences from Other Grids
+
+1. **Web Component First**: Works in any framework without wrappers. React/Angular adapters are optional enhancements.
+
+2. **Plugin Architecture**: Core bundle is lightweight (~30KB). Add features via plugins for optimal tree-shaking.
+
+3. **Single Source of Truth**: All configuration converges to `effectiveConfig`. No conflicting state.
+
+4. **Light DOM**: Uses light DOM for CSS cascade and accessibility. No Shadow DOM isolation issues.
+
+5. **Em-Based Sizing**: Change `font-size` to scale the entire grid proportionally.
+
+6. **Opt-in Editing**: `EditingPlugin` required for inline editing. Prevents accidental edits and keeps core small.
+
+7. **Row Virtualization**: Built-in virtualization for 100k+ rows. No extra configuration needed.
+
+---
+
+## Troubleshooting
+
+### "Configuration error: Column uses 'editable' but EditingPlugin not loaded"
+
+Add the EditingPlugin to enable editing:
+
+```typescript
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+gridConfig: {
+  plugins: [new EditingPlugin()],
+}
+```
+
+### Grid not rendering / empty
+
+1. Ensure the grid has a fixed height:
+```css
+tbw-grid { height: 400px; display: block; }
+```
+
+2. Wait for component registration:
+```typescript
+await customElements.whenDefined('tbw-grid');
+```
+
+### React renderers not working
+
+Use `ReactGridConfig` type and `DataGrid` component from `@toolbox-web/grid-react`:
+
+```tsx
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+
+const config: ReactGridConfig<T> = {
+  columns: [
+    { field: 'x', renderer: (ctx) => <MyComponent value={ctx.value} /> },
+  ],
+};
+```
+
+### Angular templates not rendering
+
+Import the `Grid` directive and use `CUSTOM_ELEMENTS_SCHEMA`:
+
+```typescript
+@Component({
+  imports: [Grid, TbwRenderer],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+})
+```
+
+---
+
+## Resources
+
+- [Storybook Documentation](https://toolboxjs.com/): Interactive examples
+- [GitHub Repository](https://github.com/OysteinAmundsen/toolbox): Source code
+- [npm Package](https://www.npmjs.com/package/@toolbox-web/grid): Installation
+- [Changelog](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/CHANGELOG.md): Version history

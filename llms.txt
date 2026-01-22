@@ -1,0 +1,60 @@
+# @toolbox-web/grid
+
+> A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies. Works in vanilla JS, React, Angular, Vue, Svelte, and any JavaScript environment.
+
+Important notes:
+
+- This is a **Web Component** (`<tbw-grid>`) that works natively in all frameworks without wrappers (though optional adapter packages exist for React and Angular to enable JSX/template renderers)
+- All features are **opt-in via plugins** - import only what you need for tree-shaking
+- Configuration uses a **single source of truth** pattern via `gridConfig` property
+- Editing requires `EditingPlugin` - calling `editable: true` without it will throw a helpful error
+- The grid uses **light DOM** (not Shadow DOM) for CSS cascade and accessibility
+
+## Core Documentation
+
+- [Getting Started Guide](https://toolboxjs.com/?path=/docs/grid-getting-started--docs): Installation, basic setup, and framework integration patterns
+- [API Reference](https://toolboxjs.com/?path=/docs/grid-api--docs): Complete properties, methods, events, and types
+- [Theming Guide](https://toolboxjs.com/?path=/docs/grid-theming--docs): CSS custom properties for styling and built-in themes
+- [Plugin Overview](https://toolboxjs.com/?path=/docs/grid-plugins-overview--docs): Available plugins and their dependencies
+- [Architecture](https://toolboxjs.com/?path=/docs/grid-architecture--docs): Internal design, render scheduler, configuration precedence
+
+## Framework Adapters
+
+- [@toolbox-web/grid-angular](https://www.npmjs.com/package/@toolbox-web/grid-angular): Angular adapter with structural directives (`*tbwRenderer`, `*tbwEditor`)
+- [@toolbox-web/grid-react](https://www.npmjs.com/package/@toolbox-web/grid-react): React adapter with `DataGrid` component, hooks, and JSX renderers
+
+## Plugins
+
+- [Editing Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-editing--docs): Inline cell/row editing with built-in editors
+- [Selection Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-selection--docs): Cell, row, and range selection
+- [Filtering Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-filtering--docs): Column filters with text, number, date, set, boolean types
+- [Multi-Sort Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-multi-sort--docs): Sort by multiple columns with priority
+- [Row Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-rows--docs): Group rows by field values
+- [Tree Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-tree--docs): Hierarchical tree data display
+- [Master-Detail Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-master-detail--docs): Expandable detail rows
+- [Pinned Columns Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pinned-columns--docs): Sticky columns left/right
+- [Export Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-export--docs): Export to CSV, JSON, Excel XML
+- [Context Menu Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-context-menu--docs): Right-click menus
+- [Clipboard Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-clipboard--docs): Copy/paste with Ctrl+C/V
+- [Undo/Redo Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-undo-redo--docs): Edit history
+- [Server-Side Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-server-side--docs): Lazy loading from remote data
+- [Pivot Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pivot--docs): Pivot table transformation
+
+## Live Examples
+
+- [Storybook Documentation](https://toolboxjs.com/): Interactive examples for all features
+- [Employee Management Demo](https://toolboxjs.com/?path=/docs/grid-demos--docs): Full-featured demo showing real-world usage
+
+## Source Code
+
+- [GitHub Repository](https://github.com/OysteinAmundsen/toolbox): Full source code
+- [Grid Library Source](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid): Core grid implementation
+- [Angular Adapter Source](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-angular): Angular directives
+- [React Adapter Source](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-react): React components and hooks
+
+## Optional
+
+- [Accessibility Guide](https://toolboxjs.com/?path=/docs/grid-accessibility--docs): ARIA attributes and screen reader support
+- [Performance Guide](https://toolboxjs.com/?path=/docs/grid-performance--docs): Virtualization and optimization tips
+- [Custom Plugins Guide](https://toolboxjs.com/?path=/docs/grid-custom-plugins--docs): How to create your own plugins
+- [Troubleshooting](https://toolboxjs.com/?path=/docs/grid-troubleshooting--docs): Common issues and solutions

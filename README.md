@@ -63,6 +63,13 @@ bun run build                # Build all libraries
 bun run test                 # Test all libraries
 ```
 
+## AI/LLM Integration
+
+This project includes [`llms.txt`](llms.txt) and [`llms-full.txt`](llms-full.txt) files following the [llms.txt specification](https://llmstxt.org/) to help AI assistants understand and work with the codebase:
+
+- **`llms.txt`** - Concise overview with links to documentation
+- **`llms-full.txt`** - Comprehensive implementation guide with migration patterns from AG Grid, TanStack Table, and ngx-datatable
+
 ## Architecture
 
 ### Design Philosophy

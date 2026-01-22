@@ -1,0 +1,486 @@
+import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../../../apps/docs/.storybook/components/Tabs';
+import * as ResponsiveStories from './responsive.stories';
+
+<Meta of={ResponsiveStories} />
+
+# Responsive Plugin
+
+The Responsive plugin transforms the grid from a tabular layout to a card/list layout when the grid width falls below a configurable breakpoint. This enables grids to work seamlessly in narrow containers like split-pane UIs, mobile viewports, and dashboard widgets.
+
+## Installation
+
+```ts
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+```
+
+## Basic Usage
+
+<Tabs>
+  <Tab label="Vanilla JS">
+
+```ts
+import '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ],
+  plugins: [
+    new ResponsivePlugin({ breakpoint: 500 }),
+  ],
+};
+grid.rows = data;
+```
+
+  </Tab>
+  <Tab label="React">
+
+```tsx
+import '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+import { useEffect, useRef } from 'react';
+import type { DataGridElement } from '@toolbox-web/grid';
+
+function MyGrid({ data }) {
+  const gridRef = useRef<DataGridElement>(null);
+
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+        ],
+        plugins: [new ResponsivePlugin({ breakpoint: 500 })],
+      };
+      gridRef.current.rows = data;
+    }
+  }, [data]);
+
+  return <tbw-grid ref={gridRef} style={{ height: '400px' }} />;
+}
+```
+
+  </Tab>
+  <Tab label="Vue">
+
+```vue
+<template>
+  <tbw-grid ref="gridRef" style="height: 400px" />
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+import { ref, onMounted } from 'vue';
+
+const gridRef = ref(null);
+const props = defineProps(['data']);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [new ResponsivePlugin({ breakpoint: 500 })],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+
+  </Tab>
+  <Tab label="Angular">
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  rows = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ];
+
+  config = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [new ResponsivePlugin({ breakpoint: 500 })],
+  };
+}
+```
+
+  </Tab>
+</Tabs>
+
+## Demos
+
+### Interactive Demo
+
+Resize the container to see the grid switch between table and card layouts.
+
+<Canvas of={ResponsiveStories.Default} withToolbar />
+<Controls of={ResponsiveStories.Default} />
+
+### Card Mode
+
+When the grid width is below the breakpoint, each row becomes a card with header-value pairs stacked vertically.
+
+<Canvas of={ResponsiveStories.CardMode} withToolbar />
+
+### Hidden Columns
+
+Use `hiddenColumns` to hide less important columns in card mode, focusing on essential information.
+
+<Canvas of={ResponsiveStories.HiddenColumns} withToolbar />
+
+### Manual Control
+
+Use the plugin API to manually control responsive mode.
+
+<Canvas of={ResponsiveStories.ManualControl} withToolbar />
+
+### Custom Card Renderer
+
+Use `cardRenderer` for complete control over card layout - avatars, badges, custom layouts, etc.
+
+<Canvas of={ResponsiveStories.CustomCardRenderer} withToolbar />
+
+### Fixed Card Height
+
+Use `cardRowHeight` for consistent card heights, which helps virtualization performance.
+
+<Canvas of={ResponsiveStories.FixedCardHeight} withToolbar />
+
+### Progressive Degradation
+
+Use multiple breakpoints to progressively hide columns before switching to card layout.
+
+<Canvas of={ResponsiveStories.ProgressiveDegradation} withToolbar />
+
+### Value-Only Columns
+
+Use enhanced `hiddenColumns` syntax to show values without labels.
+
+<Canvas of={ResponsiveStories.ValueOnlyColumns} withToolbar />
+
+### Animated Transitions
+
+Smooth animations when transitioning between modes (enabled by default).
+
+<Canvas of={ResponsiveStories.AnimatedTransitions} withToolbar />
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `breakpoint` | `number` | `0` | Width threshold in pixels to trigger responsive mode |
+| `breakpoints` | `BreakpointConfig[]` | - | Multiple breakpoints for progressive degradation |
+| `hideHeader` | `boolean` | `true` | Whether to hide the header row in responsive mode |
+| `debounceMs` | `number` | `100` | Debounce delay for resize events |
+| `hiddenColumns` | `HiddenColumnConfig[]` | `[]` | Columns to hide/modify in responsive mode |
+| `cardRenderer` | `(row, index) => HTMLElement` | - | Custom renderer function for card layout |
+| `cardRowHeight` | `number \| 'auto'` | `'auto'` | Card row height when using cardRenderer |
+| `animate` | `boolean` | `true` | Enable smooth transitions between modes |
+| `animationDuration` | `number` | `200` | Animation duration in milliseconds |
+
+### BreakpointConfig
+
+For progressive degradation, use the `breakpoints` array instead of a single `breakpoint`:
+
+```ts
+interface BreakpointConfig {
+  /** Maximum width to activate this breakpoint */
+  maxWidth: number;
+  /** Columns to hide at this breakpoint */
+  hiddenColumns?: HiddenColumnConfig[];
+  /** Whether to switch to card layout at this breakpoint */
+  cardLayout?: boolean;
+}
+```
+
+### HiddenColumnConfig
+
+The enhanced `hiddenColumns` syntax supports both simple strings and objects:
+
+```ts
+type HiddenColumnConfig =
+  | string                          // Hide entire cell
+  | { field: string; showValue: true }  // Hide label only, show value full-width
+```
+
+**Example:**
+```ts
+hiddenColumns: [
+  'startDate',                        // Fully hidden
+  { field: 'email', showValue: true }, // Value shown without label
+]
+```
+
+### Choosing a Breakpoint
+
+The breakpoint should be based on your grid's column count and content:
+
+| Grid Size | Suggested Breakpoint |
+| --------- | -------------------- |
+| 3-5 columns | 400-500px |
+| 6-10 columns | 600-800px |
+| 10+ columns | 900-1200px |
+
+> **Note:** If no breakpoint is configured (or set to 0), a warning is logged and responsive mode is effectively disabled.
+
+## Events
+
+### responsive-change
+
+Emitted when the grid crosses the breakpoint threshold:
+
+```ts
+grid.addEventListener('responsive-change', (e) => {
+  const { isResponsive, width, breakpoint } = e.detail;
+  console.log(isResponsive ? 'Card mode' : 'Table mode');
+  console.log(`Width: ${width}px, Breakpoint: ${breakpoint}px`);
+});
+```
+
+## Programmatic API
+
+Control responsive mode programmatically via the plugin instance:
+
+```ts
+// Get the plugin instance from the grid
+const plugin = grid.getPlugin(ResponsivePlugin);
+
+// Check current mode
+const isCardMode = plugin.isResponsive();
+
+// Force responsive mode (regardless of width)
+plugin.setResponsive(true);
+plugin.setResponsive(false);
+
+// Update breakpoint dynamically
+plugin.setBreakpoint(600);
+
+// Get current grid width
+const width = plugin.getWidth();
+
+// Get active breakpoint (multi-breakpoint mode)
+const activeBreakpoint = plugin.getActiveBreakpoint();
+// Returns: { maxWidth: 600, hiddenColumns: [...], cardLayout: false } or null
+```
+
+## How It Works
+
+1. **ResizeObserver** monitors the grid element's width
+2. When `width < breakpoint`, the plugin adds `data-responsive` attribute to the grid
+3. **CSS transforms** cells from horizontal to vertical layout
+4. Each cell displays "Header: Value" using the `::before` pseudo-element with `data-header` attribute
+
+This CSS-only approach means:
+- No DOM replacement or re-rendering needed
+- Smooth transitions between modes
+- Works with all other plugins (selection, editing, etc.)
+
+## Styling
+
+The responsive plugin uses the grid's existing CSS custom properties for theming.
+
+### CSS Custom Properties
+
+The responsive plugin uses the grid's built-in CSS variables:
+
+| Property | Description |
+| -------- | ----------- |
+| `--tbw-cell-padding` | Padding inside card rows |
+| `--tbw-color-border` | Card separator color |
+| `--tbw-color-bg` | Card background color |
+| `--tbw-color-row-alt` | Alternating card background |
+| `--tbw-color-row-hover` | Card hover background |
+| `--tbw-color-selection` | Selected card background |
+| `--tbw-color-header-fg` | Label text color |
+| `--tbw-color-accent` | Selection indicator color |
+
+### Custom Card Styling
+
+```css
+/* Custom card styling */
+tbw-grid[data-responsive] .data-grid-row {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+}
+
+/* Hide specific columns in card mode */
+tbw-grid[data-responsive] .cell[data-field="createdAt"],
+tbw-grid[data-responsive] .cell[data-field="updatedAt"] {
+  display: none;
+}
+```
+
+### Data Attributes
+
+| Attribute | Element | Description |
+| --------- | ------- | ----------- |
+| `data-responsive` | `tbw-grid` | Present when in responsive (card) mode |
+| `data-responsive-animate` | `tbw-grid` | Present when animations are enabled |
+| `data-header` | `.cell` | Column header text for CSS `::before` |
+| `data-responsive-hidden` | `.cell` | Marks cells hidden via `hiddenColumns` |
+| `data-responsive-value-only` | `.cell` | Marks cells showing value only (no label) |
+
+### CSS Custom Properties for Animation
+
+| Property | Default | Description |
+| -------- | ------- | ----------- |
+| `--tbw-responsive-duration` | `200ms` | Animation duration for mode transitions |
+
+## Keyboard Navigation
+
+In responsive mode, the visual layout is inverted - cells are stacked vertically within each card. The plugin automatically adjusts keyboard navigation to match this layout:
+
+| Key | Table Mode | Responsive Mode |
+| --- | ---------- | --------------- |
+| **↑** | Previous row | Previous field (within card), wraps to previous card |
+| **↓** | Next row | Next field (within card), wraps to next card |
+| **←** | Previous column | Previous card (same field) |
+| **→** | Next column | Next card (same field) |
+| **Tab** | Next cell, wraps to next row | Same behavior |
+| **Enter** | Start editing | Same behavior |
+| **Escape** | Cancel editing | Same behavior |
+
+### Custom Card Renderers
+
+When using `cardRenderer` (Phase 2), the grid's built-in keyboard navigation is disabled for arrow keys. Implementors should handle navigation within their custom card content via their own event handlers.
+
+## Use Cases
+
+### Split-Pane UI
+
+```ts
+// Grid in a resizable panel
+new ResponsivePlugin({
+  breakpoint: 400,
+  hiddenColumns: ['createdAt', 'updatedAt'], // Hide dates in card mode
+})
+```
+
+### Mobile-First Design
+
+```ts
+// Responsive grid for mobile/tablet
+new ResponsivePlugin({
+  breakpoint: 768,
+  hideHeader: true,
+})
+```
+
+### Dashboard Widget
+
+```ts
+// Small widget in dashboard
+new ResponsivePlugin({
+  breakpoint: 300,
+  hiddenColumns: ['email', 'phone', 'address'],
+})
+```
+
+### Progressive Degradation
+
+```ts
+// Gracefully degrade as container shrinks
+new ResponsivePlugin({
+  breakpoints: [
+    { maxWidth: 900, hiddenColumns: ['startDate'] },
+    { maxWidth: 700, hiddenColumns: ['startDate', 'email'] },
+    { maxWidth: 500, cardLayout: true },
+  ],
+})
+```
+
+## Custom Card Renderer
+
+For advanced card layouts with avatars, badges, or custom grouped fields, use the `cardRenderer` option:
+
+```ts
+const responsivePlugin = new ResponsivePlugin({
+  breakpoint: 600,
+  cardRenderer: (row, rowIndex) => {
+    const card = document.createElement('div');
+    card.className = 'employee-card';
+    card.innerHTML = `
+      <div class="avatar">${row.name[0]}</div>
+      <div class="info">
+        <div class="name">${row.name}</div>
+        <div class="meta">${row.department} · $${row.salary.toLocaleString()}</div>
+        <div class="email">${row.email}</div>
+      </div>
+    `;
+    return card;
+  },
+});
+```
+
+### cardRenderer Signature
+
+```ts
+cardRenderer: (row: T, rowIndex: number) => HTMLElement
+```
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `row` | `T` | The row data object |
+| `rowIndex` | `number` | Index of the row in the data array |
+| **Returns** | `HTMLElement` | The element to render as the card content |
+
+### cardRowHeight
+
+When using `cardRenderer`, you can control card height:
+
+```ts
+// Fixed height (better for virtualization with large datasets)
+new ResponsivePlugin({
+  breakpoint: 600,
+  cardRowHeight: 80,  // 80px per card
+  cardRenderer: (row) => { /* ... */ },
+});
+
+// Auto height (default - cards size to content)
+new ResponsivePlugin({
+  breakpoint: 600,
+  cardRowHeight: 'auto',
+  cardRenderer: (row) => { /* ... */ },
+});
+```
+
+### Keyboard Navigation with cardRenderer
+
+When using a custom `cardRenderer`, the grid's built-in arrow key navigation is disabled. This allows you to implement your own navigation within the card content.
+
+Standard keyboard shortcuts still work:
+- **Tab** - Move between cards
+- **Enter** - Triggers `cell-activate` event
+- **Escape** - Standard escape handling

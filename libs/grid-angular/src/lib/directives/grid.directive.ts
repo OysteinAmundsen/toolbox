@@ -13,7 +13,7 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
-import { MasterDetailPlugin } from '@toolbox-web/grid/all';
+import { MasterDetailPlugin, ResponsivePlugin } from '@toolbox-web/grid/all';
 import type { AngularGridConfig } from '../angular-column-config';
 import { AngularGridAdapter } from '../angular-grid-adapter';
 
@@ -236,6 +236,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
         // Configure MasterDetailPlugin after Angular templates are registered
         this.configureMasterDetail(grid);
 
+        // Configure ResponsivePlugin card renderer if template is present
+        this.configureResponsiveCard(grid);
+
         // Refresh shell header to pick up tool panel templates
         // This allows Angular templates to be used in tool panels
         if (typeof (grid as any).refreshShellHeader === 'function') {
@@ -309,6 +312,40 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       ...currentConfig,
       plugins: [...existingPlugins, plugin],
     };
+  }
+
+  /**
+   * Configures the ResponsivePlugin with Angular template-based card renderer.
+   * - If plugin exists: updates its cardRenderer configuration
+   * - If plugin doesn't exist but <tbw-grid-responsive-card> is present: logs a warning
+   */
+  private configureResponsiveCard(grid: GridElement): void {
+    if (!this.adapter) return;
+
+    // Check if <tbw-grid-responsive-card> is present in light DOM
+    const cardElement = (grid as unknown as Element).querySelector('tbw-grid-responsive-card');
+    if (!cardElement) return;
+
+    // Create card renderer from Angular template
+    const cardRenderer = this.adapter.createResponsiveCardRenderer(grid as unknown as HTMLElement);
+    if (!cardRenderer) return;
+
+    const existingPlugin = grid.getPlugin?.(ResponsivePlugin);
+    if (existingPlugin) {
+      // Plugin exists - update its cardRenderer
+      existingPlugin.setCardRenderer(cardRenderer);
+      return;
+    }
+
+    // Plugin doesn't exist - log a warning
+    console.warn(
+      '[tbw-grid-angular] <tbw-grid-responsive-card> found but ResponsivePlugin is not configured.\n' +
+        'Add ResponsivePlugin to your gridConfig.plugins array:\n\n' +
+        '  import { ResponsivePlugin } from "@toolbox-web/grid/all";\n' +
+        '  gridConfig = {\n' +
+        '    plugins: [new ResponsivePlugin({ breakpoint: 600 })]\n' +
+        '  };',
+    );
   }
 
   ngOnDestroy(): void {

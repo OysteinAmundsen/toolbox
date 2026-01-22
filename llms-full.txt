@@ -198,7 +198,13 @@ import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 import { RowGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import { ColumnGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
 import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
 import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
 
@@ -210,7 +216,12 @@ grid.gridConfig = {
     new FilteringPlugin({ debounceMs: 300 }),
     new MultiSortPlugin({ maxSortColumns: 3 }),
     new RowGroupingPlugin(),
+    new ColumnGroupingPlugin(),
     new PinnedColumnsPlugin(),
+    new PinnedRowsPlugin(),
+    new ResponsivePlugin({ breakpoint: 600 }),
+    new ReorderPlugin(),
+    new VisibilityPlugin(),
     new ExportPlugin({ formats: ['csv', 'json'] }),
     new ContextMenuPlugin({ items: [...] }),
   ],
@@ -508,6 +519,64 @@ gridConfig: {
     new RowGroupingPlugin({
       groupBy: ['department'],
       expanded: true, // Start expanded
+    }),
+  ],
+}
+```
+
+### Responsive Layout (Mobile Card Mode)
+
+```typescript
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+// Basic: Switch to card layout below 600px
+gridConfig: {
+  plugins: [
+    new ResponsivePlugin({ breakpoint: 600 }),
+  ],
+}
+
+// Advanced: Progressive degradation with multiple breakpoints
+gridConfig: {
+  plugins: [
+    new ResponsivePlugin({
+      breakpoints: [
+        { maxWidth: 900, hiddenColumns: ['startDate'] },
+        { maxWidth: 700, hiddenColumns: ['startDate', 'email'] },
+        { maxWidth: 500, cardLayout: true },
+      ],
+      animate: true, // Smooth transitions (default)
+    }),
+  ],
+}
+
+// Value-only columns: Hide label but show value in cards
+gridConfig: {
+  plugins: [
+    new ResponsivePlugin({
+      breakpoint: 600,
+      hiddenColumns: [
+        'startDate',                           // Fully hidden
+        { field: 'email', showValue: true },   // Value only, no label
+      ],
+    }),
+  ],
+}
+
+// Custom card renderer for complete control
+gridConfig: {
+  plugins: [
+    new ResponsivePlugin({
+      breakpoint: 600,
+      cardRenderer: (row) => {
+        const card = document.createElement('div');
+        card.className = 'employee-card';
+        card.innerHTML = `
+          <div class="name">${row.name}</div>
+          <div class="email">${row.email}</div>
+        `;
+        return card;
+      },
     }),
   ],
 }

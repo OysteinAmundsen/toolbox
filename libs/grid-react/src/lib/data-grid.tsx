@@ -3,6 +3,7 @@ import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import { forwardRef, useContext, useEffect, useImperativeHandle, useMemo, useRef, type ReactNode } from 'react';
 import '../jsx.d.ts';
 import { getDetailRenderer } from './grid-detail-panel';
+import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
 import { processReactGridConfig, type ReactGridConfig } from './react-column-config';
 import { ReactGridAdapter } from './react-grid-adapter';
@@ -98,6 +99,44 @@ function configureMasterDetail(gridElement: Element, adapter: ReactGridAdapter):
     .catch(() => {
       // Plugin not available - ignore
     });
+}
+
+/**
+ * Configures the ResponsivePlugin with React template-based card renderer.
+ * - If plugin exists: updates its cardRenderer configuration
+ * - If plugin doesn't exist but <tbw-grid-responsive-card> is present: logs a warning
+ */
+function configureResponsiveCard(gridElement: Element, adapter: ReactGridAdapter): void {
+  const grid = gridElement as any;
+
+  // Check if <tbw-grid-responsive-card> is present in light DOM
+  const cardElement = gridElement.querySelector('tbw-grid-responsive-card');
+  if (!cardElement) return;
+
+  // Check if a card renderer was registered via GridResponsiveCard
+  const cardRenderer = getResponsiveCardRenderer(gridElement as HTMLElement);
+  if (!cardRenderer) return;
+
+  // Check if plugin exists by name
+  const existingPlugin = grid.getPluginByName?.('responsive');
+  if (existingPlugin && typeof existingPlugin.setCardRenderer === 'function') {
+    // Plugin exists - create React card renderer and update it
+    const reactCardRenderer = adapter.createResponsiveCardRenderer(gridElement as HTMLElement);
+    if (reactCardRenderer) {
+      existingPlugin.setCardRenderer(reactCardRenderer);
+    }
+    return;
+  }
+
+  // Plugin doesn't exist - log a warning
+  console.warn(
+    '[tbw-grid-react] <GridResponsiveCard> found but ResponsivePlugin is not configured.\n' +
+      'Add ResponsivePlugin to your gridConfig.plugins array:\n\n' +
+      '  import { ResponsivePlugin } from "@toolbox-web/grid/all";\n' +
+      '  const config = {\n' +
+      '    plugins: [new ResponsivePlugin({ breakpoint: 500 })],\n' +
+      '  };',
+  );
 }
 
 /**
@@ -327,6 +366,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     // Uses getPluginByName() so no async import needed for the common case
     // where user already added MasterDetailPlugin to their plugins array
     configureMasterDetail(grid as unknown as Element, adapter);
+
+    // Configure ResponsivePlugin card renderer if GridResponsiveCard is present
+    configureResponsiveCard(grid as unknown as Element, adapter);
 
     // Use a single RAF for column/shell refresh
     // React 18+ batches updates, so one frame is usually enough

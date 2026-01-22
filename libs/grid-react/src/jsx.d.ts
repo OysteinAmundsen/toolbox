@@ -41,6 +41,10 @@ declare module 'react' {
       'tbw-grid-tool-buttons': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
         ref?: React.Ref<HTMLElement>;
       };
+      'tbw-grid-responsive-card': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        cardRowHeight?: string;
+        ref?: React.Ref<HTMLElement>;
+      };
     }
   }
 }

@@ -12,6 +12,7 @@ import {
   PinnedColumnsPlugin,
   PinnedRowsPlugin,
   ReorderPlugin,
+  ResponsivePlugin,
   SelectionPlugin,
   UndoRedoPlugin,
   VisibilityPlugin,
@@ -172,6 +173,21 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
       new PinnedColumnsPlugin(),
       new ColumnVirtualizationPlugin(),
       new VisibilityPlugin(),
+      // Responsive plugin - card template comes from <tbw-grid-responsive-card> in Angular component
+      new ResponsivePlugin<Employee>({
+        breakpoint: 700,
+        cardRowHeight: 80,
+        hiddenColumns: [
+          'id',
+          'email',
+          'team',
+          'level',
+          'bonus',
+          'hireDate',
+          'isTopPerformer',
+          'location',
+        ],
+      }),
       // MasterDetailPlugin is added automatically by Grid directive when <tbw-grid-detail> is present
       ...(enableEditing ? [new UndoRedoPlugin({ maxHistorySize: 100 })] : []),
       new ExportPlugin(),

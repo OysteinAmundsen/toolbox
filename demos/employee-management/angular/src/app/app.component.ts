@@ -6,6 +6,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { generateEmployees } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
@@ -13,6 +14,7 @@ import {
   CellCommitEvent,
   Grid,
   GridDetailView,
+  GridResponsiveCard,
   GridToolPanel,
   TbwEditor,
   TbwRenderer,
@@ -39,9 +41,11 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
 @Component({
   selector: 'app-root',
   imports: [
+    CurrencyPipe,
     FormsModule,
     Grid,
     GridDetailView,
+    GridResponsiveCard,
     GridToolPanel,
     TbwRenderer,
     TbwEditor,
@@ -161,5 +165,22 @@ export class AppComponent {
         );
       }
     }
+  }
+
+  /**
+   * Get department color for responsive card avatar.
+   */
+  getDepartmentColor(department: string): string {
+    const colors: Record<string, string> = {
+      Engineering: '#3b82f6',
+      Marketing: '#ec4899',
+      Sales: '#f59e0b',
+      HR: '#10b981',
+      Finance: '#6366f1',
+      Legal: '#8b5cf6',
+      Operations: '#14b8a6',
+      'Customer Support': '#f97316',
+    };
+    return colors[department] ?? '#6b7280';
   }
 }

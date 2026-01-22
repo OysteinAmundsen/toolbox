@@ -96,3 +96,60 @@ export const createDetailRenderer = (employee: Employee): HTMLElement => {
 
   return container;
 };
+
+/**
+ * Creates a responsive card element for mobile/narrow layouts.
+ * Shows compact employee info with avatar placeholder, status badge, and key metrics.
+ */
+export const createResponsiveCardRenderer = (employee: Employee): HTMLElement => {
+  const card = document.createElement('div');
+  card.className = 'responsive-employee-card';
+
+  // Get initials for avatar placeholder
+  const initials = `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`;
+
+  // Determine department color
+  const deptColors: Record<string, string> = {
+    Engineering: '#3b82f6',
+    Marketing: '#ec4899',
+    Sales: '#f59e0b',
+    HR: '#10b981',
+    Finance: '#6366f1',
+    Legal: '#8b5cf6',
+    Operations: '#14b8a6',
+    'Customer Support': '#f97316',
+  };
+  const deptColor = deptColors[employee.department] ?? '#6b7280';
+
+  // Format salary
+  const salary = employee.salary.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
+
+  // Status class
+  const statusClass = employee.status.toLowerCase().replace(/\s+/g, '-');
+
+  card.innerHTML =
+    `<div class="responsive-employee-card__avatar" style="background-color: ${deptColor}">` +
+    `${initials}` +
+    `</div>` +
+    `<div class="responsive-employee-card__content">` +
+    `<div class="responsive-employee-card__header">` +
+    `<span class="responsive-employee-card__name">${employee.firstName} ${employee.lastName}</span>` +
+    `<span class="status-badge status-badge--${statusClass}">${employee.status}</span>` +
+    `</div>` +
+    `<div class="responsive-employee-card__title">${employee.title}</div>` +
+    `<div class="responsive-employee-card__meta">` +
+    `<span class="responsive-employee-card__dept" style="color: ${deptColor}">${employee.department}</span>` +
+    `<span class="responsive-employee-card__separator">•</span>` +
+    `<span class="responsive-employee-card__salary">${salary}</span>` +
+    `<span class="responsive-employee-card__separator">•</span>` +
+    `<span class="responsive-employee-card__rating">${employee.rating.toFixed(1)} ★</span>` +
+    `${employee.isTopPerformer ? '<span class="responsive-employee-card__top-performer">⭐</span>' : ''}` +
+    `</div>` +
+    `</div>`;
+
+  return card;
+};

@@ -96,6 +96,45 @@
         </tbw-grid-detail>
       }
 
+      <!-- Responsive card template for mobile/narrow layouts -->
+      <tbw-grid-responsive-card>
+        <ng-template let-emp let-idx="index">
+          <div class="responsive-employee-card">
+            <div
+              class="responsive-employee-card__avatar"
+              [style.background-color]="getDepartmentColor(emp.department)"
+            >
+              {{ emp.firstName.charAt(0) }}{{ emp.lastName.charAt(0) }}
+            </div>
+            <div class="responsive-employee-card__content">
+              <div class="responsive-employee-card__header">
+                <span class="responsive-employee-card__name"
+                  >{{ emp.firstName }} {{ emp.lastName }}</span
+                >
+                <app-status-badge [value]="emp.status" />
+              </div>
+              <div class="responsive-employee-card__title">{{ emp.title }}</div>
+              <div class="responsive-employee-card__meta">
+                <span
+                  class="responsive-employee-card__dept"
+                  [style.color]="getDepartmentColor(emp.department)"
+                  >{{ emp.department }}</span
+                >
+                <span class="responsive-employee-card__separator">•</span>
+                <span class="responsive-employee-card__salary">{{
+                  emp.salary | currency: 'USD' : 'symbol' : '1.0-0'
+                }}</span>
+                <span class="responsive-employee-card__separator">•</span>
+                <span class="responsive-employee-card__rating">{{ emp.rating.toFixed(1) }} ★</span>
+                @if (emp.isTopPerformer) {
+                  <span class="responsive-employee-card__top-performer">⭐</span>
+                }
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </tbw-grid-responsive-card>
+
       <!-- Custom Tool Panels -->
       <tbw-grid-tool-panel
         id="quick-filters"

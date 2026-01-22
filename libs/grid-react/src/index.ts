@@ -20,6 +20,11 @@ import './jsx.d.ts';
 export { DataGrid } from './lib/data-grid';
 export { GridColumn } from './lib/grid-column';
 export { GridDetailPanel, type DetailPanelContext, type GridDetailPanelProps } from './lib/grid-detail-panel';
+export {
+  GridResponsiveCard,
+  type GridResponsiveCardProps,
+  type ResponsiveCardContext,
+} from './lib/grid-responsive-card';
 export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-button';
 export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
 

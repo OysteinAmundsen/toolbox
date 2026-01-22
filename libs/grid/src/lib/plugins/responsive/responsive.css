@@ -1,0 +1,219 @@
+/**
+ * Responsive Plugin CSS
+ *
+ * Card layout styles for narrow viewports.
+ * Applied when [data-responsive] attribute is present on the grid.
+ *
+ * IMPORTANT: This CSS intentionally preserves the grid's virtualization system.
+ * The row height observer will detect the new card height automatically and
+ * recalculate the virtual window. Do NOT break virtualization by:
+ * - Changing .rows-viewport overflow
+ * - Changing .rows position
+ * - Hiding .faux-vscroll
+ */
+
+/* ============================================
+   Animation / Transition Support
+   ============================================ */
+
+/* Base transition setup for animated mode switching */
+tbw-grid[data-responsive-animate] {
+  .data-grid-row,
+  .data-grid-row > .cell {
+    transition:
+      opacity var(--tbw-responsive-duration, 200ms) ease-out,
+      transform var(--tbw-responsive-duration, 200ms) ease-out;
+  }
+}
+
+/* Fade-in when entering responsive mode */
+tbw-grid[data-responsive][data-responsive-animate] {
+  .data-grid-row {
+    animation: responsive-card-enter var(--tbw-responsive-duration, 200ms) ease-out;
+  }
+}
+
+@keyframes responsive-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   Responsive Card Layout
+   ============================================ */
+
+tbw-grid[data-responsive] {
+  /* Hide entire header section in card mode */
+  .header {
+    display: none !important;
+  }
+
+  /* Hide footer row in card mode (aggregations don't make sense in cards) */
+  .footer-row {
+    display: none;
+  }
+
+  /* Override horizontal scroll - single column flow */
+  .tbw-scroll-area {
+    overflow-x: hidden;
+    min-width: 0 !important;
+  }
+
+  /* Override rows-body-wrapper to allow natural flow */
+  .rows-body-wrapper {
+    min-width: 0 !important;
+  }
+
+  /* Convert row from CSS Grid to block layout */
+  .data-grid-row {
+    display: block !important;
+    grid-template-columns: none !important;
+    padding: var(--tbw-cell-padding);
+    padding-left: var(--tbw-spacing-xl);
+    border-bottom: 1px solid var(--tbw-color-border);
+    min-height: auto !important;
+    height: auto !important;
+    /* Disable containment so row can grow to fit stacked cells */
+    contain: none !important;
+    content-visibility: visible !important;
+    background: var(--tbw-color-bg);
+    position: relative;
+
+    &:nth-child(even) {
+      background: var(--tbw-color-row-alt);
+    }
+
+    &:hover {
+      background: var(--tbw-color-row-hover);
+    }
+
+    &[aria-selected='true'] {
+      background: var(--tbw-color-selection);
+
+      /* Selection indicator bar */
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--tbw-color-accent);
+      }
+    }
+  }
+
+  /* Stack cells vertically as label: value pairs */
+  .data-grid-row > .cell {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--tbw-spacing-xs) var(--tbw-spacing-md);
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: auto !important;
+    height: auto !important;
+    line-height: 1.5 !important;
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    border: none !important;
+    border-bottom: none !important;
+    border-right: none !important;
+    background: transparent !important;
+    white-space: normal !important;
+    overflow: visible !important;
+
+    /* Header label from data-header attribute */
+    &::before {
+      content: attr(data-header) ': ';
+      font-weight: 600;
+      color: var(--tbw-color-header-fg);
+      flex-shrink: 0;
+      margin-right: var(--tbw-spacing-md);
+      min-width: 100px;
+    }
+
+    /* Value takes remaining space */
+    &::after {
+      content: none;
+    }
+  }
+
+  /* Hide utility columns (row expander, selection checkbox, etc.) */
+  .cell[data-utility] {
+    display: none !important;
+  }
+
+  /* Card separator styling */
+  .data-grid-row:not(:last-child) {
+    margin-bottom: var(--tbw-spacing-xs);
+  }
+}
+
+/* Hidden columns in responsive mode */
+tbw-grid[data-responsive] .cell[data-responsive-hidden] {
+  display: none !important;
+}
+
+/* Value-only columns in responsive mode (hides label, shows value full-width) */
+tbw-grid[data-responsive] .cell[data-responsive-value-only] {
+  /* Override the header label ::before to hide it */
+  &::before {
+    display: none !important;
+  }
+
+  /* Value takes full width, no justify-content needed */
+  justify-content: flex-start !important;
+  font-weight: 500;
+}
+
+/* Non-responsive mode: progressive column hiding still works */
+tbw-grid:not([data-responsive]) .cell[data-responsive-hidden] {
+  display: none !important;
+}
+
+tbw-grid:not([data-responsive]) .cell[data-responsive-value-only] {
+  /* In table mode, value-only just hides the cell like normal */
+  /* Actually no - in table mode headers are in header row, so this has no effect */
+}
+
+/* Hide pinned/aggregation rows in responsive mode - they don't make sense in card layout */
+tbw-grid[data-responsive] {
+  .tbw-footer,
+  .tbw-pinned-rows,
+  .tbw-aggregation-rows {
+    display: none !important;
+  }
+
+  /* Reset min-widths that hold horizontal scroll width */
+  .tbw-pinned-rows,
+  .tbw-aggregation-rows,
+  .tbw-aggregation-row {
+    min-width: 0 !important;
+  }
+}
+
+/* Custom card renderer styling */
+tbw-grid[data-responsive] .data-grid-row.responsive-card {
+  /* Override default cell layout - custom content takes full width */
+  display: block !important;
+  padding: var(--tbw-cell-padding);
+  border-bottom: 1px solid var(--tbw-color-border);
+
+  /* Card content should not have cell-based constraints */
+  > * {
+    width: 100%;
+  }
+
+  /* Remove default cell ::before headers - custom renderer handles layout */
+  .cell::before {
+    display: none;
+  }
+}

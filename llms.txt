@@ -30,9 +30,15 @@ Important notes:
 - [Filtering Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-filtering--docs): Column filters with text, number, date, set, boolean types
 - [Multi-Sort Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-multi-sort--docs): Sort by multiple columns with priority
 - [Row Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-rows--docs): Group rows by field values
+- [Column Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-columns--docs): Group columns under shared headers
 - [Tree Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-tree--docs): Hierarchical tree data display
 - [Master-Detail Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-master-detail--docs): Expandable detail rows
 - [Pinned Columns Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pinned-columns--docs): Sticky columns left/right
+- [Pinned Rows Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pinned-rows--docs): Sticky rows top/bottom
+- [Responsive Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-responsive--docs): Card layout for narrow viewports with breakpoints
+- [Reorder Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-reorder--docs): Drag-and-drop column reordering
+- [Visibility Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-visibility--docs): Column visibility panel
+- [Column Virtualization Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-column-virtualization--docs): Horizontal virtualization for many columns
 - [Export Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-export--docs): Export to CSV, JSON, Excel XML
 - [Context Menu Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-context-menu--docs): Right-click menus
 - [Clipboard Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-clipboard--docs): Copy/paste with Ctrl+C/V

@@ -19,6 +19,7 @@ import type { TbwGrid } from '@toolbox-web/grid';
 import {
   DataGrid,
   GridDetailPanel,
+  GridResponsiveCard,
   GridToolButtons,
   GridToolPanel,
   useGrid,
@@ -37,6 +38,7 @@ import {
   PinnedColumnsPlugin,
   PinnedRowsPlugin,
   ReorderPlugin,
+  ResponsivePlugin,
   SelectionPlugin,
   UndoRedoPlugin,
   VisibilityPlugin,
@@ -55,6 +57,7 @@ import { StarRatingEditor } from './components/editors/StarRatingEditor';
 import { StatusSelectEditor } from './components/editors/StatusSelectEditor';
 import { DetailPanel } from './components/renderers/DetailPanel';
 import { RatingDisplay } from './components/renderers/RatingDisplay';
+import { ResponsiveEmployeeCard } from './components/renderers/ResponsiveEmployeeCard';
 import { StatusBadge } from './components/renderers/StatusBadge';
 import { TopPerformerStar } from './components/renderers/TopPerformerStar';
 import { AnalyticsPanel, QuickFiltersPanel } from './components/tool-panels';
@@ -269,6 +272,12 @@ export function App() {
         new PinnedColumnsPlugin(),
         new ColumnVirtualizationPlugin(),
         new VisibilityPlugin(),
+        // Responsive plugin - card template comes from GridResponsiveCard component
+        new ResponsivePlugin<Employee>({
+          breakpoint: 700,
+          cardRowHeight: 80,
+          hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
+        }),
         // MasterDetailPlugin is added when enableMasterDetail is true
         // The detail renderer is provided declaratively via GridDetailPanel
         ...(enableMasterDetail
@@ -419,6 +428,11 @@ export function App() {
                 {({ row }) => <DetailPanel employee={row} />}
               </GridDetailPanel>
             )}
+
+            {/* Responsive card for mobile/narrow layouts */}
+            <GridResponsiveCard<Employee> cardRowHeight={80}>
+              {({ row }) => <ResponsiveEmployeeCard employee={row} />}
+            </GridResponsiveCard>
           </DataGrid>
         </div>
       </div>

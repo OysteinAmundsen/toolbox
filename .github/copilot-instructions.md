@@ -378,6 +378,27 @@ TypeScript paths defined in `tsconfig.base.json` for all libraries:
 - **Strict TypeScript**: `strict: true`, no implicit any, prefer explicit types
 - **ESLint config**: Flat config in `eslint.config.mjs` using `@nx/eslint-plugin`
 - **Formatting**: Prettier v3.7.4 (no explicit config file; uses defaults)
+
+#### CSS Color Guidelines
+
+When adding colors to CSS, follow these rules:
+
+1. **Check existing color registries first:**
+   - **Grid component code** (`libs/grid/src/lib/core/grid.css`): Check if a suitable `--tbw-*` variable exists (e.g., `--tbw-color-accent`, `--tbw-color-border`, `--tbw-color-fg-muted`)
+   - **Storybook/docs** (`apps/docs/.storybook/storybook-styles.css`): Check for `--sb-*`, `--sbdocs-*`, `--prism-*`, `--demo-*` variables
+
+2. **Reuse existing variables** when the semantic meaning matches. Don't create duplicates.
+
+3. **If no suitable variable exists**, consider whether the color should be added to a registry:
+   - Grid theming colors → add to `grid.css` with `--tbw-` prefix
+   - Storybook/documentation colors → add to `storybook-styles.css` with appropriate prefix
+
+4. **Always use `light-dark()` function** for new color definitions to support both light and dark modes:
+
+   ```css
+   --my-new-color: light-dark(#lightValue, #darkValue);
+   ```
+
 - **Naming & Visibility**:
   | Prefix/Tag | Meaning | In API Docs? |
   |------------|---------|--------------|

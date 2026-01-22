@@ -27,6 +27,8 @@ export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { GridDetailView } from './lib/directives/grid-detail-view.directive';
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
+export { GridResponsiveCard } from './lib/directives/grid-responsive-card.directive';
+export type { GridResponsiveCardContext } from './lib/directives/grid-responsive-card.directive';
 export { GridToolPanel } from './lib/directives/grid-tool-panel.directive';
 export type { GridToolPanelContext } from './lib/directives/grid-tool-panel.directive';
 export { Grid } from './lib/directives/grid.directive';

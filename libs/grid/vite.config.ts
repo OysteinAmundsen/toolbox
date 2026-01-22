@@ -277,9 +277,6 @@ export default defineConfig(({ command }) => ({
     reporters: ['default'],
     // Isolate test files to prevent module initialization race conditions
     isolate: true,
-    // Use single worker to eliminate race conditions (Vitest 4.0 replaces poolOptions.threads.singleThread)
-    pool: 'threads',
-    maxWorkers: 1,
     coverage: { provider: 'v8', reporter: ['text', 'html', 'lcov'], reportsDirectory: '../../coverage/libs/grid' },
   },
 }));

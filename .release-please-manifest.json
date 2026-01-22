@@ -1,5 +1,5 @@
 {
-  "libs/grid": "1.1.0",
+  "libs/grid": "1.1.1",
   "libs/grid-angular": "0.4.0",
   "libs/grid-react": "0.4.0"
 }

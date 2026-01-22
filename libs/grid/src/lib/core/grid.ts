@@ -32,7 +32,7 @@ import {
   setupTouchScrollListeners,
   type TouchScrollState,
 } from './internal/touch-scroll';
-import { validatePluginProperties } from './internal/validate-config';
+import { validatePluginConfigRules, validatePluginProperties } from './internal/validate-config';
 import type { CellMouseEvent, ScrollEvent } from './plugin';
 import type {
   BaseGridPlugin,
@@ -580,6 +580,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         // Validate that plugin-specific column properties have their required plugins loaded
         // This runs after plugins are loaded and config is merged
         validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.getPlugins() ?? []);
+        // Validate plugin configRules (errors/warnings for invalid config combinations)
+        validatePluginConfigRules(this.#pluginManager?.getPlugins() ?? []);
         // Store base columns before plugin transformation
         this.#baseColumns = [...this._columns];
       },

@@ -32,7 +32,13 @@ export { PluginManager } from './plugin-manager';
 // #endregion
 
 // #region Plugin Dependencies
-export type { PluginDependency } from './base-plugin';
+export type {
+  HookName,
+  PluginConfigRule,
+  PluginDependency,
+  PluginManifest,
+  PluginPropertyDefinition,
+} from './base-plugin';
 // #endregion
 
 // Re-export ColumnConfig for plugins that need it

@@ -228,11 +228,46 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
   }
 
+  /** Original row height before entering responsive mode, for restoration on exit */
+  #originalRowHeight?: number;
+
   /**
    * Apply the responsive state to the grid element.
+   * Handles scroll reset when entering responsive mode and row height restoration on exit.
    */
   #applyResponsiveState(): void {
     this.gridElement.toggleAttribute('data-responsive', this.#isResponsive);
+
+    // Cast to internal type for virtualization access
+    const internalGrid = this.grid as unknown as InternalGrid;
+
+    if (this.#isResponsive) {
+      // Store original row height before responsive mode changes it
+      if (internalGrid._virtualization) {
+        this.#originalRowHeight = internalGrid._virtualization.rowHeight;
+      }
+
+      // Reset horizontal scroll position when entering responsive mode
+      // The CSS hides overflow but doesn't reset the scroll position
+      const scrollArea = this.gridElement.querySelector('.tbw-scroll-area') as HTMLElement | null;
+      if (scrollArea) {
+        scrollArea.scrollLeft = 0;
+      }
+    } else {
+      // Exiting responsive mode - clean up inline styles set by renderRow
+      // The rows are reused from the pool, so we need to remove the card-specific styles
+      const rows = this.gridElement.querySelectorAll('.data-grid-row');
+      for (const row of rows) {
+        (row as HTMLElement).style.height = '';
+        row.classList.remove('responsive-card');
+      }
+
+      // Restore original row height
+      if (this.#originalRowHeight && this.#originalRowHeight > 0 && internalGrid._virtualization) {
+        internalGrid._virtualization.rowHeight = this.#originalRowHeight;
+        this.#originalRowHeight = undefined;
+      }
+    }
   }
 
   /**

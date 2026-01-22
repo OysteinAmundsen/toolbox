@@ -126,6 +126,22 @@ tbw-grid[data-responsive] .cell[data-responsive-hidden] {
   display: none !important;
 }
 
+/* Hide pinned/aggregation rows in responsive mode - they don't make sense in card layout */
+tbw-grid[data-responsive] {
+  .tbw-footer,
+  .tbw-pinned-rows,
+  .tbw-aggregation-rows {
+    display: none !important;
+  }
+
+  /* Reset min-widths that hold horizontal scroll width */
+  .tbw-pinned-rows,
+  .tbw-aggregation-rows,
+  .tbw-aggregation-row {
+    min-width: 0 !important;
+  }
+}
+
 /* Custom card renderer styling */
 tbw-grid[data-responsive] .data-grid-row.responsive-card {
   /* Override default cell layout - custom content takes full width */

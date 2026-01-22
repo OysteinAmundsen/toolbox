@@ -3,6 +3,7 @@
  *
  * Card layout mode for narrow viewports.
  *
+ * @module Plugins/Responsive
  * @packageDocumentation
  */
 

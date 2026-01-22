@@ -533,6 +533,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     cell.setAttribute('data-col', String(colIndex));
     cell.setAttribute('data-row', String(rowIndex));
     cell.setAttribute('data-field', col.field); // Field name for column identification
+    cell.setAttribute('data-header', col.header ?? col.field); // Header text for responsive CSS
     if (col.type) cell.setAttribute('data-type', col.type);
 
     let value = (rowData as Record<string, unknown>)[col.field];

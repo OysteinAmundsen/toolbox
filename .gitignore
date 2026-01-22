@@ -56,6 +56,6 @@ test-output
 # Note: libs/grid/docs/api/ is NOT ignored - Storybook needs to index it
 
 # RFC and analysis documents (local only)
-RFC-*.md
+**/RFC/*
 ANALYSIS-*.md
 tsconfig.tsbuildinfo

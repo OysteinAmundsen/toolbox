@@ -9,7 +9,7 @@
  */
 
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
-import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, CellMouseEvent, GridElement } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import {
   createRangeFromAnchor,
@@ -156,6 +156,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   protected override get defaultConfig(): Partial<SelectionConfig> {
     return {
       mode: 'cell',
+      triggerOn: 'click',
     };
   }
 
@@ -182,6 +183,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #region Lifecycle
 
   /** @internal */
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+    this.#validateConfig();
+  }
+
+  /** @internal */
   override detach(): void {
     this.selected.clear();
     this.ranges = [];
@@ -192,6 +199,22 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.pendingKeyboardUpdate = null;
   }
 
+  /**
+   * Validate configuration and warn about incompatible options.
+   */
+  #validateConfig(): void {
+    const { mode, triggerOn } = this.config;
+
+    // Range mode uses drag selection (mousedown → mousemove), not click events
+    if (mode === 'range' && triggerOn === 'dblclick') {
+      console.warn(
+        `[tbw-grid:SelectionPlugin] Configuration warning: "triggerOn: 'dblclick'" has no effect when mode is "range".\n` +
+          `  → Range selection uses drag interaction (mousedown → mousemove), not click events.\n` +
+          `  → The "triggerOn" option only affects "cell" and "row" selection modes.`,
+      );
+    }
+  }
+
   // #endregion
 
   // #region Event Handlers
@@ -199,7 +222,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /** @internal */
   override onCellClick(event: CellClickEvent): boolean {
     const { rowIndex, colIndex, originalEvent } = event;
-    const { mode } = this.config;
+    const { mode, triggerOn = 'click' } = this.config;
+
+    // Skip if event type doesn't match configured trigger
+    // This allows dblclick mode to only select on double-click
+    if (originalEvent.type !== triggerOn) {
+      return false;
+    }
 
     // Check if this is a utility column (expander columns, etc.)
     const column = this.columns[colIndex];

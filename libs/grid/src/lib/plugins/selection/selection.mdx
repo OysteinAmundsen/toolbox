@@ -164,6 +164,25 @@ Click and drag or Shift+Click to select rectangular ranges. Ideal for data expor
 | Option | Type                         | Default  | Description             |
 | ------ | ---------------------------- | -------- | ----------------------- |
 | `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
+| `triggerOn` | `'click' \| 'dblclick'` | `'click'` | Selection trigger type |
+
+### Double-Click Selection Trigger
+
+In data-entry grids where users navigate frequently, you may want single-click to only **focus** the row/cell for keyboard navigation, while **double-click** changes the selection state. This prevents accidental selection changes during navigation.
+
+> **Note:** `triggerOn` only applies to `'cell'` and `'row'` modes. Range mode uses drag selection (mousedown → mousemove), which is unaffected by this setting.
+
+```ts
+new SelectionPlugin({
+  mode: 'row',
+  triggerOn: 'dblclick',  // Single-click focuses, double-click selects
+})
+```
+
+| `triggerOn` | Single Click | Double Click |
+|-------------|--------------|--------------|
+| `'click'` (default) | Selects cell/row | No additional action |
+| `'dblclick'` | Focuses only | Selects cell/row |
 
 ## Keyboard Shortcuts
 

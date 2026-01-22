@@ -198,6 +198,141 @@ describe('SelectionPlugin', () => {
     });
   });
 
+  describe('triggerOn option', () => {
+    it('should default to click trigger', () => {
+      const plugin = new SelectionPlugin({ mode: 'cell' });
+      plugin.attach(createMockGrid([{ id: 1 }], [{ field: 'name' }]));
+
+      expect(plugin['config'].triggerOn).toBe('click');
+    });
+
+    it('should select on single-click when triggerOn is click (default)', () => {
+      const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'cell' });
+      plugin.attach(mockGrid);
+
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: { id: 1 },
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin.getSelection().ranges.length).toBe(1);
+    });
+
+    it('should NOT select on single-click when triggerOn is dblclick', () => {
+      const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'cell', triggerOn: 'dblclick' });
+      plugin.attach(mockGrid);
+
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: { id: 1 },
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin.getSelection().ranges.length).toBe(0);
+    });
+
+    it('should select on double-click when triggerOn is dblclick', () => {
+      const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'cell', triggerOn: 'dblclick' });
+      plugin.attach(mockGrid);
+
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: { id: 1 },
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('dblclick'),
+      });
+
+      expect(plugin.getSelection().ranges.length).toBe(1);
+      expect(plugin.getSelection().ranges[0]?.from).toEqual({ row: 0, col: 0 });
+    });
+
+    it('should work with row mode and dblclick trigger', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const columns = [{ field: 'a' }, { field: 'b' }];
+      const mockGrid = createMockGrid(rows, columns);
+      const plugin = new SelectionPlugin({ mode: 'row', triggerOn: 'dblclick' });
+      plugin.attach(mockGrid);
+
+      // Single-click should NOT select
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: 'a',
+        value: 'Test',
+        row: rows[0],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin.getSelection().ranges.length).toBe(0);
+
+      // Double-click SHOULD select
+      plugin.onCellClick({
+        rowIndex: 1,
+        colIndex: 0,
+        field: 'a',
+        value: 'Test',
+        row: rows[1],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('dblclick'),
+      });
+
+      expect(plugin.getSelection().ranges.length).toBe(1);
+      expect(plugin.getSelection().ranges[0]?.from.row).toBe(1);
+    });
+
+    it('should warn when triggerOn: dblclick is used with range mode', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'range', triggerOn: 'dblclick' });
+      plugin.attach(mockGrid);
+
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid:SelectionPlugin]');
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('triggerOn');
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('range');
+
+      warnSpy.mockRestore();
+    });
+
+    it('should NOT warn when triggerOn: dblclick is used with cell mode', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'cell', triggerOn: 'dblclick' });
+      plugin.attach(mockGrid);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it('should NOT warn when triggerOn: dblclick is used with row mode', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'row', triggerOn: 'dblclick' });
+      plugin.attach(mockGrid);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+  });
+
   describe('range mode', () => {
     it('should select single cell as range on click', () => {
       const rows = [{ id: 1 }];

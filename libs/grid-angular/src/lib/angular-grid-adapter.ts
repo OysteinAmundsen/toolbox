@@ -23,6 +23,7 @@ import { isComponentClass, type AngularColumnConfig, type AngularGridConfig } fr
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
+import { getResponsiveCardTemplate, GridResponsiveCardContext } from './directives/grid-responsive-card.directive';
 import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
 import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';
 import { GridTypeRegistry } from './grid-type-registry';
@@ -382,6 +383,44 @@ export class AngularGridAdapter implements FrameworkAdapter {
       this.viewRefs.push(viewRef);
       viewRef.detectChanges();
 
+      const container = document.createElement('div');
+      viewRef.rootNodes.forEach((node) => container.appendChild(node));
+      return container;
+    };
+  }
+
+  /**
+   * Creates a responsive card renderer function for ResponsivePlugin.
+   * Renders Angular templates for card layout in responsive mode.
+   *
+   * @param gridElement - The grid element to look up the template for
+   * @returns A card renderer function or undefined if no template is found
+   */
+  createResponsiveCardRenderer<TRow = unknown>(
+    gridElement: HTMLElement,
+  ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
+    const template = getResponsiveCardTemplate(gridElement) as TemplateRef<GridResponsiveCardContext<TRow>> | undefined;
+
+    if (!template) {
+      return undefined;
+    }
+
+    return (row: TRow, rowIndex: number) => {
+      // Create the context for the template
+      const context: GridResponsiveCardContext<TRow> = {
+        $implicit: row,
+        row: row,
+        index: rowIndex,
+      };
+
+      // Create embedded view from template
+      const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
+      this.viewRefs.push(viewRef);
+
+      // Trigger change detection
+      viewRef.detectChanges();
+
+      // Create a container for the root nodes
       const container = document.createElement('div');
       viewRef.rootNodes.forEach((node) => container.appendChild(node));
       return container;

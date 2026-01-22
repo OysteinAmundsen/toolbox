@@ -500,4 +500,212 @@ describe('ResponsivePlugin', () => {
       expect(mockGrid._focusRow).toBe(1); // Unchanged
     });
   });
+
+  describe('cardRenderer (Phase 2)', () => {
+    it('should not call cardRenderer when not in responsive mode', () => {
+      const cardRenderer = vi.fn(() => document.createElement('div'));
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer,
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      const rowEl = document.createElement('div');
+      rowEl.className = 'data-grid-row';
+
+      // Not in responsive mode - should return undefined (let default render)
+      const result = plugin.renderRow({ id: 1, name: 'Alice' }, rowEl, 0);
+
+      expect(result).toBeUndefined();
+      expect(cardRenderer).not.toHaveBeenCalled();
+    });
+
+    it('should call cardRenderer when in responsive mode', () => {
+      const cardRenderer = vi.fn(() => {
+        const card = document.createElement('div');
+        card.className = 'custom-card';
+        card.textContent = 'Custom content';
+        return card;
+      });
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer,
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      // Enter responsive mode
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      rowEl.className = 'data-grid-row';
+      const rowData = { id: 1, name: 'Alice' };
+
+      const result = plugin.renderRow(rowData, rowEl, 0);
+
+      expect(result).toBe(true); // Handled rendering
+      expect(cardRenderer).toHaveBeenCalledWith(rowData, 0);
+      expect(rowEl.querySelector('.custom-card')).toBeTruthy();
+      expect(rowEl.textContent).toBe('Custom content');
+    });
+
+    it('should pass correct rowIndex to cardRenderer', () => {
+      const cardRenderer = vi.fn(() => document.createElement('div'));
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer,
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      plugin.renderRow({ id: 5 }, rowEl, 42);
+
+      expect(cardRenderer).toHaveBeenCalledWith({ id: 5 }, 42);
+    });
+
+    it('should add responsive-card class to row element', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer: () => document.createElement('div'),
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      expect(rowEl.classList.contains('responsive-card')).toBe(true);
+    });
+
+    it('should clear existing content before rendering card', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer: () => {
+          const card = document.createElement('div');
+          card.textContent = 'New content';
+          return card;
+        },
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      rowEl.innerHTML = '<span>Old content</span><span>More old content</span>';
+
+      plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      expect(rowEl.textContent).toBe('New content');
+      expect(rowEl.querySelectorAll('span').length).toBe(0);
+    });
+
+    it('should apply explicit cardRowHeight when provided', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer: () => document.createElement('div'),
+        cardRowHeight: 120,
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      expect(rowEl.style.height).toBe('120px');
+    });
+
+    it('should set height to auto when cardRowHeight is auto', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer: () => document.createElement('div'),
+        cardRowHeight: 'auto',
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      rowEl.style.height = '50px'; // Simulate virtualization height
+      plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      expect(rowEl.style.height).toBe('auto');
+    });
+
+    it('should default to auto height when cardRowHeight not specified', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer: () => document.createElement('div'),
+        // No cardRowHeight specified
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      rowEl.style.height = '50px';
+      plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      expect(rowEl.style.height).toBe('auto');
+    });
+
+    it('should not use cardRenderer for CSS-only mode (no cardRenderer provided)', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        // No cardRenderer
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      const rowEl = document.createElement('div');
+      rowEl.innerHTML = '<div class="cell">Original cell</div>';
+
+      const result = plugin.renderRow({ id: 1 }, rowEl, 0);
+
+      // Should not handle - let CSS-only mode work via default rendering
+      expect(result).toBeUndefined();
+      expect(rowEl.textContent).toBe('Original cell'); // Unchanged
+    });
+
+    it('should allow updating cardRenderer via setCardRenderer', () => {
+      const plugin = new ResponsivePlugin<{ id: number }>({
+        breakpoint: 500,
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      // Initially no cardRenderer - renderRow returns undefined
+      const rowEl = document.createElement('div');
+      expect(plugin.renderRow({ id: 1 }, rowEl, 0)).toBeUndefined();
+
+      // Set a cardRenderer dynamically
+      const newRenderer = (row: { id: number }) => {
+        const el = document.createElement('div');
+        el.textContent = `Custom-${row.id}`;
+        return el;
+      };
+      plugin.setCardRenderer(newRenderer);
+
+      // Now renderRow should use the new renderer
+      const rowEl2 = document.createElement('div');
+      const result = plugin.renderRow({ id: 42 }, rowEl2, 0);
+
+      expect(result).toBe(true);
+      expect(rowEl2.textContent).toBe('Custom-42');
+    });
+  });
 });

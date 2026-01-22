@@ -347,3 +347,274 @@ export const ManualControl: Story = {
     return container;
   },
 };
+
+/**
+ * **Phase 2 Feature**: Use a custom `cardRenderer` for complete control over card layout.
+ * This allows for complex card designs with avatars, badges, custom layouts, etc.
+ */
+export const CustomCardRenderer: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story: `
+Use \`cardRenderer\` when the default header-value pair layout isn't sufficient.
+Your renderer receives the row data and index, and returns an HTMLElement.
+
+**Note:** When using a custom cardRenderer, keyboard navigation is disabled.
+The implementor is responsible for handling their own navigation within the card.
+        `,
+      },
+      source: {
+        code: `
+const responsivePlugin = new ResponsivePlugin({
+  breakpoint: 600,
+  cardRenderer: (row) => {
+    const card = document.createElement('div');
+    card.className = 'employee-card';
+    card.innerHTML = \`
+      <div class="avatar">\${row.name[0]}</div>
+      <div class="info">
+        <div class="name">\${row.name}</div>
+        <div class="meta">\${row.department} · $\${row.salary.toLocaleString()}</div>
+        <div class="email">\${row.email}</div>
+      </div>
+    \`;
+    return card;
+  },
+});
+`,
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = `
+      resize: horizontal;
+      overflow: auto;
+      width: 400px;
+      min-width: 300px;
+      max-width: 100%;
+      border: 2px dashed var(--sb-border);
+      padding: 8px;
+      background: var(--sb-bg);
+    `;
+
+    // Add instruction
+    const instruction = document.createElement('div');
+    instruction.style.cssText = 'margin-bottom: 8px; color: var(--sbdocs-toc-link); font-size: 14px;';
+    instruction.textContent = '↔ Resize to see custom card layout';
+    container.appendChild(instruction);
+
+    // Add card styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .employee-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .employee-card .avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--tbw-color-accent, #4a90d9);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: bold;
+        flex-shrink: 0;
+      }
+      .employee-card .info {
+        flex: 1;
+        min-width: 0;
+      }
+      .employee-card .name {
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--tbw-color-fg);
+      }
+      .employee-card .meta {
+        font-size: 13px;
+        color: var(--tbw-color-fg-muted, #666);
+        margin-top: 2px;
+      }
+      .employee-card .email {
+        font-size: 12px;
+        color: var(--tbw-color-accent, #4a90d9);
+        margin-top: 4px;
+      }
+      .employee-card .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-left: 8px;
+      }
+      .employee-card .badge.engineering { background: #e3f2fd; color: #1565c0; }
+      .employee-card .badge.marketing { background: #f3e5f5; color: #7b1fa2; }
+      .employee-card .badge.sales { background: #e8f5e9; color: #2e7d32; }
+    `;
+    container.appendChild(style);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    interface Employee {
+      id: number;
+      name: string;
+      department: string;
+      salary: number;
+      email: string;
+      startDate: string;
+    }
+
+    const responsivePlugin = new ResponsivePlugin<Employee>({
+      breakpoint: 600,
+      cardRenderer: (row: Employee) => {
+        const card = document.createElement('div');
+        card.className = 'employee-card';
+
+        // Get department badge class
+        const deptClass = row.department.toLowerCase().replace(/\s+/g, '-');
+
+        card.innerHTML = `
+          <div class="avatar">${row.name[0]}</div>
+          <div class="info">
+            <div class="name">
+              ${row.name}
+              <span class="badge ${deptClass}">${row.department}</span>
+            </div>
+            <div class="meta">$${row.salary.toLocaleString()} · Started ${row.startDate}</div>
+            <div class="email">${row.email}</div>
+          </div>
+        `;
+        return card;
+      },
+    });
+
+    grid.gridConfig = {
+      columns,
+      plugins: [responsivePlugin],
+    };
+    grid.rows = sampleData;
+
+    container.appendChild(grid);
+
+    // Add status indicator
+    const status = document.createElement('div');
+    status.style.cssText = 'margin-top: 8px; font-size: 12px; color: var(--sbdocs-toc-link);';
+    container.appendChild(status);
+
+    // Update status on responsive change
+    grid.addEventListener('responsive-change', ((e: CustomEvent) => {
+      const { isResponsive, width } = e.detail;
+      status.textContent = `Mode: ${isResponsive ? '📱 Custom Cards' : '📊 Table'} | Width: ${Math.round(width)}px`;
+    }) as EventListener);
+
+    // Initial status
+    requestAnimationFrame(() => {
+      const width = grid.clientWidth;
+      status.textContent = `Mode: ${width < 600 ? '📱 Custom Cards' : '📊 Table'} | Width: ${Math.round(width)}px`;
+    });
+
+    return container;
+  },
+};
+
+/**
+ * Use `cardRowHeight` to set a fixed height for custom cards.
+ * This is useful when you want consistent card heights for virtualization performance.
+ */
+export const FixedCardHeight: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story: `
+Set \`cardRowHeight\` to a number for fixed-height cards.
+This helps with virtualization performance for large datasets.
+Use \`'auto'\` (default) for variable-height cards.
+        `,
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'width: 350px; border: 1px solid var(--sb-border);';
+
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .simple-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 100%;
+      }
+      .simple-card .initial {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: var(--tbw-color-accent, #4a90d9);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+      }
+      .simple-card .details {
+        flex: 1;
+      }
+      .simple-card .name { font-weight: 600; }
+      .simple-card .dept { font-size: 13px; color: var(--tbw-color-fg-muted, #666); }
+    `;
+    container.appendChild(style);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    interface Employee {
+      id: number;
+      name: string;
+      department: string;
+      salary: number;
+      email: string;
+      startDate: string;
+    }
+
+    grid.gridConfig = {
+      columns: columns.slice(0, 4),
+      plugins: [
+        new ResponsivePlugin<Employee>({
+          breakpoint: 500,
+          cardRowHeight: 60, // Fixed 60px height per card
+          cardRenderer: (row: Employee) => {
+            const card = document.createElement('div');
+            card.className = 'simple-card';
+            card.innerHTML = `
+              <div class="initial">${row.name[0]}</div>
+              <div class="details">
+                <div class="name">${row.name}</div>
+                <div class="dept">${row.department}</div>
+              </div>
+            `;
+            return card;
+          },
+        }),
+      ],
+    };
+    grid.rows = sampleData;
+
+    container.appendChild(grid);
+
+    const note = document.createElement('div');
+    note.style.cssText = 'padding: 8px; font-size: 12px; color: var(--sbdocs-toc-link);';
+    note.textContent = 'Each card has a fixed 60px height';
+    container.appendChild(note);
+
+    return container;
+  },
+};

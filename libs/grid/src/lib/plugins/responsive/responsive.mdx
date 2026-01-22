@@ -165,6 +165,18 @@ Use the plugin API to manually control responsive mode.
 
 <Canvas of={ResponsiveStories.ManualControl} withToolbar />
 
+### Custom Card Renderer
+
+Use `cardRenderer` for complete control over card layout - avatars, badges, custom layouts, etc.
+
+<Canvas of={ResponsiveStories.CustomCardRenderer} withToolbar />
+
+### Fixed Card Height
+
+Use `cardRowHeight` for consistent card heights, which helps virtualization performance.
+
+<Canvas of={ResponsiveStories.FixedCardHeight} withToolbar />
+
 ## Configuration Options
 
 | Option | Type | Default | Description |
@@ -173,8 +185,8 @@ Use the plugin API to manually control responsive mode.
 | `hideHeader` | `boolean` | `true` | Whether to hide the header row in responsive mode |
 | `debounceMs` | `number` | `100` | Debounce delay for resize events |
 | `hiddenColumns` | `string[]` | `[]` | Column fields to hide in responsive mode |
-| `cardRenderer` | `function` | - | Custom renderer for card layout (Phase 2) |
-| `cardRowHeight` | `number \| 'auto'` | `'auto'` | Card row height (only with cardRenderer) |
+| `cardRenderer` | `(row, index) => HTMLElement` | - | Custom renderer function for card layout |
+| `cardRowHeight` | `number \| 'auto'` | `'auto'` | Card row height when using cardRenderer |
 
 ### Choosing a Breakpoint
 
@@ -332,7 +344,71 @@ new ResponsivePlugin({
 
 ## Future Enhancements
 
-- **Custom card renderer** for advanced layouts (avatars, badges, grouped fields)
 - **Multiple breakpoints** for progressive column hiding
+- **Enhanced hiddenColumns** with `{ field, showValue: true }` syntax
 - **Animation** between table and card modes
 - **Print styles** to ensure responsive mode doesn't affect printed output
+
+## Custom Card Renderer
+
+For advanced card layouts with avatars, badges, or custom grouped fields, use the `cardRenderer` option:
+
+```ts
+const responsivePlugin = new ResponsivePlugin({
+  breakpoint: 600,
+  cardRenderer: (row, rowIndex) => {
+    const card = document.createElement('div');
+    card.className = 'employee-card';
+    card.innerHTML = `
+      <div class="avatar">${row.name[0]}</div>
+      <div class="info">
+        <div class="name">${row.name}</div>
+        <div class="meta">${row.department} · $${row.salary.toLocaleString()}</div>
+        <div class="email">${row.email}</div>
+      </div>
+    `;
+    return card;
+  },
+});
+```
+
+### cardRenderer Signature
+
+```ts
+cardRenderer: (row: T, rowIndex: number) => HTMLElement
+```
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| `row` | `T` | The row data object |
+| `rowIndex` | `number` | Index of the row in the data array |
+| **Returns** | `HTMLElement` | The element to render as the card content |
+
+### cardRowHeight
+
+When using `cardRenderer`, you can control card height:
+
+```ts
+// Fixed height (better for virtualization with large datasets)
+new ResponsivePlugin({
+  breakpoint: 600,
+  cardRowHeight: 80,  // 80px per card
+  cardRenderer: (row) => { /* ... */ },
+});
+
+// Auto height (default - cards size to content)
+new ResponsivePlugin({
+  breakpoint: 600,
+  cardRowHeight: 'auto',
+  cardRenderer: (row) => { /* ... */ },
+});
+```
+
+### Keyboard Navigation with cardRenderer
+
+When using a custom `cardRenderer`, the grid's built-in arrow key navigation is disabled. This allows you to implement your own navigation within the card content.
+
+Standard keyboard shortcuts still work:
+- **Tab** - Move between cards
+- **Enter** - Triggers `cell-activate` event
+- **Escape** - Standard escape handling

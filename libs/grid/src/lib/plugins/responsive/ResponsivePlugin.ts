@@ -125,6 +125,19 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   }
 
   /**
+   * Set a custom card renderer.
+   * This allows framework adapters to provide template-based renderers at runtime.
+   * @param renderer - The card renderer function, or undefined to use default
+   */
+  setCardRenderer(renderer: ResponsivePluginConfig<T>['cardRenderer']): void {
+    this.config.cardRenderer = renderer;
+    // If already in responsive mode, trigger a re-render to apply the new renderer
+    if (this.#isResponsive) {
+      this.requestRender();
+    }
+  }
+
+  /**
    * Get current grid width.
    * @returns Width of the grid element in pixels
    */
@@ -220,6 +233,47 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    */
   #applyResponsiveState(): void {
     this.gridElement.toggleAttribute('data-responsive', this.#isResponsive);
+  }
+
+  /**
+   * Custom row rendering when cardRenderer is provided and in responsive mode.
+   *
+   * When a cardRenderer is configured, this hook takes over row rendering to display
+   * the custom card layout instead of the default cell structure.
+   *
+   * @param row - The row data object
+   * @param rowEl - The row DOM element to render into
+   * @param rowIndex - The index of the row in the data array
+   * @returns `true` if rendered (prevents default), `void` for default rendering
+   */
+  override renderRow(row: unknown, rowEl: HTMLElement, rowIndex: number): boolean | void {
+    // Only override when in responsive mode AND cardRenderer is provided
+    if (!this.#isResponsive || !this.config.cardRenderer) {
+      return; // Let default rendering proceed
+    }
+
+    // Clear existing content
+    rowEl.replaceChildren();
+
+    // Call user's cardRenderer to get custom content
+    const cardContent = this.config.cardRenderer(row as T, rowIndex);
+
+    // Apply card-specific styling
+    rowEl.classList.add('responsive-card');
+
+    // Handle cardRowHeight
+    const cardHeight = this.config.cardRowHeight ?? 'auto';
+    if (cardHeight !== 'auto') {
+      rowEl.style.height = `${cardHeight}px`;
+    } else {
+      // Remove any virtualization-set height for auto mode
+      rowEl.style.height = 'auto';
+    }
+
+    // Append the custom card content
+    rowEl.appendChild(cardContent);
+
+    return true; // We handled rendering
   }
 
   /**

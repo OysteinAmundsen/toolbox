@@ -125,3 +125,21 @@ tbw-grid[data-responsive] {
 tbw-grid[data-responsive] .cell[data-responsive-hidden] {
   display: none !important;
 }
+
+/* Custom card renderer styling */
+tbw-grid[data-responsive] .data-grid-row.responsive-card {
+  /* Override default cell layout - custom content takes full width */
+  display: block !important;
+  padding: var(--tbw-cell-padding);
+  border-bottom: 1px solid var(--tbw-color-border);
+
+  /* Card content should not have cell-based constraints */
+  > * {
+    width: 100%;
+  }
+
+  /* Remove default cell ::before headers - custom renderer handles layout */
+  .cell::before {
+    display: none;
+  }
+}

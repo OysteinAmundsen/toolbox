@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
 import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel';
+import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 
@@ -346,6 +347,36 @@ export class ReactGridAdapter implements FrameworkAdapter {
     if (!gridElement) return undefined;
 
     return this.createDetailRenderer<TRow>(gridElement);
+  }
+
+  /**
+   * Creates a responsive card renderer function for ResponsivePlugin.
+   * Renders React components for card layout in responsive mode.
+   */
+  createResponsiveCardRenderer<TRow = unknown>(
+    gridElement: HTMLElement,
+  ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
+    const renderFn = getResponsiveCardRenderer(gridElement);
+
+    if (!renderFn) {
+      return undefined;
+    }
+
+    return (row: TRow, rowIndex: number) => {
+      const container = document.createElement('div');
+      container.className = 'react-responsive-card';
+
+      const ctx: ResponsiveCardContext<TRow> = { row, index: rowIndex };
+
+      const root = createRoot(container);
+      flushSync(() => {
+        root.render(renderFn(ctx as ResponsiveCardContext<unknown>));
+      });
+
+      this.mountedViews.push({ root, container });
+
+      return container;
+    };
   }
 
   /**

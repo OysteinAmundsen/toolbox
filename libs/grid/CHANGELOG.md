@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.0.0...grid-1.1.0) (2026-01-22)
+
+
+### Features
+
+* **grid:** add plugin manifest system for declarative validation ([#59](https://github.com/OysteinAmundsen/toolbox/issues/59)) ([31874ee](https://github.com/OysteinAmundsen/toolbox/commit/31874eeeea57299af9bce121d9acc6ce0ab9b8bf))
+* **grid:** add ResponsivePlugin for card layout mode ([#56](https://github.com/OysteinAmundsen/toolbox/issues/56)) ([#62](https://github.com/OysteinAmundsen/toolbox/issues/62)) ([98d8057](https://github.com/OysteinAmundsen/toolbox/commit/98d8057fffd098ffdc5632603d5f2db03c435a2a))
+* **grid:** add triggerOn option to SelectionPlugin ([#53](https://github.com/OysteinAmundsen/toolbox/issues/53)) ([#61](https://github.com/OysteinAmundsen/toolbox/issues/61)) ([733d12f](https://github.com/OysteinAmundsen/toolbox/commit/733d12f36a2ad888125511b188ed057b0599d3de))
+
 ## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-0.6.0...grid-1.0.0) (2026-01-21)
 
 

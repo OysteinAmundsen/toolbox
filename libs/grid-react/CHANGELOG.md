@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.3.0...grid-react-0.3.1) (2026-01-22)
+
+
+### Bug Fixes
+
+* **grid-react:** [#57](https://github.com/OysteinAmundsen/toolbox/issues/57) correct package exports paths ([b101134](https://github.com/OysteinAmundsen/toolbox/commit/b101134c6ed5382c45ac0081944d36123a535929))
+
 ## [0.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.2.0...grid-react-0.3.0) (2026-01-21)
 
 

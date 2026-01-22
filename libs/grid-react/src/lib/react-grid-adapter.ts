@@ -444,28 +444,30 @@ export class ReactGridAdapter implements FrameworkAdapter {
    * // Any grid with type: 'country' columns will use these components
    * ```
    */
-  getTypeDefault(type: string): TypeDefault | undefined {
+  getTypeDefault<TRow = unknown>(type: string): TypeDefault<TRow> | undefined {
     if (!this.typeDefaults) {
       return undefined;
     }
 
-    const reactDefault = this.typeDefaults[type] as ReactTypeDefault | undefined;
+    // ReactTypeDefault stored in registry uses unknown since it's framework-agnostic storage.
+    // We cast to TRow for type-safe usage at consumption time.
+    const reactDefault = this.typeDefaults[type] as ReactTypeDefault<TRow> | undefined;
     if (!reactDefault) {
       return undefined;
     }
 
-    const typeDefault: TypeDefault = {
+    const typeDefault: TypeDefault<TRow> = {
       editorParams: reactDefault.editorParams,
     };
 
     // Create renderer function that renders React component
     if (reactDefault.renderer) {
-      typeDefault.renderer = this.createTypeRenderer(reactDefault.renderer);
+      typeDefault.renderer = this.createTypeRenderer<TRow>(reactDefault.renderer);
     }
 
     // Create editor function that renders React component
     if (reactDefault.editor) {
-      typeDefault.editor = this.createTypeEditor(reactDefault.editor);
+      typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor);
     }
 
     return typeDefault;

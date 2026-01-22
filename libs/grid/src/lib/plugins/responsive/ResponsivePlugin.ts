@@ -419,6 +419,12 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       return; // Let default rendering proceed
     }
 
+    // Skip group rows from GroupingRowsPlugin - they have special structure
+    // and should use their own renderer
+    if ((row as { __isGroupRow?: boolean }).__isGroupRow) {
+      return; // Let GroupingRowsPlugin handle group row rendering
+    }
+
     // Clear existing content
     rowEl.replaceChildren();
 

@@ -679,6 +679,37 @@ describe('ResponsivePlugin', () => {
       expect(rowEl.textContent).toBe('Original cell'); // Unchanged
     });
 
+    it('should skip group rows when cardRenderer is provided', () => {
+      const cardRenderer = vi.fn(() => document.createElement('div'));
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        cardRenderer,
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      // Simulate a group row from GroupingRowsPlugin
+      const groupRow = {
+        __isGroupRow: true,
+        __groupKey: 'Engineering',
+        __groupRows: [{ id: 1 }, { id: 2 }],
+      };
+
+      const rowEl = document.createElement('div');
+      rowEl.innerHTML = '<div class="cell">Group header content</div>';
+
+      const result = plugin.renderRow(groupRow, rowEl, 0);
+
+      // Should return undefined to let GroupingRowsPlugin handle group row rendering
+      expect(result).toBeUndefined();
+      // cardRenderer should NOT have been called for group rows
+      expect(cardRenderer).not.toHaveBeenCalled();
+      // Content should be unchanged
+      expect(rowEl.textContent).toBe('Group header content');
+    });
+
     it('should allow updating cardRenderer via setCardRenderer', () => {
       const plugin = new ResponsivePlugin<{ id: number }>({
         breakpoint: 500,

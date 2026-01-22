@@ -4,6 +4,7 @@
  * Enables column pinning (sticky left/right positioning).
  */
 
+import type { PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, PLUGIN_QUERIES, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
@@ -76,6 +77,21 @@ import type { PinnedColumnsConfig } from './types';
  * @internal Extends BaseGridPlugin
  */
 export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
+  /**
+   * Plugin manifest - declares owned properties for configuration validation.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    ownedProperties: [
+      {
+        property: 'sticky',
+        level: 'column',
+        description: 'the "sticky" column property',
+        isUsed: (v) => v === 'left' || v === 'right',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'pinnedColumns';
 

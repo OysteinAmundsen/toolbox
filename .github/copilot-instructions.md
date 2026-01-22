@@ -626,6 +626,83 @@ plugins: [new UndoRedoPlugin(), new EditingPlugin()];
 // Throws: "[tbw-grid] Plugin dependency error: UndoRedoPlugin tracks cell edit history..."
 ```
 
+### Plugin Manifest System
+
+Plugins can declare a **static manifest** for declarative validation and metadata. The manifest provides:
+
+1. **`ownedProperties`** - Column/config properties the plugin owns (for helpful error messages)
+2. **`hookPriority`** - Reserved for future hook ordering (not yet implemented)
+3. **`configRules`** - Declarative validation rules with severity levels
+
+**Declaring a Manifest:**
+
+```typescript
+import { BaseGridPlugin, type PluginManifest } from '@toolbox-web/grid';
+import type { MyPluginConfig } from './types';
+
+export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
+  static override readonly manifest: PluginManifest<MyPluginConfig> = {
+    // Declare properties this plugin owns
+    ownedProperties: [
+      { property: 'myOption', level: 'column' },
+      { property: 'globalSetting', level: 'config' },
+    ],
+    // Declarative validation rules
+    configRules: [
+      {
+        id: 'myPlugin/invalid-combo',
+        severity: 'warn', // 'warn' logs to console, 'error' throws
+        message: 'optionA and optionB cannot both be true',
+        check: (config) => config.optionA === true && config.optionB === true,
+      },
+    ],
+  };
+
+  readonly name = 'myPlugin';
+  readonly version = '1.0.0';
+}
+```
+
+**Manifest Properties:**
+
+| Property          | Type                                | Description                                              |
+| ----------------- | ----------------------------------- | -------------------------------------------------------- |
+| `ownedProperties` | `PluginPropertyDefinition[]`        | Properties owned by plugin (level: 'column' or 'config') |
+| `hookPriority`    | `Partial<Record<HookName, number>>` | Reserved for future hook ordering                        |
+| `configRules`     | `PluginConfigRule<TConfig>[]`       | Validation rules executed at initialization              |
+
+**Config Rules:**
+
+| Property   | Type                     | Description                                     |
+| ---------- | ------------------------ | ----------------------------------------------- |
+| `id`       | `string`                 | Unique rule ID (format: `pluginName/rule-name`) |
+| `severity` | `'warn' \| 'error'`      | 'warn' logs warning, 'error' throws             |
+| `message`  | `string`                 | Human-readable message shown when violated      |
+| `check`    | `(config: T) => boolean` | Returns `true` if rule is violated              |
+
+**Plugins with Manifests:**
+
+| Plugin                  | Owned Properties                     | Config Rules           |
+| ----------------------- | ------------------------------------ | ---------------------- |
+| `EditingPlugin`         | `editable`, `editor`, `editorParams` | -                      |
+| `GroupingColumnsPlugin` | `group`, `columnGroups`              | -                      |
+| `PinnedColumnsPlugin`   | `sticky`                             | -                      |
+| `SelectionPlugin`       | -                                    | range+dblclick warning |
+
+**Adding New Plugin-Owned Properties:**
+
+When adding a new property to a plugin that augments `GridConfig` or `ColumnConfig`:
+
+1. **Always**: Add to the plugin's `manifest.ownedProperties` (documentation, lives with plugin)
+2. **Optionally**: Add to `KNOWN_COLUMN_PROPERTIES` or `KNOWN_CONFIG_PROPERTIES` in `validate-config.ts`
+
+Why step 2 is needed: If a developer uses a plugin property but forgets to add the plugin,
+we can't read the manifest (the plugin class was never imported!). The static arrays in
+`validate-config.ts` enable "forgot to add plugin" detection for well-known properties.
+
+Not every property needs step 2 - only add high-value properties where developers commonly
+forget to include the plugin.
+
 ### Type Exports
 
 The `index.ts` barrel file exports the plugin class and types:
@@ -690,6 +767,7 @@ The grid validates plugin-owned properties at runtime and throws helpful errors 
 | -------------- | ----------------------- | ------ |
 | `editable`     | `EditingPlugin`         | Column |
 | `editor`       | `EditingPlugin`         | Column |
+| `editorParams` | `EditingPlugin`         | Column |
 | `group`        | `GroupingColumnsPlugin` | Column |
 | `sticky`       | `PinnedColumnsPlugin`   | Column |
 | `columnGroups` | `GroupingColumnsPlugin` | Config |
@@ -706,6 +784,10 @@ Column(s) [name, email] use the "editable" column property, but the required plu
 ```
 
 This validation is implemented in `libs/grid/src/lib/core/internal/validate-config.ts` and runs after plugins are initialized.
+
+**Development-only warnings:**
+
+Config rule warnings (severity: 'warn') are only shown in development environments (localhost or `NODE_ENV !== 'production'`) to avoid polluting production logs. Errors (severity: 'error') always throw regardless of environment.
 
 ## External Dependencies
 

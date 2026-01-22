@@ -118,6 +118,106 @@ export interface PluginDependency {
   reason?: string;
 }
 
+// ============================================================================
+// Plugin Manifest Types
+// ============================================================================
+
+/**
+ * Defines a property that a plugin "owns" - used for configuration validation.
+ * When this property is used without the owning plugin loaded, an error is thrown.
+ *
+ * @category Plugin Development
+ */
+export interface PluginPropertyDefinition {
+  /** The property name on column or grid config */
+  property: string;
+  /** Whether this is a column-level or config-level property */
+  level: 'column' | 'config';
+  /** Human-readable description for error messages (e.g., 'the "editable" column property') */
+  description: string;
+  /** Import path hint for error messages (e.g., "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';") */
+  importHint?: string;
+  /** Custom check for whether property is considered "used" (default: truthy value check) */
+  isUsed?: (value: unknown) => boolean;
+}
+
+/**
+ * A configuration validation rule for detecting invalid/conflicting settings.
+ * Plugins declare rules in their manifest; the validator executes them during grid initialization.
+ *
+ * @category Plugin Development
+ * @template TConfig - The plugin's configuration type
+ */
+export interface PluginConfigRule<TConfig = unknown> {
+  /** Rule identifier for debugging (e.g., 'selection/range-dblclick') */
+  id: string;
+  /** Severity: 'error' throws, 'warn' logs warning */
+  severity: 'error' | 'warn';
+  /** Human-readable message shown when rule is violated */
+  message: string;
+  /** Predicate returning true if the rule is VIOLATED (i.e., config is invalid) */
+  check: (pluginConfig: TConfig) => boolean;
+}
+
+/**
+ * Hook names that can have execution priority configured.
+ *
+ * @category Plugin Development
+ */
+export type HookName =
+  | 'processColumns'
+  | 'processRows'
+  | 'afterRender'
+  | 'onCellClick'
+  | 'onCellMouseDown'
+  | 'onCellMouseMove'
+  | 'onCellMouseUp'
+  | 'onKeyDown'
+  | 'onScroll'
+  | 'onScrollRender';
+
+/**
+ * Static metadata about a plugin's capabilities and requirements.
+ * Declared as a static property on plugin classes.
+ *
+ * @category Plugin Development
+ * @template TConfig - The plugin's configuration type
+ *
+ * @example
+ * ```typescript
+ * export class MyPlugin extends BaseGridPlugin<MyConfig> {
+ *   static override readonly manifest: PluginManifest<MyConfig> = {
+ *     ownedProperties: [
+ *       { property: 'myProp', level: 'column', description: 'the "myProp" column property' },
+ *     ],
+ *     configRules: [
+ *       { id: 'my-plugin/invalid-combo', severity: 'warn', message: '...', check: (c) => c.a && c.b },
+ *     ],
+ *   };
+ *   readonly name = 'myPlugin';
+ * }
+ * ```
+ */
+export interface PluginManifest<TConfig = unknown> {
+  /**
+   * Properties this plugin owns - validated by validate-config.ts.
+   * If a user uses one of these properties without loading the plugin, an error is thrown.
+   */
+  ownedProperties?: PluginPropertyDefinition[];
+
+  /**
+   * Hook execution priority (higher = later, default 0).
+   * Use negative values to run earlier, positive to run later.
+   */
+  hookPriority?: Partial<Record<HookName, number>>;
+
+  /**
+   * Configuration validation rules - checked during grid initialization.
+   * Rules with severity 'error' throw, 'warn' logs to console.
+   */
+  configRules?: PluginConfigRule<TConfig>[];
+}
+
 /**
  * Abstract base class for all grid plugins.
  *
@@ -141,6 +241,29 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   static readonly dependencies?: PluginDependency[];
+
+  /**
+   * Plugin manifest - declares owned properties, config rules, and hook priorities.
+   *
+   * This is read by the configuration validator to:
+   * - Validate that required plugins are loaded when their properties are used
+   * - Execute configRules to detect invalid/conflicting settings
+   * - Order hook execution based on priority
+   *
+   * @example
+   * ```typescript
+   * static override readonly manifest: PluginManifest<MyConfig> = {
+   *   ownedProperties: [
+   *     { property: 'myProp', level: 'column', description: 'the "myProp" column property' },
+   *   ],
+   *   configRules: [
+   *     { id: 'myPlugin/conflict', severity: 'warn', message: '...', check: (c) => c.a && c.b },
+   *   ],
+   * };
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static readonly manifest?: PluginManifest<any>;
 
   /** Unique plugin identifier (derived from class name by default) */
   abstract readonly name: string;

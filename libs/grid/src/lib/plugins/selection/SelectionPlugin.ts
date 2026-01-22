@@ -175,6 +175,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   protected override get defaultConfig(): Partial<SelectionConfig> {
     return {
       mode: 'cell',
+      triggerOn: 'click',
     };
   }
 
@@ -218,7 +219,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /** @internal */
   override onCellClick(event: CellClickEvent): boolean {
     const { rowIndex, colIndex, originalEvent } = event;
-    const { mode } = this.config;
+    const { mode, triggerOn = 'click' } = this.config;
+
+    // Skip if event type doesn't match configured trigger
+    // This allows dblclick mode to only select on double-click
+    if (originalEvent.type !== triggerOn) {
+      return false;
+    }
 
     // Check if this is a utility column (expander columns, etc.)
     const column = this.columns[colIndex];

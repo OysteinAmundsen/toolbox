@@ -8,4 +8,4 @@
  */
 
 export { ResponsivePlugin } from './ResponsivePlugin';
-export type { ResponsiveChangeDetail, ResponsivePluginConfig } from './types';
+export type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, ResponsivePluginConfig } from './types';

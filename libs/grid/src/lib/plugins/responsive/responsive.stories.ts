@@ -156,6 +156,10 @@ grid.rows = data;
     },
   },
   render: (args) => {
+    // Outer wrapper with padding to keep resize handle above "Show code" button
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding-bottom: 20px;';
+
     // Create a resizable container to demonstrate the plugin
     const container = document.createElement('div');
     container.style.cssText = `
@@ -210,7 +214,8 @@ grid.rows = data;
       status.textContent = `Mode: ${isResponsive ? '📱 Card' : '📊 Table'} | Width: ${Math.round(width)}px | Breakpoint: ${args.breakpoint}px`;
     });
 
-    return container;
+    wrapper.appendChild(container);
+    return wrapper;
   },
 };
 
@@ -262,6 +267,10 @@ export const HiddenColumns: Story = {
     },
   },
   render: () => {
+    // Outer wrapper with padding to keep resize handle above "Show code" button
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding-bottom: 20px;';
+
     const container = document.createElement('div');
     container.style.cssText = `
       resize: horizontal;
@@ -271,6 +280,7 @@ export const HiddenColumns: Story = {
       max-width: 100%;
       border: 2px dashed var(--sb-border);
       padding: 8px;
+      padding-bottom: 16px;
     `;
 
     const instruction = document.createElement('div');
@@ -293,7 +303,8 @@ export const HiddenColumns: Story = {
     grid.rows = sampleData;
 
     container.appendChild(grid);
-    return container;
+    wrapper.appendChild(container);
+    return wrapper;
   },
 };
 
@@ -387,6 +398,10 @@ const responsivePlugin = new ResponsivePlugin({
     },
   },
   render: () => {
+    // Outer wrapper with padding to keep resize handle above "Show code" button
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding-bottom: 20px;';
+
     const container = document.createElement('div');
     container.style.cssText = `
       resize: horizontal;
@@ -396,6 +411,7 @@ const responsivePlugin = new ResponsivePlugin({
       max-width: 100%;
       border: 2px dashed var(--sb-border);
       padding: 8px;
+      padding-bottom: 16px;
       background: var(--sb-bg);
     `;
 
@@ -521,7 +537,8 @@ const responsivePlugin = new ResponsivePlugin({
       status.textContent = `Mode: ${width < 600 ? '📱 Custom Cards' : '📊 Table'} | Width: ${Math.round(width)}px`;
     });
 
-    return container;
+    wrapper.appendChild(container);
+    return wrapper;
   },
 };
 
@@ -616,5 +633,338 @@ Use \`'auto'\` (default) for variable-height cards.
     container.appendChild(note);
 
     return container;
+  },
+};
+
+/**
+ * **Phase 3 Feature**: Progressive degradation with multiple breakpoints.
+ * Hide columns progressively as the grid gets narrower before switching to card layout.
+ */
+export const ProgressiveDegradation: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story: `
+Use \`breakpoints\` array to progressively hide columns as the grid narrows.
+This provides a smoother transition before switching to full card layout.
+
+**Breakpoints in this example:**
+- 900px: Hide Start Date
+- 700px: Also hide Email
+- 500px: Also hide Salary
+- 400px: Switch to card layout
+        `,
+      },
+      source: {
+        code: `
+const responsivePlugin = new ResponsivePlugin({
+  breakpoints: [
+    { maxWidth: 900, hiddenColumns: ['startDate'] },
+    { maxWidth: 700, hiddenColumns: ['startDate', 'email'] },
+    { maxWidth: 500, hiddenColumns: ['startDate', 'email', 'salary'] },
+    { maxWidth: 400, cardLayout: true },
+  ],
+});
+`,
+      },
+    },
+  },
+  render: () => {
+    // Outer wrapper with padding to keep resize handle above "Show code" button
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding-bottom: 20px;';
+
+    const container = document.createElement('div');
+    container.style.cssText = `
+      resize: horizontal;
+      overflow: auto;
+      width: 950px;
+      min-width: 300px;
+      max-width: 100%;
+      border: 2px dashed var(--sb-border);
+      padding: 8px;
+      padding-bottom: 16px;
+      background: var(--sb-bg);
+    `;
+
+    const instruction = document.createElement('div');
+    instruction.style.cssText = 'margin-bottom: 8px; color: var(--sbdocs-toc-link); font-size: 14px;';
+    instruction.textContent = '↔ Resize to see columns hide progressively';
+    container.appendChild(instruction);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+
+    const responsivePlugin = new ResponsivePlugin({
+      breakpoints: [
+        { maxWidth: 900, hiddenColumns: ['startDate'] },
+        { maxWidth: 700, hiddenColumns: ['startDate', 'email'] },
+        { maxWidth: 500, hiddenColumns: ['startDate', 'email', 'salary'] },
+        { maxWidth: 400, cardLayout: true },
+      ],
+    });
+
+    grid.gridConfig = {
+      columns,
+      plugins: [responsivePlugin],
+    };
+    grid.rows = sampleData;
+
+    container.appendChild(grid);
+
+    // Status indicator
+    const status = document.createElement('div');
+    status.style.cssText = 'margin-top: 8px; font-size: 12px; color: var(--sbdocs-toc-link);';
+    container.appendChild(status);
+
+    const updateStatus = () => {
+      const bp = responsivePlugin.getActiveBreakpoint();
+      const isCard = responsivePlugin.isResponsive();
+      if (!bp) {
+        status.textContent = '📊 Full Table (no columns hidden)';
+      } else if (isCard) {
+        status.textContent = `📱 Card Layout (≤${bp.maxWidth}px)`;
+      } else {
+        const hidden = bp.hiddenColumns?.length ?? 0;
+        status.textContent = `📊 Table - ${hidden} column(s) hidden (≤${bp.maxWidth}px)`;
+      }
+    };
+
+    grid.addEventListener('responsive-change', updateStatus);
+    requestAnimationFrame(updateStatus);
+
+    wrapper.appendChild(container);
+    return wrapper;
+  },
+};
+
+/**
+ * **Phase 3 Feature**: Enhanced hiddenColumns with value-only mode.
+ * Use `{ field, showValue: true }` to hide just the label but keep the value.
+ */
+export const ValueOnlyColumns: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story: `
+Use the enhanced \`hiddenColumns\` syntax to show values without their header labels.
+This is useful for self-explanatory fields like email addresses or titles.
+
+**Syntax:**
+- \`'fieldName'\` - Hide the entire cell
+- \`{ field: 'fieldName', showValue: true }\` - Hide label only, show value full-width
+        `,
+      },
+      source: {
+        code: `
+const responsivePlugin = new ResponsivePlugin({
+  breakpoint: 500,
+  hiddenColumns: [
+    'startDate',                        // Fully hidden
+    { field: 'email', showValue: true }, // Value shown, no label
+  ],
+});
+`,
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = `
+      width: 400px;
+      border: 2px dashed var(--sb-border);
+      padding: 8px;
+      background: var(--sb-bg);
+    `;
+
+    const instruction = document.createElement('div');
+    instruction.style.cssText = 'margin-bottom: 8px; color: var(--sbdocs-toc-link); font-size: 14px;';
+    instruction.textContent = 'Email shows without label, Start Date is fully hidden';
+    container.appendChild(instruction);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new ResponsivePlugin({
+          breakpoint: 500,
+          hiddenColumns: ['startDate', { field: 'email', showValue: true }],
+        }),
+      ],
+    };
+    grid.rows = sampleData;
+
+    container.appendChild(grid);
+    return container;
+  },
+};
+
+/**
+ * **Phase 3 Feature**: Animated transitions between modes.
+ * Smooth fade/slide when switching between table and card layouts.
+ */
+export const AnimatedTransitions: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story: `
+Animations are enabled by default. Cards fade and slide in smoothly.
+Use \`animate: false\` to disable, or \`animationDuration\` to customize timing.
+        `,
+      },
+      source: {
+        code: `
+// Default: animations enabled
+new ResponsivePlugin({ breakpoint: 500 })
+
+// Disable animations
+new ResponsivePlugin({ breakpoint: 500, animate: false })
+
+// Custom duration (slower)
+new ResponsivePlugin({ breakpoint: 500, animationDuration: 400 })
+`,
+      },
+    },
+  },
+  render: () => {
+    // Outer wrapper with padding to keep resize handle above "Show code" button
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding-bottom: 20px;';
+
+    const container = document.createElement('div');
+    container.style.cssText = `
+      resize: horizontal;
+      overflow: auto;
+      width: 600px;
+      min-width: 300px;
+      max-width: 100%;
+      border: 2px dashed var(--sb-border);
+      padding: 8px;
+      padding-bottom: 16px;
+      background: var(--sb-bg);
+    `;
+
+    const instruction = document.createElement('div');
+    instruction.style.cssText = 'margin-bottom: 8px; color: var(--sbdocs-toc-link); font-size: 14px;';
+    instruction.textContent = '↔ Resize below 500px to see animated transition';
+    container.appendChild(instruction);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+
+    grid.gridConfig = {
+      columns: columns.slice(0, 4),
+      plugins: [
+        new ResponsivePlugin({
+          breakpoint: 500,
+          animate: true,
+          animationDuration: 300, // Slightly slower for demo
+        }),
+      ],
+    };
+    grid.rows = sampleData;
+
+    container.appendChild(grid);
+
+    const status = document.createElement('div');
+    status.style.cssText = 'margin-top: 8px; font-size: 12px; color: var(--sbdocs-toc-link);';
+    container.appendChild(status);
+
+    grid.addEventListener('responsive-change', ((e: CustomEvent) => {
+      status.textContent = e.detail.isResponsive ? '📱 Card mode - watch the fade-in animation!' : '📊 Table mode';
+    }) as EventListener);
+
+    wrapper.appendChild(container);
+    return wrapper;
+  },
+};
+
+/**
+ * Combining multiple Phase 3 features: progressive degradation with enhanced hiddenColumns.
+ */
+export const CombinedPhase3Features: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story: `
+This example combines multiple breakpoints with the enhanced hiddenColumns syntax,
+showing how they work together for a polished responsive experience.
+        `,
+      },
+    },
+  },
+  render: () => {
+    // Outer wrapper with padding to keep resize handle above "Show code" button
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'padding-bottom: 20px;';
+
+    const container = document.createElement('div');
+    container.style.cssText = `
+      resize: horizontal;
+      overflow: auto;
+      width: 900px;
+      min-width: 300px;
+      max-width: 100%;
+      border: 2px dashed var(--sb-border);
+      padding: 8px;
+      padding-bottom: 16px;
+      background: var(--sb-bg);
+    `;
+
+    const instruction = document.createElement('div');
+    instruction.style.cssText = 'margin-bottom: 8px; color: var(--sbdocs-toc-link); font-size: 14px;';
+    instruction.textContent = '↔ Resize to see progressive degradation with value-only email in card mode';
+    container.appendChild(instruction);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+
+    const responsivePlugin = new ResponsivePlugin({
+      breakpoints: [
+        { maxWidth: 800, hiddenColumns: ['startDate'] },
+        { maxWidth: 600, hiddenColumns: ['startDate', 'salary'] },
+        {
+          maxWidth: 450,
+          cardLayout: true,
+          hiddenColumns: ['startDate', { field: 'email', showValue: true }],
+        },
+      ],
+      animationDuration: 250,
+    });
+
+    grid.gridConfig = {
+      columns,
+      plugins: [responsivePlugin],
+    };
+    grid.rows = sampleData;
+
+    container.appendChild(grid);
+
+    const status = document.createElement('div');
+    status.style.cssText = 'margin-top: 8px; font-size: 12px; color: var(--sbdocs-toc-link);';
+    container.appendChild(status);
+
+    const updateStatus = () => {
+      const bp = responsivePlugin.getActiveBreakpoint();
+      const isCard = responsivePlugin.isResponsive();
+      const width = responsivePlugin.getWidth();
+
+      if (!bp) {
+        status.textContent = `📊 Full Table | Width: ${Math.round(width)}px`;
+      } else if (isCard) {
+        status.textContent = `📱 Card Layout | Width: ${Math.round(width)}px | Email shows value-only`;
+      } else {
+        const hidden = (bp.hiddenColumns ?? []).map((h) => (typeof h === 'string' ? h : h.field)).join(', ');
+        status.textContent = `📊 Table | Width: ${Math.round(width)}px | Hidden: ${hidden}`;
+      }
+    };
+
+    grid.addEventListener('responsive-change', updateStatus);
+    requestAnimationFrame(updateStatus);
+
+    wrapper.appendChild(container);
+    return wrapper;
   },
 };

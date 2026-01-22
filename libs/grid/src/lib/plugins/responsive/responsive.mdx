@@ -177,16 +177,70 @@ Use `cardRowHeight` for consistent card heights, which helps virtualization perf
 
 <Canvas of={ResponsiveStories.FixedCardHeight} withToolbar />
 
+### Progressive Degradation
+
+Use multiple breakpoints to progressively hide columns before switching to card layout.
+
+<Canvas of={ResponsiveStories.ProgressiveDegradation} withToolbar />
+
+### Value-Only Columns
+
+Use enhanced `hiddenColumns` syntax to show values without labels.
+
+<Canvas of={ResponsiveStories.ValueOnlyColumns} withToolbar />
+
+### Animated Transitions
+
+Smooth animations when transitioning between modes (enabled by default).
+
+<Canvas of={ResponsiveStories.AnimatedTransitions} withToolbar />
+
 ## Configuration Options
 
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
 | `breakpoint` | `number` | `0` | Width threshold in pixels to trigger responsive mode |
+| `breakpoints` | `BreakpointConfig[]` | - | Multiple breakpoints for progressive degradation |
 | `hideHeader` | `boolean` | `true` | Whether to hide the header row in responsive mode |
 | `debounceMs` | `number` | `100` | Debounce delay for resize events |
-| `hiddenColumns` | `string[]` | `[]` | Column fields to hide in responsive mode |
+| `hiddenColumns` | `HiddenColumnConfig[]` | `[]` | Columns to hide/modify in responsive mode |
 | `cardRenderer` | `(row, index) => HTMLElement` | - | Custom renderer function for card layout |
 | `cardRowHeight` | `number \| 'auto'` | `'auto'` | Card row height when using cardRenderer |
+| `animate` | `boolean` | `true` | Enable smooth transitions between modes |
+| `animationDuration` | `number` | `200` | Animation duration in milliseconds |
+
+### BreakpointConfig
+
+For progressive degradation, use the `breakpoints` array instead of a single `breakpoint`:
+
+```ts
+interface BreakpointConfig {
+  /** Maximum width to activate this breakpoint */
+  maxWidth: number;
+  /** Columns to hide at this breakpoint */
+  hiddenColumns?: HiddenColumnConfig[];
+  /** Whether to switch to card layout at this breakpoint */
+  cardLayout?: boolean;
+}
+```
+
+### HiddenColumnConfig
+
+The enhanced `hiddenColumns` syntax supports both simple strings and objects:
+
+```ts
+type HiddenColumnConfig =
+  | string                          // Hide entire cell
+  | { field: string; showValue: true }  // Hide label only, show value full-width
+```
+
+**Example:**
+```ts
+hiddenColumns: [
+  'startDate',                        // Fully hidden
+  { field: 'email', showValue: true }, // Value shown without label
+]
+```
 
 ### Choosing a Breakpoint
 
@@ -234,6 +288,10 @@ plugin.setBreakpoint(600);
 
 // Get current grid width
 const width = plugin.getWidth();
+
+// Get active breakpoint (multi-breakpoint mode)
+const activeBreakpoint = plugin.getActiveBreakpoint();
+// Returns: { maxWidth: 600, hiddenColumns: [...], cardLayout: false } or null
 ```
 
 ## How It Works
@@ -288,9 +346,17 @@ tbw-grid[data-responsive] .cell[data-field="updatedAt"] {
 
 | Attribute | Element | Description |
 | --------- | ------- | ----------- |
-| `data-responsive` | `tbw-grid` | Present when in responsive mode |
+| `data-responsive` | `tbw-grid` | Present when in responsive (card) mode |
+| `data-responsive-animate` | `tbw-grid` | Present when animations are enabled |
 | `data-header` | `.cell` | Column header text for CSS `::before` |
 | `data-responsive-hidden` | `.cell` | Marks cells hidden via `hiddenColumns` |
+| `data-responsive-value-only` | `.cell` | Marks cells showing value only (no label) |
+
+### CSS Custom Properties for Animation
+
+| Property | Default | Description |
+| -------- | ------- | ----------- |
+| `--tbw-responsive-duration` | `200ms` | Animation duration for mode transitions |
 
 ## Keyboard Navigation
 
@@ -342,12 +408,18 @@ new ResponsivePlugin({
 })
 ```
 
-## Future Enhancements
+### Progressive Degradation
 
-- **Multiple breakpoints** for progressive column hiding
-- **Enhanced hiddenColumns** with `{ field, showValue: true }` syntax
-- **Animation** between table and card modes
-- **Print styles** to ensure responsive mode doesn't affect printed output
+```ts
+// Gracefully degrade as container shrinks
+new ResponsivePlugin({
+  breakpoints: [
+    { maxWidth: 900, hiddenColumns: ['startDate'] },
+    { maxWidth: 700, hiddenColumns: ['startDate', 'email'] },
+    { maxWidth: 500, cardLayout: true },
+  ],
+})
+```
 
 ## Custom Card Renderer
 

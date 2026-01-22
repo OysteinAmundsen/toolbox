@@ -12,6 +12,42 @@
  * - Hiding .faux-vscroll
  */
 
+/* ============================================
+   Animation / Transition Support
+   ============================================ */
+
+/* Base transition setup for animated mode switching */
+tbw-grid[data-responsive-animate] {
+  .data-grid-row,
+  .data-grid-row > .cell {
+    transition:
+      opacity var(--tbw-responsive-duration, 200ms) ease-out,
+      transform var(--tbw-responsive-duration, 200ms) ease-out;
+  }
+}
+
+/* Fade-in when entering responsive mode */
+tbw-grid[data-responsive][data-responsive-animate] {
+  .data-grid-row {
+    animation: responsive-card-enter var(--tbw-responsive-duration, 200ms) ease-out;
+  }
+}
+
+@keyframes responsive-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   Responsive Card Layout
+   ============================================ */
+
 tbw-grid[data-responsive] {
   /* Hide entire header section in card mode */
   .header {
@@ -124,6 +160,28 @@ tbw-grid[data-responsive] {
 /* Hidden columns in responsive mode */
 tbw-grid[data-responsive] .cell[data-responsive-hidden] {
   display: none !important;
+}
+
+/* Value-only columns in responsive mode (hides label, shows value full-width) */
+tbw-grid[data-responsive] .cell[data-responsive-value-only] {
+  /* Override the header label ::before to hide it */
+  &::before {
+    display: none !important;
+  }
+
+  /* Value takes full width, no justify-content needed */
+  justify-content: flex-start !important;
+  font-weight: 500;
+}
+
+/* Non-responsive mode: progressive column hiding still works */
+tbw-grid:not([data-responsive]) .cell[data-responsive-hidden] {
+  display: none !important;
+}
+
+tbw-grid:not([data-responsive]) .cell[data-responsive-value-only] {
+  /* In table mode, value-only just hides the cell like normal */
+  /* Actually no - in table mode headers are in header row, so this has no effect */
 }
 
 /* Hide pinned/aggregation rows in responsive mode - they don't make sense in card layout */

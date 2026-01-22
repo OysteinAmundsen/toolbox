@@ -708,4 +708,280 @@ describe('ResponsivePlugin', () => {
       expect(rowEl2.textContent).toBe('Custom-42');
     });
   });
+
+  describe('multiple breakpoints', () => {
+    it('should activate breakpoints based on width', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoints: [
+          { maxWidth: 800, hiddenColumns: ['secondary'] },
+          { maxWidth: 600, hiddenColumns: ['secondary', 'tertiary'] },
+          { maxWidth: 400, cardLayout: true },
+        ],
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      // Above all breakpoints - none active
+      resizeObserverInstance?.callback([{ contentRect: { width: 900 } }]);
+      vi.runAllTimers();
+      expect(plugin.getActiveBreakpoint()).toBeNull();
+      expect(plugin.isResponsive()).toBe(false);
+
+      // At 800px - first breakpoint active
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      vi.runAllTimers();
+      expect(plugin.getActiveBreakpoint()?.maxWidth).toBe(800);
+      expect(plugin.isResponsive()).toBe(false);
+
+      // At 600px - second breakpoint active (most specific match)
+      resizeObserverInstance?.callback([{ contentRect: { width: 600 } }]);
+      vi.runAllTimers();
+      expect(plugin.getActiveBreakpoint()?.maxWidth).toBe(600);
+      expect(plugin.isResponsive()).toBe(false);
+
+      // At 400px - card layout breakpoint active
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+      expect(plugin.getActiveBreakpoint()?.maxWidth).toBe(400);
+      expect(plugin.isResponsive()).toBe(true);
+    });
+
+    it('should apply breakpoint-specific hiddenColumns', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoints: [
+          { maxWidth: 800, hiddenColumns: ['secondary'] },
+          { maxWidth: 500, hiddenColumns: ['secondary', 'tertiary'] },
+        ],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      plugin.attach(mockGrid as never);
+
+      // Trigger 800px breakpoint
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      // Check that 'secondary' is marked hidden
+      const secondaryCell = mockGrid.querySelector('.cell[data-field="secondary"]');
+      expect(secondaryCell?.hasAttribute('data-responsive-hidden')).toBe(true);
+
+      const tertiaryCell = mockGrid.querySelector('.cell[data-field="tertiary"]');
+      expect(tertiaryCell?.hasAttribute('data-responsive-hidden')).toBe(false);
+
+      // Trigger 500px breakpoint
+      resizeObserverInstance?.callback([{ contentRect: { width: 500 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      // Both should be hidden now
+      expect(secondaryCell?.hasAttribute('data-responsive-hidden')).toBe(true);
+      expect(tertiaryCell?.hasAttribute('data-responsive-hidden')).toBe(true);
+    });
+
+    it('should fall back to top-level hiddenColumns when breakpoint has none', () => {
+      const plugin = new ResponsivePlugin({
+        hiddenColumns: ['fallback'],
+        breakpoints: [
+          { maxWidth: 800 }, // No hiddenColumns specified
+        ],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      plugin.attach(mockGrid as never);
+
+      // Trigger 800px breakpoint (no specific hiddenColumns)
+      resizeObserverInstance?.callback([{ contentRect: { width: 800 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      // Should use top-level hiddenColumns
+      const fallbackCell = mockGrid.querySelector('.cell[data-field="fallback"]');
+      expect(fallbackCell?.hasAttribute('data-responsive-hidden')).toBe(true);
+    });
+
+    it('should emit responsive-change event for breakpoint changes', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoints: [{ maxWidth: 600, hiddenColumns: ['secondary'] }],
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      // Trigger breakpoint
+      resizeObserverInstance?.callback([{ contentRect: { width: 600 } }]);
+      vi.runAllTimers();
+
+      expect(mockGrid.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'responsive-change',
+          detail: expect.objectContaining({
+            isResponsive: false,
+            width: 600,
+            breakpoint: 600,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('enhanced hiddenColumns', () => {
+    it('should support string values (hide entire cell)', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        hiddenColumns: ['name'],
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      // Enter responsive mode
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      const cell = mockGrid.querySelector('.cell[data-field="name"]');
+      expect(cell?.hasAttribute('data-responsive-hidden')).toBe(true);
+      expect(cell?.hasAttribute('data-responsive-value-only')).toBe(false);
+    });
+
+    it('should support object syntax with showValue: true', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        hiddenColumns: [{ field: 'email', showValue: true }],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      plugin.attach(mockGrid as never);
+
+      // Enter responsive mode
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      const emailCell = mockGrid.querySelector('.cell[data-field="email"]');
+      expect(emailCell?.hasAttribute('data-responsive-value-only')).toBe(true);
+      expect(emailCell?.hasAttribute('data-responsive-hidden')).toBe(false);
+    });
+
+    it('should support mixed hidden and value-only columns', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        hiddenColumns: ['secondary', { field: 'email', showValue: true }, 'tertiary'],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      plugin.attach(mockGrid as never);
+
+      // Enter responsive mode
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      const secondaryCell = mockGrid.querySelector('.cell[data-field="secondary"]');
+      expect(secondaryCell?.hasAttribute('data-responsive-hidden')).toBe(true);
+
+      const emailCell = mockGrid.querySelector('.cell[data-field="email"]');
+      expect(emailCell?.hasAttribute('data-responsive-value-only')).toBe(true);
+
+      const tertiaryCell = mockGrid.querySelector('.cell[data-field="tertiary"]');
+      expect(tertiaryCell?.hasAttribute('data-responsive-hidden')).toBe(true);
+    });
+
+    it('should clear responsive attributes on non-hidden cells', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        hiddenColumns: ['secondary'],
+      });
+      const mockGrid = createMockGridWithMultipleCells();
+      plugin.attach(mockGrid as never);
+
+      // Add a stale attribute to a cell
+      const nameCell = mockGrid.querySelector('.cell[data-field="name"]');
+      nameCell?.setAttribute('data-responsive-hidden', '');
+
+      // Enter responsive mode
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+      plugin.afterRender();
+
+      // Stale attribute should be removed
+      expect(nameCell?.hasAttribute('data-responsive-hidden')).toBe(false);
+    });
+  });
+
+  describe('animation', () => {
+    it('should enable animations by default', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(true);
+    });
+
+    it('should disable animations when animate: false', () => {
+      const plugin = new ResponsivePlugin({ breakpoint: 500, animate: false });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      expect(mockGrid.hasAttribute('data-responsive-animate')).toBe(false);
+    });
+
+    it('should set custom animation duration CSS variable', () => {
+      const plugin = new ResponsivePlugin({
+        breakpoint: 500,
+        animationDuration: 350,
+      });
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as never);
+
+      plugin.setResponsive(true);
+
+      expect(mockGrid.style.getPropertyValue('--tbw-responsive-duration')).toBe('350ms');
+    });
+  });
 });
+
+// Helper to create mock grid with multiple cells
+function createMockGridWithMultipleCells() {
+  const grid = document.createElement('div');
+  grid.className = 'tbw-grid';
+
+  const container = document.createElement('div');
+  container.className = 'tbw-grid-root';
+  grid.appendChild(container);
+
+  // Row with multiple cells
+  const row = document.createElement('div');
+  row.className = 'data-grid-row';
+
+  for (const field of ['name', 'email', 'secondary', 'tertiary', 'fallback']) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.setAttribute('data-field', field);
+    row.appendChild(cell);
+  }
+
+  container.appendChild(row);
+  document.body.appendChild(grid);
+
+  Object.assign(grid, {
+    rows: [],
+    columns: [],
+    gridConfig: {},
+    disconnectSignal: new AbortController().signal,
+    requestRender: vi.fn(),
+    requestAfterRender: vi.fn(),
+    getPlugin: vi.fn(),
+    getPluginByName: vi.fn(),
+  });
+
+  grid.dispatchEvent = vi.fn();
+
+  return grid as unknown as HTMLElement & {
+    rows: unknown[];
+    columns: unknown[];
+    gridConfig: object;
+    disconnectSignal: AbortSignal;
+    requestRender: ReturnType<typeof vi.fn>;
+    dispatchEvent: ReturnType<typeof vi.fn>;
+  };
+}

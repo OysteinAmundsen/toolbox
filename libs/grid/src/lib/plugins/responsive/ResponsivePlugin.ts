@@ -29,7 +29,7 @@ import { ensureCellVisible } from '../../core/internal/keyboard';
 import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
 import type { InternalGrid } from '../../core/types';
 import styles from './responsive.css?inline';
-import type { ResponsiveChangeDetail, ResponsivePluginConfig } from './types';
+import type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, ResponsivePluginConfig } from './types';
 
 /**
  * Responsive Plugin for tbw-grid
@@ -88,7 +88,14 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   #debounceTimer?: ReturnType<typeof setTimeout>;
   #warnedAboutMissingBreakpoint = false;
   #currentWidth = 0;
+  /** Set of column fields to completely hide */
   #hiddenColumnSet: Set<string> = new Set();
+  /** Set of column fields to show value only (no header label) */
+  #valueOnlyColumnSet: Set<string> = new Set();
+  /** Currently active breakpoint, or null if none */
+  #activeBreakpoint: BreakpointConfig | null = null;
+  /** Sorted breakpoints from largest to smallest */
+  #sortedBreakpoints: BreakpointConfig[] = [];
 
   /**
    * Check if currently in responsive mode.
@@ -145,11 +152,24 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     return this.#currentWidth;
   }
 
+  /**
+   * Get the currently active breakpoint config (multi-breakpoint mode only).
+   * @returns The active BreakpointConfig, or null if no breakpoint is active
+   */
+  getActiveBreakpoint(): BreakpointConfig | null {
+    return this.#activeBreakpoint;
+  }
+
   override attach(grid: GridElement): void {
     super.attach(grid);
 
-    // Build set of hidden columns for quick lookup
-    this.#hiddenColumnSet = new Set(this.config.hiddenColumns ?? []);
+    // Build hidden column sets from config
+    this.#buildHiddenColumnSets(this.config.hiddenColumns);
+
+    // Sort breakpoints from largest to smallest for evaluation
+    if (this.config.breakpoints?.length) {
+      this.#sortedBreakpoints = [...this.config.breakpoints].sort((a, b) => b.maxWidth - a.maxWidth);
+    }
 
     // Observe the grid element itself (not internal viewport)
     // This captures the container width including when shell panels open/close
@@ -167,6 +187,26 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     this.#resizeObserver.observe(this.gridElement);
   }
 
+  /**
+   * Build the hidden and value-only column sets from config.
+   */
+  #buildHiddenColumnSets(hiddenColumns?: HiddenColumnConfig[]): void {
+    this.#hiddenColumnSet.clear();
+    this.#valueOnlyColumnSet.clear();
+
+    if (!hiddenColumns) return;
+
+    for (const col of hiddenColumns) {
+      if (typeof col === 'string') {
+        this.#hiddenColumnSet.add(col);
+      } else if (col.showValue) {
+        this.#valueOnlyColumnSet.add(col.field);
+      } else {
+        this.#hiddenColumnSet.add(col.field);
+      }
+    }
+  }
+
   override detach(): void {
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = undefined;
@@ -182,28 +222,62 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   }
 
   /**
-   * Apply hidden columns in responsive mode.
-   * Called after render to mark cells that should be hidden.
+   * Apply hidden and value-only columns.
+   * In legacy mode (single breakpoint), only applies when in responsive mode.
+   * In multi-breakpoint mode, applies whenever there's an active breakpoint.
    */
   override afterRender(): void {
-    if (!this.#isResponsive || this.#hiddenColumnSet.size === 0) {
+    // In single breakpoint mode, only apply when responsive
+    // In multi-breakpoint mode, apply when there's an active breakpoint
+    const shouldApply = this.#sortedBreakpoints.length > 0 ? this.#activeBreakpoint !== null : this.#isResponsive;
+
+    if (!shouldApply) {
       return;
     }
 
-    // Mark cells for hidden columns
+    const hasHiddenColumns = this.#hiddenColumnSet.size > 0;
+    const hasValueOnlyColumns = this.#valueOnlyColumnSet.size > 0;
+
+    if (!hasHiddenColumns && !hasValueOnlyColumns) {
+      return;
+    }
+
+    // Mark cells for hidden columns and value-only columns
     const cells = this.gridElement.querySelectorAll('.cell[data-field]');
     for (const cell of cells) {
       const field = cell.getAttribute('data-field');
-      if (field && this.#hiddenColumnSet.has(field)) {
+      if (!field) continue;
+
+      // Apply hidden attribute
+      if (this.#hiddenColumnSet.has(field)) {
         cell.setAttribute('data-responsive-hidden', '');
+        cell.removeAttribute('data-responsive-value-only');
+      }
+      // Apply value-only attribute (shows value without header label)
+      else if (this.#valueOnlyColumnSet.has(field)) {
+        cell.setAttribute('data-responsive-value-only', '');
+        cell.removeAttribute('data-responsive-hidden');
+      }
+      // Clear any previous responsive attributes
+      else {
+        cell.removeAttribute('data-responsive-hidden');
+        cell.removeAttribute('data-responsive-value-only');
       }
     }
   }
 
   /**
-   * Check if width has crossed the breakpoint threshold.
+   * Check if width has crossed any breakpoint threshold.
+   * Handles both single breakpoint (legacy) and multi-breakpoint modes.
    */
   #checkBreakpoint(width: number): void {
+    // Multi-breakpoint mode
+    if (this.#sortedBreakpoints.length > 0) {
+      this.#checkMultiBreakpoint(width);
+      return;
+    }
+
+    // Legacy single breakpoint mode
     const breakpoint = this.config.breakpoint ?? 0;
 
     // Warn once if breakpoint not configured (0 means never responsive)
@@ -228,6 +302,55 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
   }
 
+  /**
+   * Check breakpoints in multi-breakpoint mode.
+   * Evaluates breakpoints from largest to smallest, applying the first match.
+   */
+  #checkMultiBreakpoint(width: number): void {
+    // Find the active breakpoint (first one where width <= maxWidth)
+    // Since sorted largest to smallest, we find the largest matching breakpoint
+    let newActiveBreakpoint: BreakpointConfig | null = null;
+
+    for (const bp of this.#sortedBreakpoints) {
+      if (width <= bp.maxWidth) {
+        newActiveBreakpoint = bp;
+        // Continue to find the most specific (smallest) matching breakpoint
+      }
+    }
+
+    // Check if breakpoint changed
+    const breakpointChanged = newActiveBreakpoint !== this.#activeBreakpoint;
+
+    if (breakpointChanged) {
+      this.#activeBreakpoint = newActiveBreakpoint;
+
+      // Update hidden column sets from active breakpoint
+      if (newActiveBreakpoint?.hiddenColumns) {
+        this.#buildHiddenColumnSets(newActiveBreakpoint.hiddenColumns);
+      } else {
+        // Fall back to top-level hiddenColumns config
+        this.#buildHiddenColumnSets(this.config.hiddenColumns);
+      }
+
+      // Determine if we should be in card layout
+      const shouldBeResponsive = newActiveBreakpoint?.cardLayout === true;
+
+      if (shouldBeResponsive !== this.#isResponsive) {
+        this.#isResponsive = shouldBeResponsive;
+        this.#applyResponsiveState();
+      }
+
+      // Emit event for any breakpoint change
+      this.emit('responsive-change', {
+        isResponsive: this.#isResponsive,
+        width,
+        breakpoint: newActiveBreakpoint?.maxWidth ?? 0,
+      } satisfies ResponsiveChangeDetail);
+
+      this.requestRender();
+    }
+  }
+
   /** Original row height before entering responsive mode, for restoration on exit */
   #originalRowHeight?: number;
 
@@ -237,6 +360,15 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    */
   #applyResponsiveState(): void {
     this.gridElement.toggleAttribute('data-responsive', this.#isResponsive);
+
+    // Apply animation attribute if enabled (default: true)
+    const animate = this.config.animate !== false;
+    this.gridElement.toggleAttribute('data-responsive-animate', animate);
+
+    // Set custom animation duration if provided
+    if (this.config.animationDuration) {
+      this.gridElement.style.setProperty('--tbw-responsive-duration', `${this.config.animationDuration}ms`);
+    }
 
     // Cast to internal type for virtualization access
     const internalGrid = this.grid as unknown as InternalGrid;

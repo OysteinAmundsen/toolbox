@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.3.1...grid-react-0.4.0) (2026-01-22)
+
+
+### Features
+
+* **grid:** add ResponsivePlugin for card layout mode ([#56](https://github.com/OysteinAmundsen/toolbox/issues/56)) ([#62](https://github.com/OysteinAmundsen/toolbox/issues/62)) ([98d8057](https://github.com/OysteinAmundsen/toolbox/commit/98d8057fffd098ffdc5632603d5f2db03c435a2a))
+
 ## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.3.0...grid-react-0.3.1) (2026-01-22)
 
 

@@ -99,6 +99,7 @@ import { Meta } from '@storybook/addon-docs/blocks';
 /**
  * Escape special MDX characters, but preserve content inside fenced code blocks.
  * MDX requires escaping < > { } in regular text, but NOT inside code fences.
+ * Backslashes are escaped first to avoid double-escaping.
  */
 const escape = (text: string): string => {
   // Split on fenced code blocks (``` ... ```) while keeping the delimiters
@@ -107,14 +108,19 @@ const escape = (text: string): string => {
     .map((part, i) => {
       // Odd indices are the code blocks (captured groups)
       if (i % 2 === 1) return part; // Leave code blocks unchanged
-      // Escape special characters in non-code-block parts
-      return part.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+      // Escape backslashes first, then special characters in non-code-block parts
+      return part
+        .replace(/\\/g, '\\\\')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\{/g, '\\{')
+        .replace(/\}/g, '\\}');
     })
     .join('');
 };
 
 /** Escape only curly braces for MDX - for inline code in tables where we don't have code fences */
-const escapeCode = (text: string): string => text.replace(/\{/g, '\\{').replace(/\}/g, '\\}');
+const escapeCode = (text: string): string => text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
 
 const getText = (comment?: TypeDocComment): string => comment?.summary?.map((s) => s.text).join('') ?? '';
 

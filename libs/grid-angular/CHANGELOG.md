@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.3.0...grid-angular-0.3.1) (2026-01-22)
+
+
+### Bug Fixes
+
+* **grid-angular:** [#57](https://github.com/OysteinAmundsen/toolbox/issues/57) correct package exports paths ([22460b4](https://github.com/OysteinAmundsen/toolbox/commit/22460b4028f3a7358873694c9a3b416bca508e91))
+
 ## [0.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.2.0...grid-angular-0.3.0) (2026-01-21)
 
 

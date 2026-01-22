@@ -6,6 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import type { PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
@@ -97,6 +98,26 @@ import type { ColumnGroup, GroupingColumnsConfig } from './types';
  * @internal Extends BaseGridPlugin
  */
 export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig> {
+  /**
+   * Plugin manifest - declares owned properties for configuration validation.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    ownedProperties: [
+      {
+        property: 'group',
+        level: 'column',
+        description: 'the "group" column property',
+      },
+      {
+        property: 'columnGroups',
+        level: 'config',
+        description: 'the "columnGroups" config property',
+        isUsed: (v) => Array.isArray(v) && v.length > 0,
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'groupingColumns';
   /** @internal */

@@ -15,6 +15,7 @@
  * is fully functional without any core changes.
  */
 
+import type { PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type {
   ColumnConfig,
@@ -255,6 +256,31 @@ function wireEditorInputs(
  * @see [Live Demos](?path=/docs/grid-plugins-editing--docs) for interactive examples
  */
 export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
+  /**
+   * Plugin manifest - declares owned properties for configuration validation.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    ownedProperties: [
+      {
+        property: 'editable',
+        level: 'column',
+        description: 'the "editable" column property',
+        isUsed: (v) => v === true,
+      },
+      {
+        property: 'editor',
+        level: 'column',
+        description: 'the "editor" column property',
+      },
+      {
+        property: 'editorParams',
+        level: 'column',
+        description: 'the "editorParams" column property',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'editing';
   /** @internal */

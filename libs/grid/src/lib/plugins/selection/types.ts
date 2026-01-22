@@ -34,22 +34,18 @@
 export type SelectionMode = 'cell' | 'row' | 'range';
 
 /**
- * Selection trigger type.
+ * Mouse event type that triggers selection.
  *
- * Controls whether selection is activated on single-click or double-click:
+ * - `'click'` - Single click activates selection (default)
+ * - `'dblclick'` - Double-click activates selection; single-click only focuses
  *
- * | Trigger | Single Click | Double Click |
- * |---------|--------------|--------------|
- * | `'click'` (default) | Selects cell/row | No additional action |
- * | `'dblclick'` | Focuses only | Selects cell/row |
- *
- * Use `'dblclick'` in data-entry grids where navigation should not
- * accidentally change the selection state.
+ * **Note:** Only applies to `'cell'` and `'row'` modes. Range mode uses drag
+ * selection (mousedown → mousemove) which is unaffected by this option.
  *
  * @example
  * ```ts
- * // Double-click to select (single-click only focuses)
- * new SelectionPlugin({ mode: 'row', triggerOn: 'dblclick' })
+ * // Double-click to select - useful for data entry grids
+ * new SelectionPlugin({ mode: 'cell', triggerOn: 'dblclick' })
  * ```
  */
 export type SelectionTrigger = 'click' | 'dblclick';
@@ -60,15 +56,13 @@ export interface SelectionConfig {
   mode: SelectionMode;
 
   /**
-   * Selection trigger type.
+   * Mouse event type that triggers selection (default: 'click').
    *
-   * - `'click'` (default): Single-click selects cells/rows
-   * - `'dblclick'`: Single-click only focuses, double-click selects
+   * - `'click'` - Single click activates selection
+   * - `'dblclick'` - Double-click activates selection; single-click only focuses
    *
-   * **Note:** Only applies to `'cell'` and `'row'` modes. Range mode uses
-   * drag selection (mousedown → mousemove), which is unaffected by this setting.
-   *
-   * @default 'click'
+   * **Note:** Only applies to `'cell'` and `'row'` modes. Range mode uses drag
+   * selection which is unaffected by this option.
    */
   triggerOn?: SelectionTrigger;
 }

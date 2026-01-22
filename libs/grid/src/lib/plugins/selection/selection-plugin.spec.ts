@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { validatePluginConfigRules } from '../../core/internal/validate-config';
 import { SelectionPlugin } from './SelectionPlugin';
 
 // Tests use `any` for flexibility with mock grid objects.
@@ -297,10 +298,15 @@ describe('SelectionPlugin', () => {
     });
 
     it('should warn when triggerOn: dblclick is used with range mode', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
       const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
       const plugin = new SelectionPlugin({ mode: 'range', triggerOn: 'dblclick' });
       plugin.attach(mockGrid);
+
+      // Validation is now done via manifest configRules, not in attach()
+      validatePluginConfigRules([plugin]);
 
       expect(warnSpy).toHaveBeenCalledOnce();
       expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid:SelectionPlugin]');
@@ -311,10 +317,15 @@ describe('SelectionPlugin', () => {
     });
 
     it('should NOT warn when triggerOn: dblclick is used with cell mode', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
       const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
       const plugin = new SelectionPlugin({ mode: 'cell', triggerOn: 'dblclick' });
       plugin.attach(mockGrid);
+
+      // Validation is now done via manifest configRules, not in attach()
+      validatePluginConfigRules([plugin]);
 
       expect(warnSpy).not.toHaveBeenCalled();
 
@@ -322,10 +333,15 @@ describe('SelectionPlugin', () => {
     });
 
     it('should NOT warn when triggerOn: dblclick is used with row mode', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
       const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
       const plugin = new SelectionPlugin({ mode: 'row', triggerOn: 'dblclick' });
       plugin.attach(mockGrid);
+
+      // Validation is now done via manifest configRules, not in attach()
+      validatePluginConfigRules([plugin]);
 
       expect(warnSpy).not.toHaveBeenCalled();
 

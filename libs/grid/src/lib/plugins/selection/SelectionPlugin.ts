@@ -9,7 +9,8 @@
  */
 
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
-import { BaseGridPlugin, CellClickEvent, CellMouseEvent, GridElement } from '../../core/plugin/base-plugin';
+import type { PluginManifest } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import {
   createRangeFromAnchor,
@@ -147,6 +148,24 @@ function buildSelectionEvent(
  * @see [Live Demos](?path=/docs/grid-plugins-selection--docs) for interactive examples
  */
 export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
+  /**
+   * Plugin manifest - declares configuration validation rules.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest<SelectionConfig> = {
+    configRules: [
+      {
+        id: 'selection/range-dblclick',
+        severity: 'warn',
+        message:
+          `"triggerOn: 'dblclick'" has no effect when mode is "range".\n` +
+          `  → Range selection uses drag interaction (mousedown → mousemove), not click events.\n` +
+          `  → The "triggerOn" option only affects "cell" and "row" selection modes.`,
+        check: (config) => config.mode === 'range' && config.triggerOn === 'dblclick',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'selection';
   /** @internal */
@@ -183,12 +202,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #region Lifecycle
 
   /** @internal */
-  override attach(grid: GridElement): void {
-    super.attach(grid);
-    this.#validateConfig();
-  }
-
-  /** @internal */
   override detach(): void {
     this.selected.clear();
     this.ranges = [];
@@ -197,22 +210,6 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.isDragging = false;
     this.selectedCell = null;
     this.pendingKeyboardUpdate = null;
-  }
-
-  /**
-   * Validate configuration and warn about incompatible options.
-   */
-  #validateConfig(): void {
-    const { mode, triggerOn } = this.config;
-
-    // Range mode uses drag selection (mousedown → mousemove), not click events
-    if (mode === 'range' && triggerOn === 'dblclick') {
-      console.warn(
-        `[tbw-grid:SelectionPlugin] Configuration warning: "triggerOn: 'dblclick'" has no effect when mode is "range".\n` +
-          `  → Range selection uses drag interaction (mousedown → mousemove), not click events.\n` +
-          `  → The "triggerOn" option only affects "cell" and "row" selection modes.`,
-      );
-    }
   }
 
   // #endregion

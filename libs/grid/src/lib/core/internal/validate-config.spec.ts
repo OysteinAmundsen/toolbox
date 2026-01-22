@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { BaseGridPlugin } from '../plugin';
+import type { BaseGridPlugin, PluginManifest } from '../plugin';
 import type { GridConfig } from '../types';
-import { validatePluginDependencies, validatePluginProperties } from './validate-config';
+import { validatePluginConfigRules, validatePluginDependencies, validatePluginProperties } from './validate-config';
 
 // Mock plugins for testing
 const mockEditingPlugin: BaseGridPlugin = {
@@ -516,6 +516,152 @@ describe('validatePluginDependencies', () => {
       expect(() => {
         validatePluginDependencies(mockUndoRedoPlugin, []);
       }).toThrow(/Plugin dependency error/);
+    });
+  });
+});
+
+describe('validatePluginConfigRules', () => {
+  // Create a mock plugin with manifest configRules
+  const createMockPluginWithRules = (
+    name: string,
+    config: Record<string, unknown>,
+    rules: PluginManifest['configRules'],
+  ): BaseGridPlugin => {
+    // Create a unique class for each mock to avoid polluting shared prototypes
+    class MockPlugin {
+      static manifest: PluginManifest = { configRules: rules };
+      name = name;
+      version = '1.0.0';
+      config = config; // Simulates merged config
+      attach() {
+        /* noop */
+      }
+      detach() {
+        /* noop */
+      }
+    }
+
+    return new MockPlugin() as unknown as BaseGridPlugin;
+  };
+
+  describe('warning rules', () => {
+    it('logs warning when rule with severity "warn" is violated', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
+
+      const plugin = createMockPluginWithRules('test', { optionA: true }, [
+        {
+          id: 'test/invalid',
+          severity: 'warn',
+          message: 'optionA should not be true',
+          check: (c: { optionA?: boolean }) => c.optionA === true,
+        },
+      ]);
+
+      validatePluginConfigRules([plugin]);
+
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid:TestPlugin]');
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('optionA should not be true');
+
+      warnSpy.mockRestore();
+    });
+
+    it('does not log warning when rule is not violated', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
+
+      const plugin = createMockPluginWithRules('test', { optionA: false }, [
+        {
+          id: 'test/invalid',
+          severity: 'warn',
+          message: 'optionA should not be true',
+          check: (c: { optionA?: boolean }) => c.optionA === true,
+        },
+      ]);
+
+      validatePluginConfigRules([plugin]);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('error rules', () => {
+    it('throws error when rule with severity "error" is violated', () => {
+      const plugin = createMockPluginWithRules('test', { criticalOption: 'invalid' }, [
+        {
+          id: 'test/critical',
+          severity: 'error',
+          message: 'criticalOption cannot be "invalid"',
+          check: (c: { criticalOption?: string }) => c.criticalOption === 'invalid',
+        },
+      ]);
+
+      expect(() => validatePluginConfigRules([plugin])).toThrow(/Configuration error/);
+      expect(() => validatePluginConfigRules([plugin])).toThrow(/criticalOption cannot be "invalid"/);
+    });
+
+    it('does not throw when error rule is not violated', () => {
+      const plugin = createMockPluginWithRules('test', { criticalOption: 'valid' }, [
+        {
+          id: 'test/critical',
+          severity: 'error',
+          message: 'criticalOption cannot be "invalid"',
+          check: (c: { criticalOption?: string }) => c.criticalOption === 'invalid',
+        },
+      ]);
+
+      expect(() => validatePluginConfigRules([plugin])).not.toThrow();
+    });
+  });
+
+  describe('multiple rules', () => {
+    it('logs all warnings before throwing errors', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
+
+      const plugin = createMockPluginWithRules('test', { a: true, b: true }, [
+        {
+          id: 'test/warn-a',
+          severity: 'warn',
+          message: 'a is true',
+          check: (c: { a?: boolean }) => c.a === true,
+        },
+        {
+          id: 'test/error-b',
+          severity: 'error',
+          message: 'b is true',
+          check: (c: { b?: boolean }) => c.b === true,
+        },
+      ]);
+
+      expect(() => validatePluginConfigRules([plugin])).toThrow(/b is true/);
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('a is true');
+
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('plugins without manifest', () => {
+    it('does not error for plugins without manifest', () => {
+      const plugin: BaseGridPlugin = {
+        name: 'noManifest',
+        version: '1.0.0',
+        attach: () => {
+          /* noop */
+        },
+        detach: () => {
+          /* noop */
+        },
+      } as unknown as BaseGridPlugin;
+
+      expect(() => validatePluginConfigRules([plugin])).not.toThrow();
     });
   });
 });

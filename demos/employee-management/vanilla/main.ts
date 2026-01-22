@@ -35,6 +35,7 @@ import {
   PinnedColumnsPlugin,
   PinnedRowsPlugin,
   ReorderPlugin,
+  ResponsivePlugin,
   SelectionPlugin,
   UndoRedoPlugin,
   VisibilityPlugin,
@@ -47,7 +48,13 @@ import { DEPARTMENTS, generateEmployees, type Employee } from '@demo/shared';
 
 // Import demo-specific components
 import { bonusSliderEditor, dateEditor, starRatingEditor, statusSelectEditor } from './editors';
-import { createDetailRenderer, ratingRenderer, statusViewRenderer, topPerformerRenderer } from './renderers';
+import {
+  createDetailRenderer,
+  createResponsiveCardRenderer,
+  ratingRenderer,
+  statusViewRenderer,
+  topPerformerRenderer,
+} from './renderers';
 import { injectToolPanelStyles, registerAnalyticsPanel, registerQuickFiltersPanel } from './tool-panels';
 
 // =============================================================================
@@ -214,6 +221,13 @@ export function createGridConfig(options: GridConfigOptions) {
       new PinnedColumnsPlugin(),
       new ColumnVirtualizationPlugin(),
       new VisibilityPlugin(),
+      // Responsive plugin for mobile/narrow layouts
+      new ResponsivePlugin<Employee>({
+        breakpoint: 700,
+        cardRenderer: (row) => createResponsiveCardRenderer(row),
+        cardRowHeight: 80,
+        hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
+      }),
       // Row grouping and master-detail are mutually exclusive
       ...(enableRowGrouping
         ? [

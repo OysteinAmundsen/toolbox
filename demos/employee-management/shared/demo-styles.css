@@ -886,3 +886,87 @@ tbw-grid,
     gap: 8px;
   }
 }
+
+/* =========================================================================
+   RESPONSIVE EMPLOYEE CARD (for ResponsivePlugin custom card renderer)
+   ========================================================================= */
+
+.responsive-employee-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--demo-color-surface);
+  min-height: 70px;
+}
+
+.responsive-employee-card__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.responsive-employee-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.responsive-employee-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.responsive-employee-card__name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--demo-color-fg);
+}
+
+.responsive-employee-card__title {
+  font-size: 13px;
+  color: var(--demo-color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.responsive-employee-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--demo-color-fg-muted);
+  flex-wrap: wrap;
+}
+
+.responsive-employee-card__separator {
+  opacity: 0.5;
+}
+
+.responsive-employee-card__dept {
+  font-weight: 500;
+}
+
+.responsive-employee-card__salary {
+  font-weight: 500;
+}
+
+.responsive-employee-card__rating {
+  color: #f59e0b;
+}
+
+.responsive-employee-card__top-performer {
+  margin-left: 2px;
+}

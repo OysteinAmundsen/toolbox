@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.1.0...grid-1.1.1) (2026-01-22)
+
+
+### Bug Fixes
+
+* **grid:** skip group rows in ResponsivePlugin cardRenderer ([b69e774](https://github.com/OysteinAmundsen/toolbox/commit/b69e774bb31f017e0d6f40ce241f28e86c043b4c))
+
 ## [1.1.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.0.0...grid-1.1.0) (2026-01-22)
 
 

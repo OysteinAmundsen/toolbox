@@ -328,6 +328,9 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     if (config.indentWidth !== undefined) {
       rowEl.style.setProperty('--tbw-group-indent-width', `${config.indentWidth}px`);
     }
+    // Clear any inline height from previous use (e.g., responsive card mode sets height: auto)
+    // This ensures group rows use CSS-defined height, not stale inline styles from recycled elements
+    rowEl.style.height = '';
     rowEl.innerHTML = '';
 
     const isFullWidth = config.fullWidth !== false; // default true

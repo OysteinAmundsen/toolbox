@@ -71,7 +71,7 @@ tbw-grid[data-responsive] {
   }
 
   /* Convert row from CSS Grid to block layout */
-  .data-grid-row {
+  .data-grid-row:not(.group-row) {
     display: block !important;
     grid-template-columns: none !important;
     padding: var(--tbw-cell-padding);
@@ -110,7 +110,7 @@ tbw-grid[data-responsive] {
   }
 
   /* Stack cells vertically as label: value pairs */
-  .data-grid-row > .cell {
+  .data-grid-row:not(.group-row) > .cell {
     display: flex !important;
     justify-content: space-between;
     align-items: center;
@@ -149,11 +149,6 @@ tbw-grid[data-responsive] {
   /* Hide utility columns (row expander, selection checkbox, etc.) */
   .cell[data-utility] {
     display: none !important;
-  }
-
-  /* Card separator styling */
-  .data-grid-row:not(:last-child) {
-    margin-bottom: var(--tbw-spacing-xs);
   }
 }
 

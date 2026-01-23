@@ -431,8 +431,9 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     // Call user's cardRenderer to get custom content
     const cardContent = this.config.cardRenderer(row as T, rowIndex);
 
-    // Apply card-specific styling
-    rowEl.classList.add('responsive-card');
+    // Reset className - clears any stale classes from previous use (e.g., 'group-row' from recycled element)
+    // This follows the same pattern as GroupingRowsPlugin which sets className explicitly
+    rowEl.className = 'data-grid-row responsive-card';
 
     // Handle cardRowHeight
     const cardHeight = this.config.cardRowHeight ?? 'auto';

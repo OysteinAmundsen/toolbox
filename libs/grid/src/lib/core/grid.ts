@@ -1242,6 +1242,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Finds the tallest cell to account for custom renderers that may push height.
    */
   #measureRowHeight(): void {
+    // Skip if a plugin is managing variable row heights (e.g., ResponsivePlugin with groups)
+    // In that case, the plugin handles height via getExtraHeight() and we shouldn't
+    // override the base row height, which would cause oscillation loops.
+    if (this.#pluginManager.hasExtraHeight()) {
+      return;
+    }
+
     const firstRow = this._bodyEl?.querySelector('.data-grid-row');
     if (!firstRow) return;
 
@@ -1257,7 +1264,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Use the larger of row height or max cell height
     const measuredHeight = Math.max(rowRect.height, maxCellHeight);
-    if (measuredHeight > 0 && measuredHeight !== this._virtualization.rowHeight) {
+    // Use a 1px threshold to avoid oscillation from sub-pixel rounding
+    if (measuredHeight > 0 && Math.abs(measuredHeight - this._virtualization.rowHeight) > 1) {
       this._virtualization.rowHeight = measuredHeight;
       // Use scheduler to batch with other pending work
       this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');

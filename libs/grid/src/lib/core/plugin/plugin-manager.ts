@@ -265,6 +265,20 @@ export class PluginManager {
   }
 
   /**
+   * Check if any plugin is contributing extra height.
+   * When true, plugins are managing variable row heights and the grid should
+   * not override the base row height via #measureRowHeight().
+   */
+  hasExtraHeight(): boolean {
+    for (const plugin of this.plugins) {
+      if (typeof plugin.getExtraHeight === 'function' && plugin.getExtraHeight() > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Get extra height from plugins that appears before a given row index.
    * Used by virtualization to correctly position the scroll window.
    */

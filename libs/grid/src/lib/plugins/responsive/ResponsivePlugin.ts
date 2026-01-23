@@ -227,6 +227,9 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * In multi-breakpoint mode, applies whenever there's an active breakpoint.
    */
   override afterRender(): void {
+    // Measure card height for virtualization calculations
+    this.#measureCardHeightFromDOM();
+
     // In single breakpoint mode, only apply when responsive
     // In multi-breakpoint mode, apply when there's an active breakpoint
     const shouldApply = this.#sortedBreakpoints.length > 0 ? this.#activeBreakpoint !== null : this.#isResponsive;
@@ -399,6 +402,12 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         internalGrid._virtualization.rowHeight = this.#originalRowHeight;
         this.#originalRowHeight = undefined;
       }
+
+      // Clear cached measurements so they're remeasured fresh when re-entering responsive mode
+      // Without this, stale measurements cause incorrect height calculations after scrolling
+      this.#measuredCardHeight = undefined;
+      this.#measuredGroupRowHeight = undefined;
+      this.#lastCardRowCount = undefined;
     }
   }
 
@@ -551,5 +560,244 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
 
     return false;
+  }
+
+  // ============================================
+  // Variable Height Support for Mixed Row Types
+  // ============================================
+
+  /** Measured card height from DOM for virtualization calculations */
+  #measuredCardHeight?: number;
+
+  /** Measured group row height from DOM for virtualization calculations */
+  #measuredGroupRowHeight?: number;
+
+  /** Last known card row count for detecting changes (e.g., group expand/collapse) */
+  #lastCardRowCount?: number;
+
+  /**
+   * Get the effective card height for virtualization calculations.
+   * Prioritizes DOM-measured height (actual rendered size) over config,
+   * since content can overflow the configured height.
+   */
+  #getCardHeight(): number {
+    // Prefer measured height - it reflects actual rendered size including overflow
+    if (this.#measuredCardHeight && this.#measuredCardHeight > 0) {
+      return this.#measuredCardHeight;
+    }
+    // Fall back to explicit config
+    const configHeight = this.config.cardRowHeight;
+    if (typeof configHeight === 'number' && configHeight > 0) {
+      return configHeight;
+    }
+    // Default fallback
+    return 80;
+  }
+
+  /**
+   * Get the effective group row height for virtualization calculations.
+   * Uses DOM-measured height, falling back to original row height.
+   */
+  #getGroupRowHeight(): number {
+    if (this.#measuredGroupRowHeight && this.#measuredGroupRowHeight > 0) {
+      return this.#measuredGroupRowHeight;
+    }
+    // Fall back to original row height (before responsive mode)
+    return this.#originalRowHeight ?? 28;
+  }
+
+  /**
+   * Check if there are any group rows in the current dataset.
+   * Used to determine if we have mixed row heights.
+   */
+  #hasGroupRows(): boolean {
+    for (const row of this.rows) {
+      if ((row as { __isGroupRow?: boolean }).__isGroupRow) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Count group rows and card rows in the current dataset.
+   */
+  #countRowTypes(): { groupCount: number; cardCount: number } {
+    let groupCount = 0;
+    let cardCount = 0;
+    for (const row of this.rows) {
+      if ((row as { __isGroupRow?: boolean }).__isGroupRow) {
+        groupCount++;
+      } else {
+        cardCount++;
+      }
+    }
+    return { groupCount, cardCount };
+  }
+
+  /**
+   * Return total extra height contributed by mixed row heights.
+   * This is called by the grid's virtualization system to adjust scrollbar height.
+   *
+   * The grid calculates: totalRows * baseRowHeight + pluginExtraHeight
+   *
+   * For mixed layouts (groups + cards), we need to report the difference between
+   * actual heights and what the base calculation assumes:
+   * - Extra for groups: groupCount * (groupHeight - baseHeight)
+   * - Extra for cards: cardCount * (cardHeight - baseHeight)
+   */
+  override getExtraHeight(): number {
+    // Only applies when in responsive mode with cardRenderer
+    if (!this.#isResponsive || !this.config.cardRenderer) {
+      return 0;
+    }
+
+    // Only report extra height when there are mixed row types (groups + cards)
+    // If all rows are cards, we update the virtualization row height instead
+    if (!this.#hasGroupRows()) {
+      return 0;
+    }
+
+    const baseHeight = this.#originalRowHeight ?? 28;
+    const groupHeight = this.#getGroupRowHeight();
+    const cardHeight = this.#getCardHeight();
+
+    const { groupCount, cardCount } = this.#countRowTypes();
+
+    // Calculate extra height for both row types
+    const groupExtra = groupCount * Math.max(0, groupHeight - baseHeight);
+    const cardExtra = cardCount * Math.max(0, cardHeight - baseHeight);
+
+    return groupExtra + cardExtra;
+  }
+
+  /**
+   * Return extra height that appears before a given row index.
+   * Used by virtualization to correctly calculate scroll positions.
+   *
+   * Like getExtraHeight, this accounts for both group and card row heights.
+   */
+  override getExtraHeightBefore(beforeRowIndex: number): number {
+    // Only applies when in responsive mode with cardRenderer
+    if (!this.#isResponsive || !this.config.cardRenderer) {
+      return 0;
+    }
+
+    // Only report extra height when there are mixed row types
+    if (!this.#hasGroupRows()) {
+      return 0;
+    }
+
+    const baseHeight = this.#originalRowHeight ?? 28;
+    const groupHeight = this.#getGroupRowHeight();
+    const cardHeight = this.#getCardHeight();
+
+    const groupHeightDiff = Math.max(0, groupHeight - baseHeight);
+    const cardHeightDiff = Math.max(0, cardHeight - baseHeight);
+
+    // Count group rows and card rows before the given index
+    let groupsBefore = 0;
+    let cardsBefore = 0;
+    const rows = this.rows;
+    const maxIndex = Math.min(beforeRowIndex, rows.length);
+
+    for (let i = 0; i < maxIndex; i++) {
+      if ((rows[i] as { __isGroupRow?: boolean }).__isGroupRow) {
+        groupsBefore++;
+      } else {
+        cardsBefore++;
+      }
+    }
+
+    return groupsBefore * groupHeightDiff + cardsBefore * cardHeightDiff;
+  }
+
+  /**
+   * Count the number of card rows (non-group rows) in the current dataset.
+   */
+  #countCardRows(): number {
+    let count = 0;
+    for (const row of this.rows) {
+      if (!(row as { __isGroupRow?: boolean }).__isGroupRow) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /** Pending refresh scheduled via microtask */
+  #pendingRefresh = false;
+
+  /**
+   * Measure card height from DOM after render and detect row count changes.
+   * Called in afterRender to ensure scroll calculations are accurate.
+   *
+   * This handles two scenarios:
+   * 1. Card height changes (content overflow, dynamic sizing)
+   * 2. Card row count changes (group expand/collapse)
+   * 3. Group row height changes
+   *
+   * For uniform card layouts (no groups), we update the virtualization row height
+   * directly to the card height. For mixed layouts (groups + cards), we use the
+   * getExtraHeight mechanism to report height differences.
+   *
+   * The refresh is deferred via microtask to avoid nested render cycles.
+   */
+  #measureCardHeightFromDOM(): void {
+    if (!this.#isResponsive || !this.config.cardRenderer) {
+      return;
+    }
+
+    let needsRefresh = false;
+    const internalGrid = this.grid as unknown as InternalGrid;
+    const hasGroups = this.#hasGroupRows();
+
+    // Check if card row count changed (e.g., group expanded/collapsed)
+    const currentCardRowCount = this.#countCardRows();
+    if (currentCardRowCount !== this.#lastCardRowCount) {
+      this.#lastCardRowCount = currentCardRowCount;
+      needsRefresh = true;
+    }
+
+    // Measure actual group row height from DOM (for mixed layouts)
+    if (hasGroups) {
+      const groupRow = this.gridElement.querySelector('.data-grid-row.group-row') as HTMLElement | null;
+      if (groupRow) {
+        const height = groupRow.getBoundingClientRect().height;
+        if (height > 0 && height !== this.#measuredGroupRowHeight) {
+          this.#measuredGroupRowHeight = height;
+          needsRefresh = true;
+        }
+      }
+    }
+
+    // Measure actual card height from DOM
+    const cardRow = this.gridElement.querySelector('.data-grid-row.responsive-card') as HTMLElement | null;
+    if (cardRow) {
+      const height = cardRow.getBoundingClientRect().height;
+      if (height > 0 && height !== this.#measuredCardHeight) {
+        this.#measuredCardHeight = height;
+        needsRefresh = true;
+
+        // For uniform card layouts (no groups), update virtualization row height directly
+        // This ensures proper row recycling and translateY calculations
+        if (!hasGroups && internalGrid._virtualization) {
+          internalGrid._virtualization.rowHeight = height;
+        }
+      }
+    }
+
+    // Defer virtualization refresh to avoid nested render cycles
+    // This is called from afterRender, so we can't call refreshVirtualWindow synchronously
+    if (needsRefresh && !this.#pendingRefresh) {
+      this.#pendingRefresh = true;
+      queueMicrotask(() => {
+        this.#pendingRefresh = false;
+        // Only refresh if still attached and in responsive mode
+        if (this.grid && this.#isResponsive) {
+          (this.grid as unknown as InternalGrid).refreshVirtualWindow?.(true);
+        }
+      });
+    }
   }
 }

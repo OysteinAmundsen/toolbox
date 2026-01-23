@@ -969,6 +969,219 @@ describe('ResponsivePlugin', () => {
       expect(mockGrid.style.getPropertyValue('--tbw-responsive-duration')).toBe('350ms');
     });
   });
+
+  describe('variable height support', () => {
+    describe('getExtraHeight', () => {
+      it('should return 0 when not in responsive mode', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+        });
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }]);
+        plugin.attach(mockGrid as never);
+
+        // Not in responsive mode
+        expect(plugin.getExtraHeight()).toBe(0);
+      });
+
+      it('should return 0 when no cardRenderer is provided', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+        });
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }]);
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        expect(plugin.getExtraHeight()).toBe(0);
+      });
+
+      it('should return 0 for uniform card rows (no groups)', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+          cardRowHeight: 80, // Explicit height for predictable testing
+        });
+        // Mock grid with 3 regular rows (no group rows)
+        // When all rows are cards, we update virtualization rowHeight directly
+        // instead of using getExtraHeight
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }, { id: 3 }]);
+        (mockGrid as Record<string, unknown>).virtualization = { rowHeight: 28 };
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        // No extra height for uniform rows - virtualization rowHeight is updated instead
+        expect(plugin.getExtraHeight()).toBe(0);
+      });
+
+      it('should calculate extra height for mixed rows (groups + cards)', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+          cardRowHeight: 80,
+        });
+        // Mix of regular rows and group rows
+        const rows = [
+          { __isGroupRow: true, __groupKey: 'Group A', __groupRows: [] },
+          { id: 1 },
+          { id: 2 },
+          { __isGroupRow: true, __groupKey: 'Group B', __groupRows: [] },
+          { id: 3 },
+        ];
+        const mockGrid = createMockGrid(rows);
+        (mockGrid as Record<string, unknown>).virtualization = { rowHeight: 28 };
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        // Only 3 card rows (not 5 total rows) × (80 - 28) = 3 × 52 = 156
+        expect(plugin.getExtraHeight()).toBe(156);
+      });
+
+      it('should return 0 when cardRowHeight equals base height', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+          cardRowHeight: 28, // Same as base height
+        });
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }]);
+        (mockGrid as Record<string, unknown>).virtualization = { rowHeight: 28 };
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        expect(plugin.getExtraHeight()).toBe(0);
+      });
+    });
+
+    describe('getExtraHeightBefore', () => {
+      it('should return 0 when not in responsive mode', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+        });
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }]);
+        plugin.attach(mockGrid as never);
+
+        expect(plugin.getExtraHeightBefore(1)).toBe(0);
+      });
+
+      it('should return 0 when no cardRenderer is provided', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+        });
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }]);
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        expect(plugin.getExtraHeightBefore(1)).toBe(0);
+      });
+
+      it('should return 0 for uniform rows (no groups)', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+          cardRowHeight: 80,
+        });
+        // When all rows are cards, virtualization rowHeight is updated directly
+        const mockGrid = createMockGrid([{ id: 1 }, { id: 2 }, { id: 3 }]);
+        (mockGrid as Record<string, unknown>).virtualization = { rowHeight: 28 };
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        // No extra height for uniform rows
+        expect(plugin.getExtraHeightBefore(0)).toBe(0);
+        expect(plugin.getExtraHeightBefore(1)).toBe(0);
+        expect(plugin.getExtraHeightBefore(2)).toBe(0);
+        expect(plugin.getExtraHeightBefore(3)).toBe(0);
+      });
+
+      it('should calculate extra height before given row index (mixed rows)', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+          cardRowHeight: 80,
+        });
+        // Mixed rows: groups + cards
+        const rows = [
+          { __isGroupRow: true, __groupKey: 'Group A', __groupRows: [] }, // index 0
+          { id: 1 }, // index 1 (card row)
+          { id: 2 }, // index 2 (card row)
+          { id: 3 }, // index 3 (card row)
+        ];
+        const mockGrid = createMockGrid(rows);
+        (mockGrid as Record<string, unknown>).virtualization = { rowHeight: 28 };
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        // Before index 0: 0 card rows
+        expect(plugin.getExtraHeightBefore(0)).toBe(0);
+        // Before index 1: 0 card rows (only group row at 0)
+        expect(plugin.getExtraHeightBefore(1)).toBe(0);
+        // Before index 2: 1 card row × 52 = 52
+        expect(plugin.getExtraHeightBefore(2)).toBe(52);
+        // Before index 3: 2 card rows × 52 = 104
+        expect(plugin.getExtraHeightBefore(3)).toBe(104);
+        // Before index 4: 3 card rows × 52 = 156
+        expect(plugin.getExtraHeightBefore(4)).toBe(156);
+      });
+
+      it('should skip group rows when counting extra height before index', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+          cardRowHeight: 80,
+        });
+        const rows = [
+          { __isGroupRow: true, __groupKey: 'Group A', __groupRows: [] }, // index 0
+          { id: 1 }, // index 1 (card row)
+          { id: 2 }, // index 2 (card row)
+          { __isGroupRow: true, __groupKey: 'Group B', __groupRows: [] }, // index 3
+          { id: 3 }, // index 4 (card row)
+        ];
+        const mockGrid = createMockGrid(rows);
+        (mockGrid as Record<string, unknown>).virtualization = { rowHeight: 28 };
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        // Before index 0: 0 card rows
+        expect(plugin.getExtraHeightBefore(0)).toBe(0);
+        // Before index 1: 0 card rows (only group row at 0)
+        expect(plugin.getExtraHeightBefore(1)).toBe(0);
+        // Before index 2: 1 card row (at index 1)
+        expect(plugin.getExtraHeightBefore(2)).toBe(52);
+        // Before index 3: 2 card rows (at indices 1, 2)
+        expect(plugin.getExtraHeightBefore(3)).toBe(104);
+        // Before index 4: 2 card rows (group row at index 3 doesn't count)
+        expect(plugin.getExtraHeightBefore(4)).toBe(104);
+        // Before index 5: 3 card rows
+        expect(plugin.getExtraHeightBefore(5)).toBe(156);
+      });
+
+      it('should handle index beyond rows length (mixed rows)', () => {
+        const plugin = new ResponsivePlugin({
+          breakpoint: 500,
+          cardRenderer: () => document.createElement('div'),
+          cardRowHeight: 80,
+        });
+        // Mixed rows: need at least one group row for extra height to apply
+        const rows = [{ __isGroupRow: true, __groupKey: 'Group A', __groupRows: [] }, { id: 1 }, { id: 2 }];
+        const mockGrid = createMockGrid(rows);
+        (mockGrid as Record<string, unknown>).virtualization = { rowHeight: 28 };
+        plugin.attach(mockGrid as never);
+
+        plugin.setResponsive(true);
+
+        // Index beyond array length should cap at total card rows (2 × 52 = 104)
+        expect(plugin.getExtraHeightBefore(100)).toBe(104);
+      });
+    });
+  });
 });
 
 // Helper to create mock grid with multiple cells

@@ -118,6 +118,26 @@ export interface PluginDependency {
   reason?: string;
 }
 
+/**
+ * Declares an incompatibility between plugins.
+ * When both plugins are loaded, a warning is logged to help users understand the conflict.
+ *
+ * @category Plugin Development
+ */
+export interface PluginIncompatibility {
+  /**
+   * The name of the incompatible plugin (matches the plugin's `name` property).
+   */
+  name: string;
+
+  /**
+   * Human-readable reason for the incompatibility.
+   * Should explain why the plugins conflict and any workarounds.
+   * @example "Responsive card layout does not support row grouping yet"
+   */
+  reason: string;
+}
+
 // ============================================================================
 // Plugin Manifest Types
 // ============================================================================
@@ -216,6 +236,19 @@ export interface PluginManifest<TConfig = unknown> {
    * Rules with severity 'error' throw, 'warn' logs to console.
    */
   configRules?: PluginConfigRule<TConfig>[];
+
+  /**
+   * Plugins that are incompatible with this plugin.
+   * When both plugins are loaded together, a warning is shown.
+   *
+   * @example
+   * ```typescript
+   * incompatibleWith: [
+   *   { name: 'groupingRows', reason: 'Responsive card layout does not support row grouping yet' },
+   * ],
+   * ```
+   */
+  incompatibleWith?: PluginIncompatibility[];
 }
 
 /**

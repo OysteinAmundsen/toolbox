@@ -120,7 +120,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   changedRowIds?: string[];
   effectiveConfig?: GridConfig<T>;
   findHeaderRow?: () => HTMLElement;
-  refreshVirtualWindow: (full: boolean) => void;
+  refreshVirtualWindow: (full: boolean, skipAfterRender?: boolean) => void;
   updateTemplate?: () => void;
   findRenderedRowElement?: (rowIndex: number) => HTMLElement | null;
   /** Get a row by its ID. Implemented in grid.ts */

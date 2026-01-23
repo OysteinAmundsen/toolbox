@@ -394,3 +394,46 @@ export function validatePluginDependencies(plugin: BaseGridPlugin, loadedPlugins
     }
   }
 }
+// ============================================================================
+// Plugin Incompatibility Validation
+// ============================================================================
+
+/**
+ * Validate that no incompatible plugins are loaded together.
+ * Called after all plugins are attached to the grid.
+ *
+ * Incompatibilities are read from each plugin's manifest `incompatibleWith` property.
+ * When a conflict is detected, a warning is logged (in development mode).
+ *
+ * @param plugins - All attached plugins
+ */
+export function validatePluginIncompatibilities(plugins: readonly BaseGridPlugin[]): void {
+  // Only warn in development mode to avoid polluting production logs
+  if (!isDevelopment()) return;
+
+  const pluginNames = new Set(plugins.map((p) => p.name));
+  const warned = new Set<string>(); // Avoid duplicate warnings for symmetric conflicts
+
+  for (const plugin of plugins) {
+    const PluginClass = plugin.constructor as typeof BaseGridPlugin;
+    const manifest = PluginClass.manifest as PluginManifest | undefined;
+    if (!manifest?.incompatibleWith) continue;
+
+    for (const incompatibility of manifest.incompatibleWith) {
+      if (pluginNames.has(incompatibility.name)) {
+        // Create a symmetric key to avoid warning twice (A→B and B→A)
+        const key = [plugin.name, incompatibility.name].sort().join('↔');
+        if (warned.has(key)) continue;
+        warned.add(key);
+
+        console.warn(
+          `[tbw-grid] Plugin incompatibility warning:\n\n` +
+            `${capitalize(plugin.name)}Plugin and ${capitalize(incompatibility.name)}Plugin are both loaded, ` +
+            `but they are currently incompatible.\n\n` +
+            `  → ${incompatibility.reason}\n\n` +
+            `  Consider removing one of these plugins to avoid unexpected behavior.`,
+        );
+      }
+    }
+  }
+}

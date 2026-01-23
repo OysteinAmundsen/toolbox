@@ -36,6 +36,7 @@ export type {
   HookName,
   PluginConfigRule,
   PluginDependency,
+  PluginIncompatibility,
   PluginManifest,
   PluginPropertyDefinition,
 } from './base-plugin';

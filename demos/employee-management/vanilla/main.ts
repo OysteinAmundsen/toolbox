@@ -222,12 +222,17 @@ export function createGridConfig(options: GridConfigOptions) {
       new ColumnVirtualizationPlugin(),
       new VisibilityPlugin(),
       // Responsive plugin for mobile/narrow layouts
-      new ResponsivePlugin<Employee>({
-        breakpoint: 700,
-        cardRenderer: (row) => createResponsiveCardRenderer(row),
-        cardRowHeight: 80,
-        hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
-      }),
+      // Disabled when row grouping is enabled (incompatible combination)
+      ...(!enableRowGrouping
+        ? [
+            new ResponsivePlugin<Employee>({
+              breakpoint: 700,
+              cardRenderer: (row) => createResponsiveCardRenderer(row),
+              cardRowHeight: 80,
+              hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
+            }),
+          ]
+        : []),
       // Row grouping and master-detail are mutually exclusive
       ...(enableRowGrouping
         ? [

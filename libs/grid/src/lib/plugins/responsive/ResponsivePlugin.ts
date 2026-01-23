@@ -26,7 +26,7 @@
  */
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
-import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type GridElement, type PluginManifest } from '../../core/plugin/base-plugin';
 import type { InternalGrid } from '../../core/types';
 import styles from './responsive.css?inline';
 import type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, ResponsivePluginConfig } from './types';
@@ -82,6 +82,20 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   readonly name = 'responsive';
   override readonly version = '1.0.0';
   override readonly styles = styles;
+
+  /**
+   * Plugin manifest declaring incompatibilities with other plugins.
+   */
+  static override readonly manifest: PluginManifest = {
+    incompatibleWith: [
+      {
+        name: 'groupingRows',
+        reason:
+          'Responsive card layout does not yet support row grouping. ' +
+          'The variable row heights (cards vs group headers) cause scroll calculation issues.',
+      },
+    ],
+  };
 
   #resizeObserver?: ResizeObserver;
   #isResponsive = false;

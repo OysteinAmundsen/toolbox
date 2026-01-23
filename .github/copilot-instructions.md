@@ -647,6 +647,26 @@ plugins: [new UndoRedoPlugin(), new EditingPlugin()];
 // Throws: "[tbw-grid] Plugin dependency error: UndoRedoPlugin tracks cell edit history..."
 ```
 
+### Plugin Incompatibilities
+
+Some plugins are mutually incompatible due to conflicting functionality. Declare incompatibilities via the manifest's `incompatibleWith` property:
+
+```typescript
+static override readonly manifest: PluginManifest = {
+  incompatibleWith: [
+    { name: 'groupingRows', reason: 'Responsive card layout does not support row grouping yet' },
+  ],
+};
+```
+
+**Built-in Plugin Incompatibilities:**
+
+| Plugin             | Incompatible With      | Reason                                                |
+| ------------------ | ---------------------- | ----------------------------------------------------- |
+| `ResponsivePlugin` | `GroupingRowsPlugin`   | Variable row heights cause scroll calculation issues  |
+
+When incompatible plugins are loaded together, a warning is logged in development mode.
+
 ### Plugin Manifest System
 
 Plugins can declare a **static manifest** for declarative validation and metadata. The manifest provides:
@@ -654,6 +674,7 @@ Plugins can declare a **static manifest** for declarative validation and metadat
 1. **`ownedProperties`** - Column/config properties the plugin owns (for helpful error messages)
 2. **`hookPriority`** - Reserved for future hook ordering (not yet implemented)
 3. **`configRules`** - Declarative validation rules with severity levels
+4. **`incompatibleWith`** - Plugins that conflict with this one (warns when both loaded)
 
 **Declaring a Manifest:**
 

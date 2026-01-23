@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { BaseGridPlugin, PluginManifest } from '../plugin';
+import type { BaseGridPlugin, PluginIncompatibility, PluginManifest } from '../plugin';
 import type { GridConfig } from '../types';
-import { validatePluginConfigRules, validatePluginDependencies, validatePluginProperties } from './validate-config';
+import {
+  validatePluginConfigRules,
+  validatePluginDependencies,
+  validatePluginIncompatibilities,
+  validatePluginProperties,
+} from './validate-config';
 
 // Mock plugins for testing
 const mockEditingPlugin: BaseGridPlugin = {
@@ -663,5 +668,108 @@ describe('validatePluginConfigRules', () => {
 
       expect(() => validatePluginConfigRules([plugin])).not.toThrow();
     });
+  });
+});
+describe('validatePluginIncompatibilities', () => {
+  // Helper to create a mock plugin with incompatibilities
+  function createMockPluginWithIncompatibilities(
+    name: string,
+    incompatibleWith: PluginIncompatibility[],
+  ): BaseGridPlugin {
+    class MockPlugin {
+      static readonly manifest: PluginManifest = { incompatibleWith };
+      readonly name = name;
+      readonly version = '1.0.0';
+      attach() {
+        /* noop */
+      }
+      detach() {
+        /* noop */
+      }
+    }
+    return new MockPlugin() as unknown as BaseGridPlugin;
+  }
+
+  // Simple mock plugin without manifest
+  function createSimpleMockPlugin(name: string): BaseGridPlugin {
+    return {
+      name,
+      version: '1.0.0',
+      attach: () => {
+        /* noop */
+      },
+      detach: () => {
+        /* noop */
+      },
+    } as unknown as BaseGridPlugin;
+  }
+
+  it('does not warn when no incompatible plugins are loaded', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      /* noop */
+    });
+
+    const pluginA = createMockPluginWithIncompatibilities('responsive', [
+      { name: 'groupingRows', reason: 'incompatible with row grouping' },
+    ]);
+    const pluginB = createSimpleMockPlugin('selection');
+
+    validatePluginIncompatibilities([pluginA, pluginB]);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('warns when incompatible plugins are loaded together', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      /* noop */
+    });
+
+    const responsive = createMockPluginWithIncompatibilities('responsive', [
+      { name: 'groupingRows', reason: 'Responsive card layout does not support row grouping' },
+    ]);
+    const groupingRows = createSimpleMockPlugin('groupingRows');
+
+    validatePluginIncompatibilities([responsive, groupingRows]);
+
+    expect(warnSpy).toHaveBeenCalledOnce();
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('incompatibility');
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('ResponsivePlugin');
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('GroupingRowsPlugin');
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('does not support row grouping');
+    warnSpy.mockRestore();
+  });
+
+  it('only warns once for symmetric conflicts (A→B and B→A)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      /* noop */
+    });
+
+    // Both plugins declare each other as incompatible
+    const pluginA = createMockPluginWithIncompatibilities('pluginA', [
+      { name: 'pluginB', reason: 'A conflicts with B' },
+    ]);
+    const pluginB = createMockPluginWithIncompatibilities('pluginB', [
+      { name: 'pluginA', reason: 'B conflicts with A' },
+    ]);
+
+    validatePluginIncompatibilities([pluginA, pluginB]);
+
+    // Should only warn once, not twice
+    expect(warnSpy).toHaveBeenCalledOnce();
+    warnSpy.mockRestore();
+  });
+
+  it('handles plugins without manifest gracefully', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      /* noop */
+    });
+
+    const pluginA = createSimpleMockPlugin('pluginA');
+    const pluginB = createSimpleMockPlugin('pluginB');
+
+    expect(() => validatePluginIncompatibilities([pluginA, pluginB])).not.toThrow();
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

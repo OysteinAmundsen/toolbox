@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Storybook (4400)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4400",
+      "webRoot": "${workspaceFolder}",
+      "sourceMapPathOverrides": {
+        "webpack://@toolbox-web/grid/*": "${workspaceFolder}/libs/grid/*",
+        "webpack://__vite_root__/*": "${workspaceFolder}/*",
+        "webpack://*": "${workspaceFolder}/*"
+      },
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Debug Demo Vanilla (4000)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4000",
+      "webRoot": "${workspaceFolder}",
+      "sourceMapPathOverrides": {
+        "webpack://@toolbox-web/grid/*": "${workspaceFolder}/libs/grid/*",
+        "webpack://__vite_root__/*": "${workspaceFolder}/*",
+        "webpack://*": "${workspaceFolder}/*"
+      },
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Debug Demo React (4300)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4300",
+      "webRoot": "${workspaceFolder}",
+      "sourceMapPathOverrides": {
+        "webpack://@toolbox-web/grid/*": "${workspaceFolder}/libs/grid/*",
+        "webpack://@toolbox-web/grid-react/*": "${workspaceFolder}/libs/grid-react/*",
+        "webpack://__vite_root__/*": "${workspaceFolder}/*",
+        "webpack://*": "${workspaceFolder}/*"
+      },
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Debug Demo Angular (4200)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4200",
+      "webRoot": "${workspaceFolder}",
+      "sourceMapPathOverrides": {
+        "webpack://@toolbox-web/grid/*": "${workspaceFolder}/libs/grid/*",
+        "webpack://@toolbox-web/grid-angular/*": "${workspaceFolder}/libs/grid-angular/*",
+        "webpack://__vite_root__/*": "${workspaceFolder}/*",
+        "webpack://*": "${workspaceFolder}/*"
+      },
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    }
+  ]
+}

@@ -589,7 +589,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       processRows: () => this.#rebuildRowModel(),
       renderHeader: () => renderHeader(this),
       updateTemplate: () => updateTemplate(this),
-      renderVirtualWindow: () => this.refreshVirtualWindow(true),
+      renderVirtualWindow: () => this.refreshVirtualWindow(true, true),
       afterRender: () => {
         this.#pluginManager?.afterRender();
         // Auto-size columns on first render if fitMode is 'fixed'
@@ -1440,17 +1440,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // - Custom renderers that push cell height
     // - Column virtualization adding/removing columns
     // - Dynamic content loading (images, fonts)
+    // Note: ResizeObserver fires on initial observation in modern browsers,
+    // so no separate measurement call is needed.
     this.#rowHeightObserver = new ResizeObserver(() => {
       this.#measureRowHeight();
     });
     this.#rowHeightObserver.observe(firstRow);
-
-    // Measure row height after a paint cycle to ensure custom renderers have fully rendered.
-    // ResizeObserver only fires on size changes, not initial size, and custom renderers
-    // may not have painted their content yet when this function is first called.
-    requestAnimationFrame(() => {
-      this.#measureRowHeight();
-    });
   }
 
   // ---------------- Event Emitters ----------------
@@ -2951,27 +2946,84 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#shellController.unregisterToolbarContent(contentId);
   }
 
+  /** Pending shell refresh - used to batch multiple rapid calls */
+  #pendingShellRefresh = false;
+
   /**
    * Re-parse light DOM shell elements and refresh shell header.
    * Call this after dynamically modifying <tbw-grid-header> children.
+   *
+   * Multiple calls are batched via microtask to avoid redundant DOM rebuilds
+   * when registering multiple tool panels in sequence.
+   *
    * @internal Plugin API
    */
   refreshShellHeader(): void {
-    // Re-parse light DOM (header, tool buttons, and tool panels)
-    parseLightDomShell(this, this.#shellState);
-    parseLightDomToolButtons(this, this.#shellState);
-    parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+    // Batch multiple rapid calls into a single microtask
+    if (this.#pendingShellRefresh) return;
+    this.#pendingShellRefresh = true;
 
-    // Mark sources as changed since shell parsing may have updated state maps
-    this.#configManager.markSourcesChanged();
+    queueMicrotask(() => {
+      this.#pendingShellRefresh = false;
+      if (!this.isConnected) return;
 
-    // Re-merge config to sync shell state changes into effectiveConfig.shell
-    this.#configManager.merge();
+      // Re-parse light DOM (header, tool buttons, and tool panels)
+      parseLightDomShell(this, this.#shellState);
+      parseLightDomToolButtons(this, this.#shellState);
+      parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
 
-    // Re-render the entire grid (shell structure may change)
-    this.#render();
-    this.#injectAllPluginStyles(); // Re-inject after render clears shadow DOM
-    this.#afterConnect();
+      // Mark sources as changed since shell parsing may have updated state maps
+      this.#configManager.markSourcesChanged();
+
+      // Re-merge config to sync shell state changes into effectiveConfig.shell
+      this.#configManager.merge();
+
+      // Re-render the entire grid (shell structure may change)
+      this.#render();
+      this.#injectAllPluginStyles(); // Re-inject after render clears shadow DOM
+
+      // Use lighter-weight post-render setup instead of full #afterConnect()
+      // This avoids requesting another FULL render since #render() already rebuilt the DOM
+      this.#afterShellRefresh();
+    });
+  }
+
+  /**
+   * Lighter-weight post-render setup after shell refresh.
+   * Unlike #afterConnect(), this skips scheduler FULL request since DOM is already built.
+   */
+  #afterShellRefresh(): void {
+    // Shell changes the DOM structure - need to re-cache element references
+    const gridContent = this.#renderRoot.querySelector('.tbw-grid-content');
+    const gridRoot = gridContent ?? this.#renderRoot.querySelector('.tbw-grid-root');
+
+    this._headerRowEl = gridRoot?.querySelector('.header-row') as HTMLElement;
+    this._virtualization.totalHeightEl = gridRoot?.querySelector('.faux-vscroll-spacer') as HTMLElement;
+    this._virtualization.viewportEl = gridRoot?.querySelector('.rows-viewport') as HTMLElement;
+    this._bodyEl = gridRoot?.querySelector('.rows') as HTMLElement;
+    this.__rowsBodyEl = gridRoot?.querySelector('.rows-body') as HTMLElement;
+
+    // Render shell header content and custom toolbar contents
+    if (this.#shellController.isInitialized) {
+      renderHeaderContent(this.#renderRoot, this.#shellState);
+      renderCustomToolbarContents(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState);
+
+      const defaultOpen = this.#effectiveConfig?.shell?.toolPanel?.defaultOpen;
+      if (defaultOpen && this.#shellState.toolPanels.has(defaultOpen)) {
+        this.openToolPanel();
+        this.#shellState.expandedSections.add(defaultOpen);
+      }
+    }
+
+    // Re-create resize controller (DOM elements changed)
+    this._resizeController = createResizeController(this as unknown as InternalGrid<T>);
+
+    // Re-setup scroll listeners (DOM elements changed)
+    this.#setupScrollListeners(gridRoot);
+
+    // Request only VIRTUALIZATION phase to recalculate rows - not FULL
+    // The DOM is already rebuilt by #render(), we just need to update virtualization
+    this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'shellRefresh');
   }
 
   // #region Custom Styles API
@@ -3212,16 +3264,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,
    * or standard row window rendering.
+   * @param force - Whether to force a full refresh (not just scroll update)
+   * @param skipAfterRender - When true, skip calling afterRender (used by scheduler which calls it separately)
    * @internal Plugin API
    */
-  refreshVirtualWindow(force = false): void {
+  refreshVirtualWindow(force = false, skipAfterRender = false): void {
     if (!this._bodyEl) return;
 
     const totalRows = this._rows.length;
 
     if (!this._virtualization.enabled) {
       this.#renderVisibleRows(0, totalRows);
-      this.#pluginManager?.afterRender();
+      if (!skipAfterRender) {
+        this.#pluginManager?.afterRender();
+      }
       return;
     }
 
@@ -3239,7 +3295,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
       // Update ARIA counts on the grid container
       this.#updateAriaCounts(totalRows, this._visibleColumns.length);
-      this.#pluginManager?.afterRender();
+      if (!skipAfterRender) {
+        this.#pluginManager?.afterRender();
+      }
       return;
     }
 
@@ -3333,7 +3391,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Only run plugin afterRender hooks on force refresh (structural changes)
     // Skip on scroll-triggered renders for maximum performance
-    if (force) {
+    if (force && !skipAfterRender) {
       this.#pluginManager?.afterRender();
 
       // After plugins modify the DOM (e.g., add footer, column groups),

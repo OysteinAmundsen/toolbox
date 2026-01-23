@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.1.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.1.1...grid-1.1.2) (2026-01-23)
+
+
+### Bug Fixes
+
+* **demo:** disable responsive plugin when row grouping is enabled ([3f4ad4e](https://github.com/OysteinAmundsen/toolbox/commit/3f4ad4ea0e8039ee002f66ca871b1d6946d7a03b))
+* **grid:** clear cached measurements when exiting responsive mode ([e849b9f](https://github.com/OysteinAmundsen/toolbox/commit/e849b9fe785cdc0b8e2bc073c1b78dd543174410))
+* **grid:** prevent infinite loop when responsive + grouping plugins combined ([e677356](https://github.com/OysteinAmundsen/toolbox/commit/e67735658afc0830263eb9c1ce8d98570cf1de19))
+* **grid:** properly reset row element state when recycling between plugins ([548ef9c](https://github.com/OysteinAmundsen/toolbox/commit/548ef9c773d95878277fe365634183b36b606e93))
+
+
+### Performance Improvements
+
+* **grid:** eliminate duplicate afterRender calls during render cycle ([605991d](https://github.com/OysteinAmundsen/toolbox/commit/605991de9f72f4beee2f1a120631d9fbab55141e))
+* **grid:** reduce render cycles during initialization and mode switches ([24e8c3c](https://github.com/OysteinAmundsen/toolbox/commit/24e8c3c13c627d1d937e031a3f3811ef1f7fa336))
+
 ## [1.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.1.0...grid-1.1.1) (2026-01-22)
 
 

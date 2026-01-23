@@ -1384,16 +1384,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this._virtualization.viewportEl) {
       this.#resizeObserver = new ResizeObserver(() => {
         // Use scheduler for viewport resize - batches with other pending work
+        // The scheduler already batches multiple requests per RAF
         this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'resize-observer');
       });
       this.#resizeObserver.observe(this._virtualization.viewportEl);
     }
 
-    if (this._virtualization.enabled) {
-      // Schedule initial virtualization through scheduler
-      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'init-virtualization');
-      // Row height observer is set up in afterRender callback when rows are in DOM
-    }
+    // Note: We no longer need to schedule init-virtualization here since
+    // the initial FULL render from #setup already includes virtualization.
+    // Requesting it again here caused duplicate renders on initialization.
 
     // Track focus state via data attribute (shadow DOM doesn't reliably support :focus-within)
     // Listen on shadow root to catch focus events from shadow DOM elements

@@ -789,13 +789,16 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
     // Defer virtualization refresh to avoid nested render cycles
     // This is called from afterRender, so we can't call refreshVirtualWindow synchronously
+    // Use scheduler's VIRTUALIZATION phase to batch properly and avoid duplicate afterRender calls
     if (needsRefresh && !this.#pendingRefresh) {
       this.#pendingRefresh = true;
       queueMicrotask(() => {
         this.#pendingRefresh = false;
         // Only refresh if still attached and in responsive mode
         if (this.grid && this.#isResponsive) {
-          (this.grid as unknown as InternalGrid).refreshVirtualWindow?.(true);
+          // Request virtualization phase through grid's public API
+          // This goes through the scheduler which batches and handles afterRender properly
+          (this.grid as unknown as InternalGrid).refreshVirtualWindow?.(true, true);
         }
       });
     }

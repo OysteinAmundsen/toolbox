@@ -37,7 +37,7 @@ import {
   validatePluginIncompatibilities,
   validatePluginProperties,
 } from './internal/validate-config';
-import type { AfterCellRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
+import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type {
   BaseGridPlugin,
   CellClickEvent,
@@ -2121,8 +2121,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @group Plugin Hooks
    * @internal Plugin API - called by rows.ts
    */
-  _afterCellRender(context: AfterCellRenderContext): void {
-    this.#pluginManager?.afterCellRender(context);
+  _afterCellRender(context: AfterCellRenderContext<T>): void {
+    // Cast needed because PluginManager uses unknown for row type
+    this.#pluginManager?.afterCellRender(context as AfterCellRenderContext);
   }
 
   /**
@@ -2134,6 +2135,31 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   _hasAfterCellRenderHook(): boolean {
     return this.#pluginManager?.hasAfterCellRenderHook() ?? false;
+  }
+
+  /**
+   * Call afterRowRender hook on all plugins that have registered for it.
+   * Called by rows.ts after each row is completely rendered.
+   *
+   * @param context - Context containing row data, index, and DOM element
+   *
+   * @group Plugin Hooks
+   * @internal Plugin API - called by rows.ts
+   */
+  _afterRowRender(context: AfterRowRenderContext<T>): void {
+    // Cast needed because PluginManager uses unknown for row type
+    this.#pluginManager?.afterRowRender(context as AfterRowRenderContext);
+  }
+
+  /**
+   * Check if any plugin has registered an afterRowRender hook.
+   * Used to skip the hook call entirely for performance when no plugins need it.
+   *
+   * @group Plugin Hooks
+   * @internal Plugin API - called by rows.ts
+   */
+  _hasAfterRowRenderHook(): boolean {
+    return this.#pluginManager?.hasAfterRowRenderHook() ?? false;
   }
 
   /**

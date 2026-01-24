@@ -540,3 +540,102 @@ describe('afterCellRender hook', () => {
     expect(cell.getAttribute('data-plugin-test')).toBe('true');
   });
 });
+
+describe('afterRowRender hook', () => {
+  it('calls hook for each row when plugin has hook registered', () => {
+    const g = makeGrid();
+    const hookCalls: { rowIndex: number; row: any }[] = [];
+
+    // Mock the hook detection and call methods
+    g._hasAfterRowRenderHook = () => true;
+    g._afterRowRender = (ctx: any) => {
+      hookCalls.push({
+        rowIndex: ctx.rowIndex,
+        row: ctx.row,
+      });
+    };
+
+    renderVisibleRows(g, 0, 2, 1);
+
+    // Should be called for each row (2 rows)
+    expect(hookCalls.length).toBe(2);
+    expect(hookCalls[0].rowIndex).toBe(0);
+    expect(hookCalls[0].row).toBe(g._rows[0]);
+    expect(hookCalls[1].rowIndex).toBe(1);
+    expect(hookCalls[1].row).toBe(g._rows[1]);
+  });
+
+  it('does not call hook when no plugin has hook registered', () => {
+    const g = makeGrid();
+    const hookCalls: any[] = [];
+
+    g._hasAfterRowRenderHook = () => false;
+    g._afterRowRender = (ctx: any) => {
+      hookCalls.push(ctx);
+    };
+
+    renderVisibleRows(g, 0, 2, 1);
+
+    // Should not be called when hasAfterRowRenderHook returns false
+    expect(hookCalls.length).toBe(0);
+  });
+
+  it('provides correct context with rowElement', () => {
+    const g = makeGrid();
+    let capturedContext: any = null;
+
+    g._hasAfterRowRenderHook = () => true;
+    g._afterRowRender = (ctx: any) => {
+      if (ctx.rowIndex === 1) capturedContext = ctx;
+    };
+
+    renderVisibleRows(g, 0, 2, 1);
+
+    expect(capturedContext).not.toBeNull();
+    expect(capturedContext.row).toEqual(g._rows[1]);
+    expect(capturedContext.rowIndex).toBe(1);
+    expect(capturedContext.rowElement).toBeInstanceOf(HTMLElement);
+    expect(capturedContext.rowElement.classList.contains('data-grid-row')).toBe(true);
+  });
+
+  it('allows plugin to modify row element during hook', () => {
+    const g = makeGrid();
+
+    g._hasAfterRowRenderHook = () => true;
+    g._afterRowRender = (ctx: any) => {
+      if (ctx.rowIndex === 0) {
+        ctx.rowElement.classList.add('plugin-modified-row');
+        ctx.rowElement.setAttribute('data-plugin-row-test', 'true');
+      }
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+    expect(row.classList.contains('plugin-modified-row')).toBe(true);
+    expect(row.getAttribute('data-plugin-row-test')).toBe('true');
+  });
+
+  it('is called after all cells are rendered', () => {
+    const g = makeGrid();
+    let cellsRenderedBeforeRowHook = 0;
+
+    g._hasAfterCellRenderHook = () => true;
+    g._afterCellRender = () => {
+      cellsRenderedBeforeRowHook++;
+    };
+
+    g._hasAfterRowRenderHook = () => true;
+    g._afterRowRender = (ctx: any) => {
+      // At the point afterRowRender is called, all cells for this row should be rendered
+      const rowEl = ctx.rowElement;
+      const cellCount = rowEl.querySelectorAll('.cell').length;
+      expect(cellCount).toBe(4); // 4 visible columns
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    // All cell hooks should have been called (4 cells)
+    expect(cellsRenderedBeforeRowHook).toBe(4);
+  });
+});

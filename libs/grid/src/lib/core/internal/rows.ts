@@ -167,6 +167,9 @@ export function renderVisibleRows(
   // Check if any plugin has a renderRow hook (cache this)
   const hasRenderRowPlugins = renderRowHook && grid.__hasRenderRowPlugins !== false;
 
+  // Check if any plugin wants row-level hooks (avoid overhead when not needed)
+  const hasRowHook = grid._hasAfterRowRenderHook?.() ?? false;
+
   for (let i = 0; i < needed; i++) {
     const rowIndex = start + i;
     const rowData = grid._rows[rowIndex];
@@ -315,6 +318,15 @@ export function renderVisibleRows(
         console.warn(`[tbw-grid] rowClass callback error:`, e);
         rowEl.removeAttribute('data-dynamic-classes');
       }
+    }
+
+    // Call row-level plugin hook if any plugin registered it
+    if (hasRowHook) {
+      grid._afterRowRender?.({
+        row: rowData,
+        rowIndex,
+        rowElement: rowEl,
+      });
     }
 
     if (rowEl.parentNode !== bodyEl) bodyEl.appendChild(rowEl);

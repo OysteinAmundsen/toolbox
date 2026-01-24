@@ -14,6 +14,7 @@ import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
 import type {
   AfterCellRenderContext,
+  AfterRowRenderContext,
   BaseGridPlugin,
   CellClickEvent,
   CellEditor,
@@ -259,6 +260,26 @@ export class PluginManager {
    */
   hasAfterCellRenderHook(): boolean {
     return this.plugins.some((p) => typeof p.afterCellRender === 'function');
+  }
+
+  /**
+   * Execute afterRowRender hook on all plugins for a single row.
+   * Called after all cells in a row are rendered for efficient row-level modifications.
+   *
+   * @param context - The row render context
+   */
+  afterRowRender(context: AfterRowRenderContext): void {
+    for (const plugin of this.plugins) {
+      plugin.afterRowRender?.(context);
+    }
+  }
+
+  /**
+   * Check if any plugin has the afterRowRender hook implemented.
+   * Used to skip the hook call overhead when no plugins need it.
+   */
+  hasAfterRowRenderHook(): boolean {
+    return this.plugins.some((p) => typeof p.afterRowRender === 'function');
   }
 
   /**

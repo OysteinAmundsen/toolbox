@@ -22,6 +22,7 @@ import { DEFAULT_GRID_ICONS } from '../types';
 export { PLUGIN_QUERIES } from './types';
 export type {
   AfterCellRenderContext,
+  AfterRowRenderContext,
   CellClickEvent,
   CellCoords,
   CellEditor,
@@ -41,6 +42,7 @@ export type {
 
 import type {
   AfterCellRenderContext,
+  AfterRowRenderContext,
   CellClickEvent,
   CellEditor,
   CellMouseEvent,
@@ -191,6 +193,7 @@ export type HookName =
   | 'processRows'
   | 'afterRender'
   | 'afterCellRender'
+  | 'afterRowRender'
   | 'onCellClick'
   | 'onCellMouseDown'
   | 'onCellMouseMove'
@@ -782,6 +785,38 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   afterCellRender?(context: AfterCellRenderContext): void;
+
+  /**
+   * Called after a row is fully rendered (all cells complete).
+   * Use this for row-level decorations, styling, or ARIA attributes.
+   *
+   * Common use cases:
+   * - Adding selection classes to entire rows (row-focus, selected)
+   * - Setting row-level ARIA attributes
+   * - Applying row validation highlighting
+   * - Tree indentation styling
+   *
+   * Performance note: Called for every visible row during render. Keep implementation fast.
+   * This hook is also called during scroll when rows are recycled.
+   *
+   * @param context - The row render context with row data and element
+   *
+   * @example
+   * ```ts
+   * afterRowRender(context: AfterRowRenderContext): void {
+   *   // Add row selection class without DOM queries
+   *   if (this.isRowSelected(context.rowIndex)) {
+   *     context.rowElement.classList.add('selected', 'row-focus');
+   *   }
+   *
+   *   // Add validation error styling
+   *   if (this.rowHasErrors(context.row)) {
+   *     context.rowElement.classList.add('has-errors');
+   *   }
+   * }
+   * ```
+   */
+  afterRowRender?(context: AfterRowRenderContext): void;
 
   /**
    * Called after scroll-triggered row rendering completes.

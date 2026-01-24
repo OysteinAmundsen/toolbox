@@ -9,6 +9,7 @@
 export { BaseGridPlugin, PLUGIN_QUERIES } from './base-plugin';
 export type {
   AfterCellRenderContext,
+  AfterRowRenderContext,
   CellClickEvent,
   CellCoords,
   CellEditor,

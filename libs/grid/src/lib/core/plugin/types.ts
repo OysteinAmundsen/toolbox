@@ -139,6 +139,34 @@ export interface AfterCellRenderContext<TRow = unknown> {
 }
 
 /**
+ * Context passed to the `afterRowRender` plugin hook.
+ *
+ * This provides efficient row-level access after all cells are rendered.
+ * Plugins receive this context for each row, enabling row-level modifications
+ * without requiring DOM queries in afterRender.
+ *
+ * @category Plugin Development
+ * @template TRow - The row data type
+ *
+ * @example
+ * ```typescript
+ * afterRowRender(context: AfterRowRenderContext): void {
+ *   if (this.isRowSelected(context.rowIndex)) {
+ *     context.rowElement.classList.add('selected', 'row-focus');
+ *   }
+ * }
+ * ```
+ */
+export interface AfterRowRenderContext<TRow = unknown> {
+  /** The row data object */
+  row: TRow;
+  /** Zero-based row index in the visible rows array */
+  rowIndex: number;
+  /** The row DOM element - can be modified by the plugin */
+  rowElement: HTMLElement;
+}
+
+/**
  * Context menu parameters
  */
 export interface ContextMenuParams {

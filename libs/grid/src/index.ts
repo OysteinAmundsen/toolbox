@@ -28,6 +28,7 @@ export type {
 export { BaseGridPlugin, PluginManager } from './lib/core/plugin';
 export type {
   AfterCellRenderContext,
+  AfterRowRenderContext,
   CellClickEvent,
   CellCoords,
   CellEditor,

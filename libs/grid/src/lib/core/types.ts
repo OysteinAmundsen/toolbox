@@ -1,5 +1,5 @@
 import type { PluginQuery } from './plugin/base-plugin';
-import type { AfterCellRenderContext, CellMouseEvent } from './plugin/types';
+import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
 
 /**
  * The compiled webcomponent interface for DataGrid
@@ -197,6 +197,10 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _afterCellRender?: (context: AfterCellRenderContext<T>) => void;
   /** Check if any plugin has registered an afterCellRender hook. Used to skip hook call for performance. @internal */
   _hasAfterCellRenderHook?: () => boolean;
+  /** Call afterRowRender hook on all plugins. Called from rows.ts after each row is rendered. @internal */
+  _afterRowRender?: (context: AfterRowRenderContext<T>) => void;
+  /** Check if any plugin has registered an afterRowRender hook. Used to skip hook call for performance. @internal */
+  _hasAfterRowRenderHook?: () => boolean;
   /** Get horizontal scroll boundary offsets from plugins */
   _getHorizontalScrollOffsets?: (
     rowEl?: HTMLElement,

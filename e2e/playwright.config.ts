@@ -26,8 +26,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI for consistent screenshots */
-  workers: process.env.CI ? 1 : undefined,
+  /* Run tests in parallel - since visual baselines are not committed and
+   * expectScreenshotIfBaselineExists skips comparisons when no baseline exists,
+   * we can safely parallelize even in CI */
+  workers: process.env.CI ? 4 : undefined,
   /* Reporter to use */
   reporter: [['html', { outputFolder: '../playwright-report' }], ['list']],
   /* Shared settings for all the projects below */

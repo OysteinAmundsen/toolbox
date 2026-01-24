@@ -111,7 +111,7 @@ jobs:
         run: bun run lint && bun run test
 
   build:
-    needs: [setup, test]
+    needs: setup
     if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
     steps:
@@ -198,13 +198,13 @@ jobs:
   # - Also runs on release events and workflow_dispatch
   # ============================================
   release-please:
-    needs: [setup, build, e2e]
+    needs: [setup, test, build, e2e]
     if: |
       always() && !cancelled() &&
       (github.event_name == 'release' || github.event_name == 'workflow_dispatch') ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main' && (
         needs.setup.outputs.is_release_merge == 'true' ||
-        (needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped'))
+        (needs.test.result == 'success' && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped'))
       ))
     runs-on: ubuntu-latest
     outputs:

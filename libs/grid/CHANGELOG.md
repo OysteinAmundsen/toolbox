@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.1.2...grid-1.2.0) (2026-01-24)
+
+
+### Features
+
+* **grid:** add afterCellRender plugin hook for efficient cell-level modifications ([48c0b62](https://github.com/OysteinAmundsen/toolbox/commit/48c0b6263070a7af63a0c6482d9826521055ff01))
+* **grid:** add afterRowRender plugin hook for row-level modifications ([0dc27aa](https://github.com/OysteinAmundsen/toolbox/commit/0dc27aaec573159ee8cdab97192b512cd8f8c891))
+* **grid:** add missing methods to PublicGrid interface for better DX ([d38f1b8](https://github.com/OysteinAmundsen/toolbox/commit/d38f1b84dee0e154a95112866328b460d5919e59))
+* **grid:** add row-reorder plugin ([#75](https://github.com/OysteinAmundsen/toolbox/issues/75)) ([123294a](https://github.com/OysteinAmundsen/toolbox/commit/123294a492dd7389f38f06bfc1d51312c41eeeef))
+
+
+### Bug Fixes
+
+* **grid:** ensure column groups render after shell refresh ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
+* **grid:** preserve tbw-grid-detail and tbw-grid-responsive-card in shell rebuild ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
+
 ## [1.1.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.1.1...grid-1.1.2) (2026-01-23)
 
 

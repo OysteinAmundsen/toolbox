@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.4.0...grid-react-0.5.0) (2026-01-24)
+
+
+### Features
+
+* **grid:** add missing methods to PublicGrid interface for better DX ([d38f1b8](https://github.com/OysteinAmundsen/toolbox/commit/d38f1b84dee0e154a95112866328b460d5919e59))
+
+
+### Bug Fixes
+
+* **grid:** ensure column groups render after shell refresh ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
+* **grid:** preserve tbw-grid-detail and tbw-grid-responsive-card in shell rebuild ([70943ed](https://github.com/OysteinAmundsen/toolbox/commit/70943eddd25a690d9886ea900defc2a04ad1ebcf))
+
 ## [0.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.3.1...grid-react-0.4.0) (2026-01-22)
 
 

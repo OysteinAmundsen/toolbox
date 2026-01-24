@@ -1,7 +1,7 @@
 {
   "name": "@toolbox-web/grid",
   "version": "1.2.0",
-  "description": "High-performance data grid web component",
+  "description": "Zero-dependency, framework-agnostic data grid web component with virtualization, sorting, filtering, editing, and 20+ plugins. Works in vanilla JS, React, Vue, Angular, and any framework.",
   "type": "module",
   "main": "./index.js",
   "module": "./index.js",
@@ -37,10 +37,27 @@
     "./src/lib/core/grid.js"
   ],
   "keywords": [
-    "web-component",
     "data-grid",
+    "datagrid",
+    "grid",
     "table",
-    "virtualization"
+    "web-component",
+    "web-components",
+    "custom-element",
+    "virtualization",
+    "typescript",
+    "vanilla-js",
+    "framework-agnostic",
+    "no-dependencies",
+    "zero-dependencies",
+    "react",
+    "vue",
+    "angular",
+    "sorting",
+    "filtering",
+    "editing",
+    "spreadsheet",
+    "ag-grid-alternative"
   ],
   "license": "MIT",
   "author": "Oystein Amundsen",

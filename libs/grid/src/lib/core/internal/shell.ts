@@ -1269,7 +1269,14 @@ export function buildGridDOMIntoElement(
   // Preserve light DOM elements before clearing (they contain user content)
   // These are custom elements used for declarative configuration
   const lightDomElements: Element[] = [];
-  const lightDomSelectors = ['tbw-grid-header', 'tbw-grid-tool-buttons', 'tbw-grid-tool-panel', 'tbw-grid-column'];
+  const lightDomSelectors = [
+    'tbw-grid-header',
+    'tbw-grid-tool-buttons',
+    'tbw-grid-tool-panel',
+    'tbw-grid-column',
+    'tbw-grid-detail',
+    'tbw-grid-responsive-card',
+  ];
   for (const selector of lightDomSelectors) {
     const elements = renderRoot.querySelectorAll(`:scope > ${selector}`);
     elements.forEach((el) => lightDomElements.push(el));

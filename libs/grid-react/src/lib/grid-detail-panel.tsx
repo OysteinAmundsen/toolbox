@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useRef, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, type ReactElement } from 'react';
 import '../jsx.d.ts';
 
 /**
@@ -143,6 +143,38 @@ export function GridDetailPanel<TRow = unknown>(props: GridDetailPanelProps<TRow
     },
     [children],
   );
+
+  // Cleanup: Clean up registries when component unmounts.
+  // If the grid rebuilt its DOM and removed our element, we need to handle that
+  // gracefully to avoid React's "removeChild" error.
+  useEffect(() => {
+    return () => {
+      const element = elementRef.current;
+      if (element) {
+        // Clean up registries
+        detailRegistry.delete(element);
+
+        const gridElement = element.closest('tbw-grid');
+        if (gridElement) {
+          const gridId = gridElement.id || gridElement.getAttribute('data-grid-id');
+          if (gridId) {
+            gridDetailRegistry.delete(gridId);
+          }
+        }
+
+        // If the grid removed our element from its parent, we need to
+        // prevent React from throwing "removeChild" error.
+        // Check if element is still a child of its expected parent.
+        const parent = element.parentNode;
+        if (parent && !parent.contains(element)) {
+          // Element was already removed by grid - nothing to do
+        } else if (parent) {
+          // Element is still in DOM, but grid might have moved it.
+          // React will handle cleanup - don't interfere.
+        }
+      }
+    };
+  }, []);
 
   // Convert animation to string attribute
   const animationAttr = animation === false ? 'false' : animation;

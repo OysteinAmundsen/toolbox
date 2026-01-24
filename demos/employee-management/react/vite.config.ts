@@ -1,5 +1,5 @@
-import { resolve } from 'path';
 import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -19,8 +19,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5174,
-    open: true,
+    port: 4300,
+    open: false,
   },
   build: {
     outDir: resolve(__dirname, '../../../dist/demos/employee-management/react'),

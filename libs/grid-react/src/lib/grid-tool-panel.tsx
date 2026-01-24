@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useRef, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, type ReactElement } from 'react';
 import '../jsx.d.ts';
 
 /**
@@ -155,6 +155,22 @@ export function GridToolPanel(props: GridToolPanelProps): ReactElement {
     },
     [children, id],
   );
+
+  // Cleanup: Clean up registries when component unmounts
+  // Note: We do NOT call element.remove() here - React handles DOM removal.
+  useEffect(() => {
+    return () => {
+      const element = elementRef.current;
+      if (element) {
+        // Clean up registries
+        toolPanelRegistry.delete(element);
+
+        if (id) {
+          panelIdRegistry.delete(id);
+        }
+      }
+    };
+  }, [id]);
 
   return (
     <tbw-grid-tool-panel

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useRef, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, type ReactElement } from 'react';
 import '../jsx.d.ts';
 
 /**
@@ -142,6 +142,26 @@ export function GridResponsiveCard<TRow = unknown>(props: GridResponsiveCardProp
     },
     [children],
   );
+
+  // Cleanup: Clean up registries when component unmounts
+  // Note: We do NOT call element.remove() here - React handles DOM removal.
+  useEffect(() => {
+    return () => {
+      const element = elementRef.current;
+      if (element) {
+        // Clean up registries
+        responsiveCardRegistry.delete(element);
+
+        const gridElement = element.closest('tbw-grid');
+        if (gridElement) {
+          const gridId = gridElement.id || gridElement.getAttribute('data-grid-id');
+          if (gridId) {
+            gridResponsiveCardRegistry.delete(gridId);
+          }
+        }
+      }
+    };
+  }, []);
 
   // Convert cardRowHeight to string attribute
   const heightAttr = cardRowHeight === 'auto' ? 'auto' : String(cardRowHeight);

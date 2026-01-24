@@ -32,7 +32,11 @@ import {
   setupTouchScrollListeners,
   type TouchScrollState,
 } from './internal/touch-scroll';
-import { validatePluginConfigRules, validatePluginIncompatibilities, validatePluginProperties } from './internal/validate-config';
+import {
+  validatePluginConfigRules,
+  validatePluginIncompatibilities,
+  validatePluginProperties,
+} from './internal/validate-config';
 import type { CellMouseEvent, ScrollEvent } from './plugin';
 import type {
   BaseGridPlugin,
@@ -3030,9 +3034,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Re-setup scroll listeners (DOM elements changed)
     this.#setupScrollListeners(gridRoot);
 
-    // Request only VIRTUALIZATION phase to recalculate rows - not FULL
-    // The DOM is already rebuilt by #render(), we just need to update virtualization
-    this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'shellRefresh');
+    // Request COLUMNS phase to reprocess columns (including column groups) and render header
+    // #render() rebuilds the DOM with an empty header-row, so we need COLUMNS phase (5)
+    // which includes processColumns (for column groups), processRows, and renderHeader
+    this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'shellRefresh');
   }
 
   // #region Custom Styles API

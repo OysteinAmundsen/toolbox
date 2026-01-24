@@ -117,7 +117,9 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       detailHeight: 'auto',
       expandOnRowClick: false,
       collapseOnClickOutside: false,
-      showExpandColumn: true,
+      // Note: showExpandColumn is intentionally NOT defaulted here.
+      // If undefined, processColumns() adds expander only when detailRenderer is provided.
+      // Set to true for framework adapters that register renderers asynchronously.
       animation: 'slide', // Plugin's own default
     };
   }
@@ -316,7 +318,17 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    if (!this.config.detailRenderer || this.config.showExpandColumn === false) {
+    // Determine whether to add the expander column:
+    // 1. If showExpandColumn === false: never add (explicit opt-out)
+    // 2. If showExpandColumn === true: always add (explicit opt-in, for framework adapters)
+    // 3. If showExpandColumn is undefined: add only if detailRenderer is provided
+    //
+    // This supports React/Angular adapters which register renderers asynchronously via light DOM.
+    // They must set showExpandColumn: true to get the column immediately, avoiding layout shift.
+    const shouldAddExpander =
+      this.config.showExpandColumn === true || (this.config.showExpandColumn !== false && !!this.config.detailRenderer);
+
+    if (!shouldAddExpander) {
       return [...columns];
     }
 

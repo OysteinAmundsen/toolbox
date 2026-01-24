@@ -8,6 +8,7 @@ import {
   ExportPlugin,
   FilteringPlugin,
   GroupingColumnsPlugin,
+  MasterDetailPlugin,
   MultiSortPlugin,
   PinnedColumnsPlugin,
   PinnedRowsPlugin,
@@ -48,7 +49,8 @@ export const COLUMN_GROUPS = [
 ];
 
 export function createGridConfig(options: GridConfigOptions): AngularGridConfig<Employee> {
-  const { enableSelection, enableFiltering, enableSorting, enableEditing } = options;
+  const { enableSelection, enableFiltering, enableSorting, enableEditing, enableMasterDetail } =
+    options;
 
   return {
     // Column groups (augmented by GroupingColumnsPlugin)
@@ -188,7 +190,15 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
           'location',
         ],
       }),
-      // MasterDetailPlugin is added automatically by Grid directive when <tbw-grid-detail> is present
+      // MasterDetailPlugin - detail renderer comes from <tbw-grid-detail> in Angular component
+      ...(enableMasterDetail
+        ? [
+            new MasterDetailPlugin({
+              showExpandColumn: true,
+              animation: 'slide',
+            }),
+          ]
+        : []),
       ...(enableEditing ? [new UndoRedoPlugin({ maxHistorySize: 100 })] : []),
       new ExportPlugin(),
       new PinnedRowsPlugin({

@@ -15,22 +15,28 @@ All plugins extend `BaseGridPlugin` and implement lifecycle hooks:
 ```
 Plugin Lifecycle
 ────────────────────────────────────────────────────────────
-  attach()        Called when plugin is added to grid
+  attach()           Called when plugin is added to grid
        │
        ▼
-  processColumns() Transform column definitions
+  processColumns()   Transform column definitions
        │
        ▼
-  processRows()    Transform row data
+  processRows()      Transform row data
        │
        ▼
-  afterRender()    DOM manipulation after render
+  afterRender()      Grid-wide DOM manipulation
+       │
+       ▼
+  afterCellRender()  Per-cell styling (called for each cell)
+       │
+       ▼
+  afterRowRender()   Per-row styling (called for each row)
        │
        ▼
   [user interactions: onCellClick, onKeyDown, etc.]
        │
        ▼
-  detach()         Cleanup when plugin is removed
+  detach()           Cleanup when plugin is removed
 ────────────────────────────────────────────────────────────
 ```
 
@@ -63,12 +69,11 @@ export class HighlightPlugin extends BaseGridPlugin<HighlightConfig> {
   override afterRender(): void {
     const { field, threshold, className = 'highlight-cell' } = this.config;
 
-    // Access grid's shadow DOM (use built-in helper)
-    const shadowRoot = this.shadowRoot;
-    if (!shadowRoot) return;
+    // Access grid element for DOM queries
+    const gridEl = this.gridElement;
 
     // Find cells for the target field
-    const cells = shadowRoot.querySelectorAll(`[data-field="${field}"]`);
+    const cells = gridEl.querySelectorAll(`[data-field="${field}"]`);
     cells.forEach((cell) => {
       const value = parseFloat(cell.textContent || '0');
       if (value > threshold) {
@@ -160,21 +165,68 @@ override processRows(rows: T[]): T[] {
 
 ### `afterRender()`
 
-Called after each render cycle. Ideal for DOM manipulation.
+Called after each render cycle. Use for grid-wide DOM manipulation.
 
 ```typescript
 override afterRender(): void {
-  // Use built-in helper for shadow DOM access
-  const shadowRoot = this.shadowRoot;
-  if (!shadowRoot) return;
+  // Access grid element for DOM queries
+  const gridEl = this.gridElement;
 
   // Query and modify rendered elements
-  const rows = shadowRoot.querySelectorAll('[data-row-index]');
+  const rows = gridEl.querySelectorAll('[data-row-index]');
   rows.forEach((row, i) => {
     if (i % 2 === 0) row.classList.add('even-row');
   });
 }
 ```
+
+### `afterCellRender(context)`
+
+Called after each cell is rendered. More efficient than `afterRender` for per-cell modifications because you receive the cell context directly—no DOM queries needed.
+
+```typescript
+import type { AfterCellRenderContext } from '@toolbox-web/grid';
+
+override afterCellRender(context: AfterCellRenderContext): void {
+  const { row, rowIndex, colIndex, value, cellElement, column } = context;
+
+  // Add selection class without DOM queries
+  if (this.isSelected(rowIndex, colIndex)) {
+    cellElement.classList.add('selected');
+  }
+
+  // Add validation error styling
+  if (this.hasError(row, column.field)) {
+    cellElement.classList.add('has-error');
+  }
+}
+```
+
+**Performance note:** Called for every visible cell during render and scroll. Keep implementation fast.
+
+### `afterRowRender(context)`
+
+Called after a row is fully rendered (all cells complete). Use for row-level decorations, styling, or ARIA attributes.
+
+```typescript
+import type { AfterRowRenderContext } from '@toolbox-web/grid';
+
+override afterRowRender(context: AfterRowRenderContext): void {
+  const { row, rowIndex, rowElement } = context;
+
+  // Add row selection class without DOM queries
+  if (this.isRowSelected(rowIndex)) {
+    rowElement.classList.add('selected', 'row-focus');
+  }
+
+  // Add validation error styling
+  if (this.rowHasErrors(row)) {
+    rowElement.classList.add('has-errors');
+  }
+}
+```
+
+**Performance note:** Called for every visible row during render and scroll. Keep implementation fast.
 
 ## Built-in Plugin Helpers
 
@@ -183,8 +235,7 @@ override afterRender(): void {
 | Helper | Description |
 |--------|-------------|
 | `this.grid` | Typed `GridElementRef` with all plugin APIs |
-| `this.gridElement` | Grid as `HTMLElement` for DOM operations |
-| `this.shadowRoot` | Grid's shadow root for DOM queries |
+| `this.gridElement` | Grid as `HTMLElement` for DOM queries |
 | `this.columns` | Current column configurations |
 | `this.visibleColumns` | Only visible columns (for rendering) |
 | `this.rows` | Processed rows (after filtering, grouping) |

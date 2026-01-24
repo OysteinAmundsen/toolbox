@@ -48,6 +48,6 @@
   },
   "peerDependencies": {
     "@angular/core": ">=17.0.0",
-    "@toolbox-web/grid": ">=0.4.0"
+    "@toolbox-web/grid": ">=1.0.0"
   }
 }

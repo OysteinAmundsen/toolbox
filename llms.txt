@@ -43,7 +43,7 @@ Important notes:
 - [Context Menu Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-context-menu--docs): Right-click menus
 - [Clipboard Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-clipboard--docs): Copy/paste with Ctrl+C/V
 - [Undo/Redo Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-undo-redo--docs): Edit history
-- [Server-Side Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-server-side--docs): Lazy loading from remote data
+- [Server-Side Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-server-side--docs): Virtual scrolling with lazy loading from remote APIs, block-based caching, and server-side sorting/filtering integration
 - [Pivot Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pivot--docs): Pivot table transformation
 
 ## Live Examples

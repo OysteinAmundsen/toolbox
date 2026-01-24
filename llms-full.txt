@@ -482,26 +482,104 @@ ngx-datatable uses similar concepts but different syntax:
 }
 ```
 
-### Server-Side Data
+### Server-Side Data Loading
+
+The `ServerSidePlugin` enables **virtual scrolling with lazy loading** from a remote API. It's designed for large datasets (10k+ rows) where loading all data upfront is impractical.
+
+**Key Features:**
+- Block-based data fetching (loads only visible rows + buffer)
+- LRU cache for previously loaded blocks
+- Automatic prefetching on scroll
+- Integration with server-side sorting and filtering
+- Loading placeholders for pending data
 
 ```typescript
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 
+// 1. Create the plugin
 const serverSide = new ServerSidePlugin({
-  fetchData: async ({ startRow, endRow, sortModel, filterModel }) => {
-    const response = await fetch('/api/employees', {
-      method: 'POST',
-      body: JSON.stringify({ startRow, endRow, sortModel, filterModel }),
-    });
-    const { rows, totalRows } = await response.json();
-    return { rows, totalRows };
-  },
-  blockSize: 100,
+  pageSize: 100,           // Rows per API request
+  cacheBlockSize: 100,     // Cache block size
+  maxConcurrentRequests: 2 // Parallel request limit
 });
 
-gridConfig: {
+// 2. Add to grid config
+grid.gridConfig = {
+  columns: [...],
   plugins: [serverSide],
-}
+};
+
+// 3. Set the data source after grid is ready
+grid.ready().then(() => {
+  serverSide.setDataSource({
+    async getRows(params) {
+      // params: { startRow, endRow, sortModel, filterModel }
+      const response = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: params.startRow,
+          end: params.endRow,
+          sort: params.sortModel,
+          filter: params.filterModel,
+        }),
+      });
+      const { rows, total } = await response.json();
+      return {
+        rows,
+        totalRowCount: total, // Required for scroll height calculation
+      };
+    },
+  });
+});
+```
+
+**Server-Side Sorting:**
+
+For sorting large datasets on the server, use `sortHandler` at the grid config level:
+
+```typescript
+grid.gridConfig = {
+  columns: [...],
+  plugins: [serverSide],
+  sortHandler: async (rows, sortState, columns) => {
+    // sortState: { field: 'name', direction: 1 } // 1=asc, -1=desc
+    const response = await fetch(
+      `/api/employees?sort=${sortState.field}&dir=${sortState.direction === 1 ? 'asc' : 'desc'}`
+    );
+    return response.json();
+  },
+};
+```
+
+**Server-Side Filtering:**
+
+Use FilteringPlugin's async handlers for server-side filtering:
+
+```typescript
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const filtering = new FilteringPlugin({
+  filterHandler: async (rows, filterState) => {
+    const response = await fetch('/api/employees/filter', {
+      method: 'POST',
+      body: JSON.stringify(filterState),
+    });
+    return response.json();
+  },
+});
+```
+
+**Programmatic API:**
+
+```typescript
+const plugin = grid.getPlugin(ServerSidePlugin);
+
+plugin.refresh();           // Reload current viewport from server
+plugin.purgeCache();        // Clear all cached blocks
+plugin.getTotalRowCount();  // Get server-reported total
+plugin.isRowLoaded(index);  // Check if row is in cache
+```
 ```
 
 ### Row Grouping with Aggregations

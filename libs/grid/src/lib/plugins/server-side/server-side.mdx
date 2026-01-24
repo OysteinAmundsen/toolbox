@@ -5,7 +5,26 @@ import * as ServerSideStories from './server-side.stories';
 
 # Server-Side Plugin
 
-The Server-Side plugin enables lazy loading of data from a remote server.
+The Server-Side plugin enables **virtual scrolling with lazy loading** from a remote API. It's designed for large datasets (10,000+ rows) where loading all data upfront would be impractical or slow.
+
+## When to Use This Plugin
+
+| Scenario | Recommended Approach |
+|----------|---------------------|
+| < 1,000 rows | Load all data upfront (no plugin needed) |
+| 1,000 - 10,000 rows | Consider based on network speed and data complexity |
+| 10,000+ rows | **Use ServerSidePlugin** |
+| Infinite scroll / pagination | **Use ServerSidePlugin** |
+| Data changes frequently on server | **Use ServerSidePlugin** with `refresh()` |
+
+## Key Features
+
+- **Block-based fetching**: Loads only visible rows plus a buffer
+- **LRU caching**: Keeps recently viewed blocks in memory
+- **Automatic prefetching**: Loads next blocks as user scrolls
+- **Concurrent request limiting**: Prevents overwhelming the server
+- **Loading placeholders**: Shows loading state for pending rows
+- **Integration with sorting/filtering**: Works with `sortHandler` and `filterHandler`
 
 ## Installation
 
@@ -15,12 +34,18 @@ import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 
 ## Basic Usage
 
+The plugin requires a **data source** that implements the `getRows` method. This is typically set after the grid is ready:
+
 ```ts
 const dataSource = {
   async getRows(params) {
+    // params: { startRow, endRow, sortModel, filterModel }
     const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
     const data = await response.json();
-    return { rows: data.rows, totalRowCount: data.total };
+    return {
+      rows: data.rows,
+      totalRowCount: data.total, // Required for scroll height calculation
+    };
   },
 };
 
@@ -31,6 +56,7 @@ grid.gridConfig = {
   plugins: [plugin],
 };
 
+// Set data source after grid is ready
 grid.ready().then(() => plugin.setDataSource(dataSource));
 ```
 
@@ -112,7 +138,61 @@ interface GetRowsResult {
 ```ts
 const plugin = grid.getPlugin(ServerSidePlugin);
 
-plugin.setDataSource(newDataSource);
-plugin.refresh();
-plugin.clearCache();
+plugin.setDataSource(newDataSource);  // Set or replace the data source
+plugin.refresh();                      // Reload current viewport from server
+plugin.purgeCache();                   // Clear all cached blocks
+plugin.getTotalRowCount();             // Get server-reported total row count
+plugin.isRowLoaded(index);             // Check if a specific row is in cache
+plugin.getLoadedBlockCount();          // Number of blocks currently cached
 ```
+
+## Architecture: How It Works
+
+The plugin uses a **block-based caching strategy**:
+
+```
+┌────────────────────────────────────────────────┐
+│  Total Dataset: 100,000 rows (on server)       │
+├────────────────────────────────────────────────┤
+│  Block 0: rows 0-99     [CACHED]               │
+│  Block 1: rows 100-199  [CACHED]               │
+│  Block 2: rows 200-299  [LOADING...]           │
+│  Block 3: rows 300-399  [NOT LOADED]           │
+│  ...                                           │
+│  Block 999: rows 99900-99999 [NOT LOADED]      │
+└────────────────────────────────────────────────┘
+```
+
+**Scroll triggers:**
+1. `onScroll` event fires
+2. Plugin calculates which blocks are needed for the visible viewport
+3. Missing blocks are requested from the data source
+4. `requestRender()` is called when data arrives
+5. Grid re-renders with new data
+
+**Loading state:**
+Rows that haven't loaded yet are represented with placeholder objects:
+```ts
+{ __loading: true, __index: 42 }
+```
+
+You can style loading rows with CSS:
+```css
+.data-grid-row:has([data-loading]) {
+  opacity: 0.5;
+}
+```
+
+## Combining with Other Plugins
+
+The ServerSidePlugin works well with:
+
+| Plugin | Integration |
+|--------|-------------|
+| `FilteringPlugin` | Use `filterHandler` for server-side filtering |
+| `MultiSortPlugin` | Use `sortHandler` for server-side sorting |
+| `SelectionPlugin` | Works normally - selection state is client-side |
+| `EditingPlugin` | Works normally - edits are local until you sync |
+| `ExportPlugin` | Only exports cached rows by default |
+
+**Note:** `RowGroupingPlugin` and `TreePlugin` are not recommended with server-side data as they require all data to be present for grouping calculations.

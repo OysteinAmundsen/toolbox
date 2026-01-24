@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { DEMOS, expectScreenshotIfBaselineExists, getMaskLocators, SELECTORS, waitForGridReady } from './utils';
+import {
+  DEMOS,
+  expectScreenshotIfBaselineExists,
+  getMaskLocators,
+  SELECTORS,
+  waitForGridReady,
+  waitForGridReadyMobile,
+} from './utils';
 
 /**
  * Cross-Framework Visual Regression Tests
@@ -243,11 +250,12 @@ test.describe('Cross-Framework Visual Parity', () => {
   test.describe('Responsive Card Layout', () => {
     for (const [demoName, url] of Object.entries(DEMOS)) {
       test(`${demoName}: responsive layout renders correctly on mobile`, async ({ page }, testInfo) => {
-        // Set mobile viewport
+        // Set mobile viewport BEFORE navigation
         await page.setViewportSize({ width: 375, height: 667 });
 
         await page.goto(url);
-        await waitForGridReady(page);
+        // Use mobile-specific wait since responsive cards replace normal row structure
+        await waitForGridReadyMobile(page);
 
         // Check if responsive card layout is active
         const responsiveCard = page.locator(SELECTORS.responsiveCard);

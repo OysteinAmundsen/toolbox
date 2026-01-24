@@ -74,6 +74,29 @@ export async function waitForGridReady(page: Page, timeout = 30000): Promise<voi
 }
 
 /**
+ * Wait for the grid to be ready in mobile/responsive mode.
+ * In responsive card mode, normal rows may not be visible, so we wait for
+ * either responsive cards OR visible rows.
+ */
+export async function waitForGridReadyMobile(page: Page, timeout = 30000): Promise<void> {
+  // Wait for grid element to exist
+  await page.waitForSelector(SELECTORS.grid, { state: 'attached', timeout });
+
+  // In mobile mode, wait for either:
+  // 1. Responsive cards to appear, OR
+  // 2. Regular visible rows (if responsive plugin is not active)
+  // 3. The grid container to be visible (fallback)
+  await Promise.race([
+    page.waitForSelector(`${SELECTORS.grid} ${SELECTORS.responsiveCard}`, { state: 'visible', timeout }),
+    page.waitForSelector(`${SELECTORS.grid} [role="gridcell"]`, { state: 'visible', timeout }),
+    page.waitForSelector(`${SELECTORS.grid} ${SELECTORS.container}`, { state: 'visible', timeout }),
+  ]);
+
+  // Small delay for any animations to complete
+  await page.waitForTimeout(500);
+}
+
+/**
  * Hide the shell header title to exclude framework name from screenshots
  */
 export async function hideShellTitle(page: Page): Promise<void> {

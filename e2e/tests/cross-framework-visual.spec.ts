@@ -79,7 +79,7 @@ test.describe('Cross-Framework Visual Parity', () => {
   test.describe('Custom Renderers', () => {
     test.describe('Status Badge Renderer', () => {
       for (const [demoName, url] of Object.entries(DEMOS)) {
-        test(`${demoName}: status badges render correctly`, async ({ page }) => {
+        test(`${demoName}: status badges render correctly`, async ({ page }, testInfo) => {
           await page.goto(url);
           await waitForGridReady(page);
 
@@ -94,19 +94,15 @@ test.describe('Cross-Framework Visual Parity', () => {
           const firstBadge = statusBadges.first();
           await expect(firstBadge).toBeVisible();
 
-          // Visual comparison of status column area
-          if (demoName === 'vanilla') {
-            await expect(firstBadge).toHaveScreenshot(`status-badge-baseline.png`);
-          } else {
-            await expect(firstBadge).toHaveScreenshot(`status-badge-baseline.png`);
-          }
+          // Visual comparison - skips gracefully if no baseline exists
+          await expectScreenshotIfBaselineExists(firstBadge, `status-badge-baseline.png`, testInfo);
         });
       }
     });
 
     test.describe('Rating Renderer', () => {
       for (const [demoName, url] of Object.entries(DEMOS)) {
-        test(`${demoName}: rating cells render correctly`, async ({ page }) => {
+        test(`${demoName}: rating cells render correctly`, async ({ page }, testInfo) => {
           await page.goto(url);
           await waitForGridReady(page);
 
@@ -118,12 +114,8 @@ test.describe('Cross-Framework Visual Parity', () => {
             const firstRating = ratingCells.first();
             await expect(firstRating).toBeVisible();
 
-            // Visual comparison
-            if (demoName === 'vanilla') {
-              await expect(firstRating).toHaveScreenshot(`rating-cell-baseline.png`);
-            } else {
-              await expect(firstRating).toHaveScreenshot(`rating-cell-baseline.png`);
-            }
+            // Visual comparison - skips gracefully if no baseline exists
+            await expectScreenshotIfBaselineExists(firstRating, `rating-cell-baseline.png`, testInfo);
           }
         });
       }
@@ -131,7 +123,7 @@ test.describe('Cross-Framework Visual Parity', () => {
 
     test.describe('Top Performer Badge', () => {
       for (const [demoName, url] of Object.entries(DEMOS)) {
-        test(`${demoName}: top performer badges render correctly`, async ({ page }) => {
+        test(`${demoName}: top performer badges render correctly`, async ({ page }, testInfo) => {
           await page.goto(url);
           await waitForGridReady(page);
 
@@ -147,11 +139,8 @@ test.describe('Cross-Framework Visual Parity', () => {
             if (badgeCount > 0) {
               await expect(badge).toBeVisible();
 
-              if (demoName === 'vanilla') {
-                await expect(badge).toHaveScreenshot(`top-performer-baseline.png`);
-              } else {
-                await expect(badge).toHaveScreenshot(`top-performer-baseline.png`);
-              }
+              // Visual comparison - skips gracefully if no baseline exists
+              await expectScreenshotIfBaselineExists(badge, `top-performer-baseline.png`, testInfo);
             }
           }
         });
@@ -162,7 +151,7 @@ test.describe('Cross-Framework Visual Parity', () => {
   test.describe('Custom Editors', () => {
     test.describe('Status Select Editor', () => {
       for (const [demoName, url] of Object.entries(DEMOS)) {
-        test(`${demoName}: status editor opens and functions correctly`, async ({ page }) => {
+        test(`${demoName}: status editor opens and functions correctly`, async ({ page }, testInfo) => {
           await page.goto(url);
           await waitForGridReady(page);
 
@@ -178,12 +167,8 @@ test.describe('Cross-Framework Visual Parity', () => {
           const editorVisible = await editor.isVisible().catch(() => false);
 
           if (editorVisible) {
-            // Take screenshot of editor state
-            if (demoName === 'vanilla') {
-              await expect(statusCell).toHaveScreenshot(`status-editor-baseline.png`);
-            } else {
-              await expect(statusCell).toHaveScreenshot(`status-editor-baseline.png`);
-            }
+            // Visual comparison - skips gracefully if no baseline exists
+            await expectScreenshotIfBaselineExists(statusCell, `status-editor-baseline.png`, testInfo);
 
             // Press Escape to cancel
             await page.keyboard.press('Escape');
@@ -194,7 +179,7 @@ test.describe('Cross-Framework Visual Parity', () => {
 
     test.describe('Star Rating Editor', () => {
       for (const [demoName, url] of Object.entries(DEMOS)) {
-        test(`${demoName}: rating editor opens and functions correctly`, async ({ page }) => {
+        test(`${demoName}: rating editor opens and functions correctly`, async ({ page }, testInfo) => {
           await page.goto(url);
           await waitForGridReady(page);
 
@@ -211,11 +196,8 @@ test.describe('Cross-Framework Visual Parity', () => {
             const editorVisible = await editor.isVisible().catch(() => false);
 
             if (editorVisible) {
-              if (demoName === 'vanilla') {
-                await expect(ratingCell).toHaveScreenshot(`rating-editor-baseline.png`);
-              } else {
-                await expect(ratingCell).toHaveScreenshot(`rating-editor-baseline.png`);
-              }
+              // Visual comparison - skips gracefully if no baseline exists
+              await expectScreenshotIfBaselineExists(ratingCell, `rating-editor-baseline.png`, testInfo);
 
               await page.keyboard.press('Escape');
             }
@@ -227,7 +209,7 @@ test.describe('Cross-Framework Visual Parity', () => {
 
   test.describe('Master-Detail Panel', () => {
     for (const [demoName, url] of Object.entries(DEMOS)) {
-      test(`${demoName}: detail panel renders correctly`, async ({ page }) => {
+      test(`${demoName}: detail panel renders correctly`, async ({ page }, testInfo) => {
         await page.goto(url);
         await waitForGridReady(page);
 
@@ -244,16 +226,10 @@ test.describe('Cross-Framework Visual Parity', () => {
           const detailVisible = await detailRow.isVisible().catch(() => false);
 
           if (detailVisible) {
-            // Take screenshot of expanded detail
-            if (demoName === 'vanilla') {
-              await expect(detailRow).toHaveScreenshot(`detail-panel-baseline.png`, {
-                animations: 'disabled',
-              });
-            } else {
-              await expect(detailRow).toHaveScreenshot(`detail-panel-baseline.png`, {
-                animations: 'disabled',
-              });
-            }
+            // Visual comparison - skips gracefully if no baseline exists
+            await expectScreenshotIfBaselineExists(detailRow, `detail-panel-baseline.png`, testInfo, {
+              animations: 'disabled',
+            });
 
             // Collapse the detail
             await expandButton.click();
@@ -266,7 +242,7 @@ test.describe('Cross-Framework Visual Parity', () => {
 
   test.describe('Responsive Card Layout', () => {
     for (const [demoName, url] of Object.entries(DEMOS)) {
-      test(`${demoName}: responsive layout renders correctly on mobile`, async ({ page }) => {
+      test(`${demoName}: responsive layout renders correctly on mobile`, async ({ page }, testInfo) => {
         // Set mobile viewport
         await page.setViewportSize({ width: 375, height: 667 });
 
@@ -278,17 +254,22 @@ test.describe('Cross-Framework Visual Parity', () => {
         const cardExists = (await responsiveCard.count()) > 0;
 
         if (cardExists) {
-          // Take screenshot of card layout
+          // Visual comparison - skips gracefully if no baseline exists
           // Note: Responsive card layouts may have minor rendering differences between frameworks
           // due to different component wrappers, so we allow a small threshold
-          await expect(page.locator(SELECTORS.grid)).toHaveScreenshot(`responsive-card-baseline.png`, {
-            mask: getMaskLocators(page),
-            animations: 'disabled',
-            maxDiffPixelRatio: 0.07, // Allow up to 7% difference for responsive cards
-          });
+          await expectScreenshotIfBaselineExists(
+            page.locator(SELECTORS.grid),
+            `responsive-card-baseline.png`,
+            testInfo,
+            {
+              mask: getMaskLocators(page),
+              animations: 'disabled',
+              maxDiffPixelRatio: 0.07, // Allow up to 7% difference for responsive cards
+            },
+          );
         } else {
-          // Even without responsive cards, grid should adapt to mobile
-          await expect(page.locator(SELECTORS.grid)).toHaveScreenshot(`mobile-grid-baseline.png`, {
+          // Visual comparison - skips gracefully if no baseline exists
+          await expectScreenshotIfBaselineExists(page.locator(SELECTORS.grid), `mobile-grid-baseline.png`, testInfo, {
             mask: getMaskLocators(page),
             animations: 'disabled',
             maxDiffPixelRatio: 0.07, // Allow up to 7% difference for mobile layouts

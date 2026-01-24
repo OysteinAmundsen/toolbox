@@ -53,7 +53,7 @@ grid.rows = [...];
 }
 
 const meta: Meta<ReorderArgs> = {
-  title: 'Grid/Plugins/Reorder',
+  title: 'Grid/Plugins/Column Reorder',
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {

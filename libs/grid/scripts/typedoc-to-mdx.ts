@@ -79,6 +79,7 @@ const PLUGIN_TITLE_MAP: Record<string, string> = {
   'Multi Sort': 'Multi-Sort',
   'Server Side': 'Server-Side',
   'Undo Redo': 'Undo-Redo',
+  Reorder: 'Column Reorder',
 };
 
 /** Get plugin title - uses map for special cases, otherwise returns as-is */

@@ -39,6 +39,7 @@ export * from './lib/plugins/pinned-rows';
 export * from './lib/plugins/pivot';
 export * from './lib/plugins/reorder';
 export * from './lib/plugins/responsive';
+export * from './lib/plugins/row-reorder';
 export * from './lib/plugins/selection';
 export * from './lib/plugins/server-side';
 export * from './lib/plugins/tree';

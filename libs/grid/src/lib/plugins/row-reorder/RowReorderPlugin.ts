@@ -96,7 +96,7 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
       showDragHandle: true,
       dragHandlePosition: 'left',
       dragHandleWidth: 40,
-      debounceMs: 300,
+      debounceMs: 150,
       animation: 'flip',
     };
   }

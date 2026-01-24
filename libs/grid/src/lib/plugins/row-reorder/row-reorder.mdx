@@ -149,15 +149,9 @@ Drag the grip handle (☰) to reorder rows. Use Ctrl+Up/Down to move the focused
 
 ### Handle at End
 
-The drag handle can be placed at the end of each row instead of the start.
+The drag handle can be placed at the end (right side) of each row instead of the left.
 
 <Canvas of={RowReorderStories.HandleAtEnd} />
-
-### Handle on Hover
-
-Show the drag handle only when hovering over a row for a cleaner look.
-
-<Canvas of={RowReorderStories.HandleOnHover} />
 
 ### Cancelable Events
 
@@ -174,7 +168,7 @@ Cancel row moves by calling `event.preventDefault()` in the `row-move` handler.
 | `dragHandleWidth`   | `number`                                                          | `40`      | Width of the drag handle column in pixels                         |
 | `enableKeyboard`    | `boolean`                                                         | `true`    | Enable Ctrl+Up/Down keyboard shortcuts                            |
 | `canMove`           | `(row, fromIndex, toIndex, direction) => boolean`                 | -         | Validation callback to allow/prevent moves                        |
-| `debounceMs`        | `number`                                                          | `300`     | Debounce time for rapid keyboard moves                            |
+| `debounceMs`        | `number`                                                          | `150`     | Debounce time for rapid keyboard moves                            |
 | `animation`         | `false \| 'flip'`                                                 | `'flip'`  | Animation type: `false` (instant), `'flip'` (FLIP animation)      |
 
 ## TypeScript Interfaces
@@ -191,7 +185,7 @@ interface RowReorderConfig {
   dragHandlePosition?: 'left' | 'right';  // Drag handle column position (default: 'left')
   dragHandleWidth?: number;       // Drag handle column width in px (default: 40)
   canMove?: <T>(row: T, fromIndex: number, toIndex: number, direction: 'up' | 'down') => boolean;
-  debounceMs?: number;            // Debounce time for keyboard moves (default: 300)
+  debounceMs?: number;            // Debounce time for keyboard moves (default: 150)
   animation?: false | 'flip';     // Animation type (default: 'flip')
 }
 

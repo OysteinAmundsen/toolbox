@@ -22,10 +22,9 @@ const columns = [
 ];
 
 interface RowReorderArgs {
-  handlePosition: 'start' | 'end';
-  keyboardEnabled: boolean;
-  showHandleOnHover: boolean;
-  animation: false | 'flip' | 'fade';
+  dragHandlePosition: 'left' | 'right';
+  enableKeyboard: boolean;
+  animation: false | 'flip';
 }
 
 /** Generate code snippet for row reorder */
@@ -48,9 +47,8 @@ grid.gridConfig = {
   ],
   plugins: [
     new RowReorderPlugin({
-      handlePosition: '${args.handlePosition}',
-      keyboardEnabled: ${args.keyboardEnabled},
-      showHandleOnHover: ${args.showHandleOnHover},
+      dragHandlePosition: '${args.dragHandlePosition}',
+      enableKeyboard: ${args.enableKeyboard},
       animation: ${animationStr},
     }),
   ],
@@ -70,33 +68,27 @@ const meta: Meta<RowReorderArgs> = {
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
-    handlePosition: {
+    dragHandlePosition: {
       control: 'select',
-      options: ['start', 'end'],
+      options: ['left', 'right'],
       description: 'Position of the drag handle column',
-      table: { defaultValue: { summary: "'start'" } },
+      table: { defaultValue: { summary: "'left'" } },
     },
-    keyboardEnabled: {
+    enableKeyboard: {
       control: 'boolean',
       description: 'Enable Ctrl+Up/Down keyboard shortcuts',
       table: { defaultValue: { summary: 'true' } },
     },
-    showHandleOnHover: {
-      control: 'boolean',
-      description: 'Only show drag handle on row hover',
-      table: { defaultValue: { summary: 'false' } },
-    },
     animation: {
       control: 'select',
-      options: [false, 'flip', 'fade'],
+      options: [false, 'flip'],
       description: 'Animation type for row movement',
       table: { defaultValue: { summary: "'flip'" } },
     },
   },
   args: {
-    handlePosition: 'start',
-    keyboardEnabled: true,
-    showHandleOnHover: false,
+    dragHandlePosition: 'left',
+    enableKeyboard: true,
     animation: 'flip',
   },
 };
@@ -125,9 +117,8 @@ export const Default: Story = {
       columns,
       plugins: [
         new RowReorderPlugin({
-          handlePosition: args.handlePosition,
-          keyboardEnabled: args.keyboardEnabled,
-          showHandleOnHover: args.showHandleOnHover,
+          dragHandlePosition: args.dragHandlePosition,
+          enableKeyboard: args.enableKeyboard,
           animation: args.animation,
         }),
       ],
@@ -150,29 +141,7 @@ export const HandleAtEnd: Story = {
       columns,
       plugins: [
         new RowReorderPlugin({
-          handlePosition: 'end',
-        }),
-      ],
-    };
-    grid.rows = sampleData;
-
-    return grid;
-  },
-};
-
-/**
- * Show the drag handle only when hovering over a row.
- */
-export const HandleOnHover: Story = {
-  render: () => {
-    const grid = document.createElement('tbw-grid') as GridElement;
-    grid.style.height = '350px';
-
-    grid.gridConfig = {
-      columns,
-      plugins: [
-        new RowReorderPlugin({
-          showHandleOnHover: true,
+          dragHandlePosition: 'right',
         }),
       ],
     };

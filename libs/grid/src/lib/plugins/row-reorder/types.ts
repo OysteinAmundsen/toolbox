@@ -46,7 +46,7 @@ export interface RowReorderConfig {
   /**
    * Debounce time in milliseconds for rapid keyboard moves.
    * Events are batched and emitted after this delay.
-   * @default 300
+   * @default 150
    */
   debounceMs?: number;
 

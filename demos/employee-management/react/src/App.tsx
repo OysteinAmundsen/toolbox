@@ -15,7 +15,6 @@
  * Alternative: GridColumn components can also define renderers/editors in JSX.
  */
 
-import type { TbwGrid } from '@toolbox-web/grid';
 import {
   DataGrid,
   GridDetailPanel,
@@ -67,8 +66,8 @@ export function App() {
   const [rowCount, setRowCount] = useState(200);
   const [employees, setEmployees] = useState<Employee[]>(() => generateEmployees(rowCount));
 
-  // Grid ref for programmatic access
-  const { ref, isReady } = useGrid<Employee>();
+  // Grid ref for programmatic access - provides typed element and isReady state
+  const { ref, element, isReady } = useGrid<Employee>();
 
   // Demo options
   const [enableSelection, setEnableSelection] = useState(true);
@@ -185,13 +184,14 @@ export function App() {
           type: 'select',
           options: DEPARTMENTS.map((d) => ({ label: d, value: d })),
         },
-        { field: 'team', header: 'Team', minWidth: 100, resizable: true },
-        { field: 'title', header: 'Title', minWidth: 150, resizable: true },
+        { field: 'team', header: 'Team', width: 110, sortable: enableSorting },
+        { field: 'title', header: 'Title', minWidth: 160, editable: enableEditing, resizable: true },
         {
           field: 'level',
           header: 'Level',
-          width: 100,
+          width: 90,
           sortable: enableSorting,
+          editable: enableEditing,
           type: 'select',
           options: ['Junior', 'Mid', 'Senior', 'Lead', 'Principal', 'Director'].map((l) => ({ label: l, value: l })),
         },
@@ -255,6 +255,7 @@ export function App() {
           header: '⭐',
           width: 50,
           type: 'boolean',
+          sortable: false,
           // Only renderer - no editor needed
           renderer: (ctx) => <TopPerformerStar value={ctx.value} />,
         },
@@ -380,8 +381,8 @@ export function App() {
                 title="Export CSV"
                 aria-label="Export CSV"
                 onClick={() => {
-                  const grid = ref.current?.element as TbwGrid<Employee> | null;
-                  grid?.getPlugin?.(ExportPlugin)?.exportCsv?.({ fileName: 'employees' });
+                  // No type casting needed - ref.current.element is properly typed!
+                  ref.current?.element?.getPlugin?.(ExportPlugin)?.exportCsv?.({ fileName: 'employees' });
                 }}
               >
                 📄
@@ -391,8 +392,7 @@ export function App() {
                 title="Export Excel"
                 aria-label="Export Excel"
                 onClick={() => {
-                  const grid = ref.current?.element as TbwGrid<Employee> | null;
-                  grid?.getPlugin?.(ExportPlugin)?.exportExcel?.({ fileName: 'employees' });
+                  ref.current?.element?.getPlugin?.(ExportPlugin)?.exportExcel?.({ fileName: 'employees' });
                 }}
               >
                 📊

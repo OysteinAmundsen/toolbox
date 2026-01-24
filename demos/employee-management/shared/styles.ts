@@ -1,8 +1,8 @@
 /**
- * Shadow DOM Styles Export for Employee Management Demo
+ * Styles Export for Employee Management Demo
  *
  * This file re-exports the demo styles as a string constant
- * for injection into the grid's shadow DOM.
+ * for injection into the grid's DOM.
  *
  * Usage:
  *   import { shadowDomStyles } from '@demo/shared/styles';

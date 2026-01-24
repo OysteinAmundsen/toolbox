@@ -1,19 +1,15 @@
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-/**
- * Extended interface for DataGridElement with all methods we need.
- */
-interface ExtendedGridElement extends DataGridElement {
-  toggleGroup?: (key: string) => Promise<void>;
-}
+import type { DataGridRef } from './data-grid';
 
 /**
  * Return type for useGrid hook.
  */
 export interface UseGridReturn<TRow = unknown> {
-  /** Ref to attach to the DataGrid component */
-  ref: React.RefObject<ExtendedGridElement | null>;
+  /** Ref to attach to the DataGrid component (returns DataGridRef handle) */
+  ref: React.RefObject<DataGridRef<TRow> | null>;
+  /** Direct access to the typed grid element (convenience for ref.current?.element) */
+  element: DataGridElement<TRow> | null;
   /** Whether the grid is ready */
   isReady: boolean;
   /** Current grid configuration */
@@ -63,23 +59,23 @@ export interface UseGridReturn<TRow = unknown> {
  * ```
  */
 export function useGrid<TRow = unknown>(): UseGridReturn<TRow> {
-  const ref = useRef<ExtendedGridElement>(null);
+  const ref = useRef<DataGridRef<TRow>>(null);
   const [isReady, setIsReady] = useState(false);
   const [config, setConfig] = useState<GridConfig<TRow> | null>(null);
 
   // Wait for grid ready
   useEffect(() => {
-    const grid = ref.current;
-    if (!grid) return;
+    const gridRef = ref.current;
+    if (!gridRef) return;
 
     let mounted = true;
 
     const checkReady = async () => {
       try {
-        await grid.ready?.();
+        await gridRef.ready?.();
         if (mounted) {
           setIsReady(true);
-          const effectiveConfig = await grid.getConfig?.();
+          const effectiveConfig = await gridRef.getConfig?.();
           if (mounted && effectiveConfig) {
             setConfig(effectiveConfig as GridConfig<TRow>);
           }
@@ -97,22 +93,22 @@ export function useGrid<TRow = unknown>(): UseGridReturn<TRow> {
   }, []);
 
   const getConfig = useCallback(async () => {
-    const grid = ref.current;
-    if (!grid) return null;
-    const effectiveConfig = await grid.getConfig?.();
+    const gridRef = ref.current;
+    if (!gridRef) return null;
+    const effectiveConfig = await gridRef.getConfig?.();
     return (effectiveConfig as GridConfig<TRow>) ?? null;
   }, []);
 
   const forceLayout = useCallback(async () => {
-    const grid = ref.current;
-    if (!grid) return;
-    await grid.forceLayout?.();
+    const gridRef = ref.current;
+    if (!gridRef) return;
+    await gridRef.forceLayout?.();
   }, []);
 
   const toggleGroup = useCallback(async (key: string) => {
-    const grid = ref.current;
-    if (!grid) return;
-    await grid.toggleGroup?.(key);
+    const gridRef = ref.current;
+    if (!gridRef) return;
+    await gridRef.toggleGroup?.(key);
   }, []);
 
   const registerStyles = useCallback((id: string, css: string) => {
@@ -130,6 +126,7 @@ export function useGrid<TRow = unknown>(): UseGridReturn<TRow> {
 
   return {
     ref,
+    element: ref.current?.element ?? null,
     isReady,
     config,
     getConfig,

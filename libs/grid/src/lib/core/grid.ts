@@ -772,8 +772,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @group Plugin Communication
    * @internal Plugin API
    */
-  getPlugin<P extends BaseGridPlugin>(PluginClass: new (...args: any[]) => P): P | undefined {
-    return this.#pluginManager?.getPlugin(PluginClass);
+  getPlugin<P>(PluginClass: new (...args: any[]) => P): P | undefined {
+    return this.#pluginManager?.getPlugin(PluginClass as new (...args: any[]) => BaseGridPlugin) as P | undefined;
   }
 
   /**

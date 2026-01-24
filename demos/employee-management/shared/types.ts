@@ -5,6 +5,9 @@
  * (Vanilla, React, Angular, Vue) of the Employee Management demo.
  */
 
+// Re-export grid element type for easier imports in demos
+export type { TbwGrid as GridElement } from '@toolbox-web/grid';
+
 /**
  * Represents a project that an employee is working on or has completed.
  */

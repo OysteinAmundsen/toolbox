@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import { type Employee } from '@demo/shared';
+import { type Employee, type GridElement } from '@demo/shared';
 
 /**
  * Analytics tool panel component.
@@ -56,8 +56,8 @@ import { type Employee } from '@demo/shared';
   `,
 })
 export class AnalyticsPanelComponent {
-  /** The grid element to get data from */
-  grid = input.required<HTMLElement>();
+  /** The grid element (properly typed) */
+  grid = input.required<GridElement<Employee>>();
 
   /** Rows passed directly (for reactivity) */
   rows = input<Employee[]>([]);

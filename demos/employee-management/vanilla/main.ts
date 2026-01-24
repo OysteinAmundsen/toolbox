@@ -19,271 +19,20 @@ import '@demo/shared/demo-styles.css';
 // Import the grid component (registers <tbw-grid> custom element)
 import '@toolbox-web/grid';
 
-// Import all plugins from the all-in-one bundle
-import {
-  ClipboardPlugin,
-  ColumnVirtualizationPlugin,
-  ContextMenuPlugin,
-  createGrid,
-  EditingPlugin,
-  ExportPlugin,
-  FilteringPlugin,
-  GroupingColumnsPlugin,
-  GroupingRowsPlugin,
-  MasterDetailPlugin,
-  MultiSortPlugin,
-  PinnedColumnsPlugin,
-  PinnedRowsPlugin,
-  ReorderPlugin,
-  ResponsivePlugin,
-  SelectionPlugin,
-  UndoRedoPlugin,
-  VisibilityPlugin,
-  type ColumnMoveDetail,
-  type DataGridElement,
-} from '@toolbox-web/grid/all';
+// Import grid factory and plugins
+import { createGrid, ExportPlugin, type ColumnMoveDetail, type DataGridElement } from '@toolbox-web/grid/all';
 
 // Import shared data generators and types
-import { DEPARTMENTS, generateEmployees, type Employee } from '@demo/shared';
+import { generateEmployees, type Employee } from '@demo/shared';
 
-// Import demo-specific components
-import { bonusSliderEditor, dateEditor, starRatingEditor, statusSelectEditor } from './editors';
-import {
-  createDetailRenderer,
-  createResponsiveCardRenderer,
-  ratingRenderer,
-  statusViewRenderer,
-  topPerformerRenderer,
-} from './renderers';
+// Import grid configuration from separate file
+import { COLUMN_GROUPS, createGridConfig, type GridConfigOptions } from './grid-config';
+
+// Import tool panel registration
 import { injectToolPanelStyles, registerAnalyticsPanel, registerQuickFiltersPanel } from './tool-panels';
 
-// =============================================================================
-// GRID CONFIGURATION
-// =============================================================================
-
-/**
- * Column groups for the employee grid.
- * Exported so the column-move constraint handler can reference them.
- */
-export const COLUMN_GROUPS = [
-  { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
-  { id: 'organization', header: 'Organization', children: ['department', 'team', 'title', 'level'] },
-  { id: 'compensation', header: 'Compensation', children: ['salary', 'bonus'] },
-  {
-    id: 'status',
-    header: 'Status & Performance',
-    children: ['status', 'hireDate', 'rating', 'isTopPerformer', 'location'],
-  },
-];
-
-/**
- * Grid configuration options for the demo.
- */
-export interface GridConfigOptions {
-  enableSelection: boolean;
-  enableFiltering: boolean;
-  enableSorting: boolean;
-  enableEditing: boolean;
-  enableMasterDetail: boolean;
-  enableRowGrouping?: boolean;
-  /** Callback to get the grid element (for toolbar button actions) */
-  getGrid?: () => DataGridElement<Employee> | null;
-}
-
-/**
- * Creates the grid configuration object.
- * Exported so Storybook stories can reuse the same configuration.
- */
-export function createGridConfig(options: GridConfigOptions) {
-  const {
-    enableSelection,
-    enableFiltering,
-    enableSorting,
-    enableEditing,
-    enableMasterDetail,
-    enableRowGrouping = false,
-    getGrid,
-  } = options;
-
-  // Default getGrid falls back to DOM lookup
-  const resolveGrid = getGrid ?? (() => document.getElementById('employee-grid') as DataGridElement<Employee> | null);
-
-  return {
-    shell: {
-      header: {
-        title: 'Employee Management System (JS)',
-        // Toolbar buttons are now provided via light-dom HTML (see index.html)
-      },
-      toolPanel: { position: 'right' as const, width: 300 },
-    },
-    columnGroups: COLUMN_GROUPS,
-    columns: [
-      { field: 'id', header: 'ID', type: 'number', width: 70, sortable: true },
-      {
-        field: 'firstName',
-        header: 'First Name',
-        minWidth: 100,
-        editable: enableEditing,
-        sortable: true,
-        resizable: true,
-      },
-      {
-        field: 'lastName',
-        header: 'Last Name',
-        minWidth: 100,
-        editable: enableEditing,
-        sortable: true,
-        resizable: true,
-      },
-      { field: 'email', header: 'Email', minWidth: 200, resizable: true },
-      {
-        field: 'department',
-        header: 'Dept',
-        width: 120,
-        sortable: true,
-        editable: enableEditing,
-        type: 'select',
-        options: DEPARTMENTS.map((d) => ({ label: d, value: d })),
-      },
-      { field: 'team', header: 'Team', width: 110, sortable: true },
-      { field: 'title', header: 'Title', minWidth: 160, editable: enableEditing, resizable: true },
-      {
-        field: 'level',
-        header: 'Level',
-        width: 90,
-        sortable: true,
-        editable: enableEditing,
-        type: 'select',
-        options: ['Junior', 'Mid', 'Senior', 'Lead', 'Principal', 'Director'].map((l) => ({ label: l, value: l })),
-      },
-      {
-        field: 'salary',
-        header: 'Salary',
-        type: 'number',
-        width: 110,
-        editable: enableEditing,
-        sortable: true,
-        resizable: true,
-        format: (v: number) =>
-          v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-      },
-      {
-        field: 'bonus',
-        header: 'Bonus',
-        type: 'number',
-        width: 180,
-        sortable: true,
-        editable: enableEditing,
-        editor: bonusSliderEditor,
-        format: (v: number) =>
-          v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-      },
-      {
-        field: 'status',
-        header: 'Status',
-        width: 140,
-        sortable: true,
-        editable: enableEditing,
-        editor: statusSelectEditor,
-        renderer: statusViewRenderer,
-      },
-      {
-        field: 'hireDate',
-        header: 'Hire Date',
-        type: 'date',
-        width: 130,
-        sortable: true,
-        editable: enableEditing,
-        editor: dateEditor,
-      },
-      {
-        field: 'rating',
-        header: 'Rating',
-        type: 'number',
-        width: 120,
-        sortable: true,
-        editable: enableEditing,
-        editor: starRatingEditor,
-        renderer: ratingRenderer,
-      },
-      { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50, renderer: topPerformerRenderer },
-      { field: 'location', header: 'Location', width: 110, sortable: true },
-    ],
-    plugins: [
-      ...(enableSelection ? [new SelectionPlugin({ mode: 'range' })] : []),
-      ...(enableSorting ? [new MultiSortPlugin()] : []),
-      ...(enableFiltering ? [new FilteringPlugin({ debounceMs: 200 })] : []),
-      ...(enableEditing ? [new EditingPlugin({ editOn: 'dblclick' })] : []),
-      new ClipboardPlugin(),
-      new ContextMenuPlugin(),
-      new ReorderPlugin(),
-      new GroupingColumnsPlugin(),
-      new PinnedColumnsPlugin(),
-      new ColumnVirtualizationPlugin(),
-      new VisibilityPlugin(),
-      // Responsive plugin for mobile/narrow layouts
-      // Disabled when row grouping is enabled (incompatible combination)
-      ...(!enableRowGrouping
-        ? [
-            new ResponsivePlugin<Employee>({
-              breakpoint: 700,
-              cardRenderer: (row) => createResponsiveCardRenderer(row),
-              cardRowHeight: 80,
-              hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
-            }),
-          ]
-        : []),
-      // Row grouping and master-detail are mutually exclusive
-      ...(enableRowGrouping
-        ? [
-            new GroupingRowsPlugin({
-              groupOn: (row: unknown) => (row as Employee).department,
-              defaultExpanded: true,
-              showRowCount: true,
-              aggregators: { salary: 'sum', rating: 'avg' },
-            }),
-          ]
-        : []),
-      ...(!enableRowGrouping && enableMasterDetail
-        ? [
-            new MasterDetailPlugin({
-              detailRenderer: (row: unknown) => createDetailRenderer(row as Employee),
-              showExpandColumn: true,
-              animation: 'slide',
-            }),
-          ]
-        : []),
-      ...(enableEditing ? [new UndoRedoPlugin({ maxHistorySize: 100 })] : []),
-      new ExportPlugin(),
-      new PinnedRowsPlugin({
-        position: 'bottom',
-        showRowCount: true,
-        showFilteredCount: true,
-        aggregationRows: [
-          {
-            id: 'totals',
-            position: 'bottom',
-            cells: {
-              id: 'Summary:',
-              salary: (rows: unknown[]) =>
-                (rows as Employee[])
-                  .reduce((acc, r) => acc + (r.salary || 0), 0)
-                  .toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-              bonus: (rows: unknown[]) =>
-                (rows as Employee[])
-                  .reduce((acc, r) => acc + (r.bonus || 0), 0)
-                  .toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-              rating: (rows: unknown[]) => {
-                const vals = (rows as Employee[]).map((r) => r.rating).filter(Boolean);
-                return vals.length ? `Avg: ${(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)}` : '';
-              },
-            },
-          },
-        ],
-      }),
-    ],
-  };
-}
+// Re-export for Storybook and external use
+export { COLUMN_GROUPS, createGridConfig, type GridConfigOptions } from './grid-config';
 
 // =============================================================================
 // GRID FACTORY - Creates a fully configured employee grid
@@ -293,7 +42,7 @@ export function createGridConfig(options: GridConfigOptions) {
  * Options for creating an employee grid.
  * Extends GridConfigOptions with row count.
  */
-export interface EmployeeGridOptions extends Omit<GridConfigOptions, 'getGrid'> {
+export interface EmployeeGridOptions extends GridConfigOptions {
   rowCount: number;
 }
 
@@ -305,15 +54,7 @@ export interface EmployeeGridOptions extends Omit<GridConfigOptions, 'getGrid'> 
  * @returns The configured grid element
  */
 export function createEmployeeGrid(options: EmployeeGridOptions): DataGridElement<Employee> {
-  const {
-    rowCount,
-    enableSelection,
-    enableFiltering,
-    enableSorting,
-    enableEditing,
-    enableMasterDetail,
-    enableRowGrouping,
-  } = options;
+  const { rowCount, ...configOptions } = options;
 
   // Create the grid element using the typed factory function
   const grid = createGrid<Employee>();
@@ -341,16 +82,8 @@ export function createEmployeeGrid(options: EmployeeGridOptions): DataGridElemen
   toolButtons.appendChild(exportExcelBtn);
   grid.appendChild(toolButtons);
 
-  // Apply configuration with self-reference for toolbar actions
-  grid.gridConfig = createGridConfig({
-    enableSelection,
-    enableFiltering,
-    enableSorting,
-    enableEditing,
-    enableMasterDetail,
-    enableRowGrouping,
-    getGrid: () => grid,
-  });
+  // Apply configuration
+  grid.gridConfig = createGridConfig(configOptions);
 
   // Set initial data
   grid.rows = generateEmployees(rowCount);
@@ -395,10 +128,10 @@ export function createEmployeeGrid(options: EmployeeGridOptions): DataGridElemen
   });
 
   // Register tool panels and inject styles after grid is ready
-  (grid as { ready?: () => Promise<void>; refreshShellHeader?: () => void }).ready?.().then(() => {
+  grid.ready?.().then(() => {
     registerQuickFiltersPanel(grid);
     registerAnalyticsPanel(grid);
-    (grid as { refreshShellHeader?: () => void }).refreshShellHeader?.();
+    grid.refreshShellHeader?.();
     injectToolPanelStyles(grid);
   });
 

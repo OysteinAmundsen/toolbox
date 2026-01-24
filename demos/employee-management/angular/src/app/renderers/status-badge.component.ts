@@ -10,7 +10,13 @@ import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
 @Component({
   selector: 'app-status-badge',
   template: `<span class="status-badge" [class]="badgeClass()">{{ value() }}</span>`,
-  styles: [],
+  styles: [
+    `
+      :host {
+        display: contents;
+      }
+    `,
+  ],
 })
 export class StatusBadgeComponent implements AngularCellRenderer<Employee, string> {
   // AngularCellRenderer interface inputs

@@ -193,8 +193,8 @@ export interface DataGridProps<TRow = unknown> {
  * Ref handle for the DataGrid component.
  */
 export interface DataGridRef<TRow = unknown> {
-  /** The underlying grid DOM element */
-  element: DataGridElement | null;
+  /** The underlying grid DOM element with proper typing */
+  element: DataGridElement<TRow> | null;
   /** Get the effective configuration */
   getConfig: () => Promise<Readonly<GridConfig<TRow>>>;
   /** Wait for the grid to be ready */

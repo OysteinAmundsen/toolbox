@@ -2,6 +2,7 @@
  * Tool Panels for the Vanilla Employee Management Demo
  *
  * Tool panels are registered with the grid's shell and appear in a sidebar.
+ * This demonstrates how clean the API is - no type casting needed!
  */
 
 import { DEPARTMENTS, type Employee, type GridElement } from '@demo/shared';
@@ -9,30 +10,18 @@ import { shadowDomStyles } from '@demo/shared/styles';
 import { FilteringPlugin } from '@toolbox-web/grid/all';
 
 /**
- * Injects all demo styles into the grid's shadow DOM.
- * This includes styles for editors, renderers, and tool panels.
- *
- * Uses the grid's registerStyles() API which is the recommended way
- * to inject custom styles into the grid's shadow DOM.
+ * Injects all demo styles into the grid.
+ * Uses the grid's registerStyles() API.
  */
-export function injectToolPanelStyles(grid: GridElement): void {
-  // Use the public API to register custom styles
-  const registerStyles = (grid as { registerStyles?: (id: string, css: string) => void }).registerStyles;
-  if (registerStyles) {
-    registerStyles.call(grid, 'demo-styles', shadowDomStyles);
-  } else {
-    console.warn('[injectToolPanelStyles] registerStyles not available on grid');
-  }
+export function injectToolPanelStyles(grid: GridElement<Employee>): void {
+  grid.registerStyles?.('demo-styles', shadowDomStyles);
 }
 
 /**
  * Registers the Quick Filters tool panel.
  */
-export function registerQuickFiltersPanel(grid: GridElement): void {
-  const registerToolPanel = grid.registerToolPanel as (config: unknown) => void;
-  if (!registerToolPanel) return;
-
-  registerToolPanel.call(grid, {
+export function registerQuickFiltersPanel(grid: GridElement<Employee>): void {
+  grid.registerToolPanel?.({
     id: 'quick-filters',
     title: 'Quick Filters',
     icon: '🔍',
@@ -103,41 +92,37 @@ export function registerQuickFiltersPanel(grid: GridElement): void {
       const ratingValue = content.querySelector('#rating-value') as HTMLElement;
       ratingSlider?.addEventListener('input', () => (ratingValue.textContent = `≥ ${ratingSlider.value}`));
 
-      // Apply filters
+      // Apply filters - clean API, no type casting needed!
       content.querySelector('#apply-filters')?.addEventListener('click', () => {
-        const getPlugin = grid.getPlugin as (
-          cls: unknown,
-        ) => { clearAllFilters?: () => void; setFilter?: (field: string, filter: unknown) => void } | undefined;
-        const plugin = getPlugin?.(FilteringPlugin);
+        const plugin = grid.getPlugin?.(FilteringPlugin);
         if (!plugin) return;
-        plugin.clearAllFilters?.();
+        plugin.clearAllFilters();
 
         const dept = (content.querySelector('#dept-filter') as HTMLSelectElement).value;
-        if (dept) plugin.setFilter?.('department', { type: 'text', operator: 'equals', value: dept });
+        if (dept) plugin.setFilter('department', { type: 'text', operator: 'equals', value: dept });
 
         const levels = Array.from(content.querySelectorAll('.level-filter:checked')).map(
           (el) => (el as HTMLInputElement).value,
         );
-        if (levels.length) plugin.setFilter?.('level', { type: 'set', operator: 'in', value: levels });
+        if (levels.length) plugin.setFilter('level', { type: 'set', operator: 'in', value: levels });
 
         const statuses = Array.from(content.querySelectorAll('.status-filter:checked')).map(
           (el) => (el as HTMLInputElement).value,
         );
-        if (statuses.length) plugin.setFilter?.('status', { type: 'set', operator: 'in', value: statuses });
+        if (statuses.length) plugin.setFilter('status', { type: 'set', operator: 'in', value: statuses });
 
         const minRating = parseFloat(ratingSlider.value);
         if (minRating > 0)
-          plugin.setFilter?.('rating', { type: 'number', operator: 'greaterThanOrEqual', value: minRating });
+          plugin.setFilter('rating', { type: 'number', operator: 'greaterThanOrEqual', value: minRating });
 
         if ((content.querySelector('#top-performer-filter') as HTMLInputElement).checked) {
-          plugin.setFilter?.('isTopPerformer', { type: 'boolean', operator: 'equals', value: true });
+          plugin.setFilter('isTopPerformer', { type: 'boolean', operator: 'equals', value: true });
         }
       });
 
       // Clear filters
       content.querySelector('#clear-filters')?.addEventListener('click', () => {
-        const getPlugin = grid.getPlugin as (cls: unknown) => { clearAllFilters?: () => void } | undefined;
-        getPlugin?.(FilteringPlugin)?.clearAllFilters?.();
+        grid.getPlugin?.(FilteringPlugin)?.clearAllFilters();
         (content.querySelector('#dept-filter') as HTMLSelectElement).value = '';
         content.querySelectorAll('.level-filter, .status-filter').forEach((input) => {
           (input as HTMLInputElement).checked = false;
@@ -156,18 +141,15 @@ export function registerQuickFiltersPanel(grid: GridElement): void {
 /**
  * Registers the Analytics tool panel.
  */
-export function registerAnalyticsPanel(grid: GridElement): void {
-  const registerToolPanel = grid.registerToolPanel as (config: unknown) => void;
-  if (!registerToolPanel) return;
-
-  registerToolPanel.call(grid, {
+export function registerAnalyticsPanel(grid: GridElement<Employee>): void {
+  grid.registerToolPanel?.({
     id: 'analytics',
     title: 'Analytics',
     icon: '📈',
     tooltip: 'View data analytics and insights',
     order: 20,
     render: (container: HTMLElement) => {
-      const rows = (grid.rows || []) as Employee[];
+      const rows = grid.rows || [];
       const totalSalary = rows.reduce((sum, r) => sum + r.salary, 0);
       const avgSalary = totalSalary / rows.length;
       const avgRating = rows.reduce((sum, r) => sum + r.rating, 0) / rows.length;

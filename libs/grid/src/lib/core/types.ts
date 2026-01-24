@@ -61,6 +61,52 @@ export interface PublicGrid<T = any> {
    * Get list of registered custom style IDs.
    */
   getRegisteredStyles?: () => string[];
+
+  // Plugin API
+  /**
+   * Get a plugin instance by its class.
+   *
+   * @example
+   * ```typescript
+   * const selection = grid.getPlugin(SelectionPlugin);
+   * if (selection) {
+   *   selection.selectAll();
+   * }
+   * ```
+   */
+  getPlugin?<P>(PluginClass: new (...args: any[]) => P): P | undefined;
+  /**
+   * Get a plugin instance by its name.
+   * Prefer `getPlugin(PluginClass)` for type safety.
+   */
+  getPluginByName?(name: string): GridPlugin | undefined;
+
+  // Shell API
+  /**
+   * Re-render the shell header (title, column groups, toolbar).
+   * Call this after dynamically adding/removing tool panels or toolbar buttons.
+   */
+  refreshShellHeader?(): void;
+  /**
+   * Register a custom tool panel in the sidebar.
+   *
+   * @example
+   * ```typescript
+   * grid.registerToolPanel({
+   *   id: 'analytics',
+   *   title: 'Analytics',
+   *   icon: '📊',
+   *   render: (container) => {
+   *     container.innerHTML = '<div>Charts here...</div>';
+   *   }
+   * });
+   * ```
+   */
+  registerToolPanel?(panel: ToolPanelDefinition): void;
+  /**
+   * Unregister a previously registered tool panel.
+   */
+  unregisterToolPanel?(panelId: string): void;
 }
 
 /**

@@ -448,9 +448,7 @@ tbw-grid,
    ========================================================================= */
 
 .detail-panel {
-  padding: 16px 24px;
   background: var(--tbw-color-row-alt, light-dark(#f8f9fa, #2a2d32));
-  border-top: 1px solid var(--tbw-color-border, light-dark(#dee2e6, #3a3d44));
 }
 
 .detail-panel__content {

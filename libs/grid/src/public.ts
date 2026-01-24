@@ -10,6 +10,20 @@
 // #region Public API surface - only export what consumers need
 export { DataGridElement, DataGridElement as GridElement } from './lib/core/grid';
 
+/**
+ * Clean type alias for the grid element.
+ * Use this in place of `DataGridElement<T>` for more concise code.
+ *
+ * @example
+ * ```typescript
+ * import { TbwGrid, createGrid } from '@toolbox-web/grid';
+ *
+ * const grid: TbwGrid<Employee> = createGrid();
+ * grid.rows = employees;
+ * ```
+ */
+export type { DataGridElement as TbwGrid } from './lib/core/grid';
+
 // Import types needed for factory functions
 import type { DataGridElement } from './lib/core/grid';
 import type { GridConfig } from './lib/core/types';

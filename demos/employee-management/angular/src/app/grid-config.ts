@@ -156,7 +156,7 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
         renderer: RatingDisplayComponent,
         editor: StarRatingEditorComponent,
       },
-      { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50 },
+      { field: 'isTopPerformer', header: '⭐', type: 'boolean', width: 50, sortable: false },
       { field: 'location', header: 'Location', width: 110, sortable: true },
     ],
     // Shell configuration

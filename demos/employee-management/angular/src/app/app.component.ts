@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import {
   Component,
   computed,
@@ -6,9 +7,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { CurrencyPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { generateEmployees } from '@demo/shared';
+import { generateEmployees, type Employee, type GridElement } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 import {
   CellCommitEvent,
@@ -19,11 +19,7 @@ import {
   TbwEditor,
   TbwRenderer,
 } from '@toolbox-web/grid-angular';
-import {
-  ExportPlugin,
-  DataGridElement as GridElement,
-  type ColumnMoveDetail,
-} from '@toolbox-web/grid/all';
+import { ExportPlugin, type ColumnMoveDetail } from '@toolbox-web/grid/all';
 
 import { COLUMN_GROUPS, createGridConfig } from './grid-config';
 
@@ -90,8 +86,8 @@ export class AppComponent {
     }),
   );
 
-  // Grid reference for accessing plugins
-  gridRef = viewChild<ElementRef<GridElement>>('grid');
+  // Grid reference for accessing plugins - properly typed!
+  gridRef = viewChild<ElementRef<GridElement<Employee>>>('grid');
 
   exportCsv(): void {
     const grid = this.gridRef()?.nativeElement;

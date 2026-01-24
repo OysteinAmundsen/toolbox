@@ -1,7 +1,6 @@
 import { Component, input, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DEPARTMENTS } from '@demo/shared';
-import { DataGridElement as GridElement } from '@toolbox-web/grid';
+import { DEPARTMENTS, type Employee, type GridElement } from '@demo/shared';
 import { FilteringPlugin } from '@toolbox-web/grid/all';
 
 /**
@@ -81,8 +80,8 @@ import { FilteringPlugin } from '@toolbox-web/grid/all';
   `,
 })
 export class QuickFiltersPanelComponent implements OnInit {
-  /** The grid element to apply filters to */
-  grid = input.required<HTMLElement>();
+  /** The grid element to apply filters to - properly typed! */
+  grid = input.required<GridElement<Employee>>();
 
   readonly departments = DEPARTMENTS;
   readonly levels = ['Junior', 'Mid', 'Senior', 'Lead', 'Principal', 'Director'];
@@ -117,8 +116,8 @@ export class QuickFiltersPanelComponent implements OnInit {
   }
 
   applyFilters(): void {
-    const gridEl = this.grid() as unknown as GridElement;
-    const plugin = gridEl?.getPlugin?.(FilteringPlugin);
+    // No type casting needed - grid input is properly typed!
+    const plugin = this.grid()?.getPlugin?.(FilteringPlugin);
     if (!plugin) return;
 
     plugin.clearAllFilters?.();
@@ -153,8 +152,7 @@ export class QuickFiltersPanelComponent implements OnInit {
   }
 
   clearFilters(): void {
-    const gridEl = this.grid() as unknown as GridElement;
-    const plugin = gridEl?.getPlugin?.(FilteringPlugin);
+    const plugin = this.grid()?.getPlugin?.(FilteringPlugin);
     plugin?.clearAllFilters?.();
 
     this.selectedDepartment = '';

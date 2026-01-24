@@ -210,18 +210,37 @@ const PROJECT_NAMES = [
 // HELPER FUNCTIONS
 // =============================================================================
 
+/**
+ * Seeded pseudo-random number generator (Mulberry32).
+ * Produces deterministic "random" numbers for reproducible demo data.
+ * This ensures all frameworks render identical data for visual regression tests.
+ */
+function createSeededRandom(initialSeed: number): () => number {
+  let seed = initialSeed;
+  return function () {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Global seeded random instance - reset on each generateEmployees call
+let seededRandom: () => number = createSeededRandom(12345);
+
 function randomDate(start: Date, end: Date): string {
-  const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+  const date = new Date(start.getTime() + seededRandom() * (end.getTime() - start.getTime()));
   return date.toISOString().split('T')[0];
 }
 
 function randomElement<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+  return arr[Math.floor(seededRandom() * arr.length)];
 }
 
 function randomElements<T>(arr: T[], min: number, max: number): T[] {
-  const count = min + Math.floor(Math.random() * (max - min + 1));
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  const count = min + Math.floor(seededRandom() * (max - min + 1));
+  const shuffled = [...arr].sort(() => seededRandom() - 0.5);
   return shuffled.slice(0, count);
 }
 
@@ -230,12 +249,12 @@ function randomElements<T>(arr: T[], min: number, max: number): T[] {
 // =============================================================================
 
 function generateProjects(): Project[] {
-  const count = Math.floor(Math.random() * 4) + 1;
+  const count = Math.floor(seededRandom() * 4) + 1;
   return Array.from({ length: count }, () => ({
-    id: 'PRJ-' + Math.floor(Math.random() * 10000),
+    id: 'PRJ-' + Math.floor(seededRandom() * 10000),
     name: randomElement(PROJECT_NAMES),
     role: randomElement(['Lead', 'Contributor', 'Reviewer', 'Advisor']),
-    hoursLogged: Math.floor(Math.random() * 500) + 50,
+    hoursLogged: Math.floor(seededRandom() * 500) + 50,
     status: randomElement(['active', 'completed', 'on-hold'] as const),
   }));
 }
@@ -249,7 +268,7 @@ function generatePerformanceReviews(): PerformanceReview[] {
       reviews.push({
         year,
         quarter,
-        score: Math.round((3 + Math.random() * 2) * 10) / 10,
+        score: Math.round((3 + seededRandom() * 2) * 10) / 10,
         notes: randomElement([
           'Exceeded expectations',
           'Met all objectives',
@@ -268,11 +287,15 @@ function generatePerformanceReviews(): PerformanceReview[] {
 
 /**
  * Generates an array of realistic employee data.
+ * Uses a seeded PRNG for deterministic output - same count always produces same data.
  *
  * @param count - The number of employees to generate
- * @returns An array of Employee objects with randomized but realistic data
+ * @returns An array of Employee objects with deterministic but realistic data
  */
 export function generateEmployees(count: number): Employee[] {
+  // Reset the seeded random generator for deterministic output
+  seededRandom = createSeededRandom(12345);
+
   const employees: Employee[] = [];
   const levels: Employee['level'][] = ['Junior', 'Mid', 'Senior', 'Lead', 'Principal', 'Director'];
   const statuses: Employee['status'][] = ['Active', 'On Leave', 'Remote', 'Contract', 'Terminated'];
@@ -289,9 +312,9 @@ export function generateEmployees(count: number): Employee[] {
     const location = randomElement(LOCATIONS);
     const firstName = randomElement(FIRST_NAMES);
     const lastName = randomElement(LAST_NAMES);
-    const level = levels[Math.min(Math.floor(Math.random() * 6), 5)];
+    const level = levels[Math.min(Math.floor(seededRandom() * 6), 5)];
     const hireDate = randomDate(new Date('2018-01-01'), new Date('2025-06-01'));
-    const rating = Math.round((3 + Math.random() * 2) * 10) / 10;
+    const rating = Math.round((3 + seededRandom() * 2) * 10) / 10;
 
     const baseSalaries: Record<Employee['level'], number> = {
       Junior: 60000,
@@ -301,7 +324,7 @@ export function generateEmployees(count: number): Employee[] {
       Principal: 180000,
       Director: 220000,
     };
-    const salary = baseSalaries[level] + Math.floor(Math.random() * 30000) - 15000;
+    const salary = baseSalaries[level] + Math.floor(seededRandom() * 30000) - 15000;
 
     employees.push({
       id: 1001 + i,
@@ -313,16 +336,16 @@ export function generateEmployees(count: number): Employee[] {
       title: randomElement(titles),
       level,
       salary,
-      bonus: Math.round(salary * (0.05 + Math.random() * 0.15)),
-      status: Math.random() > 0.1 ? (Math.random() > 0.3 ? 'Active' : 'Remote') : randomElement(statuses),
+      bonus: Math.round(salary * (0.05 + seededRandom() * 0.15)),
+      status: seededRandom() > 0.1 ? (seededRandom() > 0.3 ? 'Active' : 'Remote') : randomElement(statuses),
       hireDate,
-      lastPromotion: Math.random() > 0.4 ? randomDate(new Date(hireDate), new Date()) : null,
-      manager: Math.random() > 0.1 ? randomElement(managers) : null,
+      lastPromotion: seededRandom() > 0.4 ? randomDate(new Date(hireDate), new Date()) : null,
+      manager: seededRandom() > 0.1 ? randomElement(managers) : null,
       location: location.city,
       timezone: location.timezone,
       skills: randomElements(SKILLS, 3, 8),
       rating,
-      completedProjects: Math.floor(Math.random() * 20),
+      completedProjects: Math.floor(seededRandom() * 20),
       activeProjects: generateProjects(),
       performanceReviews: generatePerformanceReviews(),
       isTopPerformer: rating >= 4.5,

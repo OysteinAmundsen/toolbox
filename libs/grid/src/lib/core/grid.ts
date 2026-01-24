@@ -37,7 +37,7 @@ import {
   validatePluginIncompatibilities,
   validatePluginProperties,
 } from './internal/validate-config';
-import type { CellMouseEvent, ScrollEvent } from './plugin';
+import type { AfterCellRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type {
   BaseGridPlugin,
   CellClickEvent,
@@ -2110,6 +2110,30 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   _dispatchCellMouseUp(event: CellMouseEvent): void {
     this.#pluginManager?.onCellMouseUp(event);
+  }
+
+  /**
+   * Call afterCellRender hook on all plugins.
+   * This is called by rows.ts for each cell after it's rendered,
+   * allowing plugins to modify cells during render rather than
+   * requiring expensive post-render DOM queries.
+   *
+   * @group Plugin Hooks
+   * @internal Plugin API - called by rows.ts
+   */
+  _afterCellRender(context: AfterCellRenderContext): void {
+    this.#pluginManager?.afterCellRender(context);
+  }
+
+  /**
+   * Check if any plugin has registered an afterCellRender hook.
+   * Used to skip the hook call entirely for performance when no plugins need it.
+   *
+   * @group Plugin Hooks
+   * @internal Plugin API - called by rows.ts
+   */
+  _hasAfterCellRenderHook(): boolean {
+    return this.#pluginManager?.hasAfterCellRenderHook() ?? false;
   }
 
   /**

@@ -461,3 +461,82 @@ describe('cellClass callback', () => {
     expect(cell.classList.contains('another-valid')).toBe(true);
   });
 });
+
+describe('afterCellRender hook', () => {
+  it('calls hook for each cell when plugin has hook registered', () => {
+    const g = makeGrid();
+    const hookCalls: { rowIndex: number; colIndex: number; value: any }[] = [];
+
+    // Mock the hook detection and call methods
+    g._hasAfterCellRenderHook = () => true;
+    g._afterCellRender = (ctx: any) => {
+      hookCalls.push({
+        rowIndex: ctx.rowIndex,
+        colIndex: ctx.colIndex,
+        value: ctx.value,
+      });
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Should be called for each cell (4 columns × 1 row = 4 calls)
+    expect(hookCalls.length).toBe(4);
+    expect(hookCalls[0]).toEqual({ rowIndex: 0, colIndex: 0, value: 1 });
+    expect(hookCalls[1]).toEqual({ rowIndex: 0, colIndex: 1, value: 'Alpha' });
+    expect(hookCalls[2]).toEqual({ rowIndex: 0, colIndex: 2, value: true });
+    expect(hookCalls[3].rowIndex).toBe(0);
+    expect(hookCalls[3].colIndex).toBe(3);
+  });
+
+  it('does not call hook when no plugin has hook registered', () => {
+    const g = makeGrid();
+    const hookCalls: any[] = [];
+
+    g._hasAfterCellRenderHook = () => false;
+    g._afterCellRender = (ctx: any) => {
+      hookCalls.push(ctx);
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Should not be called when hasAfterCellRenderHook returns false
+    expect(hookCalls.length).toBe(0);
+  });
+
+  it('provides correct context with cellElement and rowElement', () => {
+    const g = makeGrid();
+    let capturedContext: any = null;
+
+    g._hasAfterCellRenderHook = () => true;
+    g._afterCellRender = (ctx: any) => {
+      if (ctx.colIndex === 1) capturedContext = ctx;
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    expect(capturedContext).not.toBeNull();
+    expect(capturedContext.row).toEqual(g._rows[0]);
+    expect(capturedContext.column).toBe(g._columns[1]);
+    expect(capturedContext.cellElement).toBeInstanceOf(HTMLElement);
+    expect(capturedContext.rowElement).toBeInstanceOf(HTMLElement);
+    expect(capturedContext.cellElement.classList.contains('cell')).toBe(true);
+  });
+
+  it('allows plugin to modify cell element during hook', () => {
+    const g = makeGrid();
+
+    g._hasAfterCellRenderHook = () => true;
+    g._afterCellRender = (ctx: any) => {
+      if (ctx.colIndex === 0) {
+        ctx.cellElement.classList.add('plugin-modified');
+        ctx.cellElement.setAttribute('data-plugin-test', 'true');
+      }
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    const cell = g._bodyEl.querySelector('.cell[data-col="0"]')!;
+    expect(cell.classList.contains('plugin-modified')).toBe(true);
+    expect(cell.getAttribute('data-plugin-test')).toBe('true');
+  });
+});

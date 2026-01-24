@@ -103,6 +103,42 @@ export interface CellMouseEvent {
 }
 
 /**
+ * Context passed to the `afterCellRender` plugin hook.
+ *
+ * This provides efficient cell-level access without requiring DOM queries.
+ * Plugins receive this context for each cell as it's rendered, enabling
+ * targeted modifications instead of post-render DOM traversal.
+ *
+ * @category Plugin Development
+ * @template TRow - The row data type
+ *
+ * @example
+ * ```typescript
+ * afterCellRender(context: AfterCellRenderContext): void {
+ *   if (this.isSelected(context.rowIndex, context.colIndex)) {
+ *     context.cellElement.classList.add('selected');
+ *   }
+ * }
+ * ```
+ */
+export interface AfterCellRenderContext<TRow = unknown> {
+  /** The row data object */
+  row: TRow;
+  /** Zero-based row index in the visible rows array */
+  rowIndex: number;
+  /** The column configuration */
+  column: ColumnConfig<TRow>;
+  /** Zero-based column index in the visible columns array */
+  colIndex: number;
+  /** The cell value (row[column.field]) */
+  value: unknown;
+  /** The cell DOM element - can be modified by the plugin */
+  cellElement: HTMLElement;
+  /** The row DOM element - for context, prefer using cellElement */
+  rowElement: HTMLElement;
+}
+
+/**
  * Context menu parameters
  */
 export interface ContextMenuParams {

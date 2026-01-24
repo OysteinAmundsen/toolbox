@@ -13,6 +13,7 @@
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
 import type {
+  AfterCellRenderContext,
   BaseGridPlugin,
   CellClickEvent,
   CellEditor,
@@ -238,6 +239,26 @@ export class PluginManager {
     for (const plugin of this.plugins) {
       plugin.afterRender?.();
     }
+  }
+
+  /**
+   * Execute afterCellRender hook on all plugins for a single cell.
+   * Called during cell rendering for efficient cell-level modifications.
+   *
+   * @param context - The cell render context
+   */
+  afterCellRender(context: AfterCellRenderContext): void {
+    for (const plugin of this.plugins) {
+      plugin.afterCellRender?.(context);
+    }
+  }
+
+  /**
+   * Check if any plugin has the afterCellRender hook implemented.
+   * Used to skip the hook call overhead when no plugins need it.
+   */
+  hasAfterCellRenderHook(): boolean {
+    return this.plugins.some((p) => typeof p.afterCellRender === 'function');
   }
 
   /**

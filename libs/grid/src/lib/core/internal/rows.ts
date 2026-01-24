@@ -336,6 +336,9 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
   const focusRow = grid._focusRow;
   const focusCol = grid._focusCol;
 
+  // Check if any plugin wants cell-level hooks (avoid overhead when not needed)
+  const hasCellHook = grid._hasAfterCellRenderHook?.() ?? false;
+
   // Ultra-fast path: if no special columns (templates, formatters, etc.), use direct assignment
   // Check is cached on grid to avoid repeated iteration
   let hasSpecialCols = grid.__hasSpecialColumns;
@@ -375,7 +378,8 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       // Skip cells in edit mode - they have editors that must be preserved
       if (cell.classList.contains('editing')) continue;
 
-      const value = rowData[columns[i].field];
+      const col = columns[i];
+      const value = rowData[col.field];
       cell.textContent = value == null ? '' : String(value);
       // Update data-row for click handling
       if (cell.getAttribute('data-row') !== rowIndexStr) {
@@ -388,6 +392,19 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         cell.classList.toggle('cell-focus', shouldHaveFocus);
         // aria-selected only valid for gridcell, not checkbox (but ultra-fast path has no special cols)
         cell.setAttribute('aria-selected', String(shouldHaveFocus));
+      }
+
+      // Call cell-level plugin hook if any plugin registered it
+      if (hasCellHook) {
+        grid._afterCellRender?.({
+          row: rowData,
+          rowIndex,
+          column: col,
+          colIndex: i,
+          value,
+          cellElement: cell,
+          rowElement: rowEl,
+        });
       }
     }
     return;
@@ -454,9 +471,15 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     // Uses priority chain: column → typeDefaults → adapter → built-in
     const cellRenderer = resolveRenderer(grid, col);
     if (cellRenderer) {
-      const value = rowData[col.field];
+      const renderedValue = rowData[col.field];
       // Pass cellEl for framework adapters that want to cache per-cell
-      const produced = cellRenderer({ row: rowData, value, field: col.field, column: col, cellEl: cell });
+      const produced = cellRenderer({
+        row: rowData,
+        value: renderedValue,
+        field: col.field,
+        column: col,
+        cellEl: cell,
+      });
       if (typeof produced === 'string') {
         cell.innerHTML = sanitizeHTML(produced);
       } else if (produced instanceof Node) {
@@ -468,9 +491,21 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         // If already a child, the framework adapter has re-rendered in place
       } else if (produced == null) {
         // Renderer returned null/undefined - show raw value
-        cell.textContent = value == null ? '' : String(value);
+        cell.textContent = renderedValue == null ? '' : String(renderedValue);
       }
       // If produced is truthy but not a string or Node, the framework handles it
+      // Call cell-level plugin hook - cell was rendered
+      if (hasCellHook) {
+        grid._afterCellRender?.({
+          row: rowData,
+          rowIndex,
+          column: col,
+          colIndex: i,
+          value: renderedValue,
+          cellElement: cell,
+          rowElement: rowEl,
+        });
+      }
       continue;
     }
 
@@ -502,6 +537,19 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       displayStr = value == null ? '' : String(value);
       cell.textContent = displayStr;
     }
+
+    // Call cell-level plugin hook - cell was rendered
+    if (hasCellHook) {
+      grid._afterCellRender?.({
+        row: rowData,
+        rowIndex,
+        column: col,
+        colIndex: i,
+        value,
+        cellElement: cell,
+        rowElement: rowEl,
+      });
+    }
   }
 }
 
@@ -518,6 +566,9 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
   const focusRow = grid._focusRow;
   const focusCol = grid._focusCol;
   const gridEl = grid as unknown as HTMLElement;
+
+  // Check if any plugin wants cell-level hooks (avoid overhead when not needed)
+  const hasCellHook = grid._hasAfterCellRenderHook?.() ?? false;
 
   // Use DocumentFragment for batch DOM insertion
   const fragment = document.createDocumentFragment();
@@ -687,6 +738,19 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       } catch (e) {
         console.warn(`[tbw-grid] cellClass callback error for column '${col.field}':`, e);
       }
+    }
+
+    // Call cell-level plugin hook if any plugin registered it
+    if (hasCellHook) {
+      grid._afterCellRender?.({
+        row: rowData,
+        rowIndex,
+        column: col,
+        colIndex,
+        value,
+        cellElement: cell,
+        rowElement: rowEl,
+      });
     }
 
     fragment.appendChild(cell);

@@ -21,6 +21,7 @@ import { DEFAULT_GRID_ICONS } from '../types';
 // Re-export shared plugin types for convenience
 export { PLUGIN_QUERIES } from './types';
 export type {
+  AfterCellRenderContext,
   CellClickEvent,
   CellCoords,
   CellEditor,
@@ -39,6 +40,7 @@ export type {
 } from './types';
 
 import type {
+  AfterCellRenderContext,
   CellClickEvent,
   CellEditor,
   CellMouseEvent,
@@ -188,6 +190,7 @@ export type HookName =
   | 'processColumns'
   | 'processRows'
   | 'afterRender'
+  | 'afterCellRender'
   | 'onCellClick'
   | 'onCellMouseDown'
   | 'onCellMouseMove'
@@ -747,6 +750,38 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   afterRender?(): void;
+
+  /**
+   * Called after each cell is rendered.
+   * This hook is more efficient than `afterRender()` for cell-level modifications
+   * because you receive the cell context directly - no DOM queries needed.
+   *
+   * Use cases:
+   * - Adding selection/highlight classes to specific cells
+   * - Injecting badges or decorations
+   * - Applying conditional styling based on cell value
+   *
+   * Performance note: Called for every visible cell during render. Keep implementation fast.
+   * This hook is also called during scroll when cells are recycled.
+   *
+   * @param context - The cell render context with row, column, value, and elements
+   *
+   * @example
+   * ```ts
+   * afterCellRender(context: AfterCellRenderContext): void {
+   *   // Add selection class without DOM queries
+   *   if (this.isSelected(context.rowIndex, context.colIndex)) {
+   *     context.cellElement.classList.add('selected');
+   *   }
+   *
+   *   // Add validation error styling
+   *   if (this.hasError(context.row, context.column.field)) {
+   *     context.cellElement.classList.add('has-error');
+   *   }
+   * }
+   * ```
+   */
+  afterCellRender?(context: AfterCellRenderContext): void;
 
   /**
    * Called after scroll-triggered row rendering completes.

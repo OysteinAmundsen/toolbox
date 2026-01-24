@@ -64,7 +64,7 @@ Framework adapters enable idiomatic integration with popular JavaScript framewor
 | Package                     | Framework   | Priority | Status      |
 | --------------------------- | ----------- | -------- | ----------- |
 | `@toolbox-web/grid-angular` | Angular 17+ | 🔴 P0    | ✅ Complete |
-| `@toolbox-web/grid-react`   | React 18+   | 🔴 P0    | Not started |
+| `@toolbox-web/grid-react`   | React 18+   | 🔴 P0    | ✅ Complete |
 | `@toolbox-web/grid-vue`     | Vue 3       | 🟠 P1    | Not started |
 | `@toolbox-web/grid-svelte`  | Svelte 4/5  | 🟡 P2    | Not started |
 | `@toolbox-web/grid-solid`   | Solid       | 🟢 P3    | Not started |

@@ -136,6 +136,8 @@ const preview: Preview = {
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               'Row Grouping',
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Row Reorder',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               'Selection',
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               'Server-Side',

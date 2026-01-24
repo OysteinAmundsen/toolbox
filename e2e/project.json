@@ -1,0 +1,32 @@
+{
+  "name": "e2e",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "e2e",
+  "implicitDependencies": ["grid", "demo-vanilla", "demo-react", "demo-angular"],
+  "targets": {
+    "e2e": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/playwright-report", "{workspaceRoot}/e2e/test-results"],
+      "dependsOn": [{ "projects": ["grid"], "target": "build" }],
+      "options": {
+        "commands": ["bunx playwright test --config=e2e/playwright.config.ts"],
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "e2e:ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx playwright test --ui",
+        "cwd": "e2e"
+      }
+    },
+    "e2e:update-snapshots": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx playwright test --update-snapshots",
+        "cwd": "e2e"
+      }
+    }
+  }
+}

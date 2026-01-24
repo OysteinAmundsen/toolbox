@@ -49,6 +49,11 @@ vite.config.*.timestamp*
 vitest.config.*.timestamp*
 test-output
 
+# Playwright E2E test artifacts
+e2e/test-results/
+e2e/snapshots/
+playwright-report/
+
 # Generated API documentation (regenerate with `nx typedoc grid`)
 # Raw TypeDoc markdown output - always regenerated
 **/api-generated/

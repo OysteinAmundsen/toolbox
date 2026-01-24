@@ -1,73 +1,82 @@
 # @toolbox-web/grid Roadmap
 
-This document outlines planned features and improvements for the grid component, organized by priority based on expected user demand.
+This document outlines planned features and improvements for the grid component, organized by priority (lowest effort + highest value first).
 
 ## Features
 
 > [!NOTE] Priority Levels
 >
-> - 🔴 **P0 - Critical**: Highly requested features that significantly expand use cases
-> - 🟠 **P1 - High**: Important features that improve usability and workflows
-> - 🟡 **P2 - Medium**: Nice-to-have features that enhance the experience
-> - 🟢 **P3 - Low**: Specialized features for specific use cases
+> - 🟠 **P1 - Do First**: Low effort, high value - quick wins
+> - 🟡 **P2 - Next Up**: Medium effort, good value
+> - 🟢 **P3 - Nice to Have**: Higher effort or niche use cases
 > - ⚪ **P4 - Deferred**: Complex features requiring significant design work
 
-**Core:**
+**Core (Completed):**
 
-- [x] - Column resizing
-- [x] - Column State Events
-- [x] - CSS theming
-- [x] - External cell renderers
-- [x] - Grid Shell / Tool Panels
-- [x] - Inline cell editing
-- [x] - Keyboard navigation
-- [x] - Row virtualization
-- [ ] - Column Spanning (colSpan) - ⚪ P4
-- [ ] - Print Layout Mode - 🟡 P2
-- [ ] - Row Animation - 🟢 P3
-- [ ] - Row Spanning (rowSpan) - ⚪ P4
-- [ ] - RTL Support - 🟡 P2
+- [x] Column resizing
+- [x] Column State Events
+- [x] CSS theming
+- [x] External cell renderers
+- [x] Grid Shell / Tool Panels
+- [x] Inline cell editing
+- [x] Keyboard navigation
+- [x] Row virtualization
 
-**Plugins:**
+**Core (Planned):**
 
-- [x] - Cell/Row/Range selection (`selection`)
-- [x] - Clipboard copy/paste (`clipboard`)
-- [x] - Column filtering (`filtering`)
-- [x] - Column header grouping (`grouping-columns`)
-- [x] - Column pinning (`pinned-columns`)
-- [x] - Column reordering (`reorder`)
-- [x] - Column virtualization (`column-virtualization`)
-- [x] - Column visibility panel (`visibility`)
-- [x] - Context menus (`context-menu`)
-- [x] - Export - CSV, Excel, JSON (`export`)
-- [x] - Footer aggregations / Pinned rows (`pinned-rows`)
-- [x] - Master/Detail rows (`master-detail`)
-- [x] - Pivot tables (`pivot`)
-- [x] - Row grouping with aggregations (`grouping-rows`)
-- [x] - Server-side data source (`server-side`)
-- [x] - Single & multi-column sorting (`multi-sort`)
-- [x] - Row pinning (`pinned-rows`)
-- [x] - Tree data support (`tree`)
-- [x] - Undo/Redo (`undo-redo`)
-- [ ] - Cell Flashing - 🟢 P3
-- [ ] - Column Menu - 🟡 P2
-- [ ] - Conditional Formatting - 🟡 P2
-- [ ] - CSV/Excel Import - 🟢 P3
-- [ ] - Fill Handle (Excel-style) - 🟠 P1
-- [ ] - Quick Filter / Global Search - 🟠 P1
-- [ ] - Row Drag & Drop - 🟡 P2
+| Feature                   | Priority | Effort | Issue                                                       |
+| ------------------------- | -------- | ------ | ----------------------------------------------------------- |
+| Print Layout Mode         | 🟡 P2    | Medium | [#70](https://github.com/OysteinAmundsen/toolbox/issues/70) |
+| RTL Support               | 🟡 P2    | Medium | [#71](https://github.com/OysteinAmundsen/toolbox/issues/71) |
+| Row Animation             | 🟢 P3    | Low    | -                                                           |
+| Column Spanning (colSpan) | ⚪ P4    | High   | -                                                           |
+| Row Spanning (rowSpan)    | ⚪ P4    | High   | -                                                           |
+
+**Plugins (Completed):**
+
+- [x] Cell/Row/Range selection (`selection`)
+- [x] Clipboard copy/paste (`clipboard`)
+- [x] Column filtering (`filtering`)
+- [x] Column header grouping (`grouping-columns`)
+- [x] Column pinning (`pinned-columns`)
+- [x] Column reordering (`reorder`)
+- [x] Column virtualization (`column-virtualization`)
+- [x] Column visibility panel (`visibility`)
+- [x] Context menus (`context-menu`)
+- [x] Export - CSV, Excel, JSON (`export`)
+- [x] Footer aggregations / Pinned rows (`pinned-rows`)
+- [x] Master/Detail rows (`master-detail`)
+- [x] Pivot tables (`pivot`)
+- [x] Row grouping with aggregations (`grouping-rows`)
+- [x] Server-side data source (`server-side`)
+- [x] Single & multi-column sorting (`multi-sort`)
+- [x] Row pinning (`pinned-rows`)
+- [x] Tree data support (`tree`)
+- [x] Undo/Redo (`undo-redo`)
+
+**Plugins (Planned - sorted by priority):**
+
+| Plugin                       | Priority | Effort | Value  | Issue                                                       |
+| ---------------------------- | -------- | ------ | ------ | ----------------------------------------------------------- |
+| Quick Filter / Global Search | 🟠 P1    | Low    | High   | [#66](https://github.com/OysteinAmundsen/toolbox/issues/66) |
+| Column Menu                  | 🟠 P1    | Low    | High   | [#68](https://github.com/OysteinAmundsen/toolbox/issues/68) |
+| Row Drag & Drop              | 🟠 P1    | Medium | High   | [#52](https://github.com/OysteinAmundsen/toolbox/issues/52) |
+| Fill Handle (Excel-style)    | 🟡 P2    | Medium | High   | [#67](https://github.com/OysteinAmundsen/toolbox/issues/67) |
+| Conditional Formatting       | 🟡 P2    | Medium | Medium | [#69](https://github.com/OysteinAmundsen/toolbox/issues/69) |
+| Cell Flashing                | 🟢 P3    | Low    | Niche  | [#73](https://github.com/OysteinAmundsen/toolbox/issues/73) |
+| CSV/Excel Import             | 🟢 P3    | Medium | Niche  | [#74](https://github.com/OysteinAmundsen/toolbox/issues/74) |
 
 **Framework Adapters:**
 
 Framework adapters enable idiomatic integration with popular JavaScript frameworks, allowing framework components as cell renderers/editors, proper lifecycle management, and type-safe APIs.
 
-| Package                     | Framework   | Priority | Status      |
-| --------------------------- | ----------- | -------- | ----------- |
-| `@toolbox-web/grid-angular` | Angular 17+ | 🔴 P0    | ✅ Complete |
-| `@toolbox-web/grid-react`   | React 18+   | 🔴 P0    | ✅ Complete |
-| `@toolbox-web/grid-vue`     | Vue 3       | 🟠 P1    | Not started |
-| `@toolbox-web/grid-svelte`  | Svelte 4/5  | 🟡 P2    | Not started |
-| `@toolbox-web/grid-solid`   | Solid       | 🟢 P3    | Not started |
+| Package                     | Framework   | Priority | Effort | Status      | Issue                                                       |
+| --------------------------- | ----------- | -------- | ------ | ----------- | ----------------------------------------------------------- |
+| `@toolbox-web/grid-angular` | Angular 17+ | ✅       | -      | Complete    | -                                                           |
+| `@toolbox-web/grid-react`   | React 18+   | ✅       | -      | Complete    | -                                                           |
+| `@toolbox-web/grid-vue`     | Vue 3       | 🟡 P2    | Medium | Not started | [#72](https://github.com/OysteinAmundsen/toolbox/issues/72) |
+| `@toolbox-web/grid-svelte`  | Svelte 4/5  | 🟢 P3    | Medium | Not started | -                                                           |
+| `@toolbox-web/grid-solid`   | Solid       | 🟢 P3    | Medium | Not started | -                                                           |
 
 > [!NOTE]
 > The core grid works in all frameworks without adapters for basic usage. Adapters become valuable when you need:

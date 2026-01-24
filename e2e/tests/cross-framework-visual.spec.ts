@@ -446,7 +446,7 @@ test.describe('Cross-Framework Data Consistency', () => {
       await page.waitForTimeout(1000);
 
       // Try to get column headers - fallback to text extraction from header area
-      let headerTexts: string[] = [];
+      const headerTexts: string[] = [];
 
       // First try ARIA role
       const ariaHeaders = page.locator(`${SELECTORS.grid} [role="columnheader"]`);

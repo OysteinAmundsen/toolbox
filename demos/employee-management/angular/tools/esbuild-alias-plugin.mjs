@@ -6,16 +6,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Custom esbuild plugin to resolve @toolbox-web packages to the dist folder.
- * This mimics what would happen when a user installs the packages from npm.
+ * Custom esbuild plugin to resolve @toolbox-web packages to source files.
+ * This enables HMR and avoids needing to build the grid library first.
  *
  * Also handles ?inline CSS imports (Vite syntax) for esbuild compatibility.
  */
 const toolboxAliasPlugin = {
   name: 'toolbox-alias',
   setup(build) {
-    // Resolve from tools folder (demos/employee-management/angular/tools -> workspace root is ../../../../)
-    const distRoot = path.resolve(__dirname, '../../../../dist/libs');
+    // Resolve from tools folder (demos/employee-management/angular/tools -> libs is ../../../../libs)
+    const libsRoot = path.resolve(__dirname, '../../../../libs');
 
     // Handle ?inline CSS imports (Vite syntax) - load as text string
     build.onResolve({ filter: /\.css\?inline$/ }, (args) => {
@@ -39,19 +39,19 @@ const toolboxAliasPlugin = {
 
     // Resolve @toolbox-web/grid
     build.onResolve({ filter: /^@toolbox-web\/grid$/ }, () => ({
-      path: path.join(distRoot, 'grid', 'index.js'),
+      path: path.join(libsRoot, 'grid', 'src', 'index.ts'),
     }));
 
     // Resolve @toolbox-web/grid/all
     build.onResolve({ filter: /^@toolbox-web\/grid\/all$/ }, () => ({
-      path: path.join(distRoot, 'grid', 'all.js'),
+      path: path.join(libsRoot, 'grid', 'src', 'all.ts'),
     }));
 
     // Resolve @toolbox-web/grid/* (plugins, etc.)
     build.onResolve({ filter: /^@toolbox-web\/grid\/(.+)$/ }, (args) => {
       const subpath = args.path.replace('@toolbox-web/grid/', '');
       return {
-        path: path.join(distRoot, 'grid', subpath, 'index.js'),
+        path: path.join(libsRoot, 'grid', 'src', subpath, 'index.ts'),
       };
     });
 

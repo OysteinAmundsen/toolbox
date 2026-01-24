@@ -172,16 +172,13 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
-      - name: Build grid library (required for demos)
-        run: bun nx build grid --skip-nx-cache
-
       - name: Start demo servers
         run: |
           bun nx run demo-vanilla:serve &
           bun nx run demo-react:serve &
           bun nx run demo-angular:serve &
-          # Wait for servers to be ready (ports from project.json configs)
-          npx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 --timeout 120000
+          # Wait for all demo servers to be ready
+          bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 --timeout 120000
 
       - name: Run E2E tests
         run: bun nx run e2e:e2e --skip-nx-cache

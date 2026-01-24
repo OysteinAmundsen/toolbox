@@ -7,12 +7,6 @@
   "targets": {
     "build": {
       "executor": "@nx/angular:application",
-      "dependsOn": [
-        {
-          "projects": ["grid"],
-          "target": "build"
-        }
-      ],
       "options": {
         "outputPath": "dist/demos/demo-angular",
         "browser": "demos/employee-management/angular/src/main.ts",
@@ -52,12 +46,6 @@
     },
     "serve": {
       "executor": "@nx/angular:dev-server",
-      "dependsOn": [
-        {
-          "projects": ["grid"],
-          "target": "build"
-        }
-      ],
       "options": {
         "buildTarget": "demo-angular:build"
       },

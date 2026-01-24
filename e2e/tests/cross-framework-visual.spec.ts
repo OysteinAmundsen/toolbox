@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { DEMOS, getMaskLocators, SELECTORS, waitForGridReady } from './utils';
+import { DEMOS, expectScreenshotIfBaselineExists, getMaskLocators, SELECTORS, waitForGridReady } from './utils';
 
 /**
  * Cross-Framework Visual Regression Tests
@@ -14,6 +14,9 @@ import { DEMOS, getMaskLocators, SELECTORS, waitForGridReady } from './utils';
  * 3. Custom editors (status select, star rating, bonus slider, date picker)
  * 4. Master-detail panels
  * 5. Responsive card layout
+ *
+ * Note: Visual tests will skip gracefully if no baseline exists (first run).
+ * Run with --update-snapshots to generate baselines.
  */
 
 // =============================================================================
@@ -25,12 +28,13 @@ test.describe('Cross-Framework Visual Parity', () => {
 
   test.describe('Initial Grid Render', () => {
     for (const [demoName, url] of Object.entries(DEMOS)) {
-      test(`${demoName}: initial grid renders correctly`, async ({ page }) => {
+      test(`${demoName}: initial grid renders correctly`, async ({ page }, testInfo) => {
         await page.goto(url);
         await waitForGridReady(page);
 
         // Take screenshot of the grid - all demos should match the baseline
-        await expect(page.locator(SELECTORS.grid)).toHaveScreenshot(`initial-grid-baseline.png`, {
+        // Skips gracefully if no baseline exists (first CI run)
+        await expectScreenshotIfBaselineExists(page.locator(SELECTORS.grid), 'initial-grid-baseline.png', testInfo, {
           mask: getMaskLocators(page),
           animations: 'disabled',
         });

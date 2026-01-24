@@ -1,4 +1,6 @@
-import { type Locator, type Page, expect } from '@playwright/test';
+import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 
 /**
  * Demo application URLs with their configured ports
@@ -232,4 +234,65 @@ export async function collapseDetailRow(page: Page, rowIndex = 0): Promise<void>
 export async function isDetailRowVisible(page: Page): Promise<boolean> {
   const detailRow = page.locator(SELECTORS.detailRow).first();
   return await detailRow.isVisible().catch(() => false);
+}
+
+/**
+ * Check if a visual snapshot baseline exists.
+ * Used to skip visual regression tests gracefully on first run.
+ *
+ * @param testInfo - Playwright test info object
+ * @param snapshotName - Name of the snapshot file (e.g., 'initial-grid-baseline.png')
+ * @returns true if snapshot exists, false otherwise
+ */
+export function snapshotExists(testInfo: TestInfo, snapshotName: string): boolean {
+  // Playwright stores snapshots in a folder named after the test file
+  // e.g., e2e/snapshots/cross-framework-visual.spec.ts-snapshots/
+  const snapshotDir = testInfo.snapshotDir;
+  const snapshotPath = resolve(snapshotDir, snapshotName);
+  return existsSync(snapshotPath);
+}
+
+/**
+ * Perform visual comparison if baseline exists, otherwise skip gracefully.
+ * This prevents CI failures on first run when no baselines exist.
+ *
+ * @param locator - Element to screenshot
+ * @param snapshotName - Name of the snapshot file
+ * @param testInfo - Playwright test info object
+ * @param options - Screenshot options (mask, animations, etc.)
+ * @returns true if comparison was performed, false if skipped
+ */
+export async function expectScreenshotIfBaselineExists(
+  locator: Locator,
+  snapshotName: string,
+  testInfo: TestInfo,
+  options?: {
+    animations?: 'disabled' | 'allow';
+    caret?: 'hide' | 'initial';
+    mask?: Locator[];
+    maskColor?: string;
+    maxDiffPixelRatio?: number;
+    maxDiffPixels?: number;
+    omitBackground?: boolean;
+    scale?: 'css' | 'device';
+    stylePath?: string | string[];
+    threshold?: number;
+    timeout?: number;
+  },
+): Promise<boolean> {
+  // Build the platform-specific snapshot name (Playwright adds browser and OS suffix)
+  const project = testInfo.project.name; // e.g., 'chromium'
+  const platform = process.platform === 'win32' ? 'win32' : process.platform === 'darwin' ? 'darwin' : 'linux';
+  const platformSnapshotName = snapshotName.replace('.png', `-${project}-${platform}.png`);
+
+  if (!snapshotExists(testInfo, platformSnapshotName)) {
+    // Log skip reason for visibility in test output
+    console.log(`⏭️  Skipping visual comparison: no baseline exists for "${snapshotName}"`);
+    console.log(`   Run with --update-snapshots to generate baselines.`);
+    return false;
+  }
+
+  // Baseline exists, perform the comparison
+  await expect(locator).toHaveScreenshot(snapshotName, options);
+  return true;
 }

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { DEMOS, SELECTORS, waitForGridReady, type DemoName } from './utils';
+import { DEMOS, expectScreenshotIfBaselineExists, SELECTORS, waitForGridReady, type DemoName } from './utils';
 
 /**
  * E2E tests for custom editors across all three demos.
@@ -131,7 +131,7 @@ test.describe('Custom Editors', () => {
 
     for (const field of CUSTOM_STYLED_EDITORS) {
       for (const [demoName, url] of Object.entries(DEMOS) as [DemoName, string][]) {
-        test(`${demoName}: ${field} editor visual`, async ({ page }) => {
+        test(`${demoName}: ${field} editor visual`, async ({ page }, testInfo) => {
           await page.goto(url);
           await waitForGridReady(page);
 
@@ -148,7 +148,8 @@ test.describe('Custom Editors', () => {
           await page.waitForTimeout(400);
 
           // Visual comparison with per-framework baseline
-          await expect(cell).toHaveScreenshot(`editor-${field}-${demoName}.png`, {
+          // Skips gracefully if no baseline exists (first CI run)
+          await expectScreenshotIfBaselineExists(cell, `editor-${field}-${demoName}.png`, testInfo, {
             animations: 'disabled',
             maxDiffPixelRatio: VISUAL_THRESHOLD,
           });

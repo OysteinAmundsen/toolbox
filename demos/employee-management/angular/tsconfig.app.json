@@ -9,9 +9,9 @@
     "paths": {
       "@demo/shared": ["../shared/index.ts"],
       "@demo/shared/styles": ["../shared/styles.ts"],
-      "@toolbox-web/grid": ["../../../dist/libs/grid"],
-      "@toolbox-web/grid/all": ["../../../dist/libs/grid/all"],
-      "@toolbox-web/grid/*": ["../../../dist/libs/grid/*"],
+      "@toolbox-web/grid": ["../../../libs/grid/src/index.ts"],
+      "@toolbox-web/grid/all": ["../../../libs/grid/src/all.ts"],
+      "@toolbox-web/grid/*": ["../../../libs/grid/src/*"],
       "@toolbox-web/grid-angular": ["../../../libs/grid-angular/src/index.ts"]
     }
   },

@@ -7,6 +7,7 @@
 export { SelectionPlugin } from './SelectionPlugin';
 export type {
   CellRange,
+  SelectableCallback,
   SelectionChangeDetail,
   SelectionConfig,
   SelectionMode,

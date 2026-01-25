@@ -852,4 +852,224 @@ describe('SelectionPlugin', () => {
       plugin.onScrollRender();
     });
   });
+
+  describe('isSelectable callback', () => {
+    describe('row mode', () => {
+      it('should not select non-selectable rows on click', () => {
+        const rows = [
+          { id: 1, status: 'active' },
+          { id: 2, status: 'locked' },
+          { id: 3, status: 'active' },
+        ];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({
+          mode: 'row',
+          isSelectable: (row: { status: string }) => row.status !== 'locked',
+        });
+        plugin.attach(mockGrid);
+
+        // Try to click on locked row
+        plugin.onCellClick({
+          rowIndex: 1,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[1],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        // Should not be selected
+        expect(plugin.getSelection().ranges).toEqual([]);
+        expect(mockGrid.dispatchEvent).not.toHaveBeenCalled();
+      });
+
+      it('should select selectable rows on click', () => {
+        const rows = [
+          { id: 1, status: 'active' },
+          { id: 2, status: 'locked' },
+          { id: 3, status: 'active' },
+        ];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({
+          mode: 'row',
+          isSelectable: (row: { status: string }) => row.status !== 'locked',
+        });
+        plugin.attach(mockGrid);
+
+        // Click on active row
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelection().ranges[0]?.from.row).toBe(0);
+      });
+
+      it('should clear selection when navigating to non-selectable row via keyboard', () => {
+        const rows = [
+          { id: 1, status: 'active' },
+          { id: 2, status: 'locked' },
+        ];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        Object.assign(mockGrid, { _focusRow: 1, _focusCol: 0 });
+
+        const plugin = new SelectionPlugin({
+          mode: 'row',
+          isSelectable: (row: { status: string }) => row.status !== 'locked',
+        });
+        plugin.attach(mockGrid);
+
+        // First select row 0
+        plugin['selected'].add(0);
+
+        // Simulate keyboard navigation to locked row 1
+        plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+
+        // Wait for microtask
+        return new Promise<void>((resolve) => {
+          queueMicrotask(() => {
+            expect(plugin.getSelection().ranges).toEqual([]);
+            resolve();
+          });
+        });
+      });
+    });
+
+    describe('cell mode', () => {
+      it('should not select non-selectable cells on click', () => {
+        const rows = [{ id: 1 }];
+        const columns = [{ field: 'id' }, { field: 'name' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({
+          mode: 'cell',
+          isSelectable: (_row, _rowIndex, col) => col?.field !== 'id',
+        });
+        plugin.attach(mockGrid);
+
+        // Try to click on id column (non-selectable)
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: 'id',
+          value: 1,
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelection().ranges).toEqual([]);
+      });
+
+      it('should select selectable cells on click', () => {
+        const rows = [{ id: 1 }];
+        const columns = [{ field: 'id' }, { field: 'name' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({
+          mode: 'cell',
+          isSelectable: (_row, _rowIndex, col) => col?.field !== 'id',
+        });
+        plugin.attach(mockGrid);
+
+        // Click on name column (selectable)
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 1,
+          field: 'name',
+          value: 'Test',
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelection().ranges[0]).toEqual({
+          from: { row: 0, col: 1 },
+          to: { row: 0, col: 1 },
+        });
+      });
+    });
+
+    describe('range mode', () => {
+      it('should not start drag from non-selectable cell', () => {
+        const rows = [{ id: 1 }];
+        const columns = [{ field: 'id' }, { field: 'name' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({
+          mode: 'range',
+          isSelectable: (_row, _rowIndex, col) => col?.field !== 'id',
+        });
+        plugin.attach(mockGrid);
+
+        // Try to start drag on id column (non-selectable)
+        plugin.onCellMouseDown({
+          rowIndex: 0,
+          colIndex: 0,
+          originalEvent: new MouseEvent('mousedown'),
+          cellEl: document.createElement('div'),
+          row: rows[0],
+          field: 'id',
+          value: 1,
+        });
+
+        expect(plugin['isDragging']).toBe(false);
+        expect(plugin['cellAnchor']).toBeNull();
+      });
+
+      it('should not select non-selectable cell on click in range mode', () => {
+        const rows = [{ id: 1 }];
+        const columns = [{ field: 'id' }, { field: 'name' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({
+          mode: 'range',
+          isSelectable: (_row, _rowIndex, col) => col?.field !== 'id',
+        });
+        plugin.attach(mockGrid);
+
+        // Click on non-selectable cell
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: 'id',
+          value: 1,
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelection().ranges).toEqual([]);
+      });
+    });
+
+    describe('checkSelectable internals', () => {
+      it('should return true when no isSelectable callback is provided', () => {
+        const rows = [{ id: 1 }];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'row' });
+        plugin.attach(mockGrid);
+
+        expect(plugin['checkSelectable'](0)).toBe(true);
+      });
+
+      it('should pass column and colIndex in cell/range modes', () => {
+        const rows = [{ id: 1 }];
+        const columns = [{ field: 'id' }, { field: 'name' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const selectableSpy = vi.fn().mockReturnValue(true);
+        const plugin = new SelectionPlugin({
+          mode: 'cell',
+          isSelectable: selectableSpy,
+        });
+        plugin.attach(mockGrid);
+
+        plugin['isCellSelectable'](0, 1);
+
+        expect(selectableSpy).toHaveBeenCalledWith(rows[0], 0, columns[1], 1);
+      });
+    });
+  });
 });

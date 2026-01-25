@@ -4,6 +4,8 @@
  * Type definitions for the selection feature.
  */
 
+import type { ColumnConfig } from '../../core/types';
+
 /**
  * Selection mode for the grid.
  *
@@ -50,8 +52,37 @@ export type SelectionMode = 'cell' | 'row' | 'range';
  */
 export type SelectionTrigger = 'click' | 'dblclick';
 
+/**
+ * Callback that determines whether a specific row or cell can be selected.
+ *
+ * Return `true` if the row/cell should be selectable, `false` otherwise.
+ *
+ * @param row - The row data object
+ * @param rowIndex - The row index in the grid
+ * @param column - The column config (provided in cell/range modes, undefined in row mode)
+ * @param colIndex - The column index (provided in cell/range modes, undefined in row mode)
+ *
+ * @example
+ * ```ts
+ * // Prevent selection of locked rows
+ * isSelectable: (row) => row.status !== 'locked'
+ *
+ * // Prevent selection of specific columns
+ * isSelectable: (row, rowIndex, col) => col?.field !== 'id'
+ *
+ * // Permission-based selection
+ * isSelectable: (row) => userPermissions.canSelect(row)
+ * ```
+ */
+export type SelectableCallback<T = unknown> = (
+  row: T,
+  rowIndex: number,
+  column?: ColumnConfig,
+  colIndex?: number,
+) => boolean;
+
 /** Configuration options for the selection plugin */
-export interface SelectionConfig {
+export interface SelectionConfig<T = unknown> {
   /** Selection mode (default: 'cell') */
   mode: SelectionMode;
 
@@ -65,6 +96,32 @@ export interface SelectionConfig {
    * selection which is unaffected by this option.
    */
   triggerOn?: SelectionTrigger;
+
+  /**
+   * Callback that determines whether a specific row or cell can be selected.
+   *
+   * Non-selectable rows/cells:
+   * - Don't respond to click/keyboard selection
+   * - Are excluded from "select all" operations
+   * - Have visual indicator (muted styling via `[data-selectable="false"]`)
+   * - Remain focusable for navigation
+   *
+   * @example
+   * ```ts
+   * // Prevent selection of locked rows
+   * new SelectionPlugin({
+   *   mode: 'row',
+   *   isSelectable: (row) => row.status !== 'locked',
+   * })
+   *
+   * // Prevent selection of specific columns (cell/range mode)
+   * new SelectionPlugin({
+   *   mode: 'cell',
+   *   isSelectable: (row, rowIndex, col) => col?.field !== 'id',
+   * })
+   * ```
+   */
+  isSelectable?: SelectableCallback<T>;
 }
 
 /** Internal state managed by the selection plugin */

@@ -38,6 +38,28 @@
       }
     }
 
+    /* Non-selectable row styling (row mode) */
+    .data-grid-row[data-selectable='false'] {
+      cursor: not-allowed;
+      opacity: 0.6;
+
+      /* Muted selection indicator */
+      &.row-focus {
+        background-color: var(--tbw-color-row-alt);
+      }
+    }
+
+    /* Non-selectable cell styling (cell/range mode) */
+    .data-grid-row > .cell[data-selectable='false'] {
+      cursor: not-allowed;
+      opacity: 0.6;
+
+      /* Prevent selection highlight on non-selectable cells */
+      &.selected {
+        background-color: var(--tbw-color-warning-bg, rgba(255, 243, 205, 0.5));
+      }
+    }
+
     /* Selection summary in header */
     .tbw-selection-summary {
       font-size: var(--tbw-font-size-sm, 0.8125rem);

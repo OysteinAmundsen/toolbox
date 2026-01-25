@@ -257,3 +257,98 @@ grid.rows = [...];
     return grid;
   },
 };
+
+// Sample data with status for conditional selection demo
+const statusData = [
+  { id: 1, name: 'Alice', department: 'Engineering', status: 'active' },
+  { id: 2, name: 'Bob', department: 'Marketing', status: 'locked' },
+  { id: 3, name: 'Carol', department: 'Engineering', status: 'active' },
+  { id: 4, name: 'Dan', department: 'Sales', status: 'locked' },
+  { id: 5, name: 'Eve', department: 'Marketing', status: 'active' },
+  { id: 6, name: 'Frank', department: 'Engineering', status: 'active' },
+  { id: 7, name: 'Grace', department: 'Sales', status: 'locked' },
+  { id: 8, name: 'Henry', department: 'HR', status: 'active' },
+];
+
+/**
+ * Conditional selection using `isSelectable` callback.
+ *
+ * This example demonstrates how to prevent selection of specific rows based on
+ * their data. Rows with `status: 'locked'` cannot be selected and are visually
+ * dimmed with a `not-allowed` cursor.
+ *
+ * **Key features:**
+ * - Locked rows show muted styling via `[data-selectable="false"]` attribute
+ * - Click events are ignored on non-selectable rows
+ * - Keyboard navigation skips selection for non-selectable rows
+ * - Focus remains navigable (you can still arrow through locked rows)
+ */
+export const ConditionalSelection: Story = {
+  args: { mode: 'row' },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 350px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'status', header: 'Status' },
+  ],
+  plugins: [
+    new SelectionPlugin({
+      mode: 'row',
+      // Prevent selection of locked rows
+      isSelectable: (row) => row.status !== 'locked',
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice', department: 'Engineering', status: 'active' },
+  { id: 2, name: 'Bob', department: 'Marketing', status: 'locked' },
+  { id: 3, name: 'Carol', department: 'Engineering', status: 'active' },
+  // ...
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+    grid.style.display = 'block';
+
+    const statusColumns = [
+      { field: 'id', header: 'ID', type: 'number' as const },
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+      { field: 'status', header: 'Status' },
+    ];
+
+    grid.gridConfig = {
+      columns: statusColumns,
+      plugins: [
+        new SelectionPlugin({
+          mode: 'row',
+          isSelectable: (row: { status: string }) => row.status !== 'locked',
+        }),
+      ],
+    };
+    grid.rows = statusData;
+
+    return grid;
+  },
+};

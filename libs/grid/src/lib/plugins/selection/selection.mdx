@@ -165,6 +165,7 @@ Click and drag or Shift+Click to select rectangular ranges. Ideal for data expor
 | ------ | ---------------------------- | -------- | ----------------------- |
 | `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
 | `triggerOn` | `'click' \| 'dblclick'` | `'click'` | Selection trigger type |
+| `isSelectable` | `(row, rowIndex, column?, colIndex?) => boolean` | `undefined` | Callback to conditionally disable selection |
 
 ### Double-Click Selection Trigger
 
@@ -183,6 +184,49 @@ new SelectionPlugin({
 |-------------|--------------|--------------|
 | `'click'` (default) | Selects cell/row | No additional action |
 | `'dblclick'` | Focuses only | Selects cell/row |
+
+### Conditional Selection
+
+Use the `isSelectable` callback to prevent selection of specific rows or cells based on their data. This is useful for:
+
+- Locked/read-only records that shouldn't be selected
+- Permission-based selection restrictions
+- Excluding specific columns from selection (cell/range modes)
+
+<Canvas of={SelectionStories.ConditionalSelection} withToolbar />
+
+```ts
+new SelectionPlugin({
+  mode: 'row',
+  // Prevent selection of locked rows
+  isSelectable: (row) => row.status !== 'locked',
+})
+```
+
+**Behavior of non-selectable rows/cells:**
+
+| Aspect | Behavior |
+|--------|----------|
+| Click | Ignored (no selection change) |
+| Keyboard | Skipped when navigating with Shift+Arrow |
+| Select All (Ctrl+A) | Excluded from selection |
+| Visual | Muted styling via `[data-selectable="false"]` attribute |
+| Focus | Still navigable (arrow keys can move through them) |
+
+**Mode-specific parameters:**
+
+| Mode | Parameters Provided |
+|------|---------------------|
+| `row` | `row`, `rowIndex` |
+| `cell` / `range` | `row`, `rowIndex`, `column`, `colIndex` |
+
+```ts
+// Cell mode: prevent selection of the ID column
+new SelectionPlugin({
+  mode: 'cell',
+  isSelectable: (row, rowIndex, column) => column?.field !== 'id',
+})
+```
 
 ## Keyboard Shortcuts
 

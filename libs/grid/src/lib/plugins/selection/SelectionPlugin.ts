@@ -23,6 +23,7 @@ import styles from './selection.css?inline';
 import type {
   CellRange,
   InternalCellRange,
+  SelectableCallback,
   SelectionChangeDetail,
   SelectionConfig,
   SelectionMode,
@@ -199,6 +200,39 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   // #endregion
 
+  // #region Private Helpers - Selectability
+
+  /**
+   * Check if a row/cell is selectable.
+   * Returns true if selectable, false if not.
+   */
+  private checkSelectable(rowIndex: number, colIndex?: number): boolean {
+    const { isSelectable } = this.config;
+    if (!isSelectable) return true; // No callback = all selectable
+
+    const row = this.rows[rowIndex];
+    if (!row) return false;
+
+    const column = colIndex !== undefined ? this.columns[colIndex] : undefined;
+    return isSelectable(row, rowIndex, column, colIndex);
+  }
+
+  /**
+   * Check if an entire row is selectable (for row mode).
+   */
+  private isRowSelectable(rowIndex: number): boolean {
+    return this.checkSelectable(rowIndex);
+  }
+
+  /**
+   * Check if a cell is selectable (for cell/range modes).
+   */
+  private isCellSelectable(rowIndex: number, colIndex: number): boolean {
+    return this.checkSelectable(rowIndex, colIndex);
+  }
+
+  // #endregion
+
   // #region Lifecycle
 
   /** @internal */
@@ -231,10 +265,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const column = this.columns[colIndex];
     const isUtility = column && isUtilityColumn(column);
 
-    // CELL MODE: Single cell selection - skip utility columns
+    // CELL MODE: Single cell selection - skip utility columns and non-selectable cells
     if (mode === 'cell') {
       if (isUtility) {
         return false; // Allow event to propagate, but don't select utility cells
+      }
+      if (!this.isCellSelectable(rowIndex, colIndex)) {
+        return false; // Cell is not selectable
       }
       this.selectedCell = { row: rowIndex, col: colIndex };
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
@@ -244,6 +281,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     // ROW MODE: Select entire row - utility column clicks still select the row
     if (mode === 'row') {
+      if (!this.isRowSelectable(rowIndex)) {
+        return false; // Row is not selectable
+      }
       this.selected.clear();
       this.selected.add(rowIndex);
       this.lastSelected = rowIndex;
@@ -257,6 +297,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (mode === 'range') {
       // Skip utility columns in range mode - don't start selection from them
       if (isUtility) {
+        return false;
+      }
+
+      // Skip non-selectable cells in range mode
+      if (!this.isCellSelectable(rowIndex, colIndex)) {
         return false;
       }
 
@@ -331,24 +376,39 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return true;
     }
 
-    // CELL MODE: Selection follows focus
+    // CELL MODE: Selection follows focus (but respects selectability)
     if (mode === 'cell' && isNavKey) {
       // Use queueMicrotask so grid's handler runs first and updates focusRow/focusCol
       queueMicrotask(() => {
-        this.selectedCell = { row: this.grid._focusRow, col: this.grid._focusCol };
+        const focusRow = this.grid._focusRow;
+        const focusCol = this.grid._focusCol;
+        // Only select if the cell is selectable
+        if (this.isCellSelectable(focusRow, focusCol)) {
+          this.selectedCell = { row: focusRow, col: focusCol };
+        } else {
+          // Clear selection when navigating to non-selectable cell
+          this.selectedCell = null;
+        }
         this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
         this.requestAfterRender();
       });
       return false; // Let grid handle navigation
     }
 
-    // ROW MODE: Only Up/Down arrows move row selection
+    // ROW MODE: Only Up/Down arrows move row selection (but respects selectability)
     if (mode === 'row' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       // Let grid move focus first, then sync row selection
       queueMicrotask(() => {
-        this.selected.clear();
-        this.selected.add(this.grid._focusRow);
-        this.lastSelected = this.grid._focusRow;
+        const focusRow = this.grid._focusRow;
+        // Only select if the row is selectable
+        if (this.isRowSelectable(focusRow)) {
+          this.selected.clear();
+          this.selected.add(focusRow);
+          this.lastSelected = focusRow;
+        } else {
+          // Clear selection when navigating to non-selectable row
+          this.selected.clear();
+        }
         this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
         this.requestAfterRender();
       });
@@ -411,6 +471,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const column = this.columns[event.colIndex];
     if (column && isUtilityColumn(column)) {
       return; // Don't start selection on utility columns
+    }
+
+    // Skip non-selectable cells - don't start drag from them
+    if (!this.isCellSelectable(event.rowIndex, event.colIndex)) {
+      return;
     }
 
     // Let onCellClick handle shift+click for range extension
@@ -493,16 +558,25 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (!gridEl) return;
 
     const { mode } = this.config;
+    const hasSelectableCallback = !!this.config.isSelectable;
 
     // Clear all selection classes first
     const allCells = gridEl.querySelectorAll('.cell');
     allCells.forEach((cell) => {
       cell.classList.remove('selected', 'top', 'bottom', 'first', 'last');
+      // Clear selectable attribute - will be re-applied below
+      if (hasSelectableCallback) {
+        cell.removeAttribute('data-selectable');
+      }
     });
 
     const allRows = gridEl.querySelectorAll('.data-grid-row');
     allRows.forEach((row) => {
       row.classList.remove('selected', 'row-focus');
+      // Clear selectable attribute - will be re-applied below
+      if (hasSelectableCallback) {
+        row.removeAttribute('data-selectable');
+      }
     });
 
     // ROW MODE: Add row-focus class to selected rows, disable cell-focus
@@ -513,8 +587,28 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       allRows.forEach((row) => {
         const firstCell = row.querySelector('.cell[data-row]');
         const rowIndex = getRowIndexFromCell(firstCell);
-        if (rowIndex >= 0 && this.selected.has(rowIndex)) {
-          row.classList.add('selected', 'row-focus');
+        if (rowIndex >= 0) {
+          // Mark non-selectable rows
+          if (hasSelectableCallback && !this.isRowSelectable(rowIndex)) {
+            row.setAttribute('data-selectable', 'false');
+          }
+          if (this.selected.has(rowIndex)) {
+            row.classList.add('selected', 'row-focus');
+          }
+        }
+      });
+    }
+
+    // CELL/RANGE MODE: Mark non-selectable cells
+    if ((mode === 'cell' || mode === 'range') && hasSelectableCallback) {
+      const cells = gridEl.querySelectorAll('.cell[data-row][data-col]');
+      cells.forEach((cell) => {
+        const rowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
+        const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
+        if (rowIndex >= 0 && colIndex >= 0) {
+          if (!this.isCellSelectable(rowIndex, colIndex)) {
+            cell.setAttribute('data-selectable', 'false');
+          }
         }
       });
     }

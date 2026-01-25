@@ -175,6 +175,12 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   getRowId?: (row: T) => string;
   /** Update a row by ID. Implemented in grid.ts */
   updateRow?: (id: string, changes: Partial<T>, source?: UpdateSource) => void;
+  /** Animate a single row. Implemented in grid.ts */
+  animateRow?: (rowIndex: number, type: RowAnimationType) => void;
+  /** Animate multiple rows. Implemented in grid.ts */
+  animateRows?: (rowIndices: number[], type: RowAnimationType) => void;
+  /** Animate a row by its ID. Implemented in grid.ts */
+  animateRowById?: (rowId: string, type: RowAnimationType) => boolean;
   /** Begin bulk edit on a row. Injected by EditingPlugin. */
   beginBulkEdit?: (rowIndex: number) => void;
   /** Commit active row edit. Injected by EditingPlugin. */
@@ -980,6 +986,14 @@ export type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
  * - `false`: No animation
  */
 export type ExpandCollapseAnimation = 'slide' | 'fade' | false;
+
+/**
+ * Type of row animation.
+ * - `'change'`: Flash highlight when row data changes (e.g., after cell edit)
+ * - `'insert'`: Slide-in animation for newly added rows
+ * - `'remove'`: Fade-out animation for rows being removed
+ */
+export type RowAnimationType = 'change' | 'insert' | 'remove';
 
 /**
  * Grid-wide animation configuration.

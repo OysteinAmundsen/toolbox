@@ -133,6 +133,12 @@
     --tbw-animation-easing: ease-out;
     --tbw-animation-enabled: 1;
 
+    /* Row animations (change/insert/remove) */
+    --tbw-row-change-duration: 500ms;
+    --tbw-row-insert-duration: 300ms;
+    --tbw-row-remove-duration: 200ms;
+    --tbw-row-change-color: rgba(from var(--tbw-color-accent) r g b / 25%);
+
     /* ========== Sorting Indicators ========== */
     --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
     --tbw-sort-indicator-active-color: var(--tbw-color-accent);
@@ -814,6 +820,11 @@
     &[data-animation-mode='off'] {
       --tbw-animation-enabled: 0;
       --tbw-animation-duration: 0ms;
+
+      /* Disable row animations */
+      .data-grid-row[data-animating] {
+        animation: none;
+      }
     }
   }
 
@@ -858,6 +869,11 @@
     tbw-grid[data-animation-mode='reduced-motion'] {
       --tbw-animation-enabled: 0;
       --tbw-animation-duration: 0ms;
+
+      /* Disable row animations */
+      .data-grid-row[data-animating] {
+        animation: none;
+      }
     }
   }
 
@@ -889,5 +905,63 @@
       max-height: 0;
       transform: translateY(-8px);
     }
+  }
+
+  /* ============================================================================
+   Row Animations (change/insert/remove)
+   Triggered via data-animating attribute on .data-grid-row
+   ============================================================================ */
+
+  @keyframes tbw-row-change {
+    0% {
+      background-color: transparent;
+    }
+    20% {
+      background-color: var(--tbw-row-change-color);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes tbw-row-insert {
+    from {
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+    }
+    to {
+      opacity: 1;
+      max-height: var(--tbw-row-height, 28px);
+      overflow: hidden;
+    }
+  }
+
+  @keyframes tbw-row-remove {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+      max-height: var(--tbw-row-height, 28px);
+    }
+    to {
+      opacity: 0;
+      max-height: 0;
+      transform: translateY(-8px);
+    }
+  }
+
+  tbw-grid .data-grid-row[data-animating='change'] {
+    animation: tbw-row-change var(--tbw-row-change-duration) ease-out;
+  }
+
+  tbw-grid .data-grid-row[data-animating='insert'] {
+    animation: tbw-row-insert var(--tbw-row-insert-duration) ease-out;
+    will-change: max-height, opacity;
+  }
+
+  tbw-grid .data-grid-row[data-animating='remove'] {
+    animation: tbw-row-remove var(--tbw-row-remove-duration) ease-out forwards;
+    will-change: max-height, opacity, transform;
+    pointer-events: none;
   }
 } /* End @layer tbw-base */

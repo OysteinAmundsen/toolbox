@@ -115,6 +115,7 @@ export interface PasteDetail {
  * Behavior:
  * - Single cell selection: paste expands freely, adds new rows if needed
  * - Range/row selection: paste is clipped to fit within selection bounds
+ * - Non-editable columns: values are skipped (column alignment preserved)
  *
  * @param detail - The parsed paste data from clipboard
  * @param grid - The grid element to update
@@ -129,6 +130,12 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   const currentRows = grid.rows as Record<string, unknown>[];
   const columns = grid.effectiveConfig.columns ?? [];
   const allFields = columns.map((col) => col.field);
+
+  // Build a map of field -> editable for quick lookup
+  const editableMap = new Map<string, boolean>();
+  columns.forEach((col) => {
+    editableMap.set(col.field, col.editable === true);
+  });
 
   // Clone data for immutability
   const newRows = [...currentRows];
@@ -160,7 +167,8 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
     rowData.forEach((cellValue, colOffset) => {
       // fields array is already constrained by bounds in ClipboardPlugin
       const field = fields[colOffset];
-      if (field) {
+      if (field && editableMap.get(field)) {
+        // Only paste into editable columns
         newRows[targetRowIndex][field] = cellValue;
       }
     });

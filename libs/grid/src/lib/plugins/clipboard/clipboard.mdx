@@ -185,7 +185,25 @@ For advanced use cases, provide a custom `pasteHandler` to validate, transform, 
 
 ## Paste Behavior
 
-The clipboard plugin respects selection bounds when pasting:
+The clipboard plugin respects both selection bounds and the `editable` column property when pasting:
+
+### Editable Columns
+
+**Paste only works on columns marked `editable: true`.** Non-editable columns are skipped during paste, preserving column alignment:
+
+```ts
+columns: [
+  { field: 'id', header: 'ID' },                    // NOT editable - paste skipped
+  { field: 'name', header: 'Name', editable: true }, // Paste allowed
+  { field: 'email', header: 'Email', editable: true }, // Paste allowed
+]
+```
+
+If you paste `"1\t2\t3"` into this grid, only the `name` and `email` columns receive values (`2` and `3`). The `id` column remains unchanged.
+
+> 💡 **Tip:** This works independently of the EditingPlugin. You can use `editable: true` to control paste behavior even without enabling inline editing.
+
+### Selection Bounds
 
 | Selection Type  | Paste Behavior                                                                 |
 | --------------- | ------------------------------------------------------------------------------ |

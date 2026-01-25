@@ -327,9 +327,9 @@ const grid = document.querySelector('tbw-grid');
 
 grid.gridConfig = {
   columns: [
-    { field: 'col1', header: 'Column 1' },
-    { field: 'col2', header: 'Column 2' },
-    { field: 'col3', header: 'Column 3' },
+    { field: 'col1', header: 'Column 1', editable: true },
+    { field: 'col2', header: 'Column 2', editable: true },
+    { field: 'col3', header: 'Column 3', editable: true },
   ],
   plugins: [
     new SelectionPlugin({ mode: 'range' }),
@@ -345,6 +345,7 @@ grid.rows = [
 
 // That's it! Paste just works. No event handling needed.
 // The plugin automatically updates grid.rows when you paste.
+// Note: Only columns with editable: true accept pasted values.
 `,
         language: 'ts',
       },
@@ -393,9 +394,9 @@ X2\tY2\tZ2`;
 
     grid.gridConfig = {
       columns: [
-        { field: 'col1', header: 'Column 1' },
-        { field: 'col2', header: 'Column 2' },
-        { field: 'col3', header: 'Column 3' },
+        { field: 'col1', header: 'Column 1', editable: true },
+        { field: 'col2', header: 'Column 2', editable: true },
+        { field: 'col3', header: 'Column 3', editable: true },
       ],
       plugins: [
         new SelectionPlugin({ mode: 'range' }),

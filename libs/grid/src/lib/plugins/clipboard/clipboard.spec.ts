@@ -435,9 +435,9 @@ describe('clipboard', () => {
     });
 
     const columns: ColumnConfig[] = [
-      { field: 'col1', header: 'Column 1' },
-      { field: 'col2', header: 'Column 2' },
-      { field: 'col3', header: 'Column 3' },
+      { field: 'col1', header: 'Column 1', editable: true },
+      { field: 'col2', header: 'Column 2', editable: true },
+      { field: 'col3', header: 'Column 3', editable: true },
     ];
 
     it('should apply paste data starting at target cell', () => {
@@ -612,6 +612,59 @@ describe('clipboard', () => {
       // Grid should have new row object
       expect(grid.rows[0]).toEqual({ col1: 'X', col2: 'B1', col3: 'C1' });
       expect(grid.rows[0]).not.toBe(originalRow);
+    });
+
+    it('should skip non-editable columns during paste', () => {
+      // Columns with mixed editable state: col1=editable, col2=NOT editable, col3=editable
+      const mixedColumns: ColumnConfig[] = [
+        { field: 'col1', header: 'Column 1', editable: true },
+        { field: 'col2', header: 'Column 2', editable: false },
+        { field: 'col3', header: 'Column 3', editable: true },
+      ];
+      const rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+      ];
+      const grid = createMockGrid(rows, mixedColumns);
+
+      // Pasting 3 columns of data across all columns
+      const detail: PasteDetail = {
+        rows: [
+          ['X1', 'X2', 'X3'],
+          ['Y1', 'Y2', 'Y3'],
+        ],
+        text: 'X1\tX2\tX3\nY1\tY2\tY3',
+        target: { row: 0, col: 0, field: 'col1', bounds: null },
+        fields: ['col1', 'col2', 'col3'],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      // col2 should remain unchanged (not editable)
+      expect(grid.rows[0]).toEqual({ col1: 'X1', col2: 'B1', col3: 'X3' });
+      expect(grid.rows[1]).toEqual({ col1: 'Y1', col2: 'B2', col3: 'Y3' });
+    });
+
+    it('should skip columns without editable property during paste', () => {
+      // Columns without editable property should default to not editable
+      const noEditableColumns: ColumnConfig[] = [
+        { field: 'col1', header: 'Column 1' },
+        { field: 'col2', header: 'Column 2' },
+      ];
+      const rows = [{ col1: 'A1', col2: 'B1' }];
+      const grid = createMockGrid(rows, noEditableColumns);
+
+      const detail: PasteDetail = {
+        rows: [['X1', 'X2']],
+        text: 'X1\tX2',
+        target: { row: 0, col: 0, field: 'col1', bounds: null },
+        fields: ['col1', 'col2'],
+      };
+
+      defaultPasteHandler(detail, grid as unknown as import('../../../public').GridElement);
+
+      // Neither column should be updated (no editable: true)
+      expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1' });
     });
   });
 });

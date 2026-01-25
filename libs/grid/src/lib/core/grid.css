@@ -820,6 +820,11 @@
     &[data-animation-mode='off'] {
       --tbw-animation-enabled: 0;
       --tbw-animation-duration: 0ms;
+
+      /* Disable row animations */
+      .data-grid-row[data-animating] {
+        animation: none;
+      }
     }
   }
 
@@ -864,6 +869,11 @@
     tbw-grid[data-animation-mode='reduced-motion'] {
       --tbw-animation-enabled: 0;
       --tbw-animation-duration: 0ms;
+
+      /* Disable row animations */
+      .data-grid-row[data-animating] {
+        animation: none;
+      }
     }
   }
 
@@ -940,16 +950,16 @@
     }
   }
 
-  .data-grid-row[data-animating='change'] {
+  tbw-grid .data-grid-row[data-animating='change'] {
     animation: tbw-row-change var(--tbw-row-change-duration) ease-out;
   }
 
-  .data-grid-row[data-animating='insert'] {
+  tbw-grid .data-grid-row[data-animating='insert'] {
     animation: tbw-row-insert var(--tbw-row-insert-duration) ease-out;
     will-change: max-height, opacity;
   }
 
-  .data-grid-row[data-animating='remove'] {
+  tbw-grid .data-grid-row[data-animating='remove'] {
     animation: tbw-row-remove var(--tbw-row-remove-duration) ease-out forwards;
     will-change: max-height, opacity, transform;
     pointer-events: none;

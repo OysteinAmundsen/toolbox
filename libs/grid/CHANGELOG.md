@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.2.0...grid-1.3.0) (2026-01-25)
+
+
+### Features
+
+* **grid:** add isSelectable callback for conditional selection ([#54](https://github.com/OysteinAmundsen/toolbox/issues/54)) ([#77](https://github.com/OysteinAmundsen/toolbox/issues/77)) ([4f5a381](https://github.com/OysteinAmundsen/toolbox/commit/4f5a3816d67b00d2d72ae3e26d2df95c8c50467f))
+* **grid:** add Row Animation API (change/insert/remove) [#73](https://github.com/OysteinAmundsen/toolbox/issues/73) ([#78](https://github.com/OysteinAmundsen/toolbox/issues/78)) ([bda69f6](https://github.com/OysteinAmundsen/toolbox/commit/bda69f611cc0136173691f1bc98856fe983d8f25))
+* **grid:** EditingPlugin uses row animation system for cell commits ([b7b5c97](https://github.com/OysteinAmundsen/toolbox/commit/b7b5c97c3f0e8d35f36806c7a83ec3bd8a2b8631))
+
+
+### Bug Fixes
+
+* **grid:** respect editable property during clipboard paste ([86d96ac](https://github.com/OysteinAmundsen/toolbox/commit/86d96acc9fbc40e39e981cc4a2fc3afb7d41c46c))
+
 ## [1.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.1.2...grid-1.2.0) (2026-01-24)
 
 

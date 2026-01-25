@@ -82,11 +82,8 @@ function generateSitemap(): void {
   const manifest: StoriesManifest = JSON.parse(readFileSync(INDEX_JSON_PATH, 'utf-8'));
   const entries = Object.values(manifest.entries);
 
-  // Start with homepage at highest priority
-  const urls: SitemapUrl[] = [
-    { loc: BASE_URL, priority: 1.0, changefreq: 'daily' },
-    { loc: `${BASE_URL}/`, priority: 1.0, changefreq: 'daily' },
-  ];
+  // Start with homepage at highest priority (no trailing slash to avoid duplicates)
+  const urls: SitemapUrl[] = [{ loc: `${BASE_URL}/`, priority: 1.0, changefreq: 'daily' }];
 
   for (const entry of entries) {
     // Skip entries marked as hidden or internal

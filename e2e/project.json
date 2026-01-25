@@ -8,7 +8,6 @@
     "e2e": {
       "executor": "nx:run-commands",
       "outputs": ["{workspaceRoot}/playwright-report", "{workspaceRoot}/e2e/test-results"],
-      "dependsOn": [{ "projects": ["grid"], "target": "build" }],
       "options": {
         "commands": ["bunx playwright test --config=e2e/playwright.config.ts"],
         "cwd": "{workspaceRoot}"

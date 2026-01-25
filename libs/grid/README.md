@@ -16,14 +16,33 @@ npm install @toolbox-web/grid
 
 ```typescript
 import '@toolbox-web/grid';
+import { createGrid } from '@toolbox-web/grid';
 
-const grid = document.createElement('tbw-grid');
-grid.columns = [
-  { field: 'name', header: 'Name' },
-  { field: 'email', header: 'Email' },
-];
+const grid = createGrid<Employee>({
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ],
+});
 grid.rows = data;
 document.body.appendChild(grid);
+```
+
+### Factory Functions
+
+Use `createGrid<T>()` for typed grid creation (avoids manual casting):
+
+```typescript
+import { createGrid, queryGrid } from '@toolbox-web/grid';
+
+// Create a new typed grid
+const grid = createGrid<Employee>({
+  columns: [{ field: 'name' }],
+  plugins: [new SelectionPlugin()],
+});
+
+// Query an existing grid with proper typing
+const existing = queryGrid<Employee>('#my-grid');
 ```
 
 > [!TIP]
@@ -159,23 +178,26 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 
 ### Methods
 
-| Method                             | Returns               | Description                            |
-| ---------------------------------- | --------------------- | -------------------------------------- |
-| `ready()`                          | `Promise<void>`       | Resolves when fully initialized        |
-| `forceLayout()`                    | `Promise<void>`       | Force re-layout                        |
-| `getConfig()`                      | `Promise<GridConfig>` | Get effective configuration            |
-| `getRowId(row)`                    | `string`              | Get unique identifier for a row        |
-| `getRow(id)`                       | `T \| undefined`      | Get row by its ID                      |
-| `updateRow(id, changes, source?)`  | `void`                | Update a single row by ID              |
-| `updateRows(updates, source?)`     | `void`                | Batch update multiple rows             |
-| `resetChangedRows(silent?)`        | `Promise<void>`       | Clear change tracking                  |
-| `beginBulkEdit(rowIndex)`          | `Promise<void>`       | Start row editing                      |
-| `commitActiveRowEdit()`            | `Promise<void>`       | Commit current edit                    |
-| `setColumnVisible(field, visible)` | `boolean`             | Set column visibility                  |
-| `setColumnOrder(order)`            | `void`                | Reorder columns by field array         |
-| `getAllColumns()`                  | `ColumnInfo[]`        | Get all columns with visibility status |
-| `getPlugin(PluginClass)`           | `P \| undefined`      | Get plugin instance by class           |
-| `getPluginByName(name)`            | `Plugin \| undefined` | Get plugin instance by name            |
+| Method                             | Returns               | Description                                 |
+| ---------------------------------- | --------------------- | ------------------------------------------- |
+| `ready()`                          | `Promise<void>`       | Resolves when fully initialized             |
+| `forceLayout()`                    | `Promise<void>`       | Force re-layout                             |
+| `getConfig()`                      | `Promise<GridConfig>` | Get effective configuration                 |
+| `getRowId(row)`                    | `string`              | Get unique identifier for a row             |
+| `getRow(id)`                       | `T \| undefined`      | Get row by its ID                           |
+| `updateRow(id, changes, source?)`  | `void`                | Update a single row by ID                   |
+| `updateRows(updates, source?)`     | `void`                | Batch update multiple rows                  |
+| `resetChangedRows(silent?)`        | `Promise<void>`       | Clear change tracking                       |
+| `beginBulkEdit(rowIndex)`          | `Promise<void>`       | Start row editing                           |
+| `commitActiveRowEdit()`            | `Promise<void>`       | Commit current edit                         |
+| `setColumnVisible(field, visible)` | `boolean`             | Set column visibility                       |
+| `setColumnOrder(order)`            | `void`                | Reorder columns by field array              |
+| `getAllColumns()`                  | `ColumnInfo[]`        | Get all columns with visibility status      |
+| `getPlugin(PluginClass)`           | `P \| undefined`      | Get plugin instance by class                |
+| `getPluginByName(name)`            | `Plugin \| undefined` | Get plugin instance by name                 |
+| `animateRow(index, type)`          | `void`                | Animate a single row (change/insert/remove) |
+| `animateRows(indices, type)`       | `void`                | Animate multiple rows at once               |
+| `animateRowById(id, type)`         | `boolean`             | Animate row by ID (returns true if found)   |
 
 ### Events
 
@@ -199,6 +221,42 @@ Import event names from the `DGEvents` constant:
 import { DGEvents } from '@toolbox-web/grid';
 grid.addEventListener(DGEvents.CELL_COMMIT, handler);
 ```
+
+### Row Animation API
+
+Trigger visual feedback when rows change:
+
+```typescript
+// Flash highlight for updated row
+grid.animateRow(5, 'change');
+
+// Slide-in for new row
+grid.animateRow(0, 'insert');
+
+// Fade-out for removed row
+grid.animateRow(3, 'remove');
+
+// Animate by row ID
+grid.animateRowById('emp-123', 'change');
+```
+
+**Animation Types:** `'change'` | `'insert'` | `'remove'`
+
+### Animation Configuration
+
+Configure animation behavior globally:
+
+```typescript
+grid.gridConfig = {
+  animation: {
+    mode: 'on', // 'on' | 'off' | 'reduced-motion'
+    style: 'smooth', // Animation easing
+    duration: 200, // Default duration in ms
+  },
+};
+```
+
+The grid respects `prefers-reduced-motion` media query automatically when `mode` is `'reduced-motion'`.
 
 ---
 

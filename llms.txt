@@ -46,6 +46,11 @@ Important notes:
 - [Server-Side Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-server-side--docs): Virtual scrolling with lazy loading from remote APIs, block-based caching, and server-side sorting/filtering integration
 - [Pivot Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pivot--docs): Pivot table transformation
 
+## Core Features
+
+- [Row Animation API](https://toolboxjs.com/?path=/docs/grid-row-animation--docs): Visual feedback for row changes (insert, update, remove) with configurable animations
+- [Animation Configuration](https://toolboxjs.com/?path=/docs/grid-animation--docs): Global animation settings including mode (on/off/reduced-motion) and styles
+
 ## Live Examples
 
 - [Storybook Documentation](https://toolboxjs.com/): Interactive examples for all features

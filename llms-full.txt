@@ -249,6 +249,63 @@ grid.addEventListener(DGEvents.ROW_COMMIT, (e) => {
 });
 ```
 
+### Row Animation API
+
+Trigger visual feedback when rows change:
+
+```typescript
+// Animate a single row by index
+grid.animateRow(5, 'change');  // Flash highlight
+grid.animateRow(0, 'insert');  // Slide-in animation
+grid.animateRow(3, 'remove');  // Fade-out animation
+
+// Animate multiple rows
+grid.animateRows([0, 1, 2], 'change');
+
+// Animate by row ID (returns false if not found)
+if (grid.animateRowById('emp-123', 'change')) {
+  console.log('Row animated');
+}
+```
+
+**Animation Types:**
+- `'change'` - Flash highlight for updated rows
+- `'insert'` - Slide-in for new rows
+- `'remove'` - Fade-out for deleted rows
+
+**Animation Configuration:**
+
+```typescript
+grid.gridConfig = {
+  animation: {
+    mode: 'on',           // 'on' | 'off' | 'reduced-motion'
+    style: 'smooth',      // 'smooth' | 'instant'
+    duration: 200,        // ms
+  },
+};
+```
+
+### Factory Functions
+
+Helper functions for typed grid creation:
+
+```typescript
+import { createGrid, queryGrid } from '@toolbox-web/grid';
+
+// Create a typed grid (avoids manual casting)
+const grid = createGrid<Employee>({
+  columns: [{ field: 'name' }],
+  plugins: [new SelectionPlugin()],
+});
+grid.rows = employees; // ✓ Fully typed
+
+// Query an existing grid with typing
+const existing = queryGrid<Employee>('#my-grid');
+if (existing) {
+  existing.rows = employees;
+}
+```
+
 ---
 
 ## Migration Guides

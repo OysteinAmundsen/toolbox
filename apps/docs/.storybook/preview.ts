@@ -99,6 +99,7 @@ const preview: Preview = {
             'Introduction',
             'Getting Started',
             'Core', // Core grid stories
+            'Row Animation',
             'Theming',
             'Demos',
             'Plugins', // Plugin overview and individual plugins

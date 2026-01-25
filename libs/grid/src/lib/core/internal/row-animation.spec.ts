@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { animateRow, animateRowById, animateRowElement, animateRows, type RowAnimationType } from './row-animation';
+import type { RowAnimationType } from '../types';
+import { animateRow, animateRowById, animateRowElement, animateRows } from './row-animation';
 
 describe('row-animation', () => {
   let rowEl: HTMLElement;
@@ -44,18 +45,19 @@ describe('row-animation', () => {
     });
 
     it('should handle all animation types', () => {
-      const typesAndDurations: [RowAnimationType, number][] = [
-        ['change', 500],
-        ['insert', 300],
-        ['remove', 200],
+      const typesAndDurations: [RowAnimationType, number, boolean][] = [
+        ['change', 500, false], // attribute removed after animation
+        ['insert', 300, false], // attribute removed after animation
+        ['remove', 200, true], // attribute kept for forwards fill-mode
       ];
 
-      for (const [type, duration] of typesAndDurations) {
+      for (const [type, duration, shouldKeepAttr] of typesAndDurations) {
+        rowEl.removeAttribute('data-animating'); // reset between iterations
         animateRowElement(rowEl, type);
         expect(rowEl.getAttribute('data-animating')).toBe(type);
 
         vi.advanceTimersByTime(duration);
-        expect(rowEl.hasAttribute('data-animating')).toBe(false);
+        expect(rowEl.hasAttribute('data-animating')).toBe(shouldKeepAttr);
       }
     });
 

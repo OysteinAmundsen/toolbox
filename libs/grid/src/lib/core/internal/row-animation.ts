@@ -12,12 +12,7 @@
  * @module internal/row-animation
  */
 
-import type { InternalGrid } from '../types';
-
-/**
- * Types of row animations available.
- */
-export type RowAnimationType = 'change' | 'insert' | 'remove';
+import type { InternalGrid, RowAnimationType } from '../types';
 
 /**
  * Data attribute used to trigger row animations via CSS.

@@ -15,6 +15,7 @@
  * is fully functional without any core changes.
  */
 
+import { animateRowElement } from '../../core/internal/row-animation';
 import type { PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type {
@@ -1007,7 +1008,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#syncGridEditState();
 
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
-    if (rowEl) rowEl.classList.add('changed');
+    if (rowEl) {
+      rowEl.classList.add('changed');
+      // Trigger row change animation (respects animation.mode config)
+      animateRowElement(rowEl, 'change');
+    }
   }
 
   /**

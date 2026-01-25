@@ -139,10 +139,10 @@ jobs:
 
   # ============================================
   # E2E: Cross-Framework Visual Regression Tests
-  # Runs after build to verify all demos render consistently
+  # Demos serve from source (Vite dev servers), no build required
   # ============================================
   e2e:
-    needs: [setup, build]
+    needs: [setup]
     if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
     env:

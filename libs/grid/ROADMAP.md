@@ -20,15 +20,16 @@ This document outlines planned features and improvements for the grid component,
 - [x] Grid Shell / Tool Panels
 - [x] Inline cell editing
 - [x] Keyboard navigation
+- [x] Row Animation API ([#73](https://github.com/OysteinAmundsen/toolbox/issues/73))
 - [x] Row virtualization
 
 **Core (Planned):**
 
 | Feature                   | Priority | Effort | Issue                                                       |
 | ------------------------- | -------- | ------ | ----------------------------------------------------------- |
-| Print Layout Mode         | 🟡 P2    | Medium | [#70](https://github.com/OysteinAmundsen/toolbox/issues/70) |
+| Print Layout Mode         | � P1     | Medium | [#70](https://github.com/OysteinAmundsen/toolbox/issues/70) |
 | RTL Support               | 🟡 P2    | Medium | [#71](https://github.com/OysteinAmundsen/toolbox/issues/71) |
-| Row Animation             | 🟢 P3    | Low    | -                                                           |
+| Dynamic Row Heights       | 🟢 P3    | High   | [#55](https://github.com/OysteinAmundsen/toolbox/issues/55) |
 | Column Spanning (colSpan) | ⚪ P4    | High   | -                                                           |
 | Row Spanning (rowSpan)    | ⚪ P4    | High   | -                                                           |
 
@@ -38,15 +39,20 @@ This document outlines planned features and improvements for the grid component,
 - [x] Clipboard copy/paste (`clipboard`)
 - [x] Column filtering (`filtering`)
 - [x] Column header grouping (`grouping-columns`)
+- [x] Column menu (`column-menu`) - [#68](https://github.com/OysteinAmundsen/toolbox/issues/68)
 - [x] Column pinning (`pinned-columns`)
 - [x] Column reordering (`reorder`)
 - [x] Column virtualization (`column-virtualization`)
 - [x] Column visibility panel (`visibility`)
+- [x] Conditional formatting (`conditional-formatting`) - [#69](https://github.com/OysteinAmundsen/toolbox/issues/69)
 - [x] Context menus (`context-menu`)
 - [x] Export - CSV, Excel, JSON (`export`)
 - [x] Footer aggregations / Pinned rows (`pinned-rows`)
 - [x] Master/Detail rows (`master-detail`)
 - [x] Pivot tables (`pivot`)
+- [x] Quick filter / Global search (`quick-filter`) - [#66](https://github.com/OysteinAmundsen/toolbox/issues/66)
+- [x] Responsive card layout (`responsive`) - [#56](https://github.com/OysteinAmundsen/toolbox/issues/56)
+- [x] Row drag & drop (`row-reorder`) - [#52](https://github.com/OysteinAmundsen/toolbox/issues/52)
 - [x] Row grouping with aggregations (`grouping-rows`)
 - [x] Server-side data source (`server-side`)
 - [x] Single & multi-column sorting (`multi-sort`)
@@ -56,15 +62,12 @@ This document outlines planned features and improvements for the grid component,
 
 **Plugins (Planned - sorted by priority):**
 
-| Plugin                       | Priority | Effort | Value  | Issue                                                       |
-| ---------------------------- | -------- | ------ | ------ | ----------------------------------------------------------- |
-| Quick Filter / Global Search | 🟠 P1    | Low    | High   | [#66](https://github.com/OysteinAmundsen/toolbox/issues/66) |
-| Column Menu                  | 🟠 P1    | Low    | High   | [#68](https://github.com/OysteinAmundsen/toolbox/issues/68) |
-| Row Drag & Drop              | 🟠 P1    | Medium | High   | [#52](https://github.com/OysteinAmundsen/toolbox/issues/52) |
-| Fill Handle (Excel-style)    | 🟡 P2    | Medium | High   | [#67](https://github.com/OysteinAmundsen/toolbox/issues/67) |
-| Conditional Formatting       | 🟡 P2    | Medium | Medium | [#69](https://github.com/OysteinAmundsen/toolbox/issues/69) |
-| Cell Flashing                | 🟢 P3    | Low    | Niche  | [#73](https://github.com/OysteinAmundsen/toolbox/issues/73) |
-| CSV/Excel Import             | 🟢 P3    | Medium | Niche  | [#74](https://github.com/OysteinAmundsen/toolbox/issues/74) |
+| Plugin                     | Priority | Effort | Value | Issue                                                       |
+| -------------------------- | -------- | ------ | ----- | ----------------------------------------------------------- |
+| Fill Handle (Excel-style)  | 🟡 P2    | Medium | High  | [#67](https://github.com/OysteinAmundsen/toolbox/issues/67) |
+| Real-time Data (WebSocket) | 🟢 P3    | Medium | Niche | [#79](https://github.com/OysteinAmundsen/toolbox/issues/79) |
+| CSV/Excel Import           | 🟢 P3    | Medium | Niche | [#74](https://github.com/OysteinAmundsen/toolbox/issues/74) |
+| Cell Flashing              | 🟢 P3    | Low    | Niche | -                                                           |
 
 **Framework Adapters:**
 
@@ -78,6 +81,12 @@ Framework adapters enable idiomatic integration with popular JavaScript framewor
 | `@toolbox-web/grid-svelte`  | Svelte 4/5  | 🟢 P3    | Medium | Not started | -                                                           |
 | `@toolbox-web/grid-solid`   | Solid       | 🟢 P3    | Medium | Not started | -                                                           |
 
+**Adapter Enhancements (Planned):**
+
+| Feature                    | Adapter | Priority | Effort | Issue                                                       |
+| -------------------------- | ------- | -------- | ------ | ----------------------------------------------------------- |
+| Reactive Forms Integration | Angular | 🟡 P2    | Medium | [#80](https://github.com/OysteinAmundsen/toolbox/issues/80) |
+
 > [!NOTE]
 > The core grid works in all frameworks without adapters for basic usage. Adapters become valuable when you need:
 >
@@ -89,6 +98,24 @@ Framework adapters enable idiomatic integration with popular JavaScript framewor
 ---
 
 ## ✅ Recently Completed
+
+### Row Animation API [core] ✅
+
+Visual feedback for row changes with configurable animations.
+
+**API**:
+
+- `animateRow(index, type)` - Animate a single row by index
+- `animateRows(indices, type)` - Animate multiple rows at once
+- `animateRowById(id, type)` - Animate a row by its ID
+- Animation types: `'change'` (flash), `'insert'` (slide-in), `'remove'` (fade-out)
+- `gridConfig.animation` for global animation settings (mode, style, duration)
+- Respects `prefers-reduced-motion` media query
+- EditingPlugin automatically triggers `'change'` animation on cell commit
+
+**Status**: ✅ Complete - [#73](https://github.com/OysteinAmundsen/toolbox/issues/73)
+
+---
 
 ### Column State Events [core] ✅
 
@@ -128,17 +155,17 @@ Extends `tbw-grid-root` to support optional shell features:
 
 ## 🟠 P1 - High Priority
 
-### Quick Filter / Global Search [plugin]
+### Print Layout Mode [core]
 
-A single search input that filters across all visible columns simultaneously. Lives in the Grid Shell header bar and delegates to the existing `filtering` plugin.
+Optimized rendering for printing that shows all rows without virtualization. Requires ability to temporarily disable core virtualization.
 
-**Depends on**: Grid Shell / Tool Panels
+**Use case**: Generating printable reports directly from the grid.
 
-**Use case**: Users expect to quickly find data without configuring per-column filters.
-
-**Status**: Not started
+**Status**: Not started - [#70](https://github.com/OysteinAmundsen/toolbox/issues/70)
 
 ---
+
+## 🟡 P2 - Medium Priority
 
 ### Fill Handle (Excel-style) [plugin]
 
@@ -146,11 +173,25 @@ Drag the corner of a cell to fill adjacent cells with values or patterns.
 
 **Use case**: Data entry workflows, copying values, and auto-incrementing.
 
-**Status**: Not started
+**Status**: Not started - [#67](https://github.com/OysteinAmundsen/toolbox/issues/67)
 
 ---
 
-## 🟡 P2 - Medium Priority
+### Angular Forms Integration [grid-angular]
+
+Seamless integration with Angular Reactive Forms (FormArray) and future Signal Forms (Angular 21+).
+
+**API**:
+
+- `[formArray]` directive for Reactive Forms integration
+- `[formModel]` directive for Signal Forms (Phase 2, after Angular 21 GA)
+- Automatic row data extraction and cell commit → form update
+- Validation CSS classes (`.form-invalid`, `.form-dirty`, `.form-touched`)
+- Enhanced editor context with `FormControl` / `FieldTree` access
+
+**Status**: Not started - [#80](https://github.com/OysteinAmundsen/toolbox/issues/80)
+
+---
 
 ### Plugin Event Bus [core]
 
@@ -175,46 +216,6 @@ this.on('filter-change', (detail) => { ... });
 Right-to-left text direction support for Arabic, Hebrew, and other RTL languages. Requires changes to CSS layout, sticky positioning, and scroll handling.
 
 **Use case**: Applications targeting RTL language markets.
-
-**Status**: Not started
-
----
-
-### Print Layout Mode [core]
-
-Optimized rendering for printing that shows all rows without virtualization. Requires ability to temporarily disable core virtualization.
-
-**Use case**: Generating printable reports directly from the grid.
-
-**Status**: Not started
-
----
-
-### Conditional Formatting [plugin]
-
-Apply styles to cells based on value conditions (e.g., highlight negative numbers).
-
-**Use case**: Data visualization, alerts, and status indicators.
-
-**Status**: Not started (possible via custom cell templates)
-
----
-
-### Row Drag & Drop [plugin]
-
-Reorder rows by dragging, including drag between grids.
-
-**Use case**: Manual sorting, prioritization lists, kanban-style workflows.
-
-**Status**: Not started
-
----
-
-### Column Menu [plugin]
-
-Dropdown menu on column headers for quick access to sort, filter, pin, and hide.
-
-**Use case**: Discoverability of column features for new users.
 
 **Status**: Not started
 
@@ -248,13 +249,31 @@ interface PluginAPI {
 
 ## 🟢 P3 - Low Priority
 
-### Row Animation [core]
+### Real-time Data Support [plugin]
 
-Smooth CSS transitions when rows are added, removed, or reordered. Simple opt-in via CSS custom properties in core themes.
+Extend ServerSidePlugin to support WebSocket and Server-Sent Events for live data streaming.
 
-**Use case**: Visual feedback during data updates.
+**API**:
 
-**Status**: Not started
+- WebSocket adapter with reconnection and backoff
+- SSE adapter for simpler use cases
+- Partial row updates (update specific fields)
+- Automatic row animation on updates
+- Optimistic updates with server reconciliation
+
+**Use case**: Stock tickers, live dashboards, collaborative editing.
+
+**Status**: Not started - [#79](https://github.com/OysteinAmundsen/toolbox/issues/79)
+
+---
+
+### Dynamic Row Heights [core]
+
+Support variable row heights via callback function, enabling content-based sizing.
+
+**Use case**: Multi-line text, images, or complex cell content.
+
+**Status**: Needs discussion - [#55](https://github.com/OysteinAmundsen/toolbox/issues/55)
 
 ---
 

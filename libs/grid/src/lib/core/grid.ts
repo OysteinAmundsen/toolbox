@@ -7,6 +7,7 @@ import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
 import { ensureCellVisible } from './internal/keyboard';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
+import { animateRow, animateRowById, animateRows } from './internal/row-animation';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
   buildGridDOMIntoElement,
@@ -59,6 +60,7 @@ import type {
   HeaderContentDefinition,
   InternalGrid,
   ResizeController,
+  RowAnimationType,
   ToolbarContentDefinition,
   ToolPanelDefinition,
   UpdateSource,
@@ -2380,6 +2382,80 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (anyChanged) {
       this.#scheduler.requestPhase(RenderPhase.ROWS, 'updateRows');
     }
+  }
+
+  // ---------------- Row Animation API ----------------
+
+  /**
+   * Animate a row at the specified index.
+   * Applies a visual animation to highlight changes, insertions, or removals.
+   *
+   * **Animation types:**
+   * - `'change'`: Flash highlight (for data changes, e.g., after cell edit)
+   * - `'insert'`: Slide-in animation (for newly added rows)
+   * - `'remove'`: Fade-out animation (for rows being removed)
+   *
+   * The animation is purely visual - it does not affect the data.
+   * For remove animations, the row remains in the DOM until animation completes.
+   *
+   * @group Row Animation
+   * @param rowIndex - Index of the row in the current row set
+   * @param type - Type of animation to apply
+   *
+   * @example
+   * ```typescript
+   * // Highlight a row after external data update
+   * grid.updateRow('row-123', { status: 'shipped' });
+   * grid.animateRow(rowIndex, 'change');
+   *
+   * // Animate new row insertion
+   * grid.rows = [...grid.rows, newRow];
+   * grid.animateRow(grid.rows.length - 1, 'insert');
+   * ```
+   */
+  animateRow(rowIndex: number, type: RowAnimationType): void {
+    animateRow(this as unknown as InternalGrid, rowIndex, type);
+  }
+
+  /**
+   * Animate multiple rows at once.
+   * More efficient than calling `animateRow()` multiple times.
+   *
+   * @group Row Animation
+   * @param rowIndices - Indices of the rows to animate
+   * @param type - Type of animation to apply to all rows
+   *
+   * @example
+   * ```typescript
+   * // Highlight all changed rows after bulk update
+   * const changedIndices = [0, 2, 5];
+   * grid.animateRows(changedIndices, 'change');
+   * ```
+   */
+  animateRows(rowIndices: number[], type: RowAnimationType): void {
+    animateRows(this as unknown as InternalGrid, rowIndices, type);
+  }
+
+  /**
+   * Animate a row by its ID.
+   * Uses the configured `getRowId` function to find the row.
+   *
+   * @group Row Animation
+   * @param rowId - The row's unique identifier (from getRowId)
+   * @param type - Type of animation to apply
+   * @returns `true` if the row was found and animated, `false` otherwise
+   *
+   * @example
+   * ```typescript
+   * // Highlight a row after real-time update
+   * socket.on('row-updated', (data) => {
+   *   grid.updateRow(data.id, data.changes);
+   *   grid.animateRowById(data.id, 'change');
+   * });
+   * ```
+   */
+  animateRowById(rowId: string, type: RowAnimationType): boolean {
+    return animateRowById(this as unknown as InternalGrid, rowId, type);
   }
 
   // ---------------- Column Visibility API ----------------

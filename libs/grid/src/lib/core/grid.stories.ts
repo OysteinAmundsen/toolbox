@@ -1534,3 +1534,308 @@ grid.columns = [
 };
 
 // #endregion
+
+// #region Row Animation
+
+type AnimationGridElement = GridElement & {
+  animateRow: (rowIndex: number, type: 'change' | 'insert' | 'remove') => void;
+  animateRows: (rowIndices: number[], type: 'change' | 'insert' | 'remove') => void;
+};
+
+/**
+ * ## Row Animation Demo
+ *
+ * Demonstrates the Row Animation API with live examples of all animation types.
+ *
+ * **Features:**
+ * - **Change Animation**: Flash highlight when row data is modified
+ * - **Insert Animation**: Slide-in effect when new rows are added
+ * - **Remove Animation**: Fade-out effect before row removal
+ *
+ * **Controls:**
+ * - Use the buttons above the grid to trigger animations
+ * - Toggle auto-simulation to see random changes at intervals
+ */
+export const RowAnimation: Story = {
+  argTypes: {
+    rowCount: { table: { disable: true } },
+    fitMode: { table: { disable: true } },
+    height: { table: { disable: true } },
+    fixedHeight: { table: { disable: true } },
+    visibleColumns: { table: { disable: true } },
+    sortable: { table: { disable: true } },
+    resizable: { table: { disable: true } },
+  },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.columns = [
+  { field: 'id', header: 'ID', width: 60 },
+  { field: 'name', header: 'Name' },
+  { field: 'score', header: 'Score', type: 'number' },
+  { field: 'status', header: 'Status' },
+];
+
+grid.rows = [...];
+
+// Animate a single row (change highlight)
+grid.animateRow(2, 'change');
+
+// Animate multiple rows
+grid.animateRows([0, 3, 5], 'change');
+
+// Animate newly inserted row
+grid.rows = [...grid.rows, newRow];
+grid.animateRow(grid.rows.length - 1, 'insert');
+
+// Customize animation via CSS
+// tbw-grid {
+//   --tbw-row-change-duration: 750ms;
+//   --tbw-row-change-color: rgba(34, 197, 94, 0.25);
+// }
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.gap = '16px';
+
+    // Control panel
+    const controls = document.createElement('div');
+    controls.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; align-items: center;';
+
+    // Create styled button helper
+    const createButton = (text: string, onClick: () => void) => {
+      const btn = document.createElement('button');
+      btn.textContent = text;
+      btn.style.cssText = `
+        padding: 8px 16px;
+        border: 1px solid var(--tbw-color-border);
+        border-radius: 4px;
+        background: var(--tbw-color-bg);
+        color: var(--tbw-color-fg);
+        cursor: pointer;
+        font-size: 14px;
+      `;
+      btn.addEventListener('click', onClick);
+      return btn;
+    };
+
+    const grid = document.createElement('tbw-grid') as AnimationGridElement;
+    grid.style.height = '400px';
+    grid.style.display = 'block';
+
+    // Generate initial data
+    const statuses = ['Active', 'Pending', 'Complete', 'Error'];
+    let rowData = Array.from({ length: 15 }, (_, i) => ({
+      id: i + 1,
+      name: `Row ${i + 1}`,
+      score: Math.floor(Math.random() * 100),
+      status: statuses[Math.floor(Math.random() * statuses.length)],
+    }));
+
+    // Helper to delete a row by id with animation
+    const deleteRow = (id: number) => {
+      const idx = rowData.findIndex((r) => r.id === id);
+      if (idx < 0) return;
+      grid.animateRow(idx, 'remove');
+      setTimeout(() => {
+        rowData = rowData.filter((r) => r.id !== id);
+        grid.rows = rowData;
+        // Clean up stale remove animation attributes after re-render
+        requestAnimationFrame(() => {
+          grid.querySelectorAll('[data-animating="remove"]').forEach((el) => {
+            el.removeAttribute('data-animating');
+          });
+        });
+      }, 250);
+    };
+
+    // Helper to insert a row after a given id with animation
+    let insertCounter = rowData.length;
+    const insertRowAfter = (afterId: number) => {
+      const idx = rowData.findIndex((r) => r.id === afterId);
+      if (idx < 0) return;
+      insertCounter++;
+      const newRow = {
+        id: insertCounter,
+        name: `New Row ${insertCounter}`,
+        score: Math.floor(Math.random() * 100),
+        status: 'Pending',
+      };
+      rowData = [...rowData.slice(0, idx + 1), newRow, ...rowData.slice(idx + 1)];
+      grid.rows = rowData;
+      requestAnimationFrame(() => {
+        grid.animateRow(idx + 1, 'insert');
+      });
+    };
+
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', width: 150 },
+      { field: 'score', header: 'Score', type: 'number', width: 100 },
+      { field: 'status', header: 'Status', width: 120 },
+      {
+        field: '_actions',
+        header: 'Actions',
+        width: 100,
+        sortable: false,
+        viewRenderer: ({ row }) => {
+          const wrapper = document.createElement('span');
+          wrapper.style.cssText = 'display: flex; gap: 4px;';
+
+          // Insert button
+          const insertBtn = document.createElement('button');
+          insertBtn.textContent = '➕';
+          insertBtn.title = 'Insert row below';
+          insertBtn.style.cssText =
+            'cursor: pointer; padding: 2px 6px; border: none; background: none; font-size: 14px;';
+          insertBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            insertRowAfter(row.id);
+          });
+          wrapper.appendChild(insertBtn);
+
+          // Delete button
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = '🗑️';
+          deleteBtn.title = 'Delete row';
+          deleteBtn.style.cssText =
+            'cursor: pointer; padding: 2px 6px; border: none; background: none; font-size: 14px;';
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteRow(row.id);
+          });
+          wrapper.appendChild(deleteBtn);
+
+          return wrapper;
+        },
+      },
+    ];
+    grid.rows = rowData;
+    grid.fitMode = 'stretch';
+
+    // Button: Animate random row (change)
+    controls.appendChild(
+      createButton('🔄 Change Random Row', () => {
+        const idx = Math.floor(Math.random() * rowData.length);
+        rowData[idx].score = Math.floor(Math.random() * 100);
+        grid.rows = [...rowData];
+        grid.animateRow(idx, 'change');
+      }),
+    );
+
+    // Button: Animate multiple rows
+    controls.appendChild(
+      createButton('🔄 Change 3 Rows', () => {
+        const indices: number[] = [];
+        while (indices.length < 3 && indices.length < rowData.length) {
+          const idx = Math.floor(Math.random() * rowData.length);
+          if (!indices.includes(idx)) {
+            indices.push(idx);
+            rowData[idx].score = Math.floor(Math.random() * 100);
+          }
+        }
+        grid.rows = [...rowData];
+        grid.animateRows(indices, 'change');
+      }),
+    );
+
+    // Button: Insert new row at top
+    controls.appendChild(
+      createButton('➕ Insert at Top', () => {
+        insertCounter++;
+        const newRow = {
+          id: insertCounter,
+          name: `New Row ${insertCounter}`,
+          score: Math.floor(Math.random() * 100),
+          status: 'Pending',
+        };
+        rowData = [newRow, ...rowData];
+        grid.rows = rowData;
+        // Wait for render, then animate the first row (index 0)
+        requestAnimationFrame(() => {
+          grid.animateRow(0, 'insert');
+        });
+      }),
+    );
+
+    // Separator
+    const separator = document.createElement('span');
+    separator.style.cssText = 'width: 1px; height: 24px; background: var(--tbw-color-border); margin: 0 8px;';
+    controls.appendChild(separator);
+
+    // Auto-simulation toggle
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const autoBtn = createButton('▶️ Start Auto-Simulation', () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+        autoBtn.textContent = '▶️ Start Auto-Simulation';
+      } else {
+        intervalId = setInterval(() => {
+          const action = Math.random();
+          if (action < 0.6) {
+            // 60% chance: change random row
+            const idx = Math.floor(Math.random() * rowData.length);
+            rowData[idx].score = Math.floor(Math.random() * 100);
+            rowData[idx].status = statuses[Math.floor(Math.random() * statuses.length)];
+            grid.rows = [...rowData];
+            grid.animateRow(idx, 'change');
+          } else if (action < 0.8 && rowData.length < 25) {
+            // 20% chance: insert row
+            insertCounter++;
+            const newRow = {
+              id: insertCounter,
+              name: `Row ${insertCounter}`,
+              score: Math.floor(Math.random() * 100),
+              status: 'Pending',
+            };
+            rowData = [...rowData, newRow];
+            grid.rows = rowData;
+            requestAnimationFrame(() => {
+              grid.animateRow(rowData.length - 1, 'insert');
+            });
+          } else if (rowData.length > 5) {
+            // 20% chance: remove row
+            const idx = Math.floor(Math.random() * rowData.length);
+            grid.animateRow(idx, 'remove');
+            setTimeout(() => {
+              rowData = rowData.filter((_, i) => i !== idx);
+              grid.rows = rowData;
+              // Clean up stale remove animation attributes after re-render
+              requestAnimationFrame(() => {
+                grid.querySelectorAll('[data-animating="remove"]').forEach((el) => {
+                  el.removeAttribute('data-animating');
+                });
+              });
+            }, 250);
+          }
+        }, 1500);
+        autoBtn.textContent = '⏹️ Stop Auto-Simulation';
+      }
+    });
+    controls.appendChild(autoBtn);
+
+    container.appendChild(controls);
+    container.appendChild(grid);
+
+    return container;
+  },
+};
+
+// #endregion

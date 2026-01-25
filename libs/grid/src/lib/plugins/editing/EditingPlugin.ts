@@ -913,6 +913,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         changedRows: this.changedRows,
         changedRowIds: this.changedRowIds,
       });
+
+      // Animate the row if changes were committed
+      if (changed && this.isAnimationEnabled) {
+        internalGrid.animateRow?.(rowIndex, 'change');
+      }
     }
 
     // Clear editing state

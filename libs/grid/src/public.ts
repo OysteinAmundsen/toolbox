@@ -211,6 +211,8 @@ export type {
   PrimitiveColumnType,
   // Public interface
   PublicGrid,
+  // Row animation type
+  RowAnimationType,
   RowClickDetail,
   RowCommitDetail,
   // Grouping & Footer types

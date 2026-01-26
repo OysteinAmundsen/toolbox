@@ -21,6 +21,7 @@ export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from '.
 export type { AngularTypeDefault } from './lib/grid-type-registry';
 
 // Directives and context types
+export { BaseGridEditor } from './lib/base-grid-editor';
 export { GridColumnEditor } from './lib/directives/grid-column-editor.directive';
 export type { GridEditorContext } from './lib/directives/grid-column-editor.directive';
 export { GridColumnView } from './lib/directives/grid-column-view.directive';

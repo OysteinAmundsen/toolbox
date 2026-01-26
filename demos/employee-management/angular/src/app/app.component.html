@@ -67,9 +67,11 @@
         <!-- Column templates - column definitions come from gridConfig, these add Angular templates -->
         <!-- Using structural directives for cleaner syntax -->
         <!-- Auto-wiring: editor components just emit (commit) and (cancel) events, no explicit binding needed -->
+        <!-- The 'control' variable provides access to the FormControl from the FormArray binding -->
+        <!-- When control is provided, the editor derives value from control.value automatically -->
         <tbw-grid-column field="status">
           <app-status-badge *tbwRenderer="let value" [value]="value" />
-          <app-status-select-editor *tbwEditor="let value" [value]="value" />
+          <app-status-select-editor *tbwEditor="let _; control as control" [control]="control" />
         </tbw-grid-column>
         <tbw-grid-column field="bonus">
           <app-bonus-slider-editor

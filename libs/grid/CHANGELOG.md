@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.3.1...grid-1.4.0) (2026-01-26)
+
+
+### Features
+
+* **grid-angular:** [#80](https://github.com/OysteinAmundsen/toolbox/issues/80) angular reactive forms integration ([#94](https://github.com/OysteinAmundsen/toolbox/issues/94)) ([487118f](https://github.com/OysteinAmundsen/toolbox/commit/487118fc6fcc4e983cb727a282dca223d9b86fe7))
+* **grid:** add gridAriaLabel and gridAriaDescribedBy config options ([a0c47a4](https://github.com/OysteinAmundsen/toolbox/commit/a0c47a43ff674f7ba398ee8e3e1cfe0505225868))
+* **grid:** add PrintPlugin for print layout mode ([#70](https://github.com/OysteinAmundsen/toolbox/issues/70)) ([#93](https://github.com/OysteinAmundsen/toolbox/issues/93)) ([963b699](https://github.com/OysteinAmundsen/toolbox/commit/963b69977dd8fcefa53b7ecd1aa4b618d643aadf))
+* **grid:** header renderers ([#81](https://github.com/OysteinAmundsen/toolbox/issues/81)) ([#91](https://github.com/OysteinAmundsen/toolbox/issues/91)) ([7b713bd](https://github.com/OysteinAmundsen/toolbox/commit/7b713bd1a199b832b51efc6ca87e437eaf0d0e6a))
+
 ## [1.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.3.0...grid-1.3.1) (2026-01-26)
 
 

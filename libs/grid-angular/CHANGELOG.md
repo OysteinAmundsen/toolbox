@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.4.0...grid-angular-0.5.0) (2026-01-26)
+
+
+### Features
+
+* **grid-angular:** [#80](https://github.com/OysteinAmundsen/toolbox/issues/80) angular reactive forms integration ([#94](https://github.com/OysteinAmundsen/toolbox/issues/94)) ([487118f](https://github.com/OysteinAmundsen/toolbox/commit/487118fc6fcc4e983cb727a282dca223d9b86fe7))
+
 ## [0.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.3.1...grid-angular-0.4.0) (2026-01-22)
 
 

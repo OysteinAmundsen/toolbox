@@ -21,12 +21,15 @@ export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from '.
 export type { AngularTypeDefault } from './lib/grid-type-registry';
 
 // Directives and context types
+export { BaseGridEditor } from './lib/base-grid-editor';
 export { GridColumnEditor } from './lib/directives/grid-column-editor.directive';
 export type { GridEditorContext } from './lib/directives/grid-column-editor.directive';
 export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { GridDetailView } from './lib/directives/grid-detail-view.directive';
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
+export { getFormArrayContext, GridFormArray } from './lib/directives/grid-form-array.directive';
+export type { FormArrayContext } from './lib/directives/grid-form-array.directive';
 export { GridResponsiveCard } from './lib/directives/grid-responsive-card.directive';
 export type { GridResponsiveCardContext } from './lib/directives/grid-responsive-card.directive';
 export { GridToolPanel } from './lib/directives/grid-tool-panel.directive';

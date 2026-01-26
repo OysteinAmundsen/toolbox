@@ -1,4 +1,5 @@
 import { contentChild, Directive, effect, ElementRef, EventEmitter, inject, TemplateRef } from '@angular/core';
+import type { AbstractControl } from '@angular/forms';
 
 /**
  * Context object passed to the cell editor template.
@@ -23,6 +24,22 @@ export interface GridEditorContext<TValue = unknown, TRow = unknown> {
    * Use with Angular event binding: `(cancel)="onCancel()"`
    */
   onCancel: () => void;
+  /**
+   * The FormControl for this cell, if the grid is bound to a FormArray with FormGroups.
+   *
+   * This allows custom editors to bind directly to the control for validation display:
+   * ```html
+   * <input *tbwEditor="let value; control as ctrl"
+   *        [formControl]="ctrl"
+   *        [class.is-invalid]="ctrl?.invalid && ctrl?.touched" />
+   * ```
+   *
+   * Returns `undefined` if:
+   * - The grid is not bound to a FormArray
+   * - The FormArray doesn't contain FormGroups
+   * - The field doesn't exist in the FormGroup
+   */
+  control?: AbstractControl;
   /**
    * @deprecated Use `onCommit` callback function instead. Will be removed in v2.0.
    * EventEmitter for commit - requires `.emit()` call.

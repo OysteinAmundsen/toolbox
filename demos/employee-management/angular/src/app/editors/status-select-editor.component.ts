@@ -1,17 +1,8 @@
 import { CommonModule } from '@angular/common';
-import {
-  AfterViewInit,
-  Component,
-  effect,
-  ElementRef,
-  input,
-  output,
-  viewChild,
-} from '@angular/core';
+import { AfterViewInit, Component, effect, ElementRef, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { Employee } from '@demo/shared';
-import type { ColumnConfig } from '@toolbox-web/grid';
-import type { AngularCellEditor } from '@toolbox-web/grid-angular';
+import { BaseGridEditor } from '@toolbox-web/grid-angular';
 
 interface StatusConfig {
   bg: string;
@@ -20,17 +11,25 @@ interface StatusConfig {
 }
 
 /**
- * Status select editor component implementing AngularCellEditor interface.
- * Can be used via both template syntax (*tbwEditor) and component-class column config.
+ * Status select editor extending BaseGridEditor.
+ *
+ * Demonstrates how to build custom editors using the base class:
+ * - Inherits value, row, column, control inputs
+ * - Inherits commit, cancel outputs
+ * - Uses currentValue() computed signal for value resolution
+ * - Uses isInvalid(), isDirty() for validation styling
+ * - Overrides getErrorMessage() for custom error messages
  */
 @Component({
   selector: 'app-status-select-editor',
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="status-select-editor">
+    <div class="status-select-editor" [class.has-control]="control()">
       <select
         #selectEl
         class="status-select-editor__select"
+        [class.is-invalid]="isInvalid()"
+        [class.is-dirty]="isDirty()"
         [(ngModel)]="currentValueModel"
         (change)="onCommit()"
         (keydown)="onKeyDown($event)"
@@ -39,22 +38,34 @@ interface StatusConfig {
           <option [value]="status">{{ statusConfig[status].icon }} {{ status }}</option>
         }
       </select>
+      @if (hasErrors()) {
+        <div class="status-select-editor__error">
+          {{ firstErrorMessage() }}
+        </div>
+      }
     </div>
   `,
-  styles: [],
+  styles: [
+    `
+      .status-select-editor__select.is-invalid {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+      }
+      .status-select-editor__select.is-dirty {
+        border-left: 3px solid #ffc107;
+      }
+      .status-select-editor__error {
+        color: #dc3545;
+        font-size: 11px;
+        margin-top: 2px;
+      }
+    `,
+  ],
 })
 export class StatusSelectEditorComponent
-  implements AngularCellEditor<Employee, string>, AfterViewInit
+  extends BaseGridEditor<Employee, string>
+  implements AfterViewInit
 {
-  // AngularCellEditor interface inputs
-  value = input<string>('Active');
-  row = input<Employee>();
-  column = input<ColumnConfig<Employee>>();
-
-  // Outputs for commit/cancel
-  commit = output<string>();
-  cancel = output<void>();
-
   selectEl = viewChild.required<ElementRef<HTMLSelectElement>>('selectEl');
 
   currentValueModel = 'Active';
@@ -68,9 +79,20 @@ export class StatusSelectEditorComponent
   };
 
   constructor() {
+    super();
+    // Sync currentValueModel with the resolved value (from control or input)
     effect(() => {
-      this.currentValueModel = this.value() || 'Active';
+      const value = this.currentValue();
+      this.currentValueModel = value || 'Active';
     });
+  }
+
+  /**
+   * Override to provide custom error messages for status-specific validation.
+   */
+  protected override getErrorMessage(errorKey: string, errorValue?: unknown): string {
+    if (errorKey === 'invalidStatus') return 'Invalid status value';
+    return super.getErrorMessage(errorKey, errorValue);
   }
 
   ngAfterViewInit(): void {
@@ -78,13 +100,13 @@ export class StatusSelectEditorComponent
   }
 
   onCommit(): void {
-    this.commit.emit(this.currentValueModel);
+    this.commitValue(this.currentValueModel);
   }
 
   onKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       event.preventDefault();
-      this.cancel.emit();
+      this.cancelEdit();
     }
   }
 }

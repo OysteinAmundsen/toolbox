@@ -42,6 +42,19 @@
       "options": {
         "lintFilePatterns": ["libs/grid-react/**/*.ts", "libs/grid-react/**/*.tsx"]
       }
+    },
+    "typedoc": {
+      "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
+      "options": {
+        "cwd": "libs/grid-react"
+      },
+      "inputs": [
+        "{projectRoot}/src/**/*.ts",
+        "{projectRoot}/src/**/*.tsx",
+        "{projectRoot}/typedoc.json",
+        "{projectRoot}/scripts/typedoc-to-mdx.ts"
+      ],
+      "outputs": ["{projectRoot}/docs/api-generated", "{projectRoot}/docs/api"]
     }
   }
 }

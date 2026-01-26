@@ -31,134 +31,139 @@
   </header>
 
   <div class="grid-wrapper">
-    <tbw-grid
-      #grid
-      id="employee-grid"
-      class="demo-grid"
-      [rows]="rows()"
-      [angularConfig]="gridConfig()"
-      [customStyles]="customStyles"
-      (cellCommit)="onCellCommit($event)"
-      (column-move)="onColumnMove($event)"
-    >
-      <!-- Shell configuration with title -->
-      <tbw-grid-header title="Employee Management System (Angular)"></tbw-grid-header>
+    <div class="demo-grid">
+      <tbw-grid
+        #grid
+        id="employee-grid"
+        [formArray]="rowsFormArray"
+        [angularConfig]="gridConfig()"
+        [customStyles]="customStyles"
+        (cellCommit)="onCellCommit($event)"
+        (column-move)="onColumnMove($event)"
+      >
+        <!-- Shell configuration with title -->
+        <tbw-grid-header title="Employee Management System (Angular)"></tbw-grid-header>
 
-      <!-- Toolbar buttons container -->
-      <tbw-grid-tool-buttons>
-        <button
-          class="tbw-toolbar-btn"
-          title="Export CSV"
-          aria-label="Export CSV"
-          (click)="exportCsv()"
-        >
-          📄
-        </button>
-        <button
-          class="tbw-toolbar-btn"
-          title="Export Excel"
-          aria-label="Export Excel"
-          (click)="exportExcel()"
-        >
-          📊
-        </button>
-      </tbw-grid-tool-buttons>
+        <!-- Toolbar buttons container -->
+        <tbw-grid-tool-buttons>
+          <button
+            class="tbw-toolbar-btn"
+            title="Export CSV"
+            aria-label="Export CSV"
+            (click)="exportCsv()"
+          >
+            📄
+          </button>
+          <button
+            class="tbw-toolbar-btn"
+            title="Export Excel"
+            aria-label="Export Excel"
+            (click)="exportExcel()"
+          >
+            📊
+          </button>
+        </tbw-grid-tool-buttons>
 
-      <!-- Column templates - column definitions come from gridConfig, these add Angular templates -->
-      <!-- Using structural directives for cleaner syntax -->
-      <!-- Auto-wiring: editor components just emit (commit) and (cancel) events, no explicit binding needed -->
-      <tbw-grid-column field="status">
-        <app-status-badge *tbwRenderer="let value" [value]="value" />
-        <app-status-select-editor *tbwEditor="let value" [value]="value" />
-      </tbw-grid-column>
-      <tbw-grid-column field="bonus">
-        <app-bonus-slider-editor
-          *tbwEditor="let value; row as row"
-          [value]="value"
-          [salary]="row.salary"
-        />
-      </tbw-grid-column>
-      <!-- Rating column uses component-class config in gridConfig instead of templates -->
-      <!-- See grid-config.ts: { field: 'rating', renderer: RatingDisplayComponent, editor: StarRatingEditorComponent } -->
-      <tbw-grid-column field="hireDate">
-        <app-date-editor *tbwEditor="let value" [value]="value" />
-      </tbw-grid-column>
-      <tbw-grid-column field="isTopPerformer">
-        <app-top-performer *tbwRenderer="let value" [value]="value" />
-      </tbw-grid-column>
+        <!-- Column templates - column definitions come from gridConfig, these add Angular templates -->
+        <!-- Using structural directives for cleaner syntax -->
+        <!-- Auto-wiring: editor components just emit (commit) and (cancel) events, no explicit binding needed -->
+        <!-- The 'control' variable provides access to the FormControl from the FormArray binding -->
+        <!-- When control is provided, the editor derives value from control.value automatically -->
+        <tbw-grid-column field="status">
+          <app-status-badge *tbwRenderer="let value" [value]="value" />
+          <app-status-select-editor *tbwEditor="let _; control as control" [control]="control" />
+        </tbw-grid-column>
+        <tbw-grid-column field="bonus">
+          <app-bonus-slider-editor
+            *tbwEditor="let value; row as row"
+            [value]="value"
+            [salary]="row.salary"
+          />
+        </tbw-grid-column>
+        <!-- Rating column uses component-class config in gridConfig instead of templates -->
+        <!-- See grid-config.ts: { field: 'rating', renderer: RatingDisplayComponent, editor: StarRatingEditorComponent } -->
+        <tbw-grid-column field="hireDate">
+          <app-date-editor *tbwEditor="let value" [value]="value" />
+        </tbw-grid-column>
+        <tbw-grid-column field="isTopPerformer">
+          <app-top-performer *tbwRenderer="let value" [value]="value" />
+        </tbw-grid-column>
 
-      <!-- Master-detail template -->
-      @if (enableMasterDetail()) {
-        <tbw-grid-detail [showExpandColumn]="true" animation="slide">
-          <ng-template let-row>
-            <app-detail-panel [employee]="row" />
+        <!-- Master-detail template -->
+        @if (enableMasterDetail()) {
+          <tbw-grid-detail [showExpandColumn]="true" animation="slide">
+            <ng-template let-row>
+              <app-detail-panel [employee]="row" />
+            </ng-template>
+          </tbw-grid-detail>
+        }
+
+        <!-- Responsive card template for mobile/narrow layouts -->
+        <tbw-grid-responsive-card>
+          <ng-template let-emp let-idx="index">
+            <div class="responsive-employee-card">
+              <div
+                class="responsive-employee-card__avatar"
+                [style.background-color]="getDepartmentColor(emp.department)"
+              >
+                {{ emp.firstName.charAt(0) }}{{ emp.lastName.charAt(0) }}
+              </div>
+              <div class="responsive-employee-card__content">
+                <div class="responsive-employee-card__header">
+                  <span class="responsive-employee-card__name"
+                    >{{ emp.firstName }} {{ emp.lastName }}</span
+                  >
+                  <app-status-badge [value]="emp.status" />
+                </div>
+                <div class="responsive-employee-card__title">{{ emp.title }}</div>
+                <div class="responsive-employee-card__meta">
+                  <span
+                    class="responsive-employee-card__dept"
+                    [style.color]="getDepartmentColor(emp.department)"
+                    >{{ emp.department }}</span
+                  >
+                  <span class="responsive-employee-card__separator">•</span>
+                  <span class="responsive-employee-card__salary">{{
+                    emp.salary | currency: 'USD' : 'symbol' : '1.0-0'
+                  }}</span>
+                  <span class="responsive-employee-card__separator">•</span>
+                  <span class="responsive-employee-card__rating"
+                    >{{ emp.rating.toFixed(1) }} ★</span
+                  >
+                  @if (emp.isTopPerformer) {
+                    <span class="responsive-employee-card__top-performer">⭐</span>
+                  }
+                </div>
+              </div>
+            </div>
           </ng-template>
-        </tbw-grid-detail>
-      }
+        </tbw-grid-responsive-card>
 
-      <!-- Responsive card template for mobile/narrow layouts -->
-      <tbw-grid-responsive-card>
-        <ng-template let-emp let-idx="index">
-          <div class="responsive-employee-card">
-            <div
-              class="responsive-employee-card__avatar"
-              [style.background-color]="getDepartmentColor(emp.department)"
-            >
-              {{ emp.firstName.charAt(0) }}{{ emp.lastName.charAt(0) }}
-            </div>
-            <div class="responsive-employee-card__content">
-              <div class="responsive-employee-card__header">
-                <span class="responsive-employee-card__name"
-                  >{{ emp.firstName }} {{ emp.lastName }}</span
-                >
-                <app-status-badge [value]="emp.status" />
-              </div>
-              <div class="responsive-employee-card__title">{{ emp.title }}</div>
-              <div class="responsive-employee-card__meta">
-                <span
-                  class="responsive-employee-card__dept"
-                  [style.color]="getDepartmentColor(emp.department)"
-                  >{{ emp.department }}</span
-                >
-                <span class="responsive-employee-card__separator">•</span>
-                <span class="responsive-employee-card__salary">{{
-                  emp.salary | currency: 'USD' : 'symbol' : '1.0-0'
-                }}</span>
-                <span class="responsive-employee-card__separator">•</span>
-                <span class="responsive-employee-card__rating">{{ emp.rating.toFixed(1) }} ★</span>
-                @if (emp.isTopPerformer) {
-                  <span class="responsive-employee-card__top-performer">⭐</span>
-                }
-              </div>
-            </div>
-          </div>
-        </ng-template>
-      </tbw-grid-responsive-card>
+        <!-- Custom Tool Panels -->
+        <tbw-grid-tool-panel
+          id="quick-filters"
+          title="Quick Filters"
+          icon="🔍"
+          tooltip="Apply quick filters to the data"
+          [order]="10"
+        >
+          <ng-template let-grid>
+            <app-quick-filters-panel [grid]="grid" />
+          </ng-template>
+        </tbw-grid-tool-panel>
 
-      <!-- Custom Tool Panels -->
-      <tbw-grid-tool-panel
-        id="quick-filters"
-        title="Quick Filters"
-        icon="🔍"
-        tooltip="Apply quick filters to the data"
-        [order]="10"
-      >
-        <ng-template let-grid>
-          <app-quick-filters-panel [grid]="grid" />
-        </ng-template>
-      </tbw-grid-tool-panel>
-
-      <tbw-grid-tool-panel
-        id="analytics"
-        title="Analytics"
-        icon="📈"
-        tooltip="View data analytics and insights"
-        [order]="20"
-      >
-        <ng-template let-grid>
-          <app-analytics-panel [grid]="grid" [rows]="rows()" />
-        </ng-template>
-      </tbw-grid-tool-panel>
-    </tbw-grid>
+        <tbw-grid-tool-panel
+          id="analytics"
+          title="Analytics"
+          icon="📈"
+          tooltip="View data analytics and insights"
+          [order]="20"
+        >
+          <ng-template let-grid>
+            <app-analytics-panel [grid]="grid" [rows]="rows()" />
+          </ng-template>
+        </tbw-grid-tool-panel>
+      </tbw-grid>
+    </div>
   </div>
 </div>

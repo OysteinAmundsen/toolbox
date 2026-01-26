@@ -1,0 +1,28 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "tsconfig.lib.json",
+  "json": "docs/api-generated/api.json",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": false,
+  "excludeNotDocumented": false,
+  "excludeExternals": true,
+  "externalPattern": ["**/node_modules/**"],
+  "sort": ["source-order"],
+  "categoryOrder": ["Directives", "Types", "Utilities", "*"],
+  "blockTags": [
+    "@category",
+    "@deprecated",
+    "@example",
+    "@fires",
+    "@internal",
+    "@param",
+    "@remarks",
+    "@returns",
+    "@see",
+    "@throws"
+  ]
+}

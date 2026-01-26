@@ -1,0 +1,233 @@
+{/* @jsxRuntime automatic */}
+
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Angular/Reactive Forms Integration" />
+
+# Reactive Forms Integration
+
+The `@toolbox-web/grid-angular` package provides seamless integration with Angular Reactive Forms, allowing the grid to act as a proper form control.
+
+## Overview
+
+You can bind a grid to a `FormControl` or `FormArray` using the `formControl` or `formControlName` directives. This enables:
+
+- **Two-way data binding** - Form value changes update the grid, and cell edits update the form
+- **Validation state** - Access cell-level and row-level validation
+- **Dirty/touched tracking** - Know when users have interacted with the grid
+- **FormControl in editors** - Custom editors can bind directly to cell-level FormControls
+
+## Basic Usage with FormControl
+
+The simplest approach uses `FormControl<T[]>` to bind an array of row objects:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { Grid, GridFormControl } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+@Component({
+  imports: [Grid, GridFormControl, ReactiveFormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \\\`
+    <tbw-grid
+      [formControl]="employeesControl"
+      [gridConfig]="config"
+      style="height: 400px; display: block;"
+    />
+
+    <div class="form-state">
+      <p>Dirty: {{ employeesControl.dirty }}</p>
+      <p>Touched: {{ employeesControl.touched }}</p>
+      <p>Value: {{ employeesControl.value | json }}</p>
+    </div>
+  \\\`
+})
+export class BasicFormControlExample {
+  employeesControl = new FormControl([
+    { name: 'Alice', age: 30 },
+    { name: 'Bob', age: 25 },
+  ]);
+
+  config = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'age', header: 'Age', editable: true },
+    ],
+    plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+  };
+}
+`}
+/>
+
+## Advanced: Cell-Level FormControls with FormArray
+
+For fine-grained validation control, use `FormArray` with `FormGroup` rows. This exposes cell-level `FormControl`s in the editor context:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA, input, output } from '@angular/core';
+import {
+  FormArray, FormControl, FormGroup,
+  ReactiveFormsModule, Validators, AbstractControl
+} from '@angular/forms';
+import { Grid, GridFormControl, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+// Custom validated input editor
+@Component({
+  selector: 'app-validated-input',
+  standalone: true,
+  imports: [ReactiveFormsModule],
+  template: \\\`
+    @if (control()) {
+      <input
+        [formControl]="control()"
+        [class.is-invalid]="control()!.invalid && control()!.touched"
+      />
+      @if (control()!.invalid && control()!.touched) {
+        <small class="error">{{ getErrorMessage() }}</small>
+      }
+    }
+  \\\`,
+  styles: \\\`
+    .is-invalid { border-color: red; }
+    .error { color: red; font-size: 0.8em; }
+  \\\`
+})
+export class ValidatedInputComponent {
+  control = input<AbstractControl>();
+  commit = output<string>();
+
+  getErrorMessage(): string {
+    const ctrl = this.control();
+    if (ctrl?.hasError('required')) return 'Required';
+    if (ctrl?.hasError('min')) return 'Value too low';
+    return 'Invalid';
+  }
+}
+
+@Component({
+  imports: [
+    Grid, GridFormControl, TbwRenderer, TbwEditor,
+    ReactiveFormsModule, ValidatedInputComponent
+  ],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \\\`
+    <tbw-grid [formControl]="employeesArray" [gridConfig]="config">
+      <tbw-grid-column field="age" editable>
+        <span *tbwRenderer="let value">{{ value }}</span>
+        <!-- The 'control' gives you the FormControl for this cell -->
+        <app-validated-input *tbwEditor="let value; control as ctrl" [control]="ctrl" />
+      </tbw-grid-column>
+    </tbw-grid>
+
+    <div class="validation-summary">
+      <p>Form Valid: {{ employeesArray.valid }}</p>
+      <p>Errors: {{ getFormErrors() | json }}</p>
+    </div>
+  \\\`
+})
+export class FormArrayExample {
+  employeesArray = new FormArray([
+    new FormGroup({
+      name: new FormControl('Alice', Validators.required),
+      age: new FormControl(30, [Validators.required, Validators.min(18)]),
+    }),
+    new FormGroup({
+      name: new FormControl('Bob', Validators.required),
+      age: new FormControl(25, [Validators.required, Validators.min(18)]),
+    }),
+  ]);
+
+  config = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'age', header: 'Age', editable: true },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+
+  getFormErrors(): string[] {
+    const errors: string[] = [];
+    this.employeesArray.controls.forEach((group, idx) => {
+      const fg = group as FormGroup;
+      Object.keys(fg.controls).forEach(field => {
+        const ctrl = fg.get(field);
+        if (ctrl?.errors) {
+          errors.push(\\\`Row \${idx}, \${field}: \${JSON.stringify(ctrl.errors)}\\\`);
+        }
+      });
+    });
+    return errors;
+  }
+}
+`}
+/>
+
+## Row-Level Validation
+
+When using `FormArray` with `FormGroup`s, you can access row-level validation state:
+
+<Source
+  language="typescript"
+  code={`
+import { getFormArrayContext } from '@toolbox-web/grid-angular';
+
+// Get validation context from grid element
+const context = getFormArrayContext(gridElement);
+
+if (context?.hasFormGroups) {
+  // Check row validation state
+  const isRowValid = context.isRowValid(0);      // All controls valid?
+  const isRowTouched = context.isRowTouched(0);  // Any control touched?
+  const isRowDirty = context.isRowDirty(0);      // Any control changed?
+
+  // Get aggregated errors for a row
+  const errors = context.getRowErrors(0);
+  // Returns: { name: { required: true }, age: { min: { min: 18, actual: 15 } } }
+
+  // Get the FormGroup for advanced use
+  const formGroup = context.getRowFormGroup(0);
+}
+`}
+/>
+
+## Editor Context Properties
+
+When using `*tbwEditor`, the following context is available:
+
+| Property   | Type              | Description |
+|------------|-------------------|-------------|
+| `value`    | `TValue`          | Current cell value |
+| `row`      | `TRow`            | Full row data object |
+| `column`   | `ColumnConfig`    | Column configuration |
+| `onCommit` | `Function`        | Commit callback |
+| `onCancel` | `Function`        | Cancel callback |
+| `control`  | `AbstractControl` | Cell's FormControl (FormArray+FormGroup only) |
+
+## CSS Classes
+
+Angular Forms automatically adds validation classes to the grid element:
+
+| Class | Description |
+|-------|-------------|
+| `.ng-valid` / `.ng-invalid` | Validation state |
+| `.ng-pristine` / `.ng-dirty` | Edit state |
+| `.ng-untouched` / `.ng-touched` | Touch state |
+| `.form-disabled` | Added when control is disabled |
+
+```css
+tbw-grid.ng-invalid.ng-touched {
+  border: 2px solid red;
+}
+
+tbw-grid.form-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+```

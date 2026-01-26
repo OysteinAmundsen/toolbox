@@ -23,6 +23,7 @@ import { isComponentClass, type AngularColumnConfig, type AngularGridConfig } fr
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
+import { getFormArrayContext } from './directives/grid-form-array.directive';
 import { getResponsiveCardTemplate, GridResponsiveCardContext } from './directives/grid-responsive-card.directive';
 import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
 import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';
@@ -263,6 +264,9 @@ export class AngularGridAdapter implements FrameworkAdapter {
   createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> {
     const template = getAnyEditorTemplate(element) as TemplateRef<GridEditorContext<TValue, TRow>> | undefined;
 
+    // Find the parent grid element for FormArray context access
+    const gridElement = element.closest('tbw-grid') as HTMLElement | null;
+
     if (!template) {
       console.warn(`[AngularGridAdapter] No editor template registered for element`);
       return () => document.createElement('div');
@@ -279,6 +283,22 @@ export class AngularGridAdapter implements FrameworkAdapter {
       commitEmitter.subscribe((value: TValue) => ctx.commit(value));
       cancelEmitter.subscribe(() => ctx.cancel());
 
+      // Try to get the FormControl from the FormArrayContext
+      let control: GridEditorContext<TValue, TRow>['control'];
+      if (gridElement) {
+        const formContext = getFormArrayContext(gridElement);
+        if (formContext?.hasFormGroups) {
+          // Find the row index by looking up ctx.row in the grid's rows
+          const gridRows = (gridElement as { rows?: TRow[] }).rows;
+          if (gridRows) {
+            const rowIndex = gridRows.indexOf(ctx.row);
+            if (rowIndex >= 0) {
+              control = formContext.getControl(rowIndex, ctx.field);
+            }
+          }
+        }
+      }
+
       // Create the context for the template
       const context: GridEditorContext<TValue, TRow> = {
         $implicit: ctx.value,
@@ -288,6 +308,8 @@ export class AngularGridAdapter implements FrameworkAdapter {
         // Preferred: simple callback functions
         onCommit,
         onCancel,
+        // FormControl from FormArray (if available)
+        control,
         // Deprecated: EventEmitters (for backwards compatibility)
         commit: commitEmitter,
         cancel: cancelEmitter,

@@ -3,17 +3,22 @@ import {
   Component,
   computed,
   CUSTOM_ELEMENTS_SCHEMA,
+  DestroyRef,
+  effect,
   ElementRef,
+  inject,
+  OnInit,
   signal,
   viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { generateEmployees, type Employee, type GridElement } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 import {
   CellCommitEvent,
   Grid,
   GridDetailView,
+  GridFormArray,
   GridResponsiveCard,
   GridToolPanel,
   TbwEditor,
@@ -26,6 +31,7 @@ import { COLUMN_GROUPS, createGridConfig } from './grid-config';
 // Import components so they're available in templates
 // Note: RatingDisplayComponent and StarRatingEditorComponent are configured via gridConfig,
 // not imported here (they use component-class column config instead of templates)
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BonusSliderEditorComponent } from './editors/bonus-slider-editor.component';
 import { DateEditorComponent } from './editors/date-editor.component';
 import { StatusSelectEditorComponent } from './editors/status-select-editor.component';
@@ -39,8 +45,10 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
   imports: [
     CurrencyPipe,
     FormsModule,
+    ReactiveFormsModule,
     Grid,
     GridDetailView,
+    GridFormArray,
     GridResponsiveCard,
     GridToolPanel,
     TbwRenderer,
@@ -60,7 +68,10 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './app.component.html',
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
+  private fb = inject(FormBuilder);
+  private destroyRef = inject(DestroyRef);
+
   rowCount = signal(200);
   enableSelection = signal(true);
   enableFiltering = signal(true);
@@ -75,6 +86,69 @@ export class AppComponent {
   // Generate employee data - recomputed when rowCount changes
   rows = computed(() => generateEmployees(this.rowCount()));
 
+  /**
+   * Form containing the grid rows as a FormArray of FormGroups.
+   * Each row is a FormGroup with individual FormControls for each field.
+   * This enables Reactive Forms integration with field-level validation.
+   */
+  form = this.fb.group({
+    rows: this.fb.array<ReturnType<typeof this.createEmployeeFormGroup>>([]),
+  });
+
+  /** Convenience getter for the rows FormArray */
+  get rowsFormArray() {
+    return this.form.controls.rows;
+  }
+
+  /**
+   * Sync the computed rows signal to the FormArray.
+   * When rowCount changes, we regenerate employees and update the FormArray.
+   */
+  private syncRowsToFormArray = effect(() => {
+    const rows = this.rows();
+    const formArray = this.rowsFormArray;
+    formArray.clear({ emitEvent: false });
+    rows.forEach((row) => {
+      formArray.push(this.createEmployeeFormGroup(row), { emitEvent: false });
+    });
+    // Emit a single valueChanges after all rows are added
+    formArray.updateValueAndValidity();
+  });
+
+  /**
+   * Create a FormGroup for an Employee row with individual controls per field.
+   * Non-editable fields (id, email, team, etc.) are marked as disabled.
+   */
+  private createEmployeeFormGroup(employee: Employee) {
+    return this.fb.group({
+      // Non-editable fields (disabled)
+      id: this.fb.control({ value: employee.id, disabled: true }),
+      email: this.fb.control({ value: employee.email, disabled: true }),
+      team: this.fb.control({ value: employee.team, disabled: true }),
+      manager: this.fb.control({ value: employee.manager, disabled: true }),
+      location: this.fb.control({ value: employee.location, disabled: true }),
+      timezone: this.fb.control({ value: employee.timezone, disabled: true }),
+      skills: this.fb.control({ value: employee.skills, disabled: true }),
+      completedProjects: this.fb.control({ value: employee.completedProjects, disabled: true }),
+      activeProjects: this.fb.control({ value: employee.activeProjects, disabled: true }),
+      performanceReviews: this.fb.control({ value: employee.performanceReviews, disabled: true }),
+      lastPromotion: this.fb.control({ value: employee.lastPromotion, disabled: true }),
+      isTopPerformer: this.fb.control({ value: employee.isTopPerformer, disabled: true }),
+
+      // Editable fields
+      firstName: this.fb.control(employee.firstName, { nonNullable: true }),
+      lastName: this.fb.control(employee.lastName, { nonNullable: true }),
+      department: this.fb.control(employee.department, { nonNullable: true }),
+      title: this.fb.control(employee.title, { nonNullable: true }),
+      level: this.fb.control(employee.level, { nonNullable: true }),
+      salary: this.fb.control(employee.salary, { nonNullable: true }),
+      bonus: this.fb.control(employee.bonus, { nonNullable: true }),
+      status: this.fb.control(employee.status, { nonNullable: true }),
+      hireDate: this.fb.control(employee.hireDate, { nonNullable: true }),
+      rating: this.fb.control(employee.rating, { nonNullable: true }),
+    });
+  }
+
   // Grid config - recomputed when feature flags change
   gridConfig = computed(() =>
     createGridConfig({
@@ -88,6 +162,12 @@ export class AppComponent {
 
   // Grid reference for accessing plugins - properly typed!
   gridRef = viewChild<ElementRef<GridElement<Employee>>>('grid');
+
+  ngOnInit(): void {
+    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((val) => {
+      console.log('[Grid] Value changed', val);
+    });
+  }
 
   exportCsv(): void {
     const grid = this.gridRef()?.nativeElement;

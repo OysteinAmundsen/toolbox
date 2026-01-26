@@ -62,6 +62,26 @@ The grid supports configuration via HTML attributes for declarative usage. JSON-
 
 > **Note:** JavaScript property assignment takes precedence over HTML attributes. Removing an attribute does not clear a JS-set value.
 
+## Helper Functions
+
+```typescript
+import { createGrid, queryGrid } from '@toolbox-web/grid';
+
+// Create a new grid element with configuration
+const grid = createGrid<Employee>({
+  columns: [{ field: 'name' }, { field: 'email' }],
+  fitMode: 'stretch',
+});
+document.body.appendChild(grid);
+grid.rows = employees;
+
+// Query an existing grid with type safety
+const existingGrid = queryGrid<Employee>('#my-grid');
+if (existingGrid) {
+  existingGrid.rows = newData;
+}
+```
+
 ## Methods
 
 ### Data Methods
@@ -450,6 +470,10 @@ interface ColumnConfig {
   formatter?: (value: any, row: T) => string;
   renderer?: (value: any, row: T, cell: HTMLElement) => void;
 
+  // Custom header rendering (see Core Grid docs for examples)
+  headerLabelRenderer?: (ctx: HeaderLabelContext) => string | HTMLElement;
+  headerRenderer?: (ctx: HeaderCellContext) => string | HTMLElement;
+
   // Dynamic cell styling
   cellClass?: (value: any, row: T, column: ColumnConfig) => string[];
 
@@ -488,8 +512,9 @@ interface GridConfig<T> {
   columns?: ColumnConfig[];
   fitMode?: 'stretch' | 'fixed';
   plugins?: BaseGridPlugin[];
-  shell?: ShellConfig;
-  animation?: AnimationConfig;
+  shell?: ShellConfig;          // Shell header/toolbar/tool panel config
+  animation?: AnimationConfig;  // Animation behavior config
+  icons?: Partial<GridIcons>;   // Custom icons (SVG strings or emoji)
   getRowId?: (row: T) => string; // Custom row ID resolver
   typeDefaults?: Record<string, TypeDefault<T>>; // Type-level renderer/editor defaults
 
@@ -497,6 +522,10 @@ interface GridConfig<T> {
   rowClass?: (row: T) => string[];
 }
 ```
+
+**See Also:**
+- [Header Renderers](?path=/docs/grid-core--docs#custom-header-renderers) - Custom column header rendering
+- [Shell Components](?path=/docs/grid-core--docs#shell-components) - Toolbar, tool panels, and header bar
 
 #### rowClass Callback
 
@@ -643,6 +672,40 @@ grid.gridConfig = {
     new MasterDetailPlugin({ animation: 'slide' }),
     new TreePlugin({ animation: 'fade' }),
   ],
+};
+```
+
+### Shell Configuration
+
+```typescript
+interface ShellConfig {
+  header?: ShellHeaderConfig;   // Header bar with title and toolbar
+  toolPanel?: ToolPanelConfig;  // Tool panel sidebar settings
+}
+
+interface ShellHeaderConfig {
+  title?: string;  // Grid title displayed on the left
+}
+
+interface ToolPanelConfig {
+  position?: 'left' | 'right';  // Panel position (default: 'right')
+  width?: number;               // Panel width in pixels (default: 280)
+  defaultOpen?: string;         // Panel ID to open by default
+}
+```
+
+### Icon Customization
+
+```typescript
+// Override any grid icon with SVG string or emoji
+grid.gridConfig = {
+  icons: {
+    sortAsc: '↑',
+    sortDesc: '↓',
+    expand: '+',
+    collapse: '−',
+    // ... see GridIcons type for all available icons
+  },
 };
 ```
 

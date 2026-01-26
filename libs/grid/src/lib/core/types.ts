@@ -347,6 +347,52 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
    * ```
    */
   cellClass?: (value: unknown, row: TRow, column: ColumnConfig<TRow>) => string[];
+
+  /**
+   * Custom header label renderer. Customize the label content while the grid
+   * handles sort icons, filter buttons, resize handles, and click interactions.
+   *
+   * Use this for simple customizations like adding icons, badges, or units.
+   *
+   * @example
+   * ```typescript
+   * // Add required field indicator
+   * headerLabelRenderer: (ctx) => `${ctx.value} <span class="required">*</span>`
+   *
+   * // Add unit to header
+   * headerLabelRenderer: (ctx) => {
+   *   const span = document.createElement('span');
+   *   span.innerHTML = `${ctx.value}<br/><small>(kg)</small>`;
+   *   return span;
+   * }
+   * ```
+   */
+  headerLabelRenderer?: HeaderLabelRenderer<TRow>;
+
+  /**
+   * Custom header cell renderer. Complete control over the entire header cell.
+   * When using this, you are responsible for all content and interactions.
+   *
+   * The context provides helper functions to include standard elements if desired:
+   * - `renderSortIcon()` - Returns sort indicator element (null if not sortable)
+   * - `renderFilterButton()` - Returns filter button (null if not filterable)
+   * - `renderResizeHandle()` - Returns resize handle element
+   *
+   * **Precedence**: `headerRenderer` > `headerLabelRenderer` > `header` > `field`
+   *
+   * @example
+   * ```typescript
+   * headerRenderer: (ctx) => {
+   *   const div = document.createElement('div');
+   *   div.className = 'custom-header';
+   *   div.innerHTML = `<span>${ctx.value}</span>`;
+   *   const sortIcon = ctx.renderSortIcon();
+   *   if (sortIcon) div.appendChild(sortIcon);
+   *   return div;
+   * }
+   * ```
+   */
+  headerRenderer?: HeaderRenderer<TRow>;
 }
 
 export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
@@ -409,6 +455,89 @@ export interface CellRenderContext<TRow = any, TValue = any> {
 export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
   ctx: CellRenderContext<TRow, TValue>,
 ) => Node | string | void | null;
+
+// ============================================================================
+// Header Renderer Types
+// ============================================================================
+
+/**
+ * Context passed to `headerLabelRenderer` for customizing header label content.
+ * The framework handles sort icons, filter buttons, resize handles, and click interactions.
+ *
+ * @example
+ * ```typescript
+ * headerLabelRenderer: (ctx) => {
+ *   const span = document.createElement('span');
+ *   span.innerHTML = `${ctx.value} <span class="required">*</span>`;
+ *   return span;
+ * }
+ * ```
+ */
+export interface HeaderLabelContext<TRow = unknown> {
+  /** Column configuration reference. */
+  column: ColumnConfig<TRow>;
+  /** The header text (from column.header or column.field). */
+  value: string;
+}
+
+/**
+ * Context passed to `headerRenderer` for complete control over header cell content.
+ * When using this, the user is responsible for all content and interactions.
+ *
+ * @example
+ * ```typescript
+ * headerRenderer: (ctx) => {
+ *   const div = document.createElement('div');
+ *   div.className = 'custom-header';
+ *   div.innerHTML = `<span>${ctx.value}</span>`;
+ *   // Optionally include standard elements
+ *   const sortIcon = ctx.renderSortIcon();
+ *   if (sortIcon) div.appendChild(sortIcon);
+ *   div.appendChild(ctx.renderResizeHandle());
+ *   return div;
+ * }
+ * ```
+ */
+export interface HeaderCellContext<TRow = unknown> {
+  /** Column configuration reference. */
+  column: ColumnConfig<TRow>;
+  /** The header text (from column.header or column.field). */
+  value: string;
+  /** Current sort state for this column. */
+  sortState: 'asc' | 'desc' | null;
+  /** Whether the column has an active filter. */
+  filterActive: boolean;
+  /** The header cell DOM element being rendered into. */
+  cellEl: HTMLElement;
+  /**
+   * Render the standard sort indicator icon.
+   * Returns null if column is not sortable.
+   */
+  renderSortIcon: () => HTMLElement | null;
+  /**
+   * Render the standard filter button.
+   * Returns null if FilteringPlugin is not active or column is not filterable.
+   * Note: The actual button is added by FilteringPlugin's afterRender hook.
+   */
+  renderFilterButton: () => HTMLElement | null;
+  /**
+   * Render the standard resize handle.
+   * Returns a handle element that will be managed by the grid's resize controller.
+   */
+  renderResizeHandle: () => HTMLElement;
+}
+
+/**
+ * Header label renderer function type.
+ * Customize the label while framework handles sort icons, filter buttons, resize handles.
+ */
+export type HeaderLabelRenderer<TRow = unknown> = (ctx: HeaderLabelContext<TRow>) => Node | string | void | null;
+
+/**
+ * Header cell renderer function type.
+ * Full control over header cell content. User is responsible for all content and interactions.
+ */
+export type HeaderRenderer<TRow = unknown> = (ctx: HeaderCellContext<TRow>) => Node | string | void | null;
 
 /**
  * Framework adapter interface for handling framework-specific component instantiation.

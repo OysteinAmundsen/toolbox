@@ -1308,6 +1308,157 @@ grid.rows = [...];
 
 // #region Dynamic Classes
 
+// #region Events
+/**
+ * ## Core Grid Events
+ *
+ * The grid emits events for core interactions. This demo shows:
+ * - `cell-click` / `row-click` - User interaction events
+ * - `cell-activate` - Keyboard navigation events
+ * - `sort-change` - Column sorting events
+ * - `column-resize` - Column width change events
+ * - `column-state-change` - Visibility/order/width state events
+ *
+ * For editing events (`cell-commit`, `row-commit`), see the Editing Plugin.
+ */
+export const CoreEvents: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+const grid = document.querySelector('tbw-grid');
+
+// Cell clicked
+grid.addEventListener('cell-click', (e) => {
+  console.log('Cell:', e.detail.field, '=', e.detail.value);
+});
+
+// Row clicked
+grid.addEventListener('row-click', (e) => {
+  console.log('Row:', e.detail.rowIndex);
+});
+
+// Keyboard navigation activated a cell
+grid.addEventListener('cell-activate', (e) => {
+  console.log('Activated:', e.detail.rowIndex, e.detail.colIndex);
+});
+
+// Sort changed
+grid.addEventListener('sort-change', (e) => {
+  console.log('Sort:', e.detail.field, e.detail.direction);
+});
+
+// Column resized
+grid.addEventListener('column-resize', (e) => {
+  console.log('Resize:', e.detail.field, e.detail.width);
+});
+
+// Column state changed (visibility, order, widths)
+grid.addEventListener('column-state-change', (e) => {
+  console.log('State:', e.detail);
+});
+        `,
+        language: 'typescript',
+      },
+    },
+  },
+  render: () => {
+    const sampleData = [
+      { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 85000 },
+      { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000 },
+      { id: 3, name: 'Carol White', department: 'Sales', salary: 68000 },
+      { id: 4, name: 'David Brown', department: 'Engineering', salary: 92000 },
+      { id: 5, name: 'Eve Davis', department: 'HR', salary: 65000 },
+    ];
+
+    const container = document.createElement('div');
+    container.style.cssText = 'display: grid; grid-template-columns: 1fr 320px; gap: 16px;';
+
+    // Grid
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.id = 'events-demo-grid';
+    grid.style.height = '350px';
+    grid.rows = sampleData;
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 60, sortable: true },
+        { field: 'name', header: 'Name', sortable: true, resizable: true },
+        { field: 'department', header: 'Department', sortable: true, resizable: true },
+        { field: 'salary', header: 'Salary', type: 'number', sortable: true, resizable: true },
+      ],
+    };
+
+    // Event log panel
+    const logPanel = document.createElement('div');
+    logPanel.style.cssText =
+      'border: 1px solid var(--sb-border); padding: 12px; border-radius: 4px; background: var(--sbdocs-bg); overflow-y: auto; max-height: 350px;';
+    logPanel.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong>Event Log:</strong>
+        <button id="clear-log" style="padding: 4px 8px; cursor: pointer; font-size: 12px;">Clear</button>
+      </div>
+      <div id="event-log" style="font-family: monospace; font-size: 11px; color: var(--sbdocs-fg);"></div>
+    `;
+
+    container.appendChild(grid);
+    container.appendChild(logPanel);
+
+    // Setup event listeners
+    setTimeout(() => {
+      const log = container.querySelector('#event-log');
+      const clearBtn = container.querySelector('#clear-log');
+
+      if (!log) return;
+
+      const addLog = (type: string, detail: string) => {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'padding: 2px 0; border-bottom: 1px solid var(--sb-border);';
+        msg.innerHTML = `<span style="color: var(--sb-accent-color);">[${type}]</span> ${detail}`;
+        log.insertBefore(msg, log.firstChild);
+        // Keep only last 20 entries
+        while (log.children.length > 20) {
+          log.lastChild?.remove();
+        }
+      };
+
+      clearBtn?.addEventListener('click', () => {
+        log.innerHTML = '';
+      });
+
+      grid.addEventListener('cell-click', (e: any) => {
+        addLog('cell-click', `row ${e.detail.rowIndex}, field="${e.detail.field}", value="${e.detail.value}"`);
+      });
+
+      grid.addEventListener('row-click', (e: any) => {
+        addLog('row-click', `row ${e.detail.rowIndex}`);
+      });
+
+      grid.addEventListener('cell-activate', (e: any) => {
+        addLog('cell-activate', `row ${e.detail.rowIndex}, col ${e.detail.colIndex}`);
+      });
+
+      grid.addEventListener('sort-change', (e: any) => {
+        const dir = e.detail.direction === 1 ? 'asc' : e.detail.direction === -1 ? 'desc' : 'none';
+        addLog('sort-change', `field="${e.detail.field}", direction=${dir}`);
+      });
+
+      grid.addEventListener('column-resize', (e: any) => {
+        addLog('column-resize', `field="${e.detail.field}", width=${e.detail.width}px`);
+      });
+
+      grid.addEventListener('column-state-change', (e: any) => {
+        const state = e.detail;
+        const widthCount = Object.keys(state.widths || {}).length;
+        addLog('column-state-change', `${widthCount} widths, ${state.order?.length || 0} ordered`);
+      });
+    }, 50);
+
+    return container;
+  },
+};
+// #endregion
+
+// #region Dynamic Styling
 /**
  * ## Row Class Callback
  *

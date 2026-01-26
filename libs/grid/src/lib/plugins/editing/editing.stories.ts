@@ -578,3 +578,118 @@ grid.gridConfig = {
     return grid;
   },
 };
+
+/**
+ * ## Editing Events
+ *
+ * The EditingPlugin emits events during the editing lifecycle:
+ * - `cell-commit` - Fired when a cell value is committed (Enter, blur, or programmatic)
+ * - `row-commit` - Fired when a row is committed after bulk edit mode
+ * - `changed-rows-reset` - Fired when the changed rows tracking is reset
+ *
+ * Double-click a cell to edit, then press Enter or click away to see events.
+ */
+export const EditingEvents: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+const grid = document.querySelector('tbw-grid');
+
+// Cell value committed
+grid.addEventListener('cell-commit', (e) => {
+  console.log('Committed:', e.detail.field, e.detail.oldValue, '→', e.detail.newValue);
+});
+
+// Row committed (bulk edit mode)
+grid.addEventListener('row-commit', (e) => {
+  console.log('Row committed:', e.detail.rowIndex, e.detail.changes);
+});
+
+// Changed rows tracking reset
+grid.addEventListener('changed-rows-reset', (e) => {
+  console.log('Reset:', e.detail.changedRows.size, 'rows cleared');
+});
+        `,
+        language: 'typescript',
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'display: grid; grid-template-columns: 1fr 320px; gap: 16px;';
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.id = 'editing-events-grid';
+    grid.style.height = '300px';
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'department', header: 'Department', editable: true },
+        { field: 'salary', header: 'Salary', type: 'number' as const, editable: true },
+      ],
+      plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+    };
+
+    grid.rows = [
+      { name: 'Alice Johnson', department: 'Engineering', salary: 85000 },
+      { name: 'Bob Smith', department: 'Marketing', salary: 72000 },
+      { name: 'Carol White', department: 'Sales', salary: 68000 },
+    ];
+
+    // Event log panel
+    const logPanel = document.createElement('div');
+    logPanel.style.cssText =
+      'border: 1px solid var(--sb-border); padding: 12px; border-radius: 4px; background: var(--sbdocs-bg); overflow-y: auto; max-height: 300px;';
+    logPanel.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong>Event Log:</strong>
+        <button id="clear-log" style="padding: 4px 8px; cursor: pointer; font-size: 12px;">Clear</button>
+      </div>
+      <div id="event-log" style="font-family: monospace; font-size: 11px; color: var(--sbdocs-fg);"></div>
+    `;
+
+    container.appendChild(grid);
+    container.appendChild(logPanel);
+
+    // Setup event listeners
+    setTimeout(() => {
+      const log = container.querySelector('#event-log');
+      const clearBtn = container.querySelector('#clear-log');
+
+      if (!log) return;
+
+      const addLog = (type: string, detail: string) => {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'padding: 2px 0; border-bottom: 1px solid var(--sb-border);';
+        msg.innerHTML = `<span style="color: var(--sb-accent-color);">[${type}]</span> ${detail}`;
+        log.insertBefore(msg, log.firstChild);
+        while (log.children.length > 15) {
+          log.lastChild?.remove();
+        }
+      };
+
+      clearBtn?.addEventListener('click', () => {
+        log.innerHTML = '';
+      });
+
+      grid.addEventListener('cell-commit', (e: CustomEvent) => {
+        const d = e.detail;
+        addLog('cell-commit', `field="${d.field}", "${d.oldValue}" → "${d.newValue}"`);
+      });
+
+      grid.addEventListener('row-commit', (e: CustomEvent) => {
+        const d = e.detail;
+        const fields = Object.keys(d.changes).join(', ');
+        addLog('row-commit', `row ${d.rowIndex}, changed: ${fields}`);
+      });
+
+      grid.addEventListener('changed-rows-reset', (e: CustomEvent) => {
+        addLog('changed-rows-reset', `${e.detail.changedRows?.size || 0} rows cleared`);
+      });
+    }, 50);
+
+    return container;
+  },
+};

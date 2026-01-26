@@ -205,15 +205,22 @@ Add custom toolbar buttons using the `<tbw-grid-tool-buttons>` container. Button
 
 ## Events
 
-| Event               | Detail                                       | Description                                     |
-| ------------------- | -------------------------------------------- | ----------------------------------------------- |
-| `cell-commit`       | `{ row, rowIndex, field, oldValue, newValue }` | Cell value committed (requires EditingPlugin)   |
-| `row-commit`        | `{ row, rowIndex, changes }`                 | Row committed after bulk edit                   |
-| `changed-rows-reset`| `{ changedRows }`                            | Changed rows tracking reset                     |
-| `sort-change`       | `{ field, direction }`                       | Sort state changed (0=none, 1=asc, -1=desc)     |
-| `column-resize`     | `{ field, width }`                           | Column width changed                            |
-| `activate-cell`     | `{ rowIndex, colIndex }`                     | Cell activated via keyboard                     |
-| `column-state-change` | `GridColumnState`                          | Column state (widths, order, visibility) changed |
+The core grid emits events for user interactions and state changes. Try clicking, sorting,
+and resizing columns to see the events in the log:
+
+<Canvas of={GridStories.CoreEvents} withToolbar />
+
+### Core Grid Events
+
+| Event                 | Detail                                       | Description                                     |
+| --------------------- | -------------------------------------------- | ----------------------------------------------- |
+| `cell-click`          | `{ row, rowIndex, field, value, ... }`       | Cell clicked                                    |
+| `row-click`           | `{ row, rowIndex, rowEl, ... }`              | Row clicked                                     |
+| `cell-activate`       | `{ rowIndex, colIndex, field, value, ... }`  | Cell activated via keyboard navigation          |
+| `cell-change`         | `{ row, rowIndex, field, oldValue, newValue }` | Cell value changed (before commit)            |
+| `sort-change`         | `{ field, direction }`                       | Sort state changed (0=none, 1=asc, -1=desc)     |
+| `column-resize`       | `{ field, width }`                           | Column width changed                            |
+| `column-state-change` | `GridColumnState`                            | Column state (widths, order, visibility) changed |
 
 ## Methods
 

@@ -458,3 +458,94 @@ grid.rows = [...]; // Initial data
     return grid;
   },
 };
+
+/**
+ * ## Filter Events
+ *
+ * The FilteringPlugin emits events when filter state changes:
+ * - `filter-change` - Fired when filters are applied, changed, or cleared
+ *
+ * Open filter panels and apply filters to see the events.
+ */
+export const FilterEvents: StoryObj = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+const grid = document.querySelector('tbw-grid');
+
+grid.addEventListener('filter-change', (e) => {
+  console.log('Active filters:', e.detail.filters);
+  console.log('Visible rows:', e.detail.visibleRowCount);
+});
+        `,
+        language: 'typescript',
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'display: grid; grid-template-columns: 1fr 320px; gap: 16px;';
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.id = 'filter-events-grid';
+    grid.style.height = '300px';
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+        { field: 'status', header: 'Status' },
+      ],
+      plugins: [new FilteringPlugin({ debounceMs: 300 })],
+    };
+
+    grid.rows = sampleData;
+
+    // Event log panel
+    const logPanel = document.createElement('div');
+    logPanel.style.cssText =
+      'border: 1px solid var(--sb-border); padding: 12px; border-radius: 4px; background: var(--sbdocs-bg); overflow-y: auto; max-height: 300px;';
+    logPanel.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong>Event Log:</strong>
+        <button id="clear-log" style="padding: 4px 8px; cursor: pointer; font-size: 12px;">Clear</button>
+      </div>
+      <div id="event-log" style="font-family: monospace; font-size: 11px; color: var(--sbdocs-fg);"></div>
+    `;
+
+    container.appendChild(grid);
+    container.appendChild(logPanel);
+
+    // Setup event listeners
+    setTimeout(() => {
+      const log = container.querySelector('#event-log');
+      const clearBtn = container.querySelector('#clear-log');
+
+      if (!log) return;
+
+      const addLog = (type: string, detail: string) => {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'padding: 2px 0; border-bottom: 1px solid var(--sb-border);';
+        msg.innerHTML = `<span style="color: var(--sb-accent-color);">[${type}]</span> ${detail}`;
+        log.insertBefore(msg, log.firstChild);
+        while (log.children.length > 15) {
+          log.lastChild?.remove();
+        }
+      };
+
+      clearBtn?.addEventListener('click', () => {
+        log.innerHTML = '';
+      });
+
+      grid.addEventListener('filter-change', (e: CustomEvent) => {
+        const d = e.detail;
+        const filterCount = d.filters?.length || 0;
+        const fields = d.filters?.map((f: { field: string }) => f.field).join(', ') || 'none';
+        addLog('filter-change', `${filterCount} filter(s) on: ${fields}`);
+      });
+    }, 50);
+
+    return container;
+  },
+};

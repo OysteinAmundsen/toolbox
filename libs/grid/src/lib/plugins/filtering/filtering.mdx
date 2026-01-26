@@ -311,6 +311,25 @@ plugin.clearFilters();
 plugin.clearFilter('name');
 ```
 
+## Events
+
+The FilteringPlugin emits events when filter state changes. Open filter panels and
+apply filters to see the events:
+
+<Canvas of={FilteringStories.FilterEvents} withToolbar />
+
+| Event | Description |
+| ----- | ----------- |
+| `filter-change` | Fired when filters are applied, changed, or cleared |
+
+### `filter-change` Detail
+
+```ts
+interface FilterChangeDetail {
+  filters: FilterModel[];  // Active filter configurations
+}
+```
+
 ## Styling
 
 The filter panel and inputs support CSS custom properties for theming. Override these on `tbw-grid` or a parent container:

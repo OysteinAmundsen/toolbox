@@ -352,3 +352,110 @@ grid.rows = [
     return grid;
   },
 };
+
+/**
+ * ## Selection Events
+ *
+ * The SelectionPlugin emits events when selection state changes:
+ * - `selection-change` - Fired when the selection is modified
+ *
+ * Click cells or rows, use Shift+Click for ranges, or Ctrl+A to select all.
+ */
+export const SelectionEvents: Story = {
+  args: { mode: 'range' },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+const grid = document.querySelector('tbw-grid');
+
+grid.addEventListener('selection-change', (e) => {
+  console.log('Mode:', e.detail.mode);
+  console.log('Ranges:', e.detail.ranges);
+  console.log('Selected rows:', e.detail.selectedRows?.length);
+});
+        `,
+        language: 'typescript',
+      },
+    },
+  },
+  render: (args) => {
+    const container = document.createElement('div');
+    container.style.cssText = 'display: grid; grid-template-columns: 1fr 320px; gap: 16px;';
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.id = 'selection-events-grid';
+    grid.style.height = '300px';
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', type: 'number' as const },
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+        { field: 'salary', header: 'Salary', type: 'number' as const },
+      ],
+      plugins: [new SelectionPlugin({ mode: args.mode as SelectionMode })],
+    };
+
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 85000 },
+      { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000 },
+      { id: 3, name: 'Carol White', department: 'Sales', salary: 68000 },
+      { id: 4, name: 'David Brown', department: 'Engineering', salary: 92000 },
+      { id: 5, name: 'Eve Davis', department: 'HR', salary: 65000 },
+    ];
+
+    // Event log panel
+    const logPanel = document.createElement('div');
+    logPanel.style.cssText =
+      'border: 1px solid var(--sb-border); padding: 12px; border-radius: 4px; background: var(--sbdocs-bg); overflow-y: auto; max-height: 300px;';
+    logPanel.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong>Event Log:</strong>
+        <button id="clear-log" style="padding: 4px 8px; cursor: pointer; font-size: 12px;">Clear</button>
+      </div>
+      <div id="event-log" style="font-family: monospace; font-size: 11px; color: var(--sbdocs-fg);"></div>
+    `;
+
+    container.appendChild(grid);
+    container.appendChild(logPanel);
+
+    // Setup event listeners
+    setTimeout(() => {
+      const log = container.querySelector('#event-log');
+      const clearBtn = container.querySelector('#clear-log');
+
+      if (!log) return;
+
+      const addLog = (type: string, detail: string) => {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'padding: 2px 0; border-bottom: 1px solid var(--sb-border);';
+        msg.innerHTML = `<span style="color: var(--sb-accent-color);">[${type}]</span> ${detail}`;
+        log.insertBefore(msg, log.firstChild);
+        while (log.children.length > 15) {
+          log.lastChild?.remove();
+        }
+      };
+
+      clearBtn?.addEventListener('click', () => {
+        log.innerHTML = '';
+      });
+
+      grid.addEventListener('selection-change', (e: CustomEvent) => {
+        const d = e.detail;
+        const rangeCount = d.ranges?.length || 0;
+        const cellCount = d.ranges?.reduce(
+          (sum: number, r: { from: { row: number; col: number }; to: { row: number; col: number } }) => {
+            const rows = Math.abs(r.to.row - r.from.row) + 1;
+            const cols = Math.abs(r.to.col - r.from.col) + 1;
+            return sum + rows * cols;
+          },
+          0,
+        );
+        addLog('selection-change', `mode="${d.mode}", ${rangeCount} range(s), ${cellCount} cell(s)`);
+      });
+    }, 50);
+
+    return container;
+  },
+};

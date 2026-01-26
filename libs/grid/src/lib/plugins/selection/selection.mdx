@@ -263,6 +263,26 @@ plugin.clearSelection();
 plugin.selectAll();
 ```
 
+## Events
+
+The SelectionPlugin emits events when selection changes. Click cells, rows, or use
+Shift+Click for ranges to see the events:
+
+<Canvas of={SelectionStories.SelectionEvents} withToolbar />
+
+| Event | Description |
+| ----- | ----------- |
+| `selection-change` | Fired when the selection is modified |
+
+### `selection-change` Detail
+
+```ts
+interface SelectionChangeDetail {
+  mode: SelectionMode;  // 'cell' | 'row' | 'range'
+  ranges: CellRange[];  // Array of selected ranges
+}
+```
+
 ## Styling
 
 The selection plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:

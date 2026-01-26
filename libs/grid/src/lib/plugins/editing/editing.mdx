@@ -585,10 +585,16 @@ The `ctx` object passed to custom editors contains:
 
 ## Events
 
+The EditingPlugin emits events during the editing lifecycle. Double-click a cell to edit,
+then press Enter or click away to see the events:
+
+<Canvas of={EditingStories.EditingEvents} withToolbar />
+
 | Event | Description |
 | ----- | ----------- |
 | `cell-commit` | Fired after a cell value is committed |
 | `row-commit` | Fired after row-based editing session ends |
+| `changed-rows-reset` | Fired when changed rows tracking is reset |
 
 ### `cell-commit` Detail
 

@@ -1,4 +1,4 @@
-import { Directive, ElementRef, forwardRef, inject, OnDestroy, OnInit } from '@angular/core';
+import { Directive, effect, ElementRef, forwardRef, inject, Injector, input, OnDestroy, OnInit } from '@angular/core';
 import {
   AbstractControl,
   ControlValueAccessor,
@@ -169,10 +169,23 @@ export function getFormArrayContext(gridElement: HTMLElement): FormArrayContext 
 })
 export class GridFormControl implements ControlValueAccessor, OnInit, OnDestroy {
   private elementRef = inject(ElementRef<GridElement>);
-  private ngControl = inject(NgControl, { self: true, optional: true });
+  // Use Injector to lazily access NgControl and break the circular dependency
+  // (NG_VALUE_ACCESSOR -> GridFormControl -> NgControl -> NG_VALUE_ACCESSOR)
+  private injector = inject(Injector);
+  private _ngControl: NgControl | null = null;
   private cellCommitListener: ((e: Event) => void) | null = null;
   private touchListener: ((e: Event) => void) | null = null;
   private hasValidatedControlType = false;
+
+  /**
+   * Lazily get the NgControl to avoid circular dependency during construction.
+   */
+  private get ngControl(): NgControl | null {
+    if (this._ngControl === null) {
+      this._ngControl = this.injector.get(NgControl, null, { self: true, optional: true });
+    }
+    return this._ngControl;
+  }
 
   // Current value (row data array)
   private value: unknown[] = [];
@@ -446,6 +459,237 @@ export class GridFormControl implements ControlValueAccessor, OnInit, OnDestroy 
 
       // Notify Angular forms of the change
       this.onChange(this.value);
+    }
+  }
+}
+
+/**
+ * Directive that binds a FormArray directly to the grid.
+ *
+ * This is the recommended way to integrate tbw-grid with Angular Reactive Forms
+ * when using a FormArray of FormGroups for row-level validation and control access.
+ *
+ * ## Usage
+ *
+ * ```typescript
+ * import { Component } from '@angular/core';
+ * import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+ * import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
+ *
+ * @Component({
+ *   imports: [Grid, GridFormArray, ReactiveFormsModule],
+ *   template: \`
+ *     <form [formGroup]="form">
+ *       <tbw-grid [formArray]="form.controls.rows" [columns]="columns" />
+ *     </form>
+ *   \`
+ * })
+ * export class MyComponent {
+ *   private fb = inject(FormBuilder);
+ *
+ *   form = this.fb.group({
+ *     rows: this.fb.array([
+ *       this.fb.group({ name: 'Alice', age: 30 }),
+ *       this.fb.group({ name: 'Bob', age: 25 }),
+ *     ])
+ *   });
+ *
+ *   columns = [
+ *     { field: 'name', header: 'Name', editable: true },
+ *     { field: 'age', header: 'Age', editable: true }
+ *   ];
+ * }
+ * ```
+ *
+ * ## How It Works
+ *
+ * - **FormArray → Grid**: The grid displays the FormArray's value as rows
+ * - **Grid → FormArray**: When a cell is edited, the corresponding FormControl is updated
+ * - FormArrayContext is available for accessing cell-level controls
+ *
+ * ## Benefits over GridFormControl
+ *
+ * - Works naturally with FormArray inside a FormGroup
+ * - Provides cell-level FormControl access for validation
+ * - Supports row-level validation state aggregation
+ */
+@Directive({
+  selector: 'tbw-grid[formArray]',
+})
+export class GridFormArray implements OnInit, OnDestroy {
+  private elementRef = inject(ElementRef<GridElement>);
+  private cellCommitListener: ((e: Event) => void) | null = null;
+  private touchListener: ((e: Event) => void) | null = null;
+
+  /**
+   * The FormArray to bind to the grid.
+   */
+  readonly formArray = input.required<FormArray>();
+
+  /**
+   * Effect that syncs the FormArray value to the grid rows.
+   */
+  private syncFormArrayToGrid = effect(() => {
+    const formArray = this.formArray();
+    const grid = this.elementRef.nativeElement;
+    if (grid && formArray) {
+      // Get the raw value (including disabled controls)
+      grid.rows = formArray.getRawValue();
+    }
+  });
+
+  ngOnInit(): void {
+    const grid = this.elementRef.nativeElement;
+    if (!grid) return;
+
+    // Store the form context on the grid element for other directives to access
+    this.#storeFormContext(grid);
+
+    // Intercept cell-commit events to update the FormArray
+    this.cellCommitListener = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      this.#handleCellCommit(detail);
+    };
+    grid.addEventListener('cell-commit', this.cellCommitListener);
+
+    // Mark FormArray as touched on first interaction
+    this.touchListener = () => {
+      this.formArray().markAsTouched();
+      // Remove after first touch
+      if (this.touchListener) {
+        grid.removeEventListener('click', this.touchListener);
+        this.touchListener = null;
+      }
+    };
+    grid.addEventListener('click', this.touchListener);
+  }
+
+  ngOnDestroy(): void {
+    const grid = this.elementRef.nativeElement;
+    if (!grid) return;
+
+    if (this.cellCommitListener) {
+      grid.removeEventListener('cell-commit', this.cellCommitListener);
+    }
+    if (this.touchListener) {
+      grid.removeEventListener('click', this.touchListener);
+    }
+
+    this.#clearFormContext(grid);
+  }
+
+  /**
+   * Checks if the FormArray contains FormGroups.
+   */
+  #isFormArrayOfFormGroups(): boolean {
+    const formArray = this.formArray();
+    if (formArray.length === 0) return false;
+    return formArray.at(0) instanceof FormGroup;
+  }
+
+  /**
+   * Gets the FormGroup at a specific row index.
+   */
+  #getRowFormGroup(rowIndex: number): FormGroup | undefined {
+    const formArray = this.formArray();
+    const rowControl = formArray.at(rowIndex);
+    return rowControl instanceof FormGroup ? rowControl : undefined;
+  }
+
+  /**
+   * Stores the FormArrayContext on the grid element.
+   */
+  #storeFormContext(grid: GridElement): void {
+    const getRowFormGroup = (rowIndex: number) => this.#getRowFormGroup(rowIndex);
+
+    const context: FormArrayContext = {
+      getRow: <T>(rowIndex: number): T | null => {
+        const formArray = this.formArray();
+        const rowControl = formArray.at(rowIndex);
+        return rowControl ? (rowControl.value as T) : null;
+      },
+      updateField: (rowIndex: number, field: string, value: unknown) => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (rowFormGroup) {
+          const control = rowFormGroup.get(field);
+          if (control) {
+            control.setValue(value);
+            control.markAsDirty();
+          }
+        }
+      },
+      getValue: <T>(): T[] => {
+        return this.formArray().getRawValue() as T[];
+      },
+      hasFormGroups: this.#isFormArrayOfFormGroups(),
+      getControl: (rowIndex: number, field: string): AbstractControl | undefined => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return undefined;
+        return rowFormGroup.get(field) ?? undefined;
+      },
+      getRowFormGroup,
+      isRowValid: (rowIndex: number): boolean => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return true;
+        return rowFormGroup.valid;
+      },
+      isRowTouched: (rowIndex: number): boolean => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return false;
+        return rowFormGroup.touched;
+      },
+      isRowDirty: (rowIndex: number): boolean => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return false;
+        return rowFormGroup.dirty;
+      },
+      getRowErrors: (rowIndex: number): Record<string, unknown> | null => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return null;
+
+        const errors: Record<string, unknown> = {};
+        let hasErrors = false;
+
+        Object.keys(rowFormGroup.controls).forEach((field) => {
+          const control = rowFormGroup.get(field);
+          if (control?.errors) {
+            errors[field] = control.errors;
+            hasErrors = true;
+          }
+        });
+
+        if (rowFormGroup.errors) {
+          errors['_group'] = rowFormGroup.errors;
+          hasErrors = true;
+        }
+
+        return hasErrors ? errors : null;
+      },
+    };
+    (grid as unknown as Record<symbol, FormArrayContext>)[FORM_ARRAY_CONTEXT] = context;
+  }
+
+  /**
+   * Clears the FormArrayContext from the grid element.
+   */
+  #clearFormContext(grid: GridElement): void {
+    delete (grid as unknown as Record<symbol, FormArrayContext>)[FORM_ARRAY_CONTEXT];
+  }
+
+  /**
+   * Handles cell-commit events by updating the FormControl in the FormGroup.
+   */
+  #handleCellCommit(detail: { rowIndex: number; field: string; value: unknown }): void {
+    const { rowIndex, field, value } = detail;
+
+    const rowFormGroup = this.#getRowFormGroup(rowIndex);
+    if (rowFormGroup) {
+      const control = rowFormGroup.get(field);
+      if (control) {
+        control.setValue(value);
+        control.markAsDirty();
+        control.markAsTouched();
+      }
     }
   }
 }

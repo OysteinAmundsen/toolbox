@@ -301,7 +301,7 @@ function isDirective(node: TypeDocNode): boolean {
   if (node.kind !== KIND.Class) return false;
   const directiveNames = [
     'Grid',
-    'GridFormControl',
+    'GridFormArray',
     'TbwRenderer',
     'TbwEditor',
     'GridColumnView',

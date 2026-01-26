@@ -23,7 +23,7 @@ import { isComponentClass, type AngularColumnConfig, type AngularGridConfig } fr
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
-import { getFormArrayContext } from './directives/grid-form-control.directive';
+import { getFormArrayContext } from './directives/grid-form-array.directive';
 import { getResponsiveCardTemplate, GridResponsiveCardContext } from './directives/grid-responsive-card.directive';
 import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
 import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';

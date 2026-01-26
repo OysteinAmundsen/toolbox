@@ -31,12 +31,11 @@
   </header>
 
   <div class="grid-wrapper">
-    <form [formGroup]="form">
+    <div class="demo-grid">
       <tbw-grid
         #grid
         id="employee-grid"
-        class="demo-grid"
-        formControlName="rows"
+        [formArray]="rowsFormArray"
         [angularConfig]="gridConfig()"
         [customStyles]="customStyles"
         (cellCommit)="onCellCommit($event)"
@@ -163,6 +162,6 @@
           </ng-template>
         </tbw-grid-tool-panel>
       </tbw-grid>
-    </form>
+    </div>
   </div>
 </div>

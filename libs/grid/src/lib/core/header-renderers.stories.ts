@@ -17,22 +17,8 @@ type GridElement = HTMLElement & {
 
 const meta: Meta = {
   title: 'Grid/Header Renderers',
-  tags: ['autodocs'],
   parameters: {
     layout: 'fullscreen',
-    docs: {
-      description: {
-        component: `
-Custom header renderers allow you to customize how column headers are displayed.
-
-There are two levels of customization:
-
-1. **\`headerLabelRenderer\`** - Customize only the label text/content. The grid automatically adds sort icons and resize handles.
-
-2. **\`headerRenderer\`** - Full control over the entire header cell. You receive helper functions to optionally include sort icons and resize handles.
-        `,
-      },
-    },
   },
 };
 export default meta;

@@ -1,5 +1,6 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
 import * as GridStories from './grid.stories';
+import * as HeaderRendererStories from './header-renderers.stories';
 
 <Meta of={GridStories} />
 
@@ -70,6 +71,31 @@ Define columns declaratively in HTML using `<tbw-grid-column>` elements.
 Use format functions and templates to customize cell display.
 
 <Canvas of={GridStories.CustomFormatters} withToolbar />
+
+### Custom Header Renderers
+
+Customize column headers with two levels of control:
+
+- **`headerLabelRenderer`** - Customize only the label text. The grid automatically adds sort icons and resize handles.
+- **`headerRenderer`** - Full control over the entire header cell. You receive helper functions to optionally include standard elements.
+
+#### Header Label Renderer
+
+Simple customizations like adding required indicators, units, or icons:
+
+<Canvas of={HeaderRendererStories.HeaderLabelRenderer} withToolbar />
+
+#### Full Header Renderer
+
+Complete control for complex layouts. Use `ctx.renderSortIcon()` and `ctx.renderResizeHandle()` helpers:
+
+<Canvas of={HeaderRendererStories.FullHeaderRenderer} withToolbar />
+
+#### Comparing Approaches
+
+See both approaches side-by-side to understand when to use each:
+
+<Canvas of={HeaderRendererStories.ComparingApproaches} withToolbar />
 
 ### Dynamic Row & Cell Styling
 

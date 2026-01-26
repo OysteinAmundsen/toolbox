@@ -828,6 +828,7 @@ All CSS custom properties use the `--tbw-` prefix. Variables use em units so eve
 **Sorting Indicators:**
 - `--tbw-sort-indicator-color` - Default sort icon color
 - `--tbw-sort-indicator-active-color` - Active sort icon color
+- `--tbw-sort-indicator-display: inline-flex` - Sort indicator display property (set to `none` to hide by default, reveals on hover/active)
 - `--tbw-sort-indicator-visibility: visible` - Show/hide sort indicators
 
 **Tool Panel & Shell:**

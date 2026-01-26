@@ -138,6 +138,7 @@
     /* ========== Sorting Indicators ========== */
     --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
     --tbw-sort-indicator-active-color: var(--tbw-color-accent);
+    --tbw-sort-indicator-display: inline-flex;
     --tbw-sort-indicator-visibility: visible;
 
     /* ========== Column Headers ========== */
@@ -267,7 +268,21 @@
         > span[part~='sort-indicator'] {
           flex-shrink: 0;
           opacity: 0.6;
+          display: var(--tbw-sort-indicator-display, inline-flex);
           visibility: var(--tbw-sort-indicator-visibility, visible);
+          transition:
+            opacity 0.15s,
+            visibility 0s,
+            display 0s allow-discrete;
+          transition-behavior: allow-discrete;
+        }
+
+        /* Show sort indicator on hover or when actively sorted */
+        &:hover > span[part~='sort-indicator'],
+        &[aria-sort='ascending'] > span[part~='sort-indicator'],
+        &[aria-sort='descending'] > span[part~='sort-indicator'] {
+          display: inline-flex;
+          visibility: visible;
         }
 
         &:last-child {

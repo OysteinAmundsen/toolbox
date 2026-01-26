@@ -122,10 +122,49 @@ The `<tbw-grid>` component ([libs/grid/src/lib/core/grid.ts](libs/grid/src/lib/c
   - `row-group.ts` - Hierarchical row grouping with expand/collapse
   - `keyboard.ts` - Keyboard navigation (arrows, Enter, Escape)
   - `resize.ts` - Column resizing controller
+  - `header.ts` - Header row rendering with custom header renderers
   - `aggregators.ts` - Footer aggregation functions (sum, avg, etc.)
   - `sanitize.ts` - Template string evaluation with safety guards
   - `sticky.ts` - Sticky column offset calculations
   - `inference.ts` - Column type inference from data
+
+### Custom Header Renderers
+
+Header columns support custom rendering via two properties:
+
+- **`headerLabelRenderer`** - Customize only the label content. Framework automatically adds sort icons and resize handles.
+- **`headerRenderer`** - Full control over header cell content. Provides helper functions to optionally include standard elements.
+
+```typescript
+// Label-only customization (framework handles icons)
+{
+  field: 'name',
+  header: 'Name',
+  headerLabelRenderer: ({ value }) => `${value} *`,
+}
+
+// Full control (you handle everything)
+{
+  field: 'email',
+  headerRenderer: (ctx) => {
+    const div = document.createElement('div');
+    div.textContent = ctx.value;
+    const sortIcon = ctx.renderSortIcon(); // Helper function
+    if (sortIcon) div.appendChild(sortIcon);
+    div.appendChild(ctx.renderResizeHandle());
+    return div;
+  }
+}
+```
+
+**HeaderCellContext** provides:
+
+- `column` - Column configuration
+- `value` - Header text
+- `sortState` - `'asc'` | `'desc'` | `null`
+- `cellEl` - The header cell element
+- `renderSortIcon()` - Creates sort indicator (returns null if not sortable)
+- `renderResizeHandle()` - Creates resize handle element
 
 ### Angular Adapter (`@toolbox-web/grid-angular`)
 
@@ -661,9 +700,9 @@ static override readonly manifest: PluginManifest = {
 
 **Built-in Plugin Incompatibilities:**
 
-| Plugin             | Incompatible With      | Reason                                                |
-| ------------------ | ---------------------- | ----------------------------------------------------- |
-| `ResponsivePlugin` | `GroupingRowsPlugin`   | Variable row heights cause scroll calculation issues  |
+| Plugin             | Incompatible With    | Reason                                               |
+| ------------------ | -------------------- | ---------------------------------------------------- |
+| `ResponsivePlugin` | `GroupingRowsPlugin` | Variable row heights cause scroll calculation issues |
 
 When incompatible plugins are loaded together, a warning is logged in development mode.
 
@@ -851,6 +890,7 @@ Config rule warnings (severity: 'warn') are only shown in development environmen
 - **`libs/grid/src/lib/core/internal/render-scheduler.ts`** - Centralized render orchestration
 - **`libs/grid/src/lib/core/internal/config-manager.ts`** - Centralized configuration management (single source of truth)
 - **`libs/grid/src/lib/core/internal/validate-config.ts`** - Runtime validation for plugin-owned properties
+- **`libs/grid/src/lib/core/internal/header.ts`** - Header row rendering with custom header renderers
 - **`libs/grid/src/lib/core/plugin/`** - Plugin system (registry, hooks, state management)
 - **`libs/grid/src/lib/plugins/`** - Individual plugin implementations
 - **`libs/grid/src/lib/plugins/editing/`** - EditingPlugin (opt-in inline editing)

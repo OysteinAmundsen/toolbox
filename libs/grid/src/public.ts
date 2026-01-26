@@ -203,8 +203,13 @@ export type {
   GridIcons,
   // Plugin interface (minimal shape for type-checking)
   GridPlugin,
+  // Header renderer types
+  HeaderCellContext,
   // Shell types
   HeaderContentDefinition,
+  HeaderLabelContext,
+  HeaderLabelRenderer,
+  HeaderRenderer,
   IconValue,
   // Inference types
   InferredColumnResult,

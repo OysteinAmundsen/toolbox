@@ -48,19 +48,29 @@
       opacity: 0.4;
       transition:
         opacity 0.15s,
-        visibility 0s;
+        visibility 0s,
+        display 0s allow-discrete;
       color: inherit;
       vertical-align: middle;
+      transition-behavior: allow-discrete;
 
       &:hover,
       &.active {
         opacity: 1;
         visibility: visible;
+        display: inline-flex;
       }
 
       &.active {
         color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
       }
+    }
+
+    /* Show filter button on header cell hover or when filtered */
+    .header-row .cell:hover .tbw-filter-btn,
+    .header-row .cell.filtered .tbw-filter-btn {
+      display: inline-flex;
+      visibility: visible;
     }
   }
 } /* End @layer tbw-plugins */

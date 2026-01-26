@@ -15,6 +15,7 @@ Important notes:
 - [Getting Started Guide](https://toolboxjs.com/?path=/docs/grid-getting-started--docs): Installation, basic setup, and framework integration patterns
 - [API Reference](https://toolboxjs.com/?path=/docs/grid-api--docs): Complete properties, methods, events, and types
 - [Theming Guide](https://toolboxjs.com/?path=/docs/grid-theming--docs): CSS custom properties for styling and built-in themes
+- [CSS Variable Reference](./llms-full.txt): Complete list of all `--tbw-*` CSS custom properties including plugin-specific variables
 - [Plugin Overview](https://toolboxjs.com/?path=/docs/grid-plugins-overview--docs): Available plugins and their dependencies
 - [Architecture](https://toolboxjs.com/?path=/docs/grid-architecture--docs): Internal design, render scheduler, configuration precedence
 

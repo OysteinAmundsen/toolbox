@@ -82,7 +82,7 @@
 
   .tbw-filter-search-input {
     width: 100%;
-    padding: var(--tbw-button-padding, 0.375rem 0.625rem);
+    padding: var(--tbw-filter-search-padding, var(--tbw-spacing-sm, 0.375rem) var(--tbw-spacing-md, 0.5rem));
     background: var(--tbw-filter-input-bg, var(--tbw-color-bg, transparent));
     color: inherit;
     border: 1px solid var(--tbw-filter-input-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
@@ -143,6 +143,8 @@
     padding: var(--tbw-button-padding-sm, 0.25rem 0.125rem);
     cursor: pointer;
     border-radius: 3px;
+    /* Item height for virtualization - must match --tbw-filter-item-height */
+    min-height: var(--tbw-filter-item-height, 28px);
   }
 
   .tbw-filter-value-item:hover {
@@ -171,13 +173,15 @@
 
   .tbw-filter-apply-btn {
     flex: 1;
-    padding: var(--tbw-button-padding, 0.375rem 0.75rem);
+    padding: var(--tbw-filter-btn-padding, var(--tbw-button-padding, 0.375rem 0.75rem));
     background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
     color: var(--tbw-filter-accent-fg, var(--tbw-color-accent-fg, light-dark(#ffffff, #000000)));
     border: none;
     border-radius: var(--tbw-border-radius, 0.25rem);
     cursor: pointer;
     font-size: var(--tbw-font-size-sm, 0.8125rem);
+    font-weight: var(--tbw-filter-btn-font-weight, 500);
+    min-height: var(--tbw-filter-btn-min-height, auto);
   }
 
   .tbw-filter-apply-btn:hover {
@@ -186,13 +190,15 @@
 
   .tbw-filter-clear-btn {
     flex: 1;
-    padding: var(--tbw-button-padding, 0.375rem 0.75rem);
+    padding: var(--tbw-filter-btn-padding, var(--tbw-button-padding, 0.375rem 0.75rem));
     background: transparent;
     color: var(--tbw-filter-muted, var(--tbw-color-fg-muted, light-dark(#555555, #aaaaaa)));
     border: 1px solid var(--tbw-filter-input-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
     border-radius: var(--tbw-border-radius, 0.25rem);
     cursor: pointer;
     font-size: var(--tbw-font-size-sm, 0.8125rem);
+    font-weight: var(--tbw-filter-btn-font-weight, 500);
+    min-height: var(--tbw-filter-btn-min-height, auto);
   }
 
   .tbw-filter-clear-btn:hover {

@@ -18,10 +18,6 @@
 @layer tbw-base, tbw-plugins, tbw-theme;
 
 @layer tbw-base {
-  :root {
-    color-scheme: light dark;
-  }
-
   /* ============================================================================
      Main Grid Element
      ============================================================================
@@ -142,6 +138,7 @@
     /* ========== Sorting Indicators ========== */
     --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
     --tbw-sort-indicator-active-color: var(--tbw-color-accent);
+    --tbw-sort-indicator-visibility: visible;
 
     /* ========== Column Headers ========== */
     --tbw-header-text-transform: none;
@@ -264,11 +261,13 @@
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          font-weight: inherit;
         }
 
         > span[part~='sort-indicator'] {
           flex-shrink: 0;
           opacity: 0.6;
+          visibility: var(--tbw-sort-indicator-visibility, visible);
         }
 
         &:last-child {

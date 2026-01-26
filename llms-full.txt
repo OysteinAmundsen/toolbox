@@ -741,6 +741,201 @@ tbw-grid.compact {
 }
 ```
 
+### CSS Variable Reference
+
+All CSS custom properties use the `--tbw-` prefix. Variables use em units so everything scales proportionally with font size.
+
+#### Core Variables (grid.css)
+
+**Base Design Tokens:**
+- `--tbw-base-icon-size: 1em` - Base icon size (icons scale with font)
+- `--tbw-base-radius: 0.25em` - Base border radius
+- `--tbw-font-size: 1em` - Base font size
+- `--tbw-font-size-sm: 0.9285em` - Small font size
+- `--tbw-font-size-xs: 0.7857em` - Extra small font size
+- `--tbw-font-size-2xs: 0.7142em` - Extra extra small font size
+
+**Spacing Scale:**
+- `--tbw-spacing-xs: 0.25em` - ~4px at 16px font
+- `--tbw-spacing-sm: 0.375em` - ~6px
+- `--tbw-spacing-md: 0.5em` - ~8px
+- `--tbw-spacing-lg: 0.75em` - ~12px
+- `--tbw-spacing-xl: 1em` - ~16px
+
+**Icon Sizes:**
+- `--tbw-icon-size` - Standard icon size
+- `--tbw-icon-size-sm: 0.875em` - Small icon size
+- `--tbw-checkbox-size` - Checkbox size
+- `--tbw-toggle-size: 1.25em` - Toggle button size
+
+**Core Palette (use light-dark() for automatic theme support):**
+- `--tbw-color-bg: transparent` - Grid background
+- `--tbw-color-panel-bg` - Panel/popup background
+- `--tbw-color-fg` - Foreground/text color
+- `--tbw-color-fg-muted` - Muted/secondary text
+- `--tbw-color-accent` - Accent/primary color
+- `--tbw-color-accent-fg` - Text on accent background
+- `--tbw-color-success` - Success state color
+- `--tbw-color-error` - Error state color
+- `--tbw-color-selection` - Selected row background
+- `--tbw-color-row-alt` - Alternating row background
+- `--tbw-color-row-hover` - Row hover background
+- `--tbw-color-header-bg` - Header background
+- `--tbw-color-header-fg` - Header text color
+- `--tbw-color-border` - Default border color
+- `--tbw-color-border-strong` - Emphasized border color
+- `--tbw-color-border-cell` - Cell border color
+- `--tbw-color-border-header` - Header border color
+- `--tbw-color-shadow` - Shadow color for dropdowns/panels
+
+**Cell & Row Dimensions:**
+- `--tbw-cell-padding-header` - Header cell padding
+- `--tbw-cell-padding` - Cell padding
+- `--tbw-row-height: 1.75em` - ~28px at 16px font
+- `--tbw-header-height: 1.875em` - ~30px at 16px font
+
+**Borders:**
+- `--tbw-border-radius` - Border radius for elements
+- `--tbw-border-input` - Input field border
+- `--tbw-border-header` - Header bottom border
+- `--tbw-row-divider` - Row separator line
+- `--tbw-color-active-row-bg` - Active/focused row background
+
+**Focus & Selection:**
+- `--tbw-focus-outline` - Focus ring style
+- `--tbw-focus-outline-offset` - Focus ring offset
+- `--tbw-focus-background` - Focused cell background
+- `--tbw-range-border-color` - Range selection border
+- `--tbw-range-selection-bg` - Range selection background
+
+**Resize Handle:**
+- `--tbw-resize-handle-width` - Width of resize grab area
+- `--tbw-resize-handle-color` - Resize handle color (transparent by default)
+- `--tbw-resize-handle-color-hover` - Resize handle hover color
+- `--tbw-resize-indicator-width: 2px` - Resize indicator line width
+- `--tbw-resize-indicator-color` - Resize indicator color
+
+**Animation:**
+- `--tbw-transition-duration: 120ms` - Quick transitions
+- `--tbw-animation-duration: 200ms` - Standard animations
+- `--tbw-animation-easing: ease-out` - Animation curve
+- `--tbw-animation-enabled: 1` - Enable/disable animations (0 or 1)
+- `--tbw-row-change-duration: 500ms` - Row update highlight
+- `--tbw-row-insert-duration: 300ms` - Row insert animation
+- `--tbw-row-remove-duration: 200ms` - Row remove animation
+- `--tbw-row-change-color` - Row change highlight color
+
+**Sorting Indicators:**
+- `--tbw-sort-indicator-color` - Default sort icon color
+- `--tbw-sort-indicator-active-color` - Active sort icon color
+- `--tbw-sort-indicator-visibility: visible` - Show/hide sort indicators
+
+**Tool Panel & Shell:**
+- `--tbw-shell-header-height: 2.75em` - Shell header height
+- `--tbw-shell-header-bg` - Shell header background
+- `--tbw-tool-panel-width: 17.5em` - Tool panel width
+- `--tbw-tool-panel-bg` - Tool panel background
+
+**Component Shortcuts (commonly overridden):**
+- `--tbw-panel-padding` - Padding for panels/popups
+- `--tbw-panel-gap` - Gap between panel items
+- `--tbw-button-padding` - Button padding
+- `--tbw-button-padding-sm` - Small button padding
+- `--tbw-input-height` - Input field height
+- `--tbw-input-padding` - Input field padding
+- `--tbw-menu-item-padding` - Menu item padding
+
+#### Plugin-Specific Variables
+
+**FilteringPlugin (filtering.css, FilteringPlugin.css):**
+- `--tbw-filter-btn-display: inline-flex` - Filter button display
+- `--tbw-filter-btn-visibility: visible` - Filter button visibility
+- `--tbw-filter-btn-padding` - Filter button padding
+- `--tbw-filter-btn-font-weight: 500` - Filter button font weight
+- `--tbw-filter-btn-min-height: auto` - Filter button min height
+- `--tbw-filter-accent` - Filter accent color (falls back to --tbw-color-accent)
+- `--tbw-filter-panel-bg` - Filter panel background
+- `--tbw-filter-panel-fg` - Filter panel text color
+- `--tbw-filter-panel-border` - Filter panel border
+- `--tbw-filter-panel-radius` - Filter panel border radius
+- `--tbw-filter-panel-shadow` - Filter panel shadow
+- `--tbw-filter-search-padding` - Search input padding
+- `--tbw-filter-input-bg` - Filter input background
+- `--tbw-filter-input-border` - Filter input border
+- `--tbw-filter-input-radius` - Filter input border radius
+- `--tbw-filter-item-height: 28px` - Filter value list item height
+- `--tbw-filter-hover` - Filter item hover background
+- `--tbw-filter-divider` - Divider line color
+- `--tbw-filter-muted` - Muted text color in panel
+- `--tbw-indicator-size: 0.375rem` - Active filter dot size
+
+**SelectionPlugin (selection.css):**
+- `--tbw-focus-background` - Focused cell background
+- `--tbw-range-selection-bg` - Range selection background
+- `--tbw-range-border-color` - Range selection border
+- `--tbw-color-warning-bg` - Invalid paste feedback color
+
+**TreePlugin (tree.css):**
+- `--tbw-tree-depth` - Current nesting depth (set per row)
+- `--tbw-tree-indent-width` - Indent per depth level
+- `--tbw-tree-toggle-size: 1.25em` - Expand/collapse button size
+- `--tbw-tree-accent` - Tree toggle accent color
+
+**VisibilityPlugin (visibility.css):**
+- `--tbw-visibility-hover` - Item hover background
+- `--tbw-visibility-border` - Panel border color
+- `--tbw-visibility-btn-bg` - Toggle button background
+- `--tbw-reorder-indicator` - Drag indicator color
+
+**ReorderPlugin (reorder.css):**
+- `--tbw-reorder-indicator` - Drop indicator color
+
+**RowReorderPlugin (row-reorder.css):**
+- `--tbw-color-bg-selected` - Dragged row background
+
+**PivotPlugin (pivot.css):**
+- `--tbw-pivot-group-bg` - Group row background
+- `--tbw-pivot-group-hover` - Group row hover
+- `--tbw-pivot-leaf-bg` - Leaf row background
+- `--tbw-pivot-grand-total-bg` - Grand total row background
+- `--tbw-pivot-toggle-color` - Toggle button color
+- `--tbw-pivot-toggle-hover-bg` - Toggle button hover background
+- `--tbw-pivot-count-color` - Row count text color
+- `--tbw-pivot-border` - Section border color
+- `--tbw-pivot-section-bg` - Config panel section background
+- `--tbw-pivot-header-bg` - Config panel header background
+- `--tbw-pivot-drop-border` - Drop zone border color
+- `--tbw-pivot-drop-bg` - Drop zone background
+- `--tbw-pivot-drop-active` - Active drop zone background
+- `--tbw-pivot-chip-bg` - Field chip background
+- `--tbw-pivot-chip-border` - Field chip border
+- `--tbw-pivot-chip-hover` - Field chip hover background
+- `--tbw-pivot-chip-remove-hover-bg` - Remove button hover background
+- `--tbw-pivot-chip-remove-hover-fg` - Remove button hover text color
+- `--tbw-pivot-depth` - Indentation depth level
+
+**ResponsivePlugin (responsive.css):**
+- `--tbw-responsive-duration: 200ms` - Mode transition duration
+
+### Icon Customization
+
+Override grid icons via `gridConfig.icons`:
+
+```typescript
+gridConfig: {
+  icons: {
+    sortAsc: '<svg>...</svg>',      // Sort ascending indicator
+    sortDesc: '<svg>...</svg>',     // Sort descending indicator
+    expand: '▶',                    // Expand icon (trees, groups)
+    collapse: '▼',                  // Collapse icon
+    filter: '<svg>...</svg>',       // Filter button in headers
+    filterActive: '<svg>...</svg>', // Filter button when active
+    dragHandle: '⋮⋮',               // Row/column drag handle
+    toolPanel: '☰',                 // Tool panel toggle
+  },
+}
+```
+
 ### Built-in Themes
 
 ```typescript

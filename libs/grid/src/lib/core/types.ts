@@ -1057,7 +1057,15 @@ export interface GridIcons {
   dragHandle?: IconValue;
   /** Tool panel toggle icon in toolbar. Default: '☰' */
   toolPanel?: IconValue;
+  /** Filter icon in column headers. Default: SVG funnel icon */
+  filter?: IconValue;
+  /** Filter icon when filter is active. Default: same as filter with accent color */
+  filterActive?: IconValue;
 }
+
+/** Default filter icon SVG */
+const DEFAULT_FILTER_ICON =
+  '<svg viewBox="0 0 16 16" width="12" height="12"><path fill="currentColor" d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>';
 
 /** Default icons used when not overridden */
 export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
@@ -1069,6 +1077,8 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   submenuArrow: '▶',
   dragHandle: '⋮⋮',
   toolPanel: '☰',
+  filter: DEFAULT_FILTER_ICON,
+  filterActive: DEFAULT_FILTER_ICON,
 };
 // #endregion
 

@@ -328,9 +328,54 @@ The filter panel and inputs support CSS custom properties for theming. Override 
 | `--tbw-filter-input-border` | `var(--tbw-color-border)` | Input border |
 | `--tbw-filter-input-focus` | `var(--tbw-color-accent)` | Input focus border |
 | `--tbw-filter-active-color` | `var(--tbw-color-accent)` | Active filter indicator |
+| `--tbw-filter-btn-padding` | `var(--tbw-button-padding)` | Filter button padding |
+| `--tbw-filter-btn-font-weight` | `500` | Filter button font weight |
+| `--tbw-filter-btn-min-height` | `auto` | Filter button min height |
+| `--tbw-filter-search-padding` | `var(--tbw-spacing-sm) var(--tbw-spacing-md)` | Search input padding |
+| `--tbw-filter-item-height` | `28px` | Filter value item height (for virtualization) |
+| `--tbw-filter-btn-display` | `inline-flex` | Filter button display (set to `none` to hide) |
+| `--tbw-filter-btn-visibility` | `visible` | Filter button visibility |
 | `--tbw-panel-padding` | `0.75em` | Panel padding |
 | `--tbw-panel-gap` | `0.5em` | Gap between elements |
 | `--tbw-animation-duration` | `200ms` | Panel open/close animation |
+
+### Theming Filter Panels
+
+The filter panel is rendered in `document.body` for proper z-index stacking. To apply theme CSS variables:
+
+1. **Add a theme class to the grid** (e.g., `tbw-grid.eds-theme`)
+2. **The class is automatically copied** to the filter panel
+
+```css
+/* Define theme on a CSS class */
+.eds-theme {
+  --tbw-filter-panel-bg: #f5f5f5;
+  --tbw-filter-btn-padding: 8px 16px;
+  --tbw-filter-btn-font-weight: 500;
+  --tbw-filter-btn-min-height: 48px;
+  --tbw-filter-item-height: 48px;
+}
+```
+
+```html
+<!-- Apply class to grid - it cascades to filter panel -->
+<tbw-grid class="eds-theme" ...></tbw-grid>
+```
+
+### Hiding Filter Buttons Until Hover
+
+To show filter buttons only when hovering over a column header:
+
+```css
+tbw-grid {
+  --tbw-filter-btn-visibility: hidden;
+}
+
+tbw-grid .header-row .cell:hover .tbw-filter-btn,
+tbw-grid .header-row .cell .tbw-filter-btn.active {
+  visibility: visible;
+}
+```
 
 ### Example
 

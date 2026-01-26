@@ -15,6 +15,7 @@ This document outlines planned features and improvements for the grid component,
 
 - [x] Column resizing
 - [x] Column State Events
+- [x] Controlled Plugin API (protected accessors, `GridElementRef` interface)
 - [x] CSS theming
 - [x] External cell renderers
 - [x] Grid Shell / Tool Panels
@@ -64,10 +65,7 @@ This document outlines planned features and improvements for the grid component,
 
 | Plugin                     | Priority | Effort | Value | Issue                                                       |
 | -------------------------- | -------- | ------ | ----- | ----------------------------------------------------------- |
-| Fill Handle (Excel-style)  | 🟡 P2    | Medium | High  | [#67](https://github.com/OysteinAmundsen/toolbox/issues/67) |
 | Real-time Data (WebSocket) | 🟢 P3    | Medium | Niche | [#79](https://github.com/OysteinAmundsen/toolbox/issues/79) |
-| CSV/Excel Import           | 🟢 P3    | Medium | Niche | [#74](https://github.com/OysteinAmundsen/toolbox/issues/74) |
-| Cell Flashing              | 🟢 P3    | Low    | Niche | -                                                           |
 
 **Framework Adapters:**
 
@@ -167,16 +165,6 @@ Optimized rendering for printing that shows all rows without virtualization. Req
 
 ## 🟡 P2 - Medium Priority
 
-### Fill Handle (Excel-style) [plugin]
-
-Drag the corner of a cell to fill adjacent cells with values or patterns.
-
-**Use case**: Data entry workflows, copying values, and auto-incrementing.
-
-**Status**: Not started - [#67](https://github.com/OysteinAmundsen/toolbox/issues/67)
-
----
-
 ### Angular Forms Integration [grid-angular]
 
 Seamless integration with Angular Reactive Forms (FormArray) and future Signal Forms (Angular 21+).
@@ -193,9 +181,14 @@ Seamless integration with Angular Reactive Forms (FormArray) and future Signal F
 
 ---
 
-### Plugin Event Bus [core]
+### Plugin Event Bus & Query System [core]
 
-Formalized pub/sub system for plugin-to-plugin communication. Currently plugins query each other directly via `grid.getPlugin(PluginClass)`, which creates tight coupling.
+Formalized pub/sub system for plugin-to-plugin communication, plus a refactored query system for synchronous state retrieval. Currently plugins query each other directly via `grid.getPlugin(PluginClass)`, which creates tight coupling.
+
+**Two Systems**:
+
+- **Event Bus (Change Streams)**: Plugins emit/subscribe to typed events for async notifications
+- **Query System (Current State)**: Plugins declare and respond to queries in their manifest
 
 **API**: Plugins emit/subscribe to typed events through a central bus:
 
@@ -207,7 +200,7 @@ this.on('filter-change', (detail) => { ... });
 
 **Use case**: Decouples plugins; allows third-party plugins to react to built-in plugin events without direct imports.
 
-**Status**: Not started
+**Status**: Not started - [#83](https://github.com/OysteinAmundsen/toolbox/issues/83)
 
 ---
 
@@ -217,33 +210,7 @@ Right-to-left text direction support for Arabic, Hebrew, and other RTL languages
 
 **Use case**: Applications targeting RTL language markets.
 
-**Status**: Not started
-
----
-
-### Stricter Plugin API [core]
-
-Replace direct grid access with a controlled `PluginAPI` interface. Currently `InternalGrid` exposes internals like `rowPool`, `__rowRenderEpoch`, `_columns` that plugins shouldn't touch.
-
-**API**: Plugins receive a constrained API object instead of raw grid reference:
-
-```typescript
-interface PluginAPI {
-  readonly rows: readonly T[];
-  readonly columns: readonly ColumnConfig[];
-  requestRender(): void;
-  forceLayout(): Promise<void>;
-  getPlugin<T>(PluginClass): T | undefined;
-  dispatchEvent(event: Event): boolean;
-  // No access to rowPool, render epochs, etc.
-}
-```
-
-**Use case**: Clearer internal/external boundary; prevents plugins from depending on implementation details; enables safer refactoring of grid internals.
-
-**Breaking change**: Yes — all plugins would need to update their grid access patterns. This is acceptable as the library is pre-release; no deprecation cycle required.
-
-**Status**: Not started
+**Status**: Not started - [#71](https://github.com/OysteinAmundsen/toolbox/issues/71)
 
 ---
 
@@ -274,26 +241,6 @@ Support variable row heights via callback function, enabling content-based sizin
 **Use case**: Multi-line text, images, or complex cell content.
 
 **Status**: Needs discussion - [#55](https://github.com/OysteinAmundsen/toolbox/issues/55)
-
----
-
-### Cell Flashing [plugin]
-
-Briefly highlight cells when their values change.
-
-**Use case**: Real-time data feeds, stock tickers, monitoring dashboards.
-
-**Status**: Not started
-
----
-
-### CSV/Excel Import [plugin]
-
-Import data from CSV or Excel files directly into the grid. Natural companion to the existing `export` plugin.
-
-**Use case**: Data migration, bulk data entry, file-based workflows.
-
-**Status**: Not started
 
 ---
 

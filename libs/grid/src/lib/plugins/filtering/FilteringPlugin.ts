@@ -139,9 +139,26 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private globalStylesInjected = false;
 
   // Virtualization constants for filter value list
-  private static readonly LIST_ITEM_HEIGHT = 28;
+  private static readonly DEFAULT_LIST_ITEM_HEIGHT = 28;
   private static readonly LIST_OVERSCAN = 3;
   private static readonly LIST_BYPASS_THRESHOLD = 50; // Don't virtualize if < 50 items
+
+  /**
+   * Get the item height from CSS variable or fallback to default.
+   * Reads --tbw-filter-item-height from the panel element.
+   */
+  private getListItemHeight(): number {
+    if (this.panelElement) {
+      const cssValue = getComputedStyle(this.panelElement).getPropertyValue('--tbw-filter-item-height');
+      if (cssValue && cssValue.trim()) {
+        const parsed = parseFloat(cssValue);
+        if (!isNaN(parsed) && parsed > 0) {
+          return parsed;
+        }
+      }
+    }
+    return FilteringPlugin.DEFAULT_LIST_ITEM_HEIGHT;
+  }
 
   /**
    * Sync excludedValues map from a filter model (for set filters).
@@ -243,9 +260,15 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       let filterBtn = cell.querySelector('.tbw-filter-btn') as HTMLElement | null;
 
       if (filterBtn) {
-        // Update active state of existing button
+        // Update active state and icon of existing button
+        const wasActive = filterBtn.classList.contains('active');
         filterBtn.classList.toggle('active', hasFilter);
         (cell as HTMLElement).classList.toggle('filtered', hasFilter);
+        // Update icon if active state changed
+        if (wasActive !== hasFilter) {
+          const iconName = hasFilter ? 'filterActive' : 'filter';
+          this.setIcon(filterBtn, this.resolveIcon(iconName));
+        }
         return;
       }
 
@@ -253,7 +276,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       filterBtn = document.createElement('button');
       filterBtn.className = 'tbw-filter-btn';
       filterBtn.setAttribute('aria-label', `Filter ${col.header ?? field}`);
-      filterBtn.innerHTML = `<svg viewBox="0 0 16 16" width="12" height="12"><path fill="currentColor" d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>`;
+      // Use grid icons configuration
+      const iconName = hasFilter ? 'filterActive' : 'filter';
+      this.setIcon(filterBtn, this.resolveIcon(iconName));
 
       // Mark button as active if filter exists
       if (hasFilter) {
@@ -399,6 +424,28 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   // #region Private Methods
 
   /**
+   * Copy CSS classes and data attributes from grid to filter panel.
+   * This ensures theme classes (e.g., .eds-theme) cascade to the panel.
+   */
+  private copyGridThemeContext(panel: HTMLElement): void {
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
+
+    // Copy all CSS classes from grid to panel (except internal ones)
+    for (const className of gridEl.classList) {
+      // Skip internal classes that shouldn't be copied
+      if (className.startsWith('tbw-') || className === 'selecting') continue;
+      panel.classList.add(className);
+    }
+
+    // Copy data-theme attribute if present
+    const theme = gridEl.dataset.theme;
+    if (theme) {
+      panel.dataset.theme = theme;
+    }
+  }
+
+  /**
    * Inject global styles for filter panel (rendered in document.body)
    */
   private injectGlobalStyles(): void {
@@ -436,6 +483,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Create panel
     const panel = document.createElement('div');
     panel.className = 'tbw-filter-panel';
+    // Copy theme classes from grid to panel for proper theming
+    this.copyGridThemeContext(panel);
     // Add animation class if animations are enabled
     if (this.isAnimationEnabled) {
       panel.classList.add('tbw-filter-panel-animated');
@@ -636,6 +685,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     excludedValues: Set<unknown>,
   ): void {
     const { field } = params;
+    // Get item height from CSS variable or use default
+    const itemHeight = this.getListItemHeight();
 
     // Search input
     const searchContainer = document.createElement('div');
@@ -726,10 +777,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       const item = document.createElement('label');
       item.className = 'tbw-filter-value-item';
       item.style.position = 'absolute';
-      item.style.top = `${index * FilteringPlugin.LIST_ITEM_HEIGHT}px`;
+      item.style.top = `${index * itemHeight}px`;
       item.style.left = '0';
       item.style.right = '0';
-      item.style.height = `${FilteringPlugin.LIST_ITEM_HEIGHT}px`;
+      item.style.height = `${itemHeight}px`;
       item.style.boxSizing = 'border-box';
 
       const checkbox = document.createElement('input');
@@ -759,7 +810,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       const scrollTop = valuesContainer.scrollTop;
 
       // Set total height for scrollbar
-      spacer.style.height = `${totalItems * FilteringPlugin.LIST_ITEM_HEIGHT}px`;
+      spacer.style.height = `${totalItems * itemHeight}px`;
 
       // Bypass virtualization for small lists
       if (shouldBypassVirtualization(totalItems, FilteringPlugin.LIST_BYPASS_THRESHOLD / 3)) {
@@ -776,7 +827,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         totalRows: totalItems,
         viewportHeight,
         scrollTop,
-        rowHeight: FilteringPlugin.LIST_ITEM_HEIGHT,
+        rowHeight: itemHeight,
         overscan: FilteringPlugin.LIST_OVERSCAN,
       });
 

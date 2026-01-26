@@ -36,7 +36,8 @@
     }
 
     .tbw-filter-btn {
-      display: inline-flex;
+      display: var(--tbw-filter-btn-display, inline-flex);
+      visibility: var(--tbw-filter-btn-visibility, visible);
       align-items: center;
       justify-content: center;
       background: transparent;
@@ -45,13 +46,16 @@
       padding: 2px;
       margin-left: var(--tbw-spacing-xs, 0.25rem);
       opacity: 0.4;
-      transition: opacity 0.15s;
+      transition:
+        opacity 0.15s,
+        visibility 0s;
       color: inherit;
       vertical-align: middle;
 
       &:hover,
       &.active {
         opacity: 1;
+        visibility: visible;
       }
 
       &.active {

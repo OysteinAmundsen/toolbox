@@ -14,6 +14,7 @@ Angular adapter for `@toolbox-web/grid` data grid component. Provides directives
 - ✅ **Template-driven editors** - Use `<ng-template>` for custom cell editors
 - ✅ **Component-class column config** - Specify component classes directly in `gridConfig.columns`
 - ✅ **Type-level defaults** - App-wide renderers/editors via `provideGridTypeDefaults()`
+- ✅ **Reactive Forms integration** - Use `formControlName` and `formControl` bindings
 - ✅ **Auto-wiring** - Editor components just emit events, no manual binding needed
 - ✅ **Full type safety** - Typed template contexts (`GridCellContext`, `GridEditorContext`)
 - ✅ **Angular 17+** - Standalone components, signals support
@@ -485,19 +486,155 @@ Or import all plugins at once (larger bundle, but convenient):
 import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
 ```
 
+## Reactive Forms Integration
+
+The grid can be used as an Angular form control with `formControlName` or `formControl` bindings. This enables seamless integration with Angular's Reactive Forms system.
+
+### Basic Usage with FormControl
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { Grid, GridFormControl } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import type { GridConfig } from '@toolbox-web/grid';
+
+interface Employee {
+  name: string;
+  age: number;
+}
+
+@Component({
+  imports: [Grid, GridFormControl, ReactiveFormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [formControl]="employeesControl" [gridConfig]="config" style="height: 400px; display: block;" />
+
+    <div>
+      <p>Form value: {{ employeesControl.value | json }}</p>
+      <p>Dirty: {{ employeesControl.dirty }}</p>
+      <p>Touched: {{ employeesControl.touched }}</p>
+    </div>
+  `,
+})
+export class MyComponent {
+  employeesControl = new FormControl<Employee[]>([
+    { name: 'Alice', age: 30 },
+    { name: 'Bob', age: 25 },
+  ]);
+
+  config: GridConfig<Employee> = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'age', header: 'Age', editable: true, type: 'number' },
+    ],
+    plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+  };
+}
+```
+
+### Usage with FormGroup
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { Grid, GridFormControl } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+@Component({
+  imports: [Grid, GridFormControl, ReactiveFormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <form [formGroup]="form">
+      <tbw-grid formControlName="employees" [gridConfig]="config" style="height: 400px; display: block;" />
+    </form>
+  `,
+})
+export class MyComponent {
+  form = new FormGroup({
+    employees: new FormControl([
+      { name: 'Alice', age: 30 },
+      { name: 'Bob', age: 25 },
+    ]),
+  });
+
+  config = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'age', header: 'Age', editable: true },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+```
+
+### How It Works
+
+- **Form → Grid**: When the form value changes (e.g., via `setValue()` or `patchValue()`), the grid rows are updated
+- **Grid → Form**: When a cell is edited and committed, the form value is updated with the new row data
+- **Touched state**: The form becomes touched when the user clicks on the grid
+- **Dirty state**: The form becomes dirty when any cell is edited
+- **Disabled state**: When the form control is disabled, the grid adds a `.form-disabled` CSS class
+
+### Validation
+
+You can add validators to validate the entire grid data:
+
+```typescript
+import { Validators } from '@angular/forms';
+
+employeesControl = new FormControl<Employee[]>([], [
+  Validators.required, // At least one row
+  Validators.minLength(2), // At least 2 rows
+  this.validateEmployees, // Custom validator
+]);
+
+validateEmployees(control: FormControl<Employee[]>) {
+  const employees = control.value || [];
+  const hasInvalidAge = employees.some((e) => e.age < 18);
+  return hasInvalidAge ? { invalidAge: true } : null;
+}
+```
+
+### CSS Classes
+
+Angular's form system automatically adds these classes to the grid element:
+
+- `.ng-valid` / `.ng-invalid` - Validation state
+- `.ng-pristine` / `.ng-dirty` - Edit state
+- `.ng-untouched` / `.ng-touched` - Touch state
+
+Additionally, when the control is disabled:
+
+- `.form-disabled` - Added by `GridFormControl`
+
+You can style these states:
+
+```css
+tbw-grid.ng-invalid.ng-touched {
+  border: 2px solid red;
+}
+
+tbw-grid.form-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+```
+
 ## API Reference
 
 ### Exported Directives
 
-| Directive          | Selector                 | Description                            |
-| ------------------ | ------------------------ | -------------------------------------- |
-| `Grid`             | `tbw-grid`               | Main directive, auto-registers adapter |
-| `TbwRenderer`      | `*tbwRenderer`           | Structural directive for cell views    |
-| `TbwEditor`        | `*tbwEditor`             | Structural directive for cell editors  |
-| `GridColumnView`   | `tbw-grid-column-view`   | Nested directive for cell views        |
-| `GridColumnEditor` | `tbw-grid-column-editor` | Nested directive for cell editors      |
-| `GridDetailView`   | `tbw-grid-detail`        | Master-detail panel template           |
-| `GridToolPanel`    | `tbw-grid-tool-panel`    | Custom sidebar panel                   |
+| Directive          | Selector                                             | Description                            |
+| ------------------ | ---------------------------------------------------- | -------------------------------------- |
+| `Grid`             | `tbw-grid`                                           | Main directive, auto-registers adapter |
+| `GridFormControl`  | `tbw-grid[formControlName]`, `tbw-grid[formControl]` | Reactive Forms integration             |
+| `TbwRenderer`      | `*tbwRenderer`                                       | Structural directive for cell views    |
+| `TbwEditor`        | `*tbwEditor`                                         | Structural directive for cell editors  |
+| `GridColumnView`   | `tbw-grid-column-view`                               | Nested directive for cell views        |
+| `GridColumnEditor` | `tbw-grid-column-editor`                             | Nested directive for cell editors      |
+| `GridDetailView`   | `tbw-grid-detail`                                    | Master-detail panel template           |
+| `GridToolPanel`    | `tbw-grid-tool-panel`                                | Custom sidebar panel                   |
 
 ### Type Registry
 
@@ -561,10 +698,15 @@ import type {
   AngularCellEditor,
   AngularColumnConfig,
   AngularGridConfig,
+  // Reactive Forms
+  FormArrayContext,
 } from '@toolbox-web/grid-angular';
 
 // Type guard for component class detection
 import { isComponentClass } from '@toolbox-web/grid-angular';
+
+// Helper to access form context from grid element
+import { getFormArrayContext } from '@toolbox-web/grid-angular';
 ```
 
 ### AngularGridAdapter

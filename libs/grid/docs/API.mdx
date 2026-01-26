@@ -709,6 +709,41 @@ grid.gridConfig = {
 };
 ```
 
+### Accessibility
+
+The grid follows the [W3C WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) and includes built-in accessibility features.
+
+#### ARIA Labels
+
+Provide accessible names for screen reader users:
+
+```typescript
+grid.gridConfig = {
+  gridAriaLabel: 'Employee directory',
+  gridAriaDescribedBy: 'grid-description', // ID of element with description
+};
+```
+
+If `gridAriaLabel` is not set but `shell.header.title` is configured, the title is used automatically as the accessible name.
+
+#### Keyboard Navigation
+
+Full keyboard support for navigation, editing, and selection. See [Keyboard Shortcuts](#keyboard-shortcuts) below.
+
+#### Built-in ARIA Attributes
+
+The grid automatically provides:
+
+- `role="grid"` on the data container
+- `role="row"` and `role="gridcell"` on rows and cells
+- `role="columnheader"` on header cells
+- `aria-rowcount` and `aria-colcount` for total counts
+- `aria-rowindex` and `aria-colindex` on each cell
+- `aria-sort` on sortable headers
+- `aria-selected` on focused/selected cells
+- `aria-readonly` on non-editable cells (when EditingPlugin is active)
+- `aria-checked` on boolean cells
+
 ### Event Details
 
 ```typescript

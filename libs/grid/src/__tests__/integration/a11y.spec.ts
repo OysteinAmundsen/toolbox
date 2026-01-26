@@ -163,4 +163,63 @@ describe('tbw-grid accessibility', () => {
     expect(innerGrid?.getAttribute('role')).toBe('grid');
     expect(innerGrid?.getAttribute('aria-rowcount')).toBe('0');
   });
+
+  it('gridAriaLabel sets aria-label on inner grid element', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.rows = [{ id: 1 }];
+    grid.columns = [{ field: 'id' }];
+    grid.gridConfig = { gridAriaLabel: 'Employee data table' };
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('aria-label')).toBe('Employee data table');
+  });
+
+  it('gridAriaDescribedBy sets aria-describedby on inner grid element', async () => {
+    // Create description element
+    const desc = document.createElement('p');
+    desc.id = 'grid-description';
+    desc.textContent = 'This table shows all employees.';
+    document.body.appendChild(desc);
+
+    const grid = document.createElement('tbw-grid') as any;
+    grid.rows = [{ id: 1 }];
+    grid.columns = [{ field: 'id' }];
+    grid.gridConfig = { gridAriaDescribedBy: 'grid-description' };
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('aria-describedby')).toBe('grid-description');
+  });
+
+  it('derives aria-label from shell header title when gridAriaLabel not set', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.rows = [{ id: 1 }];
+    grid.columns = [{ field: 'id' }];
+    grid.gridConfig = {
+      shell: { header: { title: 'Team Members' } },
+    };
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('aria-label')).toBe('Team Members');
+  });
+
+  it('gridAriaLabel takes precedence over shell title', async () => {
+    const grid = document.createElement('tbw-grid') as any;
+    grid.rows = [{ id: 1 }];
+    grid.columns = [{ field: 'id' }];
+    grid.gridConfig = {
+      gridAriaLabel: 'Explicit label',
+      shell: { header: { title: 'Shell Title' } },
+    };
+    document.body.appendChild(grid);
+    await grid.ready?.();
+    await nextFrame();
+    const innerGrid = grid.querySelector('.rows-body');
+    expect(innerGrid?.getAttribute('aria-label')).toBe('Explicit label');
+  });
 });

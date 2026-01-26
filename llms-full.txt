@@ -948,6 +948,30 @@ import '@toolbox-web/themes/dg-theme-bootstrap.css';
 import '@toolbox-web/themes/dg-theme-vibrant.css';
 ```
 
+### Accessibility
+
+The grid follows the W3C WAI-ARIA Grid Pattern for interactive data grids.
+
+**ARIA Label Configuration:**
+
+```typescript
+gridConfig: {
+  gridAriaLabel: 'Employee directory',        // Sets aria-label on grid
+  gridAriaDescribedBy: 'grid-description',    // Sets aria-describedby (ID reference)
+  shell: { header: { title: 'Team Members' }}, // Auto-used as aria-label if gridAriaLabel not set
+}
+```
+
+**Built-in ARIA Attributes:**
+- `role="grid"` on data container, `role="row"` and `role="gridcell"` on cells
+- `role="columnheader"` on header cells
+- `aria-rowcount` / `aria-colcount` for total counts
+- `aria-rowindex` / `aria-colindex` on each cell
+- `aria-sort` on sortable headers (none/ascending/descending)
+- `aria-selected` on focused/selected cells
+- `aria-readonly` on non-editable cells (with EditingPlugin)
+- `aria-checked` on boolean cells
+
 ---
 
 ## Key Differences from Other Grids

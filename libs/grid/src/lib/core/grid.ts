@@ -590,6 +590,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         validatePluginConfigRules(this.#pluginManager?.getPlugins() ?? []);
         // Validate plugin incompatibilities (warnings for conflicting plugin combinations)
         validatePluginIncompatibilities(this.#pluginManager?.getPlugins() ?? []);
+        // Update ARIA labels (explicit config or derived from shell title)
+        this.#updateAriaLabels();
         // Store base columns before plugin transformation
         this.#baseColumns = [...this._columns];
       },
@@ -1852,6 +1854,44 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         this._bodyEl.setAttribute('role', 'rowgroup');
       } else {
         this._bodyEl.removeAttribute('role');
+      }
+    }
+  }
+
+  // Cache for aria-label to avoid redundant DOM writes
+  #lastAriaLabel: string | undefined;
+  #lastAriaDescribedBy: string | undefined;
+
+  /**
+   * Updates ARIA label and describedby attributes on the grid container.
+   * Uses explicit config value, or falls back to shell title for aria-label.
+   */
+  #updateAriaLabels(): void {
+    if (!this.__rowsBodyEl) return;
+
+    // Determine aria-label: explicit config > shell title > nothing
+    const explicitLabel = this.#effectiveConfig.gridAriaLabel;
+    const shellTitle = this.#effectiveConfig.shell?.header?.title ?? this.#shellState?.lightDomTitle ?? undefined;
+    const ariaLabel = explicitLabel ?? shellTitle;
+
+    // Update aria-label only if changed
+    if (ariaLabel !== this.#lastAriaLabel) {
+      this.#lastAriaLabel = ariaLabel;
+      if (ariaLabel) {
+        this.__rowsBodyEl.setAttribute('aria-label', ariaLabel);
+      } else {
+        this.__rowsBodyEl.removeAttribute('aria-label');
+      }
+    }
+
+    // Update aria-describedby only if changed
+    const ariaDescribedBy = this.#effectiveConfig.gridAriaDescribedBy;
+    if (ariaDescribedBy !== this.#lastAriaDescribedBy) {
+      this.#lastAriaDescribedBy = ariaDescribedBy;
+      if (ariaDescribedBy) {
+        this.__rowsBodyEl.setAttribute('aria-describedby', ariaDescribedBy);
+      } else {
+        this.__rowsBodyEl.removeAttribute('aria-describedby');
       }
     }
   }

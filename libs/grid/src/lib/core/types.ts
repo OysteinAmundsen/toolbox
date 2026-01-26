@@ -1008,6 +1008,38 @@ export interface GridConfig<TRow = any> {
    * ```
    */
   typeDefaults?: Record<string, TypeDefault<TRow>>;
+
+  // #region Accessibility
+
+  /**
+   * Accessible label for the grid.
+   * Sets `aria-label` on the grid's internal table element for screen readers.
+   *
+   * If not provided and `shell.header.title` is set, the title is used automatically.
+   *
+   * @example
+   * ```ts
+   * gridConfig = { gridAriaLabel: 'Employee data' };
+   * ```
+   */
+  gridAriaLabel?: string;
+
+  /**
+   * ID of an element that describes the grid.
+   * Sets `aria-describedby` on the grid's internal table element.
+   *
+   * @example
+   * ```html
+   * <p id="grid-desc">This table shows all active employees.</p>
+   * <tbw-grid></tbw-grid>
+   * ```
+   * ```ts
+   * gridConfig = { gridAriaDescribedBy: 'grid-desc' };
+   * ```
+   */
+  gridAriaDescribedBy?: string;
+
+  // #endregion
 }
 // #endregion
 

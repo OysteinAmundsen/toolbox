@@ -751,13 +751,13 @@ if (context?.hasFormGroups) {
 
 **FormArrayContext Row Validation Methods:**
 
-| Method                 | Return Type              | Description                           |
-| ---------------------- | ------------------------ | ------------------------------------- | -------------------------------------------- |
-| `isRowValid(idx)`      | `boolean`                | True if all controls in row are valid |
-| `isRowTouched(idx)`    | `boolean`                | True if any control in row is touched |
-| `isRowDirty(idx)`      | `boolean`                | True if any control in row is dirty   |
-| `getRowErrors(idx)`    | `Record<string, unknown> | null`                                 | Aggregated errors from all controls, or null |
-| `getRowFormGroup(idx)` | `FormGroup               | undefined`                            | The FormGroup for the row                    |
+| Method                 | Return Type                       | Description                                  |
+| ---------------------- | --------------------------------- | -------------------------------------------- |
+| `isRowValid(idx)`      | `boolean`                         | True if all controls in row are valid        |
+| `isRowTouched(idx)`    | `boolean`                         | True if any control in row is touched        |
+| `isRowDirty(idx)`      | `boolean`                         | True if any control in row is dirty          |
+| `getRowErrors(idx)`    | `Record<string, unknown> \| null` | Aggregated errors from all controls, or null |
+| `getRowFormGroup(idx)` | `FormGroup \| undefined`          | The FormGroup for the row                    |
 
 ## API Reference
 

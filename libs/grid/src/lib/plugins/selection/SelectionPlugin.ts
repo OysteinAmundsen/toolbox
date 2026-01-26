@@ -17,13 +17,13 @@ import {
   getAllCellsInRanges,
   isCellInAnyRange,
   normalizeRange,
+  rangesEqual,
   toPublicRanges,
 } from './range-selection';
 import styles from './selection.css?inline';
 import type {
   CellRange,
   InternalCellRange,
-  SelectableCallback,
   SelectionChangeDetail,
   SelectionConfig,
   SelectionMode,
@@ -273,6 +273,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       if (!this.isCellSelectable(rowIndex, colIndex)) {
         return false; // Cell is not selectable
       }
+      // Only emit if selection actually changed
+      const currentCell = this.selectedCell;
+      if (currentCell && currentCell.row === rowIndex && currentCell.col === colIndex) {
+        return false; // Same cell already selected
+      }
       this.selectedCell = { row: rowIndex, col: colIndex };
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
       this.requestAfterRender();
@@ -283,6 +288,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (mode === 'row') {
       if (!this.isRowSelectable(rowIndex)) {
         return false; // Row is not selectable
+      }
+      // Only emit if selection actually changed
+      if (this.selected.size === 1 && this.selected.has(rowIndex)) {
+        return false; // Same row already selected
       }
       this.selected.clear();
       this.selected.add(rowIndex);
@@ -312,6 +321,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         // Extend selection from anchor
         const newRange = createRangeFromAnchor(this.cellAnchor, { row: rowIndex, col: colIndex });
 
+        // Check if range actually changed
+        const currentRange = this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
+        if (currentRange && rangesEqual(currentRange, newRange)) {
+          return false; // Same range already selected
+        }
+
         if (ctrlKey) {
           if (this.ranges.length > 0) {
             this.ranges[this.ranges.length - 1] = newRange;
@@ -333,12 +348,19 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         this.activeRange = newRange;
         this.cellAnchor = { row: rowIndex, col: colIndex };
       } else {
+        // Plain click - check if same single-cell range already selected
         const newRange: InternalCellRange = {
           startRow: rowIndex,
           startCol: colIndex,
           endRow: rowIndex,
           endCol: colIndex,
         };
+
+        // Only emit if selection actually changed
+        if (this.ranges.length === 1 && rangesEqual(this.ranges[0], newRange)) {
+          return false; // Same cell already selected
+        }
+
         this.ranges = [newRange];
         this.activeRange = newRange;
         this.cellAnchor = { row: rowIndex, col: colIndex };
@@ -444,6 +466,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       const rowCount = this.rows.length;
       const colCount = this.columns.length;
       if (rowCount > 0 && colCount > 0) {
+        // Prevent browser's select-all behavior
+        event.preventDefault();
+        event.stopPropagation();
+
         const allRange: InternalCellRange = {
           startRow: 0,
           startCol: 0,
@@ -487,12 +513,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.isDragging = true;
     const rowIndex = event.rowIndex;
     const colIndex = event.colIndex;
-    this.cellAnchor = { row: rowIndex, col: colIndex };
 
     const ctrlKey = event.originalEvent.ctrlKey || event.originalEvent.metaKey;
-    if (!ctrlKey) {
-      this.ranges = [];
-    }
 
     const newRange: InternalCellRange = {
       startRow: rowIndex,
@@ -500,6 +522,20 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       endRow: rowIndex,
       endCol: colIndex,
     };
+
+    // Check if selection is actually changing (for non-Ctrl clicks)
+    if (!ctrlKey && this.ranges.length === 1 && rangesEqual(this.ranges[0], newRange)) {
+      // Same cell already selected, just update anchor for potential drag
+      this.cellAnchor = { row: rowIndex, col: colIndex };
+      return true;
+    }
+
+    this.cellAnchor = { row: rowIndex, col: colIndex };
+
+    if (!ctrlKey) {
+      this.ranges = [];
+    }
+
     this.ranges.push(newRange);
     this.activeRange = newRange;
 
@@ -527,6 +563,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     const newRange = createRangeFromAnchor(this.cellAnchor, { row: event.rowIndex, col: targetCol });
+
+    // Only update and emit if the range actually changed
+    const currentRange = this.ranges.length > 0 ? this.ranges[this.ranges.length - 1] : null;
+    if (currentRange && rangesEqual(currentRange, newRange)) {
+      return true; // Range unchanged, no need to update
+    }
 
     if (this.ranges.length > 0) {
       this.ranges[this.ranges.length - 1] = newRange;

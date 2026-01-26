@@ -676,7 +676,7 @@ grid.addEventListener('changed-rows-reset', (e) => {
 
       grid.addEventListener('cell-commit', (e: CustomEvent) => {
         const d = e.detail;
-        addLog('cell-commit', `field="${d.field}", "${d.oldValue}" → "${d.newValue}"`);
+        addLog('cell-commit', `field="${d.field}", "${d.oldValue}" → "${d.value}"`);
       });
 
       grid.addEventListener('row-commit', (e: CustomEvent) => {

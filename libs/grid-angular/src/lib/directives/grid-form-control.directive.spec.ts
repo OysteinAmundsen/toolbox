@@ -278,6 +278,11 @@ describe('FormArrayContext interface', () => {
       getValue: () => [],
       hasFormGroups: false,
       getControl: (_rowIndex: number, _field: string) => undefined,
+      getRowFormGroup: () => undefined,
+      isRowValid: () => true,
+      isRowTouched: () => false,
+      isRowDirty: () => false,
+      getRowErrors: () => null,
     };
 
     expect(mockContext.getControl).toBeDefined();
@@ -293,9 +298,38 @@ describe('FormArrayContext interface', () => {
       getValue: () => [{ id: 1, name: 'Test' }],
       hasFormGroups: false,
       getControl: () => undefined, // No FormGroups = no control access
+      getRowFormGroup: () => undefined,
+      isRowValid: () => true,
+      isRowTouched: () => false,
+      isRowDirty: () => false,
+      getRowErrors: () => null,
     };
 
     expect(mockContext.getControl(0, 'name')).toBeUndefined();
     expect(mockContext.hasFormGroups).toBe(false);
+  });
+
+  it('should define row-level validation methods', () => {
+    // Verify the interface shape for row-level validation
+    const mockContext: FormArrayContext = {
+      getRow: () => null,
+      updateField: () => {},
+      getValue: () => [],
+      hasFormGroups: true,
+      getControl: () => undefined,
+      getRowFormGroup: () => undefined,
+      isRowValid: (rowIndex: number) => rowIndex === 0, // Row 0 is valid
+      isRowTouched: (rowIndex: number) => rowIndex > 0, // Rows after 0 are touched
+      isRowDirty: () => true,
+      getRowErrors: (rowIndex: number) => (rowIndex === 1 ? { name: { required: true } } : null),
+    };
+
+    expect(mockContext.isRowValid(0)).toBe(true);
+    expect(mockContext.isRowValid(1)).toBe(false);
+    expect(mockContext.isRowTouched(0)).toBe(false);
+    expect(mockContext.isRowTouched(1)).toBe(true);
+    expect(mockContext.isRowDirty(0)).toBe(true);
+    expect(mockContext.getRowErrors(0)).toBeNull();
+    expect(mockContext.getRowErrors(1)).toEqual({ name: { required: true } });
   });
 });

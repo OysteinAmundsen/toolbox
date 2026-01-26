@@ -719,6 +719,46 @@ export class MyComponent {
 > - The `FormArray` contains `FormGroup` controls (not raw `FormControl`s)
 > - The `FormGroup` has a control for the column's field name
 
+### Row-Level Validation
+
+When using `FormArray` with `FormGroup`s, you can also access row-level validation state through the `FormArrayContext`. This is useful for styling entire rows based on their validation state or displaying row-level error summaries.
+
+```typescript
+import { getFormArrayContext, type FormArrayContext } from '@toolbox-web/grid-angular';
+
+// Get the context from a grid element
+const context = getFormArrayContext(gridElement);
+
+if (context?.hasFormGroups) {
+  // Check if row 0 is valid
+  const isValid = context.isRowValid(0); // true if all controls in row are valid
+
+  // Check if row has been touched
+  const isTouched = context.isRowTouched(0); // true if any control touched
+
+  // Check if row is dirty
+  const isDirty = context.isRowDirty(0); // true if any control changed
+
+  // Get all errors for a row
+  const errors = context.getRowErrors(0);
+  // Returns: { name: { required: true }, age: { min: { min: 18, actual: 15 } } }
+  // Or null if no errors
+
+  // Get the FormGroup for a row (for advanced use cases)
+  const formGroup = context.getRowFormGroup(0);
+}
+```
+
+**FormArrayContext Row Validation Methods:**
+
+| Method                 | Return Type              | Description                           |
+| ---------------------- | ------------------------ | ------------------------------------- | -------------------------------------------- |
+| `isRowValid(idx)`      | `boolean`                | True if all controls in row are valid |
+| `isRowTouched(idx)`    | `boolean`                | True if any control in row is touched |
+| `isRowDirty(idx)`      | `boolean`                | True if any control in row is dirty   |
+| `getRowErrors(idx)`    | `Record<string, unknown> | null`                                 | Aggregated errors from all controls, or null |
+| `getRowFormGroup(idx)` | `FormGroup               | undefined`                            | The FormGroup for the row                    |
+
 ## API Reference
 
 ### Exported Directives

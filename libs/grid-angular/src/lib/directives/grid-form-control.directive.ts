@@ -35,6 +35,46 @@ export interface FormArrayContext {
    * When true, `getControl()` will return cell-level controls.
    */
   hasFormGroups: boolean;
+  /**
+   * Get the FormGroup for a specific row.
+   * Only available when using FormArray with FormGroup rows.
+   *
+   * @param rowIndex - The row index
+   * @returns The FormGroup for the row, or undefined if not available
+   */
+  getRowFormGroup(rowIndex: number): FormGroup | undefined;
+  /**
+   * Check if a row is valid (all controls in the FormGroup are valid).
+   * Returns true if not using FormArray or if the row doesn't exist.
+   *
+   * @param rowIndex - The row index
+   * @returns true if the row is valid, false if any control is invalid
+   */
+  isRowValid(rowIndex: number): boolean;
+  /**
+   * Check if a row has been touched (any control in the FormGroup is touched).
+   * Returns false if not using FormArray or if the row doesn't exist.
+   *
+   * @param rowIndex - The row index
+   * @returns true if any control in the row is touched
+   */
+  isRowTouched(rowIndex: number): boolean;
+  /**
+   * Check if a row is dirty (any control in the FormGroup is dirty).
+   * Returns false if not using FormArray or if the row doesn't exist.
+   *
+   * @param rowIndex - The row index
+   * @returns true if any control in the row is dirty
+   */
+  isRowDirty(rowIndex: number): boolean;
+  /**
+   * Get validation errors for a specific row.
+   * Aggregates errors from all controls in the FormGroup.
+   *
+   * @param rowIndex - The row index
+   * @returns Object with field names as keys and their errors, or null if no errors
+   */
+  getRowErrors(rowIndex: number): Record<string, unknown> | null;
 }
 
 // Symbol for storing form context on the grid element
@@ -268,6 +308,15 @@ export class GridFormControl implements ControlValueAccessor, OnInit, OnDestroy 
    * Stores the FormArrayContext on the grid element.
    */
   #storeFormContext(grid: GridElement): void {
+    const getFormArray = () => this.#getFormArray();
+
+    const getRowFormGroup = (rowIndex: number): FormGroup | undefined => {
+      const formArray = getFormArray();
+      if (!formArray) return undefined;
+      const rowControl = formArray.at(rowIndex);
+      return rowControl instanceof FormGroup ? rowControl : undefined;
+    };
+
     const context: FormArrayContext = {
       getRow: <T>(rowIndex: number): T | null => {
         return (this.value[rowIndex] as T) ?? null;
@@ -285,13 +334,49 @@ export class GridFormControl implements ControlValueAccessor, OnInit, OnDestroy 
       },
       hasFormGroups: this.#isFormArrayOfFormGroups(),
       getControl: (rowIndex: number, field: string): AbstractControl | undefined => {
-        const formArray = this.#getFormArray();
-        if (!formArray) return undefined;
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return undefined;
+        return rowFormGroup.get(field) ?? undefined;
+      },
+      getRowFormGroup,
+      isRowValid: (rowIndex: number): boolean => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return true; // No form group = assume valid
+        return rowFormGroup.valid;
+      },
+      isRowTouched: (rowIndex: number): boolean => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return false;
+        return rowFormGroup.touched;
+      },
+      isRowDirty: (rowIndex: number): boolean => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return false;
+        return rowFormGroup.dirty;
+      },
+      getRowErrors: (rowIndex: number): Record<string, unknown> | null => {
+        const rowFormGroup = getRowFormGroup(rowIndex);
+        if (!rowFormGroup) return null;
 
-        const rowControl = formArray.at(rowIndex);
-        if (!(rowControl instanceof FormGroup)) return undefined;
+        const errors: Record<string, unknown> = {};
+        let hasErrors = false;
 
-        return rowControl.get(field) ?? undefined;
+        // Collect errors from all controls in the FormGroup
+        Object.keys(rowFormGroup.controls).forEach((field) => {
+          const control = rowFormGroup.get(field);
+          if (control?.errors) {
+            errors[field] = control.errors;
+            hasErrors = true;
+          }
+        });
+
+        // Also include group-level errors if any
+        if (rowFormGroup.errors) {
+          errors['_group'] = rowFormGroup.errors;
+          hasErrors = true;
+        }
+
+        return hasErrors ? errors : null;
       },
     };
     (grid as unknown as Record<symbol, FormArrayContext>)[FORM_ARRAY_CONTEXT] = context;

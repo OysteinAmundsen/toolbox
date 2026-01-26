@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.3.0...grid-1.3.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* **grid:** add theming CSS variables and filter icon config ([#87](https://github.com/OysteinAmundsen/toolbox/issues/87), [#88](https://github.com/OysteinAmundsen/toolbox/issues/88), [#89](https://github.com/OysteinAmundsen/toolbox/issues/89)) ([578d87d](https://github.com/OysteinAmundsen/toolbox/commit/578d87d1ed27003b42ff370974f20f7cf646637f))
+
 ## [1.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.2.0...grid-1.3.0) (2026-01-25)
 
 

@@ -45,6 +45,7 @@
     },
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
+      "dependsOn": ["grid:build"],
       "options": {
         "cwd": "libs/grid-react"
       },

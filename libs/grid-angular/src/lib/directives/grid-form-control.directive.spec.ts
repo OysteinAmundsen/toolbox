@@ -11,6 +11,7 @@
  * @vitest-environment happy-dom
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { FormArrayContext } from './grid-form-control.directive';
 
 /**
  * Create a simplified instance of the directive for testing.
@@ -264,5 +265,37 @@ describe('GridFormControl', () => {
 
       expect(mockFn).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('FormArrayContext interface', () => {
+  it('should define getControl method for cell-level form control access', () => {
+    // This is a compile-time check that the interface has the expected shape
+    // The actual implementation is tested via integration tests
+    const mockContext: FormArrayContext = {
+      getRow: () => null,
+      updateField: () => {},
+      getValue: () => [],
+      hasFormGroups: false,
+      getControl: (_rowIndex: number, _field: string) => undefined,
+    };
+
+    expect(mockContext.getControl).toBeDefined();
+    expect(typeof mockContext.getControl).toBe('function');
+    expect(mockContext.hasFormGroups).toBe(false);
+  });
+
+  it('should provide getControl that returns undefined when not using FormArray', () => {
+    // Simulate the behavior when using FormControl<T[]> instead of FormArray
+    const mockContext: FormArrayContext = {
+      getRow: (rowIndex: number) => ({ id: rowIndex, name: 'Test' }),
+      updateField: () => {},
+      getValue: () => [{ id: 1, name: 'Test' }],
+      hasFormGroups: false,
+      getControl: () => undefined, // No FormGroups = no control access
+    };
+
+    expect(mockContext.getControl(0, 'name')).toBeUndefined();
+    expect(mockContext.hasFormGroups).toBe(false);
   });
 });

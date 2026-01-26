@@ -1,4 +1,5 @@
 import { Directive, effect, ElementRef, inject, OnDestroy, TemplateRef } from '@angular/core';
+import type { AbstractControl } from '@angular/forms';
 import { getEditorTemplate } from './grid-column-editor.directive';
 import { getViewTemplate } from './grid-column-view.directive';
 
@@ -46,6 +47,15 @@ export interface StructuralEditorContext<TValue = any, TRow = any> {
    * Callback function to cancel editing.
    */
   onCancel: () => void;
+  /**
+   * The FormControl for this cell, if the grid is bound to a FormArray with FormGroups.
+   *
+   * Returns `undefined` if:
+   * - The grid is not bound to a FormArray
+   * - The FormArray doesn't contain FormGroups
+   * - The field doesn't exist in the FormGroup
+   */
+  control?: AbstractControl;
 }
 
 // Registries for structural directive templates

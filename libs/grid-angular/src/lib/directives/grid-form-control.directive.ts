@@ -1,5 +1,13 @@
 import { Directive, ElementRef, forwardRef, inject, OnDestroy, OnInit } from '@angular/core';
-import { ControlValueAccessor, FormArray, FormControl, NG_VALUE_ACCESSOR, NgControl } from '@angular/forms';
+import {
+  AbstractControl,
+  ControlValueAccessor,
+  FormArray,
+  FormControl,
+  FormGroup,
+  NG_VALUE_ACCESSOR,
+  NgControl,
+} from '@angular/forms';
 import type { DataGridElement as GridElement } from '@toolbox-web/grid';
 
 /**
@@ -13,6 +21,20 @@ export interface FormArrayContext {
   updateField(rowIndex: number, field: string, value: unknown): void;
   /** Get the current form value (all rows) */
   getValue<T = unknown>(): T[];
+  /**
+   * Get the FormControl for a specific cell.
+   * Only available when using FormArray with FormGroup rows.
+   *
+   * @param rowIndex - The row index
+   * @param field - The field name
+   * @returns The AbstractControl for the cell, or undefined if not available
+   */
+  getControl(rowIndex: number, field: string): AbstractControl | undefined;
+  /**
+   * Whether the grid is backed by a FormArray of FormGroups.
+   * When true, `getControl()` will return cell-level controls.
+   */
+  hasFormGroups: boolean;
 }
 
 // Symbol for storing form context on the grid element
@@ -225,6 +247,24 @@ export class GridFormControl implements ControlValueAccessor, OnInit, OnDestroy 
   // Private methods
 
   /**
+   * Checks if the bound control is a FormArray with FormGroup children.
+   */
+  #isFormArrayOfFormGroups(): boolean {
+    const control = this.ngControl?.control;
+    if (!(control instanceof FormArray)) return false;
+    if (control.length === 0) return false;
+    return control.at(0) instanceof FormGroup;
+  }
+
+  /**
+   * Gets the FormArray, if the control is a FormArray.
+   */
+  #getFormArray(): FormArray | null {
+    const control = this.ngControl?.control;
+    return control instanceof FormArray ? control : null;
+  }
+
+  /**
    * Stores the FormArrayContext on the grid element.
    */
   #storeFormContext(grid: GridElement): void {
@@ -242,6 +282,16 @@ export class GridFormControl implements ControlValueAccessor, OnInit, OnDestroy 
       },
       getValue: <T>(): T[] => {
         return this.value as T[];
+      },
+      hasFormGroups: this.#isFormArrayOfFormGroups(),
+      getControl: (rowIndex: number, field: string): AbstractControl | undefined => {
+        const formArray = this.#getFormArray();
+        if (!formArray) return undefined;
+
+        const rowControl = formArray.at(rowIndex);
+        if (!(rowControl instanceof FormGroup)) return undefined;
+
+        return rowControl.get(field) ?? undefined;
       },
     };
     (grid as unknown as Record<symbol, FormArrayContext>)[FORM_ARRAY_CONTEXT] = context;

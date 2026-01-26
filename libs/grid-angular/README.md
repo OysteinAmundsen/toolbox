@@ -150,13 +150,14 @@ export class MyGridComponent {}
 
 **Template Context:**
 
-| Variable    | Type       | Description                                  |
-| ----------- | ---------- | -------------------------------------------- |
-| `$implicit` | `TValue`   | The cell value (use with `let-value`)        |
-| `row`       | `TRow`     | The full row data object                     |
-| `column`    | `unknown`  | The column configuration                     |
-| `onCommit`  | `Function` | Callback to commit (optional with auto-wire) |
-| `onCancel`  | `Function` | Callback to cancel (optional with auto-wire) |
+| Variable    | Type              | Description                                            |
+| ----------- | ----------------- | ------------------------------------------------------ |
+| `$implicit` | `TValue`          | The cell value (use with `let-value`)                  |
+| `row`       | `TRow`            | The full row data object                               |
+| `column`    | `unknown`         | The column configuration                               |
+| `onCommit`  | `Function`        | Callback to commit (optional with auto-wire)           |
+| `onCancel`  | `Function`        | Callback to cancel (optional with auto-wire)           |
+| `control`   | `AbstractControl` | FormControl for cell (when using FormArray+FormGroups) |
 
 > **Auto-wiring:** If your editor component emits a `commit` event with the new value, the adapter automatically calls the grid's commit function. Similarly for `cancel`. This means you can skip the explicit `onCommit`/`onCancel` bindings!
 
@@ -620,6 +621,103 @@ tbw-grid.form-disabled {
   pointer-events: none;
 }
 ```
+
+### Advanced: Cell-Level FormControls with FormArray
+
+For fine-grained control over validation and form state at the cell level, use a `FormArray` of `FormGroup`s. This approach exposes the `FormControl` for each cell in the editor context, allowing custom editors to bind directly:
+
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA, input, output } from '@angular/core';
+import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Grid, GridFormControl, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+// Custom editor that uses the FormControl directly
+@Component({
+  selector: 'app-validated-input',
+  standalone: true,
+  imports: [ReactiveFormsModule],
+  template: `
+    @if (control()) {
+      <input [formControl]="control()" [class.is-invalid]="control()!.invalid && control()!.touched" />
+      @if (control()!.invalid && control()!.touched) {
+        <small class="error">{{ getErrorMessage() }}</small>
+      }
+    }
+  `,
+  styles: `
+    .is-invalid {
+      border-color: red;
+    }
+    .error {
+      color: red;
+      font-size: 0.8em;
+    }
+  `,
+})
+export class ValidatedInputComponent {
+  control = input<AbstractControl>();
+  commit = output<string>();
+
+  getErrorMessage(): string {
+    const ctrl = this.control();
+    if (ctrl?.hasError('required')) return 'Required';
+    if (ctrl?.hasError('min')) return 'Too low';
+    return 'Invalid';
+  }
+}
+
+@Component({
+  imports: [Grid, GridFormControl, TbwRenderer, TbwEditor, ReactiveFormsModule, ValidatedInputComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [formControl]="employeesArray" [gridConfig]="config">
+      <tbw-grid-column field="age" editable>
+        <span *tbwRenderer="let value">{{ value }}</span>
+        <!-- The 'control' property gives you the FormControl for this cell -->
+        <app-validated-input *tbwEditor="let value; control as ctrl" [control]="ctrl" />
+      </tbw-grid-column>
+    </tbw-grid>
+  `,
+})
+export class MyComponent {
+  // Use FormArray with FormGroups for cell-level control access
+  employeesArray = new FormArray([
+    new FormGroup({
+      name: new FormControl('Alice', Validators.required),
+      age: new FormControl(30, [Validators.required, Validators.min(18)]),
+    }),
+    new FormGroup({
+      name: new FormControl('Bob', Validators.required),
+      age: new FormControl(25, [Validators.required, Validators.min(18)]),
+    }),
+  ]);
+
+  config = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'age', header: 'Age', editable: true },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+```
+
+**Editor Context with FormControl:**
+
+| Variable   | Type              | Description                                                        |
+| ---------- | ----------------- | ------------------------------------------------------------------ |
+| `value`    | `TValue`          | The cell value                                                     |
+| `row`      | `TRow`            | The full row data                                                  |
+| `control`  | `AbstractControl` | The FormControl for this cell (if using FormArray with FormGroups) |
+| `onCommit` | `Function`        | Callback to commit the value                                       |
+| `onCancel` | `Function`        | Callback to cancel editing                                         |
+
+> **Note:** The `control` property is only available when:
+>
+> - The grid is bound to a `FormArray` (not a `FormControl<T[]>`)
+> - The `FormArray` contains `FormGroup` controls (not raw `FormControl`s)
+> - The `FormGroup` has a control for the column's field name
 
 ## API Reference
 

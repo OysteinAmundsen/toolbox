@@ -54,7 +54,14 @@ export default defineConfig(() => ({
     },
     rollupOptions: {
       // External packages that should not be bundled into your library.
-      external: ['@angular/core', '@toolbox-web/grid', '@toolbox-web/grid/all'],
+      external: [
+        '@angular/core',
+        '@angular/forms',
+        '@toolbox-web/grid',
+        '@toolbox-web/grid/all',
+        /^@angular\/.*/,
+        /^@toolbox-web\/.*/,
+      ],
     },
   },
   test: {

@@ -3,9 +3,11 @@ import {
   Component,
   computed,
   CUSTOM_ELEMENTS_SCHEMA,
+  DestroyRef,
   effect,
   ElementRef,
   inject,
+  OnInit,
   signal,
   viewChild,
 } from '@angular/core';
@@ -29,6 +31,7 @@ import { COLUMN_GROUPS, createGridConfig } from './grid-config';
 // Import components so they're available in templates
 // Note: RatingDisplayComponent and StarRatingEditorComponent are configured via gridConfig,
 // not imported here (they use component-class column config instead of templates)
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BonusSliderEditorComponent } from './editors/bonus-slider-editor.component';
 import { DateEditorComponent } from './editors/date-editor.component';
 import { StatusSelectEditorComponent } from './editors/status-select-editor.component';
@@ -65,8 +68,9 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './app.component.html',
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   private fb = inject(FormBuilder);
+  private destroyRef = inject(DestroyRef);
 
   rowCount = signal(200);
   enableSelection = signal(true);
@@ -158,6 +162,12 @@ export class AppComponent {
 
   // Grid reference for accessing plugins - properly typed!
   gridRef = viewChild<ElementRef<GridElement<Employee>>>('grid');
+
+  ngOnInit(): void {
+    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((val) => {
+      console.log('[Grid] Value changed', val);
+    });
+  }
 
   exportCsv(): void {
     const grid = this.gridRef()?.nativeElement;

@@ -364,6 +364,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     );
 
     // Click outside to commit editing
+    // Use queueMicrotask to allow pending change events to fire first.
+    // This is important for Angular/React editors where the (change) event
+    // fires after mousedown but before mouseup/click.
     document.addEventListener(
       'mousedown',
       (e: MouseEvent) => {
@@ -372,7 +375,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         if (!rowEl) return;
         const path = (e.composedPath && e.composedPath()) || [];
         if (path.includes(rowEl)) return;
-        this.#exitRowEdit(this.#activeEditRow, false);
+        // Delay exit to allow pending change/commit events to fire
+        queueMicrotask(() => {
+          if (this.#activeEditRow !== -1) {
+            this.#exitRowEdit(this.#activeEditRow, false);
+          }
+        });
       },
       { signal },
     );

@@ -6,20 +6,19 @@ import {
   effect,
   ElementRef,
   input,
-  output,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { Employee } from '@demo/shared';
-import type { ColumnConfig } from '@toolbox-web/grid';
-import type { AngularCellEditor } from '@toolbox-web/grid-angular';
+import { BaseGridEditor } from '@toolbox-web/grid-angular';
 
 /**
- * Bonus slider editor component that can be used either via:
- * 1. Template syntax (*tbwEditor) with explicit `salary` input
- * 2. Component-class column config implementing `AngularCellEditor`
+ * Bonus slider editor extending BaseGridEditor.
  *
- * When used via component-class config, it reads `salary` from the `row()` input.
+ * Demonstrates:
+ * - Computed signals based on row() from base class
+ * - Custom input (salary) in addition to inherited inputs
+ * - Validation styling via isInvalid()
  */
 @Component({
   selector: 'app-bonus-slider-editor',
@@ -30,6 +29,7 @@ import type { AngularCellEditor } from '@toolbox-web/grid-angular';
         #slider
         type="range"
         class="bonus-slider-editor__slider"
+        [class.is-invalid]="isInvalid()"
         [min]="minBonus()"
         [max]="maxBonus()"
         [(ngModel)]="currentValueModel"
@@ -45,26 +45,18 @@ import type { AngularCellEditor } from '@toolbox-web/grid-angular';
   styles: [],
 })
 export class BonusSliderEditorComponent
-  implements AngularCellEditor<Employee, number>, AfterViewInit
+  extends BaseGridEditor<Employee, number>
+  implements AfterViewInit
 {
-  // AngularCellEditor interface inputs
-  value = input<number>(0);
-  row = input<Employee>();
-  column = input<ColumnConfig<Employee>>();
-
-  // Legacy input for template-based usage
+  /** Legacy input for template-based usage (explicit salary override) */
   salary = input<number>();
-
-  // Outputs for commit/cancel
-  commit = output<number>();
-  cancel = output<void>();
 
   slider = viewChild.required<ElementRef<HTMLInputElement>>('slider');
 
   currentValueModel = 0;
 
   /**
-   * Effective salary - prefers explicit `salary` input, falls back to row.salary
+   * Effective salary - prefers explicit `salary` input, falls back to row().salary
    */
   effectiveSalary = computed(() => {
     const explicitSalary = this.salary();
@@ -78,8 +70,10 @@ export class BonusSliderEditorComponent
   maxBonus = computed(() => Math.round(this.effectiveSalary() * 0.25));
 
   constructor() {
+    super();
     effect(() => {
-      this.currentValueModel = this.value() ?? Math.round(this.effectiveSalary() * 0.1);
+      // Use currentValue() from base class (handles control vs value)
+      this.currentValueModel = this.currentValue() ?? Math.round(this.effectiveSalary() * 0.1);
     });
   }
 
@@ -88,14 +82,14 @@ export class BonusSliderEditorComponent
   }
 
   onCommit(): void {
-    this.commit.emit(this.currentValueModel);
+    this.commitValue(this.currentValueModel);
   }
 
   onKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
-      this.commit.emit(this.currentValueModel);
+      this.commitValue(this.currentValueModel);
     } else if (event.key === 'Escape') {
-      this.cancel.emit();
+      this.cancelEdit();
     }
   }
 

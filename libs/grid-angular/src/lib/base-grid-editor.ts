@@ -1,4 +1,4 @@
-import { computed, Directive, input, output } from '@angular/core';
+import { computed, Directive, ElementRef, inject, input, output } from '@angular/core';
 import type { AbstractControl } from '@angular/forms';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
@@ -64,6 +64,8 @@ import type { ColumnConfig } from '@toolbox-web/grid';
  */
 @Directive()
 export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
+  private readonly elementRef = inject(ElementRef);
+
   // ============================================================================
   // Inputs
   // ============================================================================
@@ -179,19 +181,29 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
   // ============================================================================
 
   /**
-   * Commit a new value. Emits the commit output.
+   * Commit a new value. Emits the commit output AND dispatches a DOM event.
+   * The DOM event enables the grid's auto-wiring to catch the commit.
    * Call this when the user confirms their edit.
    */
   commitValue(newValue: TValue): void {
+    // Emit Angular output for template bindings
     this.commit.emit(newValue);
+
+    // Dispatch DOM CustomEvent for grid's auto-wiring
+    // This allows the adapter to catch commits without explicit (commit)="..." bindings
+    this.elementRef.nativeElement.dispatchEvent(new CustomEvent('commit', { detail: newValue, bubbles: true }));
   }
 
   /**
-   * Cancel editing. Emits the cancel output.
+   * Cancel editing. Emits the cancel output AND dispatches a DOM event.
    * Call this when the user cancels (e.g., presses Escape).
    */
   cancelEdit(): void {
+    // Emit Angular output for template bindings
     this.cancel.emit();
+
+    // Dispatch DOM CustomEvent for grid's auto-wiring
+    this.elementRef.nativeElement.dispatchEvent(new CustomEvent('cancel', { bubbles: true }));
   }
 
   /**

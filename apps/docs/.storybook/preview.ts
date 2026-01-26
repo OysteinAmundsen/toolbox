@@ -103,10 +103,10 @@ const preview: Preview = {
             'Theming',
             'Demos',
             'Plugins', // Plugin overview and individual plugins
+            // To regenerate: bun apps/docs/.storybook/scripts/generate-plugin-sort.ts
             [
               'Overview',
               'Custom Plugins',
-              // Each plugin: curated docs first (stories), then API folders alphabetically
               'Clipboard',
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               'Column Grouping',
@@ -132,6 +132,8 @@ const preview: Preview = {
               'Pinned Rows',
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               'Pivot',
+              ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
+              'Print',
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               'Responsive',
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],

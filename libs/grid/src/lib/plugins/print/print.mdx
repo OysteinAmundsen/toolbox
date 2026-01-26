@@ -1,0 +1,319 @@
+{/* print.mdx */}
+import { Meta, Canvas, Controls, Source, ArgTypes } from '@storybook/addon-docs/blocks';
+import * as PrintStories from './print.stories';
+
+<Meta of={PrintStories} />
+
+# Print Plugin
+
+The **Print Plugin** enables printing the full grid content by temporarily disabling virtualization
+and applying print-optimized styles. It handles large datasets gracefully with configurable row limits.
+
+## Features
+
+- **Print Layout Mode** - Optimized CSS styles for printing
+- **Page Orientation** - Portrait or landscape orientation
+- **Row Limits** - Configurable maximum rows with confirmation dialog for large datasets
+- **Toolbar Button** - Optional print button in grid header
+- **Title & Timestamp** - Optional print header with customizable title and timestamp
+- **Column Hiding** - Mark columns as `printHidden` to exclude from print output
+
+## Installation
+
+```typescript
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+
+// Or from all-in-one bundle
+import { PrintPlugin } from '@toolbox-web/grid/all';
+```
+
+## Basic Usage
+
+<Canvas of={PrintStories.Basic} withToolbar/>
+
+```typescript
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary' },
+  ],
+  plugins: [
+    new PrintPlugin({
+      title: 'Employee Report',
+      includeTitle: true,
+      includeTimestamp: true,
+    }),
+  ],
+};
+
+// Programmatic print
+const plugin = grid.getPlugin(PrintPlugin);
+await plugin.print();
+```
+
+## Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `button` | `boolean` | `false` | Show print button in grid toolbar |
+| `orientation` | `'portrait' \| 'landscape'` | `'landscape'` | Page orientation for printing |
+| `warnThreshold` | `number` | `500` | Show confirmation dialog when rows exceed this (0 = no warning) |
+| `maxRows` | `number` | `0` | Hard limit on printed rows (0 = unlimited) |
+| `includeTitle` | `boolean` | `true` | Include grid title in print header |
+| `includeTimestamp` | `boolean` | `true` | Include print timestamp |
+| `title` | `string` | `''` | Custom title (falls back to shell title) |
+
+## Hiding Columns in Print
+
+Use the `printHidden` column property to exclude specific columns from print output.
+This is useful for hiding action buttons, interactive elements, or columns that aren't
+relevant on paper.
+
+```typescript
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'actions', header: 'Actions', printHidden: true }, // Hidden when printing
+  ],
+  plugins: [new PrintPlugin()],
+};
+```
+
+The `printHidden` property:
+- Temporarily hides columns when `print()` is called
+- Automatically restores column visibility after printing
+- Preserves the original hidden state (if a column was already hidden, it stays hidden)
+- Works independently of the VisibilityPlugin
+
+## Toolbar Button
+
+When `button: true` is configured, a print button appears in the grid toolbar:
+
+<Canvas of={PrintStories.ToolbarButton} withToolbar />
+
+```typescript
+new PrintPlugin({
+  button: true,
+  title: 'Employee Directory',
+})
+```
+
+## Page Orientation
+
+Control the print orientation with the `orientation` option:
+
+<Canvas of={PrintStories.PortraitOrientation} withToolbar />
+
+```typescript
+new PrintPlugin({
+  orientation: 'portrait', // or 'landscape' (default)
+})
+```
+
+## Row Limits
+
+Two separate options control large dataset behavior:
+
+- **`warnThreshold`** - Shows a confirmation dialog when row count exceeds this value,
+  letting users consent to a potentially slow print operation
+- **`maxRows`** - Hard-limits the printed rows to this number (excess rows are not rendered)
+
+<Canvas of={PrintStories.RowLimit} withToolbar />
+
+```typescript
+// Warn at 500+ rows, but print all if confirmed
+new PrintPlugin({ warnThreshold: 500 })
+
+// Hard limit to 100 rows (no warning, just limits)
+new PrintPlugin({ maxRows: 100, warnThreshold: 0 })
+
+// Warn at 500+ rows AND hard limit to 1000
+new PrintPlugin({ warnThreshold: 500, maxRows: 1000 })
+```
+
+The confirmation dialog shows:
+- Total row count
+- Note about hard limit (if `maxRows` is set)
+- Option to proceed or cancel
+
+## Events
+
+The plugin emits events during the print lifecycle:
+
+<Canvas of={PrintStories.PrintEvents} withToolbar />
+
+### `print-start`
+
+Fired when print preparation begins:
+
+```typescript
+grid.addEventListener('print-start', (event) => {
+  console.log('Preparing rows:', event.detail.rowCount);
+  console.log('Limit applied:', event.detail.limitApplied);
+  if (event.detail.limitApplied) {
+    console.log('Original count:', event.detail.originalRowCount);
+  }
+});
+```
+
+### `print-complete`
+
+Fired when the print dialog closes:
+
+```typescript
+grid.addEventListener('print-complete', (event) => {
+  console.log('Dialog open for:', event.detail.duration, 'ms');
+  console.log('Rows prepared:', event.detail.rowCount);
+});
+```
+
+> **Note:** Browsers don't expose whether the user clicked "Print" or "Cancel".
+> The `success` field only indicates whether the plugin encountered an error
+> preparing the print dialog - it does NOT indicate the user's choice.
+
+## Programmatic API
+
+### `print(params?)`
+
+Initiates the print process. Returns a Promise that resolves when printing completes.
+
+```typescript
+const plugin = grid.getPlugin(PrintPlugin);
+
+// Basic print (prints entire page)
+await plugin.print();
+
+// With runtime overrides
+await plugin.print({
+  title: 'Custom Report Title',
+  orientation: 'portrait',
+});
+
+// Isolated print - opens new window with only the grid
+await plugin.print({ isolate: true });
+```
+
+### Print Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `orientation` | `'portrait' \| 'landscape'` | Override page orientation |
+| `title` | `string` | Override print title |
+| `maxRows` | `number` | Override maximum rows |
+| `isolate` | `boolean` | Print with page isolation (hides all non-grid content) |
+
+### Isolated Printing
+
+When `isolate: true` is passed, the plugin uses CSS to hide **everything** on the page
+except the grid during printing. This is useful when:
+
+- The page has navigation, sidebars, or headers that shouldn't appear in print
+- You want to print only the grid without surrounding UI
+- The grid is embedded in an application framework like Storybook, Angular, etc.
+
+```typescript
+// Print just the grid, hiding all other page content
+await plugin.print({ isolate: true });
+```
+
+**How it works:**
+1. A temporary `@media print` stylesheet is injected
+2. The stylesheet hides all elements except the grid (identified by its unique ID)
+3. After printing, the stylesheet is removed
+4. The grid stays in place with virtualization disabled, so ALL rows are printed
+
+### `isPrinting()`
+
+Returns `true` if a print operation is currently in progress.
+
+```typescript
+if (plugin.isPrinting()) {
+  console.log('Print already in progress');
+}
+```
+
+## Print CSS Classes
+
+The plugin applies these CSS classes during printing:
+
+| Class | Description |
+|-------|-------------|
+| `.print-mode` | Applied to grid during print |
+| `.print-portrait` | Applied when orientation is portrait |
+| `.print-landscape` | Applied when orientation is landscape |
+| `.tbw-print-header` | Print header container |
+| `.tbw-print-header-title` | Title element |
+| `.tbw-print-header-timestamp` | Timestamp element |
+
+## Custom Print Styles
+
+Override print styles using CSS:
+
+```css
+@media print {
+  tbw-grid.print-mode {
+    /* Custom print styles */
+    font-size: 10pt;
+  }
+
+  tbw-grid.print-mode .dg-cell {
+    border-color: #000;
+  }
+}
+```
+
+## How It Works
+
+1. **Disable Virtualization** - Temporarily renders all rows (up to `maxRows`)
+2. **Apply Print Styles** - Adds print-mode CSS class and orientation class
+3. **Add Print Header** - Inserts title and timestamp (if configured)
+4. **Trigger Print** - Calls `window.print()`
+5. **Cleanup** - Restores virtualization and removes temporary elements
+
+## Browser Support
+
+The Print Plugin uses standard browser printing APIs (`window.print()`, `@media print`)
+and works in all modern browsers:
+
+- Chrome / Edge (Chromium)
+- Firefox
+- Safari
+
+## Best Practices
+
+1. **Set reasonable `maxRows`** - Default 5000 prevents browser hangs
+2. **Use landscape for wide grids** - More columns fit horizontally
+3. **Test print preview** - Use browser's print preview to verify layout
+4. **Custom titles** - Provide meaningful titles for printed reports
+5. **Use `printHidden` for interactive columns** - Hide action buttons, checkboxes, etc.
+6. **Use `isolate: true`** - When other page content interferes with print layout
+
+## Standalone Utility Function
+
+For simple use cases where you don't need the full plugin, use the standalone
+`printGridIsolated` function:
+
+```typescript
+import { printGridIsolated } from '@toolbox-web/grid/plugins/print';
+
+const grid = document.querySelector('tbw-grid');
+await printGridIsolated(grid, {
+  orientation: 'landscape',
+});
+```
+
+This function injects a temporary CSS stylesheet that hides everything except
+the target grid during printing. The grid must have an `id` attribute (DataGridElement
+auto-generates one if not explicitly set).
+
+**Note:** Unlike the PrintPlugin, this function does NOT disable virtualization.
+If you need to print all rows, use the full PrintPlugin with `isolate: true`.

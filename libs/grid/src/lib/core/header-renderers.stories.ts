@@ -17,6 +17,7 @@ type GridElement = HTMLElement & {
 
 const meta: Meta = {
   title: 'Grid/Header Renderers',
+  tags: ['!dev'],
   parameters: {
     layout: 'fullscreen',
   },

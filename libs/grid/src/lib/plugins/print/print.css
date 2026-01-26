@@ -1,0 +1,157 @@
+/**
+ * Print Plugin CSS
+ *
+ * Styles for print-optimized grid rendering.
+ * Uses @media print for automatic print detection.
+ */
+
+/* Print header/footer - hidden on screen, shown in print */
+.tbw-print-header,
+.tbw-print-footer {
+  display: none;
+}
+
+/* ========================================
+   @media print rules - all print styles
+   ======================================== */
+
+@media print {
+  tbw-grid {
+    /* Force visible overflow to render all rows */
+    overflow: visible !important;
+    height: auto !important;
+
+    /* Remove outer border - keep only cell borders */
+    border: none !important;
+    border-radius: 0 !important;
+
+    /* Force light mode for printing */
+    color-scheme: light only;
+
+    /* Ensure colors print */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  tbw-grid .tbw-grid-content {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  tbw-grid .tbw-scroll-area {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  tbw-grid .rows-body {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Ensure virtualized rows container expands to show all rows */
+  tbw-grid .rows-container,
+  tbw-grid .rows-viewport,
+  tbw-grid .rows {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    transform: none !important; /* Remove virtual scroll offset */
+  }
+
+  tbw-grid .rows-viewport .rows {
+    position: static !important; /* Reset from absolute positioning */
+  }
+
+  /* Hide interactive elements, shell chrome, and header icons */
+  tbw-grid .resize-handle,
+  tbw-grid [part='sort-indicator'],
+  tbw-grid .tbw-filter-btn,
+  tbw-grid .tool-panel,
+  tbw-grid .tool-panel-content,
+  tbw-grid .tbw-shell-header,
+  tbw-grid .shell-toolbar,
+  tbw-grid .tool-panel-toggle,
+  tbw-grid [data-print-hide],
+  tbw-grid .expander-cell,
+  tbw-grid .tree-toggle,
+  tbw-grid .context-menu,
+  tbw-grid .faux-vscroll {
+    display: none !important;
+  }
+
+  /* Print header with title and timestamp */
+  tbw-grid .tbw-print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.5em 0;
+    margin-bottom: 0.5em;
+    border-bottom: 2px solid var(--tbw-color-border, #333);
+    font-family: inherit;
+  }
+
+  .tbw-print-header-title {
+    font-size: 1.25em;
+    font-weight: bold;
+  }
+
+  .tbw-print-header-timestamp {
+    font-size: 0.875em;
+    color: var(--tbw-color-fg-muted, #666);
+  }
+
+  /* Print footer */
+  tbw-grid .tbw-print-footer {
+    display: block;
+    margin-top: 0.5em;
+    padding-top: 0.5em;
+    border-top: 1px solid var(--tbw-color-border, #ccc);
+    font-size: 0.75em;
+    color: var(--tbw-color-fg-muted, #666);
+    text-align: right;
+  }
+
+  /* Row styling */
+  tbw-grid .data-grid-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Cell styling - use theme variables with print-safe fallbacks */
+  tbw-grid .cell {
+    border: 1px solid var(--tbw-color-border, #ddd) !important;
+  }
+
+  /* Ensure the last column's right border is visible */
+  tbw-grid .header-row,
+  tbw-grid .data-grid-row {
+    padding-right: 1px; /* Prevent right border from being clipped */
+  }
+
+  /* Remove hover effects */
+  tbw-grid .data-grid-row:hover,
+  tbw-grid .cell:hover {
+    background: inherit !important;
+  }
+
+  /* Page setup */
+  @page {
+    margin: 1cm;
+  }
+
+  /* Orientation via class (set by plugin) */
+  tbw-grid.print-landscape {
+    @page {
+      size: landscape;
+    }
+  }
+
+  tbw-grid.print-portrait {
+    @page {
+      size: portrait;
+    }
+  }
+}

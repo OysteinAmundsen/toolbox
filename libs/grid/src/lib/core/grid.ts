@@ -138,6 +138,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** Version of the grid component, injected at build time from package.json */
   static readonly version = typeof __GRID_VERSION__ !== 'undefined' ? __GRID_VERSION__ : 'dev';
 
+  /** Static counter for generating unique grid IDs */
+  static #instanceCounter = 0;
+
   // ---------------- Framework Adapters ----------------
   /**
    * Registry of framework adapters that handle converting light DOM elements
@@ -1015,6 +1018,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   connectedCallback(): void {
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0;
     if (!this.hasAttribute('version')) this.setAttribute('version', DataGridElement.version);
+    // Ensure grid has a unique ID for print isolation and other use cases
+    if (!this.id) {
+      this.id = `tbw-grid-${++DataGridElement.#instanceCounter}`;
+    }
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
 
     // Create AbortController for all event listeners (grid internal + plugins)

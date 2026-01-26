@@ -1222,6 +1222,8 @@ export interface GridIcons {
   filter?: IconValue;
   /** Filter icon when filter is active. Default: same as filter with accent color */
   filterActive?: IconValue;
+  /** Print icon for print button. Default: '🖨️' */
+  print?: IconValue;
 }
 
 /** Default filter icon SVG */
@@ -1240,6 +1242,7 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
   toolPanel: '☰',
   filter: DEFAULT_FILTER_ICON,
   filterActive: DEFAULT_FILTER_ICON,
+  print: '🖨️',
 };
 // #endregion
 

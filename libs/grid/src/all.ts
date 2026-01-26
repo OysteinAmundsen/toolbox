@@ -37,6 +37,7 @@ export * from './lib/plugins/multi-sort';
 export * from './lib/plugins/pinned-columns';
 export * from './lib/plugins/pinned-rows';
 export * from './lib/plugins/pivot';
+export * from './lib/plugins/print';
 export * from './lib/plugins/reorder';
 export * from './lib/plugins/responsive';
 export * from './lib/plugins/row-reorder';

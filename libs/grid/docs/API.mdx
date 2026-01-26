@@ -450,6 +450,10 @@ interface ColumnConfig {
   formatter?: (value: any, row: T) => string;
   renderer?: (value: any, row: T, cell: HTMLElement) => void;
 
+  // Custom header rendering
+  headerLabelRenderer?: (ctx: HeaderCellContext) => string | HTMLElement;
+  headerRenderer?: (ctx: HeaderCellContext) => string | HTMLElement;
+
   // Dynamic cell styling
   cellClass?: (value: any, row: T, column: ColumnConfig) => string[];
 
@@ -480,6 +484,80 @@ const columns: ColumnConfig[] = [
   },
 ];
 ```
+
+#### Header Renderers
+
+Customize how column headers are displayed with two levels of control:
+
+**`headerLabelRenderer`** - Customize only the label content. The grid automatically adds sort icons and resize handles.
+
+```typescript
+const columns: ColumnConfig[] = [
+  {
+    field: 'name',
+    header: 'Name',
+    headerLabelRenderer: ({ value }) => `${value} *`, // Add asterisk to label
+  },
+  {
+    field: 'required',
+    header: 'Required',
+    headerLabelRenderer: ({ value, column }) => {
+      const span = document.createElement('span');
+      span.innerHTML = `<strong>${value}</strong>`;
+      return span;
+    },
+  },
+];
+```
+
+**`headerRenderer`** - Full control over the entire header cell. You receive helper functions to optionally include sort icons and resize handles.
+
+```typescript
+const columns: ColumnConfig[] = [
+  {
+    field: 'email',
+    header: 'Email',
+    headerRenderer: (ctx) => {
+      const div = document.createElement('div');
+      div.style.display = 'flex';
+      div.style.alignItems = 'center';
+      div.style.gap = '4px';
+
+      // Custom icon
+      const icon = document.createElement('span');
+      icon.textContent = '📧';
+      div.appendChild(icon);
+
+      // Label
+      const label = document.createElement('span');
+      label.textContent = ctx.value;
+      div.appendChild(label);
+
+      // Include sort icon if column is sortable
+      const sortIcon = ctx.renderSortIcon();
+      if (sortIcon) div.appendChild(sortIcon);
+
+      // Always include resize handle
+      div.appendChild(ctx.renderResizeHandle());
+
+      return div;
+    },
+  },
+];
+```
+
+**HeaderCellContext:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `column` | `ColumnConfig` | The column configuration |
+| `value` | `string` | The header text |
+| `sortState` | `'asc' \| 'desc' \| null` | Current sort state |
+| `cellEl` | `HTMLElement` | The header cell element |
+| `renderSortIcon()` | `() => HTMLElement \| null` | Creates sort indicator (null if not sortable) |
+| `renderResizeHandle()` | `() => HTMLElement` | Creates resize handle element |
+
+See the [Header Renderers](?path=/docs/grid-header-renderers--docs) stories for live demos.
 
 ### Grid Configuration
 

@@ -21,7 +21,7 @@
     },
     "serve": {
       "executor": "@nx/storybook:storybook",
-      "dependsOn": ["grid:typedoc"],
+      "dependsOn": ["grid:typedoc", "grid-angular:typedoc", "grid-react:typedoc"],
       "options": {
         "port": 4400,
         "configDir": "apps/docs/.storybook"
@@ -34,7 +34,7 @@
     },
     "_build-storybook": {
       "executor": "@nx/storybook:build",
-      "dependsOn": ["grid:typedoc"],
+      "dependsOn": ["grid:typedoc", "grid-angular:typedoc", "grid-react:typedoc"],
       "outputs": ["{options.outputDir}"],
       "options": {
         "outputDir": "dist/docs",

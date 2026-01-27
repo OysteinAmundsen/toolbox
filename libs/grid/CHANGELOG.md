@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.4.0...grid-1.5.0) (2026-01-27)
+
+
+### Features
+
+* **grid-angular:** DX add tree-shakeable feature inputs and event outputs ([757f8de](https://github.com/OysteinAmundsen/toolbox/commit/757f8deafd34387b534914152b248b93da68a0a1))
+* **grid-react:** Improving DX for react framework bridge ([#98](https://github.com/OysteinAmundsen/toolbox/issues/98)) ([19ab6ae](https://github.com/OysteinAmundsen/toolbox/commit/19ab6ae0816ae6d199a5b811bc7557a4e946ed05))
+* **grid:** add accordion mode and full-width aggregators to GroupingRowsPlugin ([2cec469](https://github.com/OysteinAmundsen/toolbox/commit/2cec469ea98f2473aa142fec68c9391f6bdeba41))
+* **grid:** expand defaultExpanded to support index, key, or array of keys ([bb37d21](https://github.com/OysteinAmundsen/toolbox/commit/bb37d214035d376da6feee68c7f539007438e043))
+
+
+### Bug Fixes
+
+* **grid:** defaultExpanded option now works in GroupingRowsPlugin ([0511b19](https://github.com/OysteinAmundsen/toolbox/commit/0511b19471f6e6da9d3162b9912b17c28d451ff1))
+
 ## [1.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.3.1...grid-1.4.0) (2026-01-26)
 
 

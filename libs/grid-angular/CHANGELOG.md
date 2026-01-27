@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.5.0...grid-angular-0.6.0) (2026-01-27)
+
+
+### Features
+
+* **grid-angular:** DX add tree-shakeable feature inputs and event outputs ([757f8de](https://github.com/OysteinAmundsen/toolbox/commit/757f8deafd34387b534914152b248b93da68a0a1))
+* **grid-react:** Improving DX for react framework bridge ([#98](https://github.com/OysteinAmundsen/toolbox/issues/98)) ([19ab6ae](https://github.com/OysteinAmundsen/toolbox/commit/19ab6ae0816ae6d199a5b811bc7557a4e946ed05))
+
 ## [0.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.4.0...grid-angular-0.5.0) (2026-01-26)
 
 

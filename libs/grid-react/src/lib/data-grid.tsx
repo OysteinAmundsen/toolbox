@@ -9,7 +9,6 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
 } from 'react';
 import '../jsx.d.ts';
@@ -19,10 +18,9 @@ import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
 import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
-import { mergePresetWithProps } from './presets';
 import { processReactGridConfig, type ReactGridConfig } from './react-column-config';
 import { ReactGridAdapter } from './react-grid-adapter';
-import { useLazyPlugins, validateDependencies } from './use-lazy-plugins';
+import { createPluginsFromFeatures } from './use-sync-plugins';
 
 /**
  * Extended interface for DataGridElement with all methods we need.
@@ -143,9 +141,9 @@ function detectChildComponentFeatures(children: ReactNode): Partial<FeatureProps
  *
  * Combines:
  * - Core props (rows, columns, gridConfig)
- * - Feature props (selection, editing, filtering, etc.) - lazily load plugins
+ * - Feature props (selection, editing, filtering, etc.) - plugins loaded via side-effect imports
  * - Event props (onCellClick, onSelectionChange, etc.)
- * - Loading props (loadingComponent, ssr)
+ * - SSR props (ssr)
  */
 export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, EventProps<TRow> {
   /** Row data to display */
@@ -339,9 +337,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     children,
     // Plugin props
     plugins: manualPlugins,
-    preset,
-    // Loading props
-    loadingComponent,
+    // SSR mode
     ssr,
     // Legacy event handlers
     onRowsChange,
@@ -351,7 +347,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
   const gridRef = useRef<ExtendedGridElement>(null);
   const customStylesIdRef = useRef<string | null>(null);
-  const [isGridReady, setIsGridReady] = useState(false);
 
   // Get type defaults from context
   const typeDefaults = useContext(GridTypeContextInternal);
@@ -415,49 +410,35 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // Detect child components (GridDetailPanel, GridResponsiveCard) and merge with feature props
   const childFeatures = useMemo(() => detectChildComponentFeatures(children), [children]);
 
-  // Merge preset with individual feature props and child-detected features
-  // Priority: explicit props > child props > preset
+  // Merge explicit feature props with child-detected features
+  // Priority: explicit props > child-detected props
   const mergedFeatureProps = useMemo(() => {
-    const presetMerged = mergePresetWithProps(preset, featureProps);
-    // Child-detected features are applied first, then explicit props override
-    return { ...childFeatures, ...presetMerged } as FeatureProps<TRow>;
-  }, [preset, featureProps, childFeatures]);
-
-  // Log dependency warnings in development
-  useEffect(() => {
-    // Check for development mode without relying on Node.js process
-    const isDev =
-      typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    if (isDev) {
-      const warnings = validateDependencies<TRow>(mergedFeatureProps);
-      warnings.forEach((w) => console.info(`[grid-react] ${w}`));
-    }
-  }, [mergedFeatureProps]);
+    return { ...childFeatures, ...featureProps } as FeatureProps<TRow>;
+  }, [featureProps, childFeatures]);
 
   // ═══════════════════════════════════════════════════════════════════
-  // PLUGIN INSTANTIATION (async via dynamic imports)
+  // PLUGIN INSTANTIATION (sync via feature registry)
   // ═══════════════════════════════════════════════════════════════════
 
-  // Skip plugin instantiation if manual plugins are provided or in SSR mode
-  const shouldUseLazyPlugins = !manualPlugins && !ssr;
+  // Create plugins synchronously from feature props.
+  // Features must be registered via side-effect imports:
+  //   import '@toolbox-web/grid-react/features/selection';
+  // Unregistered features show a helpful warning in dev mode.
+  const featurePlugins = useMemo(() => {
+    if (manualPlugins || ssr) return [];
+    return createPluginsFromFeatures(mergedFeatureProps) as BaseGridPlugin[];
+  }, [mergedFeatureProps, manualPlugins, ssr]);
 
-  // Load plugins asynchronously based on feature props
-  // This uses dynamic imports for code-splitting - only used plugins are fetched
-  const { plugins: lazyPlugins, isLoading: pluginsLoading } = useLazyPlugins<TRow>(
-    shouldUseLazyPlugins ? mergedFeatureProps : {},
-  );
-
-  // Combine manual plugins with lazy-loaded plugins
+  // Combine manual plugins with feature-based plugins
   const allPlugins = useMemo(() => {
     if (manualPlugins) {
-      // Manual plugins take priority - append any lazy plugins that don't conflict
+      // Manual plugins take priority - append any feature plugins that don't conflict
       const manualNames = new Set(manualPlugins.map((p) => p.name));
-      const nonConflicting = lazyPlugins.filter((p) => !manualNames.has(p.name));
+      const nonConflicting = featurePlugins.filter((p) => !manualNames.has(p.name));
       return [...manualPlugins, ...nonConflicting];
     }
-    return lazyPlugins;
-  }, [manualPlugins, lazyPlugins]);
+    return featurePlugins;
+  }, [manualPlugins, featurePlugins]);
 
   // ═══════════════════════════════════════════════════════════════════
   // COLUMN PROCESSING (shorthand + defaults)
@@ -541,29 +522,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       (gridRef.current as unknown as { editOn: string }).editOn = editOn;
     }
   }, [editOn]);
-
-  // After plugins finish loading, refresh plugin renderers to pick up React templates
-  // This is separate from the mount effect because plugins are loaded asynchronously
-  useEffect(() => {
-    // Only run after plugins have loaded
-    if (pluginsLoading) return;
-
-    const grid = gridRef.current;
-    if (!grid) return;
-
-    // Ensure the framework adapter is available on the grid element
-    // This MUST be set before refreshing plugin renderers
-    const adapter = ensureAdapterRegistered();
-    (grid as any).__frameworkAdapter = adapter;
-
-    // Give plugins a chance to initialize (they need one tick after being added to grid)
-    const timer = requestAnimationFrame(() => {
-      refreshMasterDetailRenderer(grid as unknown as Element);
-      refreshResponsiveCardRenderer(grid as unknown as Element, adapter);
-    });
-
-    return () => cancelAnimationFrame(timer);
-  }, [pluginsLoading]);
 
   // After React renders GridColumn children and ref callbacks register renderers/editors,
   // call refreshColumns() to force the grid to re-parse light DOM with the registered adapters.
@@ -700,14 +658,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventHandlersKey]);
 
-  // Track when grid is ready
-  useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) return;
-
-    grid.ready?.().then(() => setIsGridReady(true));
-  }, []);
-
   // Expose ref API
   useImperativeHandle(
     ref,
@@ -736,34 +686,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     }),
     [],
   );
-
-  // Note: Plugins are loaded via dynamic imports when using feature props.
-  // If plugins are still loading, we render a loading state to prevent
-  // the grid from initializing without its plugins.
-
-  // Show loading state while plugins are being fetched
-  if (pluginsLoading) {
-    // Use custom loading component if provided, otherwise a minimal placeholder
-    if (loadingComponent) {
-      return <>{loadingComponent}</>;
-    }
-    // Default: render an empty container with same dimensions to prevent layout shift
-    return (
-      <div
-        className={className}
-        style={{
-          ...style,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '200px',
-        }}
-      >
-        {/* Minimal loading indicator */}
-        <span style={{ opacity: 0.5 }}>Loading...</span>
-      </div>
-    );
-  }
 
   return (
     <tbw-grid

@@ -61,9 +61,12 @@
   .tbw-aggregation-cell {
     padding: var(--tbw-cell-padding, 0.125rem 0.5rem);
     min-height: var(--tbw-row-height, 1.75rem);
-    display: flex;
+    display: block;
     align-items: center;
     border-right: 1px solid var(--tbw-color-border-cell);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: var(--tbw-cell-white-space, nowrap);
   }
   .tbw-aggregation-cell:last-child {
     border-right: 0;

@@ -108,6 +108,85 @@ function EmployeeGrid({ employees }: { employees: Employee[] }) {
 }
 ```
 
+### React with Feature Props (Recommended)
+
+The React adapter supports **declarative feature props** with **side-effect imports** for tree-shakeable plugin loading. This is the recommended approach for React applications:
+
+```tsx
+// 1. Import features you need (once per app, typically in main.tsx or component file)
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/editing';
+import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/filtering';
+
+import '@toolbox-web/grid';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive';
+}
+
+function EmployeeGrid({ employees }: { employees: Employee[] }) {
+  const [data, setData] = useState(employees);
+
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'id', header: 'ID', type: 'number' },
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'status', header: 'Status', editable: true },
+      ]}
+      // Declarative feature props - no manual plugin instantiation!
+      selection="range"
+      editing="dblclick"
+      sorting="multi"
+      filtering
+      onRowsChange={setData}
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+
+**Available Feature Props:**
+
+| Prop | Import | Example Values |
+|------|--------|----------------|
+| `selection` | `features/selection` | `"cell"`, `"row"`, `"range"`, `{ mode: 'range', checkbox: true }` |
+| `editing` | `features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"` |
+| `sorting` | `features/sorting` | `true`, `"single"`, `"multi"`, `{ maxSortLevels: 3 }` |
+| `filtering` | `features/filtering` | `true`, `{ debounceMs: 200 }` |
+| `clipboard` | `features/clipboard` | `true` (requires selection) |
+| `undoRedo` | `features/undo-redo` | `true` (requires editing) |
+| `contextMenu` | `features/context-menu` | `true`, `{ items: [...] }` |
+| `reorder` | `features/reorder` | `true` |
+| `rowReorder` | `features/row-reorder` | `true` |
+| `visibility` | `features/visibility` | `true` |
+| `pinnedColumns` | `features/pinned-columns` | `true` |
+| `pinnedRows` | `features/pinned-rows` | `true`, `{ bottom: [...] }` |
+| `groupingColumns` | `features/grouping-columns` | `true`, `{ columnGroups: [...] }` |
+| `groupingRows` | `features/grouping-rows` | `{ groupBy: ['department'] }` |
+| `tree` | `features/tree` | `{ childrenField: 'children' }` |
+| `columnVirtualization` | `features/column-virtualization` | `true` |
+| `masterDetail` | `features/master-detail` | `{ renderer: (row) => ... }` |
+| `responsive` | `features/responsive` | `true`, `{ breakpoint: 768 }` |
+| `export` | `features/export` | `true`, `{ filename: 'data.csv' }` |
+| `print` | `features/print` | `true` |
+| `pivot` | `features/pivot` | `{ rowFields: [...], columnFields: [...] }` |
+| `serverSide` | `features/server-side` | `{ dataSource: async (params) => ... }` |
+
+**Import All Features (for prototyping):**
+
+```tsx
+// Import all features at once (larger bundle, convenient for prototyping)
+import '@toolbox-web/grid-react/features';
+
+<DataGrid selection="range" editing sorting filtering clipboard undoRedo />
+```
+
 ### Angular
 
 ```typescript

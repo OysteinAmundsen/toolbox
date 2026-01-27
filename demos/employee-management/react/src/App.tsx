@@ -2,7 +2,8 @@
  * Employee Management Demo - React Implementation
  *
  * This demo showcases @toolbox-web/grid-react best practices:
- * - Feature props for declarative plugin configuration (no manual plugin imports)
+ * - Feature imports for tree-shakeable plugin loading (side-effect imports)
+ * - Feature props for declarative plugin configuration
  * - Event props for automatic cleanup (no useEffect for events)
  * - ReactGridConfig for inline React renderers/editors
  * - GridDetailPanel for declarative master-detail panels
@@ -12,6 +13,28 @@
  *
  * The grid matches visual design and functionality across all framework demos.
  */
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FEATURE IMPORTS - Register features you want to use (tree-shakeable)
+// Each import adds ~50 bytes + the plugin itself to your bundle.
+// Only import what you need - unused features are not bundled.
+// ═══════════════════════════════════════════════════════════════════════════════
+import '@toolbox-web/grid-react/features/clipboard';
+import '@toolbox-web/grid-react/features/column-virtualization';
+import '@toolbox-web/grid-react/features/context-menu';
+import '@toolbox-web/grid-react/features/editing';
+import '@toolbox-web/grid-react/features/export';
+import '@toolbox-web/grid-react/features/filtering';
+import '@toolbox-web/grid-react/features/grouping-columns';
+import '@toolbox-web/grid-react/features/master-detail';
+import '@toolbox-web/grid-react/features/pinned-columns';
+import '@toolbox-web/grid-react/features/pinned-rows';
+import '@toolbox-web/grid-react/features/reorder';
+import '@toolbox-web/grid-react/features/responsive';
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/undo-redo';
+import '@toolbox-web/grid-react/features/visibility';
 
 import {
   DataGrid,
@@ -324,7 +347,8 @@ export function App() {
             className="demo-grid"
             // ═══════════════════════════════════════════════════════════════
             // FEATURE PROPS - Declarative plugin configuration
-            // No plugin imports needed - plugins are lazy-loaded automatically
+            // Features are registered via imports at the top of this file.
+            // Props configure the plugins - no async loading, no HTTP requests!
             // ═══════════════════════════════════════════════════════════════
             selection={enableSelection ? 'range' : undefined}
             sorting={enableSorting ? 'multi' : undefined}

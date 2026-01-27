@@ -17,8 +17,6 @@
  * ```
  */
 
-import type { ReactNode } from 'react';
-
 // Import plugin config types from the all bundle for monorepo compatibility
 import type {
   ClipboardConfig,
@@ -57,6 +55,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable cell/row/range selection.
    *
+   * @requires `import '@toolbox-web/grid-react/features/selection';`
+   *
    * @example
    * ```tsx
    * // Shorthand - just the mode
@@ -70,6 +70,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable inline cell editing.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
    *
    * @example
    * ```tsx
@@ -88,6 +90,8 @@ export interface FeatureProps<TRow = unknown> {
    * Enable clipboard copy/paste.
    * Requires selection to be enabled (will be auto-added).
    *
+   * @requires `import '@toolbox-web/grid-react/features/clipboard';`
+   *
    * @example
    * ```tsx
    * <DataGrid selection="range" clipboard />
@@ -97,6 +101,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable right-click context menu.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/context-menu';`
    *
    * @example
    * ```tsx
@@ -112,6 +118,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable column sorting.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/sorting';`
    *
    * @example
    * ```tsx
@@ -133,6 +141,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable column filtering.
    *
+   * @requires `import '@toolbox-web/grid-react/features/filtering';`
+   *
    * @example
    * ```tsx
    * <DataGrid filtering />
@@ -148,6 +158,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable column drag-to-reorder.
    *
+   * @requires `import '@toolbox-web/grid-react/features/reorder';`
+   *
    * @example
    * ```tsx
    * <DataGrid reorder />
@@ -157,6 +169,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable column visibility toggle panel.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/visibility';`
    *
    * @example
    * ```tsx
@@ -168,6 +182,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable pinned/sticky columns.
    * Columns are pinned via the `sticky` column property.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/pinned-columns';`
    *
    * @example
    * ```tsx
@@ -183,6 +199,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable multi-level column headers (column groups).
    *
+   * @requires `import '@toolbox-web/grid-react/features/grouping-columns';`
+   *
    * @example
    * ```tsx
    * <DataGrid groupingColumns={{
@@ -196,6 +214,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable horizontal column virtualization for wide grids.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/column-virtualization';`
    *
    * @example
    * ```tsx
@@ -211,6 +231,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable row drag-to-reorder.
    *
+   * @requires `import '@toolbox-web/grid-react/features/row-reorder';`
+   *
    * @example
    * ```tsx
    * <DataGrid rowReorder />
@@ -220,6 +242,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable row grouping by field values.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/grouping-rows';`
    *
    * @example
    * ```tsx
@@ -233,6 +257,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable pinned rows (aggregation/status bar).
+   *
+   * @requires `import '@toolbox-web/grid-react/features/pinned-rows';`
    *
    * @example
    * ```tsx
@@ -250,6 +276,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable hierarchical tree view.
    *
+   * @requires `import '@toolbox-web/grid-react/features/tree';`
+   *
    * @example
    * ```tsx
    * <DataGrid tree={{
@@ -262,6 +290,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable master-detail expandable rows.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/master-detail';`
    *
    * @example
    * ```tsx
@@ -278,6 +308,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable responsive card layout for narrow viewports.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/responsive';`
    *
    * @example
    * ```tsx
@@ -297,6 +329,8 @@ export interface FeatureProps<TRow = unknown> {
    * Enable undo/redo for cell edits.
    * Requires editing to be enabled (will be auto-added).
    *
+   * @requires `import '@toolbox-web/grid-react/features/undo-redo';`
+   *
    * @example
    * ```tsx
    * <DataGrid editing="dblclick" undoRedo />
@@ -311,6 +345,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable CSV/JSON export functionality.
    *
+   * @requires `import '@toolbox-web/grid-react/features/export';`
+   *
    * @example
    * ```tsx
    * <DataGrid export />
@@ -321,6 +357,8 @@ export interface FeatureProps<TRow = unknown> {
 
   /**
    * Enable print functionality.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/print';`
    *
    * @example
    * ```tsx
@@ -336,6 +374,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable pivot table functionality.
    *
+   * @requires `import '@toolbox-web/grid-react/features/pivot';`
+   *
    * @example
    * ```tsx
    * <DataGrid pivot={{
@@ -350,6 +390,8 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable server-side data operations.
    *
+   * @requires `import '@toolbox-web/grid-react/features/server-side';`
+   *
    * @example
    * ```tsx
    * <DataGrid serverSide={{
@@ -361,36 +403,12 @@ export interface FeatureProps<TRow = unknown> {
 }
 
 /**
- * Preset configuration names.
- * Presets provide sensible defaults for common use cases.
+ * Props for controlling SSR behavior.
  */
-export type PresetName = 'minimal' | 'standard' | 'full';
-
-/**
- * Props for controlling loading states and SSR behavior.
- */
-export interface LoadingProps {
+export interface SSRProps {
   /**
-   * Custom loading component shown during plugin loading.
-   * @default Built-in skeleton loader
-   */
-  loadingComponent?: ReactNode;
-
-  /**
-   * Custom loading component for individual rows (async operations).
-   * @default Subtle row shimmer
-   */
-  rowLoadingComponent?: ReactNode;
-
-  /**
-   * Custom loading component for individual cells (async operations).
-   * @default Cell spinner
-   */
-  cellLoadingComponent?: ReactNode;
-
-  /**
-   * Enable SSR mode - disables lazy loading for server-side rendering.
-   * In SSR mode, plugins are not loaded (grid renders without features).
+   * Enable SSR mode - disables feature plugins for server-side rendering.
+   * In SSR mode, the grid renders without interactive features.
    * @default false
    */
   ssr?: boolean;
@@ -399,17 +417,4 @@ export interface LoadingProps {
 /**
  * All feature-related props combined.
  */
-export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> &
-  LoadingProps & {
-    /**
-     * Use a preset configuration.
-     * Individual props override preset values.
-     *
-     * @example
-     * ```tsx
-     * // Use full preset but disable editing
-     * <DataGrid preset="full" editing={false} />
-     * ```
-     */
-    preset?: PresetName;
-  };
+export type AllFeatureProps<TRow = unknown> = FeatureProps<TRow> & SSRProps;

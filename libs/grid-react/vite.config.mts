@@ -45,9 +45,34 @@ export default defineConfig(() => ({
       transformMixedEsModules: true,
     },
     lib: {
-      entry: 'src/index.ts',
+      // Multiple entry points: main index + all feature modules
+      entry: {
+        index: 'src/index.ts',
+        'features/index': 'src/features/index.ts',
+        'features/selection': 'src/features/selection.ts',
+        'features/sorting': 'src/features/sorting.ts',
+        'features/filtering': 'src/features/filtering.ts',
+        'features/editing': 'src/features/editing.ts',
+        'features/undo-redo': 'src/features/undo-redo.ts',
+        'features/clipboard': 'src/features/clipboard.ts',
+        'features/context-menu': 'src/features/context-menu.ts',
+        'features/reorder': 'src/features/reorder.ts',
+        'features/row-reorder': 'src/features/row-reorder.ts',
+        'features/visibility': 'src/features/visibility.ts',
+        'features/pinned-columns': 'src/features/pinned-columns.ts',
+        'features/grouping-columns': 'src/features/grouping-columns.ts',
+        'features/grouping-rows': 'src/features/grouping-rows.ts',
+        'features/tree': 'src/features/tree.ts',
+        'features/column-virtualization': 'src/features/column-virtualization.ts',
+        'features/export': 'src/features/export.ts',
+        'features/print': 'src/features/print.ts',
+        'features/responsive': 'src/features/responsive.ts',
+        'features/master-detail': 'src/features/master-detail.ts',
+        'features/pinned-rows': 'src/features/pinned-rows.ts',
+        'features/pivot': 'src/features/pivot.ts',
+        'features/server-side': 'src/features/server-side.ts',
+      },
       name: '@toolbox-web/grid-react',
-      fileName: 'index',
       formats: ['es' as const],
     },
     rollupOptions: {
@@ -60,6 +85,11 @@ export default defineConfig(() => ({
         '@toolbox-web/grid/all',
         /^@toolbox-web\/grid/,
       ],
+      output: {
+        // Preserve the entry structure
+        entryFileNames: '[name].js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
+      },
     },
   },
   test: {
@@ -74,6 +104,15 @@ export default defineConfig(() => ({
       provider: 'v8' as const,
     },
     alias: [
+      // Resolve @toolbox-web/grid-react feature imports to local source (for tests)
+      {
+        find: /^@toolbox-web\/grid-react\/features\/(.+)$/,
+        replacement: path.join(import.meta.dirname, 'src/features/$1.ts'),
+      },
+      {
+        find: '@toolbox-web/grid-react/features',
+        replacement: path.join(import.meta.dirname, 'src/features/index.ts'),
+      },
       // Resolve plugin imports to dist for tests (must be first, more specific)
       {
         find: /^@toolbox-web\/grid\/plugins\/(.+)$/,

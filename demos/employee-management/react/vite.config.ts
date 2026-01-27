@@ -16,6 +16,15 @@ export default defineConfig({
       { find: '@toolbox-web/grid/all', replacement: resolve(__dirname, '../../../libs/grid/src/all.ts') },
       // Map @toolbox-web/grid to local source
       { find: '@toolbox-web/grid', replacement: resolve(__dirname, '../../../libs/grid/src/index.ts') },
+      // Map @toolbox-web/grid-react feature imports to local source
+      {
+        find: /^@toolbox-web\/grid-react\/features\/(.+)$/,
+        replacement: resolve(__dirname, '../../../libs/grid-react/src/features/$1.ts'),
+      },
+      {
+        find: '@toolbox-web/grid-react/features',
+        replacement: resolve(__dirname, '../../../libs/grid-react/src/features/index.ts'),
+      },
       // Map @toolbox-web/grid-react to the local source
       { find: '@toolbox-web/grid-react', replacement: resolve(__dirname, '../../../libs/grid-react/src/index.ts') },
       // Map @demo/shared imports to the shared folder

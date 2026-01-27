@@ -114,6 +114,8 @@ export interface EventProps<TRow = unknown> {
    * Fired when a cell edit is committed.
    * Cancelable - call `event.preventDefault()` to reject the edit.
    *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   *
    * @example
    * ```tsx
    * onCellCommit={(detail, event) => {
@@ -129,6 +131,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when all pending row edits are committed.
    *
+   * @requires `import '@toolbox-web/grid-react/features/editing';`
+   *
    * @example
    * ```tsx
    * onRowCommit={(detail) => saveToServer(detail.row)}
@@ -143,6 +147,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when sort state changes.
    *
+   * @requires `import '@toolbox-web/grid-react/features/sorting';`
+   *
    * @example
    * ```tsx
    * onSortChange={(detail) => console.log('Sort:', detail.field, detail.direction)}
@@ -152,6 +158,8 @@ export interface EventProps<TRow = unknown> {
 
   /**
    * Fired when filter values change.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/filtering';`
    *
    * @example
    * ```tsx
@@ -178,6 +186,8 @@ export interface EventProps<TRow = unknown> {
    * Fired when a column is moved via drag-and-drop.
    * Cancelable - call `event.preventDefault()` to cancel the move.
    *
+   * @requires `import '@toolbox-web/grid-react/features/reorder';`
+   *
    * @example
    * ```tsx
    * onColumnMove={(detail, event) => {
@@ -191,6 +201,8 @@ export interface EventProps<TRow = unknown> {
 
   /**
    * Fired when column visibility changes.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/visibility';`
    *
    * @example
    * ```tsx
@@ -219,6 +231,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when selection changes.
    *
+   * @requires `import '@toolbox-web/grid-react/features/selection';`
+   *
    * @example
    * ```tsx
    * onSelectionChange={(detail) => {
@@ -236,6 +250,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when a row is moved via drag-and-drop.
    * Cancelable - call `event.preventDefault()` to cancel the move.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/row-reorder';`
    *
    * @example
    * ```tsx
@@ -255,6 +271,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when a group is expanded or collapsed.
    *
+   * @requires `import '@toolbox-web/grid-react/features/grouping-rows';`
+   *
    * @example
    * ```tsx
    * onGroupToggle={(detail) => {
@@ -271,6 +289,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when a tree node is expanded.
    *
+   * @requires `import '@toolbox-web/grid-react/features/tree';`
+   *
    * @example
    * ```tsx
    * onTreeExpand={(detail) => console.log('Expanded:', detail.row)}
@@ -284,6 +304,8 @@ export interface EventProps<TRow = unknown> {
 
   /**
    * Fired when a detail panel is expanded or collapsed.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/master-detail';`
    *
    * @example
    * ```tsx
@@ -301,6 +323,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when responsive mode changes (table ↔ card).
    *
+   * @requires `import '@toolbox-web/grid-react/features/responsive';`
+   *
    * @example
    * ```tsx
    * onResponsiveChange={(detail) => {
@@ -317,6 +341,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when cells are copied to clipboard.
    *
+   * @requires `import '@toolbox-web/grid-react/features/clipboard';`
+   *
    * @example
    * ```tsx
    * onCopy={(detail) => console.log('Copied:', detail.text)}
@@ -326,6 +352,8 @@ export interface EventProps<TRow = unknown> {
 
   /**
    * Fired when cells are pasted from clipboard.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/clipboard';`
    *
    * @example
    * ```tsx
@@ -341,6 +369,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when undo/redo is performed.
    *
+   * @requires `import '@toolbox-web/grid-react/features/undo-redo';`
+   *
    * @example
    * ```tsx
    * onUndoRedo={(detail) => console.log(detail.type, '- Can undo:', detail.canUndo)}
@@ -354,6 +384,8 @@ export interface EventProps<TRow = unknown> {
 
   /**
    * Fired when export completes.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/export';`
    *
    * @example
    * ```tsx
@@ -369,6 +401,8 @@ export interface EventProps<TRow = unknown> {
   /**
    * Fired when print starts.
    *
+   * @requires `import '@toolbox-web/grid-react/features/print';`
+   *
    * @example
    * ```tsx
    * onPrintStart={(detail) => console.log('Printing:', detail.rowCount, 'rows')}
@@ -378,6 +412,8 @@ export interface EventProps<TRow = unknown> {
 
   /**
    * Fired when print completes.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/print';`
    *
    * @example
    * ```tsx

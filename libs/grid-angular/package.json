@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/grid-angular",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Angular adapter for @toolbox-web/grid data grid component",
   "type": "module",
   "main": "./index.js",

@@ -46,10 +46,7 @@ export { useGrid } from './lib/use-grid';
 export { useGridEvent } from './lib/use-grid-event';
 
 // React adapter (for advanced usage)
-export { ReactGridAdapter, getRegisteredFields } from './lib/react-grid-adapter';
+export { getRegisteredFields, ReactGridAdapter } from './lib/react-grid-adapter';
 
 // Context types
 export type { GridCellContext, GridDetailContext, GridEditorContext, GridToolPanelContext } from './lib/context-types';
-
-// Re-export useful types from grid
-export type { CellRenderContext, ColumnConfig, ColumnEditorContext, GridConfig } from '@toolbox-web/grid';

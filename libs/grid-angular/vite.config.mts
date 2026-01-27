@@ -27,6 +27,8 @@ export default defineConfig(() => ({
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),
+      // Preserve @toolbox-web/grid imports in .d.ts output instead of resolving to relative paths
+      pathsToAliases: false,
     }),
     copyReadme(),
   ],

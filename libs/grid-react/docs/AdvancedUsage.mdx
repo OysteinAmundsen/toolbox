@@ -67,7 +67,7 @@ import { ResponsivePlugin } from '@toolbox-web/grid/all';
 function EmployeeGrid() {
   // Custom plugin that doesn't have a feature prop
   const responsivePlugin = useMemo(
-    () => new ResponsivePlugin({ 
+    () => new ResponsivePlugin({
       breakpoint: 600,
       cardTitleField: 'name',
     }),
@@ -113,7 +113,7 @@ function EmployeeGrid() {
     grid.ready().then(() => {
       // Access full grid API
       console.log('Grid ready, row count:', grid.sourceRows.length);
-      
+
       // Access plugin instances
       const selection = grid.getPlugin(SelectionPlugin);
       if (selection) {

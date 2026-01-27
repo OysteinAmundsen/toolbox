@@ -1,4 +1,5 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../../../apps/docs/.storybook/components/Tabs';
 import * as PivotStories from './pivot.stories';
 
 <Meta of={PivotStories} />
@@ -15,10 +16,20 @@ import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
 
 ## Basic Usage
 
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
+import '@toolbox-web/grid';
+import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' },
+  ],
   plugins: [
     new PivotPlugin({
       rowGroupFields: ['region', 'product'],
@@ -27,7 +38,111 @@ grid.gridConfig = {
     }),
   ],
 };
+grid.rows = salesData;
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import '@toolbox-web/grid-react/features/pivot';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function SalesPivot({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'region', header: 'Region' },
+        { field: 'product', header: 'Product' },
+        { field: 'quarter', header: 'Quarter' },
+        { field: 'sales', header: 'Sales', type: 'number' },
+      ]}
+      pivot={{
+        rowGroupFields: ['region', 'product'],
+        columnGroupFields: ['quarter'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+      }}
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" style="height: 400px" />
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+import { ref, onMounted } from 'vue';
+
+const gridRef = ref(null);
+const props = defineProps(['data']);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'region', header: 'Region' },
+      { field: 'product', header: 'Product' },
+      { field: 'quarter', header: 'Quarter' },
+      { field: 'sales', header: 'Sales', type: 'number' },
+    ],
+    plugins: [
+      new PivotPlugin({
+        rowGroupFields: ['region', 'product'],
+        columnGroupFields: ['quarter'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+      }),
+    ],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+import type { GridConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-sales-pivot',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class SalesPivotComponent {
+  rows = [...]; // Your sales data
+
+  config: GridConfig = {
+    columns: [
+      { field: 'region', header: 'Region' },
+      { field: 'product', header: 'Product' },
+      { field: 'quarter', header: 'Quarter' },
+      { field: 'sales', header: 'Sales', type: 'number' },
+    ],
+    plugins: [
+      new PivotPlugin({
+        rowGroupFields: ['region', 'product'],
+        columnGroupFields: ['quarter'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+      }),
+    ],
+  };
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

@@ -1,5 +1,6 @@
 {/* print.mdx */}
 import { Meta, Canvas, Controls, Source, ArgTypes } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../../../apps/docs/.storybook/components/Tabs';
 import * as PrintStories from './print.stories';
 
 <Meta of={PrintStories} />
@@ -31,7 +32,10 @@ import { PrintPlugin } from '@toolbox-web/grid/all';
 
 <Canvas of={PrintStories.Basic} withToolbar/>
 
+<Tabs>
+  <Tab label="Vanilla JS">
 ```typescript
+import '@toolbox-web/grid';
 import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
 
 const grid = document.querySelector('tbw-grid');
@@ -55,6 +59,131 @@ grid.gridConfig = {
 const plugin = grid.getPlugin(PrintPlugin);
 await plugin.print();
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import '@toolbox-web/grid-react/features/print';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+
+function EmployeeGrid({ data }) {
+  const { ref, print } = useGrid();
+
+  const handlePrint = async () => {
+    await print({ title: 'Employee Report' });
+  };
+
+  return (
+    <div>
+      <button onClick={handlePrint}>Print Report</button>
+      <DataGrid
+        ref={ref}
+        rows={data}
+        columns={[
+          { field: 'name', header: 'Name' },
+          { field: 'department', header: 'Department' },
+          { field: 'salary', header: 'Salary' },
+        ]}
+        print={{
+          title: 'Employee Report',
+          includeTitle: true,
+          includeTimestamp: true,
+        }}
+        style={{ height: '400px' }}
+      />
+    </div>
+  );
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <div>
+    <button @click="handlePrint">Print Report</button>
+    <tbw-grid ref="gridRef" style="height: 400px" />
+  </div>
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+import { ref, onMounted } from 'vue';
+
+const gridRef = ref(null);
+const props = defineProps(['data']);
+let printPlugin;
+
+onMounted(() => {
+  printPlugin = new PrintPlugin({
+    title: 'Employee Report',
+    includeTitle: true,
+    includeTimestamp: true,
+  });
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary' },
+    ],
+    plugins: [printPlugin],
+  };
+  gridRef.value.rows = props.data;
+});
+
+const handlePrint = async () => {
+  await printPlugin.print();
+};
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, viewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+import type { GridConfig, GridElement } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-employee-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <button (click)="handlePrint()">Print Report</button>
+    <tbw-grid
+      #grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class EmployeeGridComponent {
+  gridRef = viewChild<ElementRef<GridElement>>('grid');
+  rows = [...];
+
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary' },
+    ],
+    plugins: [
+      new PrintPlugin({
+        title: 'Employee Report',
+        includeTitle: true,
+        includeTimestamp: true,
+      }),
+    ],
+  };
+
+  async handlePrint() {
+    const plugin = this.gridRef()?.nativeElement.getPlugin(PrintPlugin);
+    await plugin?.print();
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Configuration Options
 

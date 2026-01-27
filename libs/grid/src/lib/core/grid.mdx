@@ -1,4 +1,5 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../../apps/docs/.storybook/components/Tabs';
 import * as GridStories from './grid.stories';
 import * as HeaderRendererStories from './header-renderers.stories';
 
@@ -26,6 +27,8 @@ npm install @toolbox-web/grid
 
 ## Basic Usage
 
+<Tabs>
+  <Tab label="Vanilla JS">
 ```html
 <tbw-grid style="height: 400px;"></tbw-grid>
 
@@ -44,6 +47,90 @@ npm install @toolbox-web/grid
   ];
 </script>
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import { DataGrid } from '@toolbox-web/grid-react';
+
+const data = [
+  { id: 1, name: 'Alice', email: 'alice@example.com' },
+  { id: 2, name: 'Bob', email: 'bob@example.com' },
+];
+
+function MyGrid() {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'id', header: 'ID', type: 'number' },
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'email', header: 'Email' },
+      ]}
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" style="height: 400px" />
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { ref, onMounted } from 'vue';
+
+const gridRef = ref(null);
+const data = [
+  { id: 1, name: 'Alice', email: 'alice@example.com' },
+  { id: 2, name: 'Bob', email: 'bob@example.com' },
+];
+
+onMounted(() => {
+  gridRef.value.columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'email', header: 'Email' },
+  ];
+  gridRef.value.rows = data;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  rows = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ];
+
+  columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'email', header: 'Email' },
+  ];
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

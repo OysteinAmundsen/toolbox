@@ -37,31 +37,24 @@ grid.gridConfig = {
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import '@toolbox-web/grid-react/features/pinned-columns';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function EmployeeGrid({ employees }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'id', header: 'ID', pinned: 'left', width: 80 },
-          { field: 'name', header: 'Name' },
-          { field: 'email', header: 'Email' },
-          { field: 'department', header: 'Department' },
-          { field: 'salary', header: 'Salary', type: 'currency' },
-          { field: 'actions', header: 'Actions', pinned: 'right', width: 120 },
-        ],
-        plugins: [new PinnedColumnsPlugin()],
-      };
-      gridRef.current.rows = employees;
-    }
-  }, [employees]);
-
-  return <tbw-grid ref={gridRef} />;
+  return (
+    <DataGrid
+      rows={employees}
+      columns={[
+        { field: 'id', header: 'ID', sticky: 'left', width: 80 },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' },
+        { field: 'salary', header: 'Salary', type: 'currency' },
+        { field: 'actions', header: 'Actions', sticky: 'right', width: 120 },
+      ]}
+      pinnedColumns
+    />
+  );
 }
 ```
   </Tab>
@@ -98,31 +91,37 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-employee-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
 export class EmployeeGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+  rows = [];
 
-  onGrid = effect(() => {
-    this.gridRef()?.nativeElement.gridConfig = {
-      columns: [
-        { field: 'id', header: 'ID', pinned: 'left', width: 80 },
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'department', header: 'Department' },
-        { field: 'salary', header: 'Salary', type: 'currency' },
-        { field: 'actions', header: 'Actions', pinned: 'right', width: 120 },
-      ],
-      plugins: [new PinnedColumnsPlugin()],
-    };
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', sticky: 'left', width: 80 },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'currency' },
+      { field: 'actions', header: 'Actions', sticky: 'right', width: 120 },
+    ],
+    plugins: [new PinnedColumnsPlugin()],
+  };
 }
 ```
   </Tab>

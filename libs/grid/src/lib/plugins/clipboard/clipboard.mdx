@@ -41,33 +41,23 @@ grid.gridConfig = {
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/clipboard';
+import { DataGrid } from '@toolbox-web/grid-react';
 
-function DataGrid({ data }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'name', header: 'Name' },
-          { field: 'email', header: 'Email' },
-          { field: 'department', header: 'Department' }
-        ],
-        plugins: [
-          new ClipboardPlugin({
-            includeHeaders: true,
-            quoteStrings: true,
-          }),
-        ],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
-
-  return <tbw-grid ref={gridRef} />;
+function MyGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' }
+      ]}
+      selection="range"
+      clipboard={{ includeHeaders: true, quoteStrings: true }}
+    />
+  );
 }
 ```
   </Tab>
@@ -106,33 +96,41 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-my-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
-export class DataGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+export class MyGridComponent {
+  rows = [...];
 
-  onGrid = effect(() => {
-    this.gridRef()?.nativeElement.gridConfig = {
-      columns: [
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'department', header: 'Department' }
-      ],
-      plugins: [
-        new ClipboardPlugin({
-          includeHeaders: true,
-          quoteStrings: true,
-        }),
-      ],
-    };
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' }
+    ],
+    plugins: [
+      new SelectionPlugin({ mode: 'range' }),
+      new ClipboardPlugin({
+        includeHeaders: true,
+        quoteStrings: true,
+      }),
+    ],
+  };
 }
 ```
   </Tab>

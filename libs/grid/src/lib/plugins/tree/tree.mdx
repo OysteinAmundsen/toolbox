@@ -53,33 +53,21 @@ grid.rows = [
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+import '@toolbox-web/grid-react/features/tree';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function FileExplorer({ files }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'name', header: 'Name' },
-          { field: 'type', header: 'Type' },
-          { field: 'size', header: 'Size' }
-        ],
-        plugins: [
-          new TreePlugin({
-            childrenField: 'children',
-            indentWidth: 24,
-          }),
-        ],
-      };
-      gridRef.current.rows = files;
-    }
-  }, [files]);
-
-  return <tbw-grid ref={gridRef} />;
+  return (
+    <DataGrid
+      rows={files}
+      columns={[
+        { field: 'name', header: 'Name' },
+        { field: 'type', header: 'Type' },
+        { field: 'size', header: 'Size' }
+      ]}
+      tree={{ childrenField: 'children', indentWidth: 24 }}
+    />
+  );
 }
 ```
   </Tab>
@@ -118,37 +106,39 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-file-explorer',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="files"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
 export class FileExplorerComponent {
-  gridRef = viewChild<ElementRef>('grid');
   files = [/* hierarchical data */];
 
-  onGrid = effect(() => {
-    const grid = this.gridRef()?.nativeElement;
-    if (!grid) return;
-    grid.gridConfig = {
-      columns: [
-        { field: 'name', header: 'Name' },
-        { field: 'type', header: 'Type' },
-        { field: 'size', header: 'Size' }
-      ],
-      plugins: [
-        new TreePlugin({
-          childrenField: 'children',
-          indentWidth: 24,
-        }),
-      ],
-    };
-    grid.rows = this.files;
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'type', header: 'Type' },
+      { field: 'size', header: 'Size' }
+    ],
+    plugins: [
+      new TreePlugin({
+        childrenField: 'children',
+        indentWidth: 24,
+      }),
+    ],
+  };
 }
 ```
   </Tab>

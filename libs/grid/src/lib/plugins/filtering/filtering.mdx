@@ -39,29 +39,22 @@ grid.rows = data;
   <Tab label="React">
 
 ```tsx
-import '@toolbox-web/grid';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
-import { useEffect, useRef } from 'react';
-import type { DataGridElement } from '@toolbox-web/grid';
+import '@toolbox-web/grid-react/features/filtering';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function MyGrid({ data }) {
-  const gridRef = useRef<DataGridElement>(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'name', header: 'Name', filterable: true },
-          { field: 'status', header: 'Status', filterable: true },
-          { field: 'email', header: 'Email', filterable: true },
-        ],
-        plugins: [new FilteringPlugin({ debounceMs: 300 })],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
-
-  return <tbw-grid ref={gridRef} style={{ height: '400px' }} />;
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'name', header: 'Name', filterable: true },
+        { field: 'status', header: 'Status', filterable: true },
+        { field: 'email', header: 'Email', filterable: true },
+      ]}
+      filtering={{ debounceMs: 300 }}
+      style={{ height: '400px' }}
+    />
+  );
 }
 ```
 

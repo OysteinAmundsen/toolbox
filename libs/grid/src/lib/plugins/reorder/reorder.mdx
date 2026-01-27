@@ -45,29 +45,23 @@ grid.addEventListener('column-move', (e) => {
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+import '@toolbox-web/grid-react/features/reorder';
+import { DataGrid } from '@toolbox-web/grid-react';
 
-function ReorderableGrid({ data }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'id', header: 'ID' },
-          { field: 'name', header: 'Name' },
-          { field: 'email', header: 'Email' },
-          { field: 'department', header: 'Department' },
-        ],
-        plugins: [new ReorderPlugin({ animation: 'flip' })],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
-
-  return <tbw-grid ref={gridRef} />;
+function MyGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' },
+      ]}
+      reorder={{ animation: 'flip' }}
+      onColumnMove={(e) => console.log(`Moved ${e.detail.field} from ${e.detail.fromIndex} to ${e.detail.toIndex}`)}
+    />
+  );
 }
 ```
   </Tab>
@@ -106,35 +100,40 @@ const onColumnMove = (e) => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-my-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      (column-move)="onColumnMove($event)"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
-export class ReorderableGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+export class MyGridComponent {
+  rows = [...];
 
-  onGrid = effect(() => {
-    const grid = this.gridRef()?.nativeElement;
-    if (!grid) return;
-    grid.gridConfig = {
-      columns: [
-        { field: 'id', header: 'ID' },
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'department', header: 'Department' },
-      ],
-      plugins: [new ReorderPlugin({ animation: 'flip' })],
-    };
+  config: GridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+    ],
+    plugins: [new ReorderPlugin({ animation: 'flip' })],
+  };
 
-    grid.addEventListener('column-move', (e: CustomEvent) => {
-      console.log('Column moved:', e.detail);
-    });
-  });
+  onColumnMove(e: CustomEvent) {
+    console.log(`Moved ${e.detail.field} from ${e.detail.fromIndex} to ${e.detail.toIndex}`);
+  }
 }
 ```
   </Tab>

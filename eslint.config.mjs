@@ -76,5 +76,12 @@ export default [
       '@nx/enforce-module-boundaries': 'off',
     },
   },
+  {
+    // Disable module boundary checks for build-time scripts (not part of distributed packages)
+    files: ['**/scripts/*.ts', '**/scripts/*.mts', 'tools/**/*.ts'],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
   ...storybook.configs['flat/recommended'],
 ];

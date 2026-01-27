@@ -41,29 +41,22 @@ grid.rows = data;
   <Tab label="React">
 
 ```tsx
-import '@toolbox-web/grid';
-import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
-import { useEffect, useRef } from 'react';
-import type { DataGridElement } from '@toolbox-web/grid';
+import '@toolbox-web/grid-react/features/responsive';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function MyGrid({ data }) {
-  const gridRef = useRef<DataGridElement>(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'id', header: 'ID' },
-          { field: 'name', header: 'Name' },
-          { field: 'email', header: 'Email' },
-        ],
-        plugins: [new ResponsivePlugin({ breakpoint: 500 })],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
-
-  return <tbw-grid ref={gridRef} style={{ height: '400px' }} />;
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+      ]}
+      responsive={{ breakpoint: 500 }}
+      style={{ height: '400px' }}
+    />
+  );
 }
 ```
 

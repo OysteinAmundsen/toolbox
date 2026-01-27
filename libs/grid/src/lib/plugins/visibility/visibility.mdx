@@ -43,29 +43,22 @@ plugin.hideColumn('email');
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+import '@toolbox-web/grid-react/features/visibility';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function ConfigurableGrid({ data }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'id', header: 'ID' },
-          { field: 'name', header: 'Name' },
-          { field: 'email', header: 'Email' },
-          { field: 'phone', header: 'Phone', visible: false },
-        ],
-        plugins: [new VisibilityPlugin()],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
-
-  return <tbw-grid ref={gridRef} />;
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'phone', header: 'Phone', visible: false },
+      ]}
+      visibility
+    />
+  );
 }
 ```
   </Tab>
@@ -100,29 +93,35 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-configurable-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
 export class ConfigurableGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+  rows = [];
 
-  onGrid = effect(() => {
-    this.gridRef()?.nativeElement.gridConfig = {
-      columns: [
-        { field: 'id', header: 'ID' },
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'phone', header: 'Phone', visible: false },
-      ],
-      plugins: [new VisibilityPlugin()],
-    };
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'phone', header: 'Phone', visible: false },
+    ],
+    plugins: [new VisibilityPlugin()],
+  };
 }
 ```
   </Tab>

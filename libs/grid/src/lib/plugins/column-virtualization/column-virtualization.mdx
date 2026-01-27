@@ -1,4 +1,5 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../../../apps/docs/.storybook/components/Tabs';
 import * as ColumnVirtualizationStories from './column-virtualization.stories';
 
 <Meta of={ColumnVirtualizationStories} />
@@ -15,14 +16,103 @@ import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-vir
 
 ## Basic Usage
 
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
+import '@toolbox-web/grid';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: generateManyColumns(100),
-  fitMode: 'fixed', // Required
+  columns: generateManyColumns(100), // Your column generator
+  fitMode: 'fixed', // Required for column virtualization
   plugins: [new ColumnVirtualizationPlugin()],
 };
+grid.rows = data;
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import '@toolbox-web/grid-react/features/column-virtualization';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function WideGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={generateManyColumns(100)}
+      fitMode="fixed"
+      columnVirtualization
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" style="height: 400px" />
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+import { ref, onMounted } from 'vue';
+
+const gridRef = ref(null);
+const props = defineProps(['data']);
+
+onMounted(() => {
+  gridRef.value.gridConfig = {
+    columns: generateManyColumns(100),
+    fitMode: 'fixed',
+    plugins: [new ColumnVirtualizationPlugin()],
+  };
+  gridRef.value.rows = props.data;
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+import type { GridConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-wide-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class WideGridComponent {
+  rows = [...];
+
+  config: GridConfig = {
+    columns: this.generateManyColumns(100),
+    fitMode: 'fixed',
+    plugins: [new ColumnVirtualizationPlugin()],
+  };
+
+  generateManyColumns(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      field: `col${i}`,
+      header: `Column ${i + 1}`,
+      width: 120,
+    }));
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

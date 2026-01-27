@@ -45,30 +45,22 @@ grid.addEventListener('sort-change', (e) => {
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import '@toolbox-web/grid-react/features/sorting';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function SortableGrid({ data }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'name', header: 'Name', sortable: true },
-          { field: 'department', header: 'Department', sortable: true },
-          { field: 'salary', header: 'Salary', type: 'number', sortable: true },
-        ],
-        plugins: [
-          new MultiSortPlugin({ maxSortColumns: 3 }),
-        ],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
-
-  return <tbw-grid ref={gridRef} />;
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'department', header: 'Department', sortable: true },
+        { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+      ]}
+      sorting={{ multi: true, maxSortLevels: 3 }}
+      onSortChange={(e) => console.log('Sort changed:', e.detail.sortModel)}
+    />
+  );
 }
 ```
   </Tab>
@@ -108,36 +100,42 @@ const onSortChange = (e) => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-sortable-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      (sort-change)="onSortChange($event)"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
 export class SortableGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+  rows = [
+    { name: 'Alice', department: 'Engineering', salary: 95000 },
+    { name: 'Bob', department: 'Marketing', salary: 75000 },
+  ];
 
-  onGrid = effect(() => {
-    const grid = this.gridRef()?.nativeElement;
-    if (!grid) return;
-    grid.gridConfig = {
-      columns: [
-        { field: 'name', header: 'Name', sortable: true },
-        { field: 'department', header: 'Department', sortable: true },
-        { field: 'salary', header: 'Salary', type: 'number', sortable: true },
-      ],
-      plugins: [
-        new MultiSortPlugin({ maxSortColumns: 3 }),
-      ],
-    };
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'department', header: 'Department', sortable: true },
+      { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    ],
+    plugins: [new MultiSortPlugin({ maxSortColumns: 3 })],
+  };
 
-    grid.addEventListener('sort-change', (e: CustomEvent) => {
-      console.log('Sort changed:', e.detail);
-    });
-  });
+  onSortChange(e: CustomEvent) {
+    console.log('Sort changed:', e.detail.sortModel);
+  }
 }
 ```
   </Tab>

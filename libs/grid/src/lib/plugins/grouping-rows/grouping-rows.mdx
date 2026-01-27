@@ -42,33 +42,21 @@ grid.rows = employees;
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import '@toolbox-web/grid-react/features/grouping-rows';
+import { DataGrid } from '@toolbox-web/grid-react';
 
 function EmployeeGrid({ employees }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'name', header: 'Employee' },
-          { field: 'department', header: 'Department' },
-          { field: 'salary', header: 'Salary', type: 'currency' }
-        ],
-        plugins: [
-          new GroupingRowsPlugin({
-            groupOn: (row) => [row.department],
-            showRowCount: true,
-          }),
-        ],
-      };
-      gridRef.current.rows = employees;
-    }
-  }, [employees]);
-
-  return <tbw-grid ref={gridRef} />;
+  return (
+    <DataGrid
+      rows={employees}
+      columns={[
+        { field: 'name', header: 'Employee' },
+        { field: 'department', header: 'Department' },
+        { field: 'salary', header: 'Salary', type: 'currency' }
+      ]}
+      groupingRows={{ groupBy: 'department', showRowCount: true }}
+    />
+  );
 }
 ```
   </Tab>
@@ -107,33 +95,39 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-employee-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
 export class EmployeeGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+  employees = [/* employee data */];
 
-  onGrid = effect(() => {
-    this.gridRef()?.nativeElement.gridConfig = {
-      columns: [
-        { field: 'name', header: 'Employee' },
-        { field: 'department', header: 'Department' },
-        { field: 'salary', header: 'Salary', type: 'currency' }
-      ],
-      plugins: [
-        new GroupingRowsPlugin({
-          groupOn: (row) => [row.department],
-          showRowCount: true,
-        }),
-      ],
-    };
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Employee' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'currency' }
+    ],
+    plugins: [
+      new GroupingRowsPlugin({
+        groupOn: (row) => [row.department],
+        showRowCount: true,
+      }),
+    ],
+  };
 }
 ```
   </Tab>

@@ -46,42 +46,30 @@ document.getElementById('export-btn').addEventListener('click', () => {
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
+import '@toolbox-web/grid-react/features/export';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
 import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 
-function DataGrid({ data }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'name', header: 'Name' },
-          { field: 'email', header: 'Email' },
-          { field: 'department', header: 'Department' }
-        ],
-        plugins: [
-          new ExportPlugin({
-            filename: 'employees',
-            format: 'csv',
-            includeHeaders: true,
-          }),
-        ],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
+function EmployeeGrid({ data }) {
+  const { gridRef, getPlugin } = useGrid();
 
   const handleExport = () => {
-    const plugin = gridRef.current?.getPlugin(ExportPlugin);
-    plugin?.exportToCSV();
+    getPlugin(ExportPlugin)?.exportToCSV();
   };
 
   return (
     <>
       <button onClick={handleExport}>Export CSV</button>
-      <tbw-grid ref={gridRef} />
+      <DataGrid
+        ref={gridRef}
+        rows={data}
+        columns={[
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+          { field: 'department', header: 'Department' },
+        ]}
+        export={{ filename: 'employees', format: 'csv', includeHeaders: true }}
+      />
     </>
   );
 }
@@ -131,37 +119,43 @@ const handleExport = () => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, viewChild, ElementRef } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-data-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <button (click)="handleExport()">Export CSV</button>
-    <tbw-grid #grid />
-  `
+    <tbw-grid
+      #grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
 export class DataGridComponent {
   gridRef = viewChild<ElementRef>('grid');
+  rows = [];
 
-  onGrid = effect(() => {
-    this.gridRef()?.nativeElement.gridConfig = {
-      columns: [
-        { field: 'name', header: 'Name' },
-        { field: 'email', header: 'Email' },
-        { field: 'department', header: 'Department' }
-      ],
-      plugins: [
-        new ExportPlugin({
-          filename: 'employees',
-          format: 'csv',
-          includeHeaders: true,
-        }),
-      ],
-    };
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+    ],
+    plugins: [
+      new ExportPlugin({
+        filename: 'employees',
+        format: 'csv',
+        includeHeaders: true,
+      }),
+    ],
+  };
 
   handleExport() {
     const plugin = this.gridRef()?.nativeElement.getPlugin(ExportPlugin);

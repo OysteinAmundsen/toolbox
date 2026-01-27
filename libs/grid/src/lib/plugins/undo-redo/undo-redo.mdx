@@ -42,32 +42,23 @@ grid.gridConfig = {
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+import '@toolbox-web/grid-react/features/editing';
+import '@toolbox-web/grid-react/features/undo-redo';
+import { DataGrid } from '@toolbox-web/grid-react';
 
-function EditableGrid({ data }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'name', header: 'Name', editable: true },
-          { field: 'price', header: 'Price', type: 'number', editable: true },
-          { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
-        ],
-        plugins: [
-          new EditingPlugin({ editOn: 'dblclick' }),
-          new UndoRedoPlugin({ maxHistorySize: 50 }),
-        ],
-      };
-      gridRef.current.rows = data;
-    }
-  }, [data]);
-
-  return <tbw-grid ref={gridRef} />;
+function MyGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'price', header: 'Price', type: 'number', editable: true },
+        { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+      ]}
+      editing={{ editOn: 'dblclick' }}
+      undoRedo={{ maxHistorySize: 50 }}
+    />
+  );
 }
 ```
   </Tab>
@@ -105,32 +96,38 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-my-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
-export class EditableGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+export class MyGridComponent {
+  rows = [...];
 
-  onGrid = effect(() => {
-    this.gridRef()?.nativeElement.gridConfig = {
-      columns: [
-        { field: 'name', header: 'Name', editable: true },
-        { field: 'price', header: 'Price', type: 'number', editable: true },
-        { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
-      ],
-      plugins: [
-        new EditingPlugin({ editOn: 'dblclick' }),
-        new UndoRedoPlugin({ maxHistorySize: 50 }),
-      ],
-    };
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'price', header: 'Price', type: 'number', editable: true },
+      { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+    ],
+    plugins: [
+      new EditingPlugin({ editOn: 'dblclick' }),
+      new UndoRedoPlugin({ maxHistorySize: 50 }),
+    ],
+  };
 }
 ```
   </Tab>

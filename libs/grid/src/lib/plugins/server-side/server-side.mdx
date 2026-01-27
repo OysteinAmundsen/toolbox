@@ -1,4 +1,5 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
+import { Tabs, Tab } from '../../../../../../apps/docs/.storybook/components/Tabs';
 import * as ServerSideStories from './server-side.stories';
 
 <Meta of={ServerSideStories} />
@@ -36,7 +37,12 @@ import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 
 The plugin requires a **data source** that implements the `getRows` method. This is typically set after the grid is ready:
 
+<Tabs>
+  <Tab label="Vanilla JS">
 ```ts
+import '@toolbox-web/grid';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+
 const dataSource = {
   async getRows(params) {
     // params: { startRow, endRow, sortModel, filterModel }
@@ -51,14 +57,147 @@ const dataSource = {
 
 const plugin = new ServerSidePlugin({ pageSize: 50 });
 
+const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
-  columns: [...],
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ],
   plugins: [plugin],
 };
 
 // Set data source after grid is ready
 grid.ready().then(() => plugin.setDataSource(dataSource));
 ```
+  </Tab>
+  <Tab label="React">
+```tsx
+import '@toolbox-web/grid-react/features/server-side';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+import { useEffect, useMemo } from 'react';
+
+const dataSource = {
+  async getRows(params) {
+    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    const data = await response.json();
+    return { rows: data.rows, totalRowCount: data.total };
+  },
+};
+
+function ServerSideGrid() {
+  const { ref, element } = useGrid();
+
+  useEffect(() => {
+    if (element) {
+      element.ready().then(() => {
+        const plugin = element.getPlugin(ServerSidePlugin);
+        plugin?.setDataSource(dataSource);
+      });
+    }
+  }, [element]);
+
+  return (
+    <DataGrid
+      ref={ref}
+      columns={[
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+      ]}
+      serverSide={{ pageSize: 50 }}
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+  </Tab>
+  <Tab label="Vue">
+```vue
+<template>
+  <tbw-grid ref="gridRef" style="height: 400px" />
+</template>
+
+<script setup>
+import '@toolbox-web/grid';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import { ref, onMounted } from 'vue';
+
+const gridRef = ref(null);
+
+const dataSource = {
+  async getRows(params) {
+    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    const data = await response.json();
+    return { rows: data.rows, totalRowCount: data.total };
+  },
+};
+
+onMounted(async () => {
+  const plugin = new ServerSidePlugin({ pageSize: 50 });
+  gridRef.value.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [plugin],
+  };
+  await gridRef.value.ready();
+  plugin.setDataSource(dataSource);
+});
+</script>
+```
+  </Tab>
+  <Tab label="Angular">
+```typescript
+import { Component, viewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+import type { GridConfig, GridElement } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-server-side-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      #grid
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class ServerSideGridComponent {
+  gridRef = viewChild<ElementRef<GridElement>>('grid');
+  private plugin = new ServerSidePlugin({ pageSize: 50 });
+
+  config: GridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [this.plugin],
+  };
+
+  private dataSource = {
+    getRows: async (params: any) => {
+      const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+      const data = await response.json();
+      return { rows: data.rows, totalRowCount: data.total };
+    },
+  };
+
+  ngAfterViewInit() {
+    this.gridRef()?.nativeElement.ready().then(() => {
+      this.plugin.setDataSource(this.dataSource);
+    });
+  }
+}
+```
+  </Tab>
+</Tabs>
 
 ## Demos
 

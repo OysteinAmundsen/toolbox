@@ -45,39 +45,34 @@ grid.gridConfig = {
   </Tab>
   <Tab label="React">
 ```tsx
-import { useRef, useEffect } from 'react';
-import '@toolbox-web/grid';
-import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+import '@toolbox-web/grid-react/features/master-detail';
+import { DataGrid, GridDetailPanel } from '@toolbox-web/grid-react';
 
 function OrderGrid({ orders }) {
-  const gridRef = useRef(null);
-
-  useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.gridConfig = {
-        columns: [
-          { field: 'orderId', header: 'Order ID' },
-          { field: 'customer', header: 'Customer' },
-          { field: 'total', header: 'Total', type: 'currency' }
-        ],
-        plugins: [
-          new MasterDetailPlugin({
-            detailRenderer: (row) => `
-              <div class="order-details">
-                <h4>Order Items</h4>
-                <ul>
-                  ${row.items.map(item => `<li>${item.name} - $${item.price}</li>`).join('')}
-                </ul>
-              </div>
-            `,
-          }),
-        ],
-      };
-      gridRef.current.rows = orders;
-    }
-  }, [orders]);
-
-  return <tbw-grid ref={gridRef} />;
+  return (
+    <DataGrid
+      rows={orders}
+      columns={[
+        { field: 'orderId', header: 'Order ID' },
+        { field: 'customer', header: 'Customer' },
+        { field: 'total', header: 'Total', type: 'currency' }
+      ]}
+      masterDetail
+    >
+      <GridDetailPanel>
+        {({ row }) => (
+          <div className="order-details">
+            <h4>Order Items</h4>
+            <ul>
+              {row.items.map(item => (
+                <li key={item.id}>{item.name} - ${item.price}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </GridDetailPanel>
+    </DataGrid>
+  );
 }
 ```
   </Tab>
@@ -122,39 +117,45 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
-import { Component, ElementRef, viewChild, effect, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
-  standalone: true,
+  selector: 'app-order-grid',
+  imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid #grid />`
+  template: `
+    <tbw-grid
+      [rows]="orders"
+      [gridConfig]="config"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
 })
 export class OrderGridComponent {
-  gridRef = viewChild<ElementRef>('grid');
+  orders = [/* order data */];
 
-  onGrid = effect(() => {
-    this.gridRef()?.nativeElement.gridConfig = {
-      columns: [
-        { field: 'orderId', header: 'Order ID' },
-        { field: 'customer', header: 'Customer' },
-        { field: 'total', header: 'Total', type: 'currency' }
-      ],
-      plugins: [
-        new MasterDetailPlugin({
-          detailRenderer: (row) => `
-            <div class="order-details">
-              <h4>Order Items</h4>
-              <ul>
-                ${row.items.map(item => `<li>${item.name} - $${item.price}</li>`).join('')}
-              </ul>
-            </div>
-          `,
-        }),
-      ],
-    };
-  });
+  config: GridConfig = {
+    columns: [
+      { field: 'orderId', header: 'Order ID' },
+      { field: 'customer', header: 'Customer' },
+      { field: 'total', header: 'Total', type: 'currency' }
+    ],
+    plugins: [
+      new MasterDetailPlugin({
+        detailRenderer: (row) => `
+          <div class="order-details">
+            <h4>Order Items</h4>
+            <ul>
+              ${row.items.map(item => `<li>${item.name} - $${item.price}</li>`).join('')}
+            </ul>
+          </div>
+        `,
+      }),
+    ],
+  };
 }
 ```
   </Tab>

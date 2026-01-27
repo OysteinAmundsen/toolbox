@@ -4,6 +4,9 @@
  *
  * React adapter library providing:
  * - DataGrid component wrapper with full React props
+ * - Declarative feature props for lazy-loaded plugins (selection, editing, filtering, etc.)
+ * - Event handler props with automatic cleanup
+ * - Feature presets (minimal, standard, full)
  * - Custom cell renderer support via render props
  * - Custom cell editor support with commit/cancel handling
  * - Master-detail panel support with GridDetailPanel
@@ -18,6 +21,7 @@ import './jsx.d.ts';
 
 // Main components
 export { DataGrid } from './lib/data-grid';
+export type { DataGridProps, DataGridRef } from './lib/data-grid';
 export { GridColumn } from './lib/grid-column';
 export { GridDetailPanel, type DetailPanelContext, type GridDetailPanelProps } from './lib/grid-detail-panel';
 export {
@@ -27,6 +31,15 @@ export {
 } from './lib/grid-responsive-card';
 export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-button';
 export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
+
+// Feature props types for declarative plugin configuration
+export type { AllFeatureProps, FeatureProps, LoadingProps, PresetName } from './lib/feature-props';
+
+// Event handler props types
+export type { EventHandler, EventProps } from './lib/event-props';
+
+// Presets
+export { getPreset, getPresetNames, mergePresetWithProps, PRESETS } from './lib/presets';
 
 // Type registry for application-wide type defaults
 export {

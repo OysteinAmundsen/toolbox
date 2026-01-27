@@ -168,3 +168,6 @@ export function GridResponsiveCard<TRow = unknown>(props: GridResponsiveCardProp
 
   return <tbw-grid-responsive-card ref={refCallback} cardRowHeight={heightAttr} />;
 }
+
+// displayName for child component detection in DataGrid
+GridResponsiveCard.displayName = 'GridResponsiveCard';

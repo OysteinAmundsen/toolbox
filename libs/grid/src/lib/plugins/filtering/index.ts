@@ -5,4 +5,4 @@
  * @module Plugins/Filtering
  */
 export { FilteringPlugin } from './FilteringPlugin';
-export type { FilterConfig, FilterModel, FilterOperator, FilterType } from './types';
+export type { FilterChangeDetail, FilterConfig, FilterModel, FilterOperator, FilterType } from './types';

@@ -16,6 +16,7 @@
  * @packageDocumentation
  */
 
+// eslint-disable-next-line @nx/enforce-module-boundaries -- Intentional: feature files must statically import their plugin
 import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
 import { registerFeature } from '../lib/feature-registry';
 

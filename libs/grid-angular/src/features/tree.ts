@@ -13,6 +13,7 @@
  * @packageDocumentation
  */
 
+// eslint-disable-next-line @nx/enforce-module-boundaries -- Intentional: feature files must statically import their plugin
 import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
 import { registerFeature } from '../lib/feature-registry';
 

@@ -108,7 +108,7 @@ jobs:
         run: bun install
 
       - name: Run linting and tests
-        run: bun run lint && bun run test
+        run: bun run lint --quiet && bun run test
 
   build:
     needs: setup

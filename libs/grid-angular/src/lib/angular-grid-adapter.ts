@@ -125,6 +125,7 @@ export class AngularGridAdapter implements FrameworkAdapter {
     private viewContainerRef: ViewContainerRef,
   ) {
     // Register globally for directive access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__ANGULAR_GRID_ADAPTER__ = this;
 
     // Try to get the type registry from the injector

@@ -13,6 +13,7 @@
  * @packageDocumentation
  */
 
+// eslint-disable-next-line @nx/enforce-module-boundaries -- Intentional: feature files must statically import their plugin
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { registerFeature } from '../lib/feature-registry';
 

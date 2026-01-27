@@ -187,3 +187,6 @@ export function GridDetailPanel<TRow = unknown>(props: GridDetailPanelProps<TRow
     />
   );
 }
+
+// displayName for child component detection in DataGrid
+GridDetailPanel.displayName = 'GridDetailPanel';

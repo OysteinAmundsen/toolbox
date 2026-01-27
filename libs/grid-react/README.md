@@ -9,6 +9,8 @@ React adapter for `@toolbox-web/grid` data grid component. Provides components a
 ## Features
 
 - ✅ **Full React integration** - Use JSX for cell renderers and editors
+- ✅ **Declarative feature props** - Enable plugins with simple props like `selection="range"`
+- ✅ **Tree-shakeable features** - Only import the features you use
 - ✅ **Declarative columns** - Define columns via props or `GridColumn` components
 - ✅ **Render props** - Clean `children` syntax for custom cells
 - ✅ **Type-level defaults** - App-wide renderers/editors via `GridTypeProvider`
@@ -75,6 +77,126 @@ function EmployeeGrid() {
         { field: 'salary', header: 'Salary', type: 'number' },
       ]}
       onRowsChange={setEmployees}
+    />
+  );
+}
+```
+
+## Enabling Features
+
+Features are enabled using **declarative props** with **side-effect imports**. This gives you the best of both worlds: clean, intuitive JSX and tree-shakeable bundles.
+
+### How It Works
+
+1. **Import the feature** - A side-effect import registers the feature factory
+2. **Use the prop** - DataGrid detects the prop and creates the plugin instance
+
+```tsx
+// 1. Import features you need (once, typically in main.tsx or the component file)
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/filtering';
+
+// 2. Use declarative props - no manual plugin instantiation!
+<DataGrid
+  rows={employees}
+  columns={columns}
+  selection="range" // SelectionPlugin with mode: 'range'
+  sorting="multi" // MultiSortPlugin
+  filtering // FilteringPlugin with defaults
+/>;
+```
+
+### Why Side-Effect Imports?
+
+- **Tree-shakeable** - Only the features you import are bundled
+- **Synchronous** - No loading states, no HTTP requests, no spinners
+- **Type-safe** - Full TypeScript support for feature props
+- **Clean JSX** - No `plugins: [new SelectionPlugin({ mode: 'range' })]` boilerplate
+
+### Available Features
+
+Import from `@toolbox-web/grid-react/features/<name>`:
+
+| Feature                 | Prop                   | Example                                                              |
+| ----------------------- | ---------------------- | -------------------------------------------------------------------- |
+| `selection`             | `selection`            | `selection="range"` or `selection={{ mode: 'row', checkbox: true }}` |
+| `sorting`               | `sorting`              | `sorting="multi"` or `sorting={{ maxSortLevels: 3 }}`                |
+| `filtering`             | `filtering`            | `filtering` or `filtering={{ debounceMs: 200 }}`                     |
+| `editing`               | `editing`              | `editing="dblclick"` or `editing="click"`                            |
+| `clipboard`             | `clipboard`            | `clipboard` (requires selection)                                     |
+| `undo-redo`             | `undoRedo`             | `undoRedo` (requires editing)                                        |
+| `context-menu`          | `contextMenu`          | `contextMenu`                                                        |
+| `reorder`               | `reorder`              | `reorder` (column drag-to-reorder)                                   |
+| `row-reorder`           | `rowReorder`           | `rowReorder` (row drag-to-reorder)                                   |
+| `visibility`            | `visibility`           | `visibility` (column visibility panel)                               |
+| `pinned-columns`        | `pinnedColumns`        | `pinnedColumns`                                                      |
+| `pinned-rows`           | `pinnedRows`           | `pinnedRows`                                                         |
+| `grouping-columns`      | `groupingColumns`      | `groupingColumns`                                                    |
+| `grouping-rows`         | `groupingRows`         | `groupingRows={{ groupBy: 'department' }}`                           |
+| `tree`                  | `tree`                 | `tree={{ childrenField: 'children' }}`                               |
+| `column-virtualization` | `columnVirtualization` | `columnVirtualization`                                               |
+| `export`                | `export`               | `export`                                                             |
+| `print`                 | `print`                | `print`                                                              |
+| `responsive`            | `responsive`           | `responsive` (card layout on mobile)                                 |
+| `master-detail`         | `masterDetail`         | `masterDetail` (use with `<GridDetailPanel>`)                        |
+| `pivot`                 | `pivot`                | `pivot={{ rowFields: [...], columnFields: [...] }}`                  |
+| `server-side`           | `serverSide`           | `serverSide={{ ... }}` (server-side data)                            |
+
+### Import All Features
+
+For prototyping or when bundle size isn't critical, import all features at once:
+
+```tsx
+// Import all features (larger bundle)
+import '@toolbox-web/grid-react/features';
+
+// Now all feature props work
+<DataGrid
+  selection="range"
+  sorting
+  filtering
+  editing="dblclick"
+  clipboard
+  undoRedo
+  contextMenu
+  // ... any feature prop
+/>;
+```
+
+### Full Example
+
+```tsx
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/editing';
+import '@toolbox-web/grid-react/features/filtering';
+import '@toolbox-web/grid-react/features/clipboard';
+
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+
+interface Employee {
+  id: number;
+  name: string;
+  department: string;
+  salary: number;
+}
+
+function EmployeeGrid({ employees }: { employees: Employee[] }) {
+  return (
+    <DataGrid
+      rows={employees}
+      columns={[
+        { field: 'id', header: 'ID', width: 60 },
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'department', header: 'Department', editable: true },
+        { field: 'salary', header: 'Salary', type: 'number' },
+      ]}
+      selection="range"
+      sorting="multi"
+      editing="dblclick"
+      filtering
+      clipboard
     />
   );
 }
@@ -412,9 +534,12 @@ function Dashboard() {
 | `useGridTypeDefaults()` | Get all type defaults from context |
 | `useTypeDefault(type)`  | Get defaults for a specific type   |
 
-## Using Plugins
+## Using Plugins (Advanced)
 
-Import plugins individually for smaller bundles:
+> **Note:** For most use cases, prefer the [declarative feature props](#enabling-features) approach above.
+> The manual plugin approach is useful for advanced scenarios like custom plugin configuration or custom plugins.
+
+Import plugins directly when you need full control over plugin configuration:
 
 ```tsx
 import { DataGrid } from '@toolbox-web/grid-react';
@@ -493,6 +618,9 @@ import type {
   ToolPanelContext,
   DataGridRef,
   DataGridProps,
+  // Feature props
+  FeatureProps,
+  SSRProps,
   // Type-level defaults
   ReactTypeDefault,
   TypeDefaultsMap,
@@ -509,9 +637,37 @@ import type {
 | `gridConfig`   | `GridConfig`                               | Full configuration object |
 | `fitMode`      | `'stretch' \| 'fit-columns' \| 'auto-fit'` | Column sizing mode        |
 | `customStyles` | `string`                                   | CSS to inject into grid   |
+| `ssr`          | `boolean`                                  | Disable features for SSR  |
 | `onRowsChange` | `(rows: TRow[]) => void`                   | Rows changed callback     |
 | `onCellEdit`   | `(event: CustomEvent) => void`             | Cell edited callback      |
 | `onRowClick`   | `(event: CustomEvent) => void`             | Row clicked callback      |
+
+**Feature Props** (require corresponding feature import):
+
+| Prop                   | Type                                                | Feature Import                   |
+| ---------------------- | --------------------------------------------------- | -------------------------------- |
+| `selection`            | `'cell' \| 'row' \| 'range' \| SelectionConfig`     | `features/selection`             |
+| `sorting`              | `boolean \| 'single' \| 'multi' \| MultiSortConfig` | `features/sorting`               |
+| `filtering`            | `boolean \| FilterConfig`                           | `features/filtering`             |
+| `editing`              | `boolean \| 'click' \| 'dblclick' \| 'manual'`      | `features/editing`               |
+| `clipboard`            | `boolean \| ClipboardConfig`                        | `features/clipboard`             |
+| `undoRedo`             | `boolean \| UndoRedoConfig`                         | `features/undo-redo`             |
+| `contextMenu`          | `boolean \| ContextMenuConfig`                      | `features/context-menu`          |
+| `reorder`              | `boolean \| ReorderConfig`                          | `features/reorder`               |
+| `rowReorder`           | `boolean \| RowReorderConfig`                       | `features/row-reorder`           |
+| `visibility`           | `boolean \| VisibilityConfig`                       | `features/visibility`            |
+| `pinnedColumns`        | `boolean`                                           | `features/pinned-columns`        |
+| `pinnedRows`           | `boolean \| PinnedRowsConfig`                       | `features/pinned-rows`           |
+| `groupingColumns`      | `boolean \| GroupingColumnsConfig`                  | `features/grouping-columns`      |
+| `groupingRows`         | `boolean \| GroupingRowsConfig`                     | `features/grouping-rows`         |
+| `tree`                 | `boolean \| TreeConfig`                             | `features/tree`                  |
+| `columnVirtualization` | `boolean \| ColumnVirtualizationConfig`             | `features/column-virtualization` |
+| `export`               | `boolean \| ExportConfig`                           | `features/export`                |
+| `print`                | `boolean \| PrintConfig`                            | `features/print`                 |
+| `responsive`           | `boolean \| ResponsivePluginConfig`                 | `features/responsive`            |
+| `masterDetail`         | `boolean \| MasterDetailConfig`                     | `features/master-detail`         |
+| `pivot`                | `boolean \| PivotConfig`                            | `features/pivot`                 |
+| `serverSide`           | `boolean \| ServerSideConfig`                       | `features/server-side`           |
 
 ### GridColumn Props
 

@@ -15,31 +15,38 @@ export type GridEventMap<TRow = unknown> = {
   'group-toggle': CustomEvent<{ key: string; expanded: boolean }>;
 };
 
+// Track whether we've shown the deprecation warning (only show once per session)
+let hasShownDeprecationWarning = false;
+
 /**
- * Hook for subscribing to grid events with automatic cleanup.
+ * @deprecated Use event props directly on DataGrid instead of useGridEvent.
  *
- * ## Usage
+ * ## Migration Guide
  *
+ * **Before (useGridEvent):**
  * ```tsx
- * import { DataGrid, useGridEvent, DataGridRef } from '@toolbox-web/grid-react';
- * import { useRef } from 'react';
- *
- * function MyComponent() {
- *   const gridRef = useRef<DataGridRef>(null);
- *
- *   // Subscribe to cell edit events
- *   useGridEvent(gridRef, 'cell-edit', (event) => {
- *     console.log('Cell edited:', event.detail);
- *   });
- *
- *   // Subscribe to row clicks
- *   useGridEvent(gridRef, 'row-click', (event) => {
- *     console.log('Row clicked:', event.detail.row);
- *   });
- *
- *   return <DataGrid ref={gridRef} rows={rows} />;
- * }
+ * const gridRef = useRef<DataGridRef>(null);
+ * useGridEvent(gridRef, 'selection-change', (e) => console.log(e.detail));
+ * return <DataGrid ref={gridRef} rows={rows} />;
  * ```
+ *
+ * **After (event props):**
+ * ```tsx
+ * return (
+ *   <DataGrid
+ *     rows={rows}
+ *     onSelectionChange={(e) => console.log(e.detail)}
+ *   />
+ * );
+ * ```
+ *
+ * Event props provide:
+ * - Cleaner, more declarative API
+ * - Automatic cleanup (no manual ref management)
+ * - Better TypeScript inference
+ * - Consistent with React patterns
+ *
+ * See the full list of event props in the DataGrid documentation.
  *
  * @param gridRef - Ref to the DataGrid component or element
  * @param eventName - Name of the grid event to listen for
@@ -52,6 +59,24 @@ export function useGridEvent<TRow = unknown, K extends keyof GridEventMap<TRow> 
   handler: (event: GridEventMap<TRow>[K]) => void,
   deps: unknown[] = [],
 ): void {
+  // Show deprecation warning once per session (in development only)
+  if (!hasShownDeprecationWarning && typeof window !== 'undefined') {
+    // Check for localhost/dev environment (avoid polluting production logs)
+    const isDev =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.includes('.local');
+
+    if (isDev) {
+      hasShownDeprecationWarning = true;
+      console.warn(
+        `[useGridEvent] Deprecated: Use event props directly on DataGrid instead.\n` +
+          `Example: <DataGrid onSelectionChange={(e) => ...} />\n` +
+          `See migration guide: https://toolbox-web.dev/grid-react/migration`,
+      );
+    }
+  }
+
   const handlerRef = useRef(handler);
 
   // Update handler ref when handler changes

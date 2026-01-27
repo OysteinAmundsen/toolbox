@@ -1,12 +1,26 @@
-import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
+import type { BaseGridPlugin, ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
-import { forwardRef, useContext, useEffect, useImperativeHandle, useMemo, useRef, type ReactNode } from 'react';
+import {
+  Children,
+  forwardRef,
+  isValidElement,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react';
 import '../jsx.d.ts';
-import { getDetailRenderer } from './grid-detail-panel';
+import { normalizeColumns, type ColumnShorthand } from './column-shorthand';
+import { EVENT_PROP_MAP, type EventProps } from './event-props';
+import { type AllFeatureProps, type FeatureProps } from './feature-props';
+import { type GridDetailPanelProps } from './grid-detail-panel';
 import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
 import { processReactGridConfig, type ReactGridConfig } from './react-column-config';
 import { ReactGridAdapter } from './react-grid-adapter';
+import { createPluginsFromFeatures } from './use-sync-plugins';
 
 /**
  * Extended interface for DataGridElement with all methods we need.
@@ -38,75 +52,25 @@ function ensureAdapterRegistered(): ReactGridAdapter {
 ensureAdapterRegistered();
 
 /**
- * Configures the MasterDetailPlugin after React renders GridDetailPanel.
- * - If plugin exists: refresh its detail renderer
- * - If plugin doesn't exist but <tbw-grid-detail> is present: auto-create and add the plugin
- *
- * This matches the behavior of Angular's Grid directive.
+ * Refreshes the MasterDetailPlugin renderer after React renders GridDetailPanel.
+ * Only refreshes if plugin already exists - plugin creation is handled by feature props.
  */
-function configureMasterDetail(gridElement: Element, adapter: ReactGridAdapter): void {
+function refreshMasterDetailRenderer(gridElement: Element): void {
   const grid = gridElement as any;
 
-  // Check if plugin already exists by name (avoids needing to import the plugin class)
+  // Check if plugin already exists by name
   const existingPlugin = grid.getPluginByName?.('masterDetail');
   if (existingPlugin && typeof existingPlugin.refreshDetailRenderer === 'function') {
-    // Plugin exists - just refresh the renderer to pick up React templates
+    // Plugin exists - refresh the renderer to pick up React templates
     existingPlugin.refreshDetailRenderer();
-    return;
   }
-
-  // Check if <tbw-grid-detail> is present in light DOM
-  const detailElement = gridElement.querySelector('tbw-grid-detail');
-  if (!detailElement) return;
-
-  // Check if a detail renderer was registered via GridDetailPanel
-  const detailRenderer = getDetailRenderer(gridElement as HTMLElement);
-  if (!detailRenderer) return;
-
-  // No existing plugin - we need to dynamically create one
-  // This requires importing the plugin class, so we do it async
-  import('@toolbox-web/grid/all')
-    .then(({ MasterDetailPlugin }) => {
-      // Create React detail renderer function
-      const reactDetailRenderer = adapter.createDetailRenderer(gridElement as HTMLElement);
-      if (!reactDetailRenderer) return;
-
-      // Parse configuration from attributes
-      const animationAttr = detailElement.getAttribute('animation');
-      let animation: 'slide' | 'fade' | false = 'slide';
-      if (animationAttr === 'false') {
-        animation = false;
-      } else if (animationAttr === 'fade') {
-        animation = 'fade';
-      }
-
-      const showExpandColumn = detailElement.getAttribute('showExpandColumn') !== 'false';
-
-      // Create and add the plugin
-      const plugin = new MasterDetailPlugin({
-        detailRenderer: reactDetailRenderer,
-        showExpandColumn,
-        animation,
-      });
-
-      const currentConfig = grid.gridConfig || {};
-      const existingPlugins = currentConfig.plugins || [];
-      grid.gridConfig = {
-        ...currentConfig,
-        plugins: [...existingPlugins, plugin],
-      };
-    })
-    .catch(() => {
-      // Plugin not available - ignore
-    });
 }
 
 /**
- * Configures the ResponsivePlugin with React template-based card renderer.
- * - If plugin exists: updates its cardRenderer configuration
- * - If plugin doesn't exist but <tbw-grid-responsive-card> is present: logs a warning
+ * Refreshes the ResponsivePlugin card renderer after React renders GridResponsiveCard.
+ * Only refreshes if plugin already exists - plugin creation is handled by feature props.
  */
-function configureResponsiveCard(gridElement: Element, adapter: ReactGridAdapter): void {
+function refreshResponsiveCardRenderer(gridElement: Element, adapter: ReactGridAdapter): void {
   const grid = gridElement as any;
 
   // Check if <tbw-grid-responsive-card> is present in light DOM
@@ -125,24 +89,63 @@ function configureResponsiveCard(gridElement: Element, adapter: ReactGridAdapter
     if (reactCardRenderer) {
       existingPlugin.setCardRenderer(reactCardRenderer);
     }
-    return;
   }
+}
 
-  // Plugin doesn't exist - log a warning
-  console.warn(
-    '[tbw-grid-react] <GridResponsiveCard> found but ResponsivePlugin is not configured.\n' +
-      'Add ResponsivePlugin to your gridConfig.plugins array:\n\n' +
-      '  import { ResponsivePlugin } from "@toolbox-web/grid/all";\n' +
-      '  const config = {\n' +
-      '    plugins: [new ResponsivePlugin({ breakpoint: 500 })],\n' +
-      '  };',
-  );
+/**
+ * Detects child components (GridDetailPanel, GridResponsiveCard) and returns
+ * feature props to auto-load the corresponding plugins.
+ *
+ * This allows the declarative child component pattern to work with lazy loading:
+ * ```tsx
+ * <DataGrid>
+ *   <GridDetailPanel>{(ctx) => <Detail row={ctx.row} />}</GridDetailPanel>
+ * </DataGrid>
+ * ```
+ *
+ * The GridDetailPanel child will automatically trigger loading of MasterDetailPlugin.
+ */
+function detectChildComponentFeatures(children: ReactNode): Partial<FeatureProps> {
+  const features: Partial<FeatureProps> = {};
+
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+
+    // Check for GridDetailPanel - auto-add masterDetail feature
+    // GridDetailPanel renders <tbw-grid-detail> which the plugin looks for
+    if (child.type && (child.type as { displayName?: string }).displayName === 'GridDetailPanel') {
+      const detailProps = child.props as GridDetailPanelProps;
+      features.masterDetail = {
+        // Use props from the child component for configuration
+        showExpandColumn: detailProps.showExpandColumn ?? true,
+        animation: detailProps.animation ?? 'slide',
+        // detailRenderer will be wired up by refreshMasterDetailRenderer after mount
+      };
+    }
+
+    // Check for GridResponsiveCard - auto-add responsive feature
+    if (child.type && (child.type as { displayName?: string }).displayName === 'GridResponsiveCard') {
+      // GridResponsiveCard only has cardRowHeight, breakpoint is set via the responsive prop
+      // Just enable the plugin with defaults - user can override with responsive prop if needed
+      features.responsive = true;
+    }
+  });
+
+  return features;
 }
 
 /**
  * Props for the DataGrid component.
+ *
+ * @template TRow - The row data type
+ *
+ * Combines:
+ * - Core props (rows, columns, gridConfig)
+ * - Feature props (selection, editing, filtering, etc.) - plugins loaded via side-effect imports
+ * - Event props (onCellClick, onSelectionChange, etc.)
+ * - SSR props (ssr)
  */
-export interface DataGridProps<TRow = unknown> {
+export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, EventProps<TRow> {
   /** Row data to display */
   rows: TRow[];
   /**
@@ -161,11 +164,41 @@ export interface DataGridProps<TRow = unknown> {
    * ```
    */
   gridConfig?: ReactGridConfig<TRow>;
-  /** Column definitions (alternative to gridConfig.columns) */
-  columns?: ColumnConfig<TRow>[];
+  /**
+   * Column definitions. Supports shorthand syntax for quick definitions.
+   *
+   * @example
+   * ```tsx
+   * // Shorthand strings (auto-generate headers from field names)
+   * columns={['id:number', 'name', 'email', 'salary:currency']}
+   *
+   * // Mixed: shorthand + full config
+   * columns={['id:number', 'name', { field: 'status', editable: true }]}
+   *
+   * // Full config objects (standard usage)
+   * columns={[{ field: 'id', type: 'number' }, { field: 'name' }]}
+   * ```
+   */
+  columns?: ColumnShorthand<TRow>[];
+  /**
+   * Default column properties applied to all columns.
+   * Individual column definitions override these defaults.
+   *
+   * @example
+   * ```tsx
+   * <DataGrid
+   *   columnDefaults={{ sortable: true, resizable: true }}
+   *   columns={[
+   *     { field: 'id', sortable: false }, // Override: not sortable
+   *     { field: 'name' }, // Inherits: sortable, resizable
+   *   ]}
+   * />
+   * ```
+   */
+  columnDefaults?: Partial<ColumnConfig<TRow>>;
   /** Fit mode for column sizing */
   fitMode?: 'stretch' | 'fit-columns' | 'auto-fit';
-  /** Edit trigger mode */
+  /** Edit trigger mode - DEPRECATED: use `editing` prop instead */
   editOn?: 'click' | 'dblclick' | 'none';
   /** Custom CSS styles to inject into grid shadow DOM */
   customStyles?: string;
@@ -176,17 +209,25 @@ export interface DataGridProps<TRow = unknown> {
   /** Children (GridColumn components for custom renderers/editors) */
   children?: ReactNode;
 
-  // Event handlers
+  /**
+   * Escape hatch: manually provide plugin instances.
+   * When provided, feature props for those plugins are ignored.
+   * Useful for advanced configurations not covered by feature props.
+   *
+   * @example
+   * ```tsx
+   * import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+   *
+   * <DataGrid
+   *   plugins={[new SelectionPlugin({ mode: 'range', checkbox: true })]}
+   * />
+   * ```
+   */
+  plugins?: BaseGridPlugin[];
+
+  // Legacy event handlers (kept for backwards compatibility)
   /** Fired when rows change (sorting, editing, etc.) */
   onRowsChange?: (rows: TRow[]) => void;
-  /** Fired when a cell value is edited */
-  onCellEdit?: (event: CustomEvent<{ row: TRow; field: string; oldValue: unknown; newValue: unknown }>) => void;
-  /** Fired when a row is clicked */
-  onRowClick?: (event: CustomEvent<{ row: TRow; rowIndex: number }>) => void;
-  /** Fired when column state changes (resize, reorder, visibility) */
-  onColumnStateChange?: (event: CustomEvent<{ columns: ColumnConfig<TRow>[] }>) => void;
-  /** Fired when sort changes */
-  onSortChange?: (event: CustomEvent<{ field: string; direction: 'asc' | 'desc' } | null>) => void;
 }
 
 /**
@@ -283,20 +324,25 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   ref: React.ForwardedRef<DataGridRef<TRow>>,
 ) {
   const {
+    // Core props
     rows,
     gridConfig,
     columns,
+    columnDefaults,
     fitMode,
     editOn,
     customStyles,
     className,
     style,
     children,
+    // Plugin props
+    plugins: manualPlugins,
+    // SSR mode
+    ssr,
+    // Legacy event handlers
     onRowsChange,
-    onCellEdit,
-    onRowClick,
-    onColumnStateChange,
-    onSortChange,
+    // Feature props and event props are in ...rest
+    ...rest
   } = props;
 
   const gridRef = useRef<ExtendedGridElement>(null);
@@ -305,8 +351,136 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // Get type defaults from context
   const typeDefaults = useContext(GridTypeContextInternal);
 
+  // ═══════════════════════════════════════════════════════════════════
+  // EXTRACT FEATURE PROPS AND EVENT PROPS
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Feature keys list (static - defined outside to avoid recreating)
+  const featureKeys = [
+    'selection',
+    'editing',
+    'filtering',
+    'sorting',
+    'clipboard',
+    'contextMenu',
+    'reorder',
+    'rowReorder',
+    'visibility',
+    'undoRedo',
+    'tree',
+    'groupingRows',
+    'groupingColumns',
+    'pinnedColumns',
+    'pinnedRows',
+    'masterDetail',
+    'responsive',
+    'columnVirtualization',
+    'export',
+    'print',
+    'pivot',
+    'serverSide',
+  ] as const;
+
+  // Create a stable key from feature prop values to detect actual changes
+  // This avoids infinite loops from `rest` object reference changing each render
+  const featurePropsKey = useMemo(() => {
+    return featureKeys
+      .map((key) => {
+        const value = (rest as Record<string, unknown>)[key];
+        return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
+      })
+      .filter(Boolean)
+      .join('|');
+  }, [rest]);
+
+  // Extract feature props - only recalculate when the stable key changes
+  const featureProps = useMemo(() => {
+    const features: FeatureProps<TRow> = {};
+
+    for (const key of featureKeys) {
+      if (key in rest && (rest as any)[key] !== undefined) {
+        (features as any)[key] = (rest as any)[key];
+      }
+    }
+
+    return features;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featurePropsKey]);
+
+  // Detect child components (GridDetailPanel, GridResponsiveCard) and merge with feature props
+  const childFeatures = useMemo(() => detectChildComponentFeatures(children), [children]);
+
+  // Merge explicit feature props with child-detected features
+  // Priority: explicit props > child-detected props
+  const mergedFeatureProps = useMemo(() => {
+    return { ...childFeatures, ...featureProps } as FeatureProps<TRow>;
+  }, [featureProps, childFeatures]);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PLUGIN INSTANTIATION (sync via feature registry)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Create plugins synchronously from feature props.
+  // Features must be registered via side-effect imports:
+  //   import '@toolbox-web/grid-react/features/selection';
+  // Unregistered features show a helpful warning in dev mode.
+  const featurePlugins = useMemo(() => {
+    if (manualPlugins || ssr) return [];
+    return createPluginsFromFeatures(mergedFeatureProps) as BaseGridPlugin[];
+  }, [mergedFeatureProps, manualPlugins, ssr]);
+
+  // Combine manual plugins with feature-based plugins
+  const allPlugins = useMemo(() => {
+    if (manualPlugins) {
+      // Manual plugins take priority - append any feature plugins that don't conflict
+      const manualNames = new Set(manualPlugins.map((p) => p.name));
+      const nonConflicting = featurePlugins.filter((p) => !manualNames.has(p.name));
+      return [...manualPlugins, ...nonConflicting];
+    }
+    return featurePlugins;
+  }, [manualPlugins, featurePlugins]);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // COLUMN PROCESSING (shorthand + defaults)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Normalize column shorthands and apply column defaults
+  const processedColumns = useMemo(() => {
+    if (!columns) return columns;
+
+    // First, normalize any shorthand strings to ColumnConfig objects
+    const normalizedColumns = normalizeColumns(columns);
+
+    // Then apply column defaults if provided
+    if (!columnDefaults) return normalizedColumns;
+
+    return normalizedColumns.map((col) => ({
+      ...columnDefaults,
+      ...col, // Individual column props override defaults
+    }));
+  }, [columns, columnDefaults]);
+
   // Process gridConfig to convert React renderers/editors to DOM functions
-  const processedGridConfig = useMemo(() => processReactGridConfig(gridConfig), [gridConfig]);
+  const processedGridConfig = useMemo(() => {
+    const processed = processReactGridConfig(gridConfig);
+
+    // Add lazy-loaded plugins to the config
+    if (allPlugins.length > 0 && processed) {
+      const existingPlugins = processed.plugins || [];
+      const existingNames = new Set(existingPlugins.map((p) => (p as { name: string }).name));
+      const newPlugins = allPlugins.filter((p) => !existingNames.has(p.name));
+      return {
+        ...processed,
+        plugins: [...existingPlugins, ...newPlugins],
+      };
+    }
+
+    if (allPlugins.length > 0 && !processed) {
+      return { plugins: allPlugins };
+    }
+
+    return processed;
+  }, [gridConfig, allPlugins]);
 
   // Sync type defaults to the global adapter
   useEffect(() => {
@@ -328,12 +502,12 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     }
   }, [processedGridConfig]);
 
-  // Sync columns
+  // Sync columns (with defaults applied)
   useEffect(() => {
-    if (gridRef.current && columns) {
-      gridRef.current.columns = columns as ColumnConfig<unknown>[];
+    if (gridRef.current && processedColumns) {
+      gridRef.current.columns = processedColumns as ColumnConfig<unknown>[];
     }
-  }, [columns]);
+  }, [processedColumns]);
 
   // Sync fitMode
   useEffect(() => {
@@ -362,13 +536,10 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     const adapter = ensureAdapterRegistered();
     (grid as any).__frameworkAdapter = adapter;
 
-    // Configure MasterDetailPlugin SYNCHRONOUSLY to avoid visible flash
-    // Uses getPluginByName() so no async import needed for the common case
-    // where user already added MasterDetailPlugin to their plugins array
-    configureMasterDetail(grid as unknown as Element, adapter);
-
-    // Configure ResponsivePlugin card renderer if GridResponsiveCard is present
-    configureResponsiveCard(grid as unknown as Element, adapter);
+    // Refresh plugin renderers to pick up React templates from child components
+    // Plugin creation is handled by feature props (see auto-detection in featureProps memo)
+    refreshMasterDetailRenderer(grid as unknown as Element);
+    refreshResponsiveCardRenderer(grid as unknown as Element, adapter);
 
     // Use a single RAF for column/shell refresh
     // React 18+ batches updates, so one frame is usually enough
@@ -420,7 +591,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     };
   }, [customStyles]);
 
-  // Event handlers
+  // Event handlers - legacy (onRowsChange)
   useEffect(() => {
     const grid = gridRef.current;
     if (!grid) return;
@@ -433,28 +604,49 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       handlers.push(['rows-change', handler]);
     }
 
-    if (onCellEdit) {
-      const handler = ((e: CustomEvent) => onCellEdit(e)) as EventListener;
-      grid.addEventListener('cell-edit', handler);
-      handlers.push(['cell-edit', handler]);
-    }
+    return () => {
+      handlers.forEach(([event, handler]) => {
+        grid.removeEventListener(event, handler);
+      });
+    };
+  }, [onRowsChange]);
 
-    if (onRowClick) {
-      const handler = ((e: CustomEvent) => onRowClick(e)) as EventListener;
-      grid.addEventListener('row-click', handler);
-      handlers.push(['row-click', handler]);
-    }
+  // Create stable key for event handlers to prevent infinite loops
+  // We only need to know which handlers are defined, not their identity
+  const eventHandlersKey = useMemo(() => {
+    return Object.keys(EVENT_PROP_MAP)
+      .filter((propName) => typeof (rest as Record<string, unknown>)[propName] === 'function')
+      .sort()
+      .join('|');
+  }, [rest]);
 
-    if (onColumnStateChange) {
-      const handler = ((e: CustomEvent) => onColumnStateChange(e)) as EventListener;
-      grid.addEventListener('column-state-change', handler);
-      handlers.push(['column-state-change', handler]);
-    }
+  // Store event handlers in a ref to avoid re-subscribing when handler identity changes
+  // This is safe because handlers are called via the ref, which always has latest values
+  const eventHandlersRef = useRef<Record<string, ((detail: unknown, event: Event) => void) | undefined>>({});
 
-    if (onSortChange) {
-      const handler = ((e: CustomEvent) => onSortChange(e)) as EventListener;
-      grid.addEventListener('sort-change', handler);
-      handlers.push(['sort-change', handler]);
+  // Update the ref with current handlers (no effect trigger)
+  for (const propName of Object.keys(EVENT_PROP_MAP)) {
+    eventHandlersRef.current[propName] = (rest as any)[propName];
+  }
+
+  // Event handlers - new declarative props with unwrapped detail
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const handlers: Array<[string, EventListener]> = [];
+
+    // Wire up all event props from EVENT_PROP_MAP
+    for (const [propName, eventName] of Object.entries(EVENT_PROP_MAP)) {
+      // Check if handler exists via key (stable), call via ref (latest)
+      if (eventHandlersKey.includes(propName)) {
+        const handler = ((e: CustomEvent) => {
+          // Call via ref to always get latest handler
+          eventHandlersRef.current[propName]?.(e.detail, e);
+        }) as EventListener;
+        grid.addEventListener(eventName, handler);
+        handlers.push([eventName, handler]);
+      }
     }
 
     return () => {
@@ -462,7 +654,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
         grid.removeEventListener(event, handler);
       });
     };
-  }, [onRowsChange, onCellEdit, onRowClick, onColumnStateChange, onSortChange]);
+    // Only re-subscribe when the SET of handlers changes, not their identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventHandlersKey]);
 
   // Expose ref API
   useImperativeHandle(
@@ -510,8 +704,8 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
           if (rows) {
             grid.rows = rows;
           }
-          if (columns) {
-            grid.columns = columns as ColumnConfig<unknown>[];
+          if (processedColumns) {
+            grid.columns = processedColumns as ColumnConfig<unknown>[];
           }
         }
       }}

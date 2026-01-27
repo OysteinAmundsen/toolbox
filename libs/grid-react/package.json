@@ -12,6 +12,16 @@
       "types": "./index.d.ts",
       "import": "./index.js",
       "default": "./index.js"
+    },
+    "./features": {
+      "types": "./features/index.d.ts",
+      "import": "./features/index.js",
+      "default": "./features/index.js"
+    },
+    "./features/*": {
+      "types": "./features/*.d.ts",
+      "import": "./features/*.js",
+      "default": "./features/*.js"
     }
   },
   "keywords": [

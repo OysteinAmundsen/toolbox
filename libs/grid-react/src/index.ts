@@ -4,6 +4,8 @@
  *
  * React adapter library providing:
  * - DataGrid component wrapper with full React props
+ * - Declarative feature props for plugin configuration (selection, editing, filtering, etc.)
+ * * - Event handler props with automatic cleanup
  * - Custom cell renderer support via render props
  * - Custom cell editor support with commit/cancel handling
  * - Master-detail panel support with GridDetailPanel
@@ -18,6 +20,7 @@ import './jsx.d.ts';
 
 // Main components
 export { DataGrid } from './lib/data-grid';
+export type { DataGridProps, DataGridRef } from './lib/data-grid';
 export { GridColumn } from './lib/grid-column';
 export { GridDetailPanel, type DetailPanelContext, type GridDetailPanelProps } from './lib/grid-detail-panel';
 export {
@@ -27,6 +30,15 @@ export {
 } from './lib/grid-responsive-card';
 export { GridToolButtons, type GridToolButtonsProps } from './lib/grid-tool-button';
 export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from './lib/grid-tool-panel';
+
+// Feature props types for declarative plugin configuration
+export type { AllFeatureProps, FeatureProps, SSRProps } from './lib/feature-props';
+
+// Column shorthand type (for typing column arrays with shorthand syntax)
+export type { ColumnShorthand } from './lib/column-shorthand';
+
+// Event handler props types
+export type { EventHandler, EventProps } from './lib/event-props';
 
 // Type registry for application-wide type defaults
 export {
@@ -42,11 +54,11 @@ export {
 export type { ReactColumnConfig, ReactGridConfig } from './lib/react-column-config';
 
 // Hooks
-export { useGrid } from './lib/use-grid';
+export { useGrid, type ExportMethods, type SelectionMethods, type UseGridReturn } from './lib/use-grid';
 export { useGridEvent } from './lib/use-grid-event';
 
-// React adapter (for advanced usage)
-export { getRegisteredFields, ReactGridAdapter } from './lib/react-grid-adapter';
+// React adapter (for advanced manual registration - most users don't need this)
+export { ReactGridAdapter } from './lib/react-grid-adapter';
 
 // Context types
 export type { GridCellContext, GridDetailContext, GridEditorContext, GridToolPanelContext } from './lib/context-types';

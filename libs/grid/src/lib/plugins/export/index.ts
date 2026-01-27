@@ -5,4 +5,4 @@
  * @module Plugins/Export
  */
 export { ExportPlugin } from './ExportPlugin';
-export type { ExportFormat, ExportParams } from './types';
+export type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportParams } from './types';

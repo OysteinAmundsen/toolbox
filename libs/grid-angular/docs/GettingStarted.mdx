@@ -1,0 +1,379 @@
+{/* @jsxRuntime automatic */}
+
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Angular/Getting Started" />
+
+# Getting Started with Angular
+
+The `@toolbox-web/grid-angular` package provides seamless Angular integration for the `<tbw-grid>` data grid component. This guide covers the essential patterns for using the grid effectively in your Angular applications.
+
+## Installation
+
+<Source
+  language="bash"
+  code={`
+# Install both the core grid and Angular adapter
+npm install @toolbox-web/grid @toolbox-web/grid-angular
+
+# Or with your preferred package manager
+yarn add @toolbox-web/grid @toolbox-web/grid-angular
+pnpm add @toolbox-web/grid @toolbox-web/grid-angular
+bun add @toolbox-web/grid @toolbox-web/grid-angular
+`}
+/>
+
+## Setup
+
+Register the grid web component in your application entry point:
+
+<Source
+  language="typescript"
+  code={`
+// main.ts or app.config.ts
+import '@toolbox-web/grid';
+`}
+/>
+
+## Basic Usage
+
+The simplest way to use the grid is with the `Grid` directive and a configuration object:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+interface Employee {
+  id: number;
+  name: string;
+  department: string;
+  salary: number;
+}
+
+@Component({
+  selector: 'app-employee-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid
+      [rows]="employees"
+      [gridConfig]="config"
+      style="height: 400px; display: block;"
+    />
+  \`,
+})
+export class EmployeeGridComponent {
+  employees: Employee[] = [
+    { id: 1, name: 'Alice', department: 'Engineering', salary: 95000 },
+    { id: 2, name: 'Bob', department: 'Marketing', salary: 75000 },
+    { id: 3, name: 'Charlie', department: 'Sales', salary: 85000 },
+  ];
+
+  config = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 70 },
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'department', header: 'Department', sortable: true },
+      { field: 'salary', header: 'Salary', type: 'number', format: (v: number) => '$' + v.toLocaleString() },
+    ],
+  };
+}
+`}
+/>
+
+> **Note**: The `CUSTOM_ELEMENTS_SCHEMA` is required since `<tbw-grid>` is a web component, not an Angular component.
+
+## Enabling Features with Plugins
+
+Plugins add functionality like selection, editing, sorting, and filtering. Import the plugins you need and add them to your config:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { SortingPlugin } from '@toolbox-web/grid/plugins/sorting';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid [rows]="employees" [gridConfig]="config" style="height: 400px; display: block;" />
+  \`,
+})
+export class EmployeeGridComponent {
+  employees = [/* ... */];
+
+  config = {
+    columns: [
+      { field: 'id', header: 'ID', width: 70 },
+      { field: 'name', header: 'Name', editable: true, sortable: true },
+      { field: 'department', header: 'Department', editable: true },
+      { field: 'salary', header: 'Salary', type: 'number' },
+    ],
+    plugins: [
+      new SelectionPlugin({ mode: 'range' }),
+      new EditingPlugin({ editOn: 'dblclick' }),
+      new SortingPlugin(),
+      new FilteringPlugin({ debounceMs: 200 }),
+    ],
+  };
+}
+`}
+/>
+
+## Custom Cell Renderers
+
+Use the `*tbwRenderer` structural directive to customize how cell values are displayed:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA, input } from '@angular/core';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
+
+// Standalone status badge component
+@Component({
+  selector: 'app-status-badge',
+  standalone: true,
+  template: \`
+    <span [class]="'badge badge--' + status()">
+      {{ status() }}
+    </span>
+  \`,
+  styles: \`
+    .badge { padding: 4px 8px; border-radius: 4px; }
+    .badge--active { background: #22c55e; color: white; }
+    .badge--inactive { background: #94a3b8; color: white; }
+    .badge--pending { background: #f59e0b; color: black; }
+  \`
+})
+export class StatusBadgeComponent {
+  status = input.required<string>();
+}
+
+@Component({
+  imports: [Grid, TbwRenderer, StatusBadgeComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid [rows]="employees" [gridConfig]="config" style="height: 400px; display: block;">
+      <!-- Custom renderer for the status column -->
+      <tbw-grid-column field="status">
+        <app-status-badge *tbwRenderer="let value" [status]="value" />
+      </tbw-grid-column>
+    </tbw-grid>
+  \`,
+})
+export class EmployeeGridComponent {
+  employees = [
+    { id: 1, name: 'Alice', status: 'active' },
+    { id: 2, name: 'Bob', status: 'inactive' },
+    { id: 3, name: 'Charlie', status: 'pending' },
+  ];
+
+  config = {
+    columns: [
+      { field: 'id', header: 'ID', width: 70 },
+      { field: 'name', header: 'Name' },
+      { field: 'status', header: 'Status' },
+    ],
+  };
+}
+`}
+/>
+
+**Renderer Context Variables:**
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `$implicit` | `TValue` | The cell value (accessed with `let value`) |
+| `row` | `TRow` | The full row data object |
+| `column` | `ColumnConfig` | Column configuration |
+
+## Custom Cell Editors
+
+Use the `*tbwEditor` structural directive for inline cell editing. Editor components just need to emit `commit` and `cancel` events - the adapter handles the rest automatically:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA, input, output } from '@angular/core';
+import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+// Editor component - emits 'commit' with new value
+@Component({
+  selector: 'app-status-editor',
+  standalone: true,
+  template: \`
+    <select [value]="value()" (change)="commit.emit($any($event.target).value)">
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+      <option value="pending">Pending</option>
+    </select>
+  \`,
+})
+export class StatusEditorComponent {
+  value = input<string>();
+  commit = output<string>();  // Auto-wired: emitting commits the edit
+  cancel = output<void>();    // Auto-wired: emitting cancels the edit
+}
+
+@Component({
+  imports: [Grid, TbwRenderer, TbwEditor, StatusBadgeComponent, StatusEditorComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid [rows]="employees" [gridConfig]="config" style="height: 400px; display: block;">
+      <tbw-grid-column field="status" editable>
+        <app-status-badge *tbwRenderer="let value" [status]="value" />
+        <app-status-editor *tbwEditor="let value" [value]="value" />
+      </tbw-grid-column>
+    </tbw-grid>
+  \`,
+})
+export class EmployeeGridComponent {
+  employees = [/* ... */];
+
+  config = {
+    columns: [
+      { field: 'id', header: 'ID', width: 70 },
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'status', header: 'Status', editable: true },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+`}
+/>
+
+> **Auto-wiring**: The `TbwEditor` directive listens for `commit` and `cancel` events on your component and automatically calls the grid's edit functions. No manual callback binding needed!
+
+## Handling Events
+
+Listen to grid events using standard Angular event binding:
+
+<Source
+  language="typescript"
+  code={`
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid
+      [rows]="employees"
+      [gridConfig]="config"
+      (cell-click)="onCellClick($event)"
+      (row-click)="onRowClick($event)"
+      (cell-commit)="onCellCommit($event)"
+      (sort-change)="onSortChange($event)"
+    />
+  \`,
+})
+export class EmployeeGridComponent {
+  onCellClick(event: CustomEvent) {
+    const { row, column, value } = event.detail;
+    console.log('Cell clicked:', { row, column, value });
+  }
+
+  onRowClick(event: CustomEvent) {
+    const { row, rowIndex } = event.detail;
+    console.log('Row clicked:', row);
+  }
+
+  onCellCommit(event: CustomEvent) {
+    const { row, column, newValue, oldValue } = event.detail;
+    console.log('Cell edited:', { row, column, newValue, oldValue });
+  }
+
+  onSortChange(event: CustomEvent) {
+    const { sortState } = event.detail;
+    console.log('Sort changed:', sortState);
+  }
+}
+`}
+/>
+
+## Programmatic Grid Access
+
+Access the grid element directly for programmatic control:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ElementRef, viewChild } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { DataGridElement } from '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <button (click)="refreshGrid()">Refresh</button>
+    <button (click)="exportCsv()">Export CSV</button>
+    <tbw-grid #grid [rows]="employees" [gridConfig]="config" />
+  \`,
+})
+export class EmployeeGridComponent {
+  grid = viewChild<ElementRef<DataGridElement>>('grid');
+
+  refreshGrid() {
+    this.grid()?.nativeElement.forceLayout();
+  }
+
+  async exportCsv() {
+    const exportPlugin = this.grid()?.nativeElement.getPlugin(ExportPlugin);
+    await exportPlugin?.exportToCsv({ filename: 'employees.csv' });
+  }
+}
+`}
+/>
+
+## Type-Level Defaults
+
+Register application-wide renderers and editors for specific data types using `provideGridTypeDefaults()`:
+
+<Source
+  language="typescript"
+  code={`
+// app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideGridTypeDefaults } from '@toolbox-web/grid-angular';
+import { CurrencyRendererComponent, DateRendererComponent } from './renderers';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideGridTypeDefaults([
+      {
+        type: 'currency',
+        renderer: CurrencyRendererComponent,
+        format: (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' }),
+      },
+      {
+        type: 'date',
+        renderer: DateRendererComponent,
+        format: (value: string) => new Date(value).toLocaleDateString(),
+      },
+    ]),
+  ],
+};
+
+// Now any column with type: 'currency' uses CurrencyRendererComponent automatically
+// config = {
+//   columns: [
+//     { field: 'salary', header: 'Salary', type: 'currency' },  // Uses CurrencyRenderer
+//     { field: 'hireDate', header: 'Hire Date', type: 'date' }, // Uses DateRenderer
+//   ],
+// };
+`}
+/>
+
+## Next Steps
+
+- **[Reactive Forms Integration](/docs/grid-angular-reactive-forms-integration--docs)** - Bind the grid to Angular FormArray for validation and dirty tracking
+- **[API Reference](/docs/grid-angular-directives-grid--docs)** - Complete API documentation for all directives
+- **[Grid Plugins](/docs/grid-plugins-selection-selection--docs)** - Explore all available plugins

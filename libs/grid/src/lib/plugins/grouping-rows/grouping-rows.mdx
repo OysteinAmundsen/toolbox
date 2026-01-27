@@ -156,16 +156,40 @@ export class EmployeeGridComponent {
 
 ## Configuration Options
 
-| Option            | Type                         | Default   | Description                              |
-| ----------------- | ---------------------------- | --------- | ---------------------------------------- |
-| `groupOn`         | `function`                   | -         | Callback returning group path            |
-| `defaultExpanded` | `boolean`                    | `false`   | Start expanded                           |
-| `showRowCount`    | `boolean`                    | `true`    | Show count in header                     |
-| `indentWidth`     | `number`                     | `20`      | Indent per level in pixels               |
-| `fullWidth`       | `boolean`                    | `true`    | Group row spans full width               |
-| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'` | Animation style for expanding/collapsing |
-| `accordion`       | `boolean`                    | `false`   | Only one group open at a time            |
-| `aggregators`     | `Record<string, AggregatorRef>` | `{}`   | Aggregators for group summary values     |
+| Option            | Type                                   | Default   | Description                                              |
+| ----------------- | -------------------------------------- | --------- | -------------------------------------------------------- |
+| `groupOn`         | `function`                             | -         | Callback returning group path                            |
+| `defaultExpanded` | `boolean \| number \| string \| string[]` | `false`   | Initial expanded state (see below)                       |
+| `showRowCount`    | `boolean`                              | `true`    | Show count in header                                     |
+| `indentWidth`     | `number`                               | `20`      | Indent per level in pixels                               |
+| `fullWidth`       | `boolean`                              | `true`    | Group row spans full width                               |
+| `animation`       | `false \| 'slide' \| 'fade'`           | `'slide'` | Animation style for expanding/collapsing                 |
+| `accordion`       | `boolean`                              | `false`   | Only one group open at a time                            |
+| `aggregators`     | `Record<string, AggregatorRef>`        | `{}`      | Aggregators for group summary values                     |
+
+### Default Expanded Options
+
+The `defaultExpanded` option controls which groups are expanded on initial render:
+
+```ts
+// Expand all groups
+new GroupingRowsPlugin({ defaultExpanded: true, groupOn: ... });
+
+// Collapse all groups (default)
+new GroupingRowsPlugin({ defaultExpanded: false, groupOn: ... });
+
+// Expand group at index 0
+new GroupingRowsPlugin({ defaultExpanded: 0, groupOn: ... });
+
+// Expand group with specific key
+new GroupingRowsPlugin({ defaultExpanded: 'Engineering', groupOn: ... });
+
+// Expand multiple groups by key
+new GroupingRowsPlugin({ defaultExpanded: ['Engineering', 'Sales'], groupOn: ... });
+```
+
+> **Note:** When using `accordion: true`, prefer `defaultExpanded` with a single value
+> (number or string) rather than `true` or an array with multiple values.
 
 ### Animation Options
 

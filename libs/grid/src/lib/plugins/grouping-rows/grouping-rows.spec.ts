@@ -8,6 +8,7 @@ import {
   expandAllGroups,
   getGroupKeys,
   getGroupRowCount,
+  resolveDefaultExpanded,
   toggleGroupExpansion,
 } from './grouping-rows';
 import type { RenderRow, RowGroupingConfig } from './types';
@@ -115,7 +116,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     expect((result[1] as any).key).toBe('Sales');
   });
 
-  it('expands all groups when defaultExpanded is true', () => {
+  it('expands all groups when initialExpanded contains all keys', () => {
     const rows = [
       { name: 'Alice', dept: 'Engineering' },
       { name: 'Bob', dept: 'Engineering' },
@@ -124,8 +125,15 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     const config: RowGroupingConfig = {
       groupOn: (r) => r.dept,
     };
-    // Empty expanded set, but defaultExpanded=true should expand all
-    const result = buildGroupedRowModel({ rows, config, expanded: new Set(), defaultExpanded: true });
+    // Build first to get all keys, then pass them as initialExpanded
+    const initialBuild = buildGroupedRowModel({ rows, config, expanded: new Set() });
+    const allKeys = getGroupKeys(initialBuild);
+    const result = buildGroupedRowModel({
+      rows,
+      config,
+      expanded: new Set(),
+      initialExpanded: new Set(allKeys),
+    });
 
     // Should have 2 groups + 3 data rows = 5 items
     expect(result.length).toBe(5);
@@ -138,7 +146,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     expect(result[4].kind).toBe('data');
   });
 
-  it('defaultExpanded expands nested groups', () => {
+  it('initialExpanded expands nested groups', () => {
     const rows = [
       { name: 'Alice', dept: 'Eng', team: 'Frontend' },
       { name: 'Bob', dept: 'Eng', team: 'Backend' },
@@ -146,7 +154,19 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     const config: RowGroupingConfig = {
       groupOn: (r) => [r.dept, r.team],
     };
-    const result = buildGroupedRowModel({ rows, config, expanded: new Set(), defaultExpanded: true });
+
+    // For nested groups, we need to iteratively expand to discover all keys
+    // First build sees only top-level groups
+    let expanded = new Set<string>();
+    let result = buildGroupedRowModel({ rows, config, expanded });
+    expanded = expandAllGroups(result);
+
+    // Second build with top-level expanded reveals nested groups
+    result = buildGroupedRowModel({ rows, config, expanded });
+    expanded = expandAllGroups(result);
+
+    // Now we have all keys - build final result
+    result = buildGroupedRowModel({ rows, config, expanded });
 
     // Should have: Eng group, Frontend group, Alice, Backend group, Bob = 5 items
     expect(result.length).toBe(5);
@@ -232,5 +252,49 @@ describe('getGroupRowCount', () => {
   it('returns 0 for data row', () => {
     const dataRow: RenderRow = { kind: 'data', row: {}, rowIndex: 0 };
     expect(getGroupRowCount(dataRow)).toBe(0);
+  });
+});
+
+describe('resolveDefaultExpanded', () => {
+  const allKeys = ['Engineering', 'Sales', 'Marketing'];
+
+  it('returns all keys when value is true', () => {
+    const result = resolveDefaultExpanded(true, allKeys);
+    expect(result).toEqual(new Set(allKeys));
+  });
+
+  it('returns empty set when value is false', () => {
+    const result = resolveDefaultExpanded(false, allKeys);
+    expect(result).toEqual(new Set());
+  });
+
+  it('returns empty set when value is undefined', () => {
+    const result = resolveDefaultExpanded(undefined as any, allKeys);
+    expect(result).toEqual(new Set());
+  });
+
+  it('returns single key by index', () => {
+    const result = resolveDefaultExpanded(1, allKeys);
+    expect(result).toEqual(new Set(['Sales']));
+  });
+
+  it('returns empty set for out-of-bounds index', () => {
+    const result = resolveDefaultExpanded(10, allKeys);
+    expect(result).toEqual(new Set());
+  });
+
+  it('returns single key by string', () => {
+    const result = resolveDefaultExpanded('Engineering', allKeys);
+    expect(result).toEqual(new Set(['Engineering']));
+  });
+
+  it('returns multiple keys by array', () => {
+    const result = resolveDefaultExpanded(['Engineering', 'Marketing'], allKeys);
+    expect(result).toEqual(new Set(['Engineering', 'Marketing']));
+  });
+
+  it('returns empty set for empty array', () => {
+    const result = resolveDefaultExpanded([], allKeys);
+    expect(result).toEqual(new Set());
   });
 });

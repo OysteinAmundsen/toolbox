@@ -79,8 +79,21 @@ describe('GroupingRowsPlugin', () => {
       const rule = manifest?.configRules?.find((r) => r.id === 'groupingRows/accordion-defaultExpanded');
       expect(rule).toBeDefined();
       expect(rule?.severity).toBe('warn');
+
+      // Should warn for accordion + expand all
       expect(rule?.check({ accordion: true, defaultExpanded: true })).toBe(true);
+      // Should warn for accordion + multiple groups expanded
+      expect(rule?.check({ accordion: true, defaultExpanded: ['Group1', 'Group2'] })).toBe(true);
+
+      // Should NOT warn for accordion + false
       expect(rule?.check({ accordion: true, defaultExpanded: false })).toBe(false);
+      // Should NOT warn for accordion + single index
+      expect(rule?.check({ accordion: true, defaultExpanded: 0 })).toBe(false);
+      // Should NOT warn for accordion + single key
+      expect(rule?.check({ accordion: true, defaultExpanded: 'Engineering' })).toBe(false);
+      // Should NOT warn for accordion + single-item array
+      expect(rule?.check({ accordion: true, defaultExpanded: ['Group1'] })).toBe(false);
+      // Should NOT warn when accordion is off
       expect(rule?.check({ accordion: false, defaultExpanded: true })).toBe(false);
     });
   });

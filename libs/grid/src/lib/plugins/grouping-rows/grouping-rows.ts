@@ -6,7 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GroupRowModelItem, RenderRow, RowGroupingConfig } from './types';
+import type { DefaultExpandedValue, GroupRowModelItem, RenderRow, RowGroupingConfig } from './types';
 
 // Re-export aggregator functions from core for backward compatibility
 export { getAggregator, listAggregators, registerAggregator, runAggregator } from '../../core/internal/aggregators';
@@ -24,8 +24,8 @@ interface BuildGroupingArgs {
   rows: any[];
   config: RowGroupingConfig;
   expanded: Set<string>;
-  /** When true, treat all groups as expanded (used for initial defaultExpanded state) */
-  defaultExpanded?: boolean;
+  /** Initial expanded state to apply (processed by the plugin) */
+  initialExpanded?: Set<string>;
 }
 
 /**
@@ -35,7 +35,7 @@ interface BuildGroupingArgs {
  * @param args - The grouping arguments
  * @returns Flattened array of render rows (groups + data rows)
  */
-export function buildGroupedRowModel({ rows, config, expanded, defaultExpanded }: BuildGroupingArgs): RenderRow[] {
+export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }: BuildGroupingArgs): RenderRow[] {
   const groupOn = config.groupOn;
   if (typeof groupOn !== 'function') {
     return [];
@@ -69,6 +69,9 @@ export function buildGroupedRowModel({ rows, config, expanded, defaultExpanded }
     if (only.rows.length === rows.length) return [];
   }
 
+  // Merge expanded sets - use initialExpanded on first render, then expanded takes over
+  const effectiveExpanded = new Set([...expanded, ...(initialExpanded ?? [])]);
+
   // Flatten tree to array
   const flat: RenderRow[] = [];
   const visit = (node: GroupNode) => {
@@ -77,7 +80,7 @@ export function buildGroupedRowModel({ rows, config, expanded, defaultExpanded }
       return;
     }
 
-    const isExpanded = defaultExpanded || expanded.has(node.key);
+    const isExpanded = effectiveExpanded.has(node.key);
     flat.push({
       kind: 'group',
       key: node.key,
@@ -139,6 +142,39 @@ export function expandAllGroups(rows: RenderRow[]): Set<string> {
  * @returns Empty set
  */
 export function collapseAllGroups(): Set<string> {
+  return new Set();
+}
+
+/**
+ * Resolve a defaultExpanded value to a set of keys to expand.
+ * This needs to be called AFTER building the group model to get all keys.
+ *
+ * @param value - The defaultExpanded config value
+ * @param allGroupKeys - All group keys from the model
+ * @returns Set of keys to expand initially
+ */
+export function resolveDefaultExpanded(value: DefaultExpandedValue, allGroupKeys: string[]): Set<string> {
+  if (value === true) {
+    // Expand all groups
+    return new Set(allGroupKeys);
+  }
+  if (value === false || value == null) {
+    // Collapse all groups
+    return new Set();
+  }
+  if (typeof value === 'number') {
+    // Expand group at this index
+    const key = allGroupKeys[value];
+    return key ? new Set([key]) : new Set();
+  }
+  if (typeof value === 'string') {
+    // Expand group with this key
+    return new Set([value]);
+  }
+  if (Array.isArray(value)) {
+    // Expand groups with these keys
+    return new Set(value);
+  }
   return new Set();
 }
 

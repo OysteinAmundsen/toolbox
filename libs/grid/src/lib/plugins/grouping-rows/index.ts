@@ -5,4 +5,4 @@
  * @module Plugins/Row Grouping
  */
 export { GroupingRowsPlugin } from './GroupingRowsPlugin';
-export type { GroupRowRenderParams, GroupingRowsConfig } from './types';
+export type { DefaultExpandedValue, GroupRowRenderParams, GroupingRowsConfig } from './types';

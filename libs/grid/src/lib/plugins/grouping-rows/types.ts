@@ -15,6 +15,15 @@ import type { ExpandCollapseAnimation } from '../../core/types';
 /** Map of field names to aggregator references */
 export type AggregatorMap = Record<string, import('../../core/internal/aggregators').AggregatorRef>;
 
+/**
+ * Default expanded state for group rows.
+ * - `boolean`: true = expand all, false = collapse all
+ * - `number`: expand group at this index (0-based)
+ * - `string`: expand group with this key
+ * - `string[]`: expand groups with these keys
+ */
+export type DefaultExpandedValue = boolean | number | string | string[];
+
 /** Configuration options for the row grouping plugin */
 export interface GroupingRowsConfig {
   /**
@@ -22,8 +31,16 @@ export interface GroupingRowsConfig {
    * Return an array of group keys, a single key, null/false to skip grouping.
    */
   groupOn?: (row: any) => any[] | any | null | false;
-  /** Whether groups are expanded by default (default: false) */
-  defaultExpanded?: boolean;
+  /**
+   * Default expanded state for group rows.
+   * - `true`: Expand all groups initially
+   * - `false`: Collapse all groups initially (default)
+   * - `number`: Expand group at this index (0-based)
+   * - `string`: Expand group with this key (composite key format: "parent||child")
+   * - `string[]`: Expand groups with these keys
+   * @default false
+   */
+  defaultExpanded?: DefaultExpandedValue;
   /** Custom group row renderer - takes full control of group row rendering */
   groupRowRenderer?: (params: GroupRowRenderParams) => HTMLElement | string | void;
   /** Show row count in group headers (default: true) */

@@ -11,7 +11,9 @@ import {
   buildGroupedRowModel,
   collapseAllGroups,
   expandAllGroups,
+  getGroupKeys,
   getGroupRowCount,
+  resolveDefaultExpanded,
   runAggregator,
   toggleGroupExpansion,
 } from './grouping-rows';
@@ -56,11 +58,12 @@ export interface GroupState {
  * | Option | Type | Default | Description |
  * |--------|------|---------|-------------|
  * | `groupOn` | `(row) => string[]` | - | Callback returning group path array |
- * | `defaultExpanded` | `boolean` | `false` | Start all groups expanded |
+ * | `defaultExpanded` | `boolean \\| number \\| string \\| string[]` | `false` | Initial expanded state |
  * | `showRowCount` | `boolean` | `true` | Show row count in group header |
  * | `indentWidth` | `number` | `20` | Indentation per level (pixels) |
  * | `fullWidth` | `boolean` | `true` | Group row spans full width |
- * | `animation` | `false \| 'slide' \| 'fade'` | `'slide'` | Expand/collapse animation |
+ * | `animation` | `false \\| 'slide' \\| 'fade'` | `'slide'` | Expand/collapse animation |
+ * | `accordion` | `boolean` | `false` | Only one group open at a time |
  *
  * ## Programmatic API
  *
@@ -129,11 +132,20 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         id: 'groupingRows/accordion-defaultExpanded',
         severity: 'warn',
         message:
-          `"accordion: true" and "defaultExpanded: true" are used together.\n` +
+          `"accordion: true" and "defaultExpanded" (non-false) are used together.\n` +
           `  → In accordion mode, only one group can be open at a time.\n` +
-          `  → Using defaultExpanded will open all groups initially, then collapse to one on first toggle.\n` +
-          `  → Consider using "defaultExpanded: false" with accordion mode.`,
-        check: (config) => config.accordion === true && config.defaultExpanded === true,
+          `  → Using defaultExpanded with multiple groups will collapse to one on first toggle.\n` +
+          `  → Consider using "defaultExpanded: false" or a single group key/index with accordion mode.`,
+        check: (config) =>
+          config.accordion === true &&
+          config.defaultExpanded !== false &&
+          config.defaultExpanded !== undefined &&
+          // Allow single group expansion with accordion
+          !(typeof config.defaultExpanded === 'number') &&
+          !(typeof config.defaultExpanded === 'string') &&
+          // Warn if true or array with multiple items
+          (config.defaultExpanded === true ||
+            (Array.isArray(config.defaultExpanded) && config.defaultExpanded.length > 1)),
       },
     ],
   };
@@ -212,34 +224,44 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       return [...rows];
     }
 
-    // Determine if we should apply defaultExpanded on first render
-    const shouldApplyDefaultExpanded =
-      config.defaultExpanded === true && !this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0;
-
-    // Build grouped model
-    const grouped = buildGroupedRowModel({
+    // First build: get structure to know all group keys
+    // (needed for index-based defaultExpanded)
+    const initialBuild = buildGroupedRowModel({
       rows: [...rows],
       config: config,
-      expanded: this.expandedKeys,
-      defaultExpanded: shouldApplyDefaultExpanded,
+      expanded: new Set(), // Empty to get all root groups
     });
 
     // If no grouping produced, return original rows
-    if (grouped.length === 0) {
+    if (initialBuild.length === 0) {
       this.isActive = false;
       this.flattenedRows = [];
       return [...rows];
     }
 
+    // Resolve defaultExpanded on first render only
+    let initialExpanded: Set<string> | undefined;
+    if (!this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0 && config.defaultExpanded !== false) {
+      const allKeys = getGroupKeys(initialBuild);
+      initialExpanded = resolveDefaultExpanded(config.defaultExpanded ?? false, allKeys);
+
+      // Mark as applied and populate expandedKeys for subsequent toggles
+      if (initialExpanded.size > 0) {
+        this.expandedKeys = new Set(initialExpanded);
+        this.hasAppliedDefaultExpanded = true;
+      }
+    }
+
+    // Build with proper expanded state
+    const grouped = buildGroupedRowModel({
+      rows: [...rows],
+      config: config,
+      expanded: this.expandedKeys,
+      initialExpanded,
+    });
+
     this.isActive = true;
     this.flattenedRows = grouped;
-
-    // If defaultExpanded was applied, populate expandedKeys with all group keys
-    // so subsequent user toggles are preserved
-    if (shouldApplyDefaultExpanded) {
-      this.expandedKeys = expandAllGroups(grouped);
-      this.hasAppliedDefaultExpanded = true;
-    }
 
     // Track which data rows are newly visible (for animation)
     this.keysToAnimate.clear();

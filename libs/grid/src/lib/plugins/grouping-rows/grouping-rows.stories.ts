@@ -36,7 +36,8 @@ const meta: Meta = {
     },
     defaultExpanded: {
       control: { type: 'boolean' },
-      description: 'Whether groups are expanded by default',
+      description:
+        'Initial expanded state: `true` (all), `false` (none), `number` (by index), `string` (by key), `string[]` (multiple keys)',
       table: { category: 'Row Grouping', defaultValue: { summary: 'false' } },
     },
     showRowCount: {
@@ -433,6 +434,71 @@ grid.rows = [
           aggregators: {
             salary: 'sum',
           },
+        }),
+      ],
+    };
+    grid.rows = sampleData;
+
+    return grid;
+  },
+};
+
+/**
+ * The `defaultExpanded` option supports multiple value types:
+ * - `true`: Expand all groups
+ * - `false`: Collapse all groups (default)
+ * - `number`: Expand group at this index (0-based)
+ * - `string`: Expand group with this key
+ * - `string[]`: Expand multiple groups by key
+ *
+ * This example expands only the "Engineering" group by default.
+ */
+export const DefaultExpandedByKey: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new GroupingRowsPlugin({
+      groupOn: (row) => row.department,
+      // Expand only the "Engineering" group by default
+      defaultExpanded: 'Engineering',
+    }),
+  ],
+};
+grid.rows = [...];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  args: {
+    showRowCount: true,
+    indentWidth: 20,
+  },
+  render: (args: GroupingRowsArgs) => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new GroupingRowsPlugin({
+          groupOn: (row: { department: string }) => row.department,
+          defaultExpanded: 'Engineering', // Expand only Engineering
+          showRowCount: args.showRowCount,
+          indentWidth: args.indentWidth,
         }),
       ],
     };

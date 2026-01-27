@@ -1,6 +1,6 @@
 import { DEPARTMENTS } from '@demo/shared';
 import type { ToolPanelContext } from '@toolbox-web/grid-react';
-import { FilteringPlugin } from '@toolbox-web/grid/all';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 import { useCallback, useState } from 'react';
 
 interface QuickFiltersPanelProps {

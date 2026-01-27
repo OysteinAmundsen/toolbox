@@ -7,6 +7,9 @@ import dts from 'vite-plugin-dts';
 
 const outDir = path.resolve(import.meta.dirname, '../../dist/libs/grid-react');
 
+// Resolve @toolbox-web/grid paths for tests
+const gridDistPath = path.resolve(import.meta.dirname, '../../dist/libs/grid');
+
 /** Copy README.md to dist for npm publishing */
 function copyReadme(): Plugin {
   return {
@@ -70,5 +73,16 @@ export default defineConfig(() => ({
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
     },
+    alias: [
+      // Resolve plugin imports to dist for tests (must be first, more specific)
+      {
+        find: /^@toolbox-web\/grid\/plugins\/(.+)$/,
+        replacement: path.join(gridDistPath, 'lib/plugins/$1/index.js'),
+      },
+      // Resolve @toolbox-web/grid/all to dist
+      { find: '@toolbox-web/grid/all', replacement: path.join(gridDistPath, 'all.js') },
+      // Resolve @toolbox-web/grid to dist
+      { find: '@toolbox-web/grid', replacement: path.join(gridDistPath, 'index.js') },
+    ],
   },
 }));

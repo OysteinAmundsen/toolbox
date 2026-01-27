@@ -35,11 +35,14 @@ export { GridToolPanel, type GridToolPanelProps, type ToolPanelContext } from '.
 // Feature props types for declarative plugin configuration
 export type { AllFeatureProps, FeatureProps, LoadingProps, PresetName } from './lib/feature-props';
 
+// Column shorthand type (for typing column arrays with shorthand syntax)
+export type { ColumnShorthand } from './lib/column-shorthand';
+
 // Event handler props types
 export type { EventHandler, EventProps } from './lib/event-props';
 
-// Presets
-export { getPreset, getPresetNames, mergePresetWithProps, PRESETS } from './lib/presets';
+// Presets (for advanced usage - most users just use preset prop on DataGrid)
+export { PRESETS } from './lib/presets';
 
 // Type registry for application-wide type defaults
 export {
@@ -55,11 +58,11 @@ export {
 export type { ReactColumnConfig, ReactGridConfig } from './lib/react-column-config';
 
 // Hooks
-export { useGrid } from './lib/use-grid';
+export { useGrid, type ExportMethods, type SelectionMethods, type UseGridReturn } from './lib/use-grid';
 export { useGridEvent } from './lib/use-grid-event';
 
-// React adapter (for advanced usage)
-export { getRegisteredFields, ReactGridAdapter } from './lib/react-grid-adapter';
+// React adapter (for advanced manual registration - most users don't need this)
+export { ReactGridAdapter } from './lib/react-grid-adapter';
 
 // Context types
 export type { GridCellContext, GridDetailContext, GridEditorContext, GridToolPanelContext } from './lib/context-types';

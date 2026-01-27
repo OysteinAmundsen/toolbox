@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import '../jsx.d.ts';
+import { normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { EVENT_PROP_MAP, type EventProps } from './event-props';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
@@ -165,8 +166,22 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
    * ```
    */
   gridConfig?: ReactGridConfig<TRow>;
-  /** Column definitions (alternative to gridConfig.columns) */
-  columns?: ColumnConfig<TRow>[];
+  /**
+   * Column definitions. Supports shorthand syntax for quick definitions.
+   *
+   * @example
+   * ```tsx
+   * // Shorthand strings (auto-generate headers from field names)
+   * columns={['id:number', 'name', 'email', 'salary:currency']}
+   *
+   * // Mixed: shorthand + full config
+   * columns={['id:number', 'name', { field: 'status', editable: true }]}
+   *
+   * // Full config objects (standard usage)
+   * columns={[{ field: 'id', type: 'number' }, { field: 'name' }]}
+   * ```
+   */
+  columns?: ColumnShorthand<TRow>[];
   /**
    * Default column properties applied to all columns.
    * Individual column definitions override these defaults.
@@ -345,33 +360,47 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // EXTRACT FEATURE PROPS AND EVENT PROPS
   // ═══════════════════════════════════════════════════════════════════
 
-  // Extract feature props from rest (everything that's not an event handler)
+  // Feature keys list (static - defined outside to avoid recreating)
+  const featureKeys = [
+    'selection',
+    'editing',
+    'filtering',
+    'sorting',
+    'clipboard',
+    'contextMenu',
+    'reorder',
+    'rowReorder',
+    'visibility',
+    'undoRedo',
+    'tree',
+    'groupingRows',
+    'groupingColumns',
+    'pinnedColumns',
+    'pinnedRows',
+    'masterDetail',
+    'responsive',
+    'columnVirtualization',
+    'export',
+    'print',
+    'pivot',
+    'serverSide',
+  ] as const;
+
+  // Create a stable key from feature prop values to detect actual changes
+  // This avoids infinite loops from `rest` object reference changing each render
+  const featurePropsKey = useMemo(() => {
+    return featureKeys
+      .map((key) => {
+        const value = (rest as Record<string, unknown>)[key];
+        return value !== undefined ? `${key}:${JSON.stringify(value)}` : '';
+      })
+      .filter(Boolean)
+      .join('|');
+  }, [rest]);
+
+  // Extract feature props - only recalculate when the stable key changes
   const featureProps = useMemo(() => {
     const features: FeatureProps<TRow> = {};
-    const featureKeys = [
-      'selection',
-      'editing',
-      'filtering',
-      'sorting',
-      'clipboard',
-      'contextMenu',
-      'reorder',
-      'rowReorder',
-      'visibility',
-      'undoRedo',
-      'tree',
-      'groupingRows',
-      'groupingColumns',
-      'pinnedColumns',
-      'pinnedRows',
-      'masterDetail',
-      'responsive',
-      'columnVirtualization',
-      'export',
-      'print',
-      'pivot',
-      'serverSide',
-    ] as const;
 
     for (const key of featureKeys) {
       if (key in rest && (rest as any)[key] !== undefined) {
@@ -380,7 +409,8 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     }
 
     return features;
-  }, [rest]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featurePropsKey]);
 
   // Detect child components (GridDetailPanel, GridResponsiveCard) and merge with feature props
   const childFeatures = useMemo(() => detectChildComponentFeatures(children), [children]);
@@ -406,13 +436,14 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   }, [mergedFeatureProps]);
 
   // ═══════════════════════════════════════════════════════════════════
-  // LAZY PLUGIN LOADING
+  // PLUGIN INSTANTIATION (async via dynamic imports)
   // ═══════════════════════════════════════════════════════════════════
 
-  // Skip lazy loading if manual plugins are provided or in SSR mode
+  // Skip plugin instantiation if manual plugins are provided or in SSR mode
   const shouldUseLazyPlugins = !manualPlugins && !ssr;
 
-  // Load plugins lazily based on feature props
+  // Load plugins asynchronously based on feature props
+  // This uses dynamic imports for code-splitting - only used plugins are fetched
   const { plugins: lazyPlugins, isLoading: pluginsLoading } = useLazyPlugins<TRow>(
     shouldUseLazyPlugins ? mergedFeatureProps : {},
   );
@@ -429,14 +460,20 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   }, [manualPlugins, lazyPlugins]);
 
   // ═══════════════════════════════════════════════════════════════════
-  // COLUMN DEFAULTS
+  // COLUMN PROCESSING (shorthand + defaults)
   // ═══════════════════════════════════════════════════════════════════
 
-  // Apply column defaults to columns
+  // Normalize column shorthands and apply column defaults
   const processedColumns = useMemo(() => {
-    if (!columns || !columnDefaults) return columns;
+    if (!columns) return columns;
 
-    return columns.map((col) => ({
+    // First, normalize any shorthand strings to ColumnConfig objects
+    const normalizedColumns = normalizeColumns(columns);
+
+    // Then apply column defaults if provided
+    if (!columnDefaults) return normalizedColumns;
+
+    return normalizedColumns.map((col) => ({
       ...columnDefaults,
       ...col, // Individual column props override defaults
     }));
@@ -504,6 +541,29 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       (gridRef.current as unknown as { editOn: string }).editOn = editOn;
     }
   }, [editOn]);
+
+  // After plugins finish loading, refresh plugin renderers to pick up React templates
+  // This is separate from the mount effect because plugins are loaded asynchronously
+  useEffect(() => {
+    // Only run after plugins have loaded
+    if (pluginsLoading) return;
+
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    // Ensure the framework adapter is available on the grid element
+    // This MUST be set before refreshing plugin renderers
+    const adapter = ensureAdapterRegistered();
+    (grid as any).__frameworkAdapter = adapter;
+
+    // Give plugins a chance to initialize (they need one tick after being added to grid)
+    const timer = requestAnimationFrame(() => {
+      refreshMasterDetailRenderer(grid as unknown as Element);
+      refreshResponsiveCardRenderer(grid as unknown as Element, adapter);
+    });
+
+    return () => cancelAnimationFrame(timer);
+  }, [pluginsLoading]);
 
   // After React renders GridColumn children and ref callbacks register renderers/editors,
   // call refreshColumns() to force the grid to re-parse light DOM with the registered adapters.
@@ -593,6 +653,24 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     };
   }, [onRowsChange]);
 
+  // Create stable key for event handlers to prevent infinite loops
+  // We only need to know which handlers are defined, not their identity
+  const eventHandlersKey = useMemo(() => {
+    return Object.keys(EVENT_PROP_MAP)
+      .filter((propName) => typeof (rest as Record<string, unknown>)[propName] === 'function')
+      .sort()
+      .join('|');
+  }, [rest]);
+
+  // Store event handlers in a ref to avoid re-subscribing when handler identity changes
+  // This is safe because handlers are called via the ref, which always has latest values
+  const eventHandlersRef = useRef<Record<string, ((detail: unknown, event: Event) => void) | undefined>>({});
+
+  // Update the ref with current handlers (no effect trigger)
+  for (const propName of Object.keys(EVENT_PROP_MAP)) {
+    eventHandlersRef.current[propName] = (rest as any)[propName];
+  }
+
   // Event handlers - new declarative props with unwrapped detail
   useEffect(() => {
     const grid = gridRef.current;
@@ -602,11 +680,11 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
     // Wire up all event props from EVENT_PROP_MAP
     for (const [propName, eventName] of Object.entries(EVENT_PROP_MAP)) {
-      const handlerProp = (rest as any)[propName];
-      if (typeof handlerProp === 'function') {
+      // Check if handler exists via key (stable), call via ref (latest)
+      if (eventHandlersKey.includes(propName)) {
         const handler = ((e: CustomEvent) => {
-          // Call with unwrapped detail first, full event second
-          handlerProp(e.detail, e);
+          // Call via ref to always get latest handler
+          eventHandlersRef.current[propName]?.(e.detail, e);
         }) as EventListener;
         grid.addEventListener(eventName, handler);
         handlers.push([eventName, handler]);
@@ -618,7 +696,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
         grid.removeEventListener(event, handler);
       });
     };
-  }, [rest]);
+    // Only re-subscribe when the SET of handlers changes, not their identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventHandlersKey]);
 
   // Track when grid is ready
   useEffect(() => {
@@ -657,16 +737,17 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     [],
   );
 
-  // ═══════════════════════════════════════════════════════════════════
-  // LOADING STATE
-  // ═══════════════════════════════════════════════════════════════════
+  // Note: Plugins are loaded via dynamic imports when using feature props.
+  // If plugins are still loading, we render a loading state to prevent
+  // the grid from initializing without its plugins.
 
-  // Show loading state while plugins are loading (render blocking)
-  if (pluginsLoading && shouldUseLazyPlugins) {
+  // Show loading state while plugins are being fetched
+  if (pluginsLoading) {
+    // Use custom loading component if provided, otherwise a minimal placeholder
     if (loadingComponent) {
       return <>{loadingComponent}</>;
     }
-    // Default loading skeleton
+    // Default: render an empty container with same dimensions to prevent layout shift
     return (
       <div
         className={className}
@@ -675,22 +756,11 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          minHeight: 200,
-          background: 'var(--tbw-color-bg, #f5f5f5)',
-          borderRadius: 4,
+          minHeight: '200px',
         }}
       >
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            border: '2px solid currentColor',
-            borderTopColor: 'transparent',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-          }}
-        />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        {/* Minimal loading indicator */}
+        <span style={{ opacity: 0.5 }}>Loading...</span>
       </div>
     );
   }

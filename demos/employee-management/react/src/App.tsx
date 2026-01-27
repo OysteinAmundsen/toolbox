@@ -1,18 +1,16 @@
 /**
  * Employee Management Demo - React Implementation
  *
- * This demo showcases @toolbox-web/grid-react in a React application.
- * It matches the visual design and functionality of the vanilla and Angular demos.
- *
- * Uses the "React way" with:
- * - ReactGridConfig with `renderer` and `editor` for inline React components
- *   (same property names as vanilla JS - ReactGridConfig wraps them for React)
+ * This demo showcases @toolbox-web/grid-react best practices:
+ * - Feature props for declarative plugin configuration (no manual plugin imports)
+ * - Event props for automatic cleanup (no useEffect for events)
+ * - ReactGridConfig for inline React renderers/editors
  * - GridDetailPanel for declarative master-detail panels
  * - GridToolPanel for custom sidebar panels
  * - GridToolButtons for toolbar actions
- * - customStyles for shadow DOM styling
+ * - Enhanced useGrid with convenience methods
  *
- * Alternative: GridColumn components can also define renderers/editors in JSX.
+ * The grid matches visual design and functionality across all framework demos.
  */
 
 import {
@@ -24,32 +22,14 @@ import {
   useGrid,
   type ReactGridConfig,
 } from '@toolbox-web/grid-react';
-import {
-  ClipboardPlugin,
-  ColumnVirtualizationPlugin,
-  ContextMenuPlugin,
-  EditingPlugin,
-  ExportPlugin,
-  FilteringPlugin,
-  GroupingColumnsPlugin,
-  MasterDetailPlugin,
-  MultiSortPlugin,
-  PinnedColumnsPlugin,
-  PinnedRowsPlugin,
-  ReorderPlugin,
-  ResponsivePlugin,
-  SelectionPlugin,
-  UndoRedoPlugin,
-  VisibilityPlugin,
-  type ColumnMoveDetail,
-} from '@toolbox-web/grid/all';
+import type { ColumnMoveDetail } from '@toolbox-web/grid/plugins/reorder';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // Import shared data, types, and styles
 import { DEPARTMENTS, generateEmployees, type Employee } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 
-// Import React-specific renderers and editors (matching Angular pattern)
+// Import React-specific renderers and editors
 import { BonusSliderEditor } from './components/editors/BonusSliderEditor';
 import { DateEditor } from './components/editors/DateEditor';
 import { StarRatingEditor } from './components/editors/StarRatingEditor';
@@ -66,10 +46,10 @@ export function App() {
   const [rowCount, setRowCount] = useState(200);
   const [employees, setEmployees] = useState<Employee[]>(() => generateEmployees(rowCount));
 
-  // Grid ref for programmatic access - provides typed element and isReady state
-  const { ref, element, isReady } = useGrid<Employee>();
+  // Enhanced useGrid with convenience methods
+  const { ref, isReady, exportToCsv } = useGrid<Employee>();
 
-  // Demo options
+  // Demo options - toggle features dynamically
   const [enableSelection, setEnableSelection] = useState(true);
   const [enableFiltering, setEnableFiltering] = useState(true);
   const [enableSorting, setEnableSorting] = useState(true);
@@ -83,7 +63,7 @@ export function App() {
     setEmployees(generateEmployees(newCount));
   }, []);
 
-  // Column groups - extracted for use in both config and event handler
+  // Column groups for multi-level headers
   const columnGroups = useMemo(
     () => [
       { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
@@ -98,10 +78,9 @@ export function App() {
     [],
   );
 
-  // Demonstrate cancelable events: prevent columns from moving outside their groups
-  // This shows the error flash animation when a move would break group contiguity
+  // Cancelable column-move handler: enforce group contiguity
+  // This is the one event that needs useEffect because it calls preventDefault()
   useEffect(() => {
-    // Access the actual DOM element via ref.current.element (DataGridRef wrapper)
     const grid = ref.current?.element;
     if (!grid || !isReady) return;
 
@@ -111,9 +90,9 @@ export function App() {
 
       // Find which group this field belongs to
       const sourceGroup = columnGroups.find((g) => g.children.includes(field));
-      if (!sourceGroup) return; // Not in a group, allow the move
+      if (!sourceGroup) return;
 
-      // Get the indices of all columns in the source group (in the new/proposed order)
+      // Get the indices of all columns in the source group
       const groupColumnIndices = sourceGroup.children
         .map((f) => columnOrder.indexOf(f))
         .filter((i) => i !== -1)
@@ -121,7 +100,7 @@ export function App() {
 
       if (groupColumnIndices.length <= 1) return;
 
-      // Check if the group columns are contiguous (no gaps between them)
+      // Check if the group columns are contiguous
       const minIndex = groupColumnIndices[0];
       const maxIndex = groupColumnIndices[groupColumnIndices.length - 1];
       const isContiguous = groupColumnIndices.length === maxIndex - minIndex + 1;
@@ -130,7 +109,7 @@ export function App() {
         console.log(`[Column Move Cancelled] Cannot move "${field}" outside its group "${sourceGroup.id}"`);
         event.preventDefault();
 
-        // Flash the column header with error color to indicate cancellation
+        // Flash error animation
         const headerCell = grid.querySelector(`.header-row .cell[data-field="${field}"]`) as HTMLElement;
         if (headerCell) {
           headerCell.style.setProperty('--_flash-color', 'var(--tbw-color-error)');
@@ -146,8 +125,7 @@ export function App() {
     return () => grid.removeEventListener('column-move', handler);
   }, [ref, columnGroups, isReady]);
 
-  // Create grid config with plugins and React renderers/editors inline
-  // Using ReactGridConfig allows reactRenderer/reactEditor properties
+  // Grid configuration with React renderers/editors
   const gridConfig = useMemo<ReactGridConfig<Employee>>(
     () => ({
       shell: {
@@ -203,8 +181,6 @@ export function App() {
           sortable: enableSorting,
           format: (v: number) => `$${v.toLocaleString()}`,
         },
-        // bonus, status, hireDate, rating, isTopPerformer - using renderer/editor inline
-        // Same property names as vanilla JS - ReactGridConfig wraps them for React
         {
           field: 'bonus',
           header: 'Bonus',
@@ -214,7 +190,6 @@ export function App() {
           sortable: enableSorting,
           format: (v: number) =>
             v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-          // React editor defined inline - same syntax as vanilla!
           editor: (ctx) => (
             <BonusSliderEditor value={ctx.value} salary={ctx.row.salary} onCommit={ctx.commit} onCancel={ctx.cancel} />
           ),
@@ -225,7 +200,6 @@ export function App() {
           width: 140,
           sortable: enableSorting,
           editable: enableEditing,
-          // Both renderer and editor inline
           renderer: (ctx) => <StatusBadge value={ctx.value} />,
           editor: (ctx) => <StatusSelectEditor value={ctx.value} onCommit={ctx.commit} onCancel={ctx.cancel} />,
         },
@@ -236,7 +210,6 @@ export function App() {
           type: 'date',
           sortable: enableSorting,
           editable: enableEditing,
-          // Only custom editor - grid uses type="date" formatting for display
           editor: (ctx) => <DateEditor value={ctx.value} onCommit={ctx.commit} onCancel={ctx.cancel} />,
         },
         {
@@ -246,7 +219,6 @@ export function App() {
           type: 'number',
           sortable: enableSorting,
           editable: enableEditing,
-          // Both renderer and editor inline
           renderer: (ctx) => <RatingDisplay value={ctx.value} />,
           editor: (ctx) => <StarRatingEditor value={ctx.value} onCommit={ctx.commit} onCancel={ctx.cancel} />,
         },
@@ -256,76 +228,54 @@ export function App() {
           width: 50,
           type: 'boolean',
           sortable: false,
-          // Only renderer - no editor needed
           renderer: (ctx) => <TopPerformerStar value={ctx.value} />,
         },
         { field: 'location', header: 'Location', width: 110, sortable: enableSorting },
       ],
-      plugins: [
-        ...(enableSelection ? [new SelectionPlugin({ mode: 'range' })] : []),
-        ...(enableSorting ? [new MultiSortPlugin()] : []),
-        ...(enableFiltering ? [new FilteringPlugin({ debounceMs: 200 })] : []),
-        ...(enableEditing ? [new EditingPlugin({ editOn: 'dblclick' })] : []),
-        new ClipboardPlugin(),
-        new ContextMenuPlugin(),
-        new ReorderPlugin(),
-        new GroupingColumnsPlugin(),
-        new PinnedColumnsPlugin(),
-        new ColumnVirtualizationPlugin(),
-        new VisibilityPlugin(),
-        // Responsive plugin - card template comes from GridResponsiveCard component
-        new ResponsivePlugin<Employee>({
-          breakpoint: 700,
-          cardRowHeight: 80,
-          hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
-        }),
-        // MasterDetailPlugin is added when enableMasterDetail is true
-        // The detail renderer is provided declaratively via GridDetailPanel
-        ...(enableMasterDetail
-          ? [
-              new MasterDetailPlugin({
-                showExpandColumn: true,
-                animation: 'slide',
-              }),
-            ]
-          : []),
-        ...(enableEditing ? [new UndoRedoPlugin({ maxHistorySize: 100 })] : []),
-        new ExportPlugin(),
-        new PinnedRowsPlugin({
-          position: 'bottom',
-          showRowCount: true,
-          showFilteredCount: true,
-          aggregationRows: [
-            {
-              id: 'totals',
-              position: 'bottom',
-              cells: {
-                id: 'Summary:',
-                salary: (rows: unknown[]) =>
-                  (rows as Employee[])
-                    .reduce((acc, r) => acc + (r.salary || 0), 0)
-                    .toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-                bonus: (rows: unknown[]) =>
-                  (rows as Employee[])
-                    .reduce((acc, r) => acc + (r.bonus || 0), 0)
-                    .toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-                rating: (rows: unknown[]) => {
-                  const vals = (rows as Employee[]).map((r) => r.rating).filter(Boolean);
-                  return vals.length ? `Avg: ${(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)}` : '';
-                },
-              },
-            },
-          ],
-        }),
-      ],
     }),
-    [columnGroups, enableSelection, enableFiltering, enableSorting, enableEditing, enableMasterDetail, ref],
+    [columnGroups, enableSorting, enableEditing],
   );
 
-  // Handle row changes
-  const handleRowsChange = useCallback((rows: Employee[]) => {
-    setEmployees(rows);
-  }, []);
+  // Pinned rows config for aggregation
+  const pinnedRowsConfig = useMemo(
+    () => ({
+      position: 'bottom' as const,
+      showRowCount: true,
+      showFilteredCount: true,
+      aggregationRows: [
+        {
+          id: 'totals',
+          position: 'bottom' as const,
+          cells: {
+            id: 'Summary:',
+            salary: (rows: unknown[]) =>
+              (rows as Employee[])
+                .reduce((acc, r) => acc + (r.salary || 0), 0)
+                .toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
+            bonus: (rows: unknown[]) =>
+              (rows as Employee[])
+                .reduce((acc, r) => acc + (r.bonus || 0), 0)
+                .toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
+            rating: (rows: unknown[]) => {
+              const vals = (rows as Employee[]).map((r) => r.rating).filter(Boolean);
+              return vals.length ? `Avg: ${(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)}` : '';
+            },
+          },
+        },
+      ],
+    }),
+    [],
+  );
+
+  // Responsive config for mobile/narrow layouts
+  const responsiveConfig = useMemo(
+    () => ({
+      breakpoint: 700,
+      cardRowHeight: 80,
+      hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
+    }),
+    [],
+  );
 
   return (
     <div id="app">
@@ -370,20 +320,40 @@ export function App() {
             ref={ref}
             rows={employees}
             gridConfig={gridConfig}
-            onRowsChange={handleRowsChange}
             customStyles={shadowDomStyles}
             className="demo-grid"
+            // ═══════════════════════════════════════════════════════════════
+            // FEATURE PROPS - Declarative plugin configuration
+            // No plugin imports needed - plugins are lazy-loaded automatically
+            // ═══════════════════════════════════════════════════════════════
+            selection={enableSelection ? 'range' : undefined}
+            sorting={enableSorting ? 'multi' : undefined}
+            filtering={enableFiltering ? { debounceMs: 200 } : undefined}
+            editing={enableEditing ? 'dblclick' : undefined}
+            undoRedo={enableEditing ? { maxHistorySize: 100 } : undefined}
+            clipboard
+            contextMenu
+            reorder
+            visibility
+            pinnedColumns
+            groupingColumns
+            columnVirtualization
+            export
+            responsive={responsiveConfig}
+            masterDetail={enableMasterDetail ? { showExpandColumn: true, animation: 'slide' } : undefined}
+            pinnedRows={pinnedRowsConfig}
+            // ═══════════════════════════════════════════════════════════════
+            // EVENT PROPS - Automatic cleanup, no useEffect needed
+            // ═══════════════════════════════════════════════════════════════
+            onRowsChange={setEmployees}
           >
-            {/* Toolbar buttons via declarative light DOM container */}
+            {/* Toolbar buttons using enhanced useGrid methods */}
             <GridToolButtons>
               <button
                 className="tbw-toolbar-btn"
                 title="Export CSV"
                 aria-label="Export CSV"
-                onClick={() => {
-                  // No type casting needed - ref.current.element is properly typed!
-                  ref.current?.element?.getPlugin?.(ExportPlugin)?.exportCsv?.({ fileName: 'employees' });
-                }}
+                onClick={() => exportToCsv('employees.csv')}
               >
                 📄
               </button>
@@ -392,7 +362,9 @@ export function App() {
                 title="Export Excel"
                 aria-label="Export Excel"
                 onClick={() => {
-                  ref.current?.element?.getPlugin?.(ExportPlugin)?.exportExcel?.({ fileName: 'employees' });
+                  // Excel export still needs plugin access for advanced options
+                  const grid = ref.current?.element as any;
+                  grid?.getPluginByName?.('export')?.exportExcel?.({ fileName: 'employees' });
                 }}
               >
                 📊
@@ -408,31 +380,13 @@ export function App() {
               {({ grid }) => <AnalyticsPanel grid={grid} />}
             </GridToolPanel>
 
-            {/*
-             * NOTE: Custom renderers/editors for status, bonus, rating, hireDate, isTopPerformer
-             * are now defined inline in gridConfig.columns using reactRenderer/reactEditor!
-             * This eliminates the need for separate GridColumn elements for these fields.
-             *
-             * Alternative approach (also supported):
-             *   <GridColumn field="status" editor={(ctx) => <Editor ... />}>
-             *     {(ctx) => <Renderer ... />}
-             *   </GridColumn>
-             *
-             * Both approaches work and can be mixed. Use gridConfig for collocated config,
-             * or GridColumn JSX for more complex scenarios requiring React context/hooks.
-             */}
-
             {/* Master-detail panel with declarative React component */}
             {enableMasterDetail && (
-              <GridDetailPanel<Employee> showExpandColumn animation="slide">
-                {({ row }) => <DetailPanel employee={row} />}
-              </GridDetailPanel>
+              <GridDetailPanel<Employee>>{({ row }) => <DetailPanel employee={row} />}</GridDetailPanel>
             )}
 
             {/* Responsive card for mobile/narrow layouts */}
-            <GridResponsiveCard<Employee> cardRowHeight={80}>
-              {({ row }) => <ResponsiveEmployeeCard employee={row} />}
-            </GridResponsiveCard>
+            <GridResponsiveCard<Employee>>{({ row }) => <ResponsiveEmployeeCard employee={row} />}</GridResponsiveCard>
           </DataGrid>
         </div>
       </div>

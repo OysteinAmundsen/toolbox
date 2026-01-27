@@ -21,6 +21,7 @@
     "paths": {
       "@toolbox-web/grid": ["dist/libs/grid/index.d.ts"],
       "@toolbox-web/grid/all": ["dist/libs/grid/all.d.ts"],
+      "@toolbox-web/grid/plugins/*": ["dist/libs/grid/lib/plugins/*/index.d.ts"],
       "@toolbox-web/grid/*": ["dist/libs/grid/*"],
       "@toolbox-web/grid-angular": ["dist/libs/grid-angular/index.d.ts"],
       "@toolbox-web/grid-react": ["dist/libs/grid-react/index.d.ts"],

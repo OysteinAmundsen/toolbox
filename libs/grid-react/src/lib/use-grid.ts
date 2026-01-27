@@ -3,9 +3,59 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DataGridRef } from './data-grid';
 
 /**
+ * Selection convenience methods returned from useGrid.
+ */
+export interface SelectionMethods<TRow = unknown> {
+  /**
+   * Select all rows in the grid.
+   * Requires SelectionPlugin with mode: 'row'.
+   */
+  selectAll: () => void;
+
+  /**
+   * Clear all selection.
+   * Works with any SelectionPlugin mode.
+   */
+  clearSelection: () => void;
+
+  /**
+   * Get selected row indices.
+   * Returns Set of selected row indices.
+   */
+  getSelectedIndices: () => Set<number>;
+
+  /**
+   * Get selected rows data.
+   * Returns array of selected row objects.
+   */
+  getSelectedRows: () => TRow[];
+}
+
+/**
+ * Export convenience methods returned from useGrid.
+ */
+export interface ExportMethods {
+  /**
+   * Export grid data to CSV file.
+   * Requires ExportPlugin to be loaded.
+   *
+   * @param filename - Optional filename (defaults to 'export.csv')
+   */
+  exportToCsv: (filename?: string) => void;
+
+  /**
+   * Export grid data to JSON file.
+   * Requires ExportPlugin to be loaded.
+   *
+   * @param filename - Optional filename (defaults to 'export.json')
+   */
+  exportToJson: (filename?: string) => void;
+}
+
+/**
  * Return type for useGrid hook.
  */
-export interface UseGridReturn<TRow = unknown> {
+export interface UseGridReturn<TRow = unknown> extends SelectionMethods<TRow>, ExportMethods {
   /** Ref to attach to the DataGrid component (returns DataGridRef handle) */
   ref: React.RefObject<DataGridRef<TRow> | null>;
   /** Direct access to the typed grid element (convenience for ref.current?.element) */
@@ -124,6 +174,73 @@ export function useGrid<TRow = unknown>(): UseGridReturn<TRow> {
     return config.columns.filter((col) => !col.hidden);
   }, [config]);
 
+  // ═══════════════════════════════════════════════════════════════════
+  // SELECTION CONVENIENCE METHODS
+  // ═══════════════════════════════════════════════════════════════════
+
+  const selectAll = useCallback(() => {
+    const element = ref.current?.element as any;
+    const plugin = element?.getPluginByName?.('selection');
+    if (!plugin) {
+      console.warn('[useGrid] selectAll requires SelectionPlugin');
+      return;
+    }
+    // Row mode: select all row indices
+    if (plugin.config?.mode === 'row') {
+      const rows = element?.rows ?? [];
+      const allIndices = new Set<number>(rows.map((_: unknown, i: number) => i));
+      plugin.selected = allIndices;
+      plugin.requestAfterRender?.();
+    }
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    const element = ref.current?.element as any;
+    const plugin = element?.getPluginByName?.('selection');
+    if (!plugin) return;
+    plugin.clearSelection?.();
+  }, []);
+
+  const getSelectedIndices = useCallback((): Set<number> => {
+    const element = ref.current?.element as any;
+    const plugin = element?.getPluginByName?.('selection');
+    if (!plugin) return new Set();
+    return new Set(plugin.selected ?? []);
+  }, []);
+
+  const getSelectedRows = useCallback((): TRow[] => {
+    const element = ref.current?.element as any;
+    const plugin = element?.getPluginByName?.('selection');
+    if (!plugin) return [];
+    const rows = element?.rows ?? [];
+    const selected = plugin.selected ?? new Set();
+    return rows.filter((_: TRow, i: number) => selected.has(i));
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // EXPORT CONVENIENCE METHODS
+  // ═══════════════════════════════════════════════════════════════════
+
+  const exportToCsv = useCallback((filename?: string) => {
+    const element = ref.current?.element as any;
+    const plugin = element?.getPluginByName?.('export');
+    if (!plugin) {
+      console.warn('[useGrid] exportToCsv requires ExportPlugin (use export prop)');
+      return;
+    }
+    plugin.exportCsv?.({ filename: filename ?? 'export.csv' });
+  }, []);
+
+  const exportToJson = useCallback((filename?: string) => {
+    const element = ref.current?.element as any;
+    const plugin = element?.getPluginByName?.('export');
+    if (!plugin) {
+      console.warn('[useGrid] exportToJson requires ExportPlugin (use export prop)');
+      return;
+    }
+    plugin.exportJson?.({ filename: filename ?? 'export.json' });
+  }, []);
+
   return {
     ref,
     element: ref.current?.element ?? null,
@@ -135,5 +252,13 @@ export function useGrid<TRow = unknown>(): UseGridReturn<TRow> {
     registerStyles,
     unregisterStyles,
     getVisibleColumns,
+    // Selection methods
+    selectAll,
+    clearSelection,
+    getSelectedIndices,
+    getSelectedRows,
+    // Export methods
+    exportToCsv,
+    exportToJson,
   };
 }

@@ -1,34 +1,35 @@
 /**
- * React hook for lazy-loading grid plugins based on feature props.
+ * React hook for dynamically loading grid plugins based on feature props.
  *
- * This hook dynamically imports plugins only when their corresponding feature props
- * are used, ensuring tree-shaking and minimal bundle size.
+ * This hook uses dynamic imports to load only the plugins you actually use.
+ * The consumer's bundler will code-split each plugin into separate chunks,
+ * which are fetched on-demand at runtime.
  *
  * @internal
  */
 
 import type { BaseGridPlugin } from '@toolbox-web/grid';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FeatureProps } from './feature-props';
 import { PLUGIN_LOADERS, type FeaturePropName } from './plugin-loaders';
 
 /**
- * Result of the lazy plugin loading hook
+ * Result of the plugin loading hook
  */
 export interface UseLazyPluginsResult {
-  /** Loaded plugin instances ready to use */
+  /** Plugin instances (empty while loading) */
   plugins: BaseGridPlugin[];
-  /** Whether plugins are currently loading */
+  /** True while plugins are being loaded */
   isLoading: boolean;
-  /** Error if loading failed */
+  /** Error if loading failed (null if successful) */
   error: Error | null;
 }
 
 /**
  * Performs topological sort on plugins based on dependencies.
- * Ensures plugins are loaded in correct order (dependencies first).
+ * Ensures plugins are instantiated in correct order (dependencies first).
  *
- * @param propNames - Set of feature prop names to load
+ * @param propNames - Set of feature prop names to instantiate
  * @returns Ordered array of prop names with dependencies first
  */
 function topologicalSort(propNames: Set<FeaturePropName>): FeaturePropName[] {
@@ -95,22 +96,10 @@ function extractFeatureProps<TRow = unknown>(props: FeatureProps<TRow>): Map<Fea
 }
 
 /**
- * Creates a stable cache key from feature props for dependency tracking.
- * Only includes defined feature props to minimize re-loads.
- */
-function createCacheKey(featureMap: Map<FeaturePropName, unknown>): string {
-  const entries = Array.from(featureMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => {
-      // For objects, create a deterministic string representation
-      const valueKey = typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value);
-      return `${key}:${valueKey}`;
-    });
-  return entries.join('|');
-}
-
-/**
- * Hook for lazy-loading grid plugins based on feature props.
+ * Hook for dynamically loading grid plugins based on feature props.
+ *
+ * Plugins are loaded asynchronously via dynamic imports. This enables
+ * code-splitting - only plugins you use are downloaded to the browser.
  *
  * @example
  * ```tsx
@@ -119,31 +108,49 @@ function createCacheKey(featureMap: Map<FeaturePropName, unknown>): string {
  *   filtering: true,
  *   editing: 'dblclick',
  * });
+ *
+ * if (isLoading) return <div>Loading...</div>;
+ * if (error) return <div>Error: {error.message}</div>;
+ * // plugins is now ready to use
  * ```
  *
  * @param featureProps - Object containing feature props
- * @returns Object with loaded plugins, loading state, and error
+ * @returns Object with plugins array, isLoading flag, and error
  */
 export function useLazyPlugins<TRow = unknown>(featureProps: FeatureProps<TRow>): UseLazyPluginsResult {
+  // Compute stable key FIRST - directly from props, before creating Map
+  // This ensures the key is stable even when featureProps object reference changes
+  const featureKey = useMemo(() => {
+    const featureNames = Object.keys(PLUGIN_LOADERS) as FeaturePropName[];
+    return featureNames
+      .filter((name) => {
+        const value = (featureProps as Record<string, unknown>)[name];
+        return value !== undefined && value !== false;
+      })
+      .map((name) => `${name}:${JSON.stringify((featureProps as Record<string, unknown>)[name])}`)
+      .sort()
+      .join('|');
+  }, [featureProps]);
+
+  // Extract feature props only when the stable key changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const featureMap = useMemo(() => extractFeatureProps(featureProps), [featureKey]);
+
+  // Track loading state - start as loading only if we have features
   const [plugins, setPlugins] = useState<BaseGridPlugin[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(() => {
+    // Check if there are any features on initial render
+    const featureNames = Object.keys(PLUGIN_LOADERS) as FeaturePropName[];
+    return featureNames.some((name) => {
+      const value = (featureProps as Record<string, unknown>)[name];
+      return value !== undefined && value !== false;
+    });
+  });
   const [error, setError] = useState<Error | null>(null);
 
-  // Track the previous cache key to detect changes
-  const prevCacheKeyRef = useRef<string>('');
-
-  // Extract active feature props and create cache key
-  const featureMap = useMemo(() => extractFeatureProps(featureProps), [featureProps]);
-  const cacheKey = useMemo(() => createCacheKey(featureMap), [featureMap]);
-
+  // Load plugins asynchronously - only depends on featureKey (stable string)
   useEffect(() => {
-    // Skip if nothing changed
-    if (cacheKey === prevCacheKeyRef.current) {
-      return;
-    }
-    prevCacheKeyRef.current = cacheKey;
-
-    // If no features, return empty
+    // If no features, nothing to load
     if (featureMap.size === 0) {
       setPlugins([]);
       setIsLoading(false);
@@ -162,14 +169,14 @@ export function useLazyPlugins<TRow = unknown>(featureProps: FeatureProps<TRow>)
         const propNames = new Set(featureMap.keys());
         const sortedNames = topologicalSort(propNames);
 
-        // Load plugins in order
+        // Load plugins in order (maintaining dependency order)
         const loadedPlugins: BaseGridPlugin[] = [];
 
         for (const name of sortedNames) {
           if (cancelled) return;
 
-          const loader = PLUGIN_LOADERS[name];
-          if (!loader) {
+          const loaderDef = PLUGIN_LOADERS[name];
+          if (!loaderDef) {
             console.warn(`[grid-react] Unknown feature prop: ${name}`);
             continue;
           }
@@ -179,24 +186,18 @@ export function useLazyPlugins<TRow = unknown>(featureProps: FeatureProps<TRow>)
 
           // If this was added as an implicit dependency, use default config
           if (config === undefined) {
-            // Implicit dependencies get sensible defaults
             if (name === 'selection') {
-              config = 'row'; // Default selection mode
+              config = 'row';
             } else if (name === 'editing') {
-              config = true; // Default editing
+              config = true;
             } else {
-              config = true; // Generic true for boolean-like props
+              config = true;
             }
           }
 
-          try {
-            // Config type varies per loader, so we use type assertion here
-            const plugin = await loader.loader(config as never);
-            loadedPlugins.push(plugin);
-          } catch (err) {
-            console.error(`[grid-react] Failed to load plugin "${name}":`, err);
-            throw new Error(`Failed to load plugin "${name}": ${err instanceof Error ? err.message : String(err)}`);
-          }
+          // Load and instantiate the plugin asynchronously
+          const plugin = await loaderDef.loader(config as never);
+          loadedPlugins.push(plugin);
         }
 
         if (!cancelled) {
@@ -205,7 +206,9 @@ export function useLazyPlugins<TRow = unknown>(featureProps: FeatureProps<TRow>)
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err : new Error(String(err)));
+          const loadError = err instanceof Error ? err : new Error(String(err));
+          console.error('[grid-react] Failed to load plugins:', loadError);
+          setError(loadError);
           setIsLoading(false);
         }
       }
@@ -216,7 +219,9 @@ export function useLazyPlugins<TRow = unknown>(featureProps: FeatureProps<TRow>)
     return () => {
       cancelled = true;
     };
-  }, [cacheKey, featureMap]);
+    // Only depend on featureKey (stable string), not featureMap (object reference)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [featureKey]);
 
   return { plugins, isLoading, error };
 }

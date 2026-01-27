@@ -1,9 +1,35 @@
 /**
  * Plugin loader definitions for lazy-loading grid plugins based on React props.
  *
- * This module provides the mapping between declarative feature props and their
- * corresponding plugin dynamic imports. Plugins are only loaded when the
- * corresponding prop is used.
+ * This module maps feature props to dynamic imports from specific plugin paths.
+ * This design enables two usage patterns with different trade-offs:
+ *
+ * ## Pattern 1: Feature Props (Convenience)
+ *
+ * ```tsx
+ * <DataGrid rows={data} selection="range" editing="dblclick" />
+ * ```
+ *
+ * - Plugins are loaded via dynamic imports at runtime
+ * - Small latency on first render while chunks are fetched (~10-50ms)
+ * - Chunks are cached by browser for subsequent visits
+ * - Great DX, minimal code
+ *
+ * ## Pattern 2: Manual Plugins (Optimal Bundle)
+ *
+ * ```tsx
+ * import { SelectionPlugin, EditingPlugin } from '@toolbox-web/grid/plugins/selection';
+ *
+ * <DataGrid
+ *   rows={data}
+ *   plugins={[new SelectionPlugin({ mode: 'range' }), new EditingPlugin()]}
+ * />
+ * ```
+ *
+ * - Plugins are statically imported and bundled with your app
+ * - Zero runtime fetches - everything in main bundle
+ * - Full tree-shaking - only imported plugins are bundled
+ * - Optimal for performance-critical applications
  *
  * @internal
  */
@@ -28,22 +54,9 @@ export interface PluginDefinition {
 }
 
 /**
- * Plugin dependency map - which plugins require other plugins
- * Key is the dependent plugin, value is array of required plugins
- */
-export const PLUGIN_DEPENDENCIES: Record<string, string[]> = {
-  // UndoRedoPlugin requires EditingPlugin to track edit history
-  undoRedo: ['editing'],
-  // ClipboardPlugin requires SelectionPlugin to know what cells to copy
-  clipboard: ['selection'],
-} as const;
-
-/**
  * Maps feature prop names to their plugin loader definitions.
- * Each loader dynamically imports the plugin and instantiates it with the given config.
- *
- * Note: We import from '@toolbox-web/grid/all' for monorepo compatibility.
- * The bundler will tree-shake unused plugins when building for production.
+ * Each loader dynamically imports from the SPECIFIC plugin path to enable
+ * code-splitting. Only plugins you use via feature props are fetched.
  */
 export const PLUGIN_LOADERS = {
   /**
@@ -53,7 +66,7 @@ export const PLUGIN_LOADERS = {
   selection: {
     name: 'selection',
     loader: async (config: 'cell' | 'row' | 'range' | object) => {
-      const { SelectionPlugin } = await import('@toolbox-web/grid/all');
+      const { SelectionPlugin } = await import('@toolbox-web/grid/plugins/selection');
       const pluginConfig = typeof config === 'string' ? { mode: config } : config;
       return new SelectionPlugin(pluginConfig);
     },
@@ -67,7 +80,7 @@ export const PLUGIN_LOADERS = {
   editing: {
     name: 'editing',
     loader: async (config: boolean | 'click' | 'dblclick' | 'manual' | object) => {
-      const { EditingPlugin } = await import('@toolbox-web/grid/all');
+      const { EditingPlugin } = await import('@toolbox-web/grid/plugins/editing');
       if (typeof config === 'boolean') {
         return new EditingPlugin();
       }
@@ -86,7 +99,7 @@ export const PLUGIN_LOADERS = {
   filtering: {
     name: 'filtering',
     loader: async (config: true | object) => {
-      const { FilteringPlugin } = await import('@toolbox-web/grid/all');
+      const { FilteringPlugin } = await import('@toolbox-web/grid/plugins/filtering');
       return new FilteringPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -99,7 +112,7 @@ export const PLUGIN_LOADERS = {
   sorting: {
     name: 'multiSort',
     loader: async (config: true | 'single' | 'multi' | object) => {
-      const { MultiSortPlugin } = await import('@toolbox-web/grid/all');
+      const { MultiSortPlugin } = await import('@toolbox-web/grid/plugins/multi-sort');
       if (config === true) {
         return new MultiSortPlugin();
       }
@@ -118,7 +131,7 @@ export const PLUGIN_LOADERS = {
   clipboard: {
     name: 'clipboard',
     loader: async (config: true | object) => {
-      const { ClipboardPlugin } = await import('@toolbox-web/grid/all');
+      const { ClipboardPlugin } = await import('@toolbox-web/grid/plugins/clipboard');
       return new ClipboardPlugin(config === true ? undefined : config);
     },
     dependencies: ['selection'], // Requires selection to know what to copy
@@ -131,7 +144,7 @@ export const PLUGIN_LOADERS = {
   contextMenu: {
     name: 'contextMenu',
     loader: async (config: true | object) => {
-      const { ContextMenuPlugin } = await import('@toolbox-web/grid/all');
+      const { ContextMenuPlugin } = await import('@toolbox-web/grid/plugins/context-menu');
       return new ContextMenuPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -144,7 +157,7 @@ export const PLUGIN_LOADERS = {
   reorder: {
     name: 'reorder',
     loader: async (config: true | object) => {
-      const { ReorderPlugin } = await import('@toolbox-web/grid/all');
+      const { ReorderPlugin } = await import('@toolbox-web/grid/plugins/reorder');
       return new ReorderPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -157,7 +170,7 @@ export const PLUGIN_LOADERS = {
   rowReorder: {
     name: 'rowReorder',
     loader: async (config: true | object) => {
-      const { RowReorderPlugin } = await import('@toolbox-web/grid/all');
+      const { RowReorderPlugin } = await import('@toolbox-web/grid/plugins/row-reorder');
       return new RowReorderPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -170,7 +183,7 @@ export const PLUGIN_LOADERS = {
   visibility: {
     name: 'visibility',
     loader: async (config: true | object) => {
-      const { VisibilityPlugin } = await import('@toolbox-web/grid/all');
+      const { VisibilityPlugin } = await import('@toolbox-web/grid/plugins/visibility');
       return new VisibilityPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -183,7 +196,7 @@ export const PLUGIN_LOADERS = {
   undoRedo: {
     name: 'undoRedo',
     loader: async (config: true | object) => {
-      const { UndoRedoPlugin } = await import('@toolbox-web/grid/all');
+      const { UndoRedoPlugin } = await import('@toolbox-web/grid/plugins/undo-redo');
       return new UndoRedoPlugin(config === true ? undefined : config);
     },
     dependencies: ['editing'], // Requires editing to track history
@@ -196,7 +209,7 @@ export const PLUGIN_LOADERS = {
   tree: {
     name: 'tree',
     loader: async (config: true | object) => {
-      const { TreePlugin } = await import('@toolbox-web/grid/all');
+      const { TreePlugin } = await import('@toolbox-web/grid/plugins/tree');
       return new TreePlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -209,7 +222,7 @@ export const PLUGIN_LOADERS = {
   groupingRows: {
     name: 'groupingRows',
     loader: async (config: object) => {
-      const { GroupingRowsPlugin } = await import('@toolbox-web/grid/all');
+      const { GroupingRowsPlugin } = await import('@toolbox-web/grid/plugins/grouping-rows');
       return new GroupingRowsPlugin(config);
     },
     dependencies: [],
@@ -222,7 +235,7 @@ export const PLUGIN_LOADERS = {
   groupingColumns: {
     name: 'groupingColumns',
     loader: async (config: true | object) => {
-      const { GroupingColumnsPlugin } = await import('@toolbox-web/grid/all');
+      const { GroupingColumnsPlugin } = await import('@toolbox-web/grid/plugins/grouping-columns');
       return new GroupingColumnsPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -235,7 +248,7 @@ export const PLUGIN_LOADERS = {
   pinnedColumns: {
     name: 'pinnedColumns',
     loader: async (config: true | object) => {
-      const { PinnedColumnsPlugin } = await import('@toolbox-web/grid/all');
+      const { PinnedColumnsPlugin } = await import('@toolbox-web/grid/plugins/pinned-columns');
       return new PinnedColumnsPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -248,7 +261,7 @@ export const PLUGIN_LOADERS = {
   pinnedRows: {
     name: 'pinnedRows',
     loader: async (config: true | object) => {
-      const { PinnedRowsPlugin } = await import('@toolbox-web/grid/all');
+      const { PinnedRowsPlugin } = await import('@toolbox-web/grid/plugins/pinned-rows');
       return new PinnedRowsPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -261,7 +274,7 @@ export const PLUGIN_LOADERS = {
   masterDetail: {
     name: 'masterDetail',
     loader: async (config: object) => {
-      const { MasterDetailPlugin } = await import('@toolbox-web/grid/all');
+      const { MasterDetailPlugin } = await import('@toolbox-web/grid/plugins/master-detail');
       return new MasterDetailPlugin(config);
     },
     dependencies: [],
@@ -274,7 +287,7 @@ export const PLUGIN_LOADERS = {
   responsive: {
     name: 'responsive',
     loader: async (config: true | object) => {
-      const { ResponsivePlugin } = await import('@toolbox-web/grid/all');
+      const { ResponsivePlugin } = await import('@toolbox-web/grid/plugins/responsive');
       return new ResponsivePlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -287,7 +300,7 @@ export const PLUGIN_LOADERS = {
   columnVirtualization: {
     name: 'columnVirtualization',
     loader: async (config: true | object) => {
-      const { ColumnVirtualizationPlugin } = await import('@toolbox-web/grid/all');
+      const { ColumnVirtualizationPlugin } = await import('@toolbox-web/grid/plugins/column-virtualization');
       return new ColumnVirtualizationPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -300,7 +313,7 @@ export const PLUGIN_LOADERS = {
   export: {
     name: 'export',
     loader: async (config: true | object) => {
-      const { ExportPlugin } = await import('@toolbox-web/grid/all');
+      const { ExportPlugin } = await import('@toolbox-web/grid/plugins/export');
       return new ExportPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -313,7 +326,7 @@ export const PLUGIN_LOADERS = {
   print: {
     name: 'print',
     loader: async (config: true | object) => {
-      const { PrintPlugin } = await import('@toolbox-web/grid/all');
+      const { PrintPlugin } = await import('@toolbox-web/grid/plugins/print');
       return new PrintPlugin(config === true ? undefined : config);
     },
     dependencies: [],
@@ -326,7 +339,7 @@ export const PLUGIN_LOADERS = {
   pivot: {
     name: 'pivot',
     loader: async (config: object) => {
-      const { PivotPlugin } = await import('@toolbox-web/grid/all');
+      const { PivotPlugin } = await import('@toolbox-web/grid/plugins/pivot');
       return new PivotPlugin(config);
     },
     dependencies: [],
@@ -339,7 +352,7 @@ export const PLUGIN_LOADERS = {
   serverSide: {
     name: 'serverSide',
     loader: async (config: object) => {
-      const { ServerSidePlugin } = await import('@toolbox-web/grid/all');
+      const { ServerSidePlugin } = await import('@toolbox-web/grid/plugins/server-side');
       return new ServerSidePlugin(config);
     },
     dependencies: [],

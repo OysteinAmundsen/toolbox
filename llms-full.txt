@@ -156,6 +156,61 @@ export class EmployeeGridComponent {
 }
 ```
 
+### Angular Reactive Forms Integration
+
+Bind a `FormArray` directly to the grid for validation support and cell-level FormControl access:
+
+```typescript
+import { Component, inject, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Grid, GridFormArray, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid, GridFormArray, TbwEditor, TbwRenderer, ReactiveFormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <form [formGroup]="form">
+      <tbw-grid [formArray]="form.controls.employees" [gridConfig]="config" style="height: 400px; display: block;">
+        <tbw-grid-column field="age" editable>
+          <span *tbwRenderer="let value">{{ value }}</span>
+          <!-- 'control' provides the cell's FormControl -->
+          <input *tbwEditor="let value; control as ctrl" [formControl]="ctrl" type="number" />
+        </tbw-grid-column>
+      </tbw-grid>
+    </form>
+
+    <p>Form Valid: {{ form.valid }} | Dirty: {{ form.controls.employees.dirty }}</p>
+  `,
+})
+export class ReactiveFormsGridComponent {
+  private fb = inject(FormBuilder);
+
+  form = this.fb.group({
+    employees: this.fb.array([
+      this.fb.group({ name: ['Alice', Validators.required], age: [30, Validators.min(18)] }),
+      this.fb.group({ name: ['Bob', Validators.required], age: [25, Validators.min(18)] }),
+    ])
+  });
+
+  config = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'age', header: 'Age', editable: true },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+```
+
+**Key Features:**
+- `[formArray]` directive binds FormArray to grid rows
+- Cell edits update the corresponding FormControl
+- Access cell-level FormControl via `control` in `*tbwEditor` context
+- Row-level validation: `getFormArrayContext(gridElement).isRowValid(index)`
+- Automatic CSS classes: `.ng-valid`, `.ng-invalid`, `.ng-dirty`, `.ng-touched`
+
 ---
 
 ## Core Concepts

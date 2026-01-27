@@ -22,6 +22,7 @@ Important notes:
 ## Framework Adapters
 
 - [@toolbox-web/grid-angular](https://www.npmjs.com/package/@toolbox-web/grid-angular): Angular adapter with structural directives (`*tbwRenderer`, `*tbwEditor`)
+  - [Reactive Forms Integration](https://toolboxjs.com/?path=/docs/grid-angular-reactive-forms-integration--docs): Bind FormArray to grid with cell-level validation
 - [@toolbox-web/grid-react](https://www.npmjs.com/package/@toolbox-web/grid-react): React adapter with `DataGrid` component, hooks, and JSX renderers
 
 ## Plugins

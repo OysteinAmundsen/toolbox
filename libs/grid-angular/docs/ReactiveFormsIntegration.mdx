@@ -6,76 +6,30 @@ import { Meta, Source } from '@storybook/addon-docs/blocks';
 
 # Reactive Forms Integration
 
-The `@toolbox-web/grid-angular` package provides seamless integration with Angular Reactive Forms, allowing the grid to act as a proper form control.
+The `@toolbox-web/grid-angular` package provides seamless integration with Angular Reactive Forms, allowing the grid to act as a form-bound component with cell-level validation.
 
 ## Overview
 
-You can bind a grid to a `FormControl` or `FormArray` using the `formControl` or `formControlName` directives. This enables:
+You can bind a grid to a `FormArray` using the `[formArray]` directive. This enables:
 
-- **Two-way data binding** - Form value changes update the grid, and cell edits update the form
+- **Two-way data binding** - FormArray value changes update the grid, and cell edits update the FormArray
 - **Validation state** - Access cell-level and row-level validation
 - **Dirty/touched tracking** - Know when users have interacted with the grid
 - **FormControl in editors** - Custom editors can bind directly to cell-level FormControls
 
-## Basic Usage with FormControl
+## Usage with FormArray
 
-The simplest approach uses `FormControl<T[]>` to bind an array of row objects:
-
-<Source
-  language="typescript"
-  code={`
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { Grid, GridFormControl } from '@toolbox-web/grid-angular';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-
-@Component({
-  imports: [Grid, GridFormControl, ReactiveFormsModule],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: \\\`
-    <tbw-grid
-      [formControl]="employeesControl"
-      [gridConfig]="config"
-      style="height: 400px; display: block;"
-    />
-
-    <div class="form-state">
-      <p>Dirty: {{ employeesControl.dirty }}</p>
-      <p>Touched: {{ employeesControl.touched }}</p>
-      <p>Value: {{ employeesControl.value | json }}</p>
-    </div>
-  \\\`
-})
-export class BasicFormControlExample {
-  employeesControl = new FormControl([
-    { name: 'Alice', age: 30 },
-    { name: 'Bob', age: 25 },
-  ]);
-
-  config = {
-    columns: [
-      { field: 'name', header: 'Name', editable: true },
-      { field: 'age', header: 'Age', editable: true },
-    ],
-    plugins: [new EditingPlugin({ editOn: 'dblclick' })],
-  };
-}
-`}
-/>
-
-## Advanced: Cell-Level FormControls with FormArray
-
-For fine-grained validation control, use `FormArray` with `FormGroup` rows. This exposes cell-level `FormControl`s in the editor context:
+Use a `FormArray` of `FormGroup`s for full validation support. This exposes cell-level `FormControl`s in the editor context:
 
 <Source
   language="typescript"
   code={`
-import { Component, CUSTOM_ELEMENTS_SCHEMA, input, output } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, inject, input, output } from '@angular/core';
 import {
-  FormArray, FormControl, FormGroup,
+  FormArray, FormBuilder, FormControl, FormGroup,
   ReactiveFormsModule, Validators, AbstractControl
 } from '@angular/forms';
-import { Grid, GridFormControl, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
+import { Grid, GridFormArray, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
 // Custom validated input editor
@@ -83,7 +37,7 @@ import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
   selector: 'app-validated-input',
   standalone: true,
   imports: [ReactiveFormsModule],
-  template: \\\`
+  template: \`
     @if (control()) {
       <input
         [formControl]="control()"
@@ -93,11 +47,11 @@ import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
         <small class="error">{{ getErrorMessage() }}</small>
       }
     }
-  \\\`,
-  styles: \\\`
+  \`,
+  styles: \`
     .is-invalid { border-color: red; }
     .error { color: red; font-size: 0.8em; }
-  \\\`
+  \`
 })
 export class ValidatedInputComponent {
   control = input<AbstractControl>();
@@ -113,36 +67,44 @@ export class ValidatedInputComponent {
 
 @Component({
   imports: [
-    Grid, GridFormControl, TbwRenderer, TbwEditor,
+    Grid, GridFormArray, TbwRenderer, TbwEditor,
     ReactiveFormsModule, ValidatedInputComponent
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: \\\`
-    <tbw-grid [formControl]="employeesArray" [gridConfig]="config">
-      <tbw-grid-column field="age" editable>
-        <span *tbwRenderer="let value">{{ value }}</span>
-        <!-- The 'control' gives you the FormControl for this cell -->
-        <app-validated-input *tbwEditor="let value; control as ctrl" [control]="ctrl" />
-      </tbw-grid-column>
-    </tbw-grid>
+  template: \`
+    <form [formGroup]="form">
+      <tbw-grid [formArray]="form.controls.employees" [gridConfig]="config" style="height: 400px; display: block;">
+        <tbw-grid-column field="age" editable>
+          <span *tbwRenderer="let value">{{ value }}</span>
+          <!-- The 'control' gives you the FormControl for this cell -->
+          <app-validated-input *tbwEditor="let value; control as ctrl" [control]="ctrl" />
+        </tbw-grid-column>
+      </tbw-grid>
+    </form>
 
     <div class="validation-summary">
-      <p>Form Valid: {{ employeesArray.valid }}</p>
+      <p>Form Valid: {{ form.valid }}</p>
+      <p>Dirty: {{ form.controls.employees.dirty }}</p>
+      <p>Touched: {{ form.controls.employees.touched }}</p>
       <p>Errors: {{ getFormErrors() | json }}</p>
     </div>
-  \\\`
+  \`
 })
 export class FormArrayExample {
-  employeesArray = new FormArray([
-    new FormGroup({
-      name: new FormControl('Alice', Validators.required),
-      age: new FormControl(30, [Validators.required, Validators.min(18)]),
-    }),
-    new FormGroup({
-      name: new FormControl('Bob', Validators.required),
-      age: new FormControl(25, [Validators.required, Validators.min(18)]),
-    }),
-  ]);
+  private fb = inject(FormBuilder);
+
+  form = this.fb.group({
+    employees: this.fb.array([
+      this.fb.group({
+        name: ['Alice', Validators.required],
+        age: [30, [Validators.required, Validators.min(18)]],
+      }),
+      this.fb.group({
+        name: ['Bob', Validators.required],
+        age: [25, [Validators.required, Validators.min(18)]],
+      }),
+    ])
+  });
 
   config = {
     columns: [
@@ -154,12 +116,11 @@ export class FormArrayExample {
 
   getFormErrors(): string[] {
     const errors: string[] = [];
-    this.employeesArray.controls.forEach((group, idx) => {
-      const fg = group as FormGroup;
-      Object.keys(fg.controls).forEach(field => {
-        const ctrl = fg.get(field);
+    this.form.controls.employees.controls.forEach((group, idx) => {
+      Object.keys(group.controls).forEach(field => {
+        const ctrl = group.get(field);
         if (ctrl?.errors) {
-          errors.push(\\\`Row \${idx}, \${field}: \${JSON.stringify(ctrl.errors)}\\\`);
+          errors.push(\`Row \${idx}, \${field}: \${JSON.stringify(ctrl.errors)}\`);
         }
       });
     });

@@ -1,0 +1,482 @@
+{/* @jsxRuntime automatic */}
+
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/React/Getting Started" />
+
+# Getting Started with React
+
+The `@toolbox-web/grid-react` package provides a fully-featured React integration for the `<tbw-grid>` data grid component. This guide covers the recommended patterns for using the grid effectively in React applications.
+
+## Installation
+
+<Source
+  language="bash"
+  code={`
+# Install both the core grid and React adapter
+npm install @toolbox-web/grid @toolbox-web/grid-react
+
+# Or with your preferred package manager
+yarn add @toolbox-web/grid @toolbox-web/grid-react
+pnpm add @toolbox-web/grid @toolbox-web/grid-react
+bun add @toolbox-web/grid @toolbox-web/grid-react
+`}
+/>
+
+## Setup
+
+Register the grid web component in your application entry point:
+
+<Source
+  language="typescript"
+  code={`
+// main.tsx or index.tsx
+import '@toolbox-web/grid';
+`}
+/>
+
+## Basic Usage
+
+The simplest way to use the grid is with the `DataGrid` component:
+
+<Source
+  language="tsx"
+  code={`
+import { DataGrid } from '@toolbox-web/grid-react';
+
+interface Employee {
+  id: number;
+  name: string;
+  department: string;
+  salary: number;
+}
+
+function EmployeeGrid() {
+  const [employees] = useState<Employee[]>([
+    { id: 1, name: 'Alice', department: 'Engineering', salary: 95000 },
+    { id: 2, name: 'Bob', department: 'Marketing', salary: 75000 },
+    { id: 3, name: 'Charlie', department: 'Sales', salary: 85000 },
+  ]);
+
+  return (
+    <DataGrid
+      rows={employees}
+      columns={[
+        { field: 'id', header: 'ID', width: 70 },
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'department', header: 'Department', sortable: true },
+        { field: 'salary', header: 'Salary', type: 'number' },
+      ]}
+      style={{ height: 400 }}
+    />
+  );
+}
+`}
+/>
+
+## Enabling Features with Props
+
+Features are enabled using **declarative props** combined with **side-effect imports**. This gives you clean JSX and tree-shakeable bundles.
+
+### How It Works
+
+1. **Import the feature** - A side-effect import registers the feature factory
+2. **Use the prop** - DataGrid detects the prop and creates the plugin instance
+
+<Source
+  language="tsx"
+  code={`
+// 1. Import features you need (once per feature)
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/editing';
+import '@toolbox-web/grid-react/features/filtering';
+
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function EmployeeGrid() {
+  return (
+    <DataGrid
+      rows={employees}
+      columns={columns}
+      // 2. Just use the props - plugins are created automatically!
+      selection="range"           // SelectionPlugin with mode: 'range'
+      sorting="multi"             // MultiSortPlugin
+      editing="dblclick"          // EditingPlugin with editOn: 'dblclick'
+      filtering                   // FilteringPlugin with defaults
+    />
+  );
+}
+`}
+/>
+
+### Why Side-Effect Imports?
+
+- **Tree-shakeable** - Only the features you import are bundled
+- **Synchronous** - No loading states, no HTTP requests, no spinners
+- **Type-safe** - Full TypeScript support for feature props
+- **Clean JSX** - No `plugins: [new SelectionPlugin({ mode: 'range' })]` boilerplate
+
+### Available Features
+
+| Import | Prop | Example |
+|--------|------|---------|
+| `features/selection` | `selection` | `selection="range"` or `selection={{ mode: 'row', checkbox: true }}` |
+| `features/sorting` | `sorting` | `sorting="multi"` or `sorting={{ maxSortLevels: 3 }}` |
+| `features/filtering` | `filtering` | `filtering` or `filtering={{ debounceMs: 200 }}` |
+| `features/editing` | `editing` | `editing="dblclick"` or `editing="click"` |
+| `features/clipboard` | `clipboard` | `clipboard` (requires selection) |
+| `features/undo-redo` | `undoRedo` | `undoRedo` (requires editing) |
+| `features/context-menu` | `contextMenu` | `contextMenu` |
+| `features/reorder` | `reorder` | `reorder` (column drag-to-reorder) |
+| `features/visibility` | `visibility` | `visibility` (column visibility panel) |
+| `features/pinned-columns` | `pinnedColumns` | `pinnedColumns` |
+| `features/grouping-columns` | `groupingColumns` | `groupingColumns` |
+| `features/grouping-rows` | `groupingRows` | `groupingRows={{ groupBy: 'department' }}` |
+| `features/tree` | `tree` | `tree={{ childrenField: 'children' }}` |
+| `features/master-detail` | `masterDetail` | `masterDetail` (use with `<GridDetailPanel>`) |
+| `features/responsive` | `responsive` | `responsive` (card layout on mobile) |
+| `features/export` | `export` | `export` |
+| `features/print` | `print` | `print` |
+
+### Import All Features (Development)
+
+For prototyping or when bundle size isn't critical:
+
+<Source
+  language="tsx"
+  code={`
+// Import all features at once
+import '@toolbox-web/grid-react/features';
+
+// Now all feature props work
+<DataGrid selection="range" sorting filtering editing="dblclick" clipboard />
+`}
+/>
+
+## Custom Cell Renderers
+
+Define custom renderers inline using the `renderer` property on columns:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/editing';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive' | 'pending';
+  salary: number;
+}
+
+// Status badge component
+function StatusBadge({ status }: { status: string }) {
+  const colors = {
+    active: '#22c55e',
+    inactive: '#94a3b8',
+    pending: '#f59e0b',
+  };
+  return (
+    <span
+      style={{
+        padding: '4px 8px',
+        borderRadius: '4px',
+        background: colors[status as keyof typeof colors],
+        color: status === 'pending' ? 'black' : 'white',
+      }}
+    >
+      {status}
+    </span>
+  );
+}
+
+function EmployeeGrid() {
+  const config: ReactGridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID', width: 70 },
+      { field: 'name', header: 'Name' },
+      {
+        field: 'status',
+        header: 'Status',
+        // Use React components as renderers!
+        renderer: ({ value }) => <StatusBadge status={value} />,
+      },
+      {
+        field: 'salary',
+        header: 'Salary',
+        type: 'number',
+        // Format with a simple function for non-JSX
+        format: (v) => '$' + v.toLocaleString(),
+      },
+    ],
+  };
+
+  return <DataGrid rows={employees} gridConfig={config} editing="dblclick" />;
+}
+`}
+/>
+
+## Custom Cell Editors
+
+Define custom editors with the `editor` property. The editor receives `commit` and `cancel` callbacks:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/editing';
+import { DataGrid, type ReactGridConfig, type GridEditorContext } from '@toolbox-web/grid-react';
+
+// Custom select editor component
+function StatusEditor({ value, commit, cancel }: GridEditorContext<Employee, string>) {
+  return (
+    <select
+      defaultValue={value}
+      autoFocus
+      onChange={(e) => commit(e.target.value)}
+      onKeyDown={(e) => e.key === 'Escape' && cancel()}
+      onBlur={() => cancel()}
+    >
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+      <option value="pending">Pending</option>
+    </select>
+  );
+}
+
+function EmployeeGrid() {
+  const config: ReactGridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID', width: 70 },
+      { field: 'name', header: 'Name', editable: true },
+      {
+        field: 'status',
+        header: 'Status',
+        editable: true,
+        renderer: ({ value }) => <StatusBadge status={value} />,
+        editor: (ctx) => <StatusEditor {...ctx} />,
+      },
+    ],
+  };
+
+  return <DataGrid rows={employees} gridConfig={config} editing="dblclick" />;
+}
+`}
+/>
+
+## Handling Events
+
+Use event handler props for clean, declarative event handling with automatic cleanup:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/editing';
+import '@toolbox-web/grid-react/features/sorting';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { CellClickDetail, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  const handleCellClick = useCallback((detail: CellClickDetail<Employee>) => {
+    console.log('Cell clicked:', detail.row, detail.column.field);
+  }, []);
+
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
+    console.log('Cell edited:', detail.column.field, detail.oldValue, '→', detail.newValue);
+  }, []);
+
+  const handleSortChange = useCallback((detail: SortChangeDetail) => {
+    console.log('Sort changed:', detail.sortState);
+  }, []);
+
+  return (
+    <DataGrid
+      rows={employees}
+      columns={columns}
+      selection="range"
+      editing="dblclick"
+      sorting
+      // Event props - automatically cleaned up on unmount
+      onCellClick={handleCellClick}
+      onCellCommit={handleCellCommit}
+      onSortChange={handleSortChange}
+    />
+  );
+}
+`}
+/>
+
+## Master-Detail Panels
+
+Use `GridDetailPanel` for expandable row details:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/master-detail';
+import { DataGrid, GridDetailPanel, type DetailPanelContext } from '@toolbox-web/grid-react';
+
+function EmployeeGrid() {
+  return (
+    <DataGrid rows={employees} columns={columns} masterDetail>
+      <GridDetailPanel>
+        {({ row }: DetailPanelContext<Employee>) => (
+          <div style={{ padding: 16 }}>
+            <h3>{row.name}</h3>
+            <p>Department: {row.department}</p>
+            <p>Email: {row.email}</p>
+            <p>Hire Date: {new Date(row.hireDate).toLocaleDateString()}</p>
+          </div>
+        )}
+      </GridDetailPanel>
+    </DataGrid>
+  );
+}
+`}
+/>
+
+## Custom Tool Panels
+
+Add sidebar panels with `GridToolPanel`:
+
+<Source
+  language="tsx"
+  code={`
+import { DataGrid, GridToolPanel, type ToolPanelContext } from '@toolbox-web/grid-react';
+
+function EmployeeGrid() {
+  return (
+    <DataGrid
+      rows={employees}
+      columns={columns}
+      gridConfig={{
+        shell: {
+          toolPanels: [{ id: 'filters', icon: '🔍', position: 'left' }],
+        },
+      }}
+    >
+      <GridToolPanel id="filters">
+        {({ closePanel }: ToolPanelContext) => (
+          <div style={{ padding: 16 }}>
+            <h3>Quick Filters</h3>
+            <label>
+              <input type="checkbox" /> Active Only
+            </label>
+            <button onClick={closePanel}>Close</button>
+          </div>
+        )}
+      </GridToolPanel>
+    </DataGrid>
+  );
+}
+`}
+/>
+
+## Using the `useGrid` Hook
+
+The `useGrid` hook provides programmatic access to the grid:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/export';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+
+function EmployeeGrid() {
+  const {
+    ref,              // Ref to pass to DataGrid
+    element,          // Direct access to grid element
+    forceLayout,      // Force re-render
+    getConfig,        // Get current config
+    exportToCsv,      // Export helpers (when export feature loaded)
+    getSelectedRows,  // Selection helpers (when selection feature loaded)
+    selectAll,
+    clearSelection,
+  } = useGrid<Employee>();
+
+  const handleExport = async () => {
+    await exportToCsv({ filename: 'employees.csv' });
+  };
+
+  const handleSelectAll = () => {
+    selectAll();
+  };
+
+  return (
+    <div>
+      <div className="toolbar">
+        <button onClick={handleExport}>Export CSV</button>
+        <button onClick={handleSelectAll}>Select All</button>
+        <button onClick={() => console.log(getSelectedRows())}>Log Selection</button>
+      </div>
+      <DataGrid
+        ref={ref}
+        rows={employees}
+        columns={columns}
+        selection="range"
+        export
+      />
+    </div>
+  );
+}
+`}
+/>
+
+## Type-Level Defaults
+
+Register application-wide renderers for data types using `GridTypeProvider`:
+
+<Source
+  language="tsx"
+  code={`
+import { GridTypeProvider, DataGrid, type TypeDefaultsMap } from '@toolbox-web/grid-react';
+
+// Define type defaults for your application
+const typeDefaults: TypeDefaultsMap = {
+  currency: {
+    format: (value: number) => '$' + value.toLocaleString(),
+    renderer: ({ value }) => (
+      <span style={{ color: value < 0 ? 'red' : 'green' }}>{value}</span>
+    ),
+  },
+  date: {
+    format: (value: string) => new Date(value).toLocaleDateString(),
+  },
+  boolean: {
+    renderer: ({ value }) => <span>{value ? '✅' : '❌'}</span>,
+  },
+};
+
+// Wrap your app (or a section) with the provider
+function App() {
+  return (
+    <GridTypeProvider defaults={typeDefaults}>
+      <EmployeeGrid />
+    </GridTypeProvider>
+  );
+}
+
+// Now columns with these types use the defaults automatically
+function EmployeeGrid() {
+  return (
+    <DataGrid
+      rows={employees}
+      columns={[
+        { field: 'salary', header: 'Salary', type: 'currency' },    // Uses currency format/renderer
+        { field: 'hireDate', header: 'Hire Date', type: 'date' },   // Uses date format
+        { field: 'isActive', header: 'Active', type: 'boolean' },   // Uses boolean renderer
+      ]}
+    />
+  );
+}
+`}
+/>
+
+## Next Steps
+
+- **[Advanced Usage](/docs/grid-react-advanced-usage--docs)** - Full control with manual plugins, refs, and escape hatches
+- **[API Reference](/docs/grid-react-components-datagrid--docs)** - Complete API documentation
+- **[Grid Plugins](/docs/grid-plugins-selection-selection--docs)** - Explore all available plugins

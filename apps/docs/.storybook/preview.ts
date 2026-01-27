@@ -153,6 +153,10 @@ const preview: Preview = {
               ['*', 'Classes', 'Interfaces', 'Types', 'Functions', 'Enums'],
               '*', // Any other plugins
             ],
+            'Angular',
+            ['Getting Started', 'Reactive Forms Integration', '*'],
+            'React',
+            ['Getting Started', 'Advanced Usage', '*'],
             'API Reference',
             'All Features',
             'Performance', // Performance tests at the end

@@ -1,0 +1,700 @@
+{/* @jsxRuntime automatic */}
+
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/React/Advanced Usage" />
+
+# Advanced Usage
+
+This guide covers advanced patterns for when you need full control over the grid, manual plugin configuration, or integration with complex React patterns.
+
+## Manual Plugin Instantiation
+
+While [feature props](/docs/grid-react-getting-started--docs) are recommended for most use cases, you can instantiate plugins manually when you need:
+
+- Custom plugin configurations not exposed via props
+- Plugin references for imperative API calls
+- Third-party or custom plugins
+
+<Source
+  language="tsx"
+  code={`
+import { useMemo } from 'react';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import {
+  SelectionPlugin,
+  EditingPlugin,
+  ClipboardPlugin,
+  UndoRedoPlugin,
+} from '@toolbox-web/grid/all';
+
+function EmployeeGrid() {
+  // Create stable plugin instances with useMemo
+  const plugins = useMemo(() => [
+    new SelectionPlugin({ mode: 'range', checkbox: true }),
+    new EditingPlugin({ editOn: 'dblclick', selectOnEdit: true }),
+    new ClipboardPlugin({ includeHeaders: true }),
+    new UndoRedoPlugin({ maxHistory: 100 }),
+  ], []);
+
+  const config: ReactGridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'salary', header: 'Salary', editable: true, type: 'number' },
+    ],
+    plugins,
+  };
+
+  return <DataGrid rows={employees} gridConfig={config} />;
+}
+`}
+/>
+
+> **Important**: Always use `useMemo` for plugin arrays to prevent re-creating plugins on every render.
+
+## Combining Feature Props with Manual Plugins
+
+Feature props and manual plugins can be mixed. The grid merges them, with manual plugins added first:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/selection';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { ResponsivePlugin } from '@toolbox-web/grid/all';
+
+function EmployeeGrid() {
+  // Custom plugin that doesn't have a feature prop
+  const responsivePlugin = useMemo(
+    () => new ResponsivePlugin({ 
+      breakpoint: 600,
+      cardTitleField: 'name',
+    }),
+    []
+  );
+
+  const config: ReactGridConfig<Employee> = {
+    columns: columns,
+    plugins: [responsivePlugin],
+  };
+
+  return (
+    <DataGrid
+      rows={employees}
+      gridConfig={config}
+      // Feature props still work alongside manual plugins
+      selection="range"
+    />
+  );
+}
+`}
+/>
+
+## Direct Grid Element Access
+
+Access the underlying `<tbw-grid>` element via ref:
+
+<Source
+  language="tsx"
+  code={`
+import { useRef, useEffect } from 'react';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { GridElement } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  const gridRef = useRef<GridElement>(null);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    // Wait for component to be ready
+    grid.ready().then(() => {
+      // Access full grid API
+      console.log('Grid ready, row count:', grid.sourceRows.length);
+      
+      // Access plugin instances
+      const selection = grid.getPlugin(SelectionPlugin);
+      if (selection) {
+        selection.selectRow(0);
+      }
+    });
+  }, []);
+
+  return <DataGrid ref={gridRef} rows={employees} columns={columns} />;
+}
+`}
+/>
+
+## The `useGridEvent` Hook
+
+For programmatic event handling outside of props, use the `useGridEvent` hook:
+
+<Source
+  language="tsx"
+  code={`
+import { useRef, useState } from 'react';
+import { DataGrid, useGridEvent } from '@toolbox-web/grid-react';
+import type { GridElement, CellCommitDetail, SelectionChangeDetail } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  const gridRef = useRef<GridElement>(null);
+  const [editHistory, setEditHistory] = useState<string[]>([]);
+  const [selectedCount, setSelectedCount] = useState(0);
+
+  // Subscribe to cell-commit events
+  useGridEvent(gridRef, 'cell-commit', (detail: CellCommitDetail<Employee>) => {
+    setEditHistory(prev => [
+      ...prev,
+      \`\${detail.column.field}: \${detail.oldValue} → \${detail.newValue}\`
+    ]);
+  });
+
+  // Subscribe to selection-change events
+  useGridEvent(gridRef, 'selection-change', (detail: SelectionChangeDetail<Employee>) => {
+    setSelectedCount(detail.ranges?.length ?? 0);
+  });
+
+  return (
+    <div>
+      <p>Selected ranges: {selectedCount}</p>
+      <ul>
+        {editHistory.map((entry, i) => <li key={i}>{entry}</li>)}
+      </ul>
+      <DataGrid
+        ref={gridRef}
+        rows={employees}
+        columns={columns}
+        selection="range"
+        editing="dblclick"
+      />
+    </div>
+  );
+}
+`}
+/>
+
+## Custom Sorting Logic
+
+Override the default sort comparator for complex sorting requirements:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/sorting';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+
+function EmployeeGrid() {
+  const config: ReactGridConfig<Employee> = {
+    columns: [
+      { field: 'name', header: 'Name', sortable: true },
+      {
+        field: 'priority',
+        header: 'Priority',
+        sortable: true,
+        // Custom sort: 'high' > 'medium' > 'low'
+        comparator: (a: string, b: string) => {
+          const order = { high: 3, medium: 2, low: 1 };
+          return (order[a as keyof typeof order] ?? 0) - (order[b as keyof typeof order] ?? 0);
+        },
+      },
+      {
+        field: 'lastName',
+        header: 'Last Name',
+        sortable: true,
+        // Locale-aware sorting
+        comparator: (a: string, b: string) =>
+          a.localeCompare(b, undefined, { sensitivity: 'base' }),
+      },
+    ],
+  };
+
+  return <DataGrid rows={employees} gridConfig={config} sorting />;
+}
+`}
+/>
+
+## Controlled Selection
+
+Manage selection state externally:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/selection';
+import { useState, useCallback } from 'react';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { SelectionRange, SelectionChangeDetail } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  const [selection, setSelection] = useState<SelectionRange[]>([]);
+
+  const handleSelectionChange = useCallback(
+    (detail: SelectionChangeDetail<Employee>) => {
+      // Validate or transform selection
+      const validRanges = detail.ranges?.filter(range => range.rows.length <= 10);
+      setSelection(validRanges ?? []);
+    },
+    []
+  );
+
+  return (
+    <div>
+      <p>Selected: {selection.flatMap(r => r.rows).length} rows</p>
+      <DataGrid
+        rows={employees}
+        columns={columns}
+        selection={{ mode: 'range', ranges: selection }}
+        onSelectionChange={handleSelectionChange}
+      />
+    </div>
+  );
+}
+`}
+/>
+
+## Dynamic Row Updates
+
+Update rows efficiently while preserving grid state:
+
+<Source
+  language="tsx"
+  code={`
+import { useState, useCallback, useRef } from 'react';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+
+function EmployeeGrid() {
+  const [employees, setEmployees] = useState<Employee[]>(initialData);
+  const { ref, forceLayout, getConfig } = useGrid<Employee>();
+
+  // Add a new employee
+  const handleAdd = useCallback(() => {
+    setEmployees(prev => [
+      ...prev,
+      { id: Date.now(), name: 'New Employee', department: '', salary: 50000 },
+    ]);
+  }, []);
+
+  // Update an employee
+  const handleUpdate = useCallback((id: number, updates: Partial<Employee>) => {
+    setEmployees(prev =>
+      prev.map(emp => emp.id === id ? { ...emp, ...updates } : emp)
+    );
+  }, []);
+
+  // Delete selected employees
+  const handleDelete = useCallback(() => {
+    const config = getConfig();
+    const selectedRows = config?.selection?.selectedRows ?? [];
+    const selectedIds = new Set(selectedRows.map(row => row.id));
+    setEmployees(prev => prev.filter(emp => !selectedIds.has(emp.id)));
+  }, [getConfig]);
+
+  // Handle cell edits
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
+    handleUpdate(detail.row.id, { [detail.column.field]: detail.newValue });
+  }, [handleUpdate]);
+
+  return (
+    <div>
+      <div className="toolbar">
+        <button onClick={handleAdd}>Add Employee</button>
+        <button onClick={handleDelete}>Delete Selected</button>
+      </div>
+      <DataGrid
+        ref={ref}
+        rows={employees}
+        columns={columns}
+        selection="range"
+        editing="dblclick"
+        onCellCommit={handleCellCommit}
+      />
+    </div>
+  );
+}
+`}
+/>
+
+## Virtual Scrolling Configuration
+
+Fine-tune virtualization for optimal performance:
+
+<Source
+  language="tsx"
+  code={`
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+
+function LargeDataGrid() {
+  const config: ReactGridConfig<DataRow> = {
+    columns: columns,
+    virtualization: {
+      rowHeight: 32,    // Fixed row height (default: 28)
+      overscan: 10,     // Extra rows to render above/below viewport
+    },
+    // Performance: disable animations for very large datasets
+    animation: false,
+  };
+
+  return (
+    <DataGrid
+      rows={largeDataset}  // e.g., 100,000 rows
+      gridConfig={config}
+      style={{ height: 600 }}
+    />
+  );
+}
+`}
+/>
+
+## Custom Context Menu Actions
+
+Add custom actions to the context menu:
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/context-menu';
+import '@toolbox-web/grid-react/features/selection';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import type { ContextMenuItem } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  const contextMenuItems: ContextMenuItem<Employee>[] = [
+    { type: 'separator' },
+    {
+      label: 'View Profile',
+      icon: '👤',
+      action: ({ row }) => {
+        window.open(\`/employees/\${row.id}\`, '_blank');
+      },
+    },
+    {
+      label: 'Send Email',
+      icon: '✉️',
+      disabled: ({ row }) => !row.email,
+      action: ({ row }) => {
+        window.location.href = \`mailto:\${row.email}\`;
+      },
+    },
+  ];
+
+  return (
+    <DataGrid
+      rows={employees}
+      columns={columns}
+      selection="range"
+      contextMenu={contextMenuItems}
+    />
+  );
+}
+`}
+/>
+
+## Server-Side Data Loading
+
+Pattern for loading data from an API:
+
+<Source
+  language="tsx"
+  code={`
+import { useState, useEffect, useCallback } from 'react';
+import '@toolbox-web/grid-react/features/sorting';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { SortState, SortChangeDetail } from '@toolbox-web/grid';
+
+interface ApiResponse {
+  data: Employee[];
+  total: number;
+}
+
+function ServerSideGrid() {
+  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [sortState, setSortState] = useState<SortState[]>([]);
+
+  const fetchData = useCallback(async (sort: SortState[]) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (sort.length > 0) {
+        params.set('sortField', sort[0].field);
+        params.set('sortDir', sort[0].direction);
+      }
+      const response = await fetch(\`/api/employees?\${params}\`);
+      const { data }: ApiResponse = await response.json();
+      setEmployees(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData(sortState);
+  }, [sortState, fetchData]);
+
+  const handleSortChange = useCallback((detail: SortChangeDetail) => {
+    setSortState(detail.sortState);
+  }, []);
+
+  return (
+    <div>
+      {loading && <div className="loading-overlay">Loading...</div>}
+      <DataGrid
+        rows={employees}
+        columns={columns}
+        sorting={{ mode: 'external', sortState }}
+        onSortChange={handleSortChange}
+      />
+    </div>
+  );
+}
+`}
+/>
+
+## Integrating with React Query
+
+Use React Query for data fetching with caching:
+
+<Source
+  language="tsx"
+  code={`
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import '@toolbox-web/grid-react/features/editing';
+import { DataGrid } from '@toolbox-web/grid-react';
+import type { CellCommitDetail } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  const queryClient = useQueryClient();
+
+  // Fetch data
+  const { data: employees = [], isLoading } = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => fetch('/api/employees').then(r => r.json()),
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: (employee: Partial<Employee>) =>
+      fetch(\`/api/employees/\${employee.id}\`, {
+        method: 'PATCH',
+        body: JSON.stringify(employee),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+    },
+  });
+
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
+    updateMutation.mutate({
+      id: detail.row.id,
+      [detail.column.field]: detail.newValue,
+    });
+  }, [updateMutation]);
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <DataGrid
+      rows={employees}
+      columns={columns}
+      editing="dblclick"
+      onCellCommit={handleCellCommit}
+    />
+  );
+}
+`}
+/>
+
+## Responsive Layouts
+
+Switch between table and card views based on screen size:
+
+<Source
+  language="tsx"
+  code={`
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { ResponsivePlugin } from '@toolbox-web/grid/all';
+
+function ResponsiveGrid() {
+  const responsivePlugin = useMemo(
+    () => new ResponsivePlugin({
+      breakpoint: 768,           // Switch at 768px
+      cardTitleField: 'name',    // Show name as card title
+      cardSubtitleField: 'role', // Show role as subtitle
+    }),
+    []
+  );
+
+  const config: ReactGridConfig<Employee> = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'role', header: 'Role' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'number' },
+    ],
+    plugins: [responsivePlugin],
+  };
+
+  return <DataGrid rows={employees} gridConfig={config} />;
+}
+`}
+/>
+
+## Performance Tips
+
+### 1. Memoize Expensive Computations
+
+<Source
+  language="tsx"
+  code={`
+// ✅ Good: Memoized config
+const config = useMemo<ReactGridConfig<Employee>>(() => ({
+  columns: [/* ... */],
+  plugins: [new SelectionPlugin()],
+}), []);
+
+// ❌ Bad: Creates new config every render
+const config: ReactGridConfig<Employee> = {
+  columns: [/* ... */],
+  plugins: [new SelectionPlugin()], // New instance every render!
+};
+`}
+/>
+
+### 2. Avoid Inline Callbacks in Renderers
+
+<Source
+  language="tsx"
+  code={`
+// ✅ Good: Stable reference via useMemo
+const columns = useMemo(() => [
+  {
+    field: 'salary',
+    renderer: ({ value }) => formatCurrency(value),
+  },
+], []);
+
+// ❌ Bad: New function every render
+const columns = [
+  {
+    field: 'salary',
+    renderer: ({ value }) => formatCurrency(value), // Recreated every render
+  },
+];
+`}
+/>
+
+### 3. Use `React.memo` for Custom Cell Components
+
+<Source
+  language="tsx"
+  code={`
+// Wrap cell components that receive row data
+const StatusBadge = React.memo(function StatusBadge({ status }: { status: string }) {
+  return <span className={\`badge badge--\${status}\`}>{status}</span>;
+});
+`}
+/>
+
+## Error Boundaries
+
+Wrap the grid in an error boundary for resilient UIs:
+
+<Source
+  language="tsx"
+  code={`
+import { Component, type ReactNode, type ErrorInfo } from 'react';
+
+class GridErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Grid error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback ?? <div>Something went wrong with the grid.</div>;
+    }
+    return this.props.children;
+  }
+}
+
+// Usage
+function App() {
+  return (
+    <GridErrorBoundary fallback={<div>Failed to load grid</div>}>
+      <DataGrid rows={employees} columns={columns} />
+    </GridErrorBoundary>
+  );
+}
+`}
+/>
+
+## Troubleshooting
+
+### Feature prop not working?
+
+Ensure you imported the feature side-effect:
+
+<Source
+  language="tsx"
+  code={`
+// ❌ This won't work
+<DataGrid selection="range" />
+
+// ✅ Import the feature first
+import '@toolbox-web/grid-react/features/selection';
+<DataGrid selection="range" />
+`}
+/>
+
+### Plugins recreated on every render?
+
+Wrap in `useMemo`:
+
+<Source
+  language="tsx"
+  code={`
+// ❌ Bad: New array and instances every render
+const config = {
+  plugins: [new SelectionPlugin()],
+};
+
+// ✅ Good: Stable reference
+const config = useMemo(() => ({
+  plugins: [new SelectionPlugin()],
+}), []);
+`}
+/>
+
+### Grid not responding to row updates?
+
+The grid uses reference equality. Create new arrays:
+
+<Source
+  language="tsx"
+  code={`
+// ❌ Bad: Mutating existing array
+employees.push(newEmployee);
+setEmployees(employees);
+
+// ✅ Good: New array reference
+setEmployees([...employees, newEmployee]);
+`}
+/>
+
+## See Also
+
+- **[Getting Started](/docs/grid-react-getting-started--docs)** - Basic usage and feature props
+- **[API Reference](/docs/grid-react-components-datagrid--docs)** - Complete API documentation
+- **[Grid Theming](/docs/grid-theming--docs)** - Customize appearance with CSS variables
+- **[Plugin Development](/docs/grid-plugins-overview--docs)** - Create custom plugins

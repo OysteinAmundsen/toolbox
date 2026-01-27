@@ -24,6 +24,8 @@ interface BuildGroupingArgs {
   rows: any[];
   config: RowGroupingConfig;
   expanded: Set<string>;
+  /** When true, treat all groups as expanded (used for initial defaultExpanded state) */
+  defaultExpanded?: boolean;
 }
 
 /**
@@ -33,7 +35,7 @@ interface BuildGroupingArgs {
  * @param args - The grouping arguments
  * @returns Flattened array of render rows (groups + data rows)
  */
-export function buildGroupedRowModel({ rows, config, expanded }: BuildGroupingArgs): RenderRow[] {
+export function buildGroupedRowModel({ rows, config, expanded, defaultExpanded }: BuildGroupingArgs): RenderRow[] {
   const groupOn = config.groupOn;
   if (typeof groupOn !== 'function') {
     return [];
@@ -75,7 +77,7 @@ export function buildGroupedRowModel({ rows, config, expanded }: BuildGroupingAr
       return;
     }
 
-    const isExpanded = expanded.has(node.key);
+    const isExpanded = defaultExpanded || expanded.has(node.key);
     flat.push({
       kind: 'group',
       key: node.key,

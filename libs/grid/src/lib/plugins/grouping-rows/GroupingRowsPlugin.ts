@@ -141,6 +141,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   private isActive = false;
   private previousVisibleKeys = new Set<string>();
   private keysToAnimate = new Set<string>();
+  /** Track if initial defaultExpanded has been applied */
+  private hasAppliedDefaultExpanded = false;
   // #endregion
 
   // #region Animation
@@ -165,6 +167,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.isActive = false;
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
+    this.hasAppliedDefaultExpanded = false;
   }
   // #endregion
 
@@ -189,11 +192,16 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       return [...rows];
     }
 
+    // Determine if we should apply defaultExpanded on first render
+    const shouldApplyDefaultExpanded =
+      config.defaultExpanded === true && !this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0;
+
     // Build grouped model
     const grouped = buildGroupedRowModel({
       rows: [...rows],
       config: config,
       expanded: this.expandedKeys,
+      defaultExpanded: shouldApplyDefaultExpanded,
     });
 
     // If no grouping produced, return original rows
@@ -205,6 +213,13 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
     this.isActive = true;
     this.flattenedRows = grouped;
+
+    // If defaultExpanded was applied, populate expandedKeys with all group keys
+    // so subsequent user toggles are preserved
+    if (shouldApplyDefaultExpanded) {
+      this.expandedKeys = expandAllGroups(grouped);
+      this.hasAppliedDefaultExpanded = true;
+    }
 
     // Track which data rows are newly visible (for animation)
     this.keysToAnimate.clear();

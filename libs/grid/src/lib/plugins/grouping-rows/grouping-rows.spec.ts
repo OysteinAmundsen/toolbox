@@ -114,6 +114,51 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     expect((result[0] as any).key).toBe('∅');
     expect((result[1] as any).key).toBe('Sales');
   });
+
+  it('expands all groups when defaultExpanded is true', () => {
+    const rows = [
+      { name: 'Alice', dept: 'Engineering' },
+      { name: 'Bob', dept: 'Engineering' },
+      { name: 'Carol', dept: 'Sales' },
+    ];
+    const config: RowGroupingConfig = {
+      groupOn: (r) => r.dept,
+    };
+    // Empty expanded set, but defaultExpanded=true should expand all
+    const result = buildGroupedRowModel({ rows, config, expanded: new Set(), defaultExpanded: true });
+
+    // Should have 2 groups + 3 data rows = 5 items
+    expect(result.length).toBe(5);
+    expect(result[0].kind).toBe('group');
+    expect((result[0] as any).expanded).toBe(true);
+    expect(result[1].kind).toBe('data');
+    expect(result[2].kind).toBe('data');
+    expect(result[3].kind).toBe('group');
+    expect((result[3] as any).expanded).toBe(true);
+    expect(result[4].kind).toBe('data');
+  });
+
+  it('defaultExpanded expands nested groups', () => {
+    const rows = [
+      { name: 'Alice', dept: 'Eng', team: 'Frontend' },
+      { name: 'Bob', dept: 'Eng', team: 'Backend' },
+    ];
+    const config: RowGroupingConfig = {
+      groupOn: (r) => [r.dept, r.team],
+    };
+    const result = buildGroupedRowModel({ rows, config, expanded: new Set(), defaultExpanded: true });
+
+    // Should have: Eng group, Frontend group, Alice, Backend group, Bob = 5 items
+    expect(result.length).toBe(5);
+    expect((result[0] as any).key).toBe('Eng');
+    expect((result[0] as any).expanded).toBe(true);
+    expect((result[1] as any).key).toBe('Eng||Frontend');
+    expect((result[1] as any).expanded).toBe(true);
+    expect(result[2].kind).toBe('data');
+    expect((result[3] as any).key).toBe('Eng||Backend');
+    expect((result[3] as any).expanded).toBe(true);
+    expect(result[4].kind).toBe('data');
+  });
 });
 
 describe('toggleGroupExpansion', () => {

@@ -99,10 +99,12 @@ const onRowMove = (e) => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [rowReorder] input
+import '@toolbox-web/grid-angular/features/row-reorder';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-task-list',
@@ -111,7 +113,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [rowReorder]="true"
       (row-move)="onRowMove($event)"
       style="height: 400px; display: block;">
     </tbw-grid>
@@ -123,14 +126,11 @@ export class TaskListComponent {
     { priority: 2, task: 'Deploy staging', status: 'In Progress' },
   ];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'priority', header: '#', type: 'number', width: 50 },
-      { field: 'task', header: 'Task' },
-      { field: 'status', header: 'Status' },
-    ],
-    plugins: [new RowReorderPlugin()],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'priority', header: '#', type: 'number', width: 50 },
+    { field: 'task', header: 'Task' },
+    { field: 'status', header: 'Status' },
+  ];
 
   onRowMove(e: CustomEvent) {
     console.log('Row moved:', e.detail);

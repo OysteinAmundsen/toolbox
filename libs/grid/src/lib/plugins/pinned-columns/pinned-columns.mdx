@@ -91,10 +91,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [pinnedColumns] input
+import '@toolbox-web/grid-angular/features/pinned-columns';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
@@ -103,7 +105,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [pinnedColumns]="true"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -111,17 +114,14 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class EmployeeGridComponent {
   rows = [];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'id', header: 'ID', sticky: 'left', width: 80 },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' },
-      { field: 'salary', header: 'Salary', type: 'currency' },
-      { field: 'actions', header: 'Actions', sticky: 'right', width: 120 },
-    ],
-    plugins: [new PinnedColumnsPlugin()],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID', sticky: 'left', width: 80 },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' },
+    { field: 'actions', header: 'Actions', sticky: 'right', width: 120 },
+  ];
 }
 ```
   </Tab>

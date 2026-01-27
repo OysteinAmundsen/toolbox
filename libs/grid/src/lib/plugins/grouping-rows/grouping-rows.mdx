@@ -95,10 +95,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [groupingRows] input
+import '@toolbox-web/grid-angular/features/grouping-rows';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
@@ -107,7 +109,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="employees"
-      [gridConfig]="config"
+      [columns]="columns"
+      [groupingRows]="groupingConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -115,18 +118,15 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class EmployeeGridComponent {
   employees = [/* employee data */];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Employee' },
-      { field: 'department', header: 'Department' },
-      { field: 'salary', header: 'Salary', type: 'currency' }
-    ],
-    plugins: [
-      new GroupingRowsPlugin({
-        groupOn: (row) => [row.department],
-        showRowCount: true,
-      }),
-    ],
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' }
+  ];
+
+  groupingConfig = {
+    groupOn: (row: any) => [row.department],
+    showRowCount: true,
   };
 }
 ```

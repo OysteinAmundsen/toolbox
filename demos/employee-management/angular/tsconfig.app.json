@@ -1,5 +1,3 @@
-/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
-/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
@@ -11,8 +9,10 @@
       "@demo/shared/styles": ["../shared/styles.ts"],
       "@toolbox-web/grid": ["../../../libs/grid/src/index.ts"],
       "@toolbox-web/grid/all": ["../../../libs/grid/src/all.ts"],
+      "@toolbox-web/grid/plugins/*": ["../../../libs/grid/src/lib/plugins/*/index.ts"],
       "@toolbox-web/grid/*": ["../../../libs/grid/src/*"],
-      "@toolbox-web/grid-angular": ["../../../libs/grid-angular/src/index.ts"]
+      "@toolbox-web/grid-angular": ["../../../libs/grid-angular/src/index.ts"],
+      "@toolbox-web/grid-angular/features/*": ["../../../libs/grid-angular/src/features/*.ts"]
     }
   },
   "include": ["src/**/*.ts"],

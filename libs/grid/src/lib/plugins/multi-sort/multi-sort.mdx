@@ -100,10 +100,12 @@ const onSortChange = (e) => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [sorting] input
+import '@toolbox-web/grid-angular/features/sorting';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-sortable-grid',
@@ -112,7 +114,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [sorting]="{ maxSortColumns: 3 }"
       (sort-change)="onSortChange($event)"
       style="height: 400px; display: block;">
     </tbw-grid>
@@ -124,14 +127,11 @@ export class SortableGridComponent {
     { name: 'Bob', department: 'Marketing', salary: 75000 },
   ];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name', sortable: true },
-      { field: 'department', header: 'Department', sortable: true },
-      { field: 'salary', header: 'Salary', type: 'number', sortable: true },
-    ],
-    plugins: [new MultiSortPlugin({ maxSortColumns: 3 })],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'department', header: 'Department', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+  ];
 
   onSortChange(e: CustomEvent) {
     console.log('Sort changed:', e.detail.sortModel);

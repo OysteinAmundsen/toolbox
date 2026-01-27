@@ -118,10 +118,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [pinnedRows] input
+import '@toolbox-web/grid-angular/features/pinned-rows';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-order-grid',
@@ -130,7 +132,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [pinnedRows]="pinnedRowsConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -138,24 +141,21 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class OrderGridComponent {
   rows = [];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'product', header: 'Product' },
-      { field: 'quantity', header: 'Qty', type: 'number' },
-      { field: 'price', header: 'Price', type: 'currency' },
-    ],
-    plugins: [
-      new PinnedRowsPlugin({
-        position: 'bottom',
-        showRowCount: true,
-        aggregationRows: [
-          {
-            id: 'totals',
-            aggregators: { quantity: 'sum', price: 'sum' },
-            cells: { product: 'Totals:' },
-          },
-        ],
-      }),
+  columns: ColumnConfig[] = [
+    { field: 'product', header: 'Product' },
+    { field: 'quantity', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'currency' },
+  ];
+
+  pinnedRowsConfig = {
+    position: 'bottom' as const,
+    showRowCount: true,
+    aggregationRows: [
+      {
+        id: 'totals',
+        aggregators: { quantity: 'sum', price: 'sum' },
+        cells: { product: 'Totals:' },
+      },
     ],
   };
 }

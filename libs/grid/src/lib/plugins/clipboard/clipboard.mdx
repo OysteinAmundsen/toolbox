@@ -96,11 +96,13 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature imports - enable the [selection] and [clipboard] inputs
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/clipboard';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -109,7 +111,9 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [selection]="'range'"
+      [clipboard]="{ includeHeaders: true, quoteStrings: true }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -117,20 +121,11 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' }
-    ],
-    plugins: [
-      new SelectionPlugin({ mode: 'range' }),
-      new ClipboardPlugin({
-        includeHeaders: true,
-        quoteStrings: true,
-      }),
-    ],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' }
+  ];
 }
 ```
   </Tab>

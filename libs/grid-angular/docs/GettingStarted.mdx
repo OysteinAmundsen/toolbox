@@ -25,25 +25,39 @@ bun add @toolbox-web/grid @toolbox-web/grid-angular
 
 ## Setup
 
-Register the grid web component in your application entry point:
+Register the grid web component and enable the features you need:
 
 <Source
   language="typescript"
   code={`
-// main.ts or app.config.ts
+// main.ts - Import grid and enable features
 import '@toolbox-web/grid';
+
+// Enable features via side-effect imports
+// Only import the features you use - this keeps your bundle small!
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/filtering';
 `}
 />
 
 ## Basic Usage
 
-The simplest way to use the grid is with the `Grid` directive and a configuration object:
+The simplest way to use the grid is with the `Grid` directive and feature inputs:
 
 <Source
   language="typescript"
   code={`
+// Enable features you use
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/filtering';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 interface Employee {
   id: number;
@@ -59,7 +73,11 @@ interface Employee {
   template: \`
     <tbw-grid
       [rows]="employees"
-      [gridConfig]="config"
+      [columns]="columns"
+      [selection]="'range'"
+      [editing]="'dblclick'"
+      [sorting]="true"
+      [filtering]="{ debounceMs: 200 }"
       style="height: 400px; display: block;"
     />
   \`,
@@ -71,23 +89,68 @@ export class EmployeeGridComponent {
     { id: 3, name: 'Charlie', department: 'Sales', salary: 85000 },
   ];
 
-  config = {
-    columns: [
-      { field: 'id', header: 'ID', type: 'number', width: 70 },
-      { field: 'name', header: 'Name', sortable: true },
-      { field: 'department', header: 'Department', sortable: true },
-      { field: 'salary', header: 'Salary', type: 'number', format: (v: number) => '$' + v.toLocaleString() },
-    ],
-  };
+  columns: ColumnConfig<Employee>[] = [
+    { field: 'id', header: 'ID', type: 'number', width: 70 },
+    { field: 'name', header: 'Name', editable: true, sortable: true },
+    { field: 'department', header: 'Department', editable: true, sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', format: (v: number) => '$' + v.toLocaleString() },
+  ];
 }
 `}
 />
 
 > **Note**: The `CUSTOM_ELEMENTS_SCHEMA` is required since `<tbw-grid>` is a web component, not an Angular component.
 
-## Enabling Features with Plugins
+## Feature Input Reference
 
-Plugins add functionality like selection, editing, sorting, and filtering. Import the plugins you need and add them to your config:
+Each feature input enables a specific plugin with simplified configuration:
+
+| Feature Input | Feature Import | Description |
+|---------------|----------------|-------------|
+| `[selection]` | `features/selection` | Cell, row, or range selection |
+| `[editing]` | `features/editing` | Inline cell editing |
+| `[sorting]` | `features/sorting` | Column sorting (single or multi) |
+| `[filtering]` | `features/filtering` | Column filtering |
+| `[clipboard]` | `features/clipboard` | Copy/paste support |
+| `[reorder]` | `features/reorder` | Column drag-to-reorder |
+| `[visibility]` | `features/visibility` | Column visibility panel |
+| `[pinnedColumns]` | `features/pinned-columns` | Sticky left/right columns |
+| `[groupingColumns]` | `features/grouping-columns` | Multi-level column headers |
+| `[groupingRows]` | `features/grouping-rows` | Row grouping |
+| `[rowReorder]` | `features/row-reorder` | Row drag-to-reorder |
+| `[tree]` | `features/tree` | Hierarchical tree view |
+| `[masterDetail]` | `features/master-detail` | Expandable detail rows |
+| `[responsive]` | `features/responsive` | Card layout for narrow viewports |
+| `[undoRedo]` | `features/undo-redo` | Edit undo/redo |
+| `[exportFeature]` | `features/export` | CSV/Excel export |
+| `[print]` | `features/print` | Print support |
+
+**Example shortcuts:**
+
+<Source
+  language="html"
+  code={`
+<!-- Selection modes -->
+<tbw-grid [selection]="'cell'" />
+<tbw-grid [selection]="'row'" />
+<tbw-grid [selection]="'range'" />
+<tbw-grid [selection]="{ mode: 'range', checkbox: true }" />
+
+<!-- Editing triggers -->
+<tbw-grid [editing]="true" />         <!-- default: dblclick -->
+<tbw-grid [editing]="'click'" />
+<tbw-grid [editing]="'dblclick'" />
+<tbw-grid [editing]="'manual'" />
+
+<!-- Sorting modes -->
+<tbw-grid [sorting]="true" />         <!-- multi-column sort -->
+<tbw-grid [sorting]="'single'" />     <!-- single column only -->
+`}
+/>
+
+## Advanced: Plugin-Based Configuration
+
+For complex scenarios requiring dynamic plugin toggling or advanced configuration, use the plugin-based pattern:
 
 <Source
   language="typescript"
@@ -96,7 +159,8 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import { SortingPlugin } from '@toolbox-web/grid/plugins/sorting';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
 @Component({
@@ -109,6 +173,7 @@ import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 export class EmployeeGridComponent {
   employees = [/* ... */];
 
+  // Dynamic plugin configuration - useful when plugins need to be toggled at runtime
   config = {
     columns: [
       { field: 'id', header: 'ID', width: 70 },
@@ -119,7 +184,7 @@ export class EmployeeGridComponent {
     plugins: [
       new SelectionPlugin({ mode: 'range' }),
       new EditingPlugin({ editOn: 'dblclick' }),
-      new SortingPlugin(),
+      new MultiSortPlugin(),
       new FilteringPlugin({ debounceMs: 200 }),
     ],
   };

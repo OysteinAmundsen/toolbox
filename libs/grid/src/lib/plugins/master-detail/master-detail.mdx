@@ -117,10 +117,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [masterDetail] input
+import '@toolbox-web/grid-angular/features/master-detail';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-order-grid',
@@ -129,7 +131,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="orders"
-      [gridConfig]="config"
+      [columns]="columns"
+      [masterDetail]="masterDetailConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -137,24 +140,21 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class OrderGridComponent {
   orders = [/* order data */];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'orderId', header: 'Order ID' },
-      { field: 'customer', header: 'Customer' },
-      { field: 'total', header: 'Total', type: 'currency' }
-    ],
-    plugins: [
-      new MasterDetailPlugin({
-        detailRenderer: (row) => `
-          <div class="order-details">
-            <h4>Order Items</h4>
-            <ul>
-              ${row.items.map(item => `<li>${item.name} - $${item.price}</li>`).join('')}
-            </ul>
-          </div>
-        `,
-      }),
-    ],
+  columns: ColumnConfig[] = [
+    { field: 'orderId', header: 'Order ID' },
+    { field: 'customer', header: 'Customer' },
+    { field: 'total', header: 'Total', type: 'currency' }
+  ];
+
+  masterDetailConfig = {
+    detailRenderer: (row: any) => `
+      <div class="order-details">
+        <h4>Order Items</h4>
+        <ul>
+          ${row.items.map((item: any) => `<li>${item.name} - $${item.price}</li>`).join('')}
+        </ul>
+      </div>
+    `,
   };
 }
 ```

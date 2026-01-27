@@ -92,10 +92,12 @@ onMounted(() => {
   <Tab label="Angular">
 
 ```typescript
+// Feature import - enables the [filtering] input
+import '@toolbox-web/grid-angular/features/filtering';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -104,7 +106,8 @@ import { Grid } from '@toolbox-web/grid-angular';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [filtering]="{ debounceMs: 300 }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -112,14 +115,11 @@ import { Grid } from '@toolbox-web/grid-angular';
 export class MyGridComponent {
   rows = [...];
 
-  config = {
-    columns: [
-      { field: 'name', header: 'Name', filterable: true },
-      { field: 'status', header: 'Status', filterable: true },
-      { field: 'email', header: 'Email', filterable: true },
-    ],
-    plugins: [new FilteringPlugin({ debounceMs: 300 })],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+    { field: 'email', header: 'Email', filterable: true },
+  ];
 }
 ```
 

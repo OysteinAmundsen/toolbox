@@ -13,6 +13,8 @@
     "types": ["node", "vite/client"],
     "paths": {
       "@toolbox-web/grid": ["../../dist/libs/grid/index.d.ts"],
+      "@toolbox-web/grid/all": ["../../dist/libs/grid/all.d.ts"],
+      "@toolbox-web/grid/plugins/*": ["../../dist/libs/grid/lib/plugins/*/index.d.ts"],
       "@toolbox-web/grid/*": ["../../dist/libs/grid/*"]
     }
   },

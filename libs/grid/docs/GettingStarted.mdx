@@ -351,13 +351,15 @@ npm install @toolbox-web/grid @toolbox-web/grid-angular
 
 ```typescript
 // grid.component.ts
+// Feature imports - enable the feature inputs
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/filtering';
+
 import '@toolbox-web/grid';
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
-import type { GridConfig, CellCommitDetail } from '@toolbox-web/grid';
+import type { ColumnConfig, CellCommitDetail } from '@toolbox-web/grid';
 
 interface Employee {
   id: number;
@@ -372,7 +374,11 @@ interface Employee {
   template: `
     <tbw-grid
       [rows]="employees"
-      [gridConfig]="config"
+      [columns]="columns"
+      [editing]="true"
+      [selection]="'row'"
+      [filtering]="{ debounceMs: 200 }"
+      fitMode="stretch"
       (cellCommit)="onCellCommit($event)"
       style="height: 400px; display: block;">
 
@@ -400,19 +406,11 @@ export class EmployeeGridComponent {
     { id: 3, name: 'Carol White', status: 'active' },
   ];
 
-  config: GridConfig<Employee> = {
-    columns: [
-      { field: 'id', header: 'ID', type: 'number' },
-      { field: 'name', header: 'Name', editable: true },
-      { field: 'status', header: 'Status' }, // renderer/editor from template
-    ],
-    plugins: [
-      new EditingPlugin({ editOn: 'dblclick' }), // Required for editable columns
-      new SelectionPlugin({ mode: 'row' }),
-      new FilteringPlugin({ debounceMs: 200 }),
-    ],
-    fitMode: 'stretch',
-  };
+  columns: ColumnConfig<Employee>[] = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'status', header: 'Status' }, // renderer/editor from template
+  ];
 
   onCellCommit(event: CustomEvent<CellCommitDetail>) {
     console.log('Edited:', event.detail);

@@ -78,28 +78,31 @@ function MyGrid({ data }) {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [editing] input
+import '@toolbox-web/grid-angular/features/editing';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid, TbwEditor } from '@toolbox-web/grid-angular';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid, TbwEditor],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
-    <tbw-grid [rows]="data" [gridConfig]="config" (cellCommit)="onCommit($event)" />
+    <tbw-grid
+      [rows]="data"
+      [columns]="columns"
+      [editing]="true"
+      (cellCommit)="onCommit($event)" />
   `
 })
 export class MyGridComponent {
   data = [...];
-  config: GridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name', editable: true },
-      { field: 'price', header: 'Price', type: 'number', editable: true },
-    ],
-    plugins: [new EditingPlugin({ editOn: 'dblclick' })],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+  ];
 
   onCommit(event: CustomEvent) {
     console.log('Edited:', event.detail);
@@ -353,33 +356,33 @@ function MyGrid({ data }) {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [editing] input
+import '@toolbox-web/grid-angular/features/editing';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, TypeDefaultsMap } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid [rows]="data" [gridConfig]="config" />`
+  template: `<tbw-grid [rows]="data" [columns]="columns" [editing]="true" [typeDefaults]="typeDefaults" />`
 })
 export class MyGridComponent {
   data = [...];
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name', editable: true },
-      { field: 'country', header: 'Country', type: 'country', editable: true },
-    ],
-    typeDefaults: {
-      country: {
-        renderer: (ctx) => {
-          const span = document.createElement('span');
-          span.textContent = `🌍 ${ctx.value}`;
-          return span;
-        },
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'country', header: 'Country', type: 'country', editable: true },
+  ];
+
+  typeDefaults: TypeDefaultsMap = {
+    country: {
+      renderer: (ctx) => {
+        const span = document.createElement('span');
+        span.textContent = `🌍 ${ctx.value}`;
+        return span;
       },
     },
-    plugins: [new EditingPlugin()],
   };
 }
 ```
@@ -458,18 +461,25 @@ export const appConfig: ApplicationConfig = {
 };
 
 // grid.component.ts - type defaults automatically apply
+// Feature import - enables the [editing] input
+import '@toolbox-web/grid-angular/features/editing';
+
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
 @Component({
-  template: `<tbw-grid [rows]="data" [gridConfig]="config" />`
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `<tbw-grid [rows]="data" [columns]="columns" [editing]="true" />`
 })
 export class GridComponent {
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'country', type: 'country', editable: true }, // Uses registered components
-      { field: 'salary', type: 'currency' },
-    ],
-    plugins: [new EditingPlugin()],
-  };
+  data = [...];
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'country', type: 'country', editable: true }, // Uses registered components
+    { field: 'salary', type: 'currency' },
+  ];
 }
 ```
   </Tab>

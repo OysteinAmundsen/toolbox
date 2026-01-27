@@ -100,10 +100,12 @@ const onColumnMove = (e) => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [reorder] input
+import '@toolbox-web/grid-angular/features/reorder';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -112,7 +114,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [reorder]="{ animation: 'flip' }"
       (column-move)="onColumnMove($event)"
       style="height: 400px; display: block;">
     </tbw-grid>
@@ -121,15 +124,12 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' },
-    ],
-    plugins: [new ReorderPlugin({ animation: 'flip' })],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ];
 
   onColumnMove(e: CustomEvent) {
     console.log(`Moved ${e.detail.field} from ${e.detail.fromIndex} to ${e.detail.toIndex}`);

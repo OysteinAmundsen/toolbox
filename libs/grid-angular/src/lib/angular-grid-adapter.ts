@@ -268,7 +268,9 @@ export class AngularGridAdapter implements FrameworkAdapter {
     const gridElement = element.closest('tbw-grid') as HTMLElement | null;
 
     if (!template) {
-      console.warn(`[AngularGridAdapter] No editor template registered for element`);
+      // No warning - this can happen during early initialization before Angular
+      // registers structural directive templates. The grid will re-parse columns
+      // after templates are registered.
       return () => document.createElement('div');
     }
 

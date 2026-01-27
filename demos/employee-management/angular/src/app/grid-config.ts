@@ -1,22 +1,35 @@
+/**
+ * Grid Configuration for the Employee Management Demo
+ *
+ * This demo uses a **hybrid pattern** combining both approaches:
+ *
+ * **Feature Inputs** (in template) for always-on features:
+ * ```html
+ * <tbw-grid [clipboard]="true" [contextMenu]="true" [reorder]="true" ... />
+ * ```
+ *
+ * **Plugin-based** (here) for features that need:
+ * - Dynamic toggling via checkboxes (selection, filtering, sorting, editing)
+ * - Complex configuration (pinned-rows with aggregation)
+ * - Conditional loading (master-detail, undo-redo)
+ *
+ * Both patterns merge seamlessly - plugins from feature inputs are combined with gridConfig.plugins.
+ */
 import { DEPARTMENTS, type Employee } from '@demo/shared';
 import type { AngularGridConfig } from '@toolbox-web/grid-angular';
+// Only import plugins needed for dynamic toggling or complex configuration.
+// Always-on features use feature inputs in app.component.ts instead.
+// Exceptions: GroupingColumnsPlugin (columnGroups config), ResponsivePlugin (<tbw-grid-responsive-card>)
 import {
-  ClipboardPlugin,
-  ColumnVirtualizationPlugin,
-  ContextMenuPlugin,
   EditingPlugin,
-  ExportPlugin,
   FilteringPlugin,
   GroupingColumnsPlugin,
   MasterDetailPlugin,
   MultiSortPlugin,
-  PinnedColumnsPlugin,
   PinnedRowsPlugin,
-  ReorderPlugin,
   ResponsivePlugin,
   SelectionPlugin,
   UndoRedoPlugin,
-  VisibilityPlugin,
 } from '@toolbox-web/grid/all';
 import { StarRatingEditorComponent } from './editors/star-rating-editor.component';
 import { RatingDisplayComponent } from './renderers/rating-display.component';
@@ -163,20 +176,16 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
     shell: {
       toolPanel: { position: 'right', width: 300 },
     },
+    // Always-on features configured via feature inputs in the template:
+    // [clipboard], [contextMenu], [reorder], [visibility], [pinnedColumns],
+    // [columnVirtualization], [export]
+    //
+    // Dynamic features (toggled via checkboxes) configured via plugins:
     plugins: [
-      ...(enableSelection ? [new SelectionPlugin({ mode: 'range' })] : []),
-      ...(enableSorting ? [new MultiSortPlugin()] : []),
-      ...(enableFiltering ? [new FilteringPlugin({ debounceMs: 200 })] : []),
-      ...(enableEditing ? [new EditingPlugin({ editOn: 'dblclick' })] : []),
-      new ClipboardPlugin(),
-      new ContextMenuPlugin(),
-      new ReorderPlugin(),
+      // GroupingColumnsPlugin: uses columnGroups config property
       new GroupingColumnsPlugin(),
-      new PinnedColumnsPlugin(),
-      new ColumnVirtualizationPlugin(),
-      new VisibilityPlugin(),
-      // Responsive plugin - card template comes from <tbw-grid-responsive-card> in Angular component
-      new ResponsivePlugin<Employee>({
+      // ResponsivePlugin: uses <tbw-grid-responsive-card> template element
+      new ResponsivePlugin({
         breakpoint: 700,
         cardRowHeight: 80,
         hiddenColumns: [
@@ -190,6 +199,10 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
           'location',
         ],
       }),
+      ...(enableSelection ? [new SelectionPlugin({ mode: 'range' })] : []),
+      ...(enableSorting ? [new MultiSortPlugin()] : []),
+      ...(enableFiltering ? [new FilteringPlugin({ debounceMs: 200 })] : []),
+      ...(enableEditing ? [new EditingPlugin({ editOn: 'dblclick' })] : []),
       // MasterDetailPlugin - detail renderer comes from <tbw-grid-detail> in Angular component
       ...(enableMasterDetail
         ? [
@@ -200,7 +213,7 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
           ]
         : []),
       ...(enableEditing ? [new UndoRedoPlugin({ maxHistorySize: 100 })] : []),
-      new ExportPlugin(),
+      // PinnedRowsPlugin has complex aggregation config, keeping as plugin
       new PinnedRowsPlugin({
         position: 'bottom',
         showRowCount: true,

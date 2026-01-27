@@ -40,6 +40,13 @@
         [customStyles]="customStyles"
         (cellCommit)="onCellCommit($event)"
         (column-move)="onColumnMove($event)"
+        [clipboard]="true"
+        [contextMenu]="true"
+        [reorder]="true"
+        [visibility]="true"
+        [pinnedColumns]="true"
+        [columnVirtualization]="true"
+        [export]="true"
       >
         <!-- Shell configuration with title -->
         <tbw-grid-header title="Employee Management System (Angular)"></tbw-grid-header>
@@ -71,19 +78,25 @@
         <!-- When control is provided, the editor derives value from control.value automatically -->
         <tbw-grid-column field="status">
           <app-status-badge *tbwRenderer="let value" [value]="value" />
-          <app-status-select-editor *tbwEditor="let _; control as control" [control]="control" />
+          @if (enableEditing()) {
+            <app-status-select-editor *tbwEditor="let _; control as control" [control]="control" />
+          }
         </tbw-grid-column>
         <tbw-grid-column field="bonus">
-          <app-bonus-slider-editor
-            *tbwEditor="let value; row as row"
-            [value]="value"
-            [salary]="row.salary"
-          />
+          @if (enableEditing()) {
+            <app-bonus-slider-editor
+              *tbwEditor="let value; row as row"
+              [value]="value"
+              [salary]="row.salary"
+            />
+          }
         </tbw-grid-column>
         <!-- Rating column uses component-class config in gridConfig instead of templates -->
         <!-- See grid-config.ts: { field: 'rating', renderer: RatingDisplayComponent, editor: StarRatingEditorComponent } -->
         <tbw-grid-column field="hireDate">
-          <app-date-editor *tbwEditor="let value" [value]="value" />
+          @if (enableEditing()) {
+            <app-date-editor *tbwEditor="let value" [value]="value" />
+          }
         </tbw-grid-column>
         <tbw-grid-column field="isTopPerformer">
           <app-top-performer *tbwRenderer="let value" [value]="value" />

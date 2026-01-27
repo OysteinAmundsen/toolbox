@@ -50,13 +50,30 @@ const toolboxAliasPlugin = {
     // Resolve @toolbox-web/grid/* (plugins, etc.)
     build.onResolve({ filter: /^@toolbox-web\/grid\/(.+)$/ }, (args) => {
       const subpath = args.path.replace('@toolbox-web/grid/', '');
+      // Handle plugins/* specially - they're in src/lib/plugins/
+      if (subpath.startsWith('plugins/')) {
+        const pluginName = subpath.replace('plugins/', '');
+        return {
+          path: path.join(libsRoot, 'grid', 'src', 'lib', 'plugins', pluginName, 'index.ts'),
+        };
+      }
       return {
         path: path.join(libsRoot, 'grid', 'src', subpath, 'index.ts'),
       };
     });
 
-    // NOTE: @toolbox-web/grid-angular is NOT aliased here.
-    // It imports from source via tsconfig paths, allowing Angular AOT compilation.
+    // Resolve @toolbox-web/grid-angular
+    build.onResolve({ filter: /^@toolbox-web\/grid-angular$/ }, () => ({
+      path: path.join(libsRoot, 'grid-angular', 'src', 'index.ts'),
+    }));
+
+    // Resolve @toolbox-web/grid-angular/features/* (tree-shakeable feature imports)
+    build.onResolve({ filter: /^@toolbox-web\/grid-angular\/features\/(.+)$/ }, (args) => {
+      const feature = args.path.replace('@toolbox-web/grid-angular/features/', '');
+      return {
+        path: path.join(libsRoot, 'grid-angular', 'src', 'features', `${feature}.ts`),
+      };
+    });
   },
 };
 

@@ -106,10 +106,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [tree] input
+import '@toolbox-web/grid-angular/features/tree';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-file-explorer',
@@ -118,7 +120,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="files"
-      [gridConfig]="config"
+      [columns]="columns"
+      [tree]="{ childrenField: 'children', indentWidth: 24 }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -126,19 +129,11 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class FileExplorerComponent {
   files = [/* hierarchical data */];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'type', header: 'Type' },
-      { field: 'size', header: 'Size' }
-    ],
-    plugins: [
-      new TreePlugin({
-        childrenField: 'children',
-        indentWidth: 24,
-      }),
-    ],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'type', header: 'Type' },
+    { field: 'size', header: 'Size' }
+  ];
 }
 ```
   </Tab>

@@ -138,10 +138,13 @@ const handlePrint = async () => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [print] input
+import '@toolbox-web/grid-angular/features/print';
+
 import { Component, viewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
-import type { GridConfig, GridElement } from '@toolbox-web/grid';
+import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-employee-grid',
@@ -152,7 +155,8 @@ import type { GridConfig, GridElement } from '@toolbox-web/grid';
     <tbw-grid
       #grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [print]="{ title: 'Employee Report', includeTitle: true, includeTimestamp: true }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -161,20 +165,11 @@ export class EmployeeGridComponent {
   gridRef = viewChild<ElementRef<GridElement>>('grid');
   rows = [...];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'department', header: 'Department' },
-      { field: 'salary', header: 'Salary' },
-    ],
-    plugins: [
-      new PrintPlugin({
-        title: 'Employee Report',
-        includeTitle: true,
-        includeTimestamp: true,
-      }),
-    ],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary' },
+  ];
 
   async handlePrint() {
     const plugin = this.gridRef()?.nativeElement.getPlugin(PrintPlugin);

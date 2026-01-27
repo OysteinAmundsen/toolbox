@@ -104,10 +104,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [pivot] input
+import '@toolbox-web/grid-angular/features/pivot';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-sales-pivot',
@@ -116,7 +118,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [pivot]="pivotConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -124,20 +127,17 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class SalesPivotComponent {
   rows = [...]; // Your sales data
 
-  config: GridConfig = {
-    columns: [
-      { field: 'region', header: 'Region' },
-      { field: 'product', header: 'Product' },
-      { field: 'quarter', header: 'Quarter' },
-      { field: 'sales', header: 'Sales', type: 'number' },
-    ],
-    plugins: [
-      new PivotPlugin({
-        rowGroupFields: ['region', 'product'],
-        columnGroupFields: ['quarter'],
-        valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
-      }),
-    ],
+  columns: ColumnConfig[] = [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' },
+  ];
+
+  pivotConfig = {
+    rowGroupFields: ['region', 'product'],
+    columnGroupFields: ['quarter'],
+    valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
   };
 }
 ```

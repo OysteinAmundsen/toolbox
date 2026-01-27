@@ -151,10 +151,13 @@ onMounted(async () => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [serverSide] input
+import '@toolbox-web/grid-angular/features/server-side';
+
 import { Component, viewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
-import type { GridConfig, GridElement } from '@toolbox-web/grid';
+import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-server-side-grid',
@@ -163,23 +166,20 @@ import type { GridConfig, GridElement } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       #grid
-      [gridConfig]="config"
+      [columns]="columns"
+      [serverSide]="{ pageSize: 50 }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class ServerSideGridComponent {
   gridRef = viewChild<ElementRef<GridElement>>('grid');
-  private plugin = new ServerSidePlugin({ pageSize: 50 });
 
-  config: GridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-    ],
-    plugins: [this.plugin],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ];
 
   private dataSource = {
     getRows: async (params: any) => {
@@ -191,7 +191,8 @@ export class ServerSideGridComponent {
 
   ngAfterViewInit() {
     this.gridRef()?.nativeElement.ready().then(() => {
-      this.plugin.setDataSource(this.dataSource);
+      const plugin = this.gridRef()?.nativeElement.getPlugin(ServerSidePlugin);
+      plugin?.setDataSource(this.dataSource);
     });
   }
 }

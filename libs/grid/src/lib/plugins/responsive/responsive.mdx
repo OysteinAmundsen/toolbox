@@ -94,10 +94,12 @@ onMounted(() => {
   <Tab label="Angular">
 
 ```typescript
+// Feature import - enables the [responsive] input
+import '@toolbox-web/grid-angular/features/responsive';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import '@toolbox-web/grid';
-import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -106,7 +108,8 @@ import { Grid } from '@toolbox-web/grid-angular';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [responsive]="{ breakpoint: 500 }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -117,14 +120,11 @@ export class MyGridComponent {
     { id: 2, name: 'Bob', email: 'bob@example.com' },
   ];
 
-  config = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-    ],
-    plugins: [new ResponsivePlugin({ breakpoint: 500 })],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ];
 }
 ```
 

@@ -76,10 +76,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [columnVirtualization] input
+import '@toolbox-web/grid-angular/features/column-virtualization';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-wide-grid',
@@ -88,21 +90,18 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [columnVirtualization]="true"
+      fitMode="fixed"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
 })
 export class WideGridComponent {
   rows = [...];
+  columns: ColumnConfig[] = this.generateManyColumns(100);
 
-  config: GridConfig = {
-    columns: this.generateManyColumns(100),
-    fitMode: 'fixed',
-    plugins: [new ColumnVirtualizationPlugin()],
-  };
-
-  generateManyColumns(count: number) {
+  generateManyColumns(count: number): ColumnConfig[] {
     return Array.from({ length: count }, (_, i) => ({
       field: `col${i}`,
       header: `Column ${i + 1}`,

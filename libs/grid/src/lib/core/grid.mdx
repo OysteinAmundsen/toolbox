@@ -103,6 +103,7 @@ onMounted(() => {
 ```typescript
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -122,7 +123,7 @@ export class MyGridComponent {
     { id: 2, name: 'Bob', email: 'bob@example.com' },
   ];
 
-  columns = [
+  columns: ColumnConfig[] = [
     { field: 'id', header: 'ID', type: 'number' },
     { field: 'name', header: 'Name', sortable: true },
     { field: 'email', header: 'Email' },

@@ -96,11 +96,13 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature imports - enable the [editing] and [undoRedo] inputs
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/undo-redo';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -109,7 +111,9 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [editing]="true"
+      [undoRedo]="{ maxHistorySize: 50 }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -117,17 +121,11 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name', editable: true },
-      { field: 'price', header: 'Price', type: 'number', editable: true },
-      { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
-    ],
-    plugins: [
-      new EditingPlugin({ editOn: 'dblclick' }),
-      new UndoRedoPlugin({ maxHistorySize: 50 }),
-    ],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+  ];
 }
 ```
   </Tab>

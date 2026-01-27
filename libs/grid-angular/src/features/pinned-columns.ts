@@ -1,0 +1,24 @@
+/**
+ * Pinned columns feature for @toolbox-web/grid-angular
+ *
+ * Import this module to enable the `pinnedColumns` input on Grid directive.
+ *
+ * @example
+ * ```typescript
+ * import '@toolbox-web/grid-angular/features/pinned-columns';
+ *
+ * <tbw-grid [pinnedColumns]="true" [columns]="[
+ *   { field: 'id', sticky: 'left' },
+ *   { field: 'name' }
+ * ]" />
+ * ```
+ *
+ * @packageDocumentation
+ */
+
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import { registerFeature } from '../lib/feature-registry';
+
+registerFeature('pinnedColumns', () => {
+  return new PinnedColumnsPlugin();
+});

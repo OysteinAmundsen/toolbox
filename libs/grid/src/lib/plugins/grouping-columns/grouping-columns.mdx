@@ -113,10 +113,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [groupingColumns] input
+import '@toolbox-web/grid-angular/features/grouping-columns';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, ColumnGroup } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -125,7 +127,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [groupingColumns]="{ columnGroups: columnGroups }"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -133,21 +136,19 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class MyGridComponent {
   rows = [...];
 
-  config: GridConfig = {
-    columnGroups: [
-      { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
-      { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
-    ],
-    columns: [
-      { field: 'firstName', header: 'First Name' },
-      { field: 'lastName', header: 'Last Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' },
-      { field: 'title', header: 'Title' },
-      { field: 'salary', header: 'Salary' },
-    ],
-    plugins: [new GroupingColumnsPlugin()],
-  };
+  columnGroups: ColumnGroup[] = [
+    { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+    { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+  ];
+
+  columns: ColumnConfig[] = [
+    { field: 'firstName', header: 'First Name' },
+    { field: 'lastName', header: 'Last Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+    { field: 'title', header: 'Title' },
+    { field: 'salary', header: 'Salary' },
+  ];
 }
 ```
   </Tab>

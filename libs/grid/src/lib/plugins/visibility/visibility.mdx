@@ -93,10 +93,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [visibility] input
+import '@toolbox-web/grid-angular/features/visibility';
+
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-configurable-grid',
@@ -105,7 +107,8 @@ import type { GridConfig } from '@toolbox-web/grid';
   template: `
     <tbw-grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [visibility]="true"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -113,15 +116,12 @@ import type { GridConfig } from '@toolbox-web/grid';
 export class ConfigurableGridComponent {
   rows = [];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'phone', header: 'Phone', visible: false },
-    ],
-    plugins: [new VisibilityPlugin()],
-  };
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'phone', header: 'Phone', visible: false },
+  ];
 }
 ```
   </Tab>

@@ -114,10 +114,12 @@ onMounted(() => {
   </Tab>
   <Tab label="Angular">
 ```typescript
+// Feature import - enables the [contextMenu] input
+import '@toolbox-web/grid-angular/features/context-menu';
+
 import { Component, output, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
-import type { GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig, ContextMenuItem } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
@@ -127,7 +129,8 @@ import type { GridConfig } from '@toolbox-web/grid';
     <tbw-grid
       #grid
       [rows]="rows"
-      [gridConfig]="config"
+      [columns]="columns"
+      [contextMenu]="contextMenuConfig"
       style="height: 400px; display: block;">
     </tbw-grid>
   `,
@@ -136,22 +139,19 @@ export class MyGridComponent {
   deleteRow = output<number>();
   rows = [...];
 
-  config: GridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'status', header: 'Status' }
-    ],
-    plugins: [
-      new ContextMenuPlugin({
-        items: [
-          { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
-          { id: 'edit', label: 'Edit Row', action: (ctx) => (document.querySelector('tbw-grid') as any).startEditing(ctx.rowIndex, ctx.colIndex) },
-          { type: 'separator' },
-          { id: 'delete', label: 'Delete Row', action: (ctx) => this.deleteRow.emit(ctx.rowIndex) },
-        ],
-      }),
-    ],
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'status', header: 'Status' }
+  ];
+
+  contextMenuConfig = {
+    items: [
+      { id: 'copy', label: 'Copy Cell', action: (ctx: any) => navigator.clipboard.writeText(ctx.value) },
+      { id: 'edit', label: 'Edit Row', action: (ctx: any) => (document.querySelector('tbw-grid') as any).startEditing(ctx.rowIndex, ctx.colIndex) },
+      { type: 'separator' },
+      { id: 'delete', label: 'Delete Row', action: (ctx: any) => this.deleteRow.emit(ctx.rowIndex) },
+    ] as ContextMenuItem[],
   };
 }
 ```

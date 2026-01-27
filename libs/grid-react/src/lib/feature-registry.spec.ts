@@ -99,7 +99,9 @@ describe('feature-registry', () => {
     });
 
     it('should warn in dev for unregistered feature', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
 
       createPluginFromFeature('selection', 'row');
 
@@ -120,7 +122,9 @@ describe('use-sync-plugins', () => {
 
   describe('validateFeatureDependencies', () => {
     it('should not warn when dependencies are satisfied', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
 
       validateFeatureDependencies(['selection', 'clipboard'] as FeatureName[]);
 
@@ -130,7 +134,9 @@ describe('use-sync-plugins', () => {
     });
 
     it('should warn when clipboard is used without selection', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
 
       validateFeatureDependencies(['clipboard'] as FeatureName[]);
 
@@ -139,7 +145,9 @@ describe('use-sync-plugins', () => {
     });
 
     it('should warn when undoRedo is used without editing', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
 
       validateFeatureDependencies(['undoRedo'] as FeatureName[]);
 

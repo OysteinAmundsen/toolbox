@@ -87,13 +87,7 @@ export function createPluginsFromFeatures<TRow = unknown>(featureProps: Partial<
     const config = featureProps[featureName];
     if (config === undefined || config === false) continue;
 
-    // Check if feature is registered
-    if (!isFeatureRegistered(featureName)) {
-      // Warning is shown by createPluginFromFeature
-      createPluginFromFeature(featureName, config);
-      continue;
-    }
-
+    // createPluginFromFeature handles unregistered features with a warning
     const plugin = createPluginFromFeature(featureName, config);
     if (plugin) {
       plugins.push(plugin);

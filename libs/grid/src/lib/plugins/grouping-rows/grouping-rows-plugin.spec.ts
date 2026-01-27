@@ -68,6 +68,21 @@ describe('GroupingRowsPlugin', () => {
       expect(plugin.config.showRowCount).toBe(false);
       expect(plugin.config.indentWidth).toBe(30);
     });
+
+    it('should have manifest with config rule for accordion + defaultExpanded', () => {
+      const manifest = GroupingRowsPlugin.manifest;
+
+      expect(manifest).toBeDefined();
+      expect(manifest?.configRules).toBeDefined();
+      expect(manifest?.configRules?.length).toBeGreaterThan(0);
+
+      const rule = manifest?.configRules?.find((r) => r.id === 'groupingRows/accordion-defaultExpanded');
+      expect(rule).toBeDefined();
+      expect(rule?.severity).toBe('warn');
+      expect(rule?.check({ accordion: true, defaultExpanded: true })).toBe(true);
+      expect(rule?.check({ accordion: true, defaultExpanded: false })).toBe(false);
+      expect(rule?.check({ accordion: false, defaultExpanded: true })).toBe(false);
+    });
   });
 
   describe('lifecycle', () => {
@@ -323,6 +338,79 @@ describe('GroupingRowsPlugin', () => {
         plugin.collapse('A'); // Already collapsed
 
         expect(requestRenderSpy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('accordion mode', () => {
+      it('should collapse other groups at same depth when expanding in accordion mode', () => {
+        const plugin = new GroupingRowsPlugin({
+          groupOn: (row: any) => row.category,
+          accordion: true,
+        });
+        const rows = [
+          { id: 1, category: 'A' },
+          { id: 2, category: 'B' },
+          { id: 3, category: 'C' },
+        ];
+        const grid = createMockGrid({ rows });
+
+        plugin.attach(grid);
+        plugin.processRows(rows);
+
+        // Expand first group
+        plugin.toggle('A');
+        expect(plugin.isExpanded('A')).toBe(true);
+
+        // Expand second group - should collapse first
+        plugin.toggle('B');
+        expect(plugin.isExpanded('A')).toBe(false);
+        expect(plugin.isExpanded('B')).toBe(true);
+
+        // Expand third group - should collapse second
+        plugin.toggle('C');
+        expect(plugin.isExpanded('A')).toBe(false);
+        expect(plugin.isExpanded('B')).toBe(false);
+        expect(plugin.isExpanded('C')).toBe(true);
+      });
+
+      it('should allow collapsing a group in accordion mode', () => {
+        const plugin = new GroupingRowsPlugin({
+          groupOn: (row: any) => row.category,
+          accordion: true,
+        });
+        const rows = [{ id: 1, category: 'A' }];
+        const grid = createMockGrid({ rows });
+
+        plugin.attach(grid);
+        plugin.processRows(rows);
+
+        // Expand and then collapse
+        plugin.toggle('A');
+        expect(plugin.isExpanded('A')).toBe(true);
+
+        plugin.toggle('A');
+        expect(plugin.isExpanded('A')).toBe(false);
+      });
+
+      it('should allow multiple groups expanded when accordion mode is disabled', () => {
+        const plugin = new GroupingRowsPlugin({
+          groupOn: (row: any) => row.category,
+          accordion: false,
+        });
+        const rows = [
+          { id: 1, category: 'A' },
+          { id: 2, category: 'B' },
+        ];
+        const grid = createMockGrid({ rows });
+
+        plugin.attach(grid);
+        plugin.processRows(rows);
+
+        plugin.toggle('A');
+        plugin.toggle('B');
+
+        expect(plugin.isExpanded('A')).toBe(true);
+        expect(plugin.isExpanded('B')).toBe(true);
       });
     });
 

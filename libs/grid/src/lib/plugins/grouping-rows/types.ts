@@ -44,6 +44,12 @@ export interface GroupingRowsConfig {
    * @default 'slide'
    */
   animation?: ExpandCollapseAnimation;
+  /**
+   * Accordion mode - only one group can be expanded at a time.
+   * Expanding a group will automatically collapse all other groups at the same depth.
+   * @default false
+   */
+  accordion?: boolean;
 }
 
 /** Parameters passed to custom group row renderer */

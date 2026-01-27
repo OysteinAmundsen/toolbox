@@ -4,7 +4,7 @@
  * Enables hierarchical row grouping with expand/collapse and aggregations.
  */
 
-import { BaseGridPlugin, CellClickEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, type PluginManifest } from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
 import {
@@ -119,6 +119,25 @@ export interface GroupState {
  * @internal Extends BaseGridPlugin
  */
 export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
+  /**
+   * Plugin manifest - declares configuration validation rules.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest<GroupingRowsConfig> = {
+    configRules: [
+      {
+        id: 'groupingRows/accordion-defaultExpanded',
+        severity: 'warn',
+        message:
+          `"accordion: true" and "defaultExpanded: true" are used together.\n` +
+          `  → In accordion mode, only one group can be open at a time.\n` +
+          `  → Using defaultExpanded will open all groups initially, then collapse to one on first toggle.\n` +
+          `  → Consider using "defaultExpanded: false" with accordion mode.`,
+        check: (config) => config.accordion === true && config.defaultExpanded === true,
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'groupingRows';
   /** @internal */
@@ -132,6 +151,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       indentWidth: 20,
       aggregators: {},
       animation: 'slide',
+      accordion: false,
     };
   }
 
@@ -411,8 +431,10 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   private renderFullWidthGroupRow(row: any, rowEl: HTMLElement, handleToggle: () => void): void {
     const config = this.config;
+    const aggregators = config.aggregators ?? {};
+    const groupRows = row.__groupRows ?? [];
 
-    // Full-width mode: single spanning cell with toggle + label + count
+    // Full-width mode: single spanning cell with toggle + label + count + aggregates
     const cell = document.createElement('div');
     cell.className = 'cell group-full';
     cell.style.gridColumn = '1 / -1';
@@ -434,6 +456,31 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       count.className = 'group-count';
       count.textContent = `(${row.__groupRowCount ?? row.__groupRows?.length ?? 0})`;
       cell.appendChild(count);
+    }
+
+    // Render aggregates if configured
+    const aggregatorEntries = Object.entries(aggregators);
+    if (aggregatorEntries.length > 0) {
+      const aggregatesContainer = document.createElement('span');
+      aggregatesContainer.className = 'group-aggregates';
+
+      for (const [field, aggRef] of aggregatorEntries) {
+        const col = this.columns.find((c) => c.field === field);
+        const result = runAggregator(aggRef, groupRows, field, col);
+        if (result != null) {
+          const aggSpan = document.createElement('span');
+          aggSpan.className = 'group-aggregate';
+          aggSpan.setAttribute('data-field', field);
+          // Use column header as label if available
+          const colHeader = col?.header ?? field;
+          aggSpan.textContent = `${colHeader}: ${result}`;
+          aggregatesContainer.appendChild(aggSpan);
+        }
+      }
+
+      if (aggregatesContainer.children.length > 0) {
+        cell.appendChild(aggregatesContainer);
+      }
     }
 
     rowEl.appendChild(cell);
@@ -527,13 +574,43 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
   /**
    * Toggle expansion of a specific group.
+   * In accordion mode, expanding a group will collapse all sibling groups.
    * @param key - The group key to toggle
    */
   toggle(key: string): void {
-    this.expandedKeys = toggleGroupExpansion(this.expandedKeys, key);
+    const isExpanding = !this.expandedKeys.has(key);
+    const config = this.config;
 
-    // Find the group to emit event details
+    // Find the group to get its depth for accordion mode
     const group = this.flattenedRows.find((r) => r.kind === 'group' && r.key === key) as GroupRowModelItem | undefined;
+
+    // In accordion mode, collapse sibling groups when expanding
+    if (config.accordion && isExpanding && group) {
+      const newKeys = new Set<string>();
+      // Keep only ancestors (keys that are prefixes of the current key) and the current key
+      for (const existingKey of this.expandedKeys) {
+        // Check if existingKey is an ancestor of the toggled key
+        // Ancestors have composite keys that are prefixes of child keys (separated by '||')
+        if (key.startsWith(existingKey + '||') || existingKey.startsWith(key + '||')) {
+          // This is an ancestor or descendant - keep it only if ancestor
+          if (key.startsWith(existingKey + '||')) {
+            newKeys.add(existingKey);
+          }
+        } else {
+          // Check depth - only keep groups at different depths
+          const existingGroup = this.flattenedRows.find((r) => r.kind === 'group' && r.key === existingKey) as
+            | GroupRowModelItem
+            | undefined;
+          if (existingGroup && existingGroup.depth !== group.depth) {
+            newKeys.add(existingKey);
+          }
+        }
+      }
+      newKeys.add(key);
+      this.expandedKeys = newKeys;
+    } else {
+      this.expandedKeys = toggleGroupExpansion(this.expandedKeys, key);
+    }
 
     this.emit<GroupToggleDetail>('group-toggle', {
       key,

@@ -44,6 +44,21 @@
     font-weight: normal;
   }
 
+  /* Aggregates container (for full-width mode) */
+  .group-aggregates {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--tbw-spacing-lg, 1rem);
+    margin-left: var(--tbw-spacing-lg, 1rem);
+    font-weight: normal;
+    font-size: var(--tbw-font-size-sm, 0.875em);
+    color: var(--tbw-grouping-rows-aggregate-color, var(--tbw-color-fg-muted));
+  }
+
+  .group-aggregate {
+    white-space: nowrap;
+  }
+
   /* Depth-based indentation using CSS custom property */
   .group-row {
     padding-left: calc(var(--tbw-group-depth, 0) * var(--tbw-group-indent-width, 1.25em));

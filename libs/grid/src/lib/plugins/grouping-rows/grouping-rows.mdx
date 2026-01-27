@@ -164,6 +164,8 @@ export class EmployeeGridComponent {
 | `indentWidth`     | `number`                     | `20`      | Indent per level in pixels               |
 | `fullWidth`       | `boolean`                    | `true`    | Group row spans full width               |
 | `animation`       | `false \| 'slide' \| 'fade'` | `'slide'` | Animation style for expanding/collapsing |
+| `accordion`       | `boolean`                    | `false`   | Only one group open at a time            |
+| `aggregators`     | `Record<string, AggregatorRef>` | `{}`   | Aggregators for group summary values     |
 
 ### Animation Options
 
@@ -181,6 +183,56 @@ new GroupingRowsPlugin({ animation: false, ... });
 ```
 
 > **Note:** Animation respects the grid-level `animation.mode` setting.
+
+### Accordion Mode
+
+In accordion mode, only one group can be expanded at a time. Expanding a group automatically collapses all sibling groups at the same depth level.
+
+<Canvas of={GroupingRowsStories.AccordionMode} withToolbar />
+
+```ts
+new GroupingRowsPlugin({
+  groupOn: (row) => row.department,
+  accordion: true, // Only one group open at a time
+});
+```
+
+### Aggregators
+
+Display aggregate values (sum, avg, count, min, max, first, last) in group headers. Works in both full-width and per-column rendering modes.
+
+<Canvas of={GroupingRowsStories.WithAggregators} withToolbar />
+
+```ts
+new GroupingRowsPlugin({
+  groupOn: (row) => row.department,
+  aggregators: {
+    salary: 'sum',    // Sum of salaries in each group
+    bonus: 'avg',     // Average bonus
+    id: 'count',      // Count of rows
+  },
+});
+```
+
+**Built-in aggregators:**
+- `sum` - Sum of numeric values
+- `avg` - Average of numeric values
+- `count` - Number of rows
+- `min` - Minimum value
+- `max` - Maximum value
+- `first` - First row's value
+- `last` - Last row's value
+
+You can also provide a custom aggregator function:
+
+```ts
+aggregators: {
+  salary: (rows, field) => {
+    const total = rows.reduce((sum, r) => sum + r[field], 0);
+    return `$${total.toLocaleString()}`;
+  },
+}
+```
 
 ## Multi-Level Grouping
 
@@ -215,6 +267,7 @@ The row grouping plugin supports CSS custom properties for theming. Override the
 | `--tbw-grouping-rows-bg-hover` | `var(--tbw-color-row-hover)` | Group row hover |
 | `--tbw-grouping-rows-toggle-hover` | `var(--tbw-color-row-hover)` | Toggle button hover |
 | `--tbw-grouping-rows-count-color` | `var(--tbw-color-fg-muted)` | Count badge color |
+| `--tbw-grouping-rows-aggregate-color` | `var(--tbw-color-fg-muted)` | Aggregate value color |
 | `--tbw-toggle-size` | `1.25em` | Toggle button size |
 | `--tbw-font-size-xs` | `0.7857em` | Count text size |
 | `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
@@ -242,6 +295,8 @@ The row grouping plugin uses these class names:
 | `.group-toggle` | Expand/collapse button |
 | `.group-label` | Group name and value |
 | `.group-count` | Row count badge |
+| `.group-aggregates` | Container for aggregate values |
+| `.group-aggregate` | Individual aggregate value |
 | `.tbw-group-slide-in` | Child row slide animation |
 | `.tbw-group-fade-in` | Child row fade animation |
 | `[data-group-depth="N"]` | Group nesting level (0-4) |

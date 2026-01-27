@@ -49,12 +49,30 @@ const meta: Meta = {
       description: 'Indentation width per depth level in pixels',
       table: { category: 'Row Grouping', defaultValue: { summary: '20' } },
     },
+    fullWidth: {
+      control: { type: 'boolean' },
+      description: 'Group row spans full width (vs per-column)',
+      table: { category: 'Row Grouping', defaultValue: { summary: 'true' } },
+    },
+    accordion: {
+      control: { type: 'boolean' },
+      description: 'Only one group can be open at a time',
+      table: { category: 'Row Grouping', defaultValue: { summary: 'false' } },
+    },
+    showAggregators: {
+      control: { type: 'boolean' },
+      description: 'Show aggregate values (sum of salary) in group headers',
+      table: { category: 'Row Grouping', defaultValue: { summary: 'false' } },
+    },
   },
   args: {
     animation: 'slide' as const,
     defaultExpanded: false,
     showRowCount: true,
     indentWidth: 20,
+    fullWidth: true,
+    accordion: false,
+    showAggregators: false,
   },
 };
 export default meta;
@@ -64,6 +82,9 @@ interface GroupingRowsArgs {
   defaultExpanded: boolean;
   showRowCount: boolean;
   indentWidth: number;
+  fullWidth: boolean;
+  accordion: boolean;
+  showAggregators: boolean;
 }
 type Story = StoryObj<GroupingRowsArgs>;
 
@@ -128,6 +149,9 @@ grid.rows = [
           defaultExpanded: args.defaultExpanded,
           showRowCount: args.showRowCount,
           indentWidth: args.indentWidth,
+          fullWidth: args.fullWidth,
+          accordion: args.accordion,
+          aggregators: args.showAggregators ? { salary: 'sum' } : undefined,
         }),
       ],
     };
@@ -265,6 +289,150 @@ grid.rows = [
           defaultExpanded: args.defaultExpanded,
           showRowCount: args.showRowCount,
           indentWidth: args.indentWidth,
+        }),
+      ],
+    };
+    grid.rows = sampleData;
+
+    return grid;
+  },
+};
+
+/**
+ * Accordion mode - only one group can be open at a time.
+ * Expanding a group automatically collapses all other groups.
+ */
+export const AccordionMode: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [
+    new GroupingRowsPlugin({
+      groupOn: (row) => row.department,
+      accordion: true, // Only one group open at a time
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice', department: 'Engineering', salary: 95000 },
+  { id: 2, name: 'Bob', department: 'Marketing', salary: 75000 },
+  // ...
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  args: {
+    defaultExpanded: false,
+    showRowCount: true,
+    indentWidth: 20,
+  },
+  render: (args: GroupingRowsArgs) => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new GroupingRowsPlugin({
+          groupOn: (row: { department: string }) => row.department,
+          accordion: true,
+          defaultExpanded: args.defaultExpanded,
+          showRowCount: args.showRowCount,
+          indentWidth: args.indentWidth,
+        }),
+      ],
+    };
+    grid.rows = sampleData;
+
+    return grid;
+  },
+};
+
+/**
+ * Group rows with aggregated values displayed in the group header.
+ * Aggregators can show sum, avg, count, min, max, etc.
+ */
+export const WithAggregators: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [
+    new GroupingRowsPlugin({
+      groupOn: (row) => row.department,
+      aggregators: {
+        salary: 'sum', // Sum of salaries in each group
+      },
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice', department: 'Engineering', salary: 95000 },
+  { id: 2, name: 'Bob', department: 'Marketing', salary: 75000 },
+  // ...
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  args: {
+    defaultExpanded: false,
+    showRowCount: true,
+    indentWidth: 20,
+  },
+  render: (args: GroupingRowsArgs) => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new GroupingRowsPlugin({
+          groupOn: (row: { department: string }) => row.department,
+          defaultExpanded: args.defaultExpanded,
+          showRowCount: args.showRowCount,
+          indentWidth: args.indentWidth,
+          aggregators: {
+            salary: 'sum',
+          },
         }),
       ],
     };

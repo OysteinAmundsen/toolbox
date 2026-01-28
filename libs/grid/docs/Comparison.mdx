@@ -1,0 +1,166 @@
+{/* Comparison.mdx */}
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Toolbox Grid vs AG Grid" />
+
+# Toolbox Grid vs AG Grid: Feature Comparison
+
+Looking for a **free alternative to AG Grid**? `@toolbox-web/grid` is a high-performance, open-source data grid with many of the same features—no license fees, no enterprise tiers, no feature gates.
+
+> *Disclaimer: Feature availability based on publicly available AG Grid documentation as of January 2026. AG Grid is a trademark of AG Grid Ltd. This is an independent comparison and is not affiliated with, endorsed by, or sponsored by AG Grid Ltd. We encourage you to verify current feature availability on [ag-grid.com](https://www.ag-grid.com/).*
+
+## Quick Summary
+
+| Aspect | @toolbox-web/grid | AG Grid Community | AG Grid Enterprise |
+|--------|-------------------|-------------------|-------------------|
+| **License** | MIT (free forever) | MIT | Commercial ($$$) |
+| **Cost** | Free | Free | $999+/developer/year |
+| **Bundle Size** | ~45KB gzipped | ~200KB+ gzipped | ~300KB+ gzipped |
+| **Dependencies** | Zero | Zero | Zero |
+| **Framework Support** | All (Web Component) | All (wrappers) | All (wrappers) |
+
+## Feature Comparison
+
+### ✅ Core Features
+
+| Feature | @toolbox-web/grid | AG Grid Community | AG Grid Enterprise |
+|---------|:-----------------:|:-----------------:|:-----------------:|
+| **Row Virtualization** | ✅ | ✅ | ✅ |
+| **Column Virtualization** | ✅ | ✅ | ✅ |
+| **Sorting (Single)** | ✅ | ✅ | ✅ |
+| **Sorting (Multi)** | ✅ | ✅ | ✅ |
+| **Column Resizing** | ✅ | ✅ | ✅ |
+| **Column Reordering** | ✅ | ✅ | ✅ |
+| **Column Pinning/Freezing** | ✅ | ✅ | ✅ |
+| **Row Pinning** | ✅ | ✅ | ✅ |
+| **Cell Selection** | ✅ | ✅ | ✅ |
+| **Row Selection** | ✅ | ✅ | ✅ |
+| **Checkbox Selection** | ✅ | ✅ | ✅ |
+| **Custom Cell Renderers** | ✅ | ✅ | ✅ |
+| **Cell Editing** | ✅ | ✅ | ✅ |
+| **Custom Editors** | ✅ | ✅ | ✅ |
+| **Keyboard Navigation** | ✅ | ✅ | ✅ |
+| **Themes/Styling** | ✅ (6 built-in) | ✅ | ✅ |
+| **CSV Export** | ✅ | ✅ | ✅ |
+| **Filtering** | ✅ | ✅ | ✅ |
+| **Pagination** | ✅ | ✅ | ✅ |
+| **Column Visibility** | ✅ | ✅ | ✅ |
+
+### ✅ Features Often Paywalled Elsewhere (Free in Toolbox Grid)
+
+These features require AG Grid Enterprise (paid license), but are **free** in `@toolbox-web/grid`:
+
+| Feature | @toolbox-web/grid | AG Grid Community | AG Grid Enterprise |
+|---------|:-----------------:|:-----------------:|:-----------------:|
+| **Range Selection** | ✅ Free | ❌ | ✅ Paid |
+| **Clipboard (Copy/Paste)** | ✅ Free | ❌ | ✅ Paid |
+| **Excel Export** | ✅ Free | ❌ | ✅ Paid |
+| **Row Grouping** | ✅ Free | ❌ | ✅ Paid |
+| **Aggregation/Footers** | ✅ Free | ❌ | ✅ Paid |
+| **Pivot Table** | ✅ Free | ❌ | ✅ Paid |
+| **Tree Data** | ✅ Free | ❌ | ✅ Paid |
+| **Master-Detail** | ✅ Free | ❌ | ✅ Paid |
+| **Server-Side Row Model** | ✅ Free | ❌ | ✅ Paid |
+| **Infinite Scrolling** | ✅ Free | ❌ | ✅ Paid |
+| **Context Menu** | ✅ Free | ❌ | ✅ Paid |
+| **Column Groups (Spanning)** | ✅ Free | ❌ | ✅ Paid |
+| **Row Drag & Drop** | ✅ Free | ❌ | ✅ Paid |
+| **Print** | ✅ Free | ❌ | ✅ Paid |
+
+### ✅ Additional Free Features
+
+| Feature | @toolbox-web/grid | AG Grid |
+|---------|:-----------------:|:-------:|
+| **Undo/Redo** | ✅ | ✅ Enterprise |
+| **Row Animations** | ✅ | ✅ |
+| **Responsive/Mobile Layout** | ✅ (card layout) | Manual |
+| **Framework Agnostic** | ✅ Native Web Component | Wrapper-based |
+| **TypeScript Types** | ✅ Bundled | ✅ Bundled |
+| **Tree-Shakeable Plugins** | ✅ | Partial |
+
+## Why Choose Toolbox Grid?
+
+### 🆓 Truly Free, Forever
+
+- **MIT License** — Use commercially, modify, redistribute
+- **No "Enterprise" tier** — All features available to everyone
+- **No per-developer pricing** — Scale your team without scaling costs
+- **No watermarks or nag screens** — Production-ready from day one
+
+### 🚀 Performance That Scales
+
+- **100,000+ rows at 60fps** — Efficient row virtualization
+- **~45KB gzipped** — Half the size of AG Grid Community
+- **Zero dependencies** — Nothing to conflict or update
+- **DOM recycling** — Minimal garbage collection pressure
+
+### 🔧 True Framework Freedom
+
+Unlike wrapper-based grids, `@toolbox-web/grid` is a **native Web Component** that works identically in:
+
+- Vanilla JavaScript/TypeScript
+- React (with optional adapter for JSX renderers)
+- Angular (with optional adapter for template renderers)
+- Vue
+- Svelte
+- Any JavaScript environment
+
+One component, same API, everywhere.
+
+### 💡 Developer Experience
+
+- **Helpful error messages** — Missing a plugin? Get an import hint, not a cryptic error
+- **Plugin validation** — Dependencies checked at runtime with actionable guidance
+- **Type-safe configuration** — Full TypeScript support with IntelliSense
+
+## When to Choose AG Grid Instead
+
+Be fair—AG Grid is excellent software. Consider AG Grid if you need:
+
+- **Integrated charting** — AG Grid Enterprise includes AG Charts integration
+- **Sparklines in cells** — Built-in mini-chart cell renderers
+- **Status bar** — Built-in aggregation status bar
+- **Tool panels** — Columns and filters tool panel UI
+- **Dedicated support** — Paid support contracts with SLAs
+- **Long-term commercial backing** — VC-funded company with enterprise support
+
+## Migration from AG Grid
+
+Many AG Grid concepts map directly to Toolbox Grid:
+
+| AG Grid | Toolbox Grid |
+|---------|-------------|
+| `columnDefs` | `columns` or `gridConfig.columns` |
+| `rowData` | `rows` |
+| `defaultColDef` | Column defaults via `columnDefaults` |
+| `getRowId` | `rowIdField` in config |
+| `onCellValueChanged` | `cell-commit` event |
+| `onSelectionChanged` | `selection-change` event |
+| `serverSideRowModel` | `ServerSidePlugin` |
+| `rowGrouping` | `GroupingRowsPlugin` |
+| `masterDetail` | `MasterDetailPlugin` |
+
+For detailed migration guidance including code examples, see our [Migration Guides](https://github.com/OysteinAmundsen/toolbox/blob/main/llms-full.txt#migration-guides) (covers AG Grid, TanStack Table, and ngx-datatable).
+
+## Get Started
+
+```bash
+npm install @toolbox-web/grid
+```
+
+```typescript
+import '@toolbox-web/grid';
+
+const grid = document.createElement('tbw-grid');
+grid.columns = [
+  { field: 'name', header: 'Name', sortable: true },
+  { field: 'email', header: 'Email' },
+];
+grid.rows = [
+  { name: 'Alice', email: 'alice@example.com' },
+  { name: 'Bob', email: 'bob@example.com' },
+];
+document.body.appendChild(grid);
+```
+
+**Ready to switch?** Check out our [documentation](../?path=/docs/grid-introduction--docs) or [live demos](../?path=/docs/grid-demos--docs).

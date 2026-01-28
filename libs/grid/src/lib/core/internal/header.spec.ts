@@ -36,6 +36,7 @@ function makeGrid(opts: Partial<any> = {}) {
     _bodyEl: host.querySelector('.rows') as HTMLElement,
     _rowPool: [],
     _sortState: opts._sortState || null,
+    effectiveConfig: opts.effectiveConfig || {},
     findHeaderRow: function () {
       return this._headerRowEl;
     },
@@ -195,6 +196,80 @@ describe('renderHeader', () => {
       renderHeader(g);
       const cell = g._headerRowEl.querySelector('.cell');
       expect(cell.getAttribute('aria-sort')).toBe('descending');
+    });
+  });
+
+  describe('grid-wide sortable config', () => {
+    it('respects grid-level sortable: false - disables all column sorting', () => {
+      const g = makeGrid({
+        columns: [{ field: 'id', sortable: true }],
+        effectiveConfig: { sortable: false },
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      // Column should NOT have sortable class when grid-wide sortable is false
+      expect(cell.classList.contains('sortable')).toBe(false);
+    });
+
+    it('respects grid-level sortable: false - no sort indicator', () => {
+      const g = makeGrid({
+        columns: [{ field: 'id', sortable: true }],
+        effectiveConfig: { sortable: false },
+      });
+      renderHeader(g);
+      const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
+      expect(indicator).toBeFalsy();
+    });
+
+    it('respects grid-level sortable: false - no aria-sort attribute', () => {
+      const g = makeGrid({
+        columns: [{ field: 'id', sortable: true }],
+        effectiveConfig: { sortable: false },
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      expect(cell.getAttribute('aria-sort')).toBe(null);
+    });
+
+    it('respects grid-level sortable: false - cell is not focusable for sorting', () => {
+      const g = makeGrid({
+        columns: [{ field: 'id', sortable: true }],
+        effectiveConfig: { sortable: false },
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      // Non-sortable cells should not have tabIndex set for sorting
+      expect(cell.tabIndex).toBe(-1);
+    });
+
+    it('allows sorting when grid-level sortable: true', () => {
+      const g = makeGrid({
+        columns: [{ field: 'id', sortable: true }],
+        effectiveConfig: { sortable: true },
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      expect(cell.classList.contains('sortable')).toBe(true);
+    });
+
+    it('allows sorting when grid-level sortable is undefined (defaults to true)', () => {
+      const g = makeGrid({
+        columns: [{ field: 'id', sortable: true }],
+        effectiveConfig: {},
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      expect(cell.classList.contains('sortable')).toBe(true);
+    });
+
+    it('column without sortable: true is still not sortable even with grid-level sortable: true', () => {
+      const g = makeGrid({
+        columns: [{ field: 'id', sortable: false }],
+        effectiveConfig: { sortable: true },
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell');
+      expect(cell.classList.contains('sortable')).toBe(false);
     });
   });
 

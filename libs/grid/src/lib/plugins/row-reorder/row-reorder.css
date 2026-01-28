@@ -64,8 +64,10 @@
     box-shadow: 0 0 0 1px var(--tbw-row-reorder-moving-border, var(--tbw-color-accent)) inset;
   }
 
-  /* FLIP animation for row transitions */
-  .data-grid-row.animate-flip {
+  /* FLIP animation for row transitions (drag-drop) */
+  .data-grid-row.flip-animating {
     transition: transform var(--tbw-animation-duration, 200ms) ease-out;
+    will-change: transform;
+    z-index: 1;
   }
 } /* End @layer tbw-plugins */

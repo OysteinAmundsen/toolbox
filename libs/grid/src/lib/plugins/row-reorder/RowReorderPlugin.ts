@@ -101,6 +101,20 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
     };
   }
 
+  /**
+   * Resolve animation type from plugin config.
+   * Uses base class isAnimationEnabled to respect grid-level settings.
+   */
+  private get animationType(): false | 'flip' {
+    // Check if animations are globally disabled
+    if (!this.isAnimationEnabled) return false;
+
+    // Plugin config (with default from defaultConfig)
+    if (this.config.animation !== undefined) return this.config.animation;
+
+    return 'flip'; // Plugin default
+  }
+
   // #region Internal State
   private isDragging = false;
   private draggedRowIndex: number | null = null;
@@ -488,9 +502,111 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
     // Emit cancelable event
     const cancelled = this.emitCancelable('row-move', detail);
     if (!cancelled) {
-      // Update the grid's rows
-      this.grid.rows = rows;
+      // Apply with animation if enabled
+      if (this.animationType === 'flip' && this.gridElement) {
+        const oldPositions = this.captureRowPositions();
+        this.grid.rows = rows;
+        // Wait for the scheduler to process the virtual window update (RAF)
+        // before running FLIP animation on the new rows
+        requestAnimationFrame(() => {
+          void this.gridElement.offsetHeight;
+          this.animateFLIP(oldPositions, fromIndex, toIndex);
+        });
+      } else {
+        // No animation, just update rows
+        this.grid.rows = rows;
+      }
     }
+  }
+
+  /**
+   * Capture row positions before reorder.
+   * Maps visual row index to its top position.
+   */
+  private captureRowPositions(): Map<number, number> {
+    const positions = new Map<number, number>();
+    this.gridElement?.querySelectorAll('.data-grid-row').forEach((row) => {
+      const rowIndex = this.getRowIndex(row as HTMLElement);
+      if (rowIndex >= 0) {
+        positions.set(rowIndex, row.getBoundingClientRect().top);
+      }
+    });
+    return positions;
+  }
+
+  /**
+   * Apply FLIP animation for row reorder.
+   * Uses CSS transitions - JS sets initial transform and toggles class.
+   * @param oldPositions - Row positions captured before DOM change
+   * @param fromIndex - Original index of moved row
+   * @param toIndex - New index of moved row
+   */
+  private animateFLIP(oldPositions: Map<number, number>, fromIndex: number, toIndex: number): void {
+    const gridEl = this.gridElement;
+    if (!gridEl || oldPositions.size === 0) return;
+
+    // Calculate which row indices were affected and their new positions
+    const minIndex = Math.min(fromIndex, toIndex);
+    const maxIndex = Math.max(fromIndex, toIndex);
+
+    // Build a map of new row index -> delta Y
+    const rowsToAnimate: { el: HTMLElement; deltaY: number }[] = [];
+
+    gridEl.querySelectorAll('.data-grid-row').forEach((row) => {
+      const rowEl = row as HTMLElement;
+      const newRowIndex = this.getRowIndex(rowEl);
+      if (newRowIndex < 0 || newRowIndex < minIndex || newRowIndex > maxIndex) return;
+
+      // Figure out what this row's old index was
+      let oldIndex: number;
+      if (newRowIndex === toIndex) {
+        // This is the moved row
+        oldIndex = fromIndex;
+      } else if (fromIndex < toIndex) {
+        // Row moved down: rows in between shifted up by 1
+        oldIndex = newRowIndex + 1;
+      } else {
+        // Row moved up: rows in between shifted down by 1
+        oldIndex = newRowIndex - 1;
+      }
+
+      const oldTop = oldPositions.get(oldIndex);
+      if (oldTop === undefined) return;
+
+      const newTop = rowEl.getBoundingClientRect().top;
+      const deltaY = oldTop - newTop;
+
+      if (Math.abs(deltaY) > 1) {
+        rowsToAnimate.push({ el: rowEl, deltaY });
+      }
+    });
+
+    if (rowsToAnimate.length === 0) return;
+
+    // Set initial transform (First → Last position offset)
+    rowsToAnimate.forEach(({ el, deltaY }) => {
+      el.style.transform = `translateY(${deltaY}px)`;
+    });
+
+    // Force reflow then animate to final position via CSS transition
+    void gridEl.offsetHeight;
+
+    const duration = this.animationDuration;
+
+    requestAnimationFrame(() => {
+      rowsToAnimate.forEach(({ el }) => {
+        el.classList.add('flip-animating');
+        el.style.transform = '';
+      });
+
+      // Cleanup after animation
+      setTimeout(() => {
+        rowsToAnimate.forEach(({ el }) => {
+          el.style.transform = '';
+          el.classList.remove('flip-animating');
+        });
+      }, duration + 50);
+    });
   }
 
   /**

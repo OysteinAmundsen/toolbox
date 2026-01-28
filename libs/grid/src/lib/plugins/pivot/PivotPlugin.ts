@@ -123,6 +123,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private fieldHeaderMap: Map<string, string> = new Map();
   private expandedKeys: Set<string> = new Set();
   private defaultExpanded = true;
+  /** Tracks whether user has manually interacted with expand/collapse */
+  private userHasToggledExpand = false;
   private originalColumns: Array<{ field: string; header: string }> = [];
   private panelContainer: HTMLElement | null = null;
   private grandTotalFooter: HTMLElement | null = null;
@@ -160,6 +162,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.cleanupGrandTotalFooter();
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
+    this.userHasToggledExpand = false;
   }
 
   // #endregion
@@ -210,16 +213,12 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.buildFieldHeaderMap();
     this.defaultExpanded = this.config.defaultExpanded ?? true;
 
-    // Initialize expanded state with defaults if first build
-    if (this.expandedKeys.size === 0 && this.defaultExpanded && this.pivotResult) {
-      this.expandAllKeys();
-    }
-
-    // Build pivot
+    // Build pivot first so we have the rows structure
     this.pivotResult = buildPivot(rows as PivotDataRow[], this.config);
 
-    // If default expanded and we just built the pivot, add all group keys
-    if (this.expandedKeys.size === 0 && this.defaultExpanded) {
+    // Initialize expanded state with defaults if first build AND user hasn't manually toggled
+    // This prevents re-expanding when user collapses all groups
+    if (this.expandedKeys.size === 0 && this.defaultExpanded && !this.userHasToggledExpand) {
       this.expandAllKeys();
     }
 
@@ -451,6 +450,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   // #region Expand/Collapse API
 
   toggle(key: string): void {
+    this.userHasToggledExpand = true;
     if (this.expandedKeys.has(key)) {
       this.expandedKeys.delete(key);
     } else {
@@ -460,21 +460,25 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   }
 
   expand(key: string): void {
+    this.userHasToggledExpand = true;
     this.expandedKeys.add(key);
     this.requestRender();
   }
 
   collapse(key: string): void {
+    this.userHasToggledExpand = true;
     this.expandedKeys.delete(key);
     this.requestRender();
   }
 
   expandAll(): void {
+    this.userHasToggledExpand = true;
     this.expandAllKeys();
     this.requestRender();
   }
 
   collapseAll(): void {
+    this.userHasToggledExpand = true;
     this.expandedKeys.clear();
     this.requestRender();
   }

@@ -54,13 +54,14 @@ jobs:
       should_validate: ${{ steps.check.outputs.should_validate }}
     steps:
       - id: check
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           IS_RELEASE_MERGE="false"
           SHOULD_VALIDATE="false"
 
           # Check if this is a release-please merge commit
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            COMMIT_MSG="${{ github.event.head_commit.message }}"
             if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
               IS_RELEASE_MERGE="true"
               echo "🚀 Detected release-please merge commit - skipping test/build"

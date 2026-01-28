@@ -162,12 +162,19 @@ Use format functions and templates to customize cell display.
 
 ### Type-Level Defaults
 
-Define default renderers for all columns of a specific `type`. This is a **core feature** that works without any plugins.
+Define default formatters and renderers for all columns of a specific `type`. This is a **core feature** that works without any plugins.
 
 ```typescript
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   typeDefaults: {
+    // All columns with type: 'currency' use this formatter
+    currency: {
+      format: (value) => new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(value as number),
+    },
     // All columns with type: 'boolean' use this renderer
     boolean: {
       renderer: (ctx) => {
@@ -189,15 +196,16 @@ grid.gridConfig = {
     },
   },
   columns: [
-    { field: 'active', type: 'boolean' },  // Uses boolean renderer
-    { field: 'status', type: 'status' },   // Uses status renderer
+    { field: 'salary', type: 'currency' },  // Uses currency formatter
+    { field: 'active', type: 'boolean' },   // Uses boolean renderer
+    { field: 'status', type: 'status' },    // Uses status renderer
   ],
 };
 ```
 
-**Resolution Priority**: Column-level `renderer` → Grid `typeDefaults` → App-level (framework adapter) → Built-in
+**Resolution Priority**: Column-level → Grid `typeDefaults` → App-level (framework adapter) → Built-in
 
-> **Note:** `typeDefaults` also supports `editor` and `editorParams`, but those require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs#type-level-defaults).
+> **Note:** `typeDefaults` also supports `editor`, `editorParams`, and `filterPanelRenderer`, but those require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs#type-level-defaults) or [FilteringPlugin](?path=/docs/grid-plugins-filtering--docs) respectively.
 
 ### Custom Header Renderers
 

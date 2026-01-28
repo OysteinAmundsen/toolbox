@@ -552,45 +552,47 @@ const config: GridConfig<Employee> = {
 
 #### typeDefaults
 
-Define renderers and editors at the type level, applying to all columns with matching `type`:
+Define formatters, renderers, and editors at the type level, applying to all columns with matching `type`:
 
 ```typescript
 interface TypeDefault<TRow = unknown> {
+  format?: (value: unknown, row: TRow) => string; // Custom value formatter
   renderer?: ColumnViewRenderer<TRow>;  // Custom cell renderer
-  editor?: ColumnEditorSpec<TRow>;      // Custom cell editor
-  editorParams?: Record<string, unknown>; // Default editor parameters
+  editor?: ColumnEditorSpec<TRow>;      // Custom cell editor (requires EditingPlugin)
+  editorParams?: Record<string, unknown>; // Default editor parameters (requires EditingPlugin)
+  filterPanelRenderer?: FilterPanelRenderer; // Custom filter panel (requires FilteringPlugin)
 }
 
 const config: GridConfig<Employee> = {
   typeDefaults: {
+    // Formatter - transforms value to display string
+    currency: {
+      format: (value) => new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(value as number),
+    },
+    // Renderer - creates custom DOM
     country: {
       renderer: (ctx) => {
         const span = document.createElement('span');
         span.textContent = `🌍 ${ctx.value}`;
         return span;
       },
-      editor: (ctx) => {
-        const select = document.createElement('select');
-        // ... build country dropdown
-        return select;
-      },
-    },
-    currency: {
-      editorParams: { min: 0, step: 0.01 },
     },
   },
   columns: [
-    { field: 'country', type: 'country', editable: true }, // Uses country renderer/editor
-    { field: 'salary', type: 'currency', editable: true }, // Uses currency editorParams
+    { field: 'salary', type: 'currency' },  // Uses currency formatter
+    { field: 'country', type: 'country' },  // Uses country renderer
   ],
 };
 ```
 
 **Resolution Priority**: Column-level → Grid typeDefaults → App-level (framework adapter) → Built-in
 
-> **Note:** The `renderer` property is a **core feature** that works without any plugins. Only `editor` and `editorParams` require the EditingPlugin.
+> **Note:** The `format` and `renderer` properties are **core features** that work without any plugins. The `editor` and `editorParams` properties require the EditingPlugin, and `filterPanelRenderer` requires the FilteringPlugin.
 
-See the [Core Grid docs](?path=/docs/grid-core--docs#type-level-defaults) for renderer examples, or the [Editing Plugin docs](?path=/docs/grid-plugins-editing--docs#type-level-defaults) for editor examples.
+See the [Core Grid docs](?path=/docs/grid-core--docs#type-level-defaults) for formatter/renderer examples, or the [Editing Plugin docs](?path=/docs/grid-plugins-editing--docs#type-level-defaults) for editor examples.
 
 ### Animation Configuration
 

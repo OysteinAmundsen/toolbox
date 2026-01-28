@@ -578,14 +578,27 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // Use custom renderer or default
     // Custom renderer can return undefined to fall back to default panel for specific columns
+    // Resolution order: plugin config → typeDefaults → built-in
     let usedCustomRenderer = false;
+
+    // 1. Check plugin-level filterPanelRenderer
     if (this.config.filterPanelRenderer) {
       this.config.filterPanelRenderer(panel, params);
       // If renderer added content to panel, it handled rendering
       usedCustomRenderer = panel.children.length > 0;
     }
+
+    // 2. Check typeDefaults for this column's type
+    if (!usedCustomRenderer && column.type) {
+      const typeDefault = this.grid.effectiveConfig.typeDefaults?.[column.type];
+      if (typeDefault?.filterPanelRenderer) {
+        typeDefault.filterPanelRenderer(panel, params);
+        usedCustomRenderer = panel.children.length > 0;
+      }
+    }
+
+    // 3. Fall back to built-in type-specific panel renderers
     if (!usedCustomRenderer) {
-      // Dispatch to type-specific panel renderers
       const columnType = column.type;
       if (columnType === 'number') {
         this.renderNumberFilterPanel(panel, params, uniqueValues);

@@ -227,32 +227,88 @@ export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'se
 export type ColumnType = PrimitiveColumnType | (string & {});
 
 /**
- * Type-level defaults for renderers and editors.
+ * Type-level defaults for formatters and renderers.
  * Applied to all columns of a given type unless overridden at column level.
+ *
+ * Note: `editor` and `editorParams` are added via module augmentation when
+ * EditingPlugin is imported. `filterPanelRenderer` is added by FilteringPlugin.
  *
  * @example
  * ```typescript
  * typeDefaults: {
+ *   currency: {
+ *     format: (value) => new Intl.NumberFormat('en-US', {
+ *       style: 'currency',
+ *       currency: 'USD',
+ *     }).format(value as number),
+ *   },
  *   country: {
  *     renderer: (ctx) => {
  *       const span = document.createElement('span');
  *       span.innerHTML = `<img src="/flags/${ctx.value}.svg" /> ${ctx.value}`;
  *       return span;
  *     }
- *   },
- *   date: {
- *     editor: (ctx) => createDatePickerEditor(ctx)
  *   }
  * }
  * ```
  */
 export interface TypeDefault<TRow = unknown> {
-  /** Renderer template for this type */
+  /**
+   * Default formatter for all columns of this type.
+   *
+   * Transforms the raw cell value into a display string. Use when you need
+   * consistent formatting across columns without custom DOM (e.g., currency,
+   * percentages, dates with specific locale).
+   *
+   * **Resolution Priority**: Column `format` → Type `format` → Built-in
+   *
+   * @example
+   * ```typescript
+   * typeDefaults: {
+   *   currency: {
+   *     format: (value) => new Intl.NumberFormat('en-US', {
+   *       style: 'currency',
+   *       currency: 'USD',
+   *     }).format(value as number),
+   *   },
+   *   percentage: {
+   *     format: (value) => `${(value as number * 100).toFixed(1)}%`,
+   *   }
+   * }
+   * ```
+   */
+  format?: (value: unknown, row: TRow) => string;
+
+  /**
+   * Default renderer for all columns of this type.
+   *
+   * Creates custom DOM for the cell content. Use when you need more than
+   * text formatting (e.g., icons, badges, interactive elements).
+   *
+   * **Resolution Priority**: Column `renderer` → Type `renderer` → App-level (adapter) → Built-in
+   *
+   * @example
+   * ```typescript
+   * typeDefaults: {
+   *   status: {
+   *     renderer: (ctx) => {
+   *       const badge = document.createElement('span');
+   *       badge.className = `badge badge-${ctx.value}`;
+   *       badge.textContent = ctx.value as string;
+   *       return badge;
+   *     }
+   *   },
+   *   country: {
+   *     renderer: (ctx) => {
+   *       const span = document.createElement('span');
+   *       span.innerHTML = `<img src="/flags/${ctx.value}.svg" /> ${ctx.value}`;
+   *       return span;
+   *     }
+   *   }
+   * }
+   * ```
+   */
   renderer?: ColumnViewRenderer<TRow, unknown>;
-  /** Editor template for this type (requires EditingPlugin) */
-  editor?: ColumnEditorSpec<TRow, unknown>;
-  /** Default editorParams for this type */
-  editorParams?: Record<string, unknown>;
 }
 
 /**

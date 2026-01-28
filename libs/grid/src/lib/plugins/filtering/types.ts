@@ -25,6 +25,40 @@ declare module '../../core/types' {
     filterParams?: FilterParams;
   }
 
+  interface TypeDefault {
+    /**
+     * Custom filter panel renderer for this type. Requires FilteringPlugin.
+     *
+     * Use type-level filter panels when you need custom filtering UI for all
+     * columns of a specific type (e.g., custom datepickers for all date columns).
+     *
+     * The renderer receives the container element and `FilterPanelParams` with
+     * helper methods for applying filters. Return nothing; append content to container.
+     *
+     * **Resolution Priority**: Plugin `filterPanelRenderer` → Type `filterPanelRenderer` → Built-in
+     *
+     * @example
+     * ```typescript
+     * // All 'date' columns use a custom filter panel with your datepicker
+     * typeDefaults: {
+     *   date: {
+     *     filterPanelRenderer: (container, params) => {
+     *       const picker = new MyDateRangePicker();
+     *       picker.onApply = (from, to) => {
+     *         params.applyTextFilter('between', from, to);
+     *       };
+     *       picker.onClear = () => params.clearFilter();
+     *       container.appendChild(picker);
+     *     }
+     *   }
+     * }
+     * ```
+     *
+     * @see FilterPanelParams for available methods (applySetFilter, applyTextFilter, clearFilter, closePanel)
+     */
+    filterPanelRenderer?: FilterPanelRenderer;
+  }
+
   // Extend ColumnState to include filter state for persistence
   interface ColumnState {
     /**

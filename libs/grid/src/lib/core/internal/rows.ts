@@ -47,6 +47,42 @@ export function resolveRenderer<TRow>(
   return undefined;
 }
 
+/**
+ * Resolves the format function for a column using the priority chain:
+ * 1. Column-level (`column.format`)
+ * 2. Grid-level (`gridConfig.typeDefaults[column.type].format`)
+ * 3. App-level (framework adapter's `getTypeDefault`)
+ * 4. Returns undefined (caller uses built-in or fallback)
+ */
+export function resolveFormat<TRow>(
+  grid: InternalGrid<TRow>,
+  col: ColumnInternal<TRow>,
+): ((value: unknown, row: TRow) => string) | undefined {
+  // 1. Column-level format (highest priority)
+  if (col.format) return col.format;
+
+  // No type specified - no type defaults to check
+  if (!col.type) return undefined;
+
+  // 2. Grid-level typeDefaults (access via effectiveConfig)
+  const gridTypeDefaults = (grid as any).effectiveConfig?.typeDefaults;
+  if (gridTypeDefaults?.[col.type]?.format) {
+    return gridTypeDefaults[col.type].format;
+  }
+
+  // 3. App-level registry (via framework adapter)
+  const adapter = grid.__frameworkAdapter;
+  if (adapter?.getTypeDefault) {
+    const appDefault = adapter.getTypeDefault<TRow>(col.type);
+    if (appDefault?.format) {
+      return appDefault.format as (value: unknown, row: TRow) => string;
+    }
+  }
+
+  // 4. No custom format - caller uses built-in/fallback
+  return undefined;
+}
+
 // ============================================================================
 // DOM State Helpers (used for virtualization cleanup)
 // ============================================================================
@@ -369,9 +405,11 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         col.format ||
         col.type === 'date' ||
         col.type === 'boolean' ||
-        // Check for type-level renderers (grid-level or adapter-level)
+        // Check for type-level renderers/formatters (grid-level or adapter-level)
         (col.type && typeDefaults?.[col.type]?.renderer) ||
-        (col.type && adapter?.getTypeDefault?.(col.type)?.renderer)
+        (col.type && typeDefaults?.[col.type]?.format) ||
+        (col.type && adapter?.getTypeDefault?.(col.type)?.renderer) ||
+        (col.type && adapter?.getTypeDefault?.(col.type)?.format)
       ) {
         hasSpecialCols = true;
         break;
@@ -530,9 +568,11 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     const value = rowData[col.field];
     let displayStr: string;
 
-    if (col.format) {
+    // Resolve format using priority chain: column → typeDefaults → adapter
+    const formatFn = resolveFormat(grid, col);
+    if (formatFn) {
       try {
-        const formatted = col.format(value, rowData);
+        const formatted = formatFn(value, rowData);
         displayStr = formatted == null ? '' : String(formatted);
       } catch (e) {
         // Log format errors as warnings (user configuration issue)
@@ -600,9 +640,11 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
     if (col.type) cell.setAttribute('data-type', col.type);
 
     let value = (rowData as Record<string, unknown>)[col.field];
-    if (col.format) {
+    // Resolve format using priority chain: column → typeDefaults → adapter
+    const formatFn = resolveFormat(grid, col);
+    if (formatFn) {
       try {
-        value = col.format(value, rowData);
+        value = formatFn(value, rowData);
       } catch (e) {
         // Log format errors as warnings (user configuration issue)
         console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);

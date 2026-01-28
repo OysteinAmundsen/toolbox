@@ -510,11 +510,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // Sync path: get unique values from local rows
     const uniqueValues = getUniqueValues(this.sourceRows as Record<string, unknown>[], field);
-    this.renderPanelContent(field, column, panel, uniqueValues);
 
-    // Position and append to body
+    // Position and append to body BEFORE rendering content
+    // so getListItemHeight() can read CSS variables from computed styles
     document.body.appendChild(panel);
     this.positionPanel(panel, buttonEl);
+
+    this.renderPanelContent(field, column, panel, uniqueValues);
     this.setupPanelCloseHandler(panel, buttonEl);
   }
 
@@ -777,10 +779,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       const item = document.createElement('label');
       item.className = 'tbw-filter-value-item';
       item.style.position = 'absolute';
-      item.style.top = `${index * itemHeight}px`;
+      item.style.top = `calc(var(--tbw-filter-item-height, 28px) * ${index})`;
       item.style.left = '0';
       item.style.right = '0';
-      item.style.height = `${itemHeight}px`;
       item.style.boxSizing = 'border-box';
 
       const checkbox = document.createElement('input');

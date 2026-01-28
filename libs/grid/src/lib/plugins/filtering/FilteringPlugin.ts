@@ -126,6 +126,26 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     };
   }
 
+  // #region Helpers
+
+  /**
+   * Check if filtering is enabled at the grid level.
+   * Grid-wide `filterable: false` disables filtering for all columns.
+   */
+  private isFilteringEnabled(): boolean {
+    return this.grid.effectiveConfig?.filterable !== false;
+  }
+
+  /**
+   * Check if a specific column is filterable, respecting both grid-level and column-level settings.
+   */
+  private isColumnFilterable(col: { filterable?: boolean; field?: string }): boolean {
+    if (!this.isFilteringEnabled()) return false;
+    return col.filterable !== false;
+  }
+
+  // #endregion
+
   // #region Internal State
   private filters: Map<string, FilterModel> = new Map();
   private cachedResult: unknown[] | null = null;
@@ -246,7 +266,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
       // Use visibleColumns since data-col is the index within _visibleColumns
       const col = this.visibleColumns[parseInt(colIndex, 10)] as ColumnConfig;
-      if (!col || col.filterable === false) return;
+      if (!col || !this.isColumnFilterable(col)) return;
 
       // Skip utility columns (expander, selection checkbox, etc.)
       if (isUtilityColumn(col)) return;

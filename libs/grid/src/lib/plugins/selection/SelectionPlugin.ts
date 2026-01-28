@@ -177,6 +177,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     return {
       mode: 'cell',
       triggerOn: 'click',
+      enabled: true,
     };
   }
 
@@ -197,6 +198,21 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** Cell selection state (cell mode) */
   private selectedCell: { row: number; col: number } | null = null;
+
+  // #endregion
+
+  // #region Private Helpers - Selection Enabled Check
+
+  /**
+   * Check if selection is enabled at the grid level.
+   * Grid-wide `selectable: false` or plugin's `enabled: false` disables all selection.
+   */
+  private isSelectionEnabled(): boolean {
+    // Check plugin config first
+    if (this.config.enabled === false) return false;
+    // Check grid-level config
+    return this.grid.effectiveConfig?.selectable !== false;
+  }
 
   // #endregion
 
@@ -252,6 +268,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** @internal */
   override onCellClick(event: CellClickEvent): boolean {
+    // Skip all selection if disabled at grid level or plugin level
+    if (!this.isSelectionEnabled()) return false;
+
     const { rowIndex, colIndex, originalEvent } = event;
     const { mode, triggerOn = 'click' } = this.config;
 
@@ -377,6 +396,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** @internal */
   override onKeyDown(event: KeyboardEvent): boolean {
+    // Skip all selection if disabled at grid level or plugin level
+    if (!this.isSelectionEnabled()) return false;
+
     const { mode } = this.config;
     const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', 'PageUp', 'PageDown'];
     const isNavKey = navKeys.includes(event.key);
@@ -489,6 +511,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** @internal */
   override onCellMouseDown(event: CellMouseEvent): boolean | void {
+    // Skip all selection if disabled at grid level or plugin level
+    if (!this.isSelectionEnabled()) return;
+
     if (this.config.mode !== 'range') return;
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
     if (event.rowIndex < 0) return; // Header
@@ -546,6 +571,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** @internal */
   override onCellMouseMove(event: CellMouseEvent): boolean | void {
+    // Skip all selection if disabled at grid level or plugin level
+    if (!this.isSelectionEnabled()) return;
+
     if (this.config.mode !== 'range') return;
     if (!this.isDragging || !this.cellAnchor) return;
     if (event.rowIndex === undefined || event.colIndex === undefined) return;
@@ -584,6 +612,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** @internal */
   override onCellMouseUp(_event: CellMouseEvent): boolean | void {
+    // Skip all selection if disabled at grid level or plugin level
+    if (!this.isSelectionEnabled()) return;
+
     if (this.config.mode !== 'range') return;
     if (this.isDragging) {
       this.isDragging = false;
@@ -701,6 +732,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /** @internal */
   override afterRender(): void {
+    // Skip rendering selection if disabled at grid level or plugin level
+    if (!this.isSelectionEnabled()) return;
+
     const gridEl = this.gridElement;
     if (!gridEl) return;
 
@@ -748,6 +782,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * @internal
    */
   override onScrollRender(): void {
+    // Skip rendering selection classes if disabled
+    if (!this.isSelectionEnabled()) return;
+
     this.#applySelectionClasses();
   }
 

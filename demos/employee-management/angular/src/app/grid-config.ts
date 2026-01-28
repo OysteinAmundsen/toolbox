@@ -176,6 +176,12 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
     shell: {
       toolPanel: { position: 'right', width: 300 },
     },
+
+    // Grid-wide feature toggles (used by plugins that support enable/disable)
+    sortable: enableSorting,
+    filterable: enableFiltering,
+    selectable: enableSelection,
+
     // Always-on features configured via feature inputs in the template:
     // [clipboard], [contextMenu], [reorder], [visibility], [pinnedColumns],
     // [columnVirtualization], [export]
@@ -199,10 +205,12 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
           'location',
         ],
       }),
-      ...(enableSelection ? [new SelectionPlugin({ mode: 'range' })] : []),
-      ...(enableSorting ? [new MultiSortPlugin()] : []),
-      ...(enableFiltering ? [new FilteringPlugin({ debounceMs: 200 })] : []),
-      ...(enableEditing ? [new EditingPlugin({ editOn: 'dblclick' })] : []),
+      // Core interaction plugins - always loaded, controlled via config flags above
+      new SelectionPlugin({ mode: 'range' }),
+      new MultiSortPlugin(),
+      new FilteringPlugin({ debounceMs: 200 }),
+      // EditingPlugin always loaded; toggle via editOn to avoid validation errors
+      new EditingPlugin({ editOn: enableEditing ? 'dblclick' : false }),
       // MasterDetailPlugin - detail renderer comes from <tbw-grid-detail> in Angular component
       ...(enableMasterDetail
         ? [
@@ -212,7 +220,8 @@ export function createGridConfig(options: GridConfigOptions): AngularGridConfig<
             }),
           ]
         : []),
-      ...(enableEditing ? [new UndoRedoPlugin({ maxHistorySize: 100 })] : []),
+      // UndoRedoPlugin always loaded since EditingPlugin is always loaded
+      new UndoRedoPlugin({ maxHistorySize: 100 }),
       // PinnedRowsPlugin has complex aggregation config, keeping as plugin
       new PinnedRowsPlugin({
         position: 'bottom',

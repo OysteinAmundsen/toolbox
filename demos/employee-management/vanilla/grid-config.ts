@@ -224,13 +224,19 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
       { field: 'location', header: 'Location', width: 110, sortable: true },
     ],
 
+    // Grid-wide feature toggles (used by plugins that support enable/disable)
+    sortable: enableSorting,
+    filterable: enableFiltering,
+    selectable: enableSelection,
+
     // Plugins - advanced features
     plugins: [
-      // Core interaction plugins
-      ...(enableSelection ? [new SelectionPlugin({ mode: 'range' })] : []),
-      ...(enableSorting ? [new MultiSortPlugin()] : []),
-      ...(enableFiltering ? [new FilteringPlugin({ debounceMs: 200 })] : []),
-      ...(enableEditing ? [new EditingPlugin({ editOn: 'dblclick' })] : []),
+      // Core interaction plugins - always loaded, controlled via config flags above
+      new SelectionPlugin({ mode: 'range' }),
+      new MultiSortPlugin(),
+      new FilteringPlugin({ debounceMs: 200 }),
+      // EditingPlugin always loaded; toggle via editOn to avoid validation errors
+      new EditingPlugin({ editOn: enableEditing ? 'dblclick' : false }),
 
       // Always-on utility plugins
       new ClipboardPlugin(),
@@ -277,8 +283,8 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
           ]
         : []),
 
-      // Undo/redo for editing
-      ...(enableEditing ? [new UndoRedoPlugin({ maxHistorySize: 100 })] : []),
+      // Undo/redo for editing (always loaded since EditingPlugin is always loaded)
+      new UndoRedoPlugin({ maxHistorySize: 100 }),
 
       // Export functionality
       new ExportPlugin(),

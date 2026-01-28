@@ -217,6 +217,44 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
    * ```
    */
   sortable?: boolean;
+  /**
+   * Grid-wide filtering toggle.
+   * When false, disables filtering for all columns regardless of their individual `filterable` setting.
+   * When true (default), columns with `filterable: true` can be filtered.
+   *
+   * Requires the FilteringPlugin to be loaded (via `filtering` prop or feature import).
+   *
+   * @default true
+   *
+   * @example
+   * ```tsx
+   * // Disable all filtering
+   * <DataGrid filterable={false} filtering />
+   *
+   * // Enable filtering (default)
+   * <DataGrid filterable filtering />
+   * ```
+   */
+  filterable?: boolean;
+  /**
+   * Grid-wide selection toggle.
+   * When false, disables selection for all rows/cells.
+   * When true (default), selection is enabled based on plugin mode.
+   *
+   * Requires the SelectionPlugin to be loaded (via `selection` prop or feature import).
+   *
+   * @default true
+   *
+   * @example
+   * ```tsx
+   * // Disable all selection
+   * <DataGrid selectable={false} selection="range" />
+   *
+   * // Enable selection (default)
+   * <DataGrid selectable selection="range" />
+   * ```
+   */
+  selectable?: boolean;
   /** Edit trigger mode - DEPRECATED: use `editing` prop instead */
   editOn?: 'click' | 'dblclick' | 'none';
   /** Custom CSS styles to inject into grid shadow DOM */
@@ -350,6 +388,8 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     columnDefaults,
     fitMode,
     sortable,
+    filterable,
+    selectable,
     editOn,
     customStyles,
     className,
@@ -490,6 +530,12 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     if (sortable !== undefined) {
       coreConfigOverrides['sortable'] = sortable;
     }
+    if (filterable !== undefined) {
+      coreConfigOverrides['filterable'] = filterable;
+    }
+    if (selectable !== undefined) {
+      coreConfigOverrides['selectable'] = selectable;
+    }
 
     // Add lazy-loaded plugins to the config
     if (allPlugins.length > 0 && processed) {
@@ -513,7 +559,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     }
 
     return processed;
-  }, [gridConfig, allPlugins, sortable]);
+  }, [gridConfig, allPlugins, sortable, filterable, selectable]);
 
   // Sync type defaults to the global adapter
   useEffect(() => {

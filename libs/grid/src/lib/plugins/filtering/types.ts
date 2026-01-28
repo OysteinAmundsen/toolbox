@@ -38,6 +38,32 @@ declare module '../../core/types' {
       valueTo?: unknown;
     };
   }
+
+  interface GridConfig {
+    /**
+     * Grid-wide filtering toggle. Requires `FilteringPlugin` to be loaded.
+     *
+     * When `false`, disables filtering for all columns regardless of their individual `filterable` setting.
+     * When `true` (default), columns with `filterable: true` (or not explicitly set to false) can be filtered.
+     *
+     * This affects:
+     * - Filter button visibility in headers
+     * - Filter panel accessibility
+     * - Filter keyboard shortcuts
+     *
+     * @default true
+     *
+     * @example
+     * ```typescript
+     * // Disable all filtering at runtime
+     * grid.gridConfig = { ...grid.gridConfig, filterable: false };
+     *
+     * // Re-enable filtering
+     * grid.gridConfig = { ...grid.gridConfig, filterable: true };
+     * ```
+     */
+    filterable?: boolean;
+  }
 }
 // #endregion
 

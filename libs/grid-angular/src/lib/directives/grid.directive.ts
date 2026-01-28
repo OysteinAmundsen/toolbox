@@ -168,9 +168,17 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
       // Build core config overrides from individual inputs
       const sortableValue = this.sortable();
+      const filterableValue = this.filterable();
+      const selectableValue = this.selectable();
       const coreConfigOverrides: Record<string, unknown> = {};
       if (sortableValue !== undefined) {
         coreConfigOverrides['sortable'] = sortableValue;
+      }
+      if (filterableValue !== undefined) {
+        coreConfigOverrides['filterable'] = filterableValue;
+      }
+      if (selectableValue !== undefined) {
+        coreConfigOverrides['selectable'] = selectableValue;
       }
 
       // Apply to the grid element
@@ -225,6 +233,46 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   sortable = input<boolean>();
+
+  /**
+   * Grid-wide filtering toggle.
+   * When false, disables filtering for all columns regardless of their individual `filterable` setting.
+   * When true (default), columns with `filterable: true` can be filtered.
+   *
+   * Requires the FilteringPlugin to be loaded.
+   *
+   * @default true
+   *
+   * @example
+   * ```html
+   * <!-- Disable all filtering -->
+   * <tbw-grid [filterable]="false" [filtering]="true" />
+   *
+   * <!-- Enable filtering (default) -->
+   * <tbw-grid [filterable]="true" [filtering]="true" />
+   * ```
+   */
+  filterable = input<boolean>();
+
+  /**
+   * Grid-wide selection toggle.
+   * When false, disables selection for all rows/cells.
+   * When true (default), selection is enabled based on plugin mode.
+   *
+   * Requires the SelectionPlugin to be loaded.
+   *
+   * @default true
+   *
+   * @example
+   * ```html
+   * <!-- Disable all selection -->
+   * <tbw-grid [selectable]="false" [selection]="'range'" />
+   *
+   * <!-- Enable selection (default) -->
+   * <tbw-grid [selectable]="true" [selection]="'range'" />
+   * ```
+   */
+  selectable = input<boolean>();
 
   /**
    * Angular-specific grid configuration that supports component classes for renderers/editors.

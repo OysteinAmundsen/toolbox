@@ -6,6 +6,37 @@
 
 import type { ColumnConfig } from '../../core/types';
 
+// #region Module Augmentation
+// When this plugin is imported, GridConfig is augmented with selection-specific properties
+declare module '../../core/types' {
+  interface GridConfig {
+    /**
+     * Grid-wide selection toggle. Requires `SelectionPlugin` to be loaded.
+     *
+     * When `false`, disables all selection interactions while keeping the plugin loaded.
+     * When `true` (default), selection works according to the plugin's mode configuration.
+     *
+     * This affects:
+     * - Click/drag selection
+     * - Keyboard selection (arrows, Shift+arrows, Ctrl+A)
+     * - Checkbox column clicks (if enabled)
+     *
+     * @default true
+     *
+     * @example
+     * ```typescript
+     * // Disable all selection at runtime
+     * grid.gridConfig = { ...grid.gridConfig, selectable: false };
+     *
+     * // Re-enable selection
+     * grid.gridConfig = { ...grid.gridConfig, selectable: true };
+     * ```
+     */
+    selectable?: boolean;
+  }
+}
+// #endregion
+
 /**
  * Selection mode for the grid.
  *
@@ -85,6 +116,25 @@ export type SelectableCallback<T = unknown> = (
 export interface SelectionConfig<T = unknown> {
   /** Selection mode (default: 'cell') */
   mode: SelectionMode;
+
+  /**
+   * Whether selection is enabled (default: true).
+   *
+   * When `false`, disables all selection interactions while keeping the plugin loaded.
+   * Useful for temporarily disabling selection without removing the plugin.
+   *
+   * @default true
+   *
+   * @example
+   * ```ts
+   * // Disable selection at runtime
+   * new SelectionPlugin({ mode: 'row', enabled: false })
+   *
+   * // Toggle via gridConfig
+   * grid.gridConfig = { ...grid.gridConfig, selectable: false };
+   * ```
+   */
+  enabled?: boolean;
 
   /**
    * Mouse event type that triggers selection (default: 'click').

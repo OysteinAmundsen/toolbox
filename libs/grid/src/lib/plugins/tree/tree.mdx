@@ -21,7 +21,9 @@ Just point the plugin at the field containing child items (defaults to `children
 <Tabs>
   <Tab label="Vanilla JS">
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name' },

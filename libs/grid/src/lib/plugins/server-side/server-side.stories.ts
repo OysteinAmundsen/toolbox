@@ -67,10 +67,11 @@ export const Default: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 const plugin = new ServerSidePlugin({
   pageSize: 50,
   cacheBlockSize: 50,
@@ -195,8 +196,9 @@ export const PagingMode: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 const pageSize = 50;
 let currentPage = 0;
 let totalPages = 10; // Assume 500 total rows
@@ -296,8 +298,9 @@ export const ServerSideSorting: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 
 // Simulated server data
 const serverData = generateMockData(1000);

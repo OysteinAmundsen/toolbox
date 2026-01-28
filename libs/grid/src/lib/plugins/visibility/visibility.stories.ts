@@ -28,9 +28,10 @@ export const Default: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID', type: 'number', lockVisible: true },
@@ -95,9 +96,10 @@ export const LockedColumns: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID', type: 'number', lockVisible: true },
@@ -158,9 +160,10 @@ export const InitiallyHidden: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID', type: 'number' },

@@ -55,8 +55,9 @@ The grid is a standard web component—use it just like any HTML element:
 
 <script type="module">
   import '@toolbox-web/grid';
+  import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = document.querySelector('tbw-grid');
+  const grid = queryGrid('tbw-grid');
 
   grid.columns = [
     { field: 'id', header: 'ID', type: 'number', sortable: true },

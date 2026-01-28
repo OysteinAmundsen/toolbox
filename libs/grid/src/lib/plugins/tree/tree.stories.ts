@@ -99,9 +99,10 @@ export const Default: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name' },
@@ -189,9 +190,10 @@ export const ExpandedByDefault: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name' },
@@ -260,9 +262,10 @@ export const WideIndentation: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [...],
   plugins: [

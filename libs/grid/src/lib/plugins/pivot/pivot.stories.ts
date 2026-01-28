@@ -35,9 +35,10 @@ function generatePivotCode(args: PivotArgs): string {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'region', header: 'Region' },
@@ -192,9 +193,10 @@ function generateAvgPivotCode(args: PivotArgs): string {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'region', header: 'Region' },

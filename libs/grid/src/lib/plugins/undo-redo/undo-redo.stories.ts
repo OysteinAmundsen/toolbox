@@ -54,10 +54,11 @@ export const Default: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID', type: 'number' },
@@ -118,10 +119,11 @@ export const LimitedHistory: Story = {
 
 <script type="module">
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID', type: 'number' },

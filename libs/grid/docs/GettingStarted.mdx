@@ -92,7 +92,9 @@ You can also configure columns declaratively:
 If no columns are configured, the grid will automatically infer column configuration from the first row:
 
 ```typescript
-const grid = document.querySelector('#my-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('#my-grid');
 
 // Columns are auto-generated from object keys
 grid.rows = [
@@ -437,6 +439,7 @@ The package includes full TypeScript definitions. Import types for better IDE su
 
 ```typescript
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import type { ColumnConfig, GridConfig, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
 
@@ -446,7 +449,7 @@ const columns: ColumnConfig[] = [
   { field: 'name', header: 'Name', editable: true },
 ];
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns,
   plugins: [new EditingPlugin()], // Required for editable: true

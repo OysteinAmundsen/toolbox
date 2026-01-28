@@ -175,7 +175,9 @@ import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 Pass plugin instances to the `gridConfig.plugins` array:
 
 ```typescript
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 
 grid.gridConfig = {
   columns: [...],

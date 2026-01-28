@@ -28,9 +28,10 @@ export const AddRemoveRows: Story = {
       source: {
         code: `
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 const addButton = document.querySelector('#add-row-btn');
 
 let idCounter = 4;
@@ -159,9 +160,10 @@ export const BasicEditing: Story = {
       source: {
         code: `
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 
 grid.gridConfig = {
   columns: [
@@ -594,7 +596,9 @@ export const EditingEvents: Story = {
     docs: {
       source: {
         code: `
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 
 // Cell value committed
 grid.addEventListener('cell-commit', (e) => {

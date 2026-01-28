@@ -23,7 +23,9 @@ Set `visible: false` on columns you want hidden by default. The plugin provides 
 <Tabs>
   <Tab label="Vanilla JS">
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID' },

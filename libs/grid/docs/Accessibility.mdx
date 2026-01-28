@@ -206,9 +206,10 @@ Run axe-core or similar tools against your grid implementation:
 
 ```typescript
 import { axe } from 'jest-axe';
+import { queryGrid } from '@toolbox-web/grid';
 
 test('grid has no accessibility violations', async () => {
-  const grid = document.querySelector('tbw-grid');
+  const grid = queryGrid('tbw-grid');
   const results = await axe(grid);
   expect(results).toHaveNoViolations();
 });

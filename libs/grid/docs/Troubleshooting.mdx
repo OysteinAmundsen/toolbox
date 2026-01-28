@@ -83,9 +83,10 @@ grid.columns = [{ field: 'firstName', header: 'Name' }];
 
 ```typescript
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import type { DataGridElement } from '@toolbox-web/grid';
 
-const grid = document.querySelector('tbw-grid') as DataGridElement;
+const grid = queryGrid('tbw-grid');
 grid.rows = [...]; // ✅ TypeScript knows about rows
 ```
 
@@ -94,14 +95,12 @@ grid.rows = [...]; // ✅ TypeScript knows about rows
 
 ```typescript
 import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import type { GridConfig } from '@toolbox-web/grid';
 
 interface Employee { id: number; name: string; }
 
-const grid = document.querySelector<HTMLElement & {
-  gridConfig: GridConfig<Employee>;
-  rows: Employee[]
-}>('tbw-grid')!;
+const grid = queryGrid<Employee>('tbw-grid')!;
 
 grid.rows = [...]; // ✅ Works
 ```

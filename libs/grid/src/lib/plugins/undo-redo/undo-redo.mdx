@@ -24,7 +24,9 @@ Add the plugin along with `EditingPlugin` to any grid with editable columns. His
 <Tabs>
   <Tab label="Vanilla JS">
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name', editable: true },

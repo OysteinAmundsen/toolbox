@@ -34,8 +34,9 @@ npm install @toolbox-web/grid
 
 <script type="module">
   import '@toolbox-web/grid';
+  import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = document.querySelector('tbw-grid');
+  const grid = queryGrid('tbw-grid');
   grid.columns = [
     { field: 'id', header: 'ID', type: 'number' },
     { field: 'name', header: 'Name', sortable: true },
@@ -165,7 +166,9 @@ Use format functions and templates to customize cell display.
 Define default formatters and renderers for all columns of a specific `type`. This is a **core feature** that works without any plugins.
 
 ```typescript
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   typeDefaults: {
     // All columns with type: 'currency' use this formatter
@@ -265,7 +268,7 @@ Persist column widths, order, and visibility to localStorage.
 ### Via Properties
 
 ```ts
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.columns = [...];
 grid.rows = [...];
 grid.fitMode = 'stretch'; // or 'fixed'

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.6.0...grid-1.6.1) (2026-01-28)
+
+
+### Bug Fixes
+
+* **grid:** fix pivot collapse-all bug and add row reorder animation ([b12b809](https://github.com/OysteinAmundsen/toolbox/commit/b12b8096836d1831102f7ce066e197b4356a846c))
+
+
+### Enhancements
+
+* **themes:** enhance built-in themes with polish and modern styling ([767229f](https://github.com/OysteinAmundsen/toolbox/commit/767229ff773e2220624b29440c33e152eff1b9fd))
+
 ## [1.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.5.0...grid-1.6.0) (2026-01-28)
 
 

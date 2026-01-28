@@ -1,17 +1,86 @@
-/* Vibrant colorful theme (keeps good contrast) */
+/*
+ * Vibrant Theme
+ * A bold, colorful theme with rich purples and smooth interactions.
+ * Features subtle gradients, glowing accents, and polished transitions.
+ */
 @layer tbw-theme {
   tbw-grid {
-    --tbw-color-bg: light-dark(#fcfcff, #1a1c24);
+    /* ========== Core Palette ========== */
+    --tbw-color-bg: light-dark(#fafaff, #12141c);
+    --tbw-color-panel-bg: light-dark(#f0f0ff, #1a1d28);
     --tbw-color-fg: light-dark(#1e2430, #f1f5f9);
     --tbw-color-fg-muted: light-dark(#5d6473, #9ba4b4);
-    --tbw-color-border: light-dark(#d6daf2, #3a4153);
-    --tbw-color-border-strong: light-dark(#8a93b5, #596380);
-    --tbw-color-accent: light-dark(#6366f1, #818cf8);
+    --tbw-color-border: light-dark(#ddddf8, #2e3344);
+    --tbw-color-border-strong: light-dark(#9093c5, #505878);
+    --tbw-color-border-cell: light-dark(#e8e8f8, #252838);
+    --tbw-color-border-header: light-dark(#d0d0ec, #3a3f55);
+
+    /* Vibrant purple accent with glow potential */
+    --tbw-color-accent: light-dark(#7c3aed, #a78bfa);
     --tbw-color-accent-fg: #ffffff;
-    --tbw-color-selection: light-dark(#edeaff, #374062);
-    --tbw-color-row-alt: light-dark(#f4f3ff, #232a3a);
-    --tbw-color-row-hover: light-dark(#eef2ff, #2b3447);
-    --tbw-color-header-bg: light-dark(#eff1ff, #242b3b);
+    --tbw-color-success: light-dark(#059669, #34d399);
+    --tbw-color-error: light-dark(#dc2626, #f87171);
+
+    /* Selection & interaction - subtle purple tint */
+    --tbw-color-selection: light-dark(#ede9fe, #312e5a);
+    --tbw-color-row-alt: light-dark(#f8f7ff, #1e2130);
+    --tbw-color-row-hover: light-dark(#f0edff, #262a40);
+    --tbw-color-active-row-bg: light-dark(#e9e4ff, #352f5c);
+
+    /* Header with subtle gradient feel */
+    --tbw-color-header-bg: light-dark(#f5f3ff, #1f2235);
+    --tbw-color-header-fg: light-dark(#3730a3, #c4b5fd);
+    --tbw-color-header-separator: light-dark(#c7c3f0, #3d4260);
+
+    /* Enhanced shadows for depth */
+    --tbw-color-shadow: light-dark(rgba(124, 58, 237, 0.12), rgba(0, 0, 0, 0.4));
+
+    /* ========== Typography ========== */
+    --tbw-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    --tbw-font-weight-header: 600;
+    --tbw-header-text-transform: none;
+    --tbw-header-letter-spacing: -0.01em;
+
+    /* ========== Visual Polish ========== */
+    --tbw-border-radius: 0.5em;
+
+    /* Smooth, refined transitions */
+    --tbw-transition-duration: 150ms;
+    --tbw-transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --tbw-animation-duration: 250ms;
+    --tbw-animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ========== Focus & Selection Styling ========== */
+    --tbw-focus-outline: 2px solid var(--tbw-color-accent);
+    --tbw-focus-outline-offset: -2px;
+    --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 10%);
+
+    /* Range selection with accent glow */
+    --tbw-range-border-color: var(--tbw-color-accent);
+    --tbw-range-selection-bg: rgba(from var(--tbw-color-accent) r g b / 15%);
+
+    /* Subtle hover outline for rows */
+    --tbw-row-hover-outline: 1px solid rgba(from var(--tbw-color-accent) r g b / 20%);
+    --tbw-active-row-outline: 2px solid rgba(from var(--tbw-color-accent) r g b / 40%);
+
+    /* ========== Resize Handle ========== */
+    --tbw-resize-handle-color: transparent;
     --tbw-resize-handle-color-hover: var(--tbw-color-accent);
+    --tbw-resize-handle-border-radius: 2px;
+    --tbw-resize-indicator-color: var(--tbw-color-accent);
+
+    /* ========== Sorting Indicators ========== */
+    --tbw-sort-indicator-color: light-dark(#a5a8c8, #6b7094);
+    --tbw-sort-indicator-active-color: var(--tbw-color-accent);
+
+    /* ========== Scrollbar ========== */
+    --tbw-scrollbar-thumb: light-dark(#c4c3e8, #3d4260);
+    --tbw-scrollbar-track: var(--tbw-color-bg);
+
+    /* ========== Tool Panel ========== */
+    --tbw-tool-panel-bg: light-dark(#f8f7ff, #181a24);
+
+    /* ========== Row Animations ========== */
+    --tbw-row-change-color: rgba(from var(--tbw-color-accent) r g b / 30%);
   }
 } /* End @layer tbw-theme */

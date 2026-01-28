@@ -1,13 +1,13 @@
 /*
- * Bootstrap 5 Table Theme
- * Matches the look of Bootstrap's .table component
+ * Bootstrap 5 Theme
+ * Matches the look of Bootstrap 5's table component with enhanced interactions.
  * https://getbootstrap.com/docs/5.3/content/tables/
  */
 @layer tbw-theme {
   tbw-grid {
-    /* Bootstrap surface colors */
+    /* ========== Core Palette ========== */
     --tbw-color-bg: light-dark(#ffffff, #212529);
-    --tbw-color-panel-bg: light-dark(#ffffff, #212529);
+    --tbw-color-panel-bg: light-dark(#f8f9fa, #2b3035);
     --tbw-color-fg: light-dark(#212529, #dee2e6);
     --tbw-color-fg-muted: light-dark(#6c757d, #adb5bd);
 
@@ -23,51 +23,78 @@
     /* Bootstrap primary (blue) */
     --tbw-color-accent: light-dark(#0d6efd, #6ea8fe);
     --tbw-color-accent-fg: #ffffff;
+    --tbw-color-success: light-dark(#198754, #75b798);
+    --tbw-color-error: light-dark(#dc3545, #ea868f);
 
-    /* Selection & interaction - Bootstrap's table-active */
-    --tbw-color-selection: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.075));
-    --tbw-color-row-alt: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.05)); /* Striped rows */
-    --tbw-color-row-hover: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.075));
-    --tbw-color-active-row-bg: light-dark(rgba(13, 110, 253, 0.1), rgba(110, 168, 254, 0.15));
+    /* Selection & interaction */
+    --tbw-color-selection: light-dark(rgba(13, 110, 253, 0.1), rgba(110, 168, 254, 0.15));
+    --tbw-color-row-alt: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.03));
+    --tbw-color-row-hover: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.05));
+    --tbw-color-active-row-bg: light-dark(rgba(13, 110, 253, 0.12), rgba(110, 168, 254, 0.18));
 
-    /* Header - slightly darker background */
+    /* Header */
     --tbw-color-header-bg: light-dark(#f8f9fa, #343a40);
     --tbw-color-header-fg: light-dark(#212529, #dee2e6);
+    --tbw-color-header-separator: light-dark(#adb5bd, #495057);
 
-    /* No border radius - Bootstrap tables are rectangular */
-    --tbw-border-radius: 0;
+    /* Shadow for modals/panels */
+    --tbw-color-shadow: light-dark(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.3));
 
-    /* Focus styling */
-    --tbw-focus-outline: 3px solid light-dark(rgba(13, 110, 253, 0.25), rgba(110, 168, 254, 0.5));
-    --tbw-focus-outline-offset: -3px;
-    --tbw-resize-handle-color-hover: var(--tbw-color-accent);
-
-    /* Bootstrap typography */
+    /* ========== Typography ========== */
     --tbw-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --tbw-font-size: 1rem;
     --tbw-font-size-header: 1rem;
-    --tbw-font-weight-header: bold;
+    --tbw-font-weight-header: 600;
     --tbw-header-text-transform: none;
+    --tbw-header-letter-spacing: normal;
 
-    /* Bootstrap table padding */
-    --tbw-cell-padding: 8px 8px;
-    --tbw-cell-padding-header: 8px 8px;
-    --tbw-row-height: 40px;
-    --tbw-header-height: 44px;
+    /* ========== Dimensions ========== */
+    --tbw-cell-padding: 8px 12px;
+    --tbw-cell-padding-header: 8px 12px;
+    --tbw-row-height: 44px;
+    --tbw-header-height: 48px;
 
-    /* Sort indicator */
+    /* Bootstrap uses rectangular tables */
+    --tbw-border-radius: 0.375rem;
+
+    /* ========== Motion ========== */
+    --tbw-transition-duration: 150ms;
+    --tbw-transition-ease: ease-in-out;
+    --tbw-animation-duration: 200ms;
+    --tbw-animation-easing: ease-in-out;
+
+    /* ========== Focus & Selection ========== */
+    /* Bootstrap's focus ring style */
+    --tbw-focus-outline: 0 0 0 0.25rem rgba(from var(--tbw-color-accent) r g b / 25%);
+    --tbw-focus-outline-offset: 0;
+    --tbw-focus-background: transparent;
+
+    --tbw-range-border-color: var(--tbw-color-accent);
+    --tbw-range-selection-bg: rgba(from var(--tbw-color-accent) r g b / 12%);
+
+    /* ========== Resize Handle ========== */
+    --tbw-resize-handle-color: transparent;
+    --tbw-resize-handle-color-hover: var(--tbw-color-accent);
+
+    /* ========== Sort Indicators ========== */
     --tbw-sort-indicator-color: light-dark(#6c757d, #adb5bd);
     --tbw-sort-indicator-active-color: light-dark(#212529, #dee2e6);
 
-    /* Header border - thicker bottom border like Bootstrap */
-    --tbw-border-header: 2px solid light-dark(#212529, #dee2e6);
-
-    /* Input styling */
+    /* ========== Borders ========== */
+    /* Bootstrap's thicker header bottom border */
+    --tbw-border-header: 2px solid light-dark(currentColor, #dee2e6);
     --tbw-border-input: 1px solid light-dark(#ced4da, #495057);
-    --tbw-editing-bg: light-dark(#ffffff, #212529);
-    --tbw-editing-border: 1px solid var(--tbw-color-accent);
+    --tbw-editing-border: 2px solid var(--tbw-color-accent);
 
-    /* Success color for checkmarks etc */
-    --tbw-color-success: light-dark(#198754, #75b798);
+    /* ========== Scrollbar ========== */
+    --tbw-scrollbar-thumb: light-dark(#adb5bd, #495057);
+    --tbw-scrollbar-track: transparent;
+
+    /* ========== Tool Panel ========== */
+    --tbw-tool-panel-bg: light-dark(#f8f9fa, #2b3035);
+    --tbw-shell-header-bg: light-dark(#f8f9fa, #343a40);
+
+    /* ========== Row Animations ========== */
+    --tbw-row-change-color: rgba(from var(--tbw-color-accent) r g b / 20%);
   }
 } /* End @layer tbw-theme */

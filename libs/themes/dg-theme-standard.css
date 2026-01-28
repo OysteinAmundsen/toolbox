@@ -1,20 +1,88 @@
-/* Standard balanced theme with light-dark() adaptive palette */
+/*
+ * Standard Theme
+ * A polished, balanced theme suitable for most applications.
+ * Clean lines, subtle depth, and professional aesthetics.
+ */
 @layer tbw-theme {
   tbw-grid {
-    --tbw-color-bg: light-dark(#ffffff, #1f2125);
-    --tbw-color-fg: light-dark(#1f2329, #e5e7eb);
-    --tbw-color-fg-muted: light-dark(#586069, #9ca3af);
-    --tbw-color-border: light-dark(#d0d4d9, #3a3d44);
-    --tbw-color-border-strong: light-dark(#888d94, #5a5f66);
+    /* ========== Core Palette ========== */
+    --tbw-color-bg: light-dark(#ffffff, #1a1c20);
+    --tbw-color-panel-bg: light-dark(#f8f9fa, #232528);
+    --tbw-color-fg: light-dark(#1f2937, #e5e7eb);
+    --tbw-color-fg-muted: light-dark(#6b7280, #9ca3af);
+
+    /* Refined borders */
+    --tbw-color-border: light-dark(#e5e7eb, #374151);
+    --tbw-color-border-strong: light-dark(#9ca3af, #6b7280);
+    --tbw-color-border-cell: light-dark(#f3f4f6, #2d3138);
+    --tbw-color-border-header: light-dark(#d1d5db, #3f4550);
+
+    /* Row divider */
+    --tbw-row-divider: 1px solid light-dark(#e5e7eb, #2d3138);
+
+    /* Modern blue accent */
     --tbw-color-accent: light-dark(#2563eb, #3b82f6);
     --tbw-color-accent-fg: #ffffff;
-    --tbw-color-selection: light-dark(#fff7d6, #374151);
-    --tbw-color-row-alt: light-dark(#f8f9fa, #252830);
-    --tbw-color-row-hover: light-dark(#eef6ff, #2d313b);
-    --tbw-color-header-bg: light-dark(#f5f6f8, #262a30);
-    --tbw-color-border-cell: light-dark(#eee, #333);
-    --tbw-color-border-header: light-dark(#ccc, #444);
+    --tbw-color-success: light-dark(#059669, #34d399);
+    --tbw-color-error: light-dark(#dc2626, #f87171);
+
+    /* Selection & interaction */
+    --tbw-color-selection: light-dark(#eff6ff, #1e3a5f);
+    --tbw-color-row-alt: light-dark(#f9fafb, #1f2225);
+    --tbw-color-row-hover: light-dark(#f0f7ff, #252a32);
+    --tbw-color-active-row-bg: light-dark(#dbeafe, #1e3a5f);
+
+    /* Header with subtle distinction */
+    --tbw-color-header-bg: light-dark(#f8fafc, #21242a);
+    --tbw-color-header-fg: light-dark(#374151, #d1d5db);
+    --tbw-color-header-separator: light-dark(#d1d5db, #3f4550);
+
+    /* Subtle shadow for depth */
+    --tbw-color-shadow: light-dark(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.25));
+
+    /* ========== Typography ========== */
+    --tbw-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --tbw-font-weight-header: 600;
+    --tbw-header-text-transform: none;
+    --tbw-header-letter-spacing: -0.01em;
+
+    /* ========== Visual Polish ========== */
+    --tbw-border-radius: 0.375em;
+
+    /* Smooth transitions */
+    --tbw-transition-duration: 150ms;
+    --tbw-transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --tbw-animation-duration: 200ms;
+    --tbw-animation-easing: ease-out;
+
+    /* ========== Focus & Selection ========== */
+    --tbw-focus-outline: 2px solid var(--tbw-color-accent);
+    --tbw-focus-outline-offset: -2px;
+    --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 8%);
+
+    --tbw-range-border-color: var(--tbw-color-accent);
+    --tbw-range-selection-bg: rgba(from var(--tbw-color-accent) r g b / 10%);
+
+    /* ========== Resize Handle ========== */
+    --tbw-resize-handle-color: transparent;
     --tbw-resize-handle-color-hover: var(--tbw-color-accent);
+
+    /* ========== Sort Indicators ========== */
+    --tbw-sort-indicator-color: var(--tbw-color-fg-muted);
+    --tbw-sort-indicator-active-color: var(--tbw-color-accent);
+
+    /* ========== Scrollbar ========== */
+    --tbw-scrollbar-thumb: light-dark(#c5c8ce, #4b5058);
+    --tbw-scrollbar-track: transparent;
+
+    /* ========== Tool Panel ========== */
+    --tbw-tool-panel-bg: light-dark(#f8f9fa, #232528);
+    --tbw-shell-header-bg: light-dark(#f8fafc, #21242a);
+
+    /* ========== Column Header Groups ========== */
     --tbw-align-header-group: center;
+
+    /* ========== Row Animations ========== */
+    --tbw-row-change-color: rgba(from var(--tbw-color-accent) r g b / 20%);
   }
 } /* End @layer tbw-theme */

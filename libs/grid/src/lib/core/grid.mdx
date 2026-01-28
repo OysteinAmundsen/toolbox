@@ -160,6 +160,45 @@ Use format functions and templates to customize cell display.
 
 <Canvas of={GridStories.CustomFormatters} withToolbar />
 
+### Type-Level Defaults
+
+Define default renderers for all columns of a specific `type`. This is a **core feature** that works without any plugins.
+
+```typescript
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  typeDefaults: {
+    // All columns with type: 'boolean' use this renderer
+    boolean: {
+      renderer: (ctx) => {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!ctx.value;
+        checkbox.disabled = true;
+        return checkbox;
+      },
+    },
+    // Custom type for status badges
+    status: {
+      renderer: (ctx) => {
+        const badge = document.createElement('span');
+        badge.className = `status-badge status-${ctx.value}`;
+        badge.textContent = ctx.value as string;
+        return badge;
+      },
+    },
+  },
+  columns: [
+    { field: 'active', type: 'boolean' },  // Uses boolean renderer
+    { field: 'status', type: 'status' },   // Uses status renderer
+  ],
+};
+```
+
+**Resolution Priority**: Column-level `renderer` → Grid `typeDefaults` → App-level (framework adapter) → Built-in
+
+> **Note:** `typeDefaults` also supports `editor` and `editorParams`, but those require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs#type-level-defaults).
+
 ### Custom Header Renderers
 
 Customize column headers with two levels of control:

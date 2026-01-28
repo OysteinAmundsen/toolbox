@@ -467,7 +467,8 @@ export class ReactGridAdapter implements FrameworkAdapter {
 
     // Create editor function that renders React component
     if (reactDefault.editor) {
-      typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor);
+      // Type assertion needed: adapter bridges TRow to core's unknown
+      typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor) as TypeDefault['editor'];
     }
 
     return typeDefault;

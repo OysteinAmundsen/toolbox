@@ -157,10 +157,11 @@ export function reactTypeDefaultToGridTypeDefault<TRow = unknown>(
 
   if (reactDefault.editor) {
     const reactEditor = reactDefault.editor;
-    typeDefault.editor = (ctx) => {
-      const node = reactEditor(ctx);
+    // Type assertion needed: adapter bridges TRow to core's unknown
+    typeDefault.editor = ((ctx) => {
+      const node = reactEditor(ctx as ColumnEditorContext<TRow, unknown>);
       return renderReactNode(node);
-    };
+    }) as TypeDefault['editor'];
   }
 
   return typeDefault;

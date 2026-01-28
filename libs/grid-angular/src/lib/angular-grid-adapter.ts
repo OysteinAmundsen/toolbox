@@ -542,7 +542,8 @@ export class AngularGridAdapter implements FrameworkAdapter {
 
     // Create editor function that instantiates the Angular component
     if (config.editor) {
-      typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor);
+      // Type assertion needed: adapter bridges TRow to core's unknown
+      typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor) as TypeDefault['editor'];
     }
 
     return typeDefault;

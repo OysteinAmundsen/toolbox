@@ -565,7 +565,15 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       usedCustomRenderer = panel.children.length > 0;
     }
     if (!usedCustomRenderer) {
-      this.renderDefaultFilterPanel(panel, params, uniqueValues, excludedSet);
+      // Dispatch to type-specific panel renderers
+      const columnType = column.type;
+      if (columnType === 'number') {
+        this.renderNumberFilterPanel(panel, params, uniqueValues);
+      } else if (columnType === 'date') {
+        this.renderDateFilterPanel(panel, params, uniqueValues);
+      } else {
+        this.renderDefaultFilterPanel(panel, params, uniqueValues, excludedSet);
+      }
     }
   }
 
@@ -928,6 +936,347 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
+   * Render a number range filter panel with min/max inputs and slider
+   */
+  private renderNumberFilterPanel(panel: HTMLElement, params: FilterPanelParams, uniqueValues: unknown[]): void {
+    const { field, column } = params;
+
+    // Get range configuration from filterParams, editorParams, or compute from data
+    const filterParams = column.filterParams;
+    const editorParams = column.editorParams as { min?: number; max?: number; step?: number } | undefined;
+
+    // Helper to convert to number
+    const toNumber = (val: unknown, fallback: number): number => {
+      if (typeof val === 'number') return val;
+      if (typeof val === 'string') {
+        const num = parseFloat(val);
+        return isNaN(num) ? fallback : num;
+      }
+      return fallback;
+    };
+
+    // Compute min/max from data if not specified
+    const numericValues = uniqueValues.filter((v) => typeof v === 'number' && !isNaN(v)) as number[];
+    const dataMin = numericValues.length > 0 ? Math.min(...numericValues) : 0;
+    const dataMax = numericValues.length > 0 ? Math.max(...numericValues) : 100;
+
+    const min = toNumber(filterParams?.min ?? editorParams?.min, dataMin);
+    const max = toNumber(filterParams?.max ?? editorParams?.max, dataMax);
+    const step = filterParams?.step ?? editorParams?.step ?? 1;
+
+    // Get current filter values if any
+    const currentFilter = this.filters.get(field);
+    let currentMin = min;
+    let currentMax = max;
+    if (currentFilter?.operator === 'between') {
+      currentMin = toNumber(currentFilter.value, min);
+      currentMax = toNumber(currentFilter.valueTo, max);
+    } else if (currentFilter?.operator === 'greaterThanOrEqual') {
+      currentMin = toNumber(currentFilter.value, min);
+    } else if (currentFilter?.operator === 'lessThanOrEqual') {
+      currentMax = toNumber(currentFilter.value, max);
+    }
+
+    // Title
+    const title = document.createElement('div');
+    title.className = 'tbw-filter-range-title';
+    title.textContent = column.header || field;
+    panel.appendChild(title);
+
+    // Range inputs container
+    const rangeContainer = document.createElement('div');
+    rangeContainer.className = 'tbw-filter-range-inputs';
+
+    // Min input
+    const minGroup = document.createElement('div');
+    minGroup.className = 'tbw-filter-range-group';
+
+    const minLabel = document.createElement('label');
+    minLabel.textContent = 'Min';
+    minLabel.className = 'tbw-filter-range-label';
+
+    const minInput = document.createElement('input');
+    minInput.type = 'number';
+    minInput.className = 'tbw-filter-range-input';
+    minInput.min = String(min);
+    minInput.max = String(max);
+    minInput.step = String(step);
+    minInput.value = String(currentMin);
+
+    minGroup.appendChild(minLabel);
+    minGroup.appendChild(minInput);
+    rangeContainer.appendChild(minGroup);
+
+    // Separator
+    const separator = document.createElement('span');
+    separator.className = 'tbw-filter-range-separator';
+    separator.textContent = '–';
+    rangeContainer.appendChild(separator);
+
+    // Max input
+    const maxGroup = document.createElement('div');
+    maxGroup.className = 'tbw-filter-range-group';
+
+    const maxLabel = document.createElement('label');
+    maxLabel.textContent = 'Max';
+    maxLabel.className = 'tbw-filter-range-label';
+
+    const maxInput = document.createElement('input');
+    maxInput.type = 'number';
+    maxInput.className = 'tbw-filter-range-input';
+    maxInput.min = String(min);
+    maxInput.max = String(max);
+    maxInput.step = String(step);
+    maxInput.value = String(currentMax);
+
+    maxGroup.appendChild(maxLabel);
+    maxGroup.appendChild(maxInput);
+    rangeContainer.appendChild(maxGroup);
+
+    panel.appendChild(rangeContainer);
+
+    // Range slider (dual thumb using two range inputs)
+    const sliderContainer = document.createElement('div');
+    sliderContainer.className = 'tbw-filter-range-slider';
+
+    const sliderTrack = document.createElement('div');
+    sliderTrack.className = 'tbw-filter-range-track';
+
+    const sliderFill = document.createElement('div');
+    sliderFill.className = 'tbw-filter-range-fill';
+
+    const minSlider = document.createElement('input');
+    minSlider.type = 'range';
+    minSlider.className = 'tbw-filter-range-thumb tbw-filter-range-thumb-min';
+    minSlider.min = String(min);
+    minSlider.max = String(max);
+    minSlider.step = String(step);
+    minSlider.value = String(currentMin);
+
+    const maxSlider = document.createElement('input');
+    maxSlider.type = 'range';
+    maxSlider.className = 'tbw-filter-range-thumb tbw-filter-range-thumb-max';
+    maxSlider.min = String(min);
+    maxSlider.max = String(max);
+    maxSlider.step = String(step);
+    maxSlider.value = String(currentMax);
+
+    sliderContainer.appendChild(sliderTrack);
+    sliderContainer.appendChild(sliderFill);
+    sliderContainer.appendChild(minSlider);
+    sliderContainer.appendChild(maxSlider);
+    panel.appendChild(sliderContainer);
+
+    // Update fill position
+    const updateFill = () => {
+      const minVal = parseFloat(minSlider.value);
+      const maxVal = parseFloat(maxSlider.value);
+      const range = max - min;
+      const leftPercent = ((minVal - min) / range) * 100;
+      const rightPercent = ((maxVal - min) / range) * 100;
+      sliderFill.style.left = `${leftPercent}%`;
+      sliderFill.style.width = `${rightPercent - leftPercent}%`;
+    };
+
+    // Sync inputs with sliders
+    minSlider.addEventListener('input', () => {
+      const val = Math.min(parseFloat(minSlider.value), parseFloat(maxSlider.value));
+      minSlider.value = String(val);
+      minInput.value = String(val);
+      updateFill();
+    });
+
+    maxSlider.addEventListener('input', () => {
+      const val = Math.max(parseFloat(maxSlider.value), parseFloat(minSlider.value));
+      maxSlider.value = String(val);
+      maxInput.value = String(val);
+      updateFill();
+    });
+
+    // Sync sliders with inputs
+    minInput.addEventListener('input', () => {
+      let val = parseFloat(minInput.value) || min;
+      val = Math.max(min, Math.min(val, parseFloat(maxInput.value)));
+      minSlider.value = String(val);
+      updateFill();
+    });
+
+    maxInput.addEventListener('input', () => {
+      let val = parseFloat(maxInput.value) || max;
+      val = Math.min(max, Math.max(val, parseFloat(minInput.value)));
+      maxSlider.value = String(val);
+      updateFill();
+    });
+
+    // Initialize fill
+    updateFill();
+
+    // Apply/Clear buttons
+    const buttonRow = document.createElement('div');
+    buttonRow.className = 'tbw-filter-buttons';
+
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'tbw-filter-apply-btn';
+    applyBtn.textContent = 'Apply';
+    applyBtn.addEventListener('click', () => {
+      const minVal = parseFloat(minInput.value);
+      const maxVal = parseFloat(maxInput.value);
+      params.applyTextFilter('between', minVal, maxVal);
+    });
+    buttonRow.appendChild(applyBtn);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'tbw-filter-clear-btn';
+    clearBtn.textContent = 'Clear Filter';
+    clearBtn.addEventListener('click', () => {
+      params.clearFilter();
+    });
+    buttonRow.appendChild(clearBtn);
+
+    panel.appendChild(buttonRow);
+  }
+
+  /**
+   * Render a date range filter panel with from/to date inputs
+   */
+  private renderDateFilterPanel(panel: HTMLElement, params: FilterPanelParams, uniqueValues: unknown[]): void {
+    const { field, column } = params;
+
+    // Get range configuration from filterParams, editorParams, or compute from data
+    const filterParams = column.filterParams;
+    const editorParams = column.editorParams as { min?: string; max?: string } | undefined;
+
+    // Compute min/max from data if not specified
+    const dateValues = uniqueValues
+      .filter((v) => v instanceof Date || (typeof v === 'string' && !isNaN(Date.parse(v))))
+      .map((v) => (v instanceof Date ? v : new Date(v as string)))
+      .filter((d) => !isNaN(d.getTime()));
+
+    const dataMin = dateValues.length > 0 ? new Date(Math.min(...dateValues.map((d) => d.getTime()))) : null;
+    const dataMax = dateValues.length > 0 ? new Date(Math.max(...dateValues.map((d) => d.getTime()))) : null;
+
+    // Format date for input[type="date"] (YYYY-MM-DD)
+    const formatDateForInput = (date: Date | null): string => {
+      if (!date) return '';
+      return date.toISOString().split('T')[0];
+    };
+
+    const parseFilterParam = (value: unknown): string => {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number') return formatDateForInput(new Date(value));
+      return '';
+    };
+
+    const minDate =
+      parseFilterParam(filterParams?.min) || parseFilterParam(editorParams?.min) || formatDateForInput(dataMin);
+    const maxDate =
+      parseFilterParam(filterParams?.max) || parseFilterParam(editorParams?.max) || formatDateForInput(dataMax);
+
+    // Get current filter values if any
+    const currentFilter = this.filters.get(field);
+    let currentFrom = '';
+    let currentTo = '';
+    if (currentFilter?.operator === 'between') {
+      currentFrom = parseFilterParam(currentFilter.value) || '';
+      currentTo = parseFilterParam(currentFilter.valueTo) || '';
+    } else if (currentFilter?.operator === 'greaterThanOrEqual') {
+      currentFrom = parseFilterParam(currentFilter.value) || '';
+    } else if (currentFilter?.operator === 'lessThanOrEqual') {
+      currentTo = parseFilterParam(currentFilter.value) || '';
+    }
+
+    // Title
+    const title = document.createElement('div');
+    title.className = 'tbw-filter-range-title';
+    title.textContent = column.header || field;
+    panel.appendChild(title);
+
+    // Date range inputs container
+    const rangeContainer = document.createElement('div');
+    rangeContainer.className = 'tbw-filter-date-range';
+
+    // From input
+    const fromGroup = document.createElement('div');
+    fromGroup.className = 'tbw-filter-date-group';
+
+    const fromLabel = document.createElement('label');
+    fromLabel.textContent = 'From';
+    fromLabel.className = 'tbw-filter-range-label';
+
+    const fromInput = document.createElement('input');
+    fromInput.type = 'date';
+    fromInput.className = 'tbw-filter-date-input';
+    if (minDate) fromInput.min = minDate;
+    if (maxDate) fromInput.max = maxDate;
+    fromInput.value = currentFrom;
+
+    fromGroup.appendChild(fromLabel);
+    fromGroup.appendChild(fromInput);
+    rangeContainer.appendChild(fromGroup);
+
+    // Separator
+    const separator = document.createElement('span');
+    separator.className = 'tbw-filter-range-separator';
+    separator.textContent = '–';
+    rangeContainer.appendChild(separator);
+
+    // To input
+    const toGroup = document.createElement('div');
+    toGroup.className = 'tbw-filter-date-group';
+
+    const toLabel = document.createElement('label');
+    toLabel.textContent = 'To';
+    toLabel.className = 'tbw-filter-range-label';
+
+    const toInput = document.createElement('input');
+    toInput.type = 'date';
+    toInput.className = 'tbw-filter-date-input';
+    if (minDate) toInput.min = minDate;
+    if (maxDate) toInput.max = maxDate;
+    toInput.value = currentTo;
+
+    toGroup.appendChild(toLabel);
+    toGroup.appendChild(toInput);
+    rangeContainer.appendChild(toGroup);
+
+    panel.appendChild(rangeContainer);
+
+    // Apply/Clear buttons
+    const buttonRow = document.createElement('div');
+    buttonRow.className = 'tbw-filter-buttons';
+
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'tbw-filter-apply-btn';
+    applyBtn.textContent = 'Apply';
+    applyBtn.addEventListener('click', () => {
+      const from = fromInput.value;
+      const to = toInput.value;
+
+      if (from && to) {
+        params.applyTextFilter('between', from, to);
+      } else if (from) {
+        params.applyTextFilter('greaterThanOrEqual', from);
+      } else if (to) {
+        params.applyTextFilter('lessThanOrEqual', to);
+      } else {
+        params.clearFilter();
+      }
+    });
+    buttonRow.appendChild(applyBtn);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'tbw-filter-clear-btn';
+    clearBtn.textContent = 'Clear Filter';
+    clearBtn.addEventListener('click', () => {
+      params.clearFilter();
+    });
+    buttonRow.appendChild(clearBtn);
+
+    panel.appendChild(buttonRow);
+  }
+
+  /**
    * Apply a set filter (exclude values)
    */
   private applySetFilter(field: string, excluded: unknown[]): void {
@@ -951,9 +1300,14 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
-   * Apply a text filter
+   * Apply a text/number/date filter
    */
-  private applyTextFilter(field: string, operator: FilterModel['operator'], value: string, valueTo?: string): void {
+  private applyTextFilter(
+    field: string,
+    operator: FilterModel['operator'],
+    value: string | number,
+    valueTo?: string | number,
+  ): void {
     this.filters.set(field, {
       field,
       type: 'text',

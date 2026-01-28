@@ -549,3 +549,112 @@ grid.addEventListener('filter-change', (e) => {
     return container;
   },
 };
+
+// Sample data with typed columns for type-specific filter demos
+const typedData = [
+  { id: 1, name: 'Alice Johnson', salary: 95000, hireDate: '2020-03-15', rating: 4.5 },
+  { id: 2, name: 'Bob Smith', salary: 75000, hireDate: '2019-07-22', rating: 3.8 },
+  { id: 3, name: 'Carol Williams', salary: 105000, hireDate: '2018-11-10', rating: 4.9 },
+  { id: 4, name: 'Dan Brown', salary: 85000, hireDate: '2021-01-05', rating: 4.2 },
+  { id: 5, name: 'Eve Davis', salary: 72000, hireDate: '2022-06-18', rating: 3.5 },
+  { id: 6, name: 'Frank Miller', salary: 98000, hireDate: '2017-09-30', rating: 4.7 },
+  { id: 7, name: 'Grace Lee', salary: 82000, hireDate: '2020-12-01', rating: 4.0 },
+  { id: 8, name: 'Henry Wilson', salary: 68000, hireDate: '2023-02-14', rating: 3.2 },
+];
+
+/**
+ * Type-specific filter panels automatically display appropriate UI based on
+ * column type:
+ * - **Number columns**: Range slider with min/max inputs
+ * - **Date columns**: Date range picker with from/to date inputs
+ * - **Other columns**: Standard checkbox set filter
+ *
+ * The filter parameters (min, max, step) can be configured via `filterParams`
+ * on the column, or will fall back to `editorParams` if set, or auto-detect
+ * from the data.
+ */
+export const TypeSpecificFilters: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 400px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', filterable: false },
+    { field: 'name', header: 'Name' }, // Set filter (default)
+    {
+      field: 'salary',
+      header: 'Salary',
+      type: 'number', // Range slider filter
+      filterParams: { min: 50000, max: 150000, step: 5000 },
+    },
+    {
+      field: 'hireDate',
+      header: 'Hire Date',
+      type: 'date', // Date range picker filter
+      filterParams: { min: '2015-01-01', max: '2025-12-31' },
+    },
+    {
+      field: 'rating',
+      header: 'Rating',
+      type: 'number', // Range slider with smaller step
+      filterParams: { min: 1, max: 5, step: 0.1 },
+    },
+  ],
+  plugins: [new FilteringPlugin()],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice Johnson', salary: 95000, hireDate: '2020-03-15', rating: 4.5 },
+  { id: 2, name: 'Bob Smith', salary: 75000, hireDate: '2019-07-22', rating: 3.8 },
+  // ...
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '400px';
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', type: 'number' as const, filterable: false },
+        { field: 'name', header: 'Name' }, // Set filter (default)
+        {
+          field: 'salary',
+          header: 'Salary',
+          type: 'number' as const, // Range slider filter
+          filterParams: { min: 50000, max: 150000, step: 5000 },
+        },
+        {
+          field: 'hireDate',
+          header: 'Hire Date',
+          type: 'date' as const, // Date range picker filter
+          filterParams: { min: '2015-01-01', max: '2025-12-31' },
+        },
+        {
+          field: 'rating',
+          header: 'Rating',
+          type: 'number' as const, // Range slider with smaller step
+          filterParams: { min: 1, max: 5, step: 0.1 },
+        },
+      ],
+      plugins: [new FilteringPlugin()],
+    };
+    grid.rows = typedData;
+
+    return grid;
+  },
+};

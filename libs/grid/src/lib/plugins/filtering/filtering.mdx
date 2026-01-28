@@ -210,6 +210,39 @@ When `caseSensitive: true`, text filters distinguish between uppercase and lower
 
 <Canvas of={FilteringStories.CaseSensitive} withToolbar />
 
+### Type-Specific Filter Panels
+
+The Filtering plugin automatically displays appropriate filter UIs based on column type:
+
+| Column Type | Filter UI | Description |
+| --- | --- | --- |
+| `number` | **Range Slider** | Dual-thumb slider with min/max inputs |
+| `date` | **Date Range Picker** | From/to date inputs with range selection |
+| (other) | **Checkbox Set** | Standard multi-select with search |
+
+Configure bounds and step via `filterParams` on the column:
+
+```ts
+const columns = [
+  {
+    field: 'salary',
+    header: 'Salary',
+    type: 'number',
+    filterParams: { min: 50000, max: 150000, step: 5000 },
+  },
+  {
+    field: 'hireDate',
+    header: 'Hire Date',
+    type: 'date',
+    filterParams: { min: '2015-01-01', max: '2025-12-31' },
+  },
+];
+```
+
+If `filterParams` is not provided, the plugin auto-detects min/max from the data.
+
+<Canvas of={FilteringStories.TypeSpecificFilters} withToolbar />
+
 ### Async Filtering (Server-Side)
 
 For large or server-side datasets, the default local filtering may not be suitable:

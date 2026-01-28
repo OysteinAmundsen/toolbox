@@ -207,4 +207,128 @@
   .tbw-filter-clear-btn:hover {
     background: var(--tbw-filter-hover, var(--tbw-color-row-hover, light-dark(#f0f6ff, #1c1c1c)));
   }
+
+  /* Range filter panel (number columns) */
+  .tbw-filter-range-title {
+    font-weight: 500;
+    margin-bottom: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
+    padding-bottom: var(--tbw-spacing-sm, 0.375rem);
+    border-bottom: 1px solid var(--tbw-filter-divider, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
+  }
+
+  .tbw-filter-range-inputs,
+  .tbw-filter-date-range {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--tbw-spacing-sm, 0.375rem);
+    margin-bottom: var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
+  }
+
+  .tbw-filter-range-group,
+  .tbw-filter-date-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tbw-spacing-xs, 0.25rem);
+    flex: 1;
+  }
+
+  .tbw-filter-range-label {
+    font-size: var(--tbw-font-size-xs, 0.75rem);
+    color: var(--tbw-filter-muted, var(--tbw-color-fg-muted, light-dark(#555555, #aaaaaa)));
+  }
+
+  .tbw-filter-range-input,
+  .tbw-filter-date-input {
+    width: 100%;
+    height: var(--tbw-filter-item-height, 28px);
+    padding: var(--tbw-spacing-xs, 0.25rem) var(--tbw-spacing-sm, 0.375rem);
+    background: var(--tbw-filter-input-bg, var(--tbw-color-bg, transparent));
+    color: inherit;
+    border: 1px solid var(--tbw-filter-input-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
+    border-radius: var(--tbw-filter-input-radius, var(--tbw-border-radius, 0.25rem));
+    font-size: inherit;
+    box-sizing: border-box;
+  }
+
+  .tbw-filter-range-input:focus,
+  .tbw-filter-date-input:focus {
+    outline: none;
+    border-color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+    box-shadow: 0 0 0 2px rgba(from var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6)) r g b / 15%);
+  }
+
+  .tbw-filter-range-separator {
+    color: var(--tbw-filter-muted, var(--tbw-color-fg-muted, light-dark(#555555, #aaaaaa)));
+    padding-bottom: var(--tbw-spacing-xs, 0.25rem);
+  }
+
+  /* Dual-thumb range slider */
+  .tbw-filter-range-slider {
+    position: relative;
+    height: 24px;
+    margin: var(--tbw-spacing-md, 0.5rem) 0 var(--tbw-panel-gap, var(--tbw-spacing-md, 0.5rem));
+  }
+
+  .tbw-filter-range-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--tbw-filter-input-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
+    border-radius: 2px;
+    transform: translateY(-50%);
+  }
+
+  .tbw-filter-range-fill {
+    position: absolute;
+    top: 50%;
+    height: 4px;
+    background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+    border-radius: 2px;
+    transform: translateY(-50%);
+  }
+
+  .tbw-filter-range-thumb {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: none;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .tbw-filter-range-thumb::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+    border: 2px solid var(--tbw-filter-panel-bg, var(--tbw-color-panel-bg, light-dark(#eeeeee, #222222)));
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .tbw-filter-range-thumb::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+    border: 2px solid var(--tbw-filter-panel-bg, var(--tbw-color-panel-bg, light-dark(#eeeeee, #222222)));
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .tbw-filter-range-thumb::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  .tbw-filter-range-thumb::-moz-range-thumb:hover {
+    transform: scale(1.1);
+  }
 } /* End @layer tbw-plugins */

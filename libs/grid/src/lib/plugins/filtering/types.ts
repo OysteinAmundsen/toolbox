@@ -15,6 +15,14 @@ declare module '../../core/types' {
      * @default true
      */
     filterable?: boolean;
+
+    /**
+     * Configuration for the filter UI (only applicable when FilteringPlugin is enabled).
+     * For number columns: { min, max, step }
+     * For date columns: { min, max } (ISO date strings)
+     * Falls back to editorParams if not set.
+     */
+    filterParams?: FilterParams;
   }
 
   // Extend ColumnState to include filter state for persistence
@@ -30,6 +38,22 @@ declare module '../../core/types' {
       valueTo?: unknown;
     };
   }
+}
+// #endregion
+
+/**
+ * Filter parameters for configuring the filter panel UI.
+ * These settings control the filter input constraints.
+ */
+export interface FilterParams {
+  /** Minimum value for number/date filters */
+  min?: number | string;
+  /** Maximum value for number/date filters */
+  max?: number | string;
+  /** Step value for number range slider */
+  step?: number;
+  /** Placeholder text for text inputs */
+  placeholder?: string;
 }
 // #endregion
 
@@ -85,8 +109,8 @@ export interface FilterPanelParams {
   searchText: string;
   /** Apply a set filter (exclude these values) */
   applySetFilter: (excludedValues: unknown[]) => void;
-  /** Apply a text filter */
-  applyTextFilter: (operator: FilterOperator, value: string, valueTo?: string) => void;
+  /** Apply a text/number/date filter */
+  applyTextFilter: (operator: FilterOperator, value: string | number, valueTo?: string | number) => void;
   /** Clear the filter for this field */
   clearFilter: () => void;
   /** Close the filter panel */

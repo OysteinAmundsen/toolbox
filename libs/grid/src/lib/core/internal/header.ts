@@ -13,6 +13,17 @@ import { sanitizeHTML } from './sanitize';
 import { toggleSort } from './sorting';
 
 /**
+ * Check if a column is sortable, respecting both column-level and grid-level settings.
+ * Grid-wide `sortable: false` disables sorting for all columns.
+ * Grid-wide `sortable: true` (or undefined) allows column-level `sortable` to control behavior.
+ */
+function isColumnSortable(grid: InternalGrid, col: ColumnInternal): boolean {
+  // Grid-wide sortable defaults to true if not specified
+  const gridSortable = grid.effectiveConfig?.sortable !== false;
+  return gridSortable && col.sortable === true;
+}
+
+/**
  * Set an icon value on an element. Handles both string and HTMLElement icons.
  */
 function setIcon(element: HTMLElement, icon: IconValue): void {
@@ -146,7 +157,7 @@ export function renderHeader(grid: InternalGrid): void {
         sortState,
         filterActive: false, // Will be set by FilteringPlugin if active
         cellEl: cell,
-        renderSortIcon: () => (col.sortable ? createSortIndicator(grid, col) : null),
+        renderSortIcon: () => (isColumnSortable(grid, col) ? createSortIndicator(grid, col) : null),
         renderFilterButton: () => null, // FilteringPlugin adds filter button via afterRender
         renderResizeHandle: () => createResizeHandle(grid, i, cell),
       };
@@ -155,7 +166,7 @@ export function renderHeader(grid: InternalGrid): void {
       appendRendererOutput(cell, output);
 
       // Setup sort handlers if sortable (user may not have included sort icon but still want click-to-sort)
-      if (col.sortable) {
+      if (isColumnSortable(grid, col)) {
         setupSortHandlers(grid, col, i, cell);
       }
 
@@ -186,7 +197,7 @@ export function renderHeader(grid: InternalGrid): void {
       cell.appendChild(span);
 
       // Framework handles the rest: sort icon, resize handle
-      if (col.sortable) {
+      if (isColumnSortable(grid, col)) {
         setupSortHandlers(grid, col, i, cell);
         cell.appendChild(createSortIndicator(grid, col));
       }
@@ -200,7 +211,7 @@ export function renderHeader(grid: InternalGrid): void {
       Array.from(col.__headerTemplate.childNodes).forEach((n) => cell.appendChild(n.cloneNode(true)));
 
       // Standard affordances
-      if (col.sortable) {
+      if (isColumnSortable(grid, col)) {
         setupSortHandlers(grid, col, i, cell);
         cell.appendChild(createSortIndicator(grid, col));
       }
@@ -216,7 +227,7 @@ export function renderHeader(grid: InternalGrid): void {
       cell.appendChild(span);
 
       // Standard affordances
-      if (col.sortable) {
+      if (isColumnSortable(grid, col)) {
         setupSortHandlers(grid, col, i, cell);
         cell.appendChild(createSortIndicator(grid, col));
       }

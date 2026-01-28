@@ -88,7 +88,7 @@ Features are enabled using **declarative props** combined with **side-effect imp
   code={`
 // 1. Import features you need (once per feature)
 import '@toolbox-web/grid-react/features/selection';
-import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/multi-sort';
 import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-react/features/filtering';
 
@@ -101,7 +101,7 @@ function EmployeeGrid() {
       columns={columns}
       // 2. Just use the props - plugins are created automatically!
       selection="range"           // SelectionPlugin with mode: 'range'
-      sorting="multi"             // MultiSortPlugin
+      multiSort                   // MultiSortPlugin
       editing="dblclick"          // EditingPlugin with editOn: 'dblclick'
       filtering                   // FilteringPlugin with defaults
     />
@@ -122,7 +122,7 @@ function EmployeeGrid() {
 | Import | Prop | Example |
 |--------|------|---------|
 | `features/selection` | `selection` | `selection="range"` or `selection={{ mode: 'row', checkbox: true }}` |
-| `features/sorting` | `sorting` | `sorting="multi"` or `sorting={{ maxSortLevels: 3 }}` |
+| `features/multi-sort` | `multiSort` | `multiSort` or `multiSort={{ maxSortLevels: 3 }}` |
 | `features/filtering` | `filtering` | `filtering` or `filtering={{ debounceMs: 200 }}` |
 | `features/editing` | `editing` | `editing="dblclick"` or `editing="click"` |
 | `features/clipboard` | `clipboard` | `clipboard` (requires selection) |
@@ -150,7 +150,7 @@ For prototyping or when bundle size isn't critical:
 import '@toolbox-web/grid-react/features';
 
 // Now all feature props work
-<DataGrid selection="range" sorting filtering editing="dblclick" clipboard />
+<DataGrid selection="range" multiSort filtering editing="dblclick" clipboard />
 `}
 />
 
@@ -274,7 +274,7 @@ Use event handler props for clean, declarative event handling with automatic cle
   code={`
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/editing';
-import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/multi-sort';
 import { DataGrid } from '@toolbox-web/grid-react';
 import type { CellClickDetail, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
 
@@ -297,7 +297,7 @@ function EmployeeGrid() {
       columns={columns}
       selection="range"
       editing="dblclick"
-      sorting
+      multiSort
       // Event props - automatically cleaned up on unmount
       onCellClick={handleCellClick}
       onCellCommit={handleCellCommit}

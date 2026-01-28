@@ -24,7 +24,8 @@ export type FeatureName =
   | 'editing'
   | 'clipboard'
   | 'contextMenu'
-  | 'sorting'
+  | 'multiSort'
+  | 'sorting' // @deprecated - use 'multiSort' instead
   | 'filtering'
   | 'reorder'
   | 'visibility'

@@ -117,24 +117,34 @@ export interface FeatureProps<TRow = unknown> {
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Enable column sorting.
+   * Enable multi-column sorting.
    *
-   * @requires `import '@toolbox-web/grid-react/features/sorting';`
+   * Multi-sort allows users to sort by multiple columns simultaneously.
+   * For basic single-column sorting, columns with `sortable: true` work without this plugin.
+   * Use the `sortable` prop to disable all sorting grid-wide.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/multi-sort';`
    *
    * @example
    * ```tsx
-   * // Enable with default (multi-sort)
-   * <DataGrid sorting />
+   * // Enable multi-column sorting
+   * <DataGrid multiSort />
    *
-   * // Single column sort only
-   * <DataGrid sorting="single" />
-   *
-   * // Multi-column sort
-   * <DataGrid sorting="multi" />
+   * // Limit to single column (uses plugin but restricts to 1)
+   * <DataGrid multiSort="single" />
    *
    * // Full config
-   * <DataGrid sorting={{ maxSortLevels: 3 }} />
+   * <DataGrid multiSort={{ maxSortColumns: 3 }} />
    * ```
+   */
+  multiSort?: boolean | 'single' | 'multi' | MultiSortConfig;
+
+  /**
+   * @deprecated Use `multiSort` instead. Will be removed in a future version.
+   *
+   * Enable column sorting. This is an alias for `multiSort`.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/multi-sort';`
    */
   sorting?: boolean | 'single' | 'multi' | MultiSortConfig;
 

@@ -166,10 +166,18 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       // Merge: feature plugins first, then config plugins
       const mergedPlugins = [...featurePlugins, ...configPlugins];
 
+      // Build core config overrides from individual inputs
+      const sortableValue = this.sortable();
+      const coreConfigOverrides: Record<string, unknown> = {};
+      if (sortableValue !== undefined) {
+        coreConfigOverrides['sortable'] = sortableValue;
+      }
+
       // Apply to the grid element
       const grid = this.elementRef.nativeElement;
       grid.gridConfig = {
         ...processedConfig,
+        ...coreConfigOverrides,
         plugins: mergedPlugins.length > 0 ? mergedPlugins : undefined,
       };
     });
@@ -193,6 +201,30 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   customStyles = input<string>();
+
+  /**
+   * Grid-wide sorting toggle.
+   * When false, disables sorting for all columns regardless of their individual `sortable` setting.
+   * When true (default), columns with `sortable: true` can be sorted.
+   *
+   * This is a core grid config property, not a plugin feature.
+   * For multi-column sorting, also add the `[multiSort]` feature.
+   *
+   * @default true
+   *
+   * @example
+   * ```html
+   * <!-- Disable all sorting -->
+   * <tbw-grid [sortable]="false" />
+   *
+   * <!-- Enable sorting (default) - columns still need sortable: true -->
+   * <tbw-grid [sortable]="true" />
+   *
+   * <!-- Enable multi-column sorting -->
+   * <tbw-grid [sortable]="true" [multiSort]="true" />
+   * ```
+   */
+  sortable = input<boolean>();
 
   /**
    * Angular-specific grid configuration that supports component classes for renderers/editors.
@@ -308,23 +340,38 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   contextMenu = input<boolean | ContextMenuConfig>();
 
   /**
-   * Enable column sorting.
+   * Enable multi-column sorting.
+   *
+   * Multi-sort allows users to sort by multiple columns simultaneously.
+   * For basic single-column sorting, columns with `sortable: true` work without this plugin.
    *
    * **Requires feature import:**
    * ```typescript
-   * import '@toolbox-web/grid-angular/features/sorting';
+   * import '@toolbox-web/grid-angular/features/multi-sort';
    * ```
    *
    * @example
    * ```html
-   * <!-- Enable with default (multi-sort) -->
-   * <tbw-grid [sorting]="true" />
+   * <!-- Enable multi-column sorting -->
+   * <tbw-grid [multiSort]="true" />
    *
-   * <!-- Single column sort only -->
-   * <tbw-grid [sorting]="'single'" />
+   * <!-- Limit to single column (uses plugin but restricts to 1 column) -->
+   * <tbw-grid [multiSort]="'single'" />
    *
-   * <!-- Multi-column sort -->
-   * <tbw-grid [sorting]="'multi'" />
+   * <!-- Full config -->
+   * <tbw-grid [multiSort]="{ maxSortColumns: 3 }" />
+   * ```
+   */
+  multiSort = input<boolean | 'single' | 'multi' | MultiSortConfig>();
+
+  /**
+   * @deprecated Use `[multiSort]` instead. Will be removed in a future version.
+   *
+   * Enable column sorting. This is an alias for `[multiSort]`.
+   *
+   * **Requires feature import:**
+   * ```typescript
+   * import '@toolbox-web/grid-angular/features/multi-sort';
    * ```
    */
   sorting = input<boolean | 'single' | 'multi' | MultiSortConfig>();
@@ -946,7 +993,8 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     addPlugin('editing', this.editing());
     addPlugin('clipboard', this.clipboard());
     addPlugin('contextMenu', this.contextMenu());
-    addPlugin('sorting', this.sorting());
+    // multiSort is the primary input; sorting is a deprecated alias
+    addPlugin('multiSort', this.multiSort() ?? this.sorting());
     addPlugin('filtering', this.filtering());
     addPlugin('reorder', this.reorder());
     addPlugin('visibility', this.visibility());

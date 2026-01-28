@@ -37,7 +37,7 @@ import '@toolbox-web/grid';
 // Only import the features you use - this keeps your bundle small!
 import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/multi-sort';
 import '@toolbox-web/grid-angular/features/filtering';
 `}
 />
@@ -52,7 +52,7 @@ The simplest way to use the grid is with the `Grid` directive and feature inputs
 // Enable features you use
 import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/multi-sort';
 import '@toolbox-web/grid-angular/features/filtering';
 
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
@@ -76,7 +76,7 @@ interface Employee {
       [columns]="columns"
       [selection]="'range'"
       [editing]="'dblclick'"
-      [sorting]="true"
+      [multiSort]="true"
       [filtering]="{ debounceMs: 200 }"
       style="height: 400px; display: block;"
     />
@@ -109,14 +109,17 @@ Each feature input enables a specific plugin with simplified configuration:
 |---------------|----------------|-------------|
 | `[selection]` | `features/selection` | Cell, row, or range selection |
 | `[editing]` | `features/editing` | Inline cell editing |
-| `[sorting]` | `features/sorting` | Column sorting (single or multi) |
+| `[multiSort]` | `features/multi-sort` | Multi-column sorting |
 | `[filtering]` | `features/filtering` | Column filtering |
 | `[clipboard]` | `features/clipboard` | Copy/paste support |
+| `[contextMenu]` | `features/context-menu` | Right-click context menu |
 | `[reorder]` | `features/reorder` | Column drag-to-reorder |
 | `[visibility]` | `features/visibility` | Column visibility panel |
 | `[pinnedColumns]` | `features/pinned-columns` | Sticky left/right columns |
+| `[pinnedRows]` | `features/pinned-rows` | Sticky top/bottom rows |
 | `[groupingColumns]` | `features/grouping-columns` | Multi-level column headers |
 | `[groupingRows]` | `features/grouping-rows` | Row grouping |
+| `[columnVirtualization]` | `features/column-virtualization` | Virtualize columns for wide grids |
 | `[rowReorder]` | `features/row-reorder` | Row drag-to-reorder |
 | `[tree]` | `features/tree` | Hierarchical tree view |
 | `[masterDetail]` | `features/master-detail` | Expandable detail rows |
@@ -124,6 +127,14 @@ Each feature input enables a specific plugin with simplified configuration:
 | `[undoRedo]` | `features/undo-redo` | Edit undo/redo |
 | `[exportFeature]` | `features/export` | CSV/Excel export |
 | `[print]` | `features/print` | Print support |
+| `[pivot]` | `features/pivot` | Pivot table functionality |
+| `[serverSide]` | `features/server-side` | Server-side data loading |
+
+**Core Config Inputs (no feature import needed):**
+
+| Input | Type | Description |
+|-------|------|-------------|
+| `[sortable]` | `boolean` | Grid-wide sorting toggle (default: true) |
 
 **Example shortcuts:**
 
@@ -142,9 +153,15 @@ Each feature input enables a specific plugin with simplified configuration:
 <tbw-grid [editing]="'dblclick'" />
 <tbw-grid [editing]="'manual'" />
 
-<!-- Sorting modes -->
-<tbw-grid [sorting]="true" />         <!-- multi-column sort -->
-<tbw-grid [sorting]="'single'" />     <!-- single column only -->
+<!-- Sorting -->
+<!-- Single-column sorting is core - columns with sortable: true work without any plugin -->
+<tbw-grid [sortable]="true" />        <!-- enable core sorting (default) -->
+<tbw-grid [sortable]="false" />       <!-- disable ALL sorting grid-wide -->
+
+<!-- Multi-column sorting (requires features/multi-sort import) -->
+<tbw-grid [multiSort]="true" />       <!-- enable multi-column sort -->
+<tbw-grid [multiSort]="'single'" />   <!-- limit to single column -->
+<tbw-grid [multiSort]="{ maxSortColumns: 3 }" />
 `}
 />
 
@@ -159,7 +176,6 @@ import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
@@ -412,18 +428,14 @@ import { CurrencyRendererComponent, DateRendererComponent } from './renderers';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideGridTypeDefaults([
-      {
-        type: 'currency',
+    provideGridTypeDefaults({
+      currency: {
         renderer: CurrencyRendererComponent,
-        format: (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' }),
       },
-      {
-        type: 'date',
+      date: {
         renderer: DateRendererComponent,
-        format: (value: string) => new Date(value).toLocaleDateString(),
       },
-    ]),
+    }),
   ],
 };
 

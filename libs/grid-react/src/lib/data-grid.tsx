@@ -198,6 +198,25 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
   columnDefaults?: Partial<ColumnConfig<TRow>>;
   /** Fit mode for column sizing */
   fitMode?: 'stretch' | 'fit-columns' | 'auto-fit';
+  /**
+   * Grid-wide sorting toggle.
+   * When false, disables sorting for all columns regardless of their individual `sortable` setting.
+   * When true (default), columns with `sortable: true` can be sorted.
+   *
+   * For multi-column sorting, also add the `multiSort` prop.
+   *
+   * @default true
+   *
+   * @example
+   * ```tsx
+   * // Disable all sorting
+   * <DataGrid sortable={false} />
+   *
+   * // Enable sorting with multi-sort
+   * <DataGrid sortable multiSort />
+   * ```
+   */
+  sortable?: boolean;
   /** Edit trigger mode - DEPRECATED: use `editing` prop instead */
   editOn?: 'click' | 'dblclick' | 'none';
   /** Custom CSS styles to inject into grid shadow DOM */
@@ -330,6 +349,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     columns,
     columnDefaults,
     fitMode,
+    sortable,
     editOn,
     customStyles,
     className,
@@ -360,7 +380,8 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     'selection',
     'editing',
     'filtering',
-    'sorting',
+    'multiSort',
+    'sorting', // deprecated alias for multiSort
     'clipboard',
     'contextMenu',
     'reorder',
@@ -464,6 +485,12 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   const processedGridConfig = useMemo(() => {
     const processed = processReactGridConfig(gridConfig);
 
+    // Build core config overrides from individual props
+    const coreConfigOverrides: Record<string, unknown> = {};
+    if (sortable !== undefined) {
+      coreConfigOverrides['sortable'] = sortable;
+    }
+
     // Add lazy-loaded plugins to the config
     if (allPlugins.length > 0 && processed) {
       const existingPlugins = processed.plugins || [];
@@ -471,16 +498,22 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       const newPlugins = allPlugins.filter((p) => !existingNames.has(p.name));
       return {
         ...processed,
+        ...coreConfigOverrides,
         plugins: [...existingPlugins, ...newPlugins],
       };
     }
 
     if (allPlugins.length > 0 && !processed) {
-      return { plugins: allPlugins };
+      return { ...coreConfigOverrides, plugins: allPlugins };
+    }
+
+    // Apply core config overrides even if no plugins
+    if (Object.keys(coreConfigOverrides).length > 0) {
+      return { ...processed, ...coreConfigOverrides };
     }
 
     return processed;
-  }, [gridConfig, allPlugins]);
+  }, [gridConfig, allPlugins, sortable]);
 
   // Sync type defaults to the global adapter
   useEffect(() => {

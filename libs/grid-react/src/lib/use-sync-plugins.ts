@@ -60,8 +60,19 @@ export function createPluginsFromFeatures<TRow = unknown>(featureProps: Partial<
   const plugins: unknown[] = [];
   const enabledFeatures: FeatureName[] = [];
 
+  // Handle multiSort/sorting alias: multiSort takes precedence
+  const effectiveProps = { ...featureProps };
+  if (effectiveProps.multiSort !== undefined) {
+    // multiSort is set, ignore sorting
+    delete effectiveProps.sorting;
+  } else if (effectiveProps.sorting !== undefined) {
+    // sorting is set but multiSort isn't - use sorting value for multiSort
+    effectiveProps.multiSort = effectiveProps.sorting;
+    delete effectiveProps.sorting;
+  }
+
   // Collect all enabled features
-  for (const [key, value] of Object.entries(featureProps)) {
+  for (const [key, value] of Object.entries(effectiveProps)) {
     if (value === undefined || value === false) continue;
 
     const featureName = key as FeatureName;

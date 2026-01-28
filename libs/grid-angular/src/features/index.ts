@@ -26,6 +26,7 @@ import './filtering';
 import './grouping-columns';
 import './grouping-rows';
 import './master-detail';
+import './multi-sort';
 import './pinned-columns';
 import './pinned-rows';
 import './pivot';
@@ -35,7 +36,7 @@ import './responsive';
 import './row-reorder';
 import './selection';
 import './server-side';
-import './sorting';
+// './sorting' is deprecated, imports './multi-sort' internally
 import './tree';
 import './undo-redo';
 import './visibility';

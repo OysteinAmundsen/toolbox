@@ -35,6 +35,21 @@ declare module '../../core/types' {
      */
     editorParams?: EditorParams;
   }
+
+  interface GridConfig {
+    /**
+     * Edit trigger mode. Requires `EditingPlugin` to be loaded.
+     *
+     * Configure via `new EditingPlugin({ editOn: 'click' })` or set on gridConfig.
+     * Plugin config takes precedence over gridConfig.
+     *
+     * - `'click'`: Single click to edit
+     * - `'dblclick'`: Double-click to edit (default)
+     * - `'manual'`: Only via programmatic API (beginEdit)
+     * - `false`: Disable editing entirely
+     */
+    editOn?: 'click' | 'dblclick' | 'manual' | false;
+  }
 }
 
 // ============================================================================

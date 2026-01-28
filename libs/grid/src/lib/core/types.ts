@@ -852,18 +852,30 @@ export interface GridConfig<TRow = any> {
   rowClass?: (row: TRow) => string[];
   /** Sizing mode for columns. Can also be set via `fitMode` prop. */
   fitMode?: FitMode;
+
   /**
-   * Edit trigger mode. Requires `EditingPlugin` to be loaded.
+   * Grid-wide sorting toggle.
+   * When false, disables sorting for all columns regardless of their individual `sortable` setting.
+   * When true (default), columns with `sortable: true` can be sorted.
    *
-   * Configure via `new EditingPlugin({ editOn: 'click' })` or set on gridConfig.
-   * Plugin config takes precedence over gridConfig.
+   * This affects:
+   * - Header click handlers for sorting
+   * - Sort indicator visibility
+   * - Multi-sort plugin behavior (if loaded)
    *
-   * - `'click'`: Single click to edit
-   * - `'dblclick'`: Double-click to edit (default)
-   * - `'manual'`: Only via programmatic API (beginEdit)
-   * - `false`: Disable editing entirely
+   * @default true
+   *
+   * @example
+   * ```typescript
+   * // Disable all sorting
+   * gridConfig = { sortable: false };
+   *
+   * // Enable sorting (default) - individual columns still need sortable: true
+   * gridConfig = { sortable: true };
+   * ```
    */
-  editOn?: 'click' | 'dblclick' | 'manual' | false;
+  sortable?: boolean;
+
   /**
    * Row height in pixels for virtualization calculations.
    * The virtualization system assumes uniform row heights for performance.

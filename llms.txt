@@ -2,7 +2,13 @@
 
 > A high-performance, framework-agnostic data grid built with pure TypeScript and native Web Components. Zero runtime dependencies. Works in vanilla JS, React, Angular, Vue, Svelte, and any JavaScript environment.
 
-Important notes:
+## Key Capabilities
+
+Built-in (no plugins): Row virtualization (100k+ rows at 60fps, infinite scroll), sorting, column resizing, auto-sizing, keyboard navigation, custom renderers/editors, footer aggregations, 6 themes, row animations.
+
+Via plugins (22 available): Selection (cell/row/range/checkbox), inline editing (cell/row mode), filtering (text/number/date/set/boolean), multi-sort, row grouping with aggregations, column grouping (spanning headers), tree data (hierarchical/nested), master-detail (expandable rows), pinned/frozen/sticky columns & rows, column/row drag reorder, column visibility (show/hide), column virtualization, export (CSV/JSON/Excel/XLSX), print, context menus, clipboard (copy/paste), undo/redo, server-side/remote data (infinite scroll, lazy loading, SSRM-style), pivot tables (row/column fields, value aggregation), responsive/mobile card layout.
+
+## Important Notes
 
 - This is a **Web Component** (`<tbw-grid>`) that works natively in all frameworks without wrappers (though optional adapter packages exist for React and Angular to enable JSX/template renderers)
 - All features are **opt-in via plugins** - import only what you need for tree-shaking
@@ -29,29 +35,43 @@ Important notes:
 
 ## Plugins
 
-- [Editing Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-editing--docs): Inline cell/row editing with built-in editors
-- [Selection Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-selection--docs): Cell, row, and range selection
-- [Filtering Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-filtering--docs): Column filters with text, number, date, set, boolean types
+- [Editing Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-editing--docs): Inline cell editing and full row editing mode with built-in editors (text, number, date, boolean/checkbox, select/dropdown), custom editors, validation support
+- [Selection Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-selection--docs): Cell selection, row selection, range selection (Excel-like), checkbox column, Shift/Ctrl multi-select, select all
+- [Filtering Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-filtering--docs): Column filters with text, number, date, set (multi-select), boolean types; custom filter functions, filter row, quick filter
 - [Multi-Sort Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-multi-sort--docs): Sort by multiple columns with priority
-- [Row Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-rows--docs): Group rows by field values
-- [Column Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-columns--docs): Group columns under shared headers
-- [Tree Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-tree--docs): Hierarchical tree data display
-- [Master-Detail Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-master-detail--docs): Expandable detail rows
-- [Pinned Columns Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pinned-columns--docs): Sticky columns left/right
-- [Pinned Rows Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pinned-rows--docs): Sticky rows top/bottom
-- [Responsive Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-responsive--docs): Card layout for narrow viewports with breakpoints
+- [Row Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-rows--docs): Group rows by field values, nested grouping, expand/collapse, group footer aggregations (sum, avg, count, min, max)
+- [Column Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-columns--docs): Group columns under shared headers, multi-level column spanning, header grouping
+- [Tree Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-tree--docs): Hierarchical/nested tree data, parent-child relationships, expand/collapse, lazy loading children, indentation
+- [Master-Detail Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-master-detail--docs): Expandable detail rows, nested grids, custom detail templates, row expansion
+- [Pinned Columns Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pinned-columns--docs): Sticky/frozen/locked columns on left or right edge
+- [Pinned Rows Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pinned-rows--docs): Sticky/frozen/locked rows at top or bottom, summary rows, totals row
+- [Responsive Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-responsive--docs): Responsive/mobile-friendly card layout, breakpoints, auto-switch grid to cards on narrow viewports
 - [Reorder Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-reorder--docs): Drag-and-drop column reordering
+- [Row Reorder Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-row-reorder--docs): Drag-and-drop row reordering with drag handles
 - [Visibility Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-visibility--docs): Column visibility panel
-- [Column Virtualization Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-column-virtualization--docs): Horizontal virtualization for many columns
-- [Export Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-export--docs): Export to CSV, JSON, Excel XML
+- [Column Virtualization Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-column-virtualization--docs): Horizontal virtualization for many columns, render only visible columns, wide table support
+- [Export Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-export--docs): Export to CSV, JSON, Excel XML (XLSX-compatible), download file, custom filename
+- [Print Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-print--docs): Print grid with configurable options (orientation, fit-to-page, headers/footers)
 - [Context Menu Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-context-menu--docs): Right-click menus
-- [Clipboard Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-clipboard--docs): Copy/paste with Ctrl+C/V
-- [Undo/Redo Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-undo-redo--docs): Edit history
-- [Server-Side Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-server-side--docs): Virtual scrolling with lazy loading from remote APIs, block-based caching, and server-side sorting/filtering integration
-- [Pivot Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pivot--docs): Pivot table transformation
+- [Clipboard Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-clipboard--docs): Copy/paste with Ctrl+C/V, Excel-compatible format, paste from Excel/Google Sheets
+- [Undo/Redo Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-undo-redo--docs): Edit history with Ctrl+Z/Ctrl+Y
+- [Server-Side Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-server-side--docs): Server-side row model (SSRM-style), infinite scrolling, lazy loading from remote APIs, block-based caching, server-side sorting/filtering/pagination, async data fetching, large dataset support
+- [Pivot Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pivot--docs): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max), dynamic pivot columns
 
-## Core Features
+## Core Features (Built-in, No Plugin Required)
 
+- **Row Virtualization**: Renders only visible rows plus configurable overscan buffer, handles 100k+ rows at 60fps
+- **Column Sorting**: Single-click header sorting with `sortable: true` on columns (multi-sort via plugin)
+- **Column Resizing**: Drag column borders to resize with `resizable: true` (default)
+- **Column Auto-sizing**: `fitMode: 'stretch' | 'fixed' | 'auto'` controls column width behavior
+- **Keyboard Navigation**: Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down, Ctrl+Home/End
+- **Custom Cell Renderers**: `renderer: (ctx) => HTMLElement | string` for custom cell content
+- **Custom Cell Editors**: `editor: (ctx) => HTMLElement` for custom editing UI (requires EditingPlugin)
+- **Custom Header Renderers**: `headerRenderer` and `headerLabelRenderer` for custom header content
+- **Footer Aggregations**: Built-in aggregation functions (sum, avg, count, min, max, first, last) for group footers
+- **Cell Formatting**: `format: (value, row) => string` for display formatting
+- **Type Inference**: Automatic column type detection from data when columns not specified
+- **Built-in Themes**: Standard, Material, Bootstrap, Contrast, Vibrant, Large (via CSS classes)
 - [Row Animation API](https://toolboxjs.com/?path=/docs/grid-row-animation--docs): Visual feedback for row changes (insert, update, remove) with configurable animations
 - [Animation Configuration](https://toolboxjs.com/?path=/docs/grid-animation--docs): Global animation settings including mode (on/off/reduced-motion) and styles
 

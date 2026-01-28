@@ -83,17 +83,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
-    margin-right: 6px;
+    width: var(--tbw-pivot-toggle-size, var(--tbw-toggle-size, 1.25em));
+    height: var(--tbw-pivot-toggle-size, var(--tbw-toggle-size, 1.25em));
+    margin-right: var(--tbw-spacing-sm, 0.375em);
     border: none;
     background: transparent;
     cursor: pointer;
     color: var(--tbw-pivot-toggle-color, var(--tbw-color-fg-muted));
     border-radius: var(--tbw-border-radius);
     transition:
-      background 0.15s,
-      color 0.15s;
+      background var(--tbw-transition-duration, 120ms) var(--tbw-transition-ease, ease),
+      color var(--tbw-transition-duration, 120ms) var(--tbw-transition-ease, ease);
   }
 
   .pivot-toggle:hover {

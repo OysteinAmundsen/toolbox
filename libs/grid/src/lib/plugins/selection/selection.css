@@ -56,7 +56,7 @@
 
       /* Prevent selection highlight on non-selectable cells */
       &.selected {
-        background-color: var(--tbw-color-warning-bg, rgba(255, 243, 205, 0.5));
+        background-color: var(--tbw-selection-warning-bg, rgba(from var(--tbw-color-error) r g b / 50%));
       }
     }
 

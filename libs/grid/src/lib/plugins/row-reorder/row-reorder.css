@@ -4,66 +4,68 @@
  * Styles for drag handle column and visual feedback during row reordering.
  */
 
-/* Drag handle column */
-.dg-row-drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  user-select: none;
-  color: var(--tbw-color-fg-muted, #999);
-  transition: color 0.15s ease;
-  font-size: 14px;
-  letter-spacing: -2px; /* Tightens the '⋮⋮' default icon */
+@layer tbw-plugins {
+  /* Drag handle column */
+  .dg-row-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    user-select: none;
+    color: var(--tbw-row-reorder-handle-color, var(--tbw-color-fg-muted));
+    transition: color var(--tbw-transition-duration, 120ms) var(--tbw-transition-ease, ease);
+    font-size: var(--tbw-font-size, 1em);
+    letter-spacing: -2px; /* Tightens the '⋮⋮' default icon */
 
-  &:hover {
-    color: var(--tbw-color-fg, #333);
+    &:hover {
+      color: var(--tbw-row-reorder-handle-hover, var(--tbw-color-fg));
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
   }
 
-  &:active {
-    cursor: grabbing;
-  }
-}
-
-/* Row being dragged - subtle visual feedback without changing background */
-.data-grid-row.dragging {
-  opacity: 0.6;
-}
-
-/* Drop target indicator */
-.data-grid-row.drop-target {
-  position: relative;
-
-  &.drop-before::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--tbw-color-accent, #1976d2);
-    z-index: 10;
+  /* Row being dragged - subtle visual feedback without changing background */
+  .data-grid-row.dragging {
+    opacity: 0.6;
   }
 
-  &.drop-after::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--tbw-color-accent, #1976d2);
-    z-index: 10;
+  /* Drop target indicator */
+  .data-grid-row.drop-target {
+    position: relative;
+
+    &.drop-before::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--tbw-row-reorder-indicator, var(--tbw-color-accent));
+      z-index: 10;
+    }
+
+    &.drop-after::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--tbw-row-reorder-indicator, var(--tbw-color-accent));
+      z-index: 10;
+    }
   }
-}
 
-/* Keyboard move visual feedback */
-.data-grid-row.keyboard-moving {
-  background-color: var(--tbw-color-bg-selected, #e3f2fd);
-  box-shadow: 0 0 0 1px var(--tbw-color-accent, #1976d2) inset;
-}
+  /* Keyboard move visual feedback */
+  .data-grid-row.keyboard-moving {
+    background-color: var(--tbw-row-reorder-moving-bg, var(--tbw-focus-background));
+    box-shadow: 0 0 0 1px var(--tbw-row-reorder-moving-border, var(--tbw-color-accent)) inset;
+  }
 
-/* FLIP animation for row transitions */
-.data-grid-row.animate-flip {
-  transition: transform var(--tbw-animation-duration, 200ms) ease-out;
-}
+  /* FLIP animation for row transitions */
+  .data-grid-row.animate-flip {
+    transition: transform var(--tbw-animation-duration, 200ms) ease-out;
+  }
+} /* End @layer tbw-plugins */

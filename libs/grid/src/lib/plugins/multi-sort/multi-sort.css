@@ -1,29 +1,29 @@
 @layer tbw-plugins {
   .header-cell[data-sort='asc']::after {
     content: '↑';
-    margin-left: 4px;
+    margin-left: var(--tbw-spacing-xs, 0.25em);
     opacity: 0.8;
   }
   .header-cell[data-sort='desc']::after {
     content: '↓';
-    margin-left: 4px;
+    margin-left: var(--tbw-spacing-xs, 0.25em);
     opacity: 0.8;
   }
   .sort-indicator {
-    margin-left: 4px;
+    margin-left: var(--tbw-spacing-xs, 0.25em);
     opacity: 0.8;
   }
   .sort-index {
-    font-size: 10px;
+    font-size: var(--tbw-font-size-2xs, 0.7em);
     background: var(--tbw-multi-sort-badge-bg, var(--tbw-color-panel-bg));
     color: var(--tbw-multi-sort-badge-color, var(--tbw-color-fg));
     border-radius: 50%;
-    width: 14px;
-    height: 14px;
+    width: var(--tbw-multi-sort-badge-size, 1em);
+    height: var(--tbw-multi-sort-badge-size, 1em);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-left: 2px;
+    margin-left: var(--tbw-spacing-xs, 0.125em);
     font-weight: 600;
   }
 } /* End @layer tbw-plugins */

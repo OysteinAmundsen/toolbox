@@ -22,26 +22,26 @@
     position: relative;
   }
   .tbw-visibility-row:hover {
-    background: var(--tbw-visibility-hover, var(--tbw-color-row-hover, #f3f4f6));
+    background: var(--tbw-visibility-hover, var(--tbw-color-row-hover));
   }
   .tbw-visibility-row input[type='checkbox'] {
     cursor: pointer;
   }
   .tbw-visibility-row.locked span {
-    color: var(--tbw-color-fg-muted, #888);
+    color: var(--tbw-color-fg-muted);
   }
 
   /* Drag handle */
   .tbw-visibility-handle {
     cursor: grab;
-    color: var(--tbw-color-fg-muted, #888);
+    color: var(--tbw-color-fg-muted);
     font-size: var(--tbw-font-size-2xs, 0.625rem);
     letter-spacing: -2px;
     user-select: none;
     flex-shrink: 0;
   }
   .tbw-visibility-row.reorderable:hover .tbw-visibility-handle {
-    color: var(--tbw-color-fg, #1f2937);
+    color: var(--tbw-color-fg);
   }
 
   /* Label wrapper for checkbox and text */
@@ -65,7 +65,7 @@
     right: 0;
     top: 0;
     height: 2px;
-    background: var(--tbw-reorder-indicator, var(--tbw-color-accent, #3b82f6));
+    background: var(--tbw-visibility-indicator, var(--tbw-color-accent));
   }
   .tbw-visibility-row.drop-after::after {
     content: '';
@@ -74,20 +74,20 @@
     right: 0;
     bottom: 0;
     height: 2px;
-    background: var(--tbw-reorder-indicator, var(--tbw-color-accent, #3b82f6));
+    background: var(--tbw-visibility-indicator, var(--tbw-color-accent));
   }
 
   .tbw-visibility-show-all {
     margin: var(--tbw-panel-padding, var(--tbw-spacing-md, 0.5rem));
     padding: var(--tbw-button-padding, 0.5rem 0.75rem);
-    border: 1px solid var(--tbw-visibility-border, var(--tbw-color-border, #e5e7eb));
+    border: 1px solid var(--tbw-visibility-border, var(--tbw-color-border));
     border-radius: var(--tbw-border-radius, 0.25rem);
-    background: var(--tbw-visibility-btn-bg, var(--tbw-color-header-bg, #f9fafb));
-    color: var(--tbw-color-fg, #1f2937);
+    background: var(--tbw-visibility-btn-bg, var(--tbw-color-header-bg));
+    color: var(--tbw-color-fg);
     cursor: pointer;
     font-size: var(--tbw-font-size-sm, 0.8125rem);
   }
   .tbw-visibility-show-all:hover {
-    background: var(--tbw-visibility-hover, var(--tbw-color-row-hover, #f3f4f6));
+    background: var(--tbw-visibility-hover, var(--tbw-color-row-hover));
   }
 } /* End @layer tbw-plugins */

@@ -1,28 +1,39 @@
 @layer tbw-plugins {
+  /**
+   * Context Menu Styles
+   *
+   * The context menu is appended to document.body (outside tbw-grid).
+   * CSS custom properties are copied from the grid element at render time,
+   * allowing themes to set variables on tbw-grid that apply to the menu.
+   *
+   * Fallback chain:
+   * 1. --tbw-context-menu-* (plugin-specific override)
+   * 2. --tbw-color-* (base theme variable, copied from grid)
+   */
   .tbw-context-menu {
     position: fixed;
-    background: var(--tbw-context-menu-bg, var(--tbw-color-panel-bg, light-dark(#f5f5f5, #2a2a2a)));
-    color: var(--tbw-context-menu-fg, var(--tbw-color-fg, light-dark(#222, #eee)));
-    border: 1px solid var(--tbw-context-menu-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
-    border-radius: var(--tbw-border-radius, 0.25rem);
-    box-shadow: 0 2px 10px var(--tbw-color-shadow, rgba(0, 0, 0, 0.15));
-    min-width: var(--tbw-menu-min-width, 10rem);
-    padding: var(--tbw-spacing-xs, 0.25rem) 0;
+    background: var(--tbw-context-menu-bg, var(--tbw-color-panel-bg));
+    color: var(--tbw-context-menu-fg, var(--tbw-color-fg));
+    border: 1px solid var(--tbw-context-menu-border, var(--tbw-color-border));
+    border-radius: var(--tbw-context-menu-radius, var(--tbw-border-radius));
+    box-shadow: 0 2px 10px var(--tbw-context-menu-shadow, var(--tbw-color-shadow));
+    min-width: var(--tbw-context-menu-min-width, var(--tbw-menu-min-width));
+    padding: var(--tbw-spacing-xs) 0;
     z-index: 10000;
-    font-size: var(--tbw-font-size-sm, 0.8125rem);
-    font-family: var(--tbw-font-family, system-ui, sans-serif);
+    font-size: var(--tbw-context-menu-font-size, var(--tbw-font-size-sm));
+    font-family: var(--tbw-context-menu-font-family, var(--tbw-font-family));
   }
 
   .tbw-context-menu-item {
     display: flex;
     align-items: center;
-    padding: var(--tbw-menu-item-padding, 0.375rem 0.75rem);
+    padding: var(--tbw-context-menu-item-padding, var(--tbw-menu-item-padding));
     cursor: pointer;
-    gap: var(--tbw-menu-item-gap, 0.5rem);
+    gap: var(--tbw-context-menu-item-gap, var(--tbw-menu-item-gap));
   }
 
   .tbw-context-menu-item:hover:not(.disabled) {
-    background: var(--tbw-context-menu-hover, var(--tbw-color-row-hover, light-dark(#e8e8e8, #3a3a3a)));
+    background: var(--tbw-context-menu-hover, var(--tbw-color-row-hover));
   }
 
   .tbw-context-menu-item.disabled {
@@ -31,11 +42,11 @@
   }
 
   .tbw-context-menu-item.danger {
-    color: light-dark(#c00, #f66);
+    color: var(--tbw-context-menu-danger, var(--tbw-color-danger));
   }
 
   .tbw-context-menu-icon {
-    width: var(--tbw-icon-size, 1rem);
+    width: var(--tbw-context-menu-icon-size, var(--tbw-icon-size));
     text-align: center;
   }
 
@@ -44,18 +55,18 @@
   }
 
   .tbw-context-menu-shortcut {
-    color: var(--tbw-color-fg-muted, light-dark(#888, #888));
-    font-size: var(--tbw-font-size-xs, 0.6875rem);
+    color: var(--tbw-context-menu-muted, var(--tbw-color-fg-muted));
+    font-size: var(--tbw-context-menu-shortcut-size, var(--tbw-font-size-xs));
   }
 
   .tbw-context-menu-arrow {
-    font-size: var(--tbw-font-size-2xs, 0.625rem);
-    color: var(--tbw-color-fg-muted, light-dark(#888, #888));
+    font-size: var(--tbw-context-menu-arrow-size, var(--tbw-font-size-2xs));
+    color: var(--tbw-context-menu-muted, var(--tbw-color-fg-muted));
   }
 
   .tbw-context-menu-separator {
     height: 1px;
-    background: var(--tbw-context-menu-border, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
-    margin: var(--tbw-spacing-xs, 0.25rem) 0;
+    background: var(--tbw-context-menu-border, var(--tbw-color-border));
+    margin: var(--tbw-spacing-xs) 0;
   }
 } /* End @layer tbw-plugins */

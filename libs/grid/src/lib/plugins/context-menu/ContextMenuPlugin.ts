@@ -163,6 +163,74 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
   // #region Private Methods
 
+  /**
+   * CSS variables to copy from the grid element to the context menu.
+   * Includes both base variables and context-menu specific overrides.
+   */
+  private static readonly CSS_VARS_TO_COPY = [
+    // Base palette (for themes that only set base vars)
+    '--tbw-color-panel-bg',
+    '--tbw-color-fg',
+    '--tbw-color-fg-muted',
+    '--tbw-color-border',
+    '--tbw-color-row-hover',
+    '--tbw-color-shadow',
+    '--tbw-color-danger',
+    '--tbw-border-radius',
+    '--tbw-font-family',
+    '--tbw-font-size-sm',
+    '--tbw-font-size-xs',
+    '--tbw-font-size-2xs',
+    '--tbw-spacing-xs',
+    '--tbw-icon-size',
+    '--tbw-menu-min-width',
+    '--tbw-menu-item-padding',
+    '--tbw-menu-item-gap',
+    // Context menu specific overrides
+    '--tbw-context-menu-bg',
+    '--tbw-context-menu-fg',
+    '--tbw-context-menu-border',
+    '--tbw-context-menu-radius',
+    '--tbw-context-menu-shadow',
+    '--tbw-context-menu-hover',
+    '--tbw-context-menu-danger',
+    '--tbw-context-menu-muted',
+    '--tbw-context-menu-min-width',
+    '--tbw-context-menu-font-size',
+    '--tbw-context-menu-font-family',
+    '--tbw-context-menu-item-padding',
+    '--tbw-context-menu-item-gap',
+    '--tbw-context-menu-icon-size',
+    '--tbw-context-menu-shortcut-size',
+    '--tbw-context-menu-arrow-size',
+  ];
+
+  /**
+   * Copy CSS custom properties from the grid element to the menu element.
+   * This allows the context menu (appended to document.body) to inherit
+   * theme variables set on tbw-grid.
+   */
+  private copyGridStyles(menuElement: HTMLElement): void {
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
+
+    const computed = getComputedStyle(gridEl);
+    const styles: string[] = [];
+
+    for (const varName of ContextMenuPlugin.CSS_VARS_TO_COPY) {
+      const value = computed.getPropertyValue(varName).trim();
+      if (value) {
+        styles.push(`${varName}: ${value}`);
+      }
+    }
+
+    if (styles.length > 0) {
+      // Append to existing inline styles (don't overwrite)
+      const existing = menuElement.getAttribute('style') || '';
+      menuElement.setAttribute('style', existing + styles.join('; ') + ';');
+    }
+  }
+
   private installGlobalHandlers(): void {
     // Inject global stylesheet for context menu (once)
     // Only inject if we have valid CSS text (Vite's ?inline import)
@@ -307,6 +375,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       );
 
       document.body.appendChild(this.menuElement);
+      this.copyGridStyles(this.menuElement);
       positionMenu(this.menuElement, event.clientX, event.clientY);
       this.isOpen = true;
 
@@ -354,6 +423,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     );
 
     document.body.appendChild(this.menuElement);
+    this.copyGridStyles(this.menuElement);
     positionMenu(this.menuElement, x, y);
     this.isOpen = true;
   }

@@ -87,9 +87,9 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: 0.5em 0;
-    margin-bottom: 0.5em;
-    border-bottom: 2px solid var(--tbw-color-border, #333);
+    padding: var(--tbw-spacing-md, 0.5em) 0;
+    margin-bottom: var(--tbw-spacing-md, 0.5em);
+    border-bottom: 2px solid var(--tbw-print-border, var(--tbw-color-border-strong));
     font-family: inherit;
   }
 
@@ -99,18 +99,18 @@
   }
 
   .tbw-print-header-timestamp {
-    font-size: 0.875em;
-    color: var(--tbw-color-fg-muted, #666);
+    font-size: var(--tbw-font-size-sm, 0.875em);
+    color: var(--tbw-print-muted, var(--tbw-color-fg-muted));
   }
 
   /* Print footer */
   tbw-grid .tbw-print-footer {
     display: block;
-    margin-top: 0.5em;
-    padding-top: 0.5em;
-    border-top: 1px solid var(--tbw-color-border, #ccc);
-    font-size: 0.75em;
-    color: var(--tbw-color-fg-muted, #666);
+    margin-top: var(--tbw-spacing-md, 0.5em);
+    padding-top: var(--tbw-spacing-md, 0.5em);
+    border-top: 1px solid var(--tbw-print-border, var(--tbw-color-border));
+    font-size: var(--tbw-font-size-xs, 0.75em);
+    color: var(--tbw-print-muted, var(--tbw-color-fg-muted));
     text-align: right;
   }
 
@@ -122,7 +122,7 @@
 
   /* Cell styling - use theme variables with print-safe fallbacks */
   tbw-grid .cell {
-    border: 1px solid var(--tbw-color-border, #ddd) !important;
+    border: 1px solid var(--tbw-print-cell-border, var(--tbw-color-border)) !important;
   }
 
   /* Ensure the last column's right border is visible */

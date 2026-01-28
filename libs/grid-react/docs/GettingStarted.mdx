@@ -139,6 +139,25 @@ function EmployeeGrid() {
 | `features/export` | `export` | `export` |
 | `features/print` | `print` | `print` |
 
+### Core Config Props (no import needed)
+
+These props control grid-wide behavior and don't require feature imports:
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `sortable` | `boolean` | `true` | Grid-wide sorting toggle. Set `false` to disable all sorting. |
+| `filterable` | `boolean` | `true` | Grid-wide filtering toggle. Requires FilteringPlugin. |
+| `selectable` | `boolean` | `true` | Grid-wide selection toggle. Requires SelectionPlugin. |
+
+```tsx
+// Disable sorting and selection at runtime
+<DataGrid
+  sortable={false}
+  selectable={false}
+  selection="range"  // Plugin loaded but disabled via selectable={false}
+/>
+```
+
 ### Import All Features (Development)
 
 For prototyping or when bundle size isn't critical:

@@ -239,10 +239,12 @@ grid.rows = [...];
 
 ## Grid Configuration
 
-| Property   | Type      | Default | Description                                      |
-| ---------- | --------- | ------- | ------------------------------------------------ |
-| `fitMode`  | `string`  | `'fixed'` | Column sizing: `'fixed'` or `'stretch'`        |
-| `sortable` | `boolean` | `true`  | Grid-wide sorting toggle. When `false`, disables sorting on all columns regardless of column-level `sortable` settings. |
+| Property     | Type      | Default | Description                                      |
+| ------------ | --------- | ------- | ------------------------------------------------ |
+| `fitMode`    | `string`  | `'fixed'` | Column sizing: `'fixed'` or `'stretch'`        |
+| `sortable`   | `boolean` | `true`  | Grid-wide sorting toggle. When `false`, disables sorting on all columns regardless of column-level `sortable` settings. |
+| `filterable` | `boolean` | `true`  | Grid-wide filtering toggle. When `false`, disables filtering on all columns regardless of column-level `filterable` settings. Requires FilteringPlugin. |
+| `selectable` | `boolean` | `true`  | Grid-wide selection toggle. When `false`, disables all selection. Requires SelectionPlugin. |
 
 ## Column Configuration
 

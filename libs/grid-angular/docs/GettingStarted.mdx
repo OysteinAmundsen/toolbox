@@ -135,6 +135,8 @@ Each feature input enables a specific plugin with simplified configuration:
 | Input | Type | Description |
 |-------|------|-------------|
 | `[sortable]` | `boolean` | Grid-wide sorting toggle (default: true) |
+| `[filterable]` | `boolean` | Grid-wide filtering toggle (default: true). Requires FilteringPlugin. |
+| `[selectable]` | `boolean` | Grid-wide selection toggle (default: true). Requires SelectionPlugin. |
 
 **Example shortcuts:**
 
@@ -162,6 +164,14 @@ Each feature input enables a specific plugin with simplified configuration:
 <tbw-grid [multiSort]="true" />       <!-- enable multi-column sort -->
 <tbw-grid [multiSort]="'single'" />   <!-- limit to single column -->
 <tbw-grid [multiSort]="{ maxSortColumns: 3 }" />
+
+<!-- Filtering toggle (requires features/filtering import for plugin) -->
+<tbw-grid [filterable]="true" [filtering]="true" />   <!-- enable filtering (default) -->
+<tbw-grid [filterable]="false" [filtering]="true" />  <!-- plugin loaded but disabled -->
+
+<!-- Selection toggle (requires features/selection import for plugin) -->
+<tbw-grid [selectable]="true" [selection]="'range'" />   <!-- enable selection (default) -->
+<tbw-grid [selectable]="false" [selection]="'range'" />  <!-- plugin loaded but disabled -->
 `}
 />
 

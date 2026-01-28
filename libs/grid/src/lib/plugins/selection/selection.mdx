@@ -154,9 +154,25 @@ Click and drag or Shift+Click to select rectangular ranges. Ideal for data expor
 
 ## Configuration Options
 
+### Grid-Level Toggle
+
+You can disable selection grid-wide using `gridConfig.selectable`:
+
+```ts
+grid.gridConfig = {
+  selectable: false, // Disables ALL selection
+  plugins: [new SelectionPlugin({ mode: 'range' })],
+};
+```
+
+This is useful for toggling selection on/off at runtime without removing the plugin.
+
+### Plugin Options
+
 | Option | Type                         | Default  | Description             |
 | ------ | ---------------------------- | -------- | ----------------------- |
 | `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
+| `enabled` | `boolean` | `true` | Plugin-level enable/disable (same effect as `gridConfig.selectable`) |
 | `triggerOn` | `'click' \| 'dblclick'` | `'click'` | Selection trigger type |
 | `isSelectable` | `(row, rowIndex, column?, colIndex?) => boolean` | `undefined` | Callback to conditionally disable selection |
 

@@ -291,6 +291,21 @@ When `filterHandler` is provided, filter application bypasses the local `process
 
 ## Configuration Options
 
+### Grid-Level Toggle
+
+You can disable filtering grid-wide using `gridConfig.filterable`:
+
+```ts
+grid.gridConfig = {
+  filterable: false, // Disables ALL filtering, even on filterable columns
+  plugins: [new FilteringPlugin()],
+};
+```
+
+This is useful for toggling filtering on/off at runtime without removing the plugin.
+
+### Plugin Options
+
 | Option                | Type                  | Default | Description                                 |
 | --------------------- | --------------------- | ------- | ------------------------------------------- |
 | `debounceMs`          | `number`              | `300`   | Debounce delay for filter input             |

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.7.0...grid-react-0.8.0) (2026-01-28)
+
+
+### Features
+
+* **grid:** add gridConfig.filterable and gridConfig.selectable toggles ([8876b42](https://github.com/OysteinAmundsen/toolbox/commit/8876b42ea277f14b27dcb6d2e48d1e4e3b8c0315))
+
+
+### Bug Fixes
+
+* **grid-angular,grid-react:** fix TypeScript errors in typeDefaults editor assignment ([de84ad6](https://github.com/OysteinAmundsen/toolbox/commit/de84ad60938a61b08da725446846b1f922245f34))
+* **grid,grid-angular,grid-react:** add sortable config and rename sorting to multiSort ([4522bfc](https://github.com/OysteinAmundsen/toolbox/commit/4522bfc71bebd3907e31932001c2cf19f7e0a257))
+
 ## [0.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.6.0...grid-react-0.7.0) (2026-01-27)
 
 

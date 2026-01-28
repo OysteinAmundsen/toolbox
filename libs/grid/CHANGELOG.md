@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.5.0...grid-1.6.0) (2026-01-28)
+
+
+### Features
+
+* **grid:** add format to typeDefaults and filterPanelRenderer via plugin augmentation ([2be087e](https://github.com/OysteinAmundsen/toolbox/commit/2be087e78f10334b8a187c7883af589b255d2c53))
+* **grid:** add gridConfig.filterable and gridConfig.selectable toggles ([8876b42](https://github.com/OysteinAmundsen/toolbox/commit/8876b42ea277f14b27dcb6d2e48d1e4e3b8c0315))
+
+
+### Bug Fixes
+
+* **grid,grid-angular,grid-react:** add sortable config and rename sorting to multiSort ([4522bfc](https://github.com/OysteinAmundsen/toolbox/commit/4522bfc71bebd3907e31932001c2cf19f7e0a257))
+* **grid:** filterpanel should differentiate on column type ([2f4f174](https://github.com/OysteinAmundsen/toolbox/commit/2f4f174595791b0830cd530b42469d4c39c222e9))
+* **grid:** respect `--tbw-filter-item-height` CSS variable in filtering panel ([98cca15](https://github.com/OysteinAmundsen/toolbox/commit/98cca154532a9abc881695ba641f3197221c245b))
+
 ## [1.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.4.0...grid-1.5.0) (2026-01-27)
 
 

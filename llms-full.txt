@@ -235,6 +235,94 @@ export class EmployeeGridComponent {
 }
 ```
 
+### Angular with Feature Props (Recommended)
+
+The Angular adapter supports **declarative feature inputs** with **side-effect imports** for tree-shakeable plugin loading. This is the recommended approach for Angular applications:
+
+```typescript
+// 1. Import features you need (once per app, typically in main.ts or component file)
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/filtering';
+
+import '@toolbox-web/grid';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive';
+}
+
+@Component({
+  selector: 'app-employee-grid',
+  standalone: true,
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      [columns]="columns"
+      [selection]="'row'"
+      [editing]="'dblclick'"
+      [sorting]="true"
+      [filtering]="true"
+      style="height: 400px; display: block;"
+    />
+  `,
+})
+export class EmployeeGridComponent {
+  employees: Employee[] = [
+    { id: 1, name: 'Alice', status: 'active' },
+    { id: 2, name: 'Bob', status: 'inactive' },
+  ];
+
+  columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'status', header: 'Status', editable: true, filterable: true },
+  ];
+}
+```
+
+**Available Feature Props (same as React):**
+
+| Input | Import | Example Values |
+|-------|--------|----------------|
+| `[selection]` | `features/selection` | `"cell"`, `"row"`, `"range"`, `{ mode: 'range', checkbox: true }` |
+| `[editing]` | `features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"` |
+| `[sorting]` | `features/sorting` | `true`, `"single"`, `"multi"`, `{ maxSortLevels: 3 }` |
+| `[filtering]` | `features/filtering` | `true`, `{ debounceMs: 200 }` |
+| `[clipboard]` | `features/clipboard` | `true` (requires selection) |
+| `[undoRedo]` | `features/undo-redo` | `true` (requires editing) |
+| `[contextMenu]` | `features/context-menu` | `true`, `{ items: [...] }` |
+| `[reorder]` | `features/reorder` | `true` |
+| `[rowReorder]` | `features/row-reorder` | `true` |
+| `[visibility]` | `features/visibility` | `true` |
+| `[pinnedColumns]` | `features/pinned-columns` | `true` |
+| `[pinnedRows]` | `features/pinned-rows` | `true`, `{ bottom: [...] }` |
+| `[groupingColumns]` | `features/grouping-columns` | `true`, `{ columnGroups: [...] }` |
+| `[groupingRows]` | `features/grouping-rows` | `{ groupBy: ['department'] }` |
+| `[tree]` | `features/tree` | `{ childrenField: 'children' }` |
+| `[columnVirtualization]` | `features/column-virtualization` | `true` |
+| `[masterDetail]` | `features/master-detail` | `{ renderer: (row) => ... }` |
+| `[responsive]` | `features/responsive` | `true`, `{ breakpoint: 768 }` |
+| `[export]` | `features/export` | `true`, `{ filename: 'data.csv' }` |
+| `[print]` | `features/print` | `true` |
+| `[pivot]` | `features/pivot` | `{ rowFields: [...], columnFields: [...] }` |
+| `[serverSide]` | `features/server-side` | `{ dataSource: async (params) => ... }` |
+
+**Import All Features (for prototyping):**
+
+```typescript
+// Import all features at once (larger bundle, convenient for prototyping)
+import '@toolbox-web/grid-angular/features';
+
+<tbw-grid [selection]="'range'" [editing]="'dblclick'" [filtering]="true" />
+```
+
 ### Angular Reactive Forms Integration
 
 Bind a `FormArray` directly to the grid for validation support and cell-level FormControl access:

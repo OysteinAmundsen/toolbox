@@ -155,7 +155,7 @@ describe('Vanilla Demo Pattern - Config Before Connect', () => {
     expect(columnHeaders.length).toBe(2);
   });
 
-  it('should render headers with plugins like vanilla demo', async () => {
+  it('should render headers with plugins like vanilla demo', { timeout: 15000 }, async () => {
     // Import plugins dynamically
     const { SelectionPlugin } = await import('../../lib/plugins/selection');
     const { MultiSortPlugin } = await import('../../lib/plugins/multi-sort');

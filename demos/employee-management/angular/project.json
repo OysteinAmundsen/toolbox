@@ -6,6 +6,7 @@
   "root": "demos/employee-management/angular",
   "targets": {
     "build": {
+      "dependsOn": ["grid:build", "grid-angular:build"],
       "executor": "@nx/angular:application",
       "options": {
         "outputPath": "dist/demos/demo-angular",

@@ -1010,12 +1010,6 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       currentMax = toNumber(currentFilter.value, max);
     }
 
-    // Title
-    const title = document.createElement('div');
-    title.className = 'tbw-filter-range-title';
-    title.textContent = column.header || field;
-    panel.appendChild(title);
-
     // Range inputs container
     const rangeContainer = document.createElement('div');
     rangeContainer.className = 'tbw-filter-range-inputs';
@@ -1218,12 +1212,6 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     } else if (currentFilter?.operator === 'lessThanOrEqual') {
       currentTo = parseFilterParam(currentFilter.value) || '';
     }
-
-    // Title
-    const title = document.createElement('div');
-    title.className = 'tbw-filter-range-title';
-    title.textContent = column.header || field;
-    panel.appendChild(title);
 
     // Date range inputs container
     const rangeContainer = document.createElement('div');

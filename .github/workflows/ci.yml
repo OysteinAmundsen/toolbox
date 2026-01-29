@@ -135,13 +135,10 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Validate feature exports
-        run: bun tools/validate-feature-exports.ts
-
       - name: Build library
         run: bun run build
 
-      - name: Validate built packages
+      - name: Validate feature exports
         run: bun tools/validate-feature-exports.ts
 
   # ============================================
@@ -384,6 +381,9 @@ jobs:
       - name: Build grid-angular library
         run: bun nx build grid-angular
 
+      - name: Validate built packages
+        run: bun tools/validate-feature-exports.ts
+
       - name: Publish @toolbox-web/grid-angular to npm
         run: |
           cd dist/libs/grid-angular
@@ -429,6 +429,9 @@ jobs:
 
       - name: Build grid-react library
         run: bun nx build grid-react
+
+      - name: Validate built packages
+        run: bun tools/validate-feature-exports.ts
 
       - name: Publish @toolbox-web/grid-react to npm
         run: |

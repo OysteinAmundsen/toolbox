@@ -16,7 +16,7 @@
     color: var(--tbw-context-menu-fg, var(--tbw-color-fg));
     border: 1px solid var(--tbw-context-menu-border, var(--tbw-color-border));
     border-radius: var(--tbw-context-menu-radius, var(--tbw-border-radius));
-    box-shadow: 0 2px 10px var(--tbw-context-menu-shadow, var(--tbw-color-shadow));
+    box-shadow: var(--tbw-context-menu-shadow, 0 2px 10px var(--tbw-color-shadow));
     min-width: var(--tbw-context-menu-min-width, var(--tbw-menu-min-width));
     padding: var(--tbw-spacing-xs) 0;
     z-index: 10000;

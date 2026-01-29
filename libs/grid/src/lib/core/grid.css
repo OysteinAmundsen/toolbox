@@ -120,10 +120,6 @@
     --tbw-resize-indicator-color: var(--tbw-color-accent);
     --tbw-resize-indicator-opacity: 0.6;
 
-    /* ========== Scrollbar ========== */
-    --tbw-scrollbar-thumb: var(--tbw-color-border-strong);
-    --tbw-scrollbar-track: var(--tbw-color-bg);
-
     /* ========== Animation / Transitions ========== */
     --tbw-transition-duration: 120ms;
     --tbw-transition-ease: ease;
@@ -185,6 +181,9 @@
 
     /* ========== Element Styles ========== */
 
+    /* Enable light-dark() CSS function for automatic theme support */
+    color-scheme: light dark;
+
     position: relative;
     display: block;
     width: 100%;
@@ -245,6 +244,8 @@
       min-height: var(--tbw-header-height);
       border-bottom: var(--tbw-border-header);
       z-index: var(--tbw-z-layer-header, 30);
+      text-transform: var(--tbw-header-text-transform);
+      letter-spacing: var(--tbw-header-letter-spacing);
 
       > .cell {
         display: flex;
@@ -270,6 +271,7 @@
         > span[part~='sort-indicator'] {
           flex-shrink: 0;
           opacity: 0.6;
+          color: var(--tbw-sort-indicator-color);
           display: var(--tbw-sort-indicator-display, inline-flex);
           visibility: var(--tbw-sort-indicator-visibility, visible);
           transition:
@@ -280,11 +282,17 @@
         }
 
         /* Show sort indicator on hover or when actively sorted */
-        &:hover > span[part~='sort-indicator'],
+        &:hover > span[part~='sort-indicator'] {
+          display: inline-flex;
+          visibility: visible;
+        }
+
         &[aria-sort='ascending'] > span[part~='sort-indicator'],
         &[aria-sort='descending'] > span[part~='sort-indicator'] {
           display: inline-flex;
           visibility: visible;
+          opacity: 1;
+          color: var(--tbw-sort-indicator-active-color);
         }
 
         &:last-child {

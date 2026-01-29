@@ -1006,7 +1006,7 @@ export const Builder: Story = {
       applyStateToGrid(grid, state);
       // Recreate panel with updated values
       if (panelEl) {
-        const newPanel = createThemePanel(state, () => applyStateToGrid(grid, state), resetToBaseline);
+        const newPanel = createThemePanel(state, () => applyStateToGrid(grid, state));
         panelEl.replaceWith(newPanel);
         panelEl = newPanel;
       }
@@ -1097,7 +1097,7 @@ export const Builder: Story = {
       container.insertBefore(toolbar, main);
 
       // Create theme panel with current values
-      panelEl = createThemePanel(state, () => applyStateToGrid(grid, state), resetToBaseline);
+      panelEl = createThemePanel(state, () => applyStateToGrid(grid, state));
       main.appendChild(panelEl);
     });
 

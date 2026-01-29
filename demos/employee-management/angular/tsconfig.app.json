@@ -12,17 +12,17 @@
       "@toolbox-web/grid/plugins/*": ["../../../libs/grid/src/lib/plugins/*/index.ts"],
       "@toolbox-web/grid/*": ["../../../libs/grid/src/*"],
       "@toolbox-web/grid-angular": ["../../../libs/grid-angular/src/index.ts"],
-      "@toolbox-web/grid-angular/features/*": ["../../../libs/grid-angular/src/features/*.ts"]
+      "@toolbox-web/grid-angular/features/*": ["../../../libs/grid-angular/features/*/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "../../../libs/grid-angular/features/*/src/index.ts"],
   "exclude": ["src/**/*.spec.ts"],
   "references": [
     {
-      "path": "../../../libs/grid-angular/tsconfig.lib.json"
+      "path": "../../../libs/grid/tsconfig.lib.json"
     },
     {
-      "path": "../../../libs/grid/tsconfig.lib.json"
+      "path": "../../../libs/grid-angular"
     }
   ]
 }

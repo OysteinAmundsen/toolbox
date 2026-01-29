@@ -59,6 +59,15 @@
       },
       "defaultConfiguration": "development"
     },
+    "serve:dist": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun nx run demo-angular:serve",
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],

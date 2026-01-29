@@ -143,7 +143,7 @@ jobs:
 
   # ============================================
   # E2E: Cross-Framework Visual Regression Tests
-  # Demos serve from source (Vite dev servers), no build required
+  # Runs demos against BUILT packages (dist/) to validate releases
   # ============================================
   e2e:
     needs: [setup]
@@ -153,6 +153,8 @@ jobs:
       # Disable Nx interactive prompts for CI
       NX_INTERACTIVE: "false"
       NX_DAEMON: "false"
+      # Run demos against built dist packages
+      USE_DIST: "true"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -173,14 +175,18 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Build libraries
+        run: bun run build
+
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
-      - name: Start demo servers
+      - name: Start demo servers (against dist)
         run: |
-          bun nx run demo-vanilla:serve &
-          bun nx run demo-react:serve &
-          bun nx run demo-angular:serve &
+          # Demos use USE_DIST=true env to resolve from dist/ instead of source
+          bun nx run demo-vanilla:serve:dist &
+          bun nx run demo-react:serve:dist &
+          bun nx run demo-angular:serve:dist &
           # Wait for all demo servers to be ready
           bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 --timeout 120000
 

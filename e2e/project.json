@@ -13,6 +13,17 @@
         "cwd": "{workspaceRoot}"
       }
     },
+    "e2e:dist": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/playwright-report", "{workspaceRoot}/e2e/test-results"],
+      "options": {
+        "commands": ["bunx playwright test --config=e2e/playwright.config.ts"],
+        "cwd": "{workspaceRoot}",
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
+    },
     "e2e:ui": {
       "executor": "nx:run-commands",
       "options": {

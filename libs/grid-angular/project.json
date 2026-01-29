@@ -6,9 +6,24 @@
   "tags": ["type:lib", "scope:grid"],
   "targets": {
     "build": {
-      "executor": "@nx/vite:build",
-      "outputs": ["{options.outputPath}"],
-      "defaultConfiguration": "production",
+      "executor": "@nx/angular:package",
+      "outputs": ["{workspaceRoot}/dist/libs/grid-angular"],
+      "dependsOn": ["link-grid-dist"],
+      "options": {
+        "project": "libs/grid-angular/ng-package.json"
+      },
+      "configurations": {
+        "development": {
+          "tsConfig": "libs/grid-angular/tsconfig.lib.json"
+        },
+        "production": {
+          "tsConfig": "libs/grid-angular/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "link-grid-dist": {
+      "executor": "nx:run-commands",
       "dependsOn": [
         {
           "projects": ["grid"],
@@ -16,16 +31,7 @@
         }
       ],
       "options": {
-        "outputPath": "dist/libs/grid-angular",
-        "emptyOutDir": true
-      },
-      "configurations": {
-        "development": {
-          "mode": "development"
-        },
-        "production": {
-          "mode": "production"
-        }
+        "command": "bun run libs/grid-angular/scripts/link-grid-dist.ts"
       }
     },
     "test": {

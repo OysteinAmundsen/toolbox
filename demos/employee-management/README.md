@@ -49,6 +49,10 @@ All three demos share the same data model, generators, and custom styles:
 
 ## 🚀 Running the Demos
 
+### Development Mode (Default)
+
+By default, demos run against **source files** for fast HMR during development:
+
 ### Vanilla Demo
 
 Pure TypeScript implementation with Vite. Shows the grid's native API without framework wrappers.
@@ -78,6 +82,25 @@ bun nx serve demo-react
 # or from demos/employee-management/react:
 bun run dev
 ```
+
+### Dist Mode (Validation)
+
+Run demos against **built packages** (`dist/`) to validate releases before publishing:
+
+```bash
+# Build all packages first
+bun run build
+
+# Run demos against dist (validates the built output)
+bun nx serve:dist demo-vanilla
+bun nx serve:dist demo-react
+bun nx serve:dist demo-angular
+
+# Or set USE_DIST manually:
+USE_DIST=true bun nx serve demo-vanilla
+```
+
+This mode is used by CI to ensure the published packages work correctly.
 
 ## 🛠️ Framework Comparison
 

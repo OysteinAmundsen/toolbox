@@ -460,8 +460,8 @@ function downloadCSS(css: string, filename: string): void {
 // STORY DEFINITION
 // ============================================================================
 const meta: Meta<ThemeBuilderArgs> = {
-  title: 'Grid/Theme Builder',
-  tags: ['!autodocs'],
+  title: 'Grid/Theming/Theme Builder',
+  tags: ['!autodocs', '!dev'],
   parameters: {
     layout: 'fullscreen',
     controls: { disable: true }, // We use our own panel
@@ -1102,71 +1102,5 @@ export const Builder: Story = {
     });
 
     return container;
-  },
-};
-
-/**
- * View all available CSS variables in a reference table.
- */
-export const VariableReference: Story = {
-  render: () => {
-    const container = document.createElement('div');
-    container.className = 'theme-builder-reference';
-
-    const title = document.createElement('h2');
-    title.textContent = 'CSS Variable Reference';
-    title.className = 'theme-builder-reference__title';
-    container.appendChild(title);
-
-    const intro = document.createElement('p');
-    intro.textContent = 'Complete list of all CSS custom properties available for theming.';
-    intro.className = 'theme-builder-reference__intro';
-    container.appendChild(intro);
-
-    for (const [category, variables] of Object.entries(CSS_VARIABLES)) {
-      const section = document.createElement('section');
-      section.className = 'theme-builder-reference__section';
-
-      const heading = document.createElement('h3');
-      heading.textContent = category;
-      heading.className = 'theme-builder-reference__heading';
-      section.appendChild(heading);
-
-      const table = document.createElement('table');
-      table.className = 'theme-builder-reference__table';
-
-      const thead = document.createElement('thead');
-      thead.innerHTML = `
-        <tr>
-          <th>Variable</th>
-          <th>Default</th>
-          <th>Description</th>
-        </tr>
-      `;
-      table.appendChild(thead);
-
-      const tbody = document.createElement('tbody');
-      for (const variable of variables) {
-        const row = document.createElement('tr');
-        const colorSwatch =
-          variable.type === 'color'
-            ? `<span class="theme-builder-reference__color-swatch" style="background: ${variable.defaultValue};"></span>`
-            : '';
-        row.innerHTML = `
-          <td><code class="theme-builder-reference__var-name">${variable.name}</code></td>
-          <td class="theme-builder-reference__default">${colorSwatch}${variable.defaultValue}</td>
-          <td>${variable.description}</td>
-        `;
-        tbody.appendChild(row);
-      }
-      table.appendChild(tbody);
-      section.appendChild(table);
-      container.appendChild(section);
-    }
-
-    return container;
-  },
-  parameters: {
-    controls: { disable: true },
   },
 };

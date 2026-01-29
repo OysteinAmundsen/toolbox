@@ -474,7 +474,7 @@ html.dark {
  * Used by ThemeBuilder.stories.ts for the interactive theme builder
  */
 .theme-builder-container {
-  height: 100vh;
+  height: 90vh;
   display: flex;
   flex-direction: column;
   gap: 0;

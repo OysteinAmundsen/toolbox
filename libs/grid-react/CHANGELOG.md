@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.8.0...grid-react-0.8.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* **grid-react:** add missing multi-sort feature entry to vite build ([cf992c8](https://github.com/OysteinAmundsen/toolbox/commit/cf992c824484504a9804a4cbecf1826dbb9c2af3))
+
 ## [0.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.7.0...grid-react-0.8.0) (2026-01-28)
 
 

@@ -1,17 +1,17 @@
 {/* Theming.mdx */}
-import { Meta } from '@storybook/addon-docs/blocks';
+import { Meta, Canvas } from '@storybook/addon-docs/blocks';
+import * as ThemeBuilderStories from './ThemeBuilder.stories';
+import * as VariableReferenceStories from './VariableReference.stories';
 
 <Meta title="Grid/Theming" />
 
 # Theming
 
-The `@toolbox-web/grid` component is fully themeable via CSS custom properties (CSS variables). Customize colors, spacing, typography, and more without modifying source code.
-
-Test the pre-built themes by clicking the theme button in the Storybook toolbar, or try the [Demo page](../?path=/docs/grid-demos--docs).
+The `@toolbox-web/grid` component is fully themeable via CSS custom properties. Customize colors, spacing, typography, and more without modifying source code.
 
 ## Quick Start
 
-Override CSS custom properties on the grid element or a parent container:
+Override CSS custom properties on the grid element:
 
 ```css
 tbw-grid {
@@ -25,294 +25,59 @@ tbw-grid {
 
 ## Scaling with Font Size
 
-All sizing uses **`em` units**, so the entire grid scales proportionally with `font-size`:
+All sizing uses `em` units, so the grid scales proportionally with `font-size`:
 
 ```css
-/* Make the entire grid 25% larger */
-tbw-grid {
-  font-size: 1.25em;
-}
-
-/* Compact grid for dense data */
-tbw-grid.compact {
-  font-size: 0.875em;
-}
+tbw-grid { font-size: 1.25em; }      /* 25% larger */
+tbw-grid.compact { font-size: 0.875em; }  /* Compact */
 ```
-
-This approach means changing one value scales all spacing, row heights, icons, and typography together.
-
-## CSS Cascade Layers
-
-The grid uses CSS Cascade Layers for predictable style priority:
-
-```css
-@layer tbw-base, tbw-plugins, tbw-theme;
-```
-
-| Layer | Priority | Purpose |
-| --- | --- | --- |
-| `tbw-base` | Lowest | Core grid styles |
-| `tbw-plugins` | Medium | Plugin-specific styles |
-| `tbw-theme` | Higher | Theme overrides |
-| Unlayered | Highest | Your custom CSS (always wins) |
-
-Your unlayered CSS always takes precedence, so you can override any style without `!important`.
-
-## Available CSS Custom Properties
-
-### Base Tokens
-
-These foundational tokens control core sizing. Everything else derives from `em` units that scale with font size.
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-base-icon-size` | `1em` | Base icon size |
-| `--tbw-base-radius` | `0.25em` | Base border radius |
-
-### Typography
-
-All font sizes use `em` units relative to the grid's inherited font size.
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-font-family` | `inherit` | Font family |
-| `--tbw-font-size` | `1em` | Base font size |
-| `--tbw-font-size-sm` | `0.9285em` | Small text (~13px at 14px base) |
-| `--tbw-font-size-xs` | `0.7857em` | Extra small (~11px) |
-| `--tbw-font-size-2xs` | `0.7142em` | Tiny text (~10px) |
-| `--tbw-font-weight-header` | `bold` | Header font weight |
-
-### Spacing Scale
-
-Em-based spacing that scales with font size.
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-spacing-xs` | `0.25em` | Extra small (~4px) |
-| `--tbw-spacing-sm` | `0.375em` | Small (~6px) |
-| `--tbw-spacing-md` | `0.5em` | Medium (~8px) |
-| `--tbw-spacing-lg` | `0.75em` | Large (~12px) |
-| `--tbw-spacing-xl` | `1em` | Extra large (~16px) |
-
-### Colors
-
-Colors use `light-dark()` for automatic dark mode support.
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-color-bg` | `transparent` | Grid background |
-| `--tbw-color-panel-bg` | `light-dark(#eee, #222)` | Panel backgrounds |
-| `--tbw-color-fg` | `light-dark(#222, #eee)` | Primary text color |
-| `--tbw-color-fg-muted` | `light-dark(#555, #aaa)` | Secondary text |
-| `--tbw-color-accent` | `#3b82f6` | Primary accent (focus, selection) |
-| `--tbw-color-accent-fg` | `light-dark(#fff, #000)` | Text on accent |
-| `--tbw-color-success` | `hsl(122, 39%, 40%)` | Success state |
-| `--tbw-color-error` | `hsl(0, 65%, 51%)` | Error state |
-| `--tbw-color-selection` | `light-dark(#fff7d6, #333)` | Row/cell selection |
-| `--tbw-color-row-alt` | `var(--tbw-color-bg)` | Alternating row |
-| `--tbw-color-row-hover` | `light-dark(#f0f6ff, #1c1c1c)` | Row hover |
-| `--tbw-color-border` | `light-dark(#d0d0d4, #454545)` | Default border |
-| `--tbw-color-border-strong` | `light-dark(#777, #adadac)` | Prominent border |
-| `--tbw-color-shadow` | `rgba(0,0,0,0.1)` | Box shadows |
-
-### Header
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-color-header-bg` | (derived) | Header background |
-| `--tbw-color-header-fg` | (derived) | Header text color |
-| `--tbw-header-height` | `1.875em` | Header row height (~30px) |
-| `--tbw-header-text-transform` | `none` | Header text transform |
-| `--tbw-header-letter-spacing` | `normal` | Header letter spacing |
-
-### Sorting Indicators
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-sort-indicator-color` | `var(--tbw-color-fg-muted)` | Sort indicator color |
-| `--tbw-sort-indicator-active-color` | `var(--tbw-color-accent)` | Active sort indicator |
-| `--tbw-sort-indicator-visibility` | `visible` | Sort indicator visibility |
-
-### Rows & Cells
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-row-height` | `1.75em` | Data row height (~28px) |
-| `--tbw-cell-padding` | `0.25em 0.5em` | Cell padding |
-| `--tbw-cell-padding-header` | `0.25em 0.5em` | Header cell padding |
-| `--tbw-cell-white-space` | `nowrap` | Cell text wrapping |
-| `--tbw-row-divider` | `1px solid ...` | Row border |
-
-### Focus & Selection
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-focus-outline` | `2px solid accent` | Focus ring style |
-| `--tbw-focus-outline-offset` | `-2px` | Focus ring offset |
-| `--tbw-focus-background` | `rgba(accent, 12%)` | Focused cell background |
-| `--tbw-range-border-color` | `var(--tbw-color-accent)` | Range selection border |
-| `--tbw-range-selection-bg` | `rgba(accent, 12%)` | Range selection fill |
-
-### Icons
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-icon-size` | `1em` | Standard icon size |
-| `--tbw-icon-size-sm` | `0.875em` | Small icon size |
-| `--tbw-checkbox-size` | `1em` | Checkbox/radio size |
-| `--tbw-toggle-size` | `1.25em` | Expand/collapse toggle |
-
-### Shell & Panels
-
-For grids using the shell layout (title bar, tool panels, toolbar).
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-shell-header-height` | `2.75em` | Shell title bar height |
-| `--tbw-tool-panel-width` | `17.5em` | Side panel width (~280px) |
-| `--tbw-tool-panel-header-height` | `2.5em` | Panel header height |
-| `--tbw-toolbar-button-size` | `2em` | Toolbar button size |
-
-### Animation
-
-| Property | Default | Description |
-| --- | --- | --- |
-| `--tbw-animation-duration` | `200ms` | Animation timing |
-| `--tbw-animation-easing` | `ease-out` | Animation curve |
-| `--tbw-transition-duration` | `120ms` | Transition timing |
-| `--tbw-animation-enabled` | `1` | Enable animations (0 to disable) |
 
 ## Pre-built Themes
-
-Import a pre-built theme CSS file:
 
 ```typescript
 import '@toolbox-web/grid/themes/dg-theme-material.css';
 ```
 
-| Theme | Description | Import |
-| --- | --- | --- |
-| Standard | Polished, balanced look for most apps | `@toolbox-web/grid/themes/dg-theme-standard.css` |
-| Material | Material Design 3 inspired with elevation | `@toolbox-web/grid/themes/dg-theme-material.css` |
-| Bootstrap | Bootstrap 5 styling with familiar colors | `@toolbox-web/grid/themes/dg-theme-bootstrap.css` |
-| Vibrant | Bold purple accents with smooth animations | `@toolbox-web/grid/themes/dg-theme-vibrant.css` |
-| Contrast | High contrast for accessibility | `@toolbox-web/grid/themes/dg-theme-contrast.css` |
-| Large | Larger fonts/spacing for accessibility | `@toolbox-web/grid/themes/dg-theme-large.css` |
+| Theme | Description |
+| --- | --- |
+| Standard | Polished, balanced look |
+| Material | Material Design 3 inspired |
+| Bootstrap | Bootstrap 5 styling |
+| Vibrant | Bold purple accents |
+| Contrast | High contrast for accessibility |
+| Large | Larger fonts/spacing |
 
-> **Tip**: Use the theme switcher in the Storybook toolbar to preview different themes!
-
-## Creating Custom Themes
-
-Create a CSS file with your custom properties:
-
-```css
-/* my-dark-theme.css */
-tbw-grid.my-dark-theme,
-.my-dark-theme tbw-grid {
-  --tbw-color-bg: #1e1e1e;
-  --tbw-color-fg: #d4d4d4;
-  --tbw-color-border: #3c3c3c;
-  --tbw-color-accent: #569cd6;
-  --tbw-color-panel-bg: #252526;
-  --tbw-color-row-hover: #2a2d2e;
-  --tbw-color-selection: #094771;
-}
-```
-
-Apply via class:
-
-```html
-<tbw-grid class="my-dark-theme"></tbw-grid>
-```
+Use the theme switcher in the Storybook toolbar to preview!
 
 ## Dark Mode Support
 
 The grid uses `light-dark()` for automatic theme support:
 
 ```css
-/* Colors automatically adapt to system preference */
-tbw-grid {
-  color-scheme: light dark;
-}
+tbw-grid { color-scheme: light dark; }  /* Auto-adapt */
+tbw-grid { color-scheme: dark; }        /* Force dark */
 ```
 
-Or force a specific mode:
+## CSS Cascade Layers
 
 ```css
-/* Force dark mode */
-tbw-grid {
-  color-scheme: dark;
-}
+@layer tbw-base, tbw-plugins, tbw-theme;
 ```
 
-For browsers without `light-dark()` support, use media queries:
+Your unlayered CSS always wins - no `!important` needed.
 
-```css
-@media (prefers-color-scheme: dark) {
-  tbw-grid {
-    --tbw-color-bg: #1e1e1e;
-    --tbw-color-fg: #d4d4d4;
-    --tbw-color-border: #3c3c3c;
-    --tbw-color-panel-bg: #252526;
-    --tbw-color-row-hover: #2a2d2e;
-  }
-}
-```
+---
 
-## Plugin Styling
+## Interactive Theme Builder
 
-Each plugin exposes its own CSS custom properties for fine-grained control. See individual plugin documentation for available variables:
+Customize **every CSS variable** with live preview and export your theme as CSS:
 
-- [Context Menu](../?path=/docs/grid-plugins-context-menu--docs#styling)
-- [Filtering](../?path=/docs/grid-plugins-filtering--docs#styling)
-- [Selection](../?path=/docs/grid-plugins-selection--docs#styling)
-- [Master-Detail](../?path=/docs/grid-plugins-master-detail--docs#styling)
-- [Tree](../?path=/docs/grid-plugins-tree--docs#styling)
-- [Row Grouping](../?path=/docs/grid-plugins-grouping-rows--docs#styling)
-- [Column Grouping](../?path=/docs/grid-plugins-grouping-columns--docs#styling)
-- [Pivot](../?path=/docs/grid-plugins-pivot--docs#styling)
-- [Visibility](../?path=/docs/grid-plugins-visibility--docs#styling)
+<Canvas of={ThemeBuilderStories.Builder} sourceState="none" withToolbar />
 
-## Responsive Theming
+---
 
-Adjust sizing for different screen sizes using the font-size approach:
+## CSS Variable Reference
 
-```css
-/* Compact mode for mobile */
-@media (max-width: 768px) {
-  tbw-grid {
-    font-size: 0.875em; /* Everything scales down proportionally */
-  }
-}
+Complete list of all CSS custom properties with defaults:
 
-/* Or override specific variables */
-@media (max-width: 480px) {
-  tbw-grid {
-    --tbw-cell-padding: 0.25em 0.375em;
-    --tbw-row-height: 1.5em;
-  }
-}
-```
-
-## Typography
-
-Customize fonts while maintaining proportional scaling:
-
-```css
-tbw-grid {
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 14px; /* Base size - everything scales from this */
-}
-
-/* Monospace for code columns */
-tbw-grid [data-field='id'],
-tbw-grid [data-field='code'] {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-}
-```
-
-## Next Steps
-
-- **[Introduction](../?path=/docs/grid-introduction--docs)** - Grid overview
-- **[Core Features](../?path=/docs/grid-core--docs)** - Sorting, editing, keyboard navigation
-- **[Plugins](../?path=/docs/grid-plugins-overview--docs)** - Extend with selection, filtering
+<Canvas of={VariableReferenceStories.Reference} sourceState="none" />

@@ -217,6 +217,12 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     const computed = getComputedStyle(gridEl);
     const styles: string[] = [];
 
+    // Copy color-scheme so light-dark() can resolve in the context menu
+    const colorScheme = computed.getPropertyValue('color-scheme').trim();
+    if (colorScheme) {
+      styles.push(`color-scheme: ${colorScheme}`);
+    }
+
     for (const varName of ContextMenuPlugin.CSS_VARS_TO_COPY) {
       const value = computed.getPropertyValue(varName).trim();
       if (value) {

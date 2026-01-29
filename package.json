@@ -25,7 +25,6 @@
     "lint": "nx run-many --target=lint --exclude=docs --output-style=stream",
     "coverage": "bun run test --coverage",
     "watch": "bun run build --watch",
-    "validate:features": "bun tools/validate-feature-exports.ts",
     "update": "nx migrate latest && nx migrate --run-migrations --if-exists && git commit -am 'chore: update dependencies' && bunx npm-check-updates --format group -u --cooldown 5 --target minor && bun install"
   },
   "devDependencies": {

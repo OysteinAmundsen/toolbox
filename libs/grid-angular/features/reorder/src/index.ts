@@ -13,7 +13,6 @@
  * @packageDocumentation
  */
 
-// eslint-disable-next-line @nx/enforce-module-boundaries -- Intentional: feature files must statically import their plugin
 import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
 import { registerFeature } from '@toolbox-web/grid-angular';
 

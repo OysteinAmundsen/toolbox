@@ -3,28 +3,30 @@
  * Validates that all feature files in adapter packages are properly exported.
  *
  * This script checks:
- * 1. All .ts files in src/features/ are listed in vite.config.mts entry points
- * 2. All entry points in vite.config.mts have corresponding .ts files
- * 3. Built dist/ contains all expected feature exports
+ * - grid-react: All .ts files in src/features/ are listed in vite.config.mts entry points
+ * - grid-angular: All feature directories have ng-package.json (ng-packagr handles exports)
+ * - Built dist/ contains all expected feature exports
  *
  * Run: bun tools/validate-feature-exports.ts
  * Or via Nx: bun nx run grid-react:validate-features
  */
 
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { basename, join, resolve } from 'path';
 
 interface ValidationResult {
   package: string;
-  missingInViteConfig: string[];
+  missingInConfig: string[];
   missingInSource: string[];
   missingInDist: string[];
 }
 
 const ROOT = resolve(import.meta.dirname, '..');
-const PACKAGES = ['grid-react', 'grid-angular'] as const;
 
-function getFeatureFilesFromSource(packageDir: string): Set<string> {
+/**
+ * Get feature names from grid-react's src/features/*.ts files
+ */
+function getReactFeatureFiles(packageDir: string): Set<string> {
   const featuresDir = join(packageDir, 'src', 'features');
   if (!existsSync(featuresDir)) {
     console.error(`Features directory not found: ${featuresDir}`);
@@ -36,6 +38,25 @@ function getFeatureFilesFromSource(packageDir: string): Set<string> {
     .map((f) => basename(f, '.ts'));
 
   return new Set(files);
+}
+
+/**
+ * Get feature names from grid-angular's features/*/ng-package.json directories
+ */
+function getAngularFeatureFiles(packageDir: string): Set<string> {
+  const featuresDir = join(packageDir, 'features');
+  if (!existsSync(featuresDir)) {
+    console.error(`Features directory not found: ${featuresDir}`);
+    process.exit(1);
+  }
+
+  const entries = readdirSync(featuresDir).filter((entry) => {
+    const entryPath = join(featuresDir, entry);
+    const ngPackagePath = join(entryPath, 'ng-package.json');
+    return statSync(entryPath).isDirectory() && existsSync(ngPackagePath);
+  });
+
+  return new Set(entries);
 }
 
 function getFeatureEntriesFromViteConfig(packageDir: string): Set<string> {
@@ -60,7 +81,7 @@ function getFeatureEntriesFromViteConfig(packageDir: string): Set<string> {
   return entries;
 }
 
-function getBuiltFeatureFiles(packageDir: string): Set<string> {
+function getBuiltFeatureFilesReact(packageDir: string): Set<string> {
   const distFeaturesDir = join(ROOT, 'dist', 'libs', basename(packageDir), 'features');
   if (!existsSync(distFeaturesDir)) {
     // Dist not built yet - skip this check
@@ -74,25 +95,72 @@ function getBuiltFeatureFiles(packageDir: string): Set<string> {
   return new Set(files);
 }
 
-function validatePackage(packageName: string): ValidationResult {
-  const packageDir = join(ROOT, 'libs', packageName);
+function getBuiltFeatureFilesAngular(packageDir: string): Set<string> {
+  const distFeaturesDir = join(ROOT, 'dist', 'libs', basename(packageDir), 'features');
+  if (!existsSync(distFeaturesDir)) {
+    // Dist not built yet - skip this check
+    return new Set();
+  }
 
-  const sourceFeatures = getFeatureFilesFromSource(packageDir);
+  // ng-packagr creates directories for each secondary entry point
+  const entries = readdirSync(distFeaturesDir).filter((entry) => {
+    const entryPath = join(distFeaturesDir, entry);
+    return statSync(entryPath).isDirectory();
+  });
+
+  return new Set(entries);
+}
+
+function validateReactPackage(): ValidationResult {
+  const packageDir = join(ROOT, 'libs', 'grid-react');
+
+  const sourceFeatures = getReactFeatureFiles(packageDir);
   const viteEntries = getFeatureEntriesFromViteConfig(packageDir);
-  const builtFeatures = getBuiltFeatureFiles(packageDir);
+  const builtFeatures = getBuiltFeatureFilesReact(packageDir);
 
   // Files in source but not in vite config
-  const missingInViteConfig = [...sourceFeatures].filter((f) => !viteEntries.has(f));
+  const missingInConfig = [...sourceFeatures].filter((f) => !viteEntries.has(f) && f !== 'index');
 
   // Entries in vite config but no source file
   const missingInSource = [...viteEntries].filter((f) => !sourceFeatures.has(f));
 
   // Files in source but not in dist (only check if dist exists)
+  const missingInDist =
+    builtFeatures.size > 0 ? [...sourceFeatures].filter((f) => !builtFeatures.has(f) && f !== 'index') : [];
+
+  return {
+    package: 'grid-react',
+    missingInConfig,
+    missingInSource,
+    missingInDist,
+  };
+}
+
+function validateAngularPackage(): ValidationResult {
+  const packageDir = join(ROOT, 'libs', 'grid-angular');
+
+  const sourceFeatures = getAngularFeatureFiles(packageDir);
+  const builtFeatures = getBuiltFeatureFilesAngular(packageDir);
+
+  // For Angular, ng-packagr auto-discovers secondary entry points from ng-package.json
+  // No vite config to check - just verify source dirs have the required files
+  const missingInConfig: string[] = [];
+  for (const feature of sourceFeatures) {
+    const indexPath = join(packageDir, 'features', feature, 'src', 'index.ts');
+    if (!existsSync(indexPath)) {
+      missingInConfig.push(feature);
+    }
+  }
+
+  // Features in dist but not in source (unlikely but check anyway)
+  const missingInSource = builtFeatures.size > 0 ? [...builtFeatures].filter((f) => !sourceFeatures.has(f)) : [];
+
+  // Features in source but not in dist
   const missingInDist = builtFeatures.size > 0 ? [...sourceFeatures].filter((f) => !builtFeatures.has(f)) : [];
 
   return {
-    package: packageName,
-    missingInViteConfig,
+    package: 'grid-angular',
+    missingInConfig,
     missingInSource,
     missingInDist,
   };

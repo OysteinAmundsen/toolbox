@@ -13,7 +13,6 @@
  * @packageDocumentation
  */
 
-// eslint-disable-next-line @nx/enforce-module-boundaries -- Intentional: feature files must statically import their plugin
 import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
 import { registerFeature } from '@toolbox-web/grid-angular';
 

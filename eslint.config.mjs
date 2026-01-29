@@ -83,5 +83,12 @@ export default [
       '@nx/enforce-module-boundaries': 'off',
     },
   },
+  {
+    // Disable module boundary checks for demo vite configs (they import shared utilities)
+    files: ['demos/**/vite.config.ts'],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
   ...storybook.configs['flat/recommended'],
 ];

@@ -20,6 +20,15 @@ export default [
     },
   },
   {
+    // Disable module boundary checks for grid-angular
+    // This library has many cross-package imports to @toolbox-web/grid which causes
+    // the rule to be extremely slow (minutes) when analyzing the import graph
+    files: ['**/*.ts'],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
+  {
     ignores: ['**/out-tsc'],
   },
 ];

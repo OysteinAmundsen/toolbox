@@ -97,10 +97,14 @@ const config: ReactGridConfig<Employee> = {
 function EmployeeGrid({ employees }: { employees: Employee[] }) {
   const [data, setData] = useState(employees);
 
+  // Memoize gridConfig to prevent unnecessary re-renders
+  // (only needed if config is defined inline or depends on props)
+  const gridConfig = useMemo(() => config, []);
+
   return (
     <DataGrid
       rows={data}
-      gridConfig={config}
+      gridConfig={gridConfig}
       onRowsChange={setData}
       style={{ height: '400px' }}
     />
@@ -116,7 +120,7 @@ The React adapter supports **declarative feature props** with **side-effect impo
 // 1. Import features you need (once per app, typically in main.tsx or component file)
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/editing';
-import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/multi-sort';
 import '@toolbox-web/grid-react/features/filtering';
 
 import '@toolbox-web/grid';
@@ -142,7 +146,7 @@ function EmployeeGrid({ employees }: { employees: Employee[] }) {
       // Declarative feature props - no manual plugin instantiation!
       selection="range"
       editing="dblclick"
-      sorting="multi"
+      multiSort
       filtering
       onRowsChange={setData}
       style={{ height: '400px' }}
@@ -157,7 +161,7 @@ function EmployeeGrid({ employees }: { employees: Employee[] }) {
 |------|--------|----------------|
 | `selection` | `features/selection` | `"cell"`, `"row"`, `"range"`, `{ mode: 'range', checkbox: true }` |
 | `editing` | `features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"` |
-| `sorting` | `features/sorting` | `true`, `"single"`, `"multi"`, `{ maxSortLevels: 3 }` |
+| `multiSort` | `features/multi-sort` | `true`, `"single"`, `"multi"`, `{ maxSortColumns: 3 }` |
 | `filtering` | `features/filtering` | `true`, `{ debounceMs: 200 }` |
 | `clipboard` | `features/clipboard` | `true` (requires selection) |
 | `undoRedo` | `features/undo-redo` | `true` (requires editing) |
@@ -184,8 +188,16 @@ function EmployeeGrid({ employees }: { employees: Employee[] }) {
 // Import all features at once (larger bundle, convenient for prototyping)
 import '@toolbox-web/grid-react/features';
 
-<DataGrid selection="range" editing sorting filtering clipboard undoRedo />
+<DataGrid selection="range" editing multiSort filtering clipboard undoRedo />
 ```
+
+**Important React Notes:**
+
+1. **Memoize `gridConfig`**: When passing `gridConfig` as a prop, wrap it in `useMemo()` to prevent unnecessary re-renders. If defined outside the component as a constant, memoization is not needed.
+
+2. **`columns` prop vs `gridConfig.columns`**: The `columns` prop accepts `ColumnShorthand[]` (strings like `'name:string'` or basic `ColumnConfig` objects), but does **NOT** support React JSX renderers/editors. For columns with `renderer` or `editor` functions that return JSX, use `gridConfig.columns` with `ReactGridConfig` type instead.
+
+3. **`icons` must be in gridConfig**: There is no top-level `icons` prop on `<DataGrid>`. Pass icons via `gridConfig={{ icons: { ... } }}`.
 
 ### Angular
 
@@ -243,7 +255,7 @@ The Angular adapter supports **declarative feature inputs** with **side-effect i
 // 1. Import features you need (once per app, typically in main.ts or component file)
 import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/editing';
-import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/multi-sort';
 import '@toolbox-web/grid-angular/features/filtering';
 
 import '@toolbox-web/grid';
@@ -267,7 +279,7 @@ interface Employee {
       [columns]="columns"
       [selection]="'row'"
       [editing]="'dblclick'"
-      [sorting]="true"
+      [multiSort]="true"
       [filtering]="true"
       style="height: 400px; display: block;"
     />
@@ -293,7 +305,7 @@ export class EmployeeGridComponent {
 |-------|--------|----------------|
 | `[selection]` | `features/selection` | `"cell"`, `"row"`, `"range"`, `{ mode: 'range', checkbox: true }` |
 | `[editing]` | `features/editing` | `true`, `"click"`, `"dblclick"`, `"manual"` |
-| `[sorting]` | `features/sorting` | `true`, `"single"`, `"multi"`, `{ maxSortLevels: 3 }` |
+| `[multiSort]` | `features/multi-sort` | `true`, `"single"`, `"multi"`, `{ maxSortColumns: 3 }` |
 | `[filtering]` | `features/filtering` | `true`, `{ debounceMs: 200 }` |
 | `[clipboard]` | `features/clipboard` | `true` (requires selection) |
 | `[undoRedo]` | `features/undo-redo` | `true` (requires editing) |

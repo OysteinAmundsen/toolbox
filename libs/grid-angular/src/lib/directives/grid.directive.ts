@@ -23,7 +23,6 @@ import type {
   RowClickDetail,
   SortChangeDetail,
 } from '@toolbox-web/grid';
-// eslint-disable-next-line @nx/enforce-module-boundaries -- Intentional: need class reference for registerAdapter
 import { DataGridElement as GridElementClass } from '@toolbox-web/grid';
 // Import plugin types and the two plugins always needed for Angular template integration
 import type {

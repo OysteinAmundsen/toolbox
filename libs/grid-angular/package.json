@@ -1,29 +1,8 @@
 {
   "name": "@toolbox-web/grid-angular",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "Angular adapter for @toolbox-web/grid data grid component",
   "type": "module",
-  "main": "./index.js",
-  "module": "./index.js",
-  "types": "./index.d.ts",
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "types": "./index.d.ts",
-      "import": "./index.js",
-      "default": "./index.js"
-    },
-    "./features": {
-      "types": "./features/index.d.ts",
-      "import": "./features/index.js",
-      "default": "./features/index.js"
-    },
-    "./features/*": {
-      "types": "./features/*.d.ts",
-      "import": "./features/*.js",
-      "default": "./features/*.js"
-    }
-  },
   "keywords": [
     "angular",
     "data-grid",

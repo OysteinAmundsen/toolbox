@@ -12,6 +12,17 @@
         "port": 4300
       }
     },
+    "serve:dist": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/employee-management/react",
+        "port": 4300,
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
+    },
     "build": {
       "executor": "nx:run-commands",
       "dependsOn": ["^build"],

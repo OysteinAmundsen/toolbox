@@ -51,6 +51,7 @@ export default defineConfig(() => ({
         'features/index': 'src/features/index.ts',
         'features/selection': 'src/features/selection.ts',
         'features/sorting': 'src/features/sorting.ts',
+        'features/multi-sort': 'src/features/multi-sort.ts',
         'features/filtering': 'src/features/filtering.ts',
         'features/editing': 'src/features/editing.ts',
         'features/undo-redo': 'src/features/undo-redo.ts',

@@ -12,6 +12,17 @@
         "port": 4000
       }
     },
+    "serve:dist": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/employee-management/vanilla",
+        "port": 4000,
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
+    },
     "build": {
       "executor": "nx:run-commands",
       "options": {

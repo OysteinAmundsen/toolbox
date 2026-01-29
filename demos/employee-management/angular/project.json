@@ -6,6 +6,7 @@
   "root": "demos/employee-management/angular",
   "targets": {
     "build": {
+      "dependsOn": ["grid:build", "grid-angular:build"],
       "executor": "@nx/angular:application",
       "options": {
         "outputPath": "dist/demos/demo-angular",
@@ -58,6 +59,15 @@
         }
       },
       "defaultConfiguration": "development"
+    },
+    "serve:dist": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun nx run demo-angular:serve",
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
     },
     "lint": {
       "executor": "@nx/eslint:lint",

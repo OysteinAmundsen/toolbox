@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.6.1...grid-1.6.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* **grid:** remove duplicate header from number/date filter panels ([24978a3](https://github.com/OysteinAmundsen/toolbox/commit/24978a38ea88ddba9e33a5a2dadb0872d723b2ca))
+
 ## [1.6.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.6.0...grid-1.6.1) (2026-01-28)
 
 

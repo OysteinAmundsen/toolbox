@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.7.1...grid-angular-0.7.2) (2026-01-29)
+
+
+### Bug Fixes
+
+* **grid-angular:** migrate to ng-packagr with secondary entry points ([5a6f3fb](https://github.com/OysteinAmundsen/toolbox/commit/5a6f3fb4fc6b7a7cb09306526903b33d9528f529))
+
+## [0.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.7.0...grid-angular-0.7.1) (2026-01-29)
+
+
+### Bug Fixes
+
+* **grid-angular:** add missing multi-sort feature entry to vite builds ([50f9279](https://github.com/OysteinAmundsen/toolbox/commit/50f9279cdad2da51eefedc0ce3794b4fd81e3653))
+
 ## [0.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.6.0...grid-angular-0.7.0) (2026-01-28)
 
 

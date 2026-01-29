@@ -59,6 +59,7 @@ export default defineConfig(() => ({
         'features/grouping-columns': 'src/features/grouping-columns.ts',
         'features/grouping-rows': 'src/features/grouping-rows.ts',
         'features/master-detail': 'src/features/master-detail.ts',
+        'features/multi-sort': 'src/features/multi-sort.ts',
         'features/pinned-columns': 'src/features/pinned-columns.ts',
         'features/pinned-rows': 'src/features/pinned-rows.ts',
         'features/pivot': 'src/features/pivot.ts',

@@ -576,6 +576,75 @@ export const appConfig: ApplicationConfig = {
 2. Provider icons (`GridProvider` / `provideGridIcons()`) - App defaults
 3. Built-in defaults
 
+### Loading States
+
+The grid provides built-in loading indicators at three levels:
+
+- **Grid-level**: Full overlay with large spinner for data loading
+- **Row-level**: Small spinner on individual rows for row operations
+- **Cell-level**: Tiny spinner on cells for cell-specific operations
+
+All loading states are **user-instructed** - you control when to show/hide them.
+
+**Grid-Level Loading:**
+
+```typescript
+// Via property
+grid.loading = true;
+const data = await fetchData();
+grid.rows = data;
+grid.loading = false;
+
+// Via HTML attribute
+<tbw-grid loading></tbw-grid>
+```
+
+**Row-Level Loading:**
+
+```typescript
+// Show loading while saving row
+grid.setRowLoading('row-123', true);
+await saveRow(row);
+grid.setRowLoading('row-123', false);
+
+// Check if row is loading
+if (grid.isRowLoading('row-123')) { ... }
+```
+
+**Cell-Level Loading:**
+
+```typescript
+// Show loading while validating cell
+grid.setCellLoading('row-123', 'email', true);
+const isValid = await validateEmail(email);
+grid.setCellLoading('row-123', 'email', false);
+
+// Check if cell is loading
+if (grid.isCellLoading('row-123', 'email')) { ... }
+```
+
+**Clear All Loading:**
+
+```typescript
+grid.clearAllLoading(); // Clears grid, row, and cell loading states
+```
+
+**Custom Loading Renderer:**
+
+```typescript
+grid.gridConfig = {
+  loadingRenderer: (ctx) => {
+    const el = document.createElement('div');
+    el.className = 'my-custom-loader';
+    el.innerHTML = `<my-spinner size="${ctx.size}"></my-spinner>`;
+    return el;
+  },
+};
+```
+
+The `loadingRenderer` receives a context with:
+- `size`: `'large'` (grid overlay, max 48x48px) or `'small'` (row/cell, follows row height)
+
 ### Plugin System
 
 Plugins are class instances passed via `gridConfig.plugins`:

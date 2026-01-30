@@ -186,7 +186,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // ---------------- Observed Attributes ----------------
   static get observedAttributes(): string[] {
-    return ['rows', 'columns', 'grid-config', 'fit-mode'];
+    return ['rows', 'columns', 'grid-config', 'fit-mode', 'loading'];
   }
 
   /**
@@ -270,6 +270,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #shellState: ShellState = createShellState();
   #shellController!: ShellController;
   #resizeCleanup?: () => void;
+
+  // ---------------- Loading State ----------------
+  #loading = false;
+  #loadingRows = new Set<string>(); // Row IDs currently loading
+  #loadingCells = new Map<string, Set<string>>(); // Map<rowId, Set<field>> for cells loading
+  #loadingOverlayEl?: HTMLElement; // Cached loading overlay element
 
   // ---------------- Row ID Map ----------------
   // O(1) lookup for rows by ID. Rebuilt when rows change.
@@ -539,6 +545,134 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#queueUpdate('fitMode');
     }
   }
+
+  // #region Loading API
+
+  /**
+   * Whether the grid is currently in a loading state.
+   * When true, displays a loading overlay with spinner (or custom loadingRenderer).
+   *
+   * @example
+   * ```typescript
+   * grid.loading = true;
+   * const data = await fetchData();
+   * grid.rows = data;
+   * grid.loading = false;
+   * ```
+   */
+  get loading(): boolean {
+    return this.#loading;
+  }
+
+  set loading(value: boolean) {
+    const wasLoading = this.#loading;
+    this.#loading = value;
+
+    // Toggle attribute for CSS styling and external queries
+    if (value) {
+      this.setAttribute('loading', '');
+    } else {
+      this.removeAttribute('loading');
+    }
+
+    // Only update overlay if state actually changed
+    if (wasLoading !== value) {
+      this.#updateLoadingOverlay();
+    }
+  }
+
+  /**
+   * Set loading state for a specific row.
+   * Shows a small spinner indicator on the row.
+   *
+   * @param rowId - The row's unique identifier (from getRowId)
+   * @param loading - Whether the row is loading
+   */
+  setRowLoading(rowId: string, loading: boolean): void {
+    const wasLoading = this.#loadingRows.has(rowId);
+    if (loading) {
+      this.#loadingRows.add(rowId);
+    } else {
+      this.#loadingRows.delete(rowId);
+    }
+
+    // Update row element if state changed
+    if (wasLoading !== loading) {
+      this.#updateRowLoadingState(rowId, loading);
+    }
+  }
+
+  /**
+   * Set loading state for a specific cell.
+   * Shows a small spinner indicator on the cell.
+   *
+   * @param rowId - The row's unique identifier
+   * @param field - The column field
+   * @param loading - Whether the cell is loading
+   */
+  setCellLoading(rowId: string, field: string, loading: boolean): void {
+    let cellFields = this.#loadingCells.get(rowId);
+    const wasLoading = cellFields?.has(field) ?? false;
+
+    if (loading) {
+      if (!cellFields) {
+        cellFields = new Set();
+        this.#loadingCells.set(rowId, cellFields);
+      }
+      cellFields.add(field);
+    } else {
+      cellFields?.delete(field);
+      // Clean up empty sets
+      if (cellFields?.size === 0) {
+        this.#loadingCells.delete(rowId);
+      }
+    }
+
+    // Update cell element if state changed
+    if (wasLoading !== loading) {
+      this.#updateCellLoadingState(rowId, field, loading);
+    }
+  }
+
+  /**
+   * Check if a row is currently in loading state.
+   * @param rowId - The row's unique identifier
+   */
+  isRowLoading(rowId: string): boolean {
+    return this.#loadingRows.has(rowId);
+  }
+
+  /**
+   * Check if a cell is currently in loading state.
+   * @param rowId - The row's unique identifier
+   * @param field - The column field
+   */
+  isCellLoading(rowId: string, field: string): boolean {
+    return this.#loadingCells.get(rowId)?.has(field) ?? false;
+  }
+
+  /**
+   * Clear all row and cell loading states.
+   */
+  clearAllLoading(): void {
+    this.loading = false;
+
+    // Clear all row loading states
+    for (const rowId of this.#loadingRows) {
+      this.#updateRowLoadingState(rowId, false);
+    }
+    this.#loadingRows.clear();
+
+    // Clear all cell loading states
+    for (const [rowId, fields] of this.#loadingCells) {
+      for (const field of fields) {
+        this.#updateCellLoadingState(rowId, field, false);
+      }
+    }
+    this.#loadingCells.clear();
+  }
+
+  // #endregion
 
   /**
    * Effective config accessor for internal modules and plugins.
@@ -1153,6 +1287,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal Web component lifecycle - not part of public API
    */
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
+    // Handle boolean attributes first (presence = true, absence/null = false, "false" = false)
+    if (name === 'loading') {
+      const isLoading = newValue !== null && newValue !== 'false';
+      if (this.loading !== isLoading) {
+        this.loading = isLoading;
+      }
+      return;
+    }
+
     if (oldValue === newValue || !newValue || newValue === 'null' || newValue === 'undefined') return;
 
     // JSON attributes need parsing
@@ -1900,6 +2043,119 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       } else {
         this.__rowsBodyEl.removeAttribute('aria-describedby');
       }
+    }
+  }
+
+  // ---------------- Loading Helpers ----------------
+
+  /**
+   * Create the default spinner element.
+   * @param size - 'large' for grid overlay, 'small' for row/cell
+   */
+  #createDefaultSpinner(size: 'large' | 'small'): HTMLElement {
+    const spinner = document.createElement('div');
+    spinner.className = `tbw-spinner tbw-spinner--${size}`;
+    spinner.setAttribute('role', 'progressbar');
+    spinner.setAttribute('aria-label', 'Loading');
+    return spinner;
+  }
+
+  /**
+   * Create loading content using custom renderer or default spinner.
+   * @param size - 'large' for grid overlay, 'small' for row/cell
+   */
+  #createLoadingContent(size: 'large' | 'small'): HTMLElement {
+    const renderer = this.#effectiveConfig?.loadingRenderer;
+
+    if (renderer) {
+      const result = renderer({ size });
+      if (typeof result === 'string') {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = result;
+        return wrapper;
+      }
+      return result;
+    }
+
+    return this.#createDefaultSpinner(size);
+  }
+
+  /**
+   * Update the loading overlay visibility.
+   * Called when `loading` property changes.
+   */
+  #updateLoadingOverlay(): void {
+    const gridRoot = this.querySelector('.tbw-grid-root');
+    if (!gridRoot) return;
+
+    if (this.#loading) {
+      // Create overlay if it doesn't exist
+      if (!this.#loadingOverlayEl) {
+        const overlay = document.createElement('div');
+        overlay.className = 'tbw-loading-overlay';
+        overlay.setAttribute('role', 'status');
+        overlay.setAttribute('aria-live', 'polite');
+        overlay.appendChild(this.#createLoadingContent('large'));
+        this.#loadingOverlayEl = overlay;
+      }
+
+      // Append to grid root (positioned relative to grid)
+      gridRoot.appendChild(this.#loadingOverlayEl);
+    } else {
+      // Remove overlay
+      this.#loadingOverlayEl?.remove();
+    }
+  }
+
+  /**
+   * Update a row's loading state in the DOM.
+   * @param rowId - The row's unique identifier
+   * @param loading - Whether the row is loading
+   */
+  #updateRowLoadingState(rowId: string, loading: boolean): void {
+    // Find the row element by row ID
+    const rowData = this.#rowIdMap.get(rowId);
+    if (!rowData) return;
+
+    const rowEl = this.findRenderedRowElement?.(rowData.index);
+    if (!rowEl) return;
+
+    if (loading) {
+      rowEl.classList.add('tbw-row-loading');
+      rowEl.setAttribute('aria-busy', 'true');
+    } else {
+      rowEl.classList.remove('tbw-row-loading');
+      rowEl.removeAttribute('aria-busy');
+    }
+  }
+
+  /**
+   * Update a cell's loading state in the DOM.
+   * @param rowId - The row's unique identifier
+   * @param field - The column field
+   * @param loading - Whether the cell is loading
+   */
+  #updateCellLoadingState(rowId: string, field: string, loading: boolean): void {
+    // Find the row element by row ID
+    const rowData = this.#rowIdMap.get(rowId);
+    if (!rowData) return;
+
+    const rowEl = this.findRenderedRowElement?.(rowData.index);
+    if (!rowEl) return;
+
+    // Find the cell by field
+    const colIndex = this._visibleColumns.findIndex((c) => c.field === field);
+    if (colIndex < 0) return;
+
+    const cellEl = rowEl.children[colIndex] as HTMLElement | undefined;
+    if (!cellEl) return;
+
+    if (loading) {
+      cellEl.classList.add('tbw-cell-loading');
+      cellEl.setAttribute('aria-busy', 'true');
+    } else {
+      cellEl.classList.remove('tbw-cell-loading');
+      cellEl.removeAttribute('aria-busy');
     }
   }
 

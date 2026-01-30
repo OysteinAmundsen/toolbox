@@ -213,6 +213,10 @@ export type {
   IconValue,
   // Inference types
   InferredColumnResult,
+  // Loading types
+  LoadingContext,
+  LoadingRenderer,
+  LoadingSize,
   PrimitiveColumnType,
   // Public interface
   PublicGrid,

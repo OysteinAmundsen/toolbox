@@ -107,6 +107,81 @@ export interface PublicGrid<T = any> {
    * Unregister a previously registered tool panel.
    */
   unregisterToolPanel?(panelId: string): void;
+
+  // Loading API
+  /**
+   * Whether the grid is currently in a loading state.
+   * When true, displays a loading overlay with spinner.
+   *
+   * Can also be set via the `loading` HTML attribute.
+   *
+   * @example
+   * ```typescript
+   * // Show loading overlay
+   * grid.loading = true;
+   * const data = await fetchData();
+   * grid.rows = data;
+   * grid.loading = false;
+   * ```
+   */
+  loading?: boolean;
+
+  /**
+   * Set loading state for a specific row.
+   * Displays a small spinner indicator on the row.
+   *
+   * Use when persisting row data or performing row-level async operations.
+   *
+   * @param rowId - The row's unique identifier (from getRowId)
+   * @param loading - Whether the row is loading
+   *
+   * @example
+   * ```typescript
+   * // Show loading while saving row
+   * grid.setRowLoading('emp-123', true);
+   * await saveRow(row);
+   * grid.setRowLoading('emp-123', false);
+   * ```
+   */
+  setRowLoading?(rowId: string, loading: boolean): void;
+
+  /**
+   * Set loading state for a specific cell.
+   * Displays a small spinner indicator on the cell.
+   *
+   * Use when performing cell-level async operations (e.g., validation, lookup).
+   *
+   * @param rowId - The row's unique identifier (from getRowId)
+   * @param field - The column field
+   * @param loading - Whether the cell is loading
+   *
+   * @example
+   * ```typescript
+   * // Show loading while validating cell
+   * grid.setCellLoading('emp-123', 'email', true);
+   * const isValid = await validateEmail(email);
+   * grid.setCellLoading('emp-123', 'email', false);
+   * ```
+   */
+  setCellLoading?(rowId: string, field: string, loading: boolean): void;
+
+  /**
+   * Check if a row is currently in loading state.
+   * @param rowId - The row's unique identifier
+   */
+  isRowLoading?(rowId: string): boolean;
+
+  /**
+   * Check if a cell is currently in loading state.
+   * @param rowId - The row's unique identifier
+   * @param field - The column field
+   */
+  isCellLoading?(rowId: string, field: string): boolean;
+
+  /**
+   * Clear all row and cell loading states.
+   */
+  clearAllLoading?(): void;
 }
 
 /**
@@ -1108,6 +1183,35 @@ export interface GridConfig<TRow = any> {
   gridAriaDescribedBy?: string;
 
   // #endregion
+
+  // #region Loading
+
+  /**
+   * Custom renderer for the loading overlay.
+   *
+   * When provided, replaces the default spinner with custom content.
+   * Receives a context object with the current loading size.
+   *
+   * @example
+   * ```typescript
+   * // Simple text loading indicator
+   * loadingRenderer: () => {
+   *   const el = document.createElement('div');
+   *   el.textContent = 'Loading...';
+   *   return el;
+   * }
+   *
+   * // Custom spinner component
+   * loadingRenderer: (ctx) => {
+   *   const spinner = document.createElement('my-spinner');
+   *   spinner.size = ctx.size === 'large' ? 48 : 24;
+   *   return spinner;
+   * }
+   * ```
+   */
+  loadingRenderer?: LoadingRenderer;
+
+  // #endregion
 }
 // #endregion
 
@@ -1136,6 +1240,35 @@ export type SortHandler<TRow = any> = (
   sortState: SortState,
   columns: ColumnConfig<TRow>[],
 ) => TRow[] | Promise<TRow[]>;
+
+// #region Loading
+
+/**
+ * Loading indicator size variant.
+ *
+ * - `'large'`: 48x48px max - used for grid-level loading overlay
+ * - `'small'`: Follows row height - used for row/cell loading states
+ */
+export type LoadingSize = 'large' | 'small';
+
+/**
+ * Context passed to custom loading renderers.
+ */
+export interface LoadingContext {
+  /** The size variant being rendered */
+  size: LoadingSize;
+}
+
+/**
+ * Custom loading renderer function.
+ * Returns an element or HTML string to display as the loading indicator.
+ *
+ * @param context - Context containing size information
+ * @returns HTMLElement or HTML string
+ */
+export type LoadingRenderer = (context: LoadingContext) => HTMLElement | string;
+
+// #endregion
 
 // #region Data Update Management
 

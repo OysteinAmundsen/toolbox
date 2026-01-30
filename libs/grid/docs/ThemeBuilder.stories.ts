@@ -341,6 +341,12 @@ const CSS_VARIABLES: Record<string, CSSVariableDefinition[]> = {
     { name: '--tbw-visibility-hover', defaultValue: '#f0f0f0', description: 'Visibility item hover', type: 'color' },
     { name: '--tbw-visibility-indicator', defaultValue: '#3b82f6', description: 'Visibility indicator', type: 'color' },
   ],
+  'Loading Spinner': [
+    { name: '--tbw-spinner-size', defaultValue: '48px', description: 'Spinner size (grid-level)', type: 'size' },
+    { name: '--tbw-spinner-border-width', defaultValue: '3px', description: 'Spinner border thickness', type: 'size' },
+    { name: '--tbw-spinner-color', defaultValue: '#3b82f6', description: 'Spinner active color', type: 'color' },
+    { name: '--tbw-spinner-track-color', defaultValue: '#d0d0d4', description: 'Spinner track color', type: 'color' },
+  ],
 };
 
 // ============================================================================

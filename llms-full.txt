@@ -422,6 +422,104 @@ interface ColumnConfig {
 }
 ```
 
+### Type-Level Defaults (typeDefaults)
+
+Define renderers, editors, formatters, and editor parameters at the **type level** that apply to all columns with a matching `type` property. This avoids repetition when you have many columns of the same type.
+
+```typescript
+grid.gridConfig = {
+  typeDefaults: {
+    // Custom 'country' type - all columns with type: 'country' use these
+    country: {
+      renderer: (ctx) => {
+        const span = document.createElement('span');
+        span.textContent = `🌍 ${ctx.value}`;
+        return span;
+      },
+      editor: (ctx) => {
+        const select = document.createElement('select');
+        ['USA', 'UK', 'Germany', 'France'].forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          select.appendChild(opt);
+        });
+        select.value = ctx.value;
+        select.onchange = () => ctx.commit(select.value);
+        return select;
+      },
+    },
+    // Override built-in 'currency' type defaults
+    currency: {
+      editorParams: { min: 0, step: 0.01 },
+      format: (value) => `$${value?.toFixed(2) ?? '0.00'}`,
+    },
+    // Custom date type with specific formatting
+    date: {
+      format: (value) => value ? new Date(value).toLocaleDateString() : '',
+    },
+  },
+  columns: [
+    { field: 'country', type: 'country', editable: true }, // Uses country renderer/editor
+    { field: 'salary', type: 'currency', editable: true }, // Uses currency format/editorParams
+    { field: 'hireDate', type: 'date' }, // Uses date format
+  ],
+};
+```
+
+**What can be defined in typeDefaults:**
+
+| Property | Description |
+|----------|-------------|
+| `renderer` | Custom cell renderer function |
+| `editor` | Custom cell editor function |
+| `editorParams` | Parameters passed to built-in editors (min, max, step, options) |
+| `format` | Display formatter function |
+| `filterPanelRenderer` | Custom filter panel for FilteringPlugin |
+
+**Resolution Priority (highest wins):**
+
+1. Column-level property (e.g., `{ field: 'name', renderer: ... }`)
+2. `gridConfig.typeDefaults[column.type]`
+3. Framework adapter type registry (React `GridTypeProvider`, Angular `provideGridTypeDefaults()`)
+4. Built-in type defaults
+
+**Framework-Specific Type Registries:**
+
+React and Angular adapters provide app-level type registries for JSX/template-based renderers:
+
+```tsx
+// React - wrap your app or grid with GridTypeProvider
+import { GridTypeProvider, type TypeDefaultsMap } from '@toolbox-web/grid-react';
+
+const typeDefaults: TypeDefaultsMap = {
+  country: {
+    renderer: (ctx) => <CountryFlag code={ctx.value} />,
+    editor: (ctx) => <CountrySelect value={ctx.value} onCommit={ctx.commit} />,
+  },
+};
+
+<GridTypeProvider defaults={typeDefaults}>
+  <DataGrid rows={data} columns={columns} />
+</GridTypeProvider>
+```
+
+```typescript
+// Angular - provide at app or component level
+import { provideGridTypeDefaults } from '@toolbox-web/grid-angular';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideGridTypeDefaults({
+      country: {
+        renderer: CountryFlagComponent,
+        editor: CountrySelectComponent,
+      },
+    }),
+  ],
+});
+```
+
 ### Plugin System
 
 Plugins are class instances passed via `gridConfig.plugins`:
@@ -554,7 +652,7 @@ AG Grid uses a different configuration model. Here's how to translate:
 | `<AgGridReact>` | `<DataGrid>` from `@toolbox-web/grid-react` |
 | `columnDefs` | `columns` or `gridConfig.columns` |
 | `rowData` | `rows` |
-| `defaultColDef` | Use `typeDefaults` for type-level defaults |
+| `defaultColDef` | `typeDefaults` for type-level defaults (see Type-Level Defaults section) |
 | `getRowId` | `gridConfig.getRowId` |
 | `onCellValueChanged` | `addEventListener('cell-commit', ...)` |
 | `onSortChanged` | `addEventListener('sort-change', ...)` |

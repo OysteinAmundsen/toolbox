@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.6.2...grid-1.7.0) (2026-01-30)
+
+
+### Features
+
+* **grid:** [#96](https://github.com/OysteinAmundsen/toolbox/issues/96) - add loading UX with grid, row, and cell loading states ([dde4385](https://github.com/OysteinAmundsen/toolbox/commit/dde43857e2d5be85f104b07d1fb77dda90804db4))
+
 ## [1.6.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.6.1...grid-1.6.2) (2026-01-29)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.8.1...grid-react-0.9.0) (2026-01-30)
+
+
+### Features
+
+* **grid-react,grid-angular:** add app-wide icon configuration providers ([731837b](https://github.com/OysteinAmundsen/toolbox/commit/731837bd1a308eaf6bb3404b7591042891327965))
+* **grid-react,grid-angular:** support for loading ([f883e13](https://github.com/OysteinAmundsen/toolbox/commit/f883e136f8d4167907e706c11fa0d30183e10670))
+
 ## [0.8.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.8.0...grid-react-0.8.1) (2026-01-29)
 
 

@@ -345,7 +345,10 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
 
       // Fallback timeout in case afterprint doesn't fire (some browsers)
       setTimeout(() => {
-        window.removeEventListener('afterprint', onAfterPrint);
+        // Guard against test environment teardown where window may be undefined
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('afterprint', onAfterPrint);
+        }
         resolve();
       }, 1000);
     });

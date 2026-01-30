@@ -50,6 +50,12 @@ export {
   type TypeDefaultsMap,
 } from './lib/grid-type-registry';
 
+// Icon registry for application-wide icon overrides
+export { GridIconProvider, useGridIcons, type GridIconProviderProps } from './lib/grid-icon-registry';
+
+// Combined provider for type defaults and icons
+export { GridProvider, type GridProviderProps } from './lib/grid-provider';
+
 // React column config types (for defining renderers/editors in gridConfig)
 export type { ReactColumnConfig, ReactGridConfig } from './lib/react-column-config';
 

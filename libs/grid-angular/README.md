@@ -14,6 +14,7 @@ Angular adapter for `@toolbox-web/grid` data grid component. Provides directives
 - ✅ **Template-driven editors** - Use `<ng-template>` for custom cell editors
 - ✅ **Component-class column config** - Specify component classes directly in `gridConfig.columns`
 - ✅ **Type-level defaults** - App-wide renderers/editors via `provideGridTypeDefaults()`
+- ✅ **Icon configuration** - App-wide icon overrides via `provideGridIcons()`
 - ✅ **Reactive Forms integration** - Use `formControlName` and `formControl` bindings
 - ✅ **Auto-wiring** - Editor components just emit events, no manual binding needed
 - ✅ **Full type safety** - Typed template contexts (`GridCellContext`, `GridEditorContext`)
@@ -358,6 +359,68 @@ export class MyGridComponent {
 | -------------------- | ------------------------------------------- |
 | `GridTypeRegistry`   | Injectable service for dynamic registration |
 | `GRID_TYPE_DEFAULTS` | Injection token for type defaults           |
+
+## App-Wide Icon Configuration
+
+Customize grid icons at the application level using `provideGridIcons()`:
+
+```typescript
+// app.config.ts
+import { ApplicationConfig } from '@angular/core';
+import { provideGridIcons } from '@toolbox-web/grid-angular';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideGridIcons({
+      expand: '➕',
+      collapse: '➖',
+      sortAsc: '↑',
+      sortDesc: '↓',
+      filter: '<svg viewBox="0 0 16 16">...</svg>',
+    }),
+  ],
+};
+```
+
+**Dynamic Icon Registration:**
+
+```typescript
+import { Component, inject, OnInit } from '@angular/core';
+import { GridIconRegistry } from '@toolbox-web/grid-angular';
+
+@Component({ ... })
+export class AppComponent implements OnInit {
+  private iconRegistry = inject(GridIconRegistry);
+
+  ngOnInit() {
+    // Dynamically set icons
+    this.iconRegistry.set('expand', '▶');
+    this.iconRegistry.set('collapse', '▼');
+  }
+}
+```
+
+**Available Icons:**
+
+| Icon           | Default | Description                          |
+| -------------- | ------- | ------------------------------------ |
+| `expand`       | `▶`     | Expand icon for trees/groups/details |
+| `collapse`     | `▼`     | Collapse icon                        |
+| `sortAsc`      | `▲`     | Sort ascending indicator             |
+| `sortDesc`     | `▼`     | Sort descending indicator            |
+| `sortNone`     | `⇅`     | Unsorted indicator                   |
+| `filter`       | SVG     | Filter icon in headers               |
+| `filterActive` | SVG     | Filter icon when active              |
+| `submenuArrow` | `▶`     | Context menu submenu arrow           |
+| `dragHandle`   | `⋮⋮`    | Drag handle for reordering           |
+| `toolPanel`    | `☰`    | Tool panel toggle icon               |
+| `print`        | `🖨️`    | Print button icon                    |
+
+**Precedence (highest wins):**
+
+1. `gridConfig.icons` - Per-grid overrides
+2. `provideGridIcons()` - App-level defaults
+3. Built-in defaults
 
 ## Component-Class Column Config
 
@@ -781,6 +844,14 @@ if (context?.hasFormGroups) {
 | `provideGridTypeDefaults()` | Provider factory for app-level type defaults |
 | `GridTypeRegistry`          | Injectable service for dynamic registration  |
 | `GRID_TYPE_DEFAULTS`        | Injection token for type defaults            |
+
+### Icon Registry
+
+| Export               | Description                                      |
+| -------------------- | ------------------------------------------------ |
+| `provideGridIcons()` | Provider factory for app-level icon overrides    |
+| `GridIconRegistry`   | Injectable service for dynamic icon registration |
+| `GRID_ICONS`         | Injection token for icon overrides               |
 
 ### Grid Directive Inputs
 

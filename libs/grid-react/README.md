@@ -14,6 +14,7 @@ React adapter for `@toolbox-web/grid` data grid component. Provides components a
 - ✅ **Declarative columns** - Define columns via props or `GridColumn` components
 - ✅ **Render props** - Clean `children` syntax for custom cells
 - ✅ **Type-level defaults** - App-wide renderers/editors via `GridTypeProvider`
+- ✅ **Icon configuration** - App-wide icon overrides via `GridProvider` or `GridIconProvider`
 - ✅ **Hooks API** - `useGrid` and `useGridEvent` for programmatic access
 - ✅ **Ref forwarding** - Access grid instance via `DataGridRef`
 - ✅ **Master-detail** - `GridDetailPanel` for expandable rows
@@ -534,6 +535,80 @@ function Dashboard() {
 | `useGridTypeDefaults()` | Get all type defaults from context |
 | `useTypeDefault(type)`  | Get defaults for a specific type   |
 
+## App-Wide Icon Configuration
+
+Customize grid icons at the application level using `GridIconProvider` or the combined `GridProvider`:
+
+### Using GridProvider (Recommended)
+
+```tsx
+import { GridProvider, DataGrid } from '@toolbox-web/grid-react';
+
+// Define icon overrides and type defaults together
+const icons = {
+  expand: '➕',
+  collapse: '➖',
+  sortAsc: '↑',
+  sortDesc: '↓',
+};
+
+const typeDefaults = {
+  country: { renderer: (ctx) => <span>🌍 {ctx.value}</span> },
+};
+
+function App() {
+  return (
+    <GridProvider icons={icons} defaults={typeDefaults}>
+      <Dashboard />
+    </GridProvider>
+  );
+}
+```
+
+### Using GridIconProvider (Icons Only)
+
+```tsx
+import { GridIconProvider, DataGrid } from '@toolbox-web/grid-react';
+
+const customIcons = {
+  expand: '▶',
+  collapse: '▼',
+  sortAsc: '△',
+  sortDesc: '▽',
+  filter: '<svg>...</svg>', // SVG markup supported
+};
+
+function App() {
+  return (
+    <GridIconProvider icons={customIcons}>
+      <DataGrid rows={data} columns={columns} />
+    </GridIconProvider>
+  );
+}
+```
+
+**Available Icons:**
+
+| Icon           | Default | Description                          |
+| -------------- | ------- | ------------------------------------ |
+| `expand`       | `▶`     | Expand icon for trees/groups/details |
+| `collapse`     | `▼`     | Collapse icon                        |
+| `sortAsc`      | `▲`     | Sort ascending indicator             |
+| `sortDesc`     | `▼`     | Sort descending indicator            |
+| `sortNone`     | `⇅`     | Unsorted indicator                   |
+| `filter`       | SVG     | Filter icon in headers               |
+| `filterActive` | SVG     | Filter icon when active              |
+| `submenuArrow` | `▶`     | Context menu submenu arrow           |
+| `dragHandle`   | `⋮⋮`    | Drag handle for reordering           |
+| `toolPanel`    | `☰`    | Tool panel toggle icon               |
+| `print`        | `🖨️`    | Print button icon                    |
+
+**Precedence (highest wins):**
+
+1. `gridConfig.icons` - Per-grid overrides
+2. `GridProvider`/`GridIconProvider` - App-level defaults
+3. Built-in defaults
+
 ## Using Plugins (Advanced)
 
 > **Note:** For most use cases, prefer the [declarative feature props](#enabling-features) approach above.
@@ -588,14 +663,16 @@ Inject custom CSS into the grid:
 
 ### Exported Components
 
-| Component          | Description                          |
-| ------------------ | ------------------------------------ |
-| `DataGrid`         | Main grid component wrapper          |
-| `GridColumn`       | Declarative column with render props |
-| `GridDetailPanel`  | Master-detail expandable panel       |
-| `GridToolPanel`    | Custom sidebar panel                 |
-| `GridToolButtons`  | Toolbar button container             |
-| `GridTypeProvider` | App-level type defaults context      |
+| Component          | Description                                 |
+| ------------------ | ------------------------------------------- |
+| `DataGrid`         | Main grid component wrapper                 |
+| `GridColumn`       | Declarative column with render props        |
+| `GridDetailPanel`  | Master-detail expandable panel              |
+| `GridToolPanel`    | Custom sidebar panel                        |
+| `GridToolButtons`  | Toolbar button container                    |
+| `GridProvider`     | Combined provider for icons & type defaults |
+| `GridTypeProvider` | App-level type defaults context             |
+| `GridIconProvider` | App-level icon overrides context            |
 
 ### Exported Hooks
 
@@ -605,6 +682,7 @@ Inject custom CSS into the grid:
 | `useGridEvent`          | Type-safe event subscription with cleanup |
 | `useGridTypeDefaults()` | Get all type defaults from context        |
 | `useTypeDefault(type)`  | Get defaults for a specific type          |
+| `useGridIcons()`        | Get icon overrides from context           |
 
 ### Exported Types
 
@@ -625,6 +703,9 @@ import type {
   ReactTypeDefault,
   TypeDefaultsMap,
   GridTypeProviderProps,
+  // Icon overrides
+  GridIconProviderProps,
+  GridProviderProps,
 } from '@toolbox-web/grid-react';
 ```
 

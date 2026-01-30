@@ -67,6 +67,7 @@ import type {
 import type { AngularGridConfig } from '../angular-column-config';
 import { AngularGridAdapter } from '../angular-grid-adapter';
 import { createPluginFromFeature, type FeatureName } from '../feature-registry';
+import { GridIconRegistry } from '../grid-icon-registry';
 
 /**
  * Event detail for cell commit events.
@@ -145,6 +146,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   private injector = inject(EnvironmentInjector);
   private appRef = inject(ApplicationRef);
   private viewContainerRef = inject(ViewContainerRef);
+  private iconRegistry = inject(GridIconRegistry, { optional: true });
 
   private adapter: AngularGridAdapter | null = null;
 
@@ -178,6 +180,14 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       }
       if (selectableValue !== undefined) {
         coreConfigOverrides['selectable'] = selectableValue;
+      }
+
+      // Merge icon overrides from registry with any existing icons in config
+      // Registry icons are base, config.icons override them
+      const registryIcons = this.iconRegistry?.getAll();
+      if (registryIcons && Object.keys(registryIcons).length > 0) {
+        const existingIcons = processedConfig?.icons || config?.icons || {};
+        coreConfigOverrides['icons'] = { ...registryIcons, ...existingIcons };
       }
 
       // Apply to the grid element

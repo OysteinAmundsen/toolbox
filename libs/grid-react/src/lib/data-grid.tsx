@@ -16,6 +16,7 @@ import { normalizeColumns, type ColumnShorthand } from './column-shorthand';
 import { EVENT_PROP_MAP, type EventProps } from './event-props';
 import { type AllFeatureProps, type FeatureProps } from './feature-props';
 import { type GridDetailPanelProps } from './grid-detail-panel';
+import { GridIconContextInternal } from './grid-icon-registry';
 import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
 import { processReactGridConfig, type ReactGridConfig } from './react-column-config';
@@ -411,6 +412,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // Get type defaults from context
   const typeDefaults = useContext(GridTypeContextInternal);
 
+  // Get icon overrides from context
+  const iconOverrides = useContext(GridIconContextInternal);
+
   // ═══════════════════════════════════════════════════════════════════
   // EXTRACT FEATURE PROPS AND EVENT PROPS
   // ═══════════════════════════════════════════════════════════════════
@@ -537,6 +541,13 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       coreConfigOverrides['selectable'] = selectable;
     }
 
+    // Merge icon overrides from context with any existing icons in gridConfig
+    // Context icons are base, gridConfig.icons override them
+    if (iconOverrides) {
+      const existingIcons = processed?.icons || gridConfig?.icons || {};
+      coreConfigOverrides['icons'] = { ...iconOverrides, ...existingIcons };
+    }
+
     // Add lazy-loaded plugins to the config
     if (allPlugins.length > 0 && processed) {
       const existingPlugins = processed.plugins || [];
@@ -559,7 +570,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     }
 
     return processed;
-  }, [gridConfig, allPlugins, sortable, filterable, selectable]);
+  }, [gridConfig, allPlugins, sortable, filterable, selectable, iconOverrides]);
 
   // Sync type defaults to the global adapter
   useEffect(() => {

@@ -20,6 +20,9 @@ export type {
 export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from './lib/grid-type-registry';
 export type { AngularTypeDefault } from './lib/grid-type-registry';
 
+// Icon registry for application-wide icon overrides
+export { GRID_ICONS, GridIconRegistry, provideGridIcons } from './lib/grid-icon-registry';
+
 // Inject function for programmatic grid access
 export { injectGrid } from './lib/inject-grid';
 export type { ExportMethods, InjectGridReturn, SelectionMethods } from './lib/inject-grid';

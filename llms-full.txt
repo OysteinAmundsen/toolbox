@@ -197,7 +197,7 @@ import '@toolbox-web/grid-react/features';
 
 2. **`columns` prop vs `gridConfig.columns`**: The `columns` prop accepts `ColumnShorthand[]` (strings like `'name:string'` or basic `ColumnConfig` objects), but does **NOT** support React JSX renderers/editors. For columns with `renderer` or `editor` functions that return JSX, use `gridConfig.columns` with `ReactGridConfig` type instead.
 
-3. **`icons` must be in gridConfig**: There is no top-level `icons` prop on `<DataGrid>`. Pass icons via `gridConfig={{ icons: { ... } }}`.
+3. **`icons` via provider or gridConfig**: There is no top-level `icons` prop on `<DataGrid>`. Use `<GridProvider icons={{ ... }}>` for app-wide icons, or pass via `gridConfig={{ icons: { ... } }}` for per-grid overrides.
 
 ### Angular
 
@@ -519,6 +519,62 @@ bootstrapApplication(AppComponent, {
   ],
 });
 ```
+
+### App-Wide Icon Configuration
+
+Customize grid icons at the application level using framework providers:
+
+**React - use `GridProvider` or `GridIconProvider`:**
+
+```tsx
+import { GridProvider, DataGrid } from '@toolbox-web/grid-react';
+
+// Combined provider for both icons and type defaults
+<GridProvider
+  icons={{ expand: '➕', collapse: '➖', sortAsc: '↑', sortDesc: '↓' }}
+  defaults={{ country: { renderer: (ctx) => <CountryBadge value={ctx.value} /> } }}
+>
+  <DataGrid rows={data} columns={columns} />
+</GridProvider>
+
+// Or use standalone GridIconProvider
+import { GridIconProvider } from '@toolbox-web/grid-react';
+
+<GridIconProvider icons={{ expand: '+', collapse: '-' }}>
+  <App />
+</GridIconProvider>
+```
+
+**Angular - use `provideGridIcons()`:**
+
+```typescript
+import { provideGridIcons } from '@toolbox-web/grid-angular';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideGridIcons({
+      expand: '➕',
+      collapse: '➖',
+      sortAsc: '↑',
+      sortDesc: '↓',
+    }),
+  ],
+};
+```
+
+**Available Icons:**
+- `expand` / `collapse` - Tree, group, and detail row icons
+- `sortAsc` / `sortDesc` / `sortNone` - Sort indicators
+- `filter` / `filterActive` - Filter icons
+- `submenuArrow` - Context menu arrow
+- `dragHandle` - Reorder drag handle
+- `toolPanel` - Toolbar toggle icon
+- `print` - Print button icon
+
+**Precedence (highest wins):**
+1. `gridConfig.icons` - Per-grid overrides
+2. Provider icons (`GridProvider` / `provideGridIcons()`) - App defaults
+3. Built-in defaults
 
 ### Plugin System
 

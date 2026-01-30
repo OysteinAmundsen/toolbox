@@ -198,6 +198,15 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
         plugins: mergedPlugins.length > 0 ? mergedPlugins : undefined,
       };
     });
+
+    // Effect to sync loading state to the grid element
+    effect(() => {
+      const loadingValue = this.loading();
+      if (loadingValue === undefined) return;
+
+      const grid = this.elementRef.nativeElement;
+      grid.loading = loadingValue;
+    });
   }
 
   /**
@@ -282,6 +291,35 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   selectable = input<boolean>();
+
+  /**
+   * Show a loading overlay on the grid.
+   * Use this during initial data fetch or refresh operations.
+   *
+   * For row/cell loading states, access the grid element directly:
+   * - `grid.setRowLoading(rowId, true/false)`
+   * - `grid.setCellLoading(rowId, field, true/false)`
+   *
+   * @default false
+   *
+   * @example
+   * ```html
+   * <!-- Show loading during data fetch -->
+   * <tbw-grid [loading]="isLoading" [rows]="rows" />
+   * ```
+   *
+   * ```typescript
+   * isLoading = true;
+   *
+   * ngOnInit() {
+   *   this.dataService.fetchData().subscribe(data => {
+   *     this.rows = data;
+   *     this.isLoading = false;
+   *   });
+   * }
+   * ```
+   */
+  loading = input<boolean>();
 
   /**
    * Angular-specific grid configuration that supports component classes for renderers/editors.

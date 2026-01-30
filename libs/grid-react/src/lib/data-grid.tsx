@@ -256,6 +256,31 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
    * ```
    */
   selectable?: boolean;
+  /**
+   * Show a loading overlay on the grid.
+   * Use this during initial data fetch or refresh operations.
+   *
+   * For row/cell loading states, use the ref to access methods:
+   * - `ref.element.setRowLoading(rowId, true/false)`
+   * - `ref.element.setCellLoading(rowId, field, true/false)`
+   *
+   * @default false
+   *
+   * @example
+   * ```tsx
+   * const [loading, setLoading] = useState(true);
+   *
+   * useEffect(() => {
+   *   fetchData().then(data => {
+   *     setRows(data);
+   *     setLoading(false);
+   *   });
+   * }, []);
+   *
+   * <DataGrid loading={loading} rows={rows} />
+   * ```
+   */
+  loading?: boolean;
   /** Edit trigger mode - DEPRECATED: use `editing` prop instead */
   editOn?: 'click' | 'dblclick' | 'none';
   /** Custom CSS styles to inject into grid shadow DOM */
@@ -306,6 +331,16 @@ export interface DataGridRef<TRow = unknown> {
   registerStyles: (id: string, css: string) => void;
   /** Unregister custom styles */
   unregisterStyles: (id: string) => void;
+  /** Set loading state for a specific row */
+  setRowLoading: (rowId: string, loading: boolean) => void;
+  /** Set loading state for a specific cell */
+  setCellLoading: (rowId: string, field: string, loading: boolean) => void;
+  /** Check if a row is in loading state */
+  isRowLoading: (rowId: string) => boolean;
+  /** Check if a cell is in loading state */
+  isCellLoading: (rowId: string, field: string) => boolean;
+  /** Clear all loading states (grid, rows, and cells) */
+  clearAllLoading: () => void;
 }
 
 /**
@@ -391,6 +426,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     sortable,
     filterable,
     selectable,
+    loading,
     editOn,
     customStyles,
     className,
@@ -613,6 +649,13 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     }
   }, [editOn]);
 
+  // Sync loading
+  useEffect(() => {
+    if (gridRef.current && loading !== undefined) {
+      gridRef.current.loading = loading;
+    }
+  }, [loading]);
+
   // After React renders GridColumn children and ref callbacks register renderers/editors,
   // call refreshColumns() to force the grid to re-parse light DOM with the registered adapters.
   // This mirrors Angular's ngAfterContentInit pattern.
@@ -772,6 +815,21 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       },
       unregisterStyles(id: string) {
         gridRef.current?.unregisterStyles?.(id);
+      },
+      setRowLoading(rowId: string, loading: boolean) {
+        gridRef.current?.setRowLoading?.(rowId, loading);
+      },
+      setCellLoading(rowId: string, field: string, loading: boolean) {
+        gridRef.current?.setCellLoading?.(rowId, field, loading);
+      },
+      isRowLoading(rowId: string) {
+        return gridRef.current?.isRowLoading?.(rowId) ?? false;
+      },
+      isCellLoading(rowId: string, field: string) {
+        return gridRef.current?.isCellLoading?.(rowId, field) ?? false;
+      },
+      clearAllLoading() {
+        gridRef.current?.clearAllLoading?.();
       },
     }),
     [],

@@ -265,9 +265,15 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         ? [
             new GroupingRowsPlugin({
               groupOn: (row: unknown) => (row as Employee).department,
-              defaultExpanded: true,
+              defaultExpanded: false,
               showRowCount: true,
-              aggregators: { salary: 'sum', rating: 'avg' },
+              aggregators: {
+                salary: 'sum',
+                rating: (rows, field) => {
+                  const sum = rows.reduce((acc, row) => acc + (Number(row[field]) || 0), 0);
+                  return rows.length ? (sum / rows.length).toFixed(1) : '';
+                },
+              },
             }),
           ]
         : []),

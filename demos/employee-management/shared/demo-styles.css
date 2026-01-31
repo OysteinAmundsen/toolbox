@@ -968,3 +968,19 @@ tbw-grid,
 .responsive-employee-card__top-performer {
   margin-left: 2px;
 }
+
+/* === Row Grouping Demo Styles === */
+/* Add pipe separators between aggregates */
+.group-aggregate::before,
+.group-aggregates::after {
+  color: var(--tbw-color-fg);
+  opacity: 0.2;
+  margin-right: 0.3rem;
+}
+.group-aggregate::before {
+  content: '| ';
+}
+
+.group-aggregates::after {
+  content: '|';
+}

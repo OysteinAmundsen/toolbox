@@ -26,6 +26,21 @@ Via plugins (22 available): Selection (cell/row/range/checkbox), inline editing 
 - [Plugin Overview](https://toolboxjs.com/?path=/docs/grid-plugins-overview--docs): Available plugins and their dependencies
 - [Architecture](https://toolboxjs.com/?path=/docs/grid-architecture--docs): Internal design, render scheduler, configuration precedence
 
+## TypeDoc API Interfaces
+
+Key TypeScript interfaces for configuration and events:
+
+- [GridConfig](https://toolboxjs.com/docs/grid-api-core-interfaces-gridconfig--docs): Grid-level configuration options
+- [ColumnConfig](https://toolboxjs.com/docs/grid-api-core-interfaces-columnconfig--docs): Column definition options
+- [ShellConfig](https://toolboxjs.com/docs/grid-api-core-interfaces-shellconfig--docs): Shell header and tool panel configuration
+- [GridColumnState](https://toolboxjs.com/docs/grid-api-core-interfaces-gridcolumnstate--docs): Column state for persistence
+- [CellClickDetail](https://toolboxjs.com/docs/grid-api-core-interfaces-cellclickdetail--docs): Cell click event detail
+- [CellChangeDetail](https://toolboxjs.com/docs/grid-api-core-interfaces-cellchangedetail--docs): Cell change event detail
+- [SortChangeDetail](https://toolboxjs.com/docs/grid-api-core-interfaces-sortchangedetail--docs): Sort change event detail
+- [HeaderContentDefinition](https://toolboxjs.com/docs/grid-api-core-interfaces-headercontentdefinition--docs): Shell header content API
+- [ToolbarContentDefinition](https://toolboxjs.com/docs/grid-api-core-interfaces-toolbarcontentdefinition--docs): Shell toolbar content API
+- [ToolPanelDefinition](https://toolboxjs.com/docs/grid-api-core-interfaces-toolpaneldefinition--docs): Tool panel registration API
+
 ## Framework Adapters
 
 - [@toolbox-web/grid-angular](https://www.npmjs.com/package/@toolbox-web/grid-angular): Angular adapter with structural directives (`*tbwRenderer`, `*tbwEditor`)
@@ -73,6 +88,9 @@ Via plugins (22 available): Selection (cell/row/range/checkbox), inline editing 
 - **Cell Formatting**: `format: (value, row) => string` for display formatting
 - **Type Inference**: Automatic column type detection from data when columns not specified
 - **Built-in Themes**: Standard, Material, Bootstrap, Contrast, Vibrant, Large (via CSS classes)
+- **Shell & Toolbar**: Header bar with title, center content, toolbar buttons, and tool panel sidebar (see [Shell Components](https://toolboxjs.com/?path=/docs/grid-core--docs#shell-components))
+- **Column State Persistence**: Save/restore column widths, order, visibility, and sort state via `columnState` property and `column-state-change` event
+- **Loading States**: Grid, row, and cell-level loading indicators with custom renderer support
 - [Row Animation API](https://toolboxjs.com/?path=/docs/grid-row-animation--docs): Visual feedback for row changes (insert, update, remove) with configurable animations
 - [Animation Configuration](https://toolboxjs.com/?path=/docs/grid-animation--docs): Global animation settings including mode (on/off/reduced-motion) and styles
 

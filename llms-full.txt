@@ -706,6 +706,196 @@ grid.addEventListener(DGEvents.ROW_COMMIT, (e) => {
 });
 ```
 
+### Plugin Configuration Interfaces
+
+**SelectionPlugin:**
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+interface SelectionConfig {
+  mode: 'cell' | 'row' | 'range';  // Selection mode
+  checkbox?: boolean;               // Show checkbox column
+  checkboxPosition?: 'left' | 'right';
+  multiSelect?: boolean;            // Allow Ctrl/Shift multi-select (default: true)
+  selectOnClick?: boolean;          // Select row on click (default: true in row mode)
+}
+
+new SelectionPlugin({ mode: 'range', checkbox: true })
+```
+
+**EditingPlugin:**
+
+```typescript
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+interface EditingConfig {
+  mode?: 'cell' | 'row';           // Edit single cell or full row
+  trigger?: 'click' | 'dblclick' | 'enter' | 'manual';
+  commitOnBlur?: boolean;          // Auto-commit when focus leaves (default: true)
+  commitOnEnter?: boolean;         // Commit on Enter key (default: true)
+  cancelOnEscape?: boolean;        // Cancel on Escape key (default: true)
+}
+
+new EditingPlugin({ mode: 'cell', trigger: 'dblclick' })
+```
+
+**FilteringPlugin:**
+
+```typescript
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+interface FilteringConfig {
+  debounceMs?: number;             // Debounce filter input (default: 300)
+  showFilterRow?: boolean;         // Show inline filter row (default: false)
+  filterHandler?: (rows, filters) => rows | Promise<rows>; // Custom/server-side filtering
+}
+
+new FilteringPlugin({ debounceMs: 200 })
+```
+
+**TreePlugin:**
+
+```typescript
+import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+
+interface TreeConfig {
+  childrenField?: string;          // Field containing children array (default: 'children')
+  expandedByDefault?: boolean;     // Start expanded (default: false)
+  indentSize?: number;             // Indent per level in px (default: 20)
+  loadChildren?: (row) => Promise<row[]>; // Lazy load children
+}
+
+new TreePlugin({ childrenField: 'children', expandedByDefault: true })
+```
+
+**RowGroupingPlugin:**
+
+```typescript
+import { RowGroupingPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+interface RowGroupingConfig {
+  groupBy: string[];               // Fields to group by
+  expandedByDefault?: boolean;     // Start groups expanded (default: true)
+  showGroupFooter?: boolean;       // Show group footer with aggregations
+  groupRenderer?: (group) => HTMLElement | string; // Custom group row renderer
+}
+
+new RowGroupingPlugin({ groupBy: ['department', 'team'] })
+```
+
+**MasterDetailPlugin:**
+
+```typescript
+import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+
+interface MasterDetailConfig {
+  renderer: (row, container) => void | (() => void); // Detail panel renderer
+  expandOnRowClick?: boolean;      // Expand on row click (default: false)
+  singleExpand?: boolean;          // Only one row expanded at a time
+  height?: number | 'auto';        // Detail panel height
+}
+
+new MasterDetailPlugin({
+  renderer: (row, container) => {
+    container.innerHTML = `<div>Details for ${row.name}</div>`;
+  }
+})
+```
+
+### Built-in Editor Parameters
+
+Use `editorParams` to configure built-in editors:
+
+```typescript
+// Text editor
+{ field: 'name', type: 'string', editable: true,
+  editorParams: { maxLength: 100, placeholder: 'Enter name...' } }
+
+// Number editor
+{ field: 'salary', type: 'number', editable: true,
+  editorParams: { min: 0, max: 1000000, step: 1000 } }
+
+// Date editor
+{ field: 'hireDate', type: 'date', editable: true,
+  editorParams: { min: '2020-01-01', max: '2030-12-31' } }
+
+// Select/dropdown editor
+{ field: 'status', type: 'select', editable: true,
+  editorParams: {
+    options: [
+      { value: 'active', label: 'Active' },
+      { value: 'inactive', label: 'Inactive' },
+      { value: 'pending', label: 'Pending' },
+    ]
+  }
+}
+
+// Boolean/checkbox (no params needed)
+{ field: 'active', type: 'boolean', editable: true }
+```
+
+### Context Objects
+
+**CellRenderContext (for renderers):**
+
+```typescript
+interface CellRenderContext<TRow, TValue> {
+  value: TValue;           // Cell value
+  row: TRow;               // Full row data
+  rowIndex: number;        // Row index in data array
+  column: ColumnConfig;    // Column configuration
+  field: string;           // Field name
+  cellEl: HTMLElement;     // Cell DOM element
+}
+
+// Usage
+renderer: (ctx) => {
+  console.log(ctx.value, ctx.row, ctx.column.field);
+  return `${ctx.value}`;
+}
+```
+
+**ColumnEditorContext (for editors):**
+
+```typescript
+interface ColumnEditorContext<TRow, TValue> {
+  value: TValue;           // Current cell value
+  row: TRow;               // Full row data (read-only during edit)
+  rowIndex: number;        // Row index
+  column: ColumnConfig;    // Column configuration
+  field: string;           // Field name
+  cellEl: HTMLElement;     // Cell DOM element
+  commit: (newValue: TValue) => void;  // Commit the edit
+  cancel: () => void;      // Cancel the edit
+}
+
+// Usage
+editor: (ctx) => {
+  const input = document.createElement('input');
+  input.value = ctx.value;
+  input.onblur = () => ctx.commit(input.value);
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') ctx.commit(input.value);
+    if (e.key === 'Escape') ctx.cancel();
+  };
+  return input;
+}
+```
+
+**HeaderCellContext (for headerRenderer):**
+
+```typescript
+interface HeaderCellContext<TRow> {
+  column: ColumnConfig;           // Column configuration
+  value: string;                  // Header text
+  sortState: 'asc' | 'desc' | null; // Current sort state
+  cellEl: HTMLElement;            // Header cell element
+  renderSortIcon: () => HTMLElement | null;    // Get sort indicator
+  renderFilterButton: () => HTMLElement | null; // Get filter button (FilteringPlugin)
+}
+```
+
 ### Row Animation API
 
 Trigger visual feedback when rows change:
@@ -761,6 +951,218 @@ const existing = queryGrid<Employee>('#my-grid');
 if (existing) {
   existing.rows = employees;
 }
+```
+
+### Shell Configuration
+
+The grid includes a shell wrapper for toolbar, tool panels, and status bar. Configure via `gridConfig.shell`:
+
+```typescript
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+grid.gridConfig = {
+  shell: {
+    header: { title: 'Employee Directory' },
+    toolPanel: { position: 'right', width: 280 },
+  },
+  plugins: [new VisibilityPlugin()], // Adds column visibility panel
+};
+```
+
+**Shell Header Layout (left to right):**
+
+| Zone | Purpose | Configuration |
+|------|---------|---------------|
+| **Title** | Grid title text | `shell.header.title` or `<tbw-grid-header title="...">` |
+| **Center** | Search boxes, filters, status | `registerHeaderContent()` or `<tbw-grid-header-content>` |
+| **Toolbar** | Action buttons, controls | `shell.header.toolbarContents` or `registerToolbarContent()` or `<tbw-grid-tool-buttons>` |
+| **Panel Toggle** | Opens tool panel sidebar | Automatic when plugins register panels |
+
+**Header Content (Center Area) - API only:**
+
+```typescript
+grid.registerHeaderContent({
+  id: 'row-count',
+  order: 10,
+  render: (container) => {
+    const span = document.createElement('span');
+    span.textContent = `${grid.rows.length} rows`;
+    container.appendChild(span);
+  },
+});
+
+grid.unregisterHeaderContent('row-count');
+```
+
+**Toolbar Content (Right Area) - via Config:**
+
+```typescript
+grid.gridConfig = {
+  shell: {
+    header: {
+      title: 'Employees',
+      toolbarContents: [
+        {
+          id: 'export-btn',
+          order: 10, // Lower = rendered first
+          render: (container) => {
+            const btn = document.createElement('button');
+            btn.className = 'dg-toolbar-btn';
+            btn.textContent = 'Export';
+            btn.onclick = () => exportData(grid.rows);
+            container.appendChild(btn);
+          },
+        },
+      ],
+    },
+  },
+};
+```
+
+**Toolbar Content - via API (dynamic):**
+
+```typescript
+grid.registerToolbarContent({
+  id: 'refresh-btn',
+  order: 20,
+  render: (container) => {
+    const btn = document.createElement('button');
+    btn.className = 'dg-toolbar-btn';
+    btn.textContent = 'Refresh';
+    btn.onclick = () => loadData();
+    container.appendChild(btn);
+  },
+});
+
+grid.unregisterToolbarContent('refresh-btn');
+```
+
+**Light DOM Shell Configuration:**
+
+```html
+<tbw-grid style="height: 500px;">
+  <tbw-grid-header title="Employee Directory">
+    <tbw-grid-header-content>
+      <span>20 employees</span>
+    </tbw-grid-header-content>
+    <tbw-grid-tool-buttons>
+      <button class="dg-toolbar-btn">Export</button>
+    </tbw-grid-tool-buttons>
+  </tbw-grid-header>
+</tbw-grid>
+```
+
+**Tool Panel Configuration:**
+
+```typescript
+grid.gridConfig = {
+  shell: {
+    toolPanel: {
+      position: 'right',     // 'left' | 'right'
+      width: 280,            // Panel width in pixels
+      defaultOpen: 'columns', // Panel ID to open by default
+    },
+  },
+};
+```
+
+**Custom Tool Panels:**
+
+```typescript
+grid.registerToolPanel({
+  id: 'filters',
+  title: 'Filters',
+  icon: '🔍',
+  order: 10,
+  render: (container) => {
+    container.innerHTML = '<div class="filter-panel">...</div>';
+  },
+});
+
+grid.unregisterToolPanel('filters');
+```
+
+### Column State Persistence
+
+The grid tracks user modifications (resizing, reordering, hiding, sorting) for persistence:
+
+**GridColumnState Interface:**
+
+```typescript
+interface GridColumnState {
+  columns: ColumnState[];
+}
+
+interface ColumnState {
+  field: string;           // Column identifier
+  order: number;           // Position (0-based)
+  width?: number;          // Pixel width (if resized)
+  visible: boolean;        // Hidden/shown state
+  sort?: {
+    direction: 'asc' | 'desc';
+    priority: number;      // For multi-column sort
+  };
+}
+```
+
+**Save State:**
+
+```typescript
+grid.addEventListener('column-state-change', (e) => {
+  const state = e.detail; // GridColumnState
+  localStorage.setItem('grid-prefs', JSON.stringify(state));
+});
+```
+
+**Restore State:**
+
+```typescript
+// Via config
+const saved = localStorage.getItem('grid-prefs');
+grid.gridConfig = {
+  columns: [...],
+  columnState: saved ? JSON.parse(saved) : undefined,
+};
+
+// Or at runtime
+grid.columnState = JSON.parse(localStorage.getItem('grid-prefs'));
+```
+
+**Reset State:**
+
+```typescript
+grid.resetColumnState();
+```
+
+### Event Detail Types
+
+All grid events have typed detail interfaces:
+
+| Event | Detail Type | Key Properties |
+|-------|-------------|----------------|
+| `cell-click` | `CellClickDetail` | `row`, `rowIndex`, `field`, `value`, `column`, `cellEl` |
+| `row-click` | `RowClickDetail` | `row`, `rowIndex`, `rowEl`, `event` |
+| `cell-activate` | `CellActivateDetail` | `rowIndex`, `colIndex`, `field`, `value`, `trigger` |
+| `cell-change` | `CellChangeDetail` | `row`, `rowId`, `field`, `oldValue`, `newValue`, `source` |
+| `sort-change` | `SortChangeDetail` | `field`, `direction` (0=none, 1=asc, -1=desc) |
+| `column-resize` | `ColumnResizeDetail` | `field`, `width` |
+| `column-state-change` | `GridColumnState` | `columns` array with state |
+
+**Typed Event Handling:**
+
+```typescript
+import type { CellClickDetail, CellChangeDetail } from '@toolbox-web/grid';
+
+grid.addEventListener('cell-click', (e: CustomEvent<CellClickDetail>) => {
+  const { row, field, value } = e.detail;
+  console.log(`Clicked ${field}: ${value}`);
+});
+
+grid.addEventListener('cell-change', (e: CustomEvent<CellChangeDetail>) => {
+  const { field, oldValue, newValue, source } = e.detail;
+  // source: 'user' | 'cascade' | 'api'
+  console.log(`${field} changed from ${oldValue} to ${newValue}`);
+});
 ```
 
 ---

@@ -5,7 +5,7 @@
  * Supports Ctrl+Z/Cmd+Z for undo and Ctrl+Y/Cmd+Y (or Ctrl+Shift+Z) for redo.
  */
 
-import { BaseGridPlugin, type PluginDependency } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
 import { canRedo, canUndo, clearHistory, createEditAction, pushAction, redo, undo } from './history';
 import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
 
@@ -97,6 +97,21 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   // State as class properties
   private undoStack: EditAction[] = [];
   private redoStack: EditAction[] = [];
+
+  /**
+   * Subscribe to cell-edit-committed events from EditingPlugin.
+   * @internal
+   */
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+    // Auto-record edits via Event Bus
+    this.on(
+      'cell-edit-committed',
+      (detail: { rowIndex: number; field: string; oldValue: unknown; newValue: unknown }) => {
+        this.recordEdit(detail.rowIndex, detail.field, detail.oldValue, detail.newValue);
+      },
+    );
+  }
 
   /**
    * Clean up state when plugin is detached.

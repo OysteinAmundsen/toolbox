@@ -26,7 +26,7 @@
  */
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
-import { BaseGridPlugin, type GridElement, type PluginManifest } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { InternalGrid } from '../../core/types';
 import styles from './responsive.css?inline';
 import type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, ResponsivePluginConfig } from './types';
@@ -93,6 +93,12 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         reason:
           'Responsive card layout does not yet support row grouping. ' +
           'The variable row heights (cards vs group headers) cause scroll calculation issues.',
+      },
+    ],
+    queries: [
+      {
+        type: 'isCardMode',
+        description: 'Returns whether the grid is currently in responsive card mode',
       },
     ],
   };
@@ -233,6 +239,17 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
 
     super.detach();
+  }
+
+  /**
+   * Handle plugin queries.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'isCardMode') {
+      return this.#isResponsive;
+    }
+    return undefined;
   }
 
   /**

@@ -4,7 +4,13 @@
  * Enables hierarchical tree data with expand/collapse, sorting, and auto-detection.
  */
 
-import { BaseGridPlugin, CellClickEvent, HeaderClickEvent } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  CellClickEvent,
+  HeaderClickEvent,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ColumnViewRenderer } from '../../core/types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
@@ -101,6 +107,21 @@ interface GridWithSortState {
  * @internal Extends BaseGridPlugin
  */
 export class TreePlugin extends BaseGridPlugin<TreeConfig> {
+  static override readonly manifest: PluginManifest = {
+    events: [
+      {
+        type: 'tree-state-change',
+        description: 'Emitted when tree expansion state changes (toggle, expand all, collapse all)',
+      },
+    ],
+    queries: [
+      {
+        type: 'canMoveRow',
+        description: 'Returns false for rows with children (parent nodes cannot be reordered)',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'tree';
   /** @internal */
@@ -137,6 +158,21 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.sortState = null;
+  }
+
+  /**
+   * Handle plugin queries.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'canMoveRow') {
+      // Tree rows with children cannot be reordered
+      const row = query.context as any;
+      if (row && row[this.config.childrenField ?? 'children']?.length > 0) {
+        return false;
+      }
+    }
+    return undefined;
   }
 
   // #endregion
@@ -456,16 +492,19 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   toggle(key: string): void {
     this.expandedKeys = toggleExpand(this.expandedKeys, key);
+    this.emitPluginEvent('tree-state-change', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
   expandAll(): void {
     this.expandedKeys = expandAll(this.rows as TreeRow[], this.config);
+    this.emitPluginEvent('tree-state-change', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
   collapseAll(): void {
     this.expandedKeys = collapseAll();
+    this.emitPluginEvent('tree-state-change', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 

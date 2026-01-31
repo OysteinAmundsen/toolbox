@@ -16,7 +16,7 @@
  */
 
 import { animateRowElement } from '../../core/internal/row-animation';
-import type { PluginManifest } from '../../core/plugin/base-plugin';
+import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type {
   ColumnConfig,
@@ -280,6 +280,18 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         description: 'the "editorParams" column property',
       },
     ],
+    events: [
+      {
+        type: 'cell-edit-committed',
+        description: 'Emitted when a cell edit is committed (for plugin-to-plugin coordination)',
+      },
+    ],
+    queries: [
+      {
+        type: 'isEditing',
+        description: 'Returns whether any cell is currently being edited',
+      },
+    ],
   };
 
   /** @internal */
@@ -394,6 +406,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#changedRowIds.clear();
     this.#editingCells.clear();
     super.detach();
+  }
+
+  /**
+   * Handle plugin queries.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'isEditing') {
+      return this.#activeEditRow !== -1;
+    }
+    return undefined;
   }
 
   // #endregion
@@ -1014,6 +1037,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#changedRowIds.add(rowId);
     }
     this.#syncGridEditState();
+
+    // Notify other plugins (e.g., UndoRedoPlugin) about the committed edit
+    this.emitPluginEvent('cell-edit-committed', {
+      rowIndex,
+      field,
+      oldValue,
+      newValue,
+    });
 
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
     if (rowEl) {

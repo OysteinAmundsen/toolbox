@@ -9,7 +9,7 @@
  */
 
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
-import type { PluginManifest } from '../../core/plugin/base-plugin';
+import type { GridElement, PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import {
@@ -252,6 +252,17 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #region Lifecycle
 
   /** @internal */
+  override attach(grid: GridElement): void {
+    super.attach(grid);
+
+    // Subscribe to events that invalidate selection
+    // When rows change due to filtering/grouping/tree operations, selection indices become invalid
+    this.on('filter-applied', () => this.clearSelectionSilent());
+    this.on('grouping-state-change', () => this.clearSelectionSilent());
+    this.on('tree-state-change', () => this.clearSelectionSilent());
+  }
+
+  /** @internal */
   override detach(): void {
     this.selected.clear();
     this.ranges = [];
@@ -260,6 +271,21 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.isDragging = false;
     this.selectedCell = null;
     this.pendingKeyboardUpdate = null;
+  }
+
+  /**
+   * Clear selection without emitting an event.
+   * Used when selection is invalidated by external changes (filtering, grouping, etc.)
+   */
+  private clearSelectionSilent(): void {
+    this.selected.clear();
+    this.ranges = [];
+    this.activeRange = null;
+    this.cellAnchor = null;
+    this.selectedCell = null;
+    this.lastSelected = null;
+    this.anchor = null;
+    this.requestAfterRender();
   }
 
   // #endregion

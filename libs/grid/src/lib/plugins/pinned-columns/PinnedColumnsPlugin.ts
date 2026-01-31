@@ -98,6 +98,10 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         type: QUERY_CAN_MOVE_COLUMN,
         description: 'Prevents pinned (sticky) columns from being moved/reordered',
       },
+      {
+        type: 'getStickyOffsets',
+        description: 'Returns the sticky offsets for left/right pinned columns',
+      },
     ],
   };
 
@@ -187,6 +191,13 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
           return false;
         }
         return undefined; // Let other plugins or default behavior decide
+      }
+      case 'getStickyOffsets': {
+        // Return the calculated sticky offsets for column virtualization
+        return {
+          left: Object.fromEntries(this.leftOffsets),
+          right: Object.fromEntries(this.rightOffsets),
+        };
       }
       default:
         return undefined;

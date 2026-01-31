@@ -7,7 +7,7 @@
  */
 
 import { computeVirtualWindow, shouldBypassVirtualization } from '../../core/internal/virtualization';
-import { BaseGridPlugin, type GridElement } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type GridElement, type PluginManifest } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
 import { computeFilterCacheKey, filterRows, getUniqueValues } from './filter-model';
@@ -111,6 +111,19 @@ import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams }
  * @internal Extends BaseGridPlugin
  */
 export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
+  /**
+   * Plugin manifest - declares events emitted by this plugin.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    events: [
+      {
+        type: 'filter-applied',
+        description: 'Emitted when filter criteria change. Subscribers can react to row visibility changes.',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'filtering';
   /** @internal */
@@ -345,6 +358,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       filters: [...this.filters.values()],
       filteredRowCount: 0, // Will be accurate after processRows
     });
+    // Notify other plugins via Event Bus
+    this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
     this.requestRender();
   }
 
@@ -386,6 +401,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       filters: [...this.filters.values()],
       filteredRowCount: 0,
     });
+    // Notify other plugins via Event Bus
+    this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
     this.requestRender();
   }
 
@@ -1368,6 +1385,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
           filters: filterList,
           filteredRowCount: rows.length,
         });
+        // Notify other plugins via Event Bus
+        this.emitPluginEvent('filter-applied', { filters: filterList });
 
         // Trigger afterRender to update filter button active state
         this.requestRender();
@@ -1386,6 +1405,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       filters: filterList,
       filteredRowCount: 0,
     });
+    // Notify other plugins via Event Bus
+    this.emitPluginEvent('filter-applied', { filters: filterList });
     this.requestRender();
   }
   // #endregion

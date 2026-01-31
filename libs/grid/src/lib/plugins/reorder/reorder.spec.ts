@@ -43,7 +43,7 @@ describe('column-drag', () => {
       expect(canMoveColumn(column)).toBe(true);
     });
 
-    // Note: sticky column checks are handled by PinnedColumnsPlugin via the onPluginQuery hook
+    // Note: sticky column checks are handled by PinnedColumnsPlugin via handleQuery('canMoveColumn')
     // and tested in pinned-columns.spec.ts
   });
 

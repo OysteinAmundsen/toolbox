@@ -190,8 +190,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * - No selection: try to get focused cell from DOM as 1x1 range
    */
   #handleCopy(target: HTMLElement): void {
-    const selectionPlugin = this.#getSelectionPlugin();
-    const selection = selectionPlugin?.getSelection();
+    const selection = this.#getSelection();
     const lastCol = this.columns.length - 1;
     const lastRow = this.rows.length - 1;
 
@@ -218,7 +217,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
           endCol: activeRange.to.col,
         };
       }
-    } else if (!selectionPlugin) {
+    } else if (!selection) {
       // No selection plugin: copy entire grid
       range = { startRow: 0, startCol: 0, endRow: lastRow, endCol: lastCol };
     } else {
@@ -264,9 +263,8 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     const parsed = parseClipboardText(text, this.config);
 
-    // Get target cell from selection plugin
-    const selectionPlugin = this.#getSelectionPlugin();
-    const selection = selectionPlugin?.getSelection();
+    // Get target cell from selection via query
+    const selection = this.#getSelection();
     const firstRange = selection?.ranges?.[0];
 
     // Determine target cell and bounds
@@ -325,19 +323,12 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
   }
 
   /**
-   * Get the selection plugin instance if available.
+   * Get the current selection via Query System.
+   * Returns undefined if no selection plugin is loaded or nothing is selected.
    */
-  #getSelectionPlugin(): SelectionPluginInterface | undefined {
-    // Use getPluginByName for duck-typing approach to avoid import order issues
-    try {
-      const plugin = this.grid?.getPluginByName('selection');
-      if (plugin) {
-        return plugin as unknown as SelectionPluginInterface;
-      }
-    } catch {
-      // Selection plugin not available
-    }
-    return undefined;
+  #getSelection(): SelectionQueryResult | undefined {
+    const responses = this.grid?.query<SelectionQueryResult>('getSelection', undefined);
+    return responses?.[0];
   }
 
   /**
@@ -418,8 +409,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * @returns The copied text
    */
   async copy(): Promise<string> {
-    const selectionPlugin = this.#getSelectionPlugin();
-    const selection = selectionPlugin?.getSelection();
+    const selection = this.#getSelection();
     const lastCol = this.columns.length - 1;
 
     // Default to entire grid if no selection
@@ -502,20 +492,13 @@ interface CellRange {
 }
 
 /**
- * Interface for SelectionPlugin methods we need.
- * This avoids circular imports while providing type safety.
+ * Selection result returned by the Query System.
+ * Matches the SelectionResult type from SelectionPlugin.
  */
-interface SelectionPluginInterface {
-  name: string;
-  /**
-   * Get unified selection result (preferred API).
-   * Works for all selection modes.
-   */
-  getSelection(): {
-    mode: 'cell' | 'row' | 'range';
-    ranges: CellRange[];
-    anchor: { row: number; col: number } | null;
-  };
+interface SelectionQueryResult {
+  mode: 'cell' | 'row' | 'range';
+  ranges: CellRange[];
+  anchor: { row: number; col: number } | null;
 }
 // #endregion
 

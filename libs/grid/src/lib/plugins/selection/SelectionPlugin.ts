@@ -9,7 +9,7 @@
  */
 
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
-import type { GridElement, PluginManifest } from '../../core/plugin/base-plugin';
+import type { GridElement, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import {
@@ -150,10 +150,11 @@ function buildSelectionEvent(
  */
 export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /**
-   * Plugin manifest - declares configuration validation rules.
+   * Plugin manifest - declares queries and configuration validation rules.
    * @internal
    */
   static override readonly manifest: PluginManifest<SelectionConfig> = {
+    queries: [{ type: 'getSelection', description: 'Get the current selection state' }],
     configRules: [
       {
         id: 'selection/range-dblclick',
@@ -260,6 +261,17 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.on('filter-applied', () => this.clearSelectionSilent());
     this.on('grouping-state-change', () => this.clearSelectionSilent());
     this.on('tree-state-change', () => this.clearSelectionSilent());
+  }
+
+  /**
+   * Handle queries from other plugins.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'getSelection') {
+      return this.getSelection();
+    }
+    return undefined;
   }
 
   /** @internal */

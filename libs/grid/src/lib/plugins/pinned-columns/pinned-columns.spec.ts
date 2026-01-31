@@ -233,36 +233,35 @@ describe('sticky-columns', () => {
 describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
   // Import the plugin class for canMoveColumn tests
   const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
-  const { PLUGIN_QUERIES } = await import('../../core/plugin/base-plugin');
 
   it('returns false for column with sticky: left', () => {
     const plugin = new PinnedColumnsPlugin();
     const column = { field: 'id', sticky: 'left' };
-    expect(plugin.handleQuery({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column })).toBe(false);
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
   it('returns false for column with sticky: right', () => {
     const plugin = new PinnedColumnsPlugin();
     const column = { field: 'actions', sticky: 'right' };
-    expect(plugin.handleQuery({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column })).toBe(false);
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
   it('returns false for column with meta.sticky: left', () => {
     const plugin = new PinnedColumnsPlugin();
     const column = { field: 'id', meta: { sticky: 'left' } };
-    expect(plugin.handleQuery({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column })).toBe(false);
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
   it('returns false for column with meta.sticky: right', () => {
     const plugin = new PinnedColumnsPlugin();
     const column = { field: 'actions', meta: { sticky: 'right' } };
-    expect(plugin.handleQuery({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column })).toBe(false);
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
   it('returns undefined for non-sticky column (allows other plugins to decide)', () => {
     const plugin = new PinnedColumnsPlugin();
     const column = { field: 'name' };
-    expect(plugin.handleQuery({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column })).toBe(undefined);
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(undefined);
   });
 
   it('returns undefined for unknown query types', () => {

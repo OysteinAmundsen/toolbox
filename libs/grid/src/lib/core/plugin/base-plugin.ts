@@ -913,7 +913,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```ts
    * afterRender(): void {
    *   // Apply selection styling to rendered rows
-   *   const rows = this.shadowRoot?.querySelectorAll('.data-row');
+   *   const rows = this.gridElement?.querySelectorAll('.data-row');
    *   rows?.forEach((row, i) => {
    *     row.classList.toggle('selected', this.selectedRows.has(i));
    *   });
@@ -1310,7 +1310,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    */
   onCellMouseUp?(event: CellMouseEvent): boolean | void;
 
-  // Note: Context menu items are now provided via onPluginQuery with PLUGIN_QUERIES.GET_CONTEXT_MENU_ITEMS
+  // Note: Context menu items are provided via handleQuery('getContextMenuItems').
   // This keeps the core decoupled from the context-menu plugin specifics.
 
   // #endregion

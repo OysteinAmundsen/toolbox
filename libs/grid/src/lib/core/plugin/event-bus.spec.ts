@@ -278,7 +278,7 @@ describe('Event Bus', () => {
     it('should catch and log errors in event handlers', () => {
       const emitter = new EmitterPlugin();
       const listener = new ListenerPlugin();
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
       pluginManager.attach(emitter);
       pluginManager.attach(listener);

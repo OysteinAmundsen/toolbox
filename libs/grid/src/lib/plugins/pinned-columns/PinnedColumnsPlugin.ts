@@ -4,8 +4,8 @@
  * Enables column pinning (sticky left/right positioning).
  */
 
-import type { PluginManifest } from '../../core/plugin/base-plugin';
-import { BaseGridPlugin, PLUGIN_QUERIES, type PluginQuery } from '../../core/plugin/base-plugin';
+import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
   applyStickyOffsets,
@@ -16,8 +16,8 @@ import {
 } from './pinned-columns';
 import type { PinnedColumnsConfig } from './types';
 
-/** @internal Query type constant for checking if a column can be moved */
-const QUERY_CAN_MOVE_COLUMN = PLUGIN_QUERIES.CAN_MOVE_COLUMN;
+/** Query type constant for checking if a column can be moved */
+const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
 
 /**
  * Pinned Columns Plugin for tbw-grid

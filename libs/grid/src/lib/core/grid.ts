@@ -2382,8 +2382,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * @example
    * // Check if any plugin vetoes moving a column
-   * const responses = grid.queryPlugins<boolean>({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column });
+   * const responses = grid.queryPlugins<boolean>({ type: 'canMoveColumn', context: column });
    * const canMove = !responses.includes(false);
+   *
+   * @deprecated Use the simplified `query<T>(type, context)` method instead.
    */
   queryPlugins<T>(query: PluginQuery): T[] {
     return this.#pluginManager?.queryPlugins<T>(query) ?? [];

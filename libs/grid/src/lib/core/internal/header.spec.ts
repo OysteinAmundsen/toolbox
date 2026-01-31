@@ -303,6 +303,56 @@ describe('renderHeader', () => {
       const cell = g._headerRowEl.querySelector('.cell') as HTMLElement;
       expect(cell.classList.contains('resizable')).toBe(true);
     });
+
+    it('respects grid-level resizable: false - disables all column resizing', () => {
+      const g = makeGrid({
+        columns: [{ field: 'name', resizable: true }],
+        effectiveConfig: { resizable: false },
+      });
+      renderHeader(g);
+      const handle = g._headerRowEl.querySelector('.resize-handle');
+      expect(handle).toBeFalsy();
+    });
+
+    it('respects grid-level resizable: false - no resizable class', () => {
+      const g = makeGrid({
+        columns: [{ field: 'name', resizable: true }],
+        effectiveConfig: { resizable: false },
+      });
+      renderHeader(g);
+      const cell = g._headerRowEl.querySelector('.cell') as HTMLElement;
+      expect(cell.classList.contains('resizable')).toBe(false);
+    });
+
+    it('allows resizing when grid-level resizable: true', () => {
+      const g = makeGrid({
+        columns: [{ field: 'name', resizable: true }],
+        effectiveConfig: { resizable: true },
+      });
+      renderHeader(g);
+      const handle = g._headerRowEl.querySelector('.resize-handle');
+      expect(handle).toBeTruthy();
+    });
+
+    it('allows resizing when grid-level resizable is undefined (defaults to true)', () => {
+      const g = makeGrid({
+        columns: [{ field: 'name' }], // resizable defaults to true
+        effectiveConfig: {},
+      });
+      renderHeader(g);
+      const handle = g._headerRowEl.querySelector('.resize-handle');
+      expect(handle).toBeTruthy();
+    });
+
+    it('column with resizable: false is still not resizable even with grid-level resizable: true', () => {
+      const g = makeGrid({
+        columns: [{ field: 'name', resizable: false }],
+        effectiveConfig: { resizable: true },
+      });
+      renderHeader(g);
+      const handle = g._headerRowEl.querySelector('.resize-handle');
+      expect(handle).toBeFalsy();
+    });
   });
 
   // Note: sticky class application is handled by PinnedColumnsPlugin, tested in pinned-columns.spec.ts
@@ -468,18 +518,15 @@ describe('renderHeader', () => {
       expect(indicator).toBeTruthy();
     });
 
-    it('provides renderResizeHandle helper', () => {
+    it('automatically adds resize handle for resizable columns', () => {
       const g = makeGrid({
         columns: [
           {
             field: 'id',
             resizable: true,
-            headerRenderer: (ctx: any) => {
-              const container = document.createElement('div');
-              container.textContent = 'Custom ';
-              const handle = ctx.renderResizeHandle();
-              if (handle) container.appendChild(handle);
-              return container;
+            headerRenderer: () => {
+              // User doesn't need to add resize handle - it's automatic
+              return 'Custom Header';
             },
           },
         ],

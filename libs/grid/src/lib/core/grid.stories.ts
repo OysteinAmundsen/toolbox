@@ -71,12 +71,12 @@ const meta: Meta = {
     // Features
     sortable: {
       control: 'boolean',
-      description: 'Enable column sorting',
+      description: 'Grid-wide toggle to enable/disable column sorting',
       table: { category: 'Features' },
     },
     resizable: {
       control: 'boolean',
-      description: 'Enable column resizing',
+      description: 'Grid-wide toggle to enable/disable column resizing',
       table: { category: 'Features' },
     },
   },
@@ -230,14 +230,16 @@ grid.addEventListener('cell-commit', (e) => {
 
     // Build columns from selected options
     const columns = buildColumnDefs(args.visibleColumns, {
-      sortable: args.sortable,
-      resizable: args.resizable,
+      sortable: true, // Column-level always enabled; grid-level toggle controls actual behavior
+      resizable: true, // Column-level always enabled; grid-level toggle controls actual behavior
     });
 
     // Set props BEFORE grid is connected to DOM for single render pass
     grid.fitMode = args.fitMode;
     grid.gridConfig = {
       columns,
+      sortable: args.sortable, // Grid-wide toggle
+      resizable: args.resizable, // Grid-wide toggle
       plugins: [
         new EditingPlugin({
           editOn: args.editOn === 'click' ? 'click' : 'dblclick',

@@ -662,12 +662,11 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
 
   /**
    * Custom header cell renderer. Complete control over the entire header cell.
-   * When using this, you are responsible for all content and interactions.
+   * Resize handles are added automatically for resizable columns.
    *
-   * The context provides helper functions to include standard elements if desired:
+   * The context provides helper functions to include standard elements:
    * - `renderSortIcon()` - Returns sort indicator element (null if not sortable)
    * - `renderFilterButton()` - Returns filter button (null if not filterable)
-   * - `renderResizeHandle()` - Returns resize handle element
    *
    * **Precedence**: `headerRenderer` > `headerLabelRenderer` > `header` > `field`
    *
@@ -934,7 +933,8 @@ export interface HeaderLabelContext<TRow = unknown> {
 
 /**
  * Context passed to `headerRenderer` for complete control over header cell content.
- * When using this, the user is responsible for all content and interactions.
+ * When using this, you control the header content. Resize handles are added automatically
+ * for resizable columns.
  *
  * @example
  * ```typescript
@@ -942,10 +942,9 @@ export interface HeaderLabelContext<TRow = unknown> {
  *   const div = document.createElement('div');
  *   div.className = 'custom-header';
  *   div.innerHTML = `<span>${ctx.value}</span>`;
- *   // Optionally include standard elements
+ *   // Optionally include sort icon
  *   const sortIcon = ctx.renderSortIcon();
  *   if (sortIcon) div.appendChild(sortIcon);
- *   div.appendChild(ctx.renderResizeHandle());
  *   return div;
  * }
  * ```
@@ -972,11 +971,6 @@ export interface HeaderCellContext<TRow = unknown> {
    * Note: The actual button is added by FilteringPlugin's afterRender hook.
    */
   renderFilterButton: () => HTMLElement | null;
-  /**
-   * Render the standard resize handle.
-   * Returns a handle element that will be managed by the grid's resize controller.
-   */
-  renderResizeHandle: () => HTMLElement;
 }
 
 /**
@@ -1035,9 +1029,7 @@ export type HeaderLabelRenderer<TRow = unknown> = (ctx: HeaderLabelContext<TRow>
  *   const filterBtn = ctx.renderFilterButton();
  *   if (filterBtn) div.appendChild(filterBtn);
  *
- *   // Add resize handle (always available)
- *   div.appendChild(ctx.renderResizeHandle());
- *
+ *   // Resize handles are added automatically for resizable columns
  *   return div;
  * };
  *
@@ -1613,6 +1605,28 @@ export interface GridConfig<TRow = any> {
    * ```
    */
   sortable?: boolean;
+
+  /**
+   * Grid-wide resizing toggle.
+   * When false, disables column resizing for all columns regardless of their individual `resizable` setting.
+   * When true (default), columns with `resizable: true` (or resizable not set, since it defaults to true) can be resized.
+   *
+   * This affects:
+   * - Resize handle visibility in header cells
+   * - Double-click to auto-size behavior
+   *
+   * @default true
+   *
+   * @example
+   * ```typescript
+   * // Disable all column resizing
+   * gridConfig = { resizable: false };
+   *
+   * // Enable resizing (default) - individual columns can opt out with resizable: false
+   * gridConfig = { resizable: true };
+   * ```
+   */
+  resizable?: boolean;
 
   /**
    * Row height in pixels for virtualization calculations.

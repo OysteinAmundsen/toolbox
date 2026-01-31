@@ -24,6 +24,18 @@ function isColumnSortable(grid: InternalGrid, col: ColumnInternal): boolean {
 }
 
 /**
+ * Check if a column is resizable, respecting both column-level and grid-level settings.
+ * Grid-wide `resizable: false` disables resizing for all columns.
+ * Grid-wide `resizable: true` (or undefined) allows column-level `resizable` to control behavior.
+ */
+function isColumnResizable(grid: InternalGrid, col: ColumnInternal): boolean {
+  // Grid-wide resizable defaults to true if not specified
+  const gridResizable = grid.effectiveConfig?.resizable !== false;
+  // Column-level resizable defaults to true if not specified
+  return gridResizable && col.resizable !== false;
+}
+
+/**
  * Set an icon value on an element. Handles both string and HTMLElement icons.
  */
 function setIcon(element: HTMLElement, icon: IconValue): void {
@@ -159,7 +171,6 @@ export function renderHeader(grid: InternalGrid): void {
         cellEl: cell,
         renderSortIcon: () => (isColumnSortable(grid, col) ? createSortIndicator(grid, col) : null),
         renderFilterButton: () => null, // FilteringPlugin adds filter button via afterRender
-        renderResizeHandle: () => createResizeHandle(grid, i, cell),
       };
 
       const output = col.headerRenderer(ctx);
@@ -170,11 +181,10 @@ export function renderHeader(grid: InternalGrid): void {
         setupSortHandlers(grid, col, i, cell);
       }
 
-      // Add resizable class if resizable (for CSS positioning context)
-      if (col.resizable) {
+      // Always add resize handle if resizable (not user's responsibility)
+      if (isColumnResizable(grid, col)) {
         cell.classList.add('resizable');
-        // Note: User should call ctx.renderResizeHandle() and append it themselves
-        // But we ensure the class is set for CSS purposes
+        cell.appendChild(createResizeHandle(grid, i, cell));
       }
     }
     // Check for headerLabelRenderer (label-only mode)
@@ -201,7 +211,7 @@ export function renderHeader(grid: InternalGrid): void {
         setupSortHandlers(grid, col, i, cell);
         cell.appendChild(createSortIndicator(grid, col));
       }
-      if (col.resizable) {
+      if (isColumnResizable(grid, col)) {
         cell.classList.add('resizable');
         cell.appendChild(createResizeHandle(grid, i, cell));
       }
@@ -215,7 +225,7 @@ export function renderHeader(grid: InternalGrid): void {
         setupSortHandlers(grid, col, i, cell);
         cell.appendChild(createSortIndicator(grid, col));
       }
-      if (col.resizable) {
+      if (isColumnResizable(grid, col)) {
         cell.classList.add('resizable');
         cell.appendChild(createResizeHandle(grid, i, cell));
       }
@@ -231,7 +241,7 @@ export function renderHeader(grid: InternalGrid): void {
         setupSortHandlers(grid, col, i, cell);
         cell.appendChild(createSortIndicator(grid, col));
       }
-      if (col.resizable) {
+      if (isColumnResizable(grid, col)) {
         cell.classList.add('resizable');
         cell.appendChild(createResizeHandle(grid, i, cell));
       }

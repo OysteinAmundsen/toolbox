@@ -16,6 +16,9 @@ import {
 } from './pinned-columns';
 import type { PinnedColumnsConfig } from './types';
 
+/** @internal Query type constant for checking if a column can be moved */
+const QUERY_CAN_MOVE_COLUMN = PLUGIN_QUERIES.CAN_MOVE_COLUMN;
+
 /**
  * Pinned Columns Plugin for tbw-grid
  *
@@ -78,7 +81,7 @@ import type { PinnedColumnsConfig } from './types';
  */
 export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   /**
-   * Plugin manifest - declares owned properties for configuration validation.
+   * Plugin manifest - declares owned properties and handled queries.
    * @internal
    */
   static override readonly manifest: PluginManifest = {
@@ -88,6 +91,12 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         level: 'column',
         description: 'the "sticky" column property',
         isUsed: (v) => v === 'left' || v === 'right',
+      },
+    ],
+    queries: [
+      {
+        type: QUERY_CAN_MOVE_COLUMN,
+        description: 'Prevents pinned (sticky) columns from being moved/reordered',
       },
     ],
   };
@@ -162,9 +171,9 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * Handle inter-plugin queries.
    * @internal
    */
-  override onPluginQuery(query: PluginQuery): unknown {
+  override handleQuery(query: PluginQuery): unknown {
     switch (query.type) {
-      case PLUGIN_QUERIES.CAN_MOVE_COLUMN: {
+      case QUERY_CAN_MOVE_COLUMN: {
         // Prevent pinned columns from being moved/reordered.
         // Pinned columns have fixed positions and should not be draggable.
         const column = query.context as ColumnConfig;

@@ -9,7 +9,7 @@
  */
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
-import { BaseGridPlugin, PLUGIN_QUERIES } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, InternalGrid } from '../../core/types';
 import { canMoveColumn, moveColumn } from './column-drag';
 import styles from './reorder.css?inline';
@@ -134,10 +134,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
    */
   private canMoveColumnWithPlugins(column: ColumnConfig | undefined): boolean {
     if (!column || !canMoveColumn(column)) return false;
-    const responses = this.grid.queryPlugins<boolean>({
-      type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
-      context: column,
-    });
+    // Query plugins that respond to 'canMoveColumn' (e.g., PinnedColumnsPlugin)
+    const responses = this.grid.query<boolean>('canMoveColumn', column);
     return !responses.includes(false);
   }
 

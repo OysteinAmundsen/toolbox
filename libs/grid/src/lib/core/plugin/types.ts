@@ -209,6 +209,18 @@ export interface PluginQuery<T = unknown> {
 /**
  * Well-known plugin query types.
  * Plugins can define additional query types beyond these.
+ *
+ * @deprecated Use string literals with `grid.query()` instead. Query types should
+ * be declared in the responding plugin's `manifest.queries` for automatic routing.
+ * This constant will be removed in a future major version.
+ *
+ * @example
+ * // Before (deprecated):
+ * import { PLUGIN_QUERIES } from '@toolbox-web/grid';
+ * const responses = grid.queryPlugins({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column });
+ *
+ * // After (recommended):
+ * const responses = grid.query<boolean>('canMoveColumn', column);
  */
 export const PLUGIN_QUERIES = {
   /** Ask if a column can be moved. Context: ColumnConfig. Response: boolean | undefined */
@@ -389,6 +401,16 @@ export interface GridElementRef {
   // =========================================================================
 
   /**
+   * Access to the plugin manager for event bus operations.
+   * @internal - Use BaseGridPlugin's on/off/emitPluginEvent helpers instead.
+   */
+  _pluginManager?: {
+    subscribe(plugin: unknown, eventType: string, callback: (detail: unknown) => void): void;
+    unsubscribe(plugin: unknown, eventType: string): void;
+    emitPluginEvent<T>(eventType: string, detail: T): void;
+  };
+
+  /**
    * Query all plugins with a generic query and collect responses.
    * Used for inter-plugin communication (e.g., asking PinnedColumnsPlugin
    * if a column can be moved).
@@ -401,6 +423,20 @@ export interface GridElementRef {
    * const canMove = !responses.includes(false);
    */
   queryPlugins<T>(query: PluginQuery): T[];
+
+  /**
+   * Query plugins with a simplified API.
+   * Convenience wrapper that uses a flat signature.
+   *
+   * @param type - The query type (e.g., 'canMoveColumn')
+   * @param context - The query context/parameters
+   * @returns Array of non-undefined responses from plugins
+   *
+   * @example
+   * const responses = grid.query<boolean>('canMoveColumn', column);
+   * const canMove = !responses.includes(false);
+   */
+  query<T>(type: string, context: unknown): T[];
 
   // =========================================================================
   // DOM Access

@@ -55,6 +55,28 @@ export class PluginManager {
   /** Cell editors registered by plugins */
   private cellEditors: Map<string, CellEditor> = new Map();
 
+  // =========================================================================
+  // Event Bus - Plugin-to-Plugin Communication
+  // =========================================================================
+
+  /**
+   * Event listeners indexed by event type.
+   * Maps event type → Map<plugin instance → callback>.
+   * Using plugin instance as key enables auto-cleanup on detach.
+   */
+  private eventListeners: Map<string, Map<BaseGridPlugin, (detail: unknown) => void>> = new Map();
+
+  // =========================================================================
+  // Query System - Manifest-based Routing
+  // =========================================================================
+
+  /**
+   * Query handlers indexed by query type.
+   * Maps query type → Set of plugin instances that declare handling it.
+   * Built from manifest.queries during plugin attach.
+   */
+  private queryHandlers: Map<string, Set<BaseGridPlugin>> = new Map();
+
   constructor(private grid: GridElement) {}
 
   /**
@@ -96,6 +118,9 @@ export class PluginManager {
       }
     }
 
+    // Register query handlers from manifest
+    this.registerQueryHandlers(plugin);
+
     // Call attach lifecycle method
     plugin.attach(this.grid);
 
@@ -103,6 +128,36 @@ export class PluginManager {
     for (const existingPlugin of this.plugins) {
       if (existingPlugin !== plugin && existingPlugin.onPluginAttached) {
         existingPlugin.onPluginAttached(plugin.name, plugin);
+      }
+    }
+  }
+
+  /**
+   * Register query handlers from a plugin's manifest.
+   */
+  private registerQueryHandlers(plugin: BaseGridPlugin): void {
+    const PluginClass = plugin.constructor as typeof BaseGridPlugin;
+    const manifest = PluginClass.manifest;
+    if (!manifest?.queries) return;
+
+    for (const queryDef of manifest.queries) {
+      let handlers = this.queryHandlers.get(queryDef.type);
+      if (!handlers) {
+        handlers = new Set();
+        this.queryHandlers.set(queryDef.type, handlers);
+      }
+      handlers.add(plugin);
+    }
+  }
+
+  /**
+   * Unregister query handlers for a plugin.
+   */
+  private unregisterQueryHandlers(plugin: BaseGridPlugin): void {
+    for (const [queryType, handlers] of this.queryHandlers) {
+      handlers.delete(plugin);
+      if (handlers.size === 0) {
+        this.queryHandlers.delete(queryType);
       }
     }
   }
@@ -123,13 +178,18 @@ export class PluginManager {
 
     // Detach in reverse order
     for (let i = this.plugins.length - 1; i >= 0; i--) {
-      this.plugins[i].detach();
+      const plugin = this.plugins[i];
+      this.unsubscribeAll(plugin); // Clean up event subscriptions
+      this.unregisterQueryHandlers(plugin); // Clean up query handlers
+      plugin.detach();
     }
     this.plugins = [];
     this.pluginMap.clear();
     this.cellRenderers.clear();
     this.headerRenderers.clear();
     this.cellEditors.clear();
+    this.eventListeners.clear();
+    this.queryHandlers.clear();
   }
 
   /**
@@ -368,20 +428,112 @@ export class PluginManager {
    * Query all plugins with a generic query and collect responses.
    * This enables inter-plugin communication without the core knowing plugin-specific concepts.
    *
-   * Common query types are defined in PLUGIN_QUERIES, but plugins can define their own.
+   * Uses manifest-based routing when available: only plugins that declare handling
+   * the query type in their `manifest.queries` are invoked. Falls back to querying
+   * all plugins for backwards compatibility with legacy plugins.
+   *
+   * Checks both `handleQuery` (preferred) and `onPluginQuery` (legacy) hooks.
    *
    * @param query - The query object containing type and context
    * @returns Array of non-undefined responses from plugins
    */
   queryPlugins<T>(query: PluginQuery): T[] {
     const responses: T[] = [];
+
+    // Try manifest-based routing first
+    const handlers = this.queryHandlers.get(query.type);
+    if (handlers && handlers.size > 0) {
+      // Route only to plugins that declared this query type
+      for (const plugin of handlers) {
+        const response = plugin.handleQuery?.(query) ?? plugin.onPluginQuery?.(query);
+        if (response !== undefined) {
+          responses.push(response as T);
+        }
+      }
+      return responses;
+    }
+
+    // Fallback: query all plugins (legacy behavior for plugins without manifest)
     for (const plugin of this.plugins) {
-      const response = plugin.onPluginQuery?.(query);
+      // Try handleQuery first (new API), fall back to onPluginQuery (legacy)
+      const response = plugin.handleQuery?.(query) ?? plugin.onPluginQuery?.(query);
       if (response !== undefined) {
         responses.push(response as T);
       }
     }
     return responses;
+  }
+
+  // =========================================================================
+  // Event Bus - Plugin-to-Plugin Communication
+  // =========================================================================
+
+  /**
+   * Subscribe a plugin to an event type.
+   * The subscription is automatically cleaned up when the plugin is detached.
+   *
+   * @param plugin - The subscribing plugin instance
+   * @param eventType - The event type to listen for
+   * @param callback - The callback to invoke when the event is emitted
+   */
+  subscribe(plugin: BaseGridPlugin, eventType: string, callback: (detail: unknown) => void): void {
+    let listeners = this.eventListeners.get(eventType);
+    if (!listeners) {
+      listeners = new Map();
+      this.eventListeners.set(eventType, listeners);
+    }
+    listeners.set(plugin, callback);
+  }
+
+  /**
+   * Unsubscribe a plugin from an event type.
+   *
+   * @param plugin - The subscribing plugin instance
+   * @param eventType - The event type to stop listening for
+   */
+  unsubscribe(plugin: BaseGridPlugin, eventType: string): void {
+    const listeners = this.eventListeners.get(eventType);
+    if (listeners) {
+      listeners.delete(plugin);
+      if (listeners.size === 0) {
+        this.eventListeners.delete(eventType);
+      }
+    }
+  }
+
+  /**
+   * Unsubscribe a plugin from all events.
+   * Called automatically when a plugin is detached.
+   *
+   * @param plugin - The plugin to unsubscribe
+   */
+  unsubscribeAll(plugin: BaseGridPlugin): void {
+    for (const [eventType, listeners] of this.eventListeners) {
+      listeners.delete(plugin);
+      if (listeners.size === 0) {
+        this.eventListeners.delete(eventType);
+      }
+    }
+  }
+
+  /**
+   * Emit an event to all subscribed plugins.
+   * This is for inter-plugin communication only; it does not dispatch DOM events.
+   *
+   * @param eventType - The event type to emit
+   * @param detail - The event payload
+   */
+  emitPluginEvent<T>(eventType: string, detail: T): void {
+    const listeners = this.eventListeners.get(eventType);
+    if (listeners) {
+      for (const callback of listeners.values()) {
+        try {
+          callback(detail);
+        } catch (error) {
+          console.error(`[tbw-grid] Error in plugin event handler for "${eventType}":`, error);
+        }
+      }
+    }
   }
 
   /**

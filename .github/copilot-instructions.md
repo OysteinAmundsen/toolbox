@@ -616,6 +616,120 @@ BaseGridPlugin provides these protected helpers - use them instead of type casti
 | `this.resolveIcon(name)`       | Get icon value by name                            |
 | `this.setIcon(el, icon)`       | Set icon on element (string or SVG)               |
 
+### Event Bus (Plugin-to-Plugin Communication)
+
+Plugins can communicate via an internal Event Bus. This is distinct from DOM events:
+
+- **DOM events** (`this.emit()`) - For external consumers to `addEventListener()` on the grid
+- **Plugin events** (`this.emitPluginEvent()`) - For inter-plugin communication only
+
+**Subscribing to events:**
+
+```typescript
+class MyPlugin extends BaseGridPlugin<MyConfig> {
+  override attach(grid: GridElementRef): void {
+    super.attach(grid);
+
+    // Subscribe to events from other plugins
+    this.on('filter-change', (detail) => {
+      console.log('Filter changed:', detail);
+    });
+  }
+}
+```
+
+**Emitting events:**
+
+```typescript
+class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
+  // Declare events in manifest
+  static override readonly manifest: PluginManifest = {
+    events: [{ type: 'filter-change', description: 'Emitted when filter criteria change' }],
+  };
+
+  private applyFilter(): void {
+    // ... filter logic
+
+    // Notify other plugins (not DOM events)
+    this.emitPluginEvent('filter-change', { field: 'name', value: 'Alice' });
+  }
+}
+```
+
+**Event Bus Methods:**
+
+| Method                                    | Description                                         |
+| ----------------------------------------- | --------------------------------------------------- |
+| `this.on(eventType, callback)`            | Subscribe to plugin events (auto-cleaned on detach) |
+| `this.off(eventType)`                     | Unsubscribe from a plugin event                     |
+| `this.emitPluginEvent(eventType, detail)` | Emit to subscribed plugins (not DOM)                |
+
+### Query System (Synchronous State Retrieval)
+
+Plugins can expose queryable state via the Query System. Other plugins or the grid can retrieve this data synchronously. The PluginManager uses **manifest-based routing** to efficiently route queries only to plugins that declare handling them.
+
+**How Routing Works:**
+
+1. Plugins declare what queries they handle in `manifest.queries`
+2. At registration, the PluginManager indexes these handlers
+3. When a query is made, only plugins that declared the query type are invoked
+4. Falls back to querying all plugins for backwards compatibility with legacy plugins
+
+**Declaring and handling queries:**
+
+```typescript
+class PinnedColumnsPlugin extends BaseGridPlugin<PinnedConfig> {
+  // Declare queries in manifest - enables efficient routing
+  static override readonly manifest: PluginManifest = {
+    queries: [{ type: 'canMoveColumn', description: 'Check if a column can be moved' }],
+  };
+
+  // Handle queries - only called if declared in manifest (or via legacy fallback)
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'canMoveColumn') {
+      const column = query.context as ColumnConfig;
+      return !column.sticky; // Can't move sticky columns
+    }
+    return undefined;
+  }
+}
+```
+
+**Querying from another plugin:**
+
+```typescript
+class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
+  private canMoveColumn(column: ColumnConfig): boolean {
+    // Query plugins that declared 'canMoveColumn' handler
+    // If any returns false, disallow the move
+    const responses = this.grid.query<boolean>('canMoveColumn', column);
+    return !responses.includes(false);
+  }
+}
+```
+
+**Query Methods:**
+
+| Method                              | Description                                     |
+| ----------------------------------- | ----------------------------------------------- |
+| `handleQuery(query)`                | Override to handle incoming queries (preferred) |
+| `onPluginQuery(query)`              | Legacy hook (deprecated, use `handleQuery`)     |
+| `this.grid.query<T>(type, context)` | Send query to all plugins, collect responses    |
+| `this.grid.queryPlugins<T>(query)`  | Full query object version                       |
+
+**PLUGIN_QUERIES Deprecation:**
+
+The `PLUGIN_QUERIES` constant is deprecated. Use string literals with `grid.query()` instead:
+
+```typescript
+// ❌ Deprecated
+import { PLUGIN_QUERIES } from '@toolbox-web/grid';
+const responses = grid.queryPlugins({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column });
+
+// ✅ Recommended
+const responses = grid.query<boolean>('canMoveColumn', column);
+```
+
 ### Plugin Hooks (Class Methods)
 
 Override these methods in your plugin class (implement only what's needed):

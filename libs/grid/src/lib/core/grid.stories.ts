@@ -521,7 +521,7 @@ export const ColumnStatePersistence: Story = {
 
     // Wrapper with control buttons
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'height: 100%; display: flex; flex-direction: column; gap: 16px; padding: 16px;';
+    wrapper.style.cssText = 'height: 100%; display: flex; flex-direction: column; gap: 16px;';
 
     // Control buttons container
     const controls = document.createElement('div');
@@ -788,23 +788,6 @@ export const ShellBasic: StoryObj<ShellArgs> = {
       toolPanel: { position: args.panelPosition },
     };
 
-    // Add toolbar button if enabled
-    if (args.showToolbarButton) {
-      let refreshCount = 0;
-      shellConfig.header!.toolbarButtons = [
-        {
-          id: 'refresh',
-          label: 'Refresh Data',
-          icon: '↻',
-          action: () => {
-            refreshCount++;
-            console.log(`Refreshed ${refreshCount} times`);
-            grid.rows = generateShellRows(20); // Regenerate data
-          },
-        },
-      ];
-    }
-
     // Build gridConfig with plugins
     const plugins: any[] = [];
     if (args.showVisibilityPlugin) {
@@ -818,6 +801,24 @@ export const ShellBasic: StoryObj<ShellArgs> = {
 
     grid.columns = shellColumns;
     grid.rows = generateShellRows(20);
+
+    // Add toolbar button via light DOM if enabled
+    if (args.showToolbarButton) {
+      let refreshCount = 0;
+      const toolButtons = document.createElement('tbw-grid-tool-buttons');
+      const refreshBtn = document.createElement('button');
+      refreshBtn.className = 'tbw-toolbar-btn';
+      refreshBtn.title = 'Refresh Data';
+      refreshBtn.setAttribute('aria-label', 'Refresh Data');
+      refreshBtn.textContent = '↻';
+      refreshBtn.onclick = () => {
+        refreshCount++;
+        console.log(`Refreshed ${refreshCount} times`);
+        grid.rows = generateShellRows(20);
+      };
+      toolButtons.appendChild(refreshBtn);
+      grid.appendChild(toolButtons);
+    }
 
     // Register custom header content (row count display)
     if (args.showHeaderContent) {
@@ -846,7 +847,7 @@ export const ShellBasic: StoryObj<ShellArgs> = {
         order: 10, // Before columns panel (100)
         render: (container) => {
           const content = document.createElement('div');
-          content.style.cssText = 'padding: 16px;';
+          content.style.cssText = '';
           content.innerHTML = `
             <h3 style="margin: 0 0 16px;">Grid Settings</h3>
             <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
@@ -1029,7 +1030,7 @@ export const ShellMultiplePanels: StoryObj = {
       order: 20,
       render: (container) => {
         const content = document.createElement('div');
-        content.style.cssText = 'padding: 16px;';
+        content.style.cssText = '';
         content.innerHTML = `
           <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #666;">Name contains</label>
@@ -1061,7 +1062,7 @@ export const ShellMultiplePanels: StoryObj = {
       order: 50,
       render: (container) => {
         const content = document.createElement('div');
-        content.style.cssText = 'padding: 16px;';
+        content.style.cssText = '';
         content.innerHTML = `
           <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
             <input type="checkbox" checked />
@@ -1112,7 +1113,7 @@ grid.registerToolPanel({
   tooltip: 'Filter data',
   order: 20,
   render: (container) => {
-    container.innerHTML = '<div style="padding: 16px;">Filter UI here</div>';
+    container.innerHTML = '<div>Filter UI here</div>';
     return () => container.innerHTML = '';
   },
 });
@@ -1126,7 +1127,7 @@ grid.registerToolPanel({
   order: 50,
   render: (container) => {
     container.innerHTML = \`
-      <div style="padding: 16px;">
+      <div>
         <label><input type="checkbox" checked /> Row hover effect</label><br/>
         <label><input type="checkbox" checked /> Alternating row colors</label>
       </div>

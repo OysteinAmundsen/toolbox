@@ -2,7 +2,29 @@ import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
 
 /**
- * The compiled webcomponent interface for DataGrid
+ * The compiled web component interface for DataGrid.
+ *
+ * This interface represents the `<tbw-grid>` custom element, combining
+ * the public grid API with standard HTMLElement functionality.
+ *
+ * @example
+ * ```typescript
+ * // Query existing grid
+ * const grid = document.querySelector('tbw-grid') as DataGridElement<Employee>;
+ * grid.rows = employees;
+ * grid.addEventListener('cell-click', (e) => console.log(e.detail));
+ *
+ * // Create grid programmatically
+ * import { createGrid } from '@toolbox-web/grid';
+ * const grid = createGrid<Employee>({
+ *   columns: [{ field: 'name' }, { field: 'email' }],
+ * });
+ * document.body.appendChild(grid);
+ * ```
+ *
+ * @see {@link PublicGrid} for the public API methods and properties
+ * @see {@link createGrid} for typed grid creation
+ * @see {@link queryGrid} for typed grid querying
  */
 export interface DataGridElement extends PublicGrid, HTMLElement {}
 
@@ -293,11 +315,65 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   requestStateChange?: () => void;
 }
 
+/**
+ * Built-in primitive column types with automatic formatting and editing support.
+ *
+ * - `'string'` - Text content, default text input editor
+ * - `'number'` - Numeric content, right-aligned, number input editor
+ * - `'date'` - Date content, formatted display, date picker editor
+ * - `'boolean'` - True/false, rendered as checkbox
+ * - `'select'` - Dropdown selection from `options` array
+ *
+ * @example
+ * ```typescript
+ * columns: [
+ *   { field: 'name', type: 'string' },
+ *   { field: 'age', type: 'number' },
+ *   { field: 'hireDate', type: 'date' },
+ *   { field: 'active', type: 'boolean' },
+ *   { field: 'department', type: 'select', options: [
+ *     { label: 'Engineering', value: 'eng' },
+ *     { label: 'Sales', value: 'sales' },
+ *   ]},
+ * ]
+ * ```
+ *
+ * @see {@link ColumnType} for custom type support
+ * @see {@link TypeDefault} for type-level defaults
+ */
 export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'select';
 
 /**
  * Column type - built-in primitives or custom type strings.
- * Custom types (e.g., 'currency', 'country') can have type-level defaults via `typeDefaults`.
+ *
+ * Use built-in types for automatic formatting, or define custom types
+ * (e.g., 'currency', 'country') with type-level defaults via `typeDefaults`.
+ *
+ * @example
+ * ```typescript
+ * // Built-in types
+ * { field: 'name', type: 'string' }
+ * { field: 'salary', type: 'number' }
+ *
+ * // Custom types with defaults
+ * grid.gridConfig = {
+ *   columns: [
+ *     { field: 'salary', type: 'currency' },
+ *     { field: 'birthCountry', type: 'country' },
+ *   ],
+ *   typeDefaults: {
+ *     currency: {
+ *       format: (v) => `$${Number(v).toFixed(2)}`,
+ *     },
+ *     country: {
+ *       renderer: (ctx) => `🌍 ${ctx.value}`,
+ *     },
+ *   },
+ * };
+ * ```
+ *
+ * @see {@link PrimitiveColumnType} for built-in types
+ * @see {@link TypeDefault} for defining custom type defaults
  */
 export type ColumnType = PrimitiveColumnType | (string & {});
 
@@ -326,6 +402,10 @@ export type ColumnType = PrimitiveColumnType | (string & {});
  *   }
  * }
  * ```
+ *
+ * @see {@link ColumnViewRenderer} for custom renderer function signature
+ * @see {@link ColumnType} for type strings that can have defaults
+ * @see {@link GridConfig.typeDefaults} for registering type defaults
  */
 export interface TypeDefault<TRow = unknown> {
   /**
@@ -387,8 +467,41 @@ export interface TypeDefault<TRow = unknown> {
 }
 
 /**
- * Base contract for a column. Public; kept intentionally lean so host apps can extend via intersection types.
- * Prefer adding optional properties here only when broadly useful to most grids.
+ * Base contract for a column configuration.
+ *
+ * Defines the fundamental properties all columns share. Extended by {@link ColumnConfig}
+ * with additional features like custom renderers and grouping.
+ *
+ * @example
+ * ```typescript
+ * // Basic column with common properties
+ * const columns: BaseColumnConfig<Employee>[] = [
+ *   {
+ *     field: 'name',
+ *     header: 'Full Name',
+ *     sortable: true,
+ *     resizable: true,
+ *   },
+ *   {
+ *     field: 'salary',
+ *     type: 'number',
+ *     width: 120,
+ *     format: (value) => `$${value.toLocaleString()}`,
+ *     sortComparator: (a, b) => a - b,
+ *   },
+ *   {
+ *     field: 'department',
+ *     type: 'select',
+ *     options: [
+ *       { label: 'Engineering', value: 'eng' },
+ *       { label: 'Sales', value: 'sales' },
+ *     ],
+ *   },
+ * ];
+ * ```
+ *
+ * @see {@link ColumnConfig} for full column configuration with renderers
+ * @see {@link ColumnType} for type options
  */
 export interface BaseColumnConfig<TRow = any, TValue = any> {
   /** Unique field key referencing property in row objects */
@@ -427,7 +540,54 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
 }
 
 /**
- * Full column configuration including optional custom view/renderer & grouping metadata.
+ * Full column configuration including custom renderers, editors, and grouping metadata.
+ *
+ * Extends {@link BaseColumnConfig} with additional features for customizing
+ * how cells are displayed and edited.
+ *
+ * @example
+ * ```typescript
+ * const columns: ColumnConfig<Employee>[] = [
+ *   // Basic sortable column
+ *   { field: 'id', header: 'ID', width: 60, sortable: true },
+ *
+ *   // Column with custom renderer
+ *   {
+ *     field: 'name',
+ *     header: 'Employee',
+ *     renderer: (ctx) => {
+ *       const div = document.createElement('div');
+ *       div.innerHTML = `<img src="${ctx.row.avatar}" /><span>${ctx.value}</span>`;
+ *       return div;
+ *     },
+ *   },
+ *
+ *   // Column with custom header
+ *   {
+ *     field: 'email',
+ *     headerLabelRenderer: (ctx) => `${ctx.value} 📧`,
+ *   },
+ *
+ *   // Editable column (requires EditingPlugin)
+ *   {
+ *     field: 'status',
+ *     editable: true,
+ *     editor: (ctx) => {
+ *       const select = document.createElement('select');
+ *       // ... editor implementation
+ *       return select;
+ *     },
+ *   },
+ *
+ *   // Hidden column (can be shown via VisibilityPlugin)
+ *   { field: 'internalNotes', hidden: true },
+ * ];
+ * ```
+ *
+ * @see {@link BaseColumnConfig} for basic column properties
+ * @see {@link ColumnViewRenderer} for custom cell renderers
+ * @see {@link ColumnEditorSpec} for custom cell editors
+ * @see {@link HeaderRenderer} for custom header renderers
  */
 export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
   /**
@@ -526,9 +686,76 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
   headerRenderer?: HeaderRenderer<TRow>;
 }
 
+/**
+ * Array of column configurations.
+ * Convenience type alias for `ColumnConfig<TRow>[]`.
+ *
+ * @example
+ * ```typescript
+ * const columns: ColumnConfigMap<Employee> = [
+ *   { field: 'name', header: 'Full Name', sortable: true },
+ *   { field: 'email', header: 'Email Address' },
+ *   { field: 'department', type: 'select', options: deptOptions },
+ * ];
+ *
+ * grid.columns = columns;
+ * ```
+ *
+ * @see {@link ColumnConfig} for individual column options
+ * @see {@link GridConfig.columns} for setting columns on the grid
+ */
 export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
 
-/** External editor spec: tag name, factory function, or external mount spec */
+/**
+ * Editor specification for inline cell editing.
+ * Supports multiple formats for maximum flexibility.
+ *
+ * **Format Options:**
+ * - `string` - Custom element tag name (e.g., 'my-date-picker')
+ * - `function` - Factory function returning an editor element
+ * - `object` - External component spec for framework integration
+ *
+ * @example
+ * ```typescript
+ * // 1. Custom element tag name
+ * columns: [
+ *   { field: 'date', editor: 'my-date-picker' }
+ * ]
+ *
+ * // 2. Factory function (full control)
+ * columns: [
+ *   {
+ *     field: 'status',
+ *     editor: (ctx) => {
+ *       const select = document.createElement('select');
+ *       select.innerHTML = `
+ *         <option value="active">Active</option>
+ *         <option value="inactive">Inactive</option>
+ *       `;
+ *       select.value = ctx.value;
+ *       select.onchange = () => ctx.commit(select.value);
+ *       select.onkeydown = (e) => {
+ *         if (e.key === 'Escape') ctx.cancel();
+ *       };
+ *       return select;
+ *     }
+ *   }
+ * ]
+ *
+ * // 3. External component (React, Angular, Vue)
+ * columns: [
+ *   {
+ *     field: 'country',
+ *     editor: {
+ *       component: CountrySelect,
+ *       props: { showFlags: true }
+ *     }
+ *   }
+ * ]
+ * ```
+ *
+ * @see {@link ColumnEditorContext} for the context passed to factory functions
+ */
 export type ColumnEditorSpec<TRow = unknown, TValue = unknown> =
   | string // custom element tag name
   | ((context: ColumnEditorContext<TRow, TValue>) => HTMLElement | string)
@@ -547,6 +774,37 @@ export type ColumnEditorSpec<TRow = unknown, TValue = unknown> =
 
 /**
  * Context object provided to editor factories allowing mutation (commit/cancel) of a cell value.
+ *
+ * The `commit` and `cancel` functions control the editing lifecycle:
+ * - Call `commit(newValue)` to save changes and exit edit mode
+ * - Call `cancel()` to discard changes and exit edit mode
+ *
+ * @example
+ * ```typescript
+ * const myEditor: ColumnEditorSpec = (ctx: ColumnEditorContext) => {
+ *   const input = document.createElement('input');
+ *   input.value = ctx.value;
+ *   input.className = 'my-editor';
+ *
+ *   // Save on Enter, cancel on Escape
+ *   input.onkeydown = (e) => {
+ *     if (e.key === 'Enter') {
+ *       ctx.commit(input.value);
+ *     } else if (e.key === 'Escape') {
+ *       ctx.cancel();
+ *     }
+ *   };
+ *
+ *   // Access row data for validation
+ *   if (ctx.row.locked) {
+ *     input.disabled = true;
+ *   }
+ *
+ *   return input;
+ * };
+ * ```
+ *
+ * @see {@link ColumnEditorSpec} for editor specification options
  */
 export interface ColumnEditorContext<TRow = any, TValue = any> {
   /** Underlying full row object for the active edit. */
@@ -565,6 +823,36 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
 
 /**
  * Context passed to custom view renderers (pure display – no commit helpers).
+ *
+ * Used by `viewRenderer` and `renderer` column properties to create
+ * custom cell content. Return a DOM node or HTML string.
+ *
+ * @example
+ * ```typescript
+ * // Status badge renderer
+ * const statusRenderer: ColumnViewRenderer = (ctx: CellRenderContext) => {
+ *   const badge = document.createElement('span');
+ *   badge.className = `badge badge-${ctx.value}`;
+ *   badge.textContent = ctx.value;
+ *   return badge;
+ * };
+ *
+ * // Progress bar using row data
+ * const progressRenderer: ColumnViewRenderer = (ctx) => {
+ *   const bar = document.createElement('div');
+ *   bar.className = 'progress-bar';
+ *   bar.style.width = `${ctx.value}%`;
+ *   bar.title = `${ctx.row.taskName}: ${ctx.value}%`;
+ *   return bar;
+ * };
+ *
+ * // Return HTML string (simpler, less performant)
+ * const htmlRenderer: ColumnViewRenderer = (ctx) => {
+ *   return `<strong>${ctx.value}</strong>`;
+ * };
+ * ```
+ *
+ * @see {@link ColumnViewRenderer} for the renderer function signature
  */
 export interface CellRenderContext<TRow = any, TValue = any> {
   /** Row object for the cell being rendered. */
@@ -583,6 +871,39 @@ export interface CellRenderContext<TRow = any, TValue = any> {
   cellEl?: HTMLElement;
 }
 
+/**
+ * Custom view renderer function for cell content.
+ *
+ * Returns one of:
+ * - `Node` - DOM element to display in the cell
+ * - `string` - HTML string (parsed and inserted)
+ * - `void | null` - Use default text rendering
+ *
+ * @example
+ * ```typescript
+ * // DOM element (recommended for interactivity)
+ * const avatarRenderer: ColumnViewRenderer<Employee> = (ctx) => {
+ *   const img = document.createElement('img');
+ *   img.src = ctx.row.avatarUrl;
+ *   img.alt = ctx.row.name;
+ *   img.className = 'avatar';
+ *   return img;
+ * };
+ *
+ * // HTML string (simpler, good for static content)
+ * const emailRenderer: ColumnViewRenderer = (ctx) => {
+ *   return `<a href="mailto:${ctx.value}">${ctx.value}</a>`;
+ * };
+ *
+ * // Conditional rendering
+ * const conditionalRenderer: ColumnViewRenderer = (ctx) => {
+ *   if (!ctx.value) return null; // Use default
+ *   return `<em>${ctx.value}</em>`;
+ * };
+ * ```
+ *
+ * @see {@link CellRenderContext} for available context properties
+ */
 export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
   ctx: CellRenderContext<TRow, TValue>,
 ) => Node | string | void | null;
@@ -661,12 +982,78 @@ export interface HeaderCellContext<TRow = unknown> {
 /**
  * Header label renderer function type.
  * Customize the label while framework handles sort icons, filter buttons, resize handles.
+ *
+ * Use this for simple label customizations without taking over the entire header.
+ * The grid automatically appends sort icons, filter buttons, and resize handles.
+ *
+ * @example
+ * ```typescript
+ * // Add required indicator
+ * const requiredHeader: HeaderLabelRenderer = (ctx) => {
+ *   return `${ctx.value} <span style="color: red;">*</span>`;
+ * };
+ *
+ * // Add unit suffix
+ * const priceHeader: HeaderLabelRenderer = (ctx) => {
+ *   const span = document.createElement('span');
+ *   span.innerHTML = `${ctx.value} <small>(USD)</small>`;
+ *   return span;
+ * };
+ *
+ * // Column config usage
+ * columns: [
+ *   { field: 'name', headerLabelRenderer: requiredHeader },
+ *   { field: 'price', headerLabelRenderer: priceHeader },
+ * ]
+ * ```
+ *
+ * @see {@link HeaderLabelContext} for context properties
+ * @see {@link HeaderRenderer} for full header control
  */
 export type HeaderLabelRenderer<TRow = unknown> = (ctx: HeaderLabelContext<TRow>) => Node | string | void | null;
 
 /**
  * Header cell renderer function type.
  * Full control over header cell content. User is responsible for all content and interactions.
+ *
+ * When using this, you have complete control but must manually include
+ * sort icons, filter buttons, and resize handles using the helper functions.
+ *
+ * @example
+ * ```typescript
+ * // Custom header with all standard elements
+ * const customHeader: HeaderRenderer = (ctx) => {
+ *   const div = document.createElement('div');
+ *   div.className = 'custom-header';
+ *   div.innerHTML = `<span class="label">${ctx.value}</span>`;
+ *
+ *   // Add sort icon (returns null if not sortable)
+ *   const sortIcon = ctx.renderSortIcon();
+ *   if (sortIcon) div.appendChild(sortIcon);
+ *
+ *   // Add filter button (returns null if not filterable)
+ *   const filterBtn = ctx.renderFilterButton();
+ *   if (filterBtn) div.appendChild(filterBtn);
+ *
+ *   // Add resize handle (always available)
+ *   div.appendChild(ctx.renderResizeHandle());
+ *
+ *   return div;
+ * };
+ *
+ * // Minimal header (no sort/resize)
+ * const minimalHeader: HeaderRenderer = (ctx) => {
+ *   return `<div class="minimal">${ctx.value}</div>`;
+ * };
+ *
+ * // Column config usage
+ * columns: [
+ *   { field: 'name', headerRenderer: customHeader },
+ * ]
+ * ```
+ *
+ * @see {@link HeaderCellContext} for context properties and helper functions
+ * @see {@link HeaderLabelRenderer} for simpler label-only customization
  */
 export type HeaderRenderer<TRow = unknown> = (ctx: HeaderCellContext<TRow>) => Node | string | void | null;
 
@@ -759,6 +1146,28 @@ export interface ColumnParsedAttributes {
  * Extended column config used internally.
  * Includes all internal properties needed during grid lifecycle.
  *
+ * Plugin developers may need to access these when working with
+ * column caching and compiled templates.
+ *
+ * @example
+ * ```typescript
+ * import type { ColumnInternal } from '@toolbox-web/grid';
+ *
+ * class MyPlugin extends BaseGridPlugin {
+ *   afterRender(): void {
+ *     // Access internal column properties
+ *     const columns = this.columns as ColumnInternal[];
+ *     for (const col of columns) {
+ *       // Check if column was auto-sized
+ *       if (col.__autoSized) {
+ *         console.log(`${col.field} was auto-sized`);
+ *       }
+ *     }
+ *   }
+ * }
+ * ```
+ *
+ * @see {@link ColumnConfig} for public column properties
  * @category Plugin Development
  * @internal
  */
@@ -818,6 +1227,21 @@ export interface CompiledViewFunction<T = any> {
 /**
  * Runtime cell context used internally for compiled template execution.
  *
+ * Contains the minimal context needed to render a cell: the row data,
+ * cell value, field name, and column configuration.
+ *
+ * @example
+ * ```typescript
+ * import type { CellContext, ColumnInternal } from '@toolbox-web/grid';
+ *
+ * // Used internally by compiled templates
+ * const renderCell = (ctx: CellContext) => {
+ *   return `<span title="${ctx.field}">${ctx.value}</span>`;
+ * };
+ * ```
+ *
+ * @see {@link CellRenderContext} for public cell render context
+ * @see {@link EditorExecContext} for editor context with commit/cancel
  * @category Plugin Development
  */
 export interface CellContext<T = any> {
@@ -830,6 +1254,27 @@ export interface CellContext<T = any> {
 /**
  * Internal editor execution context extending the generic cell context with commit helpers.
  *
+ * Used internally by the editing system. For public editor APIs,
+ * prefer using {@link ColumnEditorContext}.
+ *
+ * @example
+ * ```typescript
+ * import type { EditorExecContext } from '@toolbox-web/grid';
+ *
+ * // Internal editor template execution
+ * const execEditor = (ctx: EditorExecContext) => {
+ *   const input = document.createElement('input');
+ *   input.value = String(ctx.value);
+ *   input.onkeydown = (e) => {
+ *     if (e.key === 'Enter') ctx.commit(input.value);
+ *     if (e.key === 'Escape') ctx.cancel();
+ *   };
+ *   return input;
+ * };
+ * ```
+ *
+ * @see {@link ColumnEditorContext} for public editor context
+ * @see {@link CellContext} for base cell context
  * @category Plugin Development
  */
 export interface EditorExecContext<T = any> extends CellContext<T> {
@@ -840,6 +1285,29 @@ export interface EditorExecContext<T = any> extends CellContext<T> {
 /**
  * Controller managing drag-based column resize lifecycle.
  *
+ * Exposed internally for plugins that need to interact with resize behavior.
+ *
+ * @example
+ * ```typescript
+ * import type { ResizeController, InternalGrid } from '@toolbox-web/grid';
+ *
+ * class MyPlugin extends BaseGridPlugin {
+ *   handleColumnAction(colIndex: number): void {
+ *     const grid = this.grid as InternalGrid;
+ *     const resizeCtrl = grid._resizeController;
+ *
+ *     // Check if resize is in progress
+ *     if (resizeCtrl?.isResizing) {
+ *       return; // Don't interfere
+ *     }
+ *
+ *     // Reset column to configured width
+ *     resizeCtrl?.resetColumn(colIndex);
+ *   }
+ * }
+ * ```
+ *
+ * @see {@link ColumnResizeDetail} for resize event details
  * @category Plugin Development
  */
 export interface ResizeController {
@@ -854,6 +1322,26 @@ export interface ResizeController {
 /**
  * Virtual window bookkeeping; modified in-place as scroll position changes.
  *
+ * Tracks virtualization state for row rendering. The grid only renders
+ * rows within the visible viewport window (start to end) plus overscan.
+ *
+ * @example
+ * ```typescript
+ * import type { VirtualState, InternalGrid } from '@toolbox-web/grid';
+ *
+ * class MyPlugin extends BaseGridPlugin {
+ *   logVirtualWindow(): void {
+ *     const grid = this.grid as InternalGrid;
+ *     const vs = grid.virtualization;
+ *
+ *     console.log(`Row height: ${vs.rowHeight}px`);
+ *     console.log(`Visible rows: ${vs.start} to ${vs.end}`);
+ *     console.log(`Virtualization: ${vs.enabled ? 'on' : 'off'}`);
+ *   }
+ * }
+ * ```
+ *
+ * @see {@link GridConfig.rowHeight} for configuring row height
  * @category Plugin Development
  */
 export interface VirtualState {
@@ -886,7 +1374,37 @@ export type InputLikeElement = HTMLInputElement | HTMLTextAreaElement | HTMLSele
 // #region Grouping & Footer Public Types
 /**
  * Group row rendering customization options.
- * Used within grouping-rows plugin config for presentation of group rows.
+ * Controls how group header rows are displayed in the GroupingRowsPlugin.
+ *
+ * @example
+ * ```typescript
+ * import { GroupingRowsPlugin } from '@toolbox-web/grid/all';
+ *
+ * new GroupingRowsPlugin({
+ *   groupBy: ['department', 'team'],
+ *   render: {
+ *     // Group row spans all columns
+ *     fullWidth: true,
+ *
+ *     // Custom label format
+ *     formatLabel: (value, depth, key) => {
+ *       if (depth === 0) return `Department: ${value}`;
+ *       return `Team: ${value}`;
+ *     },
+ *
+ *     // Show aggregates in group rows (when not fullWidth)
+ *     aggregators: {
+ *       salary: 'sum',
+ *       age: 'avg',
+ *     },
+ *
+ *     // Custom CSS class
+ *     class: 'my-group-row',
+ *   },
+ * });
+ * ```
+ *
+ * @see {@link AggregatorRef} for aggregation options
  */
 export interface RowGroupRenderConfig {
   /** If true, group rows span all columns (single full-width cell). Default false. */
@@ -899,14 +1417,80 @@ export interface RowGroupRenderConfig {
   class?: string;
 }
 
+/**
+ * Reference to an aggregation function for footer/group summaries.
+ *
+ * Can be either:
+ * - A built-in aggregator name: `'sum'`, `'avg'`, `'min'`, `'max'`, `'count'`
+ * - A custom function that calculates the aggregate value
+ *
+ * @example
+ * ```typescript
+ * // Built-in aggregator
+ * { field: 'amount', aggregator: 'sum' }
+ *
+ * // Custom aggregator function
+ * { field: 'price', aggregator: (rows, field) => {
+ *   const values = rows.map(r => r[field]).filter(v => v != null);
+ *   return values.length ? Math.max(...values) : null;
+ * }}
+ * ```
+ *
+ * @see {@link RowGroupRenderConfig} for using aggregators in group rows
+ */
 export type AggregatorRef = string | ((rows: unknown[], field: string, column?: unknown) => unknown);
 
-/** Result of automatic column inference from sample rows. */
+/**
+ * Result of automatic column inference from sample rows.
+ *
+ * When no columns are configured, the grid analyzes the first row of data
+ * to automatically generate column definitions with inferred types.
+ *
+ * @example
+ * ```typescript
+ * // Automatic inference (no columns configured)
+ * grid.rows = [
+ *   { name: 'Alice', age: 30, active: true, hireDate: new Date() },
+ * ];
+ * // Grid infers:
+ * // - name: type 'string'
+ * // - age: type 'number'
+ * // - active: type 'boolean'
+ * // - hireDate: type 'date'
+ *
+ * // Access inferred result programmatically
+ * const config = await grid.getConfig();
+ * console.log(config.columns); // Inferred columns
+ * ```
+ *
+ * @see {@link ColumnConfig} for column configuration options
+ * @see {@link ColumnType} for type inference rules
+ */
 export interface InferredColumnResult<TRow = unknown> {
+  /** Generated column configurations based on data analysis */
   columns: ColumnConfigMap<TRow>;
+  /** Map of field names to their inferred types */
   typeMap: Record<string, ColumnType>;
 }
 
+/**
+ * Column sizing mode.
+ *
+ * - `'fixed'` - Columns use their configured widths. Horizontal scrolling if content overflows.
+ * - `'stretch'` - Columns stretch proportionally to fill available width. No horizontal scrolling.
+ *
+ * @example
+ * ```typescript
+ * // Fixed widths - good for many columns
+ * grid.fitMode = 'fixed';
+ *
+ * // Stretch to fill - good for few columns
+ * grid.fitMode = 'stretch';
+ *
+ * // Via gridConfig
+ * grid.gridConfig = { fitMode: 'stretch' };
+ * ```
+ */
 export const FitModeEnum = {
   STRETCH: 'stretch',
   FIXED: 'fixed',
@@ -919,6 +1503,25 @@ export type FitMode = (typeof FitModeEnum)[keyof typeof FitModeEnum]; // evaluat
  * Minimal plugin interface for type-checking.
  * This interface is defined here to avoid circular imports with BaseGridPlugin.
  * All plugins must satisfy this shape (BaseGridPlugin implements it).
+ *
+ * @example
+ * ```typescript
+ * // Using plugins in grid config
+ * import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+ *
+ * grid.gridConfig = {
+ *   plugins: [
+ *     new SelectionPlugin({ mode: 'row' }),
+ *     new FilteringPlugin({ debounceMs: 200 }),
+ *   ],
+ * };
+ *
+ * // Accessing plugin instance at runtime
+ * const selection = grid.getPlugin(SelectionPlugin);
+ * if (selection) {
+ *   selection.selectAll();
+ * }
+ * ```
  *
  * @category Plugin Development
  */
@@ -965,7 +1568,11 @@ export interface GridPlugin {
  * ```
  */
 export interface GridConfig<TRow = any> {
-  /** Column definitions. Can also be set via `columns` prop or `<tbw-grid-column>` light DOM. */
+  /**
+   * Column definitions. Can also be set via `columns` prop or `<tbw-grid-column>` light DOM.
+   * @see {@link ColumnConfig} for column options
+   * @see {@link ColumnConfigMap}
+   */
   columns?: ColumnConfigMap<TRow>;
   /**
    * Dynamic CSS class(es) for data rows.
@@ -1219,6 +1826,25 @@ export interface GridConfig<TRow = any> {
 
 /**
  * Sort state passed to custom sort handlers.
+ * Represents the current sorting configuration for a column.
+ *
+ * @example
+ * ```typescript
+ * // In a custom sort handler
+ * const sortHandler: SortHandler = (rows, sortState, columns) => {
+ *   const { field, direction } = sortState;
+ *   console.log(`Sorting by ${field} ${direction === 1 ? 'ASC' : 'DESC'}`);
+ *
+ *   return [...rows].sort((a, b) => {
+ *     const aVal = a[field];
+ *     const bVal = b[field];
+ *     return (aVal < bVal ? -1 : aVal > bVal ? 1 : 0) * direction;
+ *   });
+ * };
+ * ```
+ *
+ * @see {@link SortHandler} for custom sort handler signature
+ * @see {@link SortChangeDetail} for sort change events
  */
 export interface SortState {
   /** Field to sort by */
@@ -1230,10 +1856,42 @@ export interface SortState {
 /**
  * Custom sort handler function signature.
  *
+ * Enables full control over sorting behavior including server-side sorting,
+ * custom algorithms, or multi-column sorting.
+ *
  * @param rows - Current row array to sort
  * @param sortState - Sort field and direction
  * @param columns - Column configurations (for accessing sortComparator)
  * @returns Sorted array (sync) or Promise resolving to sorted array (async)
+ *
+ * @example
+ * ```typescript
+ * // Custom client-side sort with locale awareness
+ * const localeSortHandler: SortHandler<Employee> = (rows, state, cols) => {
+ *   const col = cols.find(c => c.field === state.field);
+ *   return [...rows].sort((a, b) => {
+ *     const aVal = String(a[state.field] ?? '');
+ *     const bVal = String(b[state.field] ?? '');
+ *     return aVal.localeCompare(bVal) * state.direction;
+ *   });
+ * };
+ *
+ * // Server-side sorting
+ * const serverSortHandler: SortHandler<Employee> = async (rows, state) => {
+ *   const response = await fetch(
+ *     `/api/employees?sortBy=${state.field}&dir=${state.direction}`
+ *   );
+ *   return response.json();
+ * };
+ *
+ * grid.gridConfig = {
+ *   sortHandler: localeSortHandler,
+ * };
+ * ```
+ *
+ * @see {@link SortState} for the sort state object
+ * @see {@link GridConfig.sortHandler} for configuring the handler
+ * @see {@link BaseColumnConfig.sortComparator} for column-level comparators
  */
 export type SortHandler<TRow = any> = (
   rows: TRow[],
@@ -1246,16 +1904,51 @@ export type SortHandler<TRow = any> = (
 /**
  * Loading indicator size variant.
  *
- * - `'large'`: 48x48px max - used for grid-level loading overlay
+ * - `'large'`: 48x48px max - used for grid-level loading overlay (`grid.loading = true`)
  * - `'small'`: Follows row height - used for row/cell loading states
+ *
+ * @example
+ * ```typescript
+ * // Custom loading renderer adapting to size
+ * const myLoader: LoadingRenderer = (ctx) => {
+ *   if (ctx.size === 'large') {
+ *     // Full overlay spinner
+ *     return '<div class="spinner-lg"></div>';
+ *   }
+ *   // Inline row/cell spinner
+ *   return '<span class="spinner-sm"></span>';
+ * };
+ * ```
+ *
+ * @see {@link LoadingRenderer} for custom loading renderer
+ * @see {@link LoadingContext} for context passed to renderers
  */
 export type LoadingSize = 'large' | 'small';
 
 /**
  * Context passed to custom loading renderers.
+ *
+ * Provides information about the loading indicator being rendered,
+ * allowing the renderer to adapt its appearance based on the size variant.
+ *
+ * @example
+ * ```typescript
+ * const myLoadingRenderer: LoadingRenderer = (ctx: LoadingContext) => {
+ *   if (ctx.size === 'large') {
+ *     // Full-size spinner for grid-level loading
+ *     return '<div class="large-spinner"></div>';
+ *   } else {
+ *     // Compact spinner for row/cell loading
+ *     return '<div class="small-spinner"></div>';
+ *   }
+ * };
+ * ```
+ *
+ * @see {@link LoadingRenderer} for the renderer function signature
+ * @see {@link LoadingSize} for available size variants
  */
 export interface LoadingContext {
-  /** The size variant being rendered */
+  /** The size variant being rendered: 'large' for grid-level, 'small' for row/cell */
   size: LoadingSize;
 }
 
@@ -1263,8 +1956,43 @@ export interface LoadingContext {
  * Custom loading renderer function.
  * Returns an element or HTML string to display as the loading indicator.
  *
+ * Used with the `loadingRenderer` property in {@link GridConfig} to replace
+ * the default spinner with custom content.
+ *
  * @param context - Context containing size information
  * @returns HTMLElement or HTML string
+ *
+ * @example
+ * ```typescript
+ * // Simple text loading indicator
+ * const textLoader: LoadingRenderer = () => {
+ *   const el = document.createElement('div');
+ *   el.textContent = 'Loading...';
+ *   return el;
+ * };
+ *
+ * // Custom spinner with size awareness
+ * const customSpinner: LoadingRenderer = (ctx) => {
+ *   const spinner = document.createElement('my-spinner');
+ *   spinner.size = ctx.size === 'large' ? 48 : 24;
+ *   return spinner;
+ * };
+ *
+ * // Material Design-style progress bar
+ * const progressBar: LoadingRenderer = () => {
+ *   const container = document.createElement('div');
+ *   container.className = 'progress-bar-container';
+ *   container.innerHTML = '<div class="progress-bar"></div>';
+ *   return container;
+ * };
+ *
+ * grid.gridConfig = {
+ *   loadingRenderer: customSpinner,
+ * };
+ * ```
+ *
+ * @see {@link LoadingContext} for the context object passed to the renderer
+ * @see {@link LoadingSize} for size variants ('large' | 'small')
  */
 export type LoadingRenderer = (context: LoadingContext) => HTMLElement | string;
 
@@ -1280,6 +2008,25 @@ export type LoadingRenderer = (context: LoadingContext) => HTMLElement | string;
  * - `'cascade'`: Triggered by `updateRow()` in an event handler
  * - `'api'`: External programmatic update via `grid.updateRow()`
  *
+ * @example
+ * ```typescript
+ * grid.addEventListener('cell-change', (e) => {
+ *   const { source, field, newValue } = e.detail;
+ *
+ *   // Only cascade updates for user edits
+ *   if (source === 'user' && field === 'price') {
+ *     // Update calculated field (marked as 'cascade')
+ *     grid.updateRow(e.detail.rowId, {
+ *       total: newValue * e.detail.row.quantity,
+ *     });
+ *   }
+ *
+ *   // Ignore cascade updates to prevent infinite loops
+ *   if (source === 'cascade') return;
+ * });
+ * ```
+ *
+ * @see {@link CellChangeDetail} for the event detail containing source
  * @category Data Management
  */
 export type UpdateSource = 'user' | 'cascade' | 'api';
@@ -1288,6 +2035,28 @@ export type UpdateSource = 'user' | 'cascade' | 'api';
  * Detail for cell-change event (emitted by core after mutation).
  * This is an informational event that fires for ALL data mutations.
  *
+ * Use this event for:
+ * - Logging/auditing changes
+ * - Cascading updates (updating other fields based on a change)
+ * - Syncing changes to external state
+ *
+ * @example
+ * ```typescript
+ * grid.addEventListener('cell-change', (e: CustomEvent<CellChangeDetail>) => {
+ *   const { row, rowId, field, oldValue, newValue, source } = e.detail;
+ *
+ *   console.log(`${field} changed from ${oldValue} to ${newValue}`);
+ *   console.log(`Change source: ${source}`);
+ *
+ *   // Cascade: update total when price changes
+ *   if (source === 'user' && field === 'price') {
+ *     grid.updateRow(rowId, { total: newValue * row.quantity });
+ *   }
+ * });
+ * ```
+ *
+ * @see {@link UpdateSource} for understanding change origins
+ * @see {@link CellCommitDetail} for the commit event (editing lifecycle)
  * @category Events
  */
 export interface CellChangeDetail<TRow = unknown> {
@@ -1312,6 +2081,23 @@ export interface CellChangeDetail<TRow = unknown> {
 /**
  * Batch update specification for updateRows().
  *
+ * Used when you need to update multiple rows at once efficiently.
+ * The grid will batch all updates and trigger a single re-render.
+ *
+ * @example
+ * ```typescript
+ * // Update multiple rows in a single batch
+ * const updates: RowUpdate<Employee>[] = [
+ *   { id: 'emp-1', changes: { status: 'active', updatedAt: new Date() } },
+ *   { id: 'emp-2', changes: { status: 'inactive' } },
+ *   { id: 'emp-3', changes: { salary: 75000 } },
+ * ];
+ *
+ * grid.updateRows(updates);
+ * ```
+ *
+ * @see {@link CellChangeDetail} for individual change events
+ * @see {@link GridConfig.getRowId} for row identification
  * @category Data Management
  */
 export interface RowUpdate<TRow = unknown> {
@@ -1328,6 +2114,20 @@ export interface RowUpdate<TRow = unknown> {
  * - `true` or `'on'`: Animations always enabled
  * - `false` or `'off'`: Animations always disabled
  * - `'reduced-motion'`: Respects `prefers-reduced-motion` media query (default)
+ *
+ * @example
+ * ```typescript
+ * // Force animations on (ignore system preference)
+ * grid.gridConfig = { animation: { mode: 'on' } };
+ *
+ * // Disable all animations
+ * grid.gridConfig = { animation: { mode: false } };
+ *
+ * // Respect user's accessibility settings (default)
+ * grid.gridConfig = { animation: { mode: 'reduced-motion' } };
+ * ```
+ *
+ * @see {@link AnimationConfig} for full animation configuration
  */
 export type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
 
@@ -1337,6 +2137,21 @@ export type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
  * - `'fade'`: Opacity fade animation
  * - `'flip'`: FLIP technique for position changes (First, Last, Invert, Play)
  * - `false`: No animation for this specific feature
+ *
+ * @example
+ * ```typescript
+ * // Plugin-specific animation styles
+ * new TreePlugin({
+ *   expandAnimation: 'slide', // Slide children down when expanding
+ * });
+ *
+ * new ReorderPlugin({
+ *   animation: 'flip', // FLIP animation for column reordering
+ * });
+ * ```
+ *
+ * @see {@link AnimationConfig} for grid-wide animation settings
+ * @see {@link ExpandCollapseAnimation} for expand/collapse-specific styles
  */
 export type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
 
@@ -1346,6 +2161,21 @@ export type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
  * - `'slide'`: Slide down/up animation for expanding/collapsing content
  * - `'fade'`: Fade in/out animation
  * - `false`: No animation
+ *
+ * @example
+ * ```typescript
+ * // Tree rows slide down when expanding
+ * new TreePlugin({ expandAnimation: 'slide' });
+ *
+ * // Row groups fade in/out
+ * new GroupingRowsPlugin({ expandAnimation: 'fade' });
+ *
+ * // Master-detail panels with no animation
+ * new MasterDetailPlugin({ expandAnimation: false });
+ * ```
+ *
+ * @see {@link AnimationStyle} for all animation styles
+ * @see {@link AnimationConfig} for grid-wide settings
  */
 export type ExpandCollapseAnimation = 'slide' | 'fade' | false;
 
@@ -1354,6 +2184,21 @@ export type ExpandCollapseAnimation = 'slide' | 'fade' | false;
  * - `'change'`: Flash highlight when row data changes (e.g., after cell edit)
  * - `'insert'`: Slide-in animation for newly added rows
  * - `'remove'`: Fade-out animation for rows being removed
+ *
+ * @example
+ * ```typescript
+ * // Internal usage - row animation is triggered automatically:
+ * // - 'change' after cell-commit event
+ * // - 'insert' when rows are added to the grid
+ * // - 'remove' when rows are deleted
+ *
+ * // The animation respects AnimationConfig.mode
+ * grid.gridConfig = {
+ *   animation: { mode: 'on', duration: 300 },
+ * };
+ * ```
+ *
+ * @see {@link AnimationConfig} for animation configuration
  */
 export type RowAnimationType = 'change' | 'insert' | 'remove';
 
@@ -1361,6 +2206,30 @@ export type RowAnimationType = 'change' | 'insert' | 'remove';
  * Grid-wide animation configuration.
  * Controls global animation behavior - individual plugins define their own animation styles.
  * Duration and easing values set corresponding CSS variables on the grid element.
+ *
+ * @example
+ * ```typescript
+ * // Enable animations regardless of system preferences
+ * grid.gridConfig = {
+ *   animation: {
+ *     mode: 'on',
+ *     duration: 300,
+ *     easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+ *   },
+ * };
+ *
+ * // Disable all animations
+ * grid.gridConfig = {
+ *   animation: { mode: 'off' },
+ * };
+ *
+ * // Respect user's reduced-motion preference (default)
+ * grid.gridConfig = {
+ *   animation: { mode: 'reduced-motion' },
+ * };
+ * ```
+ *
+ * @see {@link AnimationMode} for mode options
  */
 export interface AnimationConfig {
   /**
@@ -1401,6 +2270,27 @@ export type IconValue = string | HTMLElement;
 /**
  * Grid-wide icon configuration.
  * All icons are optional - sensible defaults are used when not specified.
+ *
+ * Icons can be text (including emoji), HTML strings (for SVG), or HTMLElement instances.
+ *
+ * @example
+ * ```typescript
+ * grid.gridConfig = {
+ *   icons: {
+ *     // Emoji icons
+ *     expand: '➕',
+ *     collapse: '➖',
+ *
+ *     // Custom SVG icon
+ *     sortAsc: '<svg viewBox="0 0 16 16"><path d="M8 4l4 8H4z"/></svg>',
+ *
+ *     // Font icon class (wrap in span)
+ *     filter: '<span class="icon icon-filter"></span>',
+ *   },
+ * };
+ * ```
+ *
+ * @see {@link IconValue} for allowed icon formats
  */
 export interface GridIcons {
   /** Expand icon for collapsed items (trees, groups, details). Default: '▶' */
@@ -1451,6 +2341,39 @@ export const DEFAULT_GRID_ICONS: Required<GridIcons> = {
 
 /**
  * Shell configuration for the grid's optional header bar and tool panels.
+ *
+ * The shell provides a wrapper around the grid with:
+ * - Header bar with title, toolbar buttons, and custom content
+ * - Collapsible side panel for filters, column visibility, settings, etc.
+ *
+ * @example
+ * ```typescript
+ * grid.gridConfig = {
+ *   shell: {
+ *     header: {
+ *       title: 'Employee Directory',
+ *     },
+ *     toolPanel: {
+ *       position: 'right',
+ *       defaultOpen: 'columns', // Open by default
+ *     },
+ *   },
+ *   plugins: [new VisibilityPlugin()], // Adds "Columns" panel
+ * };
+ *
+ * // Register custom tool panels
+ * grid.registerToolPanel({
+ *   id: 'filters',
+ *   title: 'Filters',
+ *   icon: '🔍',
+ *   render: (container) => {
+ *     container.innerHTML = '<div>Filter controls...</div>';
+ *   },
+ * });
+ * ```
+ *
+ * @see {@link ShellHeaderConfig} for header options
+ * @see {@link ToolPanelConfig} for tool panel options
  */
 export interface ShellConfig {
   /** Shell header bar configuration */
@@ -1537,6 +2460,34 @@ export interface ToolbarContentDefinition {
 
 /**
  * Tool panel definition registered by plugins or consumers.
+ *
+ * Register via `grid.registerToolPanel()` to add panels to the sidebar.
+ * Panels appear as collapsible sections with icons and titles.
+ *
+ * @example
+ * ```typescript
+ * grid.registerToolPanel({
+ *   id: 'filters',
+ *   title: 'Filters',
+ *   icon: '🔍',
+ *   tooltip: 'Filter grid data',
+ *   order: 10, // Lower = appears first
+ *   render: (container) => {
+ *     container.innerHTML = `
+ *       <div class="filter-panel">
+ *         <input type="text" placeholder="Search..." />
+ *       </div>
+ *     `;
+ *     // Return cleanup function
+ *     return () => container.innerHTML = '';
+ *   },
+ *   onClose: () => {
+ *     console.log('Filter panel closed');
+ *   },
+ * });
+ * ```
+ *
+ * @see {@link ShellConfig} for shell configuration
  */
 export interface ToolPanelDefinition {
   /** Unique panel ID */
@@ -1557,6 +2508,33 @@ export interface ToolPanelDefinition {
 
 /**
  * Header content definition for plugins contributing to shell header center section.
+ *
+ * Register via `grid.registerHeaderContent()` to add content between
+ * the title and toolbar buttons.
+ *
+ * @example
+ * ```typescript
+ * grid.registerHeaderContent({
+ *   id: 'row-count',
+ *   order: 10,
+ *   render: (container) => {
+ *     const span = document.createElement('span');
+ *     span.className = 'row-count';
+ *     span.textContent = `${grid.rows.length} rows`;
+ *     container.appendChild(span);
+ *
+ *     // Update on data changes
+ *     const update = () => span.textContent = `${grid.rows.length} rows`;
+ *     grid.addEventListener('data-change', update);
+ *
+ *     return () => {
+ *       grid.removeEventListener('data-change', update);
+ *     };
+ *   },
+ * });
+ * ```
+ *
+ * @see {@link ShellConfig} for shell configuration
  */
 export interface HeaderContentDefinition {
   /** Unique content ID */
@@ -1576,15 +2554,43 @@ export interface HeaderContentDefinition {
  * State for a single column. Captures user-driven changes at runtime.
  * Plugins can extend this interface via module augmentation to add their own state.
  *
+ * Used with `grid.getColumnState()` and `grid.columnState` for persisting
+ * user customizations (column widths, order, visibility, sort).
+ *
  * @example
- * ```ts
- * // In filtering plugin
+ * ```typescript
+ * // Save column state to localStorage
+ * const state = grid.getColumnState();
+ * localStorage.setItem('gridState', JSON.stringify(state));
+ *
+ * // Restore on page load
+ * const saved = localStorage.getItem('gridState');
+ * if (saved) {
+ *   grid.columnState = JSON.parse(saved);
+ * }
+ *
+ * // Example column state structure
+ * const state: GridColumnState = {
+ *   columns: [
+ *     { field: 'name', order: 0, width: 200, hidden: false },
+ *     { field: 'email', order: 1, width: 300, hidden: false },
+ *     { field: 'phone', order: 2, hidden: true }, // Hidden column
+ *   ],
+ *   sort: { field: 'name', direction: 1 },
+ * };
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Plugin augmentation example (in filtering plugin)
  * declare module '@toolbox-web/grid' {
  *   interface ColumnState {
  *     filter?: FilterValue;
  *   }
  * }
  * ```
+ *
+ * @see {@link GridColumnState} for the full state object
  */
 export interface ColumnState {
   /** Column field identifier */
@@ -1595,12 +2601,16 @@ export interface ColumnState {
   width?: number;
   /** Visibility state */
   visible: boolean;
-  /** Sort state (undefined = not sorted) */
+  /** Sort state (undefined = not sorted). */
   sort?: ColumnSortState;
 }
 
 /**
- * Sort state for a column
+ * Sort state for a column.
+ * Used within {@link ColumnState} to track sort direction and priority.
+ *
+ * @see {@link ColumnState} for column state persistence
+ * @see {@link SortChangeDetail} for sort change events
  */
 export interface ColumnSortState {
   /** Sort direction */
@@ -1612,8 +2622,22 @@ export interface ColumnSortState {
 /**
  * Complete grid column state for persistence.
  * Contains state for all columns, including plugin-contributed properties.
+ *
+ * @example
+ * ```typescript
+ * // Save state
+ * const state = grid.getColumnState();
+ * localStorage.setItem('grid-state', JSON.stringify(state));
+ *
+ * // Restore state
+ * grid.columnState = JSON.parse(localStorage.getItem('grid-state'));
+ * ```
+ *
+ * @see {@link ColumnState} for individual column state
+ * @see {@link PublicGrid.getColumnState} for retrieving state
  */
 export interface GridColumnState {
+  /** Array of column states. */
   columns: ColumnState[];
 }
 // #endregion
@@ -1687,6 +2711,18 @@ export interface ChangedRowsResetDetail<TRow = unknown> {
  * Detail for a cell click event.
  * Provides full context about the clicked cell including row data.
  *
+ * @example
+ * ```typescript
+ * grid.addEventListener('cell-click', (e: CustomEvent<CellClickDetail>) => {
+ *   const { row, field, value, rowIndex, colIndex } = e.detail;
+ *   console.log(`Clicked ${field} = ${value} in row ${rowIndex}`);\n *
+ *   // Access the full row data
+ *   if (row.status === 'pending') {
+ *     showApprovalDialog(row);
+ *   }
+ * });
+ * ```
+ *
  * @category Events
  */
 export interface CellClickDetail<TRow = unknown> {
@@ -1710,6 +2746,20 @@ export interface CellClickDetail<TRow = unknown> {
  * Detail for a row click event.
  * Provides context about the clicked row.
  *
+ * @example
+ * ```typescript
+ * grid.addEventListener('row-click', (e: CustomEvent<RowClickDetail>) => {
+ *   const { row, rowIndex, rowEl } = e.detail;
+ *   console.log(`Clicked row ${rowIndex}: ${row.name}`);
+ *
+ *   // Highlight the row
+ *   rowEl.classList.add('selected');
+ *
+ *   // Open detail panel
+ *   showDetailPanel(row);
+ * });
+ * ```
+ *
  * @category Events
  */
 export interface RowClickDetail<TRow = unknown> {
@@ -1726,6 +2776,25 @@ export interface RowClickDetail<TRow = unknown> {
 /**
  * Detail for a sort change (direction 0 indicates cleared sort).
  *
+ * @example
+ * ```typescript
+ * grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
+ *   const { field, direction } = e.detail;
+ *
+ *   if (direction === 0) {
+ *     console.log(`Sort cleared on ${field}`);
+ *   } else {
+ *     const dir = direction === 1 ? 'ascending' : 'descending';
+ *     console.log(`Sorted by ${field} ${dir}`);
+ *   }
+ *
+ *   // Fetch sorted data from server
+ *   fetchData({ sortBy: field, sortDir: direction });
+ * });
+ * ```
+ *
+ * @see {@link SortState} for the sort state object
+ * @see {@link SortHandler} for custom sort handlers
  * @category Events
  */
 export interface SortChangeDetail {
@@ -1738,6 +2807,19 @@ export interface SortChangeDetail {
 /**
  * Column resize event detail containing final pixel width.
  *
+ * @example
+ * ```typescript
+ * grid.addEventListener('column-resize', (e: CustomEvent<ColumnResizeDetail>) => {
+ *   const { field, width } = e.detail;
+ *   console.log(`Column ${field} resized to ${width}px`);
+ *
+ *   // Persist to user preferences
+ *   saveColumnWidth(field, width);
+ * });
+ * ```
+ *
+ * @see {@link ColumnState} for persisting column state
+ * @see {@link ResizeController} for resize implementation
  * @category Events
  */
 export interface ColumnResizeDetail {
@@ -1752,6 +2834,7 @@ export interface ColumnResizeDetail {
  * - `'keyboard'`: Enter key pressed on focused cell
  * - `'pointer'`: Mouse/touch/pen click on cell
  *
+ * @see {@link CellActivateDetail} for the activation event detail
  * @category Events
  */
 export type CellActivateTrigger = 'keyboard' | 'pointer';
@@ -1760,6 +2843,27 @@ export type CellActivateTrigger = 'keyboard' | 'pointer';
  * Fired when a cell is activated by user interaction (Enter key or click).
  * Unified event for both keyboard and pointer activation.
  *
+ * @example
+ * ```typescript
+ * grid.addEventListener('cell-activate', (e: CustomEvent<CellActivateDetail>) => {
+ *   const { row, field, value, trigger, cellEl } = e.detail;
+ *
+ *   if (trigger === 'keyboard') {
+ *     console.log('Activated via Enter key');
+ *   } else {
+ *     console.log('Activated via click/tap');
+ *   }
+ *
+ *   // Start custom editing for specific columns
+ *   if (field === 'notes') {
+ *     openNotesEditor(row, cellEl);
+ *     e.preventDefault(); // Prevent default editing
+ *   }
+ * });
+ * ```
+ *
+ * @see {@link CellClickDetail} for click-only events
+ * @see {@link CellActivateTrigger} for trigger types
  * @category Events
  */
 export interface CellActivateDetail<TRow = unknown> {
@@ -1797,7 +2901,22 @@ export interface ActivateCellDetail {
 /**
  * Event detail for mounting external view renderers.
  *
- * @category Events
+ * Emitted when a cell uses an external component spec (React, Angular, Vue)
+ * and needs the framework adapter to mount the component.
+ *
+ * @example
+ * ```typescript
+ * // Framework adapter listens for this event
+ * grid.addEventListener('mount-external-view', (e: CustomEvent<ExternalMountViewDetail>) => {
+ *   const { placeholder, spec, context } = e.detail;
+ *   // Mount framework component into placeholder
+ *   mountComponent(spec.component, placeholder, context);
+ * });
+ * ```
+ *
+ * @see {@link ColumnConfig.externalView} for external view spec
+ * @see {@link FrameworkAdapter} for adapter interface
+ * @category Framework Adapters
  */
 export interface ExternalMountViewDetail<TRow = unknown> {
   placeholder: HTMLElement;
@@ -1808,7 +2927,26 @@ export interface ExternalMountViewDetail<TRow = unknown> {
 /**
  * Event detail for mounting external editor renderers.
  *
- * @category Events
+ * Emitted when a cell uses an external editor component spec and needs
+ * the framework adapter to mount the editor with commit/cancel bindings.
+ *
+ * @example
+ * ```typescript
+ * // Framework adapter listens for this event
+ * grid.addEventListener('mount-external-editor', (e: CustomEvent<ExternalMountEditorDetail>) => {
+ *   const { placeholder, spec, context } = e.detail;
+ *   // Mount framework editor with commit/cancel wired
+ *   mountEditor(spec.component, placeholder, {
+ *     value: context.value,
+ *     onCommit: context.commit,
+ *     onCancel: context.cancel,
+ *   });
+ * });
+ * ```
+ *
+ * @see {@link ColumnEditorSpec} for external editor spec
+ * @see {@link FrameworkAdapter} for adapter interface
+ * @category Framework Adapters
  */
 export interface ExternalMountEditorDetail<TRow = unknown> {
   placeholder: HTMLElement;
@@ -1826,6 +2964,26 @@ export interface ExternalMountEditorDetail<TRow = unknown> {
 /**
  * Maps event names to their detail payload types.
  *
+ * Use this interface for strongly typed event handling.
+ *
+ * @example
+ * ```typescript
+ * // Type-safe event listener
+ * function handleEvent<K extends keyof DataGridEventMap>(
+ *   grid: DataGridElement,
+ *   event: K,
+ *   handler: (detail: DataGridEventMap[K]) => void,
+ * ): void {
+ *   grid.addEventListener(event, (e: CustomEvent) => handler(e.detail));
+ * }
+ *
+ * handleEvent(grid, 'cell-click', (detail) => {
+ *   console.log(detail.field); // Type-safe access
+ * });
+ * ```
+ *
+ * @see {@link DataGridCustomEvent} for typed CustomEvent wrapper
+ * @see {@link DGEvents} for event name constants
  * @category Events
  */
 export interface DataGridEventMap<TRow = unknown> {
@@ -1848,6 +3006,24 @@ export interface DataGridEventMap<TRow = unknown> {
 /**
  * Extracts the event detail type for a given event name.
  *
+ * Utility type for getting the detail payload type of a specific event.
+ *
+ * @example
+ * ```typescript
+ * // Extract detail type for specific event
+ * type ClickDetail = DataGridEventDetail<'cell-click', Employee>;
+ * // Equivalent to: CellClickDetail<Employee>
+ *
+ * // Use in generic handler
+ * function logDetail<K extends keyof DataGridEventMap>(
+ *   eventName: K,
+ *   detail: DataGridEventDetail<K>,
+ * ): void {
+ *   console.log(`${eventName}:`, detail);
+ * }
+ * ```
+ *
+ * @see {@link DataGridEventMap} for all event types
  * @category Events
  */
 export type DataGridEventDetail<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = DataGridEventMap<TRow>[K];
@@ -1855,6 +3031,21 @@ export type DataGridEventDetail<K extends keyof DataGridEventMap<unknown>, TRow 
 /**
  * Custom event type for DataGrid events with typed detail payload.
  *
+ * Use this type when you need to cast or declare event handler parameters.
+ *
+ * @example
+ * ```typescript
+ * // Strongly typed event handler
+ * function onCellClick(e: DataGridCustomEvent<'cell-click', Employee>): void {
+ *   const { row, field, value } = e.detail;
+ *   console.log(`Clicked ${field} = ${value} on ${row.name}`);
+ * }
+ *
+ * grid.addEventListener('cell-click', onCellClick);
+ * ```
+ *
+ * @see {@link DataGridEventMap} for all event types
+ * @see {@link DataGridEventDetail} for extracting detail type only
  * @category Events
  */
 export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = CustomEvent<

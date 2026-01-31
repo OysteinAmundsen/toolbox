@@ -14,63 +14,39 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import {
+  escape,
+  escapeCode,
+  formatAllExamples,
+  formatExample,
+  formatFires,
+  formatType,
+  formatTypeWithLinks as formatTypeWithLinksBase,
+  getAllFires,
+  getTag,
+  getText,
+  isDeprecated,
+  isInternal,
+  isNodeInternal,
+  KIND,
+  KIND_FOLDER_MAP,
+  mdxHeader as mdxHeaderBase,
+  touchStorybookMain,
+  writeMdx as writeMdxBase,
+  type TypeDocComment,
+  type TypeDocNode,
+  type TypeDocType,
+} from '../../../tools/typedoc-mdx-shared';
+
 const API_GENERATED_DIR = join(import.meta.dirname, '../docs/api-generated');
 const OUTPUT_DIR = join(import.meta.dirname, '../docs/api');
 const JSON_PATH = join(API_GENERATED_DIR, 'api.json');
 
-// ============================================================================
-// Types
-// ============================================================================
+// Grid-specific mdxHeader with default regenerate command
+const mdxHeader = (title: string) => mdxHeaderBase(title, 'bun nx typedoc grid');
 
-interface TypeDocNode {
-  id: number;
-  name: string;
-  kind: number;
-  comment?: TypeDocComment;
-  children?: TypeDocNode[];
-  signatures?: TypeDocSignature[];
-  getSignature?: TypeDocSignature;
-  setSignature?: TypeDocSignature;
-  type?: TypeDocType;
-  flags?: { isStatic?: boolean; isReadonly?: boolean; isOptional?: boolean; isInherited?: boolean };
-  inheritedFrom?: { type: string; name: string };
-  overwrites?: { type: string; name: string };
-}
-
-interface TypeDocComment {
-  summary?: Array<{ kind: string; text: string }>;
-  blockTags?: Array<{ tag: string; content: Array<{ kind: string; text: string }> }>;
-  modifierTags?: string[];
-}
-
-interface TypeDocSignature {
-  comment?: TypeDocComment;
-  parameters?: TypeDocNode[];
-  type?: TypeDocType;
-}
-
-interface TypeDocType {
-  type: string;
-  name?: string;
-  value?: string | number | boolean;
-  types?: TypeDocType[];
-  elementType?: TypeDocType;
-  typeArguments?: TypeDocType[];
-}
-
-// TypeDoc kind values
-const KIND = {
-  Module: 2,
-  Class: 128,
-  Interface: 256,
-  Function: 64,
-  TypeAlias: 2097152,
-  Enum: 8,
-  Property: 1024,
-  Method: 2048,
-  Accessor: 262144,
-  Constructor: 512,
-} as const;
+// Grid-specific formatTypeWithLinks that uses the local registry
+const formatTypeWithLinks = (type?: TypeDocType) => formatTypeWithLinksBase(type, typeRegistry);
 
 // Plugin name mapping for Storybook titles (only non-obvious mappings)
 const PLUGIN_TITLE_MAP: Record<string, string> = {
@@ -86,132 +62,8 @@ const PLUGIN_TITLE_MAP: Record<string, string> = {
 const getPluginTitle = (rawName: string): string => PLUGIN_TITLE_MAP[rawName] ?? rawName;
 
 // ============================================================================
-// Helpers
+// Grid-specific Helpers
 // ============================================================================
-
-const mdxHeader = (title: string) => `{/* Auto-generated from JSDoc - do not edit manually */}
-{/* Regenerate with: bun nx typedoc grid */}
-import { Meta } from '@storybook/addon-docs/blocks';
-
-<Meta title="${title}" />
-
-`;
-
-/**
- * Escape special MDX characters, but preserve content inside fenced code blocks.
- * MDX requires escaping < > { } in regular text, but NOT inside code fences.
- * Backslashes are escaped first to avoid double-escaping.
- */
-const escape = (text: string): string => {
-  // Split on fenced code blocks (``` ... ```) while keeping the delimiters
-  const parts = text.split(/(```[\s\S]*?```)/g);
-  return parts
-    .map((part, i) => {
-      // Odd indices are the code blocks (captured groups)
-      if (i % 2 === 1) return part; // Leave code blocks unchanged
-      // Escape backslashes first, then special characters in non-code-block parts
-      return part
-        .replace(/\\/g, '\\\\')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\{/g, '\\{')
-        .replace(/\}/g, '\\}');
-    })
-    .join('');
-};
-
-/** Escape only curly braces for MDX - for inline code in tables where we don't have code fences */
-const escapeCode = (text: string): string => text.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}');
-
-const getText = (comment?: TypeDocComment): string => comment?.summary?.map((s) => s.text).join('') ?? '';
-
-const getTag = (comment: TypeDocComment | undefined, tag: string): string =>
-  comment?.blockTags
-    ?.find((b) => b.tag === tag)
-    ?.content.map((c) => c.text)
-    .join('') ?? '';
-
-/**
- * Get all @example tags from a comment.
- * Returns an array of example code blocks with optional titles.
- * TypeDoc 0.28+ puts the example title in a `name` property.
- */
-const getAllExamples = (comment?: TypeDocComment): { title?: string; code: string }[] => {
-  if (!comment?.blockTags) return [];
-  return comment.blockTags
-    .filter((b) => b.tag === '@example')
-    .map((b) => {
-      // TypeDoc 0.28+ puts the title after @example in the `name` property
-      const title = (b as { name?: string }).name?.trim();
-      const text = b.content
-        .map((c) => c.text)
-        .join('')
-        .trim();
-      return { title, code: text };
-    });
-};
-
-/**
- * Get all @fires tags from a comment.
- * Returns an array of event descriptions with the event name and optional description.
- * Format: @fires eventName - Description
- */
-const getAllFires = (comment?: TypeDocComment): { event: string; description: string }[] => {
-  if (!comment?.blockTags) return [];
-  return comment.blockTags
-    .filter((b) => b.tag === '@fires')
-    .map((b) => {
-      const text = b.content
-        .map((c) => c.text)
-        .join('')
-        .trim();
-      // Parse "eventName - description" or just "eventName"
-      const match = text.match(/^(\S+)(?:\s*-\s*(.*))?$/);
-      if (match) {
-        return { event: match[1], description: match[2]?.trim() ?? '' };
-      }
-      return { event: text, description: '' };
-    });
-};
-
-/**
- * Format all @fires tags as an "Events" section for MDX output.
- */
-function formatFires(comment?: TypeDocComment): string {
-  const fires = getAllFires(comment);
-  if (fires.length === 0) return '';
-
-  let out = `#### Events\n\n`;
-  out += `| Event | Description |\n`;
-  out += `| ----- | ----------- |\n`;
-  for (const f of fires) {
-    out += `| \`${f.event}\` | ${escape(f.description)} |\n`;
-  }
-  return out + '\n';
-}
-
-/**
- * Format all @example blocks for MDX output.
- * Uses a single "## Examples" header when there are multiple examples.
- */
-function formatAllExamples(comment?: TypeDocComment): string {
-  const examples = getAllExamples(comment);
-  if (examples.length === 0) return '';
-
-  // Single "Examples" section header
-  const header = examples.length === 1 ? '## Example\n\n' : '## Examples\n\n';
-
-  const body = examples
-    .map((ex) => {
-      // Use the title if available, otherwise just show the code
-      const titleLine = ex.title ? `### ${ex.title}\n\n` : '';
-      const code = ex.code.startsWith('```') ? ex.code : `\`\`\`ts\n${ex.code}\n\`\`\``;
-      return `${titleLine}${code}\n\n`;
-    })
-    .join('');
-
-  return header + body;
-}
 
 /**
  * Get all @see tags from a comment, handling both plain text and {@link} references.
@@ -275,34 +127,6 @@ const formatSeeLinks = (comment?: TypeDocComment): string => {
   return `## See Also\n\n${cleanLinks.map((l) => `- ${l}`).join('\n')}\n\n`;
 };
 
-const isDeprecated = (c?: TypeDocComment): boolean => c?.blockTags?.some((b) => b.tag === '@deprecated') ?? false;
-
-/**
- * Format an @example block for MDX output.
- * Handles both raw code (wraps in fence) and code that already has markdown fences.
- */
-function formatExample(example: string): string {
-  const trimmed = example.trim();
-  // Check if the example already contains a code fence
-  if (trimmed.startsWith('```')) {
-    // Already has code fence, just use as-is
-    return `#### Example\n\n${trimmed}\n\n`;
-  }
-  // Wrap raw code in a fence
-  return `#### Example\n\n\`\`\`ts\n${trimmed}\n\`\`\`\n\n`;
-}
-
-/** Check if comment has @internal (any kind) - checks both direct comment and signature comments */
-const isInternal = (c?: TypeDocComment): boolean => c?.modifierTags?.includes('@internal') ?? false;
-
-/** Check if node or its signatures are marked @internal (works for methods and accessors) */
-const isNodeInternal = (node: TypeDocNode): boolean =>
-  isInternal(node.comment) ||
-  node.signatures?.some((s) => isInternal(s.comment)) ||
-  isInternal(node.getSignature?.comment) ||
-  isInternal(node.setSignature?.comment) ||
-  false;
-
 /** Check if comment has @internal Plugin API specifically */
 const isPluginApi = (c?: TypeDocComment): boolean =>
   c?.modifierTags?.includes('@internal') && getText(c).includes('Plugin API');
@@ -319,29 +143,6 @@ const getMemberGroup = (m: TypeDocNode): string | undefined => {
   return getGroup(c);
 };
 
-function formatType(type?: TypeDocType): string {
-  if (!type) return 'unknown';
-  switch (type.type) {
-    case 'intrinsic':
-    case 'literal':
-      return String(type.value ?? type.name ?? 'unknown');
-    case 'reference':
-      return type.typeArguments?.length
-        ? `${type.name}<${type.typeArguments.map(formatType).join(', ')}>`
-        : (type.name ?? 'unknown');
-    case 'array':
-      return `${formatType(type.elementType)}[]`;
-    case 'union':
-      return type.types?.map(formatType).join(' | ') ?? 'unknown';
-    case 'intersection':
-      return type.types?.map(formatType).join(' & ') ?? 'unknown';
-    case 'reflection':
-      return 'object';
-    default:
-      return type.name ?? 'unknown';
-  }
-}
-
 // ============================================================================
 // MDX Generators
 // ============================================================================
@@ -350,11 +151,11 @@ function genPropertiesTable(props: TypeDocNode[]): string {
   if (!props.length) return '';
   let out = `## Properties\n\n| Property | Type | Description |\n| -------- | ---- | ----------- |\n`;
   for (const p of props) {
-    const type = formatType(p.type);
+    const type = formatTypeWithLinks(p.type);
     const desc = getText(p.comment).split('\n')[0];
     const opt = p.flags?.isOptional ? '?' : '';
     const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-    out += `| \`${p.name}${opt}\` | \`${escape(type)}\` | ${dep}${escape(desc)} |\n`;
+    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)} |\n`;
   }
   return out + '\n';
 }
@@ -404,7 +205,7 @@ function genMethod(node: TypeDocNode, showOverride = false): string {
   if (sig.parameters?.length) {
     out += `#### Parameters\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n`;
     for (const p of sig.parameters) {
-      out += `| \`${p.name}\` | \`${escape(formatType(p.type))}\` | ${escape(getText(p.comment))} |\n`;
+      out += `| \`${p.name}\` | ${formatTypeWithLinks(p.type)} | ${escape(getText(p.comment))} |\n`;
     }
     out += '\n';
   }
@@ -640,7 +441,7 @@ function genFunction(node: TypeDocNode, title: string): string {
   if (sig.parameters?.length) {
     out += `## Parameters\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n`;
     for (const p of sig.parameters) {
-      out += `| \`${p.name}\` | \`${escape(formatType(p.type))}\` | ${escape(getText(p.comment))} |\n`;
+      out += `| \`${p.name}\` | ${formatTypeWithLinks(p.type)} | ${escape(getText(p.comment))} |\n`;
     }
     out += '\n';
   }
@@ -828,12 +629,9 @@ function genMembersSectionByGroup(
 }
 
 /** Write MDX file with directory creation */
-function writeMdx(outDir: string, relativePath: string, content: string, label: string): void {
-  const fullPath = join(outDir, ...relativePath.split('/'));
-  mkdirSync(join(outDir, ...relativePath.split('/').slice(0, -1)), { recursive: true });
-  writeFileSync(fullPath, content);
-  console.log(`    ✓ ${relativePath} (${label})`);
-}
+const writeMdx = (outDir: string, relativePath: string, content: string, label: string) => {
+  writeMdxBase(outDir, relativePath, content, `${relativePath} (${label})`);
+};
 
 /**
  * Core grid events that are emitted internally (not via public method calls).
@@ -932,14 +730,6 @@ See the [public API documentation](?path=/docs/grid-api-core-classes-datagridele
 // Processing
 // ============================================================================
 
-const KIND_FOLDER_MAP: Record<number, string> = {
-  [KIND.Class]: 'Classes',
-  [KIND.Interface]: 'Interfaces',
-  [KIND.TypeAlias]: 'Types',
-  [KIND.Function]: 'Functions',
-  [KIND.Enum]: 'Enums',
-};
-
 const GENERATORS: Record<number, (n: TypeDocNode, t: string) => string> = {
   [KIND.Class]: genClass,
   [KIND.Interface]: genInterface,
@@ -1019,9 +809,22 @@ function buildTypeRegistry(json: TypeDocNode): void {
 
 /**
  * Resolve a type name to its Storybook documentation URL.
+ * Handles both simple type names and member references (e.g., "GridConfig.sortHandler").
  * Returns the URL if found, or null if the type is not in the registry.
  */
 function resolveTypeLink(typeName: string): string | null {
+  // Check if it's a member reference (Type.member or Type.member())
+  const memberMatch = typeName.match(/^(\w+)\.(\w+)(?:\(\))?$/);
+  if (memberMatch) {
+    const [, parentType, memberName] = memberMatch;
+    const baseUrl = typeRegistry.get(parentType);
+    if (baseUrl) {
+      // Storybook generates lowercase anchor IDs from headings
+      return `${baseUrl}#${memberName.toLowerCase()}`;
+    }
+    return null;
+  }
+  // Simple type name lookup
   return typeRegistry.get(typeName) ?? null;
 }
 
@@ -1160,6 +963,9 @@ async function main(): Promise<void> {
     console.log('\nProcessing Plugins...');
     processPluginModules(pluginModules, OUTPUT_DIR);
   }
+
+  // Touch Storybook main.ts to trigger reindex
+  touchStorybookMain();
 
   console.log('\n✅ Done! MDX files written to libs/grid/docs/api/');
 }

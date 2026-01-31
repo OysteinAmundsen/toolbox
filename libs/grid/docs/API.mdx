@@ -22,8 +22,8 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 | Property     | Type             | Default | Description                |
 | ------------ | ---------------- | ------- | -------------------------- |
 | `rows`       | `T[]`            | `[]`    | Array of row data objects  |
-| `columns`    | `ColumnConfig[]` | `[]`    | Column configuration array |
-| `gridConfig` | `GridConfig<T>`  | `{}`    | Full configuration object  |
+| `columns`    | [`ColumnConfig`](/docs/grid-api-core-interfaces-columnconfig--docs)`[]` | `[]`    | Column configuration array |
+| `gridConfig` | [`GridConfig`](/docs/grid-api-core-interfaces-gridconfig--docs)`<T>`  | `{}`    | Full configuration object  |
 
 ### Layout Properties
 
@@ -35,8 +35,8 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 
 | Property      | Type                      | Description                   |
 | ------------- | ------------------------- | ----------------------------- |
-| `changedRows` | `Map<T, ChangedRowEntry>` | Rows with pending edits       |
-| `sortState`   | `Map<string, SortState>`  | Current sort state per column |
+| `changedRows` | `T[]`                     | Rows with pending edits (requires EditingPlugin) |
+| `sortState`   | `Map<string,` [`SortState`](/docs/grid-api-core-interfaces-sortstate--docs)`>`  | Current sort state per column |
 
 ## HTML Attributes
 
@@ -174,6 +174,8 @@ grid.addEventListener('cell-change', (e: CustomEvent<CellChangeDetail>) => {
 });
 ```
 
+See [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs) for full type definition.
+
 > **Note:** The `cell-change` event is distinct from `cell-commit`, which fires during inline editing. Use `cell-change` for programmatic updates via `updateRow()`/`updateRows()`.
 
 ### Column Methods
@@ -284,9 +286,9 @@ const panels = grid.getToolPanels();
 
 | Event                | Detail Type         | Cancelable | Description                         |
 | -------------------- | ------------------- | ---------- | ----------------------------------- |
-| `cell-commit`        | `CellCommitDetail`  | ✅ Yes     | Cell value was edited (inline)      |
-| `cell-change`        | `CellChangeDetail`  | No         | Row updated via Row Update API      |
-| `row-commit`         | `RowCommitDetail`   | No         | Bulk row edit completed             |
+| `cell-commit`        | [`CellCommitDetail`](/docs/grid-api-core-interfaces-cellcommitdetail--docs)  | ✅ Yes     | Cell value was edited (inline)      |
+| `cell-change`        | [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs)  | No         | Row updated via Row Update API      |
+| `row-commit`         | [`RowCommitDetail`](/docs/grid-api-core-interfaces-rowcommitdetail--docs)   | No         | Bulk row edit completed             |
 | `changed-rows-reset` | -                   | No         | Changed rows were reset             |
 
 ```typescript
@@ -301,11 +303,16 @@ grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
 });
 ```
 
+See [`CellCommitDetail`](/docs/grid-api-core-interfaces-cellcommitdetail--docs) for full type definition.
+
+```typescript
+```
+
 ### Sort Events
 
 | Event         | Detail Type        | Description        |
 | ------------- | ------------------ | ------------------ |
-| `sort-change` | `SortChangeDetail` | Sort state changed |
+| `sort-change` | [`SortChangeDetail`](/docs/grid-api-core-interfaces-sortchangedetail--docs) | Sort state changed |
 
 ```typescript
 grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
@@ -318,19 +325,19 @@ grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
 
 | Event                 | Detail Type            | Cancelable | Description                                        |
 | --------------------- | ---------------------- | ---------- | -------------------------------------------------- |
-| `cell-click`          | `CellClickDetail`      | No         | Cell was clicked (after plugin handling)           |
-| `row-click`           | `RowClickDetail`       | No         | Row was clicked (after plugin handling)            |
-| `cell-activate`       | `CellActivateDetail`   | ✅ Yes     | Cell activated via Enter or click. Check `trigger` |
-| `activate-cell`       | `ActivateCellDetail`   | ✅ Yes     | ⚠️ **Deprecated.** Use `cell-activate` instead     |
-| `column-resize`       | `ColumnResizeDetail`   | No         | Column was resized                                 |
-| `column-state-change` | `GridColumnState`      | No         | Column visibility or order changed                 |
+| `cell-click`          | [`CellClickDetail`](/docs/grid-api-core-interfaces-cellclickdetail--docs)      | No         | Cell was clicked (after plugin handling)           |
+| `row-click`           | [`RowClickDetail`](/docs/grid-api-core-interfaces-rowclickdetail--docs)       | No         | Row was clicked (after plugin handling)            |
+| `cell-activate`       | [`CellActivateDetail`](/docs/grid-api-core-interfaces-cellactivatedetail--docs)   | ✅ Yes     | Cell activated via Enter or click. Check `trigger` |
+| `activate-cell`       | [`ActivateCellDetail`](/docs/grid-api-core-interfaces-activatecelldetail--docs)   | ✅ Yes     | ⚠️ **Deprecated.** Use `cell-activate` instead     |
+| `column-resize`       | [`ColumnResizeDetail`](/docs/grid-api-core-interfaces-columnresizedetail--docs)   | No         | Column was resized                                 |
+| `column-state-change` | [`GridColumnState`](/docs/grid-api-core-interfaces-gridcolumnstate--docs)      | No         | Column visibility or order changed                 |
 
 ### External Rendering Events
 
 | Event                   | Detail Type                 | Description                      |
 | ----------------------- | --------------------------- | -------------------------------- |
-| `mount-external-view`   | `ExternalMountViewDetail`   | Request external view renderer   |
-| `mount-external-editor` | `ExternalMountEditorDetail` | Request external editor renderer |
+| `mount-external-view`   | [`ExternalMountViewDetail`](/docs/grid-api-framework-adapters-interfaces-externalmountviewdetail--docs)   | Request external view renderer   |
+| `mount-external-editor` | [`ExternalMountEditorDetail`](/docs/grid-api-framework-adapters-interfaces-externalmounteditordetail--docs) | Request external editor renderer |
 
 ### Cancelable Events
 
@@ -374,6 +381,8 @@ The `cell-activate` event fires when a cell is activated via **Enter key** or **
 - Block editing from starting by calling `e.preventDefault()`
 - Prevent selection changes on certain cells
 - Implement custom activation logic
+
+See [`CellActivateDetail`](/docs/grid-api-core-interfaces-cellactivatedetail--docs) for full type definition.
 
 ```typescript
 import type { CellActivateDetail } from '@toolbox-web/grid';
@@ -449,7 +458,7 @@ tbw-grid::part(body) {
 
 ## TypeScript Types
 
-### Column Configuration
+### Column Configuration — [`ColumnConfig`](/docs/grid-api-core-interfaces-columnconfig--docs)
 
 ```typescript
 interface ColumnConfig {
@@ -482,6 +491,8 @@ interface ColumnConfig {
 }
 ```
 
+See also: [`ColumnType`](/docs/grid-api-core-types-columntype--docs), [`HeaderLabelContext`](/docs/grid-api-core-interfaces-headerlabelcontext--docs), [`HeaderCellContext`](/docs/grid-api-core-interfaces-headercellcontext--docs)
+
 #### cellClass Callback
 
 Apply dynamic CSS classes to individual cells based on cell value, row data, or column configuration.
@@ -505,7 +516,7 @@ const columns: ColumnConfig[] = [
 ];
 ```
 
-### Grid Configuration
+### Grid Configuration — [`GridConfig`](/docs/grid-api-core-interfaces-gridconfig--docs)
 
 ```typescript
 interface GridConfig<T> {
@@ -522,6 +533,8 @@ interface GridConfig<T> {
   rowClass?: (row: T) => string[];
 }
 ```
+
+See also: [`ColumnConfig`](/docs/grid-api-core-interfaces-columnconfig--docs), [`BaseGridPlugin`](/docs/grid-api-plugin-development-classes-basegridplugin--docs), [`ShellConfig`](/docs/grid-api-core-interfaces-shellconfig--docs), [`AnimationConfig`](/docs/grid-api-core-interfaces-animationconfig--docs), [`GridIcons`](/docs/grid-api-core-interfaces-gridicons--docs), [`TypeDefault`](/docs/grid-api-core-interfaces-typedefault--docs)
 
 **See Also:**
 - [Header Renderers](?path=/docs/grid-core--docs#custom-header-renderers) - Custom column header rendering
@@ -550,7 +563,7 @@ const config: GridConfig<Employee> = {
 - Errors in callbacks are caught and logged to console (rendering continues)
 - See the [RowClass](?path=/story/grid-core--row-class) and [CellClass](?path=/story/grid-core--cell-class) stories for live demos
 
-#### typeDefaults
+#### typeDefaults — [`TypeDefault`](/docs/grid-api-core-interfaces-typedefault--docs)
 
 Define formatters, renderers, and editors at the type level, applying to all columns with matching `type`:
 
@@ -594,7 +607,7 @@ const config: GridConfig<Employee> = {
 
 See the [Core Grid docs](?path=/docs/grid-core--docs#type-level-defaults) for formatter/renderer examples, or the [Editing Plugin docs](?path=/docs/grid-plugins-editing--docs#type-level-defaults) for editor examples.
 
-### Animation Configuration
+### Animation Configuration — [`AnimationConfig`](/docs/grid-api-core-interfaces-animationconfig--docs)
 
 The grid supports a global animation configuration that controls whether animations run.
 Individual plugins define their own animation styles.
@@ -621,6 +634,8 @@ interface AnimationConfig {
   sort?: AnimationStyle;
 }
 ```
+
+See also: [`AnimationMode`](/docs/grid-api-core-types-animationmode--docs), [`AnimationStyle`](/docs/grid-api-core-types-animationstyle--docs)
 
 #### Animation Modes
 
@@ -679,7 +694,7 @@ grid.gridConfig = {
 };
 ```
 
-### Shell Configuration
+### Shell Configuration — [`ShellConfig`](/docs/grid-api-core-interfaces-shellconfig--docs)
 
 ```typescript
 interface ShellConfig {
@@ -698,7 +713,9 @@ interface ToolPanelConfig {
 }
 ```
 
-### Icon Customization
+See also: [`ShellHeaderConfig`](/docs/grid-api-core-interfaces-shellheaderconfig--docs), [`ToolPanelConfig`](/docs/grid-api-core-interfaces-toolpanelconfig--docs)
+
+### Icon Customization — [`GridIcons`](/docs/grid-api-core-interfaces-gridicons--docs)
 
 ```typescript
 // Override any grid icon with SVG string or emoji
@@ -782,6 +799,8 @@ interface ColumnResizeDetail {
   previousWidth: number;
 }
 ```
+
+See also: [`CellCommitDetail`](/docs/grid-api-core-interfaces-cellcommitdetail--docs), [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs), [`SortChangeDetail`](/docs/grid-api-core-interfaces-sortchangedetail--docs), [`ColumnResizeDetail`](/docs/grid-api-core-interfaces-columnresizedetail--docs), [`SortState`](/docs/grid-api-core-interfaces-sortstate--docs)
 
 ## Keyboard Shortcuts
 

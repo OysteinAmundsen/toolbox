@@ -143,7 +143,7 @@ Header columns support custom rendering via two properties:
   headerLabelRenderer: ({ value }) => `${value} *`,
 }
 
-// Full control (you handle everything)
+// Full control (resize handles are automatic)
 {
   field: 'email',
   headerRenderer: (ctx) => {
@@ -151,7 +151,6 @@ Header columns support custom rendering via two properties:
     div.textContent = ctx.value;
     const sortIcon = ctx.renderSortIcon(); // Helper function
     if (sortIcon) div.appendChild(sortIcon);
-    div.appendChild(ctx.renderResizeHandle());
     return div;
   }
 }
@@ -164,7 +163,9 @@ Header columns support custom rendering via two properties:
 - `sortState` - `'asc'` | `'desc'` | `null`
 - `cellEl` - The header cell element
 - `renderSortIcon()` - Creates sort indicator (returns null if not sortable)
-- `renderResizeHandle()` - Creates resize handle element
+- `renderFilterButton()` - Creates filter button (returns null if FilteringPlugin not active)
+
+> **Note:** Resize handles are added automatically for resizable columns - you don't need to render them.
 
 ### Angular Adapter (`@toolbox-web/grid-angular`)
 

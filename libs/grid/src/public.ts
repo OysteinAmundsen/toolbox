@@ -86,6 +86,30 @@ export function queryGrid<TRow = unknown>(
 /**
  * Event name constants for DataGrid (public API).
  *
+ * Use these constants instead of string literals for type-safe event handling.
+ *
+ * @example
+ * ```typescript
+ * import { DGEvents } from '@toolbox-web/grid';
+ *
+ * // Type-safe event listening
+ * grid.addEventListener(DGEvents.CELL_CLICK, (e) => {
+ *   console.log('Cell clicked:', e.detail);
+ * });
+ *
+ * grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
+ *   const { field, direction } = e.detail;
+ *   console.log(`Sorted by ${field}`);
+ * });
+ *
+ * grid.addEventListener(DGEvents.CELL_COMMIT, (e) => {
+ *   // Save edited value
+ *   saveToServer(e.detail.row);
+ * });
+ * ```
+ *
+ * @see {@link PluginEvents} for plugin-specific events
+ * @see {@link DataGridEventMap} for event detail types
  * @category Events
  */
 export const DGEvents = {
@@ -108,6 +132,14 @@ export const DGEvents = {
 /**
  * Union type of all DataGrid event names.
  *
+ * @example
+ * ```typescript
+ * function addListener(grid: DataGridElement, event: DGEventName): void {
+ *   grid.addEventListener(event, (e) => console.log(e));
+ * }
+ * ```
+ *
+ * @see {@link DGEvents} for event constants
  * @category Events
  */
 export type DGEventName = (typeof DGEvents)[keyof typeof DGEvents];
@@ -115,6 +147,32 @@ export type DGEventName = (typeof DGEvents)[keyof typeof DGEvents];
 /**
  * Plugin event constants (mirrors DGEvents pattern).
  *
+ * Events emitted by built-in plugins. Import the relevant plugin
+ * to access these events.
+ *
+ * @example
+ * ```typescript
+ * import { PluginEvents } from '@toolbox-web/grid';
+ * import { SelectionPlugin } from '@toolbox-web/grid/all';
+ *
+ * // Listen for selection changes
+ * grid.addEventListener(PluginEvents.SELECTION_CHANGE, (e) => {
+ *   console.log('Selected rows:', e.detail.selectedRows);
+ * });
+ *
+ * // Listen for filter changes
+ * grid.addEventListener(PluginEvents.FILTER_CHANGE, (e) => {
+ *   console.log('Active filters:', e.detail);
+ * });
+ *
+ * // Listen for tree expand/collapse
+ * grid.addEventListener(PluginEvents.TREE_EXPAND, (e) => {
+ *   const { row, expanded } = e.detail;
+ *   console.log(`Row ${expanded ? 'expanded' : 'collapsed'}`);
+ * });
+ * ```
+ *
+ * @see {@link DGEvents} for core grid events
  * @category Events
  */
 export const PluginEvents = {
@@ -153,6 +211,14 @@ export const PluginEvents = {
 /**
  * Union type of all plugin event names.
  *
+ * @example
+ * ```typescript
+ * function addPluginListener(grid: DataGridElement, event: PluginEventName): void {
+ *   grid.addEventListener(event, (e) => console.log(e));
+ * }
+ * ```
+ *
+ * @see {@link PluginEvents} for event constants
  * @category Events
  */
 export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
@@ -295,12 +361,14 @@ export type { GridClassName, GridCSSVar, GridDataAttr } from './lib/core/constan
 /**
  * Column configuration with internal cache properties.
  * Extends the public ColumnConfig with compiled template caches (__compiledView, __viewTemplate, etc.)
+ * @category Plugin Development
  * @internal
  */
 export type { ColumnInternal } from './lib/core/types';
 
 /**
  * Compiled template function with __blocked property for error handling.
+ * @category Plugin Development
  * @internal
  */
 export type { CompiledViewFunction } from './lib/core/types';
@@ -308,36 +376,42 @@ export type { CompiledViewFunction } from './lib/core/types';
 /**
  * Full internal grid interface extending PublicGrid with internal state.
  * Provides typed access to _columns, _rows, virtualization state, etc.
+ * @category Plugin Development
  * @internal
  */
 export type { InternalGrid } from './lib/core/types';
 
 /**
  * Cell context for renderer/editor operations.
+ * @category Plugin Development
  * @internal
  */
 export type { CellContext } from './lib/core/types';
 
 /**
  * Editor execution context extending CellContext with commit/cancel functions.
+ * @category Plugin Development
  * @internal
  */
 export type { EditorExecContext } from './lib/core/types';
 
 /**
  * Template evaluation context for dynamic templates.
+ * @category Plugin Development
  * @internal
  */
 export type { EvalContext } from './lib/core/types';
 
 /**
  * Column resize controller interface.
+ * @category Plugin Development
  * @internal
  */
 export type { ResizeController } from './lib/core/types';
 
 /**
  * Row virtualization state interface.
+ * @category Plugin Development
  * @internal
  */
 export type { VirtualState } from './lib/core/types';
@@ -345,6 +419,7 @@ export type { VirtualState } from './lib/core/types';
 /**
  * Row element with internal editing state cache.
  * Used for tracking editing cell count without querySelector.
+ * @category Plugin Development
  * @internal
  */
 export type { RowElementInternal } from './lib/core/types';
@@ -352,6 +427,7 @@ export type { RowElementInternal } from './lib/core/types';
 /**
  * Union type for input-like elements that have a `value` property.
  * Covers standard form elements and custom elements with value semantics.
+ * @category Plugin Development
  * @internal
  */
 export type { InputLikeElement } from './lib/core/types';
@@ -369,6 +445,7 @@ export type { InputLikeElement } from './lib/core/types';
  *   }
  * }
  * ```
+ * @category Plugin Development
  * @internal
  */
 export type AsInternalGrid<T = unknown> = import('./lib/core/types').InternalGrid<T>;
@@ -376,6 +453,7 @@ export type AsInternalGrid<T = unknown> = import('./lib/core/types').InternalGri
 /**
  * Render phase enum for debugging and understanding the render pipeline.
  * Higher phases include all lower phase work.
+ * @category Plugin Development
  */
 export { RenderPhase } from './lib/core/internal/render-scheduler';
 // #endregion

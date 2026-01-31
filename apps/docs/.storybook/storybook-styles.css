@@ -270,6 +270,14 @@ html.dark {
   border-color: var(--sbdocs-border) !important;
 }
 
+/* Linked types - use accent color to indicate clickable */
+.sbdocs-content a code,
+.sbdocs-content td a code,
+.sbdocs-content li a code,
+.sbdocs-content p a code {
+  color: var(--tbw-accent) !important;
+}
+
 /* "Show code" toggle button */
 .docblock-code-toggle {
   background: var(--sbdocs-bg) !important;
@@ -1034,5 +1042,70 @@ html.dark {
   pointer-events: none;
 }
 /* #endregion Tabs (.sb-tabs) */
+
+/* #region Story Toolbar (.story-toolbar) */
+/*
+ * Reusable toolbar for interactive story demos
+ */
+.story-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: light-dark(#f5f5f5, #2a2a2a);
+  border-bottom: 1px solid var(--sb-border);
+  font-size: 14px;
+  color: var(--sbdocs-fg);
+}
+
+.story-toolbar__group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.story-toolbar__group--bordered {
+  border-left: 1px solid var(--sb-border);
+  padding-left: 12px;
+}
+
+.story-toolbar__label {
+  font-weight: 600;
+  color: var(--sbdocs-heading);
+}
+
+.story-toolbar select,
+.story-toolbar button {
+  padding: 4px 10px;
+  border: 1px solid var(--sb-border);
+  border-radius: 4px;
+  background: var(--args-input-bg);
+  color: var(--sbdocs-fg);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.story-toolbar button:hover {
+  background: var(--args-hover-bg);
+}
+
+.story-toolbar select {
+  min-width: 80px;
+}
+
+.story-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.story-toolbar input[type='radio'] {
+  accent-color: var(--tbw-accent);
+  cursor: pointer;
+}
+/* #endregion Story Toolbar (.story-toolbar) */
 
 /* #endregion Custom Components */

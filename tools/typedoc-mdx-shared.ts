@@ -138,11 +138,12 @@ export const escape = (text: string): string => {
 };
 
 /**
- * Escape special characters in inline code within MDX tables.
- * Only pipes need escaping since they break table cell boundaries.
- * Backticks protect angle brackets and curly braces.
+ * Escape special characters in inline code within MDX.
+ * - Pipes `|` break table cell boundaries
+ * - Angle brackets `<>` are interpreted as JSX when inline code starts a line
  */
-export const escapeCode = (text: string): string => text.replace(/\|/g, '\\|');
+export const escapeCode = (text: string): string =>
+  text.replace(/\|/g, '\\|').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ============================================================================
 // Comment Extraction
@@ -164,6 +165,14 @@ export const isDeprecated = (c?: TypeDocComment): boolean =>
 
 /** Check if comment has @internal modifier */
 export const isInternal = (c?: TypeDocComment): boolean => c?.modifierTags?.includes('@internal') ?? false;
+
+/** Check if node or its signatures are marked @internal (works for methods and accessors) */
+export const isNodeInternal = (node: TypeDocNode): boolean =>
+  isInternal(node.comment) ||
+  node.signatures?.some((s) => isInternal(s.comment)) ||
+  isInternal(node.getSignature?.comment) ||
+  isInternal(node.setSignature?.comment) ||
+  false;
 
 // ============================================================================
 // Type Formatting
@@ -196,9 +205,91 @@ export function formatType(t?: TypeDocType): string {
   }
 }
 
+/**
+ * Format a type with markdown links for types in a registry.
+ * Returns markdown with links for known types, inline code for unknown.
+ *
+ * @param type - TypeDoc type to format
+ * @param typeRegistry - Map of type names to documentation URLs
+ */
+export function formatTypeWithLinks(type: TypeDocType | undefined, typeRegistry: Map<string, string>): string {
+  if (!type) return '`unknown`';
+
+  const linkify = (name: string): string => {
+    const url = typeRegistry.get(name);
+    return url ? `[\`${name}\`](${url})` : `\`${name}\``;
+  };
+
+  switch (type.type) {
+    case 'intrinsic':
+    case 'literal':
+      return `\`${String(type.value ?? type.name ?? 'unknown')}\``;
+    case 'reference': {
+      const name = type.name ?? 'unknown';
+      if (type.typeArguments?.length) {
+        const args = type.typeArguments.map((t) => formatTypeWithLinks(t, typeRegistry)).join(', ');
+        const url = typeRegistry.get(name);
+        // Use HTML entities for angle brackets to prevent MDX from interpreting them as JSX
+        return url ? `[\`${name}\`](${url})&lt;${args}&gt;` : `\`${name}\`&lt;${args}&gt;`;
+      }
+      return linkify(name);
+    }
+    case 'array':
+      return `${formatTypeWithLinks(type.elementType, typeRegistry)}[]`;
+    case 'union':
+      return type.types?.map((t) => formatTypeWithLinks(t, typeRegistry)).join(' \\| ') ?? '`unknown`';
+    case 'intersection':
+      return type.types?.map((t) => formatTypeWithLinks(t, typeRegistry)).join(' & ') ?? '`unknown`';
+    case 'reflection':
+      return '`object`';
+    default:
+      return type.name ? linkify(type.name) : '`unknown`';
+  }
+}
+
 // ============================================================================
 // Example Formatting
 // ============================================================================
+
+/**
+ * Get all @example tags from a comment.
+ * Returns an array of example code blocks with optional titles.
+ * TypeDoc 0.28+ puts the example title in a `name` property.
+ */
+export function getAllExamples(comment?: TypeDocComment): { title?: string; code: string }[] {
+  if (!comment?.blockTags) return [];
+  return comment.blockTags
+    .filter((b) => b.tag === '@example')
+    .map((b) => {
+      const title = (b as { name?: string }).name?.trim();
+      const text = b.content
+        .map((c) => c.text)
+        .join('')
+        .trim();
+      return { title, code: text };
+    });
+}
+
+/**
+ * Format all @example blocks for MDX output.
+ * Uses a single "## Examples" header when there are multiple examples.
+ */
+export function formatAllExamples(comment?: TypeDocComment, defaultLang = 'ts'): string {
+  const examples = getAllExamples(comment);
+  if (examples.length === 0) return '';
+
+  const header = examples.length === 1 ? '## Example\n\n' : '## Examples\n\n';
+
+  const body = examples
+    .map((ex) => {
+      const titleLine = ex.title ? `### ${ex.title}\n\n` : '';
+      const code = ex.code.startsWith('```') ? ex.code : `\`\`\`${defaultLang}\n${ex.code}\n\`\`\``;
+      return `${titleLine}${code}\n\n`;
+    })
+    .join('');
+
+  return header + body;
+}
 
 /**
  * Format an @example block for MDX output.
@@ -212,6 +303,47 @@ export function formatExample(example: string, defaultLang = 'tsx'): string {
     return `#### Example\n\n${trimmed}\n\n`;
   }
   return `#### Example\n\n\`\`\`${defaultLang}\n${trimmed}\n\`\`\`\n\n`;
+}
+
+// ============================================================================
+// Event Formatting (@fires)
+// ============================================================================
+
+/**
+ * Get all @fires tags from a comment.
+ * Format: @fires eventName - Description
+ */
+export function getAllFires(comment?: TypeDocComment): { event: string; description: string }[] {
+  if (!comment?.blockTags) return [];
+  return comment.blockTags
+    .filter((b) => b.tag === '@fires')
+    .map((b) => {
+      const text = b.content
+        .map((c) => c.text)
+        .join('')
+        .trim();
+      const match = text.match(/^(\S+)(?:\s*-\s*(.*))?$/);
+      if (match) {
+        return { event: match[1], description: match[2]?.trim() ?? '' };
+      }
+      return { event: text, description: '' };
+    });
+}
+
+/**
+ * Format all @fires tags as an "Events" section for MDX output.
+ */
+export function formatFires(comment?: TypeDocComment): string {
+  const fires = getAllFires(comment);
+  if (fires.length === 0) return '';
+
+  let out = `#### Events\n\n`;
+  out += `| Event | Description |\n`;
+  out += `| ----- | ----------- |\n`;
+  for (const f of fires) {
+    out += `| \`${f.event}\` | ${escape(f.description)} |\n`;
+  }
+  return out + '\n';
 }
 
 // ============================================================================

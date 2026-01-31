@@ -2,7 +2,7 @@ import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
 import { Tabs, Tab } from '../../../../../apps/docs/.storybook/components/Tabs';
 import * as GridStories from './grid.stories';
 import * as HeaderRendererStories from './header-renderers.stories';
-import * as LoadingStories from './loading.stories';
+import * as LoadingPlaygroundStories from './loading-playground.stories';
 
 <Meta of={GridStories} />
 
@@ -135,8 +135,6 @@ export class MyGridComponent {
   </Tab>
 </Tabs>
 
-## Demos
-
 ### Interactive Playground
 
 Experiment with all core grid options using the controls below. [Open with controls →](?path=/story/grid-core--playground)
@@ -144,27 +142,171 @@ Experiment with all core grid options using the controls below. [Open with contr
 <Canvas of={GridStories.Playground} withToolbar />
 <Controls of={GridStories.Playground} exclude={['fixedHeight']} />
 
+### Keyboard Navigation
+
+The grid implements [ARIA grid keyboard patterns](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) out of the box—no configuration required:
+
+| Key                      | Action                       |
+| ------------------------ | ---------------------------- |
+| `↑` `↓` `←` `→`          | Navigate cells               |
+| `Tab` / `Shift+Tab`      | Move to next/previous cell   |
+| `Enter`                  | Start editing / confirm edit |
+| `Escape`                 | Cancel editing               |
+| `Home` / `End`           | Jump to first/last column    |
+| `Ctrl+Home` / `Ctrl+End` | Jump to first/last row       |
+| `Page Up` / `Page Down`  | Scroll by viewport           |
+
+
+## Configuration
 ### Column Inference
 
-The grid can automatically infer column types from your data.
+**Zero-config data display** — Just pass your data and the grid figures out the rest.
+
+When you provide `rows` without defining `columns`, the grid automatically:
+- Detects fields from the first row's property names
+- Infers data types (`string`, `number`, `boolean`, `date`) from actual values
+- Generates human-readable headers from field names (`firstName` → `First Name`)
+- Applies appropriate sorting and formatting for each type
+
+This means you can display data with a single line of code:
+
+```typescript
+grid.rows = myData;  // That's it!
+```
 
 <Canvas of={GridStories.ColumnInference} withToolbar />
 
 ### Light DOM Columns
 
-Define columns declaratively in HTML using `<tbw-grid-column>` elements.
+**Declarative configuration** — Define columns in HTML instead of JavaScript.
+
+If you need more control than automatic inference provides, you don't have to write JavaScript configuration. Use `<tbw-grid-column>` elements to declaratively define columns, headers, widths, and other properties directly in your markup:
+
+```html
+<tbw-grid>
+  <tbw-grid-column field="id" header="ID" width="80"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Full Name" sortable></tbw-grid-column>
+  <tbw-grid-column field="email" header="Email Address"></tbw-grid-column>
+</tbw-grid>
+```
+
+This approach is ideal for:
+- **Static layouts** where columns don't change at runtime
+- **Server-rendered pages** where HTML is generated on the server
+- **Template-driven frameworks** like Angular or Vue that prefer declarative syntax
+- **Quick prototyping** without writing JavaScript
+
+The grid also supports other light DOM elements like `<tbw-grid-header>` for shell configuration — see [Shell Components](#shell-components) below.
 
 <Canvas of={GridStories.LightDOMColumns} withToolbar />
 
-### Custom Formatters
+### Configuration Reference
 
-Use format functions and templates to customize cell display.
+For complete property documentation, see the API reference:
+
+- [`GridConfig`](/docs/grid-api-core-interfaces-gridconfig--docs) — Grid-level options (fitMode, sortable, plugins, etc.)
+- [`ColumnConfig`](/docs/grid-api-core-interfaces-columnconfig--docs) — Column-level options (field, header, width, renderer, etc.)
+
+
+## Presentation
+### Formatters
+
+**Transform how values are displayed** — Formatters convert raw data values into user-friendly text.
+
+A formatter is a function that takes a cell value and returns a formatted string. Use formatters for:
+- **Currency**: `1234.50` → `$1,234.50`
+- **Dates**: `2024-01-15` → `January 15, 2024`
+- **Percentages**: `0.156` → `15.6%`
+- **Prefixes/suffixes**: `42` → `42 kg` or `#42`
+
+```typescript
+grid.columns = [
+  {
+    field: 'salary',
+    format: (value) => `$${value.toLocaleString()}`,
+  },
+];
+```
 
 <Canvas of={GridStories.CustomFormatters} withToolbar />
 
+### Row Styling
+
+**Style entire rows** based on data properties like status, role, or priority using the `rowClass` callback.
+
+```typescript
+grid.gridConfig = {
+  rowClass: (row) => row.status === 'inactive' ? 'row-inactive' : '',
+};
+```
+
+<Canvas of={GridStories.RowClass} withToolbar />
+
+### Cell Styling
+
+**Style individual cells** based on their value — perfect for data validation, conditional formatting, or highlighting.
+
+```typescript
+grid.columns = [
+  {
+    field: 'score',
+    cellClass: (value) => {
+      if (value >= 90) return 'cell-success';
+      if (value < 50) return 'cell-danger';
+      return '';
+    },
+  },
+];
+```
+
+<Canvas of={GridStories.CellClass} withToolbar />
+
+> **Tip:** You can combine `rowClass` and `cellClass`. When styles conflict, cell styles win because cells are children of rows in the DOM hierarchy.
+
+### Renderers
+
+**Full control over cell content** — Renderers let you create custom HTML elements for cells.
+
+While formatters return plain text, renderers return DOM elements. Use renderers when you need:
+- **Custom components**: Checkboxes, badges, progress bars, buttons
+- **Interactive elements**: Links, icons, action buttons
+- **Rich formatting**: Multiple elements, images, complex layouts
+
+```typescript
+grid.columns = [
+  {
+    field: 'status',
+    header: 'Status',
+    renderer: (ctx) => {
+      const badge = document.createElement('span');
+      badge.className = `badge badge-${ctx.value}`;
+      badge.textContent = ctx.value as string;
+      return badge;
+    },
+  },
+  {
+    field: 'active',
+    header: 'Active',
+    renderer: (ctx) => {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !!ctx.value;
+      checkbox.disabled = true;
+      return checkbox;
+    },
+  },
+];
+```
+
+The renderer context (`ctx`) provides:
+- `value` — The cell's data value
+- `row` — The full row data object
+- `column` — The column configuration
+- `rowIndex` — The row's index in the data
+
 ### Type-Level Defaults
 
-Define default formatters and renderers for all columns of a specific `type`. This is a **core feature** that works without any plugins.
+Define default formatters and renderers for all columns of a specific `type`.
 
 ```typescript
 import { queryGrid } from '@toolbox-web/grid';
@@ -215,115 +357,80 @@ grid.gridConfig = {
 
 Customize column headers with two levels of control:
 
-- **`headerLabelRenderer`** - Customize only the label text. The grid automatically adds sort icons and resize handles.
-- **`headerRenderer`** - Full control over the entire header cell. You receive helper functions to optionally include standard elements.
+- **`headerLabelRenderer`** — Customize just the label. Grid handles sort icons, filter buttons, and resize handles.
+- **`headerRenderer`** — Full control over header content. Use `ctx.renderSortIcon()` and `ctx.renderFilterButton()` (with FilteringPlugin) to include standard elements.
 
-#### Header Label Renderer
+In this example, the **Name** column uses `headerLabelRenderer` to add a required indicator, while the **Email** column uses `headerRenderer` for complete control with a custom icon prefix:
 
-Simple customizations like adding required indicators, units, or icons:
+<Canvas of={HeaderRendererStories.CustomHeaderRenderers} withToolbar />
 
-<Canvas of={HeaderRendererStories.HeaderLabelRenderer} withToolbar />
+## Column State Persistence
 
-#### Full Header Renderer
+The grid tracks user modifications to columns—resizing, reordering, hiding, and sorting—and exposes this state for you to persist wherever makes sense for your application (localStorage, a backend API, user preferences service, etc.). The grid intentionally does **not** auto-store state; you control where and how it's saved.
 
-Complete control for complex layouts. Use `ctx.renderSortIcon()` and `ctx.renderResizeHandle()` helpers:
+#### What State Contains
 
-<Canvas of={HeaderRendererStories.FullHeaderRenderer} withToolbar />
-
-#### Comparing Approaches
-
-See both approaches side-by-side to understand when to use each:
-
-<Canvas of={HeaderRendererStories.ComparingApproaches} withToolbar />
-
-### Dynamic Row & Cell Styling
-
-Apply CSS classes dynamically based on row data or cell values using `rowClass` and `cellClass` callbacks.
-
-#### Row Classes
-
-Style entire rows based on data properties like status, role, or priority.
-
-<Canvas of={GridStories.RowClass} withToolbar />
-
-#### Cell Classes
-
-Style individual cells based on their value - perfect for data validation or conditional formatting.
-
-<Canvas of={GridStories.CellClass} withToolbar />
-
-#### Combined Styling
-
-Use both `rowClass` and `cellClass` together for comprehensive conditional styling.
-
-<Canvas of={GridStories.CombinedDynamicClasses} withToolbar />
-
-### Column State Persistence
-
-Persist column widths, order, and visibility to localStorage.
-
-<Canvas of={GridStories.ColumnStatePersistence} layout="fullscreen" withToolbar />
-
-## Configuration
-
-### Via Properties
+The [`GridColumnState`](/docs/grid-api-core-interfaces-gridcolumnstate--docs) object captures everything needed to restore a user's column layout:
 
 ```ts
-const grid = queryGrid('tbw-grid');
-grid.columns = [...];
-grid.rows = [...];
-grid.fitMode = 'stretch'; // or 'fixed'
-grid.sortable = true;     // grid-wide sorting toggle (default: true)
+interface GridColumnState {
+  columns: ColumnState[];
+}
+
+interface ColumnState {
+  field: string;           // Column identifier
+  order: number;           // Position in the grid (0-based)
+  width?: number;          // Pixel width (if resized)
+  visible: boolean;        // Hidden/shown state
+  sort?: {
+    direction: 'asc' | 'desc';
+    priority: number;      // For multi-column sort
+  };
+}
 ```
 
-### Via gridConfig
+#### Listening for Changes
+
+Subscribe to the `column-state-change` event to detect when users modify columns:
 
 ```ts
+grid.addEventListener('column-state-change', (e) => {
+  const state = e.detail; // GridColumnState
+  localStorage.setItem('grid-prefs', JSON.stringify(state));
+  // Or: api.saveUserPreferences(userId, state);
+});
+```
+
+The event fires (debounced) when users resize, reorder, hide/show, or sort columns.
+
+#### Applying Saved State
+
+Restore state on initialization via `gridConfig.columnState`:
+
+```ts
+const saved = localStorage.getItem('grid-prefs');
 grid.gridConfig = {
   columns: [...],
-  fitMode: 'stretch',
-  sortable: true, // grid-wide sorting toggle (default: true)
-  plugins: [new EditingPlugin({ editOn: 'dblclick' })], // or 'click'
+  columnState: saved ? JSON.parse(saved) : undefined,
 };
-grid.rows = [...];
 ```
 
-## Grid Configuration
+Or apply at runtime:
 
-| Property     | Type      | Default | Description                                      |
-| ------------ | --------- | ------- | ------------------------------------------------ |
-| `fitMode`    | `string`  | `'fixed'` | Column sizing: `'fixed'` or `'stretch'`        |
-| `sortable`   | `boolean` | `true`  | Grid-wide sorting toggle. When `false`, disables sorting on all columns regardless of column-level `sortable` settings. |
-| `filterable` | `boolean` | `true`  | Grid-wide filtering toggle. When `false`, disables filtering on all columns regardless of column-level `filterable` settings. Requires FilteringPlugin. |
-| `selectable` | `boolean` | `true`  | Grid-wide selection toggle. When `false`, disables all selection. Requires SelectionPlugin. |
+```ts
+grid.columnState = JSON.parse(localStorage.getItem('grid-prefs'));
+```
 
-## Column Configuration
+#### Resetting State
 
-| Property    | Type                                          | Description                |
-| ----------- | --------------------------------------------- | -------------------------- |
-| `field`     | `string`                                      | Data field name (required) |
-| `header`    | `string`                                      | Column header text         |
-| `type`      | `'string' \| 'number' \| 'boolean' \| 'date'` | Data type                  |
-| `width`     | `number`                                      | Fixed width in pixels      |
-| `minWidth`  | `number`                                      | Minimum width              |
-| `maxWidth`  | `number`                                      | Maximum width              |
-| `sortable`  | `boolean`                                     | Enable sorting             |
-| `editable`  | `boolean`                                     | Enable editing             |
-| `resizable` | `boolean`                                     | Enable resizing            |
-| `format`    | `(value, row) => string`                      | Custom formatter           |
-| `template`  | `string`                                      | Template string            |
+Reset to the original column configuration:
 
-## Keyboard Shortcuts
+```ts
+grid.resetColumnState();
+localStorage.removeItem('grid-prefs');
+```
 
-| Key                      | Action                       |
-| ------------------------ | ---------------------------- |
-| `↑` `↓` `←` `→`          | Navigate cells               |
-| `Tab` / `Shift+Tab`      | Move to next/previous cell   |
-| `Enter`                  | Start editing / confirm edit |
-| `Escape`                 | Cancel editing               |
-| `Home` / `End`           | Jump to first/last column    |
-| `Ctrl+Home` / `Ctrl+End` | Jump to first/last row       |
-| `Page Up` / `Page Down`  | Scroll by viewport           |
+<Canvas of={GridStories.ColumnStatePersistence} layout="fullscreen" withToolbar />
 
 ## Shell Components
 
@@ -331,15 +438,127 @@ The grid includes a shell wrapper for toolbar, tool panels, and status bar.
 
 ### Basic Shell
 
-The shell provides a wrapper with toolbar, title, and optional tool panel sidebar. Use the controls to explore different configurations.
+The shell provides a wrapper with toolbar, title, and optional tool panel sidebar.
 
 <Canvas of={GridStories.ShellBasic} withToolbar />
+<Controls of={GridStories.ShellBasic} />
 
-### Light DOM Shell Configuration
+### Configuration
 
-Configure the shell declaratively using `<tbw-grid-header>` elements. Set the title via attribute and add custom content with `<tbw-grid-header-content>`.
+Configure the shell via [`ShellConfig`](/docs/grid-api-core-interfaces-shellconfig--docs):
 
-<Canvas of={GridStories.ShellLightDOMConfig} withToolbar />
+```ts
+grid.gridConfig = {
+  shell: {
+    header: { title: 'Employee Directory' },
+    toolPanel: { position: 'right', width: 280 },
+  },
+  plugins: [new VisibilityPlugin()], // Adds column visibility panel
+};
+```
+
+#### Shell Header Layout
+
+The shell header has four zones (left to right):
+
+| Zone | Purpose | Configuration |
+|------|---------|---------------|
+| **Title** | Grid title text | `shell.header.title` or `<tbw-grid-header title="...">` |
+| **Center** | Search boxes, filters, status | `registerHeaderContent()` or `<tbw-grid-header-content>` |
+| **Toolbar** | Action buttons, controls | `shell.header.toolbarContents` or `registerToolbarContent()` or `<tbw-grid-tool-buttons>` |
+| **Panel Toggle** | Opens tool panel sidebar | Automatic when plugins register panels |
+
+#### Header Content (Center Area)
+
+Add content to the center of the shell header using `registerHeaderContent()`:
+
+```ts
+grid.registerHeaderContent({
+  id: 'row-count',
+  order: 10,
+  render: (container) => {
+    const span = document.createElement('span');
+    span.textContent = `${grid.rows.length} rows`;
+    container.appendChild(span);
+  },
+});
+
+// Remove later if needed
+grid.unregisterHeaderContent('row-count');
+```
+
+See [`HeaderContentDefinition`](/docs/grid-api-core-interfaces-headercontentdefinition--docs) for all options.
+
+#### Toolbar Content (Right Area)
+
+Add custom buttons or controls to the toolbar using `shell.header.toolbarContents`:
+
+```ts
+grid.gridConfig = {
+  shell: {
+    header: {
+      title: 'Employees',
+      toolbarContents: [
+        {
+          id: 'export-btn',
+          order: 10, // Lower = rendered first
+          render: (container) => {
+            const btn = document.createElement('button');
+            btn.className = 'dg-toolbar-btn';
+            btn.textContent = 'Export';
+            btn.onclick = () => exportData(grid.rows);
+            container.appendChild(btn);
+          },
+        },
+      ],
+    },
+  },
+};
+```
+
+Or register dynamically at runtime:
+
+```ts
+grid.registerToolbarContent({
+  id: 'refresh-btn',
+  order: 20,
+  render: (container) => {
+    const btn = document.createElement('button');
+    btn.className = 'dg-toolbar-btn';
+    btn.textContent = 'Refresh';
+    btn.onclick = () => loadData();
+    container.appendChild(btn);
+  },
+});
+
+// Remove later if needed
+grid.unregisterToolbarContent('refresh-btn');
+```
+
+See [`ToolbarContentDefinition`](/docs/grid-api-core-interfaces-toolbarcontentdefinition--docs) for all options.
+
+#### Light DOM Shell Configuration
+
+Configure the shell declaratively using `<tbw-grid-header>` elements. Set the title via attribute and add custom content with `<tbw-grid-header-content>`:
+
+```html
+<tbw-grid style="height: 500px; display: block;">
+  <tbw-grid-header title="Employee Directory">
+    <tbw-grid-header-content>
+      <span style="color: #666;">20 employees</span>
+    </tbw-grid-header-content>
+  </tbw-grid-header>
+</tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid');
+grid.columns = [...];
+grid.rows = [...];
+// Shell renders automatically from light DOM - no config needed!
+</script>
+```
 
 ### Multiple Tool Panels
 
@@ -355,43 +574,29 @@ Add custom toolbar buttons using the `<tbw-grid-tool-buttons>` container. Button
 
 ## Loading States
 
-The grid provides built-in loading indicators at three levels for visual feedback during async operations.
+The grid provides loading indicators at three levels: **grid** (full overlay), **row**, and **cell**. All loading states are user-controlled.
 
-| Level | Use Case | Visual |
-|-------|----------|--------|
-| **Grid** | Initial data fetch, refresh | Large centered spinner with backdrop |
-| **Row** | Saving row, row-level async operations | Small spinner on row |
-| **Cell** | Cell validation, cell-level async operations | Tiny spinner on cell |
+<Canvas of={LoadingPlaygroundStories.LoadingPlayground} withToolbar />
+<Controls of={LoadingPlaygroundStories.LoadingPlayground} />
 
-All loading states are **user-instructed** - you control when to show/hide them.
+### API Reference
 
-### Grid-Level Loading
+| Method | Description |
+|--------|-------------|
+| `grid.loading = boolean` | Show/hide grid-level overlay |
+| `grid.setRowLoading(rowId, boolean)` | Show/hide row spinner |
+| `grid.setCellLoading(rowId, field, boolean)` | Show/hide cell spinner |
+| `grid.isRowLoading(rowId)` | Check if row is loading |
+| `grid.isCellLoading(rowId, field)` | Check if cell is loading |
+| `grid.clearAllLoading()` | Clear all loading states |
 
-Show a full-grid loading overlay during initial data fetch or refresh operations:
-
-<Canvas of={LoadingStories.GridLoading} withToolbar />
-
-**Realistic data fetch example:**
-
-<Canvas of={LoadingStories.FetchDataDemo} withToolbar />
-
-### Row-Level Loading
-
-Show loading indicators on specific rows during save operations:
-
-<Canvas of={LoadingStories.RowLoading} withToolbar />
-
-### Cell-Level Loading
-
-Show loading indicators on individual cells during validation or async operations:
-
-<Canvas of={LoadingStories.CellLoading} withToolbar />
+> **Note:** Row and cell loading require `getRowId` in your config to identify rows.
 
 ### Custom Loading Renderer
 
-Replace the default spinner with your own component using `loadingRenderer`:
+Replace the default spinner with a custom component:
 
-<Canvas of={LoadingStories.CustomLoadingRenderer} withToolbar />
+<Canvas of={LoadingPlaygroundStories.CustomLoadingRenderer} withToolbar />
 
 ## Events
 
@@ -404,39 +609,14 @@ and resizing columns to see the events in the log:
 
 | Event                 | Detail                                       | Description                                     |
 | --------------------- | -------------------------------------------- | ----------------------------------------------- |
-| `cell-click`          | `{ row, rowIndex, field, value, ... }`       | Cell clicked                                    |
-| `row-click`           | `{ row, rowIndex, rowEl, ... }`              | Row clicked                                     |
-| `cell-activate`       | `{ rowIndex, colIndex, field, value, ... }`  | Cell activated via keyboard navigation          |
-| `cell-change`         | `{ row, rowIndex, field, oldValue, newValue }` | Cell value changed (before commit)            |
-| `sort-change`         | `{ field, direction }`                       | Sort state changed (0=none, 1=asc, -1=desc)     |
-| `column-resize`       | `{ field, width }`                           | Column width changed                            |
-| `column-state-change` | `GridColumnState`                            | Column state (widths, order, visibility) changed |
+| `cell-click`          | [`CellClickDetail`](/docs/grid-api-core-interfaces-cellclickdetail--docs) | Cell clicked                                    |
+| `row-click`           | [`RowClickDetail`](/docs/grid-api-core-interfaces-rowclickdetail--docs) | Row clicked                                     |
+| `cell-activate`       | [`CellActivateDetail`](/docs/grid-api-core-interfaces-cellactivatedetail--docs) | Cell activated via keyboard navigation          |
+| `cell-change`         | [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs) | Cell value changed (before commit)            |
+| `sort-change`         | [`SortChangeDetail`](/docs/grid-api-core-interfaces-sortchangedetail--docs) | Sort state changed (0=none, 1=asc, -1=desc)     |
+| `column-resize`       | [`ColumnResizeDetail`](/docs/grid-api-core-interfaces-columnresizedetail--docs) | Column width changed                            |
+| `column-state-change` | [`GridColumnState`](/docs/grid-api-core-interfaces-gridcolumnstate--docs) | Column state (widths, order, visibility) changed |
 
 ## Methods
 
-```ts
-// Wait for grid to be ready
-await grid.ready();
-
-// Force layout recalculation
-await grid.forceLayout();
-
-// Get current configuration (readonly)
-const config = await grid.getConfig();
-
-// Column visibility
-grid.setColumnVisible('fieldName', false);
-grid.toggleColumnVisibility('fieldName');
-const visible = grid.isColumnVisible('fieldName');
-
-// Column state persistence
-const state = grid.getColumnState();
-grid.columnState = savedState;
-grid.resetColumnState();
-
-// Editing
-await grid.beginBulkEdit(rowIndex);
-await grid.commitActiveRowEdit();
-await grid.cancelActiveRowEdit();
-await grid.resetChangedRows();
-```
+For the complete list of grid methods, see the [API Reference](?path=/docs/grid-api--docs#methods).

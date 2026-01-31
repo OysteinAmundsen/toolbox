@@ -263,6 +263,45 @@ grid.columns = [
 
 > **Tip:** You can combine `rowClass` and `cellClass`. When styles conflict, cell styles win because cells are children of rows in the DOM hierarchy.
 
+### Row Animation
+
+The grid provides a built-in row animation API for highlighting changes, insertions, and removals with visual feedback.
+
+| Type | Description | CSS Variable |
+|------|-------------|--------------|
+| `'change'` | Flash highlight for data changes | `--tbw-row-change-duration` (500ms) |
+| `'insert'` | Slide-in animation for new rows | `--tbw-row-insert-duration` (300ms) |
+| `'remove'` | Fade-out animation for removed rows | `--tbw-row-remove-duration` (200ms) |
+
+```typescript
+// Highlight a row after updating
+grid.rows[5].status = 'updated';
+grid.animateRow(5, 'change');
+
+// Animate a newly inserted row
+grid.rows = [...grid.rows, newRow];
+grid.animateRow(grid.rows.length - 1, 'insert');
+
+// Animate by row ID (stable when sorted/filtered)
+grid.animateRowById(data.id, 'change');
+
+// Animate multiple rows at once
+grid.animateRows([0, 2, 5], 'change');
+```
+
+**Automatic Animation:** When using the **EditingPlugin**, rows are automatically animated with `'change'` after a successful edit commit.
+
+**Customizing Appearance:**
+
+```css
+tbw-grid {
+  --tbw-row-change-duration: 750ms;
+  --tbw-row-change-color: rgba(34, 197, 94, 0.25); /* Green flash */
+}
+```
+
+<Canvas of={GridStories.RowAnimation} withToolbar />
+
 ### Renderers
 
 **Full control over cell content** — Renderers let you create custom HTML elements for cells.

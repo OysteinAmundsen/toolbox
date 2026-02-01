@@ -32,6 +32,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish_grid_vue:
+        description: "Publish @toolbox-web/grid-vue to npm"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -184,8 +189,9 @@ jobs:
           bun nx run demo-vanilla:serve:dist &
           bun nx run demo-react:serve:dist &
           bun nx run demo-angular:serve:dist &
+          bun nx run demo-vue:serve:dist &
           # Wait for all demo servers to be ready
-          bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 --timeout 120000
+          bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 --timeout 120000
 
       - name: Run E2E tests
         run: bun nx run e2e:e2e --skip-nx-cache
@@ -227,6 +233,10 @@ jobs:
       grid_react_release_created: ${{ steps.release.outputs['libs/grid-react--release_created'] }}
       grid_react_tag_name: ${{ steps.release.outputs['libs/grid-react--tag_name'] }}
       grid_react_version: ${{ steps.release.outputs['libs/grid-react--version'] }}
+      # Grid-vue package outputs
+      grid_vue_release_created: ${{ steps.release.outputs['libs/grid-vue--release_created'] }}
+      grid_vue_tag_name: ${{ steps.release.outputs['libs/grid-vue--tag_name'] }}
+      grid_vue_version: ${{ steps.release.outputs['libs/grid-vue--version'] }}
       # Any release created (for jobs that run on any release)
       releases_created: ${{ steps.release.outputs.releases_created }}
     steps:
@@ -433,4 +443,50 @@ jobs:
       - name: Publish @toolbox-web/grid-react to npm
         run: |
           cd dist/libs/grid-react
+          npm publish --provenance
+
+  publish-grid-vue:
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'release' ||
+        needs.release-please.outputs.grid_vue_release_created == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_vue == true && github.ref == 'refs/heads/main')
+      )
+    needs: [release-please]
+    runs-on: ubuntu-latest
+    environment: NPM
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build grid-vue library
+        run: bun nx build grid-vue
+
+      - name: Publish @toolbox-web/grid-vue to npm
+        run: |
+          cd dist/libs/grid-vue
           npm publish --provenance

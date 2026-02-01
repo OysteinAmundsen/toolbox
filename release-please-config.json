@@ -16,6 +16,11 @@
       "release-type": "node",
       "component": "grid-react",
       "changelog-path": "CHANGELOG.md"
+    },
+    "libs/grid-vue": {
+      "release-type": "node",
+      "component": "grid-vue",
+      "changelog-path": "CHANGELOG.md"
     }
   },
   "changelog-sections": [

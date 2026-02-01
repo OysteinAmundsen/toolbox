@@ -20,9 +20,6 @@
   "references": [
     {
       "path": "../../../libs/grid/tsconfig.lib.json"
-    },
-    {
-      "path": "../../../libs/grid-angular"
     }
   ]
 }

@@ -50,6 +50,7 @@
     "@swc/helpers": "0.5.18",
     "@types/node": "25.0.9",
     "@vitejs/plugin-react": "^5.1.2",
+    "@vitejs/plugin-vue": "^6.0.3",
     "@vitest/coverage-v8": "4.0.17",
     "@vitest/ui": "4.0.17",
     "@vueless/storybook-dark-mode": "^10.0.6",
@@ -83,6 +84,7 @@
     "vite-plugin-dts": "4.5.4",
     "vite-tsconfig-paths": "6.0.4",
     "vitest": "4.0.17",
+    "vue": "^3.5.27",
     "wait-on": "^9.0.3"
   },
   "workspaces": [
@@ -97,5 +99,6 @@
     "@angular/platform-browser": "21.1.1",
     "@angular/router": "21.1.1",
     "@angular/compiler-cli": "21.1.1"
-  }
+  },
+  "dependencies": {}
 }

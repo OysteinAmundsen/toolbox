@@ -17,6 +17,9 @@
     },
     {
       "path": "./e2e"
+    },
+    {
+      "path": "./libs/grid-vue"
     }
   ],
   "ts-node": {

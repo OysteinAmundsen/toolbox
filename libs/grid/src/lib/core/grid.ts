@@ -2382,11 +2382,35 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * @example
    * // Check if any plugin vetoes moving a column
-   * const responses = grid.queryPlugins<boolean>({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column });
+   * const responses = grid.queryPlugins<boolean>({ type: 'canMoveColumn', context: column });
    * const canMove = !responses.includes(false);
+   *
+   * @deprecated Use the simplified `query<T>(type, context)` method instead.
    */
   queryPlugins<T>(query: PluginQuery): T[] {
     return this.#pluginManager?.queryPlugins<T>(query) ?? [];
+  }
+
+  /**
+   * Query plugins with a simplified API.
+   * This is a convenience wrapper around `queryPlugins` that uses a flat signature.
+   *
+   * @param type - The query type (e.g., 'canMoveColumn')
+   * @param context - The query context/parameters
+   * @returns Array of non-undefined responses from plugins
+   * @group Plugin Communication
+   * @internal Plugin API
+   *
+   * @example
+   * // Check if any plugin vetoes moving a column
+   * const responses = grid.query<boolean>('canMoveColumn', column);
+   * const canMove = !responses.includes(false);
+   *
+   * // Get context menu items from all plugins
+   * const items = grid.query<ContextMenuItem[]>('getContextMenuItems', params).flat();
+   */
+  query<T>(type: string, context: unknown): T[] {
+    return this.#pluginManager?.queryPlugins<T>({ type, context }) ?? [];
   }
 
   /**

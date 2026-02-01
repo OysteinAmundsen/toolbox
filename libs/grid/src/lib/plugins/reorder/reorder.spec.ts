@@ -43,7 +43,7 @@ describe('column-drag', () => {
       expect(canMoveColumn(column)).toBe(true);
     });
 
-    // Note: sticky column checks are handled by PinnedColumnsPlugin via the onPluginQuery hook
+    // Note: sticky column checks are handled by PinnedColumnsPlugin via handleQuery('canMoveColumn')
     // and tested in pinned-columns.spec.ts
   });
 
@@ -338,6 +338,7 @@ describe('ReorderPlugin', () => {
           currentOrder = order;
         },
         queryPlugins: () => [],
+        query: () => [], // Simplified query API
         requestStateChange: () => {
           /* noop */
         },
@@ -519,6 +520,7 @@ describe('ReorderPlugin', () => {
           currentOrder = order;
         },
         queryPlugins: () => [],
+        query: () => [], // Simplified query API
         requestStateChange: () => {
           /* noop */
         },
@@ -686,6 +688,7 @@ describe('ReorderPlugin', () => {
           currentOrder = order;
         },
         queryPlugins: () => [],
+        query: () => [], // Simplified query API
         requestStateChange: () => {
           /* noop */
         },
@@ -732,6 +735,7 @@ describe('ReorderPlugin', () => {
           /* noop */
         },
         queryPlugins: () => [],
+        query: () => [], // Simplified query API
         requestStateChange: () => {
           /* noop */
         },
@@ -792,6 +796,7 @@ describe('ReorderPlugin', () => {
           /* noop */
         },
         queryPlugins: () => [],
+        query: () => [], // Simplified query API
         requestStateChange: () => {
           /* noop */
         },
@@ -875,11 +880,11 @@ describe('ReorderPlugin', () => {
         { field: 'b', header: 'B' },
       ];
       const grid = createMockGridWithShadowDOM(columns);
-      // Mock queryPlugins to return false for first column
-      grid.queryPlugins = (query: { type: string; context: unknown }) => {
-        const col = query.context as ColumnConfig;
-        if (col.field === 'a') return [false];
-        return [];
+      // Mock query to return false for first column
+      grid.query = <T>(_type: string, context: unknown): T[] => {
+        const col = context as ColumnConfig;
+        if (col.field === 'a') return [false] as T[];
+        return [] as T[];
       };
 
       const plugin = new ReorderPlugin();
@@ -963,6 +968,7 @@ describe('ReorderPlugin', () => {
           currentOrder = order;
         },
         queryPlugins: () => [],
+        query: () => [], // Simplified query API
         requestStateChange: () => {
           /* noop */
         },

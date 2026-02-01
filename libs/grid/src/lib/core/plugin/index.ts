@@ -35,12 +35,14 @@ export { PluginManager } from './plugin-manager';
 
 // #region Plugin Dependencies
 export type {
+  EventDefinition,
   HookName,
   PluginConfigRule,
   PluginDependency,
   PluginIncompatibility,
   PluginManifest,
   PluginPropertyDefinition,
+  QueryDefinition,
 } from './base-plugin';
 // #endregion
 

@@ -4,7 +4,7 @@
  * Enables hierarchical row grouping with expand/collapse and aggregations.
  */
 
-import { BaseGridPlugin, CellClickEvent, type PluginManifest } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, CellClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
 import {
@@ -123,10 +123,22 @@ export interface GroupState {
  */
 export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   /**
-   * Plugin manifest - declares configuration validation rules.
+   * Plugin manifest - declares configuration validation rules and events.
    * @internal
    */
   static override readonly manifest: PluginManifest<GroupingRowsConfig> = {
+    events: [
+      {
+        type: 'grouping-state-change',
+        description: 'Emitted when groups are expanded/collapsed. Subscribers can react to row visibility changes.',
+      },
+    ],
+    queries: [
+      {
+        type: 'canMoveRow',
+        description: 'Returns false for group header rows (cannot be reordered)',
+      },
+    ],
     configRules: [
       {
         id: 'groupingRows/accordion-defaultExpanded',
@@ -200,6 +212,21 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.hasAppliedDefaultExpanded = false;
+  }
+
+  /**
+   * Handle plugin queries.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'canMoveRow') {
+      // Group header rows cannot be reordered
+      const row = query.context as any;
+      if (row && row.__isGroupRow === true) {
+        return false;
+      }
+    }
+    return undefined;
   }
   // #endregion
 
@@ -583,6 +610,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    */
   expandAll(): void {
     this.expandedKeys = expandAllGroups(this.flattenedRows);
+    this.emitPluginEvent('grouping-state-change', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
@@ -591,6 +619,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    */
   collapseAll(): void {
     this.expandedKeys = collapseAllGroups();
+    this.emitPluginEvent('grouping-state-change', { expandedKeys: [...this.expandedKeys] });
     this.requestRender();
   }
 
@@ -639,6 +668,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       expanded: this.expandedKeys.has(key),
       value: group?.value,
       depth: group?.depth ?? 0,
+    });
+
+    // Notify other plugins that grouping state changed (row visibility changed)
+    this.emitPluginEvent('grouping-state-change', {
+      expandedKeys: [...this.expandedKeys],
     });
 
     this.requestRender();

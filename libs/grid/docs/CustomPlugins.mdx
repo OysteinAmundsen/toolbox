@@ -399,28 +399,100 @@ override afterRender(): void {
 
 ## Plugin Communication
 
-Plugins can communicate via the grid's event system:
+### Event Bus (Plugin-to-Plugin)
+
+Plugins can emit and subscribe to events using the built-in Event Bus. Events are automatically cleaned up when a plugin is detached.
 
 ```typescript
-// Plugin A: Dispatch custom event
-export class PluginA extends BaseGridPlugin {
-  doSomething(): void {
-    this.grid.dispatchEvent(new CustomEvent('plugin-a:action', {
-      detail: { data: 'hello' },
-    }));
+import { BaseGridPlugin, type PluginManifest } from '@toolbox-web/grid';
+
+// Plugin A: Emit events
+export class FilterPlugin extends BaseGridPlugin<FilterConfig> {
+  readonly name = 'filtering';
+
+  // Declare events in manifest for discoverability
+  static override readonly manifest: PluginManifest = {
+    events: [
+      { type: 'filter-applied', description: 'Emitted when filters change' },
+    ],
+  };
+
+  applyFilter(criteria: FilterCriteria): void {
+    // ... filter logic
+
+    // Emit to other plugins (NOT a DOM event)
+    this.emitPluginEvent('filter-applied', { criteria, rowCount: this.rows.length });
   }
 }
 
-// Plugin B: Listen for events
-export class PluginB extends BaseGridPlugin {
-  override attach(grid: DataGridElement): void {
+// Plugin B: Subscribe to events
+export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
+  readonly name = 'selection';
+
+  override attach(grid: GridElement): void {
     super.attach(grid);
 
-    grid.addEventListener('plugin-a:action', (e: CustomEvent) => {
-      console.log('Received:', e.detail.data);
+    // Subscribe - auto-cleaned on detach
+    this.on('filter-applied', (detail) => {
+      console.log('Filter changed, clearing selection');
+      this.clearSelection();
     });
   }
 }
+```
+
+### Query System (Synchronous State Retrieval)
+
+Plugins can expose queryable state that other plugins can retrieve synchronously.
+
+```typescript
+import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '@toolbox-web/grid';
+
+// Plugin A: Handle queries
+export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
+  readonly name = 'selection';
+
+  // Declare queries in manifest for routing
+  static override readonly manifest: PluginManifest = {
+    queries: [
+      { type: 'getSelection', description: 'Get current selection state' },
+    ],
+  };
+
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'getSelection') {
+      return this.getSelection();
+    }
+    return undefined;
+  }
+}
+
+// Plugin B: Query other plugins
+export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
+  readonly name = 'clipboard';
+
+  copy(): void {
+    // Query selection state from SelectionPlugin
+    const responses = this.grid.query<SelectionResult>('getSelection', undefined);
+    const selection = responses[0]; // First response
+
+    if (selection?.ranges.length > 0) {
+      // Copy selected cells
+    }
+  }
+}
+```
+
+### DOM Events (External Consumers)
+
+For events that external code (outside plugins) should listen to, use `emit()`:
+
+```typescript
+// Dispatch DOM event for external consumers
+this.emit('copy', { text: copiedText, rowCount: 5 });
+
+// External code can listen:
+grid.addEventListener('copy', (e) => console.log(e.detail));
 ```
 
 ## TypeScript Generics

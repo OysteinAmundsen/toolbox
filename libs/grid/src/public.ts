@@ -317,7 +317,14 @@ export { builtInSort, defaultComparator } from './lib/core/internal/sorting';
 // #region Plugin Development
 // Plugin base class - for creating custom plugins
 export { BaseGridPlugin, PLUGIN_QUERIES } from './lib/core/plugin';
-export type { AfterCellRenderContext, AfterRowRenderContext, PluginQuery } from './lib/core/plugin';
+export type {
+  AfterCellRenderContext,
+  AfterRowRenderContext,
+  EventDefinition,
+  PluginManifest,
+  PluginQuery,
+  QueryDefinition,
+} from './lib/core/plugin';
 
 // DOM constants - for querying grid elements and styling
 export { GridClasses, GridCSSVars, GridDataAttrs, GridSelectors } from './lib/core/constants';

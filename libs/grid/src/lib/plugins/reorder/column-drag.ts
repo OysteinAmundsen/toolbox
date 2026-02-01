@@ -11,8 +11,8 @@ import type { ColumnConfig } from '../../core/types';
  * This checks column-level properties like lockPosition and suppressMovable.
  *
  * Note: For full movability checks including plugin constraints (e.g., pinned columns),
- * use `grid.queryPlugins({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column })`
- * which queries all plugins via the generic plugin query system.
+ * use `grid.query<boolean>('canMoveColumn', column)` which queries all plugins that
+ * declare the 'canMoveColumn' query in their manifest.
  *
  * @param column - The column configuration to check
  * @returns True if the column can be moved based on its metadata

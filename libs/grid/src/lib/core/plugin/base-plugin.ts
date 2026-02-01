@@ -143,6 +143,89 @@ export interface PluginIncompatibility {
 }
 
 // ============================================================================
+// Plugin Query & Event Definitions
+// ============================================================================
+
+/**
+ * Defines a query that a plugin can handle.
+ * Other plugins or the grid can send this query type to retrieve data.
+ *
+ * @category Plugin Development
+ *
+ * @example
+ * ```typescript
+ * // In manifest
+ * queries: [
+ *   {
+ *     type: 'canMoveColumn',
+ *     description: 'Check if a column can be moved/reordered',
+ *   },
+ * ]
+ *
+ * // In plugin class
+ * handleQuery(query: PluginQuery): unknown {
+ *   if (query.type === 'canMoveColumn') {
+ *     return this.canMoveColumn(query.context);
+ *   }
+ * }
+ * ```
+ */
+export interface QueryDefinition {
+  /**
+   * The query type identifier (e.g., 'canMoveColumn', 'getContextMenuItems').
+   * Should be unique across all plugins.
+   */
+  type: string;
+
+  /**
+   * Human-readable description of what the query does.
+   */
+  description?: string;
+}
+
+/**
+ * Defines an event that a plugin can emit.
+ * Other plugins can subscribe to these events via the Event Bus.
+ *
+ * @category Plugin Development
+ *
+ * @example
+ * ```typescript
+ * // In manifest
+ * events: [
+ *   {
+ *     type: 'filter-change',
+ *     description: 'Emitted when filter criteria change',
+ *   },
+ * ]
+ *
+ * // In plugin class - emit
+ * this.emitPluginEvent('filter-change', { field: 'name', value: 'Alice' });
+ *
+ * // In another plugin - subscribe
+ * this.on('filter-change', (detail) => console.log('Filter changed:', detail));
+ * ```
+ */
+export interface EventDefinition {
+  /**
+   * The event type identifier (e.g., 'filter-change', 'selection-change').
+   * Used when emitting and subscribing to events.
+   */
+  type: string;
+
+  /**
+   * Human-readable description of what the event represents.
+   */
+  description?: string;
+
+  /**
+   * Whether this event is cancelable via `event.preventDefault()`.
+   * @default false
+   */
+  cancelable?: boolean;
+}
+
+// ============================================================================
 // Plugin Manifest Types
 // ============================================================================
 
@@ -255,6 +338,33 @@ export interface PluginManifest<TConfig = unknown> {
    * ```
    */
   incompatibleWith?: PluginIncompatibility[];
+
+  /**
+   * Queries this plugin can handle.
+   * Declares what query types this plugin responds to via `handleQuery()`.
+   * This replaces the centralized PLUGIN_QUERIES approach with manifest-declared queries.
+   *
+   * @example
+   * ```typescript
+   * queries: [
+   *   { type: 'canMoveColumn', description: 'Check if a column can be moved' },
+   * ],
+   * ```
+   */
+  queries?: QueryDefinition[];
+
+  /**
+   * Events this plugin can emit.
+   * Declares what event types other plugins can subscribe to via `on()`.
+   *
+   * @example
+   * ```typescript
+   * events: [
+   *   { type: 'filter-change', description: 'Emitted when filter criteria change' },
+   * ],
+   * ```
+   */
+  events?: EventDefinition[];
 }
 
 /**
@@ -468,6 +578,67 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
     const event = new CustomEvent(eventName, { detail, bubbles: true, cancelable: true });
     this.grid?.dispatchEvent?.(event);
     return event.defaultPrevented;
+  }
+
+  // =========================================================================
+  // Event Bus - Plugin-to-Plugin Communication
+  // =========================================================================
+
+  /**
+   * Subscribe to an event from another plugin.
+   * The subscription is automatically cleaned up when this plugin is detached.
+   *
+   * @category Plugin Development
+   * @param eventType - The event type to listen for (e.g., 'filter-change')
+   * @param callback - The callback to invoke when the event is emitted
+   *
+   * @example
+   * ```typescript
+   * // In attach() or other initialization
+   * this.on('filter-change', (detail) => {
+   *   console.log('Filter changed:', detail);
+   * });
+   * ```
+   */
+  protected on<T = unknown>(eventType: string, callback: (detail: T) => void): void {
+    this.grid?._pluginManager?.subscribe(this, eventType, callback as (detail: unknown) => void);
+  }
+
+  /**
+   * Unsubscribe from a plugin event.
+   *
+   * @category Plugin Development
+   * @param eventType - The event type to stop listening for
+   *
+   * @example
+   * ```typescript
+   * this.off('filter-change');
+   * ```
+   */
+  protected off(eventType: string): void {
+    this.grid?._pluginManager?.unsubscribe(this, eventType);
+  }
+
+  /**
+   * Emit an event to other plugins via the Event Bus.
+   * This is for inter-plugin communication only; it does NOT dispatch DOM events.
+   * Use `emit()` to dispatch DOM events that external consumers can listen to.
+   *
+   * @category Plugin Development
+   * @param eventType - The event type to emit (should be declared in manifest.events)
+   * @param detail - The event payload
+   *
+   * @example
+   * ```typescript
+   * // Emit to other plugins (not DOM)
+   * this.emitPluginEvent('filter-change', { field: 'name', value: 'Alice' });
+   *
+   * // For DOM events that consumers can addEventListener to:
+   * this.emit('filter-change', { field: 'name', value: 'Alice' });
+   * ```
+   */
+  protected emitPluginEvent<T>(eventType: string, detail: T): void {
+    this.grid?._pluginManager?.emitPluginEvent(eventType, detail);
   }
 
   /**
@@ -745,7 +916,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```ts
    * afterRender(): void {
    *   // Apply selection styling to rendered rows
-   *   const rows = this.shadowRoot?.querySelectorAll('.data-row');
+   *   const rows = this.gridElement?.querySelectorAll('.data-row');
    *   rows?.forEach((row, i) => {
    *     row.classList.toggle('selected', this.selectedRows.has(i));
    *   });
@@ -931,6 +1102,10 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * This is the generic mechanism for inter-plugin communication.
    * Plugins can respond to well-known query types or define their own.
    *
+   * **Prefer `handleQuery` for new plugins** - it has the same signature but
+   * a clearer name. `onPluginQuery` is kept for backwards compatibility.
+   *
+   * @category Plugin Development
    * @param query - The query object with type and context
    * @returns Query-specific response, or undefined if not handling this query
    *
@@ -951,8 +1126,39 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    *   }
    * }
    * ```
+   * @deprecated Use `handleQuery` instead for new plugins.
    */
   onPluginQuery?(query: PluginQuery): unknown;
+
+  /**
+   * Handle queries from other plugins or the grid.
+   *
+   * Queries are declared in `manifest.queries` and dispatched via `grid.query()`.
+   * This enables type-safe, discoverable inter-plugin communication.
+   *
+   * @category Plugin Development
+   * @param query - The query object with type and context
+   * @returns Query-specific response, or undefined if not handling this query
+   *
+   * @example
+   * ```ts
+   * // In manifest
+   * static override readonly manifest: PluginManifest = {
+   *   queries: [
+   *     { type: 'canMoveColumn', description: 'Check if a column can be moved' },
+   *   ],
+   * };
+   *
+   * // In plugin class
+   * handleQuery(query: PluginQuery): unknown {
+   *   if (query.type === 'canMoveColumn') {
+   *     const column = query.context as ColumnConfig;
+   *     return !column.sticky; // Can't move sticky columns
+   *   }
+   * }
+   * ```
+   */
+  handleQuery?(query: PluginQuery): unknown;
 
   // #endregion
 
@@ -1109,7 +1315,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    */
   onCellMouseUp?(event: CellMouseEvent): boolean | void;
 
-  // Note: Context menu items are now provided via onPluginQuery with PLUGIN_QUERIES.GET_CONTEXT_MENU_ITEMS
+  // Note: Context menu items are provided via handleQuery('getContextMenuItems').
   // This keeps the core decoupled from the context-menu plugin specifics.
 
   // #endregion

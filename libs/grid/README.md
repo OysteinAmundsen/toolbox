@@ -557,24 +557,59 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
 
 ### Inter-Plugin Communication
 
-Plugins can communicate with each other using the generic query system. This allows plugins to expose capabilities or constraints without the core knowing about specific plugin concepts.
+Plugins can communicate with each other using two systems:
 
-**Responding to queries (in your plugin):**
+1. **Event Bus** - For async notifications between plugins
+2. **Query System** - For sync state retrieval
+
+#### Event Bus
+
+Emit and subscribe to plugin events (distinct from DOM events):
 
 ```typescript
-import { BaseGridPlugin, PLUGIN_QUERIES, PluginQuery } from '@toolbox-web/grid';
+import { BaseGridPlugin, type PluginManifest } from '@toolbox-web/grid';
 
 export class MyPlugin extends BaseGridPlugin<MyConfig> {
-  override onPluginQuery(query: PluginQuery): unknown {
-    switch (query.type) {
-      case PLUGIN_QUERIES.CAN_MOVE_COLUMN:
-        // Veto column movement for locked columns
-        const column = query.context as ColumnConfig;
-        if (this.isLocked(column)) return false;
-        return undefined; // Let other plugins decide
-      default:
-        return undefined;
+  // Declare events this plugin emits
+  static override readonly manifest: PluginManifest = {
+    events: [{ type: 'my-event', description: 'Emitted when something happens' }],
+  };
+
+  override attach(grid: GridElementRef): void {
+    super.attach(grid);
+    // Subscribe to events from other plugins
+    this.on('filter-change', (detail) => {
+      console.log('Filter changed:', detail);
+    });
+  }
+
+  private doSomething(): void {
+    // Emit to other plugins (not DOM events)
+    this.emitPluginEvent('my-event', { data: 'value' });
+  }
+}
+```
+
+#### Query System
+
+Respond to queries from other plugins:
+
+```typescript
+import { BaseGridPlugin, type PluginManifest, type PluginQuery } from '@toolbox-web/grid';
+
+export class MyPlugin extends BaseGridPlugin<MyConfig> {
+  // Declare queries this plugin handles
+  static override readonly manifest: PluginManifest = {
+    queries: [{ type: 'canMoveColumn', description: 'Check if column can be moved' }],
+  };
+
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'canMoveColumn') {
+      const column = query.context as ColumnConfig;
+      if (this.isLocked(column)) return false;
+      return undefined; // Let other plugins decide
     }
+    return undefined;
   }
 }
 ```
@@ -582,14 +617,15 @@ export class MyPlugin extends BaseGridPlugin<MyConfig> {
 **Querying other plugins:**
 
 ```typescript
-import { PLUGIN_QUERIES } from '@toolbox-web/grid';
+// Simplified API
+const responses = grid.query<boolean>('canMoveColumn', column);
+const canMove = !responses.includes(false);
 
-// In your plugin or application code
+// Or full query object
 const responses = grid.queryPlugins<boolean>({
   type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
   context: column,
 });
-const canMove = !responses.includes(false);
 ```
 
 **Built-in query types:**

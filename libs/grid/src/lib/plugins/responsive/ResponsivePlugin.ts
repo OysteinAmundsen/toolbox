@@ -26,6 +26,7 @@
  */
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
+import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { InternalGrid } from '../../core/types';
 import styles from './responsive.css?inline';
@@ -183,6 +184,9 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   override attach(grid: GridElement): void {
     super.attach(grid);
 
+    // Parse light DOM configuration first (may update this.config)
+    this.#parseLightDomCard();
+
     // Build hidden column sets from config
     this.#buildHiddenColumnSets(this.config.hiddenColumns);
 
@@ -206,6 +210,115 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
     this.#resizeObserver.observe(this.gridElement);
   }
+
+  // #region Light DOM Parsing
+
+  /**
+   * Parse `<tbw-grid-responsive-card>` elements from the grid's light DOM.
+   *
+   * Allows declarative configuration:
+   * ```html
+   * <tbw-grid [rows]="data">
+   *   <tbw-grid-responsive-card breakpoint="500" card-row-height="80">
+   *     <div class="custom-card">
+   *       <strong>{{ row.name }}</strong>
+   *       <span>{{ row.email }}</span>
+   *     </div>
+   *   </tbw-grid-responsive-card>
+   * </tbw-grid>
+   * ```
+   *
+   * Attributes:
+   * - `breakpoint`: number - Width threshold for responsive mode
+   * - `card-row-height`: number | 'auto' - Card height (default: 'auto')
+   * - `hidden-columns`: string - Comma-separated fields to hide
+   * - `hide-header`: 'true' | 'false' - Hide header row (default: 'true')
+   * - `debounce-ms`: number - Resize debounce delay (default: 100)
+   */
+  #parseLightDomCard(): void {
+    const gridEl = this.grid as unknown as Element;
+    if (!gridEl || typeof gridEl.querySelector !== 'function') return;
+
+    const cardEl = gridEl.querySelector('tbw-grid-responsive-card');
+    if (!cardEl) return;
+
+    // Check if a framework adapter wants to handle this element
+    // (e.g., React adapter intercepts for JSX rendering)
+    const gridWithAdapter = gridEl as unknown as {
+      __frameworkAdapter?: {
+        parseResponsiveCardElement?: (el: Element) => ((row: T, rowIndex: number) => HTMLElement) | undefined;
+      };
+    };
+    if (gridWithAdapter.__frameworkAdapter?.parseResponsiveCardElement) {
+      const adapterRenderer = gridWithAdapter.__frameworkAdapter.parseResponsiveCardElement(cardEl);
+      if (adapterRenderer) {
+        this.config = { ...this.config, cardRenderer: adapterRenderer };
+        // Continue to parse attributes even if adapter provides renderer
+      }
+    }
+
+    // Parse attributes for configuration
+    const breakpointAttr = cardEl.getAttribute('breakpoint');
+    const cardRowHeightAttr = cardEl.getAttribute('card-row-height');
+    const hiddenColumnsAttr = cardEl.getAttribute('hidden-columns');
+    const hideHeaderAttr = cardEl.getAttribute('hide-header');
+    const debounceMsAttr = cardEl.getAttribute('debounce-ms');
+
+    const configUpdates: Partial<ResponsivePluginConfig<T>> = {};
+
+    if (breakpointAttr !== null) {
+      const breakpoint = parseInt(breakpointAttr, 10);
+      if (!isNaN(breakpoint)) {
+        configUpdates.breakpoint = breakpoint;
+      }
+    }
+
+    if (cardRowHeightAttr !== null) {
+      configUpdates.cardRowHeight = cardRowHeightAttr === 'auto' ? 'auto' : parseInt(cardRowHeightAttr, 10);
+    }
+
+    if (hiddenColumnsAttr !== null) {
+      // Parse comma-separated field names
+      configUpdates.hiddenColumns = hiddenColumnsAttr
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    }
+
+    if (hideHeaderAttr !== null) {
+      configUpdates.hideHeader = hideHeaderAttr !== 'false';
+    }
+
+    if (debounceMsAttr !== null) {
+      const debounceMs = parseInt(debounceMsAttr, 10);
+      if (!isNaN(debounceMs)) {
+        configUpdates.debounceMs = debounceMs;
+      }
+    }
+
+    // Get template content from innerHTML (only if no renderer already set)
+    const templateHTML = cardEl.innerHTML.trim();
+    if (templateHTML && !this.config.cardRenderer && !gridWithAdapter.__frameworkAdapter?.parseResponsiveCardElement) {
+      // Create a template-based renderer using the inner HTML
+      configUpdates.cardRenderer = (row: T): HTMLElement => {
+        // Evaluate template expressions like {{ row.field }}
+        const evaluated = evalTemplateString(templateHTML, { value: row, row: row as Record<string, unknown> });
+        // Sanitize the result to prevent XSS
+        const sanitized = sanitizeHTML(evaluated);
+        const container = document.createElement('div');
+        container.className = 'tbw-responsive-card-content';
+        container.innerHTML = sanitized;
+        return container;
+      };
+    }
+
+    // Merge updates into config (light DOM values override constructor config)
+    if (Object.keys(configUpdates).length > 0) {
+      this.config = { ...this.config, ...configUpdates };
+    }
+  }
+
+  // #endregion
 
   /**
    * Build the hidden and value-only column sets from config.

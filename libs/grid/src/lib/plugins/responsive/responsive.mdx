@@ -188,6 +188,53 @@ Smooth animations when transitioning between modes (enabled by default).
 
 <Canvas of={ResponsiveStories.AnimatedTransitions} withToolbar />
 
+## Light DOM Configuration
+
+The ResponsivePlugin supports declarative configuration via the `<tbw-grid-responsive-card>` element:
+
+```html
+<tbw-grid>
+  <tbw-grid-responsive-card
+    breakpoint="500"
+    card-row-height="80"
+    hidden-columns="createdAt, updatedAt"
+    hide-header="true">
+    <div class="custom-card">
+      <strong>{{ row.name }}</strong>
+      <span>{{ row.email }}</span>
+    </div>
+  </tbw-grid-responsive-card>
+</tbw-grid>
+```
+
+### Attributes
+
+| Attribute | Type | Description |
+| --------- | ---- | ----------- |
+| `breakpoint` | `number` | Width threshold in pixels for responsive mode |
+| `card-row-height` | `number \| 'auto'` | Card height in pixels or auto |
+| `hidden-columns` | `string` | Comma-separated field names to hide |
+| `hide-header` | `'true' \| 'false'` | Hide header row in responsive mode |
+| `debounce-ms` | `number` | Resize debounce delay in ms |
+
+### Template Syntax
+
+The innerHTML of the element is used as a template for card rendering. Use `{{ row.fieldName }}` syntax for value interpolation:
+
+```html
+<tbw-grid-responsive-card breakpoint="500">
+  <div class="employee-card">
+    <img src="{{ row.avatar }}" alt="{{ row.name }}" />
+    <div class="info">
+      <strong>{{ row.name }}</strong>
+      <span>{{ row.department }}</span>
+    </div>
+  </div>
+</tbw-grid-responsive-card>
+```
+
+> **Note:** Light DOM attributes override constructor config when both are present. Framework adapters may provide wrapper components with enhanced render prop support (e.g., React's `<GridResponsiveCard>`).
+
 ## Configuration Options
 
 | Option | Type | Default | Description |

@@ -1182,6 +1182,174 @@ describe('ResponsivePlugin', () => {
       });
     });
   });
+
+  describe('light DOM configuration', () => {
+    const createMockGridWithLightDom = (innerHTML: string) => {
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+
+      // Add light DOM element
+      grid.innerHTML = innerHTML;
+
+      // Add mock grid structure
+      const container = document.createElement('div');
+      container.className = 'tbw-grid-root';
+      grid.appendChild(container);
+
+      document.body.appendChild(grid);
+
+      Object.assign(grid, {
+        rows: [],
+        columns: [],
+        gridConfig: {},
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+      });
+
+      grid.dispatchEvent = vi.fn();
+
+      return grid as unknown as HTMLElement & {
+        rows: unknown[];
+        columns: unknown[];
+        gridConfig: object;
+        disconnectSignal: AbortSignal;
+        requestRender: ReturnType<typeof vi.fn>;
+        dispatchEvent: ReturnType<typeof vi.fn>;
+      };
+    };
+
+    it('should parse breakpoint from light DOM element', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="600"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({});
+      plugin.attach(mockGrid as never);
+
+      // Trigger resize to check breakpoint
+      resizeObserverInstance?.callback([{ contentRect: { width: 500 } }]);
+      vi.runAllTimers();
+
+      expect(plugin.isResponsive()).toBe(true);
+    });
+
+    it('should parse card-row-height from light DOM element', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="500" card-row-height="120"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({});
+      plugin.attach(mockGrid as never);
+
+      // Access private config via type assertion for testing
+      const config = (plugin as unknown as { config: { cardRowHeight?: number | 'auto' } }).config;
+      expect(config.cardRowHeight).toBe(120);
+    });
+
+    it('should parse card-row-height="auto" from light DOM element', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="500" card-row-height="auto"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({});
+      plugin.attach(mockGrid as never);
+
+      const config = (plugin as unknown as { config: { cardRowHeight?: number | 'auto' } }).config;
+      expect(config.cardRowHeight).toBe('auto');
+    });
+
+    it('should parse hidden-columns from light DOM element', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="500" hidden-columns="createdAt, updatedAt, status"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({});
+      plugin.attach(mockGrid as never);
+
+      const config = (plugin as unknown as { config: { hiddenColumns?: string[] } }).config;
+      expect(config.hiddenColumns).toEqual(['createdAt', 'updatedAt', 'status']);
+    });
+
+    it('should parse hide-header from light DOM element', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="500" hide-header="false"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({});
+      plugin.attach(mockGrid as never);
+
+      const config = (plugin as unknown as { config: { hideHeader?: boolean } }).config;
+      expect(config.hideHeader).toBe(false);
+    });
+
+    it('should parse debounce-ms from light DOM element', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="500" debounce-ms="200"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({});
+      plugin.attach(mockGrid as never);
+
+      const config = (plugin as unknown as { config: { debounceMs?: number } }).config;
+      expect(config.debounceMs).toBe(200);
+    });
+
+    it('should create cardRenderer from innerHTML template', () => {
+      const mockGrid = createMockGridWithLightDom(
+        `<tbw-grid-responsive-card breakpoint="500">
+          <div class="custom-card">{{ row.name }}</div>
+        </tbw-grid-responsive-card>`,
+      );
+      const plugin = new ResponsivePlugin({});
+      plugin.attach(mockGrid as never);
+
+      const config = (plugin as unknown as { config: { cardRenderer?: (row: unknown, idx: number) => HTMLElement } })
+        .config;
+      expect(config.cardRenderer).toBeDefined();
+
+      // Test the renderer
+      const result = config.cardRenderer!({ name: 'Alice' }, 0);
+      expect(result).toBeInstanceOf(HTMLElement);
+      expect(result.innerHTML).toContain('Alice');
+      expect(result.classList.contains('tbw-responsive-card-content')).toBe(true);
+    });
+
+    it('should not override constructor config with light DOM if not present', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="600"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({ debounceMs: 300, hideHeader: false });
+      plugin.attach(mockGrid as never);
+
+      const config = (plugin as unknown as { config: { debounceMs?: number; hideHeader?: boolean } }).config;
+      // Light DOM breakpoint overrides
+      // But debounceMs and hideHeader should remain from constructor since not in light DOM
+      expect(config.debounceMs).toBe(300);
+      expect(config.hideHeader).toBe(false);
+    });
+
+    it('should light DOM values override constructor config when both present', () => {
+      const mockGrid = createMockGridWithLightDom(
+        '<tbw-grid-responsive-card breakpoint="600" debounce-ms="150"></tbw-grid-responsive-card>',
+      );
+      const plugin = new ResponsivePlugin({ breakpoint: 400, debounceMs: 300 });
+      plugin.attach(mockGrid as never);
+
+      const config = (plugin as unknown as { config: { breakpoint?: number; debounceMs?: number } }).config;
+      // Light DOM values should override
+      expect(config.breakpoint).toBe(600);
+      expect(config.debounceMs).toBe(150);
+    });
+
+    it('should ignore light DOM parsing if no element present', () => {
+      const mockGrid = createMockGridWithLightDom('');
+      const plugin = new ResponsivePlugin({ breakpoint: 500 });
+      plugin.attach(mockGrid as never);
+
+      // Should use constructor config
+      resizeObserverInstance?.callback([{ contentRect: { width: 400 } }]);
+      vi.runAllTimers();
+
+      expect(plugin.isResponsive()).toBe(true);
+    });
+  });
 });
 
 // Helper to create mock grid with multiple cells

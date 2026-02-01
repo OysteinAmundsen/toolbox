@@ -211,9 +211,17 @@ Define a custom tool panel for the sidebar.
 
 Define the detail panel template for master-detail rows. Requires the MasterDetailPlugin.
 
+| Attribute                  | Type                          | Description                                    |
+| -------------------------- | ----------------------------- | ---------------------------------------------- |
+| `animation`                | `'slide'` \| `'fade'` \| `'false'` | Panel expand/collapse animation (default: `'slide'`) |
+| `show-expand-column`       | `boolean`                     | Show expand/collapse column (default: `true`)  |
+| `expand-on-row-click`      | `boolean`                     | Expand when row clicked (default: `false`)     |
+| `collapse-on-click-outside`| `boolean`                     | Collapse when clicking outside (default: `false`) |
+| `height`                   | `number` \| `'auto'`          | Panel height in pixels or auto (default: `'auto'`) |
+
 ```html
 <tbw-grid>
-  <tbw-grid-detail>
+  <tbw-grid-detail animation="slide" expand-on-row-click="true">
     <div class="detail-panel">
       <h3>{{ row.name }}</h3>
       <p>{{ row.description }}</p>
@@ -223,6 +231,33 @@ Define the detail panel template for master-detail rows. Requires the MasterDeta
 ```
 
 See the [MasterDetailPlugin documentation](?path=/docs/grid-plugins-master-detail--docs) for more details.
+
+##### `<tbw-grid-responsive-card>` (ResponsivePlugin)
+
+Define a custom card template for responsive mode. Requires the ResponsivePlugin.
+
+| Attribute         | Type                   | Description                                             |
+| ----------------- | ---------------------- | ------------------------------------------------------- |
+| `breakpoint`      | `number`               | Width threshold in pixels for responsive mode           |
+| `card-row-height` | `number` \| `'auto'`   | Card height in pixels or auto (default: `'auto'`)       |
+| `hidden-columns`  | `string`               | Comma-separated field names to hide in card mode        |
+| `hide-header`     | `boolean`              | Hide header row in responsive mode (default: `true`)    |
+| `debounce-ms`     | `number`               | Resize debounce delay in ms (default: `100`)            |
+
+```html
+<tbw-grid>
+  <tbw-grid-responsive-card breakpoint="500" card-row-height="80" hidden-columns="createdAt, updatedAt">
+    <div class="custom-card">
+      <strong>{{ row.name }}</strong>
+      <span>{{ row.email }}</span>
+    </div>
+  </tbw-grid-responsive-card>
+</tbw-grid>
+```
+
+See the [ResponsivePlugin documentation](?path=/docs/grid-plugins-responsive--docs) for more details.
+
+> **Note:** Framework adapters may provide wrapper components for these elements. For example, `@toolbox-web/grid-react` provides `<GridResponsiveCard>` and `<GridDetailPanel>` React components with render prop support. See the [React Adapter documentation](?path=/docs/grid-react-adapter--docs) for details.
 
 ## Helper Functions
 

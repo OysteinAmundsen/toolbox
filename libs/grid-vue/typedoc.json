@@ -1,0 +1,31 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/typedoc-entry.ts"],
+  "entryPointStrategy": "expand",
+  "tsconfig": "tsconfig.typedoc.json",
+  "json": "docs/api-generated/api.json",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeInternal": false,
+  "excludeNotDocumented": false,
+  "excludeExternals": true,
+  "externalPattern": ["**/node_modules/**"],
+  "sort": ["source-order"],
+  "categoryOrder": ["Components", "Composables", "Types", "Utilities", "*"],
+  "blockTags": [
+    "@category",
+    "@deprecated",
+    "@example",
+    "@fires",
+    "@internal",
+    "@module",
+    "@param",
+    "@remarks",
+    "@requires",
+    "@returns",
+    "@see",
+    "@template",
+    "@throws"
+  ]
+}

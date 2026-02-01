@@ -1,6 +1,9 @@
 import type { Preview } from '@storybook/web-components';
 import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import css from 'highlight.js/lib/languages/css';
 import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import 'highlight.js/styles/github-dark.min.css';
 import { themes } from 'storybook/theming';
@@ -43,10 +46,17 @@ const themeToolbarItems = [
 ];
 
 // Register languages for syntax highlighting
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('sh', bash);
+hljs.registerLanguage('css', css);
 hljs.registerLanguage('html', xml);
 hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('javascript', javascript);
 hljs.registerLanguage('js', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('ts', typescript);
+hljs.registerLanguage('tsx', typescript);
+hljs.registerLanguage('vue', xml);
 
 function applyTheme(name: string) {
   const id = 'dg-active-theme-style';
@@ -156,6 +166,8 @@ const preview: Preview = {
             'Angular',
             ['Getting Started', 'Reactive Forms Integration', '*'],
             'React',
+            ['Getting Started', 'Advanced Usage', '*'],
+            'Vue',
             ['Getting Started', 'Advanced Usage', '*'],
             'API Reference',
             'All Features',

@@ -1,0 +1,639 @@
+{/* @jsxRuntime automatic */}
+
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Vue/Getting Started" />
+
+# Getting Started with Vue
+
+The `@toolbox-web/grid-vue` package provides seamless Vue 3 integration for the `<tbw-grid>` data grid component. This guide covers the essential patterns for using the grid effectively in your Vue applications.
+
+## Installation
+
+<Source
+  language="bash"
+  code={`
+# Install both the core grid and Vue adapter
+npm install @toolbox-web/grid @toolbox-web/grid-vue
+
+# Or with your preferred package manager
+yarn add @toolbox-web/grid @toolbox-web/grid-vue
+pnpm add @toolbox-web/grid @toolbox-web/grid-vue
+bun add @toolbox-web/grid @toolbox-web/grid-vue
+`}
+/>
+
+## Setup
+
+Register the grid web component and configure Vue to recognize custom elements:
+
+<Source
+  language="typescript"
+  code={`
+// main.ts
+import '@toolbox-web/grid';
+
+// Enable features via side-effect imports
+// Only import the features you use - this keeps your bundle small!
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/editing';
+import '@toolbox-web/grid-vue/features/multi-sort';
+import '@toolbox-web/grid-vue/features/filtering';
+`}
+/>
+
+**Important**: Configure Vue to treat `tbw-*` tags as custom elements in your `vite.config.ts`:
+
+<Source
+  language="typescript"
+  code={`
+// vite.config.ts
+import vue from '@vitejs/plugin-vue';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [
+    vue({
+      template: {
+        compilerOptions: {
+          // Tell Vue that tbw-* tags are web components
+          isCustomElement: (tag) => tag.startsWith('tbw-'),
+        },
+      },
+    }),
+  ],
+});
+`}
+/>
+
+## Basic Usage
+
+The simplest way to use the grid is with the `TbwGrid` component and feature props:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+// Enable features you use
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/editing';
+import '@toolbox-web/grid-vue/features/multi-sort';
+import '@toolbox-web/grid-vue/features/filtering';
+
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { ColumnConfig } from '@toolbox-web/grid';
+import { ref } from 'vue';
+
+interface Employee {
+  id: number;
+  name: string;
+  department: string;
+  salary: number;
+}
+
+const employees = ref<Employee[]>([
+  { id: 1, name: 'Alice', department: 'Engineering', salary: 95000 },
+  { id: 2, name: 'Bob', department: 'Marketing', salary: 75000 },
+  { id: 3, name: 'Charlie', department: 'Sales', salary: 85000 },
+]);
+
+const columns: ColumnConfig<Employee>[] = [
+  { field: 'id', header: 'ID', type: 'number', width: 70 },
+  { field: 'name', header: 'Name', editable: true, sortable: true },
+  { field: 'department', header: 'Department', editable: true, sortable: true },
+  { field: 'salary', header: 'Salary', type: 'number', format: (v: number) => '$' + v.toLocaleString() },
+];
+</script>
+
+<template>
+  <TbwGrid
+    :rows="employees"
+    :columns="columns"
+    selection="range"
+    editing="dblclick"
+    :multi-sort="true"
+    :filtering="{ debounceMs: 200 }"
+    style="height: 400px; display: block"
+  />
+</template>
+`}
+/>
+
+## Feature Prop Reference
+
+Each feature prop enables a specific plugin with simplified configuration:
+
+| Feature Prop | Feature Import | Description |
+|--------------|----------------|-------------|
+| `selection` | `features/selection` | Cell, row, or range selection |
+| `editing` | `features/editing` | Inline cell editing |
+| `multi-sort` | `features/multi-sort` | Multi-column sorting |
+| `filtering` | `features/filtering` | Column filtering |
+| `clipboard` | `features/clipboard` | Copy/paste support |
+| `context-menu` | `features/context-menu` | Right-click context menu |
+| `reorder` | `features/reorder` | Column drag-to-reorder |
+| `visibility` | `features/visibility` | Column visibility panel |
+| `pinned-columns` | `features/pinned-columns` | Sticky left/right columns |
+| `pinned-rows` | `features/pinned-rows` | Sticky top/bottom rows |
+| `grouping-columns` | `features/grouping-columns` | Multi-level column headers |
+| `grouping-rows` | `features/grouping-rows` | Row grouping |
+| `column-virtualization` | `features/column-virtualization` | Virtualize columns for wide grids |
+| `row-reorder` | `features/row-reorder` | Row drag-to-reorder |
+| `tree` | `features/tree` | Hierarchical tree view |
+| `master-detail` | `features/master-detail` | Expandable detail rows |
+| `responsive` | `features/responsive` | Card layout for narrow viewports |
+| `undo-redo` | `features/undo-redo` | Edit undo/redo |
+| `export` | `features/export` | CSV/Excel export |
+| `print` | `features/print` | Print support |
+
+**Core Config Props (no feature import needed):**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `sortable` | `boolean` | Grid-wide sorting toggle (default: true) |
+| `filterable` | `boolean` | Grid-wide filtering toggle (default: true). Requires FilteringPlugin. |
+| `selectable` | `boolean` | Grid-wide selection toggle (default: true). Requires SelectionPlugin. |
+
+**Example shortcuts:**
+
+<Source
+  language="html"
+  code={`
+<template>
+  <!-- Selection modes -->
+  <TbwGrid selection="cell" />
+  <TbwGrid selection="row" />
+  <TbwGrid selection="range" />
+  <TbwGrid :selection="{ mode: 'range', checkbox: true }" />
+
+  <!-- Editing triggers -->
+  <TbwGrid :editing="true" />         <!-- default: dblclick -->
+  <TbwGrid editing="click" />
+  <TbwGrid editing="dblclick" />
+  <TbwGrid editing="manual" />
+
+  <!-- Sorting -->
+  <!-- Single-column sorting is core - columns with sortable: true work without any plugin -->
+  <TbwGrid :sortable="true" />        <!-- enable core sorting (default) -->
+  <TbwGrid :sortable="false" />       <!-- disable ALL sorting grid-wide -->
+
+  <!-- Multi-column sorting (requires features/multi-sort import) -->
+  <TbwGrid :multi-sort="true" />       <!-- enable multi-column sort -->
+  <TbwGrid multi-sort="single" />      <!-- limit to single column -->
+  <TbwGrid :multi-sort="{ maxSortColumns: 3 }" />
+
+  <!-- Filtering toggle (requires features/filtering import for plugin) -->
+  <TbwGrid :filterable="true" :filtering="true" />   <!-- enable filtering (default) -->
+  <TbwGrid :filterable="false" :filtering="true" />  <!-- plugin loaded but disabled -->
+
+  <!-- Selection toggle (requires features/selection import for plugin) -->
+  <TbwGrid :selectable="true" selection="range" />   <!-- enable selection (default) -->
+  <TbwGrid :selectable="false" selection="range" />  <!-- plugin loaded but disabled -->
+</template>
+`}
+/>
+
+## Advanced: Plugin-Based Configuration
+
+For complex scenarios requiring dynamic plugin toggling or advanced configuration, use the plugin-based pattern:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { markRaw, ref } from 'vue';
+
+interface Employee {
+  id: number;
+  name: string;
+  department: string;
+  salary: number;
+}
+
+const employees = ref<Employee[]>([/* ... */]);
+
+// Use markRaw to prevent Vue from making plugins reactive
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: [
+    { field: 'id', header: 'ID', width: 70 },
+    { field: 'name', header: 'Name', editable: true, sortable: true },
+    { field: 'department', header: 'Department', editable: true },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [
+    new SelectionPlugin({ mode: 'range' }),
+    new EditingPlugin({ editOn: 'dblclick' }),
+    new MultiSortPlugin(),
+    new FilteringPlugin({ debounceMs: 200 }),
+  ],
+});
+</script>
+
+<template>
+  <TbwGrid
+    :rows="employees"
+    :grid-config="config"
+    style="height: 400px; display: block"
+  />
+</template>
+`}
+/>
+
+> **Important**: Always use `markRaw()` for grid configs containing plugins to prevent Vue's reactivity system from interfering with plugin instances.
+
+## Custom Cell Renderers
+
+Use the `TbwGridColumn` component with the `#cell` slot to customize how cell values are displayed:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { ref } from 'vue';
+import StatusBadge from './StatusBadge.vue';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive' | 'pending';
+}
+
+const employees = ref<Employee[]>([
+  { id: 1, name: 'Alice', status: 'active' },
+  { id: 2, name: 'Bob', status: 'inactive' },
+  { id: 3, name: 'Charlie', status: 'pending' },
+]);
+
+const columns = [
+  { field: 'id', header: 'ID', width: 70 },
+  { field: 'name', header: 'Name' },
+  { field: 'status', header: 'Status' },
+];
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :columns="columns" style="height: 400px; display: block">
+    <!-- Custom renderer for the status column -->
+    <TbwGridColumn field="status">
+      <template #cell="{ value, row }">
+        <StatusBadge :status="value" />
+      </template>
+    </TbwGridColumn>
+  </TbwGrid>
+</template>
+`}
+/>
+
+**Slot Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `value` | `TValue` | The cell value |
+| `row` | `TRow` | The full row data object |
+| `column` | `ColumnConfig` | Column configuration |
+
+## Custom Cell Editors
+
+Use the `#editor` slot for inline cell editing. The slot provides `commit` and `cancel` functions:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/editing';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { ref } from 'vue';
+import StatusBadge from './StatusBadge.vue';
+import StatusSelectEditor from './StatusSelectEditor.vue';
+
+interface Employee {
+  id: number;
+  name: string;
+  status: 'active' | 'inactive' | 'pending';
+}
+
+const employees = ref<Employee[]>([/* ... */]);
+
+const columns = [
+  { field: 'id', header: 'ID', width: 70 },
+  { field: 'name', header: 'Name', editable: true },
+  { field: 'status', header: 'Status', editable: true },
+];
+</script>
+
+<template>
+  <TbwGrid
+    :rows="employees"
+    :columns="columns"
+    editing="dblclick"
+    style="height: 400px; display: block"
+  >
+    <TbwGridColumn field="status">
+      <template #cell="{ value }">
+        <StatusBadge :status="value" />
+      </template>
+      <template #editor="{ value, commit, cancel }">
+        <StatusSelectEditor
+          :value="value"
+          @commit="commit"
+          @cancel="cancel"
+        />
+      </template>
+    </TbwGridColumn>
+  </TbwGrid>
+</template>
+`}
+/>
+
+**Editor Slot Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `value` | `TValue` | The current cell value |
+| `row` | `TRow` | The full row data object |
+| `column` | `ColumnConfig` | Column configuration |
+| `commit` | `(value: TValue) => void` | Call to save the new value |
+| `cancel` | `() => void` | Call to cancel editing |
+
+Example editor component:
+
+<Source
+  language="html"
+  code={`
+<!-- StatusSelectEditor.vue -->
+<script setup lang="ts">
+defineProps<{
+  value: string;
+}>();
+
+const emit = defineEmits<{
+  commit: [value: string];
+  cancel: [];
+}>();
+
+function onChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  emit('commit', target.value);
+}
+</script>
+
+<template>
+  <select :value="value" @change="onChange" @keydown.escape="emit('cancel')">
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+    <option value="pending">Pending</option>
+  </select>
+</template>
+`}
+/>
+
+## Handling Events
+
+Listen to grid events using the standard Vue event binding:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { CellClickDetail, RowClickDetail, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
+
+function onCellClick(detail: CellClickDetail) {
+  console.log('Cell clicked:', { row: detail.row, column: detail.column, value: detail.value });
+}
+
+function onRowClick(detail: RowClickDetail) {
+  console.log('Row clicked:', detail.row);
+}
+
+function onCellCommit(detail: CellCommitDetail) {
+  console.log('Cell edited:', { row: detail.row, column: detail.column, newValue: detail.newValue, oldValue: detail.oldValue });
+}
+
+function onSortChange(detail: SortChangeDetail) {
+  console.log('Sort changed:', detail.sortState);
+}
+</script>
+
+<template>
+  <TbwGrid
+    :rows="employees"
+    :columns="columns"
+    @cell-click="onCellClick"
+    @row-click="onRowClick"
+    @cell-commit="onCellCommit"
+    @sort-change="onSortChange"
+  />
+</template>
+`}
+/>
+
+## Programmatic Grid Access
+
+Use the `useGrid` composable for programmatic control:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import { ref } from 'vue';
+
+interface Employee {
+  id: number;
+  name: string;
+}
+
+const employees = ref<Employee[]>([/* ... */]);
+const { gridElement, forceLayout } = useGrid<Employee>();
+
+function refreshGrid() {
+  forceLayout();
+}
+
+async function exportCsv() {
+  const grid = gridElement.value;
+  if (!grid) return;
+
+  const exportPlugin = grid.getPlugin(ExportPlugin);
+  await exportPlugin?.exportToCsv({ filename: 'employees.csv' });
+}
+</script>
+
+<template>
+  <div>
+    <button @click="refreshGrid">Refresh</button>
+    <button @click="exportCsv">Export CSV</button>
+    <TbwGrid :rows="employees" :columns="columns" />
+  </div>
+</template>
+`}
+/>
+
+## The `useGridEvent` Composable
+
+For programmatic event handling, use the `useGridEvent` composable:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, useGrid, useGridEvent } from '@toolbox-web/grid-vue';
+import type { CellCommitDetail, SelectionChangeDetail } from '@toolbox-web/grid';
+import { ref } from 'vue';
+
+const editHistory = ref<string[]>([]);
+const selectedCount = ref(0);
+
+const { gridElement } = useGrid<Employee>();
+
+// Subscribe to cell-commit events
+useGridEvent(gridElement, 'cell-commit', (detail: CellCommitDetail<Employee>) => {
+  editHistory.value.push(\`\${detail.column.field}: \${detail.oldValue} → \${detail.newValue}\`);
+});
+
+// Subscribe to selection-change events
+useGridEvent(gridElement, 'selection-change', (detail: SelectionChangeDetail<Employee>) => {
+  selectedCount.value = detail.ranges?.length ?? 0;
+});
+</script>
+
+<template>
+  <div>
+    <p>Selected ranges: {{ selectedCount }}</p>
+    <ul>
+      <li v-for="(entry, i) in editHistory" :key="i">{{ entry }}</li>
+    </ul>
+    <TbwGrid :rows="employees" :columns="columns" selection="range" editing="dblclick" />
+  </div>
+</template>
+`}
+/>
+
+## Master-Detail Panels
+
+Use `TbwGridDetailPanel` for expandable row details:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/master-detail';
+import { TbwGrid, TbwGridDetailPanel } from '@toolbox-web/grid-vue';
+import { ref } from 'vue';
+
+interface Employee {
+  id: number;
+  name: string;
+  department: string;
+  email: string;
+  hireDate: string;
+}
+
+const employees = ref<Employee[]>([/* ... */]);
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :columns="columns" :master-detail="true">
+    <TbwGridDetailPanel v-slot="{ row }">
+      <div style="padding: 16px">
+        <h3>{{ row.name }}</h3>
+        <p>Department: {{ row.department }}</p>
+        <p>Email: {{ row.email }}</p>
+        <p>Hire Date: {{ new Date(row.hireDate).toLocaleDateString() }}</p>
+      </div>
+    </TbwGridDetailPanel>
+  </TbwGrid>
+</template>
+`}
+/>
+
+## Custom Tool Panels
+
+Add sidebar panels with `TbwGridToolPanel`:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, TbwGridToolPanel, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { markRaw, ref } from 'vue';
+
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: [/* ... */],
+  shell: {
+    toolPanels: [{ id: 'filters', icon: '🔍', position: 'left' }],
+  },
+});
+
+const activeOnly = ref(false);
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="config">
+    <TbwGridToolPanel id="filters" label="Filters" v-slot="{ closePanel }">
+      <div style="padding: 16px">
+        <h3>Quick Filters</h3>
+        <label>
+          <input v-model="activeOnly" type="checkbox" /> Active Only
+        </label>
+        <button @click="closePanel">Close</button>
+      </div>
+    </TbwGridToolPanel>
+  </TbwGrid>
+</template>
+`}
+/>
+
+## Type-Level Defaults
+
+Register application-wide renderers and editors for specific data types using `GridTypeProvider`:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, GridTypeProvider, type TypeDefaultsMap } from '@toolbox-web/grid-vue';
+import { h, ref } from 'vue';
+import CurrencyRenderer from './CurrencyRenderer.vue';
+import DateRenderer from './DateRenderer.vue';
+
+const typeDefaults: TypeDefaultsMap = {
+  currency: {
+    renderer: ({ value }) => h(CurrencyRenderer, { value }),
+  },
+  date: {
+    renderer: ({ value }) => h(DateRenderer, { value }),
+  },
+};
+
+const employees = ref([/* ... */]);
+
+// Columns with type: 'currency' will use CurrencyRenderer automatically
+const columns = [
+  { field: 'name', header: 'Name' },
+  { field: 'salary', header: 'Salary', type: 'currency' },
+  { field: 'hireDate', header: 'Hire Date', type: 'date' },
+];
+</script>
+
+<template>
+  <GridTypeProvider :defaults="typeDefaults">
+    <TbwGrid :rows="employees" :columns="columns" />
+  </GridTypeProvider>
+</template>
+`}
+/>
+
+## Next Steps
+
+- **[Advanced Usage](/docs/grid-vue-advanced-usage--docs)** - Full control with manual plugins, refs, and escape hatches
+- **[API Reference](/docs/grid-vue-components-tbwgrid--docs)** - Complete API documentation
+- **[Grid Plugins](/docs/grid-plugins-selection-selection--docs)** - Explore all available plugins

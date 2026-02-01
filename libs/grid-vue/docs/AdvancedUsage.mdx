@@ -1,0 +1,761 @@
+{/* @jsxRuntime automatic */}
+
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Vue/Advanced Usage" />
+
+# Advanced Usage
+
+This guide covers advanced patterns for when you need full control over the grid, manual plugin configuration, or integration with complex Vue patterns.
+
+## Manual Plugin Instantiation
+
+While [feature props](/docs/grid-vue-getting-started--docs) are recommended for most use cases, you can instantiate plugins manually when you need:
+
+- Custom plugin configurations not exposed via props
+- Plugin references for imperative API calls
+- Third-party or custom plugins
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import {
+  SelectionPlugin,
+  EditingPlugin,
+  ClipboardPlugin,
+  UndoRedoPlugin,
+} from '@toolbox-web/grid/all';
+import { markRaw, ref } from 'vue';
+
+interface Employee {
+  id: number;
+  name: string;
+  salary: number;
+}
+
+const employees = ref<Employee[]>([/* ... */]);
+
+// Use markRaw to prevent Vue from making plugins reactive
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'salary', header: 'Salary', editable: true, type: 'number' },
+  ],
+  plugins: [
+    new SelectionPlugin({ mode: 'range', checkbox: true }),
+    new EditingPlugin({ editOn: 'dblclick', selectOnEdit: true }),
+    new ClipboardPlugin({ includeHeaders: true }),
+    new UndoRedoPlugin({ maxHistory: 100 }),
+  ],
+});
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="config" />
+</template>
+`}
+/>
+
+> **Important**: Always use `markRaw()` for grid configs containing plugins. Vue's reactivity system can interfere with plugin class instances, causing unexpected behavior.
+
+## Combining Feature Props with Manual Plugins
+
+Feature props and manual plugins can be mixed. The grid merges them, with manual plugins added first:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/selection';
+import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { ResponsivePlugin } from '@toolbox-web/grid/all';
+import { markRaw, ref } from 'vue';
+
+const employees = ref<Employee[]>([/* ... */]);
+
+// Custom plugin that doesn't have a feature prop
+const responsivePlugin = new ResponsivePlugin({
+  breakpoint: 600,
+  cardTitleField: 'name',
+});
+
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: columns,
+  plugins: [responsivePlugin],
+});
+</script>
+
+<template>
+  <!-- Feature props still work alongside manual plugins -->
+  <TbwGrid :rows="employees" :grid-config="config" selection="range" />
+</template>
+`}
+/>
+
+## Direct Grid Element Access
+
+Access the underlying `<tbw-grid>` element via the `useGrid` composable:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import type { GridElement } from '@toolbox-web/grid';
+import { onMounted, ref } from 'vue';
+
+const employees = ref<Employee[]>([/* ... */]);
+const { gridElement } = useGrid<Employee>();
+
+onMounted(async () => {
+  const grid = gridElement.value;
+  if (!grid) return;
+
+  // Wait for component to be ready
+  await grid.ready();
+
+  // Access full grid API
+  console.log('Grid ready, row count:', grid.sourceRows.length);
+
+  // Access plugin instances
+  const selection = grid.getPlugin(SelectionPlugin);
+  if (selection) {
+    selection.selectRow(0);
+  }
+});
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :columns="columns" />
+</template>
+`}
+/>
+
+## The `useGridEvent` Composable
+
+For programmatic event handling outside of template bindings, use the `useGridEvent` composable:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/editing';
+import { TbwGrid, useGrid, useGridEvent } from '@toolbox-web/grid-vue';
+import type { CellCommitDetail, SelectionChangeDetail } from '@toolbox-web/grid';
+import { ref } from 'vue';
+
+const editHistory = ref<string[]>([]);
+const selectedCount = ref(0);
+const employees = ref<Employee[]>([/* ... */]);
+
+const { gridElement } = useGrid<Employee>();
+
+// Subscribe to cell-commit events - auto-cleaned up on unmount
+useGridEvent(gridElement, 'cell-commit', (detail: CellCommitDetail<Employee>) => {
+  editHistory.value.push(
+    \`\${detail.column.field}: \${detail.oldValue} → \${detail.newValue}\`
+  );
+});
+
+// Subscribe to selection-change events
+useGridEvent(gridElement, 'selection-change', (detail: SelectionChangeDetail<Employee>) => {
+  selectedCount.value = detail.ranges?.length ?? 0;
+});
+</script>
+
+<template>
+  <div>
+    <p>Selected ranges: {{ selectedCount }}</p>
+    <ul>
+      <li v-for="(entry, i) in editHistory" :key="i">{{ entry }}</li>
+    </ul>
+    <TbwGrid
+      :rows="employees"
+      :columns="columns"
+      selection="range"
+      editing="dblclick"
+    />
+  </div>
+</template>
+`}
+/>
+
+## Custom Sorting Logic
+
+Override the default sort comparator for complex sorting requirements:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/multi-sort';
+import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { markRaw, ref } from 'vue';
+
+const employees = ref<Employee[]>([/* ... */]);
+
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: [
+    { field: 'name', header: 'Name', sortable: true },
+    {
+      field: 'priority',
+      header: 'Priority',
+      sortable: true,
+      // Custom sort: 'high' > 'medium' > 'low'
+      comparator: (a: string, b: string) => {
+        const order = { high: 3, medium: 2, low: 1 };
+        return (order[a as keyof typeof order] ?? 0) - (order[b as keyof typeof order] ?? 0);
+      },
+    },
+    {
+      field: 'lastName',
+      header: 'Last Name',
+      sortable: true,
+      // Locale-aware sorting
+      comparator: (a: string, b: string) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    },
+  ],
+});
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="config" :multi-sort="true" />
+</template>
+`}
+/>
+
+## Controlled Selection
+
+Manage selection state externally:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/selection';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { SelectionRange, SelectionChangeDetail } from '@toolbox-web/grid';
+import { ref } from 'vue';
+
+const employees = ref<Employee[]>([/* ... */]);
+const selection = ref<SelectionRange[]>([]);
+
+function handleSelectionChange(detail: SelectionChangeDetail<Employee>) {
+  // Validate or transform selection
+  const validRanges = detail.ranges?.filter(range => range.rows.length <= 10);
+  selection.value = validRanges ?? [];
+}
+</script>
+
+<template>
+  <div>
+    <p>Selected: {{ selection.flatMap(r => r.rows).length }} rows</p>
+    <TbwGrid
+      :rows="employees"
+      :columns="columns"
+      :selection="{ mode: 'range', ranges: selection }"
+      @selection-change="handleSelectionChange"
+    />
+  </div>
+</template>
+`}
+/>
+
+## Dynamic Row Updates
+
+Update rows efficiently while preserving grid state:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/editing';
+import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
+import type { CellCommitDetail } from '@toolbox-web/grid';
+import { ref } from 'vue';
+
+const employees = ref<Employee[]>(initialData);
+const { gridElement, forceLayout } = useGrid<Employee>();
+
+// Add a new employee
+function handleAdd() {
+  employees.value = [
+    ...employees.value,
+    { id: Date.now(), name: 'New Employee', department: '', salary: 50000 },
+  ];
+}
+
+// Update an employee
+function handleUpdate(id: number, updates: Partial<Employee>) {
+  employees.value = employees.value.map(emp =>
+    emp.id === id ? { ...emp, ...updates } : emp
+  );
+}
+
+// Delete selected employees
+function handleDelete() {
+  const grid = gridElement.value;
+  if (!grid) return;
+
+  const config = grid.effectiveConfig;
+  const selectedRows = config?.selection?.selectedRows ?? [];
+  const selectedIds = new Set(selectedRows.map((row: Employee) => row.id));
+  employees.value = employees.value.filter(emp => !selectedIds.has(emp.id));
+}
+
+// Handle cell edits
+function handleCellCommit(detail: CellCommitDetail<Employee>) {
+  handleUpdate(detail.row.id, { [detail.column.field as keyof Employee]: detail.newValue });
+}
+</script>
+
+<template>
+  <div>
+    <div class="toolbar">
+      <button @click="handleAdd">Add Employee</button>
+      <button @click="handleDelete">Delete Selected</button>
+    </div>
+    <TbwGrid
+      :rows="employees"
+      :columns="columns"
+      selection="range"
+      editing="dblclick"
+      @cell-commit="handleCellCommit"
+    />
+  </div>
+</template>
+`}
+/>
+
+## Virtual Scrolling Configuration
+
+Fine-tune virtualization for optimal performance:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { markRaw, ref } from 'vue';
+
+const largeDataset = ref<DataRow[]>([/* 100,000 rows */]);
+
+const config = markRaw<VueGridConfig<DataRow>>({
+  columns: columns,
+  virtualization: {
+    rowHeight: 32,    // Fixed row height (default: 28)
+    overscan: 10,     // Extra rows to render above/below viewport
+  },
+  // Performance: disable animations for very large datasets
+  animation: false,
+});
+</script>
+
+<template>
+  <TbwGrid
+    :rows="largeDataset"
+    :grid-config="config"
+    style="height: 600px"
+  />
+</template>
+`}
+/>
+
+## Custom Context Menu Actions
+
+Add custom actions to the context menu:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/context-menu';
+import '@toolbox-web/grid-vue/features/selection';
+import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import type { ContextMenuItem } from '@toolbox-web/grid';
+import { markRaw, ref } from 'vue';
+
+const employees = ref<Employee[]>([/* ... */]);
+
+const contextMenuItems: ContextMenuItem<Employee>[] = [
+  { type: 'separator' },
+  {
+    label: 'View Profile',
+    icon: '👤',
+    action: ({ row }) => {
+      window.open(\`/employees/\${row.id}\`, '_blank');
+    },
+  },
+  {
+    label: 'Send Email',
+    icon: '✉️',
+    disabled: ({ row }) => !row.email,
+    action: ({ row }) => {
+      window.location.href = \`mailto:\${row.email}\`;
+    },
+  },
+];
+
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: columns,
+});
+</script>
+
+<template>
+  <TbwGrid
+    :rows="employees"
+    :grid-config="config"
+    selection="range"
+    :context-menu="contextMenuItems"
+  />
+</template>
+`}
+/>
+
+## Server-Side Data Loading
+
+Pattern for loading data from an API:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/multi-sort';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { SortState, SortChangeDetail } from '@toolbox-web/grid';
+import { ref, watch } from 'vue';
+
+const loading = ref(true);
+const employees = ref<Employee[]>([]);
+const sortState = ref<SortState[]>([]);
+
+async function fetchData(sort: SortState[]) {
+  loading.value = true;
+  try {
+    const params = new URLSearchParams();
+    if (sort.length > 0) {
+      params.set('sortField', sort[0].field);
+      params.set('sortDir', sort[0].direction);
+    }
+    const response = await fetch(\`/api/employees?\${params}\`);
+    const { data } = await response.json();
+    employees.value = data;
+  } finally {
+    loading.value = false;
+  }
+}
+
+watch(sortState, (newSort) => fetchData(newSort), { immediate: true });
+
+function handleSortChange(detail: SortChangeDetail) {
+  sortState.value = detail.sortState;
+}
+</script>
+
+<template>
+  <div>
+    <div v-if="loading" class="loading-overlay">Loading...</div>
+    <TbwGrid
+      :rows="employees"
+      :columns="columns"
+      :multi-sort="{ mode: 'external', sortState: sortState }"
+      @sort-change="handleSortChange"
+    />
+  </div>
+</template>
+`}
+/>
+
+## Integrating with VueQuery (TanStack Query)
+
+Use VueQuery for data fetching with caching:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/editing';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
+import type { CellCommitDetail } from '@toolbox-web/grid';
+
+const queryClient = useQueryClient();
+
+// Fetch data
+const { data: employees, isLoading } = useQuery({
+  queryKey: ['employees'],
+  queryFn: () => fetch('/api/employees').then(r => r.json()),
+});
+
+// Update mutation
+const updateMutation = useMutation({
+  mutationFn: (employee: Partial<Employee>) =>
+    fetch(\`/api/employees/\${employee.id}\`, {
+      method: 'PATCH',
+      body: JSON.stringify(employee),
+    }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['employees'] });
+  },
+});
+
+function handleCellCommit(detail: CellCommitDetail<Employee>) {
+  updateMutation.mutate({
+    id: detail.row.id,
+    [detail.column.field as keyof Employee]: detail.newValue,
+  });
+}
+</script>
+
+<template>
+  <div v-if="isLoading">Loading...</div>
+  <TbwGrid
+    v-else
+    :rows="employees ?? []"
+    :columns="columns"
+    editing="dblclick"
+    @cell-commit="handleCellCommit"
+  />
+</template>
+`}
+/>
+
+## Responsive Layouts
+
+Switch between table and card views based on screen size:
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, TbwGridResponsiveCard, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { ResponsivePlugin } from '@toolbox-web/grid/all';
+import { markRaw, ref } from 'vue';
+
+const employees = ref<Employee[]>([/* ... */]);
+
+const responsivePlugin = new ResponsivePlugin({
+  breakpoint: 768,           // Switch at 768px
+  cardTitleField: 'name',    // Show name as card title
+  cardSubtitleField: 'role', // Show role as subtitle
+});
+
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'role', header: 'Role' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [responsivePlugin],
+});
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="config">
+    <!-- Optional: Custom responsive card template -->
+    <TbwGridResponsiveCard v-slot="{ row }">
+      <div class="custom-card">
+        <h3>{{ row.name }}</h3>
+        <p>{{ row.role }} - {{ row.department }}</p>
+        <p class="salary">\${{ row.salary.toLocaleString() }}</p>
+      </div>
+    </TbwGridResponsiveCard>
+  </TbwGrid>
+</template>
+
+<style scoped>
+.custom-card {
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+.salary {
+  font-weight: bold;
+  color: #2e7d32;
+}
+</style>
+`}
+/>
+
+## Performance Tips
+
+### 1. Use `markRaw` for Config Objects
+
+<Source
+  language="html"
+  code={`
+import { markRaw } from 'vue';
+
+// ✅ Good: Prevents Vue from making plugins reactive
+const config = markRaw({
+  columns: [...],
+  plugins: [new SelectionPlugin()],
+});
+
+// ❌ Bad: Vue's reactivity can break plugin instances
+const config = {
+  columns: [...],
+  plugins: [new SelectionPlugin()],
+};
+`}
+/>
+
+### 2. Use `shallowRef` for Large Datasets
+
+<Source
+  language="html"
+  code={`
+import { shallowRef } from 'vue';
+
+// ✅ Good: Only tracks reference changes, not deep mutations
+const employees = shallowRef<Employee[]>([]);
+
+// Update by replacing the entire array
+employees.value = [...employees.value, newEmployee];
+
+// ❌ Bad: Deep reactivity on large arrays is expensive
+const employees = ref<Employee[]>([]);
+`}
+/>
+
+### 3. Memoize Column Configurations
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { computed, markRaw } from 'vue';
+
+// ✅ Good: Columns are memoized and only recreated when dependencies change
+const columns = computed(() => markRaw([
+  { field: 'id', header: 'ID' },
+  { field: 'name', header: 'Name' },
+  { field: 'salary', header: 'Salary', format: (v) => '$' + v.toLocaleString() },
+]));
+
+// ❌ Bad: Creates new array on every render
+const columns = [
+  { field: 'id', header: 'ID' },
+  // ...
+];
+</script>
+`}
+/>
+
+### 4. Use `v-once` for Static Content
+
+<Source
+  language="html"
+  code={`
+<template>
+  <!-- Static toolbar that never changes -->
+  <div v-once class="toolbar">
+    <button @click="exportCsv">Export</button>
+    <button @click="print">Print</button>
+  </div>
+
+  <!-- Grid updates normally -->
+  <TbwGrid :rows="employees" :columns="columns" />
+</template>
+`}
+/>
+
+### 5. Debounce Frequent Updates
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { useDebounceFn } from '@vueuse/core';
+import { ref } from 'vue';
+
+const searchTerm = ref('');
+
+// Debounce the filter update
+const updateFilter = useDebounceFn((term: string) => {
+  // Apply filter to grid
+}, 300);
+
+function onSearchInput(event: Event) {
+  const value = (event.target as HTMLInputElement).value;
+  searchTerm.value = value;
+  updateFilter(value);
+}
+</script>
+
+<template>
+  <input :value="searchTerm" @input="onSearchInput" placeholder="Search..." />
+  <TbwGrid :rows="filteredEmployees" :columns="columns" />
+</template>
+`}
+/>
+
+## Debugging
+
+### Enable Debug Mode
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { markRaw } from 'vue';
+
+const config = markRaw<VueGridConfig<Employee>>({
+  columns: columns,
+  debug: true, // Enables verbose logging
+});
+</script>
+
+<template>
+  <TbwGrid :rows="employees" :grid-config="config" />
+</template>
+`}
+/>
+
+### Inspect Grid State
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
+import { onMounted } from 'vue';
+
+const { gridElement } = useGrid<Employee>();
+
+onMounted(async () => {
+  const grid = gridElement.value;
+  if (!grid) return;
+
+  await grid.ready();
+
+  // Inspect effective configuration
+  console.log('Effective config:', grid.effectiveConfig);
+
+  // Inspect processed columns
+  console.log('Columns:', grid._columns);
+
+  // Inspect processed rows
+  console.log('Rows:', grid._rows);
+
+  // List registered plugins
+  console.log('Plugins:', grid.plugins);
+});
+</script>
+`}
+/>
+
+## Next Steps
+
+- **[Getting Started](/docs/grid-vue-getting-started--docs)** - Basic usage and feature props
+- **[API Reference](/docs/grid-vue-components-tbwgrid--docs)** - Complete API documentation
+- **[Grid Plugins](/docs/grid-plugins-selection-selection--docs)** - Explore all available plugins

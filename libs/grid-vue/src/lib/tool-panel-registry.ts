@@ -15,10 +15,7 @@ export interface ToolPanelContext {
 /**
  * Registry for tool panel renderers (per element)
  */
-export const toolPanelRegistry = new WeakMap<
-  HTMLElement,
-  (ctx: ToolPanelContext) => VNode[] | undefined
->();
+export const toolPanelRegistry = new WeakMap<HTMLElement, (ctx: ToolPanelContext) => VNode[] | undefined>();
 
 /**
  * Get the tool panel renderer for an element.

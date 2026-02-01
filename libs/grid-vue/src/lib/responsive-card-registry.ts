@@ -17,10 +17,7 @@ export interface ResponsiveCardContext<T = unknown> {
 /**
  * Registry for responsive card renderers (per element)
  */
-export const cardRegistry = new WeakMap<
-  HTMLElement,
-  (ctx: ResponsiveCardContext<unknown>) => VNode[] | undefined
->();
+export const cardRegistry = new WeakMap<HTMLElement, (ctx: ResponsiveCardContext<unknown>) => VNode[] | undefined>();
 
 /**
  * Get the responsive card renderer for a grid element.

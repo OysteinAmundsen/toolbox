@@ -105,6 +105,22 @@ export function getColumnEditor(
 }
 
 /**
+ * Get all registered field names.
+ * @internal - for testing only
+ */
+export function getRegisteredFields(): string[] {
+  return Array.from(fieldRegistries.keys());
+}
+
+/**
+ * Clear the field registries.
+ * @internal - for testing only
+ */
+export function clearFieldRegistries(): void {
+  fieldRegistries.clear();
+}
+
+/**
  * Tracks mounted Vue apps for cleanup.
  */
 interface MountedView {

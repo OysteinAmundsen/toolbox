@@ -334,6 +334,11 @@ onMounted(() => {
   const grid = gridRef.value as unknown as HTMLElement & DataGridElement<TRow>;
   if (!grid) return;
 
+  // Attach the framework adapter to the grid element
+  // This enables MasterDetailPlugin and ResponsivePlugin to use Vue-based renderers
+  const adapter = ensureAdapterRegistered();
+  (grid as any).__frameworkAdapter = adapter;
+
   // Add event listeners
   grid.addEventListener('cell-commit', handleCellCommit);
   grid.addEventListener('row-commit', handleRowCommit);

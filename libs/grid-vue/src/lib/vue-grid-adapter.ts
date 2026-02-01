@@ -6,6 +6,8 @@ import type {
   FrameworkAdapter,
 } from '@toolbox-web/grid';
 import { createApp, type App, type VNode } from 'vue';
+import { detailRegistry, type DetailPanelContext } from './detail-panel-registry';
+import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
 
 /**
  * Registry mapping column elements to their Vue render functions.
@@ -290,6 +292,84 @@ export class VueGridAdapter implements FrameworkAdapter {
 
       app.mount(container);
       this.mountedViews.push({ app, container });
+
+      return container;
+    };
+  }
+
+  /**
+   * Framework adapter hook called by MasterDetailPlugin during attach().
+   * Parses the <tbw-grid-detail> element and returns a Vue-based renderer.
+   */
+  parseDetailElement<TRow = unknown>(
+    detailElement: Element,
+  ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
+    const gridElement = detailElement.closest('tbw-grid') as HTMLElement | null;
+    if (!gridElement) return undefined;
+
+    // Get renderer from registry (registered by TbwGridDetailPanel)
+    const detailEl = gridElement.querySelector('tbw-grid-detail') as HTMLElement | null;
+    if (!detailEl) return undefined;
+
+    const renderFn = detailRegistry.get(detailEl);
+    if (!renderFn) return undefined;
+
+    return (row: TRow, rowIndex: number): HTMLElement => {
+      const container = document.createElement('div');
+      container.className = 'vue-detail-panel';
+
+      const ctx: DetailPanelContext<TRow> = { row, rowIndex };
+      const vnodes = renderFn(ctx as DetailPanelContext<unknown>);
+
+      if (vnodes && vnodes.length > 0) {
+        // Render VNodes into container
+        const app = createApp({
+          render() {
+            return vnodes;
+          },
+        });
+        app.mount(container);
+        this.mountedViews.push({ app, container });
+      }
+
+      return container;
+    };
+  }
+
+  /**
+   * Framework adapter hook called by ResponsivePlugin during attach().
+   * Parses the <tbw-grid-responsive-card> element and returns a Vue-based renderer.
+   */
+  parseResponsiveCardElement<TRow = unknown>(
+    cardElement: Element,
+  ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined {
+    const gridElement = cardElement.closest('tbw-grid') as HTMLElement | null;
+    if (!gridElement) return undefined;
+
+    // Get renderer from registry (registered by TbwGridResponsiveCard)
+    const cardEl = gridElement.querySelector('tbw-grid-responsive-card') as HTMLElement | null;
+    if (!cardEl) return undefined;
+
+    const renderFn = cardRegistry.get(cardEl);
+    if (!renderFn) return undefined;
+
+    return (row: TRow, rowIndex: number): HTMLElement => {
+      const container = document.createElement('div');
+      container.className = 'vue-responsive-card';
+
+      const ctx: ResponsiveCardContext<TRow> = { row, rowIndex };
+      const vnodes = renderFn(ctx as ResponsiveCardContext<unknown>);
+
+      if (vnodes && vnodes.length > 0) {
+        // Render VNodes into container
+        const app = createApp({
+          render() {
+            return vnodes;
+          },
+        });
+        app.mount(container);
+        this.mountedViews.push({ app, container });
+      }
 
       return container;
     };

@@ -20,6 +20,9 @@
     },
     {
       "path": "./libs/grid-vue"
+    },
+    {
+      "path": "./demos/employee-management/vue"
     }
   ],
   "ts-node": {

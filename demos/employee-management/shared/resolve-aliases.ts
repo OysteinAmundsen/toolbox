@@ -45,9 +45,11 @@ export function getResolveAliases(
     includeReact?: boolean;
     /** Include grid-angular aliases (default: false) */
     includeAngular?: boolean;
+    /** Include grid-vue aliases (default: false) */
+    includeVue?: boolean;
   } = {},
 ): Alias[] {
-  const { includeReact = false, includeAngular = false } = options;
+  const { includeReact = false, includeAngular = false, includeVue = false } = options;
   const sharedDir = resolve(demoDir, '../shared');
 
   const aliases: Alias[] = [];
@@ -103,6 +105,22 @@ export function getResolveAliases(
         replacement: resolve(ROOT, 'dist/libs/grid-angular/index.js'),
       });
     }
+
+    if (includeVue) {
+      // Vue feature imports (must be before base)
+      aliases.push({
+        find: /^@toolbox-web\/grid-vue\/features\/(.+)$/,
+        replacement: resolve(ROOT, 'dist/libs/grid-vue/features/$1.js'),
+      });
+      aliases.push({
+        find: '@toolbox-web/grid-vue/features',
+        replacement: resolve(ROOT, 'dist/libs/grid-vue/features/index.js'),
+      });
+      aliases.push({
+        find: '@toolbox-web/grid-vue',
+        replacement: resolve(ROOT, 'dist/libs/grid-vue/index.js'),
+      });
+    }
   } else {
     // ============================================================
     // SOURCE MODE (default): Resolve to source files for fast HMR
@@ -151,6 +169,22 @@ export function getResolveAliases(
       aliases.push({
         find: '@toolbox-web/grid-angular',
         replacement: resolve(ROOT, 'libs/grid-angular/src/index.ts'),
+      });
+    }
+
+    if (includeVue) {
+      // Vue feature imports (must be before base)
+      aliases.push({
+        find: /^@toolbox-web\/grid-vue\/features\/(.+)$/,
+        replacement: resolve(ROOT, 'libs/grid-vue/src/features/$1.ts'),
+      });
+      aliases.push({
+        find: '@toolbox-web/grid-vue/features',
+        replacement: resolve(ROOT, 'libs/grid-vue/src/features/index.ts'),
+      });
+      aliases.push({
+        find: '@toolbox-web/grid-vue',
+        replacement: resolve(ROOT, 'libs/grid-vue/src/index.ts'),
       });
     }
   }

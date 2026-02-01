@@ -5,6 +5,29 @@
   "projectType": "library",
   "tags": ["type:lib", "scope:grid"],
   "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "dependsOn": [
+        {
+          "projects": ["grid"],
+          "target": "build"
+        }
+      ],
+      "options": {
+        "outputPath": "dist/libs/grid-vue",
+        "emptyOutDir": true
+      },
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    },
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
       "dependsOn": ["grid:build"],

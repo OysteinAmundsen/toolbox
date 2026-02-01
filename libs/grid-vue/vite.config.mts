@@ -40,6 +40,10 @@ export default defineConfig(() => ({
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),
       // Preserve @toolbox-web/grid imports in .d.ts output instead of resolving to relative paths
       pathsToAliases: false,
+      afterBuild: () => {
+        // Copy package.json after DTS generation
+        copyFileSync(path.resolve(import.meta.dirname, 'package.json'), path.resolve(outDir, 'package.json'));
+      },
     }),
     copyReadme(),
   ],

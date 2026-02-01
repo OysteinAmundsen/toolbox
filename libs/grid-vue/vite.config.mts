@@ -26,7 +26,15 @@ export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/grid-vue',
   plugins: [
-    vue(),
+    vue({
+      template: {
+        compilerOptions: {
+          // Treat tbw-* tags as custom elements (web components), not Vue components
+          // This is critical to avoid infinite recursion when resolving <tbw-grid>
+          isCustomElement: (tag) => tag.startsWith('tbw-'),
+        },
+      },
+    }),
     dts({
       entryRoot: 'src',
       tsconfigPath: path.join(import.meta.dirname, 'tsconfig.lib.json'),

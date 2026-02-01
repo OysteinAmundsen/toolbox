@@ -10,6 +10,7 @@ export const DEMOS = {
   vanilla: 'http://localhost:4000',
   react: 'http://localhost:4300',
   angular: 'http://localhost:4200',
+  vue: 'http://localhost:4100',
 } as const;
 
 export type DemoName = keyof typeof DEMOS;
@@ -22,7 +23,7 @@ export const SELECTORS = {
   // Core grid elements - using ARIA roles for reliability
   grid: 'tbw-grid',
   container: '.tbw-grid-root',
-  header: '[role="rowgroup"]:first-child',
+  header: '.header[role="rowgroup"]',
   headerRow: '[role="row"]:has([role="columnheader"])',
   headerCell: '[role="columnheader"]',
   body: '.rows-viewport',

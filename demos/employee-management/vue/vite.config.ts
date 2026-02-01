@@ -19,7 +19,7 @@ export default defineConfig({
     alias: getResolveAliases(__dirname, { includeVue: true }),
   },
   server: {
-    port: 4400,
+    port: 4100,
     open: false,
   },
   build: {

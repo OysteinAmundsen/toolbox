@@ -787,7 +787,7 @@
       color: var(--tbw-color-fg);
       font-size: 13px;
       font-weight: 600;
-      text-align: left;
+      text-align: start;
       cursor: pointer;
       user-select: none;
 

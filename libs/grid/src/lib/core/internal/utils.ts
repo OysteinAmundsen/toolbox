@@ -82,3 +82,88 @@ export function clearCellFocus(root: Element | ShadowRoot | null): void {
   if (!root) return;
   root.querySelectorAll('.cell-focus').forEach((el) => el.classList.remove('cell-focus'));
 }
+// ────────────────────────────────────────────────────────────────────────────
+// RTL (Right-to-Left) Helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Text direction */
+export type TextDirection = 'ltr' | 'rtl';
+
+/**
+ * Get the text direction for an element.
+ * Reads from the computed style, which respects the `dir` attribute on the element
+ * or any ancestor, as well as CSS `direction` property.
+ *
+ * @param element - The element to check direction for
+ * @returns 'ltr' or 'rtl'
+ *
+ * @example
+ * ```typescript
+ * // Detect grid's direction
+ * const dir = getDirection(gridElement);
+ * if (dir === 'rtl') {
+ *   // Handle RTL layout
+ * }
+ * ```
+ */
+export function getDirection(element: Element): TextDirection {
+  // Try computed style first (works in real browsers)
+  try {
+    const computedDir = getComputedStyle(element).direction;
+    if (computedDir === 'rtl') return 'rtl';
+  } catch {
+    // getComputedStyle may fail in some test environments
+  }
+
+  // Fallback: check dir attribute on element or ancestors
+  // This handles test environments where getComputedStyle may not reflect dir attribute
+  try {
+    const dirAttr = element.closest?.('[dir]')?.getAttribute('dir');
+    if (dirAttr === 'rtl') return 'rtl';
+  } catch {
+    // closest may not be available on mock elements
+  }
+
+  return 'ltr';
+}
+
+/**
+ * Check if an element is in RTL mode.
+ *
+ * @param element - The element to check
+ * @returns true if the element's text direction is right-to-left
+ */
+export function isRTL(element: Element): boolean {
+  return getDirection(element) === 'rtl';
+}
+
+/**
+ * Resolve a logical inline position to a physical position based on text direction.
+ *
+ * - `'start'` → `'left'` in LTR, `'right'` in RTL
+ * - `'end'` → `'right'` in LTR, `'left'` in RTL
+ * - `'left'` / `'right'` → unchanged (physical values)
+ *
+ * @param position - Logical or physical position
+ * @param direction - Text direction ('ltr' or 'rtl')
+ * @returns Physical position ('left' or 'right')
+ *
+ * @example
+ * ```typescript
+ * resolveInlinePosition('start', 'ltr'); // 'left'
+ * resolveInlinePosition('start', 'rtl'); // 'right'
+ * resolveInlinePosition('left', 'rtl');  // 'left' (unchanged)
+ * ```
+ */
+export function resolveInlinePosition(
+  position: 'left' | 'right' | 'start' | 'end',
+  direction: TextDirection,
+): 'left' | 'right' {
+  if (position === 'left' || position === 'right') {
+    return position;
+  }
+  if (direction === 'rtl') {
+    return position === 'start' ? 'right' : 'left';
+  }
+  return position === 'start' ? 'left' : 'right';
+}

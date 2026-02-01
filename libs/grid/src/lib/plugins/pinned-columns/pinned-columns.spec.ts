@@ -12,6 +12,7 @@ import {
   getLeftStickyColumns,
   getRightStickyColumns,
   hasStickyColumns,
+  resolveStickyPosition,
 } from './pinned-columns';
 
 describe('sticky-columns', () => {
@@ -461,6 +462,142 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
       const result = plugin.getHorizontalScrollOffsets(undefined, focusedCell);
 
       expect(result?.skipScroll).toBeFalsy();
+    });
+  });
+});
+
+describe('RTL support', () => {
+  describe('resolveStickyPosition', () => {
+    it('returns left for left in LTR', () => {
+      expect(resolveStickyPosition('left', 'ltr')).toBe('left');
+    });
+
+    it('returns right for right in LTR', () => {
+      expect(resolveStickyPosition('right', 'ltr')).toBe('right');
+    });
+
+    it('returns left for left in RTL (physical stays physical)', () => {
+      expect(resolveStickyPosition('left', 'rtl')).toBe('left');
+    });
+
+    it('returns right for right in RTL (physical stays physical)', () => {
+      expect(resolveStickyPosition('right', 'rtl')).toBe('right');
+    });
+
+    it('returns left for start in LTR', () => {
+      expect(resolveStickyPosition('start', 'ltr')).toBe('left');
+    });
+
+    it('returns right for end in LTR', () => {
+      expect(resolveStickyPosition('end', 'ltr')).toBe('right');
+    });
+
+    it('returns right for start in RTL (flipped)', () => {
+      expect(resolveStickyPosition('start', 'rtl')).toBe('right');
+    });
+
+    it('returns left for end in RTL (flipped)', () => {
+      expect(resolveStickyPosition('end', 'rtl')).toBe('left');
+    });
+  });
+
+  describe('hasStickyColumns with logical positions', () => {
+    it('returns true for start sticky column', () => {
+      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }];
+      expect(hasStickyColumns(cols)).toBe(true);
+    });
+
+    it('returns true for end sticky column', () => {
+      const cols = [{ field: 'a' }, { field: 'b', sticky: 'end' }];
+      expect(hasStickyColumns(cols)).toBe(true);
+    });
+  });
+
+  describe('getLeftStickyColumns in RTL', () => {
+    it('includes start columns in LTR', () => {
+      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c', sticky: 'left' }];
+      const result = getLeftStickyColumns(cols, 'ltr');
+      expect(result).toHaveLength(2);
+      expect(result[0].field).toBe('a');
+      expect(result[1].field).toBe('c');
+    });
+
+    it('includes end columns in RTL (flipped to left)', () => {
+      const cols = [{ field: 'a', sticky: 'end' }, { field: 'b' }, { field: 'c', sticky: 'left' }];
+      const result = getLeftStickyColumns(cols, 'rtl');
+      expect(result).toHaveLength(2);
+      expect(result[0].field).toBe('a');
+      expect(result[1].field).toBe('c');
+    });
+
+    it('excludes start columns in RTL (they go to right)', () => {
+      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c', sticky: 'left' }];
+      const result = getLeftStickyColumns(cols, 'rtl');
+      // start resolves to right in RTL, so only 'c' is left
+      expect(result).toHaveLength(1);
+      expect(result[0].field).toBe('c');
+    });
+  });
+
+  describe('getRightStickyColumns in RTL', () => {
+    it('includes end columns in LTR', () => {
+      const cols = [{ field: 'a', sticky: 'end' }, { field: 'b' }, { field: 'c', sticky: 'right' }];
+      const result = getRightStickyColumns(cols, 'ltr');
+      expect(result).toHaveLength(2);
+      expect(result[0].field).toBe('a');
+      expect(result[1].field).toBe('c');
+    });
+
+    it('includes start columns in RTL (flipped to right)', () => {
+      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c', sticky: 'right' }];
+      const result = getRightStickyColumns(cols, 'rtl');
+      expect(result).toHaveLength(2);
+      expect(result[0].field).toBe('a');
+      expect(result[1].field).toBe('c');
+    });
+  });
+
+  describe('applyStickyOffsets in RTL', () => {
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      host = document.createElement('div');
+      host.setAttribute('dir', 'rtl');
+      host.innerHTML = `
+        <div class="header-row">
+          <div class="cell" data-field="a">A</div>
+          <div class="cell" data-field="b">B</div>
+          <div class="cell" data-field="c">C</div>
+        </div>
+        <div class="data-grid-row">
+          <div class="cell" data-col="0">1</div>
+          <div class="cell" data-col="1">2</div>
+          <div class="cell" data-col="2">3</div>
+        </div>
+      `;
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      document.body.removeChild(host);
+    });
+
+    it('applies sticky-right class to start columns in RTL', () => {
+      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c' }];
+      applyStickyOffsets(host, cols);
+
+      // In RTL, 'start' resolves to 'right'
+      const headerCell = host.querySelector('.header-row .cell[data-field="a"]') as HTMLElement;
+      expect(headerCell.classList.contains('sticky-right')).toBe(true);
+    });
+
+    it('applies sticky-left class to end columns in RTL', () => {
+      const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c', sticky: 'end' }];
+      applyStickyOffsets(host, cols);
+
+      // In RTL, 'end' resolves to 'left'
+      const headerCell = host.querySelector('.header-row .cell[data-field="c"]') as HTMLElement;
+      expect(headerCell.classList.contains('sticky-left')).toBe(true);
     });
   });
 });

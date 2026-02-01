@@ -5,9 +5,9 @@
  */
 @layer tbw-plugins {
   tbw-grid {
-    /* Expander column data cells - always first, borderless right edge */
+    /* Expander column data cells - always first, borderless end edge */
     .cell[data-field='__tbw_expander'] {
-      border-right: none !important;
+      border-inline-end: none !important;
       padding: 0;
       display: flex;
       align-items: center;
@@ -28,7 +28,9 @@
       display: inline-flex;
       align-items: center;
       /* Indent must be >= toggle icon width to keep leaf nodes aligned */
-      padding-left: calc(var(--tbw-tree-depth, 0) * var(--tbw-tree-indent-width, var(--tbw-tree-toggle-size, 1.25em)));
+      padding-inline-start: calc(
+        var(--tbw-tree-depth, 0) * var(--tbw-tree-indent-width, var(--tbw-tree-toggle-size, 1.25em))
+      );
     }
 
     /* Tree expander cell with indentation */

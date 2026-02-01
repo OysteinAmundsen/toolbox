@@ -111,7 +111,7 @@
     border-top: 1px solid var(--tbw-print-border, var(--tbw-color-border));
     font-size: var(--tbw-font-size-xs, 0.75em);
     color: var(--tbw-print-muted, var(--tbw-color-fg-muted));
-    text-align: right;
+    text-align: end;
   }
 
   /* Row styling */
@@ -125,10 +125,10 @@
     border: 1px solid var(--tbw-print-cell-border, var(--tbw-color-border)) !important;
   }
 
-  /* Ensure the last column's right border is visible */
+  /* Ensure the last column's end border is visible */
   tbw-grid .header-row,
   tbw-grid .data-grid-row {
-    padding-right: 1px; /* Prevent right border from being clipped */
+    padding-inline-end: 1px; /* Prevent end border from being clipped */
   }
 
   /* Remove hover effects */

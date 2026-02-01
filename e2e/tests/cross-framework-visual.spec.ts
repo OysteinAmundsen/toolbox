@@ -11,7 +11,7 @@ import {
 /**
  * Cross-Framework Visual Regression Tests
  *
- * These tests ensure all three demo implementations (Vanilla JS, React, Angular)
+ * These tests ensure all four demo implementations (Vanilla JS, React, Angular, Vue)
  * render identically and behave consistently. The vanilla demo serves as the
  * baseline for visual comparisons.
  *
@@ -73,6 +73,8 @@ test.describe('Cross-Framework Visual Parity', () => {
           expect(titleText).toContain('(React)');
         } else if (demoName === 'angular') {
           expect(titleText).toContain('(Angular)');
+        } else if (demoName === 'vue') {
+          expect(titleText).toContain('(Vue)');
         }
 
         // Verify header cells count matches across all

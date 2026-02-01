@@ -1,0 +1,56 @@
+{
+  "name": "@toolbox-web/grid-vue",
+  "version": "0.0.1",
+  "description": "Vue 3 adapter for @toolbox-web/grid data grid component",
+  "type": "module",
+  "main": "./index.js",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    },
+    "./features": {
+      "types": "./features/index.d.ts",
+      "import": "./features/index.js",
+      "default": "./features/index.js"
+    },
+    "./features/*": {
+      "types": "./features/*.d.ts",
+      "import": "./features/*.js",
+      "default": "./features/*.js"
+    }
+  },
+  "keywords": [
+    "vue",
+    "vue3",
+    "data-grid",
+    "web-component",
+    "toolbox-web"
+  ],
+  "license": "MIT",
+  "author": "Oystein Amundsen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OysteinAmundsen/toolbox.git",
+    "directory": "libs/grid-vue"
+  },
+  "homepage": "https://toolboxjs.com",
+  "bugs": {
+    "url": "https://github.com/OysteinAmundsen/toolbox/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "vue": "^3.5.0",
+    "@toolbox-web/grid": ">=1.0.0"
+  },
+  "peerDependencies": {
+    "vue": ">=3.3.0",
+    "@toolbox-web/grid": ">=1.0.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.lib.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist-typedoc",
+    "noEmit": true
+  },
+  "include": ["src/typedoc-entry.ts", "src/lib/**/*.ts"],
+  "exclude": ["src/**/*.vue", "src/**/*.spec.ts", "src/**/*.test.ts", "src/index.ts"]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "grid-vue",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/grid-vue/src",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:grid"],
+  "targets": {
+    "typedoc": {
+      "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
+      "dependsOn": ["grid:build"],
+      "options": {
+        "cwd": "libs/grid-vue"
+      },
+      "inputs": [
+        "{projectRoot}/src/**/*.ts",
+        "{projectRoot}/src/**/*.vue",
+        "{projectRoot}/typedoc.json",
+        "{projectRoot}/scripts/typedoc-to-mdx.ts"
+      ],
+      "outputs": ["{projectRoot}/docs/api-generated", "{projectRoot}/docs/api"]
+    }
+  }
+}

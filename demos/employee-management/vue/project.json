@@ -1,0 +1,42 @@
+{
+  "name": "demo-vue",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "demos/employee-management/vue",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/employee-management/vue",
+        "port": 4100
+      }
+    },
+    "serve:dist": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vite",
+        "cwd": "demos/employee-management/vue",
+        "port": 4100,
+        "env": {
+          "USE_DIST": "true"
+        }
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": {
+        "command": "vite build",
+        "cwd": "demos/employee-management/vue"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["demos/employee-management/vue/**/*.{ts,vue}"]
+      }
+    }
+  }
+}

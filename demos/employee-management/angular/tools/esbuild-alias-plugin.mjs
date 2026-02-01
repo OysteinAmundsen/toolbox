@@ -28,9 +28,7 @@ const toolboxAliasPlugin = {
     const useDist = process.env.USE_DIST === 'true';
 
     if (useDist) {
-      console.log(
-        '🔧 Angular demo running in DIST mode - @toolbox-web/grid from dist/, grid-angular from source (AOT)',
-      );
+      console.log('🔧 Angular demo running in DIST mode - using built packages from dist/');
     }
 
     // Handle ?inline CSS imports (Vite syntax) - load as text string
@@ -86,19 +84,22 @@ const toolboxAliasPlugin = {
       };
     });
 
-    // Resolve @toolbox-web/grid-angular - ALWAYS from source
-    // Angular components must be AOT compiled with the application.
-    // The grid-angular package exports Angular directives that need ngc compilation,
-    // so even in dist mode we use source files that Angular can compile.
+    // Resolve @toolbox-web/grid-angular
     build.onResolve({ filter: /^@toolbox-web\/grid-angular$/ }, () => ({
-      path: path.join(libsRoot, 'grid-angular', 'src', 'index.ts'),
+      path: useDist
+        ? path.join(distRoot, 'grid-angular', 'fesm2022', 'toolbox-web-grid-angular.mjs')
+        : path.join(libsRoot, 'grid-angular', 'src', 'index.ts'),
     }));
 
-    // Resolve @toolbox-web/grid-angular/features/* - ALWAYS from source (same reason)
+    // Resolve @toolbox-web/grid-angular/features/*
     build.onResolve({ filter: /^@toolbox-web\/grid-angular\/features\/(.+)$/ }, (args) => {
       const feature = args.path.replace('@toolbox-web/grid-angular/features/', '');
+      // Convert feature name to Angular bundle name format (e.g., 'multi-sort' -> 'multi-sort')
+      const bundleName = `toolbox-web-grid-angular-features-${feature}.mjs`;
       return {
-        path: path.join(libsRoot, 'grid-angular', 'features', feature, 'src', 'index.ts'),
+        path: useDist
+          ? path.join(distRoot, 'grid-angular', 'fesm2022', bundleName)
+          : path.join(libsRoot, 'grid-angular', 'features', feature, 'src', 'index.ts'),
       };
     });
   },

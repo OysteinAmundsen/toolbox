@@ -221,8 +221,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   override handleQuery(query: PluginQuery): unknown {
     if (query.type === 'canMoveRow') {
       // Group header rows cannot be reordered
-      const row = query.context as any;
-      if (row && row.__isGroupRow === true) {
+      const row = query.context as { __isGroupRow?: boolean } | null | undefined;
+      if (row?.__isGroupRow === true) {
         return false;
       }
     }

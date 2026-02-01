@@ -579,6 +579,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);
         displayStr = value == null ? '' : String(value);
       }
+      cell.textContent = displayStr;
     } else if (col.type === 'date') {
       displayStr = formatDateValue(value);
       cell.textContent = displayStr;
@@ -735,7 +736,10 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       }
     } else {
       // Plain value rendering - compute display directly (matches Stencil performance)
-      if (col.type === 'date') {
+      // If formatFn was applied, value is already formatted - just use it
+      if (formatFn) {
+        cell.textContent = value == null ? '' : String(value);
+      } else if (col.type === 'date') {
         cell.textContent = formatDateValue(value);
       } else if (col.type === 'boolean') {
         // Wrap checkbox in span to satisfy ARIA: gridcell can contain checkbox

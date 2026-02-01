@@ -167,8 +167,10 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   override handleQuery(query: PluginQuery): unknown {
     if (query.type === 'canMoveRow') {
       // Tree rows with children cannot be reordered
-      const row = query.context as any;
-      if (row && row[this.config.childrenField ?? 'children']?.length > 0) {
+      const row = query.context as { [key: string]: unknown } | null | undefined;
+      const childrenField = this.config.childrenField ?? 'children';
+      const children = row?.[childrenField];
+      if (Array.isArray(children) && children.length > 0) {
         return false;
       }
     }

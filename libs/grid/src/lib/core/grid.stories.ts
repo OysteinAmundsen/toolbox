@@ -237,6 +237,12 @@ grid.addEventListener('cell-commit', (e) => {
     // Set props BEFORE grid is connected to DOM for single render pass
     grid.fitMode = args.fitMode;
     grid.gridConfig = {
+      typeDefaults: {
+        date: {
+          format: (val: Date) =>
+            val.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        },
+      },
       columns,
       sortable: args.sortable, // Grid-wide toggle
       resizable: args.resizable, // Grid-wide toggle
@@ -1389,7 +1395,7 @@ grid.addEventListener('column-state-change', (e) => {
         { field: 'department', header: 'Department', sortable: true, resizable: true },
         { field: 'salary', header: 'Salary', type: 'number', sortable: true, resizable: true },
       ],
-    };
+    } as GridConfig;
 
     // Event log panel
     const logPanel = document.createElement('div');

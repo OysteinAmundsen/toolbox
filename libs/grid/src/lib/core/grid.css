@@ -192,6 +192,7 @@
     contain: content;
     font-family: var(--tbw-font-family);
     font-size: var(--tbw-font-size);
+    font-feature-settings: 'tnum', 'lnum'; /* tabular-nums, lining-nums */
     background: var(--tbw-color-bg);
     color: var(--tbw-color-fg);
     border: 1px solid var(--tbw-color-border);

@@ -394,12 +394,12 @@ grid.rows = [
 };
 
 /**
- * ## Custom Formatters
+ * ## Custom Renderers
  *
- * Use the `format` function for simple value transformations,
- * or `viewRenderer` for full control over cell rendering.
+ * Use `viewRenderer` for full control over cell rendering.
+ * Renderers can return HTML strings or DOM elements.
  */
-export const CustomFormatters: Story = {
+export const CustomRenderers: Story = {
   argTypes: {
     rowCount: { table: { disable: true } },
     fitMode: { table: { disable: true } },

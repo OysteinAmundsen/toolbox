@@ -228,8 +228,6 @@ grid.columns = [
 ];
 ```
 
-<Canvas of={GridStories.CustomFormatters} withToolbar />
-
 ### Row Styling
 
 **Style entire rows** based on data properties like status, role, or priority using the `rowClass` callback.
@@ -262,6 +260,49 @@ grid.columns = [
 <Canvas of={GridStories.CellClass} withToolbar />
 
 > **Tip:** You can combine `rowClass` and `cellClass`. When styles conflict, cell styles win because cells are children of rows in the DOM hierarchy.
+
+### Renderers
+
+**Full control over cell content** — Renderers let you create custom HTML elements for cells.
+
+While formatters return plain text, renderers return DOM elements. Use renderers when you need:
+- **Custom components**: Checkboxes, badges, progress bars, buttons
+- **Interactive elements**: Links, icons, action buttons
+- **Rich formatting**: Multiple elements, images, complex layouts
+
+```typescript
+grid.columns = [
+  {
+    field: 'status',
+    header: 'Status',
+    renderer: (ctx) => {
+      const badge = document.createElement('span');
+      badge.className = `badge badge-${ctx.value}`;
+      badge.textContent = ctx.value as string;
+      return badge;
+    },
+  },
+  {
+    field: 'active',
+    header: 'Active',
+    renderer: (ctx) => {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !!ctx.value;
+      checkbox.disabled = true;
+      return checkbox;
+    },
+  },
+];
+```
+
+The renderer context ([`CellRenderContext`](/docs/grid-api-core-interfaces-cellrendercontext--docs)) provides:
+- `value` — The cell's data value
+- `row` — The full row data object
+- `column` — The column configuration
+- `field` — The field key
+
+<Canvas of={GridStories.CustomRenderers} withToolbar />
 
 ### Row Animation
 
@@ -301,47 +342,6 @@ tbw-grid {
 ```
 
 <Canvas of={GridStories.RowAnimation} withToolbar />
-
-### Renderers
-
-**Full control over cell content** — Renderers let you create custom HTML elements for cells.
-
-While formatters return plain text, renderers return DOM elements. Use renderers when you need:
-- **Custom components**: Checkboxes, badges, progress bars, buttons
-- **Interactive elements**: Links, icons, action buttons
-- **Rich formatting**: Multiple elements, images, complex layouts
-
-```typescript
-grid.columns = [
-  {
-    field: 'status',
-    header: 'Status',
-    renderer: (ctx) => {
-      const badge = document.createElement('span');
-      badge.className = `badge badge-${ctx.value}`;
-      badge.textContent = ctx.value as string;
-      return badge;
-    },
-  },
-  {
-    field: 'active',
-    header: 'Active',
-    renderer: (ctx) => {
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = !!ctx.value;
-      checkbox.disabled = true;
-      return checkbox;
-    },
-  },
-];
-```
-
-The renderer context (`ctx`) provides:
-- `value` — The cell's data value
-- `row` — The full row data object
-- `column` — The column configuration
-- `rowIndex` — The row's index in the data
 
 ### Type-Level Defaults
 

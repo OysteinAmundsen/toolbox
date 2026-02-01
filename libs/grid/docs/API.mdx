@@ -38,9 +38,20 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 | `changedRows` | `T[]`                     | Rows with pending edits (requires EditingPlugin) |
 | `sortState`   | `Map<string,` [`SortState`](/docs/grid-api-core-interfaces-sortstate--docs)`>`  | Current sort state per column |
 
-## HTML Attributes
+## Declarative Configuration
 
-The grid supports configuration via HTML attributes for declarative usage. JSON-serialized values are used for complex types.
+The grid supports two forms of declarative HTML configuration:
+
+1. **HTML Attributes** — JSON-serialized values on the `<tbw-grid>` element itself
+2. **Light DOM Elements** — Child elements nested inside `<tbw-grid>` for more readable markup
+
+Both approaches can be combined. Light DOM elements take precedence over JSON attributes for the same configuration (e.g., `<tbw-grid-column>` elements override the `columns` attribute).
+
+> **Note:** JavaScript property assignment always takes precedence over declarative configuration. Removing an attribute or element does not clear a JS-set value.
+
+### HTML Attributes
+
+Attributes on the `<tbw-grid>` element for simple or programmatically-generated configuration:
 
 | Attribute     | Maps to Property | Type   | Description                |
 | ------------- | ---------------- | ------ | -------------------------- |
@@ -49,18 +60,169 @@ The grid supports configuration via HTML attributes for declarative usage. JSON-
 | `grid-config` | `gridConfig`     | JSON   | Full config object as JSON |
 | `fit-mode`    | `fitMode`        | string | `'stretch'` or `'fixed'`   |
 
-### Example
-
 ```html
 <tbw-grid
   rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
   columns='[{"field":"id","header":"ID"},{"field":"name","header":"Name"}]'
   fit-mode="stretch"
->
+></tbw-grid>
+```
+
+### Light DOM Elements
+
+Child elements inside `<tbw-grid>` for more readable, template-friendly configuration. Preferred for framework templates (Angular, Vue, etc.) and complex column setups with custom renderers/editors.
+
+#### Column Elements
+
+##### `<tbw-grid-column>`
+
+Define column configuration declaratively.
+
+| Attribute   | Type      | Description                                                      |
+| ----------- | --------- | ---------------------------------------------------------------- |
+| `field`     | `string`  | **Required.** Data field key                                     |
+| `header`    | `string`  | Column header text                                               |
+| `type`      | `string`  | Column type: `'string'`, `'number'`, `'boolean'`, `'date'`, `'select'` |
+| `width`     | `string`  | Column width (e.g., `"120"`, `"100px"`, `"20%"`)                 |
+| `min-width` | `number`  | Minimum column width in pixels                                   |
+| `sortable`  | `boolean` | Enable sorting (presence = true)                                 |
+| `resizable` | `boolean` | Enable resizing (presence = true)                                |
+| `editable`  | `boolean` | Enable editing (presence = true, requires EditingPlugin)         |
+| `options`   | `string`  | Select options: `"value1:Label1,value2:Label2"` or `"val1,val2"` |
+| `renderer`  | `string`  | Named renderer (for framework adapter lookup)                    |
+| `editor`    | `string`  | Named editor (for framework adapter lookup)                      |
+
+```html
+<tbw-grid>
+  <tbw-grid-column field="id" header="ID" type="number" width="80"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Name" sortable resizable></tbw-grid-column>
+  <tbw-grid-column field="role" type="select" options="admin:Admin,user:User"></tbw-grid-column>
 </tbw-grid>
 ```
 
-> **Note:** JavaScript property assignment takes precedence over HTML attributes. Removing an attribute does not clear a JS-set value.
+##### `<tbw-grid-column-view>`
+
+Custom view template inside a column. Content is used as the cell renderer.
+
+```html
+<tbw-grid-column field="status">
+  <tbw-grid-column-view>
+    <span class="badge">{{ value }}</span>
+  </tbw-grid-column-view>
+</tbw-grid-column>
+```
+
+##### `<tbw-grid-column-editor>`
+
+Custom editor template inside a column (requires EditingPlugin).
+
+```html
+<tbw-grid-column field="name" editable>
+  <tbw-grid-column-editor>
+    <input type="text" />
+  </tbw-grid-column-editor>
+</tbw-grid-column>
+```
+
+##### `<tbw-grid-column-header>`
+
+Custom header template inside a column.
+
+```html
+<tbw-grid-column field="status">
+  <tbw-grid-column-header>
+    <strong>Status</strong> <span class="required">*</span>
+  </tbw-grid-column-header>
+</tbw-grid-column>
+```
+
+#### Shell Elements
+
+##### `<tbw-grid-header>`
+
+Configure the shell header bar.
+
+| Attribute | Type     | Description              |
+| --------- | -------- | ------------------------ |
+| `title`   | `string` | Grid title (left side)   |
+
+```html
+<tbw-grid>
+  <tbw-grid-header title="Employee Directory">
+    <tbw-grid-header-content>
+      <span>20 employees</span>
+    </tbw-grid-header-content>
+  </tbw-grid-header>
+</tbw-grid>
+```
+
+##### `<tbw-grid-header-content>`
+
+Custom content in the shell header center area. Must be nested inside `<tbw-grid-header>`.
+
+```html
+<tbw-grid-header title="My Grid">
+  <tbw-grid-header-content>
+    <input type="search" placeholder="Search..." />
+  </tbw-grid-header-content>
+</tbw-grid-header>
+```
+
+##### `<tbw-grid-tool-buttons>`
+
+Container for toolbar buttons (right side of shell header).
+
+```html
+<tbw-grid>
+  <tbw-grid-tool-buttons>
+    <button class="tbw-toolbar-btn" title="Export">📥</button>
+    <button class="tbw-toolbar-btn" title="Print">🖨️</button>
+  </tbw-grid-tool-buttons>
+</tbw-grid>
+```
+
+#### Tool Panel Elements
+
+##### `<tbw-grid-tool-panel>`
+
+Define a custom tool panel for the sidebar.
+
+| Attribute | Type     | Description                                    |
+| --------- | -------- | ---------------------------------------------- |
+| `id`      | `string` | **Required.** Unique panel identifier          |
+| `title`   | `string` | **Required.** Panel title in accordion header  |
+| `icon`    | `string` | Icon for accordion header (emoji or text)      |
+| `tooltip` | `string` | Tooltip for accordion header                   |
+| `order`   | `number` | Panel order priority (lower = first, default: 100) |
+
+```html
+<tbw-grid>
+  <tbw-grid-tool-panel id="filters" title="Filters" icon="🔍" order="10">
+    <div class="filter-panel">
+      <label>Status: <select>...</select></label>
+    </div>
+  </tbw-grid-tool-panel>
+</tbw-grid>
+```
+
+#### Plugin-Specific Elements
+
+##### `<tbw-grid-detail>` (MasterDetailPlugin)
+
+Define the detail panel template for master-detail rows. Requires the MasterDetailPlugin.
+
+```html
+<tbw-grid>
+  <tbw-grid-detail>
+    <div class="detail-panel">
+      <h3>{{ row.name }}</h3>
+      <p>{{ row.description }}</p>
+    </div>
+  </tbw-grid-detail>
+</tbw-grid>
+```
+
+See the [MasterDetailPlugin documentation](?path=/docs/grid-plugins-master-detail--docs) for more details.
 
 ## Helper Functions
 

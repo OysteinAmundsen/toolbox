@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/grid-vue",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Vue 3 adapter for @toolbox-web/grid data grid component",
   "type": "module",
   "main": "./index.js",

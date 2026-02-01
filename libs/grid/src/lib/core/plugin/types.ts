@@ -198,6 +198,8 @@ export interface ContextMenuItem {
  * Generic plugin query for inter-plugin communication.
  * Plugins can define their own query types as string constants
  * and respond to queries from other plugins.
+ *
+ * @category Plugin Development
  */
 export interface PluginQuery<T = unknown> {
   /** Query type identifier (e.g., 'canMoveColumn', 'getContextMenuItems') */

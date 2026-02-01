@@ -588,6 +588,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Subscribe to an event from another plugin.
    * The subscription is automatically cleaned up when this plugin is detached.
    *
+   * @category Plugin Development
    * @param eventType - The event type to listen for (e.g., 'filter-change')
    * @param callback - The callback to invoke when the event is emitted
    *
@@ -606,6 +607,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   /**
    * Unsubscribe from a plugin event.
    *
+   * @category Plugin Development
    * @param eventType - The event type to stop listening for
    *
    * @example
@@ -622,6 +624,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * This is for inter-plugin communication only; it does NOT dispatch DOM events.
    * Use `emit()` to dispatch DOM events that external consumers can listen to.
    *
+   * @category Plugin Development
    * @param eventType - The event type to emit (should be declared in manifest.events)
    * @param detail - The event payload
    *
@@ -1102,6 +1105,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * **Prefer `handleQuery` for new plugins** - it has the same signature but
    * a clearer name. `onPluginQuery` is kept for backwards compatibility.
    *
+   * @category Plugin Development
    * @param query - The query object with type and context
    * @returns Query-specific response, or undefined if not handling this query
    *
@@ -1132,6 +1136,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Queries are declared in `manifest.queries` and dispatched via `grid.query()`.
    * This enables type-safe, discoverable inter-plugin communication.
    *
+   * @category Plugin Development
    * @param query - The query object with type and context
    * @returns Query-specific response, or undefined if not handling this query
    *

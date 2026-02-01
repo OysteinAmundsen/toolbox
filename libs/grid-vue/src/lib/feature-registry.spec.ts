@@ -113,7 +113,9 @@ describe('feature-registry', () => {
     });
 
     it('should warn once for unregistered feature', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        // suppress console.warn
+      });
 
       // First call should warn
       createPluginFromFeature('clipboard', {});

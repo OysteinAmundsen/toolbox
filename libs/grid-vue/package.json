@@ -45,7 +45,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {},
   "devDependencies": {
     "vue": "^3.5.0",
     "@toolbox-web/grid": ">=1.0.0"

@@ -72,7 +72,9 @@ describe('use-grid-event', () => {
       // Just verify it doesn't throw when called
       // Note: In real usage, this would be called inside a component setup
       expect(() => {
-        useGridEvent('cell-click', () => {});
+        useGridEvent('cell-click', () => {
+          // noop handler for test
+        });
       }).not.toThrow();
     });
   });

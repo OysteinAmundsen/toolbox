@@ -31,7 +31,7 @@ bun nx serve demo-vue
 bun nx serve:dist demo-vue
 ```
 
-The demo runs on **http://localhost:4400**
+The demo runs on **http://localhost:4100**
 
 ## Vue Adapter Patterns
 

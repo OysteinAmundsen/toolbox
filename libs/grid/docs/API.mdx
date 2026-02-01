@@ -639,63 +639,38 @@ tbw-grid {
 }
 ```
 
-## CSS Parts
+## Configuration Patterns
 
-```css
-tbw-grid::part(container) {
-  /* Main container */
-}
-tbw-grid::part(header) {
-  /* Header row */
-}
-tbw-grid::part(body) {
-  /* Body/rows container */
-}
-```
+This section covers common configuration patterns with practical examples. For complete type definitions, see the [auto-generated API docs](/docs/grid-api-core-interfaces-gridconfig--docs).
 
-## TypeScript Types
+### Dynamic Styling
 
-### Column Configuration — [`ColumnConfig`](/docs/grid-api-core-interfaces-columnconfig--docs)
+#### rowClass — Row-Level CSS Classes
+
+Apply dynamic CSS classes to entire rows based on row data:
 
 ```typescript
-interface ColumnConfig {
-  field: string; // Data field key
-  header?: string; // Display header text
-  type?: ColumnType; // 'string' | 'number' | 'boolean' | 'date' | 'select'
-  width?: number; // Width in pixels
-  minWidth?: number; // Minimum width
-  maxWidth?: number; // Maximum width
-  sortable?: boolean; // Enable sorting
-  resizable?: boolean; // Enable resizing
-  editable?: boolean; // Enable editing
-  hidden?: boolean; // Initially hidden
-  pinned?: 'left' | 'right'; // Pin to edge
-  align?: 'left' | 'center' | 'right';
+import type { GridConfig } from '@toolbox-web/grid';
 
-  // Custom rendering
-  formatter?: (value: any, row: T) => string;
-  renderer?: (value: any, row: T, cell: HTMLElement) => void;
-
-  // Custom header rendering (see Core Grid docs for examples)
-  headerLabelRenderer?: (ctx: HeaderLabelContext) => string | HTMLElement;
-  headerRenderer?: (ctx: HeaderCellContext) => string | HTMLElement;
-
-  // Dynamic cell styling
-  cellClass?: (value: any, row: T, column: ColumnConfig) => string[];
-
-  // Select type options
-  options?: Array<{ label: string; value: any }>;
-}
+const config: GridConfig<Employee> = {
+  rowClass: (row) => {
+    const classes: string[] = [];
+    if (!row.active) classes.push('row-inactive');
+    if (row.priority === 'high') classes.push('row-priority');
+    if (row.role === 'admin') classes.push('row-admin');
+    return classes;
+  },
+};
 ```
 
-See also: [`ColumnType`](/docs/grid-api-core-types-columntype--docs), [`HeaderLabelContext`](/docs/grid-api-core-interfaces-headerlabelcontext--docs), [`HeaderCellContext`](/docs/grid-api-core-interfaces-headercellcontext--docs)
+#### cellClass — Cell-Level CSS Classes
 
-#### cellClass Callback
-
-Apply dynamic CSS classes to individual cells based on cell value, row data, or column configuration.
+Apply dynamic CSS classes to individual cells:
 
 ```typescript
-const columns: ColumnConfig[] = [
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+const columns: ColumnConfig<Employee>[] = [
   {
     field: 'score',
     header: 'Score',
@@ -713,66 +688,18 @@ const columns: ColumnConfig[] = [
 ];
 ```
 
-### Grid Configuration — [`GridConfig`](/docs/grid-api-core-interfaces-gridconfig--docs)
-
-```typescript
-interface GridConfig<T> {
-  columns?: ColumnConfig[];
-  fitMode?: 'stretch' | 'fixed';
-  plugins?: BaseGridPlugin[];
-  shell?: ShellConfig;          // Shell header/toolbar/tool panel config
-  animation?: AnimationConfig;  // Animation behavior config
-  icons?: Partial<GridIcons>;   // Custom icons (SVG strings or emoji)
-  getRowId?: (row: T) => string; // Custom row ID resolver
-  typeDefaults?: Record<string, TypeDefault<T>>; // Type-level renderer/editor defaults
-
-  // Dynamic row styling
-  rowClass?: (row: T) => string[];
-}
-```
-
-See also: [`ColumnConfig`](/docs/grid-api-core-interfaces-columnconfig--docs), [`BaseGridPlugin`](/docs/grid-api-plugin-development-classes-basegridplugin--docs), [`ShellConfig`](/docs/grid-api-core-interfaces-shellconfig--docs), [`AnimationConfig`](/docs/grid-api-core-interfaces-animationconfig--docs), [`GridIcons`](/docs/grid-api-core-interfaces-gridicons--docs), [`TypeDefault`](/docs/grid-api-core-interfaces-typedefault--docs)
-
-**See Also:**
-- [Header Renderers](?path=/docs/grid-core--docs#custom-header-renderers) - Custom column header rendering
-- [Shell Components](?path=/docs/grid-core--docs#shell-components) - Toolbar, tool panels, and header bar
-
-#### rowClass Callback
-
-Apply dynamic CSS classes to entire rows based on row data.
-
-```typescript
-const config: GridConfig<Employee> = {
-  rowClass: (row) => {
-    const classes: string[] = [];
-    if (!row.active) classes.push('row-inactive');
-    if (row.priority === 'high') classes.push('row-priority');
-    if (row.role === 'admin') classes.push('row-admin');
-    return classes;
-  },
-};
-```
-
 **Notes:**
-- Both callbacks return `string[]` (array of class names to apply)
+- Both callbacks return `string[]` (array of class names)
 - Empty array `[]` means no dynamic classes
-- Classes are automatically cleaned up when row/cell data changes
-- Errors in callbacks are caught and logged to console (rendering continues)
+- Classes are automatically cleaned up when data changes
+- Errors in callbacks are caught and logged (rendering continues)
 - See the [RowClass](?path=/story/grid-core--row-class) and [CellClass](?path=/story/grid-core--cell-class) stories for live demos
 
-#### typeDefaults — [`TypeDefault`](/docs/grid-api-core-interfaces-typedefault--docs)
+### Type-Level Defaults
 
-Define formatters, renderers, and editors at the type level, applying to all columns with matching `type`:
+Define formatters, renderers, and editors at the type level, applying to all columns with matching `type`. See [`TypeDefault`](/docs/grid-api-core-interfaces-typedefault--docs) for the full type.
 
 ```typescript
-interface TypeDefault<TRow = unknown> {
-  format?: (value: unknown, row: TRow) => string; // Custom value formatter
-  renderer?: ColumnViewRenderer<TRow>;  // Custom cell renderer
-  editor?: ColumnEditorSpec<TRow>;      // Custom cell editor (requires EditingPlugin)
-  editorParams?: Record<string, unknown>; // Default editor parameters (requires EditingPlugin)
-  filterPanelRenderer?: FilterPanelRenderer; // Custom filter panel (requires FilteringPlugin)
-}
-
 const config: GridConfig<Employee> = {
   typeDefaults: {
     // Formatter - transforms value to display string
@@ -800,41 +727,13 @@ const config: GridConfig<Employee> = {
 
 **Resolution Priority**: Column-level → Grid typeDefaults → App-level (framework adapter) → Built-in
 
-> **Note:** The `format` and `renderer` properties are **core features** that work without any plugins. The `editor` and `editorParams` properties require the EditingPlugin, and `filterPanelRenderer` requires the FilteringPlugin.
+> **Note:** The `format` and `renderer` properties are **core features**. The `editor` property requires EditingPlugin, and `filterPanelRenderer` requires FilteringPlugin.
 
-See the [Core Grid docs](?path=/docs/grid-core--docs#type-level-defaults) for formatter/renderer examples, or the [Editing Plugin docs](?path=/docs/grid-plugins-editing--docs#type-level-defaults) for editor examples.
+See the [Core Grid docs](?path=/docs/grid-core--docs#type-level-defaults) for more examples.
 
-### Animation Configuration — [`AnimationConfig`](/docs/grid-api-core-interfaces-animationconfig--docs)
+### Animation Configuration
 
-The grid supports a global animation configuration that controls whether animations run.
-Individual plugins define their own animation styles.
-
-```typescript
-// Animation behavior mode
-type AnimationMode = boolean | 'on' | 'off' | 'reduced-motion';
-
-// Animation style (used by plugins)
-type AnimationStyle = 'slide' | 'fade' | 'flip' | false;
-
-// Grid-level animation config
-interface AnimationConfig {
-  // Global animation mode (default: 'reduced-motion')
-  mode?: AnimationMode;
-
-  // Animation duration in ms (default: 200)
-  duration?: number;
-
-  // Easing function (default: 'ease-out')
-  easing?: string;
-
-  // Style for sorting row changes (core feature, default: false)
-  sort?: AnimationStyle;
-}
-```
-
-See also: [`AnimationMode`](/docs/grid-api-core-types-animationmode--docs), [`AnimationStyle`](/docs/grid-api-core-types-animationstyle--docs)
-
-#### Animation Modes
+Configure grid-level animation behavior. See [`AnimationConfig`](/docs/grid-api-core-interfaces-animationconfig--docs).
 
 | Mode               | Behavior                                                |
 | ------------------ | ------------------------------------------------------- |
@@ -842,27 +741,22 @@ See also: [`AnimationMode`](/docs/grid-api-core-types-animationmode--docs), [`An
 | `false` / `'off'`  | Animations always disabled                              |
 | `'reduced-motion'` | Respects `prefers-reduced-motion` media query (default) |
 
-#### Plugin Animation Styles
-
-Each plugin defines its own animation style in its config:
-
 ```typescript
-// ReorderPlugin - column reordering animation
-new ReorderPlugin({ animation: 'flip' }); // 'flip' | 'fade' | false
-
-// MasterDetailPlugin - expand/collapse animation
-new MasterDetailPlugin({ animation: 'slide' }); // 'slide' | 'fade' | false
-
-// TreePlugin - tree node expand/collapse
-new TreePlugin({ animation: 'slide' }); // 'slide' | 'fade' | false
-
-// GroupingRowsPlugin - group expand/collapse
-new GroupingRowsPlugin({ animation: 'slide' }); // 'slide' | 'fade' | false
+grid.gridConfig = {
+  animation: {
+    mode: 'on',
+    duration: 300,
+    easing: 'ease-in-out',
+  },
+  plugins: [
+    new ReorderPlugin({ animation: 'flip' }),   // 'flip' | 'fade' | false
+    new MasterDetailPlugin({ animation: 'slide' }), // 'slide' | 'fade' | false
+    new TreePlugin({ animation: 'fade' }),      // 'slide' | 'fade' | false
+  ],
+};
 ```
 
-#### CSS Variables
-
-Animation duration and easing are exposed via CSS custom properties:
+Animation timing is exposed via CSS:
 
 ```css
 tbw-grid {
@@ -872,66 +766,45 @@ tbw-grid {
 }
 ```
 
-#### Example
+### Shell Configuration
+
+Configure the grid's header bar and tool panel. See [`ShellConfig`](/docs/grid-api-core-interfaces-shellconfig--docs).
 
 ```typescript
 grid.gridConfig = {
-  // Grid-level: enable animations, set timing
-  animation: {
-    mode: 'on',
-    duration: 300,
-    easing: 'ease-in-out',
+  shell: {
+    header: {
+      title: 'Employee Directory',
+    },
+    toolPanel: {
+      position: 'right',  // 'left' | 'right'
+      width: 280,
+      defaultOpen: 'filters', // Panel ID to open initially
+    },
   },
-  // Plugin-level: each plugin configures its own style
-  plugins: [
-    new ReorderPlugin({ animation: 'flip' }),
-    new MasterDetailPlugin({ animation: 'slide' }),
-    new TreePlugin({ animation: 'fade' }),
-  ],
 };
 ```
 
-### Shell Configuration — [`ShellConfig`](/docs/grid-api-core-interfaces-shellconfig--docs)
+### Icon Customization
+
+Override any grid icon with SVG strings or emoji. See [`GridIcons`](/docs/grid-api-core-interfaces-gridicons--docs) for all available icons.
 
 ```typescript
-interface ShellConfig {
-  header?: ShellHeaderConfig;   // Header bar with title and toolbar
-  toolPanel?: ToolPanelConfig;  // Tool panel sidebar settings
-}
-
-interface ShellHeaderConfig {
-  title?: string;  // Grid title displayed on the left
-}
-
-interface ToolPanelConfig {
-  position?: 'left' | 'right';  // Panel position (default: 'right')
-  width?: number;               // Panel width in pixels (default: 280)
-  defaultOpen?: string;         // Panel ID to open by default
-}
-```
-
-See also: [`ShellHeaderConfig`](/docs/grid-api-core-interfaces-shellheaderconfig--docs), [`ToolPanelConfig`](/docs/grid-api-core-interfaces-toolpanelconfig--docs)
-
-### Icon Customization — [`GridIcons`](/docs/grid-api-core-interfaces-gridicons--docs)
-
-```typescript
-// Override any grid icon with SVG string or emoji
 grid.gridConfig = {
   icons: {
     sortAsc: '↑',
     sortDesc: '↓',
     expand: '+',
     collapse: '−',
-    // ... see GridIcons type for all available icons
   },
 };
 ```
 
-### Accessibility
+## Accessibility
 
 The grid follows the [W3C WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) and includes built-in accessibility features.
 
-#### ARIA Labels
+### ARIA Labels
 
 Provide accessible names for screen reader users:
 
@@ -944,11 +817,7 @@ grid.gridConfig = {
 
 If `gridAriaLabel` is not set but `shell.header.title` is configured, the title is used automatically as the accessible name.
 
-#### Keyboard Navigation
-
-Full keyboard support for navigation, editing, and selection. See [Keyboard Shortcuts](#keyboard-shortcuts) below.
-
-#### Built-in ARIA Attributes
+### Built-in ARIA Attributes
 
 The grid automatically provides:
 
@@ -961,43 +830,6 @@ The grid automatically provides:
 - `aria-selected` on focused/selected cells
 - `aria-readonly` on non-editable cells (when EditingPlugin is active)
 - `aria-checked` on boolean cells
-
-### Event Details
-
-```typescript
-interface CellCommitDetail<T = any> {
-  row: T;
-  field: string;
-  value: any;
-  oldValue: any;
-  rowIndex: number;
-}
-
-interface CellChangeDetail<T = any> {
-  row: T;              // Row object after mutation
-  rowId: string;       // Stable row identifier
-  rowIndex: number;    // Current index in rows array
-  field: string;       // Field that changed
-  oldValue: any;       // Value before change
-  newValue: any;       // Value after change
-  changes: Partial<T>; // All changes passed to updateRow/updateRows
-  source: string;      // Origin: 'api', 'websocket', etc.
-}
-
-interface SortChangeDetail {
-  field: string;
-  direction: 'asc' | 'desc' | null;
-  sortState: Map<string, SortState>;
-}
-
-interface ColumnResizeDetail {
-  field: string;
-  width: number;
-  previousWidth: number;
-}
-```
-
-See also: [`CellCommitDetail`](/docs/grid-api-core-interfaces-cellcommitdetail--docs), [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs), [`SortChangeDetail`](/docs/grid-api-core-interfaces-sortchangedetail--docs), [`ColumnResizeDetail`](/docs/grid-api-core-interfaces-columnresizedetail--docs), [`SortState`](/docs/grid-api-core-interfaces-sortstate--docs)
 
 ## Keyboard Shortcuts
 
@@ -1021,3 +853,26 @@ The grid uses standard Web Components APIs and is compatible with:
 - Safari 13.1+
 
 No polyfills required for modern browsers.
+## Related Documentation
+
+- **[Core Grid](?path=/docs/grid-core--docs)** — Detailed guide on columns, renderers, formatters, and shell components
+- **[Theming](?path=/docs/grid-theming--docs)** — Complete CSS custom property reference and theme customization
+- **[Getting Started](?path=/docs/grid-getting-started--docs)** — Installation and quick start guide
+- **[Plugins](?path=/docs/grid-plugins-overview--docs)** — Plugin overview and configuration
+- **[Demos](?path=/docs/grid-demos--docs)** — Full-featured demo applications
+
+### Auto-Generated API Reference
+
+Complete TypeScript types with cross-linked documentation:
+
+- [`ColumnConfig`](/docs/grid-api-core-interfaces-columnconfig--docs) — Column configuration interface
+- [`GridConfig`](/docs/grid-api-core-interfaces-gridconfig--docs) — Full grid configuration interface
+- [`TypeDefault`](/docs/grid-api-core-interfaces-typedefault--docs) — Type-level defaults
+- [`AnimationConfig`](/docs/grid-api-core-interfaces-animationconfig--docs) — Animation configuration
+- [`ShellConfig`](/docs/grid-api-core-interfaces-shellconfig--docs) — Shell header and tool panel
+- [`BaseGridPlugin`](/docs/grid-api-plugin-development-classes-basegridplugin--docs) — Plugin development base class
+
+### Framework Adapters
+
+- **[Angular Adapter](?path=/docs/grid-angular-adapter--docs)** — `@toolbox-web/grid-angular`
+- **[React Adapter](?path=/docs/grid-react-adapter--docs)** — `@toolbox-web/grid-react`

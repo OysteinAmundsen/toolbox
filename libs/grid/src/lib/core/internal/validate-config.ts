@@ -91,7 +91,7 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     level: 'column',
     description: 'the "sticky" column property',
     importHint: "import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';",
-    isUsed: (v) => v === 'left' || v === 'right',
+    isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
   },
 ];
 

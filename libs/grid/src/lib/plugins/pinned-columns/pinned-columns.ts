@@ -6,26 +6,62 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { StickyPosition } from './types';
+import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
+import type { ResolvedStickyPosition, StickyPosition } from './types';
+
+/**
+ * Resolve a sticky position to a physical position based on text direction.
+ *
+ * - `'left'` / `'right'` → unchanged (physical values)
+ * - `'start'` → `'left'` in LTR, `'right'` in RTL
+ * - `'end'` → `'right'` in LTR, `'left'` in RTL
+ *
+ * @param position - The sticky position (logical or physical)
+ * @param direction - Text direction ('ltr' or 'rtl')
+ * @returns Physical sticky position ('left' or 'right')
+ */
+export function resolveStickyPosition(position: StickyPosition, direction: TextDirection): ResolvedStickyPosition {
+  return resolveInlinePosition(position, direction);
+}
+
+/**
+ * Check if a column is sticky on the left (after resolving logical positions).
+ */
+function isResolvedLeft(col: any, direction: TextDirection): boolean {
+  const sticky = col.sticky as StickyPosition | undefined;
+  if (!sticky) return false;
+  return resolveStickyPosition(sticky, direction) === 'left';
+}
+
+/**
+ * Check if a column is sticky on the right (after resolving logical positions).
+ */
+function isResolvedRight(col: any, direction: TextDirection): boolean {
+  const sticky = col.sticky as StickyPosition | undefined;
+  if (!sticky) return false;
+  return resolveStickyPosition(sticky, direction) === 'right';
+}
 
 /**
  * Get columns that should be sticky on the left.
  *
  * @param columns - Array of column configurations
- * @returns Array of columns with sticky='left'
+ * @param direction - Text direction (default: 'ltr')
+ * @returns Array of columns with sticky='left' or sticky='start' (in LTR)
  */
-export function getLeftStickyColumns(columns: any[]): any[] {
-  return columns.filter((col) => col.sticky === 'left');
+export function getLeftStickyColumns(columns: any[], direction: TextDirection = 'ltr'): any[] {
+  return columns.filter((col) => isResolvedLeft(col, direction));
 }
 
 /**
  * Get columns that should be sticky on the right.
  *
  * @param columns - Array of column configurations
- * @returns Array of columns with sticky='right'
+ * @param direction - Text direction (default: 'ltr')
+ * @returns Array of columns with sticky='right' or sticky='end' (in LTR)
  */
-export function getRightStickyColumns(columns: any[]): any[] {
-  return columns.filter((col) => col.sticky === 'right');
+export function getRightStickyColumns(columns: any[], direction: TextDirection = 'ltr'): any[] {
+  return columns.filter((col) => isResolvedRight(col, direction));
 }
 
 /**
@@ -35,7 +71,9 @@ export function getRightStickyColumns(columns: any[]): any[] {
  * @returns True if any column has sticky position
  */
 export function hasStickyColumns(columns: any[]): boolean {
-  return columns.some((col) => col.sticky === 'left' || col.sticky === 'right');
+  return columns.some(
+    (col) => col.sticky === 'left' || col.sticky === 'right' || col.sticky === 'start' || col.sticky === 'end',
+  );
 }
 
 /**
@@ -47,6 +85,8 @@ export function hasStickyColumns(columns: any[]): boolean {
 export function getColumnStickyPosition(column: any): StickyPosition | null {
   if (column.sticky === 'left') return 'left';
   if (column.sticky === 'right') return 'right';
+  if (column.sticky === 'start') return 'start';
+  if (column.sticky === 'end') return 'end';
   return null;
 }
 
@@ -56,17 +96,19 @@ export function getColumnStickyPosition(column: any): StickyPosition | null {
  *
  * @param columns - Array of column configurations (in order)
  * @param getColumnWidth - Function to get column width by field
+ * @param direction - Text direction (default: 'ltr')
  * @returns Map of field to left offset
  */
 export function calculateLeftStickyOffsets(
   columns: any[],
   getColumnWidth: (field: string) => number,
+  direction: TextDirection = 'ltr',
 ): Map<string, number> {
   const offsets = new Map<string, number>();
   let currentOffset = 0;
 
   for (const col of columns) {
-    if (col.sticky === 'left') {
+    if (isResolvedLeft(col, direction)) {
       offsets.set(col.field, currentOffset);
       currentOffset += getColumnWidth(col.field);
     }
@@ -81,11 +123,13 @@ export function calculateLeftStickyOffsets(
  *
  * @param columns - Array of column configurations (in order)
  * @param getColumnWidth - Function to get column width by field
+ * @param direction - Text direction (default: 'ltr')
  * @returns Map of field to right offset
  */
 export function calculateRightStickyOffsets(
   columns: any[],
   getColumnWidth: (field: string) => number,
+  direction: TextDirection = 'ltr',
 ): Map<string, number> {
   const offsets = new Map<string, number>();
   let currentOffset = 0;
@@ -93,7 +137,7 @@ export function calculateRightStickyOffsets(
   // Process in reverse for right-sticky columns
   const reversed = [...columns].reverse();
   for (const col of reversed) {
-    if (col.sticky === 'right') {
+    if (isResolvedRight(col, direction)) {
       offsets.set(col.field, currentOffset);
       currentOffset += getColumnWidth(col.field);
     }
@@ -114,16 +158,19 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
   const headerCells = Array.from(host.querySelectorAll('.header-row .cell')) as HTMLElement[];
   if (!headerCells.length) return;
 
+  // Detect text direction from the host element
+  const direction = getDirection(host);
+
   // Build column index map for matching body cells (which use data-col, not data-field)
   const fieldToIndex = new Map<string, number>();
   columns.forEach((col, i) => {
     if (col.field) fieldToIndex.set(col.field, i);
   });
 
-  // Apply left sticky
+  // Apply left sticky (includes 'start' in LTR, 'end' in RTL)
   let left = 0;
   for (const col of columns) {
-    if (col.sticky === 'left') {
+    if (isResolvedLeft(col, direction)) {
       const colIndex = fieldToIndex.get(col.field);
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
@@ -143,10 +190,10 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
     }
   }
 
-  // Apply right sticky (process in reverse)
+  // Apply right sticky (includes 'end' in LTR, 'start' in RTL) - process in reverse
   let right = 0;
   for (const col of [...columns].reverse()) {
-    if (col.sticky === 'right') {
+    if (isResolvedRight(col, direction)) {
       const colIndex = fieldToIndex.get(col.field);
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {

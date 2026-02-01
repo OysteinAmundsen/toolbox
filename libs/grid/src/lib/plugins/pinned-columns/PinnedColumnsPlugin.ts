@@ -4,6 +4,7 @@
  * Enables column pinning (sticky left/right positioning).
  */
 
+import { getDirection } from '../../core/internal/utils';
 import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
@@ -14,7 +15,7 @@ import {
   getRightStickyColumns,
   hasStickyColumns,
 } from './pinned-columns';
-import type { PinnedColumnsConfig } from './types';
+import type { PinnedColumnsConfig, StickyPosition } from './types';
 
 /** Query type constant for checking if a column can be moved */
 const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
@@ -36,7 +37,13 @@ const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
  *
  * | Property | Type | Description |
  * |----------|------|-------------|
- * | `pinned` | `'left' \| 'right'` | Pin column to left or right edge |
+ * | `pinned` | `'left' \| 'right' \| 'start' \| 'end'` | Pin column to edge (logical or physical) |
+ *
+ * ### RTL Support
+ *
+ * Use logical values (`start`/`end`) for grids that work in both LTR and RTL layouts:
+ * - `'start'` - Pins to left in LTR, right in RTL
+ * - `'end'` - Pins to right in LTR, left in RTL
  *
  * ## CSS Custom Properties
  *
@@ -63,13 +70,14 @@ const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
  * };
  * ```
  *
- * @example Left Pinned Only
+ * @example RTL-Compatible Pinning
  * ```ts
+ * // Same config works in LTR and RTL
  * grid.gridConfig = {
  *   columns: [
- *     { field: 'id', header: 'ID', pinned: 'left' },
+ *     { field: 'id', header: 'ID', pinned: 'start' },  // Left in LTR, Right in RTL
  *     { field: 'name', header: 'Name' },
- *     // ... scrollable columns
+ *     { field: 'actions', header: 'Actions', pinned: 'end' },  // Right in LTR, Left in RTL
  *   ],
  *   plugins: [new PinnedColumnsPlugin()],
  * };
@@ -90,7 +98,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         property: 'sticky',
         level: 'column',
         description: 'the "sticky" column property',
-        isUsed: (v) => v === 'left' || v === 'right',
+        isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
       },
     ],
     queries: [
@@ -181,13 +189,13 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         // Prevent pinned columns from being moved/reordered.
         // Pinned columns have fixed positions and should not be draggable.
         const column = query.context as ColumnConfig;
-        const sticky = (column as ColumnConfig & { sticky?: 'left' | 'right' }).sticky;
-        if (sticky === 'left' || sticky === 'right') {
+        const sticky = (column as ColumnConfig & { sticky?: StickyPosition }).sticky;
+        if (sticky === 'left' || sticky === 'right' || sticky === 'start' || sticky === 'end') {
           return false;
         }
         // Also check meta.sticky for backwards compatibility
-        const metaSticky = (column.meta as { sticky?: 'left' | 'right' } | undefined)?.sticky;
-        if (metaSticky === 'left' || metaSticky === 'right') {
+        const metaSticky = (column.meta as { sticky?: StickyPosition } | undefined)?.sticky;
+        if (metaSticky === 'left' || metaSticky === 'right' || metaSticky === 'start' || metaSticky === 'end') {
           return false;
         }
         return undefined; // Let other plugins or default behavior decide
@@ -216,19 +224,21 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   }
 
   /**
-   * Get columns pinned to the left.
+   * Get columns pinned to the left (after resolving logical positions for current direction).
    */
   getLeftPinnedColumns(): ColumnConfig[] {
     const columns = [...this.columns];
-    return getLeftStickyColumns(columns);
+    const direction = getDirection(this.grid as unknown as HTMLElement);
+    return getLeftStickyColumns(columns, direction);
   }
 
   /**
-   * Get columns pinned to the right.
+   * Get columns pinned to the right (after resolving logical positions for current direction).
    */
   getRightPinnedColumns(): ColumnConfig[] {
     const columns = [...this.columns];
-    return getRightStickyColumns(columns);
+    const direction = getDirection(this.grid as unknown as HTMLElement);
+    return getRightStickyColumns(columns, direction);
   }
 
   /**

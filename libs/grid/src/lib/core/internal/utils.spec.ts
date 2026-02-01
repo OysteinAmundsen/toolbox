@@ -6,7 +6,10 @@ import {
   formatBooleanValue,
   formatDateValue,
   getColIndexFromCell,
+  getDirection,
   getRowIndexFromCell,
+  isRTL,
+  resolveInlinePosition,
 } from './utils';
 
 describe('utils', () => {
@@ -152,6 +155,71 @@ describe('utils', () => {
       host.innerHTML = `<div class="cell cell-focus"></div>`;
       clearCellFocus(host);
       expect(host.querySelectorAll('.cell-focus').length).toBe(0);
+    });
+  });
+
+  describe('RTL utilities', () => {
+    describe('getDirection', () => {
+      it('should return ltr by default', () => {
+        const el = document.createElement('div');
+        document.body.appendChild(el);
+        expect(getDirection(el)).toBe('ltr');
+        el.remove();
+      });
+
+      it('should detect rtl from dir attribute', () => {
+        const el = document.createElement('div');
+        el.setAttribute('dir', 'rtl');
+        document.body.appendChild(el);
+        expect(getDirection(el)).toBe('rtl');
+        el.remove();
+      });
+
+      it('should inherit rtl from parent', () => {
+        const parent = document.createElement('div');
+        parent.setAttribute('dir', 'rtl');
+        const child = document.createElement('div');
+        parent.appendChild(child);
+        document.body.appendChild(parent);
+        expect(getDirection(child)).toBe('rtl');
+        parent.remove();
+      });
+    });
+
+    describe('isRTL', () => {
+      it('should return false for ltr', () => {
+        const el = document.createElement('div');
+        document.body.appendChild(el);
+        expect(isRTL(el)).toBe(false);
+        el.remove();
+      });
+
+      it('should return true for rtl', () => {
+        const el = document.createElement('div');
+        el.setAttribute('dir', 'rtl');
+        document.body.appendChild(el);
+        expect(isRTL(el)).toBe(true);
+        el.remove();
+      });
+    });
+
+    describe('resolveInlinePosition', () => {
+      it('should pass through physical values unchanged', () => {
+        expect(resolveInlinePosition('left', 'ltr')).toBe('left');
+        expect(resolveInlinePosition('right', 'ltr')).toBe('right');
+        expect(resolveInlinePosition('left', 'rtl')).toBe('left');
+        expect(resolveInlinePosition('right', 'rtl')).toBe('right');
+      });
+
+      it('should resolve start/end for LTR', () => {
+        expect(resolveInlinePosition('start', 'ltr')).toBe('left');
+        expect(resolveInlinePosition('end', 'ltr')).toBe('right');
+      });
+
+      it('should resolve start/end for RTL (flipped)', () => {
+        expect(resolveInlinePosition('start', 'rtl')).toBe('right');
+        expect(resolveInlinePosition('end', 'rtl')).toBe('left');
+      });
     });
   });
 });

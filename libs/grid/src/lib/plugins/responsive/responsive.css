@@ -75,7 +75,7 @@ tbw-grid[data-responsive] {
     display: block !important;
     grid-template-columns: none !important;
     padding: var(--tbw-cell-padding);
-    padding-left: var(--tbw-spacing-xl);
+    padding-inline-start: var(--tbw-spacing-xl);
     border-bottom: 1px solid var(--tbw-color-border);
     min-height: auto !important;
     height: auto !important;
@@ -100,7 +100,7 @@ tbw-grid[data-responsive] {
       &::before {
         content: '';
         position: absolute;
-        left: 0;
+        inset-inline-start: 0;
         top: 0;
         bottom: 0;
         width: 4px;
@@ -125,7 +125,7 @@ tbw-grid[data-responsive] {
     right: auto !important;
     border: none !important;
     border-bottom: none !important;
-    border-right: none !important;
+    border-inline-end: none !important;
     background: transparent !important;
     white-space: normal !important;
     overflow: visible !important;
@@ -136,7 +136,7 @@ tbw-grid[data-responsive] {
       font-weight: 600;
       color: var(--tbw-color-header-fg);
       flex-shrink: 0;
-      margin-right: var(--tbw-spacing-md);
+      margin-inline-end: var(--tbw-spacing-md);
       min-width: 100px;
     }
 

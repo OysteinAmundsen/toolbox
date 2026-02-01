@@ -4,7 +4,7 @@
  */
 import type { InternalGrid } from '../types';
 import { FOCUSABLE_EDITOR_SELECTOR } from './rows';
-import { clearCellFocus } from './utils';
+import { clearCellFocus, isRTL } from './utils';
 
 export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   // Dispatch to plugin system first - if any plugin handles it, stop here
@@ -70,14 +70,28 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       grid._focusRow = Math.max(0, grid._focusRow - 1);
       e.preventDefault();
       break;
-    case 'ArrowRight':
-      grid._focusCol = Math.min(maxCol, grid._focusCol + 1);
+    case 'ArrowRight': {
+      // In RTL mode, ArrowRight moves toward the start (lower column index)
+      const rtl = isRTL(grid as unknown as HTMLElement);
+      if (rtl) {
+        grid._focusCol = Math.max(0, grid._focusCol - 1);
+      } else {
+        grid._focusCol = Math.min(maxCol, grid._focusCol + 1);
+      }
       e.preventDefault();
       break;
-    case 'ArrowLeft':
-      grid._focusCol = Math.max(0, grid._focusCol - 1);
+    }
+    case 'ArrowLeft': {
+      // In RTL mode, ArrowLeft moves toward the end (higher column index)
+      const rtl = isRTL(grid as unknown as HTMLElement);
+      if (rtl) {
+        grid._focusCol = Math.min(maxCol, grid._focusCol + 1);
+      } else {
+        grid._focusCol = Math.max(0, grid._focusCol - 1);
+      }
       e.preventDefault();
       break;
+    }
     case 'Home':
       if (e.ctrlKey || e.metaKey) {
         // CTRL+Home: navigate to first row, first cell

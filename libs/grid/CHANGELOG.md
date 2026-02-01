@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.8.0...grid-1.9.0) (2026-02-01)
+
+
+### Features
+
+* **grid:** 71 rtl right to left support ([#109](https://github.com/OysteinAmundsen/toolbox/issues/109)) ([89624c1](https://github.com/OysteinAmundsen/toolbox/commit/89624c1c1273104b096109a32c1dde30db77bf3b))
+
+
+### Bug Fixes
+
+* **grid:** apply typeDefaults format function correctly in cell rendering ([70b0b50](https://github.com/OysteinAmundsen/toolbox/commit/70b0b506dd5bab17b762b9b9d70532d7225b854e))
+* **grid:** fix missing light DOM configuration support to ResponsivePlugin ([82820aa](https://github.com/OysteinAmundsen/toolbox/commit/82820aa434599b78cddea2181e20258dfa644b2d))
+
 ## [1.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.7.0...grid-1.8.0) (2026-02-01)
 
 

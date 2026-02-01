@@ -4,6 +4,7 @@
   "projectType": "application",
   "sourceRoot": "demos/employee-management/angular/src",
   "root": "demos/employee-management/angular",
+  "implicitDependencies": ["grid", "grid-angular"],
   "targets": {
     "build": {
       "dependsOn": ["grid:build", "grid-angular:build"],

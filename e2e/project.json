@@ -3,7 +3,7 @@
   "$schema": "../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "e2e",
-  "implicitDependencies": ["grid", "demo-vanilla", "demo-react", "demo-angular"],
+  "implicitDependencies": ["grid", "demo-vanilla", "demo-react", "demo-angular", "demo-vue"],
   "targets": {
     "e2e": {
       "executor": "nx:run-commands",

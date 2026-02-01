@@ -3,6 +3,7 @@
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "demos/employee-management/vue",
+  "implicitDependencies": ["grid", "grid-vue"],
   "targets": {
     "serve": {
       "executor": "nx:run-commands",

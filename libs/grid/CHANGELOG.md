@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.7.0...grid-1.8.0) (2026-02-01)
+
+
+### Features
+
+* **grid:** [#83](https://github.com/OysteinAmundsen/toolbox/issues/83) plugin event bus query system ([#107](https://github.com/OysteinAmundsen/toolbox/issues/107)) ([881c296](https://github.com/OysteinAmundsen/toolbox/commit/881c296809a75ab2b27f4e89c33b87ed08a4b520))
+* **grid:** add grid-wide resizable toggle ([483d0f8](https://github.com/OysteinAmundsen/toolbox/commit/483d0f8974510097e5518d4fea5507f82f8b4007))
+
 ## [1.7.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.6.2...grid-1.7.0) (2026-01-30)
 
 

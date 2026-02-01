@@ -41,6 +41,7 @@ interface RTLDemoArgs {
 
 const meta: Meta<RTLDemoArgs> = {
   title: 'Grid/RTL Support',
+  tags: ['!dev'],
   argTypes: {
     rtl: {
       control: 'boolean',

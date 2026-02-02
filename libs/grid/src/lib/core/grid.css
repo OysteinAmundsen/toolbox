@@ -298,6 +298,12 @@
 
         &:last-child {
           border-right: 0;
+
+          /* Clip resize handle on last column to prevent horizontal overflow */
+          .resize-handle {
+            right: 0;
+            width: calc(var(--tbw-resize-handle-width) / 2);
+          }
         }
 
         &.grouped.group-end:not(:last-child) {

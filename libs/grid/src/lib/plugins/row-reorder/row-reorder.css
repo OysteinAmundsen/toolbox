@@ -5,11 +5,20 @@
  */
 
 @layer tbw-plugins {
-  /* Drag handle column */
+  /* Drag handle column cell - center the handle */
+  [data-field='__tbw_row_drag'] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Drag handle element */
   .dg-row-drag-handle {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 1em;
+    min-height: 1em;
     cursor: grab;
     user-select: none;
     color: var(--tbw-row-reorder-handle-color, var(--tbw-color-fg-muted));

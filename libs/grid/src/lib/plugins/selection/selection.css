@@ -10,6 +10,11 @@
       user-select: none;
     }
 
+    /* Prevent text selection when any selection exists */
+    &:has(.selection) {
+      user-select: none;
+    }
+
     /* Row selection - use accent color for row focus (only when grid is focused) */
     &[data-has-focus] .data-grid-row.row-focus {
       background-color: var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%));

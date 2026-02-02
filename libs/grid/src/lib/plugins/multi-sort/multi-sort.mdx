@@ -65,37 +65,32 @@ function SortableGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" @sort-change="onSortChange" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import '@toolbox-web/grid-vue/features/multi-sort';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['data']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Name', sortable: true },
-      { field: 'department', header: 'Department', sortable: true },
-      { field: 'salary', header: 'Salary', type: 'number', sortable: true },
-    ],
-    plugins: [
-      new MultiSortPlugin({ maxSortColumns: 3 }),
-    ],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { name: 'Alice', department: 'Engineering', salary: 95000 },
+  { name: 'Bob', department: 'Marketing', salary: 75000 },
+];
 
 const onSortChange = (e) => {
   console.log('Sort changed:', e.detail.sortModel);
 };
 </script>
+
+<template>
+  <TbwGrid
+    :rows="data"
+    :multi-sort="{ maxSortColumns: 3 }"
+    @sort-change="onSortChange"
+  >
+    <TbwGridColumn field="name" header="Name" sortable />
+    <TbwGridColumn field="department" header="Department" sortable />
+    <TbwGridColumn field="salary" header="Salary" type="number" sortable />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

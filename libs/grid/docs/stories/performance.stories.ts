@@ -1,15 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
-import type { ColumnConfig, GridElement } from '../../public';
+import type { ColumnConfig, GridElement } from '../../src/public';
 
 // Import grid for HMR
-import '../../index';
+import '../../src/index';
 
 // Import plugins for benchmarks
-import { ColumnVirtualizationPlugin } from '../plugins/column-virtualization';
-import { FilteringPlugin } from '../plugins/filtering';
-import { MultiSortPlugin } from '../plugins/multi-sort';
-import { PinnedColumnsPlugin } from '../plugins/pinned-columns';
-import { SelectionPlugin } from '../plugins/selection';
+import { ColumnVirtualizationPlugin } from '../../src/lib/plugins/column-virtualization';
+import { FilteringPlugin } from '../../src/lib/plugins/filtering';
+import { MultiSortPlugin } from '../../src/lib/plugins/multi-sort';
+import { PinnedColumnsPlugin } from '../../src/lib/plugins/pinned-columns';
+import { SelectionPlugin } from '../../src/lib/plugins/selection';
 
 // #region Benchmark Definitions
 

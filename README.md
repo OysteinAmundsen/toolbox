@@ -13,6 +13,7 @@ A monorepo for **framework-agnostic web component libraries** built with pure Ty
 | [`@toolbox-web/grid`](https://www.npmjs.com/package/@toolbox-web/grid)                 | High-performance data grid with virtualization, plugins, and theming  | [README](libs/grid/README.md)         |
 | [`@toolbox-web/grid-angular`](https://www.npmjs.com/package/@toolbox-web/grid-angular) | Angular adapter with directives for template-driven renderers/editors | [README](libs/grid-angular/README.md) |
 | [`@toolbox-web/grid-react`](https://www.npmjs.com/package/@toolbox-web/grid-react)     | React adapter                                                         | [README](libs/grid-react/README.md)   |
+| [`@toolbox-web/grid-vue`](https://www.npmjs.com/package/@toolbox-web/grid-vue)         | Vue 3 adapter                                                         | [README](libs/grid-vue/README.md)     |
 
 ## Quick Start
 

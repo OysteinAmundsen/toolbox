@@ -76,45 +76,40 @@ function EmployeeGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
+```html
+<script setup>
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import { ref, markRaw } from 'vue';
+
+const data = [
+  { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
+  { name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
+];
+
+const gridRef = ref(null);
+
+const exportPlugin = markRaw(new ExportPlugin({
+  filename: 'employees',
+  format: 'csv',
+  includeHeaders: true,
+}));
+
+const handleExport = () => {
+  gridRef.value?.element?.getPlugin(ExportPlugin)?.exportToCSV();
+};
+</script>
+
 <template>
   <div>
     <button @click="handleExport">Export CSV</button>
-    <tbw-grid ref="gridRef" />
+    <TbwGrid ref="gridRef" :rows="data" :plugins="[exportPlugin]">
+      <TbwGridColumn field="name" header="Name" />
+      <TbwGridColumn field="email" header="Email" />
+      <TbwGridColumn field="department" header="Department" />
+    </TbwGrid>
   </div>
 </template>
-
-<script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
-
-const props = defineProps(['data']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' }
-    ],
-    plugins: [
-      new ExportPlugin({
-        filename: 'employees',
-        format: 'csv',
-        includeHeaders: true,
-      }),
-    ],
-  };
-  gridRef.value.rows = props.data;
-});
-
-const handleExport = () => {
-  const plugin = gridRef.value.getPlugin(ExportPlugin);
-  plugin.exportToCSV();
-};
-</script>
 ```
   </Tab>
   <Tab label="Angular">

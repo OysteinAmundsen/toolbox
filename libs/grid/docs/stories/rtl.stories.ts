@@ -4,11 +4,11 @@
  * Demonstrates grid behavior in RTL layout contexts for Hebrew, Arabic, and other RTL languages.
  */
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
-import type { ColumnConfig, GridConfig } from '../../public';
+import type { ColumnConfig, GridConfig } from '../../src/public';
 
 // Import from source for HMR
-import '../../index';
-import { PinnedColumnsPlugin } from '../plugins/pinned-columns';
+import '../../src/index';
+import { PinnedColumnsPlugin } from '../../src/lib/plugins/pinned-columns';
 
 type GridElement = HTMLElement & {
   columns: ColumnConfig[];

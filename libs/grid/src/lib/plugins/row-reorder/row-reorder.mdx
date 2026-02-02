@@ -66,35 +66,28 @@ function ReorderableTaskList({ tasks }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" @row-move="onRowMove" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+import '@toolbox-web/grid-vue/features/row-reorder';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['tasks']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'priority', header: '#', type: 'number', width: 50 },
-      { field: 'task', header: 'Task' },
-      { field: 'status', header: 'Status' },
-    ],
-    plugins: [new RowReorderPlugin()],
-  };
-  gridRef.value.rows = props.tasks;
-});
+const tasks = [
+  { priority: 1, task: 'Review PR', status: 'Pending' },
+  { priority: 2, task: 'Deploy staging', status: 'In Progress' },
+];
 
 const onRowMove = (e) => {
   console.log('Row moved:', e.detail);
 };
 </script>
+
+<template>
+  <TbwGrid :rows="tasks" row-reorder @row-move="onRowMove">
+    <TbwGridColumn field="priority" header="#" type="number" :width="50" />
+    <TbwGridColumn field="task" header="Task" />
+    <TbwGridColumn field="status" header="Status" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

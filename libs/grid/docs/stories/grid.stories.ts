@@ -1,11 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
-import type { ColumnConfig, GridConfig, HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from '../../public';
-import { FitModeEnum } from '../../public';
+import type {
+  ColumnConfig,
+  GridConfig,
+  HeaderContentDefinition,
+  ShellConfig,
+  ToolPanelDefinition,
+} from '../../src/public';
+import { FitModeEnum } from '../../src/public';
 
 // Import from source for HMR
-import '../../index';
-import { EditingPlugin } from '../plugins/editing';
-import { VisibilityPlugin } from '../plugins/visibility';
+import '../../src/index';
+import { EditingPlugin } from '../../src/lib/plugins/editing';
+import { VisibilityPlugin } from '../../src/lib/plugins/visibility';
 
 type GridElement = HTMLElement & {
   columns: ColumnConfig[];

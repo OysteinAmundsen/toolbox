@@ -61,31 +61,24 @@ function MyGrid({ data }) {
   </Tab>
   <Tab label="Vue">
 
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
-import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid-vue/features/filtering';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
-const props = defineProps(['data']);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Name', filterable: true },
-      { field: 'status', header: 'Status', filterable: true },
-      { field: 'email', header: 'Email', filterable: true },
-    ],
-    plugins: [new FilteringPlugin({ debounceMs: 300 })],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { name: 'Alice', status: 'active', email: 'alice@example.com' },
+  { name: 'Bob', status: 'inactive', email: 'bob@example.com' },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="data" :filtering="{ debounceMs: 300 }" style="height: 400px">
+    <TbwGridColumn field="name" header="Name" filterable />
+    <TbwGridColumn field="status" header="Status" filterable />
+    <TbwGridColumn field="email" header="Email" filterable />
+  </TbwGrid>
+</template>
 ```
 
   </Tab>

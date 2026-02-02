@@ -59,34 +59,27 @@ function EmployeeGrid({ employees }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import '@toolbox-web/grid-vue/features/pinned-columns';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['employees']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'id', header: 'ID', pinned: 'left', width: 80 },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' },
-      { field: 'salary', header: 'Salary', type: 'currency' },
-      { field: 'actions', header: 'Actions', pinned: 'right', width: 120 },
-    ],
-    plugins: [new PinnedColumnsPlugin()],
-  };
-  gridRef.value.rows = props.employees;
-});
+const employees = [
+  { id: 1, name: 'Alice', email: 'alice@example.com', department: 'Engineering', salary: 95000 },
+  { id: 2, name: 'Bob', email: 'bob@example.com', department: 'Marketing', salary: 75000 },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="employees" pinned-columns>
+    <TbwGridColumn field="id" header="ID" sticky="left" :width="80" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="department" header="Department" />
+    <TbwGridColumn field="salary" header="Salary" type="currency" />
+    <TbwGridColumn field="actions" header="Actions" sticky="right" :width="120" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

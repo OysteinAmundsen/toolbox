@@ -66,36 +66,29 @@ function MyGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" @column-move="onColumnMove" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+import '@toolbox-web/grid-vue/features/reorder';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['data']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' },
-    ],
-    plugins: [new ReorderPlugin({ animation: 'flip' })],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { id: 1, name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
+  { id: 2, name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
+];
 
 const onColumnMove = (e) => {
   console.log('Column moved:', e.detail);
 };
 </script>
+
+<template>
+  <TbwGrid :rows="data" :reorder="{ animation: 'flip' }" @column-move="onColumnMove">
+    <TbwGridColumn field="id" header="ID" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="department" header="Department" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

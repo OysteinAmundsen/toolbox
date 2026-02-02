@@ -76,6 +76,32 @@ function MyGrid({ data }) {
 }
 ```
   </Tab>
+  <Tab label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/editing';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const data = [
+  { id: 1, name: 'Widget', price: 9.99, active: true },
+  { id: 2, name: 'Gadget', price: 19.99, active: false },
+];
+
+const onCellCommit = (e) => {
+  console.log('Cell edited:', e.detail);
+};
+</script>
+
+<template>
+  <TbwGrid :rows="data" editing="dblclick" @cell-commit="onCellCommit" style="height: 400px">
+    <TbwGridColumn field="id" header="ID" />
+    <TbwGridColumn field="name" header="Name" editable />
+    <TbwGridColumn field="price" header="Price" type="number" editable />
+    <TbwGridColumn field="active" header="Active" type="boolean" editable />
+  </TbwGrid>
+</template>
+```
+  </Tab>
   <Tab label="Angular">
 ```typescript
 // Feature import - enables the [editing] input

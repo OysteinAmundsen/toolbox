@@ -77,42 +77,35 @@ function OrderGrid({ orders }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted, watch } from 'vue';
-import '@toolbox-web/grid';
-import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+import '@toolbox-web/grid-vue/features/master-detail';
+import { TbwGrid, TbwGridColumn, TbwGridDetailPanel } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['orders']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'orderId', header: 'Order ID' },
-      { field: 'customer', header: 'Customer' },
-      { field: 'total', header: 'Total', type: 'currency' }
-    ],
-    plugins: [
-      new MasterDetailPlugin({
-        detailRenderer: (row) => `
-          <div class="order-details">
-            <h4>Order Items</h4>
-            <ul>
-              ${row.items.map(item => `<li>${item.name} - $${item.price}</li>`).join('')}
-            </ul>
-          </div>
-        `,
-      }),
-    ],
-  };
-  gridRef.value.rows = props.orders;
-});
+const orders = [
+  { orderId: 'ORD-001', customer: 'Alice', total: 150, items: [{ id: 1, name: 'Widget', price: 50 }, { id: 2, name: 'Gadget', price: 100 }] },
+  { orderId: 'ORD-002', customer: 'Bob', total: 75, items: [{ id: 3, name: 'Tool', price: 75 }] },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="orders" master-detail>
+    <TbwGridColumn field="orderId" header="Order ID" />
+    <TbwGridColumn field="customer" header="Customer" />
+    <TbwGridColumn field="total" header="Total" type="currency" />
+
+    <TbwGridDetailPanel v-slot="{ row }">
+      <div class="order-details">
+        <h4>Order Items</h4>
+        <ul>
+          <li v-for="item in row.items" :key="item.id">
+            {{ item.name }} - ${{ item.price }}
+          </li>
+        </ul>
+      </div>
+    </TbwGridDetailPanel>
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

@@ -4,10 +4,10 @@
  * Demonstrates custom header rendering using `headerLabelRenderer` and `headerRenderer`.
  */
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
-import type { ColumnConfig, GridConfig } from '../../public';
+import type { ColumnConfig, GridConfig } from '../../src/public';
 
 // Import from source for HMR
-import '../../index';
+import '../../src/index';
 
 type GridElement = HTMLElement & {
   columns: ColumnConfig[];

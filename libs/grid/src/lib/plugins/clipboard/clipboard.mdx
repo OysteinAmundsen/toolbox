@@ -62,36 +62,29 @@ function MyGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/clipboard';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['data']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' }
-    ],
-    plugins: [
-      new ClipboardPlugin({
-        includeHeaders: true,
-        quoteStrings: true,
-      }),
-    ],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
+  { name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
+];
 </script>
+
+<template>
+  <TbwGrid
+    :rows="data"
+    selection="range"
+    :clipboard="{ includeHeaders: true, quoteStrings: true }"
+  >
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="department" header="Department" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

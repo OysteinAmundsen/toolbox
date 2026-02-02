@@ -74,36 +74,31 @@ function FileExplorer({ files }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+import '@toolbox-web/grid-vue/features/tree';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['files']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'type', header: 'Type' },
-      { field: 'size', header: 'Size' }
+const files = [
+  {
+    id: 1,
+    name: 'Documents',
+    type: 'folder',
+    children: [
+      { id: 2, name: 'Work', type: 'folder', children: [{ id: 3, name: 'Report.docx', type: 'file', size: '24 KB' }] },
+      { id: 4, name: 'Personal', type: 'folder', children: [] },
     ],
-    plugins: [
-      new TreePlugin({
-        childrenField: 'children',
-        indentWidth: 24,
-      }),
-    ],
-  };
-  gridRef.value.rows = props.files;
-});
+  },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="files" :tree="{ childrenField: 'children', indentWidth: 24 }">
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="type" header="Type" />
+    <TbwGridColumn field="size" header="Size" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

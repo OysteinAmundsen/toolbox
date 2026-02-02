@@ -63,31 +63,24 @@ function MyGrid({ data }) {
   </Tab>
   <Tab label="Vue">
 
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
-import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
-import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid-vue/features/responsive';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
-const props = defineProps(['data']);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-    ],
-    plugins: [new ResponsivePlugin({ breakpoint: 500 })],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { id: 1, name: 'Alice', email: 'alice@example.com' },
+  { id: 2, name: 'Bob', email: 'bob@example.com' },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="data" :responsive="{ breakpoint: 500 }" style="height: 400px">
+    <TbwGridColumn field="id" header="ID" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+  </TbwGrid>
+</template>
 ```
 
   </Tab>

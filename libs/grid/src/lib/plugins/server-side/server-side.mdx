@@ -113,15 +113,11 @@ function ServerSideGrid() {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
-import { ref, onMounted } from 'vue';
+import { ref, markRaw, onMounted } from 'vue';
 
 const gridRef = ref(null);
 
@@ -133,20 +129,21 @@ const dataSource = {
   },
 };
 
+const serverSidePlugin = markRaw(new ServerSidePlugin({ pageSize: 50 }));
+
 onMounted(async () => {
-  const plugin = new ServerSidePlugin({ pageSize: 50 });
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-    ],
-    plugins: [plugin],
-  };
-  await gridRef.value.ready();
-  plugin.setDataSource(dataSource);
+  await gridRef.value?.element?.ready();
+  serverSidePlugin.setDataSource(dataSource);
 });
 </script>
+
+<template>
+  <TbwGrid ref="gridRef" :plugins="[serverSidePlugin]" style="height: 400px">
+    <TbwGridColumn field="id" header="ID" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

@@ -277,67 +277,73 @@ See the [React adapter README](https://github.com/OysteinAmundsen/toolbox/tree/m
   </Tab>
   <Tab label="Vue">
 
-### Vue Integration
+### Vue Adapter (Recommended)
 
-Vue works seamlessly with web components. Use the grid directly in your templates:
+For Vue projects, use the `@toolbox-web/grid-vue` adapter package for enhanced integration:
 
-```vue
-<template>
-  <tbw-grid
-    ref="gridRef"
-    @cell-commit="onCellCommit"
-    style="height: 400px; display: block;"
-  />
-</template>
+```bash
+# Install both packages
+npm install @toolbox-web/grid @toolbox-web/grid-vue
+```
 
-<script setup lang="ts">
-import '@toolbox-web/grid';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
-import { ref, onMounted } from 'vue';
-import type { DataGridElement, GridConfig } from '@toolbox-web/grid';
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/editing';
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/filtering';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-interface Employee {
-  id: number;
-  name: string;
-  status: 'active' | 'inactive';
-}
-
-const gridRef = ref<DataGridElement<Employee> | null>(null);
-
-const employees: Employee[] = [
+const employees = [
   { id: 1, name: 'Alice Johnson', status: 'active' },
   { id: 2, name: 'Bob Smith', status: 'inactive' },
   { id: 3, name: 'Carol White', status: 'active' },
 ];
 
-onMounted(() => {
-  if (gridRef.value) {
-    gridRef.value.gridConfig = {
-      columns: [
-        { field: 'id', header: 'ID', type: 'number' },
-        { field: 'name', header: 'Name', editable: true },
-        { field: 'status', header: 'Status' },
-      ],
-      plugins: [
-        new EditingPlugin({ editOn: 'dblclick' }), // Required for editable columns
-        new SelectionPlugin({ mode: 'row' }),
-        new FilteringPlugin({ debounceMs: 200 }),
-      ],
-      fitMode: 'stretch',
-    };
-    gridRef.value.rows = employees;
-  }
-});
-
-function onCellCommit(e: CustomEvent) {
+const onCellCommit = (e) => {
   console.log('Edited:', e.detail);
-}
+};
 </script>
+
+<template>
+  <TbwGrid
+    :rows="employees"
+    editing="dblclick"
+    selection="row"
+    :filtering="{ debounceMs: 200 }"
+    fit-mode="stretch"
+    @cell-commit="onCellCommit"
+    style="height: 400px; display: block;"
+  >
+    <TbwGridColumn field="id" header="ID" type="number" />
+    <TbwGridColumn field="name" header="Name" editable />
+    <TbwGridColumn field="status" header="Status">
+      <template #cell="{ value }">
+        <span :class="'status-badge status-' + value">{{ value }}</span>
+      </template>
+      <template #editor="{ value, commit, cancel }">
+        <select
+          :value="value"
+          @change="commit($event.target.value)"
+          @keydown.escape="cancel()"
+        >
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </template>
+    </TbwGridColumn>
+  </TbwGrid>
+</template>
 ```
 
-> **Note:** Vue does not have a dedicated adapter package. Custom renderers and editors require using vanilla JS functions in the column config. A Vue adapter may be added in the future.
+The `TbwGrid` component provides:
+- **`TbwGridColumn`** - Declarative column components with `#cell` and `#editor` slots
+- **`TbwGridDetailPanel`** - Master-detail panels with Vue content
+- **`TbwGridToolPanel`** - Custom sidebar panels
+- **Feature props** - `editing`, `selection`, `filtering`, etc. via feature imports
+
+See the [Vue adapter README](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-vue#readme) for the complete API reference.
+
+> **Without the adapter:** You can also use the grid without the adapter package by following the Vanilla JS approach - it works in any framework since the grid is a standard web component.
 
   </Tab>
   <Tab label="Angular">

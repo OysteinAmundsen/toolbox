@@ -77,38 +77,32 @@ function MyGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
-import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
-import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid-vue/features/grouping-columns';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
-const props = defineProps(['data']);
+const data = [
+  { firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com', department: 'Engineering', title: 'Developer', salary: 95000 },
+  { firstName: 'Bob', lastName: 'Smith', email: 'bob@example.com', department: 'Marketing', title: 'Manager', salary: 85000 },
+];
 
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columnGroups: [
-      { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
-      { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
-    ],
-    columns: [
-      { field: 'firstName', header: 'First Name' },
-      { field: 'lastName', header: 'Last Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'department', header: 'Department' },
-      { field: 'title', header: 'Title' },
-      { field: 'salary', header: 'Salary' },
-    ],
-    plugins: [new GroupingColumnsPlugin()],
-  };
-  gridRef.value.rows = props.data;
-});
+const columnGroups = [
+  { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+  { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="data" :column-groups="columnGroups" grouping-columns style="height: 400px">
+    <TbwGridColumn field="firstName" header="First Name" />
+    <TbwGridColumn field="lastName" header="Last Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="department" header="Department" />
+    <TbwGridColumn field="title" header="Title" />
+    <TbwGridColumn field="salary" header="Salary" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

@@ -61,36 +61,25 @@ function EmployeeGrid({ employees }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import '@toolbox-web/grid-vue/features/grouping';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['employees']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Employee' },
-      { field: 'department', header: 'Department' },
-      { field: 'salary', header: 'Salary', type: 'currency' }
-    ],
-    plugins: [
-      new GroupingRowsPlugin({
-        groupOn: (row) => [row.department],
-        showRowCount: true,
-      }),
-    ],
-  };
-  gridRef.value.rows = props.employees;
-});
+const employees = [
+  { name: 'Alice', department: 'Engineering', salary: 95000 },
+  { name: 'Bob', department: 'Marketing', salary: 75000 },
+  { name: 'Carol', department: 'Engineering', salary: 90000 },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="employees" :grouping="{ groupBy: 'department', showRowCount: true }">
+    <TbwGridColumn field="name" header="Employee" />
+    <TbwGridColumn field="department" header="Department" />
+    <TbwGridColumn field="salary" header="Salary" type="currency" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

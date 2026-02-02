@@ -65,32 +65,25 @@ function ConfigurableGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+import '@toolbox-web/grid-vue/features/visibility';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['data']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'phone', header: 'Phone', visible: false },
-    ],
-    plugins: [new VisibilityPlugin()],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { id: 1, name: 'Alice', email: 'alice@example.com', phone: '555-1234' },
+  { id: 2, name: 'Bob', email: 'bob@example.com', phone: '555-5678' },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="data" visibility>
+    <TbwGridColumn field="id" header="ID" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="phone" header="Phone" :visible="false" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

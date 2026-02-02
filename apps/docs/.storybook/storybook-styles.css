@@ -961,6 +961,116 @@ html.dark {
   background: var(--args-input-bg);
   color: var(--sbdocs-fg);
 }
+
+/* Accessibility section */
+.theme-builder-category--a11y .theme-builder-category__header {
+  background: light-dark(#f0f7ff, #1a2a3a);
+  border-left: 3px solid light-dark(#0066cc, #66aaff);
+}
+
+.theme-builder-a11y-mode {
+  padding: 8px 12px;
+  font-size: 11px;
+  background: light-dark(#f8f9fa, #22272e);
+  border-bottom: 1px solid var(--sbdocs-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 24px;
+}
+
+.theme-builder-a11y-mode__light,
+.theme-builder-a11y-mode__dark {
+  min-width: 60px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 10px;
+  color: light-dark(#555, #aaa);
+}
+
+.theme-builder-a11y-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--sbdocs-border);
+}
+
+.theme-builder-a11y-row:last-of-type {
+  border-bottom: none;
+}
+
+.theme-builder-a11y-row__name {
+  font-size: 12px;
+  color: var(--sbdocs-fg);
+  flex: 1;
+}
+
+.theme-builder-a11y-row__badges {
+  display: flex;
+  gap: 6px;
+}
+
+.theme-builder-a11y-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 54px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.theme-builder-a11y-badge--aaa {
+  background: light-dark(#d4edda, #1a4c2a);
+  color: light-dark(#155724, #9fdfb4);
+}
+
+.theme-builder-a11y-badge--pass {
+  background: light-dark(#d4edda, #1a3c2a);
+  color: light-dark(#155724, #8fcea0);
+}
+
+.theme-builder-a11y-badge--large {
+  background: light-dark(#fff3cd, #4a3c1a);
+  color: light-dark(#856404, #e0c878);
+}
+
+.theme-builder-a11y-badge--fail {
+  background: light-dark(#f8d7da, #4a1a1a);
+  color: light-dark(#721c24, #e08888);
+}
+
+.theme-builder-a11y-badge--unknown {
+  background: light-dark(#e2e3e5, #333);
+  color: light-dark(#383d41, #999);
+}
+
+.theme-builder-a11y-swatch {
+  display: inline-block;
+  padding: 1px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 2px;
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.15), rgba(255, 255, 255, 0.15));
+}
+
+.theme-builder-a11y-legend {
+  padding: 10px 12px;
+  font-size: 10px;
+  color: light-dark(#666, #999);
+  background: light-dark(#f8f9fa, #22272e);
+  border-top: 1px solid var(--sbdocs-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.theme-builder-a11y-legend .theme-builder-a11y-badge {
+  pointer-events: none;
+}
 /* #endregion Theme Builder (.theme-builder-*) */
 
 /* #region Tabs (.sb-tabs) */

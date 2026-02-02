@@ -350,6 +350,234 @@ const CSS_VARIABLES: Record<string, CSSVariableDefinition[]> = {
 };
 
 // ============================================================================
+// WCAG CONTRAST ACCESSIBILITY UTILITIES
+// ============================================================================
+
+/**
+ * Color pairs that should meet WCAG contrast requirements.
+ * Each pair defines foreground/background variables with semantic meaning.
+ */
+interface ContrastPair {
+  name: string;
+  description: string;
+  foreground: string; // CSS variable name (e.g., '--tbw-color-fg')
+  background: string; // CSS variable name (e.g., '--tbw-color-bg')
+}
+
+const CONTRAST_PAIRS: ContrastPair[] = [
+  // Core text on backgrounds
+  // Note: --tbw-color-bg is transparent, so we use --tbw-color-panel-bg as the effective background
+  {
+    name: 'Body Text',
+    description: 'Primary text on panel background',
+    foreground: '--tbw-color-fg',
+    background: '--tbw-color-panel-bg',
+  },
+  {
+    name: 'Muted Text',
+    description: 'Secondary/muted text on panel background',
+    foreground: '--tbw-color-fg-muted',
+    background: '--tbw-color-panel-bg',
+  },
+  // Header
+  {
+    name: 'Header Text',
+    description: 'Header label text on header background',
+    foreground: '--tbw-color-header-fg',
+    background: '--tbw-color-header-bg',
+  },
+  // Row states
+  {
+    name: 'Hover Row Text',
+    description: 'Text on hovered row background',
+    foreground: '--tbw-color-fg',
+    background: '--tbw-color-row-hover',
+  },
+  {
+    name: 'Selected Row Text',
+    description: 'Text on selected row background',
+    foreground: '--tbw-color-fg',
+    background: '--tbw-color-selection',
+  },
+  {
+    name: 'Alternate Row Text',
+    description: 'Text on striped row background (uses panel bg when transparent)',
+    foreground: '--tbw-color-fg',
+    background: '--tbw-color-panel-bg', // --tbw-color-row-alt is typically transparent
+  },
+  // Accents
+  {
+    name: 'Accent on Background',
+    description: 'Accent-colored text/icons on panel background',
+    foreground: '--tbw-color-accent',
+    background: '--tbw-color-panel-bg',
+  },
+  {
+    name: 'Accent Contrast',
+    description: 'Text on accent-colored background',
+    foreground: '--tbw-color-accent-fg',
+    background: '--tbw-color-accent',
+  },
+  // Context menu - uses panel bg/fg as fallback
+  {
+    name: 'Context Menu Text',
+    description: 'Text in context menu (uses panel colors)',
+    foreground: '--tbw-color-fg',
+    background: '--tbw-color-panel-bg',
+  },
+  // Group rows - uses panel bg as base
+  {
+    name: 'Group Row Text',
+    description: 'Text in group header rows',
+    foreground: '--tbw-color-fg',
+    background: '--tbw-color-panel-bg',
+  },
+  // Filter panel
+  {
+    name: 'Filter Panel Text',
+    description: 'Text in filter panel',
+    foreground: '--tbw-color-fg',
+    background: '--tbw-color-panel-bg',
+  },
+];
+
+/**
+ * Parse a color string to RGBA values.
+ * Handles hex (#RGB, #RRGGBB), rgb(), rgba() formats.
+ */
+function parseColorToRGBA(color: string): { r: number; g: number; b: number; a: number } | null {
+  if (!color || color === 'transparent') return null;
+
+  // Handle hex colors
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+    if (hex.length === 3) {
+      hex = hex
+        .split('')
+        .map((c) => c + c)
+        .join('');
+    }
+    if (hex.length === 6) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+        a: 1,
+      };
+    }
+    if (hex.length === 8) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+        a: parseInt(hex.slice(6, 8), 16) / 255,
+      };
+    }
+  }
+
+  // Handle rgba
+  const rgbaMatch = color.match(/rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/i);
+  if (rgbaMatch) {
+    return {
+      r: parseInt(rgbaMatch[1]),
+      g: parseInt(rgbaMatch[2]),
+      b: parseInt(rgbaMatch[3]),
+      a: parseFloat(rgbaMatch[4]),
+    };
+  }
+
+  // Handle rgb
+  const rgbMatch = color.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (rgbMatch) {
+    return {
+      r: parseInt(rgbMatch[1]),
+      g: parseInt(rgbMatch[2]),
+      b: parseInt(rgbMatch[3]),
+      a: 1,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Composite a semi-transparent foreground color over an opaque background.
+ * Uses standard alpha compositing formula.
+ */
+function compositeColors(
+  fg: { r: number; g: number; b: number; a: number },
+  bg: { r: number; g: number; b: number },
+): { r: number; g: number; b: number } {
+  const a = fg.a;
+  return {
+    r: Math.round(fg.r * a + bg.r * (1 - a)),
+    g: Math.round(fg.g * a + bg.g * (1 - a)),
+    b: Math.round(fg.b * a + bg.b * (1 - a)),
+  };
+}
+
+/**
+ * Calculate relative luminance per WCAG 2.1 definition.
+ * @see https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+ */
+function getRelativeLuminance(r: number, g: number, b: number): number {
+  const [rs, gs, bs] = [r, g, b].map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+/**
+ * Calculate contrast ratio between two colors per WCAG 2.1.
+ * If the background has alpha < 1, it will be composited over panelBg first.
+ * @see https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio
+ * @returns Contrast ratio (1:1 to 21:1), or null if colors couldn't be parsed
+ */
+function getContrastRatio(fg: string, bg: string, panelBg?: string): number | null {
+  const fgRgba = parseColorToRGBA(fg);
+  const bgRgba = parseColorToRGBA(bg);
+
+  if (!fgRgba || !bgRgba) return null;
+
+  // If background is semi-transparent and we have a panel background, composite it
+  let effectiveBg: { r: number; g: number; b: number };
+  if (bgRgba.a < 1 && panelBg) {
+    const panelRgba = parseColorToRGBA(panelBg);
+    if (panelRgba) {
+      effectiveBg = compositeColors(bgRgba, panelRgba);
+    } else {
+      effectiveBg = bgRgba;
+    }
+  } else {
+    effectiveBg = bgRgba;
+  }
+
+  // For foreground, use the RGB values (ignore alpha for text)
+  const fgRgb = { r: fgRgba.r, g: fgRgba.g, b: fgRgba.b };
+
+  const l1 = getRelativeLuminance(fgRgb.r, fgRgb.g, fgRgb.b);
+  const l2 = getRelativeLuminance(effectiveBg.r, effectiveBg.g, effectiveBg.b);
+
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Determine WCAG compliance level based on contrast ratio.
+ */
+type WCAGLevel = 'AAA' | 'AA' | 'AA-large' | 'fail';
+
+function getWCAGLevel(ratio: number): WCAGLevel {
+  if (ratio >= 7) return 'AAA'; // AAA for normal text
+  if (ratio >= 4.5) return 'AA'; // AA for normal text
+  if (ratio >= 3) return 'AA-large'; // AA for large text (18pt or 14pt bold)
+  return 'fail';
+}
+
+// ============================================================================
 // THEME BUILDER COMPONENT
 // ============================================================================
 interface ThemeBuilderArgs {
@@ -550,36 +778,106 @@ function parseLightDark(value: string): [string, string] | null {
   return [lightValue, darkValue];
 }
 
-// Read computed CSS variable values from an element
+// Read computed CSS variable values from an element in both light and dark modes
 function readComputedVariables(element: HTMLElement): { light: Record<string, string>; dark: Record<string, string> } {
   const light: Record<string, string> = {};
   const dark: Record<string, string> = {};
-  const computedStyle = getComputedStyle(element);
 
-  for (const category of Object.values(CSS_VARIABLES)) {
-    for (const variable of category) {
-      const argName = toArgName(variable.name);
-      const rawValue = computedStyle.getPropertyValue(variable.name).trim();
+  // Helper to convert rgb/rgba to a normalized color string
+  // Preserves alpha for rgba, converts to hex for fully opaque colors
+  const normalizeColor = (computed: string): string => {
+    // Check for rgba with alpha < 1
+    const rgbaMatch = computed.match(/rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/i);
+    if (rgbaMatch) {
+      const alpha = parseFloat(rgbaMatch[4]);
+      if (alpha < 1) {
+        // Keep as rgba for semi-transparent colors
+        return computed;
+      }
+      // Fully opaque, convert to hex
+      const [, r, g, b] = rgbaMatch;
+      return `#${[r, g, b].map((x) => parseInt(x).toString(16).padStart(2, '0')).join('')}`;
+    }
 
-      if (rawValue) {
-        // Check if it's a light-dark() value
-        const parsed = parseLightDark(rawValue);
-        if (parsed) {
-          light[argName] = parsed[0];
-          dark[argName] = parsed[1];
+    // Check for rgb
+    const rgbMatch = computed.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+    if (rgbMatch) {
+      const [, r, g, b] = rgbMatch;
+      return `#${[r, g, b].map((x) => parseInt(x).toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    return '';
+  };
+
+  // Check if a color is valid (not transparent/empty/black fallback)
+  const isValidColor = (color: string): boolean => {
+    if (!color || color.length === 0) return false;
+    if (color === '#000000') return false;
+    if (color === 'rgba(0, 0, 0, 0)') return false;
+    return true;
+  };
+
+  // Create a probe element inside the grid to resolve colors with full CSS context
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position: absolute; visibility: hidden; pointer-events: none;';
+  element.appendChild(probe);
+
+  // Helper to read all color variables from current mode
+  const readColors = (target: Record<string, string>, isDark: boolean) => {
+    for (const category of Object.values(CSS_VARIABLES)) {
+      for (const variable of category) {
+        const argName = toArgName(variable.name);
+
+        if (variable.type === 'color') {
+          // For colors, apply to probe's background-color to resolve color-mix(), var(), etc.
+          probe.style.backgroundColor = `var(${variable.name})`;
+          // Force style recalculation by reading offsetHeight
+          void probe.offsetHeight;
+          const computed = getComputedStyle(probe).backgroundColor;
+          const normalizedColor = normalizeColor(computed);
+
+          // If we got a valid color, use it; otherwise fall back to default
+          if (isValidColor(normalizedColor)) {
+            target[argName] = normalizedColor;
+          } else {
+            // Use default value - for transparent bg, use appropriate color for mode
+            const defaultVal = variable.defaultValue;
+            if (defaultVal === 'transparent') {
+              target[argName] = isDark ? '#222222' : '#ffffff';
+            } else {
+              target[argName] = defaultVal;
+            }
+          }
         } else {
-          // Same value for both modes
-          light[argName] = rawValue;
-          dark[argName] = rawValue;
+          // For non-colors, read the raw CSS value
+          const rawValue = getComputedStyle(element).getPropertyValue(variable.name).trim();
+          target[argName] = rawValue || variable.defaultValue;
         }
-      } else {
-        // Fallback to our defined defaults
-        light[argName] = variable.defaultValue;
-        dark[argName] = variable.defaultValue;
       }
     }
+  };
+
+  // Save current color-scheme
+  const originalColorScheme = element.style.colorScheme;
+
+  // Read light mode colors - force reflow after setting
+  element.style.colorScheme = 'light';
+  void element.offsetHeight; // Force reflow
+  readColors(light, false);
+
+  // Read dark mode colors - force reflow after setting
+  element.style.colorScheme = 'dark';
+  void element.offsetHeight; // Force reflow
+  readColors(dark, true);
+
+  // Restore original color-scheme (use removeProperty if it was empty)
+  if (originalColorScheme) {
+    element.style.colorScheme = originalColorScheme;
+  } else {
+    element.style.removeProperty('color-scheme');
   }
 
+  element.removeChild(probe);
   return { light, dark };
 }
 
@@ -817,6 +1115,234 @@ function createThemePanel(state: ThemeState, onUpdate: () => void): HTMLElement 
     content.appendChild(categoryEl);
   }
 
+  // ============================================================================
+  // ACCESSIBILITY SECTION
+  // ============================================================================
+  const a11yCategory = document.createElement('div');
+  a11yCategory.className = 'theme-builder-category theme-builder-category--a11y';
+
+  const a11yHeader = document.createElement('div');
+  a11yHeader.className = 'theme-builder-category__header';
+  a11yHeader.innerHTML = '♿ Accessibility';
+  a11yHeader.setAttribute('aria-expanded', 'false');
+  a11yHeader.addEventListener('click', () => {
+    const isExpanded = a11yHeader.getAttribute('aria-expanded') === 'true';
+    a11yHeader.setAttribute('aria-expanded', String(!isExpanded));
+    a11yItems.style.display = isExpanded ? 'none' : 'block';
+  });
+  a11yCategory.appendChild(a11yHeader);
+
+  const a11yItems = document.createElement('div');
+  a11yItems.className = 'theme-builder-category__items';
+  a11yItems.style.display = 'none'; // Collapsed by default
+
+  // Helper to resolve a CSS color value to an actual hex color using the browser
+  // We create a temporary element attached to document.body to ensure getComputedStyle works
+  const resolveColor = (cssValue: string): string => {
+    if (!cssValue || cssValue === 'transparent') {
+      return '#ffffff'; // Treat transparent as white for contrast calculations
+    }
+    // If already a hex color, return it
+    if (cssValue.startsWith('#')) {
+      return cssValue.length === 4
+        ? `#${cssValue[1]}${cssValue[1]}${cssValue[2]}${cssValue[2]}${cssValue[3]}${cssValue[3]}`
+        : cssValue;
+    }
+    // Use browser to resolve other formats (rgb, hsl, color names)
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position: absolute; visibility: hidden; pointer-events: none; color: ' + cssValue;
+    document.body.appendChild(probe);
+    const computed = getComputedStyle(probe).color;
+    document.body.removeChild(probe);
+    // Convert rgb/rgba to hex
+    const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+      const [, r, g, b] = match;
+      return `#${[r, g, b].map((x) => parseInt(x).toString(16).padStart(2, '0')).join('')}`;
+    }
+    return cssValue;
+  };
+
+  // Helper to get the CSS value from state (may contain light-dark() etc)
+  const getColorCSSValue = (varName: string, isDark: boolean): string => {
+    const argName = toArgName(varName);
+    if (isDark) {
+      return state.darkValues[argName] || state.values[argName] || getDefaultColor(varName);
+    }
+    return state.values[argName] || getDefaultColor(varName);
+  };
+
+  // Helper to get default color from CSS_VARIABLES
+  const getDefaultColor = (varName: string): string => {
+    for (const category of Object.values(CSS_VARIABLES)) {
+      for (const v of category) {
+        if (v.name === varName) {
+          return v.defaultValue;
+        }
+      }
+    }
+    return '#000000';
+  };
+
+  // Helper to compute the effective (composited) background color for display
+  const getEffectiveBg = (bg: string, panelBg: string): string => {
+    const bgRgba = parseColorToRGBA(bg);
+    if (!bgRgba) return bg;
+
+    // If fully opaque, return as-is
+    if (bgRgba.a >= 1) return bg;
+
+    // Composite with panel background
+    const panelRgba = parseColorToRGBA(panelBg);
+    if (!panelRgba) return bg;
+
+    const composited = compositeColors(bgRgba, panelRgba);
+    return `#${[composited.r, composited.g, composited.b].map((x) => x.toString(16).padStart(2, '0')).join('')}`;
+  };
+
+  // Build contrast check rows
+  const buildContrastRows = () => {
+    a11yItems.innerHTML = '';
+
+    // Mode indicator
+    const modeLabel = document.createElement('div');
+    modeLabel.className = 'theme-builder-a11y-mode';
+    if (state.darkModeSupport) {
+      modeLabel.innerHTML =
+        '<span class="theme-builder-a11y-mode__light">☀ Light</span> <span class="theme-builder-a11y-mode__dark">🌙 Dark</span>';
+    } else {
+      modeLabel.innerHTML = '<strong>Contrast Checks</strong>';
+    }
+    a11yItems.appendChild(modeLabel);
+
+    for (const pair of CONTRAST_PAIRS) {
+      const row = document.createElement('div');
+      row.className = 'theme-builder-a11y-row';
+      row.title = pair.description;
+
+      // Pair name
+      const name = document.createElement('div');
+      name.className = 'theme-builder-a11y-row__name';
+      name.textContent = pair.name;
+      row.appendChild(name);
+
+      // Badges container (for light and dark)
+      const badges = document.createElement('div');
+      badges.className = 'theme-builder-a11y-row__badges';
+
+      // Get panel background for alpha compositing (colors may be semi-transparent)
+      const lightPanelBg = getColorCSSValue('--tbw-color-panel-bg', false);
+      const darkPanelBg = getColorCSSValue('--tbw-color-panel-bg', true);
+
+      // Light mode check - state.values contains light mode colors directly
+      const lightFgCss = getColorCSSValue(pair.foreground, false);
+      const lightBgCss = getColorCSSValue(pair.background, false);
+
+      // Resolve to actual hex colors using the browser
+      const lightFg = resolveColor(lightFgCss);
+      // Compute effective background (composited if semi-transparent)
+      const lightEffectiveBg = getEffectiveBg(lightBgCss, lightPanelBg);
+      // Pass panel background for compositing semi-transparent backgrounds
+      const lightRatio = getContrastRatio(lightFg, lightBgCss, lightPanelBg);
+      const lightLevel = lightRatio !== null ? getWCAGLevel(lightRatio) : null;
+
+      const lightBadge = createContrastBadge(lightRatio, lightLevel, lightFg, lightEffectiveBg, 'Light');
+      badges.appendChild(lightBadge);
+
+      // Dark mode check (if enabled) - state.darkValues contains dark mode colors directly
+      if (state.darkModeSupport) {
+        const darkFgCss = getColorCSSValue(pair.foreground, true);
+        const darkBgCss = getColorCSSValue(pair.background, true);
+
+        // Resolve to actual hex colors
+        const darkFg = resolveColor(darkFgCss);
+        // Compute effective background (composited if semi-transparent)
+        const darkEffectiveBg = getEffectiveBg(darkBgCss, darkPanelBg);
+        // Pass panel background for compositing semi-transparent backgrounds
+        const darkRatio = getContrastRatio(darkFg, darkBgCss, darkPanelBg);
+        const darkLevel = darkRatio !== null ? getWCAGLevel(darkRatio) : null;
+
+        const darkBadge = createContrastBadge(darkRatio, darkLevel, darkFg, darkEffectiveBg, 'Dark');
+        badges.appendChild(darkBadge);
+      }
+
+      row.appendChild(badges);
+      a11yItems.appendChild(row);
+    }
+
+    // Legend
+    const legend = document.createElement('div');
+    legend.className = 'theme-builder-a11y-legend';
+    legend.innerHTML = `
+      <span class="theme-builder-a11y-badge theme-builder-a11y-badge--pass">✓ AA</span> = 4.5:1+ (normal text)
+      <span class="theme-builder-a11y-badge theme-builder-a11y-badge--large">⚠ Lg</span> = 3:1+ (large text only)
+      <span class="theme-builder-a11y-badge theme-builder-a11y-badge--fail">✗</span> = Below 3:1
+    `;
+    a11yItems.appendChild(legend);
+  };
+
+  // Helper to create a contrast badge
+  const createContrastBadge = (
+    ratio: number | null,
+    level: WCAGLevel | null,
+    fg: string,
+    bg: string,
+    mode: string,
+  ): HTMLElement => {
+    const badge = document.createElement('div');
+    badge.className = 'theme-builder-a11y-badge';
+
+    if (ratio === null || level === null) {
+      badge.classList.add('theme-builder-a11y-badge--unknown');
+      badge.textContent = '?';
+      badge.title = `${mode}: Unable to calculate contrast`;
+      return badge;
+    }
+
+    const ratioText = ratio.toFixed(1) + ':1';
+
+    switch (level) {
+      case 'AAA':
+        badge.classList.add('theme-builder-a11y-badge--aaa');
+        badge.innerHTML = `✓ AAA`;
+        badge.title = `${mode}: ${ratioText} - Excellent (AAA compliant)`;
+        break;
+      case 'AA':
+        badge.classList.add('theme-builder-a11y-badge--pass');
+        badge.innerHTML = `✓ AA`;
+        badge.title = `${mode}: ${ratioText} - Good (AA compliant for all text)`;
+        break;
+      case 'AA-large':
+        badge.classList.add('theme-builder-a11y-badge--large');
+        badge.innerHTML = `⚠ Lg`;
+        badge.title = `${mode}: ${ratioText} - Only suitable for large text (18pt+ or 14pt bold)`;
+        break;
+      case 'fail':
+        badge.classList.add('theme-builder-a11y-badge--fail');
+        badge.innerHTML = `✗`;
+        badge.title = `${mode}: ${ratioText} - Does not meet WCAG requirements`;
+        break;
+    }
+
+    // Add color preview swatch
+    const swatch = document.createElement('span');
+    swatch.className = 'theme-builder-a11y-swatch';
+    swatch.style.cssText = `background: ${bg}; color: ${fg};`;
+    swatch.textContent = 'Aa';
+    badge.appendChild(swatch);
+
+    return badge;
+  };
+
+  // Build initial rows
+  buildContrastRows();
+
+  // Store rebuild function on panel for access from onUpdate wrapper
+  (panel as HTMLElement & { rebuildA11y?: () => void }).rebuildA11y = buildContrastRows;
+
+  a11yCategory.appendChild(a11yItems);
+  content.appendChild(a11yCategory);
+
   panel.appendChild(content);
 
   // Start with dark mode panel class if enabled
@@ -1003,7 +1529,13 @@ export const Builder: Story = {
     };
 
     // Panel placeholder - will be created after reading computed values
-    let panelEl: HTMLElement | null = null;
+    let panelEl: (HTMLElement & { rebuildA11y?: () => void }) | null = null;
+
+    // Callback to apply state changes to grid and refresh accessibility panel
+    const handleUpdate = () => {
+      applyStateToGrid(grid, state);
+      panelEl?.rebuildA11y?.();
+    };
 
     // Reset function to restore baseline values
     const resetToBaseline = () => {
@@ -1012,7 +1544,7 @@ export const Builder: Story = {
       applyStateToGrid(grid, state);
       // Recreate panel with updated values
       if (panelEl) {
-        const newPanel = createThemePanel(state, () => applyStateToGrid(grid, state));
+        const newPanel = createThemePanel(state, handleUpdate);
         panelEl.replaceWith(newPanel);
         panelEl = newPanel;
       }
@@ -1103,7 +1635,7 @@ export const Builder: Story = {
       container.insertBefore(toolbar, main);
 
       // Create theme panel with current values
-      panelEl = createThemePanel(state, () => applyStateToGrid(grid, state));
+      panelEl = createThemePanel(state, handleUpdate);
       main.appendChild(panelEl);
     });
 

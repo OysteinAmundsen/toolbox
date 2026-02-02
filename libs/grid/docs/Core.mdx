@@ -1,9 +1,9 @@
 import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
-import { Tabs, Tab } from '../../../../../apps/docs/.storybook/components/Tabs';
-import * as GridStories from './grid.stories';
-import * as HeaderRendererStories from './header-renderers.stories';
-import * as LoadingPlaygroundStories from './loading-playground.stories';
-import * as RTLStories from './rtl.stories';
+import { Tabs, Tab } from '../../../apps/docs/.storybook/components/Tabs';
+import * as GridStories from './stories/grid.stories';
+import * as HeaderRendererStories from './stories/header-renderers.stories';
+import * as LoadingPlaygroundStories from './stories/loading-playground.stories';
+import * as RTLStories from './stories/rtl.stories';
 
 <Meta of={GridStories} />
 
@@ -76,30 +76,23 @@ function MyGrid() {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
-import { ref, onMounted } from 'vue';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
 const data = [
   { id: 1, name: 'Alice', email: 'alice@example.com' },
   { id: 2, name: 'Bob', email: 'bob@example.com' },
 ];
-
-onMounted(() => {
-  gridRef.value.columns = [
-    { field: 'id', header: 'ID', type: 'number' },
-    { field: 'name', header: 'Name', sortable: true },
-    { field: 'email', header: 'Email' },
-  ];
-  gridRef.value.rows = data;
-});
 </script>
+
+<template>
+  <TbwGrid :rows="data" style="height: 400px">
+    <TbwGridColumn field="id" header="ID" type="number" />
+    <TbwGridColumn field="name" header="Name" sortable />
+    <TbwGridColumn field="email" header="Email" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

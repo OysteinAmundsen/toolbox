@@ -898,6 +898,10 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Called before each render cycle begins.
    * Use this to prepare state or cache values needed during rendering.
    *
+   * **Note:** This hook is currently a placeholder for future implementation.
+   * It is defined in the interface but not yet invoked by the grid's render pipeline.
+   * If you need this functionality, please open an issue or contribute an implementation.
+   *
    * @example
    * ```ts
    * beforeRender(): void {

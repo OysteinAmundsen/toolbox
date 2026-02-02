@@ -78,42 +78,35 @@ function OrderGrid({ orders }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+import '@toolbox-web/grid-vue/features/pinned-rows';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['orders']);
-const gridRef = ref(null);
+const orders = [
+  { product: 'Widget', quantity: 10, price: 99.99 },
+  { product: 'Gadget', quantity: 5, price: 149.99 },
+];
 
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'product', header: 'Product' },
-      { field: 'quantity', header: 'Qty', type: 'number' },
-      { field: 'price', header: 'Price', type: 'currency' },
-    ],
-    plugins: [
-      new PinnedRowsPlugin({
-        position: 'bottom',
-        aggregationRows: [
-          {
-            id: 'totals',
-            aggregators: { quantity: 'sum', price: 'sum' },
-            cells: { product: 'Totals:' },
-          },
-        ],
-      }),
-    ],
-  };
-  gridRef.value.rows = props.orders;
-});
+const pinnedRowsConfig = {
+  position: 'bottom',
+  aggregationRows: [
+    {
+      id: 'totals',
+      aggregators: { quantity: 'sum', price: 'sum' },
+      cells: { product: 'Totals:' },
+    },
+  ],
+};
 </script>
+
+<template>
+  <TbwGrid :rows="orders" :pinned-rows="pinnedRowsConfig">
+    <TbwGridColumn field="product" header="Product" />
+    <TbwGridColumn field="quantity" header="Qty" type="number" />
+    <TbwGridColumn field="price" header="Price" type="currency" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

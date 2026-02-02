@@ -181,8 +181,10 @@
 
     /* ========== Element Styles ========== */
 
-    /* Enable light-dark() CSS function for automatic theme support */
-    color-scheme: light dark;
+    /* Inherit color-scheme from document to respect page's dark/light mode setting.
+       The host page should set `color-scheme: light`, `color-scheme: dark`, or
+       `color-scheme: light dark` on :root or an ancestor element. */
+    color-scheme: inherit;
 
     position: relative;
     display: block;

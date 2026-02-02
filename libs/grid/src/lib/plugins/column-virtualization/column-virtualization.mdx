@@ -50,28 +50,24 @@ function WideGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
-import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
-import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid-vue/features/column-virtualization';
+import { TbwGrid } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
-const props = defineProps(['data']);
+const data = [{ col0: 'Row 1', col1: 'Value 1' }, { col0: 'Row 2', col1: 'Value 2' }];
 
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: generateManyColumns(100),
-    fitMode: 'fixed',
-    plugins: [new ColumnVirtualizationPlugin()],
-  };
-  gridRef.value.rows = props.data;
-});
+const columns = Array.from({ length: 100 }, (_, i) => ({
+  field: `col${i}`,
+  header: `Column ${i + 1}`,
+  width: 120,
+}));
 </script>
+
+<template>
+  <TbwGrid :rows="data" :columns="columns" fit-mode="fixed" column-virtualization style="height: 400px">
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

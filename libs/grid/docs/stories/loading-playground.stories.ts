@@ -3,8 +3,8 @@ import { html } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 // Import from source for HMR
-import '../../index';
-import type { DataGridElement } from './grid';
+import '../../src/index';
+import type { DataGridElement } from '../../src/lib/core/grid';
 
 interface Employee {
   id: string;

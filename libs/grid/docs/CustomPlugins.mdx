@@ -24,13 +24,17 @@ Plugin Lifecycle
   processRows()      Transform row data
        │
        ▼
+  ┌─────────────────────────────────────────────────────┐
+  │  For each visible row:                              │
+  │    ├─ afterCellRender()  Per-cell hook              │
+  │    │                     (called for each cell)     │
+  │    └─ afterRowRender()   Per-row hook               │
+  │                          (after all cells in row)   │
+  └─────────────────────────────────────────────────────┘
+       │
+       ▼
   afterRender()      Grid-wide DOM manipulation
-       │
-       ▼
-  afterCellRender()  Per-cell styling (called for each cell)
-       │
-       ▼
-  afterRowRender()   Per-row styling (called for each row)
+                     (after all rows are complete)
        │
        ▼
   [user interactions: onCellClick, onKeyDown, etc.]
@@ -43,7 +47,7 @@ Plugin Lifecycle
 ## Basic Plugin Structure
 
 ```typescript
-import { BaseGridPlugin } from '@toolbox-web/grid';
+import { BaseGridPlugin, type AfterCellRenderContext } from '@toolbox-web/grid';
 
 // 1. Define your config interface
 interface HighlightConfig {
@@ -65,21 +69,19 @@ export class HighlightPlugin extends BaseGridPlugin<HighlightConfig> {
     }
   `;
 
-  // Called after grid renders
-  override afterRender(): void {
+  // Called for each cell during rendering - no DOM queries needed!
+  override afterCellRender(context: AfterCellRenderContext): void {
     const { field, threshold, className = 'highlight-cell' } = this.config;
+    const { column, value, cellElement } = context;
 
-    // Access grid element for DOM queries
-    const gridEl = this.gridElement;
+    // Only process cells for our target field
+    if (column.field !== field) return;
 
-    // Find cells for the target field
-    const cells = gridEl.querySelectorAll(`[data-field="${field}"]`);
-    cells.forEach((cell) => {
-      const value = parseFloat(cell.textContent || '0');
-      if (value > threshold) {
-        cell.classList.add(className);
-      }
-    });
+    // Direct access to value - no parsing needed
+    const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+    if (!isNaN(numValue) && numValue > threshold) {
+      cellElement.classList.add(className);
+    }
   }
 }
 ```
@@ -397,6 +399,140 @@ override afterRender(): void {
 }
 ```
 
+## Plugin Manifest
+
+The **Plugin Manifest** is a static property that declares metadata about your plugin's capabilities and requirements. The grid uses this metadata for:
+
+- **Validation**: Detect missing plugins when their properties are used
+- **Configuration rules**: Warn or error on invalid config combinations
+- **Query routing**: Efficiently route queries only to plugins that handle them
+- **Event discovery**: Document events that other plugins can subscribe to
+- **Incompatibility detection**: Warn when conflicting plugins are loaded together
+
+### Manifest Structure
+
+```typescript
+import { BaseGridPlugin, type PluginManifest } from '@toolbox-web/grid';
+
+interface MyPluginConfig {
+  optionA?: boolean;
+  optionB?: boolean;
+}
+
+export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
+  // Declare manifest as static property
+  static override readonly manifest: PluginManifest<MyPluginConfig> = {
+    // Properties this plugin owns (for validation)
+    ownedProperties: [
+      {
+        property: 'myColumnProp',
+        level: 'column',
+        description: 'the "myColumnProp" column property',
+      },
+      {
+        property: 'myGridOption',
+        level: 'config',
+        description: 'the "myGridOption" grid config option',
+      },
+    ],
+
+    // Configuration validation rules
+    configRules: [
+      {
+        id: 'my-plugin/invalid-combo',
+        severity: 'warn', // 'warn' logs to console, 'error' throws
+        message: 'optionA and optionB cannot both be true',
+        check: (config) => config.optionA === true && config.optionB === true,
+      },
+    ],
+
+    // Queries this plugin handles
+    queries: [
+      { type: 'getMyState', description: 'Get the current plugin state' },
+    ],
+
+    // Events this plugin emits
+    events: [
+      { type: 'my-state-change', description: 'Emitted when state changes' },
+    ],
+
+    // Plugins that conflict with this one
+    incompatibleWith: [
+      { name: 'conflictingPlugin', reason: 'Both plugins modify the same DOM elements' },
+    ],
+  };
+
+  readonly name = 'myPlugin';
+}
+```
+
+### Owned Properties
+
+Declare properties your plugin adds to `ColumnConfig` or `GridConfig`. If a user configures these properties without loading your plugin, the grid throws a helpful error:
+
+```typescript
+ownedProperties: [
+  {
+    property: 'editable',
+    level: 'column',
+    description: 'the "editable" column property',
+    importHint: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
+  },
+],
+```
+
+Error shown to user:
+```
+[tbw-grid] Configuration error:
+Column(s) [name, email] use the "editable" column property, but the required plugin is not loaded.
+  → Add the plugin to your gridConfig.plugins array:
+    import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+    plugins: [new EditingPlugin(), ...]
+```
+
+### Configuration Rules
+
+Validate plugin configuration at initialization:
+
+```typescript
+configRules: [
+  {
+    id: 'selection/range-dblclick',
+    severity: 'warn',
+    message: '"triggerOn: dblclick" has no effect when mode is "range".',
+    check: (config) => config.mode === 'range' && config.triggerOn === 'dblclick',
+  },
+],
+```
+
+- `severity: 'error'` - Throws an exception (always)
+- `severity: 'warn'` - Logs to console (development only)
+
+### Plugin Dependencies
+
+Declare other plugins your plugin requires using a static `dependencies` property:
+
+```typescript
+export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'editing', required: true, reason: 'Tracks cell edit history' },
+    { name: 'selection', required: false, reason: 'Enables selection-based undo' },
+  ];
+
+  readonly name = 'undoRedo';
+}
+```
+
+**Important**: Dependencies must be loaded *before* the dependent plugin:
+
+```typescript
+// ✅ Correct order
+plugins: [new EditingPlugin(), new UndoRedoPlugin()]
+
+// ❌ Wrong order - throws error
+plugins: [new UndoRedoPlugin(), new EditingPlugin()]
+```
+
 ## Plugin Communication
 
 ### Event Bus (Plugin-to-Plugin)
@@ -512,6 +648,12 @@ new TypedPlugin<Employee>({ idField: 'employeeId' });
 ```
 
 ## Complete Example: Row Numbering Plugin
+
+This example adds a synthetic column that doesn't map to any field in the data. The `__rowNumber` field doesn't exist on row objects—the renderer uses `ctx.rowIndex` instead of `ctx.value`. This pattern is safe because:
+
+- `processColumns` only modifies column definitions, not row data
+- Renderers produce DOM output—they don't write back to the source data
+- The `rows` array remains unchanged
 
 ```typescript
 import { BaseGridPlugin, type ColumnConfig } from '@toolbox-web/grid';

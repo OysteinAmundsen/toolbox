@@ -75,41 +75,36 @@ function MyGrid({ data, onDelete }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+import { ref, markRaw } from 'vue';
 
-const props = defineProps(['data']);
-const emit = defineEmits(['delete']);
+const data = [
+  { name: 'Alice', email: 'alice@example.com', status: 'active' },
+  { name: 'Bob', email: 'bob@example.com', status: 'inactive' },
+];
+
 const gridRef = ref(null);
 
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-      { field: 'status', header: 'Status' }
-    ],
-    plugins: [
-      new ContextMenuPlugin({
-        items: [
-          { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
-          { id: 'edit', label: 'Edit Row', action: (ctx) => gridRef.value.startEditing(ctx.rowIndex, ctx.colIndex) },
-          { type: 'separator' },
-          { id: 'delete', label: 'Delete Row', action: (ctx) => emit('delete', ctx.rowIndex) },
-        ],
-      }),
-    ],
-  };
-  gridRef.value.rows = props.data;
-});
+const contextMenuPlugin = markRaw(new ContextMenuPlugin({
+  items: [
+    { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(String(ctx.value)) },
+    { id: 'edit', label: 'Edit Row', action: (ctx) => gridRef.value?.element?.startEditing(ctx.rowIndex, ctx.colIndex) },
+    { type: 'separator' },
+    { id: 'delete', label: 'Delete Row', action: (ctx) => console.log('Delete row:', ctx.rowIndex) },
+  ],
+}));
 </script>
+
+<template>
+  <TbwGrid ref="gridRef" :rows="data" :plugins="[contextMenuPlugin]">
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="status" header="Status" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

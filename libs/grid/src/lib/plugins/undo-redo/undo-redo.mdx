@@ -65,35 +65,29 @@ function MyGrid({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" />
-</template>
-
+```html
 <script setup>
-import { ref, onMounted } from 'vue';
-import '@toolbox-web/grid';
-import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+import '@toolbox-web/grid-vue/features/editing';
+import '@toolbox-web/grid-vue/features/undo-redo';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const props = defineProps(['data']);
-const gridRef = ref(null);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'name', header: 'Name', editable: true },
-      { field: 'price', header: 'Price', type: 'number', editable: true },
-      { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
-    ],
-    plugins: [
-      new EditingPlugin({ editOn: 'dblclick' }),
-      new UndoRedoPlugin({ maxHistorySize: 50 }),
-    ],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { name: 'Widget', price: 9.99, quantity: 10 },
+  { name: 'Gadget', price: 19.99, quantity: 5 },
+];
 </script>
+
+<template>
+  <TbwGrid
+    :rows="data"
+    editing="dblclick"
+    :undo-redo="{ maxHistorySize: 50 }"
+  >
+    <TbwGridColumn field="name" header="Name" editable />
+    <TbwGridColumn field="price" header="Price" type="number" editable />
+    <TbwGridColumn field="quantity" header="Quantity" type="number" editable />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

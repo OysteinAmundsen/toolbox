@@ -63,31 +63,24 @@ function MyGrid({ data }) {
   </Tab>
   <Tab label="Vue">
 
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid-vue/features/selection';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
-const props = defineProps(['data']);
-
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'id', header: 'ID' },
-      { field: 'name', header: 'Name' },
-      { field: 'email', header: 'Email' },
-    ],
-    plugins: [new SelectionPlugin({ mode: 'row' })],
-  };
-  gridRef.value.rows = props.data;
-});
+const data = [
+  { id: 1, name: 'Alice', email: 'alice@example.com' },
+  { id: 2, name: 'Bob', email: 'bob@example.com' },
+];
 </script>
+
+<template>
+  <TbwGrid :rows="data" selection="row" style="height: 400px">
+    <TbwGridColumn field="id" header="ID" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+  </TbwGrid>
+</template>
 ```
 
   </Tab>

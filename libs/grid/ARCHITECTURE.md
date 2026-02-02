@@ -253,8 +253,6 @@ libs/grid/src/
    │  │  ├─ columns.ts        # Column resolution, sizing
    │  │  ├─ config-manager.ts # Config lifecycle & column state
    │  │  ├─ dom-builder.ts    # Direct DOM construction utilities
-   │  │  ├─ editing.ts        # Cell/row edit logic
-   │  │  ├─ editors.ts        # Built-in cell editors
    │  │  ├─ event-delegation.ts # Delegated event handlers
    │  │  ├─ header.ts         # Header rendering
    │  │  ├─ idle-scheduler.ts # requestIdleCallback wrapper
@@ -262,6 +260,7 @@ libs/grid/src/
    │  │  ├─ keyboard.ts       # Keyboard navigation
    │  │  ├─ render-scheduler.ts # RAF-based render batching
    │  │  ├─ resize.ts         # Column resizing
+   │  │  ├─ row-animation.ts  # Row add/remove animations
    │  │  ├─ rows.ts           # Row rendering
    │  │  ├─ sanitize.ts       # Template security
    │  │  ├─ shell.ts          # Shell/toolbar rendering
@@ -288,7 +287,10 @@ libs/grid/src/
       ├─ pinned-columns/       # Frozen columns
       ├─ pinned-rows/          # Frozen rows (top/bottom)
       ├─ pivot/                # Pivot table transformation
+      ├─ print/                # Print-optimized styling
       ├─ reorder/              # Drag column reordering
+      ├─ responsive/           # Responsive card layout for mobile
+      ├─ row-reorder/          # Drag row reordering
       ├─ selection/            # Row/cell/range selection
       ├─ server-side/          # Server-side data loading
       ├─ tree/                 # Hierarchical tree data
@@ -377,13 +379,13 @@ flowchart TB
     F --> H["Single RAF<br/>#flush()"]
     H --> I["Phase-Ordered Execution"]
 
-    subgraph phases["RENDER PHASES (in order)"]
-        P1["FULL (6): mergeConfig"]
-        P2["COLUMNS (5): processColumns + updateTemplate"]
-        P3["ROWS (4): processRows"]
-        P4["HEADER (3): renderHeader"]
-        P5["VIRTUALIZATION (2): refreshVirtualWindow"]
-        P6["STYLE (1): afterRender hooks"]
+    subgraph phases["EXECUTION ORDER (data dependencies)"]
+        P1["1. mergeConfig<br/>(FULL/COLUMNS phase)"]
+        P2["2. processRows<br/>(ROWS phase)"]
+        P3["3. processColumns + updateTemplate<br/>(COLUMNS phase)"]
+        P4["4. renderHeader<br/>(HEADER phase)"]
+        P5["5. refreshVirtualWindow<br/>(VIRTUALIZATION phase)"]
+        P6["6. afterRender hooks<br/>(STYLE phase)"]
     end
 
     I --> P1 --> P2 --> P3 --> P4 --> P5 --> P6
@@ -580,8 +582,9 @@ flowchart TB
     subgraph C["Grid Render Cycle"]
         C1["processColumns() hook"]
         C2["processRows() hook"]
-        C3["beforeRender() hook"]
-        C4["afterRender() hook"]
+        C3["afterCellRender() hook (per cell)"]
+        C4["afterRowRender() hook (per row)"]
+        C5["afterRender() hook"]
     end
 
     subgraph D["User Interaction"]

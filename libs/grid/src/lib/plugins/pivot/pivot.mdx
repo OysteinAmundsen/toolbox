@@ -69,38 +69,32 @@ function SalesPivot({ data }) {
 ```
   </Tab>
   <Tab label="Vue">
-```vue
-<template>
-  <tbw-grid ref="gridRef" style="height: 400px" />
-</template>
-
+```html
 <script setup>
-import '@toolbox-web/grid';
-import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
-import { ref, onMounted } from 'vue';
+import '@toolbox-web/grid-vue/features/pivot';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
-const gridRef = ref(null);
-const props = defineProps(['data']);
+const data = [
+  { region: 'North', product: 'Widget', quarter: 'Q1', sales: 1000 },
+  { region: 'North', product: 'Gadget', quarter: 'Q1', sales: 1500 },
+  { region: 'South', product: 'Widget', quarter: 'Q2', sales: 1200 },
+];
 
-onMounted(() => {
-  gridRef.value.gridConfig = {
-    columns: [
-      { field: 'region', header: 'Region' },
-      { field: 'product', header: 'Product' },
-      { field: 'quarter', header: 'Quarter' },
-      { field: 'sales', header: 'Sales', type: 'number' },
-    ],
-    plugins: [
-      new PivotPlugin({
-        rowGroupFields: ['region', 'product'],
-        columnGroupFields: ['quarter'],
-        valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
-      }),
-    ],
-  };
-  gridRef.value.rows = props.data;
-});
+const pivotConfig = {
+  rowGroupFields: ['region', 'product'],
+  columnGroupFields: ['quarter'],
+  valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total' }],
+};
 </script>
+
+<template>
+  <TbwGrid :rows="data" :pivot="pivotConfig" style="height: 400px">
+    <TbwGridColumn field="region" header="Region" />
+    <TbwGridColumn field="product" header="Product" />
+    <TbwGridColumn field="quarter" header="Quarter" />
+    <TbwGridColumn field="sales" header="Sales" type="number" />
+  </TbwGrid>
+</template>
 ```
   </Tab>
   <Tab label="Angular">

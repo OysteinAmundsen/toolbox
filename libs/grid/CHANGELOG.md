@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.9.0...grid-1.9.1) (2026-02-02)
+
+
+### Bug Fixes
+
+* **grid:** clip resize handle on last column to prevent horizontal overflow ([bbbd891](https://github.com/OysteinAmundsen/toolbox/commit/bbbd8912660142e43240ec9b6ec88fbe60c491cf))
+
 ## [1.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.8.0...grid-1.9.0) (2026-02-01)
 
 

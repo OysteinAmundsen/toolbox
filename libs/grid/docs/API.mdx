@@ -483,12 +483,16 @@ const panels = grid.getToolPanels();
 
 | Event                | Detail Type         | Cancelable | Description                         |
 | -------------------- | ------------------- | ---------- | ----------------------------------- |
-| `cell-commit`        | [`CellCommitDetail`](/docs/grid-api-core-interfaces-cellcommitdetail--docs)  | ✅ Yes     | Cell value was edited (inline)      |
+| `cell-commit`        | [`CellCommitDetail`](/docs/grid-plugins-editing-interfaces-cellcommitdetail--docs)  | ✅ Yes     | Cell value was edited (inline)      |
 | `cell-change`        | [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs)  | No         | Row updated via Row Update API      |
-| `row-commit`         | [`RowCommitDetail`](/docs/grid-api-core-interfaces-rowcommitdetail--docs)   | No         | Bulk row edit completed             |
+| `row-commit`         | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs)   | ✅ Yes     | Bulk row edit completed             |
 | `changed-rows-reset` | -                   | No         | Changed rows were reset             |
 
+> **Note:** `cell-commit`, `row-commit`, and `changed-rows-reset` events require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs). The `cell-change` event is a core event that fires for any programmatic row updates via the Row Update API.
+
 ```typescript
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
+
 grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
   const { row, field, value, oldValue, rowIndex } = e.detail;
   console.log(`Cell ${field} changed from ${oldValue} to ${value}`);
@@ -500,10 +504,7 @@ grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
 });
 ```
 
-See [`CellCommitDetail`](/docs/grid-api-core-interfaces-cellcommitdetail--docs) for full type definition.
-
-```typescript
-```
+See [`CellCommitDetail`](/docs/grid-plugins-editing-interfaces-cellcommitdetail--docs) for full type definition.
 
 ### Sort Events
 
@@ -540,18 +541,19 @@ grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
 
 Some events are **cancelable**, meaning you can call `event.preventDefault()` to stop the default behavior. This enables validation, conditional blocking, and state rollback scenarios.
 
-#### Core Grid Events
-
-| Event           | Cancelable | Effect when cancelled                          |
-| --------------- | ---------- | ---------------------------------------------- |
-| `cell-commit`   | ✅ Yes     | Value change is rejected; cell keeps old value |
-| `cell-activate` | ✅ Yes     | Cell activation is blocked                     |
+| Event           | Source        | Cancelable | Effect when cancelled                          |
+| --------------- | ------------- | ---------- | ---------------------------------------------- |
+| `cell-commit`   | EditingPlugin | ✅ Yes     | Value change is rejected; cell keeps old value |
+| `row-commit`    | EditingPlugin | ✅ Yes     | Row commit is rejected; row keeps old values   |
+| `cell-activate` | Core          | ✅ Yes     | Cell activation is blocked                     |
 
 #### `cell-commit` — Validation Before Save
 
 Use this to validate cell values before they're applied. The event fires **before** the value is written, so calling `preventDefault()` keeps the original value intact.
 
 ```typescript
+import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';
+
 grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail>) => {
   const { field, value, oldValue, row } = e.detail;
 

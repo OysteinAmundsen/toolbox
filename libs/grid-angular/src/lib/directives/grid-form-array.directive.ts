@@ -1,6 +1,16 @@
 import { Directive, effect, ElementRef, inject, input, OnDestroy, OnInit } from '@angular/core';
 import { AbstractControl, FormArray, FormGroup } from '@angular/forms';
-import type { DataGridElement as GridElement } from '@toolbox-web/grid';
+import type { BaseGridPlugin, DataGridElement as GridElement } from '@toolbox-web/grid';
+
+/**
+ * Interface for EditingPlugin validation methods.
+ * We use a minimal interface to avoid importing the full EditingPlugin class.
+ */
+interface EditingPluginValidation {
+  setInvalid(rowId: string, field: string, message?: string): void;
+  clearInvalid(rowId: string, field: string): void;
+  clearRowInvalid(rowId: string): void;
+}
 
 /**
  * Context provided to the grid containing form-related information.
@@ -137,12 +147,25 @@ export function getFormArrayContext(gridElement: HTMLElement): FormArrayContext 
 export class GridFormArray implements OnInit, OnDestroy {
   private elementRef = inject(ElementRef<GridElement>);
   private cellCommitListener: ((e: Event) => void) | null = null;
+  private rowCommitListener: ((e: Event) => void) | null = null;
   private touchListener: ((e: Event) => void) | null = null;
 
   /**
    * The FormArray to bind to the grid.
    */
   readonly formArray = input.required<FormArray>();
+
+  /**
+   * Whether to automatically sync Angular validation state to grid's visual invalid styling.
+   *
+   * When enabled:
+   * - After a cell commit, if the FormControl is invalid, the cell is marked with `setInvalid()`
+   * - When a FormControl becomes valid, `clearInvalid()` is called
+   * - On `row-commit`, if the row's FormGroup has invalid controls, the commit is prevented
+   *
+   * @default true
+   */
+  readonly syncValidation = input<boolean>(true);
 
   /**
    * Effect that syncs the FormArray value to the grid rows.
@@ -170,6 +193,14 @@ export class GridFormArray implements OnInit, OnDestroy {
     };
     grid.addEventListener('cell-commit', this.cellCommitListener);
 
+    // Intercept row-commit events to prevent if FormGroup is invalid
+    this.rowCommitListener = (e: Event) => {
+      if (!this.syncValidation()) return;
+      const detail = (e as CustomEvent).detail as { rowIndex: number };
+      this.#handleRowCommit(e, detail);
+    };
+    grid.addEventListener('row-commit', this.rowCommitListener);
+
     // Mark FormArray as touched on first interaction
     this.touchListener = () => {
       this.formArray().markAsTouched();
@@ -188,6 +219,9 @@ export class GridFormArray implements OnInit, OnDestroy {
 
     if (this.cellCommitListener) {
       grid.removeEventListener('cell-commit', this.cellCommitListener);
+    }
+    if (this.rowCommitListener) {
+      grid.removeEventListener('row-commit', this.rowCommitListener);
     }
     if (this.touchListener) {
       grid.removeEventListener('click', this.touchListener);
@@ -297,8 +331,8 @@ export class GridFormArray implements OnInit, OnDestroy {
   /**
    * Handles cell-commit events by updating the FormControl in the FormGroup.
    */
-  #handleCellCommit(detail: { rowIndex: number; field: string; value: unknown }): void {
-    const { rowIndex, field, value } = detail;
+  #handleCellCommit(detail: { rowIndex: number; field: string; value: unknown; rowId: string }): void {
+    const { rowIndex, field, value, rowId } = detail;
 
     const rowFormGroup = this.#getRowFormGroup(rowIndex);
     if (rowFormGroup) {
@@ -307,7 +341,80 @@ export class GridFormArray implements OnInit, OnDestroy {
         control.setValue(value);
         control.markAsDirty();
         control.markAsTouched();
+
+        // Sync Angular validation state to grid's visual invalid styling
+        if (this.syncValidation() && rowId) {
+          this.#syncControlValidationToGrid(rowId, field, control);
+        }
       }
+    }
+  }
+
+  /**
+   * Handles row-commit events - prevents commit if FormGroup has invalid controls.
+   */
+  #handleRowCommit(event: Event, detail: { rowIndex: number }): void {
+    const { rowIndex } = detail;
+    const rowFormGroup = this.#getRowFormGroup(rowIndex);
+
+    if (rowFormGroup && rowFormGroup.invalid) {
+      // Prevent row commit if the FormGroup is invalid
+      event.preventDefault();
+    }
+  }
+
+  /**
+   * Syncs a FormControl's validation state to the grid's visual invalid styling.
+   */
+  #syncControlValidationToGrid(rowId: string, field: string, control: AbstractControl): void {
+    const grid = this.elementRef.nativeElement;
+    if (!grid) return;
+
+    // Get EditingPlugin via getPluginByName
+    const editingPlugin = (grid as unknown as { getPluginByName?: (name: string) => BaseGridPlugin }).getPluginByName?.(
+      'editing',
+    ) as EditingPluginValidation | undefined;
+
+    if (!editingPlugin) return;
+
+    if (control.invalid) {
+      // Get first error message to display
+      const errorMessage = this.#getFirstErrorMessage(control);
+      editingPlugin.setInvalid(rowId, field, errorMessage);
+    } else {
+      editingPlugin.clearInvalid(rowId, field);
+    }
+  }
+
+  /**
+   * Gets a human-readable error message from the first validation error.
+   */
+  #getFirstErrorMessage(control: AbstractControl): string {
+    const errors = control.errors;
+    if (!errors) return '';
+
+    const firstKey = Object.keys(errors)[0];
+    const error = errors[firstKey];
+
+    // Common Angular validators
+    switch (firstKey) {
+      case 'required':
+        return 'This field is required';
+      case 'minlength':
+        return `Minimum length is ${error.requiredLength}`;
+      case 'maxlength':
+        return `Maximum length is ${error.requiredLength}`;
+      case 'min':
+        return `Minimum value is ${error.min}`;
+      case 'max':
+        return `Maximum value is ${error.max}`;
+      case 'email':
+        return 'Invalid email address';
+      case 'pattern':
+        return 'Invalid format';
+      default:
+        // Custom validators may provide a message property
+        return typeof error === 'string' ? error : (error?.message ?? `Validation error: ${firstKey}`);
     }
   }
 }

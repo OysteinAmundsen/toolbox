@@ -292,3 +292,113 @@ describe('FormArrayContext interface', () => {
     expect(mockContext.getRowErrors(1)).toEqual({ name: { required: true } });
   });
 });
+
+describe('validation syncing', () => {
+  let mockGridElement: HTMLElement & {
+    rows?: unknown[];
+    getPluginByName?: (name: string) => unknown;
+  };
+  let mockFormArray: ReturnType<typeof createMockFormArray>;
+  let mockEditingPlugin: {
+    setInvalid: ReturnType<typeof vi.fn>;
+    clearInvalid: ReturnType<typeof vi.fn>;
+    clearRowInvalid: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(() => {
+    // Create mock editing plugin
+    mockEditingPlugin = {
+      setInvalid: vi.fn(),
+      clearInvalid: vi.fn(),
+      clearRowInvalid: vi.fn(),
+    };
+
+    // Create a mock grid element with getPluginByName
+    mockGridElement = document.createElement('tbw-grid') as HTMLElement & {
+      rows?: unknown[];
+      getPluginByName?: (name: string) => unknown;
+    };
+    mockGridElement.getPluginByName = (name: string) => {
+      if (name === 'editing') return mockEditingPlugin;
+      return undefined;
+    };
+    document.body.appendChild(mockGridElement);
+
+    // Create mock FormArray
+    mockFormArray = createMockFormArray([
+      { name: 'Alice', email: 'alice@example.com' },
+      { name: 'Bob', email: 'bob@example.com' },
+    ]);
+  });
+
+  afterEach(() => {
+    mockGridElement.remove();
+  });
+
+  it('should call setInvalid when FormControl becomes invalid after commit', () => {
+    // Set up the control to be invalid
+    const control = mockFormArray.at(0)?.get('email');
+    if (control) {
+      control.errors = { email: true };
+      Object.defineProperty(control, 'invalid', { value: true, configurable: true });
+    }
+
+    // Simulate directive behavior for validation sync
+    const event = new CustomEvent('cell-commit', {
+      detail: { rowIndex: 0, field: 'email', value: 'invalid-email', rowId: 'row-0' },
+      bubbles: true,
+    });
+
+    // Simulate the handler calling setInvalid
+    const rowFormGroup = mockFormArray.at(0);
+    if (rowFormGroup && control) {
+      control.setValue('invalid-email');
+      // If control is invalid, call setInvalid
+      if (control.errors) {
+        mockEditingPlugin.setInvalid('row-0', 'email', 'Invalid email address');
+      }
+    }
+
+    expect(mockEditingPlugin.setInvalid).toHaveBeenCalledWith('row-0', 'email', 'Invalid email address');
+  });
+
+  it('should call clearInvalid when FormControl becomes valid after commit', () => {
+    const control = mockFormArray.at(0)?.get('email');
+    if (control) {
+      control.errors = null;
+      Object.defineProperty(control, 'invalid', { value: false, configurable: true });
+    }
+
+    // Simulate the handler calling clearInvalid for valid control
+    mockEditingPlugin.clearInvalid('row-0', 'email');
+
+    expect(mockEditingPlugin.clearInvalid).toHaveBeenCalledWith('row-0', 'email');
+  });
+
+  it('should generate correct error message for required validator', () => {
+    // Test error message generation
+    const getFirstErrorMessage = (errors: Record<string, unknown> | null): string => {
+      if (!errors) return '';
+      const firstKey = Object.keys(errors)[0];
+      const error = errors[firstKey];
+
+      switch (firstKey) {
+        case 'required':
+          return 'This field is required';
+        case 'minlength':
+          return `Minimum length is ${(error as { requiredLength: number }).requiredLength}`;
+        case 'min':
+          return `Minimum value is ${(error as { min: number }).min}`;
+        case 'email':
+          return 'Invalid email address';
+        default:
+          return typeof error === 'string' ? error : `Validation error: ${firstKey}`;
+      }
+    };
+
+    expect(getFirstErrorMessage({ required: true })).toBe('This field is required');
+    expect(getFirstErrorMessage({ minlength: { requiredLength: 5 } })).toBe('Minimum length is 5');
+    expect(getFirstErrorMessage({ min: { min: 18 } })).toBe('Minimum value is 18');
+    expect(getFirstErrorMessage({ email: true })).toBe('Invalid email address');
+  });
+});

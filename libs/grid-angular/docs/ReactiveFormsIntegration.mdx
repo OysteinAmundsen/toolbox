@@ -171,6 +171,62 @@ When using `*tbwEditor`, the following context is available:
 | `onCancel` | `Function`        | Cancel callback |
 | `control`  | `AbstractControl` | Cell's FormControl (FormArray+FormGroup only) |
 
+## Automatic Validation Syncing
+
+When using `GridFormArray`, Angular's FormControl validation is **automatically synced** to the grid's visual invalid styling. This means:
+
+1. **After a cell is edited**, if the FormControl is invalid, the cell shows a red border/background
+2. **When the FormControl becomes valid**, the invalid styling is automatically cleared
+3. **On row-commit**, if the FormGroup has invalid controls, the commit is **prevented** and the row reverts to its original values
+
+This happens by default with `syncValidation="true"` (the default). You can disable it:
+
+<Source
+  language="html"
+  code={`
+<!-- Disable automatic validation sync if you want manual control -->
+<tbw-grid [formArray]="rows" [syncValidation]="false" ... />
+`}
+/>
+
+### How It Works
+
+The `GridFormArray` directive listens to `cell-commit` events and checks the corresponding FormControl's validity. If invalid, it calls `EditingPlugin.setInvalid()` with a human-readable error message derived from Angular's validation errors.
+
+Supported Angular validators are automatically translated to error messages:
+
+| Validator | Generated Message |
+|-----------|-------------------|
+| `required` | "This field is required" |
+| `minlength` | "Minimum length is X" |
+| `maxlength` | "Maximum length is X" |
+| `min` | "Minimum value is X" |
+| `max` | "Maximum value is X" |
+| `email` | "Invalid email address" |
+| `pattern` | "Invalid format" |
+| Custom | Uses `error.message` or "Validation error: key" |
+
+### Custom Error Messages
+
+For custom error messages, provide a `message` property in your validator's error object:
+
+<Source
+  language="typescript"
+  code={`
+// Custom validator with descriptive message
+function customValidator(control: AbstractControl): ValidationErrors | null {
+  if (!isValid(control.value)) {
+    return {
+      customError: {
+        message: 'Please enter a valid XYZ format'
+      }
+    };
+  }
+  return null;
+}
+`}
+/>
+
 ## CSS Classes
 
 Angular Forms automatically adds validation classes to the grid element:
@@ -192,3 +248,17 @@ tbw-grid.form-disabled {
   pointer-events: none;
 }
 ```
+
+## Cell-Level Invalid Styling
+
+When Angular validation fails, the grid visually highlights invalid cells using CSS custom properties:
+
+```css
+tbw-grid {
+  /* Customize invalid cell appearance */
+  --tbw-invalid-bg: #fef2f2;
+  --tbw-invalid-border-color: #ef4444;
+}
+```
+
+This integrates seamlessly with the EditingPlugin's validation system, meaning Angular's `Validators.required`, `Validators.email`, etc. automatically show visual feedback in the grid.

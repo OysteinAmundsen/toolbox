@@ -2658,74 +2658,6 @@ export interface GridColumnState {
 
 // #region Public Event Detail Interfaces
 /**
- * Event detail for cell value commit.
- *
- * @category Events
- */
-export interface CellCommitDetail<TRow = unknown> {
-  /** The row object (not yet mutated if event is cancelable). */
-  row: TRow;
-  /** Stable row identifier (from getRowId). */
-  rowId: string;
-  /** Field name whose value changed. */
-  field: string;
-  /** Previous value before change. */
-  oldValue: unknown;
-  /** New value to be stored. */
-  value: unknown;
-  /** Index of the row in current data set. */
-  rowIndex: number;
-  /** All rows that have at least one committed change (snapshot list). */
-  changedRows: TRow[];
-  /** IDs of changed rows. */
-  changedRowIds: string[];
-  /** True if this row just entered the changed set. */
-  firstTimeForRow: boolean;
-  /**
-   * Update other fields in this row.
-   * Convenience wrapper for grid.updateRow(rowId, changes, 'cascade').
-   * Useful for cascade updates (e.g., calculating totals).
-   */
-  updateRow: (changes: Partial<TRow>) => void;
-}
-
-/**
- * Detail payload for a committed row edit (may or may not include changes).
- *
- * @category Events
- */
-export interface RowCommitDetail<TRow = unknown> {
-  /** Row index that lost edit focus. */
-  rowIndex: number;
-  /** Stable row identifier (from getRowId). */
-  rowId: string;
-  /** Row object reference (current state after edits). */
-  row: TRow;
-  /** Snapshot of the row before edits (for comparison). */
-  oldValue: TRow | undefined;
-  /** Current row value after edits (same as `row`). */
-  newValue: TRow;
-  /** Whether any cell changes were actually committed in this row during the session. */
-  changed: boolean;
-  /** Current changed row collection. */
-  changedRows: TRow[];
-  /** IDs of changed rows. */
-  changedRowIds: string[];
-}
-
-/**
- * Emitted when the changed rows tracking set is cleared programmatically.
- *
- * @category Events
- */
-export interface ChangedRowsResetDetail<TRow = unknown> {
-  /** New (empty) changed rows array after reset. */
-  rows: TRow[];
-  /** IDs of changed rows (likely empty). */
-  ids: string[];
-}
-
-/**
  * Detail for a cell click event.
  * Provides full context about the clicked cell including row data.
  *
@@ -3009,9 +2941,6 @@ export interface DataGridEventMap<TRow = unknown> {
   'row-click': RowClickDetail<TRow>;
   'cell-activate': CellActivateDetail<TRow>;
   'cell-change': CellChangeDetail<TRow>;
-  'cell-commit': CellCommitDetail<TRow>;
-  'row-commit': RowCommitDetail<TRow>;
-  'changed-rows-reset': ChangedRowsResetDetail<TRow>;
   'mount-external-view': ExternalMountViewDetail<TRow>;
   'mount-external-editor': ExternalMountEditorDetail<TRow>;
   'sort-change': SortChangeDetail;
@@ -3019,6 +2948,8 @@ export interface DataGridEventMap<TRow = unknown> {
   /** @deprecated Use 'cell-activate' instead */
   'activate-cell': ActivateCellDetail;
   'column-state-change': GridColumnState;
+  // Note: 'cell-commit', 'row-commit', 'changed-rows-reset' are added via
+  // module augmentation by EditingPlugin when imported
 }
 
 /**

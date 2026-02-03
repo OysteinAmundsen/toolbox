@@ -966,10 +966,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         this.#changedRowIds.delete(rowId);
       }
     } else if (!revert && current) {
-      const changed = rowId ? this.#changedRowIds.has(rowId) : false;
-
       // Compare snapshot vs current to detect if changes were made during THIS edit session
       const changedThisSession = this.#hasRowChanged(snapshot, current);
+
+      // Check if this row has any cumulative changes (via ID tracking)
+      // Fall back to session-based detection when no row ID is available
+      const changed = rowId ? this.#changedRowIds.has(rowId) : changedThisSession;
 
       this.emit<RowCommitDetail<T>>('row-commit', {
         rowIndex,

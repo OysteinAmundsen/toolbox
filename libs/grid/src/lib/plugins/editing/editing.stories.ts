@@ -602,17 +602,17 @@ const grid = queryGrid('tbw-grid');
 
 // Cell value committed
 grid.addEventListener('cell-commit', (e) => {
-  console.log('Committed:', e.detail.field, e.detail.oldValue, '→', e.detail.newValue);
+  console.log('Committed:', e.detail.field, e.detail.oldValue, '→', e.detail.value);
 });
 
-// Row committed (bulk edit mode)
+// Row editing session ended
 grid.addEventListener('row-commit', (e) => {
-  console.log('Row committed:', e.detail.rowIndex, e.detail.changes);
+  console.log('Row committed:', e.detail.rowId, 'changed:', e.detail.changed);
 });
 
 // Changed rows tracking reset
 grid.addEventListener('changed-rows-reset', (e) => {
-  console.log('Reset:', e.detail.changedRows.size, 'rows cleared');
+  console.log('Reset:', e.detail.rows.length, 'rows cleared');
 });
         `,
         language: 'typescript',
@@ -637,9 +637,9 @@ grid.addEventListener('changed-rows-reset', (e) => {
     };
 
     grid.rows = [
-      { name: 'Alice Johnson', department: 'Engineering', salary: 85000 },
-      { name: 'Bob Smith', department: 'Marketing', salary: 72000 },
-      { name: 'Carol White', department: 'Sales', salary: 68000 },
+      { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 85000 },
+      { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000 },
+      { id: 3, name: 'Carol White', department: 'Sales', salary: 68000 },
     ];
 
     // Event log panel
@@ -685,12 +685,11 @@ grid.addEventListener('changed-rows-reset', (e) => {
 
       grid.addEventListener('row-commit', (e: CustomEvent) => {
         const d = e.detail;
-        const fields = Object.keys(d.changes).join(', ');
-        addLog('row-commit', `row ${d.rowIndex}, changed: ${fields}`);
+        addLog('row-commit', `row ${d.rowIndex} (${d.rowId}), changed: ${d.changed}`);
       });
 
       grid.addEventListener('changed-rows-reset', (e: CustomEvent) => {
-        addLog('changed-rows-reset', `${e.detail.changedRows?.size || 0} rows cleared`);
+        addLog('changed-rows-reset', `${e.detail.rows?.length || 0} rows cleared`);
       });
     }, 50);
 

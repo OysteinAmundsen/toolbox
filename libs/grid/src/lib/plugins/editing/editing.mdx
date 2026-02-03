@@ -626,23 +626,11 @@ then press Enter or click away to see the events:
 
 <Canvas of={EditingStories.EditingEvents} withToolbar />
 
-| Event | Description |
-| ----- | ----------- |
-| `cell-commit` | Fired after a cell value is committed |
-| `row-commit` | Fired after row-based editing session ends |
-| `changed-rows-reset` | Fired when changed rows tracking is reset |
-
-### `cell-commit` Detail
-
-```ts
-interface CellCommitDetail<T> {
-  row: T;           // Row data
-  field: string;    // Field name
-  value: unknown;   // New value
-  oldValue: unknown; // Previous value
-  rowIndex: number; // Row index
-}
-```
+| Event | Type | Description |
+| ----- | ---- | ----------- |
+| `cell-commit` | [`CellCommitDetail`](/docs/grid-plugins-editing-interfaces-cellcommitdetail--docs) | Fired when a cell value is committed (cancelable) |
+| `row-commit` | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs) | Fired when a row editing session ends |
+| `changed-rows-reset` | [`ChangedRowsResetDetail`](/docs/grid-plugins-editing-interfaces-changedrowsresetdetail--docs) | Fired when `resetChangedRows()` is called |
 
 ## Configuration Validation
 

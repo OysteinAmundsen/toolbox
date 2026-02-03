@@ -6,8 +6,85 @@
 
 import type { ColumnConfig } from '../../core/types';
 
-// Re-export event types from core for consumers importing from plugin
-export type { CellCommitDetail, ChangedRowsResetDetail, RowCommitDetail } from '../../core/types';
+// ============================================================================
+// Event Detail Types - Editing-specific events
+// ============================================================================
+
+/**
+ * Event detail for cell value commit.
+ *
+ * Fired immediately when a cell value is committed. The event is cancelable -
+ * call `preventDefault()` to reject the change.
+ *
+ * @category Events
+ */
+export interface CellCommitDetail<TRow = unknown> {
+  /** The row object (not yet mutated if event is cancelable). */
+  row: TRow;
+  /** Stable row identifier (from getRowId). */
+  rowId: string;
+  /** Field name whose value changed. */
+  field: string;
+  /** Previous value before change. */
+  oldValue: unknown;
+  /** New value to be stored. */
+  value: unknown;
+  /** Index of the row in current data set. */
+  rowIndex: number;
+  /** All rows that have at least one committed change (snapshot list). */
+  changedRows: TRow[];
+  /** IDs of changed rows. */
+  changedRowIds: string[];
+  /** True if this row just entered the changed set. */
+  firstTimeForRow: boolean;
+  /**
+   * Update other fields in this row.
+   * Convenience wrapper for grid.updateRow(rowId, changes, 'cascade').
+   * Useful for cascade updates (e.g., calculating totals).
+   */
+  updateRow: (changes: Partial<TRow>) => void;
+}
+
+/**
+ * Detail payload for a committed row edit (may or may not include changes).
+ *
+ * Fired when a row editing session ends (focus leaves the row). Use this to
+ * detect if any changes were made during the editing session.
+ *
+ * @category Events
+ */
+export interface RowCommitDetail<TRow = unknown> {
+  /** Row index that lost edit focus. */
+  rowIndex: number;
+  /** Stable row identifier (from getRowId). */
+  rowId: string;
+  /** Row object reference (current state after edits). */
+  row: TRow;
+  /** Snapshot of the row before edits (for comparison). */
+  oldValue: TRow | undefined;
+  /** Current row value after edits (same as `row`). */
+  newValue: TRow;
+  /** Whether any cell changes were actually committed in this row during the session. */
+  changed: boolean;
+  /** Current changed row collection. */
+  changedRows: TRow[];
+  /** IDs of changed rows. */
+  changedRowIds: string[];
+}
+
+/**
+ * Emitted when the changed rows tracking set is cleared programmatically.
+ *
+ * Fired when `resetChangedRows()` is called.
+ *
+ * @category Events
+ */
+export interface ChangedRowsResetDetail<TRow = unknown> {
+  /** New (empty) changed rows array after reset. */
+  rows: TRow[];
+  /** IDs of changed rows (likely empty). */
+  ids: string[];
+}
 
 // ============================================================================
 // Module Augmentation - Add editing properties to column config
@@ -105,6 +182,15 @@ declare module '../../core/types' {
      * - `false`: Disable editing entirely
      */
     editOn?: 'click' | 'dblclick' | 'manual' | false;
+  }
+
+  interface DataGridEventMap<TRow = unknown> {
+    /** Fired when a cell value is committed (cancelable). */
+    'cell-commit': CellCommitDetail<TRow>;
+    /** Fired when a row editing session ends. */
+    'row-commit': RowCommitDetail<TRow>;
+    /** Fired when changed rows tracking is reset. */
+    'changed-rows-reset': ChangedRowsResetDetail<TRow>;
   }
 }
 

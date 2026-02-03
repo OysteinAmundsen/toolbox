@@ -238,9 +238,7 @@ export type {
   CellActivateTrigger,
   CellChangeDetail,
   CellClickDetail,
-  CellCommitDetail,
   CellRenderContext,
-  ChangedRowsResetDetail,
   ColumnConfig,
   ColumnConfigMap,
   ColumnEditorContext,
@@ -289,7 +287,6 @@ export type {
   // Row animation type
   RowAnimationType,
   RowClickDetail,
-  RowCommitDetail,
   // Grouping & Footer types
   RowGroupRenderConfig,
   // Data update management

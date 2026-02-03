@@ -16,7 +16,6 @@ import type {
   CellActivateDetail,
   CellChangeDetail,
   CellClickDetail,
-  ChangedRowsResetDetail,
   ColumnResizeDetail,
   GridColumnState,
   DataGridElement as GridElement,
@@ -24,6 +23,8 @@ import type {
   SortChangeDetail,
 } from '@toolbox-web/grid';
 import { DataGridElement as GridElementClass } from '@toolbox-web/grid';
+// Import editing event types from the editing plugin
+import type { ChangedRowsResetDetail } from '@toolbox-web/grid/plugins/editing';
 // Import plugin types and the two plugins always needed for Angular template integration
 import type {
   ClipboardConfig,

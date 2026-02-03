@@ -368,6 +368,92 @@ describe('EditingPlugin', () => {
       // Row should NOT be marked as changed
       expect(grid.changedRows?.length).toBe(0);
     });
+
+    it('preserves numeric type for custom column types like currency', async () => {
+      const commitHandler = vi.fn();
+      grid.addEventListener('cell-commit', commitHandler);
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          // Custom 'currency' type - should preserve number type on commit
+          { field: 'bonus', header: 'Bonus', type: 'currency', editable: true },
+        ],
+        typeDefaults: {
+          currency: {
+            formatOptions: { style: 'currency', currency: 'USD' },
+          },
+        },
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, bonus: 17287 }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const bonusCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit and commit same value
+      bonusCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = bonusCell.querySelector('input') as HTMLInputElement;
+      // Value shows as raw number in input
+      expect(input.value).toBe('17287');
+      // Submit without changing (blur triggers commit)
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // Value should still be a number, not a string
+      const currentValue = grid.rows![0].bonus;
+      expect(typeof currentValue).toBe('number');
+      expect(currentValue).toBe(17287);
+    });
+
+    it('preserves numeric type when value is changed', async () => {
+      const commitHandler = vi.fn();
+      grid.addEventListener('cell-commit', commitHandler);
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'bonus', header: 'Bonus', type: 'currency', editable: true },
+        ],
+        typeDefaults: {
+          currency: {
+            formatOptions: { style: 'currency', currency: 'USD' },
+          },
+        },
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, bonus: 17287 }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const bonusCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      bonusCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = bonusCell.querySelector('input') as HTMLInputElement;
+      // Change the value
+      input.value = '25000';
+      input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // New value should be a number, not a string
+      const newValue = grid.rows![0].bonus;
+      expect(typeof newValue).toBe('number');
+      expect(newValue).toBe(25000);
+
+      // Event detail should also have number type
+      expect(commitHandler).toHaveBeenCalled();
+      const detail = commitHandler.mock.calls[0][0].detail;
+      expect(typeof detail.value).toBe('number');
+      expect(detail.value).toBe(25000);
+    });
   });
 
   describe('manual mode', () => {

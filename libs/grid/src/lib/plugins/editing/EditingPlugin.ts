@@ -118,19 +118,30 @@ export function clearEditingState(rowEl: RowElementInternal): void {
 }
 
 /**
- * Get the typed value from an input element based on its type and column config.
+ * Get the typed value from an input element based on its type, column config, and original value.
+ * Preserves the type of the original value (e.g., numeric currency values stay as numbers).
  */
 function getInputValue(
   input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
   column?: ColumnConfig<any>,
+  originalValue?: unknown,
 ): unknown {
   if (input instanceof HTMLInputElement) {
     if (input.type === 'checkbox') return input.checked;
     if (input.type === 'number') return input.value === '' ? null : Number(input.value);
     if (input.type === 'date') return input.valueAsDate;
+    // For text inputs, check if original value was a number to preserve type
+    if (typeof originalValue === 'number') {
+      return input.value === '' ? null : Number(input.value);
+    }
     return input.value;
   }
+  // For textarea/select, check column type OR original value type
   if (column?.type === 'number' && input.value !== '') {
+    return Number(input.value);
+  }
+  // Preserve numeric type for custom column types (e.g., currency)
+  if (typeof originalValue === 'number' && input.value !== '') {
     return Number(input.value);
   }
   return input.value;
@@ -152,6 +163,7 @@ function wireEditorInputs(
   editorHost: HTMLElement,
   column: ColumnConfig<unknown>,
   commit: (value: unknown) => void,
+  originalValue?: unknown,
 ): void {
   const input = editorHost.querySelector('input,textarea,select') as
     | HTMLInputElement
@@ -161,13 +173,13 @@ function wireEditorInputs(
   if (!input) return;
 
   input.addEventListener('blur', () => {
-    commit(getInputValue(input, column));
+    commit(getInputValue(input, column, originalValue));
   });
 
   if (input instanceof HTMLInputElement && input.type === 'checkbox') {
     input.addEventListener('change', () => commit(input.checked));
   } else if (input instanceof HTMLSelectElement) {
-    input.addEventListener('change', () => commit(getInputValue(input, column)));
+    input.addEventListener('change', () => commit(getInputValue(input, column, originalValue)));
   }
 }
 
@@ -919,8 +931,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           | HTMLSelectElement
           | null;
         if (input) {
-          const val = getInputValue(input, col);
-          if (current[col.field as keyof T] !== val) {
+          const field = col.field as keyof T;
+          const originalValue = current[field];
+          const val = getInputValue(input, col, originalValue);
+          if (originalValue !== val) {
             this.#commitCellValue(rowIndex, col, val, current);
           }
         }
@@ -1159,7 +1173,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       if (typeof produced === 'string') {
         editorHost.innerHTML = produced;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        wireEditorInputs(editorHost, column as any, commit);
+        wireEditorInputs(editorHost, column as any, commit, originalValue);
       } else if (produced instanceof Node) {
         editorHost.appendChild(produced);
       }
@@ -1255,7 +1269,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       let editFinalized = false;
       input.addEventListener('blur', () => {
         if (editFinalized) return;
-        commit(getInputValue(input, column));
+        commit(getInputValue(input, column, originalValue));
       });
       input.addEventListener('keydown', (evt) => {
         const e = evt as KeyboardEvent;
@@ -1263,7 +1277,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           e.stopPropagation();
           e.preventDefault();
           editFinalized = true;
-          commit(getInputValue(input, column));
+          commit(getInputValue(input, column, originalValue));
           this.#exitRowEdit(rowIndex, false);
         }
         if (e.key === 'Escape') {

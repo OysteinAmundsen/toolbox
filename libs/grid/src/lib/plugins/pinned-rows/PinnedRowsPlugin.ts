@@ -162,7 +162,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     const filterState = this.getFilterState();
 
     const context = buildContext(
-      this.rows as unknown[],
+      this.sourceRows as unknown[],
       this.columns as unknown[],
       this.grid as unknown as HTMLElement,
       selectionState,
@@ -189,7 +189,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
         this.topAggregationContainer,
         topRows,
         this.visibleColumns as ColumnConfig[],
-        this.rows as unknown[],
+        this.sourceRows as unknown[],
       );
     } else if (this.topAggregationContainer) {
       this.topAggregationContainer.remove();
@@ -239,7 +239,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
           this.bottomAggregationContainer,
           bottomRows,
           this.visibleColumns as ColumnConfig[],
-          this.rows as unknown[],
+          this.sourceRows as unknown[],
         );
       }
 

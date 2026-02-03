@@ -337,6 +337,9 @@
         flex-direction: column;
         height: 100%;
       }
+      &:has(.selected) {
+        user-select: none;
+      }
     }
 
     .rows-body-wrapper {

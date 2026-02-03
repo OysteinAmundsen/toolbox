@@ -154,9 +154,20 @@ function createTextEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElemen
     if (params?.pattern) input.pattern = params.pattern;
     if (params?.placeholder) input.placeholder = params.placeholder;
 
-    input.addEventListener('blur', () => ctx.commit(input.value));
+    // Commit function preserves numeric type if original value was a number
+    const commit = () => {
+      const inputVal = input.value;
+      // Preserve numeric type for custom column types (e.g., currency)
+      if (typeof ctx.value === 'number' && inputVal !== '') {
+        ctx.commit(Number(inputVal));
+      } else {
+        ctx.commit(inputVal);
+      }
+    };
+
+    input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') ctx.commit(input.value);
+      if (e.key === 'Enter') commit();
       if (e.key === 'Escape') ctx.cancel();
     });
 

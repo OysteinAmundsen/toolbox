@@ -14,6 +14,7 @@ describe('PinnedRowsPlugin', () => {
   function createMockGrid(
     opts: {
       rows?: unknown[];
+      sourceRows?: unknown[];
       columns?: ColumnConfig[];
       visibleColumns?: ColumnConfig[];
       selectionState?: { selected: Set<number> } | null;
@@ -37,7 +38,10 @@ describe('PinnedRowsPlugin', () => {
     grid.appendChild(container);
 
     // Attach mock properties
+    // sourceRows is the original unprocessed data (used for aggregations)
+    // rows is the processed data (may include group markers when grouping is active)
     Object.defineProperty(grid, 'rows', { get: () => opts.rows ?? [], configurable: true });
+    Object.defineProperty(grid, 'sourceRows', { get: () => opts.sourceRows ?? opts.rows ?? [], configurable: true });
     Object.defineProperty(grid, 'columns', { get: () => opts.columns ?? [], configurable: true });
     Object.defineProperty(grid, '_visibleColumns', {
       get: () => opts.visibleColumns ?? opts.columns ?? [],
@@ -245,11 +249,46 @@ describe('PinnedRowsPlugin', () => {
 
       expect(grid.querySelector('.tbw-status-panel-row-count')?.textContent).toBe('Total: 1 rows');
 
-      // Simulate row change
-      Object.defineProperty(grid, 'rows', { get: () => [{ id: 1 }, { id: 2 }, { id: 3 }] });
+      // Simulate row change - update both rows and sourceRows
+      const newRows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      Object.defineProperty(grid, 'rows', { get: () => newRows, configurable: true });
+      Object.defineProperty(grid, 'sourceRows', { get: () => newRows, configurable: true });
       plugin.afterRender();
 
       expect(grid.querySelector('.tbw-status-panel-row-count')?.textContent).toBe('Total: 3 rows');
+    });
+
+    it('should use sourceRows for aggregation when rows contains group markers', () => {
+      // When row grouping is active, `rows` contains group markers like { kind: 'group', ... }
+      // but aggregations should still calculate correctly using sourceRows (original data)
+      const columns = [{ field: 'amount' }];
+      const sourceData = [{ amount: 100 }, { amount: 150 }, { amount: 50 }];
+      // Simulated processed rows with group markers (like GroupingRowsPlugin produces)
+      const processedRows = [
+        { kind: 'group', key: 'group1', value: 'A', rows: sourceData.slice(0, 2) },
+        { kind: 'data', row: sourceData[0] },
+        { kind: 'data', row: sourceData[1] },
+        { kind: 'group', key: 'group2', value: 'B', rows: [sourceData[2]] },
+        { kind: 'data', row: sourceData[2] },
+      ];
+
+      const plugin = new PinnedRowsPlugin({
+        aggregationRows: [{ id: 'totals', aggregators: { amount: 'sum' } }],
+      });
+      const grid = createMockGrid({
+        rows: processedRows, // processed rows with group markers
+        sourceRows: sourceData, // original data for aggregation
+        columns,
+        visibleColumns: columns,
+      });
+
+      plugin.attach(grid);
+      plugin.afterRender();
+
+      const footer = grid.querySelector('.tbw-footer');
+      const aggCell = footer?.querySelector('[data-field="amount"]');
+      // Should sum sourceRows (100 + 150 + 50 = 300), not process group markers
+      expect(aggCell?.textContent).toBe('300');
     });
 
     it('should clean up top aggregation when removed', () => {

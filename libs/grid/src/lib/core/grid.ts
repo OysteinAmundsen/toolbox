@@ -53,6 +53,7 @@ import type {
   ColumnConfig,
   ColumnConfigMap,
   ColumnInternal,
+  DataGridEventMap,
   FitMode,
   FrameworkAdapter,
   GridColumnState,
@@ -1654,6 +1655,69 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#measureRowHeight();
     });
     this.#rowHeightObserver.observe(firstRow);
+  }
+
+  // ---------------- Typed Event Listeners ----------------
+  /**
+   * Add a typed event listener for grid events.
+   *
+   * This override provides type-safe event handling for DataGrid-specific events.
+   * The event detail is automatically typed based on the event name.
+   *
+   * @example
+   * ```typescript
+   * // Type-safe: detail is CellClickDetail<Employee>
+   * grid.addEventListener('cell-click', (e) => {
+   *   console.log(e.detail.field, e.detail.value);
+   * });
+   *
+   * // Works with editing events when EditingPlugin is imported
+   * grid.addEventListener('cell-commit', (e) => {
+   *   console.log(e.detail.oldValue, '→', e.detail.value);
+   * });
+   * ```
+   *
+   * @category Events
+   */
+  addEventListener<K extends keyof DataGridEventMap<T>>(
+    type: K,
+    listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject | ((ev: CustomEvent) => void),
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    super.addEventListener(type, listener as EventListener, options);
+  }
+
+  /**
+   * Remove a typed event listener for grid events.
+   *
+   * @category Events
+   */
+  removeEventListener<K extends keyof DataGridEventMap<T>>(
+    type: K,
+    listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
+    options?: boolean | EventListenerOptions,
+  ): void;
+  removeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | EventListenerOptions,
+  ): void;
+  removeEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject | ((ev: CustomEvent) => void),
+    options?: boolean | EventListenerOptions,
+  ): void {
+    super.removeEventListener(type, listener as EventListener, options);
   }
 
   // ---------------- Event Emitters ----------------

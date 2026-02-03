@@ -678,17 +678,17 @@ grid.addEventListener('changed-rows-reset', (e) => {
         log.innerHTML = '';
       });
 
-      grid.addEventListener('cell-commit', (e: CustomEvent) => {
+      grid.addEventListener('cell-commit', (e) => {
         const d = e.detail;
         addLog('cell-commit', `field="${d.field}", "${d.oldValue}" → "${d.value}"`);
       });
 
-      grid.addEventListener('row-commit', (e: CustomEvent) => {
+      grid.addEventListener('row-commit', (e) => {
         const d = e.detail;
         addLog('row-commit', `row ${d.rowIndex} (${d.rowId}), changed: ${d.changed}`);
       });
 
-      grid.addEventListener('changed-rows-reset', (e: CustomEvent) => {
+      grid.addEventListener('changed-rows-reset', (e) => {
         addLog('changed-rows-reset', `${e.detail.rows?.length || 0} rows cleared`);
       });
     }, 50);

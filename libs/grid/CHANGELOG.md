@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.9.1...grid-1.9.2) (2026-02-03)
+
+
+### Bug Fixes
+
+* **grid:** column virtualization scrolling and add requestColumnsRender API ([9b3c67b](https://github.com/OysteinAmundsen/toolbox/commit/9b3c67bd333ffb050f0b98498beeae00d7d40991))
+
 ## [1.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.9.0...grid-1.9.1) (2026-02-02)
 
 

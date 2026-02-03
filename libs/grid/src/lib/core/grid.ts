@@ -259,6 +259,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Event Listeners ----------------
   #eventListenersAdded = false; // Guard against adding duplicate component-level listeners
   #scrollAbortController?: AbortController; // Separate controller for DOM scroll listeners (recreated on DOM changes)
+  #scrollAreaEl?: HTMLElement; // Reference to horizontal scroll container (.tbw-scroll-area)
 
   // ---------------- Column State ----------------
   #initialColumnState?: GridColumnState;
@@ -939,6 +940,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Request a columns re-render of the grid.
+   * Called by plugins when they need to trigger processColumns hooks.
+   * This uses a higher render phase than requestRender() to ensure
+   * column processing occurs.
+   * @group Rendering
+   * @internal Plugin API
+   */
+  requestColumnsRender(): void {
+    this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'plugin:requestColumnsRender');
+  }
+
+  /**
    * Request a full re-render and restore focus styling afterward.
    * Use this when a plugin action (like expand/collapse) triggers a render
    * but needs to maintain keyboard navigation focus.
@@ -1494,12 +1507,35 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         { passive: true, signal: scrollSignal },
       );
 
+      // Horizontal scroll listener on scroll area
+      // This is needed for plugins like column virtualization that need to respond to horizontal scroll
+      const scrollArea = this.#renderRoot.querySelector('.tbw-scroll-area') as HTMLElement;
+      this.#scrollAreaEl = scrollArea; // Store reference for use in #onScrollBatched
+      if (scrollArea && this.#hasScrollPlugins) {
+        scrollArea.addEventListener(
+          'scroll',
+          () => {
+            // Dispatch horizontal scroll to plugins
+            const scrollEvent = this.#pooledScrollEvent;
+            scrollEvent.scrollTop = fauxScrollbar.scrollTop;
+            scrollEvent.scrollLeft = scrollArea.scrollLeft;
+            scrollEvent.scrollHeight = fauxScrollbar.scrollHeight;
+            scrollEvent.scrollWidth = scrollArea.scrollWidth;
+            scrollEvent.clientHeight = fauxScrollbar.clientHeight;
+            scrollEvent.clientWidth = scrollArea.clientWidth;
+            this.#pluginManager?.onScroll(scrollEvent);
+          },
+          { passive: true, signal: scrollSignal },
+        );
+      }
+
       // Forward wheel events from content area to faux scrollbar
       // Without this, mouse wheel over content wouldn't scroll
       // Listen on .tbw-grid-content to capture wheel events from entire grid area
       // Note: gridRoot may already BE .tbw-grid-content when shell is active, so search from shadow root
       const gridContentEl = this.#renderRoot.querySelector('.tbw-grid-content') as HTMLElement;
-      const scrollArea = this.#renderRoot.querySelector('.tbw-scroll-area') as HTMLElement;
+      // Use the already-stored scrollArea reference
+      const scrollAreaForWheel = this.#scrollAreaEl;
       if (gridContentEl) {
         gridContentEl.addEventListener(
           'wheel',
@@ -1507,13 +1543,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             // SHIFT+wheel or trackpad deltaX = horizontal scroll
             const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
 
-            if (isHorizontal && scrollArea) {
+            if (isHorizontal && scrollAreaForWheel) {
               const delta = e.shiftKey ? e.deltaY : e.deltaX;
-              const { scrollLeft, scrollWidth, clientWidth } = scrollArea;
+              const { scrollLeft, scrollWidth, clientWidth } = scrollAreaForWheel;
               const canScroll = (delta > 0 && scrollLeft < scrollWidth - clientWidth) || (delta < 0 && scrollLeft > 0);
               if (canScroll) {
                 e.preventDefault();
-                scrollArea.scrollLeft += delta;
+                scrollAreaForWheel.scrollLeft += delta;
               }
             } else if (!isHorizontal) {
               const { scrollTop, scrollHeight, clientHeight } = fauxScrollbar;
@@ -1532,7 +1568,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         // Touch scrolling support for mobile devices
         // Supports both vertical (via faux scrollbar) and horizontal (via scroll area) scrolling
         // Includes momentum scrolling for natural "flick" behavior
-        setupTouchScrollListeners(gridContentEl, this.#touchState, { fauxScrollbar, scrollArea }, scrollSignal);
+        setupTouchScrollListeners(
+          gridContentEl,
+          this.#touchState,
+          { fauxScrollbar, scrollArea: scrollAreaForWheel },
+          scrollSignal,
+        );
       }
     }
 
@@ -2209,14 +2250,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Dispatch to plugins (using cached flag and pooled event object to avoid GC)
     if (this.#hasScrollPlugins) {
       const fauxScrollbar = this._virtualization.container;
+      const scrollArea = this.#scrollAreaEl;
       // Reuse pooled event object - update values in-place instead of allocating new object
       const scrollEvent = this.#pooledScrollEvent;
       scrollEvent.scrollTop = scrollTop;
-      scrollEvent.scrollLeft = fauxScrollbar?.scrollLeft ?? 0;
+      // Get horizontal scroll from scroll area (where horizontal scrolling actually happens)
+      scrollEvent.scrollLeft = scrollArea?.scrollLeft ?? 0;
       scrollEvent.scrollHeight = fauxScrollbar?.scrollHeight ?? 0;
-      scrollEvent.scrollWidth = fauxScrollbar?.scrollWidth ?? 0;
+      scrollEvent.scrollWidth = scrollArea?.scrollWidth ?? 0;
       scrollEvent.clientHeight = fauxScrollbar?.clientHeight ?? 0;
-      scrollEvent.clientWidth = fauxScrollbar?.clientWidth ?? 0;
+      scrollEvent.clientWidth = scrollArea?.clientWidth ?? 0;
       // Note: originalEvent removed to avoid allocation - plugins should not rely on it
       this.#pluginManager?.onScroll(scrollEvent);
     }

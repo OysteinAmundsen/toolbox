@@ -37,6 +37,11 @@ const meta: Meta = {
   tags: ['!dev'],
   parameters: { layout: 'fullscreen' },
   argTypes: {
+    columnCount: {
+      control: { type: 'range', min: 10, max: 1000, step: 10 },
+      description: 'Number of columns to generate',
+      table: { category: 'Data', defaultValue: { summary: '50' } },
+    },
     autoEnable: {
       control: { type: 'boolean' },
       description: 'Auto-enable when column count exceeds threshold',
@@ -54,6 +59,7 @@ const meta: Meta = {
     },
   },
   args: {
+    columnCount: 50,
     autoEnable: true,
     threshold: 30,
     overscan: 3,
@@ -62,6 +68,7 @@ const meta: Meta = {
 export default meta;
 
 interface ColumnVirtualizationArgs {
+  columnCount: number;
   autoEnable: boolean;
   threshold: number;
   overscan: number;
@@ -130,8 +137,8 @@ grid.rows = generateRows(100, 50);
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 
-    const columns = generateColumns(50);
-    const rows = generateRows(100, 50);
+    const columns = generateColumns(args.columnCount);
+    const rows = generateRows(100, args.columnCount);
 
     grid.gridConfig = {
       columns,
@@ -143,118 +150,6 @@ grid.rows = generateRows(100, 50);
           overscan: args.overscan,
         }),
       ],
-    };
-    grid.rows = rows;
-
-    return grid;
-  },
-};
-
-/**
- * Wide grid with 100 columns — virtualization is essential for performance.
- */
-export const WideGrid: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
-
-// See Default example for generateColumns and generateRows functions
-
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  columns: generateColumns(100), // 100 columns!
-  fitMode: 'fixed',
-  plugins: [
-    new ColumnVirtualizationPlugin({
-      threshold: 20, // Enable at 20+ columns
-      overscan: 5, // Extra columns on each side
-    }),
-  ],
-};
-
-grid.rows = generateRows(50, 100);
-</script>
-`,
-        language: 'html',
-      },
-    },
-  },
-  args: {
-    threshold: 20,
-    overscan: 5,
-  },
-  render: (args: ColumnVirtualizationArgs) => {
-    const grid = document.createElement('tbw-grid') as GridElement;
-    grid.style.height = '400px';
-
-    const columns = generateColumns(100);
-    const rows = generateRows(50, 100);
-
-    grid.gridConfig = {
-      columns,
-      fitMode: 'fixed',
-      plugins: [
-        new ColumnVirtualizationPlugin({
-          autoEnable: args.autoEnable,
-          threshold: args.threshold,
-          overscan: args.overscan,
-        }),
-      ],
-    };
-    grid.rows = rows;
-
-    return grid;
-  },
-};
-
-/**
- * Disabled virtualization — all columns rendered (may be slower).
- */
-export const DisabledVirtualization: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  columns: generateColumns(50),
-  fitMode: 'fixed',
-  // No ColumnVirtualizationPlugin - all columns rendered
-};
-grid.rows = [...];
-</script>
-`,
-        language: 'html',
-      },
-    },
-  },
-  args: {
-    autoEnable: false,
-  },
-  render: () => {
-    const grid = document.createElement('tbw-grid') as GridElement;
-    grid.style.height = '400px';
-
-    const columns = generateColumns(50);
-    const rows = generateRows(100, 50);
-
-    grid.gridConfig = {
-      columns,
-      fitMode: 'fixed',
-      // No ColumnVirtualizationPlugin - all columns rendered
     };
     grid.rows = rows;
 

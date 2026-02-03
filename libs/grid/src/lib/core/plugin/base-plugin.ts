@@ -643,9 +643,19 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
 
   /**
    * Request a re-render of the grid.
+   * Uses ROWS phase - does NOT trigger processColumns hooks.
    */
   protected requestRender(): void {
     this.grid?.requestRender?.();
+  }
+
+  /**
+   * Request a columns re-render of the grid.
+   * Uses COLUMNS phase - triggers processColumns hooks.
+   * Use this when your plugin needs to reprocess column configuration.
+   */
+  protected requestColumnsRender(): void {
+    (this.grid as { requestColumnsRender?: () => void })?.requestColumnsRender?.();
   }
 
   /**

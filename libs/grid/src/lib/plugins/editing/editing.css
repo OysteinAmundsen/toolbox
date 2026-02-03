@@ -84,5 +84,20 @@
     .data-grid-row.changed {
       /* Could add a left border or background tint here */
     }
+
+    /* ============================================================================
+     Invalid Cell Indicator
+     ============================================================================ */
+
+    /* Default invalid cell color - can be overridden by consumers */
+    --tbw-invalid-bg: light-dark(#fef2f2, #450a0a);
+    --tbw-invalid-border-color: light-dark(#ef4444, #f87171);
+
+    /* Visual indicator for cells marked as invalid */
+    .data-grid-row > .cell[data-invalid='true'] {
+      background: var(--tbw-invalid-bg);
+      outline: 1px solid var(--tbw-invalid-border-color);
+      outline-offset: -1px;
+    }
   }
 } /* End @layer tbw-plugins */

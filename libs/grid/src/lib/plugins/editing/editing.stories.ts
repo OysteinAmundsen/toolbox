@@ -696,3 +696,130 @@ grid.addEventListener('changed-rows-reset', (e) => {
     return container;
   },
 };
+
+/**
+ * ## Cell Validation
+ *
+ * Use `setInvalid()` in the `cell-commit` event to mark cells as invalid without
+ * canceling the edit. Invalid cells are highlighted and can be styled with CSS.
+ *
+ * Use `preventDefault()` in `row-commit` to reject the entire row if it has
+ * invalid cells, reverting all changes to the original values.
+ *
+ * - **Email**: Must contain `@`
+ * - **Salary**: Must be positive
+ *
+ * Try entering invalid values, then click away from the row to see validation in action.
+ */
+export const CellValidation: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+import { queryGrid } from '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const grid = queryGrid('tbw-grid');
+const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'email', header: 'Email', editable: true },
+    { field: 'salary', header: 'Salary', type: 'number', editable: true },
+  ],
+  plugins: [editingPlugin],
+};
+
+// Mark invalid cells (but don't cancel the edit)
+grid.addEventListener('cell-commit', (e) => {
+  const { field, value, setInvalid } = e.detail;
+
+  if (field === 'email' && typeof value === 'string' && !value.includes('@')) {
+    setInvalid('Email must contain @');
+  }
+
+  if (field === 'salary' && typeof value === 'number' && value < 0) {
+    setInvalid('Salary must be positive');
+  }
+});
+
+// Reject row commit if there are invalid cells
+grid.addEventListener('row-commit', (e) => {
+  const { rowId } = e.detail;
+  if (editingPlugin.hasInvalidCells(rowId)) {
+    e.preventDefault(); // Reverts entire row to original values
+    alert('Please fix validation errors before leaving the row');
+  }
+});
+        `,
+        language: 'typescript',
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+
+    const instructions = document.createElement('div');
+    instructions.style.cssText =
+      'padding: 12px; background: var(--sbdocs-bg); border: 1px solid var(--sb-border); border-radius: 4px; font-size: 13px;';
+    instructions.innerHTML = `
+      <strong>Validation Rules:</strong>
+      <ul style="margin: 8px 0 0 16px; padding: 0;">
+        <li><strong>Email</strong>: Must contain @</li>
+        <li><strong>Salary</strong>: Must be positive (&gt; 0)</li>
+      </ul>
+      <p style="margin: 8px 0 0;">Try entering invalid values, then click outside the row.</p>
+    `;
+    container.appendChild(instructions);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '250px';
+
+    const editingPlugin = new EditingPlugin<{ id: number; name: string; email: string; salary: number }>({
+      editOn: 'dblclick',
+    });
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'name', header: 'Name', editable: true },
+        { field: 'email', header: 'Email', editable: true },
+        { field: 'salary', header: 'Salary', type: 'number' as const, editable: true },
+      ],
+      plugins: [editingPlugin],
+    };
+
+    grid.rows = [
+      { id: 1, name: 'Alice', email: 'alice@example.com', salary: 85000 },
+      { id: 2, name: 'Bob', email: 'bob@example.com', salary: 72000 },
+      { id: 3, name: 'Carol', email: 'carol@example.com', salary: 68000 },
+    ];
+
+    // Mark invalid cells (but don't cancel the edit)
+    grid.addEventListener('cell-commit', (e) => {
+      const { field, value, setInvalid } = e.detail;
+
+      if (field === 'email' && typeof value === 'string' && !value.includes('@')) {
+        setInvalid('Email must contain @');
+      }
+
+      if (field === 'salary' && typeof value === 'number' && value < 0) {
+        setInvalid('Salary must be positive');
+      }
+    });
+
+    // Reject row commit if there are invalid cells
+    grid.addEventListener('row-commit', (e) => {
+      const { rowId } = e.detail;
+      if (editingPlugin.hasInvalidCells(rowId)) {
+        e.preventDefault(); // Reverts entire row to original values
+        // In real app, show a toast or inline message instead of alert
+        console.warn('Row reverted due to validation errors');
+      }
+    });
+
+    container.appendChild(grid);
+    return container;
+  },
+};

@@ -1679,17 +1679,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * @category Events
    */
-  addEventListener<K extends keyof DataGridEventMap<T>>(
+  override addEventListener<K extends keyof DataGridEventMap<T>>(
     type: K,
     listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
     options?: boolean | AddEventListenerOptions,
   ): void;
-  addEventListener(
+  override addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject,
     options?: boolean | AddEventListenerOptions,
   ): void;
-  addEventListener(
+  override addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | ((ev: CustomEvent) => void),
     options?: boolean | AddEventListenerOptions,
@@ -1702,17 +1702,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * @category Events
    */
-  removeEventListener<K extends keyof DataGridEventMap<T>>(
+  override removeEventListener<K extends keyof DataGridEventMap<T>>(
     type: K,
     listener: (this: DataGridElement<T>, ev: CustomEvent<DataGridEventMap<T>[K]>) => void,
     options?: boolean | EventListenerOptions,
   ): void;
-  removeEventListener(
+  override removeEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject,
     options?: boolean | EventListenerOptions,
   ): void;
-  removeEventListener(
+  override removeEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | ((ev: CustomEvent) => void),
     options?: boolean | EventListenerOptions,

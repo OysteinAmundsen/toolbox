@@ -629,8 +629,43 @@ then press Enter or click away to see the events:
 | Event | Type | Description |
 | ----- | ---- | ----------- |
 | `cell-commit` | [`CellCommitDetail`](/docs/grid-plugins-editing-interfaces-cellcommitdetail--docs) | Fired when a cell value is committed (cancelable) |
-| `row-commit` | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs) | Fired when a row editing session ends |
+| `row-commit` | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs) | Fired when a row editing session ends (cancelable) |
 | `changed-rows-reset` | [`ChangedRowsResetDetail`](/docs/grid-plugins-editing-interfaces-changedrowsresetdetail--docs) | Fired when `resetChangedRows()` is called |
+
+## Cell Validation
+
+Use `setInvalid()` in the `cell-commit` event to mark cells as invalid without canceling the edit.
+Invalid cells are highlighted with a red outline and can be styled with CSS custom properties.
+
+Use `preventDefault()` in the `row-commit` event to reject the entire row if validation fails,
+reverting all changes to the original values.
+
+<Canvas of={EditingStories.CellValidation} withToolbar />
+
+### Validation Methods
+
+The EditingPlugin provides these methods for managing validation state:
+
+| Method | Description |
+| ------ | ----------- |
+| `setInvalid(rowId, field, message?)` | Mark a cell as invalid |
+| `clearInvalid(rowId, field)` | Clear invalid state for a cell |
+| `clearRowInvalid(rowId)` | Clear all invalid cells in a row |
+| `clearAllInvalid()` | Clear all invalid cells |
+| `isCellInvalid(rowId, field)` | Check if a cell is invalid |
+| `hasInvalidCells(rowId)` | Check if a row has any invalid cells |
+| `getInvalidMessage(rowId, field)` | Get the validation message |
+
+### CSS Custom Properties
+
+Style invalid cells by overriding these CSS variables:
+
+```css
+tbw-grid {
+  --tbw-invalid-bg: #fef2f2;
+  --tbw-invalid-border-color: #ef4444;
+}
+```
 
 ## Configuration Validation
 

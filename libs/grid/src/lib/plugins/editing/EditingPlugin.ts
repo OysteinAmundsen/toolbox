@@ -347,6 +347,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Row index pending animation after render, or -1 if none */
   #pendingRowAnimation = -1;
 
+  /**
+   * Invalid cell tracking: Map<rowId, Map<field, message>>
+   * Used for validation feedback without canceling edits.
+   */
+  #invalidCells = new Map<string, Map<string, string>>();
+
   // #endregion
 
   // #region Lifecycle
@@ -759,6 +765,161 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     return this.#changedRowIds.has(rowId);
   }
 
+  // #region Cell Validation
+
+  /**
+   * Mark a cell as invalid with an optional validation message.
+   * Invalid cells are marked with a `data-invalid` attribute for styling.
+   *
+   * @param rowId - The row ID (from getRowId)
+   * @param field - The field name
+   * @param message - Optional validation message (for tooltips or display)
+   *
+   * @example
+   * ```typescript
+   * // In cell-commit handler:
+   * grid.addEventListener('cell-commit', (e) => {
+   *   if (e.detail.field === 'email' && !isValidEmail(e.detail.value)) {
+   *     e.detail.setInvalid('Invalid email format');
+   *   }
+   * });
+   *
+   * // Or programmatically:
+   * editingPlugin.setInvalid('row-123', 'email', 'Invalid email format');
+   * ```
+   */
+  setInvalid(rowId: string, field: string, message = ''): void {
+    let rowInvalids = this.#invalidCells.get(rowId);
+    if (!rowInvalids) {
+      rowInvalids = new Map();
+      this.#invalidCells.set(rowId, rowInvalids);
+    }
+    rowInvalids.set(field, message);
+    this.#syncInvalidCellAttribute(rowId, field, true);
+  }
+
+  /**
+   * Clear the invalid state for a specific cell.
+   *
+   * @param rowId - The row ID (from getRowId)
+   * @param field - The field name
+   */
+  clearInvalid(rowId: string, field: string): void {
+    const rowInvalids = this.#invalidCells.get(rowId);
+    if (rowInvalids) {
+      rowInvalids.delete(field);
+      if (rowInvalids.size === 0) {
+        this.#invalidCells.delete(rowId);
+      }
+    }
+    this.#syncInvalidCellAttribute(rowId, field, false);
+  }
+
+  /**
+   * Clear all invalid cells for a specific row.
+   *
+   * @param rowId - The row ID (from getRowId)
+   */
+  clearRowInvalid(rowId: string): void {
+    const rowInvalids = this.#invalidCells.get(rowId);
+    if (rowInvalids) {
+      const fields = Array.from(rowInvalids.keys());
+      this.#invalidCells.delete(rowId);
+      fields.forEach((field) => this.#syncInvalidCellAttribute(rowId, field, false));
+    }
+  }
+
+  /**
+   * Clear all invalid cell states across all rows.
+   */
+  clearAllInvalid(): void {
+    const entries = Array.from(this.#invalidCells.entries());
+    this.#invalidCells.clear();
+    entries.forEach(([rowId, fields]) => {
+      fields.forEach((_, field) => this.#syncInvalidCellAttribute(rowId, field, false));
+    });
+  }
+
+  /**
+   * Check if a specific cell is marked as invalid.
+   *
+   * @param rowId - The row ID (from getRowId)
+   * @param field - The field name
+   * @returns True if the cell is marked as invalid
+   */
+  isCellInvalid(rowId: string, field: string): boolean {
+    return this.#invalidCells.get(rowId)?.has(field) ?? false;
+  }
+
+  /**
+   * Get the validation message for an invalid cell.
+   *
+   * @param rowId - The row ID (from getRowId)
+   * @param field - The field name
+   * @returns The validation message, or undefined if cell is valid
+   */
+  getInvalidMessage(rowId: string, field: string): string | undefined {
+    return this.#invalidCells.get(rowId)?.get(field);
+  }
+
+  /**
+   * Check if a row has any invalid cells.
+   *
+   * @param rowId - The row ID (from getRowId)
+   * @returns True if the row has at least one invalid cell
+   */
+  hasInvalidCells(rowId: string): boolean {
+    const rowInvalids = this.#invalidCells.get(rowId);
+    return rowInvalids ? rowInvalids.size > 0 : false;
+  }
+
+  /**
+   * Get all invalid fields for a row.
+   *
+   * @param rowId - The row ID (from getRowId)
+   * @returns Map of field names to validation messages
+   */
+  getInvalidFields(rowId: string): Map<string, string> {
+    return new Map(this.#invalidCells.get(rowId) ?? []);
+  }
+
+  /**
+   * Sync the data-invalid attribute on a cell element.
+   */
+  #syncInvalidCellAttribute(rowId: string, field: string, invalid: boolean): void {
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const colIndex = internalGrid._visibleColumns?.findIndex((c) => c.field === field);
+    if (colIndex === -1 || colIndex === undefined) return;
+
+    // Find the row element by rowId
+    const rows = internalGrid._rows;
+    const rowIndex = rows?.findIndex((r) => {
+      try {
+        return internalGrid.getRowId?.(r) === rowId;
+      } catch {
+        return false;
+      }
+    });
+    if (rowIndex === -1 || rowIndex === undefined) return;
+
+    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
+    const cellEl = rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
+    if (!cellEl) return;
+
+    if (invalid) {
+      cellEl.setAttribute('data-invalid', 'true');
+      const message = this.#invalidCells.get(rowId)?.get(field);
+      if (message) {
+        cellEl.setAttribute('title', message);
+      }
+    } else {
+      cellEl.removeAttribute('data-invalid');
+      cellEl.removeAttribute('title');
+    }
+  }
+
+  // #endregion
+
   /**
    * Reset all change tracking.
    * @param silent - If true, suppresses the `changed-rows-reset` event
@@ -964,6 +1125,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       });
       if (rowId) {
         this.#changedRowIds.delete(rowId);
+        this.clearRowInvalid(rowId);
       }
     } else if (!revert && current) {
       // Compare snapshot vs current to detect if changes were made during THIS edit session
@@ -973,7 +1135,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // Fall back to session-based detection when no row ID is available
       const changed = rowId ? this.#changedRowIds.has(rowId) : changedThisSession;
 
-      this.emit<RowCommitDetail<T>>('row-commit', {
+      // Emit cancelable row-commit event
+      const cancelled = this.emitCancelable<RowCommitDetail<T>>('row-commit', {
         rowIndex,
         rowId: rowId ?? '',
         row: current,
@@ -984,9 +1147,18 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         changedRowIds: this.changedRowIds,
       });
 
-      // Animate the row only if changes were made during this edit session
-      // (deferred to afterRender so the row element exists after re-render)
-      if (changedThisSession && this.isAnimationEnabled) {
+      // If consumer called preventDefault(), revert the row
+      if (cancelled && snapshot) {
+        Object.keys(snapshot as object).forEach((k) => {
+          (current as Record<string, unknown>)[k] = (snapshot as Record<string, unknown>)[k];
+        });
+        if (rowId) {
+          this.#changedRowIds.delete(rowId);
+          this.clearRowInvalid(rowId);
+        }
+      } else if (!cancelled && changedThisSession && this.isAnimationEnabled) {
+        // Animate the row only if changes were made during this edit session
+        // (deferred to afterRender so the row element exists after re-render)
         this.#pendingRowAnimation = rowIndex;
       }
     }
@@ -1053,6 +1225,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       ? (changes) => this.grid.updateRow(rowId!, changes as Record<string, unknown>, 'cascade')
       : noopUpdateRow;
 
+    // Track whether setInvalid was called during event handling
+    let invalidWasSet = false;
+
+    // Create setInvalid callback for validation (noop if row has no ID)
+    const setInvalid = rowId
+      ? (message?: string) => {
+          invalidWasSet = true;
+          this.setInvalid(rowId!, field, message ?? '');
+        }
+      : () => {}; // eslint-disable-line @typescript-eslint/no-empty-function
+
     // Emit cancelable event BEFORE applying the value
     const cancelled = this.emitCancelable<CellCommitDetail<T>>('cell-commit', {
       row: rowData,
@@ -1065,10 +1248,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       changedRowIds: this.changedRowIds,
       firstTimeForRow: firstTime,
       updateRow,
+      setInvalid,
     });
 
     // If consumer called preventDefault(), abort the commit
     if (cancelled) return;
+
+    // Clear any previous invalid state for this cell ONLY if setInvalid wasn't called
+    // (if setInvalid was called, the handler wants it to remain invalid)
+    if (rowId && !invalidWasSet && this.isCellInvalid(rowId, field)) {
+      this.clearInvalid(rowId, field);
+    }
 
     // Apply the value and mark row as changed
     (rowData as Record<string, unknown>)[field] = newValue;

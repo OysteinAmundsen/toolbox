@@ -16,6 +16,9 @@ import type { ColumnConfig } from '../../core/types';
  * Fired immediately when a cell value is committed. The event is cancelable -
  * call `preventDefault()` to reject the change.
  *
+ * Use `setInvalid()` to mark the cell as invalid without canceling the commit.
+ * Invalid cells can be styled via `cellClass` and will be highlighted.
+ *
  * @category Events
  */
 export interface CellCommitDetail<TRow = unknown> {
@@ -43,13 +46,46 @@ export interface CellCommitDetail<TRow = unknown> {
    * Useful for cascade updates (e.g., calculating totals).
    */
   updateRow: (changes: Partial<TRow>) => void;
+  /**
+   * Mark this cell as invalid with an optional validation message.
+   * The cell remains editable but will be marked with `data-invalid` attribute.
+   * Use `cellClass` to apply custom styling to invalid cells.
+   *
+   * Call with no message to mark as invalid, or pass a message for tooltips/display.
+   * Call `clearInvalid()` on the plugin to remove the invalid state.
+   *
+   * @example
+   * ```typescript
+   * grid.addEventListener('cell-commit', (e) => {
+   *   if (e.detail.field === 'email' && !isValidEmail(e.detail.value)) {
+   *     e.detail.setInvalid('Please enter a valid email address');
+   *   }
+   * });
+   * ```
+   */
+  setInvalid: (message?: string) => void;
 }
 
 /**
  * Detail payload for a committed row edit (may or may not include changes).
  *
- * Fired when a row editing session ends (focus leaves the row). Use this to
- * detect if any changes were made during the editing session.
+ * Fired when a row editing session ends (focus leaves the row). The event is
+ * cancelable - call `preventDefault()` to revert the entire row to its state
+ * before editing began.
+ *
+ * Use this for row-level validation: if any cells are invalid, reject the
+ * entire row edit and force the user to correct the values.
+ *
+ * @example
+ * ```typescript
+ * grid.addEventListener('row-commit', (e) => {
+ *   const editingPlugin = grid.getPlugin(EditingPlugin);
+ *   if (editingPlugin?.hasInvalidCells(e.detail.rowId)) {
+ *     e.preventDefault(); // Revert row to original values
+ *     alert('Please fix validation errors before leaving the row');
+ *   }
+ * });
+ * ```
  *
  * @category Events
  */

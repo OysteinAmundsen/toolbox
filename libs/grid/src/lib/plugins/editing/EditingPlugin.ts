@@ -119,7 +119,8 @@ export function clearEditingState(rowEl: RowElementInternal): void {
 
 /**
  * Get the typed value from an input element based on its type, column config, and original value.
- * Preserves the type of the original value (e.g., numeric currency values stay as numbers).
+ * Preserves the type of the original value (e.g., numeric currency values stay as numbers,
+ * string dates stay as strings).
  */
 function getInputValue(
   input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
@@ -129,7 +130,13 @@ function getInputValue(
   if (input instanceof HTMLInputElement) {
     if (input.type === 'checkbox') return input.checked;
     if (input.type === 'number') return input.value === '' ? null : Number(input.value);
-    if (input.type === 'date') return input.valueAsDate;
+    if (input.type === 'date') {
+      // Preserve original type: if original was a string, return string (YYYY-MM-DD format)
+      if (typeof originalValue === 'string') {
+        return input.value; // input.value is already in YYYY-MM-DD format
+      }
+      return input.valueAsDate;
+    }
     // For text inputs, check if original value was a number to preserve type
     if (typeof originalValue === 'number') {
       return input.value === '' ? null : Number(input.value);
@@ -917,6 +924,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
     }
 
+    // Track whether the row was already changed BEFORE this edit session
+    const wasChangedBefore = rowId ? this.#changedRowIds.has(rowId) : false;
+
     // Collect and commit values from active editors before re-rendering
     if (!revert && rowEl && current) {
       const editingCells = rowEl.querySelectorAll('.cell.editing');
@@ -951,6 +961,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
     } else if (!revert && current) {
       const changed = rowId ? this.#changedRowIds.has(rowId) : false;
+      // Only animate if changes were made DURING this edit session (not from before)
+      const changedThisSession = changed && !wasChangedBefore;
+
       this.emit<RowCommitDetail<T>>('row-commit', {
         rowIndex,
         rowId: rowId ?? '',
@@ -960,8 +973,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         changedRowIds: this.changedRowIds,
       });
 
-      // Animate the row if changes were committed
-      if (changed && this.isAnimationEnabled) {
+      // Animate the row only if changes were made during this edit session
+      if (changedThisSession && this.isAnimationEnabled) {
         internalGrid.animateRow?.(rowIndex, 'change');
       }
     }

@@ -80,12 +80,28 @@ function createDateEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElemen
     const input = document.createElement('input');
     input.type = 'date';
 
-    if (ctx.value instanceof Date) input.valueAsDate = ctx.value;
+    // Set initial value - handle both Date objects and string dates
+    if (ctx.value instanceof Date) {
+      input.valueAsDate = ctx.value;
+    } else if (typeof ctx.value === 'string' && ctx.value) {
+      // String date like "2019-10-09" - set directly as value
+      input.value = ctx.value.split('T')[0]; // Handle ISO strings too
+    }
     if (params?.min) input.min = params.min;
     if (params?.max) input.max = params.max;
     if (params?.placeholder) input.placeholder = params.placeholder;
 
-    input.addEventListener('change', () => ctx.commit(input.valueAsDate));
+    // Commit function preserves original type (string vs Date)
+    const commit = () => {
+      if (typeof ctx.value === 'string') {
+        // Original was string, return string in YYYY-MM-DD format
+        ctx.commit(input.value);
+      } else {
+        ctx.commit(input.valueAsDate);
+      }
+    };
+
+    input.addEventListener('change', commit);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') ctx.cancel();
     });

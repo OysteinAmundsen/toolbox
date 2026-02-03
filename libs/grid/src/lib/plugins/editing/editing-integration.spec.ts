@@ -454,6 +454,131 @@ describe('EditingPlugin', () => {
       expect(typeof detail.value).toBe('number');
       expect(detail.value).toBe(25000);
     });
+
+    it('preserves string date type when editing date column', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'hireDate', header: 'Hire Date', type: 'date', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+        getRowId: (row) => String(row.id),
+      };
+      // Date stored as string (common pattern)
+      grid.rows = [{ id: 1, hireDate: '2019-10-09' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const dateCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit and exit without changing value
+      dateCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = dateCell.querySelector('input[type="date"]') as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.value).toBe('2019-10-09');
+
+      // Exit without changing value
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // Value should still be a string, not converted to Date object
+      const currentValue = grid.rows![0].hireDate;
+      expect(typeof currentValue).toBe('string');
+      expect(currentValue).toBe('2019-10-09');
+      // Row should NOT be marked as changed
+      expect(grid.changedRows?.length).toBe(0);
+    });
+  });
+
+  describe('row animation', () => {
+    it('does not trigger animation when exiting edit without changes', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+        getRowId: (row) => String(row.id),
+      };
+      grid.rows = [{ id: 1, name: 'Alpha' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit mode
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const input = nameCell.querySelector('input') as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.value).toBe('Alpha');
+
+      // Exit edit without changing value (blur)
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // Row should NOT have animation class
+      expect(row.classList.contains('tbw-animate-change')).toBe(false);
+      // Row should NOT be marked as changed
+      expect(grid.changedRows?.length).toBe(0);
+    });
+
+    it('does not re-animate when editing already-changed row without new changes', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+        getRowId: (row) => String(row.id),
+      };
+      grid.rows = [{ id: 1, name: 'Alpha' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // First edit: make a change
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      let input = nameCell.querySelector('input') as HTMLInputElement;
+      input.value = 'Beta';
+      input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // Row should be marked as changed
+      expect(grid.changedRows?.length).toBe(1);
+      expect(grid.rows![0].name).toBe('Beta');
+
+      // Clear any animation class from first edit
+      row.classList.remove('tbw-animate-change');
+      await nextFrame();
+
+      // Second edit: enter and exit without changes
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      input = nameCell.querySelector('input') as HTMLInputElement;
+      expect(input.value).toBe('Beta');
+
+      // Exit without changing value
+      input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // Row should NOT have animation class (no re-animation)
+      expect(row.classList.contains('tbw-animate-change')).toBe(false);
+      // Row should still be marked as changed from first edit
+      expect(grid.changedRows?.length).toBe(1);
+    });
   });
 
   describe('manual mode', () => {

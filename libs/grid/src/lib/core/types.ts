@@ -2699,8 +2699,12 @@ export interface RowCommitDetail<TRow = unknown> {
   rowIndex: number;
   /** Stable row identifier (from getRowId). */
   rowId: string;
-  /** Row object reference. */
+  /** Row object reference (current state after edits). */
   row: TRow;
+  /** Snapshot of the row before edits (for comparison). */
+  oldValue: TRow | undefined;
+  /** Current row value after edits (same as `row`). */
+  newValue: TRow;
   /** Whether any cell changes were actually committed in this row during the session. */
   changed: boolean;
   /** Current changed row collection. */

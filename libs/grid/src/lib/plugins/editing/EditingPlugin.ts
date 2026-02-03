@@ -15,7 +15,6 @@
  * is fully functional without any core changes.
  */
 
-import { animateRowElement } from '../../core/internal/row-animation';
 import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type {
@@ -345,6 +344,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Flag to restore focus after next render (used when exiting edit mode) */
   #pendingFocusRestore = false;
 
+  /** Row index pending animation after render, or -1 if none */
+  #pendingRowAnimation = -1;
+
   // #endregion
 
   // #region Lifecycle
@@ -643,6 +645,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#restoreCellFocus(internalGrid);
     }
 
+    // Animate the row after render completes (so the row element exists)
+    if (this.#pendingRowAnimation !== -1) {
+      const rowIndex = this.#pendingRowAnimation;
+      this.#pendingRowAnimation = -1;
+      internalGrid.animateRow?.(rowIndex, 'change');
+    }
+
     if (this.#editingCells.size === 0) return;
 
     // Re-inject editors for any editing cells that are visible
@@ -924,9 +933,6 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
     }
 
-    // Track whether the row was already changed BEFORE this edit session
-    const wasChangedBefore = rowId ? this.#changedRowIds.has(rowId) : false;
-
     // Collect and commit values from active editors before re-rendering
     if (!revert && rowEl && current) {
       const editingCells = rowEl.querySelectorAll('.cell.editing');
@@ -961,21 +967,25 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
     } else if (!revert && current) {
       const changed = rowId ? this.#changedRowIds.has(rowId) : false;
-      // Only animate if changes were made DURING this edit session (not from before)
-      const changedThisSession = changed && !wasChangedBefore;
+
+      // Compare snapshot vs current to detect if changes were made during THIS edit session
+      const changedThisSession = this.#hasRowChanged(snapshot, current);
 
       this.emit<RowCommitDetail<T>>('row-commit', {
         rowIndex,
         rowId: rowId ?? '',
         row: current,
+        oldValue: snapshot,
+        newValue: current,
         changed,
         changedRows: this.changedRows,
         changedRowIds: this.changedRowIds,
       });
 
       // Animate the row only if changes were made during this edit session
+      // (deferred to afterRender so the row element exists after re-render)
       if (changedThisSession && this.isAnimationEnabled) {
-        internalGrid.animateRow?.(rowIndex, 'change');
+        this.#pendingRowAnimation = rowIndex;
       }
     }
 
@@ -1073,11 +1083,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       newValue,
     });
 
+    // Mark the row visually as changed (animation happens when row edit closes)
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
     if (rowEl) {
       rowEl.classList.add('changed');
-      // Trigger row change animation (respects animation.mode config)
-      animateRowElement(rowEl, 'change');
     }
   }
 
@@ -1308,6 +1317,26 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
     }
     editorHost.appendChild(clone);
+  }
+
+  /**
+   * Compare snapshot vs current row to detect if any values changed during this edit session.
+   * Uses shallow comparison of all properties.
+   */
+  #hasRowChanged(snapshot: T | undefined, current: T): boolean {
+    if (!snapshot) return false;
+
+    const snapshotObj = snapshot as Record<string, unknown>;
+    const currentObj = current as Record<string, unknown>;
+
+    // Check all keys in both objects
+    const allKeys = new Set([...Object.keys(snapshotObj), ...Object.keys(currentObj)]);
+    for (const key of allKeys) {
+      if (snapshotObj[key] !== currentObj[key]) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

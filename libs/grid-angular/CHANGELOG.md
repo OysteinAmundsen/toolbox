@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.8.0...grid-angular-0.9.0) (2026-02-03)
+
+
+### Features
+
+* **grid-angular:** bridge Angular FormControl validation to grid invalid styling ([cca89ec](https://github.com/OysteinAmundsen/toolbox/commit/cca89ecbef3d68c0fc4fd5c3f2da9870c7e4af70))
+
 ## [0.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.7.2...grid-angular-0.8.0) (2026-01-30)
 
 

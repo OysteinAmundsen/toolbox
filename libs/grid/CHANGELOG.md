@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.9.2...grid-1.10.0) (2026-02-03)
+
+
+### Features
+
+* **grid:** add cell validation and cancelable row-commit ([d8cc9ac](https://github.com/OysteinAmundsen/toolbox/commit/d8cc9ac6f2b59004a7678f226951633df7ac848a))
+
+
+### Bug Fixes
+
+* **grid:** add missing typed addEventListener overloads for grid events ([e7cd0cd](https://github.com/OysteinAmundsen/toolbox/commit/e7cd0cdcdf40aa8359a96efac592939ede6b11d0))
+* **grid:** animate row by comparing snapshot to current value on edit close ([90615d6](https://github.com/OysteinAmundsen/toolbox/commit/90615d601acd363e5eefe4f901a716894a877b5a))
+* **grid:** preserve numeric type for custom column types during edit commit ([b7cadd8](https://github.com/OysteinAmundsen/toolbox/commit/b7cadd8f79a4c94c36af07f3412f528b6ae9978e))
+* **grid:** preserve string date type during edit to prevent false change detection ([6fd28fd](https://github.com/OysteinAmundsen/toolbox/commit/6fd28fdc3603a3540110291911ece2787f1b8bb9))
+
 ## [1.9.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.9.1...grid-1.9.2) (2026-02-03)
 
 

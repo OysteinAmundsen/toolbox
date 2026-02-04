@@ -4,6 +4,13 @@ import { setupCellEventDelegation, setupRootEventDelegation } from './internal/e
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
 import { ensureCellVisible } from './internal/keyboard';
+import {
+  createLoadingOverlay,
+  hideLoadingOverlay,
+  setCellLoadingState,
+  setRowLoadingState,
+  showLoadingOverlay,
+} from './internal/loading';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
@@ -26,6 +33,7 @@ import {
   type ShellState,
   type ToolPanelRendererFactory,
 } from './internal/shell';
+import { addPluginStyles, injectStyles } from './internal/style-injector';
 import {
   cancelMomentum,
   createTouchScrollState,
@@ -808,103 +816,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     });
   }
 
-  /** ID for the consolidated grid stylesheet in document.head */
-  static readonly #STYLE_ELEMENT_ID = 'tbw-grid-styles';
-
-  /** Track injected base styles CSS text */
-  static #baseStyles = '';
-
-  /** Track injected plugin styles by plugin name (accumulates across all grid instances) */
-  static #pluginStylesMap = new Map<string, string>();
-
-  /**
-   * Get or create the consolidated style element in document.head.
-   * All grid and plugin styles are combined into this single element.
-   */
-  static #getStyleElement(): HTMLStyleElement {
-    let styleEl = document.getElementById(this.#STYLE_ELEMENT_ID) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = this.#STYLE_ELEMENT_ID;
-      styleEl.setAttribute('data-tbw-grid', 'true');
-      document.head.appendChild(styleEl);
-    }
-    return styleEl;
-  }
-
-  /**
-   * Update the consolidated stylesheet with current base + plugin styles.
-   */
-  static #updateStyleElement(): void {
-    const styleEl = this.#getStyleElement();
-    // Combine base styles and all accumulated plugin styles
-    const pluginStyles = Array.from(this.#pluginStylesMap.values()).join('\n');
-    styleEl.textContent = `${this.#baseStyles}\n\n/* Plugin Styles */\n${pluginStyles}`;
-  }
-
   /**
    * Inject grid styles into the document.
-   * All styles go into a single <style id="tbw-grid-styles"> element in document.head.
-   * Uses a singleton pattern to avoid duplicate injection across multiple grid instances.
+   * Delegates to the style-injector module (singleton pattern).
    */
   async #injectStyles(): Promise<void> {
-    // If base styles already injected, nothing to do
-    if (DataGridElement.#baseStyles) {
-      return;
-    }
-
-    // If styles is a string (from ?inline import in Vite builds), use it directly
-    if (typeof styles === 'string' && styles.length > 0) {
-      DataGridElement.#baseStyles = styles;
-      DataGridElement.#updateStyleElement();
-      return;
-    }
-
-    // Fallback: styles is undefined (e.g., when imported in Angular from source without Vite processing)
-    // Angular includes grid.css in global styles - extract it from document.styleSheets
-    // Wait a bit for Angular to finish loading styles
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    try {
-      let gridCssText = '';
-
-      // Try to find the stylesheet containing grid CSS
-      // Angular bundles all CSS files from angular.json styles array into one stylesheet
-      // We need to find the stylesheet with grid CSS and extract ALL of it (including plugin CSS)
-      for (const stylesheet of Array.from(document.styleSheets)) {
-        try {
-          // For inline/bundled stylesheets, check if it contains grid CSS
-          const rules = Array.from(stylesheet.cssRules || []);
-          const cssText = rules.map((rule) => rule.cssText).join('\n');
-
-          // Check if this stylesheet contains grid CSS by looking for distinctive selectors
-          // Without Shadow DOM, we look for tbw-grid nesting selectors
-          if (cssText.includes('.tbw-grid-root') && cssText.includes('tbw-grid')) {
-            // Found the bundled stylesheet with grid CSS - use ALL of it
-            // This includes core grid.css + all plugin CSS files
-            gridCssText = cssText;
-            break;
-          }
-        } catch (e) {
-          // CORS or access restriction - skip
-          continue;
-        }
-      }
-
-      if (gridCssText) {
-        DataGridElement.#baseStyles = gridCssText;
-        DataGridElement.#updateStyleElement();
-      } else if (typeof process === 'undefined' || process.env?.['NODE_ENV'] !== 'test') {
-        // Only warn in non-test environments - test environments (happy-dom, jsdom) don't load stylesheets
-        console.warn(
-          '[tbw-grid] Could not find grid.css in document.styleSheets. Grid styling will not work.',
-          'Available stylesheets:',
-          Array.from(document.styleSheets).map((s) => s.href || '(inline)'),
-        );
-      }
-    } catch (err) {
-      console.warn('[tbw-grid] Failed to extract grid.css from document stylesheets:', err);
-    }
+    await injectStyles(styles);
   }
 
   // ---------------- Plugin System ----------------
@@ -1008,18 +925,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #injectAllPluginStyles(): void {
     const pluginStyles = this.#pluginManager?.getPluginStyles() ?? [];
-    let hasNewStyles = false;
-
-    for (const { name, styles } of pluginStyles) {
-      if (!DataGridElement.#pluginStylesMap.has(name)) {
-        DataGridElement.#pluginStylesMap.set(name, styles);
-        hasNewStyles = true;
-      }
-    }
-
-    if (hasNewStyles) {
-      DataGridElement.#updateStyleElement();
-    }
+    addPluginStyles(pluginStyles);
   }
 
   /**
@@ -2154,38 +2060,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // ---------------- Loading Helpers ----------------
 
   /**
-   * Create the default spinner element.
-   * @param size - 'large' for grid overlay, 'small' for row/cell
-   */
-  #createDefaultSpinner(size: 'large' | 'small'): HTMLElement {
-    const spinner = document.createElement('div');
-    spinner.className = `tbw-spinner tbw-spinner--${size}`;
-    spinner.setAttribute('role', 'progressbar');
-    spinner.setAttribute('aria-label', 'Loading');
-    return spinner;
-  }
-
-  /**
-   * Create loading content using custom renderer or default spinner.
-   * @param size - 'large' for grid overlay, 'small' for row/cell
-   */
-  #createLoadingContent(size: 'large' | 'small'): HTMLElement {
-    const renderer = this.#effectiveConfig?.loadingRenderer;
-
-    if (renderer) {
-      const result = renderer({ size });
-      if (typeof result === 'string') {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = result;
-        return wrapper;
-      }
-      return result;
-    }
-
-    return this.#createDefaultSpinner(size);
-  }
-
-  /**
    * Update the loading overlay visibility.
    * Called when `loading` property changes.
    */
@@ -2196,19 +2070,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (this.#loading) {
       // Create overlay if it doesn't exist
       if (!this.#loadingOverlayEl) {
-        const overlay = document.createElement('div');
-        overlay.className = 'tbw-loading-overlay';
-        overlay.setAttribute('role', 'status');
-        overlay.setAttribute('aria-live', 'polite');
-        overlay.appendChild(this.#createLoadingContent('large'));
-        this.#loadingOverlayEl = overlay;
+        this.#loadingOverlayEl = createLoadingOverlay(this.#effectiveConfig?.loadingRenderer);
       }
-
-      // Append to grid root (positioned relative to grid)
-      gridRoot.appendChild(this.#loadingOverlayEl);
+      showLoadingOverlay(gridRoot, this.#loadingOverlayEl);
     } else {
-      // Remove overlay
-      this.#loadingOverlayEl?.remove();
+      hideLoadingOverlay(this.#loadingOverlayEl);
     }
   }
 
@@ -2225,13 +2091,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const rowEl = this.findRenderedRowElement?.(rowData.index);
     if (!rowEl) return;
 
-    if (loading) {
-      rowEl.classList.add('tbw-row-loading');
-      rowEl.setAttribute('aria-busy', 'true');
-    } else {
-      rowEl.classList.remove('tbw-row-loading');
-      rowEl.removeAttribute('aria-busy');
-    }
+    setRowLoadingState(rowEl, loading);
   }
 
   /**
@@ -2255,13 +2115,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const cellEl = rowEl.children[colIndex] as HTMLElement | undefined;
     if (!cellEl) return;
 
-    if (loading) {
-      cellEl.classList.add('tbw-cell-loading');
-      cellEl.setAttribute('aria-busy', 'true');
-    } else {
-      cellEl.classList.remove('tbw-cell-loading');
-      cellEl.removeAttribute('aria-busy');
-    }
+    setCellLoadingState(cellEl, loading);
   }
 
   // ---------------- Core Helpers ----------------

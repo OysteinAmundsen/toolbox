@@ -1,0 +1,179 @@
+/**
+ * Header Row Styles
+ *
+ * Styles for the grid header including column headers, sort indicators,
+ * resize handles, and column groups.
+ *
+ * @layer tbw-base
+ */
+
+@layer tbw-base {
+  tbw-grid {
+    .header {
+      display: block;
+      flex-shrink: 0;
+      z-index: var(--tbw-z-layer-header, 30);
+      background: var(--tbw-color-header-bg);
+      overflow: visible;
+    }
+
+    .header-group-row {
+      display: grid;
+      grid-template-columns: var(--tbw-column-template);
+      background: var(--tbw-color-header-bg);
+      z-index: var(--tbw-z-layer-header, 30);
+    }
+
+    .header-group-cell {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: var(--tbw-cell-padding-header, 2px 8px);
+      color: var(--tbw-color-header-group-fg, var(--tbw-color-header-fg));
+      font-weight: var(--tbw-font-weight-header-group, var(--tbw-font-weight-header));
+      justify-content: var(--tbw-align-header-group, var(--tbw-align-header, flex-start));
+
+      &:not(:last-child) {
+        border-right: 2px solid var(--tbw-color-border);
+      }
+    }
+
+    .header-row {
+      display: grid;
+      grid-template-columns: var(--tbw-column-template);
+      color: var(--tbw-color-header-fg);
+      font-size: var(--tbw-font-size-header);
+      min-height: var(--tbw-header-height);
+      border-bottom: var(--tbw-border-header);
+      z-index: var(--tbw-z-layer-header, 30);
+      text-transform: var(--tbw-header-text-transform);
+      letter-spacing: var(--tbw-header-letter-spacing);
+
+      > .cell {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: var(--tbw-cell-padding-header, 2px 8px);
+        background-color: var(--tbw-color-header-bg);
+        font-weight: var(--tbw-font-weight-header);
+        border-right: 1px solid var(--tbw-color-border-cell);
+        /* overflow: visible allows resize handles to extend past cell boundary */
+        overflow: visible;
+        min-width: 0;
+
+        > span:first-child {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-weight: inherit;
+        }
+
+        > span[part~='sort-indicator'] {
+          flex-shrink: 0;
+          opacity: 0.6;
+          color: var(--tbw-sort-indicator-color);
+          display: var(--tbw-sort-indicator-display, inline-flex);
+          visibility: var(--tbw-sort-indicator-visibility, visible);
+          transition:
+            opacity 0.15s,
+            visibility 0s,
+            display 0s allow-discrete;
+          transition-behavior: allow-discrete;
+        }
+
+        /* Show sort indicator on hover or when actively sorted */
+        &:hover > span[part~='sort-indicator'] {
+          display: inline-flex;
+          visibility: visible;
+        }
+
+        &[aria-sort='ascending'] > span[part~='sort-indicator'],
+        &[aria-sort='descending'] > span[part~='sort-indicator'] {
+          display: inline-flex;
+          visibility: visible;
+          opacity: 1;
+          color: var(--tbw-sort-indicator-active-color);
+        }
+
+        &:last-child {
+          border-right: 0;
+
+          /* Clip resize handle on last column to prevent horizontal overflow */
+          .resize-handle {
+            right: 0;
+            width: calc(var(--tbw-resize-handle-width) / 2);
+          }
+        }
+
+        &.grouped.group-end:not(:last-child) {
+          border-right: 2px solid var(--tbw-color-border);
+        }
+
+        &.resizable {
+          position: relative;
+        }
+
+        &.sticky-left,
+        &.sticky-right {
+          background: var(--tbw-color-header-bg);
+          z-index: 35;
+        }
+      }
+    }
+
+    /* ========== Sorting & Resize ========== */
+
+    .sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      right: calc(var(--tbw-resize-handle-width) / -2);
+      width: var(--tbw-resize-handle-width);
+      height: 100%;
+      cursor: e-resize;
+      user-select: none;
+      touch-action: none;
+      z-index: 20;
+      background: var(--tbw-resize-handle-color);
+      transition: background 120ms ease;
+      border-radius: var(--tbw-resize-handle-border-radius);
+
+      /* Vertical line indicator extending through all rows on hover */
+      &::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: var(--tbw-resize-indicator-width, 2px);
+        height: 0;
+        background: var(--tbw-resize-indicator-color, var(--tbw-color-accent));
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 120ms ease,
+          height 0s 120ms;
+        z-index: 1000;
+      }
+
+      &:hover {
+        background: var(--tbw-resize-handle-color-hover);
+
+        &::after {
+          /* Extend to full grid height - uses viewport height as approximation */
+          height: 100vh;
+          opacity: var(--tbw-resize-indicator-opacity, 0.6);
+          transition:
+            opacity 120ms ease,
+            height 0s;
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,119 @@
+/**
+ * Loading Overlay & Spinner Styles
+ *
+ * Styles for loading states including grid-level overlay,
+ * row loading, and cell loading indicators.
+ *
+ * @layer tbw-base
+ */
+
+@layer tbw-base {
+  /* Loading backdrop overlay */
+  .tbw-loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: light-dark(rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0.5));
+    z-index: 1000;
+    pointer-events: all;
+
+    /* Fade in animation */
+    animation: tbw-fade-in 0.15s ease-out;
+  }
+
+  /* Default spinner (used when no custom loadingRenderer provided) */
+  .tbw-spinner {
+    --tbw-spinner-size: 48px;
+    --tbw-spinner-border-width: 3px;
+    --tbw-spinner-color: var(--tbw-color-accent);
+    --tbw-spinner-track-color: var(--tbw-color-border);
+
+    width: var(--tbw-spinner-size);
+    height: var(--tbw-spinner-size);
+    border: var(--tbw-spinner-border-width) solid var(--tbw-spinner-track-color);
+    border-top-color: var(--tbw-spinner-color);
+    border-radius: 50%;
+    animation: tbw-spin 0.8s linear infinite;
+  }
+
+  /* Large spinner (grid-level loading) - max 48px */
+  .tbw-spinner--large {
+    --tbw-spinner-size: min(48px, calc(100% - 16px));
+  }
+
+  /* Small spinner (row/cell loading) - follows row height */
+  .tbw-spinner--small {
+    --tbw-spinner-size: calc(var(--tbw-row-height, 28px) * 0.6);
+    --tbw-spinner-border-width: 2px;
+  }
+
+  /* Row loading state - uses same spinner style as grid-level loading */
+  .data-grid-row.tbw-row-loading {
+    position: relative;
+    pointer-events: none;
+
+    /* Backdrop overlay */
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: light-dark(rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0.5));
+      z-index: 10;
+      animation: tbw-fade-in 0.15s ease-out;
+    }
+
+    /* Spinner - same style as .tbw-spinner but smaller */
+    &::after {
+      --_spinner-size: calc(var(--tbw-row-height, 28px) * 0.6);
+      content: '';
+      position: absolute;
+      left: var(--tbw-spacing-md);
+      top: 0;
+      bottom: 0;
+      margin: auto 0;
+      width: var(--_spinner-size);
+      height: var(--_spinner-size);
+      border: 2px solid var(--tbw-spinner-track-color, var(--tbw-color-border));
+      border-top-color: var(--tbw-spinner-color, var(--tbw-color-accent));
+      border-radius: 50%;
+      animation: tbw-spin 0.8s linear infinite;
+      z-index: 11;
+    }
+  }
+
+  /* Cell loading state - uses same spinner style as grid-level loading */
+  .cell.tbw-cell-loading {
+    position: relative;
+    pointer-events: none;
+
+    /* Backdrop overlay */
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: light-dark(rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0.5));
+      z-index: 10;
+      animation: tbw-fade-in 0.15s ease-out;
+    }
+
+    /* Spinner - same style as .tbw-spinner but smaller */
+    &::after {
+      --_spinner-size: calc(var(--tbw-row-height, 28px) * 0.5);
+      content: '';
+      position: absolute;
+      left: var(--tbw-spacing-sm);
+      top: 0;
+      bottom: 0;
+      margin: auto 0;
+      width: var(--_spinner-size);
+      height: var(--_spinner-size);
+      border: 2px solid var(--tbw-spinner-track-color, var(--tbw-color-border));
+      border-top-color: var(--tbw-spinner-color, var(--tbw-color-accent));
+      border-radius: 50%;
+      animation: tbw-spin 0.8s linear infinite;
+      z-index: 11;
+    }
+  }
+}

@@ -1,0 +1,194 @@
+/**
+ * Tool Panel Styles
+ *
+ * Styles for the collapsible side panel including header, content,
+ * resize handle, and accordion components.
+ *
+ * @layer tbw-base
+ */
+
+@layer tbw-base {
+  tbw-grid {
+    .tbw-tool-panel {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      width: 0;
+      overflow: hidden;
+      background: var(--tbw-tool-panel-bg);
+      border-left: 1px solid var(--tbw-tool-panel-border);
+      transition: width var(--tbw-tool-panel-transition);
+      display: flex;
+      flex-direction: column;
+      z-index: 30;
+      box-shadow: -2px 0 8px var(--tbw-color-shadow);
+
+      &[data-position='left'] {
+        right: auto;
+        left: 0;
+        border-left: none;
+        border-right: 1px solid var(--tbw-tool-panel-border);
+        box-shadow: 2px 0 8px var(--tbw-color-shadow);
+      }
+
+      &.open {
+        width: var(--tbw-tool-panel-width);
+      }
+    }
+
+    .tbw-tool-panel-resize {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 6px;
+      cursor: col-resize;
+      background: transparent;
+      z-index: 10;
+      transition: background var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+      &[data-handle-position='left'] {
+        left: 0;
+      }
+
+      &[data-handle-position='right'] {
+        right: 0;
+      }
+
+      &:hover,
+      &.resizing {
+        background: var(--tbw-color-accent);
+      }
+    }
+
+    .tbw-tool-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: var(--tbw-tool-panel-header-height);
+      padding: 0 12px;
+      border-bottom: 1px solid var(--tbw-tool-panel-border);
+      flex-shrink: 0;
+    }
+
+    .tbw-tool-panel-title {
+      font-weight: 600;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tbw-tool-panel-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border: none;
+      border-radius: var(--tbw-border-radius);
+      background: transparent;
+      color: var(--tbw-color-fg-muted);
+      cursor: pointer;
+      font-size: 14px;
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+        color: var(--tbw-color-fg);
+      }
+    }
+
+    .tbw-tool-panel-content {
+      flex: 1;
+      overflow: auto;
+    }
+
+    /* ========== Accordion ========== */
+
+    .tbw-accordion {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .tbw-accordion-section {
+      border-bottom: 1px solid var(--tbw-tool-panel-border);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &.single .tbw-accordion-header {
+        cursor: default;
+
+        &:hover {
+          background: transparent;
+        }
+      }
+
+      &.expanded {
+        .tbw-accordion-chevron {
+          transform: rotate(90deg);
+        }
+
+        .tbw-accordion-content {
+          display: block;
+        }
+      }
+    }
+
+    .tbw-accordion-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      color: var(--tbw-color-fg);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: start;
+      cursor: pointer;
+      user-select: none;
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+    }
+
+    .tbw-accordion-chevron {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      font-size: 10px;
+      color: var(--tbw-color-fg-muted);
+      transition: transform 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .tbw-accordion-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .tbw-accordion-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tbw-accordion-content {
+      display: none;
+    }
+  }
+}

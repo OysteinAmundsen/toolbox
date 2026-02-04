@@ -1,0 +1,139 @@
+/**
+ * Animations & Keyframes
+ *
+ * All CSS animations and keyframes including row animations,
+ * accordion transitions, and loading spinners.
+ *
+ * @layer tbw-base
+ */
+
+@layer tbw-base {
+  tbw-grid {
+    /* ========== Animation Classes ========== */
+
+    .tbw-expanding {
+      animation: tbw-expand var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
+      overflow: hidden;
+    }
+
+    .tbw-collapsing {
+      animation: tbw-collapse var(--tbw-animation-duration) var(--tbw-animation-easing) forwards;
+      overflow: hidden;
+    }
+
+    /* ========== Animation Mode Attributes ========== */
+
+    &[data-animation-mode='off'] {
+      --tbw-animation-enabled: 0;
+      --tbw-animation-duration: 0ms;
+
+      /* Disable row animations */
+      .data-grid-row[data-animating] {
+        animation: none;
+      }
+    }
+  }
+
+  /* ============================================================================
+   Row Animations (change/insert/remove)
+   Triggered via data-animating attribute on .data-grid-row
+   ============================================================================ */
+
+  tbw-grid .data-grid-row[data-animating='change'] {
+    animation: tbw-row-change var(--tbw-row-change-duration) ease-out;
+  }
+
+  tbw-grid .data-grid-row[data-animating='insert'] {
+    animation: tbw-row-insert var(--tbw-row-insert-duration) ease-out;
+    will-change: max-height, opacity;
+  }
+
+  tbw-grid .data-grid-row[data-animating='remove'] {
+    animation: tbw-row-remove var(--tbw-row-remove-duration) ease-out forwards;
+    will-change: max-height, opacity, transform;
+    pointer-events: none;
+  }
+}
+
+/* ============================================================================
+ Keyframes (must be at root level)
+ ============================================================================ */
+
+@keyframes tbw-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tbw-collapse {
+  from {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes tbw-row-change {
+  0% {
+    background-color: transparent;
+  }
+  20% {
+    background-color: var(--tbw-row-change-color);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes tbw-row-insert {
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: var(--tbw-row-height, 28px);
+    overflow: hidden;
+  }
+}
+
+@keyframes tbw-row-remove {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: var(--tbw-row-height, 28px);
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes tbw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tbw-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -1,0 +1,54 @@
+/**
+ * Media Queries & Accessibility
+ *
+ * Responsive styles for high contrast mode and reduced motion preferences.
+ *
+ * @layer tbw-base
+ */
+
+@layer tbw-base {
+  /* Windows High Contrast / forced-colors mode support */
+  @media (forced-colors: active) {
+    tbw-grid {
+      --tbw-color-border: CanvasText;
+      --tbw-color-border-strong: CanvasText;
+      --tbw-color-border-cell: CanvasText;
+      --tbw-color-border-header: CanvasText;
+      --tbw-color-fg: CanvasText;
+      --tbw-color-bg: Canvas;
+      --tbw-color-panel-bg: Canvas;
+      --tbw-color-header-bg: Canvas;
+      --tbw-color-header-fg: CanvasText;
+      --tbw-color-accent: Highlight;
+      --tbw-color-accent-fg: HighlightText;
+      --tbw-color-selection: Highlight;
+      --tbw-color-row-hover: Highlight;
+      --tbw-focus-outline: 2px solid Highlight;
+      --tbw-range-border-color: Highlight;
+
+      .cell:focus,
+      .cell.active-cell {
+        outline: 2px solid Highlight !important;
+        outline-offset: -2px;
+      }
+
+      .data-grid-row[aria-selected='true'] {
+        background: Highlight !important;
+        color: HighlightText !important;
+      }
+    }
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    tbw-grid[data-animation-mode='reduced-motion'] {
+      --tbw-animation-enabled: 0;
+      --tbw-animation-duration: 0ms;
+
+      /* Disable row animations */
+      .data-grid-row[data-animating] {
+        animation: none;
+      }
+    }
+  }
+}

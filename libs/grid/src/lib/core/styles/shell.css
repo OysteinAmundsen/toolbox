@@ -1,0 +1,119 @@
+/**
+ * Shell Layout Styles
+ *
+ * Styles for the grid shell including header, toolbar, content area,
+ * and scroll container.
+ *
+ * @layer tbw-base
+ */
+
+@layer tbw-base {
+  tbw-grid {
+    .tbw-shell-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: var(--tbw-shell-header-height);
+      padding: 0 8px;
+      background: var(--tbw-shell-header-bg);
+      border-bottom: 1px solid var(--tbw-shell-header-border);
+      flex-shrink: 0;
+    }
+
+    .tbw-shell-title {
+      font-size: var(--tbw-shell-title-font-size);
+      font-weight: var(--tbw-shell-title-font-weight);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tbw-shell-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .tbw-shell-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--tbw-toolbar-button-gap);
+      flex-shrink: 0;
+    }
+
+    .tbw-toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--tbw-toolbar-button-size);
+      height: var(--tbw-toolbar-button-size);
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: var(--tbw-border-radius);
+      background: transparent;
+      color: var(--tbw-color-fg);
+      cursor: pointer;
+      font-size: 16px;
+      transition:
+        background var(--tbw-transition-duration) var(--tbw-transition-ease),
+        border-color var(--tbw-transition-duration) var(--tbw-transition-ease);
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+
+      &:focus-visible {
+        outline: var(--tbw-focus-outline);
+        outline-offset: var(--tbw-focus-outline-offset);
+      }
+
+      &.active {
+        background: var(--tbw-focus-background);
+        border-color: var(--tbw-color-accent);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
+    .tbw-toolbar-separator {
+      width: 1px;
+      height: 20px;
+      background: var(--tbw-color-border);
+      margin: 0 4px;
+    }
+
+    .tbw-shell-body {
+      position: relative;
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: visible;
+    }
+
+    .tbw-grid-content {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+    }
+
+    .tbw-scroll-area {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow-x: auto;
+      overflow-y: hidden;
+      overflow-anchor: none;
+    }
+  }
+}

@@ -1,4 +1,3 @@
-import styles from './grid.css?inline';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
@@ -47,6 +46,7 @@ import type {
   RowClickEvent,
 } from './plugin/base-plugin';
 import { PluginManager } from './plugin/plugin-manager';
+import styles from './styles';
 import type {
   AnimationConfig,
   CellChangeDetail,

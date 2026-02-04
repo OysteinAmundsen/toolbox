@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.10.0...grid-1.10.1) (2026-02-04)
+
+
+### Bug Fixes
+
+* **grid:** apply typeDefaults to columns at config merge time ([ecb6324](https://github.com/OysteinAmundsen/toolbox/commit/ecb6324280e5c97312726a192505aeb85e5fce7a))
+
 ## [1.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.9.2...grid-1.10.0) (2026-02-03)
 
 

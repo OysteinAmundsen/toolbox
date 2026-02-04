@@ -13,28 +13,26 @@ export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => 
 /**
  * Resolves the renderer for a column using the priority chain:
  * 1. Column-level (`column.renderer` / `column.viewRenderer`)
- * 2. Grid-level (`gridConfig.typeDefaults[column.type]`)
- * 3. App-level (framework adapter's `getTypeDefault`)
- * 4. Returns undefined (caller uses built-in or fallback)
+ *    NOTE: typeDefaults are applied to columns at config merge time,
+ *    so columns with matching types already have their renderer set.
+ * 2. App-level (framework adapter's `getTypeDefault`)
+ * 3. Returns undefined (caller uses built-in or fallback)
  */
 export function resolveRenderer<TRow>(
   grid: InternalGrid<TRow>,
   col: ColumnInternal<TRow>,
 ): ColumnViewRenderer<TRow, unknown> | undefined {
   // 1. Column-level renderer (highest priority)
+  // NOTE: typeDefaults from gridConfig are applied to columns at config merge time
+  // by ConfigManager.#applyTypeDefaultsToColumns(), so they appear here as col.renderer
   const columnRenderer = col.renderer || col.viewRenderer;
   if (columnRenderer) return columnRenderer;
 
   // No type specified - no type defaults to check
   if (!col.type) return undefined;
 
-  // 2. Grid-level typeDefaults (access via effectiveConfig)
-  const gridTypeDefaults = (grid as any).effectiveConfig?.typeDefaults;
-  if (gridTypeDefaults?.[col.type]?.renderer) {
-    return gridTypeDefaults[col.type].renderer;
-  }
-
-  // 3. App-level registry (via framework adapter)
+  // 2. App-level registry (via framework adapter)
+  // This is for framework adapters that register type defaults dynamically
   const adapter = grid.__frameworkAdapter;
   if (adapter?.getTypeDefault) {
     const appDefault = adapter.getTypeDefault<TRow>(col.type);
@@ -43,34 +41,32 @@ export function resolveRenderer<TRow>(
     }
   }
 
-  // 4. No custom renderer - caller uses built-in/fallback
+  // 3. No custom renderer - caller uses built-in/fallback
   return undefined;
 }
 
 /**
  * Resolves the format function for a column using the priority chain:
  * 1. Column-level (`column.format`)
- * 2. Grid-level (`gridConfig.typeDefaults[column.type].format`)
- * 3. App-level (framework adapter's `getTypeDefault`)
- * 4. Returns undefined (caller uses built-in or fallback)
+ *    NOTE: typeDefaults are applied to columns at config merge time,
+ *    so columns with matching types already have their format set.
+ * 2. App-level (framework adapter's `getTypeDefault`)
+ * 3. Returns undefined (caller uses built-in or fallback)
  */
 export function resolveFormat<TRow>(
   grid: InternalGrid<TRow>,
   col: ColumnInternal<TRow>,
 ): ((value: unknown, row: TRow) => string) | undefined {
   // 1. Column-level format (highest priority)
+  // NOTE: typeDefaults from gridConfig are applied to columns at config merge time
+  // by ConfigManager.#applyTypeDefaultsToColumns(), so they appear here as col.format
   if (col.format) return col.format;
 
   // No type specified - no type defaults to check
   if (!col.type) return undefined;
 
-  // 2. Grid-level typeDefaults (access via effectiveConfig)
-  const gridTypeDefaults = (grid as any).effectiveConfig?.typeDefaults;
-  if (gridTypeDefaults?.[col.type]?.format) {
-    return gridTypeDefaults[col.type].format;
-  }
-
-  // 3. App-level registry (via framework adapter)
+  // 2. App-level registry (via framework adapter)
+  // This is for framework adapters that register type defaults dynamically
   const adapter = grid.__frameworkAdapter;
   if (adapter?.getTypeDefault) {
     const appDefault = adapter.getTypeDefault<TRow>(col.type);
@@ -79,7 +75,7 @@ export function resolveFormat<TRow>(
     }
   }
 
-  // 4. No custom format - caller uses built-in/fallback
+  // 3. No custom format - caller uses built-in/fallback
   return undefined;
 }
 
@@ -392,7 +388,9 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
   let hasSpecialCols = grid.__hasSpecialColumns;
   if (hasSpecialCols === undefined) {
     hasSpecialCols = false;
-    const typeDefaults = (grid as any).effectiveConfig?.typeDefaults;
+    // NOTE: typeDefaults are now applied to columns at config merge time
+    // by ConfigManager.#applyTypeDefaultsToColumns(), so columns already have
+    // their renderer/format set if a typeDefault matched. No runtime lookup needed.
     const adapter = grid.__frameworkAdapter;
     for (let i = 0; i < colsLen; i++) {
       const col = columns[i];
@@ -405,9 +403,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         col.format ||
         col.type === 'date' ||
         col.type === 'boolean' ||
-        // Check for type-level renderers/formatters (grid-level or adapter-level)
-        (col.type && typeDefaults?.[col.type]?.renderer) ||
-        (col.type && typeDefaults?.[col.type]?.format) ||
+        // Check for adapter-level type defaults (framework adapters)
         (col.type && adapter?.getTypeDefault?.(col.type)?.renderer) ||
         (col.type && adapter?.getTypeDefault?.(col.type)?.format)
       ) {

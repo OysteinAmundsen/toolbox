@@ -134,6 +134,84 @@ describe('Type Defaults - Renderer Resolution', () => {
     expect(checkbox).toBeTruthy();
   }, 20000);
 
+  it('overrides built-in boolean renderer with grid-level typeDefaults', async () => {
+    grid = document.createElement('tbw-grid') as any;
+    document.body.appendChild(grid);
+
+    const customBooleanRenderer = vi.fn((ctx) => {
+      const span = document.createElement('span');
+      span.className = 'custom-boolean-renderer';
+      span.textContent = ctx.value ? '✓ Yes' : '✗ No';
+      return span;
+    });
+
+    grid.gridConfig = {
+      columns: [{ field: 'name' }, { field: 'active', type: 'boolean' }],
+      typeDefaults: {
+        boolean: { renderer: customBooleanRenderer },
+      },
+    };
+    grid.rows = [
+      { id: 1, name: 'Alice', country: 'US', status: 'active', price: 100, active: true } as any,
+      { id: 2, name: 'Bob', country: 'UK', status: 'pending', price: 200, active: false } as any,
+    ];
+
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    // Custom boolean renderer should be called instead of built-in
+    expect(customBooleanRenderer).toHaveBeenCalled();
+
+    // Verify the DOM has the custom renderer's output (NOT the built-in checkbox)
+    const customCell = grid.querySelector('.custom-boolean-renderer');
+    expect(customCell).toBeTruthy();
+    expect(customCell?.textContent).toContain('Yes');
+
+    // Should NOT have the built-in checkbox
+    const checkbox = grid.querySelector('[data-field="active"] [role="checkbox"]');
+    expect(checkbox).toBeFalsy();
+  }, 20000);
+
+  it('overrides built-in boolean renderer when columns and gridConfig are separate props', async () => {
+    grid = document.createElement('tbw-grid') as any;
+    document.body.appendChild(grid);
+
+    const customBooleanRenderer = vi.fn((ctx) => {
+      const span = document.createElement('span');
+      span.className = 'custom-boolean-renderer';
+      span.textContent = ctx.value ? '✓ Yes' : '✗ No';
+      return span;
+    });
+
+    // Simulating how cargo-tracker-apps passes props:
+    // - columns as separate property
+    // - gridConfig with only typeDefaults
+    grid.gridConfig = {
+      typeDefaults: {
+        boolean: { renderer: customBooleanRenderer },
+      },
+    };
+    (grid as any).columns = [
+      { field: 'name' },
+      { field: 'available', header: 'Available', type: 'boolean', width: 75 },
+    ];
+    grid.rows = [{ id: 1, name: 'Alice', available: true } as any, { id: 2, name: 'Bob', available: false } as any];
+
+    await customElements.whenDefined('tbw-grid');
+    await waitForUpgraded(grid);
+
+    // Custom boolean renderer should be called instead of built-in
+    expect(customBooleanRenderer).toHaveBeenCalled();
+
+    // Verify the DOM has the custom renderer's output
+    const customCell = grid.querySelector('.custom-boolean-renderer');
+    expect(customCell).toBeTruthy();
+
+    // Should NOT have the built-in checkbox
+    const checkbox = grid.querySelector('[data-field="available"] [role="checkbox"]');
+    expect(checkbox).toBeFalsy();
+  }, 20000);
+
   it('uses plain text fallback for custom type without renderer', async () => {
     grid = document.createElement('tbw-grid') as any;
     document.body.appendChild(grid);

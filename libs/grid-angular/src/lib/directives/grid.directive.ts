@@ -155,18 +155,12 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     // Effect to process angularConfig and apply to grid
     // This merges feature input plugins with the user's config plugins
     effect(() => {
-      const config = this.angularConfig();
+      const angularCfg = this.angularConfig();
+      const userGridConfig = this.gridConfig();
       if (!this.adapter) return;
 
-      // Process the config to convert component classes to actual renderer/editor functions
-      const processedConfig = config ? this.adapter.processGridConfig(config) : {};
-
-      // Create plugins from feature inputs and merge with config plugins
+      // Create plugins from feature inputs
       const featurePlugins = this.createFeaturePlugins();
-      const configPlugins = processedConfig.plugins || [];
-
-      // Merge: feature plugins first, then config plugins
-      const mergedPlugins = [...featurePlugins, ...configPlugins];
 
       // Build core config overrides from individual inputs
       const sortableValue = this.sortable();
@@ -183,20 +177,46 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
         coreConfigOverrides['selectable'] = selectableValue;
       }
 
-      // Merge icon overrides from registry with any existing icons in config
+      const grid = this.elementRef.nativeElement;
+
+      // Merge icon overrides from registry with any existing icons
       // Registry icons are base, config.icons override them
       const registryIcons = this.iconRegistry?.getAll();
       if (registryIcons && Object.keys(registryIcons).length > 0) {
-        const existingIcons = processedConfig?.icons || config?.icons || {};
+        const existingIcons = angularCfg?.icons || userGridConfig?.icons || {};
         coreConfigOverrides['icons'] = { ...registryIcons, ...existingIcons };
       }
 
-      // Apply to the grid element
-      const grid = this.elementRef.nativeElement;
+      // If angularConfig is provided, process it (converts component classes to renderer functions)
+      const processedConfig = angularCfg ? this.adapter.processGridConfig(angularCfg) : null;
+
+      // IMPORTANT: If user is NOT using angularConfig input, and there are no feature plugins
+      // or config overrides to merge, do NOT overwrite grid.gridConfig.
+      // This allows [gridConfig]="myConfig" binding to work correctly without the directive
+      // creating a new object that strips properties like typeDefaults.
+      const hasFeaturePlugins = featurePlugins.length > 0;
+      const hasConfigOverrides = Object.keys(coreConfigOverrides).length > 0;
+
+      // Use the gridConfig input signal (preferred) or fallback to what's on the grid element
+      // The input signal gives us reactive tracking of the user's config
+      const existingConfig = userGridConfig || {};
+
+      if (!processedConfig && !hasFeaturePlugins && !hasConfigOverrides && !userGridConfig) {
+        // Nothing to merge and no config input - let the user's DOM binding work directly
+        return;
+      }
+
+      // Merge: existing config (from [gridConfig] input) < processed angularConfig < feature plugins
+      const configPlugins = processedConfig?.plugins || existingConfig.plugins || [];
+      const mergedPlugins = [...featurePlugins, ...configPlugins];
+
+      // Build the final config, preserving ALL existing properties (including typeDefaults)
+      const baseConfig = processedConfig || existingConfig;
       grid.gridConfig = {
-        ...processedConfig,
+        ...existingConfig, // Start with existing config to preserve all properties (including typeDefaults)
+        ...baseConfig, // Then apply processed/angular config
         ...coreConfigOverrides,
-        plugins: mergedPlugins.length > 0 ? mergedPlugins : undefined,
+        plugins: mergedPlugins.length > 0 ? mergedPlugins : baseConfig.plugins,
       };
     });
 
@@ -321,6 +341,34 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   loading = input<boolean>();
+
+  /**
+   * Core grid configuration object.
+   *
+   * Use this input for the base GridConfig (typeDefaults, getRowId, etc.).
+   * This is the same as binding directly to the web component's gridConfig property,
+   * but allows the directive to properly merge feature plugins and config overrides.
+   *
+   * For Angular-specific features (component class renderers/editors), use `angularConfig` instead.
+   *
+   * @example
+   * ```typescript
+   * config: GridConfig = {
+   *   typeDefaults: {
+   *     boolean: { renderer: (ctx) => ctx.value ? '✓' : '✗' }
+   *   }
+   * };
+   * columns = [
+   *   { field: 'active', type: 'boolean' }
+   * ];
+   * ```
+   *
+   * ```html
+   * <tbw-grid [gridConfig]="config" [columns]="columns" />
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  gridConfig = input<any>();
 
   /**
    * Angular-specific grid configuration that supports component classes for renderers/editors.

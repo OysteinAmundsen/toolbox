@@ -1,6 +1,7 @@
 import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
 
+// #region DataGridElement Interface
 /**
  * The compiled web component interface for DataGrid.
  *
@@ -27,7 +28,9 @@ import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } fr
  * @see {@link queryGrid} for typed grid querying
  */
 export interface DataGridElement extends PublicGrid, HTMLElement {}
+// #endregion
 
+// #region PublicGrid Interface
 /**
  * Public API interface for DataGrid component.
  *
@@ -205,7 +208,9 @@ export interface PublicGrid<T = any> {
    */
   clearAllLoading?(): void;
 }
+// #endregion
 
+// #region InternalGrid Interface
 /**
  * Internal-only augmented interface for DataGrid component.
  *
@@ -314,7 +319,9 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   /** Request emission of column-state-change event (debounced) */
   requestStateChange?: () => void;
 }
+// #endregion
 
+// #region Column Types
 /**
  * Built-in primitive column types with automatic formatting and editing support.
  *
@@ -376,7 +383,9 @@ export type PrimitiveColumnType = 'number' | 'string' | 'date' | 'boolean' | 'se
  * @see {@link TypeDefault} for defining custom type defaults
  */
 export type ColumnType = PrimitiveColumnType | (string & {});
+// #endregion
 
+// #region TypeDefault Interface
 /**
  * Type-level defaults for formatters and renderers.
  * Applied to all columns of a given type unless overridden at column level.
@@ -465,7 +474,9 @@ export interface TypeDefault<TRow = unknown> {
    */
   renderer?: ColumnViewRenderer<TRow, unknown>;
 }
+// #endregion
 
+// #region BaseColumnConfig Interface
 /**
  * Base contract for a column configuration.
  *
@@ -538,7 +549,9 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   /** Arbitrary extra metadata */
   meta?: Record<string, unknown>;
 }
+// #endregion
 
+// #region ColumnConfig Interface
 /**
  * Full column configuration including custom renderers, editors, and grouping metadata.
  *
@@ -684,7 +697,9 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
    */
   headerRenderer?: HeaderRenderer<TRow>;
 }
+// #endregion
 
+// #region ColumnConfigMap Type
 /**
  * Array of column configurations.
  * Convenience type alias for `ColumnConfig<TRow>[]`.
@@ -704,7 +719,9 @@ export interface ColumnConfig<TRow = any> extends BaseColumnConfig<TRow, any> {
  * @see {@link GridConfig.columns} for setting columns on the grid
  */
 export type ColumnConfigMap<TRow = any> = ColumnConfig<TRow>[];
+// #endregion
 
+// #region Editor Types
 /**
  * Editor specification for inline cell editing.
  * Supports multiple formats for maximum flexibility.
@@ -819,7 +836,9 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
   /** Abort edit without persisting changes. */
   cancel: () => void;
 }
+// #endregion
 
+// #region Renderer Types
 /**
  * Context passed to custom view renderers (pure display – no commit helpers).
  *
@@ -906,11 +925,9 @@ export interface CellRenderContext<TRow = any, TValue = any> {
 export type ColumnViewRenderer<TRow = unknown, TValue = unknown> = (
   ctx: CellRenderContext<TRow, TValue>,
 ) => Node | string | void | null;
+// #endregion
 
-// ============================================================================
-// Header Renderer Types
-// ============================================================================
-
+// #region Header Renderer Types
 /**
  * Context passed to `headerLabelRenderer` for customizing header label content.
  * The framework handles sort icons, filter buttons, resize handles, and click interactions.
@@ -1048,7 +1065,9 @@ export type HeaderLabelRenderer<TRow = unknown> = (ctx: HeaderLabelContext<TRow>
  * @see {@link HeaderLabelRenderer} for simpler label-only customization
  */
 export type HeaderRenderer<TRow = unknown> = (ctx: HeaderCellContext<TRow>) => Node | string | void | null;
+// #endregion
 
+// #region Framework Adapter Interface
 /**
  * Framework adapter interface for handling framework-specific component instantiation.
  * Allows framework libraries (Angular, React, Vue) to register handlers that convert
@@ -1119,8 +1138,9 @@ export interface FrameworkAdapter {
    */
   getTypeDefault?<TRow = unknown>(type: string): TypeDefault<TRow> | undefined;
 }
+// #endregion
 
-// #region Internal-only augmented types (not re-exported publicly)
+// #region Internal Types
 
 /**
  * Column internal properties used during light DOM parsing.

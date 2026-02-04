@@ -7,6 +7,7 @@
 
 import type { ColumnConfig, GridConfig, ToolPanelDefinition, UpdateSource } from '../types';
 
+// #region Event Types
 /**
  * Keyboard modifier flags
  */
@@ -101,7 +102,9 @@ export interface CellMouseEvent {
   /** The original mouse event */
   originalEvent: MouseEvent;
 }
+// #endregion
 
+// #region Render Context Types
 /**
  * Context passed to the `afterCellRender` plugin hook.
  *
@@ -165,7 +168,9 @@ export interface AfterRowRenderContext<TRow = unknown> {
   /** The row DOM element - can be modified by the plugin */
   rowElement: HTMLElement;
 }
+// #endregion
 
+// #region Context Menu Types
 /**
  * Context menu parameters
  */
@@ -193,7 +198,9 @@ export interface ContextMenuItem {
   children?: ContextMenuItem[];
   action?: (params: ContextMenuParams) => void;
 }
+// #endregion
 
+// #region Plugin Query Types
 /**
  * Generic plugin query for inter-plugin communication.
  * Plugins can define their own query types as string constants
@@ -230,7 +237,9 @@ export const PLUGIN_QUERIES = {
   /** Get context menu items. Context: ContextMenuParams. Response: ContextMenuItem[] */
   GET_CONTEXT_MENU_ITEMS: 'getContextMenuItems',
 } as const;
+// #endregion
 
+// #region Cell Renderer Types
 /**
  * Cell render context for plugin cell renderers.
  * Provides full context including position and editing state.
@@ -270,7 +279,9 @@ export interface CellEditor {
   getValue?(element: HTMLElement): unknown;
   focus?(element: HTMLElement): void;
 }
+// #endregion
 
+// #region GridElementRef Interface
 /**
  * Minimal grid interface for plugins.
  * This avoids circular imports with the full DataGridElement.
@@ -549,3 +560,4 @@ export interface GridElementRef {
    */
   getToolPanels(): ToolPanelDefinition[];
 }
+// #endregion

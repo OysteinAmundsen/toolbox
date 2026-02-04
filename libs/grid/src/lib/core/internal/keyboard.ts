@@ -6,6 +6,7 @@ import type { InternalGrid } from '../types';
 import { FOCUSABLE_EDITOR_SELECTOR } from './rows';
 import { clearCellFocus, isRTL } from './utils';
 
+// #region Keyboard Handler
 export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   // Dispatch to plugin system first - if any plugin handles it, stop here
   if (grid._dispatchKeyDown?.(e)) {
@@ -177,7 +178,9 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
   }
   ensureCellVisible(grid);
 }
+// #endregion
 
+// #region Cell Visibility
 /**
  * Options for ensureCellVisible to control scroll behavior.
  */
@@ -289,3 +292,4 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
     }
   }
 }
+// #endregion

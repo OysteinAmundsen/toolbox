@@ -1,6 +1,7 @@
 import type { ColumnConfig, ColumnInternal, ElementWithPart, InternalGrid, PrimitiveColumnType } from '../types';
 import { FitModeEnum } from '../types';
 
+// #region Light DOM Parsing
 /** Global DataGridElement class (may or may not be registered) */
 interface DataGridElementClass {
   getAdapters?: () => Array<{
@@ -105,7 +106,9 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
     })
     .filter((c): c is ColumnInternal => !!c);
 }
+// #endregion
 
+// #region Column Merging
 /**
  * Merge programmatic columns with light DOM columns by field name, allowing DOM-provided
  * attributes / templates to supplement (not overwrite) programmatic definitions.
@@ -180,7 +183,9 @@ export function mergeColumns(
   Object.keys(domMap).forEach((field) => merged.push(domMap[field]));
   return merged;
 }
+// #endregion
 
+// #region Part Helpers
 /**
  * Safely add a token to an element's `part` attribute (supporting the CSS ::part API)
  * without duplicating values. Falls back to string manipulation if `el.part` API isn't present.
@@ -195,7 +200,9 @@ export function addPart(el: HTMLElement, token: string): void {
   if (!existing) el.setAttribute('part', token);
   else if (!existing.split(/\s+/).includes(token)) el.setAttribute('part', existing + ' ' + token);
 }
+// #endregion
 
+// #region Auto-Sizing
 /**
  * Measure rendered header + visible cell content to assign initial pixel widths
  * to columns when in `content` fit mode. Runs only once unless fit mode changes.
@@ -229,7 +236,9 @@ export function autoSizeColumns(grid: InternalGrid): void {
   if (changed) updateTemplate(grid);
   grid.__didInitialAutoSize = true;
 }
+// #endregion
 
+// #region Template Generation
 /**
  * Compute and apply the CSS grid template string that drives column layout.
  * Uses `fr` units for flexible (non user-resized) columns in stretch mode, otherwise
@@ -262,3 +271,4 @@ export function updateTemplate(grid: InternalGrid): void {
   }
   (grid as unknown as HTMLElement).style.setProperty('--tbw-column-template', grid._gridTemplate);
 }
+// #endregion

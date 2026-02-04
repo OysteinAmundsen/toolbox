@@ -17,6 +17,7 @@ import type {
 import { DEFAULT_GRID_ICONS } from '../types';
 import { escapeHtml } from './sanitize';
 
+// #region Types & State
 /**
  * Convert an IconValue to a string for rendering in HTML.
  */
@@ -130,7 +131,9 @@ export function createShellState(): ShellState {
     lightDomContentMoved: false,
   };
 }
+// #endregion
 
+// #region Render Functions
 /**
  * Determine if shell header should be rendered.
  * Reads only from effectiveConfig.shell (single source of truth).
@@ -312,7 +315,9 @@ export function renderShellBody(
     </div>
   `;
 }
+// #endregion
 
+// #region Light DOM Parsing
 /**
  * Parse light DOM shell elements (tbw-grid-header, etc.).
  * Safe to call multiple times - will only parse once when elements are available.
@@ -523,7 +528,9 @@ export function parseLightDomToolPanels(
     panelEl.style.display = 'none';
   });
 }
+// #endregion
 
+// #region Event Handlers
 /**
  * Set up event listeners for shell toolbar buttons and accordion.
  */
@@ -645,7 +652,9 @@ export function setupToolPanelResize(
     document.removeEventListener('mouseup', onMouseUp);
   };
 }
+// #endregion
 
+// #region Content Rendering
 /**
  * Render toolbar content (render functions) into toolbar slots.
  * All contents (config + API + light DOM) are now unified.
@@ -862,11 +871,9 @@ export function cleanupShellState(state: ShellState): void {
   // Reset move tracking flag (allow re-initialization)
   state.lightDomContentMoved = false;
 }
+// #endregion
 
-// ============================================================================
-// ShellController - Encapsulates tool panel orchestration logic
-// ============================================================================
-
+// #region ShellController
 /**
  * Callbacks for ShellController to communicate with the grid.
  * This interface decouples the controller from grid internals.
@@ -1207,11 +1214,9 @@ function renderAccordionSectionContent(renderRoot: Element, state: ShellState, s
     state.panelCleanups.set(sectionId, cleanup);
   }
 }
+// #endregion
 
-// ============================================================================
-// Grid Render HTML
-// ============================================================================
-
+// #region Grid HTML Templates
 /**
  * Core grid content HTML template.
  * Uses faux scrollbar pattern for smooth virtualized scrolling.
@@ -1235,11 +1240,9 @@ export const GRID_CONTENT_HTML = `
     <div class="faux-vscroll-spacer"></div>
   </div>
 `;
+// #endregion
 
-// ============================================================================
-// DOM-based Grid Rendering (Performance Optimized)
-// ============================================================================
-
+// #region DOM Construction
 import {
   buildGridDOM,
   buildShellBody,
@@ -1351,3 +1354,4 @@ export function buildGridDOMIntoElement(
 
   return hasShell;
 }
+// #endregion

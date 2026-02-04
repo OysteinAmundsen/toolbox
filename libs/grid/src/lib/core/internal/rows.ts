@@ -6,10 +6,7 @@ import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell }
 /** Callback type for plugin row rendering hook */
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
 
-// ============================================================================
-// Type Defaults Resolution
-// ============================================================================
-
+// #region Type Defaults Resolution
 /**
  * Resolves the renderer for a column using the priority chain:
  * 1. Column-level (`column.renderer` / `column.viewRenderer`)
@@ -78,11 +75,9 @@ export function resolveFormat<TRow>(
   // 3. No custom format - caller uses built-in/fallback
   return undefined;
 }
+// #endregion
 
-// ============================================================================
-// DOM State Helpers (used for virtualization cleanup)
-// ============================================================================
-
+// #region DOM State Helpers
 /**
  * CSS selector for focusable editor elements within a cell.
  * Used by EditingPlugin and keyboard navigation.
@@ -109,8 +104,9 @@ function clearEditingState(rowEl: RowElementInternal): void {
   const cells = rowEl.querySelectorAll('.cell.editing');
   cells.forEach((cell) => cell.classList.remove('editing'));
 }
+// #endregion
 
-// ============== Template Cloning System ==============
+// #region Template Cloning System
 // Using template cloning is 3-4x faster than document.createElement + setAttribute
 // for repetitive element creation because the browser can skip parsing.
 
@@ -141,9 +137,9 @@ function createCellFromTemplate(): HTMLDivElement {
 export function createRowFromTemplate(): HTMLDivElement {
   return rowTemplate.content.firstElementChild!.cloneNode(true) as HTMLDivElement;
 }
+// #endregion
 
-// ============== End Template Cloning System ==============
-
+// #region Row Rendering
 /**
  * Invalidate the cell cache (call when rows or columns change).
  */
@@ -364,7 +360,9 @@ export function renderVisibleRows(
     if (rowEl.parentNode !== bodyEl) bodyEl.appendChild(rowEl);
   }
 }
+// #endregion
 
+// #region Row Patching
 /**
  * Fast patch path for an already-rendered row: updates plain text cells whose data changed
  * while skipping cells with external views, templates, or active editors.
@@ -601,7 +599,9 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     }
   }
 }
+// #endregion
 
+// #region Cell Rendering
 /**
  * Full reconstruction of a row's set of cells including templated, external view, and formatted content.
  * Attaches event handlers for editing and accessibility per cell.
@@ -813,7 +813,9 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
   // Single DOM operation to append all cells
   rowEl.appendChild(fragment);
 }
+// #endregion
 
+// #region Interaction
 /**
  * Handle click / double click interaction to focus cells.
  * Edit triggering is handled by EditingPlugin via onCellClick hook.
@@ -866,3 +868,4 @@ export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLEle
     }
   }
 }
+// #endregion

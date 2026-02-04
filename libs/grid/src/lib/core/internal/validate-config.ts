@@ -21,10 +21,7 @@ interface InternalPropertyDefinition extends PluginPropertyDefinition {
   pluginName: string;
 }
 
-// ============================================================================
-// Known Plugin-Owned Properties (Static Registry)
-// ============================================================================
-
+// #region Known Properties Registry
 /**
  * Static registry of known plugin-owned column properties.
  * This enables detection of plugin properties even when the plugin isn't loaded.
@@ -109,11 +106,9 @@ const KNOWN_CONFIG_PROPERTIES: InternalPropertyDefinition[] = [
     isUsed: (v) => Array.isArray(v) && v.length > 0,
   },
 ];
+// #endregion
 
-// ============================================================================
-// Import Hints (for error messages)
-// ============================================================================
-
+// #region Import Hints
 /**
  * Map of known plugin names to their npm import paths.
  * Used to generate helpful error messages with import hints.
@@ -149,11 +144,9 @@ function getImportHint(pluginName: string): string {
     `import { ${capitalize(pluginName)}Plugin } from '@toolbox-web/grid/plugins/${pluginName}';`
   );
 }
+// #endregion
 
-// ============================================================================
-// Development Mode Detection
-// ============================================================================
-
+// #region Development Mode
 /**
  * Check if we're running in a development environment.
  * Warnings are only shown in development to avoid polluting production logs.
@@ -172,11 +165,9 @@ function isDevelopment(): boolean {
   }
   return false;
 }
+// #endregion
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
+// #region Helper Functions
 /**
  * Helper to capitalize a plugin name for display.
  */
@@ -190,11 +181,9 @@ function capitalize(s: string): string {
 function hasPlugin(plugins: readonly BaseGridPlugin[], pluginName: string): boolean {
   return plugins.some((p) => p.name === pluginName);
 }
+// #endregion
 
-// ============================================================================
-// Property Validation
-// ============================================================================
-
+// #region Property Validation
 /**
  * Validate that column properties requiring plugins have those plugins loaded.
  *
@@ -289,11 +278,9 @@ export function validatePluginProperties<T>(config: GridConfig<T>, plugins: read
     );
   }
 }
+// #endregion
 
-// ============================================================================
-// Plugin Config Rules Validation
-// ============================================================================
-
+// #region Config Rules Validation
 /**
  * Validate plugin configuration rules declared in manifests.
  * Called after plugins are attached to check for invalid/conflicting configurations.
@@ -340,11 +327,9 @@ export function validatePluginConfigRules(plugins: readonly BaseGridPlugin[]): v
     throw new Error(`[tbw-grid] Configuration error:\n\n${errors.join('\n\n')}`);
   }
 }
+// #endregion
 
-// ============================================================================
-// Plugin Dependency Validation
-// ============================================================================
-
+// #region Dependency Validation
 /**
  * Validate plugin-to-plugin dependencies.
  * Called by PluginManager when attaching a new plugin.
@@ -394,10 +379,9 @@ export function validatePluginDependencies(plugin: BaseGridPlugin, loadedPlugins
     }
   }
 }
-// ============================================================================
-// Plugin Incompatibility Validation
-// ============================================================================
+// #endregion
 
+// #region Incompatibility Validation
 /**
  * Validate that no incompatible plugins are loaded together.
  * Called after all plugins are attached to the grid.
@@ -437,3 +421,4 @@ export function validatePluginIncompatibilities(plugins: readonly BaseGridPlugin
     }
   }
 }
+// #endregion

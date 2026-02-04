@@ -3,11 +3,13 @@
 // access to dangerous globals / reflective capabilities.
 import type { CompiledViewFunction, EvalContext } from '../types';
 
+// #region Constants
 const EXPR_RE = /{{\s*([^}]+)\s*}}/g;
 const EMPTY_SENTINEL = '__DG_EMPTY__';
 const SAFE_EXPR = /^[\w$. '?+\-*/%:()!<>=,&|]+$/;
 const FORBIDDEN =
   /__(proto|defineGetter|defineSetter)|constructor|window|globalThis|global|process|Function|import|eval|Reflect|Proxy|Error|arguments|document|location|cookie|localStorage|sessionStorage|indexedDB|fetch|XMLHttpRequest|WebSocket|Worker|SharedWorker|ServiceWorker|opener|parent|top|frames|self|this\b/;
+// #endregion
 
 // #region HTML Sanitization
 
@@ -158,6 +160,7 @@ function sanitizeNode(root: DocumentFragment | Element): void {
 
 // #endregion
 
+// #region Template Evaluation
 export function evalTemplateString(raw: string, ctx: EvalContext): string {
   if (!raw || raw.indexOf('{{') === -1) return raw; // fast path (no expressions)
   const parts: { expr: string; result: string }[] = [];
@@ -200,7 +203,9 @@ function evalSingle(expr: string, ctx: EvalContext): string {
     return EMPTY_SENTINEL;
   }
 }
+// #endregion
 
+// #region Cell Scrubbing
 function postProcess(s: string): string {
   if (!s) return s;
   return s
@@ -226,7 +231,9 @@ export function finalCellScrub(cell: HTMLElement): void {
     if ((cell.textContent || '').trim().length === 0) cell.textContent = '';
   }
 }
+// #endregion
 
+// #region Template Compilation
 export function compileTemplate(raw: string) {
   const forceBlank = /Reflect\.|\bProxy\b|ownKeys\(/.test(raw);
   const fn = ((ctx: EvalContext) => {
@@ -237,3 +244,4 @@ export function compileTemplate(raw: string) {
   fn.__blocked = forceBlank;
   return fn;
 }
+// #endregion

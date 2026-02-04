@@ -5,6 +5,7 @@
  * Supports both vertical (faux scrollbar) and horizontal (scroll area) scrolling.
  */
 
+// #region Types
 export interface TouchScrollState {
   startY: number | null;
   startX: number | null;
@@ -22,7 +23,9 @@ export interface TouchScrollElements {
   fauxScrollbar: HTMLElement;
   scrollArea: HTMLElement | null;
 }
+// #endregion
 
+// #region State Management
 /**
  * Create initial touch scroll state.
  */
@@ -63,7 +66,9 @@ export function cancelMomentum(state: TouchScrollState): void {
     state.momentumRaf = 0;
   }
 }
+// #endregion
 
+// #region Touch Handlers
 /**
  * Handle touchstart event.
  */
@@ -159,7 +164,9 @@ export function handleTouchEnd(state: TouchScrollState, elements: TouchScrollEle
 
   resetTouchState(state);
 }
+// #endregion
 
+// #region Momentum Scrolling
 /**
  * Start momentum scrolling animation.
  */
@@ -194,7 +201,9 @@ function startMomentumScroll(state: TouchScrollState, elements: TouchScrollEleme
 
   state.momentumRaf = requestAnimationFrame(animate);
 }
+// #endregion
 
+// #region Setup
 /**
  * Set up touch scroll event listeners on the grid content element.
  * Returns a cleanup function that removes all listeners.
@@ -223,3 +232,4 @@ export function setupTouchScrollListeners(
 
   gridContentEl.addEventListener('touchend', () => handleTouchEnd(state, elements), { passive: true, signal });
 }
+// #endregion

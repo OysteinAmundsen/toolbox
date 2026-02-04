@@ -86,9 +86,7 @@ export interface ConfigManagerCallbacks<T> {
  * - Column visibility and ordering
  */
 export class ConfigManager<T = unknown> {
-  // ============================================================================
-  // Sources (raw input from user)
-  // ============================================================================
+  // #region Sources (raw input from user)
   #gridConfig?: GridConfig<T>;
   #columns?: ColumnConfig<T>[] | ColumnConfigMap<T>;
   #fitMode?: FitMode;
@@ -96,10 +94,9 @@ export class ConfigManager<T = unknown> {
   // Light DOM cache
   #lightDomColumnsCache?: ColumnInternal<T>[];
   #originalColumnNodes?: HTMLElement[];
+  // #endregion
 
-  // ============================================================================
-  // Two-Layer Config Architecture
-  // ============================================================================
+  // #region Two-Layer Config Architecture
   /**
    * Original config (frozen) - Built from sources, never mutated.
    * This is the "canonical" config that sources compile into.
@@ -113,10 +110,9 @@ export class ConfigManager<T = unknown> {
    * Runtime changes: hidden, width, sort order, column order.
    */
   #effectiveConfig: GridConfig<T> = {};
+  // #endregion
 
-  // ============================================================================
-  // State Tracking
-  // ============================================================================
+  // #region State Tracking
   #sourcesChanged = true;
   #changeListeners: Array<() => void> = [];
   #lightDomObserver?: MutationObserver;
@@ -130,11 +126,9 @@ export class ConfigManager<T = unknown> {
   constructor(callbacks: ConfigManagerCallbacks<T>) {
     this.#callbacks = callbacks;
   }
+  // #endregion
 
-  // ============================================================================
-  // Getters for Grid Access
-  // ============================================================================
-
+  // #region Getters
   /** Get the frozen original config (compiled from sources, immutable) */
   get original(): GridConfig<T> {
     return this.#originalConfig;
@@ -194,11 +188,9 @@ export class ConfigManager<T = unknown> {
   set initialColumnState(value: GridColumnState | undefined) {
     this.#initialColumnState = value;
   }
+  // #endregion
 
-  // ============================================================================
-  // Source Management
-  // ============================================================================
-
+  // #region Source Management
   /**
    * Check if sources have changed since last merge.
    */
@@ -214,11 +206,9 @@ export class ConfigManager<T = unknown> {
   markSourcesChanged(): void {
     this.#sourcesChanged = true;
   }
+  // #endregion
 
-  // ============================================================================
-  // Source Setters (mark dirty)
-  // ============================================================================
-
+  // #region Source Setters
   /** Set gridConfig source */
   setGridConfig(config: GridConfig<T> | undefined): void {
     this.#gridConfig = config;
@@ -253,11 +243,9 @@ export class ConfigManager<T = unknown> {
   getFitMode(): FitMode | undefined {
     return this.#fitMode;
   }
+  // #endregion
 
-  // ============================================================================
-  // Config Lifecycle
-  // ============================================================================
-
+  // #region Config Lifecycle
   /**
    * Merge all sources into effective config.
    * Also applies post-merge operations (rowHeight, fixed mode widths, animation).
@@ -564,11 +552,9 @@ export class ConfigManager<T = unknown> {
     mergedContents.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     base.shell.header.toolbarContents = mergedContents;
   }
+  // #endregion
 
-  // ============================================================================
-  // State Persistence (Replaces column-state.ts)
-  // ============================================================================
-
+  // #region State Persistence
   /**
    * Collect current column state by diffing original vs effective.
    * Returns only the changes from the original configuration.
@@ -746,11 +732,9 @@ export class ConfigManager<T = unknown> {
       this.#callbacks.emit('column-state-change', state);
     }, STATE_CHANGE_DEBOUNCE_MS);
   }
+  // #endregion
 
-  // ============================================================================
-  // Column Visibility API
-  // ============================================================================
-
+  // #region Column Visibility API
   /**
    * Set the visibility of a column.
    * @returns true if visibility changed, false otherwise
@@ -872,11 +856,9 @@ export class ConfigManager<T = unknown> {
     this.#callbacks.updateTemplate();
     this.#callbacks.refreshVirtualWindow();
   }
+  // #endregion
 
-  // ============================================================================
-  // Light DOM Observer
-  // ============================================================================
-
+  // #region Light DOM Observer
   /**
    * Parse light DOM columns from host element.
    */
@@ -993,11 +975,9 @@ export class ConfigManager<T = unknown> {
       attributeFilter: ['title', 'field', 'header', 'width', 'hidden', 'id', 'icon', 'tooltip', 'order'],
     });
   }
+  // #endregion
 
-  // ============================================================================
-  // Change Notification
-  // ============================================================================
-
+  // #region Change Notification
   /**
    * Register a change listener.
    */
@@ -1013,11 +993,9 @@ export class ConfigManager<T = unknown> {
       cb();
     }
   }
+  // #endregion
 
-  // ============================================================================
-  // Cleanup
-  // ============================================================================
-
+  // #region Cleanup
   /**
    * Dispose of the ConfigManager and clean up resources.
    */
@@ -1028,4 +1006,5 @@ export class ConfigManager<T = unknown> {
       clearTimeout(this.#stateChangeTimeoutId);
     }
   }
+  // #endregion
 }

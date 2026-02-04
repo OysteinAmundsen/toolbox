@@ -419,6 +419,81 @@ TypeScript paths defined in `tsconfig.base.json` for all libraries:
 - **ESLint config**: Flat config in `eslint.config.mjs` using `@nx/eslint-plugin`
 - **Formatting**: Prettier v3.7.4 (no explicit config file; uses defaults)
 
+#### Code Organization with Region Markers
+
+Use `// #region Name` and `// #endregion` markers to organize code into collapsible sections in VS Code. This improves navigation and maintainability in large files.
+
+**When to add regions:**
+
+- Files over ~200 lines should have logical sections marked with regions
+- Group related functionality: imports, types, constants, state, lifecycle, methods, etc.
+- Plugin files: separate hooks, state, event handlers, utilities
+- Type files: separate interfaces, types, enums, constants
+
+**Region naming conventions:**
+
+```typescript
+// #region Imports
+import { ... } from '...';
+// #endregion
+
+// #region Types & Interfaces
+interface MyConfig { ... }
+// #endregion
+
+// #region Private State
+#state = {};
+// #endregion
+
+// #region Lifecycle Methods
+connectedCallback() { ... }
+// #endregion
+
+// #region Public API
+getData() { ... }
+// #endregion
+```
+
+**Existing files with regions** (use as reference):
+
+- `grid.ts` - 20 regions (lifecycle, plugin system, rendering, etc.)
+- `config-manager.ts` - 13 regions
+- `plugin-manager.ts` - 11 regions
+- `types.ts` - 25 regions (interfaces, types, events, etc.)
+- All internal helpers in `core/internal/` have regions
+
+#### Dead Code Removal
+
+Actively identify and remove dead code to minimize bundle size:
+
+**Before each commit, check for:**
+
+- Unused imports (ESLint will flag these)
+- Unused functions, variables, or type definitions
+- Commented-out code blocks (remove or convert to documentation)
+- Deprecated code that's no longer referenced
+- Unused CSS classes or variables
+
+**Tools to help identify dead code:**
+
+```bash
+# TypeScript compiler will flag unused locals
+bun nx build grid
+
+# ESLint checks for unused variables/imports
+bun nx lint grid
+
+# Search for potentially unused exports
+grep -r "export.*functionName" --include="*.ts"
+```
+
+**When removing code:**
+
+1. Verify no usages exist (use `list_code_usages` or grep)
+2. Check for dynamic imports or string-based references
+3. Consider if code is used by external consumers (public API)
+4. Remove associated tests if the feature is fully removed
+
 #### CSS Color Guidelines
 
 When adding colors to CSS, follow these rules:

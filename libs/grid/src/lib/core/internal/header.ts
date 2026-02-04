@@ -12,6 +12,7 @@ import { addPart } from './columns';
 import { sanitizeHTML } from './sanitize';
 import { toggleSort } from './sorting';
 
+// #region Helper Functions
 /**
  * Check if a column is sortable, respecting both column-level and grid-level settings.
  * Grid-wide `sortable: false` disables sorting for all columns.
@@ -121,7 +122,9 @@ function appendRendererOutput(cell: HTMLElement, output: Node | string | void | 
     cell.appendChild(output);
   }
 }
+// #endregion
 
+// #region Render Header
 /**
  * Rebuild the header row DOM based on current column configuration, attaching
  * sorting and resize affordances where enabled.
@@ -265,3 +268,4 @@ export function renderHeader(grid: InternalGrid): void {
     headerRow.removeAttribute('aria-rowindex');
   }
 }
+// #endregion

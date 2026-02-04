@@ -35,6 +35,7 @@ import type {
  * Place plugins in the order you want their hooks to execute.
  */
 export class PluginManager {
+  // #region Properties
   /** Plugin instances in order of attachment */
   private plugins: BaseGridPlugin[] = [];
 
@@ -54,29 +55,27 @@ export class PluginManager {
 
   /** Cell editors registered by plugins */
   private cellEditors: Map<string, CellEditor> = new Map();
+  // #endregion
 
-  // =========================================================================
-  // Event Bus - Plugin-to-Plugin Communication
-  // =========================================================================
-
+  // #region Event Bus State
   /**
    * Event listeners indexed by event type.
    * Maps event type → Map<plugin instance → callback>.
    * Using plugin instance as key enables auto-cleanup on detach.
    */
   private eventListeners: Map<string, Map<BaseGridPlugin, (detail: unknown) => void>> = new Map();
+  // #endregion
 
-  // =========================================================================
-  // Query System - Manifest-based Routing
-  // =========================================================================
-
+  // #region Query System State
   /**
    * Query handlers indexed by query type.
    * Maps query type → Set of plugin instances that declare handling it.
    * Built from manifest.queries during plugin attach.
    */
   private queryHandlers: Map<string, Set<BaseGridPlugin>> = new Map();
+  // #endregion
 
+  // #region Lifecycle
   constructor(private grid: GridElement) {}
 
   /**
@@ -191,7 +190,9 @@ export class PluginManager {
     this.eventListeners.clear();
     this.queryHandlers.clear();
   }
+  // #endregion
 
+  // #region Plugin Lookup
   /**
    * Get a plugin instance by its class.
    */
@@ -226,7 +227,9 @@ export class PluginManager {
   getRegisteredPluginNames(): string[] {
     return this.plugins.map((p) => p.name);
   }
+  // #endregion
 
+  // #region Renderers & Styles
   /**
    * Get a cell renderer by type name.
    */
@@ -255,8 +258,9 @@ export class PluginManager {
   getPluginStyles(): Array<{ name: string; styles: string }> {
     return this.plugins.filter((p) => p.styles).map((p) => ({ name: p.name, styles: p.styles! }));
   }
+  // #endregion
 
-  // #region Hook execution methods
+  // #region Hook Execution
 
   /**
    * Execute processRows hook on all plugins.
@@ -463,11 +467,9 @@ export class PluginManager {
     }
     return responses;
   }
+  // #endregion
 
-  // =========================================================================
-  // Event Bus - Plugin-to-Plugin Communication
-  // =========================================================================
-
+  // #region Event Bus
   /**
    * Subscribe a plugin to an event type.
    * The subscription is automatically cleaned up when the plugin is detached.
@@ -535,7 +537,9 @@ export class PluginManager {
       }
     }
   }
+  // #endregion
 
+  // #region Event Hooks
   /**
    * Execute onKeyDown hook on all plugins.
    * Returns true if any plugin handled the event.

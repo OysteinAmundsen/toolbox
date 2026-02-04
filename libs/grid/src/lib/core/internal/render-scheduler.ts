@@ -42,6 +42,7 @@
  * ```
  */
 
+// #region Types & Enums
 /**
  * Render phases in order of execution.
  * Higher phases include all lower phase work.
@@ -86,7 +87,9 @@ export interface RenderCallbacks {
   /** Check if grid is still connected to DOM */
   isConnected: () => boolean;
 }
+// #endregion
 
+// #region RenderScheduler
 /**
  * Centralized render scheduler that batches all grid rendering into single RAF.
  */
@@ -270,3 +273,4 @@ export class RenderScheduler {
     }
   }
 }
+// #endregion

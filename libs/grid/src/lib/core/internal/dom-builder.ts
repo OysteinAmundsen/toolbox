@@ -9,6 +9,7 @@
  * Benchmark: DOM construction is ~2-3x faster than innerHTML for complex structures.
  */
 
+// #region Element Factories
 /**
  * Create an element with attributes and optional children.
  * Optimized helper that avoids repeated function calls.
@@ -111,11 +112,9 @@ export function setAttrs(el: Element, attrs: Record<string, string | undefined>)
     }
   }
 }
+// #endregion
 
-// ============================================================================
-// Grid Structure Templates (Pre-built for cloning)
-// ============================================================================
-
+// #region Grid Templates
 /**
  * Template for grid content (the core scrollable grid area).
  * Pre-built once, then cloned for each grid instance.
@@ -148,7 +147,9 @@ gridContentTemplate.innerHTML = `
 export function cloneGridContent(): DocumentFragment {
   return gridContentTemplate.content.cloneNode(true) as DocumentFragment;
 }
+// #endregion
 
+// #region Grid DOM Building
 /**
  * Build the grid root structure using direct DOM construction.
  * This is called once per grid instance during initial render.
@@ -184,7 +185,9 @@ export function buildGridDOM(options: GridDOMOptions): DocumentFragment {
   fragment.appendChild(root);
   return fragment;
 }
+// #endregion
 
+// #region Shell Header
 /**
  * Build shell header using direct DOM construction.
  *
@@ -270,7 +273,9 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
   header.appendChild(toolbar);
   return header;
 }
+// #endregion
 
+// #region Shell Body
 /**
  * Build shell body (grid content + optional tool panel).
  */
@@ -383,3 +388,4 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
 
   return body;
 }
+// #endregion

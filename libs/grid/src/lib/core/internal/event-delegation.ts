@@ -19,9 +19,12 @@ import { handleGridKeyDown } from './keyboard';
 import { handleRowClick } from './rows';
 import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell } from './utils';
 
+// #region Utilities
 // Track drag state per grid instance (avoids polluting InternalGrid interface)
 const dragState = new WeakMap<InternalGrid, boolean>();
+// #endregion
 
+// #region Cell Mouse Handlers
 /**
  * Handle delegated mousedown on cells.
  * Updates focus position for navigation.
@@ -49,7 +52,9 @@ function handleCellMousedown(grid: InternalGrid, cell: HTMLElement): void {
   cell.classList.add('cell-focus');
   cell.setAttribute('aria-selected', 'true');
 }
+// #endregion
 
+// #region Mouse Event Building
 /**
  * Build a CellMouseEvent from a native MouseEvent.
  * Extracts cell/row information from the event target.
@@ -123,7 +128,9 @@ function buildCellMouseEvent(
         : undefined,
   };
 }
+// #endregion
 
+// #region Drag Tracking
 /**
  * Handle mousedown events and dispatch to plugin system.
  */
@@ -157,7 +164,9 @@ function handleMouseUp(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEven
   grid._dispatchCellMouseUp?.(event);
   dragState.set(grid, false);
 }
+// #endregion
 
+// #region Setup Functions
 /**
  * Set up delegated event listeners on the grid body.
  * Consolidates all row/cell mouse event handling into a single set of listeners.
@@ -239,3 +248,4 @@ export function setupRootEventDelegation(
   document.addEventListener('mousemove', (e: MouseEvent) => handleMouseMove(grid, renderRoot, e), { signal });
   document.addEventListener('mouseup', (e: MouseEvent) => handleMouseUp(grid, renderRoot, e), { signal });
 }
+// #endregion

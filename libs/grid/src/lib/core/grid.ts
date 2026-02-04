@@ -150,7 +150,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** Static counter for generating unique grid IDs */
   static #instanceCounter = 0;
 
-  // ---------------- Framework Adapters ----------------
+  // #region Static Methods - Framework Adapters
   /**
    * Registry of framework adapters that handle converting light DOM elements
    * to functional renderers/editors. Framework libraries (Angular, React, Vue)
@@ -192,11 +192,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   static clearAdapters(): void {
     this.adapters = [];
   }
+  // #endregion
 
-  // ---------------- Observed Attributes ----------------
+  // #region Static Methods - Observed Attributes
   static get observedAttributes(): string[] {
     return ['rows', 'columns', 'grid-config', 'fit-mode', 'loading'];
   }
+  // #endregion
 
   /**
    * The render root for the grid. Without Shadow DOM, this is the element itself.
@@ -208,7 +210,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #initialized = false;
 
-  // ---------------- Ready Promise ----------------
+  // Ready Promise
   #readyPromise: Promise<void>;
   #readyResolve?: () => void;
 
@@ -226,9 +228,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #connected = false;
 
-  // ---------------- Batched Updates ----------------
-  // When multiple properties are set in rapid succession (within same microtask),
-  // we batch them into a single update to avoid redundant re-renders.
+  // Batched Updates - coalesces rapid property changes into single update
   #pendingUpdate = false;
   #pendingUpdateFlags = {
     rows: false,
@@ -237,8 +237,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     fitMode: false,
   };
 
-  // ---------------- Render Scheduler ----------------
-  // Centralizes all rendering through a single RAF-based pipeline
+  // Render Scheduler - centralizes all rendering through RAF
   #scheduler!: RenderScheduler;
 
   #scrollRaf = 0;
@@ -261,34 +260,33 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     clientWidth: 0,
   };
 
-  // ---------------- Plugin System ----------------
+  // Plugin System
   #pluginManager!: PluginManager;
   #lastPluginsArray?: BaseGridPlugin[]; // Track last attached plugins to avoid unnecessary re-initialization
 
-  // ---------------- Event Listeners ----------------
+  // Event Listeners
   #eventListenersAdded = false; // Guard against adding duplicate component-level listeners
   #scrollAbortController?: AbortController; // Separate controller for DOM scroll listeners (recreated on DOM changes)
   #scrollAreaEl?: HTMLElement; // Reference to horizontal scroll container (.tbw-scroll-area)
 
-  // ---------------- Column State ----------------
+  // Column State
   #initialColumnState?: GridColumnState;
 
-  // ---------------- Config Manager ----------------
+  // Config Manager
   #configManager!: ConfigManager<T>;
 
-  // ---------------- Shell State ----------------
+  // Shell State
   #shellState: ShellState = createShellState();
   #shellController!: ShellController;
   #resizeCleanup?: () => void;
 
-  // ---------------- Loading State ----------------
+  // Loading State
   #loading = false;
   #loadingRows = new Set<string>(); // Row IDs currently loading
   #loadingCells = new Map<string, Set<string>>(); // Map<rowId, Set<field>> for cells loading
   #loadingOverlayEl?: HTMLElement; // Cached loading overlay element
 
-  // ---------------- Row ID Map ----------------
-  // O(1) lookup for rows by ID. Rebuilt when rows change.
+  // Row ID Map - O(1) lookup for rows by ID
   #rowIdMap = new Map<string, { row: T; index: number }>();
   // #endregion
 
@@ -824,8 +822,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     await injectStyles(styles);
   }
 
-  // ---------------- Plugin System ----------------
-
+  // #region Plugin System
   /**
    * Get a plugin instance by its class.
    * Used by plugins for inter-plugin communication.
@@ -1066,8 +1063,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       return undefined;
     };
   }
+  // #endregion
 
-  // ---------------- Lifecycle ----------------
+  // #region Lifecycle
   /** @internal Web component lifecycle - not part of public API */
   connectedCallback(): void {
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0;
@@ -1562,8 +1560,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     });
     this.#rowHeightObserver.observe(firstRow);
   }
+  // #endregion
 
-  // ---------------- Typed Event Listeners ----------------
+  // #region Event System
   /**
    * Add a typed event listener for grid events.
    *
@@ -1626,7 +1625,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     super.removeEventListener(type, listener as EventListener, options);
   }
 
-  // ---------------- Event Emitters ----------------
   #emit<D>(eventName: string, detail: D): void {
     this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
   }
@@ -1643,8 +1641,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       });
     });
   }
+  // #endregion
 
-  // ---------------- Batched Update System ----------------
+  // #region Batched Update System
   // Allows multiple property changes within the same microtask to be coalesced
   // into a single update cycle, dramatically reducing redundant renders.
 
@@ -1973,8 +1972,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Set data attribute for mode-based CSS selectors
     this.dataset.animationMode = typeof mode === 'boolean' ? (mode ? 'on' : 'off') : mode;
   }
+  // #endregion
 
-  // ---------------- Delegate Wrappers ----------------
+  // #region Internal Helpers
   #renderVisibleRows(start: number, end: number, epoch = this.__rowRenderEpoch): void {
     // Use cached hook to avoid creating closures on every render (hot path optimization)
     if (!this.#renderRowHook) {
@@ -2057,8 +2057,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
-  // ---------------- Loading Helpers ----------------
-
   /**
    * Update the loading overlay visibility.
    * Called when `loading` property changes.
@@ -2118,7 +2116,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     setCellLoadingState(cellEl, loading);
   }
 
-  // ---------------- Core Helpers ----------------
   /**
    * Request a full grid re-setup through the render scheduler.
    * This method queues all the config merging, column/row processing, and rendering
@@ -2511,9 +2508,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   async getConfig(): Promise<Readonly<GridConfig<T>>> {
     return Object.freeze({ ...(this.#effectiveConfig || {}) });
   }
+  // #endregion
 
-  // ---------------- Row Update API ----------------
-
+  // #region Row API
   /**
    * Get the unique ID for a row.
    * Uses the configured `getRowId` function or falls back to `row.id` / `row._id`.
@@ -2672,8 +2669,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
   }
 
-  // ---------------- Row Animation API ----------------
-
   /**
    * Animate a row at the specified index.
    * Applies a visual animation to highlight changes, insertions, or removals.
@@ -2745,10 +2740,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   animateRowById(rowId: string, type: RowAnimationType): boolean {
     return animateRowById(this as unknown as InternalGrid, rowId, type);
   }
+  // #endregion
 
-  // ---------------- Column Visibility API ----------------
-  // Delegates to ConfigManager
-
+  // #region Column API
   /**
    * Show or hide a column by field name.
    *
@@ -2903,8 +2897,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#configManager.getColumnOrder();
   }
 
-  // ---------------- Column State API ----------------
-
   /**
    * Get the current column state for persistence.
    * Returns a serializable object including column order, widths, visibility,
@@ -3023,16 +3015,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#configManager.merge();
     this.#setup();
   }
+  // #endregion
 
-  // ---------------- Shell / Tool Panel API ----------------
-  // These methods delegate to ShellController for implementation.
-  // The controller encapsulates all tool panel logic while grid.ts
-  // ════════════════════════════════════════════════════════════════════════════
-  // Tool Panel API
-  // ════════════════════════════════════════════════════════════════════════════
-  // The tool panel is a collapsible sidebar that contains accordion sections.
-  // Each section can contain plugin UI (e.g., column visibility, filtering).
-
+  // #region Shell & Tool Panel API
   /**
    * Check if the tool panel sidebar is currently open.
    *
@@ -3657,8 +3642,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This batches with any other pending work (e.g., afterConnect)
     this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'refreshColumns');
   }
+  // #endregion
 
-  // ---------------- Virtual Window ----------------
+  // #region Virtualization
   /**
    * Calculate total height for the faux scrollbar spacer element.
    * Used by both bypass and virtualized rendering paths to ensure consistent scroll behavior.
@@ -3840,8 +3826,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       });
     }
   }
+  // #endregion
 
-  // ---------------- Render ----------------
+  // #region Render
   #render(): void {
     // Parse light DOM shell elements before rendering
     parseLightDomShell(this, this.#shellState);
@@ -3887,6 +3874,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.style.setProperty('--tbw-tool-panel-width', `${width}px`);
     });
   }
+  // #endregion
 }
 
 // Self-registering custom element

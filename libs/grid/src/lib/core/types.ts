@@ -132,6 +132,49 @@ export interface PublicGrid<T = any> {
    * Unregister a previously registered tool panel.
    */
   unregisterToolPanel?(panelId: string): void;
+  /**
+   * Open the tool panel sidebar.
+   */
+  openToolPanel?(): void;
+  /**
+   * Close the tool panel sidebar.
+   */
+  closeToolPanel?(): void;
+  /**
+   * Toggle the tool panel sidebar open or closed.
+   */
+  toggleToolPanel?(): void;
+  /**
+   * Toggle an accordion section expanded or collapsed within the tool panel.
+   * @param sectionId - The ID of the section to toggle
+   */
+  toggleToolPanelSection?(sectionId: string): void;
+
+  // State Persistence API
+  /**
+   * Get the current column state including order, width, visibility, and sort.
+   * Use for persisting user preferences to localStorage or a backend.
+   *
+   * @example
+   * ```typescript
+   * const state = grid.getColumnState();
+   * localStorage.setItem('gridState', JSON.stringify(state));
+   * ```
+   */
+  getColumnState?(): GridColumnState;
+  /**
+   * Set/restore the column state.
+   * Can be set before or after grid initialization.
+   *
+   * @example
+   * ```typescript
+   * const saved = localStorage.getItem('gridState');
+   * if (saved) {
+   *   grid.columnState = JSON.parse(saved);
+   * }
+   * ```
+   */
+  columnState?: GridColumnState;
 
   // Loading API
   /**

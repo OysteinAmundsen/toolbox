@@ -108,6 +108,29 @@ grid.rows = [...]; // ✅ Works
   </Tab>
 </Tabs>
 
+### "Property 'columnState' (or 'ready', 'toggleToolPanel') does not exist on type 'GridElement'"
+
+**Problem**: You imported `GridElement` but public API methods are missing.
+
+**Solution**: Use `DataGridElement` instead. There are two similarly-named types:
+
+- **`DataGridElement`** - The public consumer type with all API methods (`ready()`, `columnState`, `toggleToolPanel()`, etc.)
+- **`GridElement`** - An internal type for plugin authors (minimal interface)
+
+```typescript
+// ❌ Wrong - GridElement is for plugin authors
+import type { GridElement } from '@toolbox-web/grid';
+const grid = document.querySelector('tbw-grid') as GridElement;
+grid.columnState; // Error!
+
+// ✅ Correct - DataGridElement is the public type
+import type { DataGridElement } from '@toolbox-web/grid';
+const grid = document.querySelector('tbw-grid') as DataGridElement;
+grid.columnState; // Works!
+grid.ready?.().then(() => console.log('Grid ready'));
+grid.toggleToolPanel?.();
+```
+
 ### Module not found: '@toolbox-web/grid/plugins/selection'
 
 **Solution**: Check your import path and ensure the package is installed:

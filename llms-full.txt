@@ -11,6 +11,7 @@ Important notes:
 - Editing requires `EditingPlugin` - using `editable: true` without it throws a helpful error
 - Uses **light DOM** (not Shadow DOM) for CSS cascade and accessibility
 - All sizing uses `em` units - change font-size to scale the entire grid
+- **Type import**: Use `DataGridElement` for typing grid elements in consumer code. The `GridElement` export is an internal type for plugin authors.
 
 ---
 
@@ -1600,6 +1601,63 @@ tbw-grid.compact {
 }
 ```
 
+### Row Styling (rowClass)
+
+Apply dynamic CSS classes to rows using the `rowClass` callback in `gridConfig`:
+
+```typescript
+gridConfig: {
+  rowClass: (row) => {
+    const classes: string[] = [];
+    if (row.isConfidential) classes.push('confidential');
+    if (row.status === 'active') classes.push('active-row');
+    if (row.priority === 'high') classes.push('priority-high');
+    return classes;
+  },
+}
+```
+
+**DOM Element Classes:**
+
+The grid uses these CSS classes for its internal structure:
+
+| Element | CSS Class | Description |
+|---------|-----------|-------------|
+| Row | `.data-grid-row` | Data row container |
+| Cell | `.cell` | Individual cell within a row |
+| Header | `.header-cell` | Header cell |
+| Header row | `.data-grid-header` | Header row container |
+
+**Styling rows with custom classes:**
+
+```css
+/* Style rows with custom classes from rowClass callback */
+tbw-grid .data-grid-row.confidential {
+  background-color: #ffffe0;
+}
+
+tbw-grid .data-grid-row.priority-high {
+  color: #d32f2f;
+}
+
+tbw-grid .data-grid-row.priority-high .cell {
+  color: inherit;
+}
+
+/* Override hover state for custom row classes */
+tbw-grid .data-grid-row.confidential:hover {
+  background-color: #ffffc0;
+}
+```
+
+**Built-in row classes (applied automatically):**
+
+| Class | Applied When |
+|-------|--------------|
+| `changed` | Row has uncommitted edits (via EditingPlugin) |
+| `row-selected` | Row is selected (via SelectionPlugin) |
+| `row-loading` | Row has loading indicator active |
+
 ### CSS Variable Reference
 
 All CSS custom properties use the `--tbw-` prefix. Variables use em units so everything scales proportionally with font size.
@@ -1901,6 +1959,24 @@ Import the `Grid` directive and use `CUSTOM_ELEMENTS_SCHEMA`:
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 ```
+
+### TypeScript: "Property does not exist on type 'GridElement'"
+
+Use `DataGridElement` instead of `GridElement` when typing grid element references:
+
+```typescript
+// ❌ Wrong - GridElement is for plugin authors only
+import type { GridElement } from '@toolbox-web/grid';
+const grid = document.querySelector('tbw-grid') as GridElement;
+grid.columnState; // Error: Property 'columnState' does not exist
+
+// ✅ Correct - DataGridElement is the public consumer type
+import type { DataGridElement } from '@toolbox-web/grid';
+const grid = document.querySelector('tbw-grid') as DataGridElement;
+grid.columnState; // Works!
+```
+
+**Why two types?** `GridElement` (from plugin internals) is a minimal interface for plugin authors. `DataGridElement` extends `PublicGrid` + `HTMLElement` with all public API methods like `ready()`, `columnState`, `toggleToolPanel()`, etc.
 
 ---
 

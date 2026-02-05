@@ -223,6 +223,12 @@ export class AngularGridAdapter implements FrameworkAdapter {
     }
 
     return (ctx: CellRenderContext<TRow, TValue>) => {
+      // Skip rendering if the cell is in editing mode
+      // This prevents the renderer from overwriting the editor when the grid re-renders
+      if (ctx.cellEl?.classList.contains('editing')) {
+        return null;
+      }
+
       // Create the context for the template
       const context: GridCellContext<TValue, TRow> = {
         $implicit: ctx.value,

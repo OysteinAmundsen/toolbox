@@ -163,16 +163,50 @@ export class AngularGridAdapter implements FrameworkAdapter {
    * @returns Processed GridConfig with actual renderer/editor functions
    */
   processGridConfig<TRow = unknown>(config: AngularGridConfig<TRow>): GridConfig<TRow> {
-    if (!config.columns) {
-      return config as GridConfig<TRow>;
+    const result = { ...config } as GridConfig<TRow>;
+
+    // Process columns
+    if (config.columns) {
+      result.columns = config.columns.map((col) => this.processColumn(col));
     }
 
-    const processedColumns = config.columns.map((col) => this.processColumn(col));
+    // Process typeDefaults - convert Angular component classes to renderer/editor functions
+    if (config.typeDefaults) {
+      result.typeDefaults = this.processTypeDefaults(config.typeDefaults);
+    }
 
-    return {
-      ...config,
-      columns: processedColumns,
-    } as GridConfig<TRow>;
+    return result;
+  }
+
+  /**
+   * Processes typeDefaults configuration, converting component class references
+   * to actual renderer/editor functions.
+   *
+   * @param typeDefaults - Angular type defaults with possible component class references
+   * @returns Processed TypeDefault record
+   */
+  processTypeDefaults<TRow = unknown>(
+    typeDefaults: Record<string, import('./angular-column-config').AngularTypeDefault<TRow>>,
+  ): Record<string, import('@toolbox-web/grid').TypeDefault<TRow>> {
+    const processed: Record<string, import('@toolbox-web/grid').TypeDefault<TRow>> = {};
+
+    for (const [type, config] of Object.entries(typeDefaults)) {
+      const processedConfig: import('@toolbox-web/grid').TypeDefault<TRow> = { ...config } as any;
+
+      // Convert renderer component class to function
+      if (config.renderer && isComponentClass(config.renderer)) {
+        processedConfig.renderer = this.createComponentRenderer(config.renderer);
+      }
+
+      // Convert editor component class to function
+      if (config.editor && isComponentClass(config.editor)) {
+        (processedConfig as any).editor = this.createComponentEditor(config.editor);
+      }
+
+      processed[type] = processedConfig;
+    }
+
+    return processed;
   }
 
   /**
@@ -556,6 +590,63 @@ export class AngularGridAdapter implements FrameworkAdapter {
   }
 
   /**
+   * Creates and mounts an Angular component dynamically.
+   * Shared logic between renderer and editor component creation.
+   * @internal
+   */
+  private mountComponent<TRow, TValue>(
+    componentClass: Type<unknown>,
+    inputs: { value: TValue; row: TRow; column: ColumnConfig<TRow> },
+  ): { hostElement: HTMLSpanElement; componentRef: ComponentRef<unknown> } {
+    // Create a host element for the component
+    const hostElement = document.createElement('span');
+    hostElement.style.display = 'contents';
+
+    // Create the component dynamically
+    const componentRef = createComponent(componentClass, {
+      environmentInjector: this.injector,
+      hostElement,
+    });
+
+    // Set inputs - components should have value, row, column inputs
+    this.setComponentInputs(componentRef, inputs);
+
+    // Attach to app for change detection
+    this.appRef.attachView(componentRef.hostView);
+    this.componentRefs.push(componentRef);
+
+    // Trigger change detection
+    componentRef.changeDetectorRef.detectChanges();
+
+    return { hostElement, componentRef };
+  }
+
+  /**
+   * Wires up commit/cancel handlers for an editor component.
+   * Supports both Angular outputs and DOM CustomEvents.
+   * @internal
+   */
+  private wireEditorCallbacks<TValue>(
+    hostElement: HTMLElement,
+    componentRef: ComponentRef<unknown>,
+    commit: (value: TValue) => void,
+    cancel: () => void,
+  ): void {
+    // Subscribe to Angular outputs (commit/cancel) on the component instance.
+    // This works with Angular's output() signal API.
+    const instance = componentRef.instance as Record<string, unknown>;
+    this.subscribeToOutput(instance, 'commit', commit);
+    this.subscribeToOutput(instance, 'cancel', cancel);
+
+    // Also listen for DOM events as fallback (for components that dispatch CustomEvents)
+    hostElement.addEventListener('commit', (e: Event) => {
+      const customEvent = e as CustomEvent<TValue>;
+      commit(customEvent.detail);
+    });
+    hostElement.addEventListener('cancel', () => cancel());
+  }
+
+  /**
    * Creates a renderer function from an Angular component class.
    * @internal
    */
@@ -563,30 +654,11 @@ export class AngularGridAdapter implements FrameworkAdapter {
     componentClass: Type<unknown>,
   ): ColumnViewRenderer<TRow, TValue> {
     return (ctx: CellRenderContext<TRow, TValue>) => {
-      // Create a host element for the component
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      // Create the component dynamically
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      // Set inputs - components should have value, row, column inputs
-      this.setComponentInputs(componentRef, {
+      const { hostElement } = this.mountComponent<TRow, TValue>(componentClass, {
         value: ctx.value,
         row: ctx.row,
         column: ctx.column,
       });
-
-      // Attach to app for change detection
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-
-      // Trigger change detection
-      componentRef.changeDetectorRef.detectChanges();
-
       return hostElement;
     };
   }
@@ -599,44 +671,18 @@ export class AngularGridAdapter implements FrameworkAdapter {
     componentClass: Type<unknown>,
   ): ColumnEditorSpec<TRow, TValue> {
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
-      // Create a host element for the component
-      const hostElement = document.createElement('span');
-      hostElement.style.display = 'contents';
-
-      // Create the component dynamically
-      const componentRef = createComponent(componentClass, {
-        environmentInjector: this.injector,
-        hostElement,
-      });
-
-      // Set inputs - components should have value, row, column inputs
-      this.setComponentInputs(componentRef, {
+      const { hostElement, componentRef } = this.mountComponent<TRow, TValue>(componentClass, {
         value: ctx.value,
         row: ctx.row,
         column: ctx.column,
       });
 
-      // Attach to app for change detection
-      this.appRef.attachView(componentRef.hostView);
-      this.componentRefs.push(componentRef);
-
-      // Trigger change detection
-      componentRef.changeDetectorRef.detectChanges();
-
-      // Subscribe to Angular outputs (commit/cancel) on the component instance.
-      // This works with Angular's output() signal API.
-      const instance = componentRef.instance as Record<string, unknown>;
-      this.subscribeToOutput(instance, 'commit', (value: TValue) => ctx.commit(value));
-      this.subscribeToOutput(instance, 'cancel', () => ctx.cancel());
-
-      // Also listen for DOM events as fallback (for components that dispatch CustomEvents)
-      hostElement.addEventListener('commit', (e: Event) => {
-        const customEvent = e as CustomEvent<TValue>;
-        ctx.commit(customEvent.detail);
-      });
-      hostElement.addEventListener('cancel', () => {
-        ctx.cancel();
-      });
+      this.wireEditorCallbacks<TValue>(
+        hostElement,
+        componentRef,
+        (value) => ctx.commit(value),
+        () => ctx.cancel(),
+      );
 
       return hostElement;
     };

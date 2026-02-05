@@ -14,11 +14,11 @@ export type {
   AngularCellRenderer,
   AngularColumnConfig,
   AngularGridConfig,
+  AngularTypeDefault,
 } from './lib/angular-column-config';
 
 // Type registry for application-wide type defaults
 export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from './lib/grid-type-registry';
-export type { AngularTypeDefault } from './lib/grid-type-registry';
 
 // Icon registry for application-wide icon overrides
 export { GRID_ICONS, GridIconRegistry, provideGridIcons } from './lib/grid-icon-registry';

@@ -114,12 +114,46 @@ export interface AngularColumnConfig<TRow = unknown> extends Omit<ColumnConfig<T
 }
 
 /**
+ * Angular-specific type default configuration.
+ *
+ * Extends the base TypeDefault to allow Angular component classes
+ * for renderers and editors in typeDefaults.
+ *
+ * @example
+ * ```typescript
+ * const config: AngularGridConfig<Employee> = {
+ *   typeDefaults: {
+ *     boolean: {
+ *       renderer: (ctx) => { ... },  // vanilla JS renderer
+ *       editor: CheckboxEditorComponent, // Angular component
+ *     },
+ *     date: {
+ *       editor: DatePickerComponent, // Angular component
+ *     }
+ *   }
+ * };
+ * ```
+ */
+export interface AngularTypeDefault<TRow = unknown> {
+  /** Format function for cell display */
+  format?: (value: unknown, row: TRow) => string;
+  /** Cell renderer - can be vanilla JS function or Angular component */
+  renderer?: ColumnConfig<TRow>['renderer'] | Type<AngularCellRenderer<TRow, unknown>>;
+  /** Cell editor - can be vanilla JS function or Angular component */
+  editor?: ColumnConfig<TRow>['editor'] | Type<AngularCellEditor<TRow, unknown>>;
+  /** Default editor parameters */
+  editorParams?: Record<string, unknown>;
+}
+
+/**
  * Angular-specific grid configuration.
  *
- * Extends the base GridConfig to use AngularColumnConfig.
+ * Extends the base GridConfig to use AngularColumnConfig and AngularTypeDefault.
  */
-export interface AngularGridConfig<TRow = unknown> extends Omit<GridConfig<TRow>, 'columns'> {
+export interface AngularGridConfig<TRow = unknown> extends Omit<GridConfig<TRow>, 'columns' | 'typeDefaults'> {
   columns?: AngularColumnConfig<TRow>[];
+  /** Type-level defaults that can use Angular component classes */
+  typeDefaults?: Record<string, AngularTypeDefault<TRow>>;
 }
 
 /**

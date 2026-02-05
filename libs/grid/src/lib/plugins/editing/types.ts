@@ -387,6 +387,15 @@ export interface SelectEditorParams {
 
 /**
  * Union type of all editor parameter configurations.
- * The applicable shape depends on the column type.
+ *
+ * Built-in editors use specific param shapes (NumberEditorParams, TextEditorParams, etc.).
+ * Custom editors can use any Record<string, unknown> for their params.
+ *
+ * The applicable shape depends on the column type and editor.
  */
-export type EditorParams = NumberEditorParams | TextEditorParams | DateEditorParams | SelectEditorParams;
+export type EditorParams =
+  | NumberEditorParams
+  | TextEditorParams
+  | DateEditorParams
+  | SelectEditorParams
+  | Record<string, unknown>;

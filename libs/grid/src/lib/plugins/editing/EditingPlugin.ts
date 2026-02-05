@@ -405,6 +405,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       'keydown',
       (e: KeyboardEvent) => {
         if (e.key === 'Escape' && this.#activeEditRow !== -1) {
+          // Allow users to prevent edit close via callback (e.g., when overlay is open)
+          if (this.config.onBeforeEditClose) {
+            const shouldClose = this.config.onBeforeEditClose(e);
+            if (shouldClose === false) {
+              return;
+            }
+          }
           this.#exitRowEdit(this.#activeEditRow, true);
         }
       },
@@ -510,12 +517,27 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Escape: cancel current edit
     if (event.key === 'Escape' && this.#activeEditRow !== -1) {
+      // Allow users to prevent edit close via callback (e.g., when overlay is open)
+      if (this.config.onBeforeEditClose) {
+        const shouldClose = this.config.onBeforeEditClose(event);
+        if (shouldClose === false) {
+          return true; // Handled: block grid navigation, let event reach overlay
+        }
+      }
       this.#exitRowEdit(this.#activeEditRow, true);
       return true;
     }
 
     // Arrow Up/Down while editing: commit and exit edit mode, move to adjacent row
     if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && this.#activeEditRow !== -1) {
+      // Allow users to prevent row navigation via callback (e.g., when dropdown is open)
+      if (this.config.onBeforeEditClose) {
+        const shouldClose = this.config.onBeforeEditClose(event);
+        if (shouldClose === false) {
+          return true; // Handled: block grid navigation, let event reach dropdown
+        }
+      }
+
       const maxRow = internalGrid._rows.length - 1;
       const currentRow = this.#activeEditRow;
 
@@ -572,6 +594,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Enter: start row edit or commit
     if (event.key === 'Enter' && !event.shiftKey) {
       if (this.#activeEditRow !== -1) {
+        // Allow users to prevent edit close via callback (e.g., when overlay is open)
+        // This lets Enter select an item in a dropdown instead of committing the row
+        if (this.config.onBeforeEditClose) {
+          const shouldClose = this.config.onBeforeEditClose(event);
+          if (shouldClose === false) {
+            return true; // Handled: block grid navigation, let event reach overlay
+          }
+        }
         // Already editing - let cell handlers deal with it
         return false;
       }
@@ -1116,53 +1146,32 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const editableCols = internalGrid._visibleColumns.map((c, i) => (c.editable ? i : -1)).filter((i) => i >= 0);
     if (editableCols.length === 0) return;
 
-    let row = currentRow;
-    let col = internalGrid._focusCol;
-    const currentIdx = editableCols.indexOf(col);
+    const currentIdx = editableCols.indexOf(internalGrid._focusCol);
+    const nextIdx = currentIdx + (forward ? 1 : -1);
 
-    if (forward) {
-      if (currentIdx >= 0 && currentIdx < editableCols.length - 1) {
-        // Next editable in same row
-        col = editableCols[currentIdx + 1];
-      } else if (row < rows.length - 1) {
-        // First editable in next row
-        this.#exitRowEdit(currentRow, false);
-        row++;
-        col = editableCols[0];
-        internalGrid._focusRow = row;
-        internalGrid._focusCol = col;
-        this.beginBulkEdit(row);
-        ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
-        return;
+    // Can move within same row?
+    if (nextIdx >= 0 && nextIdx < editableCols.length) {
+      internalGrid._focusCol = editableCols[nextIdx];
+      const rowEl = internalGrid.findRenderedRowElement?.(currentRow);
+      const cellEl = rowEl?.querySelector(`.cell[data-col="${editableCols[nextIdx]}"]`) as HTMLElement | null;
+      if (cellEl?.classList.contains('editing')) {
+        const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+        editor?.focus({ preventScroll: true });
       }
-      // else: at last cell of last row - stay put
-    } else {
-      if (currentIdx > 0) {
-        // Previous editable in same row
-        col = editableCols[currentIdx - 1];
-      } else if (row > 0) {
-        // Last editable in previous row
-        this.#exitRowEdit(currentRow, false);
-        row--;
-        col = editableCols[editableCols.length - 1];
-        internalGrid._focusRow = row;
-        internalGrid._focusCol = col;
-        this.beginBulkEdit(row);
-        ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
-        return;
-      }
-      // else: at first cell of first row - stay put
+      ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
+      return;
     }
 
-    // Update focus and move editor focus within same row
-    internalGrid._focusCol = col;
-    const rowEl = internalGrid.findRenderedRowElement?.(row);
-    const cellEl = rowEl?.querySelector(`.cell[data-col="${col}"]`) as HTMLElement | null;
-    if (cellEl?.classList.contains('editing')) {
-      const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-      editor?.focus({ preventScroll: true });
+    // Can move to adjacent row?
+    const nextRow = currentRow + (forward ? 1 : -1);
+    if (nextRow >= 0 && nextRow < rows.length) {
+      this.#exitRowEdit(currentRow, false);
+      internalGrid._focusRow = nextRow;
+      internalGrid._focusCol = forward ? editableCols[0] : editableCols[editableCols.length - 1];
+      this.beginBulkEdit(nextRow);
+      ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
     }
-    ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
+    // else: at boundary - stay put
   }
 
   /**
@@ -1451,12 +1460,26 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Keydown handler for Enter/Escape
     editorHost.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
+        // Allow users to prevent edit close via callback (e.g., when overlay is open)
+        if (this.config.onBeforeEditClose) {
+          const shouldClose = this.config.onBeforeEditClose(e);
+          if (shouldClose === false) {
+            return; // Let the event propagate to overlay
+          }
+        }
         e.stopPropagation();
         e.preventDefault();
         editFinalized = true;
         this.#exitRowEdit(rowIndex, false);
       }
       if (e.key === 'Escape') {
+        // Allow users to prevent edit close via callback (e.g., when overlay is open)
+        if (this.config.onBeforeEditClose) {
+          const shouldClose = this.config.onBeforeEditClose(e);
+          if (shouldClose === false) {
+            return; // Let the event propagate to overlay
+          }
+        }
         e.stopPropagation();
         e.preventDefault();
         cancel();
@@ -1600,6 +1623,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       input.addEventListener('keydown', (evt) => {
         const e = evt as KeyboardEvent;
         if (e.key === 'Enter') {
+          // Allow users to prevent edit close via callback (e.g., when overlay is open)
+          if (this.config.onBeforeEditClose) {
+            const shouldClose = this.config.onBeforeEditClose(e);
+            if (shouldClose === false) {
+              return; // Let the event propagate to overlay
+            }
+          }
           e.stopPropagation();
           e.preventDefault();
           editFinalized = true;
@@ -1607,6 +1637,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           this.#exitRowEdit(rowIndex, false);
         }
         if (e.key === 'Escape') {
+          // Allow users to prevent edit close via callback (e.g., when overlay is open)
+          if (this.config.onBeforeEditClose) {
+            const shouldClose = this.config.onBeforeEditClose(e);
+            if (shouldClose === false) {
+              return; // Let the event propagate to overlay
+            }
+          }
           e.stopPropagation();
           e.preventDefault();
           cancel();

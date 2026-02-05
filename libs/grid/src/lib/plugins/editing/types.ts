@@ -254,19 +254,23 @@ export interface EditingConfig {
    * This is useful when editors have open overlays (datepickers, dropdowns)
    * that render outside the grid DOM.
    *
-   * The callback receives the triggering event (usually MouseEvent from clicking
-   * outside the row). Use this to check if the click target is inside your
-   * component library's overlay container.
+   * The callback receives the triggering event:
+   * - `MouseEvent` - when clicking outside the editing row
+   * - `KeyboardEvent` - when pressing Enter or Escape
+   *
+   * Use this to check if the event target is inside your component library's
+   * overlay container, allowing keyboard navigation and selection within
+   * open dropdowns before the edit commits.
    *
    * @example
    * ```typescript
-   * // Angular Material / CDK - prevent close when clicking inside overlay
+   * // Angular Material / CDK - prevent close when overlay is open
    * new EditingPlugin({
    *   editOn: 'dblclick',
    *   onBeforeEditClose: (event) => {
    *     const target = event.target as Element;
-   *     // Return false to PREVENT closing (click is inside overlay)
-   *     // Return true to ALLOW closing (click is outside)
+   *     // Return false to PREVENT closing (interaction is inside overlay)
+   *     // Return true to ALLOW closing (no overlay is open)
    *     return !target?.closest('.cdk-overlay-container');
    *   }
    * })
@@ -280,7 +284,7 @@ export interface EditingConfig {
    * })
    * ```
    */
-  onBeforeEditClose?: (event: Event) => boolean;
+  onBeforeEditClose?: (event: MouseEvent | KeyboardEvent) => boolean;
 }
 
 /**

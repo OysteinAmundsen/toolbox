@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.10.1...grid-1.11.0) (2026-02-05)
+
+
+### Features
+
+* **grid,grid-angular,grid-react,grid-vue:** add onBeforeEditClose callback for overlay support ([6a83c02](https://github.com/OysteinAmundsen/toolbox/commit/6a83c02a09ab357d6d2d876f8635c4948f8352a7))
+
+
+### Bug Fixes
+
+* **grid-angular:** return undefined from createEditor when no template exists ([63866eb](https://github.com/OysteinAmundsen/toolbox/commit/63866ebd24e208639fa9aa8474ada04c0a46d3bf))
+* **grid:** add missing exports ([6f3086f](https://github.com/OysteinAmundsen/toolbox/commit/6f3086f2e29454d9f61ff5c2bdcf1085f87b9576))
+* **grid:** ensure Tab navigation scrolls focused cell into view while editing ([1d5ee61](https://github.com/OysteinAmundsen/toolbox/commit/1d5ee61f9e237df71547e90d2adc7c1f428913dd))
+
 ## [1.10.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.10.0...grid-1.10.1) (2026-02-04)
 
 

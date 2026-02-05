@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.1.0...grid-vue-0.1.1) (2026-02-05)
+
+
+### Features
+
+* **grid,grid-angular,grid-react,grid-vue:** add onBeforeEditClose callback for overlay support ([6a83c02](https://github.com/OysteinAmundsen/toolbox/commit/6a83c02a09ab357d6d2d876f8635c4948f8352a7))
+
 ## 0.1.0 (2026-02-01)
 
 ### Features

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.9.1...grid-angular-0.10.0) (2026-02-05)
+
+
+### Features
+
+* **grid,grid-angular,grid-react,grid-vue:** add onBeforeEditClose callback for overlay support ([6a83c02](https://github.com/OysteinAmundsen/toolbox/commit/6a83c02a09ab357d6d2d876f8635c4948f8352a7))
+
+
+### Bug Fixes
+
+* **grid-angular:** return undefined from createEditor when no template exists ([63866eb](https://github.com/OysteinAmundsen/toolbox/commit/63866ebd24e208639fa9aa8474ada04c0a46d3bf))
+* **grid:** add missing exports ([6f3086f](https://github.com/OysteinAmundsen/toolbox/commit/6f3086f2e29454d9f61ff5c2bdcf1085f87b9576))
+
 ## [0.9.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.9.0...grid-angular-0.9.1) (2026-02-04)
 
 

@@ -336,6 +336,151 @@ import '@toolbox-web/grid-angular/features';
 <tbw-grid [selection]="'range'" [editing]="'dblclick'" [filtering]="true" />
 ```
 
+### Angular Component-Based Renderers/Editors (Zero-Template Pattern)
+
+Instead of using `*tbwRenderer`/`*tbwEditor` structural directives in templates, you can specify **Angular component classes** directly in your `gridConfig`. This enables:
+- **Zero-template grids** - no `<tbw-grid-column>` elements needed
+- **Reusable renderer/editor components** across multiple grids
+- **Cleaner separation** between configuration and presentation
+
+**Step 1: Create a Renderer Component** implementing `AngularCellRenderer`:
+
+```typescript
+import { Component, computed, input } from '@angular/core';
+import type { ColumnConfig } from '@toolbox-web/grid';
+import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-status-badge',
+  template: `<span class="badge" [class]="statusClass()">{{ value() }}</span>`,
+})
+export class StatusBadgeComponent implements AngularCellRenderer<MyRow, string> {
+  // Required inputs - the grid adapter sets these automatically
+  value = input<string>();                    // The cell value
+  row = input<MyRow>();                       // The full row data
+  column = input<ColumnConfig<MyRow>>();      // Column configuration
+
+  // Computed for derived state
+  statusClass = computed(() => `status--${this.value()?.toLowerCase()}`);
+}
+```
+
+**Step 2: Create an Editor Component** extending `BaseGridEditor`:
+
+```typescript
+import { Component, signal, effect } from '@angular/core';
+import { BaseGridEditor } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-status-editor',
+  template: `
+    <select [value]="localValue()" (change)="onSelect($event)">
+      @for (opt of options; track opt) {
+        <option [value]="opt">{{ opt }}</option>
+      }
+    </select>
+  `,
+})
+export class StatusEditorComponent extends BaseGridEditor<MyRow, string> {
+  options = ['Active', 'Inactive', 'Pending'];
+  localValue = signal('');
+
+  constructor() {
+    super();
+    // Sync from base class (handles FormControl or value input)
+    effect(() => this.localValue.set(this.currentValue() ?? ''));
+  }
+
+  onSelect(event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    this.commitValue(value);  // Commits and closes editor
+  }
+}
+```
+
+**`BaseGridEditor` provides:**
+- `value`, `row`, `column`, `control` inputs
+- `commit`, `cancel` outputs (auto-wired by grid)
+- `currentValue()` - computed signal resolving FormControl or value
+- `commitValue(newValue)` - emits commit + dispatches DOM event
+- `cancelEdit()` - emits cancel + dispatches DOM event
+- Validation helpers: `isInvalid()`, `hasErrors()`, `firstErrorMessage()`
+
+**Step 3: Use in Grid Config** with `AngularGridConfig`:
+
+```typescript
+import { Component, inject, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, AngularGridAdapter, type AngularGridConfig } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid, StatusBadgeComponent, StatusEditorComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <!-- Zero-template grid! No <tbw-grid-column> elements needed -->
+    <tbw-grid [rows]="employees" [gridConfig]="processedConfig" style="height: 400px;" />
+  `,
+})
+export class EmployeeGridComponent {
+  private adapter = inject(AngularGridAdapter);
+
+  employees = [
+    { id: 1, name: 'Alice', status: 'Active' },
+    { id: 2, name: 'Bob', status: 'Inactive' },
+  ];
+
+  // Define config with component classes
+  private config: AngularGridConfig<Employee> = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name', editable: true },
+      {
+        field: 'status',
+        header: 'Status',
+        editable: true,
+        renderer: StatusBadgeComponent,  // Component class, not instance!
+        editor: StatusEditorComponent,
+      },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+
+  // Process config to convert component classes to renderer functions
+  processedConfig = this.adapter.processGridConfig(this.config);
+}
+```
+
+**Key Points:**
+- Import `AngularGridConfig` (not `GridConfig`) for proper typing
+- Call `adapter.processGridConfig(config)` to convert component classes to functions
+- Component classes are passed directly (not instances): `renderer: MyComponent`
+- The adapter dynamically creates components and wires inputs/outputs
+- Works alongside template-based renderers - mix and match as needed
+
+**Hybrid Approach** - combine both patterns:
+
+```typescript
+// Some columns use component classes in config...
+config: AngularGridConfig = {
+  columns: [
+    { field: 'rating', renderer: RatingDisplayComponent, editor: RatingEditorComponent },
+    { field: 'status', header: 'Status' },  // Uses template below
+  ],
+};
+
+// ...while others use templates for one-off customizations
+template: `
+  <tbw-grid [gridConfig]="processedConfig">
+    <tbw-grid-column field="status">
+      <span *tbwRenderer="let value" [style.color]="value === 'Active' ? 'green' : 'red'">
+        {{ value }}
+      </span>
+    </tbw-grid-column>
+  </tbw-grid>
+`
+```
+
 ### Angular Reactive Forms Integration
 
 Bind a `FormArray` directly to the grid for validation support and cell-level FormControl access:
@@ -1959,6 +2104,31 @@ Import the `Grid` directive and use `CUSTOM_ELEMENTS_SCHEMA`:
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 ```
+
+### Angular: Component renderers/editors not working
+
+When using component classes in `gridConfig`, you must:
+
+1. **Use `AngularGridConfig` type** (not `GridConfig`):
+```typescript
+import type { AngularGridConfig } from '@toolbox-web/grid-angular';
+
+const config: AngularGridConfig<MyRow> = {
+  columns: [
+    { field: 'status', renderer: StatusComponent, editor: StatusEditorComponent },
+  ],
+};
+```
+
+2. **Process the config** before passing to grid:
+```typescript
+private adapter = inject(AngularGridAdapter);
+processedConfig = this.adapter.processGridConfig(config);
+
+// In template: [gridConfig]="processedConfig"
+```
+
+Without `processGridConfig()`, the grid receives component classes instead of renderer functions and won't know how to use them.
 
 ### TypeScript: "Property does not exist on type 'GridElement'"
 

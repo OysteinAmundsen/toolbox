@@ -189,6 +189,8 @@ interface EnsureCellVisibleOptions {
   forceScrollLeft?: boolean;
   /** Force scroll to the rightmost position (for End key) */
   forceScrollRight?: boolean;
+  /** Force horizontal scroll even in edit mode (for Tab navigation) */
+  forceHorizontalScroll?: boolean;
 }
 
 /**
@@ -239,8 +241,9 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
       // Horizontal scroll: ensure focused cell is visible in the horizontal scroll area
       // The .tbw-scroll-area element handles horizontal scrolling
       // Skip horizontal scrolling when in edit mode to prevent scroll jumps when editors are created
+      // Unless forceHorizontalScroll is set (e.g., for Tab navigation while editing)
       const scrollArea = grid.querySelector('.tbw-scroll-area') as HTMLElement | null;
-      if (scrollArea && cell && !isEditing) {
+      if (scrollArea && cell && (!isEditing || options?.forceHorizontalScroll)) {
         // Handle forced scroll for Home/End keys - always scroll to edge
         if (options?.forceScrollLeft) {
           scrollArea.scrollLeft = 0;

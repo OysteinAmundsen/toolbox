@@ -29,7 +29,7 @@
         padding: var(--tbw-cell-padding, 2px 8px);
         border-bottom: var(--tbw-row-divider);
         min-height: var(--tbw-row-height);
-        line-height: calc(var(--tbw-row-height) - 5px);
+        align-content: center;
         border-right: 1px solid var(--tbw-color-border-cell);
         overflow: hidden;
         min-width: 0;

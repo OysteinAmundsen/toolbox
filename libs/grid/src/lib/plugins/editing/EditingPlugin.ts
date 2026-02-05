@@ -15,6 +15,7 @@
  * is fully functional without any core changes.
  */
 
+import { ensureCellVisible } from '../../core/internal/keyboard';
 import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type {
@@ -140,6 +141,10 @@ function getInputValue(
     if (typeof originalValue === 'number') {
       return input.value === '' ? null : Number(input.value);
     }
+    // Preserve null/undefined: if original was null/undefined and input is empty, return original
+    if ((originalValue === null || originalValue === undefined) && input.value === '') {
+      return originalValue;
+    }
     return input.value;
   }
   // For textarea/select, check column type OR original value type
@@ -149,6 +154,10 @@ function getInputValue(
   // Preserve numeric type for custom column types (e.g., currency)
   if (typeof originalValue === 'number' && input.value !== '') {
     return Number(input.value);
+  }
+  // Preserve null/undefined: if original was null/undefined and input is empty, return original
+  if ((originalValue === null || originalValue === undefined) && input.value === '') {
+    return originalValue;
   }
   return input.value;
 }
@@ -493,6 +502,37 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Escape: cancel current edit
     if (event.key === 'Escape' && this.#activeEditRow !== -1) {
       this.#exitRowEdit(this.#activeEditRow, true);
+      return true;
+    }
+
+    // Arrow Up/Down while editing: commit and exit edit mode, move to adjacent row
+    if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && this.#activeEditRow !== -1) {
+      const maxRow = internalGrid._rows.length - 1;
+      const currentRow = this.#activeEditRow;
+
+      // Commit the current edit
+      this.#exitRowEdit(currentRow, false);
+
+      // Move focus to adjacent row (same column)
+      if (event.key === 'ArrowDown') {
+        internalGrid._focusRow = Math.min(maxRow, internalGrid._focusRow + 1);
+      } else {
+        internalGrid._focusRow = Math.max(0, internalGrid._focusRow - 1);
+      }
+
+      event.preventDefault();
+      // Ensure the focused cell is scrolled into view
+      ensureCellVisible(internalGrid);
+      // Request render to update focus styling
+      this.requestAfterRender();
+      return true;
+    }
+
+    // Tab/Shift+Tab while editing: move to next/prev editable cell
+    if (event.key === 'Tab' && this.#activeEditRow !== -1) {
+      event.preventDefault();
+      const forward = !event.shiftKey;
+      this.#handleTabNavigation(forward);
       return true;
     }
 
@@ -1051,6 +1091,69 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     this.#activeEditCol = colIndex;
     this.#injectEditor(rowData, rowIndex, column, colIndex, cellEl, false);
+  }
+
+  /**
+   * Handle Tab/Shift+Tab navigation while editing.
+   * Moves to next/previous editable cell, staying in edit mode.
+   * Wraps to next/previous row when reaching row boundaries.
+   */
+  #handleTabNavigation(forward: boolean): void {
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const rows = internalGrid._rows;
+    const currentRow = this.#activeEditRow;
+
+    // Get editable column indices
+    const editableCols = internalGrid._visibleColumns.map((c, i) => (c.editable ? i : -1)).filter((i) => i >= 0);
+    if (editableCols.length === 0) return;
+
+    let row = currentRow;
+    let col = internalGrid._focusCol;
+    const currentIdx = editableCols.indexOf(col);
+
+    if (forward) {
+      if (currentIdx >= 0 && currentIdx < editableCols.length - 1) {
+        // Next editable in same row
+        col = editableCols[currentIdx + 1];
+      } else if (row < rows.length - 1) {
+        // First editable in next row
+        this.#exitRowEdit(currentRow, false);
+        row++;
+        col = editableCols[0];
+        internalGrid._focusRow = row;
+        internalGrid._focusCol = col;
+        this.beginBulkEdit(row);
+        ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
+        return;
+      }
+      // else: at last cell of last row - stay put
+    } else {
+      if (currentIdx > 0) {
+        // Previous editable in same row
+        col = editableCols[currentIdx - 1];
+      } else if (row > 0) {
+        // Last editable in previous row
+        this.#exitRowEdit(currentRow, false);
+        row--;
+        col = editableCols[editableCols.length - 1];
+        internalGrid._focusRow = row;
+        internalGrid._focusCol = col;
+        this.beginBulkEdit(row);
+        ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
+        return;
+      }
+      // else: at first cell of first row - stay put
+    }
+
+    // Update focus and move editor focus within same row
+    internalGrid._focusCol = col;
+    const rowEl = internalGrid.findRenderedRowElement?.(row);
+    const cellEl = rowEl?.querySelector(`.cell[data-col="${col}"]`) as HTMLElement | null;
+    if (cellEl?.classList.contains('editing')) {
+      const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+      editor?.focus({ preventScroll: true });
+    }
+    ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
   }
 
   /**

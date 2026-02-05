@@ -1,6 +1,9 @@
-import { Directive, effect, ElementRef, inject, input, OnDestroy, OnInit } from '@angular/core';
+import { DestroyRef, Directive, effect, ElementRef, inject, input, OnDestroy, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormArray, FormGroup } from '@angular/forms';
 import type { BaseGridPlugin, DataGridElement as GridElement } from '@toolbox-web/grid';
+import { Subscription } from 'rxjs';
+import { startWith } from 'rxjs/operators';
 
 /**
  * Interface for EditingPlugin validation methods.
@@ -145,10 +148,12 @@ export function getFormArrayContext(gridElement: HTMLElement): FormArrayContext 
   selector: 'tbw-grid[formArray]',
 })
 export class GridFormArray implements OnInit, OnDestroy {
+  private readonly destroyRef = inject(DestroyRef);
   private elementRef = inject(ElementRef<GridElement>);
   private cellCommitListener: ((e: Event) => void) | null = null;
   private rowCommitListener: ((e: Event) => void) | null = null;
   private touchListener: ((e: Event) => void) | null = null;
+  private valueChangesSubscription: Subscription | null = null;
 
   /**
    * The FormArray to bind to the grid.
@@ -168,15 +173,25 @@ export class GridFormArray implements OnInit, OnDestroy {
   readonly syncValidation = input<boolean>(true);
 
   /**
-   * Effect that syncs the FormArray value to the grid rows.
+   * Effect that sets up valueChanges subscription when FormArray changes.
+   * This handles both initial binding and when the FormArray reference changes.
    */
   private syncFormArrayToGrid = effect(() => {
     const formArray = this.formArray();
     const grid = this.elementRef.nativeElement;
-    if (grid && formArray) {
-      // Get the raw value (including disabled controls)
-      grid.rows = formArray.getRawValue();
-    }
+    if (!grid || !formArray) return;
+
+    // Unsubscribe from previous FormArray if any
+    this.valueChangesSubscription?.unsubscribe();
+
+    // Subscribe to valueChanges to sync grid rows when FormArray content changes.
+    // Use startWith to immediately sync the current value.
+    // Note: We use getRawValue() to include disabled controls.
+    this.valueChangesSubscription = formArray.valueChanges
+      .pipe(startWith(formArray.getRawValue()), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        grid.rows = formArray.getRawValue();
+      });
   });
 
   ngOnInit(): void {
@@ -225,6 +240,9 @@ export class GridFormArray implements OnInit, OnDestroy {
     }
     if (this.touchListener) {
       grid.removeEventListener('click', this.touchListener);
+    }
+    if (this.valueChangesSubscription) {
+      this.valueChangesSubscription.unsubscribe();
     }
 
     this.#clearFormContext(grid);

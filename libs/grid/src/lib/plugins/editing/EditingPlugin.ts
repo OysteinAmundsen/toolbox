@@ -567,8 +567,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       return true;
     }
 
-    // Space: toggle boolean cells
+    // Space: toggle boolean cells (only when not in edit mode - let editors handle their own space)
     if (event.key === ' ' || event.key === 'Spacebar') {
+      // If we're in row edit mode, let the event pass through to the editor (e.g., checkbox)
+      if (this.#activeEditRow !== -1) {
+        return false;
+      }
+
       const focusRow = internalGrid._focusRow;
       const focusCol = internalGrid._focusCol;
       if (focusRow >= 0 && focusCol >= 0) {

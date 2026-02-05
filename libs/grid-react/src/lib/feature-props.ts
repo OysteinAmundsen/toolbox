@@ -40,6 +40,7 @@ import type {
   UndoRedoConfig,
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
+import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
 
 /**
  * Feature props for declarative plugin configuration.
@@ -82,9 +83,12 @@ export interface FeatureProps<TRow = unknown> {
    * <DataGrid editing="click" />
    * <DataGrid editing="dblclick" />
    * <DataGrid editing="manual" />
+   *
+   * // Full config with callbacks
+   * <DataGrid editing={{ editOn: 'dblclick', onBeforeEditClose: myCallback }} />
    * ```
    */
-  editing?: boolean | 'click' | 'dblclick' | 'manual';
+  editing?: boolean | 'click' | 'dblclick' | 'manual' | EditingConfig;
 
   /**
    * Enable clipboard copy/paste.

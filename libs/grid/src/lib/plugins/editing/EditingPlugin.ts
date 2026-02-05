@@ -423,6 +423,15 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         if (!rowEl) return;
         const path = (e.composedPath && e.composedPath()) || [];
         if (path.includes(rowEl)) return;
+
+        // Allow users to prevent edit close via callback (e.g., when click is inside an overlay)
+        if (this.config.onBeforeEditClose) {
+          const shouldClose = this.config.onBeforeEditClose(e);
+          if (shouldClose === false) {
+            return;
+          }
+        }
+
         // Delay exit to allow pending change/commit events to fire
         queueMicrotask(() => {
           if (this.#activeEditRow !== -1) {

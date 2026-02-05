@@ -246,6 +246,41 @@ export interface EditingConfig {
    * - false: Disable editing entirely
    */
   editOn?: 'click' | 'dblclick' | 'manual' | false;
+
+  /**
+   * Callback invoked before a row edit session closes.
+   *
+   * Return `false` to prevent the row from exiting edit mode.
+   * This is useful when editors have open overlays (datepickers, dropdowns)
+   * that render outside the grid DOM.
+   *
+   * The callback receives the triggering event (usually MouseEvent from clicking
+   * outside the row). Use this to check if the click target is inside your
+   * component library's overlay container.
+   *
+   * @example
+   * ```typescript
+   * // Angular Material / CDK - prevent close when clicking inside overlay
+   * new EditingPlugin({
+   *   editOn: 'dblclick',
+   *   onBeforeEditClose: (event) => {
+   *     const target = event.target as Element;
+   *     // Return false to PREVENT closing (click is inside overlay)
+   *     // Return true to ALLOW closing (click is outside)
+   *     return !target?.closest('.cdk-overlay-container');
+   *   }
+   * })
+   *
+   * // MUI (React)
+   * new EditingPlugin({
+   *   onBeforeEditClose: (event) => {
+   *     const target = event.target as Element;
+   *     return !target?.closest('.MuiPopover-root, .MuiPopper-root');
+   *   }
+   * })
+   * ```
+   */
+  onBeforeEditClose?: (event: Event) => boolean;
 }
 
 /**

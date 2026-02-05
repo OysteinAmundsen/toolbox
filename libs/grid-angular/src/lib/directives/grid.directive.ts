@@ -24,7 +24,7 @@ import type {
 } from '@toolbox-web/grid';
 import { DataGridElement as GridElementClass } from '@toolbox-web/grid';
 // Import editing event types from the editing plugin
-import type { ChangedRowsResetDetail } from '@toolbox-web/grid/plugins/editing';
+import type { ChangedRowsResetDetail, EditingConfig } from '@toolbox-web/grid/plugins/editing';
 // Import plugin types and the two plugins always needed for Angular template integration
 import type {
   ClipboardConfig,
@@ -449,9 +449,12 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <tbw-grid [editing]="'click'" />
    * <tbw-grid [editing]="'dblclick'" />
    * <tbw-grid [editing]="'manual'" />
+   *
+   * <!-- Full config with callbacks -->
+   * <tbw-grid [editing]="{ editOn: 'dblclick', onBeforeEditClose: myCallback }" />
    * ```
    */
-  editing = input<boolean | 'click' | 'dblclick' | 'manual'>();
+  editing = input<boolean | 'click' | 'dblclick' | 'manual' | EditingConfig>();
 
   /**
    * Enable clipboard copy/paste. Requires selection to be enabled.

@@ -4,9 +4,11 @@ import type {
   ColumnEditorSpec,
   ColumnViewRenderer,
   FrameworkAdapter,
+  TypeDefault,
 } from '@toolbox-web/grid';
 import { createApp, type App, type VNode } from 'vue';
 import { detailRegistry, type DetailPanelContext } from './detail-panel-registry';
+import type { TypeDefaultsMap, VueTypeDefault } from './grid-type-registry';
 import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
 
 /**
@@ -170,6 +172,17 @@ interface CellAppCache {
  */
 export class VueGridAdapter implements FrameworkAdapter {
   private mountedViews: MountedView[] = [];
+  private typeDefaults: TypeDefaultsMap | null = null;
+
+  /**
+   * Sets the type defaults map for this adapter.
+   * Called by TbwGrid when it receives type defaults from context.
+   *
+   * @internal
+   */
+  setTypeDefaults(defaults: TypeDefaultsMap | null): void {
+    this.typeDefaults = defaults;
+  }
 
   /**
    * Determines if this adapter can handle the given element.
@@ -374,6 +387,113 @@ export class VueGridAdapter implements FrameworkAdapter {
       return container;
     };
   }
+
+  // #region Type Defaults Support
+
+  /**
+   * Gets type-level defaults from the type defaults map.
+   *
+   * This enables application-wide type defaults configured via GridTypeProvider.
+   * The returned TypeDefault contains renderer/editor functions that render
+   * Vue components into the grid's cells.
+   *
+   * @example
+   * ```vue
+   * <script setup>
+   * import { GridTypeProvider } from '@toolbox-web/grid-vue';
+   * import { h } from 'vue';
+   * import CountryBadge from './CountryBadge.vue';
+   *
+   * const typeDefaults = {
+   *   country: {
+   *     renderer: (ctx) => h(CountryBadge, { code: ctx.value }),
+   *   },
+   * };
+   * </script>
+   *
+   * <template>
+   *   <GridTypeProvider :defaults="typeDefaults">
+   *     <App />
+   *   </GridTypeProvider>
+   * </template>
+   * ```
+   */
+  getTypeDefault<TRow = unknown>(type: string): TypeDefault<TRow> | undefined {
+    if (!this.typeDefaults) {
+      return undefined;
+    }
+
+    const vueDefault = this.typeDefaults[type] as VueTypeDefault<TRow> | undefined;
+    if (!vueDefault) {
+      return undefined;
+    }
+
+    const typeDefault: TypeDefault<TRow> = {
+      editorParams: vueDefault.editorParams,
+    };
+
+    // Create renderer function that renders Vue component
+    if (vueDefault.renderer) {
+      typeDefault.renderer = this.createTypeRenderer<TRow>(vueDefault.renderer);
+    }
+
+    // Create editor function that renders Vue component
+    if (vueDefault.editor) {
+      typeDefault.editor = this.createTypeEditor<TRow>(vueDefault.editor) as TypeDefault['editor'];
+    }
+
+    return typeDefault;
+  }
+
+  /**
+   * Creates a renderer function from a Vue render function for type defaults.
+   * @internal
+   */
+  private createTypeRenderer<TRow = unknown, TValue = unknown>(
+    renderFn: (ctx: CellRenderContext<TRow, TValue>) => VNode,
+  ): ColumnViewRenderer<TRow, TValue> {
+    return (ctx: CellRenderContext<TRow, TValue>) => {
+      const container = document.createElement('span');
+      container.style.display = 'contents';
+
+      const app = createApp({
+        render() {
+          return renderFn(ctx);
+        },
+      });
+
+      app.mount(container);
+      this.mountedViews.push({ app, container });
+
+      return container;
+    };
+  }
+
+  /**
+   * Creates an editor function from a Vue render function for type defaults.
+   * @internal
+   */
+  private createTypeEditor<TRow = unknown, TValue = unknown>(
+    renderFn: (ctx: ColumnEditorContext<TRow, TValue>) => VNode,
+  ): ColumnEditorSpec<TRow, TValue> {
+    return (ctx: ColumnEditorContext<TRow, TValue>) => {
+      const container = document.createElement('span');
+      container.style.display = 'contents';
+
+      const app = createApp({
+        render() {
+          return renderFn(ctx);
+        },
+      });
+
+      app.mount(container);
+      this.mountedViews.push({ app, container });
+
+      return container;
+    };
+  }
+
+  // #endregion
 
   /**
    * Cleanup all mounted Vue apps.

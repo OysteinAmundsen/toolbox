@@ -151,5 +151,75 @@ describe('VueGridAdapter', () => {
         expect(result).toBeUndefined();
       });
     });
+
+    describe('type defaults', () => {
+      it('should have setTypeDefaults method', () => {
+        expect(VueGridAdapter.prototype.setTypeDefaults).toBeDefined();
+      });
+
+      it('should have getTypeDefault method', () => {
+        expect(VueGridAdapter.prototype.getTypeDefault).toBeDefined();
+      });
+
+      it('should return undefined when no type defaults are set', () => {
+        const adapter = new VueGridAdapter();
+        expect(adapter.getTypeDefault('country')).toBeUndefined();
+      });
+
+      it('should return undefined for unregistered type', () => {
+        const adapter = new VueGridAdapter();
+        adapter.setTypeDefaults({
+          country: { renderer: () => null as unknown as VNode },
+        });
+        expect(adapter.getTypeDefault('unknown')).toBeUndefined();
+      });
+
+      it('should return type default with renderer', () => {
+        const adapter = new VueGridAdapter();
+        const renderer = () => null as unknown as VNode;
+        adapter.setTypeDefaults({
+          country: { renderer },
+        });
+
+        const result = adapter.getTypeDefault('country');
+        expect(result).toBeDefined();
+        expect(result?.renderer).toBeDefined();
+      });
+
+      it('should return type default with editor', () => {
+        const adapter = new VueGridAdapter();
+        const editor = () => null as unknown as VNode;
+        adapter.setTypeDefaults({
+          status: { editor },
+        });
+
+        const result = adapter.getTypeDefault('status');
+        expect(result).toBeDefined();
+        expect(result?.editor).toBeDefined();
+      });
+
+      it('should return type default with editorParams', () => {
+        const adapter = new VueGridAdapter();
+        const editorParams = { options: ['A', 'B'] };
+        adapter.setTypeDefaults({
+          category: { editorParams },
+        });
+
+        const result = adapter.getTypeDefault('category');
+        expect(result).toBeDefined();
+        expect(result?.editorParams).toEqual(editorParams);
+      });
+
+      it('should clear type defaults when set to null', () => {
+        const adapter = new VueGridAdapter();
+        adapter.setTypeDefaults({
+          country: { renderer: () => null as unknown as VNode },
+        });
+        expect(adapter.getTypeDefault('country')).toBeDefined();
+
+        adapter.setTypeDefaults(null);
+        expect(adapter.getTypeDefault('country')).toBeUndefined();
+      });
+    });
   });
 });

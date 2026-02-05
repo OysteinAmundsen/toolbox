@@ -339,6 +339,9 @@ onMounted(() => {
   const adapter = ensureAdapterRegistered();
   (grid as any).__frameworkAdapter = adapter;
 
+  // Pass type defaults to the adapter
+  adapter.setTypeDefaults(typeDefaults ?? null);
+
   // Add event listeners
   grid.addEventListener('cell-commit', handleCellCommit);
   grid.addEventListener('row-commit', handleRowCommit);
@@ -404,6 +407,16 @@ watch(
       gridRef.value.fitMode = newFitMode;
     }
   },
+);
+
+// Watch for type defaults changes
+watch(
+  () => typeDefaults,
+  (newTypeDefaults) => {
+    const adapter = ensureAdapterRegistered();
+    adapter.setTypeDefaults(newTypeDefaults ?? null);
+  },
+  { deep: true },
 );
 
 // Expose the grid element for programmatic access

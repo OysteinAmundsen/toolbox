@@ -1163,8 +1163,10 @@ export interface FrameworkAdapter {
   /**
    * Creates an editor spec from a light DOM element.
    * The editor receives context with commit/cancel and returns DOM.
+   * Returns undefined if no editor template is registered, allowing the grid
+   * to use its default built-in editors.
    */
-  createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue>;
+  createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> | undefined;
 
   /**
    * Creates a tool panel renderer from a light DOM element.

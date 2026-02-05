@@ -268,17 +268,17 @@ export class AngularGridAdapter implements FrameworkAdapter {
    * ```
    * As long as the component emits `(commit)` with the new value.
    */
-  createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> {
+  createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> | undefined {
     const template = getAnyEditorTemplate(element) as TemplateRef<GridEditorContext<TValue, TRow>> | undefined;
 
     // Find the parent grid element for FormArray context access
     const gridElement = element.closest('tbw-grid') as HTMLElement | null;
 
     if (!template) {
-      // No warning - this can happen during early initialization before Angular
-      // registers structural directive templates. The grid will re-parse columns
-      // after templates are registered.
-      return () => document.createElement('div');
+      // No template registered - return undefined to let the grid use its default editor.
+      // This allows columns with only *tbwRenderer (no *tbwEditor) to still be editable
+      // using the built-in text/number/boolean editors.
+      return undefined;
     }
 
     return (ctx: ColumnEditorContext<TRow, TValue>) => {

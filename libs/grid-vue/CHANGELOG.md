@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.1.0...grid-vue-0.2.0) (2026-02-06)
+
+
+### Features
+
+* **grid-vue:** add type defaults support for parity with react/angular adapters ([292b5e6](https://github.com/OysteinAmundsen/toolbox/commit/292b5e63d60a0044c41d03d115bd22e293606010))
+* **grid,grid-angular,grid-react,grid-vue:** add onBeforeEditClose callback for overlay support ([6a83c02](https://github.com/OysteinAmundsen/toolbox/commit/6a83c02a09ab357d6d2d876f8635c4948f8352a7))
+
 ## 0.1.0 (2026-02-01)
 
 ### Features

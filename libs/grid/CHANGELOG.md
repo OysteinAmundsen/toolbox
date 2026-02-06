@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.10.1...grid-1.11.0) (2026-02-06)
+
+
+### Features
+
+* **grid,grid-angular,grid-react,grid-vue:** add onBeforeEditClose callback for overlay support ([6a83c02](https://github.com/OysteinAmundsen/toolbox/commit/6a83c02a09ab357d6d2d876f8635c4948f8352a7))
+
+
+### Bug Fixes
+
+* **grid-angular:** looser typing for editor params allowing custom editors to have more flexibility ([94993d9](https://github.com/OysteinAmundsen/toolbox/commit/94993d923ee26241231c6c53aaffbe84f3fae7c9))
+* **grid-angular:** return undefined from createEditor when no template exists ([63866eb](https://github.com/OysteinAmundsen/toolbox/commit/63866ebd24e208639fa9aa8474ada04c0a46d3bf))
+* **grid-angular:** sync FormArray content changes & pass Space to editors ([963072f](https://github.com/OysteinAmundsen/toolbox/commit/963072f9f29ebf824230fbaa590013c85c91e112))
+* **grid:** add missing exports ([6f3086f](https://github.com/OysteinAmundsen/toolbox/commit/6f3086f2e29454d9f61ff5c2bdcf1085f87b9576))
+* **grid:** block grid keyboard navigation when onBeforeEditClose returns false ([97fb2ba](https://github.com/OysteinAmundsen/toolbox/commit/97fb2ba6da641030993735fcb99a02fcbea82046))
+* **grid:** ensure Tab navigation scrolls focused cell into view while editing ([1d5ee61](https://github.com/OysteinAmundsen/toolbox/commit/1d5ee61f9e237df71547e90d2adc7c1f428913dd))
+* **grid:** skip DOM input reading for framework-managed editors ([88f6770](https://github.com/OysteinAmundsen/toolbox/commit/88f6770c6f1633840cf21f7faaf15ceac1c2b6b1))
+
 ## [1.10.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.10.0...grid-1.10.1) (2026-02-04)
 
 

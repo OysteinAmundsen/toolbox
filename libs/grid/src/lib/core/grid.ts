@@ -250,6 +250,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #scrollRaf = 0;
   #pendingScrollTop: number | null = null;
   #hasScrollPlugins = false; // Cached flag for plugin scroll handlers
+  #needsRowHeightMeasurement = false; // Flag to measure row height after render (for plugin-based variable heights)
+  #scrollMeasureTimeout = 0; // Debounce timer for measuring rows after scroll settles
   #renderRowHook?: (row: any, rowEl: HTMLElement, rowIndex: number) => boolean; // Cached hook to avoid closures
   #touchState: TouchScrollState = createTouchScrollState();
   #eventAbortController?: AbortController;
@@ -778,6 +780,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         if (this._virtualization.enabled && !this.#rowHeightObserverSetup) {
           this.#setupRowHeightObserver();
         }
+        // Measure base row height for plugin-based variable heights on first render
+        // Uses RAF to ensure browser has computed layout before measuring
+        if (this.#needsRowHeightMeasurement) {
+          this.#needsRowHeightMeasurement = false;
+          // Double RAF ensures layout is fully computed (first RAF schedules after paint,
+          // second RAF runs after that frame's layout)
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              this.#measureRowHeightForPlugins();
+            });
+          });
+        }
       },
       isConnected: () => this.isConnected && this.#connected,
     });
@@ -1157,6 +1171,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#idleCallbackHandle = undefined;
     }
 
+    // Cancel any pending scroll measurement
+    if (this.#scrollMeasureTimeout) {
+      clearTimeout(this.#scrollMeasureTimeout);
+      this.#scrollMeasureTimeout = 0;
+    }
+
     // Clean up plugin states
     this.#destroyPlugins();
 
@@ -1314,13 +1334,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // 2. Otherwise, measure actual row height from DOM (respects CSS variable --tbw-row-height)
     const userRowHeight = this.#effectiveConfig.rowHeight;
 
-    // Variable row heights: rowHeight is a function
-    if (typeof userRowHeight === 'function') {
+    // Variable row heights: rowHeight is a function OR a plugin implements getRowHeight()
+    const hasRowHeightPlugin = this.#pluginManager.hasRowHeightPlugin();
+    if (typeof userRowHeight === 'function' || hasRowHeightPlugin) {
       this._virtualization.variableHeights = true;
       // Default row height used for unmeasured rows (estimated height for scrollbar)
-      this._virtualization.rowHeight = 28; // Will be updated from averageHeight after measurements
+      this._virtualization.rowHeight = typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : 28;
       // Initialize position cache (will be rebuilt when rows are processed)
       this.#initializePositionCache();
+      // For plugin-based variable heights (not rowHeight function), flag for measurement
+      // after first render completes (when rows actually exist in DOM)
+      if (typeof userRowHeight !== 'function') {
+        this.#needsRowHeightMeasurement = true;
+      }
     } else if (typeof userRowHeight === 'number' && userRowHeight > 0) {
       this._virtualization.rowHeight = userRowHeight;
       this._virtualization.variableHeights = false;
@@ -1372,6 +1398,48 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this._virtualization.rowHeight = measuredHeight;
       // Use scheduler to batch with other pending work
       this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
+    }
+  }
+
+  /**
+   * Measure actual row height from DOM for plugin-based variable heights.
+   * Similar to #measureRowHeight but rebuilds the position cache after measurement.
+   * Called after first render when a plugin implements getRowHeight() but user didn't provide a rowHeight function.
+   */
+  #measureRowHeightForPlugins(): void {
+    const firstRow = this._bodyEl?.querySelector('.data-grid-row');
+    if (!firstRow) return;
+
+    // Find the tallest cell in the row (custom renderers may push some cells taller)
+    const cells = firstRow.querySelectorAll('.cell');
+    let maxCellHeight = 0;
+    cells.forEach((cell) => {
+      const h = (cell as HTMLElement).offsetHeight;
+      if (h > maxCellHeight) maxCellHeight = h;
+    });
+
+    const rowRect = (firstRow as HTMLElement).getBoundingClientRect();
+
+    // Use the larger of row height or max cell height
+    const measuredHeight = Math.max(rowRect.height, maxCellHeight);
+
+    // Update rowHeight if measurement is valid and different
+    if (measuredHeight > 0) {
+      const heightChanged = Math.abs(measuredHeight - this._virtualization.rowHeight) > 1;
+      if (heightChanged) {
+        this._virtualization.rowHeight = measuredHeight;
+      }
+
+      // ALWAYS rebuild position cache when this method is called (first render with plugins)
+      // The position cache may have been built with the wrong estimated height (e.g., 28px)
+      // even if rowHeight was later updated by ResizeObserver (e.g., to 33px)
+      this.#initializePositionCache();
+
+      // Update spacer height with the correct total
+      if (this._virtualization.totalHeightEl) {
+        const newHeight = this.#calculateTotalSpacerHeight(this._rows.length);
+        this._virtualization.totalHeightEl.style.height = `${newHeight}px`;
+      }
     }
   }
 
@@ -2191,6 +2259,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Let plugins reapply visual state to recycled DOM elements
     this.#pluginManager?.onScrollRender();
+
+    // Schedule debounced measurement for variable heights mode
+    // This progressively builds up the height cache as user scrolls
+    if (this._virtualization.variableHeights) {
+      if (this.#scrollMeasureTimeout) {
+        clearTimeout(this.#scrollMeasureTimeout);
+      }
+      // Measure after scroll settles (100ms debounce)
+      this.#scrollMeasureTimeout = window.setTimeout(() => {
+        this.#scrollMeasureTimeout = 0;
+        this.#measureRenderedRowHeights(this._virtualization.start, this._virtualization.end);
+      }, 100);
+    }
 
     // Dispatch to plugins (using cached flag and pooled event object to avoid GC)
     if (this.#hasScrollPlugins) {
@@ -3067,6 +3148,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * The default row height in pixels.
+   *
+   * For fixed heights, this is the configured or CSS-measured row height.
+   * For variable heights, this is the average/estimated row height.
+   * Plugins should use this instead of hardcoding row heights.
+   *
+   * @group Virtualization
+   */
+  get defaultRowHeight(): number {
+    return this._virtualization.rowHeight;
+  }
+
+  /**
    * Get the IDs of currently expanded accordion sections in the tool panel.
    *
    * Multiple sections can be expanded simultaneously in the accordion view.
@@ -3694,20 +3788,28 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const containerHeight = scrollAreaHeight;
     const viewportHeightDiff = containerHeight - viewportHeight;
 
-    // Add extra height from plugins (e.g., expanded master-detail rows)
-    const pluginExtraHeight = this.#pluginManager?.getExtraHeight() ?? 0;
-
     // Horizontal scrollbar compensation: When a horizontal scrollbar appears inside scroll-area,
     // the faux scrollbar (sibling) is taller than scroll-area. Add the difference as padding.
     const hScrollbarPadding = Math.max(0, fauxScrollHeight - scrollAreaHeight);
 
     // Calculate row content height - use position cache for variable heights, simple multiplication otherwise
-    const rowContentHeight =
-      this._virtualization.variableHeights && this._virtualization.positionCache
-        ? getTotalHeight(this._virtualization.positionCache)
-        : totalRows * this._virtualization.rowHeight;
+    let rowContentHeight: number;
+    let pluginExtraHeight = 0;
 
-    return rowContentHeight + viewportHeightDiff + pluginExtraHeight + hScrollbarPadding;
+    if (this._virtualization.variableHeights && this._virtualization.positionCache) {
+      // Variable heights mode: position cache includes heights from getRowHeight() plugin hooks
+      // Do NOT add pluginExtraHeight here - it would double-count since getRowHeight() already
+      // reports expanded detail heights via the position cache
+      rowContentHeight = getTotalHeight(this._virtualization.positionCache);
+    } else {
+      // Fixed heights mode: use simple multiplication and add plugin extra heights
+      // (for plugins using deprecated getExtraHeight() that don't implement getRowHeight())
+      rowContentHeight = totalRows * this._virtualization.rowHeight;
+      pluginExtraHeight = this.#pluginManager?.getExtraHeight() ?? 0;
+    }
+
+    const total = rowContentHeight + viewportHeightDiff + pluginExtraHeight + hScrollbarPadding;
+    return total;
   }
 
   /**
@@ -3719,21 +3821,23 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!this._virtualization.variableHeights) return;
 
     const rows = this._rows;
-    const estimatedHeight = this._virtualization.averageHeight || 28;
+    // Use the base row height (from CSS measurement or config) as the fallback estimate.
+    // NOT averageHeight, which can get polluted with expanded detail heights.
+    const estimatedHeight = this._virtualization.rowHeight || 28;
     const rowHeightFn = this.#effectiveConfig.rowHeight as ((row: T, index: number) => number) | undefined;
 
     // Build position cache with heights from:
-    // 1. Plugin's getRowHeight() (for synthetic rows)
-    // 2. Height cache (persisted measurements)
+    // 1. Plugin's getRowHeight() (for expanded rows with details)
+    // 2. Height cache (persisted measurements - only for collapsed rows)
     // 3. rowHeight function (if provided)
-    // 4. Estimated height (fallback)
+    // 4. Estimated height (fallback - the base row height)
     this._virtualization.positionCache = rebuildPositionCache(
       rows,
       this._virtualization.heightCache,
       estimatedHeight,
       { defaultHeight: estimatedHeight },
       (row, index) => {
-        // Check plugin heights first (for synthetic rows like group headers)
+        // Check plugin heights first (for expanded rows with details)
         const pluginHeight = this.#pluginManager?.getRowHeight?.(row, index);
         if (pluginHeight !== undefined) return pluginHeight;
 
@@ -3748,13 +3852,70 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     );
 
     // Update virtualization state with average from measurements
+    // Only count rows that DON'T have plugin-provided heights (to avoid polluting stats)
     const cache = this._virtualization.positionCache;
-    const measuredCount = cache.filter((p) => p.measured).length;
+    let measuredCount = 0;
+    let totalMeasured = 0;
+
+    for (let i = 0; i < cache.length; i++) {
+      const entry = cache[i];
+      if (entry.measured) {
+        // Only include in average if plugin doesn't provide height for this row
+        const pluginHeight = this.#pluginManager?.getRowHeight?.(rows[i], i);
+        if (pluginHeight === undefined) {
+          totalMeasured += entry.height;
+          measuredCount++;
+        }
+      }
+    }
+
     this._virtualization.measuredCount = measuredCount;
 
     if (measuredCount > 0) {
-      const totalMeasured = cache.filter((p) => p.measured).reduce((sum, p) => sum + p.height, 0);
       this._virtualization.averageHeight = totalMeasured / measuredCount;
+    }
+  }
+
+  /**
+   * Invalidate a row's height in the position cache.
+   * Call this when a plugin changes a row's height (e.g., expanding/collapsing a detail panel).
+   * Updates the position cache incrementally O(1) + offset recalc O(k) without a full rebuild.
+   *
+   * @param rowIndex - Index of the row whose height changed
+   * @param newHeight - Optional new height. If not provided, queries plugins for height.
+   */
+  invalidateRowHeight(rowIndex: number, newHeight?: number): void {
+    if (!this._virtualization.variableHeights) return;
+    if (!this._virtualization.positionCache) return;
+    if (rowIndex < 0 || rowIndex >= this._rows.length) return;
+
+    const positionCache = this._virtualization.positionCache;
+    const row = this._rows[rowIndex];
+
+    // Determine the new height
+    let height = newHeight;
+    if (height === undefined) {
+      // Query plugin for height
+      height = this.#pluginManager?.getRowHeight?.(row, rowIndex);
+    }
+    if (height === undefined) {
+      // Fall back to base row height
+      height = this._virtualization.rowHeight;
+    }
+
+    const currentEntry = positionCache[rowIndex];
+    if (!currentEntry || Math.abs(currentEntry.height - height) < 1) {
+      // No significant change
+      return;
+    }
+
+    // Update position cache incrementally (updates this row + all subsequent offsets)
+    updateRowHeight(positionCache, rowIndex, height);
+
+    // Update spacer height
+    if (this._virtualization.totalHeightEl) {
+      const newTotalHeight = this.#calculateTotalSpacerHeight(this._rows.length);
+      this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
     }
   }
 
@@ -3788,6 +3949,24 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (rowIndex < start || rowIndex >= end || rowIndex >= rows.length) return;
 
       const row = rows[rowIndex];
+
+      // Check if a plugin provides the height for this row (e.g., MasterDetailPlugin for expanded rows)
+      // Plugin height takes precedence over DOM measurement since plugins know about
+      // sibling elements (detail rows) that aren't part of the row element's offsetHeight
+      const pluginHeight = this.#pluginManager?.getRowHeight?.(row, rowIndex);
+
+      if (pluginHeight !== undefined) {
+        // Plugin provides height - use it for position cache (not DOM measurement)
+        // This is critical for master-detail where detail row is a sibling element
+        const currentEntry = positionCache[rowIndex];
+        if (!currentEntry.measured || Math.abs(currentEntry.height - pluginHeight) > 1) {
+          updateRowHeight(positionCache, rowIndex, pluginHeight);
+          hasChanges = true;
+        }
+        return; // Don't measure DOM or cache to heightCache for plugin-managed rows
+      }
+
+      // No plugin height - use DOM measurement
       const measuredHeight = (rowEl as HTMLElement).offsetHeight;
 
       if (measuredHeight > 0) {
@@ -3795,21 +3974,26 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
         // Only update if height differs significantly (> 1px to avoid oscillation)
         if (!currentEntry.measured || Math.abs(currentEntry.height - measuredHeight) > 1) {
-          // Update position cache
+          // Update position cache with DOM-measured height
           updateRowHeight(positionCache, rowIndex, measuredHeight);
 
-          // Persist to height cache for future rebuilds
+          // Persist to height cache for rows without plugin-provided heights
           setCachedHeight(heightCache, row, measuredHeight);
 
-          hasChanges = true;
-        }
+          // Include in average stats
+          totalMeasured += measuredHeight;
+          measuredCount++;
 
-        totalMeasured += measuredHeight;
-        measuredCount++;
+          hasChanges = true;
+        } else {
+          // Row already measured - still count for stats
+          totalMeasured += measuredHeight;
+          measuredCount++;
+        }
       }
     });
 
-    // Update average height stat
+    // Update average height stat (only for non-plugin-managed rows)
     if (measuredCount > 0) {
       this._virtualization.measuredCount += measuredCount;
       // Rolling average calculation
@@ -3917,11 +4101,34 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (start < 0) start = 0;
     }
 
-    // Faux pattern buffer: render 2 extra rows below for smooth edge transition
-    // This is smaller than traditional overscan since sub-pixel offset handles smoothness
-    // +1 extra to account for the even-alignment above potentially showing 1 more row at top
-    const visibleCount = Math.ceil(viewportHeight / rowHeight) + 3;
-    let end = start + visibleCount;
+    // Faux pattern buffer: render enough rows to fill viewport + overscan
+    // For variable heights, calculate based on actual heights from position cache
+    // This ensures expanded detail rows don't cause blank space at bottom
+    let end: number;
+
+    if (this._virtualization.variableHeights && positionCache && positionCache.length > 0) {
+      // Variable heights: walk forward from start, summing actual heights
+      // until we've covered the viewport height plus some overscan
+      const targetHeight = viewportHeight + rowHeight * 3; // 3 rows overscan
+      let accumulatedHeight = 0;
+      end = start;
+
+      while (end < totalRows && accumulatedHeight < targetHeight) {
+        accumulatedHeight += positionCache[end].height;
+        end++;
+      }
+
+      // Ensure we always have at least a few rows for edge cases
+      const minRows = Math.ceil(viewportHeight / rowHeight) + 3;
+      if (end - start < minRows) {
+        end = Math.min(start + minRows, totalRows);
+      }
+    } else {
+      // Fixed heights: simple calculation
+      const visibleCount = Math.ceil(viewportHeight / rowHeight) + 3;
+      end = start + visibleCount;
+    }
+
     if (end > totalRows) end = totalRows;
 
     this._virtualization.start = start;
@@ -3952,18 +4159,22 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Smooth scroll: apply offset for fluid motion
     // Since start is even-aligned, offset is distance from that aligned position
     // This creates smooth sliding while preserving zebra stripe parity
-    // Account for extra heights (expanded details) before the start row
-    const extraHeightBeforeStart = this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
-
-    // Get actual offset for the start row (varies with row heights)
+    //
+    // Get actual offset for the start row:
+    // - Variable heights mode: use position cache offset (already includes heights from getRowHeight())
+    // - Fixed heights mode: use simple multiplication + extraHeightBefore for deprecated hooks
     let startRowOffset: number;
     if (this._virtualization.variableHeights && positionCache && positionCache[start]) {
+      // Position cache offset already accounts for variable heights via getRowHeight()
+      // Do NOT add extraHeightBefore - it would double-count
       startRowOffset = positionCache[start].offset;
     } else {
-      startRowOffset = start * rowHeight;
+      // Fixed heights mode: add extra heights from deprecated hooks
+      const extraHeightBeforeStart = this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
+      startRowOffset = start * rowHeight + extraHeightBeforeStart;
     }
 
-    const subPixelOffset = -(scrollTop - startRowOffset - extraHeightBeforeStart);
+    const subPixelOffset = -(scrollTop - startRowOffset);
     this._bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
 
     this.#renderVisibleRows(start, end, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);

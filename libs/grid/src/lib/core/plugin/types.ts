@@ -530,6 +530,14 @@ export interface GridElementRef {
   readonly isToolPanelOpen: boolean;
 
   /**
+   * The default row height in pixels.
+   * For fixed heights, this is the configured or CSS-measured row height.
+   * For variable heights, this is the average/estimated row height.
+   * Plugins should use this instead of hardcoding row heights.
+   */
+  readonly defaultRowHeight: number;
+
+  /**
    * Get the IDs of expanded accordion sections.
    */
   readonly expandedToolPanelSections: string[];
@@ -559,5 +567,19 @@ export interface GridElementRef {
    * Get registered tool panel definitions.
    */
   getToolPanels(): ToolPanelDefinition[];
+
+  // =========================================================================
+  // Variable Row Height API
+  // =========================================================================
+
+  /**
+   * Invalidate a row's height in the position cache.
+   * Call this when a plugin changes a row's height (e.g., expanding a detail panel).
+   * The position cache will be updated incrementally without a full rebuild.
+   *
+   * @param rowIndex - Index of the row whose height changed
+   * @param newHeight - Optional new height. If not provided, queries plugins for height.
+   */
+  invalidateRowHeight(rowIndex: number, newHeight?: number): void;
 }
 // #endregion

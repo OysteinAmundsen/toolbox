@@ -472,6 +472,19 @@ export class PluginManager {
   }
 
   /**
+   * Check if any plugin implements the getRowHeight() hook.
+   * When true, the grid should use variable heights mode with position caching.
+   */
+  hasRowHeightPlugin(): boolean {
+    for (const plugin of this.plugins) {
+      if (typeof plugin.getRowHeight === 'function') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Adjust the virtualization start index based on plugin needs.
    * Returns the minimum start index from all plugins.
    */

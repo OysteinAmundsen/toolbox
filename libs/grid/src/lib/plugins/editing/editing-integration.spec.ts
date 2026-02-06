@@ -1091,4 +1091,93 @@ describe('EditingPlugin', () => {
       expect(input.max).toBe('');
     });
   });
+
+  describe('framework-managed editors', () => {
+    it('should not read DOM input values from cells with data-editor-managed attribute', async () => {
+      // This test verifies the fix for framework adapters (Angular/React/Vue).
+      // When those adapters inject custom editors (returning Node from editor function),
+      // the cell gets marked with data-editor-managed. On exit, the grid should NOT
+      // try to read values from DOM inputs inside such cells, because:
+      // 1. Those inputs may show formatted display values (e.g., "Dec 3, 2025" for "2025-12-03")
+      // 2. The framework editor handles commits via the commit() callback
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'date',
+            header: 'Date',
+            editable: true,
+            // Custom editor function that returns a Node (simulating framework adapter)
+            editor: (ctx: { value: string; commit: (v: unknown) => void }) => {
+              const div = document.createElement('div');
+              const input = document.createElement('input');
+              // Simulate a formatted display value (like Material datepicker shows)
+              input.type = 'text';
+              input.value = 'Feb 6, 2026'; // Formatted, not the original "2026-02-06"
+              div.appendChild(input);
+              return div;
+            },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, date: '2026-02-06' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const dateCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Click to enter edit mode
+      dateCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Verify cell has data-editor-managed attribute (set by EditingPlugin for function editors returning Node)
+      expect(dateCell.hasAttribute('data-editor-managed')).toBe(true);
+
+      // Exit edit mode by pressing Escape (no commit)
+      dateCell.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Verify the row data was NOT corrupted by reading the formatted input value
+      expect(grid.rows[0].date).toBe('2026-02-06'); // Original value preserved
+    });
+
+    it('should read DOM input values from cells without data-editor-managed attribute', async () => {
+      // This test verifies that built-in editors (string-based or template-based) still work
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'click' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Click to enter edit mode
+      nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Built-in editor should NOT have data-editor-managed
+      expect(nameCell.hasAttribute('data-editor-managed')).toBe(false);
+
+      const input = nameCell.querySelector('input') as HTMLInputElement;
+      input.value = 'Bob';
+
+      // Press Enter to commit
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Value should be committed from the DOM input
+      expect(grid.rows[0].name).toBe('Bob');
+    });
+  });
 });

@@ -1228,6 +1228,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         if (isNaN(colIndex)) return;
         const col = internalGrid._visibleColumns[colIndex];
         if (!col) return;
+
+        // Skip cells with externally-managed editors (framework adapters like Angular/React/Vue).
+        // These editors handle their own commits via the commit() callback - we should NOT
+        // try to read values from their DOM inputs (which may contain formatted display values).
+        if ((cell as HTMLElement).hasAttribute('data-editor-managed')) {
+          return;
+        }
+
         const input = cell.querySelector('input,textarea,select') as
           | HTMLInputElement
           | HTMLTextAreaElement
@@ -1530,6 +1538,19 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         wireEditorInputs(editorHost, column as any, commit, originalValue);
       } else if (produced instanceof Node) {
         editorHost.appendChild(produced);
+        // Mark cell as having an externally-managed editor (framework adapter) ONLY if
+        // the returned element is NOT a simple input/select/textarea. Framework adapters
+        // typically wrap their editors in containers (div, span, custom elements).
+        // When marked, we'll skip DOM input reading in #exitRowEdit because:
+        // - Those inputs may show formatted display values (e.g., "Dec 3, 2025" for "2025-12-03")
+        // - The framework editor handles its own commits via commit() callback
+        const isSimpleInput =
+          produced instanceof HTMLInputElement ||
+          produced instanceof HTMLSelectElement ||
+          produced instanceof HTMLTextAreaElement;
+        if (!isSimpleInput) {
+          cell.setAttribute('data-editor-managed', '');
+        }
       }
       if (!skipFocus) {
         queueMicrotask(() => {
@@ -1542,6 +1563,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       placeholder.setAttribute('data-external-editor', '');
       placeholder.setAttribute('data-field', column.field);
       editorHost.appendChild(placeholder);
+      // Mark cell as having an externally-managed editor.
+      // The editor handles its own commits - we should NOT try to read values
+      // from DOM inputs in #exitRowEdit.
+      cell.setAttribute('data-editor-managed', '');
       const context: EditorContext<T> = {
         row: rowData,
         rowId: rowId ?? '',

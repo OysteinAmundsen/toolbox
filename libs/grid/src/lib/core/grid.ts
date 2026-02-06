@@ -11,7 +11,13 @@ import {
   setRowLoadingState,
   showLoadingOverlay,
 } from './internal/loading';
-import { getRowIndexAtOffset, getTotalHeight, rebuildPositionCache } from './internal/position-cache';
+import {
+  getRowIndexAtOffset,
+  getTotalHeight,
+  rebuildPositionCache,
+  setCachedHeight,
+  updateRowHeight,
+} from './internal/position-cache';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
@@ -3753,6 +3759,72 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
+   * Measure rendered row heights and update position cache.
+   * Called after rows are rendered to capture actual DOM heights.
+   * Only runs when variable heights mode is enabled.
+   * @internal
+   */
+  #measureRenderedRowHeights(start: number, end: number): void {
+    if (!this._virtualization.variableHeights) return;
+    if (!this._virtualization.positionCache) return;
+    if (!this._bodyEl) return;
+
+    const positionCache = this._virtualization.positionCache;
+    const heightCache = this._virtualization.heightCache;
+    const rows = this._rows;
+
+    // Get all rendered row elements
+    const rowElements = this._bodyEl.querySelectorAll('.data-grid-row');
+
+    let hasChanges = false;
+    let totalMeasured = 0;
+    let measuredCount = 0;
+
+    rowElements.forEach((rowEl) => {
+      const rowIndexStr = (rowEl as HTMLElement).dataset.rowIndex;
+      if (!rowIndexStr) return;
+
+      const rowIndex = parseInt(rowIndexStr, 10);
+      if (rowIndex < start || rowIndex >= end || rowIndex >= rows.length) return;
+
+      const row = rows[rowIndex];
+      const measuredHeight = (rowEl as HTMLElement).offsetHeight;
+
+      if (measuredHeight > 0) {
+        const currentEntry = positionCache[rowIndex];
+
+        // Only update if height differs significantly (> 1px to avoid oscillation)
+        if (!currentEntry.measured || Math.abs(currentEntry.height - measuredHeight) > 1) {
+          // Update position cache
+          updateRowHeight(positionCache, rowIndex, measuredHeight);
+
+          // Persist to height cache for future rebuilds
+          setCachedHeight(heightCache, row, measuredHeight);
+
+          hasChanges = true;
+        }
+
+        totalMeasured += measuredHeight;
+        measuredCount++;
+      }
+    });
+
+    // Update average height stat
+    if (measuredCount > 0) {
+      this._virtualization.measuredCount += measuredCount;
+      // Rolling average calculation
+      const prevTotal = this._virtualization.averageHeight * (this._virtualization.measuredCount - measuredCount);
+      this._virtualization.averageHeight = (prevTotal + totalMeasured) / this._virtualization.measuredCount;
+    }
+
+    // If heights changed, update total height spacer
+    if (hasChanges && this._virtualization.totalHeightEl) {
+      const newTotalHeight = this.#calculateTotalSpacerHeight(rows.length);
+      this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
+    }
+  }
+
+  /**
    * Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,
    * or standard row window rendering.
    * @param force - Whether to force a full refresh (not just scroll update)
@@ -3895,6 +3967,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this._bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
 
     this.#renderVisibleRows(start, end, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
+
+    // Measure rendered row heights for variable height mode
+    // Only on force refresh to avoid hot path overhead during scroll
+    if (force && this._virtualization.variableHeights) {
+      this.#measureRenderedRowHeights(start, end);
+    }
 
     // Update ARIA counts on the grid container
     this.#updateAriaCounts(totalRows, this._visibleColumns.length);

@@ -3704,7 +3704,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         this._bodyEl.style.transform = 'translateY(0px)';
       }
       this.#renderVisibleRows(0, totalRows, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
-      if (this._virtualization.totalHeightEl) {
+      // Only recalculate height on force refresh (structural changes)
+      // Skip on scroll-only updates to prevent scrollbar jumpiness
+      if (force && this._virtualization.totalHeightEl) {
         this._virtualization.totalHeightEl.style.height = `${this.#calculateTotalSpacerHeight(totalRows)}px`;
       }
       // Update ARIA counts on the grid container
@@ -3784,9 +3786,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       return;
     }
 
-    const totalHeight = this.#calculateTotalSpacerHeight(totalRows);
-
-    if (this._virtualization.totalHeightEl) {
+    // Only recalculate height on force refresh (structural changes like data/plugin changes)
+    // Skip on scroll-only updates to prevent scrollbar jumpiness from repeated DOM reads
+    if (force && this._virtualization.totalHeightEl) {
+      const totalHeight = this.#calculateTotalSpacerHeight(totalRows);
       this._virtualization.totalHeightEl.style.height = `${totalHeight}px`;
     }
 

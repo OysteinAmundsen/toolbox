@@ -505,6 +505,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Return total extra height from all expanded detail rows.
    * Used by grid virtualization to adjust scrollbar height.
+   *
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
    */
   override getExtraHeight(): number {
     let totalHeight = 0;
@@ -517,6 +519,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Return extra height that appears before a given row index.
    * This is the sum of heights of all expanded details whose parent row is before the given index.
+   *
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
    */
   override getExtraHeightBefore(beforeRowIndex: number): number {
     let totalHeight = 0;
@@ -528,6 +532,28 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       }
     }
     return totalHeight;
+  }
+
+  /**
+   * Get the height of a specific row, including any expanded detail content.
+   * Returns undefined for collapsed rows (use default row height).
+   * Returns baseRowHeight + detailHeight for expanded rows.
+   *
+   * @param row - The row data
+   * @param _index - The row index (unused, but part of the interface)
+   * @returns The row height in pixels, or undefined if not expanded
+   */
+  override getRowHeight(row: unknown, _index: number): number | undefined {
+    if (!this.expandedRows.has(row as object)) {
+      return undefined; // Use default/measured height
+    }
+
+    // Row is expanded - return base height plus detail height
+    const detailHeight = this.getDetailHeight(row);
+    // Get base row height from config, defaulting to the grid's CSS variable default
+    const configRowHeight = this.grid.effectiveConfig?.rowHeight;
+    const baseHeight = typeof configRowHeight === 'number' ? configRowHeight : 28;
+    return baseHeight + detailHeight;
   }
 
   /**

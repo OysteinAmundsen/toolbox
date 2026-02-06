@@ -75,6 +75,11 @@ export class PluginManager {
   private queryHandlers: Map<string, Set<BaseGridPlugin>> = new Map();
   // #endregion
 
+  // #region Deprecation Warnings
+  /** Set of plugin names that have been warned about deprecated hooks */
+  private static deprecationWarned: Set<string> = new Set();
+  // #endregion
+
   // #region Lifecycle
   constructor(private grid: GridElement) {}
 
@@ -120,6 +125,9 @@ export class PluginManager {
     // Register query handlers from manifest
     this.registerQueryHandlers(plugin);
 
+    // Warn about deprecated hooks (once per plugin class)
+    this.warnDeprecatedHooks(plugin);
+
     // Call attach lifecycle method
     plugin.attach(this.grid);
 
@@ -147,6 +155,54 @@ export class PluginManager {
       }
       handlers.add(plugin);
     }
+  }
+
+  /**
+   * Warn about deprecated plugin hooks.
+   * Only warns once per plugin class, only in development environments.
+   */
+  private warnDeprecatedHooks(plugin: BaseGridPlugin): void {
+    const pluginName = plugin.name;
+
+    // Skip if already warned for this plugin
+    if (PluginManager.deprecationWarned.has(pluginName)) return;
+
+    // Only warn in development
+    if (!this.isDevelopment()) return;
+
+    const hasOldHooks =
+      typeof plugin.getExtraHeight === 'function' || typeof plugin.getExtraHeightBefore === 'function';
+
+    const hasNewHook = typeof plugin.getRowHeight === 'function';
+
+    // Warn if using old hooks without new hook
+    if (hasOldHooks && !hasNewHook) {
+      PluginManager.deprecationWarned.add(pluginName);
+      console.warn(
+        `[tbw-grid] Deprecation warning: "${pluginName}" uses getExtraHeight() / getExtraHeightBefore() ` +
+          `which are deprecated and will be removed in v3.0.\n` +
+          `  → Migrate to getRowHeight(row, index) for better variable row height support.\n` +
+          `  → See: https://toolbox-web.dev/docs/grid/plugins/migration#row-height-hooks`,
+      );
+    }
+  }
+
+  /**
+   * Check if we're running in a development environment.
+   */
+  private isDevelopment(): boolean {
+    // Check for localhost (browser environment)
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+        return true;
+      }
+    }
+    // Check for NODE_ENV (build-time or SSR)
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+      return true;
+    }
+    return false;
   }
 
   /**

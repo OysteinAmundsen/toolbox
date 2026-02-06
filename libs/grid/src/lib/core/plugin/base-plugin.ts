@@ -1026,10 +1026,23 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    *
    * @returns Total extra height in pixels
    *
+   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v3.0.
+   * The new `getRowHeight(row, index)` hook provides per-row height information which
+   * enables better position caching and variable row height support.
+   *
    * @example
    * ```ts
+   * // OLD (deprecated):
    * getExtraHeight(): number {
    *   return this.expandedRows.size * this.detailHeight;
+   * }
+   *
+   * // NEW (preferred):
+   * getRowHeight(row: unknown, index: number): number | undefined {
+   *   if (this.isExpanded(row)) {
+   *     return this.baseRowHeight + this.getDetailHeight(row);
+   *   }
+   *   return undefined;
    * }
    * ```
    */
@@ -1043,8 +1056,13 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * @param beforeRowIndex - The row index to calculate extra height before
    * @returns Extra height in pixels that appears before this row
    *
+   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v3.0.
+   * The new `getRowHeight(row, index)` hook provides per-row height information which
+   * enables better position caching and variable row height support.
+   *
    * @example
    * ```ts
+   * // OLD (deprecated):
    * getExtraHeightBefore(beforeRowIndex: number): number {
    *   let height = 0;
    *   for (const expandedRowIndex of this.expandedRowIndices) {
@@ -1053,6 +1071,14 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    *     }
    *   }
    *   return height;
+   * }
+   *
+   * // NEW (preferred):
+   * getRowHeight(row: unknown, index: number): number | undefined {
+   *   if (this.isExpanded(row)) {
+   *     return this.baseRowHeight + this.getDetailHeight(row);
+   *   }
+   *   return undefined;
    * }
    * ```
    */

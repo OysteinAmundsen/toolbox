@@ -43,9 +43,19 @@ describe('aggregators', () => {
       expect(result).toBe(10);
     });
 
+    it('min returns 0 for empty array', () => {
+      const result = runAggregator('min', [], 'value');
+      expect(result).toBe(0);
+    });
+
     it('max returns maximum value', () => {
       const result = runAggregator('max', testRows.slice(0, 3), 'value');
       expect(result).toBe(30);
+    });
+
+    it('max returns 0 for empty array', () => {
+      const result = runAggregator('max', [], 'value');
+      expect(result).toBe(0);
     });
 
     it('first returns first row field value', () => {

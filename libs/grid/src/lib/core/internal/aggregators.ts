@@ -24,8 +24,8 @@ const builtInAggregators: Record<string, AggregatorFn> = {
     return rows.length ? sum / rows.length : 0;
   },
   count: (rows) => rows.length,
-  min: (rows, field) => Math.min(...rows.map((r) => Number(r[field]) || Infinity)),
-  max: (rows, field) => Math.max(...rows.map((r) => Number(r[field]) || -Infinity)),
+  min: (rows, field) => (rows.length ? Math.min(...rows.map((r) => Number(r[field]) || Infinity)) : 0),
+  max: (rows, field) => (rows.length ? Math.max(...rows.map((r) => Number(r[field]) || -Infinity)) : 0),
   first: (rows, field) => rows[0]?.[field],
   last: (rows, field) => rows[rows.length - 1]?.[field],
 };

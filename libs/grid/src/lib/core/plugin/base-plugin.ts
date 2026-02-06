@@ -1059,6 +1059,31 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   getExtraHeightBefore?(beforeRowIndex: number): number;
 
   /**
+   * Get the height of a specific row.
+   * Used for synthetic rows (group headers, detail panels, etc.) that have fixed heights.
+   * Return undefined if this plugin does not manage the height for this row.
+   *
+   * This hook is called during position cache rebuilds for variable row height virtualization.
+   * Plugins that create synthetic rows should implement this to provide accurate heights.
+   *
+   * @param row - The row data
+   * @param index - The row index in the processed rows array
+   * @returns The row height in pixels, or undefined if not managed by this plugin
+   *
+   * @example
+   * ```ts
+   * getRowHeight(row: unknown, index: number): number | undefined {
+   *   // Group headers have a fixed height
+   *   if (this.isGroupHeader(row)) {
+   *     return 32;
+   *   }
+   *   return undefined; // Let grid use default/measured height
+   * }
+   * ```
+   */
+  getRowHeight?(row: unknown, index: number): number | undefined;
+
+  /**
    * Adjust the virtualization start index to render additional rows before the visible range.
    * Use this when expanded content (like detail rows) needs its parent row to remain rendered
    * even when the parent row itself has scrolled above the viewport.

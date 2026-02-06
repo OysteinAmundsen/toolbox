@@ -399,6 +399,23 @@ export class PluginManager {
   }
 
   /**
+   * Get the height of a specific row from plugins.
+   * Used for synthetic rows (group headers, etc.) that have fixed heights.
+   * Returns undefined if no plugin provides a height for this row.
+   */
+  getRowHeight(row: unknown, index: number): number | undefined {
+    for (const plugin of this.plugins) {
+      if (typeof plugin.getRowHeight === 'function') {
+        const height = plugin.getRowHeight(row, index);
+        if (height !== undefined) {
+          return height;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Adjust the virtualization start index based on plugin needs.
    * Returns the minimum start index from all plugins.
    */

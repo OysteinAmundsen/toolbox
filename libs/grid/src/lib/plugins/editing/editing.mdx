@@ -201,14 +201,28 @@ new EditingPlugin({ mode: 'grid' })
 | Mode    | Behavior                                                    |
 | ------- | ----------------------------------------------------------- |
 | `'row'` | Default. Click/dblclick to enter edit mode, Escape to exit |
-| `'grid'`| All editors visible immediately. No exit edit mode.         |
+| `'grid'`| All editors visible immediately. Excel-like navigation.     |
 
 In **grid mode**:
 - All `editable: true` cells render with their editors on load
 - Tab/Shift+Tab navigates between editable cells (wraps to next/prev row)
-- Enter commits the current cell value (stays in edit mode)
-- Escape and click-outside have no effect (always editing)
 - `cell-commit` events fire normally when values change
+
+### Excel-like Navigation vs Edit Mode
+
+Grid mode supports Excel-style keyboard interaction with two modes:
+
+| State | How to Enter | Behavior |
+| ----- | ------------ | -------- |
+| **Navigation** | Press Escape | Arrow keys move between cells. Input is blurred. |
+| **Edit** | Press Enter, click input, or start typing | Arrow keys work within the input (cursor position, up/down for numbers). |
+
+- **Escape**: Blurs the current input, switching to navigation mode where arrow keys move the cell focus
+- **Enter**: Focuses the current cell's input, switching to edit mode
+- **Click**: Clicking directly on an input naturally focuses it (edit mode)
+- **Arrow Keys**: In navigation mode, use arrow keys to move between cells. In edit mode, arrows work within the input (e.g., moving cursor in text, incrementing numbers)
+
+This mimics Excel/Google Sheets behavior where you can quickly navigate a grid with arrows, then press Enter to edit a cell.
 
 <Canvas of={EditingStories.GridMode} withToolbar />
 

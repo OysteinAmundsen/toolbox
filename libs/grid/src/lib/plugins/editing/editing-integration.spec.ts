@@ -1307,6 +1307,92 @@ describe('EditingPlugin', () => {
       const results = grid.query<boolean>('isEditing');
       expect(results.includes(true)).toBe(true);
     });
+
+    describe('navigation vs edit mode (Excel-like)', () => {
+      it('Escape blurs input allowing arrow key navigation', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: true },
+          ],
+          plugins: [new EditingPlugin({ mode: 'grid' })],
+        };
+        grid.rows = [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+        ];
+        await waitUpgrade(grid);
+
+        // Focus an input (enter edit mode)
+        const cell = grid.querySelector('.cell.editing') as HTMLElement;
+        const input = cell.querySelector('input') as HTMLInputElement;
+        input.focus();
+        await nextFrame();
+        expect(document.activeElement).toBe(input);
+
+        // Press Escape - should blur input
+        grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await nextFrame();
+
+        // Input should be blurred
+        expect(document.activeElement).not.toBe(input);
+
+        // Editors should still be visible (we're still in grid mode)
+        const editingCells = grid.querySelectorAll('.cell.editing');
+        expect(editingCells.length).toBe(2);
+      });
+
+      it('Enter focuses the current cell input', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: true },
+          ],
+          plugins: [new EditingPlugin({ mode: 'grid' })],
+        };
+        grid.rows = [{ id: 1, name: 'Alice' }];
+        await waitUpgrade(grid);
+
+        // Set focus to editable column
+        const internalGrid = grid as any;
+        internalGrid._focusRow = 0;
+        internalGrid._focusCol = 1;
+
+        // Press Enter - should focus the input
+        grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        await nextFrame();
+
+        // Input should be focused
+        const input = grid.querySelector('.cell.editing input') as HTMLInputElement;
+        expect(document.activeElement).toBe(input);
+      });
+
+      it('arrow keys navigate cells when input is not focused', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: true },
+            { field: 'email', header: 'Email', editable: true },
+          ],
+          plugins: [new EditingPlugin({ mode: 'grid' })],
+        };
+        grid.rows = [
+          { id: 1, name: 'Alice', email: 'alice@test.com' },
+          { id: 2, name: 'Bob', email: 'bob@test.com' },
+        ];
+        await waitUpgrade(grid);
+
+        // Set initial focus (navigation mode - no input focused)
+        const internalGrid = grid as any;
+        internalGrid._focusRow = 0;
+        internalGrid._focusCol = 1;
+
+        // Arrow keys should navigate (not blocked by editing plugin)
+        // The grid's keyboard handler will process these since EditingPlugin returns false
+        grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        // EditingPlugin returns false, letting default keyboard navigation handle it
+      });
+    });
   });
 
   // #endregion

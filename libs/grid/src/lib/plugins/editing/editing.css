@@ -31,8 +31,8 @@
      Row Editing State
      ============================================================================ */
 
-    /* Highlight entire row when any cell is being edited */
-    .data-grid-row:has(.editing) {
+    /* Highlight entire row when any cell is being edited (only in row mode, not grid mode) */
+    &:not(.tbw-grid-mode) .data-grid-row:has(.editing) {
       background: var(--tbw-editing-row-bg);
       outline: var(--tbw-editing-row-outline-width) solid var(--tbw-editing-row-outline-color);
       outline-offset: calc(-1 * var(--tbw-editing-row-outline-width));

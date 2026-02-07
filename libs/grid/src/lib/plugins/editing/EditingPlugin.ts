@@ -361,6 +361,21 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   #invalidCells = new Map<string, Map<string, string>>();
 
+  /**
+   * In grid mode, tracks whether an input field is currently focused.
+   * When true: arrow keys work within input (edit mode).
+   * When false: arrow keys navigate between cells (navigation mode).
+   * Escape switches to navigation mode, Enter switches to edit mode.
+   */
+  #gridModeInputFocused = false;
+
+  /**
+   * In grid mode, when true, prevents inputs from auto-focusing.
+   * This is set when Escape is pressed (navigation mode) and cleared
+   * when Enter is pressed or user explicitly clicks an input.
+   */
+  #gridModeEditLocked = false;
+
   // #endregion
 
   // #region Lifecycle
@@ -454,17 +469,84 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // In grid mode, request a full render to trigger afterCellRender hooks
     if (this.#isGridMode) {
+      this.gridElement.classList.add('tbw-grid-mode');
       this.requestRender();
+
+      // Track focus/blur on inputs to maintain navigation vs edit mode state
+      this.gridElement.addEventListener(
+        'focusin',
+        (e: FocusEvent) => {
+          const target = e.target as HTMLElement;
+          if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+            // If edit is locked (navigation mode), blur the input immediately
+            if (this.#gridModeEditLocked) {
+              target.blur();
+              this.gridElement.focus();
+              return;
+            }
+            this.#gridModeInputFocused = true;
+          }
+        },
+        { signal },
+      );
+
+      this.gridElement.addEventListener(
+        'focusout',
+        (e: FocusEvent) => {
+          const related = e.relatedTarget as HTMLElement | null;
+          // Only clear if focus went outside grid or to a non-input element
+          if (!related || !this.gridElement.contains(related) || !related.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+            this.#gridModeInputFocused = false;
+          }
+        },
+        { signal },
+      );
+
+      // Handle Escape key directly on the grid element (capture phase)
+      // This ensures we intercept Escape even when focus is inside an input
+      this.gridElement.addEventListener(
+        'keydown',
+        (e: KeyboardEvent) => {
+          if (e.key === 'Escape' && this.#gridModeInputFocused) {
+            const activeEl = document.activeElement as HTMLElement;
+            if (activeEl && this.gridElement.contains(activeEl)) {
+              activeEl.blur();
+              // Move focus to the grid container so arrow keys work
+              this.gridElement.focus();
+            }
+            this.#gridModeInputFocused = false;
+            this.#gridModeEditLocked = true; // Lock edit mode until Enter/click
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        },
+        { capture: true, signal },
+      );
+
+      // Handle click on inputs - unlock edit mode when user explicitly clicks
+      this.gridElement.addEventListener(
+        'mousedown',
+        (e: MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (target.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+            this.#gridModeEditLocked = false; // User clicked input - allow edit
+          }
+        },
+        { signal },
+      );
     }
   }
 
   /** @internal */
   override detach(): void {
+    this.gridElement.classList.remove('tbw-grid-mode');
     this.#activeEditRow = -1;
     this.#activeEditCol = -1;
     this.#rowEditSnapshots.clear();
     this.#changedRowIds.clear();
     this.#editingCells.clear();
+    this.#gridModeInputFocused = false;
+    this.#gridModeEditLocked = false;
     super.detach();
   }
 
@@ -527,17 +609,42 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   override onKeyDown(event: KeyboardEvent): boolean | void {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
 
-    // Escape: cancel current edit (only in 'row' mode)
-    if (event.key === 'Escape' && this.#activeEditRow !== -1 && !this.#isGridMode) {
-      // Allow users to prevent edit close via callback (e.g., when overlay is open)
-      if (this.config.onBeforeEditClose) {
-        const shouldClose = this.config.onBeforeEditClose(event);
-        if (shouldClose === false) {
-          return true; // Handled: block grid navigation, let event reach overlay
+    // Escape: cancel current edit (row mode) or exit edit mode (grid mode)
+    if (event.key === 'Escape') {
+      // In grid mode: blur input to enable arrow key navigation
+      if (this.#isGridMode && this.#gridModeInputFocused) {
+        const activeEl = document.activeElement as HTMLElement;
+        if (activeEl && this.gridElement.contains(activeEl)) {
+          activeEl.blur();
         }
+        this.#gridModeInputFocused = false;
+        // Update focus styling
+        this.requestAfterRender();
+        return true;
       }
-      this.#exitRowEdit(this.#activeEditRow, true);
-      return true;
+
+      // In row mode: cancel edit
+      if (this.#activeEditRow !== -1 && !this.#isGridMode) {
+        // Allow users to prevent edit close via callback (e.g., when overlay is open)
+        if (this.config.onBeforeEditClose) {
+          const shouldClose = this.config.onBeforeEditClose(event);
+          if (shouldClose === false) {
+            return true; // Handled: block grid navigation, let event reach overlay
+          }
+        }
+        this.#exitRowEdit(this.#activeEditRow, true);
+        return true;
+      }
+    }
+
+    // Arrow keys in grid mode when not editing input: navigate cells
+    if (
+      this.#isGridMode &&
+      !this.#gridModeInputFocused &&
+      (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+    ) {
+      // Let the grid's default keyboard navigation handle this
+      return false;
     }
 
     // Arrow Up/Down while editing: commit and exit edit mode, move to adjacent row (only in 'row' mode)
@@ -608,8 +715,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       return false;
     }
 
-    // Enter: start row edit or commit
+    // Enter: start row edit, commit, or enter edit mode in grid mode
     if (event.key === 'Enter' && !event.shiftKey) {
+      // In grid mode when not editing: focus the current cell's input
+      if (this.#isGridMode && !this.#gridModeInputFocused) {
+        this.#focusCurrentCellEditor();
+        return true;
+      }
+
       if (this.#activeEditRow !== -1) {
         // Allow users to prevent edit close via callback (e.g., when overlay is open)
         // This lets Enter select an item in a dropdown instead of committing the row
@@ -1171,6 +1284,34 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     this.#activeEditCol = colIndex;
     this.#injectEditor(rowData, rowIndex, column, colIndex, cellEl, false);
+  }
+
+  /**
+   * Focus the editor input in the currently focused cell (grid mode only).
+   * Used when pressing Enter to enter edit mode from navigation mode.
+   */
+  #focusCurrentCellEditor(): void {
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const focusRow = internalGrid._focusRow;
+    const focusCol = internalGrid._focusCol;
+
+    if (focusRow < 0 || focusCol < 0) return;
+
+    const rowEl = internalGrid.findRenderedRowElement?.(focusRow);
+    const cellEl = rowEl?.querySelector(`.cell[data-col="${focusCol}"]`) as HTMLElement | null;
+
+    if (cellEl?.classList.contains('editing')) {
+      const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+      if (editor) {
+        this.#gridModeEditLocked = false; // Unlock edit mode - user pressed Enter
+        editor.focus();
+        this.#gridModeInputFocused = true;
+        // Select all text in text inputs for quick replacement
+        if (editor instanceof HTMLInputElement && (editor.type === 'text' || editor.type === 'number')) {
+          editor.select();
+        }
+      }
+    }
   }
 
   /**

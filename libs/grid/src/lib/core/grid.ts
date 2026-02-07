@@ -1126,11 +1126,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // === CRITICAL PATH (synchronous) - needed for first paint ===
 
     // Parse light DOM shell elements BEFORE merging config
-    parseLightDomShell(this, this.#shellState);
-    // Parse light DOM tool buttons container
-    parseLightDomToolButtons(this, this.#shellState);
-    // Parse light DOM tool panels (framework adapters may not be ready yet, but vanilla JS works)
-    parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+    this.#parseLightDom();
     // Parse light DOM columns (must be before merge to pick up templates)
     this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
 
@@ -3446,9 +3442,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (!this.isConnected) return;
 
       // Re-parse light DOM (header, tool buttons, and tool panels)
-      parseLightDomShell(this, this.#shellState);
-      parseLightDomToolButtons(this, this.#shellState);
-      parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+      this.#parseLightDom();
 
       // Mark sources as changed since shell parsing may have updated state maps
       this.#configManager.markSourcesChanged();
@@ -3585,6 +3579,39 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   // #endregion
 
+  // #region Light DOM Helpers
+  /**
+   * Parse all light DOM shell elements in one call.
+   * Consolidates parsing of header, tool buttons, and tool panels.
+   */
+  #parseLightDom(): void {
+    parseLightDomShell(this, this.#shellState);
+    parseLightDomToolButtons(this, this.#shellState);
+    parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+  }
+
+  /**
+   * Replace the shell header element in the DOM with freshly rendered HTML.
+   * Used when title or tool buttons are added dynamically via light DOM.
+   */
+  #replaceShellHeaderElement(): void {
+    const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
+    if (!shellHeader) return;
+
+    const newHeaderHtml = renderShellHeader(
+      this.#effectiveConfig.shell,
+      this.#shellState,
+      this.#effectiveConfig.icons?.toolPanel,
+    );
+    const temp = document.createElement('div');
+    temp.innerHTML = newHeaderHtml;
+    const newHeader = temp.firstElementChild;
+    if (newHeader) {
+      shellHeader.replaceWith(newHeader);
+      this.#setupShellListeners();
+    }
+  }
+
   /**
    * Set up Light DOM handlers via ConfigManager's observer infrastructure.
    * This handles frameworks like Angular that project content asynchronously.
@@ -3600,30 +3627,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const handleShellChange = () => {
       const hadTitle = this.#shellState.lightDomTitle;
       const hadToolButtons = this.#shellState.hasToolButtonsContainer;
-      parseLightDomShell(this, this.#shellState);
-      parseLightDomToolButtons(this, this.#shellState);
-      parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+      this.#parseLightDom();
       const hasTitle = this.#shellState.lightDomTitle;
       const hasToolButtons = this.#shellState.hasToolButtonsContainer;
 
       if ((hasTitle && !hadTitle) || (hasToolButtons && !hadToolButtons)) {
         this.#configManager.markSourcesChanged();
         this.#configManager.merge();
-        const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
-        if (shellHeader) {
-          const newHeaderHtml = renderShellHeader(
-            this.#effectiveConfig.shell,
-            this.#shellState,
-            this.#effectiveConfig.icons?.toolPanel,
-          );
-          const temp = document.createElement('div');
-          temp.innerHTML = newHeaderHtml;
-          const newHeader = temp.firstElementChild;
-          if (newHeader) {
-            shellHeader.replaceWith(newHeader);
-            this.#setupShellListeners();
-          }
-        }
+        this.#replaceShellHeaderElement();
       }
     };
 
@@ -3669,10 +3680,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Re-parse light DOM shell elements (may have been rendered asynchronously by frameworks)
     const hadTitle = this.#shellState.lightDomTitle;
     const hadToolButtons = this.#shellState.hasToolButtonsContainer;
-    parseLightDomShell(this, this.#shellState);
-    // Also parse tool buttons container that is a direct child (React/Vue pattern)
-    parseLightDomToolButtons(this, this.#shellState);
-    parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+    this.#parseLightDom();
     const hasTitle = this.#shellState.lightDomTitle;
     const hasToolButtons = this.#shellState.hasToolButtonsContainer;
 
@@ -3684,24 +3692,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#configManager.markSourcesChanged();
       // Merge the new title into effectiveConfig
       this.#configManager.merge();
-      // Update the existing shell header element with new HTML
-      const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
-      if (shellHeader) {
-        const newHeaderHtml = renderShellHeader(
-          this.#effectiveConfig.shell,
-          this.#shellState,
-          this.#effectiveConfig.icons?.toolPanel,
-        );
-        // Create a temporary container and extract the new header
-        const temp = document.createElement('div');
-        temp.innerHTML = newHeaderHtml;
-        const newHeader = temp.firstElementChild;
-        if (newHeader) {
-          shellHeader.replaceWith(newHeader);
-          // Re-attach event listeners to the new toolbar element
-          this.#setupShellListeners();
-        }
-      }
+      this.#replaceShellHeaderElement();
     }
 
     // Request a COLUMNS phase render through the scheduler
@@ -4092,9 +4083,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #region Render
   #render(): void {
     // Parse light DOM shell elements before rendering
-    parseLightDomShell(this, this.#shellState);
-    parseLightDomToolButtons(this, this.#shellState);
-    parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
+    this.#parseLightDom();
 
     // Mark sources as changed since shell parsing may have updated state maps
     this.#configManager.markSourcesChanged();

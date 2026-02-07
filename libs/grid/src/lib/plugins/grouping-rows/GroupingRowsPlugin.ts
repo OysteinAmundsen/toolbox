@@ -215,6 +215,31 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   }
 
   /**
+   * Provide row height for group header rows.
+   *
+   * If `groupRowHeight` is configured, returns that value for group rows.
+   * This allows the variable row height system to use known heights for
+   * group headers without needing to measure them from the DOM.
+   *
+   * @param row - The row object (may be a group row)
+   * @param _index - Index in the processed rows array (unused)
+   * @returns Height in pixels for group rows, undefined for data rows
+   *
+   * @internal Plugin hook for variable row height support
+   */
+  override getRowHeight(row: unknown, _index: number): number | undefined {
+    // Only provide height if groupRowHeight is configured
+    if (this.config.groupRowHeight == null) return undefined;
+
+    // Check if this is a group row
+    if ((row as { __isGroupRow?: boolean }).__isGroupRow === true) {
+      return this.config.groupRowHeight;
+    }
+
+    return undefined;
+  }
+
+  /**
    * Handle plugin queries.
    * @internal
    */
@@ -316,6 +341,8 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
           __groupRows: item.rows,
           __groupExpanded: item.expanded,
           __groupRowCount: getGroupRowCount(item),
+          // Cache key for variable row height support - survives expand/collapse
+          __rowCacheKey: `group:${item.key}`,
         };
       }
       return item.row;

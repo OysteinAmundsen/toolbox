@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment happy-dom
+ *
  * GroupingRowsPlugin Class Tests
  *
  * Tests for the row grouping plugin lifecycle and public API.
@@ -674,6 +676,115 @@ describe('GroupingRowsPlugin', () => {
 
       // Top level + 2 subgroups
       expect(plugin.getRowCount()).toBe(3);
+    });
+  });
+
+  describe('variable row height support', () => {
+    // Minimal grid mock that doesn't require DOM for these unit tests
+    function createMinimalGridMock(rows: unknown[] = []) {
+      return {
+        _columns: [{ field: 'id' }],
+        _rows: rows,
+        addEventListener: () => {},
+        querySelector: () => null,
+        children: [],
+        requestRender: () => {},
+        requestAfterRender: () => {},
+        dispatchEvent: () => true,
+        emit: () => true,
+        effectiveConfig: { icons: {} },
+      };
+    }
+
+    it('should add __rowCacheKey to group rows for height caching', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => [row.department],
+      });
+      const rows = [
+        { id: 1, department: 'Engineering', name: 'Alice' },
+        { id: 2, department: 'Sales', name: 'Bob' },
+      ];
+      const grid = createMinimalGridMock(rows) as any;
+
+      plugin.attach(grid);
+      const result = plugin.processRows(rows);
+
+      // Find the group rows
+      const groupRows = result.filter((r: any) => r.__isGroupRow);
+      expect(groupRows.length).toBe(2);
+
+      // Each group row should have __rowCacheKey
+      expect(groupRows[0].__rowCacheKey).toBe('group:Engineering');
+      expect(groupRows[1].__rowCacheKey).toBe('group:Sales');
+    });
+
+    it('should preserve __rowCacheKey across expand/collapse', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => [row.department],
+        defaultExpanded: false,
+      });
+      const rows = [
+        { id: 1, department: 'Engineering', name: 'Alice' },
+        { id: 2, department: 'Engineering', name: 'Bob' },
+      ];
+      const grid = createMinimalGridMock(rows) as any;
+
+      plugin.attach(grid);
+
+      // Initial state: collapsed
+      let result = plugin.processRows(rows);
+      const collapsedGroupRow = result.find((r: any) => r.__isGroupRow);
+      expect(collapsedGroupRow.__rowCacheKey).toBe('group:Engineering');
+
+      // Expand
+      plugin.expand('Engineering');
+      result = plugin.processRows(rows);
+      const expandedGroupRow = result.find((r: any) => r.__isGroupRow);
+      expect(expandedGroupRow.__rowCacheKey).toBe('group:Engineering');
+    });
+
+    it('should return undefined from getRowHeight when groupRowHeight not configured', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => [row.department],
+      });
+      const grid = createMinimalGridMock() as any;
+      plugin.attach(grid);
+
+      const groupRow = { __isGroupRow: true, __groupKey: 'Engineering' };
+      const dataRow = { id: 1, name: 'Alice' };
+
+      expect(plugin.getRowHeight(groupRow, 0)).toBeUndefined();
+      expect(plugin.getRowHeight(dataRow, 1)).toBeUndefined();
+    });
+
+    it('should return configured groupRowHeight for group rows', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => [row.department],
+        groupRowHeight: 36,
+      });
+      const grid = createMinimalGridMock() as any;
+      plugin.attach(grid);
+
+      const groupRow = { __isGroupRow: true, __groupKey: 'Engineering' };
+      const dataRow = { id: 1, name: 'Alice' };
+
+      expect(plugin.getRowHeight(groupRow, 0)).toBe(36);
+      expect(plugin.getRowHeight(dataRow, 1)).toBeUndefined();
+    });
+
+    it('should return groupRowHeight for nested group rows', () => {
+      const plugin = new GroupingRowsPlugin({
+        groupOn: (row: any) => [row.region, row.department],
+        groupRowHeight: 40,
+      });
+      const grid = createMinimalGridMock() as any;
+      plugin.attach(grid);
+
+      const topLevelGroup = { __isGroupRow: true, __groupKey: 'EMEA', __groupDepth: 0 };
+      const nestedGroup = { __isGroupRow: true, __groupKey: 'EMEA||Engineering', __groupDepth: 1 };
+
+      expect(plugin.getRowHeight(topLevelGroup, 0)).toBe(40);
+      expect(plugin.getRowHeight(nestedGroup, 1)).toBe(40);
     });
   });
 });

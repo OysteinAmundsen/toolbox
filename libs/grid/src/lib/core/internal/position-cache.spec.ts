@@ -58,7 +58,7 @@ describe('HeightCache', () => {
 
     it('prefers __rowCacheKey over rowId', () => {
       const row = { rowId: 'row-1', __rowCacheKey: 'synthetic-1' };
-      cache.byKey.set('row-1', 50);
+      cache.byKey.set('id:row-1', 50); // rowId keys are prefixed with 'id:'
       cache.byKey.set('synthetic-1', 70);
       expect(getCachedHeight(cache, row)).toBe(70);
     });

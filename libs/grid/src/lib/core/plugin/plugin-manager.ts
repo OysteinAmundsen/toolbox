@@ -76,8 +76,9 @@ export class PluginManager {
   // #endregion
 
   // #region Deprecation Warnings
-  /** Set of plugin names that have been warned about deprecated hooks */
-  private static deprecationWarned: Set<string> = new Set();
+  /** Set of plugin constructors that have been warned about deprecated hooks */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type -- WeakSet key is plugin.constructor identity
+  private static deprecationWarned = new WeakSet<Function>();
   // #endregion
 
   // #region Lifecycle
@@ -162,10 +163,10 @@ export class PluginManager {
    * Only warns once per plugin class, only in development environments.
    */
   private warnDeprecatedHooks(plugin: BaseGridPlugin): void {
-    const pluginName = plugin.name;
+    const PluginClass = plugin.constructor;
 
-    // Skip if already warned for this plugin
-    if (PluginManager.deprecationWarned.has(pluginName)) return;
+    // Skip if already warned for this plugin class
+    if (PluginManager.deprecationWarned.has(PluginClass)) return;
 
     // Only warn in development
     if (!this.isDevelopment()) return;
@@ -177,9 +178,9 @@ export class PluginManager {
 
     // Warn if using old hooks without new hook
     if (hasOldHooks && !hasNewHook) {
-      PluginManager.deprecationWarned.add(pluginName);
+      PluginManager.deprecationWarned.add(PluginClass);
       console.warn(
-        `[tbw-grid] Deprecation warning: "${pluginName}" uses getExtraHeight() / getExtraHeightBefore() ` +
+        `[tbw-grid] Deprecation warning: "${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
           `which are deprecated and will be removed in v3.0.\n` +
           `  → Migrate to getRowHeight(row, index) for better variable row height support.\n` +
           `  → See: https://toolbox-web.dev/docs/grid/plugins/migration#row-height-hooks`,

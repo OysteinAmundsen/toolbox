@@ -130,6 +130,24 @@ export class FormArrayExample {
 `}
 />
 
+## Variable Row Heights with FormArray
+
+When using variable row heights with FormArray, you **must** configure `rowId`. This is because `getRawValue()` returns new plain objects that don't match the original row references, breaking the WeakMap-based height cache.
+
+<Source
+  language="typescript"
+  code={`
+gridConfig: GridConfig = {
+  // REQUIRED: Enables height cache to survive FormArray updates
+  rowId: 'id',
+  rowHeight: (row) => row.hasValidationErrors ? undefined : 32,
+  columns: [/* ... */],
+};
+`}
+/>
+
+Without `rowId`, each `getRawValue()` call creates new objects, causing all row heights to be re-measured unnecessarily.
+
 ## Row-Level Validation
 
 When using `FormArray` with `FormGroup`s, you can access row-level validation state:

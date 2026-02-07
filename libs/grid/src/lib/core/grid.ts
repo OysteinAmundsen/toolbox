@@ -1879,14 +1879,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   #applyGridConfigUpdate(): void {
     // Parse shell config (title, etc.) - needed for React where gridConfig is set after initial render
+    // Note: We call individual parsers here instead of #parseLightDom() because we need to
+    // parse tool panels AFTER plugins are initialized (see below)
     parseLightDomShell(this, this.#shellState);
-    // Parse tool buttons container before checking shell state
     parseLightDomToolButtons(this, this.#shellState);
 
     const hadShell = !!this.#renderRoot.querySelector('.has-shell');
     const hadToolPanel = !!this.#renderRoot.querySelector('.tbw-tool-panel');
-
-    // Count accordion sections before update (to detect new panels added)
     const accordionSectionsBefore = this.#renderRoot.querySelectorAll('.tbw-accordion-section').length;
 
     this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
@@ -1894,52 +1893,33 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#updatePluginConfigs();
 
     // Parse light DOM tool panels AFTER plugins are initialized
-    // This ensures plugin panels are collected first, then light DOM panels merge in
     parseLightDomToolPanels(this, this.#shellState, this.#getToolPanelRendererFactory());
-
-    // Mark sources as changed since parseLightDomToolPanels may have updated shell state maps
-    // This ensures the next merge() will pick up any new tool panels
     this.#configManager.markSourcesChanged();
-
-    // Re-merge to pick up any light DOM tool panels
     this.#configManager.merge();
 
     const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig?.shell);
     const nowHasToolPanels = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) > 0;
+    const toolPanelCount = this.#effectiveConfig?.shell?.toolPanels?.length ?? 0;
 
-    // Full re-render needed if:
-    // 1. Shell state changed (added or removed)
-    // 2. Tool panels were added but sidebar doesn't exist in DOM yet
-    // 3. Number of tool panels changed (plugin panels added/removed)
-    const toolPanelCountChanged = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) !== accordionSectionsBefore;
+    // Full re-render needed if shell state or panel count changed
     const needsFullRerender =
       hadShell !== nowNeedsShell ||
-      (!hadShell && nowNeedsShell) ||
       (!hadToolPanel && nowHasToolPanels) ||
-      (hadToolPanel && toolPanelCountChanged);
+      (hadToolPanel && toolPanelCount !== accordionSectionsBefore);
 
     if (needsFullRerender) {
       this.#render();
-      this.#injectAllPluginStyles(); // Re-inject after render clears shadow DOM
+      this.#injectAllPluginStyles();
       this.#afterConnect();
-      // Rebuild row ID map in case getRowId changed
       this.#rebuildRowIdMap();
       return;
     }
 
-    // Update shell header in place if it exists (e.g., title changed)
-    // This avoids a full re-render when only shell config changed
     if (hadShell) {
       this.#updateShellHeaderInPlace();
     }
 
-    // Rebuild row ID map in case getRowId changed
     this.#rebuildRowIdMap();
-
-    // Request a COLUMNS phase render through the scheduler.
-    // This batches with any other pending work (e.g., React adapter's refreshColumns).
-    // Previously this called rebuildRowModel, processColumns, renderHeader, updateTemplate,
-    // and refreshVirtualWindow directly - causing race conditions with framework adapters.
     this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'applyGridConfigUpdate');
   }
 

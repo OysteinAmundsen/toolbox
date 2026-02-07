@@ -617,7 +617,7 @@ import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
     <tbw-grid
       [rows]="employees()"
       [lazyForm]="createRowForm"
-      [angularConfig]="config">
+      [gridConfig]="config">
       <tbw-grid-column field="firstName">
         <input *tbwEditor="let _; control as ctrl" [formControl]="ctrl" />
       </tbw-grid-column>

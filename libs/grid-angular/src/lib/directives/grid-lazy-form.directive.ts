@@ -82,7 +82,7 @@ export interface RowFormChangeEvent<TRow = unknown> {
  *     <tbw-grid
  *       [rows]="employees()"
  *       [lazyForm]="createRowForm"
- *       [angularConfig]="gridConfig">
+ *       [gridConfig]="config">
  *
  *       <tbw-grid-column field="firstName">
  *         <input *tbwEditor="let _; control as ctrl"

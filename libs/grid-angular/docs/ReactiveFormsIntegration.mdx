@@ -328,7 +328,7 @@ interface Employee {
     <tbw-grid
       [rows]="employees()"
       [lazyForm]="createRowForm"
-      [angularConfig]="gridConfig">
+      [gridConfig]="gridConfig">
 
       <tbw-grid-column field="firstName">
         <input *tbwEditor="let _; control as ctrl"
@@ -419,7 +419,7 @@ By default, FormGroups are cleaned up when a row exits edit mode. Set `[keepForm
   [rows]="employees()"
   [lazyForm]="createRowForm"
   [keepFormGroups]="true"
-  [angularConfig]="gridConfig">
+  [gridConfig]="gridConfig">
 </tbw-grid>
 `}
 />
@@ -435,7 +435,7 @@ By default, FormGroups are cleaned up when a row exits edit mode. Set `[keepForm
       [rows]="employees()"
       [lazyForm]="createRowForm"
       (rowFormChange)="onFormChange($event)"
-      [angularConfig]="gridConfig">
+      [gridConfig]="gridConfig">
     </tbw-grid>
 
     <div *ngIf="lastChange">

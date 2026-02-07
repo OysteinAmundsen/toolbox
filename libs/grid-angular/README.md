@@ -482,7 +482,7 @@ export class BonusEditorComponent implements AngularCellEditor<Employee, number>
 
 ### Using Components in Grid Config
 
-Use `AngularGridConfig` and `angularConfig` input for type-safe component references:
+Use `AngularGridConfig` with the `gridConfig` input for type-safe component references:
 
 ```typescript
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
@@ -493,7 +493,7 @@ import { StatusBadgeComponent, BonusEditorComponent } from './components';
 @Component({
   imports: [Grid],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `<tbw-grid [angularConfig]="config" [rows]="employees" />`,
+  template: `<tbw-grid [gridConfig]="config" [rows]="employees" />`,
 })
 export class MyGridComponent {
   config: AngularGridConfig<Employee> = {
@@ -507,7 +507,7 @@ export class MyGridComponent {
 }
 ```
 
-> **Note:** Use `[angularConfig]` instead of `[gridConfig]` when using component classes. The directive automatically processes the config and converts component classes to grid-compatible functions.
+The `gridConfig` input accepts both plain `GridConfig` and `AngularGridConfig`. When component classes are detected, the directive automatically converts them to grid-compatible renderer functions.
 
 ### Interfaces Reference
 
@@ -855,10 +855,11 @@ if (context?.hasFormGroups) {
 
 ### Grid Directive Inputs
 
-| Input           | Type                      | Description                                            |
-| --------------- | ------------------------- | ------------------------------------------------------ |
-| `angularConfig` | `AngularGridConfig<TRow>` | Grid config with component class support (recommended) |
-| `customStyles`  | `string`                  | Custom CSS styles to inject into the grid              |
+| Input           | Type                      | Description                                       |
+| --------------- | ------------------------- | ------------------------------------------------- |
+| `gridConfig`    | `AngularGridConfig<TRow>` | Grid config with optional component class support |
+| `angularConfig` | `AngularGridConfig<TRow>` | **Deprecated** - use `gridConfig` instead         |
+| `customStyles`  | `string`                  | Custom CSS styles to inject into the grid         |
 
 ### Grid Directive Outputs
 

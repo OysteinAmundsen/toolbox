@@ -18,6 +18,7 @@ import type {
   CellClickDetail,
   ColumnResizeDetail,
   GridColumnState,
+  GridConfig,
   DataGridElement as GridElement,
   RowClickDetail,
   SortChangeDetail,
@@ -152,11 +153,22 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   private adapter: AngularGridAdapter | null = null;
 
   constructor() {
-    // Effect to process angularConfig and apply to grid
+    // Effect to process gridConfig and apply to grid
     // This merges feature input plugins with the user's config plugins
     effect(() => {
-      const angularCfg = this.angularConfig();
+      const deprecatedAngularConfig = this.angularConfig();
       const userGridConfig = this.gridConfig();
+
+      // Emit deprecation warning if angularConfig is used
+      if (deprecatedAngularConfig && !userGridConfig) {
+        console.warn(
+          '[tbw-grid] The [angularConfig] input is deprecated. Use [gridConfig] instead. ' +
+            'The gridConfig input now accepts AngularGridConfig directly.',
+        );
+      }
+
+      // Use gridConfig preferentially, fall back to deprecated angularConfig
+      const angularCfg = userGridConfig ?? deprecatedAngularConfig;
       if (!this.adapter) return;
 
       // Create plugins from feature inputs
@@ -183,30 +195,30 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       // Registry icons are base, config.icons override them
       const registryIcons = this.iconRegistry?.getAll();
       if (registryIcons && Object.keys(registryIcons).length > 0) {
-        const existingIcons = angularCfg?.icons || userGridConfig?.icons || {};
+        const existingIcons = angularCfg?.icons || {};
         coreConfigOverrides['icons'] = { ...registryIcons, ...existingIcons };
       }
 
-      // If angularConfig is provided, process it (converts component classes to renderer functions)
-      const processedConfig = angularCfg ? this.adapter.processGridConfig(angularCfg) : null;
+      // If gridConfig is provided, process it (converts component classes to renderer functions)
+      // Note: processGridConfig safely handles both GridConfig and AngularGridConfig
+      const processedConfig = angularCfg ? this.adapter.processGridConfig(angularCfg as AngularGridConfig) : null;
 
-      // IMPORTANT: If user is NOT using angularConfig input, and there are no feature plugins
+      // IMPORTANT: If user is NOT using gridConfig input, and there are no feature plugins
       // or config overrides to merge, do NOT overwrite grid.gridConfig.
       // This allows [gridConfig]="myConfig" binding to work correctly without the directive
       // creating a new object that strips properties like typeDefaults.
       const hasFeaturePlugins = featurePlugins.length > 0;
       const hasConfigOverrides = Object.keys(coreConfigOverrides).length > 0;
 
-      // Use the gridConfig input signal (preferred) or fallback to what's on the grid element
       // The input signal gives us reactive tracking of the user's config
-      const existingConfig = userGridConfig || {};
+      const existingConfig = angularCfg || {};
 
-      if (!processedConfig && !hasFeaturePlugins && !hasConfigOverrides && !userGridConfig) {
+      if (!processedConfig && !hasFeaturePlugins && !hasConfigOverrides && !angularCfg) {
         // Nothing to merge and no config input - let the user's DOM binding work directly
         return;
       }
 
-      // Merge: existing config (from [gridConfig] input) < processed angularConfig < feature plugins
+      // Merge: processed config < feature plugins
       const configPlugins = processedConfig?.plugins || existingConfig.plugins || [];
       const mergedPlugins = [...featurePlugins, ...configPlugins];
 
@@ -343,56 +355,29 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   loading = input<boolean>();
 
   /**
-   * Core grid configuration object.
+   * Grid configuration object with optional Angular-specific extensions.
    *
-   * Use this input for the base GridConfig (typeDefaults, getRowId, etc.).
-   * This is the same as binding directly to the web component's gridConfig property,
-   * but allows the directive to properly merge feature plugins and config overrides.
+   * Accepts both plain `GridConfig` and `AngularGridConfig`. When using `AngularGridConfig`,
+   * you can specify Angular component classes directly for renderers and editors.
    *
-   * For Angular-specific features (component class renderers/editors), use `angularConfig` instead.
+   * Component classes must implement the appropriate interfaces:
+   * - Renderers: `AngularCellRenderer<TRow, TValue>` - requires `value()` and `row()` signal inputs
+   * - Editors: `AngularCellEditor<TRow, TValue>` - adds `commit` and `cancel` outputs
    *
    * @example
    * ```typescript
+   * // Simple config with plain renderers
    * config: GridConfig = {
+   *   columns: [
+   *     { field: 'name', header: 'Name' },
+   *     { field: 'active', type: 'boolean' }
+   *   ],
    *   typeDefaults: {
    *     boolean: { renderer: (ctx) => ctx.value ? '✓' : '✗' }
    *   }
    * };
-   * columns = [
-   *   { field: 'active', type: 'boolean' }
-   * ];
-   * ```
    *
-   * ```html
-   * <tbw-grid [gridConfig]="config" [columns]="columns" />
-   * ```
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  gridConfig = input<any>();
-
-  /**
-   * Angular-specific grid configuration that supports component classes for renderers/editors.
-   *
-   * Use this input when you want to specify Angular component classes directly in column configs.
-   * Components must implement the appropriate interfaces:
-   * - Renderers: `AngularCellRenderer<TRow, TValue>` - requires `value()` and `row()` signal inputs
-   * - Editors: `AngularCellEditor<TRow, TValue>` - adds `commit` and `cancel` outputs
-   *
-   * The directive automatically processes component classes and converts them to grid-compatible
-   * renderer/editor functions before applying to the grid.
-   *
-   * @example
-   * ```typescript
-   * // Component that implements AngularCellEditor
-   * @Component({...})
-   * export class BonusEditorComponent implements AngularCellEditor<Employee, number> {
-   *   value = input.required<number>();
-   *   row = input.required<Employee>();
-   *   commit = output<number>();
-   *   cancel = output<void>();
-   * }
-   *
-   * // In your grid config
+   * // Angular config with component classes
    * config: AngularGridConfig<Employee> = {
    *   columns: [
    *     { field: 'name', header: 'Name' },
@@ -402,7 +387,24 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    *
    * ```html
-   * <tbw-grid [angularConfig]="config" [rows]="employees"></tbw-grid>
+   * <tbw-grid [gridConfig]="config" [rows]="employees"></tbw-grid>
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  gridConfig = input<AngularGridConfig<any> | GridConfig<any>>();
+
+  /**
+   * @deprecated Use `gridConfig` instead. This input will be removed in a future version.
+   *
+   * The `angularConfig` name was inconsistent with React and Vue adapters, which both use `gridConfig`.
+   * The `gridConfig` input now accepts `AngularGridConfig` directly.
+   *
+   * ```html
+   * <!-- Before -->
+   * <tbw-grid [angularConfig]="config" />
+   *
+   * <!-- After -->
+   * <tbw-grid [gridConfig]="config" />
    * ```
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

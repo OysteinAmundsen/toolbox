@@ -102,7 +102,7 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'happy-dom',
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    reporters: ['default'],
+    reporters: process.env.CI ? ['default', 'github-actions'] : ['default'],
     coverage: {
       reportsDirectory: '../../coverage/libs/grid-vue',
       provider: 'v8' as const,

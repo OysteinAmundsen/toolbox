@@ -1,9 +1,9 @@
 /// <reference types="vitest" />
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
+import cleanup from 'rollup-plugin-cleanup';
 import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite';
 import dts from 'vite-plugin-dts';
-import cleanup from 'rollup-plugin-cleanup';
 import { gzipSync } from 'zlib';
 
 // Read package.json version for build-time injection
@@ -274,7 +274,7 @@ export default defineConfig(({ command }) => ({
     environment: 'happy-dom',
     include: ['src/**/*.spec.ts', 'src/**/__tests__/**/*.spec.ts'],
     setupFiles: ['./test/setup.ts'],
-    reporters: ['default'],
+    reporters: process.env.CI ? ['default', 'github-actions'] : ['default'],
     // Isolate test files to prevent module initialization race conditions
     isolate: true,
     coverage: { provider: 'v8', reporter: ['text', 'html', 'lcov'], reportsDirectory: '../../coverage/libs/grid' },

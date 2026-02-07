@@ -35,7 +35,8 @@
       <tbw-grid
         #grid
         id="employee-grid"
-        [formArray]="rowsFormArray"
+        [rows]="rows()"
+        [lazyForm]="createRowForm"
         [angularConfig]="gridConfig()"
         [customStyles]="customStyles"
         (cellCommit)="onCellCommit($event)"

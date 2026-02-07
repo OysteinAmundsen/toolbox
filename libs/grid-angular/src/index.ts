@@ -48,6 +48,8 @@ export { GridDetailView } from './lib/directives/grid-detail-view.directive';
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
 export { GridFormArray, getFormArrayContext } from './lib/directives/grid-form-array.directive';
 export type { FormArrayContext } from './lib/directives/grid-form-array.directive';
+export { GridLazyForm, getLazyFormContext } from './lib/directives/grid-lazy-form.directive';
+export type { LazyFormFactory, RowFormChangeEvent } from './lib/directives/grid-lazy-form.directive';
 export { GridResponsiveCard } from './lib/directives/grid-responsive-card.directive';
 export type { GridResponsiveCardContext } from './lib/directives/grid-responsive-card.directive';
 export { GridToolPanel } from './lib/directives/grid-tool-panel.directive';

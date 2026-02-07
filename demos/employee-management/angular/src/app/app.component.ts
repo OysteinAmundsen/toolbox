@@ -12,24 +12,15 @@ import '@toolbox-web/grid-angular/features/visibility';
 // Also in plugins: groupingColumns (columnGroups config), responsive (<tbw-grid-responsive-card>)
 
 import { CurrencyPipe } from '@angular/common';
-import {
-  Component,
-  computed,
-  CUSTOM_ELEMENTS_SCHEMA,
-  DestroyRef,
-  effect,
-  inject,
-  OnInit,
-  signal,
-} from '@angular/core';
-import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { Component, computed, CUSTOM_ELEMENTS_SCHEMA, inject, signal } from '@angular/core';
+import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { generateEmployees, type Employee } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 import {
   CellCommitEvent,
   Grid,
   GridDetailView,
-  GridFormArray,
+  GridLazyForm,
   GridResponsiveCard,
   GridToolPanel,
   injectGrid,
@@ -44,7 +35,6 @@ import { COLUMN_GROUPS, createGridConfig } from './grid-config';
 // Import components so they're available in templates
 // Note: RatingDisplayComponent and StarRatingEditorComponent are configured via gridConfig,
 // not imported here (they use component-class column config instead of templates)
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BonusSliderEditorComponent } from './editors/bonus-slider-editor.component';
 import { DateEditorComponent } from './editors/date-editor.component';
 import { StatusSelectEditorComponent } from './editors/status-select-editor.component';
@@ -61,7 +51,7 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
     ReactiveFormsModule,
     Grid,
     GridDetailView,
-    GridFormArray,
+    GridLazyForm,
     GridResponsiveCard,
     GridToolPanel,
     TbwRenderer,
@@ -81,9 +71,8 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './app.component.html',
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   private fb = inject(FormBuilder);
-  private destroyRef = inject(DestroyRef);
 
   rowCount = signal(200);
   enableSelection = signal(true);
@@ -100,67 +89,26 @@ export class AppComponent implements OnInit {
   rows = computed(() => generateEmployees(this.rowCount()));
 
   /**
-   * Form containing the grid rows as a FormArray of FormGroups.
-   * Each row is a FormGroup with individual FormControls for each field.
-   * This enables Reactive Forms integration with field-level validation.
+   * Lazy form factory - creates a FormGroup only when a row enters edit mode.
+   * This is ~20-100x more efficient than creating FormGroups for all rows upfront!
+   *
+   * For 200 rows with 22 fields, the old approach created 4,400 FormControls.
+   * This approach creates ~10 FormControls (only for the row being edited).
    */
-  form = this.fb.group({
-    rows: this.fb.array<ReturnType<typeof this.createEmployeeFormGroup>>([]),
-  });
-
-  /** Convenience getter for the rows FormArray */
-  get rowsFormArray() {
-    return this.form.controls.rows;
-  }
-
-  /**
-   * Sync the computed rows signal to the FormArray.
-   * When rowCount changes, we regenerate employees and update the FormArray.
-   */
-  private syncRowsToFormArray = effect(() => {
-    const rows = this.rows();
-    const formArray = this.rowsFormArray;
-    formArray.clear({ emitEvent: false });
-    rows.forEach((row) => {
-      formArray.push(this.createEmployeeFormGroup(row), { emitEvent: false });
+  createRowForm = (employee: Employee): FormGroup =>
+    this.fb.group({
+      // Only include EDITABLE fields - no need for disabled read-only fields
+      firstName: [employee.firstName, Validators.required],
+      lastName: [employee.lastName, Validators.required],
+      department: [employee.department],
+      title: [employee.title],
+      level: [employee.level, [Validators.min(1), Validators.max(10)]],
+      salary: [employee.salary, [Validators.required, Validators.min(0)]],
+      bonus: [employee.bonus, [Validators.min(0), Validators.max(100)]],
+      status: [employee.status],
+      hireDate: [employee.hireDate],
+      rating: [employee.rating, [Validators.min(0), Validators.max(5)]],
     });
-    // Emit a single valueChanges after all rows are added
-    formArray.updateValueAndValidity();
-  });
-
-  /**
-   * Create a FormGroup for an Employee row with individual controls per field.
-   * Non-editable fields (id, email, team, etc.) are marked as disabled.
-   */
-  private createEmployeeFormGroup(employee: Employee) {
-    return this.fb.group({
-      // Non-editable fields (disabled)
-      id: this.fb.control({ value: employee.id, disabled: true }),
-      email: this.fb.control({ value: employee.email, disabled: true }),
-      team: this.fb.control({ value: employee.team, disabled: true }),
-      manager: this.fb.control({ value: employee.manager, disabled: true }),
-      location: this.fb.control({ value: employee.location, disabled: true }),
-      timezone: this.fb.control({ value: employee.timezone, disabled: true }),
-      skills: this.fb.control({ value: employee.skills, disabled: true }),
-      completedProjects: this.fb.control({ value: employee.completedProjects, disabled: true }),
-      activeProjects: this.fb.control({ value: employee.activeProjects, disabled: true }),
-      performanceReviews: this.fb.control({ value: employee.performanceReviews, disabled: true }),
-      lastPromotion: this.fb.control({ value: employee.lastPromotion, disabled: true }),
-      isTopPerformer: this.fb.control({ value: employee.isTopPerformer, disabled: true }),
-
-      // Editable fields
-      firstName: this.fb.control(employee.firstName, { nonNullable: true }),
-      lastName: this.fb.control(employee.lastName, { nonNullable: true }),
-      department: this.fb.control(employee.department, { nonNullable: true }),
-      title: this.fb.control(employee.title, { nonNullable: true }),
-      level: this.fb.control(employee.level, { nonNullable: true }),
-      salary: this.fb.control(employee.salary, { nonNullable: true }),
-      bonus: this.fb.control(employee.bonus, { nonNullable: true }),
-      status: this.fb.control(employee.status, { nonNullable: true }),
-      hireDate: this.fb.control(employee.hireDate, { nonNullable: true }),
-      rating: this.fb.control(employee.rating, { nonNullable: true }),
-    });
-  }
 
   // Grid config - recomputed when feature flags change
   gridConfig = computed(() =>
@@ -178,12 +126,6 @@ export class AppComponent implements OnInit {
 
   // Feature-scoped hook for export functionality
   gridExport = injectGridExport();
-
-  ngOnInit(): void {
-    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((val) => {
-      console.log('[Grid] Value changed', val);
-    });
-  }
 
   exportCsv(): void {
     this.gridExport.exportToCsv('employees.csv');

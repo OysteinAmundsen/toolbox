@@ -30,8 +30,8 @@ export default defineConfig({
    * expectScreenshotIfBaselineExists skips comparisons when no baseline exists,
    * we can safely parallelize even in CI */
   workers: process.env.CI ? 4 : undefined,
-  /* Reporter to use */
-  reporter: [['html', { outputFolder: '../playwright-report' }], ['list']],
+  /* Reporter to use - custom clean-list for readable output, html for detailed reports */
+  reporter: [['html', { outputFolder: '../playwright-report' }], ['./reporters/clean-list-reporter.ts']],
   /* Shared settings for all the projects below */
   use: {
     /* Base URL for tests - vanilla is the baseline */

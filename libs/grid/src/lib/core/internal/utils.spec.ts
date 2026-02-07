@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { rafDebounce } from '../../../../test/helpers';
 import {
   booleanCellHTML,
@@ -7,6 +7,7 @@ import {
   getColIndexFromCell,
   getDirection,
   getRowIndexFromCell,
+  isDevelopment,
   isRTL,
   resolveInlinePosition,
 } from './utils';
@@ -204,6 +205,57 @@ describe('utils', () => {
         expect(resolveInlinePosition('start', 'rtl')).toBe('right');
         expect(resolveInlinePosition('end', 'rtl')).toBe('left');
       });
+    });
+  });
+
+  describe('isDevelopment', () => {
+    const originalWindow = globalThis.window;
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      // Restore NODE_ENV
+      process.env.NODE_ENV = originalNodeEnv;
+      // Restore window
+      if (originalWindow) {
+        globalThis.window = originalWindow;
+      }
+    });
+
+    it('should return true for localhost', () => {
+      // Mock window.location.hostname as localhost
+      vi.stubGlobal('window', {
+        location: { hostname: 'localhost' },
+      });
+      process.env.NODE_ENV = 'production';
+      expect(isDevelopment()).toBe(true);
+      vi.unstubAllGlobals();
+    });
+
+    it('should return true for 127.0.0.1', () => {
+      vi.stubGlobal('window', {
+        location: { hostname: '127.0.0.1' },
+      });
+      process.env.NODE_ENV = 'production';
+      expect(isDevelopment()).toBe(true);
+      vi.unstubAllGlobals();
+    });
+
+    it('should return true when NODE_ENV is not production', () => {
+      vi.stubGlobal('window', {
+        location: { hostname: 'example.com' },
+      });
+      process.env.NODE_ENV = 'development';
+      expect(isDevelopment()).toBe(true);
+      vi.unstubAllGlobals();
+    });
+
+    it('should return false in production with non-localhost', () => {
+      vi.stubGlobal('window', {
+        location: { hostname: 'example.com' },
+      });
+      process.env.NODE_ENV = 'production';
+      expect(isDevelopment()).toBe(false);
+      vi.unstubAllGlobals();
     });
   });
 });

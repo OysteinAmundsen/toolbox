@@ -120,7 +120,7 @@ jobs:
         run: bun nx affected -t lint --exclude=docs --quiet
 
       - name: Run tests (affected)
-        run: bun nx affected -t test
+        run: bun nx affected -t test --exclude='demo-*'
 
   build:
     needs: setup

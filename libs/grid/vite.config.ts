@@ -96,7 +96,7 @@ function copyReadme(): Plugin {
 function buildPluginModules(): Plugin {
   return {
     name: 'build-plugin-modules',
-    async closeBundle() {
+    async writeBundle() {
       // Build all plugins in parallel for speed
       await Promise.all(
         pluginNames.map(async (name) => {
@@ -139,7 +139,7 @@ function buildPluginModules(): Plugin {
 function buildUmdBundles(): Plugin {
   return {
     name: 'build-umd-bundles',
-    async closeBundle() {
+    async writeBundle() {
       const umd = resolve(outDir, 'umd');
       const umdPlugins = resolve(umd, 'plugins');
       mkdirSync(umdPlugins, { recursive: true });

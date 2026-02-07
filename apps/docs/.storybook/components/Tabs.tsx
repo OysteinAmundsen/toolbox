@@ -58,8 +58,7 @@ export function Tabs({ children, defaultTab = 0 }: TabsProps) {
   // Extract Tab components from children
   const tabs = Children.toArray(children).filter(
     (child): child is ReactElement<TabItemProps> =>
-      isValidElement(child) &&
-      (child.type === Tab || (child.type as { name?: string }).name === 'Tab'),
+      isValidElement(child) && (child.type === Tab || (child.type as { name?: string }).name === 'Tab'),
   );
 
   // Find which tab contains an element by ID and switch to it

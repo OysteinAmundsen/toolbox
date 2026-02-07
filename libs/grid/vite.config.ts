@@ -97,14 +97,16 @@ function buildPluginModules(): Plugin {
   return {
     name: 'build-plugin-modules',
     async writeBundle() {
-      // Ensure base output directory exists (may not exist yet when writeBundle fires on CI)
-      mkdirSync(resolve(outDir, 'lib/plugins'), { recursive: true });
+      // Pre-create ALL plugin directories synchronously before parallel builds
+      // This eliminates race conditions when multiple parallel builds start simultaneously
+      for (const name of pluginNames) {
+        mkdirSync(resolve(outDir, `lib/plugins/${name}`), { recursive: true });
+      }
 
-      // Build all plugins in parallel for speed
+      // Build all plugins in parallel for speed (directories already exist)
       await Promise.all(
         pluginNames.map(async (name) => {
           const dir = resolve(outDir, `lib/plugins/${name}`);
-          mkdirSync(dir, { recursive: true });
           await build({
             configFile: false,
             logLevel: 'silent',

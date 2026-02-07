@@ -730,6 +730,51 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(clicked).toBe(true);
   });
 
+  it('preserves toolbar buttons across gridConfig re-applies', async () => {
+    let clickCount = 0;
+    grid = document.createElement('tbw-grid');
+
+    // Create toolbar buttons container via light-DOM
+    const toolButtons = document.createElement('tbw-grid-tool-buttons');
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'tbw-toolbar-btn';
+    exportBtn.setAttribute('data-btn', 'export');
+    exportBtn.textContent = 'Export';
+    exportBtn.onclick = () => {
+      clickCount++;
+    };
+    toolButtons.appendChild(exportBtn);
+    grid.appendChild(toolButtons);
+
+    grid.gridConfig = { columns: [{ field: 'id' }] };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Verify button is in the slot
+    let slot = grid.querySelector('[data-toolbar-content="light-dom-toolbar-content"]');
+    expect(slot?.contains(exportBtn)).toBe(true);
+    expect(exportBtn.isConnected).toBe(true);
+
+    // Click should work
+    exportBtn.click();
+    expect(clickCount).toBe(1);
+
+    // Re-apply gridConfig (triggers re-render in some cases)
+    grid.gridConfig = { columns: [{ field: 'id' }, { field: 'name' }] };
+    await nextFrame();
+
+    // Button should still be connected and in a slot
+    slot = grid.querySelector('[data-toolbar-content="light-dom-toolbar-content"]');
+    expect(slot).not.toBeNull();
+    expect(exportBtn.isConnected).toBe(true);
+    expect(slot?.contains(exportBtn)).toBe(true);
+
+    // Click should still work
+    exportBtn.click();
+    expect(clickCount).toBe(2);
+  });
+
   it('opens and closes tool panels via API', async () => {
     grid = document.createElement('tbw-grid');
     grid.rows = [{ id: 1 }];

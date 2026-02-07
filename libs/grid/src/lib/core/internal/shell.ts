@@ -404,7 +404,13 @@ export function parseLightDomToolButtons(
         while (toolButtonsContainer.firstChild) {
           target.appendChild(toolButtonsContainer.firstChild);
         }
-        // No cleanup needed - elements are just moved
+        // Return cleanup that moves children back to original container
+        // This preserves them across full re-renders that destroy the slot
+        return () => {
+          while (target.firstChild) {
+            toolButtonsContainer.appendChild(target.firstChild);
+          }
+        };
       }),
   };
 
@@ -817,6 +823,19 @@ export function updatePanelState(renderRoot: Element, state: ShellState): void {
   if (!state.isPanelOpen) {
     panel.style.width = '';
   }
+}
+
+/**
+ * Prepare shell state for a full re-render.
+ * Runs cleanup functions so content (like toolbar buttons) can be restored
+ * to their original containers and moved to new slots after re-render.
+ */
+export function prepareForRerender(state: ShellState): void {
+  // Run cleanups for toolbar contents (moves elements back to original containers)
+  for (const cleanup of state.toolbarContentCleanups.values()) {
+    cleanup();
+  }
+  state.toolbarContentCleanups.clear();
 }
 
 /**

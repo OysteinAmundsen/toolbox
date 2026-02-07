@@ -24,6 +24,7 @@ import {
   parseLightDomShell,
   parseLightDomToolButtons,
   parseLightDomToolPanels,
+  prepareForRerender,
   renderCustomToolbarContents,
   renderHeaderContent,
   renderShellHeader,
@@ -1908,6 +1909,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       (hadToolPanel && toolPanelCount !== accordionSectionsBefore);
 
     if (needsFullRerender) {
+      // Prepare shell state for re-render (moves toolbar buttons back to original container)
+      prepareForRerender(this.#shellState);
       this.#render();
       this.#injectAllPluginStyles();
       this.#afterConnect();
@@ -3430,6 +3433,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Re-merge config to sync shell state changes into effectiveConfig.shell
       this.#configManager.merge();
 
+      // Prepare shell state for re-render (moves toolbar buttons back to original container)
+      prepareForRerender(this.#shellState);
+
       // Re-render the entire grid (shell structure may change)
       this.#render();
       this.#injectAllPluginStyles(); // Re-inject after render clears shadow DOM
@@ -3578,6 +3584,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const shellHeader = this.#renderRoot.querySelector('.tbw-shell-header');
     if (!shellHeader) return;
 
+    // Prepare for re-render (moves toolbar buttons back to original container)
+    prepareForRerender(this.#shellState);
+
     const newHeaderHtml = renderShellHeader(
       this.#effectiveConfig.shell,
       this.#shellState,
@@ -3589,6 +3598,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (newHeader) {
       shellHeader.replaceWith(newHeader);
       this.#setupShellListeners();
+      // Render custom toolbar contents into the newly created slots
+      renderCustomToolbarContents(this.#renderRoot, this.#effectiveConfig?.shell, this.#shellState);
     }
   }
 

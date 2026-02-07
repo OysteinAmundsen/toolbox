@@ -685,11 +685,17 @@ describe('GroupingRowsPlugin', () => {
       return {
         _columns: [{ field: 'id' }],
         _rows: rows,
-        addEventListener: () => {},
+        addEventListener: () => {
+          /* noop */
+        },
         querySelector: () => null,
         children: [],
-        requestRender: () => {},
-        requestAfterRender: () => {},
+        requestRender: () => {
+          /* noop */
+        },
+        requestAfterRender: () => {
+          /* noop */
+        },
         dispatchEvent: () => true,
         emit: () => true,
         effectiveConfig: { icons: {} },

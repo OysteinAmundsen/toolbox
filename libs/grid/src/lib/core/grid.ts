@@ -3850,7 +3850,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         // Use rowHeight function if provided
         if (rowHeightFn) {
           const height = rowHeightFn(row, index);
-          if (height > 0) return height;
+          if (height !== undefined && height > 0) return height;
         }
 
         return undefined; // Fall back to cached or estimated

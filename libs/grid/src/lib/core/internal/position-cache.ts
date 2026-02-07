@@ -45,8 +45,6 @@ export interface HeightCache {
  * Configuration for the position cache.
  */
 export interface PositionCacheConfig<T = unknown> {
-  /** Default row height (from CSS variable or config) */
-  defaultHeight: number;
   /** Function to get row ID (if configured) */
   rowId?: (row: T) => string | number;
 }

@@ -1763,9 +1763,14 @@ export interface GridConfig<TRow = any> {
    * gridConfig = {
    *   rowHeight: (row, index) => row.hasDetails ? 80 : 40,
    * };
+   *
+   * // Return undefined to trigger DOM auto-measurement
+   * gridConfig = {
+   *   rowHeight: (row) => row.isExpanded ? undefined : 40,
+   * };
    * ```
    */
-  rowHeight?: number | ((row: TRow, index: number) => number);
+  rowHeight?: number | ((row: TRow, index: number) => number | undefined);
   /**
    * Array of plugin instances.
    * Each plugin is instantiated with its configuration and attached to this grid.

@@ -3826,7 +3826,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Use the base row height (from CSS measurement or config) as the fallback estimate.
     // NOT averageHeight, which can get polluted with expanded detail heights.
     const estimatedHeight = this._virtualization.rowHeight || 28;
-    const rowHeightFn = this.#effectiveConfig.rowHeight as ((row: T, index: number) => number) | undefined;
+    const rowHeightFn = this.#effectiveConfig.rowHeight as ((row: T, index: number) => number | undefined) | undefined;
+
+    // Normalize getRowId for position-cache identity resolution
+    const getRowId = this.#effectiveConfig.getRowId;
+    const rowIdFn = getRowId ? (row: T) => getRowId(row) : undefined;
 
     // Build position cache with heights from:
     // 1. Plugin's getRowHeight() (for expanded rows with details)
@@ -3837,7 +3841,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       rows,
       this._virtualization.heightCache,
       estimatedHeight,
-      { defaultHeight: estimatedHeight },
+      { rowId: rowIdFn },
       (row, index) => {
         // Check plugin heights first (for expanded rows with details)
         const pluginHeight = this.#pluginManager?.getRowHeight?.(row, index);
@@ -3978,7 +3982,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           updateRowHeight(positionCache, rowIndex, measuredHeight);
 
           // Persist to height cache for rows without plugin-provided heights
-          setCachedHeight(heightCache, row, measuredHeight);
+          // Use getRowId for stable identity if configured
+          const getRowId = this.#effectiveConfig.getRowId;
+          const rowIdFn = getRowId ? (r: T) => getRowId(r) : undefined;
+          setCachedHeight(heightCache, row, measuredHeight, rowIdFn);
 
           hasChanges = true;
         }

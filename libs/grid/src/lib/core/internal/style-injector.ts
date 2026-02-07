@@ -7,6 +7,7 @@
  * @module internal/style-injector
  */
 
+// #region State
 /** ID for the consolidated grid stylesheet in document.head */
 const STYLE_ELEMENT_ID = 'tbw-grid-styles';
 
@@ -15,7 +16,9 @@ let baseStyles = '';
 
 /** Track injected plugin styles by plugin name (accumulates across all grid instances) */
 const pluginStylesMap = new Map<string, string>();
+// #endregion
 
+// #region Internal Helpers
 /**
  * Get or create the consolidated style element in document.head.
  * All grid and plugin styles are combined into this single element.
@@ -40,22 +43,9 @@ function updateStyleElement(): void {
   const pluginStyles = Array.from(pluginStylesMap.values()).join('\n');
   styleEl.textContent = `${baseStyles}\n\n/* Plugin Styles */\n${pluginStyles}`;
 }
+// #endregion
 
-/**
- * Check if base styles have already been injected.
- */
-export function hasBaseStyles(): boolean {
-  return baseStyles.length > 0;
-}
-
-/**
- * Set base styles directly (for Vite builds with ?inline import).
- */
-export function setBaseStyles(css: string): void {
-  baseStyles = css;
-  updateStyleElement();
-}
-
+// #region Public API
 /**
  * Add plugin styles to the accumulated plugin styles map.
  * Returns true if any new styles were added.
@@ -149,7 +139,9 @@ export async function injectStyles(inlineStyles: string): Promise<void> {
     );
   }
 }
+// #endregion
 
+// #region Testing
 /**
  * Reset style injector state (for testing purposes only).
  * @internal
@@ -160,3 +152,4 @@ export function _resetForTesting(): void {
   const styleEl = document.getElementById(STYLE_ELEMENT_ID);
   styleEl?.remove();
 }
+// #endregion

@@ -16,6 +16,7 @@
  */
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
+import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
 import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type {
@@ -28,16 +29,6 @@ import type {
 import styles from './editing.css?inline';
 import { defaultEditorFor } from './editors';
 import type { CellCommitDetail, ChangedRowsResetDetail, EditingConfig, EditorContext, RowCommitDetail } from './types';
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-/**
- * CSS selector for focusable editor elements within a cell.
- */
-export const FOCUSABLE_EDITOR_SELECTOR =
-  'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])';
 
 // ============================================================================
 // Helper Functions

@@ -12,6 +12,7 @@
 
 import type { BaseGridPlugin, PluginManifest, PluginPropertyDefinition } from '../plugin';
 import type { ColumnConfig, GridConfig } from '../types';
+import { isDevelopment } from './utils';
 
 /**
  * Internal property definition with plugin name attached.
@@ -147,24 +148,6 @@ function getImportHint(pluginName: string): string {
 // #endregion
 
 // #region Development Mode
-/**
- * Check if we're running in a development environment.
- * Warnings are only shown in development to avoid polluting production logs.
- */
-function isDevelopment(): boolean {
-  // Check for localhost (browser environment)
-  if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-      return true;
-    }
-  }
-  // Check for NODE_ENV (build-time or SSR)
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
-    return true;
-  }
-  return false;
-}
 // #endregion
 
 // #region Helper Functions

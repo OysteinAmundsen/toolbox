@@ -14,6 +14,8 @@
 
 import type { InternalGrid, RowAnimationType } from '../types';
 
+// #region Constants
+
 /**
  * Data attribute used to trigger row animations via CSS.
  */
@@ -36,7 +38,9 @@ const DEFAULT_DURATIONS: Record<RowAnimationType, number> = {
   insert: 300,
   remove: 200,
 };
+// #endregion
 
+// #region Internal Helpers
 /**
  * Parse a CSS duration string (e.g., "500ms", "0.5s") to milliseconds.
  */
@@ -66,7 +70,9 @@ function getAnimationDuration(rowEl: HTMLElement, animationType: RowAnimationTyp
   }
   return DEFAULT_DURATIONS[animationType];
 }
+// #endregion
 
+// #region Public API
 /**
  * Animate a single row element.
  *
@@ -162,3 +168,4 @@ export function animateRowById<T>(grid: InternalGrid<T>, rowId: string, animatio
   }
   return animateRow(grid, rowIndex, animationType);
 }
+// #endregion

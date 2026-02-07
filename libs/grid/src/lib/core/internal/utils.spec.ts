@@ -3,7 +3,6 @@ import { rafDebounce } from '../../../../test/helpers';
 import {
   booleanCellHTML,
   clearCellFocus,
-  formatBooleanValue,
   formatDateValue,
   getColIndexFromCell,
   getDirection,
@@ -69,21 +68,6 @@ describe('utils', () => {
     it('should return empty string for invalid dates', () => {
       expect(formatDateValue('invalid')).toBe('');
       expect(formatDateValue(new Date('invalid'))).toBe('');
-    });
-  });
-
-  describe('formatBooleanValue', () => {
-    it('should return checkmark for truthy values', () => {
-      expect(formatBooleanValue(true)).toBe('\u{1F5F9}');
-      expect(formatBooleanValue(1)).toBe('\u{1F5F9}');
-      expect(formatBooleanValue('yes')).toBe('\u{1F5F9}');
-    });
-
-    it('should return empty box for falsy values', () => {
-      expect(formatBooleanValue(false)).toBe('\u2610');
-      expect(formatBooleanValue(0)).toBe('\u2610');
-      expect(formatBooleanValue('')).toBe('\u2610');
-      expect(formatBooleanValue(null)).toBe('\u2610');
     });
   });
 

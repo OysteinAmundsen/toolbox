@@ -10,6 +10,7 @@
  * add FilteringPlugin before GroupingRowsPlugin in the array.
  */
 
+import { isDevelopment } from '../internal/utils';
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
 import type {
@@ -169,7 +170,7 @@ export class PluginManager {
     if (PluginManager.deprecationWarned.has(PluginClass)) return;
 
     // Only warn in development
-    if (!this.isDevelopment()) return;
+    if (!isDevelopment()) return;
 
     const hasOldHooks =
       typeof plugin.getExtraHeight === 'function' || typeof plugin.getExtraHeightBefore === 'function';
@@ -186,24 +187,6 @@ export class PluginManager {
           `  → See: https://toolbox-web.dev/docs/grid/plugins/migration#row-height-hooks`,
       );
     }
-  }
-
-  /**
-   * Check if we're running in a development environment.
-   */
-  private isDevelopment(): boolean {
-    // Check for localhost (browser environment)
-    if (typeof window !== 'undefined' && window.location) {
-      const hostname = window.location.hostname;
-      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-        return true;
-      }
-    }
-    // Check for NODE_ENV (build-time or SSR)
-    if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
-      return true;
-    }
-    return false;
   }
 
   /**

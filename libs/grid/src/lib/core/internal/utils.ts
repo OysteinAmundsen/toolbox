@@ -1,11 +1,28 @@
-// ────────────────────────────────────────────────────────────────────────────
-// Cell Rendering Helpers (reduces duplicate code in rows.ts)
-// ────────────────────────────────────────────────────────────────────────────
+// #region Environment Helpers
 
-/** Unicode checkmark for true boolean values */
-const BOOL_TRUE = '\u{1F5F9}';
-/** Unicode empty checkbox for false boolean values */
-const BOOL_FALSE = '\u2610';
+/**
+ * Check if we're running in a development environment.
+ * Returns true for localhost or when NODE_ENV !== 'production'.
+ * Used to show warnings only in development.
+ */
+export function isDevelopment(): boolean {
+  // Check for localhost (browser environment)
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return true;
+    }
+  }
+  // Check for NODE_ENV (build-time or SSR)
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+    return true;
+  }
+  return false;
+}
+
+// #endregion
+
+// #region Cell Rendering Helpers
 
 /**
  * Generate accessible HTML for a boolean cell.
@@ -30,13 +47,6 @@ export function formatDateValue(value: unknown): string {
     return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
   }
   return '';
-}
-
-/**
- * Format a boolean value for text display (not HTML).
- */
-export function formatBooleanValue(value: unknown): string {
-  return value ? BOOL_TRUE : BOOL_FALSE;
 }
 
 /**
@@ -82,9 +92,9 @@ export function clearCellFocus(root: Element | ShadowRoot | null): void {
   if (!root) return;
   root.querySelectorAll('.cell-focus').forEach((el) => el.classList.remove('cell-focus'));
 }
-// ────────────────────────────────────────────────────────────────────────────
-// RTL (Right-to-Left) Helpers
-// ────────────────────────────────────────────────────────────────────────────
+// #endregion
+
+// #region RTL Helpers
 
 /** Text direction */
 export type TextDirection = 'ltr' | 'rtl';
@@ -167,3 +177,4 @@ export function resolveInlinePosition(
   }
   return position === 'start' ? 'left' : 'right';
 }
+// #endregion

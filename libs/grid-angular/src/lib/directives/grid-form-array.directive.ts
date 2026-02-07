@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormArray, FormGroup } from '@angular/forms';
 import type { BaseGridPlugin, DataGridElement as GridElement } from '@toolbox-web/grid';
 import { Subscription } from 'rxjs';
-import { startWith } from 'rxjs/operators';
+import { debounceTime, startWith } from 'rxjs/operators';
 
 /**
  * Interface for EditingPlugin validation methods.
@@ -13,6 +13,13 @@ interface EditingPluginValidation {
   setInvalid(rowId: string, field: string, message?: string): void;
   clearInvalid(rowId: string, field: string): void;
   clearRowInvalid(rowId: string): void;
+}
+
+/**
+ * Interface for EditingPlugin config to check mode.
+ */
+interface EditingPluginConfig {
+  config?: { mode?: 'row' | 'grid' };
 }
 
 /**
@@ -154,6 +161,7 @@ export class GridFormArray implements OnInit, OnDestroy {
   private rowCommitListener: ((e: Event) => void) | null = null;
   private touchListener: ((e: Event) => void) | null = null;
   private valueChangesSubscription: Subscription | null = null;
+  private statusChangesSubscriptions: Subscription[] = [];
 
   /**
    * The FormArray to bind to the grid.
@@ -167,6 +175,7 @@ export class GridFormArray implements OnInit, OnDestroy {
    * - After a cell commit, if the FormControl is invalid, the cell is marked with `setInvalid()`
    * - When a FormControl becomes valid, `clearInvalid()` is called
    * - On `row-commit`, if the row's FormGroup has invalid controls, the commit is prevented
+   * - In grid mode: validation state is synced on initial render and updated reactively
    *
    * @default true
    */
@@ -226,6 +235,16 @@ export class GridFormArray implements OnInit, OnDestroy {
       }
     };
     grid.addEventListener('click', this.touchListener);
+
+    // If in grid mode with syncValidation, set up reactive validation
+    // Wait for grid to be ready so we can detect the editing mode
+    grid.ready?.().then(() => {
+      if (this.syncValidation() && this.#isGridMode()) {
+        this.#setupReactiveValidation();
+        // Sync initial validation state for all existing controls
+        this.#syncAllValidationState();
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -244,8 +263,100 @@ export class GridFormArray implements OnInit, OnDestroy {
     if (this.valueChangesSubscription) {
       this.valueChangesSubscription.unsubscribe();
     }
+    // Clean up status change subscriptions (grid mode)
+    this.statusChangesSubscriptions.forEach((sub) => sub.unsubscribe());
+    this.statusChangesSubscriptions = [];
 
     this.#clearFormContext(grid);
+  }
+
+  /**
+   * Checks if the EditingPlugin is in 'grid' mode.
+   */
+  #isGridMode(): boolean {
+    const grid = this.elementRef.nativeElement;
+    if (!grid) return false;
+
+    const editingPlugin = (grid as unknown as { getPluginByName?: (name: string) => BaseGridPlugin }).getPluginByName?.(
+      'editing',
+    ) as (EditingPluginValidation & EditingPluginConfig) | undefined;
+
+    return editingPlugin?.config?.mode === 'grid';
+  }
+
+  /**
+   * Sets up reactive validation syncing for grid mode.
+   * Subscribes to statusChanges on all FormControls to update validation state in real-time.
+   */
+  #setupReactiveValidation(): void {
+    const formArray = this.formArray();
+    const grid = this.elementRef.nativeElement;
+    if (!grid) return;
+
+    // Clean up any existing subscriptions
+    this.statusChangesSubscriptions.forEach((sub) => sub.unsubscribe());
+    this.statusChangesSubscriptions = [];
+
+    // Subscribe to each FormGroup's statusChanges
+    for (let rowIndex = 0; rowIndex < formArray.length; rowIndex++) {
+      const rowFormGroup = this.#getRowFormGroup(rowIndex);
+      if (!rowFormGroup) continue;
+
+      // Get the row ID for this row
+      const rowId = this.#getRowId(grid, rowIndex);
+      if (!rowId) continue;
+
+      // Subscribe to status changes for each control in the FormGroup
+      Object.keys(rowFormGroup.controls).forEach((field) => {
+        const control = rowFormGroup.get(field);
+        if (!control) return;
+
+        const sub = control.statusChanges.pipe(debounceTime(50), takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+          this.#syncControlValidationToGrid(rowId, field, control);
+        });
+
+        this.statusChangesSubscriptions.push(sub);
+      });
+    }
+  }
+
+  /**
+   * Syncs validation state for all controls in the FormArray.
+   * Called once on init in grid mode to show pre-existing validation errors.
+   */
+  #syncAllValidationState(): void {
+    const formArray = this.formArray();
+    const grid = this.elementRef.nativeElement;
+    if (!grid) return;
+
+    for (let rowIndex = 0; rowIndex < formArray.length; rowIndex++) {
+      const rowFormGroup = this.#getRowFormGroup(rowIndex);
+      if (!rowFormGroup) continue;
+
+      const rowId = this.#getRowId(grid, rowIndex);
+      if (!rowId) continue;
+
+      Object.keys(rowFormGroup.controls).forEach((field) => {
+        const control = rowFormGroup.get(field);
+        if (control) {
+          this.#syncControlValidationToGrid(rowId, field, control);
+        }
+      });
+    }
+  }
+
+  /**
+   * Gets the row ID for a given row index using the grid's getRowId method.
+   */
+  #getRowId(grid: GridElement, rowIndex: number): string | undefined {
+    try {
+      const rows = grid.rows;
+      const row = rows?.[rowIndex];
+      if (!row) return undefined;
+      return (grid as unknown as { getRowId?: (row: unknown) => string }).getRowId?.(row);
+    } catch {
+      return undefined;
+    }
   }
 
   /**

@@ -115,12 +115,13 @@ jobs:
 
       # Set up Nx for affected commands
       - uses: nrwl/nx-set-shas@v4
+        id: nx-shas
 
       - name: Run linting (affected)
-        run: bun nx affected -t lint --exclude=docs --quiet
+        run: bun nx affected -t lint --exclude=docs --quiet --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
       - name: Run tests (affected)
-        run: bun nx affected -t test --exclude='demo-*'
+        run: bun nx affected -t test --exclude='demo-*' --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
   build:
     needs: setup
@@ -148,9 +149,10 @@ jobs:
 
       # Set up Nx for affected commands
       - uses: nrwl/nx-set-shas@v4
+        id: nx-shas
 
       - name: Build affected libraries
-        run: bun nx affected -t build
+        run: bun nx affected -t build --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
   # ============================================
   # E2E: Cross-Framework Visual Regression Tests

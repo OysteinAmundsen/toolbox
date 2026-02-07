@@ -97,6 +97,9 @@ function buildPluginModules(): Plugin {
   return {
     name: 'build-plugin-modules',
     async writeBundle() {
+      // Ensure base output directory exists (may not exist yet when writeBundle fires on CI)
+      mkdirSync(resolve(outDir, 'lib/plugins'), { recursive: true });
+
       // Build all plugins in parallel for speed
       await Promise.all(
         pluginNames.map(async (name) => {
@@ -140,6 +143,9 @@ function buildUmdBundles(): Plugin {
   return {
     name: 'build-umd-bundles',
     async writeBundle() {
+      // Ensure base output directory exists (may not exist yet when writeBundle fires on CI)
+      mkdirSync(outDir, { recursive: true });
+
       const umd = resolve(outDir, 'umd');
       const umdPlugins = resolve(umd, 'plugins');
       mkdirSync(umdPlugins, { recursive: true });

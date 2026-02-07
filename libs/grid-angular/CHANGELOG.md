@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.10.0...grid-angular-0.11.0) (2026-02-07)
+
+
+### Features
+
+* **grid:** implement variable row height virtualization ([#55](https://github.com/OysteinAmundsen/toolbox/issues/55)) ([#119](https://github.com/OysteinAmundsen/toolbox/issues/119)) ([5b4efb7](https://github.com/OysteinAmundsen/toolbox/commit/5b4efb79f064e40ee3ed098805f5c7e655a6fc93))
+
 ## [0.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.9.1...grid-angular-0.10.0) (2026-02-06)
 
 

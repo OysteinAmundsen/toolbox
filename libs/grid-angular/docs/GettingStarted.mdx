@@ -534,6 +534,90 @@ config: GridConfig = {
 
 See [Variable Row Heights](/docs/grid-core--docs#variable-row-heights) for complete documentation.
 
+## Feature-Scoped Inject Functions
+
+Feature imports also export **scoped inject functions** for programmatic access to plugin functionality. These functions provide type-safe access to plugin methods without needing direct plugin references.
+
+### Export Inject Function
+
+<Source
+  language="typescript"
+  code={`
+import '@toolbox-web/grid-angular/features/export';
+import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <div class="toolbar">
+      <button (click)="exportCsv()" [disabled]="gridExport.isExporting()">
+        Export CSV
+      </button>
+      <button (click)="exportExcel()" [disabled]="gridExport.isExporting()">
+        Export Excel
+      </button>
+    </div>
+    <tbw-grid [rows]="employees" [columns]="columns" [export]="true" />
+  \`,
+})
+export class ExportGridComponent {
+  employees = [/* ... */];
+  columns = [/* ... */];
+
+  // Feature-scoped inject function - type-safe and tree-shakeable
+  gridExport = injectGridExport();
+
+  exportCsv() {
+    this.gridExport.exportToCsv('employees.csv');
+  }
+
+  exportExcel() {
+    this.gridExport.exportToExcel('employees.xlsx');
+  }
+}
+`}
+/>
+
+### Why Use Feature-Scoped Inject Functions?
+
+1. **Cleaner imports** - Inject function comes from the same feature import
+2. **Type safety** - Returns only methods relevant to that feature
+3. **Tree-shakeable** - Only pay for what you import
+4. **No plugin reference needed** - Works via injection context internally
+
+### Available Feature Inject Functions
+
+| Function | Import | Returns |
+|----------|--------|---------|
+| `injectGridExport()` | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+
+> **More inject functions coming soon** - Selection, filtering, and other features will get scoped inject functions in future releases.
+
+### Comparison with injectGrid
+
+<Source
+  language="typescript"
+  code={`
+// ❌ Verbose: Getting export methods via injectGrid
+import { injectGrid } from '@toolbox-web/grid-angular';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+const grid = injectGrid();
+// Need to get plugin instance and call methods on it
+const plugin = grid.element()?.getPlugin(ExportPlugin);
+plugin?.exportToCsv('data.csv');
+
+// ✅ Clean: Feature-scoped inject function
+import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+
+const gridExport = injectGridExport();
+gridExport.exportToCsv('data.csv');
+`}
+/>
+
 ## Next Steps
 
 - **[Reactive Forms Integration](/docs/grid-angular-reactive-forms-integration--docs)** - Bind the grid to Angular FormArray for validation and dirty tracking

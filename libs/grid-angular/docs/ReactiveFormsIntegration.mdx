@@ -280,3 +280,230 @@ tbw-grid {
 ```
 
 This integrates seamlessly with the EditingPlugin's validation system, meaning Angular's `Validators.required`, `Validators.email`, etc. automatically show visual feedback in the grid.
+
+---
+
+## Lazy Form Binding (GridLazyForm)
+
+For large datasets, `GridFormArray` can be slow because it creates **all FormGroups upfront**. With 200 rows and 22 fields, that's 4,400 FormControl instances!
+
+`GridLazyForm` solves this by creating FormGroups **on-demand** when editing starts—typically reducing control count by 100x.
+
+### When to Use Each Directive
+
+| Directive | Best For | FormGroups Created |
+|-----------|----------|-------------------|
+| `GridFormArray` | Small datasets (fewer than 50 rows), full-grid editing, Excel-like UX | All upfront |
+| `GridLazyForm` | Large datasets (100+ rows), typical CRUD apps | Only when editing |
+
+### Performance Comparison
+
+| Rows | GridFormArray (22 fields) | GridLazyForm |
+|------|--------------------------|--------------|
+| 100  | 2,200 controls | ~22 controls |
+| 500  | 11,000 controls | ~22 controls |
+| 1,000 | 22,000 controls | ~22 controls |
+
+### Basic Usage
+
+<Source
+  language="typescript"
+  code={`
+import { Component, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Grid, GridLazyForm, TbwEditor } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  salary: number;
+}
+
+@Component({
+  imports: [Grid, GridLazyForm, TbwEditor, ReactiveFormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid
+      [rows]="employees()"
+      [lazyForm]="createRowForm"
+      [angularConfig]="gridConfig">
+
+      <tbw-grid-column field="firstName">
+        <input *tbwEditor="let _; control as ctrl"
+               [formControl]="ctrl"
+               [class.is-invalid]="ctrl?.invalid && ctrl?.touched" />
+      </tbw-grid-column>
+
+      <tbw-grid-column field="salary">
+        <input *tbwEditor="let _; control as ctrl"
+               type="number"
+               [formControl]="ctrl" />
+      </tbw-grid-column>
+    </tbw-grid>
+  \`
+})
+export class LazyFormExample {
+  private fb = inject(FormBuilder);
+
+  employees = signal<Employee[]>([
+    { id: 1, firstName: 'Alice', lastName: 'Smith', salary: 75000 },
+    { id: 2, firstName: 'Bob', lastName: 'Jones', salary: 82000 },
+  ]);
+
+  // Factory called ONLY when a row enters edit mode
+  createRowForm = (employee: Employee): FormGroup => this.fb.group({
+    // Only include EDITABLE fields - skip read-only fields like 'id'
+    firstName: [employee.firstName, Validators.required],
+    lastName: [employee.lastName, [Validators.required, Validators.minLength(2)]],
+    salary: [employee.salary, [Validators.required, Validators.min(0)]],
+  });
+
+  gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'firstName', header: 'First Name', editable: true },
+      { field: 'lastName', header: 'Last Name', editable: true },
+      { field: 'salary', header: 'Salary', editable: true, type: 'number' },
+    ],
+    plugins: [new EditingPlugin()],
+  };
+}
+`}
+/>
+
+### Configuration Options
+
+| Input | Type | Default | Description |
+|-------|------|---------|-------------|
+| `[lazyForm]` | `(row: T) => FormGroup` | Required | Factory function to create FormGroups |
+| `[syncValidation]` | `boolean` | `true` | Sync Angular validation to grid styling |
+| `[keepFormGroups]` | `boolean` | `false` | Keep FormGroups cached after edit ends |
+
+| Output | Type | Description |
+|--------|------|-------------|
+| `(rowFormChange)` | `RowFormChangeEvent` | Emitted when form values change |
+
+### Form Factory Best Practices
+
+<Source
+  language="typescript"
+  code={`
+// ✅ Good: Only include editable fields
+createRowForm = (row: Employee): FormGroup => this.fb.group({
+  firstName: [row.firstName, Validators.required],
+  lastName: [row.lastName],
+  salary: [row.salary, [Validators.min(0)]],
+});
+
+// ❌ Bad: Including read-only fields wastes memory
+createRowForm = (row: Employee): FormGroup => this.fb.group({
+  id: [{ value: row.id, disabled: true }],  // Unnecessary!
+  email: [{ value: row.email, disabled: true }],  // Unnecessary!
+  firstName: [row.firstName],
+  // ...
+});
+`}
+/>
+
+### Keeping FormGroups Between Edits
+
+By default, FormGroups are cleaned up when a row exits edit mode. Set `[keepFormGroups]="true"` to preserve dirty/touched state:
+
+<Source
+  language="html"
+  code={`
+<!-- FormGroups persist between edit sessions -->
+<tbw-grid
+  [rows]="employees()"
+  [lazyForm]="createRowForm"
+  [keepFormGroups]="true"
+  [angularConfig]="gridConfig">
+</tbw-grid>
+`}
+/>
+
+### Listening to Form Changes
+
+<Source
+  language="typescript"
+  code={`
+@Component({
+  template: \`
+    <tbw-grid
+      [rows]="employees()"
+      [lazyForm]="createRowForm"
+      (rowFormChange)="onFormChange($event)"
+      [angularConfig]="gridConfig">
+    </tbw-grid>
+
+    <div *ngIf="lastChange">
+      <p>Last edit: Row {{ lastChange.rowIndex }}</p>
+      <p>Valid: {{ lastChange.valid }}</p>
+      <p>Dirty: {{ lastChange.dirty }}</p>
+    </div>
+  \`
+})
+export class FormChangeExample {
+  lastChange: RowFormChangeEvent<Employee> | null = null;
+
+  onFormChange(event: RowFormChangeEvent<Employee>) {
+    this.lastChange = event;
+    console.log('Form changed:', event.values);
+
+    // Auto-save dirty, valid forms
+    if (event.dirty && event.valid) {
+      this.autoSave(event.row, event.values);
+    }
+  }
+}
+`}
+/>
+
+### Programmatic Access
+
+<Source
+  language="typescript"
+  code={`
+import { ViewChild } from '@angular/core';
+import { GridLazyForm } from '@toolbox-web/grid-angular';
+
+@Component({ /* ... */ })
+export class MyComponent {
+  @ViewChild(GridLazyForm) lazyForm!: GridLazyForm<Employee>;
+
+  validateBeforeSave() {
+    // Validate all currently cached FormGroups
+    if (!this.lazyForm.validateAll()) {
+      console.log('Some rows are invalid');
+      return false;
+    }
+    return true;
+  }
+
+  getEditedRows() {
+    // Get all rows that have been edited
+    const formGroups = this.lazyForm.getAllFormGroups();
+    console.log('Edited rows:', formGroups.size);
+    return formGroups;
+  }
+
+  resetAfterSave() {
+    // Clear all cached FormGroups after successful save
+    this.lazyForm.clearAllFormGroups();
+  }
+}
+`}
+/>
+
+### Future: Full-Grid Editing with FormArray
+
+`GridFormArray` will shine when we add support for **full-grid editing**—an Excel-like experience where all rows are editable simultaneously. This enables:
+
+- Tab between cells across entire grid
+- Paste data from spreadsheets into multiple rows
+- Bulk validation before save
+- FormArray-level operations (push, removeAt, etc.)
+
+Until then, `GridLazyForm` is recommended for most CRUD applications.

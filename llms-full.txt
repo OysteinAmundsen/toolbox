@@ -200,6 +200,70 @@ import '@toolbox-web/grid-react/features';
 
 3. **`icons` via provider or gridConfig**: There is no top-level `icons` prop on `<DataGrid>`. Use `<GridProvider icons={{ ... }}>` for app-wide icons, or pass via `gridConfig={{ icons: { ... } }}` for per-grid overrides.
 
+### Feature-Scoped Hooks (React, Vue, Angular)
+
+Feature imports also export **scoped hooks** for programmatic access to plugin functionality. These provide type-safe access without needing plugin references.
+
+**React:**
+
+```tsx
+import '@toolbox-web/grid-react/features/export';
+import { useGridExport } from '@toolbox-web/grid-react/features/export';
+
+function EmployeeGrid() {
+  const { exportToCsv, exportToExcel, isExporting } = useGridExport();
+
+  return (
+    <div>
+      <button onClick={() => exportToCsv('employees.csv')} disabled={isExporting}>
+        Export CSV
+      </button>
+      <DataGrid rows={employees} columns={columns} export />
+    </div>
+  );
+}
+```
+
+**Angular:**
+
+```typescript
+import '@toolbox-web/grid-angular/features/export';
+import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+
+@Component({
+  template: `
+    <button (click)="gridExport.exportToCsv('employees.csv')">Export CSV</button>
+    <tbw-grid [rows]="employees" [columns]="columns" [export]="true" />
+  `,
+})
+export class MyComponent {
+  gridExport = injectGridExport();
+}
+```
+
+**Vue:**
+
+```vue
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/export';
+import { useGridExport } from '@toolbox-web/grid-vue/features/export';
+
+const { exportToCsv, exportToExcel, isExporting } = useGridExport();
+</script>
+
+<template>
+  <button @click="exportToCsv('employees.csv')" :disabled="isExporting">Export CSV</button>
+  <TbwGrid :rows="employees" :columns="columns" export />
+</template>
+```
+
+**Available Feature Hooks:**
+| Hook | Import | Returns |
+|------|--------|---------|
+| `useGridExport()` / `injectGridExport()` | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+
+> **More hooks coming soon** - Selection, filtering, and other features will get scoped hooks in future releases.
+
 ### Angular
 
 ```typescript
@@ -535,6 +599,50 @@ export class ReactiveFormsGridComponent {
 - Access cell-level FormControl via `control` in `*tbwEditor` context
 - Row-level validation: `getFormArrayContext(gridElement).isRowValid(index)`
 - Automatic CSS classes: `.ng-valid`, `.ng-invalid`, `.ng-dirty`, `.ng-touched`
+
+### Angular Lazy Form Binding (GridLazyForm)
+
+For large datasets, `GridFormArray` creates **all FormGroups upfront**, which can be slow. `GridLazyForm` creates FormGroups **on-demand** when editing starts—typically 100x fewer controls.
+
+```typescript
+import { Component, inject, signal, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Grid, GridLazyForm, TbwEditor } from '@toolbox-web/grid-angular';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+@Component({
+  imports: [Grid, GridLazyForm, TbwEditor, ReactiveFormsModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="employees()"
+      [lazyForm]="createRowForm"
+      [angularConfig]="config">
+      <tbw-grid-column field="firstName">
+        <input *tbwEditor="let _; control as ctrl" [formControl]="ctrl" />
+      </tbw-grid-column>
+    </tbw-grid>
+  `,
+})
+export class LazyFormExample {
+  private fb = inject(FormBuilder);
+  employees = signal([{ id: 1, firstName: 'Alice', salary: 75000 }]);
+
+  // Factory called ONLY when a row enters edit mode
+  createRowForm = (row: Employee): FormGroup => this.fb.group({
+    firstName: [row.firstName, Validators.required],
+    salary: [row.salary, [Validators.required, Validators.min(0)]],
+  });
+
+  config = { columns: [...], plugins: [new EditingPlugin()] };
+}
+```
+
+**When to Use Each:**
+| Directive | Best For | FormGroups Created |
+|-----------|----------|-------------------|
+| `GridFormArray` | Small datasets, full-grid editing, Excel-like UX | All upfront |
+| `GridLazyForm` | Large datasets (100+ rows), typical CRUD apps | Only when editing |
 
 ---
 

@@ -175,6 +175,76 @@ function EmployeeGrid() {
 `}
 />
 
+## Feature-Scoped Hooks
+
+Feature imports also export **scoped hooks** for programmatic access to plugin functionality. These hooks provide type-safe access to plugin methods without needing direct plugin references.
+
+### Export Hook
+
+<Source
+  language="tsx"
+  code={`
+import '@toolbox-web/grid-react/features/export';
+import { useGridExport } from '@toolbox-web/grid-react/features/export';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function EmployeeGrid() {
+  const { exportToCsv, exportToExcel, exportToJson, isExporting } = useGridExport();
+
+  return (
+    <div>
+      <div className="toolbar">
+        <button onClick={() => exportToCsv('employees.csv')} disabled={isExporting}>
+          Export CSV
+        </button>
+        <button onClick={() => exportToExcel('employees.xlsx')} disabled={isExporting}>
+          Export Excel
+        </button>
+      </div>
+      <DataGrid rows={employees} columns={columns} exportEnabled />
+    </div>
+  );
+}
+`}
+/>
+
+### Why Use Feature-Scoped Hooks?
+
+1. **Cleaner imports** - Hook comes from the same feature import
+2. **Type safety** - Returns only methods relevant to that feature
+3. **Tree-shakeable** - Only pay for what you import
+4. **No plugin reference needed** - Works via React context internally
+
+### Available Feature Hooks
+
+| Hook | Import | Returns |
+|------|--------|---------|
+| `useGridExport()` | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+
+> **More hooks coming soon** - Selection, filtering, and other features will get scoped hooks in future releases.
+
+### Comparison with useGrid
+
+<Source
+  language="tsx"
+  code={`
+// ❌ Verbose: Getting export methods via useGrid
+import { useGrid } from '@toolbox-web/grid-react';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+const { ref } = useGrid();
+// Need to get plugin instance and call methods on it
+const plugin = ref.current?.getPlugin(ExportPlugin);
+plugin?.exportToCsv('data.csv');
+
+// ✅ Clean: Feature-scoped hook
+import { useGridExport } from '@toolbox-web/grid-react/features/export';
+
+const { exportToCsv } = useGridExport();
+exportToCsv('data.csv');
+`}
+/>
+
 ## Custom Sorting Logic
 
 Override the default sort comparator for complex sorting requirements:

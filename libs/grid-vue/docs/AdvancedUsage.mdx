@@ -185,6 +185,80 @@ useGridEvent(gridElement, 'selection-change', (detail: SelectionChangeDetail<Emp
 `}
 />
 
+## Feature-Scoped Composables
+
+Feature imports also export **scoped composables** for programmatic access to plugin functionality. These composables provide type-safe access to plugin methods without needing direct plugin references.
+
+### Export Composable
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/export';
+import { useGridExport } from '@toolbox-web/grid-vue/features/export';
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import { ref } from 'vue';
+
+const employees = ref<Employee[]>([/* ... */]);
+const { exportToCsv, exportToExcel, exportToJson, isExporting } = useGridExport();
+</script>
+
+<template>
+  <div>
+    <div class="toolbar">
+      <button @click="exportToCsv('employees.csv')" :disabled="isExporting.value">
+        Export CSV
+      </button>
+      <button @click="exportToExcel('employees.xlsx')" :disabled="isExporting.value">
+        Export Excel
+      </button>
+    </div>
+    <TbwGrid :rows="employees" :columns="columns" :export-enabled="true" />
+  </div>
+</template>
+`}
+/>
+
+### Why Use Feature-Scoped Composables?
+
+1. **Cleaner imports** - Composable comes from the same feature import
+2. **Type safety** - Returns only methods relevant to that feature
+3. **Tree-shakeable** - Only pay for what you import
+4. **No plugin reference needed** - Works via Vue provide/inject internally
+
+### Available Feature Composables
+
+| Composable | Import | Returns |
+|------------|--------|---------|
+| `useGridExport()` | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
+
+> **More composables coming soon** - Selection, filtering, and other features will get scoped composables in future releases.
+
+### Comparison with useGrid
+
+<Source
+  language="html"
+  code={`
+<script setup lang="ts">
+// ❌ Verbose: Getting export methods via useGrid
+import { useGrid } from '@toolbox-web/grid-vue';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+const { gridElement } = useGrid();
+// Need to get plugin instance and call methods on it
+const plugin = gridElement.value?.getPlugin(ExportPlugin);
+plugin?.exportToCsv('data.csv');
+
+// ✅ Clean: Feature-scoped composable
+import { useGridExport } from '@toolbox-web/grid-vue/features/export';
+
+const { exportToCsv } = useGridExport();
+exportToCsv('data.csv');
+</script>
+`}
+/>
+
 ## Custom Sorting Logic
 
 Override the default sort comparator for complex sorting requirements:

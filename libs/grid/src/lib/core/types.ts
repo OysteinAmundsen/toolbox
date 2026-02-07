@@ -1,4 +1,4 @@
-import type { RowPosition } from './internal/position-cache';
+import type { RowPosition } from './internal/virtualization';
 import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
 

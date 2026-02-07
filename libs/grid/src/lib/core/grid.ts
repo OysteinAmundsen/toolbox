@@ -12,14 +12,6 @@ import {
   setRowLoadingState,
   showLoadingOverlay,
 } from './internal/loading';
-import {
-  computeAverageExcludingPluginRows,
-  getRowIndexAtOffset,
-  getTotalHeight,
-  measureRenderedRowHeights,
-  rebuildPositionCache,
-  updateRowHeight,
-} from './internal/position-cache';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
@@ -54,6 +46,14 @@ import {
   validatePluginIncompatibilities,
   validatePluginProperties,
 } from './internal/validate-config';
+import {
+  computeAverageExcludingPluginRows,
+  getRowIndexAtOffset,
+  getTotalHeight,
+  measureRenderedRowHeights,
+  rebuildPositionCache,
+  updateRowHeight,
+} from './internal/virtualization';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type {
   BaseGridPlugin,

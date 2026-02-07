@@ -18,14 +18,12 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   DestroyRef,
   effect,
-  ElementRef,
   inject,
   OnInit,
   signal,
-  viewChild,
 } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { generateEmployees, type Employee, type GridElement } from '@demo/shared';
+import { generateEmployees, type Employee } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 import {
   CellCommitEvent,
@@ -34,10 +32,12 @@ import {
   GridFormArray,
   GridResponsiveCard,
   GridToolPanel,
+  injectGrid,
   TbwEditor,
   TbwRenderer,
 } from '@toolbox-web/grid-angular';
-import { ExportPlugin, type ColumnMoveDetail } from '@toolbox-web/grid/all';
+import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+import type { ColumnMoveDetail } from '@toolbox-web/grid/all';
 
 import { COLUMN_GROUPS, createGridConfig } from './grid-config';
 
@@ -173,8 +173,11 @@ export class AppComponent implements OnInit {
     }),
   );
 
-  // Grid reference for accessing plugins - properly typed!
-  gridRef = viewChild<ElementRef<GridElement<Employee>>>('grid');
+  // Typed grid access via injectGrid - cleaner than viewChild!
+  grid = injectGrid<Employee>();
+
+  // Feature-scoped hook for export functionality
+  gridExport = injectGridExport();
 
   ngOnInit(): void {
     this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((val) => {
@@ -183,17 +186,11 @@ export class AppComponent implements OnInit {
   }
 
   exportCsv(): void {
-    const grid = this.gridRef()?.nativeElement;
-    if (!grid) return;
-    const exportPlugin = grid.getPlugin(ExportPlugin);
-    exportPlugin?.exportCsv({ fileName: 'employees' });
+    this.gridExport.exportToCsv('employees.csv');
   }
 
   exportExcel(): void {
-    const grid = this.gridRef()?.nativeElement;
-    if (!grid) return;
-    const exportPlugin = grid.getPlugin(ExportPlugin);
-    exportPlugin?.exportExcel({ fileName: 'employees' });
+    this.gridExport.exportToExcel('employees.xlsx');
   }
 
   /**
@@ -239,8 +236,8 @@ export class AppComponent implements OnInit {
       event.preventDefault();
 
       // Flash the column header with error color to indicate cancellation
-      const grid = this.gridRef()?.nativeElement;
-      const headerCell = grid?.querySelector(
+      const gridEl = this.grid.element();
+      const headerCell = gridEl?.querySelector(
         `.header-row .cell[data-field="${field}"]`,
       ) as HTMLElement;
       if (headerCell) {

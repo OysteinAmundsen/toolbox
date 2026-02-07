@@ -47,6 +47,7 @@ import {
   TbwGridToolPanel,
   useGrid,
 } from '@toolbox-web/grid-vue';
+import { useGridExport } from '@toolbox-web/grid-vue/features/export';
 import type { ColumnMoveDetail } from '@toolbox-web/grid/plugins/reorder';
 import { computed, h, markRaw, ref } from 'vue';
 
@@ -58,17 +59,17 @@ import '@demo/shared/demo-styles.css';
 import { COLUMN_GROUPS, createGridConfig, PINNED_ROWS_CONFIG, RESPONSIVE_CONFIG } from './grid-config';
 
 // Vue-specific renderers and editors
-import StatusBadge from './components/renderers/StatusBadge.vue';
-import RatingDisplay from './components/renderers/RatingDisplay.vue';
-import TopPerformerStar from './components/renderers/TopPerformerStar.vue';
-import DetailPanel from './components/renderers/DetailPanel.vue';
-import ResponsiveEmployeeCard from './components/renderers/ResponsiveEmployeeCard.vue';
-import StarRatingEditor from './components/editors/StarRatingEditor.vue';
 import BonusSliderEditor from './components/editors/BonusSliderEditor.vue';
-import StatusSelectEditor from './components/editors/StatusSelectEditor.vue';
 import DateEditor from './components/editors/DateEditor.vue';
-import QuickFiltersPanel from './components/tool-panels/QuickFiltersPanel.vue';
+import StarRatingEditor from './components/editors/StarRatingEditor.vue';
+import StatusSelectEditor from './components/editors/StatusSelectEditor.vue';
+import DetailPanel from './components/renderers/DetailPanel.vue';
+import RatingDisplay from './components/renderers/RatingDisplay.vue';
+import ResponsiveEmployeeCard from './components/renderers/ResponsiveEmployeeCard.vue';
+import StatusBadge from './components/renderers/StatusBadge.vue';
+import TopPerformerStar from './components/renderers/TopPerformerStar.vue';
 import AnalyticsPanel from './components/tool-panels/AnalyticsPanel.vue';
+import QuickFiltersPanel from './components/tool-panels/QuickFiltersPanel.vue';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATE
@@ -86,11 +87,8 @@ const enableMasterDetail = ref(true);
 // useGrid() composable for programmatic access
 const { gridElement } = useGrid<Employee>();
 
-// Export helper - access ExportPlugin directly
-const exportToCsv = (filename = 'employees.csv') => {
-  const grid = gridElement.value as any;
-  grid?.getPluginByName?.('export')?.exportCsv?.({ fileName: filename.replace('.csv', '') });
-};
+// useGridExport() for clean export API
+const { exportToCsv, exportToExcel } = useGridExport<Employee>();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HANDLERS
@@ -145,11 +143,6 @@ const handleColumnMove = (event: CustomEvent<ColumnMoveDetail>) => {
 
 const handleRowsChange = (event: CustomEvent<{ rows: Employee[] }>) => {
   employees.value = event.detail.rows;
-};
-
-const handleExportExcel = () => {
-  const grid = gridElement.value as any;
-  grid?.getPluginByName?.('export')?.exportExcel?.({ fileName: 'employees' });
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -258,7 +251,12 @@ const masterDetailConfig = computed(() =>
             >
               📄
             </button>
-            <button class="tbw-toolbar-btn" title="Export Excel" aria-label="Export Excel" @click="handleExportExcel">
+            <button
+              class="tbw-toolbar-btn"
+              title="Export Excel"
+              aria-label="Export Excel"
+              @click="exportToExcel('employees.xlsx')"
+            >
               📊
             </button>
           </TbwGridToolButtons>

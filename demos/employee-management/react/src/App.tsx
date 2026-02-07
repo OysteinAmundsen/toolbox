@@ -47,6 +47,7 @@ import {
   type ResponsiveCardContext,
   type ToolPanelContext,
 } from '@toolbox-web/grid-react';
+import { useGridExport } from '@toolbox-web/grid-react/features/export';
 import type { ColumnMoveDetail } from '@toolbox-web/grid/plugins/reorder';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -83,8 +84,11 @@ export function App() {
   const [enableEditing, setEnableEditing] = useState(true);
   const [enableMasterDetail, setEnableMasterDetail] = useState(true);
 
-  // Enhanced useGrid with convenience methods
-  const { ref, exportToCsv } = useGrid<Employee>();
+  // Enhanced useGrid for ref access
+  const { ref } = useGrid<Employee>();
+
+  // Feature-scoped hook for export control
+  const { exportToCsv, exportToExcel } = useGridExport<Employee>();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HANDLERS
@@ -257,10 +261,7 @@ export function App() {
                 className="tbw-toolbar-btn"
                 title="Export Excel"
                 aria-label="Export Excel"
-                onClick={() => {
-                  const grid = ref.current?.element as any;
-                  grid?.getPluginByName?.('export')?.exportExcel?.({ fileName: 'employees' });
-                }}
+                onClick={() => exportToExcel('employees.xlsx')}
               >
                 📊
               </button>

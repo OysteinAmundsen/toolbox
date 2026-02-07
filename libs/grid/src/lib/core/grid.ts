@@ -1,3 +1,4 @@
+import { createAriaState, updateAriaCounts, updateAriaLabels, type AriaState } from './internal/aria';
 import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
@@ -12,12 +13,11 @@ import {
   showLoadingOverlay,
 } from './internal/loading';
 import {
-  calculateAverageHeight,
-  countMeasuredRows,
+  computeAverageExcludingPluginRows,
   getRowIndexAtOffset,
   getTotalHeight,
+  measureRenderedRowHeights,
   rebuildPositionCache,
-  setCachedHeight,
   updateRowHeight,
 } from './internal/position-cache';
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
@@ -1992,9 +1992,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
       // If plugins modified visible columns, update them
       if (processedColumns !== visibleCols) {
-        // Build sets for quick lookup
-        const sourceFields = new Set(visibleCols.map((c) => c.field));
-        const processedFields = new Set(processedColumns.map((c: any) => c.field));
+        // Build set for quick lookup
+        const processedFields = new Set(processedColumns.map((c: ColumnInternal) => c.field));
 
         // Check if this is a complete column replacement (e.g., pivot mode)
         // If no processed columns match original columns, use processed columns directly
@@ -2085,76 +2084,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     renderVisibleRows(this as unknown as InternalGrid<T>, start, end, epoch, this.#renderRowHook);
   }
 
-  // Cache for ARIA counts to avoid redundant DOM writes on scroll (hot path)
-  #lastAriaRowCount = -1;
-  #lastAriaColCount = -1;
+  // ARIA state - uses external module for pure functions
+  #ariaState: AriaState = createAriaState();
 
-  /**
-   * Updates ARIA row/col counts on the grid container.
-   * Also sets role="rowgroup" on .rows container only when there are rows.
-   * Uses caching to avoid redundant DOM writes on every scroll frame.
-   */
+  /** Updates ARIA row/col counts. Delegates to aria.ts module. */
   #updateAriaCounts(rowCount: number, colCount: number): void {
-    // Skip if nothing changed (hot path optimization for scroll)
-    if (rowCount === this.#lastAriaRowCount && colCount === this.#lastAriaColCount) {
-      return;
-    }
-    const prevRowCount = this.#lastAriaRowCount;
-    this.#lastAriaRowCount = rowCount;
-    this.#lastAriaColCount = colCount;
-
-    // Update ARIA counts on inner grid element
-    if (this.__rowsBodyEl) {
-      this.__rowsBodyEl.setAttribute('aria-rowcount', String(rowCount));
-      this.__rowsBodyEl.setAttribute('aria-colcount', String(colCount));
-    }
-
-    // Set role="rowgroup" on .rows only when there are rows (ARIA compliance)
-    if (rowCount !== prevRowCount && this._bodyEl) {
-      if (rowCount > 0) {
-        this._bodyEl.setAttribute('role', 'rowgroup');
-      } else {
-        this._bodyEl.removeAttribute('role');
-      }
-    }
+    updateAriaCounts(this.#ariaState, this.__rowsBodyEl, this._bodyEl, rowCount, colCount);
   }
 
-  // Cache for aria-label to avoid redundant DOM writes
-  #lastAriaLabel: string | undefined;
-  #lastAriaDescribedBy: string | undefined;
-
-  /**
-   * Updates ARIA label and describedby attributes on the grid container.
-   * Uses explicit config value, or falls back to shell title for aria-label.
-   */
+  /** Updates ARIA label and describedby attributes. Delegates to aria.ts module. */
   #updateAriaLabels(): void {
-    if (!this.__rowsBodyEl) return;
-
-    // Determine aria-label: explicit config > shell title > nothing
-    const explicitLabel = this.#effectiveConfig.gridAriaLabel;
-    const shellTitle = this.#effectiveConfig.shell?.header?.title ?? this.#shellState?.lightDomTitle ?? undefined;
-    const ariaLabel = explicitLabel ?? shellTitle;
-
-    // Update aria-label only if changed
-    if (ariaLabel !== this.#lastAriaLabel) {
-      this.#lastAriaLabel = ariaLabel;
-      if (ariaLabel) {
-        this.__rowsBodyEl.setAttribute('aria-label', ariaLabel);
-      } else {
-        this.__rowsBodyEl.removeAttribute('aria-label');
-      }
-    }
-
-    // Update aria-describedby only if changed
-    const ariaDescribedBy = this.#effectiveConfig.gridAriaDescribedBy;
-    if (ariaDescribedBy !== this.#lastAriaDescribedBy) {
-      this.#lastAriaDescribedBy = ariaDescribedBy;
-      if (ariaDescribedBy) {
-        this.__rowsBodyEl.setAttribute('aria-describedby', ariaDescribedBy);
-      } else {
-        this.__rowsBodyEl.removeAttribute('aria-describedby');
-      }
-    }
+    updateAriaLabels(this.#ariaState, this.__rowsBodyEl, this.#effectiveConfig, this.#shellState);
   }
 
   /**
@@ -3823,62 +3763,38 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!this._virtualization.variableHeights) return;
 
     const rows = this._rows;
-    // Use the base row height (from CSS measurement or config) as the fallback estimate.
-    // NOT averageHeight, which can get polluted with expanded detail heights.
     const estimatedHeight = this._virtualization.rowHeight || 28;
     const rowHeightFn = this.#effectiveConfig.rowHeight as ((row: T, index: number) => number | undefined) | undefined;
-
-    // Normalize getRowId for position-cache identity resolution
     const getRowId = this.#effectiveConfig.getRowId;
     const rowIdFn = getRowId ? (row: T) => getRowId(row) : undefined;
 
-    // Build position cache with heights from:
-    // 1. Plugin's getRowHeight() (for expanded rows with details)
-    // 2. Height cache (persisted measurements - only for collapsed rows)
-    // 3. rowHeight function (if provided)
-    // 4. Estimated height (fallback - the base row height)
+    // Build position cache with priority: plugin height > rowHeight function > cached > estimated
     this._virtualization.positionCache = rebuildPositionCache(
       rows,
       this._virtualization.heightCache,
       estimatedHeight,
       { rowId: rowIdFn },
       (row, index) => {
-        // Check plugin heights first (for expanded rows with details)
         const pluginHeight = this.#pluginManager?.getRowHeight?.(row, index);
         if (pluginHeight !== undefined) return pluginHeight;
-
-        // Use rowHeight function if provided
         if (rowHeightFn) {
           const height = rowHeightFn(row, index);
           if (height !== undefined && height > 0) return height;
         }
-
-        return undefined; // Fall back to cached or estimated
+        return undefined;
       },
     );
 
-    // Update virtualization state with average from measurements
-    // Only count rows that DON'T have plugin-provided heights (to avoid polluting stats)
-    const cache = this._virtualization.positionCache;
-    let measuredCount = 0;
-    let totalMeasured = 0;
-
-    for (let i = 0; i < cache.length; i++) {
-      const entry = cache[i];
-      if (entry.measured) {
-        // Only include in average if plugin doesn't provide height for this row
-        const pluginHeight = this.#pluginManager?.getRowHeight?.(rows[i], i);
-        if (pluginHeight === undefined) {
-          totalMeasured += entry.height;
-          measuredCount++;
-        }
-      }
-    }
-
-    this._virtualization.measuredCount = measuredCount;
-
-    if (measuredCount > 0) {
-      this._virtualization.averageHeight = totalMeasured / measuredCount;
+    // Compute stats excluding plugin-managed rows
+    const stats = computeAverageExcludingPluginRows(
+      this._virtualization.positionCache,
+      rows,
+      estimatedHeight,
+      (row, index) => this.#pluginManager?.getRowHeight?.(row, index),
+    );
+    this._virtualization.measuredCount = stats.measuredCount;
+    if (stats.measuredCount > 0) {
+      this._virtualization.averageHeight = stats.averageHeight;
     }
   }
 
@@ -3936,73 +3852,32 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!this._virtualization.positionCache) return;
     if (!this._bodyEl) return;
 
-    const positionCache = this._virtualization.positionCache;
-    const heightCache = this._virtualization.heightCache;
-    const rows = this._rows;
-
-    // Get all rendered row elements
     const rowElements = this._bodyEl.querySelectorAll('.data-grid-row');
+    const getRowId = this.#effectiveConfig.getRowId;
 
-    let hasChanges = false;
+    const result = measureRenderedRowHeights(
+      {
+        positionCache: this._virtualization.positionCache,
+        heightCache: this._virtualization.heightCache,
+        rows: this._rows,
+        defaultHeight: this._virtualization.rowHeight,
+        start,
+        end,
+        getPluginHeight: (row, index) => this.#pluginManager?.getRowHeight?.(row, index),
+        getRowId: getRowId ? (row: T) => getRowId(row) : undefined,
+      },
+      rowElements,
+    );
 
-    rowElements.forEach((rowEl) => {
-      const rowIndexStr = (rowEl as HTMLElement).dataset.rowIndex;
-      if (!rowIndexStr) return;
+    if (result.hasChanges) {
+      this._virtualization.measuredCount = result.measuredCount;
+      this._virtualization.averageHeight = result.averageHeight;
 
-      const rowIndex = parseInt(rowIndexStr, 10);
-      if (rowIndex < start || rowIndex >= end || rowIndex >= rows.length) return;
-
-      const row = rows[rowIndex];
-
-      // Check if a plugin provides the height for this row (e.g., MasterDetailPlugin for expanded rows)
-      // Plugin height takes precedence over DOM measurement since plugins know about
-      // sibling elements (detail rows) that aren't part of the row element's offsetHeight
-      const pluginHeight = this.#pluginManager?.getRowHeight?.(row, rowIndex);
-
-      if (pluginHeight !== undefined) {
-        // Plugin provides height - use it for position cache (not DOM measurement)
-        // This is critical for master-detail where detail row is a sibling element
-        const currentEntry = positionCache[rowIndex];
-        if (!currentEntry.measured || Math.abs(currentEntry.height - pluginHeight) > 1) {
-          updateRowHeight(positionCache, rowIndex, pluginHeight);
-          hasChanges = true;
-        }
-        return; // Don't measure DOM or cache to heightCache for plugin-managed rows
+      // Update total height spacer
+      if (this._virtualization.totalHeightEl) {
+        const newTotalHeight = this.#calculateTotalSpacerHeight(this._rows.length);
+        this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
       }
-
-      // No plugin height - use DOM measurement
-      const measuredHeight = (rowEl as HTMLElement).offsetHeight;
-
-      if (measuredHeight > 0) {
-        const currentEntry = positionCache[rowIndex];
-
-        // Only update if height differs significantly (> 1px to avoid oscillation)
-        if (!currentEntry.measured || Math.abs(currentEntry.height - measuredHeight) > 1) {
-          // Update position cache with DOM-measured height
-          updateRowHeight(positionCache, rowIndex, measuredHeight);
-
-          // Persist to height cache for rows without plugin-provided heights
-          // Use getRowId for stable identity if configured
-          const getRowId = this.#effectiveConfig.getRowId;
-          const rowIdFn = getRowId ? (r: T) => getRowId(r) : undefined;
-          setCachedHeight(heightCache, row, measuredHeight, rowIdFn);
-
-          hasChanges = true;
-        }
-      }
-    });
-
-    // Recompute stats from position cache to avoid drift from remeasured rows
-    // (Using cache-based helpers ensures accurate counts when same rows are remeasured)
-    if (hasChanges) {
-      this._virtualization.measuredCount = countMeasuredRows(positionCache);
-      this._virtualization.averageHeight = calculateAverageHeight(positionCache, this._virtualization.rowHeight);
-    }
-
-    // If heights changed, update total height spacer
-    if (hasChanges && this._virtualization.totalHeightEl) {
-      const newTotalHeight = this.#calculateTotalSpacerHeight(rows.length);
-      this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
     }
   }
 

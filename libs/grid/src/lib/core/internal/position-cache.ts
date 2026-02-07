@@ -381,3 +381,137 @@ export function updateEstimates(cache: RowPosition[], newAverage: number): void 
 }
 
 // #endregion
+// #region Row Measurement
+
+/**
+ * Result of measuring rendered row heights.
+ */
+export interface RowMeasurementResult {
+  /** Whether any heights changed */
+  hasChanges: boolean;
+  /** Updated measured row count */
+  measuredCount: number;
+  /** Updated average height */
+  averageHeight: number;
+}
+
+/**
+ * Context for measuring rendered rows.
+ */
+export interface RowMeasurementContext<T> {
+  /** Position cache to update */
+  positionCache: RowPosition[];
+  /** Height cache for persistence */
+  heightCache: HeightCache;
+  /** Row data array */
+  rows: T[];
+  /** Default row height */
+  defaultHeight: number;
+  /** Start index of rendered window */
+  start: number;
+  /** End index of rendered window (exclusive) */
+  end: number;
+  /** Function to get plugin height for a row */
+  getPluginHeight?: (row: T, index: number) => number | undefined;
+  /** Function to get row ID for height cache keying */
+  getRowId?: (row: T) => string | number;
+}
+
+/**
+ * Measure rendered row heights from DOM elements and update caches.
+ * Returns measurement statistics for updating virtualization state.
+ *
+ * @param context - Measurement context with all dependencies
+ * @param rowElements - NodeList of rendered row elements
+ * @returns Measurement result with flags and statistics
+ */
+export function measureRenderedRowHeights<T>(
+  context: RowMeasurementContext<T>,
+  rowElements: NodeListOf<Element>,
+): RowMeasurementResult {
+  const { positionCache, heightCache, rows, start, end, getPluginHeight, getRowId } = context;
+
+  let hasChanges = false;
+
+  rowElements.forEach((rowEl) => {
+    const rowIndexStr = (rowEl as HTMLElement).dataset.rowIndex;
+    if (!rowIndexStr) return;
+
+    const rowIndex = parseInt(rowIndexStr, 10);
+    if (rowIndex < start || rowIndex >= end || rowIndex >= rows.length) return;
+
+    const row = rows[rowIndex];
+
+    // Check if a plugin provides the height for this row
+    const pluginHeight = getPluginHeight?.(row, rowIndex);
+
+    if (pluginHeight !== undefined) {
+      // Plugin provides height - use it for position cache
+      const currentEntry = positionCache[rowIndex];
+      if (!currentEntry.measured || Math.abs(currentEntry.height - pluginHeight) > 1) {
+        updateRowHeight(positionCache, rowIndex, pluginHeight);
+        hasChanges = true;
+      }
+      return; // Don't measure DOM for plugin-managed rows
+    }
+
+    // No plugin height - use DOM measurement
+    const measuredHeight = (rowEl as HTMLElement).offsetHeight;
+
+    if (measuredHeight > 0) {
+      const currentEntry = positionCache[rowIndex];
+
+      // Only update if height differs significantly (> 1px to avoid oscillation)
+      if (!currentEntry.measured || Math.abs(currentEntry.height - measuredHeight) > 1) {
+        updateRowHeight(positionCache, rowIndex, measuredHeight);
+        setCachedHeight(heightCache, row, measuredHeight, getRowId);
+        hasChanges = true;
+      }
+    }
+  });
+
+  // Recompute stats
+  const measuredCount = hasChanges ? countMeasuredRows(positionCache) : 0;
+  const averageHeight = hasChanges ? calculateAverageHeight(positionCache, context.defaultHeight) : 0;
+
+  return { hasChanges, measuredCount, averageHeight };
+}
+
+/**
+ * Compute measurement statistics for a position cache, excluding plugin-managed rows.
+ * Used after rebuilding position cache to get accurate averages for non-plugin rows.
+ *
+ * @param cache - Position cache
+ * @param rows - Row data array
+ * @param defaultHeight - Default height if no measurements
+ * @param getPluginHeight - Function to check if plugin manages row height
+ * @returns Object with measured count and average height
+ */
+export function computeAverageExcludingPluginRows<T>(
+  cache: RowPosition[],
+  rows: T[],
+  defaultHeight: number,
+  getPluginHeight?: (row: T, index: number) => number | undefined,
+): { measuredCount: number; averageHeight: number } {
+  let measuredCount = 0;
+  let totalMeasured = 0;
+
+  for (let i = 0; i < cache.length; i++) {
+    const entry = cache[i];
+    if (entry.measured) {
+      // Only include in average if plugin doesn't provide height for this row
+      const pluginHeight = getPluginHeight?.(rows[i], i);
+      if (pluginHeight === undefined) {
+        totalMeasured += entry.height;
+        measuredCount++;
+      }
+    }
+  }
+
+  return {
+    measuredCount,
+    averageHeight: measuredCount > 0 ? totalMeasured / measuredCount : defaultHeight,
+  };
+}
+
+// #endregion

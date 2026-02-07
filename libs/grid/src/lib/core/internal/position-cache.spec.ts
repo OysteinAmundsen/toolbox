@@ -1,5 +1,7 @@
 /**
  * Unit tests for position-cache.ts
+ *
+ * @vitest-environment happy-dom
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -339,6 +341,182 @@ describe('updateEstimates', () => {
     expect(positions[0]).toEqual({ offset: 0, height: 35, measured: false });
     expect(positions[1]).toEqual({ offset: 35, height: 35, measured: false });
     expect(positions[2]).toEqual({ offset: 70, height: 35, measured: false });
+  });
+});
+// #endregion
+// #region measureRenderedRowHeights Tests
+describe('measureRenderedRowHeights', () => {
+  // Import the function
+  let measureRenderedRowHeights: typeof import('./position-cache').measureRenderedRowHeights;
+
+  beforeEach(async () => {
+    const module = await import('./position-cache');
+    measureRenderedRowHeights = module.measureRenderedRowHeights;
+  });
+
+  function createMockRowElements(heights: number[]): NodeListOf<Element> {
+    const elements: Element[] = heights.map((height, index) => {
+      const el = document.createElement('div');
+      el.dataset.rowIndex = String(index);
+      Object.defineProperty(el, 'offsetHeight', { value: height, configurable: true });
+      return el;
+    });
+    return elements as unknown as NodeListOf<Element>;
+  }
+
+  it('measures row heights from DOM elements', () => {
+    const positionCache: RowPosition[] = [
+      { offset: 0, height: 28, measured: false },
+      { offset: 28, height: 28, measured: false },
+    ];
+    const heightCache = createHeightCache();
+    const rows = [{ id: 1 }, { id: 2 }];
+
+    const result = measureRenderedRowHeights(
+      {
+        positionCache,
+        heightCache,
+        rows,
+        defaultHeight: 28,
+        start: 0,
+        end: 2,
+      },
+      createMockRowElements([40, 50]),
+    );
+
+    expect(result.hasChanges).toBe(true);
+    expect(positionCache[0].height).toBe(40);
+    expect(positionCache[0].measured).toBe(true);
+    expect(positionCache[1].height).toBe(50);
+    expect(positionCache[1].measured).toBe(true);
+  });
+
+  it('skips rows outside the render window', () => {
+    const positionCache: RowPosition[] = [
+      { offset: 0, height: 28, measured: false },
+      { offset: 28, height: 28, measured: false },
+      { offset: 56, height: 28, measured: false },
+    ];
+    const heightCache = createHeightCache();
+    const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+
+    // Only row 1 is in the window (start=1, end=2)
+    measureRenderedRowHeights(
+      {
+        positionCache,
+        heightCache,
+        rows,
+        defaultHeight: 28,
+        start: 1,
+        end: 2,
+      },
+      createMockRowElements([40, 50, 60]),
+    );
+
+    // Row 0 and 2 should be unchanged
+    expect(positionCache[0].height).toBe(28);
+    expect(positionCache[0].measured).toBe(false);
+    expect(positionCache[1].height).toBe(50);
+    expect(positionCache[1].measured).toBe(true);
+    expect(positionCache[2].height).toBe(28);
+    expect(positionCache[2].measured).toBe(false);
+  });
+
+  it('uses plugin height when provided', () => {
+    const positionCache: RowPosition[] = [{ offset: 0, height: 28, measured: false }];
+    const heightCache = createHeightCache();
+    const rows = [{ id: 1, expanded: true }];
+
+    const result = measureRenderedRowHeights(
+      {
+        positionCache,
+        heightCache,
+        rows,
+        defaultHeight: 28,
+        start: 0,
+        end: 1,
+        getPluginHeight: () => 100, // Plugin says row is 100px
+      },
+      createMockRowElements([40]), // DOM says 40px
+    );
+
+    expect(result.hasChanges).toBe(true);
+    expect(positionCache[0].height).toBe(100); // Uses plugin height, not DOM
+    expect(positionCache[0].measured).toBe(true);
+  });
+
+  it('returns hasChanges=false when heights match', () => {
+    const positionCache: RowPosition[] = [{ offset: 0, height: 40, measured: true }];
+    const heightCache = createHeightCache();
+    const rows = [{ id: 1 }];
+
+    const result = measureRenderedRowHeights(
+      {
+        positionCache,
+        heightCache,
+        rows,
+        defaultHeight: 28,
+        start: 0,
+        end: 1,
+      },
+      createMockRowElements([40]), // Same height as cached
+    );
+
+    expect(result.hasChanges).toBe(false);
+  });
+});
+// #endregion
+
+// #region computeAverageExcludingPluginRows Tests
+describe('computeAverageExcludingPluginRows', () => {
+  let computeAverageExcludingPluginRows: typeof import('./position-cache').computeAverageExcludingPluginRows;
+
+  beforeEach(async () => {
+    const module = await import('./position-cache');
+    computeAverageExcludingPluginRows = module.computeAverageExcludingPluginRows;
+  });
+
+  it('computes average from measured rows', () => {
+    const cache: RowPosition[] = [
+      { offset: 0, height: 40, measured: true },
+      { offset: 40, height: 50, measured: true },
+      { offset: 90, height: 28, measured: false },
+    ];
+    const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+
+    const result = computeAverageExcludingPluginRows(cache, rows, 28);
+
+    expect(result.measuredCount).toBe(2);
+    expect(result.averageHeight).toBe(45); // (40 + 50) / 2
+  });
+
+  it('excludes plugin-managed rows from average', () => {
+    const cache: RowPosition[] = [
+      { offset: 0, height: 100, measured: true }, // Plugin-managed (expanded)
+      { offset: 100, height: 30, measured: true }, // Regular row
+      { offset: 130, height: 40, measured: true }, // Regular row
+    ];
+    const rows = [{ id: 1, expanded: true }, { id: 2 }, { id: 3 }];
+
+    const result = computeAverageExcludingPluginRows(cache, rows, 28, (row) =>
+      (row as { expanded?: boolean }).expanded ? 100 : undefined,
+    );
+
+    expect(result.measuredCount).toBe(2); // Only rows 2 and 3
+    expect(result.averageHeight).toBe(35); // (30 + 40) / 2, excludes 100
+  });
+
+  it('returns default height when no measurements', () => {
+    const cache: RowPosition[] = [
+      { offset: 0, height: 28, measured: false },
+      { offset: 28, height: 28, measured: false },
+    ];
+    const rows = [{ id: 1 }, { id: 2 }];
+
+    const result = computeAverageExcludingPluginRows(cache, rows, 28);
+
+    expect(result.measuredCount).toBe(0);
+    expect(result.averageHeight).toBe(28);
   });
 });
 // #endregion

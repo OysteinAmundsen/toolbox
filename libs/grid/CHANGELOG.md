@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.11.0...grid-1.12.0) (2026-02-07)
+
+
+### Features
+
+* **grid:** implement grid editing mode via afterCellRender hook ([8f1ee4e](https://github.com/OysteinAmundsen/toolbox/commit/8f1ee4e79be4eac584f1038336ccc57b0e72fc0f))
+* **grid:** implement variable row height virtualization ([#55](https://github.com/OysteinAmundsen/toolbox/issues/55)) ([#119](https://github.com/OysteinAmundsen/toolbox/issues/119)) ([5b4efb7](https://github.com/OysteinAmundsen/toolbox/commit/5b4efb79f064e40ee3ed098805f5c7e655a6fc93))
+
+
+### Bug Fixes
+
+* **grid:** Allow escaping editing mode for fully editable grids ([524a56d](https://github.com/OysteinAmundsen/toolbox/commit/524a56d2ce55d6541cd6805d01a4bad14cb2c58f))
+* **grid:** ensure output dirs exist before parallel plugin builds ([ed153c0](https://github.com/OysteinAmundsen/toolbox/commit/ed153c015739adef173292174dea7d5e73ef9d45))
+* **grid:** handle empty arrays in min/max aggregators ([53f304c](https://github.com/OysteinAmundsen/toolbox/commit/53f304ca34b67a3c50efb16bcc8a9324e7d08e6e))
+* **grid:** preserve toolbar buttons across full re-renders ([80a3496](https://github.com/OysteinAmundsen/toolbox/commit/80a3496523b8064b4bcb0fbe9c5bb40899037d1a))
+
+
+### Performance Improvements
+
+* **grid:** prevent scrollbar jumpiness by caching scroll height ([60a47b6](https://github.com/OysteinAmundsen/toolbox/commit/60a47b6d44a1063d629270800af3563b41db38fc))
+
 ## [1.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.10.1...grid-1.11.0) (2026-02-06)
 
 

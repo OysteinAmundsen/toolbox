@@ -117,7 +117,9 @@ describe('style-injector', () => {
     it('should handle empty inline styles', async () => {
       // With empty styles, it should try to extract from document
       // In test environment, this will likely not find anything
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        // intentionally empty - suppress warnings during test
+      });
 
       await injectStyles('');
 

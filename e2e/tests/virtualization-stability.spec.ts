@@ -397,7 +397,7 @@ test.describe('Variable Row Height Virtualization Stability', () => {
         const scrollBefore = await scrollable.evaluate((el) => el.scrollTop);
 
         // Collapse the row - find the expanded toggle and scroll it into view first
-        const expandedToggle = page.locator('.master-detail-toggle[aria-expanded=\"true\"]').first();
+        const expandedToggle = page.locator(".master-detail-toggle[aria-expanded='true']").first();
         // Use evaluate to scroll and click in one action to avoid viewport race
         await expandedToggle.evaluate((el) => {
           el.scrollIntoView({ block: 'center' });

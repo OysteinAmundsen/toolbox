@@ -18,6 +18,14 @@ const DEMO_PORTS = {
   angular: 4200, // Angular default
 };
 
+// Use GitHub Actions reporter on CI, custom clean-list reporter locally
+const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
+  ? [
+      ['html', { outputFolder: '../playwright-report' }],
+      ['@estruyf/github-actions-reporter', { title: 'E2E Test Results' }],
+    ]
+  : [['html', { outputFolder: '../playwright-report' }], ['./reporters/clean-list-reporter.ts']];
+
 export default defineConfig({
   testDir: './tests',
   /* Run tests in files in parallel */
@@ -30,8 +38,8 @@ export default defineConfig({
    * expectScreenshotIfBaselineExists skips comparisons when no baseline exists,
    * we can safely parallelize even in CI */
   workers: process.env.CI ? 4 : undefined,
-  /* Reporter to use - custom clean-list for readable output, html for detailed reports */
-  reporter: [['html', { outputFolder: '../playwright-report' }], ['./reporters/clean-list-reporter.ts']],
+  /* Reporter to use - GitHub Actions on CI, custom clean-list locally */
+  reporter: reporters,
   /* Shared settings for all the projects below */
   use: {
     /* Base URL for tests - vanilla is the baseline */

@@ -17,6 +17,8 @@ export type { CellSlotProps, EditorSlotProps } from './lib/slot-types';
 export type { ToolPanelContext } from './lib/tool-panel-registry';
 
 // Vue grid adapter
+export { GridAdapter } from './lib/vue-grid-adapter';
+/** @deprecated Use `GridAdapter` instead */
 export { VueGridAdapter } from './lib/vue-grid-adapter';
 
 // Composables
@@ -26,8 +28,22 @@ export type { UseGridReturn } from './lib/use-grid';
 export { useGridEvent } from './lib/use-grid-event';
 export type { GridEventMap } from './lib/use-grid-event';
 
-// Vue-specific config types
-export type { VueCellEditor, VueCellRenderer, VueColumnConfig, VueGridConfig } from './lib/vue-column-config';
+// Vue-specific config types - unified names (primary)
+export type {
+  CellEditor,
+  CellRenderer,
+  ColumnConfig,
+  GridConfig,
+  // Vue-specific config types - deprecated aliases
+  /** @deprecated Use `CellEditor` instead */
+  VueCellEditor,
+  /** @deprecated Use `CellRenderer` instead */
+  VueCellRenderer,
+  /** @deprecated Use `ColumnConfig` instead */
+  VueColumnConfig,
+  /** @deprecated Use `GridConfig` instead */
+  VueGridConfig,
+} from './lib/vue-column-config';
 
 // Feature props types for declarative plugin configuration
 export type { AllFeatureProps, FeatureProps } from './lib/feature-props';
@@ -45,7 +61,7 @@ export type { FeatureName, PluginFactory } from './lib/feature-registry';
 
 // Type registry for application-wide type defaults
 export { GRID_TYPE_DEFAULTS, GridTypeProvider, useGridTypeDefaults, useTypeDefault } from './lib/grid-type-registry';
-export type { GridTypeProviderProps, TypeDefaultsMap, VueTypeDefault } from './lib/grid-type-registry';
+export type { GridTypeProviderProps, TypeDefault, TypeDefaultsMap, VueTypeDefault } from './lib/grid-type-registry';
 
 // Icon registry for application-wide icon overrides
 export { GRID_ICONS, GridIconProvider, useGridIcons } from './lib/grid-icon-registry';

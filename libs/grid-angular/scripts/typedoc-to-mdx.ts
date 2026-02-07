@@ -53,20 +53,9 @@ function isAdapter(node: TypeDocNode): boolean {
   return node.kind === KIND.Class && node.name.includes('Adapter');
 }
 
-/** Check if node is a context or event type */
-function isContextType(node: TypeDocNode): boolean {
-  const contextNames = [
-    'GridCellContext',
-    'GridEditorContext',
-    'GridDetailContext',
-    'GridToolPanelContext',
-    'StructuralCellContext',
-    'StructuralEditorContext',
-    'CellCommitEvent',
-    'RowCommitEvent',
-    'FormArrayContext',
-  ];
-  return contextNames.includes(node.name) || node.name.endsWith('Context') || node.name.endsWith('Event');
+/** Check if node is a type (interface or type alias) */
+function isType(node: TypeDocNode): boolean {
+  return node.kind === KIND.TypeAlias || node.kind === KIND.Interface;
 }
 
 // ============================================================================
@@ -79,7 +68,7 @@ function processModule(module: TypeDocNode, outDir: string): void {
   // Categorize nodes
   const directives: TypeDocNode[] = [];
   const adapters: TypeDocNode[] = [];
-  const contexts: TypeDocNode[] = [];
+  const types: TypeDocNode[] = []; // Context types + config types
   const other: TypeDocNode[] = [];
 
   for (const node of nodes) {
@@ -90,8 +79,8 @@ function processModule(module: TypeDocNode, outDir: string): void {
       directives.push(node);
     } else if (isAdapter(node)) {
       adapters.push(node);
-    } else if (isContextType(node)) {
-      contexts.push(node);
+    } else if (isType(node)) {
+      types.push(node);
     } else if (GENERATORS[node.kind]) {
       other.push(node);
     }
@@ -117,10 +106,10 @@ function processModule(module: TypeDocNode, outDir: string): void {
     }
   }
 
-  // Write Context/Event Types
-  if (contexts.length) {
+  // Write Types (contexts, configs, interfaces)
+  if (types.length) {
     console.log('  Types:');
-    for (const node of contexts) {
+    for (const node of types) {
       const gen = GENERATORS[node.kind];
       if (!gen) continue;
       const title = `Grid/Angular/Types/${node.name}`;

@@ -484,7 +484,18 @@ export function genFunction(node: TypeDocNode, title: string, options: Generator
 /** Generate MDX for a type alias */
 export function genTypeAlias(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
   const { regenerateCommand } = options;
+  const deprecated = isDeprecated(node.comment);
+  const deprecationNote = getTag(node.comment, '@deprecated');
+
   let out = mdxHeader(title, regenerateCommand) + `# Type: ${node.name}\n\n`;
+
+  // Show deprecation warning if present
+  if (deprecated) {
+    // Convert inline code references to Storybook links
+    const linkedNote = deprecationNote ? linkifyDeprecationNote(deprecationNote.trim(), title) : '';
+    out += `> ⚠️ **Deprecated**${linkedNote ? `: ${linkedNote}` : ''}\n\n`;
+  }
+
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
@@ -494,6 +505,28 @@ export function genTypeAlias(node: TypeDocNode, title: string, options: Generato
   if (example) out += formatExample(example);
 
   return out;
+}
+
+/**
+ * Convert inline code references in deprecation notes to Storybook links.
+ * E.g., "Use `CellEditor` instead" becomes "Use [`CellEditor`](?path=/docs/grid-angular-types-celleditor--docs) instead"
+ *
+ * @param note - The deprecation note text
+ * @param title - Current Storybook title (e.g., "Grid/Angular/Types/AngularCellEditor")
+ */
+function linkifyDeprecationNote(note: string, title: string): string {
+  // Extract the base path from title (e.g., "Grid/Angular/Types" from "Grid/Angular/Types/AngularCellEditor")
+  const parts = title.split('/');
+  const basePath = parts.slice(0, -1).join('/');
+
+  // Replace inline code references with links
+  // Match `TypeName` patterns (PascalCase identifiers)
+  return note.replace(/`([A-Z][a-zA-Z0-9]*)`/g, (match, typeName) => {
+    // Build Storybook path: "Grid/Angular/Types/CellEditor" -> "grid-angular-types-celleditor--docs"
+    const fullPath = `${basePath}/${typeName}`;
+    const storybookPath = fullPath.toLowerCase().replace(/\//g, '-');
+    return `[\`${typeName}\`](?path=/docs/${storybookPath}--docs)`;
+  });
 }
 
 /** Generate MDX for an enum */

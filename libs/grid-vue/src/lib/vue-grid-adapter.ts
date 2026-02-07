@@ -1,14 +1,14 @@
 import type {
+  TypeDefault as BaseTypeDefault,
   CellRenderContext,
   ColumnEditorContext,
   ColumnEditorSpec,
   ColumnViewRenderer,
   FrameworkAdapter,
-  TypeDefault,
 } from '@toolbox-web/grid';
 import { createApp, type App, type VNode } from 'vue';
 import { detailRegistry, type DetailPanelContext } from './detail-panel-registry';
-import type { TypeDefaultsMap, VueTypeDefault } from './grid-type-registry';
+import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
 
 /**
@@ -152,10 +152,10 @@ interface CellAppCache {
  *
  * ```ts
  * import { GridElement } from '@toolbox-web/grid';
- * import { VueGridAdapter } from '@toolbox-web/grid-vue';
+ * import { GridAdapter } from '@toolbox-web/grid-vue';
  *
  * // One-time registration
- * GridElement.registerAdapter(new VueGridAdapter());
+ * GridElement.registerAdapter(new GridAdapter());
  * ```
  *
  * ## Declarative usage with TbwGrid:
@@ -170,7 +170,7 @@ interface CellAppCache {
  * </TbwGrid>
  * ```
  */
-export class VueGridAdapter implements FrameworkAdapter {
+export class GridAdapter implements FrameworkAdapter {
   private mountedViews: MountedView[] = [];
   private typeDefaults: TypeDefaultsMap | null = null;
 
@@ -418,17 +418,17 @@ export class VueGridAdapter implements FrameworkAdapter {
    * </template>
    * ```
    */
-  getTypeDefault<TRow = unknown>(type: string): TypeDefault<TRow> | undefined {
+  getTypeDefault<TRow = unknown>(type: string): BaseTypeDefault<TRow> | undefined {
     if (!this.typeDefaults) {
       return undefined;
     }
 
-    const vueDefault = this.typeDefaults[type] as VueTypeDefault<TRow> | undefined;
+    const vueDefault = this.typeDefaults[type] as TypeDefault<TRow> | undefined;
     if (!vueDefault) {
       return undefined;
     }
 
-    const typeDefault: TypeDefault<TRow> = {
+    const typeDefault: BaseTypeDefault<TRow> = {
       editorParams: vueDefault.editorParams,
     };
 
@@ -439,7 +439,7 @@ export class VueGridAdapter implements FrameworkAdapter {
 
     // Create editor function that renders Vue component
     if (vueDefault.editor) {
-      typeDefault.editor = this.createTypeEditor<TRow>(vueDefault.editor) as TypeDefault['editor'];
+      typeDefault.editor = this.createTypeEditor<TRow>(vueDefault.editor) as BaseTypeDefault['editor'];
     }
 
     return typeDefault;
@@ -510,3 +510,9 @@ export class VueGridAdapter implements FrameworkAdapter {
     this.mountedViews = [];
   }
 }
+
+/**
+ * @deprecated Use `GridAdapter` instead. This alias will be removed in a future version.
+ * @see {@link GridAdapter}
+ */
+export const VueGridAdapter = GridAdapter;

@@ -1,4 +1,4 @@
-import type { BaseGridPlugin, ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
+import type { BaseGridPlugin, DataGridElement } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
   Children,
@@ -21,8 +21,8 @@ import { type GridDetailPanelProps } from './grid-detail-panel';
 import { GridIconContextInternal } from './grid-icon-registry';
 import { getResponsiveCardRenderer } from './grid-responsive-card';
 import { GridTypeContextInternal } from './grid-type-registry';
-import { processReactGridConfig, type ReactGridConfig } from './react-column-config';
-import { ReactGridAdapter } from './react-grid-adapter';
+import { processGridConfig, type ColumnConfig, type GridConfig } from './react-column-config';
+import { GridAdapter } from './react-grid-adapter';
 import { createPluginsFromFeatures } from './use-sync-plugins';
 
 /**
@@ -34,20 +34,20 @@ interface ExtendedGridElement extends DataGridElement {
 
 // Track if adapter is registered
 let adapterRegistered = false;
-let globalAdapter: ReactGridAdapter | null = null;
+let globalAdapter: GridAdapter | null = null;
 
 /**
  * Ensure the React adapter is registered globally.
  * Called synchronously to ensure adapter is available before grid parses light DOM.
  */
-function ensureAdapterRegistered(): ReactGridAdapter {
+function ensureAdapterRegistered(): GridAdapter {
   if (!adapterRegistered) {
-    globalAdapter = new ReactGridAdapter();
+    globalAdapter = new GridAdapter();
     GridElement.registerAdapter(globalAdapter);
     adapterRegistered = true;
   }
   // globalAdapter is guaranteed to be set after above code
-  return globalAdapter as ReactGridAdapter;
+  return globalAdapter as GridAdapter;
 }
 
 // Register adapter immediately at module load time
@@ -80,7 +80,7 @@ function refreshMasterDetailRenderer(gridElement: Element): void {
  * Refreshes the ResponsivePlugin card renderer after React renders GridResponsiveCard.
  * Only refreshes if plugin already exists - plugin creation is handled by feature props.
  */
-function refreshResponsiveCardRenderer(gridElement: Element, adapter: ReactGridAdapter): void {
+function refreshResponsiveCardRenderer(gridElement: Element, adapter: GridAdapter): void {
   const grid = gridElement as any;
 
   // Check if <tbw-grid-responsive-card> is present in light DOM
@@ -173,7 +173,7 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
    * }}
    * ```
    */
-  gridConfig?: ReactGridConfig<TRow>;
+  gridConfig?: GridConfig<TRow>;
   /**
    * Column definitions. Supports shorthand syntax for quick definitions.
    *
@@ -572,7 +572,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
   // Process gridConfig to convert React renderers/editors to DOM functions
   const processedGridConfig = useMemo(() => {
-    const processed = processReactGridConfig(gridConfig);
+    const processed = processGridConfig(gridConfig);
 
     // Build core config overrides from individual props
     const coreConfigOverrides: Record<string, unknown> = {};
@@ -633,14 +633,16 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
   // Sync gridConfig (using processed version with React wrappers)
   useEffect(() => {
     if (gridRef.current && processedGridConfig) {
-      gridRef.current.gridConfig = processedGridConfig as GridConfig<unknown>;
+      // Cast through any because React renderers are not assignable to base DOM types
+      gridRef.current.gridConfig = processedGridConfig as any;
     }
   }, [processedGridConfig]);
 
   // Sync columns (with defaults applied)
   useEffect(() => {
     if (gridRef.current && processedColumns) {
-      gridRef.current.columns = processedColumns as ColumnConfig<unknown>[];
+      // Cast through any because React renderers are not assignable to base DOM types
+      gridRef.current.columns = processedColumns as any;
     }
   }, [processedColumns]);
 
@@ -808,7 +810,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
         return gridRef.current;
       },
       async getConfig() {
-        return gridRef.current?.getConfig?.() ?? ({} as GridConfig<TRow>);
+        return (gridRef.current?.getConfig?.() ?? ({} as GridConfig<TRow>)) as Promise<Readonly<GridConfig<TRow>>>;
       },
       async ready() {
         return gridRef.current?.ready?.();
@@ -855,14 +857,15 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
         if (el) {
           const grid = el as ExtendedGridElement;
           // Use processedGridConfig which has React renderers/editors wrapped as DOM functions
+          // Cast through any because React renderers are not assignable to base DOM types
           if (processedGridConfig) {
-            grid.gridConfig = processedGridConfig as GridConfig<unknown>;
+            grid.gridConfig = processedGridConfig as any;
           }
           if (rows) {
             grid.rows = rows;
           }
           if (processedColumns) {
-            grid.columns = processedColumns as ColumnConfig<unknown>[];
+            grid.columns = processedColumns as any;
           }
         }
       }}

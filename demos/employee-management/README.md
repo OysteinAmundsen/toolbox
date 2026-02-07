@@ -196,10 +196,10 @@ export class GridComponent {}
 ### React
 
 ```tsx
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
 function EmployeeGrid() {
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [
       {
         field: 'status',

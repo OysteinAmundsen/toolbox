@@ -16,7 +16,7 @@
  * Both patterns merge seamlessly - plugins from feature inputs are combined with gridConfig.plugins.
  */
 import { DEPARTMENTS, type Employee } from '@demo/shared';
-import type { AngularGridConfig } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 // Only import plugins needed for dynamic toggling or complex configuration.
 // Always-on features use feature inputs in app.component.ts instead.
 // Exceptions: GroupingColumnsPlugin (columnGroups config), ResponsivePlugin (<tbw-grid-responsive-card>)
@@ -61,7 +61,7 @@ export const COLUMN_GROUPS = [
   },
 ];
 
-export function createGridConfig(options: GridConfigOptions): AngularGridConfig<Employee> {
+export function createGridConfig(options: GridConfigOptions): GridConfig<Employee> {
   const { enableSelection, enableFiltering, enableSorting, enableEditing, enableMasterDetail } =
     options;
 

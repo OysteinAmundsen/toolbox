@@ -46,7 +46,11 @@ export {
   useGridTypeDefaults,
   useTypeDefault,
   type GridTypeProviderProps,
+  // Deprecated - use TypeDefault instead
+  /** @deprecated Use `TypeDefault` instead */
   type ReactTypeDefault,
+  // Primary export
+  type TypeDefault,
   type TypeDefaultsMap,
 } from './lib/grid-type-registry';
 
@@ -56,14 +60,25 @@ export { GridIconProvider, useGridIcons, type GridIconProviderProps } from './li
 // Combined provider for type defaults and icons
 export { GridProvider, type GridProviderProps } from './lib/grid-provider';
 
-// React column config types (for defining renderers/editors in gridConfig)
-export type { ReactColumnConfig, ReactGridConfig } from './lib/react-column-config';
+// Configuration types - use GridConfig and ColumnConfig for React-augmented versions
+export type {
+  // Primary exports - use these
+  ColumnConfig,
+  GridConfig,
+  /** @deprecated Use `ColumnConfig` instead */
+  ReactColumnConfig,
+  // Deprecated names - use GridConfig/ColumnConfig instead
+  /** @deprecated Use `GridConfig` instead */
+  ReactGridConfig,
+} from './lib/react-column-config';
 
 // Hooks
 export { useGrid, type ExportMethods, type SelectionMethods, type UseGridReturn } from './lib/use-grid';
 export { useGridEvent } from './lib/use-grid-event';
 
 // React adapter (for advanced manual registration - most users don't need this)
+export { GridAdapter } from './lib/react-grid-adapter';
+/** @deprecated Use `GridAdapter` instead */
 export { ReactGridAdapter } from './lib/react-grid-adapter';
 
 // Context types

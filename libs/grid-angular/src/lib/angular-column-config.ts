@@ -5,10 +5,11 @@
  * classes to be used directly as renderers and editors.
  */
 import type { Type } from '@angular/core';
-import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
+import type { ColumnConfig as BaseColumnConfig, GridConfig as BaseGridConfig } from '@toolbox-web/grid';
 
+// #region CellRenderer Interface
 /**
- * Interface for Angular renderer components.
+ * Interface for cell renderer components.
  *
  * Renderer components receive the cell value, row data, and column config as inputs.
  * Use Angular signal inputs for reactive updates.
@@ -16,20 +17,20 @@ import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
  * @example
  * ```typescript
  * import { Component, input } from '@angular/core';
- * import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
+ * import type { CellRenderer } from '@toolbox-web/grid-angular';
  *
  * @Component({
  *   selector: 'app-status-badge',
  *   template: `<span [class]="'badge-' + value()">{{ value() }}</span>`
  * })
- * export class StatusBadgeComponent implements AngularCellRenderer<Employee, string> {
+ * export class StatusBadgeComponent implements CellRenderer<Employee, string> {
  *   value = input.required<string>();
  *   row = input.required<Employee>();
  *   column = input<unknown>();
  * }
  * ```
  */
-export interface AngularCellRenderer<TRow = unknown, TValue = unknown> {
+export interface CellRenderer<TRow = unknown, TValue = unknown> {
   /** The cell value - use `input<TValue>()` or `input.required<TValue>()` */
   value: { (): TValue | undefined };
   /** The full row data - use `input<TRow>()` or `input.required<TRow>()` */
@@ -39,7 +40,15 @@ export interface AngularCellRenderer<TRow = unknown, TValue = unknown> {
 }
 
 /**
- * Interface for Angular editor components.
+ * @deprecated Use `CellRenderer` instead.
+ * @see {@link CellRenderer}
+ */
+export type AngularCellRenderer<TRow = unknown, TValue = unknown> = CellRenderer<TRow, TValue>;
+// #endregion
+
+// #region CellEditor Interface
+/**
+ * Interface for cell editor components.
  *
  * Editor components receive the cell value, row data, and column config as inputs,
  * plus must emit `commit` and `cancel` outputs.
@@ -47,7 +56,7 @@ export interface AngularCellRenderer<TRow = unknown, TValue = unknown> {
  * @example
  * ```typescript
  * import { Component, input, output } from '@angular/core';
- * import type { AngularCellEditor } from '@toolbox-web/grid-angular';
+ * import type { CellEditor } from '@toolbox-web/grid-angular';
  *
  * @Component({
  *   selector: 'app-status-editor',
@@ -58,7 +67,7 @@ export interface AngularCellRenderer<TRow = unknown, TValue = unknown> {
  *     </select>
  *   `
  * })
- * export class StatusEditorComponent implements AngularCellEditor<Employee, string> {
+ * export class StatusEditorComponent implements CellEditor<Employee, string> {
  *   value = input.required<string>();
  *   row = input.required<Employee>();
  *   column = input<unknown>();
@@ -67,7 +76,7 @@ export interface AngularCellRenderer<TRow = unknown, TValue = unknown> {
  * }
  * ```
  */
-export interface AngularCellEditor<TRow = unknown, TValue = unknown> extends AngularCellRenderer<TRow, TValue> {
+export interface CellEditor<TRow = unknown, TValue = unknown> extends CellRenderer<TRow, TValue> {
   /** Emit to commit the new value - use `output<TValue>()` */
   commit: { emit(value: TValue): void; subscribe?(fn: (value: TValue) => void): { unsubscribe(): void } };
   /** Emit to cancel editing - use `output<void>()` */
@@ -75,53 +84,23 @@ export interface AngularCellEditor<TRow = unknown, TValue = unknown> extends Ang
 }
 
 /**
- * Angular-specific column configuration.
- *
- * Extends the base ColumnConfig to allow Angular component classes
- * to be used directly as renderers and editors.
- *
- * @example
- * ```typescript
- * import type { AngularColumnConfig } from '@toolbox-web/grid-angular';
- * import { StatusBadgeComponent, StatusEditorComponent } from './components';
- *
- * const columns: AngularColumnConfig<Employee>[] = [
- *   { field: 'name', header: 'Name' },
- *   {
- *     field: 'status',
- *     header: 'Status',
- *     editable: true,
- *     renderer: StatusBadgeComponent,
- *     editor: StatusEditorComponent,
- *   },
- * ];
- * ```
+ * @deprecated Use `CellEditor` instead.
+ * @see {@link CellEditor}
  */
-export interface AngularColumnConfig<TRow = unknown> extends Omit<ColumnConfig<TRow>, 'renderer' | 'editor'> {
-  /**
-   * Cell renderer - can be:
-   * - A function `(ctx) => HTMLElement | string`
-   * - An Angular component class implementing AngularCellRenderer
-   */
-  renderer?: ColumnConfig<TRow>['renderer'] | Type<AngularCellRenderer<TRow, unknown>>;
+export type AngularCellEditor<TRow = unknown, TValue = unknown> = CellEditor<TRow, TValue>;
+// #endregion
 
-  /**
-   * Cell editor - can be:
-   * - A function `(ctx) => HTMLElement`
-   * - An Angular component class implementing AngularCellEditor
-   */
-  editor?: ColumnConfig<TRow>['editor'] | Type<AngularCellEditor<TRow, unknown>>;
-}
-
+// #region TypeDefault Interface
 /**
- * Angular-specific type default configuration.
+ * Type default configuration.
  *
- * Extends the base TypeDefault to allow Angular component classes
- * for renderers and editors in typeDefaults.
+ * Allows Angular component classes for renderers and editors in typeDefaults.
  *
  * @example
  * ```typescript
- * const config: AngularGridConfig<Employee> = {
+ * import type { GridConfig, TypeDefault } from '@toolbox-web/grid-angular';
+ *
+ * const config: GridConfig<Employee> = {
  *   typeDefaults: {
  *     boolean: {
  *       renderer: (ctx) => { ... },  // vanilla JS renderer
@@ -134,28 +113,102 @@ export interface AngularColumnConfig<TRow = unknown> extends Omit<ColumnConfig<T
  * };
  * ```
  */
-export interface AngularTypeDefault<TRow = unknown> {
+export interface TypeDefault<TRow = unknown> {
   /** Format function for cell display */
   format?: (value: unknown, row: TRow) => string;
   /** Cell renderer - can be vanilla JS function or Angular component */
-  renderer?: ColumnConfig<TRow>['renderer'] | Type<AngularCellRenderer<TRow, unknown>>;
+  renderer?: BaseColumnConfig<TRow>['renderer'] | Type<CellRenderer<TRow, unknown>>;
   /** Cell editor - can be vanilla JS function or Angular component */
-  editor?: ColumnConfig<TRow>['editor'] | Type<AngularCellEditor<TRow, unknown>>;
+  editor?: BaseColumnConfig<TRow>['editor'] | Type<CellEditor<TRow, unknown>>;
   /** Default editor parameters */
   editorParams?: Record<string, unknown>;
 }
 
 /**
- * Angular-specific grid configuration.
- *
- * Extends the base GridConfig to use AngularColumnConfig and AngularTypeDefault.
+ * @deprecated Use `TypeDefault` instead.
+ * @see {@link TypeDefault}
  */
-export interface AngularGridConfig<TRow = unknown> extends Omit<GridConfig<TRow>, 'columns' | 'typeDefaults'> {
-  columns?: AngularColumnConfig<TRow>[];
-  /** Type-level defaults that can use Angular component classes */
-  typeDefaults?: Record<string, AngularTypeDefault<TRow>>;
+export type AngularTypeDefault<TRow = unknown> = TypeDefault<TRow>;
+// #endregion
+
+// #region ColumnConfig Interface
+/**
+ * Column configuration for Angular applications.
+ *
+ * Extends the base ColumnConfig to allow Angular component classes
+ * to be used directly as renderers and editors.
+ *
+ * @example
+ * ```typescript
+ * import type { ColumnConfig } from '@toolbox-web/grid-angular';
+ * import { StatusBadgeComponent, StatusEditorComponent } from './components';
+ *
+ * const columns: ColumnConfig<Employee>[] = [
+ *   { field: 'name', header: 'Name' },
+ *   {
+ *     field: 'status',
+ *     header: 'Status',
+ *     editable: true,
+ *     renderer: StatusBadgeComponent,
+ *     editor: StatusEditorComponent,
+ *   },
+ * ];
+ * ```
+ */
+export interface ColumnConfig<TRow = unknown> extends Omit<BaseColumnConfig<TRow>, 'renderer' | 'editor'> {
+  /**
+   * Cell renderer - can be:
+   * - A function `(ctx) => HTMLElement | string`
+   * - An Angular component class implementing CellRenderer
+   */
+  renderer?: BaseColumnConfig<TRow>['renderer'] | Type<CellRenderer<TRow, unknown>>;
+
+  /**
+   * Cell editor - can be:
+   * - A function `(ctx) => HTMLElement`
+   * - An Angular component class implementing CellEditor
+   */
+  editor?: BaseColumnConfig<TRow>['editor'] | Type<CellEditor<TRow, unknown>>;
 }
 
+/**
+ * @deprecated Use `ColumnConfig` instead.
+ * @see {@link ColumnConfig}
+ */
+export type AngularColumnConfig<TRow = unknown> = ColumnConfig<TRow>;
+// #endregion
+
+// #region GridConfig Interface
+/**
+ * Grid configuration for Angular applications.
+ *
+ * Extends the base GridConfig to use Angular-augmented ColumnConfig and TypeDefault.
+ * This allows component classes as renderers/editors.
+ *
+ * @example
+ * ```typescript
+ * import type { GridConfig, ColumnConfig } from '@toolbox-web/grid-angular';
+ *
+ * const config: GridConfig<Employee> = {
+ *   columns: [...],
+ *   plugins: [...],
+ * };
+ * ```
+ */
+export interface GridConfig<TRow = unknown> extends Omit<BaseGridConfig<TRow>, 'columns' | 'typeDefaults'> {
+  columns?: ColumnConfig<TRow>[];
+  /** Type-level defaults that can use Angular component classes */
+  typeDefaults?: Record<string, TypeDefault<TRow>>;
+}
+
+/**
+ * @deprecated Use `GridConfig` instead.
+ * @see {@link GridConfig}
+ */
+export type AngularGridConfig<TRow = unknown> = GridConfig<TRow>;
+// #endregion
+
+// #region Utilities
 /**
  * Type guard to check if a value is an Angular component class.
  *
@@ -181,3 +234,4 @@ export function isComponentClass(value: unknown): value is Type<unknown> {
   const fnString = Function.prototype.toString.call(value);
   return fnString.startsWith('class ') || fnString.startsWith('class{');
 }
+// #endregion

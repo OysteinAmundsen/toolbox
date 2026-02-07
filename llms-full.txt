@@ -54,7 +54,7 @@ document.body.appendChild(grid);
 
 ```tsx
 import '@toolbox-web/grid';
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
@@ -64,7 +64,7 @@ interface Employee {
   status: 'active' | 'inactive';
 }
 
-const config: ReactGridConfig<Employee> = {
+const config: GridConfig<Employee> = {
   columns: [
     { field: 'id', header: 'ID', type: 'number' },
     { field: 'name', header: 'Name', editable: true },
@@ -196,7 +196,7 @@ import '@toolbox-web/grid-react/features';
 
 1. **Memoize `gridConfig`**: When passing `gridConfig` as a prop, wrap it in `useMemo()` to prevent unnecessary re-renders. If defined outside the component as a constant, memoization is not needed.
 
-2. **`columns` prop vs `gridConfig.columns`**: The `columns` prop accepts `ColumnShorthand[]` (strings like `'name:string'` or basic `ColumnConfig` objects), but does **NOT** support React JSX renderers/editors. For columns with `renderer` or `editor` functions that return JSX, use `gridConfig.columns` with `ReactGridConfig` type instead.
+2. **`columns` prop vs `gridConfig.columns`**: The `columns` prop accepts `ColumnShorthand[]` (strings like `'name:string'` or basic `ColumnConfig` objects), but does **NOT** support React JSX renderers/editors. For columns with `renderer` or `editor` functions that return JSX, use `gridConfig.columns` with `GridConfig` type instead.
 
 3. **`icons` via provider or gridConfig**: There is no top-level `icons` prop on `<DataGrid>`. Use `<GridProvider icons={{ ... }}>` for app-wide icons, or pass via `gridConfig={{ icons: { ... } }}` for per-grid overrides.
 
@@ -407,18 +407,18 @@ Instead of using `*tbwRenderer`/`*tbwEditor` structural directives in templates,
 - **Reusable renderer/editor components** across multiple grids
 - **Cleaner separation** between configuration and presentation
 
-**Step 1: Create a Renderer Component** implementing `AngularCellRenderer`:
+**Step 1: Create a Renderer Component** implementing `CellRenderer`:
 
 ```typescript
 import { Component, computed, input } from '@angular/core';
 import type { ColumnConfig } from '@toolbox-web/grid';
-import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
+import type { CellRenderer } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-status-badge',
   template: `<span class="badge" [class]="statusClass()">{{ value() }}</span>`,
 })
-export class StatusBadgeComponent implements AngularCellRenderer<MyRow, string> {
+export class StatusBadgeComponent implements CellRenderer<MyRow, string> {
   // Required inputs - the grid adapter sets these automatically
   value = input<string>();                    // The cell value
   row = input<MyRow>();                       // The full row data
@@ -470,11 +470,11 @@ export class StatusEditorComponent extends BaseGridEditor<MyRow, string> {
 - `cancelEdit()` - emits cancel + dispatches DOM event
 - Validation helpers: `isInvalid()`, `hasErrors()`, `firstErrorMessage()`
 
-**Step 3: Use in Grid Config** with `AngularGridConfig`:
+**Step 3: Use in Grid Config** with `GridConfig`:
 
 ```typescript
 import { Component, inject, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { Grid, AngularGridAdapter, type AngularGridConfig } from '@toolbox-web/grid-angular';
+import { Grid, AngularGridAdapter, type GridConfig } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import '@toolbox-web/grid';
 
@@ -495,7 +495,7 @@ export class EmployeeGridComponent {
   ];
 
   // Define config with component classes
-  private config: AngularGridConfig<Employee> = {
+  private config: GridConfig<Employee> = {
     columns: [
       { field: 'id', header: 'ID' },
       { field: 'name', header: 'Name', editable: true },
@@ -516,7 +516,7 @@ export class EmployeeGridComponent {
 ```
 
 **Key Points:**
-- Import `AngularGridConfig` (not `GridConfig`) for proper typing
+- Import `GridConfig` from `@toolbox-web/grid-angular` for proper typing
 - Call `adapter.processGridConfig(config)` to convert component classes to functions
 - Component classes are passed directly (not instances): `renderer: MyComponent`
 - The adapter dynamically creates components and wires inputs/outputs
@@ -526,7 +526,7 @@ export class EmployeeGridComponent {
 
 ```typescript
 // Some columns use component classes in config...
-config: AngularGridConfig = {
+config: GridConfig = {
   columns: [
     { field: 'rating', renderer: RatingDisplayComponent, editor: RatingEditorComponent },
     { field: 'status', header: 'Status' },  // Uses template below
@@ -1525,7 +1525,7 @@ const table = useReactTable({
 });
 
 // @toolbox-web/grid
-const config: ReactGridConfig<Employee> = {
+const config: GridConfig<Employee> = {
   columns: [
     {
       field: 'name',
@@ -2190,12 +2190,12 @@ await customElements.whenDefined('tbw-grid');
 
 ### React renderers not working
 
-Use `ReactGridConfig` type and `DataGrid` component from `@toolbox-web/grid-react`:
+Use `GridConfig` type and `DataGrid` component from `@toolbox-web/grid-react`:
 
 ```tsx
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
-const config: ReactGridConfig<T> = {
+const config: GridConfig<T> = {
   columns: [
     { field: 'x', renderer: (ctx) => <MyComponent value={ctx.value} /> },
   ],
@@ -2217,11 +2217,11 @@ Import the `Grid` directive and use `CUSTOM_ELEMENTS_SCHEMA`:
 
 When using component classes in `gridConfig`, you must:
 
-1. **Use `AngularGridConfig` type** (not `GridConfig`):
+1. **Use `GridConfig` type** from `@toolbox-web/grid-angular`:
 ```typescript
-import type { AngularGridConfig } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid-angular';
 
-const config: AngularGridConfig<MyRow> = {
+const config: GridConfig<MyRow> = {
   columns: [
     { field: 'status', renderer: StatusComponent, editor: StatusEditorComponent },
   ],

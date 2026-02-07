@@ -11,7 +11,7 @@
  */
 
 import { DEPARTMENTS, type Employee } from '@demo/shared';
-import type { ReactGridConfig } from '@toolbox-web/grid-react';
+import type { GridConfig } from '@toolbox-web/grid-react';
 import type { ReactNode } from 'react';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -61,7 +61,7 @@ export const COLUMN_GROUPS = [
 /**
  * Creates the grid configuration for the employee management demo.
  */
-export function createGridConfig(options: GridConfigOptions): ReactGridConfig<Employee> {
+export function createGridConfig(options: GridConfigOptions): GridConfig<Employee> {
   const { enableSorting, enableEditing, renderers, editors } = options;
 
   return {

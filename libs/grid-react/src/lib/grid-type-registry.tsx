@@ -4,14 +4,29 @@
  * Provides application-wide type defaults for renderers and editors
  * that all grids inherit automatically via React Context.
  */
-import type { CellRenderContext, ColumnEditorContext, TypeDefault } from '@toolbox-web/grid';
+import type { TypeDefault as BaseTypeDefault, CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
 import { createContext, useContext, type FC, type ReactNode } from 'react';
 
+// #region TypeDefault Interface
 /**
- * React-specific type default configuration.
- * Uses React function components that receive the render context.
+ * Type default configuration for React applications.
+ *
+ * Defines default renderer, editor, and editorParams for a data type
+ * using React function components.
+ *
+ * @example
+ * ```tsx
+ * import type { TypeDefault } from '@toolbox-web/grid-react';
+ *
+ * const countryDefault: TypeDefault<Employee, string> = {
+ *   renderer: (ctx) => <CountryFlag code={ctx.value} />,
+ *   editor: (ctx) => (
+ *     <CountrySelect value={ctx.value} onSelect={ctx.commit} />
+ *   ),
+ * };
+ * ```
  */
-export interface ReactTypeDefault<TRow = unknown, TValue = unknown> {
+export interface TypeDefault<TRow = unknown, TValue = unknown> {
   /** React component/function for rendering cells of this type */
   renderer?: (ctx: CellRenderContext<TRow, TValue>) => ReactNode;
   /** React component/function for editing cells of this type */
@@ -21,9 +36,16 @@ export interface ReactTypeDefault<TRow = unknown, TValue = unknown> {
 }
 
 /**
+ * @deprecated Use `TypeDefault` instead.
+ * @see {@link TypeDefault}
+ */
+export type ReactTypeDefault<TRow = unknown, TValue = unknown> = TypeDefault<TRow, TValue>;
+// #endregion
+
+/**
  * Type defaults registry - a map of type names to their defaults.
  */
-export type TypeDefaultsMap = Record<string, ReactTypeDefault>;
+export type TypeDefaultsMap = Record<string, TypeDefault>;
 
 /**
  * Context for providing type defaults to grids.
@@ -124,48 +146,52 @@ export function useGridTypeDefaults(): TypeDefaultsMap | null {
  * }
  * ```
  */
-export function useTypeDefault<TRow = unknown, TValue = unknown>(
-  type: string,
-): ReactTypeDefault<TRow, TValue> | undefined {
+export function useTypeDefault<TRow = unknown, TValue = unknown>(type: string): TypeDefault<TRow, TValue> | undefined {
   const defaults = useContext(GridTypeContext);
-  return defaults?.[type] as ReactTypeDefault<TRow, TValue> | undefined;
+  return defaults?.[type] as TypeDefault<TRow, TValue> | undefined;
 }
 
 /**
- * Creates a TypeDefault that the grid can use from a React type default.
+ * Creates a BaseTypeDefault that the grid can use from a React type default.
  *
  * This converts React render functions into grid-compatible renderer/editor functions.
  * Used internally by ReactGridAdapter.
  *
  * @internal
  */
-export function reactTypeDefaultToGridTypeDefault<TRow = unknown>(
-  reactDefault: ReactTypeDefault<TRow>,
+export function typeDefaultToBaseTypeDefault<TRow = unknown>(
+  typeDefault: TypeDefault<TRow>,
   renderReactNode: (node: ReactNode) => HTMLElement,
-): TypeDefault<TRow> {
-  const typeDefault: TypeDefault<TRow> = {
-    editorParams: reactDefault.editorParams,
+): BaseTypeDefault<TRow> {
+  const baseTypeDefault: BaseTypeDefault<TRow> = {
+    editorParams: typeDefault.editorParams,
   };
 
-  if (reactDefault.renderer) {
-    const reactRenderer = reactDefault.renderer;
-    typeDefault.renderer = (ctx) => {
+  if (typeDefault.renderer) {
+    const reactRenderer = typeDefault.renderer;
+    baseTypeDefault.renderer = (ctx) => {
       const node = reactRenderer(ctx);
       return renderReactNode(node);
     };
   }
 
-  if (reactDefault.editor) {
-    const reactEditor = reactDefault.editor;
+  if (typeDefault.editor) {
+    const reactEditor = typeDefault.editor;
     // Type assertion needed: adapter bridges TRow to core's unknown
-    typeDefault.editor = ((ctx) => {
+    baseTypeDefault.editor = ((ctx) => {
       const node = reactEditor(ctx as ColumnEditorContext<TRow, unknown>);
       return renderReactNode(node);
-    }) as TypeDefault['editor'];
+    }) as BaseTypeDefault['editor'];
   }
 
-  return typeDefault;
+  return baseTypeDefault;
 }
+
+/**
+ * @deprecated Use `typeDefaultToBaseTypeDefault` instead.
+ * @see {@link typeDefaultToBaseTypeDefault}
+ */
+export const reactTypeDefaultToGridTypeDefault = typeDefaultToBaseTypeDefault;
 
 /**
  * Internal context for passing the type defaults to the adapter.

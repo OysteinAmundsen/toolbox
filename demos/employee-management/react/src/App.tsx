@@ -5,7 +5,7 @@
  * - Feature imports for tree-shakeable plugin loading (side-effect imports)
  * - Feature props for declarative plugin configuration
  * - Event props for automatic cleanup (no useEffect for events)
- * - ReactGridConfig for inline React renderers/editors
+ * - GridConfig for inline React renderers/editors
  * - GridDetailPanel for declarative master-detail panels
  * - GridToolPanel for custom sidebar panels
  * - GridToolButtons for toolbar actions

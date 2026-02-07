@@ -55,19 +55,9 @@ function isAdapter(node: TypeDocNode): boolean {
   return node.kind === KIND.Class && node.name.includes('Adapter');
 }
 
-/** Check if node is a context or config type */
-function isConfigType(node: TypeDocNode): boolean {
-  const configNames = [
-    'ReactGridConfig',
-    'ReactColumnConfig',
-    'ReactCellRenderer',
-    'ReactCellEditor',
-    'DataGridProps',
-    'GridColumnProps',
-    'GridDetailPanelProps',
-    'GridToolPanelProps',
-  ];
-  return configNames.includes(node.name) || node.name.endsWith('Props') || node.name.endsWith('Config');
+/** Check if node is a type (interface or type alias) */
+function isType(node: TypeDocNode): boolean {
+  return node.kind === KIND.TypeAlias || node.kind === KIND.Interface;
 }
 
 // ============================================================================
@@ -94,7 +84,7 @@ function processModule(module: TypeDocNode, outDir: string): void {
       hooks.push(node);
     } else if (isAdapter(node)) {
       adapters.push(node);
-    } else if (isConfigType(node)) {
+    } else if (isType(node)) {
       types.push(node);
     } else if (GENERATORS[node.kind]) {
       other.push(node);

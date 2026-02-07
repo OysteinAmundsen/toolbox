@@ -6,7 +6,7 @@
  * - Feature imports for tree-shakeable plugin loading (side-effect imports)
  * - Feature props for declarative plugin configuration
  * - Event handling via @event-name syntax
- * - VueGridConfig for inline Vue renderers/editors
+ * - GridConfig for inline Vue renderers/editors
  * - TbwGridDetailPanel for declarative master-detail panels
  * - TbwGridToolPanel for custom sidebar panels
  * - TbwGridToolButtons for toolbar actions

@@ -15,10 +15,20 @@ import {
 import type { TypeDefault } from '@toolbox-web/grid';
 
 /**
- * Angular-specific type default configuration.
- * Uses Angular component types instead of function-based renderers/editors.
+ * Type default registration configuration.
+ * Uses Angular component types for renderers/editors.
+ *
+ * @example
+ * ```typescript
+ * const defaults: Record<string, TypeDefaultRegistration> = {
+ *   country: {
+ *     renderer: CountryCellComponent,
+ *     editor: CountryEditorComponent,
+ *   },
+ * };
+ * ```
  */
-export interface AngularTypeDefault<TRow = unknown> {
+export interface TypeDefaultRegistration<TRow = unknown> {
   /** Angular component class for rendering cells of this type */
   renderer?: Type<any>;
   /** Angular component class for editing cells of this type */
@@ -30,7 +40,7 @@ export interface AngularTypeDefault<TRow = unknown> {
 /**
  * Injection token for providing type defaults at app level.
  */
-export const GRID_TYPE_DEFAULTS = new InjectionToken<Record<string, AngularTypeDefault>>('GRID_TYPE_DEFAULTS');
+export const GRID_TYPE_DEFAULTS = new InjectionToken<Record<string, TypeDefaultRegistration>>('GRID_TYPE_DEFAULTS');
 
 /**
  * Injectable service for managing type-level defaults.
@@ -70,7 +80,7 @@ export const GRID_TYPE_DEFAULTS = new InjectionToken<Record<string, AngularTypeD
  */
 @Injectable({ providedIn: 'root' })
 export class GridTypeRegistry {
-  private readonly defaults = new Map<string, AngularTypeDefault>();
+  private readonly defaults = new Map<string, TypeDefaultRegistration>();
 
   constructor() {
     // Merge any initial defaults from provider
@@ -88,14 +98,14 @@ export class GridTypeRegistry {
    * @param type - The type name (e.g., 'country', 'currency')
    * @param defaults - Renderer/editor configuration
    */
-  register<T = unknown>(type: string, defaults: AngularTypeDefault<T>): void {
+  register<T = unknown>(type: string, defaults: TypeDefaultRegistration<T>): void {
     this.defaults.set(type, defaults);
   }
 
   /**
    * Get type defaults for a given type.
    */
-  get(type: string): AngularTypeDefault | undefined {
+  get(type: string): TypeDefaultRegistration | undefined {
     return this.defaults.get(type);
   }
 
@@ -160,6 +170,6 @@ export class GridTypeRegistry {
  * };
  * ```
  */
-export function provideGridTypeDefaults(defaults: Record<string, AngularTypeDefault>): EnvironmentProviders {
+export function provideGridTypeDefaults(defaults: Record<string, TypeDefaultRegistration>): EnvironmentProviders {
   return makeEnvironmentProviders([{ provide: GRID_TYPE_DEFAULTS, useValue: defaults }]);
 }

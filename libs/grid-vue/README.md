@@ -461,16 +461,24 @@ const props = defineProps<{
 
 ### Types
 
-| Type                    | Description                    |
-| ----------------------- | ------------------------------ |
-| `CellSlotProps`         | Props for `#cell` slot         |
-| `EditorSlotProps`       | Props for `#editor` slot       |
-| `DetailPanelContext`    | Props for detail panel slot    |
-| `ToolPanelContext`      | Props for tool panel slot      |
-| `ResponsiveCardContext` | Props for responsive card slot |
-| `VueColumnConfig`       | Column configuration type      |
-| `VueGridConfig`         | Grid configuration type        |
-| `TypeDefaultsMap`       | Type defaults registry type    |
+| Type                    | Description                          |
+| ----------------------- | ------------------------------------ |
+| `CellSlotProps`         | Props for `#cell` slot               |
+| `EditorSlotProps`       | Props for `#editor` slot             |
+| `DetailPanelContext`    | Props for detail panel slot          |
+| `ToolPanelContext`      | Props for tool panel slot            |
+| `ResponsiveCardContext` | Props for responsive card slot       |
+| `GridConfig`            | Grid configuration type (primary)    |
+| `ColumnConfig`          | Column configuration type (primary)  |
+| `CellRenderer`          | Cell renderer type (primary)         |
+| `CellEditor`            | Cell editor type (primary)           |
+| `TypeDefault`           | Type default configuration (primary) |
+| `TypeDefaultsMap`       | Type defaults registry type          |
+| `VueGridConfig`         | Deprecated - use `GridConfig`        |
+| `VueColumnConfig`       | Deprecated - use `ColumnConfig`      |
+| `VueCellRenderer`       | Deprecated - use `CellRenderer`      |
+| `VueCellEditor`         | Deprecated - use `CellEditor`        |
+| `VueTypeDefault`        | Deprecated - use `TypeDefault`       |
 
 ## Building
 

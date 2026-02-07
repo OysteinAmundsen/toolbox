@@ -18,7 +18,6 @@ import type {
   CellClickDetail,
   ColumnResizeDetail,
   GridColumnState,
-  GridConfig,
   DataGridElement as GridElement,
   RowClickDetail,
   SortChangeDetail,
@@ -66,8 +65,8 @@ import type {
   UndoRedoDetail,
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
-import type { AngularGridConfig } from '../angular-column-config';
-import { AngularGridAdapter } from '../angular-grid-adapter';
+import type { GridConfig } from '../angular-column-config';
+import { GridAdapter } from '../angular-grid-adapter';
 import { createPluginFromFeature, type FeatureName } from '../feature-registry';
 import { GridIconRegistry } from '../grid-icon-registry';
 
@@ -137,7 +136,7 @@ export interface RowCommitEvent<TRow = unknown> {
  * ```
  *
  * The directive automatically:
- * - Creates an AngularGridAdapter instance
+ * - Creates a GridAdapter instance
  * - Registers it with the GridElement
  * - Injects custom styles into the grid
  * - Handles cleanup on destruction
@@ -150,7 +149,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   private viewContainerRef = inject(ViewContainerRef);
   private iconRegistry = inject(GridIconRegistry, { optional: true });
 
-  private adapter: AngularGridAdapter | null = null;
+  private adapter: GridAdapter | null = null;
 
   constructor() {
     // Effect to process gridConfig and apply to grid
@@ -163,7 +162,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       if (deprecatedAngularConfig && !userGridConfig) {
         console.warn(
           '[tbw-grid] The [angularConfig] input is deprecated. Use [gridConfig] instead. ' +
-            'The gridConfig input now accepts AngularGridConfig directly.',
+            'The gridConfig input now accepts GridConfig directly.',
         );
       }
 
@@ -200,8 +199,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
       }
 
       // If gridConfig is provided, process it (converts component classes to renderer functions)
-      // Note: processGridConfig safely handles both GridConfig and AngularGridConfig
-      const processedConfig = angularCfg ? this.adapter.processGridConfig(angularCfg as AngularGridConfig) : null;
+      const processedConfig = angularCfg ? this.adapter.processGridConfig(angularCfg as GridConfig) : null;
 
       // IMPORTANT: If user is NOT using gridConfig input, and there are no feature plugins
       // or config overrides to merge, do NOT overwrite grid.gridConfig.
@@ -357,12 +355,12 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   /**
    * Grid configuration object with optional Angular-specific extensions.
    *
-   * Accepts both plain `GridConfig` and `AngularGridConfig`. When using `AngularGridConfig`,
-   * you can specify Angular component classes directly for renderers and editors.
+   * Accepts Angular-augmented `GridConfig` from `@toolbox-web/grid-angular`.
+   * You can specify Angular component classes directly for renderers and editors.
    *
    * Component classes must implement the appropriate interfaces:
-   * - Renderers: `AngularCellRenderer<TRow, TValue>` - requires `value()` and `row()` signal inputs
-   * - Editors: `AngularCellEditor<TRow, TValue>` - adds `commit` and `cancel` outputs
+   * - Renderers: `CellRenderer<TRow, TValue>` - requires `value()` and `row()` signal inputs
+   * - Editors: `CellEditor<TRow, TValue>` - adds `commit` and `cancel` outputs
    *
    * @example
    * ```typescript
@@ -377,8 +375,8 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    *   }
    * };
    *
-   * // Angular config with component classes
-   * config: AngularGridConfig<Employee> = {
+   * // Config with component classes
+   * config: GridConfig<Employee> = {
    *   columns: [
    *     { field: 'name', header: 'Name' },
    *     { field: 'bonus', header: 'Bonus', editable: true, editor: BonusEditorComponent }
@@ -391,13 +389,13 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  gridConfig = input<AngularGridConfig<any> | GridConfig<any>>();
+  gridConfig = input<GridConfig<any>>();
 
   /**
    * @deprecated Use `gridConfig` instead. This input will be removed in a future version.
    *
    * The `angularConfig` name was inconsistent with React and Vue adapters, which both use `gridConfig`.
-   * The `gridConfig` input now accepts `AngularGridConfig` directly.
+   * The `gridConfig` input now accepts `GridConfig` directly.
    *
    * ```html
    * <!-- Before -->
@@ -408,7 +406,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  angularConfig = input<AngularGridConfig<any>>();
+  angularConfig = input<GridConfig<any>>();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FEATURE INPUTS - Declarative plugin configuration
@@ -1091,7 +1089,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
   ngOnInit(): void {
     // Create and register the adapter
-    this.adapter = new AngularGridAdapter(this.injector, this.appRef, this.viewContainerRef);
+    this.adapter = new GridAdapter(this.injector, this.appRef, this.viewContainerRef);
     GridElementClass.registerAdapter(this.adapter);
 
     const grid = this.elementRef.nativeElement;

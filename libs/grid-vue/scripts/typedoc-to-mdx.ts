@@ -58,36 +58,9 @@ function isAdapter(node: TypeDocNode): boolean {
   return node.kind === KIND.Class && node.name.includes('Adapter');
 }
 
-/** Check if node is a context, config, or props type */
-function isConfigType(node: TypeDocNode): boolean {
-  const configNames = [
-    'VueGridConfig',
-    'VueColumnConfig',
-    'VueCellRenderer',
-    'VueCellEditor',
-    'CellSlotProps',
-    'EditorSlotProps',
-    'DetailPanelContext',
-    'ResponsiveCardContext',
-    'ToolPanelContext',
-    'TypeDefaultsMap',
-    'VueTypeDefault',
-    'GridTypeProviderProps',
-    'GridIconProviderProps',
-    'GridProviderProps',
-    'UseGridReturn',
-    'GridEventMap',
-    'FeatureProps',
-    'AllFeatureProps',
-    'FeatureName',
-    'PluginFactory',
-  ];
-  return (
-    configNames.includes(node.name) ||
-    node.name.endsWith('Props') ||
-    node.name.endsWith('Config') ||
-    node.name.endsWith('Context')
-  );
+/** Check if node is a type (interface or type alias) */
+function isType(node: TypeDocNode): boolean {
+  return node.kind === KIND.TypeAlias || node.kind === KIND.Interface;
 }
 
 // ============================================================================
@@ -114,7 +87,7 @@ function processModule(module: TypeDocNode, outDir: string): void {
       composables.push(node);
     } else if (isAdapter(node)) {
       adapters.push(node);
-    } else if (isConfigType(node)) {
+    } else if (isType(node)) {
       types.push(node);
     } else if (GENERATORS[node.kind]) {
       other.push(node);

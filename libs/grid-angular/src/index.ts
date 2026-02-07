@@ -5,20 +5,39 @@
  * Provides directives for seamless Angular integration with the grid component.
  */
 
-export { AngularGridAdapter } from './lib/angular-grid-adapter';
+// Primary export - use this
+export { GridAdapter } from './lib/angular-grid-adapter';
+// Deprecated alias
+export {
+  /** @deprecated Use `GridAdapter` instead */
+  AngularGridAdapter,
+} from './lib/angular-grid-adapter';
 
-// Angular-specific column/grid config types (for component-based renderers/editors)
+// Configuration types - use unified names (GridConfig, ColumnConfig, CellRenderer, etc.)
 export { isComponentClass } from './lib/angular-column-config';
 export type {
+  // Deprecated names - use unified names instead
+  /** @deprecated Use `CellEditor` instead */
   AngularCellEditor,
+  /** @deprecated Use `CellRenderer` instead */
   AngularCellRenderer,
+  /** @deprecated Use `ColumnConfig` instead */
   AngularColumnConfig,
+  /** @deprecated Use `GridConfig` instead */
   AngularGridConfig,
+  /** @deprecated Use `TypeDefault` instead */
   AngularTypeDefault,
+  // Primary exports - use these
+  CellEditor,
+  CellRenderer,
+  ColumnConfig,
+  GridConfig,
+  TypeDefault,
 } from './lib/angular-column-config';
 
 // Type registry for application-wide type defaults
 export { GRID_TYPE_DEFAULTS, GridTypeRegistry, provideGridTypeDefaults } from './lib/grid-type-registry';
+export type { TypeDefaultRegistration } from './lib/grid-type-registry';
 
 // Icon registry for application-wide icon overrides
 export { GRID_ICONS, GridIconRegistry, provideGridIcons } from './lib/grid-icon-registry';
@@ -46,9 +65,9 @@ export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { GridDetailView } from './lib/directives/grid-detail-view.directive';
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
-export { GridFormArray, getFormArrayContext } from './lib/directives/grid-form-array.directive';
+export { getFormArrayContext, GridFormArray } from './lib/directives/grid-form-array.directive';
 export type { FormArrayContext } from './lib/directives/grid-form-array.directive';
-export { GridLazyForm, getLazyFormContext } from './lib/directives/grid-lazy-form.directive';
+export { getLazyFormContext, GridLazyForm } from './lib/directives/grid-lazy-form.directive';
 export type { LazyFormFactory, RowFormChangeEvent } from './lib/directives/grid-lazy-form.directive';
 export { GridResponsiveCard } from './lib/directives/grid-responsive-card.directive';
 export type { GridResponsiveCardContext } from './lib/directives/grid-responsive-card.directive';

@@ -174,7 +174,7 @@ import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-react/features/filtering';
 import '@toolbox-web/grid-react/features/clipboard';
 
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
 interface Employee {
   id: number;
@@ -209,12 +209,12 @@ There are two ways to define custom renderers: inline in the configuration, or v
 
 ### Inline Configuration (Recommended)
 
-Define renderers directly in your `ReactGridConfig`:
+Define renderers directly in your `GridConfig`:
 
 ```tsx
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
-const config: ReactGridConfig<Employee> = {
+const config: GridConfig<Employee> = {
   columns: [
     { field: 'name', header: 'Name' },
     {
@@ -267,7 +267,7 @@ Define editors inline in your configuration or via `GridColumn`:
 ### Inline Configuration
 
 ```tsx
-const config: ReactGridConfig<Employee> = {
+const config: GridConfig<Employee> = {
   columns: [
     {
       field: 'status',
@@ -331,7 +331,7 @@ import { DataGrid, GridDetailPanel } from '@toolbox-web/grid-react';
 import { MasterDetailPlugin } from '@toolbox-web/grid/all';
 
 function EmployeeGrid() {
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [...],
     plugins: [new MasterDetailPlugin()],
   };
@@ -369,7 +369,7 @@ import { DataGrid, GridToolPanel, GridToolButtons } from '@toolbox-web/grid-reac
 import { ShellPlugin } from '@toolbox-web/grid/all';
 
 function EmployeeGrid() {
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [...],
     plugins: [new ShellPlugin()],
   };
@@ -688,8 +688,14 @@ Inject custom CSS into the grid:
 
 ```typescript
 import type {
+  // Primary config exports (use these)
+  GridConfig,
+  ColumnConfig,
+  // Deprecated aliases (use GridConfig/ColumnConfig instead)
+  // Deprecated aliases
   ReactGridConfig,
   ReactColumnConfig,
+  // Context types
   CellRenderContext,
   ColumnEditorContext,
   DetailPanelContext,
@@ -699,10 +705,12 @@ import type {
   // Feature props
   FeatureProps,
   SSRProps,
-  // Type-level defaults
-  ReactTypeDefault,
+  // Type-level defaults (TypeDefault is primary)
+  TypeDefault,
   TypeDefaultsMap,
   GridTypeProviderProps,
+  // Deprecated
+  ReactTypeDefault,
   // Icon overrides
   GridIconProviderProps,
   GridProviderProps,

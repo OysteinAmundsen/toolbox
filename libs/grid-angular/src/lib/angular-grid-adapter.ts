@@ -10,16 +10,21 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import type {
+  ColumnConfig as BaseColumnConfig,
+  GridConfig as BaseGridConfig,
+  TypeDefault as BaseTypeDefault,
   CellRenderContext,
-  ColumnConfig,
   ColumnEditorContext,
   ColumnEditorSpec,
   ColumnViewRenderer,
   FrameworkAdapter,
-  GridConfig,
-  TypeDefault,
 } from '@toolbox-web/grid';
-import { isComponentClass, type AngularColumnConfig, type AngularGridConfig } from './angular-column-config';
+import {
+  isComponentClass,
+  type ColumnConfig,
+  type GridConfig,
+  type TypeDefault,
+} from './angular-column-config';
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';
@@ -64,7 +69,7 @@ function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorConte
  * ```typescript
  * import { Component, inject, EnvironmentInjector, ApplicationRef, ViewContainerRef } from '@angular/core';
  * import { GridElement } from '@toolbox-web/grid';
- * import { AngularGridAdapter } from '@toolbox-web/grid-angular';
+ * import { GridAdapter } from '@toolbox-web/grid-angular';
  *
  * @Component({
  *   selector: 'app-root',
@@ -75,7 +80,7 @@ function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorConte
  *     const injector = inject(EnvironmentInjector);
  *     const appRef = inject(ApplicationRef);
  *     const viewContainerRef = inject(ViewContainerRef);
- *     GridElement.registerAdapter(new AngularGridAdapter(injector, appRef, viewContainerRef));
+ *     GridElement.registerAdapter(new GridAdapter(injector, appRef, viewContainerRef));
  *   }
  * }
  * ```
@@ -114,7 +119,7 @@ function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorConte
  * - Handles editor callbacks (onCommit/onCancel)
  * - Manages view lifecycle and change detection
  */
-export class AngularGridAdapter implements FrameworkAdapter {
+export class GridAdapter implements FrameworkAdapter {
   private viewRefs: EmbeddedViewRef<unknown>[] = [];
   private componentRefs: ComponentRef<unknown>[] = [];
   private typeRegistry: GridTypeRegistry | null = null;
@@ -144,9 +149,9 @@ export class AngularGridAdapter implements FrameworkAdapter {
    *
    * @example
    * ```typescript
-   * import { AngularGridAdapter, type AngularGridConfig } from '@toolbox-web/grid-angular';
+   * import { GridAdapter, type GridConfig } from '@toolbox-web/grid-angular';
    *
-   * const config: AngularGridConfig<Employee> = {
+   * const config: GridConfig<Employee> = {
    *   columns: [
    *     { field: 'status', renderer: StatusBadgeComponent, editor: StatusEditorComponent },
    *   ],
@@ -154,7 +159,7 @@ export class AngularGridAdapter implements FrameworkAdapter {
    *
    * // In component
    * constructor() {
-   *   const adapter = inject(AngularGridAdapter); // or create new instance
+   *   const adapter = inject(GridAdapter); // or create new instance
    *   this.processedConfig = adapter.processGridConfig(config);
    * }
    * ```
@@ -162,8 +167,8 @@ export class AngularGridAdapter implements FrameworkAdapter {
    * @param config - Angular grid configuration with possible component class references
    * @returns Processed GridConfig with actual renderer/editor functions
    */
-  processGridConfig<TRow = unknown>(config: AngularGridConfig<TRow>): GridConfig<TRow> {
-    const result = { ...config } as GridConfig<TRow>;
+  processGridConfig<TRow = unknown>(config: GridConfig<TRow>): BaseGridConfig<TRow> {
+    const result = { ...config } as BaseGridConfig<TRow>;
 
     // Process columns
     if (config.columns) {
@@ -186,12 +191,12 @@ export class AngularGridAdapter implements FrameworkAdapter {
    * @returns Processed TypeDefault record
    */
   processTypeDefaults<TRow = unknown>(
-    typeDefaults: Record<string, import('./angular-column-config').AngularTypeDefault<TRow>>,
-  ): Record<string, import('@toolbox-web/grid').TypeDefault<TRow>> {
-    const processed: Record<string, import('@toolbox-web/grid').TypeDefault<TRow>> = {};
+    typeDefaults: Record<string, TypeDefault<TRow>>,
+  ): Record<string, BaseTypeDefault<TRow>> {
+    const processed: Record<string, BaseTypeDefault<TRow>> = {};
 
     for (const [type, config] of Object.entries(typeDefaults)) {
-      const processedConfig: import('@toolbox-web/grid').TypeDefault<TRow> = { ...config } as any;
+      const processedConfig: BaseTypeDefault<TRow> = { ...config } as BaseTypeDefault<TRow>;
 
       // Convert renderer component class to function
       if (config.renderer && isComponentClass(config.renderer)) {
@@ -216,8 +221,8 @@ export class AngularGridAdapter implements FrameworkAdapter {
    * @param column - Angular column configuration
    * @returns Processed ColumnConfig
    */
-  processColumn<TRow = unknown>(column: AngularColumnConfig<TRow>): ColumnConfig<TRow> {
-    const processed = { ...column } as ColumnConfig<TRow>;
+  processColumn<TRow = unknown>(column: ColumnConfig<TRow>): BaseColumnConfig<TRow> {
+    const processed = { ...column } as BaseColumnConfig<TRow>;
 
     // Convert renderer component class to function
     if (column.renderer && isComponentClass(column.renderer)) {
@@ -561,7 +566,7 @@ export class AngularGridAdapter implements FrameworkAdapter {
    * };
    * ```
    */
-  getTypeDefault<TRow = unknown>(type: string): TypeDefault<TRow> | undefined {
+  getTypeDefault<TRow = unknown>(type: string): BaseTypeDefault<TRow> | undefined {
     if (!this.typeRegistry) {
       return undefined;
     }
@@ -571,7 +576,7 @@ export class AngularGridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    const typeDefault: TypeDefault<TRow> = {
+    const typeDefault: BaseTypeDefault<TRow> = {
       editorParams: config.editorParams,
     };
 
@@ -583,7 +588,7 @@ export class AngularGridAdapter implements FrameworkAdapter {
     // Create editor function that instantiates the Angular component
     if (config.editor) {
       // Type assertion needed: adapter bridges TRow to core's unknown
-      typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor) as TypeDefault['editor'];
+      typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor) as BaseTypeDefault['editor'];
     }
 
     return typeDefault;
@@ -732,3 +737,9 @@ export class AngularGridAdapter implements FrameworkAdapter {
     this.componentRefs = [];
   }
 }
+
+/**
+ * @deprecated Use `GridAdapter` instead. This alias will be removed in a future version.
+ * @see {@link GridAdapter}
+ */
+export const AngularGridAdapter = GridAdapter;

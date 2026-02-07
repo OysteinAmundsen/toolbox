@@ -7,11 +7,29 @@
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
 import { defineComponent, inject, provide, type InjectionKey, type PropType, type VNode } from 'vue';
 
+// #region TypeDefault Interface
 /**
- * Vue-specific type default configuration.
- * Uses Vue render functions that receive the render context.
+ * Type default configuration for Vue applications.
+ *
+ * Defines default renderer, editor, and editorParams for a data type
+ * using Vue render functions.
+ *
+ * @example
+ * ```ts
+ * import type { TypeDefault } from '@toolbox-web/grid-vue';
+ * import CountryFlag from './CountryFlag.vue';
+ * import CountrySelect from './CountrySelect.vue';
+ *
+ * const countryDefault: TypeDefault<Employee, string> = {
+ *   renderer: (ctx) => h(CountryFlag, { code: ctx.value }),
+ *   editor: (ctx) => h(CountrySelect, {
+ *     modelValue: ctx.value,
+ *     'onUpdate:modelValue': ctx.commit,
+ *   }),
+ * };
+ * ```
  */
-export interface VueTypeDefault<TRow = unknown, TValue = unknown> {
+export interface TypeDefault<TRow = unknown, TValue = unknown> {
   /** Vue render function for rendering cells of this type */
   renderer?: (ctx: CellRenderContext<TRow, TValue>) => VNode;
   /** Vue render function for editing cells of this type */
@@ -21,9 +39,16 @@ export interface VueTypeDefault<TRow = unknown, TValue = unknown> {
 }
 
 /**
+ * @deprecated Use `TypeDefault` instead.
+ * @see {@link TypeDefault}
+ */
+export type VueTypeDefault<TRow = unknown, TValue = unknown> = TypeDefault<TRow, TValue>;
+// #endregion
+
+/**
  * Type defaults registry - a map of type names to their defaults.
  */
-export type TypeDefaultsMap = Record<string, VueTypeDefault>;
+export type TypeDefaultsMap = Record<string, TypeDefault>;
 
 /**
  * Injection key for type defaults.
@@ -62,9 +87,9 @@ export function useGridTypeDefaults(): TypeDefaultsMap | undefined {
  */
 export function useTypeDefault<TRow = unknown, TValue = unknown>(
   typeName: string,
-): VueTypeDefault<TRow, TValue> | undefined {
+): TypeDefault<TRow, TValue> | undefined {
   const defaults = useGridTypeDefaults();
-  return defaults?.[typeName] as VueTypeDefault<TRow, TValue> | undefined;
+  return defaults?.[typeName] as TypeDefault<TRow, TValue> | undefined;
 }
 
 /**

@@ -149,10 +149,10 @@ interface CellRootCache {
  *
  * ```tsx
  * import { GridElement } from '@toolbox-web/grid';
- * import { ReactGridAdapter } from '@toolbox-web/grid-react';
+ * import { GridAdapter } from '@toolbox-web/grid-react';
  *
  * // One-time registration
- * GridElement.registerAdapter(new ReactGridAdapter());
+ * GridElement.registerAdapter(new GridAdapter());
  * ```
  *
  * ## Declarative usage with DataGrid:
@@ -168,7 +168,7 @@ interface CellRootCache {
  * </DataGrid>
  * ```
  */
-export class ReactGridAdapter implements FrameworkAdapter {
+export class GridAdapter implements FrameworkAdapter {
   private mountedViews: MountedView[] = [];
   private typeDefaults: TypeDefaultsMap | null = null;
 
@@ -549,3 +549,9 @@ export class ReactGridAdapter implements FrameworkAdapter {
     }
   }
 }
+
+/**
+ * @deprecated Use `GridAdapter` instead. This alias will be removed in a future version.
+ * @see {@link GridAdapter}
+ */
+export const ReactGridAdapter = GridAdapter;

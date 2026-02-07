@@ -12,6 +12,8 @@ import {
   showLoadingOverlay,
 } from './internal/loading';
 import {
+  calculateAverageHeight,
+  countMeasuredRows,
   getRowIndexAtOffset,
   getTotalHeight,
   rebuildPositionCache,
@@ -3938,8 +3940,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const rowElements = this._bodyEl.querySelectorAll('.data-grid-row');
 
     let hasChanges = false;
-    let totalMeasured = 0;
-    let measuredCount = 0;
 
     rowElements.forEach((rowEl) => {
       const rowIndexStr = (rowEl as HTMLElement).dataset.rowIndex;
@@ -3980,25 +3980,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           // Persist to height cache for rows without plugin-provided heights
           setCachedHeight(heightCache, row, measuredHeight);
 
-          // Include in average stats
-          totalMeasured += measuredHeight;
-          measuredCount++;
-
           hasChanges = true;
-        } else {
-          // Row already measured - still count for stats
-          totalMeasured += measuredHeight;
-          measuredCount++;
         }
       }
     });
 
-    // Update average height stat (only for non-plugin-managed rows)
-    if (measuredCount > 0) {
-      this._virtualization.measuredCount += measuredCount;
-      // Rolling average calculation
-      const prevTotal = this._virtualization.averageHeight * (this._virtualization.measuredCount - measuredCount);
-      this._virtualization.averageHeight = (prevTotal + totalMeasured) / this._virtualization.measuredCount;
+    // Recompute stats from position cache to avoid drift from remeasured rows
+    // (Using cache-based helpers ensures accurate counts when same rows are remeasured)
+    if (hasChanges) {
+      this._virtualization.measuredCount = countMeasuredRows(positionCache);
+      this._virtualization.averageHeight = calculateAverageHeight(positionCache, this._virtualization.rowHeight);
     }
 
     // If heights changed, update total height spacer

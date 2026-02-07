@@ -1,5 +1,17 @@
+import type { RowPosition } from './internal/position-cache';
 import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
+
+/**
+ * Position entry for a single row in the position cache.
+ * Part of variable row height virtualization.
+ *
+ * Re-exported from position-cache.ts for public API consistency.
+ *
+ * @see VirtualState.positionCache
+ * @category Plugin Development
+ */
+export type RowPositionEntry = RowPosition;
 
 // #region DataGridElement Interface
 /**
@@ -1445,22 +1457,6 @@ export interface VirtualState {
 
   /** Whether variable row height mode is active (rowHeight is a function). */
   variableHeights: boolean;
-}
-
-/**
- * Position entry for a single row in the position cache.
- * Part of variable row height virtualization.
- *
- * @see VirtualState.positionCache
- * @category Plugin Development
- */
-export interface RowPositionEntry {
-  /** Cumulative offset from top in pixels */
-  offset: number;
-  /** Row height in pixels */
-  height: number;
-  /** Whether this is a measured value (true) or estimate (false) */
-  measured: boolean;
 }
 
 // RowElementInternal is now defined earlier in the file with all internal properties

@@ -3,35 +3,69 @@ import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/gri
 
 /**
  * Selection convenience methods returned from injectGrid.
+ *
+ * @deprecated These methods are deprecated and will be removed in a future version.
+ * Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead.
+ *
+ * @example
+ * ```typescript
+ * // Old (deprecated)
+ * const grid = injectGrid();
+ * grid.selectAll();
+ *
+ * // New (recommended)
+ * import { injectGridSelection } from '@toolbox-web/grid-angular/features/selection';
+ * const selection = injectGridSelection();
+ * selection.selectAll();
+ * ```
  */
 export interface SelectionMethods<TRow = unknown> {
   /**
    * Select all rows in the grid.
    * Requires SelectionPlugin with mode: 'row'.
+   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead.
    */
   selectAll: () => void;
 
   /**
    * Clear all selection.
    * Works with any SelectionPlugin mode.
+   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead.
    */
   clearSelection: () => void;
 
   /**
    * Get selected row indices.
    * Returns Set of selected row indices.
+   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead.
    */
   getSelectedIndices: () => Set<number>;
 
   /**
    * Get selected rows data.
    * Returns array of selected row objects.
+   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead.
    */
   getSelectedRows: () => TRow[];
 }
 
 /**
  * Export convenience methods returned from injectGrid.
+ *
+ * @deprecated These methods are deprecated and will be removed in a future version.
+ * Use `injectGridExport()` from `@toolbox-web/grid-angular/features/export` instead.
+ *
+ * @example
+ * ```typescript
+ * // Old (deprecated)
+ * const grid = injectGrid();
+ * grid.exportToCsv('data.csv');
+ *
+ * // New (recommended)
+ * import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+ * const gridExport = injectGridExport();
+ * gridExport.exportToCsv('data.csv');
+ * ```
  */
 export interface ExportMethods {
   /**
@@ -39,6 +73,7 @@ export interface ExportMethods {
    * Requires ExportPlugin to be loaded.
    *
    * @param filename - Optional filename (defaults to 'export.csv')
+   * @deprecated Use `injectGridExport()` from `@toolbox-web/grid-angular/features/export` instead.
    */
   exportToCsv: (filename?: string) => void;
 
@@ -47,12 +82,18 @@ export interface ExportMethods {
    * Requires ExportPlugin to be loaded.
    *
    * @param filename - Optional filename (defaults to 'export.json')
+   * @deprecated Use `injectGridExport()` from `@toolbox-web/grid-angular/features/export` instead.
    */
   exportToJson: (filename?: string) => void;
 }
 
 /**
  * Return type for injectGrid function.
+ *
+ * Note: Selection and export convenience methods are deprecated.
+ * Use feature-specific inject functions instead:
+ * - `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection`
+ * - `injectGridExport()` from `@toolbox-web/grid-angular/features/export`
  */
 export interface InjectGridReturn<TRow = unknown> extends SelectionMethods<TRow>, ExportMethods {
   /** Direct access to the typed grid element */

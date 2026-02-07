@@ -739,7 +739,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * <tbw-grid [export]="{ filename: 'data.csv' }" />
    * ```
    */
-  exportFeature = input<boolean | ExportConfig>();
+  exportFeature = input<boolean | ExportConfig>(undefined, { alias: 'export' });
 
   /**
    * Enable print functionality.

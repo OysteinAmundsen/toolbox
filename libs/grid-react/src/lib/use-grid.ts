@@ -4,35 +4,65 @@ import type { DataGridRef } from './data-grid';
 
 /**
  * Selection convenience methods returned from useGrid.
+ *
+ * @deprecated These methods are deprecated and will be removed in a future version.
+ * Use `useGridSelection()` from `@toolbox-web/grid-react/features/selection` instead.
+ *
+ * @example
+ * ```tsx
+ * // Old (deprecated)
+ * const { selectAll, clearSelection } = useGrid();
+ *
+ * // New (recommended)
+ * import { useGridSelection } from '@toolbox-web/grid-react/features/selection';
+ * const { selectAll, clearSelection, getSelectedRows } = useGridSelection();
+ * ```
  */
 export interface SelectionMethods<TRow = unknown> {
   /**
    * Select all rows in the grid.
    * Requires SelectionPlugin with mode: 'row'.
+   * @deprecated Use `useGridSelection()` from `@toolbox-web/grid-react/features/selection` instead.
    */
   selectAll: () => void;
 
   /**
    * Clear all selection.
    * Works with any SelectionPlugin mode.
+   * @deprecated Use `useGridSelection()` from `@toolbox-web/grid-react/features/selection` instead.
    */
   clearSelection: () => void;
 
   /**
    * Get selected row indices.
    * Returns Set of selected row indices.
+   * @deprecated Use `useGridSelection()` from `@toolbox-web/grid-react/features/selection` instead.
    */
   getSelectedIndices: () => Set<number>;
 
   /**
    * Get selected rows data.
    * Returns array of selected row objects.
+   * @deprecated Use `useGridSelection()` from `@toolbox-web/grid-react/features/selection` instead.
    */
   getSelectedRows: () => TRow[];
 }
 
 /**
  * Export convenience methods returned from useGrid.
+ *
+ * @deprecated These methods are deprecated and will be removed in a future version.
+ * Use `useGridExport()` from `@toolbox-web/grid-react/features/export` instead.
+ *
+ * @example
+ * ```tsx
+ * // Old (deprecated)
+ * const { exportToCsv, exportToJson } = useGrid();
+ *
+ * // New (recommended)
+ * import { useGridExport } from '@toolbox-web/grid-react/features/export';
+ * const { exportToCsv, exportToExcel, exportToJson } = useGridExport();
+ * ```
  */
 export interface ExportMethods {
   /**
@@ -40,6 +70,7 @@ export interface ExportMethods {
    * Requires ExportPlugin to be loaded.
    *
    * @param filename - Optional filename (defaults to 'export.csv')
+   * @deprecated Use `useGridExport()` from `@toolbox-web/grid-react/features/export` instead.
    */
   exportToCsv: (filename?: string) => void;
 
@@ -48,12 +79,18 @@ export interface ExportMethods {
    * Requires ExportPlugin to be loaded.
    *
    * @param filename - Optional filename (defaults to 'export.json')
+   * @deprecated Use `useGridExport()` from `@toolbox-web/grid-react/features/export` instead.
    */
   exportToJson: (filename?: string) => void;
 }
 
 /**
  * Return type for useGrid hook.
+ *
+ * Note: Selection and export convenience methods are deprecated.
+ * Use feature-specific hooks instead:
+ * - `useGridSelection()` from `@toolbox-web/grid-react/features/selection`
+ * - `useGridExport()` from `@toolbox-web/grid-react/features/export`
  */
 export interface UseGridReturn<TRow = unknown> extends SelectionMethods<TRow>, ExportMethods {
   /** Ref to attach to the DataGrid component (returns DataGridRef handle) */

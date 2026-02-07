@@ -2,6 +2,7 @@ import type { BaseGridPlugin, ColumnConfig, DataGridElement, GridConfig } from '
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import {
   Children,
+  createContext,
   forwardRef,
   isValidElement,
   useContext,
@@ -10,6 +11,7 @@ import {
   useMemo,
   useRef,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import '../jsx.d.ts';
 import { normalizeColumns, type ColumnShorthand } from './column-shorthand';
@@ -51,6 +53,13 @@ function ensureAdapterRegistered(): ReactGridAdapter {
 // Register adapter immediately at module load time
 // This ensures the adapter is available when grids parse their light DOM columns
 ensureAdapterRegistered();
+
+/**
+ * Context for sharing the grid element ref with child components.
+ * Used by feature-specific hooks like useGridSelection, useGridExport.
+ * @internal
+ */
+export const GridElementContext = createContext<RefObject<DataGridElement | null> | null>(null);
 
 /**
  * Refreshes the MasterDetailPlugin renderer after React renders GridDetailPanel.
@@ -860,7 +869,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       class={className}
       style={style}
     >
-      {children}
+      <GridElementContext.Provider value={gridRef}>{children}</GridElementContext.Provider>
     </tbw-grid>
   );
 }) as <TRow = unknown>(props: DataGridProps<TRow> & { ref?: React.Ref<DataGridRef<TRow>> }) => React.ReactElement;

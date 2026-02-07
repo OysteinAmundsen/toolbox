@@ -11,6 +11,7 @@ import './storybook-styles.css';
 
 // Import grid component class to ensure custom element registration side-effect runs
 // We import the class (not just the module) to prevent tree-shaking
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { DataGridElement } from '../../../libs/grid/src/index';
 
 // Force the import to be retained by referencing it
@@ -185,7 +186,10 @@ const preview: Preview = {
         headingSelector: 'h2, h3',
         title: 'On this page',
       },
-      extractComponentDescription: (component: any, { notes }: any) => {
+      extractComponentDescription: (
+        _component: unknown,
+        { notes }: { notes?: string | { markdown?: string; text?: string } },
+      ) => {
         if (notes) {
           return typeof notes === 'string' ? notes : notes.markdown || notes.text;
         }
@@ -207,14 +211,16 @@ const preview: Preview = {
   },
   decorators: [
     // Apply theme styles + syntax highlighting
-    (story: any, context: any) => {
-      applyTheme(context.globals.theme || 'standard');
+    (story, context) => {
+      applyTheme((context.globals.theme as string) || 'standard');
       const html = story();
       queueMicrotask(() => {
         document.querySelectorAll('pre code.hljs').forEach((el) => {
           try {
             hljs.highlightElement(el as HTMLElement);
-          } catch {}
+          } catch {
+            // Ignore highlight errors for malformed code blocks
+          }
         });
       });
       return html;

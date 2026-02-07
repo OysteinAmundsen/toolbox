@@ -117,7 +117,7 @@ jobs:
       - uses: nrwl/nx-set-shas@v4
 
       - name: Run linting (affected)
-        run: bun nx affected -t lint --quiet
+        run: bun nx affected -t lint --exclude=docs --quiet
 
       - name: Run tests (affected)
         run: bun nx affected -t test

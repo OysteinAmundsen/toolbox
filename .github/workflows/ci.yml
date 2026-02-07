@@ -113,8 +113,14 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Run linting and tests
-        run: bun run lint --quiet && bun run test
+      # Set up Nx for affected commands
+      - uses: nrwl/nx-set-shas@v4
+
+      - name: Run linting (affected)
+        run: bun nx affected -t lint --quiet
+
+      - name: Run tests (affected)
+        run: bun nx affected -t test
 
   build:
     needs: setup
@@ -140,8 +146,11 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build library
-        run: bun run build
+      # Set up Nx for affected commands
+      - uses: nrwl/nx-set-shas@v4
+
+      - name: Build affected libraries
+        run: bun nx affected -t build
 
   # ============================================
   # E2E: Cross-Framework Visual Regression Tests

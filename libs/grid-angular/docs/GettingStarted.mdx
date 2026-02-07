@@ -459,6 +459,81 @@ export const appConfig: ApplicationConfig = {
 `}
 />
 
+## Variable Row Heights
+
+The grid supports variable row heights for complex layouts with wrapped text or dynamic content. Configure via `gridConfig.rowHeight`:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { GridConfig } from '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid [rows]="employees" [gridConfig]="config" style="height: 400px; display: block;" />
+  \`,
+})
+export class VariableHeightGridComponent {
+  employees = [/* ... */];
+
+  config: GridConfig = {
+    rowId: 'id', // Required for height caching when rows are recreated
+    rowHeight: (row, index) => {
+      // Return known fixed height when possible (fast)
+      if (row.type === 'header') return 48;
+
+      // Return undefined to auto-measure the row's DOM height (slower)
+      return row.hasLongDescription ? undefined : 28;
+    },
+    columns: [/* ... */],
+  };
+}
+`}
+/>
+
+### Height Caching
+
+The grid caches measured heights to avoid repeated DOM measurements. When rows may be recreated (e.g., from HTTP responses), use `rowId` to maintain cache identity:
+
+<Source
+  language="typescript"
+  code={`
+config: GridConfig = {
+  rowId: 'id',  // Use the 'id' field as unique identifier
+  rowHeight: (row) => row.expanded ? undefined : 32,
+};
+`}
+/>
+
+### Plugin-Provided Heights
+
+Plugins like `GroupingRowsPlugin` provide their own row heights. Configure via the plugin's options:
+
+<Source
+  language="typescript"
+  code={`
+import { GroupingRowsPlugin } from '@toolbox-web/grid/all';
+
+config: GridConfig = {
+  plugins: [
+    new GroupingRowsPlugin({
+      field: 'department',
+      groupRowHeight: 36, // Known height for group headers
+    }),
+  ],
+  // Your rowHeight callback handles data rows only -
+  // plugins handle their own synthetic rows automatically
+  rowHeight: (row) => row.hasNotes ? undefined : 28,
+};
+`}
+/>
+
+See [Variable Row Heights](/docs/grid-core--docs#variable-row-heights) for complete documentation.
+
 ## Next Steps
 
 - **[Reactive Forms Integration](/docs/grid-angular-reactive-forms-integration--docs)** - Bind the grid to Angular FormArray for validation and dirty tracking

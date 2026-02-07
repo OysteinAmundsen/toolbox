@@ -640,6 +640,103 @@ Replace the default spinner with a custom component:
 
 <Canvas of={LoadingPlaygroundStories.CustomLoadingRenderer} withToolbar />
 
+## Variable Row Heights
+
+By default, all rows share a fixed height (`28px`). For scenarios where rows need different heights—such as wrapped text, expandable content, or plugin-provided heights (like group headers)—the grid supports variable row heights with smart caching.
+
+### Configuration
+
+Use the `rowHeight` option in `gridConfig`:
+
+```typescript
+grid.gridConfig = {
+  rowHeight: 40, // Fixed height for all rows (px)
+};
+```
+
+For dynamic heights, pass a function that returns a **known height** or `undefined` to trigger auto-measurement:
+
+```typescript
+grid.gridConfig = {
+  rowHeight: (row, index) => {
+    // Known fixed heights
+    if (row.type === 'header') return 48;
+    if (row.compact) return 24;
+
+    // Return undefined to let the grid measure this row's actual DOM height
+    return undefined;
+  },
+};
+```
+
+### How Auto-Measurement Works
+
+When `rowHeight` returns `undefined`, the grid:
+
+1. Renders the row to the DOM
+2. Measures its actual height via `getBoundingClientRect()`
+3. Caches the result for future scroll position calculations
+
+This enables rows with dynamic content (multi-line text, images, etc.) to render at their natural height.
+
+### Row Identity for Height Caching
+
+The grid caches measured row heights to avoid repeated DOM measurements. Cache keys are determined by:
+
+| Row Type | Cache Key | When to Use |
+|----------|-----------|-------------|
+| Object rows | WeakMap (by reference) | Default for object data |
+| Primitive rows | `rowId` config option | Required when rows are primitives or recreated |
+| Plugin rows | `__rowCacheKey` property | Auto-set by plugins (e.g., `'group:Engineering'`) |
+
+**Important:** If rows are recreated (e.g., from JSON parsing), configure `rowId` so the cache persists across updates:
+
+```typescript
+grid.gridConfig = {
+  rowId: 'id', // Use the 'id' field as unique identifier
+  rowHeight: (row) => row.expanded ? undefined : 32, // Measure expanded rows
+};
+```
+
+### Plugin-Provided Heights
+
+Plugins can implement `getRowHeight(row, index)` to provide known heights for their synthetic rows:
+
+- **GroupingRowsPlugin**: Use `groupRowHeight` config for group header rows
+- **MasterDetailPlugin**: Returns configured detail panel height
+- **TreePlugin**: Can specify different heights for parent vs. leaf nodes
+
+```typescript
+import { GroupingRowsPlugin } from '@toolbox-web/grid/all';
+
+grid.gridConfig = {
+  plugins: [
+    new GroupingRowsPlugin({
+      field: 'department',
+      groupRowHeight: 36, // Known height for group headers
+    }),
+  ],
+  rowHeight: (row) => {
+    // Plugin handles group rows automatically via getRowHeight hook
+    // This callback is for data rows only
+    return row.hasNotes ? undefined : 28;
+  },
+};
+```
+
+### Performance Considerations
+
+| Approach | Performance | Use Case |
+|----------|-------------|----------|
+| Fixed `number` | ⚡ Fastest | Uniform row heights |
+| Function returning numbers | ⚡ Fast | Known variable heights (e.g., by row type) |
+| Function returning `undefined` | 🐢 Slower | Dynamic content requiring DOM measurement |
+
+**Best practices:**
+- Return known heights whenever possible to avoid DOM measurement
+- Use `rowId` config when rows may be recreated between renders
+- Plugins like `GroupingRowsPlugin` handle their own heights—you don't need to account for them in `rowHeight`
+
 ## Events
 
 The core grid emits events for user interactions and state changes. Try clicking, sorting,

@@ -67,6 +67,23 @@ export interface GroupingRowsConfig {
    * @default false
    */
   accordion?: boolean;
+  /**
+   * Height of group header rows in pixels.
+   * Used by the variable row height system to provide consistent heights
+   * for group rows without needing to measure them.
+   *
+   * If not specified, group rows will be measured from the DOM like data rows.
+   * Setting this improves performance by avoiding DOM measurements.
+   *
+   * @example
+   * ```ts
+   * new GroupingRowsPlugin({
+   *   groupOn: (row) => [row.department],
+   *   groupRowHeight: 36, // Group headers are 36px tall
+   * })
+   * ```
+   */
+  groupRowHeight?: number;
 }
 
 /** Parameters passed to custom group row renderer */

@@ -329,8 +329,9 @@ export class ConfigManager<T = unknown> {
     // This is done at config time for performance - no runtime lookup needed
     this.#applyTypeDefaultsToColumns();
 
-    // Apply rowHeight from config if specified
-    if (config.rowHeight && config.rowHeight > 0) {
+    // Apply rowHeight from config if specified (only for numeric values)
+    // Function-based rowHeight is handled by variable height virtualization
+    if (typeof config.rowHeight === 'number' && config.rowHeight > 0) {
       this.#callbacks.setRowHeight(config.rowHeight);
     }
 

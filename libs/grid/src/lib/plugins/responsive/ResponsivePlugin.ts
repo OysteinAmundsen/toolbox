@@ -789,6 +789,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * actual heights and what the base calculation assumes:
    * - Extra for groups: groupCount * (groupHeight - baseHeight)
    * - Extra for cards: cardCount * (cardHeight - baseHeight)
+   *
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
    */
   override getExtraHeight(): number {
     // Only applies when in responsive mode with cardRenderer
@@ -820,6 +822,8 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * Used by virtualization to correctly calculate scroll positions.
    *
    * Like getExtraHeight, this accounts for both group and card row heights.
+   *
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
    */
   override getExtraHeightBefore(beforeRowIndex: number): number {
     // Only applies when in responsive mode with cardRenderer
@@ -854,6 +858,29 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
 
     return groupsBefore * groupHeightDiff + cardsBefore * cardHeightDiff;
+  }
+
+  /**
+   * Get the height of a specific row based on its type (group row vs card row).
+   * Returns undefined if not in responsive mode.
+   *
+   * @param row - The row data
+   * @param _index - The row index (unused, but part of the interface)
+   * @returns The row height in pixels, or undefined if not in responsive mode
+   */
+  override getRowHeight(row: unknown, _index: number): number | undefined {
+    // Only applies when in responsive mode with cardRenderer
+    if (!this.#isResponsive || !this.config.cardRenderer) {
+      return undefined;
+    }
+
+    // Check if this is a group row
+    if ((row as { __isGroupRow?: boolean }).__isGroupRow) {
+      return this.#getGroupRowHeight();
+    }
+
+    // Regular card row
+    return this.#getCardHeight();
   }
 
   /**

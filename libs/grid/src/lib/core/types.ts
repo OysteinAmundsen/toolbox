@@ -1,5 +1,17 @@
+import type { RowPosition } from './internal/position-cache';
 import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
+
+/**
+ * Position entry for a single row in the position cache.
+ * Part of variable row height virtualization.
+ *
+ * Re-exported from position-cache.ts for public API consistency.
+ *
+ * @see VirtualState.positionCache
+ * @category Plugin Development
+ */
+export type RowPositionEntry = RowPosition;
 
 // #region DataGridElement Interface
 /**
@@ -1414,6 +1426,37 @@ export interface VirtualState {
   viewportEl: HTMLElement | null;
   /** Spacer element inside faux scrollbar for setting virtual height */
   totalHeightEl: HTMLElement | null;
+
+  // --- Variable Row Height Support (Phase 1) ---
+
+  /**
+   * Position cache for variable row heights.
+   * Index-based array mapping row index → {offset, height, measured}.
+   * Rebuilt when row count changes (expand/collapse, filter).
+   * `null` when using uniform row heights (default).
+   */
+  positionCache: RowPositionEntry[] | null;
+
+  /**
+   * Height cache by row identity.
+   * Persists row heights across position cache rebuilds.
+   * Uses dual storage: Map for string keys (rowId, __rowCacheKey) and WeakMap for object refs.
+   */
+  heightCache: {
+    /** Heights keyed by string (synthetic rows with __rowCacheKey, or rowId-keyed rows) */
+    byKey: Map<string, number>;
+    /** Heights keyed by object reference (data rows without rowId) */
+    byRef: WeakMap<object, number>;
+  };
+
+  /** Running average of measured row heights. Used for estimating unmeasured rows. */
+  averageHeight: number;
+
+  /** Number of rows that have been measured. */
+  measuredCount: number;
+
+  /** Whether variable row height mode is active (rowHeight is a function). */
+  variableHeights: boolean;
 }
 
 // RowElementInternal is now defined earlier in the file with all internal properties
@@ -1704,16 +1747,30 @@ export interface GridConfig<TRow = any> {
    * - Row content may wrap to multiple lines (also set `--tbw-cell-white-space: normal`)
    * - Using custom row templates with variable content
    * - You want to override theme-defined row height
+   * - Rows have different heights based on content (use function form)
+   *
+   * **Variable Row Heights**: When a function is provided, the grid enables variable height
+   * virtualization. Heights are measured on first render and cached by row identity.
    *
    * @default Auto-measured from first row (respects --tbw-row-height CSS variable)
    *
    * @example
    * ```ts
-   * // Fixed height for rows that may wrap to 2 lines
+   * // Fixed height for all rows
    * gridConfig = { rowHeight: 56 };
+   *
+   * // Variable height based on content
+   * gridConfig = {
+   *   rowHeight: (row, index) => row.hasDetails ? 80 : 40,
+   * };
+   *
+   * // Return undefined to trigger DOM auto-measurement
+   * gridConfig = {
+   *   rowHeight: (row) => row.isExpanded ? undefined : 40,
+   * };
    * ```
    */
-  rowHeight?: number;
+  rowHeight?: number | ((row: TRow, index: number) => number | undefined);
   /**
    * Array of plugin instances.
    * Each plugin is instantiated with its configuration and attached to this grid.

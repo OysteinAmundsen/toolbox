@@ -494,6 +494,69 @@ function EmployeeGrid() {
 `}
 />
 
+## Variable Row Heights
+
+The grid supports variable row heights for complex layouts. Configure via `rowHeight` in your config:
+
+<Source
+  language="tsx"
+  code={`
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+
+interface Employee {
+  id: number;
+  name: string;
+  description: string;
+  expanded: boolean;
+}
+
+const config: ReactGridConfig<Employee> = {
+  rowId: 'id', // Required for height caching when rows are recreated
+  rowHeight: (row, index) => {
+    // Return known fixed height when possible (fast)
+    if (row.expanded) return 120;
+
+    // Return undefined to auto-measure the row's DOM height
+    return row.description?.length > 100 ? undefined : 28;
+  },
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'description', header: 'Description' },
+  ],
+};
+
+function VariableHeightGrid({ employees }: { employees: Employee[] }) {
+  return <DataGrid rows={employees} gridConfig={config} />;
+}
+`}
+/>
+
+### Plugin-Provided Heights
+
+Plugins like `GroupingRowsPlugin` provide their own row heights automatically:
+
+<Source
+  language="tsx"
+  code={`
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { GroupingRowsPlugin } from '@toolbox-web/grid/all';
+
+const config: ReactGridConfig<Employee> = {
+  plugins: [
+    new GroupingRowsPlugin({
+      field: 'department',
+      groupRowHeight: 36, // Known height for group headers
+    }),
+  ],
+  // Your rowHeight callback handles data rows only
+  rowHeight: (row) => row.hasNotes ? undefined : 28,
+  columns: [/* ... */],
+};
+`}
+/>
+
+See [Variable Row Heights](/docs/grid-core--docs#variable-row-heights) for complete documentation.
+
 ## Next Steps
 
 - **[Advanced Usage](/docs/grid-react-advanced-usage--docs)** - Full control with manual plugins, refs, and escape hatches

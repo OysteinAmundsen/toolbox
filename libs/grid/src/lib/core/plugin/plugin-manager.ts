@@ -75,6 +75,12 @@ export class PluginManager {
   private queryHandlers: Map<string, Set<BaseGridPlugin>> = new Map();
   // #endregion
 
+  // #region Deprecation Warnings
+  /** Set of plugin constructors that have been warned about deprecated hooks */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type -- WeakSet key is plugin.constructor identity
+  private static deprecationWarned = new WeakSet<Function>();
+  // #endregion
+
   // #region Lifecycle
   constructor(private grid: GridElement) {}
 
@@ -120,6 +126,9 @@ export class PluginManager {
     // Register query handlers from manifest
     this.registerQueryHandlers(plugin);
 
+    // Warn about deprecated hooks (once per plugin class)
+    this.warnDeprecatedHooks(plugin);
+
     // Call attach lifecycle method
     plugin.attach(this.grid);
 
@@ -147,6 +156,54 @@ export class PluginManager {
       }
       handlers.add(plugin);
     }
+  }
+
+  /**
+   * Warn about deprecated plugin hooks.
+   * Only warns once per plugin class, only in development environments.
+   */
+  private warnDeprecatedHooks(plugin: BaseGridPlugin): void {
+    const PluginClass = plugin.constructor;
+
+    // Skip if already warned for this plugin class
+    if (PluginManager.deprecationWarned.has(PluginClass)) return;
+
+    // Only warn in development
+    if (!this.isDevelopment()) return;
+
+    const hasOldHooks =
+      typeof plugin.getExtraHeight === 'function' || typeof plugin.getExtraHeightBefore === 'function';
+
+    const hasNewHook = typeof plugin.getRowHeight === 'function';
+
+    // Warn if using old hooks without new hook
+    if (hasOldHooks && !hasNewHook) {
+      PluginManager.deprecationWarned.add(PluginClass);
+      console.warn(
+        `[tbw-grid] Deprecation warning: "${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
+          `which are deprecated and will be removed in v3.0.\n` +
+          `  → Migrate to getRowHeight(row, index) for better variable row height support.\n` +
+          `  → See: https://toolbox-web.dev/docs/grid/plugins/migration#row-height-hooks`,
+      );
+    }
+  }
+
+  /**
+   * Check if we're running in a development environment.
+   */
+  private isDevelopment(): boolean {
+    // Check for localhost (browser environment)
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+        return true;
+      }
+    }
+    // Check for NODE_ENV (build-time or SSR)
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -396,6 +453,36 @@ export class PluginManager {
       }
     }
     return total;
+  }
+
+  /**
+   * Get the height of a specific row from plugins.
+   * Used for synthetic rows (group headers, etc.) that have fixed heights.
+   * Returns undefined if no plugin provides a height for this row.
+   */
+  getRowHeight(row: unknown, index: number): number | undefined {
+    for (const plugin of this.plugins) {
+      if (typeof plugin.getRowHeight === 'function') {
+        const height = plugin.getRowHeight(row, index);
+        if (height !== undefined) {
+          return height;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Check if any plugin implements the getRowHeight() hook.
+   * When true, the grid should use variable heights mode with position caching.
+   */
+  hasRowHeightPlugin(): boolean {
+    for (const plugin of this.plugins) {
+      if (typeof plugin.getRowHeight === 'function') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

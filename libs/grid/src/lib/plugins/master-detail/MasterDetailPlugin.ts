@@ -276,16 +276,35 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   // #region Internal State
   private expandedRows: Set<any> = new Set();
   private detailElements: Map<any, HTMLElement> = new Map();
+  /** Cached measured heights - persists even when elements are virtualized out */
+  private measuredDetailHeights: Map<any, number> = new Map();
 
   /** Default height for detail rows when not configured */
   private static readonly DEFAULT_DETAIL_HEIGHT = 150;
 
   /**
    * Get the estimated height for a detail row.
+   * Uses cached measured height when available (survives virtualization).
    */
   private getDetailHeight(row: any): number {
+    // Try DOM element first - works for tests and when element is connected
     const detailEl = this.detailElements.get(row);
-    if (detailEl) return detailEl.offsetHeight;
+    if (detailEl) {
+      const height = detailEl.offsetHeight;
+      if (height > 0) {
+        // Cache the measurement for when this row is virtualized out
+        this.measuredDetailHeights.set(row, height);
+        return height;
+      }
+    }
+
+    // DOM element missing or detached (offsetHeight = 0) - check cached measurement
+    const cachedHeight = this.measuredDetailHeights.get(row);
+    if (cachedHeight && cachedHeight > 0) {
+      return cachedHeight;
+    }
+
+    // Fallback to config or default
     return typeof this.config?.detailHeight === 'number'
       ? this.config.detailHeight
       : MasterDetailPlugin.DEFAULT_DETAIL_HEIGHT;
@@ -311,6 +330,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override detach(): void {
     this.expandedRows.clear();
     this.detailElements.clear();
+    this.measuredDetailHeights.clear();
   }
   // #endregion
 
@@ -497,6 +517,24 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       rowEl.after(detailEl);
       this.detailElements.set(row, detailEl);
 
+      // Measure height after layout settles and update position cache
+      // Use requestAnimationFrame to ensure the element is laid out
+      requestAnimationFrame(() => {
+        if (detailEl.isConnected) {
+          const height = detailEl.offsetHeight;
+          if (height > 0) {
+            const previousHeight = this.measuredDetailHeights.get(row);
+            this.measuredDetailHeights.set(row, height);
+
+            // Only invalidate if height actually changed
+            // This triggers an incremental position cache update, not a full rebuild
+            if (previousHeight !== height) {
+              this.grid.invalidateRowHeight(rowIndex);
+            }
+          }
+        }
+      });
+
       // Apply expand animation
       this.animateExpand(detailEl);
     }
@@ -505,6 +543,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Return total extra height from all expanded detail rows.
    * Used by grid virtualization to adjust scrollbar height.
+   *
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
    */
   override getExtraHeight(): number {
     let totalHeight = 0;
@@ -517,6 +557,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Return extra height that appears before a given row index.
    * This is the sum of heights of all expanded details whose parent row is before the given index.
+   *
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
    */
   override getExtraHeightBefore(beforeRowIndex: number): number {
     let totalHeight = 0;
@@ -528,6 +570,32 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       }
     }
     return totalHeight;
+  }
+
+  /**
+   * Get the height of a specific row, including any expanded detail content.
+   * Always returns a height to ensure the position cache uses plugin-controlled values
+   * rather than stale DOM measurements.
+   *
+   * @param row - The row data
+   * @param _index - The row index (unused, but part of the interface)
+   * @returns The row height in pixels (base height for collapsed, base + detail for expanded)
+   */
+  override getRowHeight(row: unknown, _index: number): number | undefined {
+    const isExpanded = this.expandedRows.has(row as object);
+
+    if (!isExpanded) {
+      // Collapsed row - return undefined to let the grid use its measured/estimated height.
+      // This ensures the position cache uses the correct row height from CSS/config.
+      return undefined;
+    }
+
+    // Row is expanded - return base height plus detail height
+    // Use grid's defaultRowHeight which reflects the actual measured/configured height
+    const baseHeight = this.grid.defaultRowHeight ?? 28;
+    const detailHeight = this.getDetailHeight(row);
+
+    return baseHeight + detailHeight;
   }
 
   /**

@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.11.0...grid-1.12.0) (2026-02-07)
+
+
+### Features
+
+* **grid:** implement variable row height virtualization ([#55](https://github.com/OysteinAmundsen/toolbox/issues/55)) ([#119](https://github.com/OysteinAmundsen/toolbox/issues/119)) ([5b4efb7](https://github.com/OysteinAmundsen/toolbox/commit/5b4efb79f064e40ee3ed098805f5c7e655a6fc93))
+
+
+### Bug Fixes
+
+* **grid:** ensure output dirs exist before parallel plugin builds ([ed153c0](https://github.com/OysteinAmundsen/toolbox/commit/ed153c015739adef173292174dea7d5e73ef9d45))
+* **grid:** handle empty arrays in min/max aggregators ([53f304c](https://github.com/OysteinAmundsen/toolbox/commit/53f304ca34b67a3c50efb16bcc8a9324e7d08e6e))
+
+
+### Performance Improvements
+
+* **grid:** prevent scrollbar jumpiness by caching scroll height ([60a47b6](https://github.com/OysteinAmundsen/toolbox/commit/60a47b6d44a1063d629270800af3563b41db38fc))
+
 ## [1.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.10.1...grid-1.11.0) (2026-02-06)
 
 

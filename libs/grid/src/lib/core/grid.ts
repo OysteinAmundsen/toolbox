@@ -1030,8 +1030,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Now the new plugin instances will add their fresh panel definitions
     this.#collectPluginShellContributions();
 
-    // Update cached scroll plugin flag
+    // Update cached scroll plugin flag and re-setup scroll listeners if needed
+    // This ensures horizontal scroll listener is added when plugins with onScroll handlers are added
+    const hadScrollPlugins = this.#hasScrollPlugins;
     this.#hasScrollPlugins = this.#pluginManager?.getAll().some((p) => p.onScroll) ?? false;
+
+    // Re-setup scroll listeners if scroll plugins were added (flag changed from false to true)
+    if (!hadScrollPlugins && this.#hasScrollPlugins) {
+      const gridContent = this.#renderRoot.querySelector('.tbw-grid-content');
+      const gridRoot = gridContent ?? this.#renderRoot.querySelector('.tbw-grid-root');
+      this.#setupScrollListeners(gridRoot);
+    }
   }
 
   /**

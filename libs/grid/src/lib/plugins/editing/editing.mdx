@@ -190,6 +190,28 @@ new EditingPlugin({ editOn: 'dblclick' }) // or 'click', 'manual'
 
 Additionally, pressing **Enter** or **F2** on a focused cell will start editing.
 
+## Grid Mode (Spreadsheet-like Editing)
+
+For data entry forms or spreadsheet-like interfaces, use `mode: 'grid'` to make all editable cells show their editors at all times:
+
+```ts
+new EditingPlugin({ mode: 'grid' })
+```
+
+| Mode    | Behavior                                                    |
+| ------- | ----------------------------------------------------------- |
+| `'row'` | Default. Click/dblclick to enter edit mode, Escape to exit |
+| `'grid'`| All editors visible immediately. No exit edit mode.         |
+
+In **grid mode**:
+- All `editable: true` cells render with their editors on load
+- Tab/Shift+Tab navigates between editable cells (wraps to next/prev row)
+- Enter commits the current cell value (stays in edit mode)
+- Escape and click-outside have no effect (always editing)
+- `cell-commit` events fire normally when values change
+
+<Canvas of={EditingStories.GridMode} withToolbar />
+
 ## Built-in Editors
 
 The grid provides appropriate editors based on column `type`:

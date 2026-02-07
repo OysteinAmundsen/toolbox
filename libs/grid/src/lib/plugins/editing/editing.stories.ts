@@ -823,3 +823,110 @@ grid.addEventListener('row-commit', (e) => {
     return container;
   },
 };
+
+/**
+ * Grid Mode - All Cells Always Editable
+ *
+ * Set `mode: 'grid'` to make all editable cells show their editors at all times,
+ * similar to a spreadsheet. This mode:
+ * - Renders editors immediately on load (no click/dblclick required)
+ * - Keeps editors visible after committing values
+ * - Ignores Escape and click-outside (no "exit edit mode")
+ * - Uses Tab/Shift+Tab for navigation between editable cells
+ *
+ * Ideal for data entry forms or spreadsheet-like interfaces.
+ */
+export const GridMode: Story = {
+  name: 'Grid Mode (Spreadsheet)',
+  tags: ['!autodocs'],
+  parameters: {
+    docs: {
+      source: {
+        code: `
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' }, // Not editable
+    { field: 'product', header: 'Product', editable: true },
+    { field: 'quantity', header: 'Qty', type: 'number', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+  ],
+  plugins: [new EditingPlugin({ mode: 'grid' })], // All cells always editable
+};
+
+// Listen for cell changes
+grid.addEventListener('cell-commit', (e) => {
+  console.log('Updated:', e.detail.field, '=', e.detail.value);
+});
+        `,
+        language: 'typescript',
+      },
+    },
+  },
+  render: () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+
+    const instructions = document.createElement('div');
+    instructions.style.cssText =
+      'padding: 12px; background: var(--sbdocs-bg); border: 1px solid var(--sb-border); border-radius: 4px; font-size: 13px;';
+    instructions.innerHTML = `
+      <strong>Grid Mode:</strong> All editable cells show editors immediately.
+      <ul style="margin: 8px 0 0 16px; padding: 0;">
+        <li><strong>Tab/Shift+Tab</strong>: Move between editable cells</li>
+        <li><strong>Enter</strong>: Commit current cell value</li>
+        <li>Click outside or press Escape: No effect (always in edit mode)</li>
+      </ul>
+    `;
+    container.appendChild(instructions);
+
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '250px';
+
+    const editingPlugin = new EditingPlugin({ mode: 'grid' });
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID' },
+        { field: 'product', header: 'Product', editable: true },
+        { field: 'quantity', header: 'Qty', type: 'number' as const, editable: true },
+        { field: 'price', header: 'Price', type: 'number' as const, editable: true },
+      ],
+      plugins: [editingPlugin],
+    };
+
+    grid.rows = [
+      { id: 1, product: 'Widget A', quantity: 10, price: 9.99 },
+      { id: 2, product: 'Widget B', quantity: 5, price: 14.99 },
+      { id: 3, product: 'Gadget X', quantity: 3, price: 29.99 },
+      { id: 4, product: 'Gadget Y', quantity: 8, price: 19.99 },
+    ];
+
+    // Log cell commits
+    grid.addEventListener('cell-commit', (e) => {
+      const log = container.querySelector('.event-log');
+      if (log) {
+        const entry = document.createElement('div');
+        entry.textContent = `${e.detail.field} = ${JSON.stringify(e.detail.value)}`;
+        log.insertBefore(entry, log.firstChild);
+        // Keep only last 5 entries
+        while (log.children.length > 5) {
+          log.removeChild(log.lastChild!);
+        }
+      }
+    });
+
+    container.appendChild(grid);
+
+    const logSection = document.createElement('div');
+    logSection.innerHTML = `
+      <strong style="font-size: 12px;">Recent Changes:</strong>
+      <div class="event-log" style="font-family: monospace; font-size: 11px; max-height: 80px; overflow: auto; padding: 8px; background: var(--sb-low-color); border-radius: 4px; margin-top: 4px;"></div>
+    `;
+    container.appendChild(logSection);
+
+    return container;
+  },
+};

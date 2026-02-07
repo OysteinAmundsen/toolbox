@@ -239,7 +239,21 @@ declare module '../../core/types' {
  */
 export interface EditingConfig {
   /**
-   * Controls when editing is triggered.
+   * Editing mode that determines how many rows are editable at once.
+   *
+   * - `'row'` (default): Click/double-click to edit one row at a time.
+   *   Editors appear when the row enters edit mode and disappear on commit/cancel.
+   *
+   * - `'grid'`: The entire grid is always in edit mode. All editable cells
+   *   display their editors immediately. Commit/cancel affects individual cells
+   *   but does not exit edit mode. Useful for spreadsheet-like data entry.
+   *
+   * @default 'row'
+   */
+  mode?: 'row' | 'grid';
+
+  /**
+   * Controls when editing is triggered (only applies to `mode: 'row'`).
    * - 'click': Edit on single click (default)
    * - 'dblclick': Edit on double click
    * - 'manual': Only via programmatic API (beginEdit)

@@ -1180,4 +1180,134 @@ describe('EditingPlugin', () => {
       expect(grid.rows[0].name).toBe('Bob');
     });
   });
+
+  // #region Grid Mode Tests
+
+  describe('grid mode (mode: "grid")', () => {
+    it('renders all editable cells with editors immediately', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'email', header: 'Email', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', email: 'alice@example.com' },
+        { id: 2, name: 'Bob', email: 'bob@example.com' },
+      ];
+      await waitUpgrade(grid);
+
+      // All editable cells should have editors (class "editing")
+      const editingCells = grid.querySelectorAll('.cell.editing');
+      // 2 rows × 2 editable columns = 4 editing cells
+      expect(editingCells.length).toBe(4);
+
+      // Each editing cell should contain an input
+      editingCells.forEach((cell: HTMLElement) => {
+        expect(cell.querySelector('input')).toBeTruthy();
+      });
+
+      // Non-editable column (id) should NOT have editors
+      const idCells = grid.querySelectorAll('.cell[data-col="0"]');
+      idCells.forEach((cell: HTMLElement) => {
+        expect(cell.classList.contains('editing')).toBe(false);
+      });
+    });
+
+    it('does not exit edit mode on click outside', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      // All editable cells should have editors
+      const editingCells = grid.querySelectorAll('.cell.editing');
+      expect(editingCells.length).toBe(1);
+
+      // Click outside the grid
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Should still be in edit mode (editors still present)
+      const editingCellsAfter = grid.querySelectorAll('.cell.editing');
+      expect(editingCellsAfter.length).toBe(1);
+    });
+
+    it('does not exit edit mode on Escape key', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const cell = grid.querySelector('.cell.editing') as HTMLElement;
+      expect(cell).toBeTruthy();
+
+      // Press Escape
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Should still be in edit mode
+      const editingCellsAfter = grid.querySelectorAll('.cell.editing');
+      expect(editingCellsAfter.length).toBe(1);
+    });
+
+    it('commits cell value on blur but keeps editor visible', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const cell = grid.querySelector('.cell.editing') as HTMLElement;
+      const input = cell.querySelector('input') as HTMLInputElement;
+
+      // Change value and blur
+      input.value = 'Changed';
+      input.dispatchEvent(new Event('blur', { bubbles: true }));
+      await nextFrame();
+
+      // Value should be committed
+      expect(grid.rows[0].name).toBe('Changed');
+
+      // Editor should still be visible
+      expect(cell.classList.contains('editing')).toBe(true);
+    });
+
+    it('reports isEditing as true (always editing)', async () => {
+      const plugin = new EditingPlugin({ mode: 'grid' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [plugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      // Query should return true even though no row-specific editing is active
+      const results = grid.query<boolean>('isEditing');
+      expect(results.includes(true)).toBe(true);
+    });
+  });
+
+  // #endregion
 });

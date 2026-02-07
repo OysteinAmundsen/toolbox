@@ -99,8 +99,14 @@ function buildPluginModules(): Plugin {
     async writeBundle() {
       // Pre-create ALL plugin directories synchronously before parallel builds
       // This eliminates race conditions when multiple parallel builds start simultaneously
+      // First ensure the parent directories exist
+      mkdirSync(resolve(outDir, 'lib/plugins'), { recursive: true });
       for (const name of pluginNames) {
-        mkdirSync(resolve(outDir, `lib/plugins/${name}`), { recursive: true });
+        try {
+          mkdirSync(resolve(outDir, `lib/plugins/${name}`), { recursive: true });
+        } catch {
+          // Ignore EEXIST errors from parallel operations
+        }
       }
 
       // Build all plugins in parallel for speed (directories already exist)

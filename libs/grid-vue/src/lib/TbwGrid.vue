@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="TRow = unknown">
 import type { BaseGridPlugin, ColumnConfig, DataGridElement, FitMode, GridConfig } from '@toolbox-web/grid';
+import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import type {
   ClipboardConfig,
   ColumnVirtualizationConfig,
@@ -22,28 +23,27 @@ import type {
   UndoRedoConfig,
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
-import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch, type PropType } from 'vue';
 import { createPluginFromFeature, type FeatureName } from './feature-registry';
 import { useGridIcons } from './grid-icon-registry';
 import { useGridTypeDefaults } from './grid-type-registry';
 import { GRID_ELEMENT_KEY } from './use-grid';
-import { VueGridAdapter } from './vue-grid-adapter';
+import { GridAdapter, VueGridAdapter } from './vue-grid-adapter';
 
 // Track if adapter is registered
 let adapterRegistered = false;
-let globalAdapter: VueGridAdapter | null = null;
+let globalAdapter: GridAdapter | null = null;
 
 /**
  * Ensure the Vue adapter is registered globally.
  */
-function ensureAdapterRegistered(): VueGridAdapter {
+function ensureAdapterRegistered(): GridAdapter {
   if (!adapterRegistered) {
     globalAdapter = new VueGridAdapter();
     GridElement.registerAdapter(globalAdapter);
     adapterRegistered = true;
   }
-  return globalAdapter as VueGridAdapter;
+  return globalAdapter as GridAdapter;
 }
 
 // Register adapter at module load

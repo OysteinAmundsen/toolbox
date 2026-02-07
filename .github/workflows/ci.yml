@@ -155,7 +155,7 @@ jobs:
         id: nx-shas
 
       - name: Build affected libraries
-        run: bun nx affected -t build --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
+        run: bun nx affected -t build --exclude=docs --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
   # ============================================
   # E2E: Cross-Framework Visual Regression Tests

@@ -238,18 +238,33 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /**
    * Apply expand animation to a detail element.
+   * Returns true if animation was applied, false if skipped.
+   * When animated, height measurement is deferred to animationend to avoid
+   * measuring during the max-height: 0 CSS animation constraint.
    */
-  private animateExpand(detailEl: HTMLElement): void {
-    if (!this.isAnimationEnabled || this.animationStyle === false) return;
+  private animateExpand(detailEl: HTMLElement, row?: any, rowIndex?: number): boolean {
+    if (!this.isAnimationEnabled || this.animationStyle === false) return false;
 
     detailEl.classList.add('tbw-expanding');
-    detailEl.addEventListener(
-      'animationend',
-      () => {
-        detailEl.classList.remove('tbw-expanding');
-      },
-      { once: true },
-    );
+
+    let measured = false;
+    const measureOnce = () => {
+      if (measured) return;
+      measured = true;
+      detailEl.classList.remove('tbw-expanding');
+
+      // Measure height AFTER animation completes - the element now has its
+      // natural height without the max-height constraint from the animation.
+      if (row !== undefined && rowIndex !== undefined) {
+        this.#measureAndCacheDetailHeight(detailEl, row, rowIndex);
+      }
+    };
+
+    detailEl.addEventListener('animationend', measureOnce, { once: true });
+    // Fallback timeout in case animationend doesn't fire (e.g., element detached,
+    // animation removed, or framework rendering delays). Matches animateCollapse pattern.
+    setTimeout(measureOnce, this.animationDuration + 50);
+    return true;
   }
 
   /**
@@ -271,6 +286,26 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     setTimeout(cleanup, this.animationDuration + 50);
   }
 
+  /**
+   * Measure a detail element's height and update the position cache if it changed.
+   * Used after layout settles (RAF) or after animation completes (animationend).
+   */
+  #measureAndCacheDetailHeight(detailEl: HTMLElement, row: any, rowIndex: number): void {
+    if (!detailEl.isConnected) return;
+
+    const height = detailEl.offsetHeight;
+    if (height > 0) {
+      const previousHeight = this.measuredDetailHeights.get(row);
+      this.measuredDetailHeights.set(row, height);
+
+      // Only invalidate if height actually changed
+      // This triggers an incremental position cache update, not a full rebuild
+      if (previousHeight !== height) {
+        this.grid.invalidateRowHeight(rowIndex);
+      }
+    }
+  }
+
   // #endregion
 
   // #region Internal State
@@ -285,20 +320,25 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Get the estimated height for a detail row.
    * Uses cached measured height when available (survives virtualization).
+   * Avoids reading offsetHeight during CSS animations to prevent poisoning the cache.
    */
   private getDetailHeight(row: any): number {
     // Try DOM element first - works for tests and when element is connected
     const detailEl = this.detailElements.get(row);
     if (detailEl) {
-      const height = detailEl.offsetHeight;
-      if (height > 0) {
-        // Cache the measurement for when this row is virtualized out
-        this.measuredDetailHeights.set(row, height);
-        return height;
+      // Skip DOM measurement if currently animating (max-height constraint gives wrong value)
+      const isAnimating = detailEl.classList.contains('tbw-expanding') || detailEl.classList.contains('tbw-collapsing');
+      if (!isAnimating) {
+        const height = detailEl.offsetHeight;
+        if (height > 0) {
+          // Cache the measurement for when this row is virtualized out
+          this.measuredDetailHeights.set(row, height);
+          return height;
+        }
       }
     }
 
-    // DOM element missing or detached (offsetHeight = 0) - check cached measurement
+    // DOM element missing, detached, or animating - check cached measurement
     const cachedHeight = this.measuredDetailHeights.get(row);
     if (cachedHeight && cachedHeight > 0) {
       return cachedHeight;
@@ -456,6 +496,10 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /**
    * Full sync of detail rows - cleans up stale elements and creates new ones.
    * Detail rows are inserted as siblings AFTER their master row to survive row rebuilds.
+   *
+   * PERF: Uses the grid's row pool (_rowPool) and virtual window (_virtualization.start/end)
+   * to avoid querySelectorAll on every scroll frame. The pool is index-aligned with the
+   * virtual window, so pool[i] corresponds to row index (start + i).
    */
   #syncDetailRows(): void {
     if (!this.config.detailRenderer) return;
@@ -463,31 +507,51 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
-    // Build a map of row index -> row element for visible rows
-    const visibleRowMap = new Map<number, Element>();
-    const dataRows = body.querySelectorAll('.data-grid-row');
+    // Use grid's virtualization state and row pool for O(1) lookups instead of querySelectorAll.
+    // The row pool is an array of DOM elements aligned to the virtual window:
+    // _rowPool[i] renders row data at index (_virtualization.start + i).
+    const gridInternal = this.grid as any;
+    const rowPool: HTMLElement[] | undefined = gridInternal._rowPool;
+    const vStart: number = gridInternal._virtualization?.start ?? 0;
+    const vEnd: number = gridInternal._virtualization?.end ?? 0;
     const columnCount = this.columns.length;
 
-    for (const rowEl of dataRows) {
-      const firstCell = rowEl.querySelector('.cell[data-row]');
-      const rowIndex = firstCell ? parseInt(firstCell.getAttribute('data-row') ?? '-1', 10) : -1;
-      if (rowIndex >= 0) {
-        visibleRowMap.set(rowIndex, rowEl);
+    // Build visible row index set from the virtual window range
+    const visibleStart = vStart;
+    const visibleEnd = vEnd;
+
+    // Build a map of row index -> row element using the pool (O(n) where n = visible rows)
+    const visibleRowMap = new Map<number, Element>();
+    if (rowPool) {
+      const poolLen = Math.min(rowPool.length, visibleEnd - visibleStart);
+      for (let i = 0; i < poolLen; i++) {
+        const rowEl = rowPool[i];
+        if (rowEl.parentNode === body) {
+          visibleRowMap.set(visibleStart + i, rowEl);
+        }
+      }
+    } else {
+      // Fallback: use querySelectorAll if pool is not accessible
+      const dataRows = body.querySelectorAll('.data-grid-row');
+      for (const rowEl of dataRows) {
+        const firstCell = rowEl.querySelector('.cell[data-row]');
+        const rowIndex = firstCell ? parseInt(firstCell.getAttribute('data-row') ?? '-1', 10) : -1;
+        if (rowIndex >= 0) {
+          visibleRowMap.set(rowIndex, rowEl);
+        }
       }
     }
 
-    // Remove detail rows whose parent row is no longer visible or no longer expanded
-    const existingDetails = body.querySelectorAll('.master-detail-row');
-    for (const detailEl of existingDetails) {
-      const forIndex = parseInt(detailEl.getAttribute('data-detail-for') ?? '-1', 10);
-      const row = forIndex >= 0 ? this.rows[forIndex] : undefined;
-      const isStillExpanded = row && this.expandedRows.has(row);
-      const isRowVisible = visibleRowMap.has(forIndex);
+    // Remove detail rows whose parent row is no longer visible or no longer expanded.
+    // Iterate the detailElements map (which we own) instead of querySelectorAll.
+    for (const [row, detailEl] of this.detailElements) {
+      const rowIndex = this.rows.indexOf(row);
+      const isStillExpanded = this.expandedRows.has(row);
+      const isRowVisible = rowIndex >= 0 && visibleRowMap.has(rowIndex);
 
-      // Remove detail if not expanded or if parent row scrolled out
       if (!isStillExpanded || !isRowVisible) {
-        detailEl.remove();
-        if (row) this.detailElements.delete(row);
+        if (detailEl.parentNode) detailEl.remove();
+        this.detailElements.delete(row);
       }
     }
 
@@ -517,26 +581,17 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       rowEl.after(detailEl);
       this.detailElements.set(row, detailEl);
 
-      // Measure height after layout settles and update position cache
-      // Use requestAnimationFrame to ensure the element is laid out
-      requestAnimationFrame(() => {
-        if (detailEl.isConnected) {
-          const height = detailEl.offsetHeight;
-          if (height > 0) {
-            const previousHeight = this.measuredDetailHeights.get(row);
-            this.measuredDetailHeights.set(row, height);
+      // Apply expand animation (must be before measurement scheduling)
+      const willAnimate = this.animateExpand(detailEl, row, rowIndex);
 
-            // Only invalidate if height actually changed
-            // This triggers an incremental position cache update, not a full rebuild
-            if (previousHeight !== height) {
-              this.grid.invalidateRowHeight(rowIndex);
-            }
-          }
-        }
-      });
-
-      // Apply expand animation
-      this.animateExpand(detailEl);
+      if (!willAnimate) {
+        // No animation - measure height after layout settles via RAF
+        requestAnimationFrame(() => {
+          this.#measureAndCacheDetailHeight(detailEl, row, rowIndex);
+        });
+      }
+      // When animating, measurement is deferred to animationend callback
+      // (inside animateExpand) to avoid measuring during max-height: 0 constraint
     }
   }
 
@@ -605,38 +660,50 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   override adjustVirtualStart(start: number, scrollTop: number, rowHeight: number): number {
     if (this.expandedRows.size === 0) return start;
 
-    // Build sorted list of expanded row indices for cumulative height calculation
-    const expandedIndices: Array<{ index: number; row: any }> = [];
-    for (const row of this.expandedRows) {
-      const index = this.rows.indexOf(row);
-      if (index >= 0) {
-        expandedIndices.push({ index, row });
-      }
-    }
-    expandedIndices.sort((a, b) => a.index - b.index);
+    // Use position cache for accurate row positions when available (variable heights mode)
+    const positionCache = (this.grid as any)?._virtualization?.positionCache as
+      | Array<{ offset: number; height: number }>
+      | undefined;
 
     let minStart = start;
 
-    // Calculate actual scroll position for each expanded row,
-    // accounting for cumulative detail heights before it
-    let cumulativeExtraHeight = 0;
+    if (positionCache && positionCache.length > 0) {
+      // Variable heights: use position cache for accurate offset
+      for (const row of this.expandedRows) {
+        const rowIndex = this.rows.indexOf(row);
+        if (rowIndex < 0 || rowIndex >= start) continue;
 
-    for (const { index: rowIndex, row } of expandedIndices) {
-      // Actual position includes all detail heights before this row
-      const actualRowTop = rowIndex * rowHeight + cumulativeExtraHeight;
-      const detailHeight = this.getDetailHeight(row);
-      const actualDetailBottom = actualRowTop + rowHeight + detailHeight;
+        // Position cache already includes cumulative heights from all expanded details
+        const detailBottom = positionCache[rowIndex].offset + positionCache[rowIndex].height;
 
-      // Update cumulative height for next iteration
-      cumulativeExtraHeight += detailHeight;
+        if (detailBottom > scrollTop && rowIndex < minStart) {
+          minStart = rowIndex;
+        }
+      }
+    } else {
+      // Fixed heights fallback: accumulate detail heights manually
+      // Build sorted list of expanded row indices for cumulative height calculation
+      const expandedIndices: Array<{ index: number; row: any }> = [];
+      for (const row of this.expandedRows) {
+        const index = this.rows.indexOf(row);
+        if (index >= 0) {
+          expandedIndices.push({ index, row });
+        }
+      }
+      expandedIndices.sort((a, b) => a.index - b.index);
 
-      // Skip rows that are at or after the calculated start
-      if (rowIndex >= start) continue;
+      let cumulativeExtraHeight = 0;
 
-      // If any part of the detail is still visible (below the scroll position),
-      // we need to keep the parent row in the render range
-      if (actualDetailBottom > scrollTop) {
-        if (rowIndex < minStart) {
+      for (const { index: rowIndex, row } of expandedIndices) {
+        const actualRowTop = rowIndex * rowHeight + cumulativeExtraHeight;
+        const detailHeight = this.getDetailHeight(row);
+        const actualDetailBottom = actualRowTop + rowHeight + detailHeight;
+
+        cumulativeExtraHeight += detailHeight;
+
+        if (rowIndex >= start) continue;
+
+        if (actualDetailBottom > scrollTop && rowIndex < minStart) {
           minStart = rowIndex;
         }
       }

@@ -256,11 +256,36 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined as unknown as ColumnViewRenderer<TRow, TValue>;
     }
 
+    // Cell cache for this column - maps cell element to its view ref and root node.
+    // When the grid recycles pool elements during scroll, the same cellEl is reused
+    // for different row data. By caching per cellEl, we reuse the Angular view and
+    // just update its context instead of creating a new embedded view every time.
+    // This matches what React and Vue adapters do with their cell caches.
+    const cellCache = new WeakMap<
+      HTMLElement,
+      { viewRef: EmbeddedViewRef<GridCellContext<TValue, TRow>>; rootNode: Node }
+    >();
+
     return (ctx: CellRenderContext<TRow, TValue>) => {
       // Skip rendering if the cell is in editing mode
       // This prevents the renderer from overwriting the editor when the grid re-renders
       if (ctx.cellEl?.classList.contains('editing')) {
         return null;
+      }
+
+      const cellEl = ctx.cellEl as HTMLElement | undefined;
+
+      if (cellEl) {
+        const cached = cellCache.get(cellEl);
+        if (cached) {
+          // Reuse existing view - just update context and re-run change detection
+          cached.viewRef.context.$implicit = ctx.value;
+          cached.viewRef.context.value = ctx.value;
+          cached.viewRef.context.row = ctx.row;
+          cached.viewRef.context.column = ctx.column;
+          cached.viewRef.detectChanges();
+          return cached.rootNode;
+        }
       }
 
       // Create the context for the template
@@ -280,6 +305,12 @@ export class GridAdapter implements FrameworkAdapter {
 
       // Get the first root node (the component's host element)
       const rootNode = viewRef.rootNodes[0];
+
+      // Cache for reuse on scroll recycles
+      if (cellEl) {
+        cellCache.set(cellEl, { viewRef, rootNode });
+      }
+
       return rootNode;
     };
   }
@@ -653,12 +684,37 @@ export class GridAdapter implements FrameworkAdapter {
   private createComponentRenderer<TRow = unknown, TValue = unknown>(
     componentClass: Type<unknown>,
   ): ColumnViewRenderer<TRow, TValue> {
+    // Cell cache for component-based renderers - maps cell element to its component ref
+    const cellCache = new WeakMap<HTMLElement, { componentRef: ComponentRef<unknown>; hostElement: HTMLSpanElement }>();
+
     return (ctx: CellRenderContext<TRow, TValue>) => {
-      const { hostElement } = this.mountComponent<TRow, TValue>(componentClass, {
+      const cellEl = ctx.cellEl as HTMLElement | undefined;
+
+      if (cellEl) {
+        const cached = cellCache.get(cellEl);
+        if (cached) {
+          // Reuse existing component - just update inputs
+          this.setComponentInputs(cached.componentRef, {
+            value: ctx.value,
+            row: ctx.row,
+            column: ctx.column,
+          });
+          cached.componentRef.changeDetectorRef.detectChanges();
+          return cached.hostElement;
+        }
+      }
+
+      const { hostElement, componentRef } = this.mountComponent<TRow, TValue>(componentClass, {
         value: ctx.value,
         row: ctx.row,
         column: ctx.column,
       });
+
+      // Cache for reuse on scroll recycles
+      if (cellEl) {
+        cellCache.set(cellEl, { componentRef, hostElement });
+      }
+
       return hostElement;
     };
   }

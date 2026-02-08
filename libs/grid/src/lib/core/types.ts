@@ -323,7 +323,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   changedRowIds?: string[];
   effectiveConfig?: GridConfig<T>;
   findHeaderRow?: () => HTMLElement;
-  refreshVirtualWindow: (full: boolean, skipAfterRender?: boolean) => void;
+  refreshVirtualWindow: (full: boolean, skipAfterRender?: boolean) => boolean;
   updateTemplate?: () => void;
   findRenderedRowElement?: (rowIndex: number) => HTMLElement | null;
   /** Get a row by its ID. Implemented in grid.ts */
@@ -1457,6 +1457,14 @@ export interface VirtualState {
 
   /** Whether variable row height mode is active (rowHeight is a function). */
   variableHeights: boolean;
+
+  // --- Cached Geometry (avoid forced layout reads on scroll hot path) ---
+
+  /** Cached viewport element height. Updated by ResizeObserver and force-refresh only. */
+  cachedViewportHeight: number;
+
+  /** Cached faux scrollbar element height. Updated alongside viewport height. */
+  cachedFauxHeight: number;
 }
 
 // RowElementInternal is now defined earlier in the file with all internal properties

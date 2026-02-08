@@ -13,8 +13,6 @@
       display: grid;
       grid-template-columns: var(--tbw-column-template);
       contain: layout style;
-      content-visibility: auto;
-      contain-intrinsic-size: auto var(--tbw-row-height);
 
       &:nth-child(even) {
         background: var(--tbw-color-row-alt);

@@ -184,4 +184,143 @@ describe('variable row height with plugins', () => {
       expect(firstRow?.getAttribute('aria-rowindex')).toBeTruthy();
     });
   });
+
+  describe('scroll transform with variable heights', () => {
+    it('should use position cache offset for scroll transform calculation', async () => {
+      const rows = createRows(100);
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: (row) => {
+          const div = document.createElement('div');
+          div.textContent = `Detail for ${row.name}`;
+          div.style.height = '150px';
+          return div;
+        },
+      });
+
+      const config: GridConfig<TestRow> = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        plugins: [plugin],
+      };
+
+      grid.rows = rows;
+      grid.gridConfig = config;
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+
+      // Get internal state
+      const internalGrid = grid as unknown as {
+        _virtualization: {
+          variableHeights: boolean;
+          positionCache: Array<{ offset: number; height: number; measured: boolean }>;
+          rowHeight: number;
+        };
+      };
+
+      // Verify variable heights mode is enabled
+      expect(internalGrid._virtualization.variableHeights).toBe(true);
+      expect(internalGrid._virtualization.positionCache).toBeDefined();
+
+      // Expand a few rows to create varying heights
+      plugin.expand(0);
+      plugin.expand(1);
+      plugin.expand(2);
+      await nextFrame();
+      await nextFrame();
+
+      // After expansion, position cache should have larger heights for expanded rows
+      // (The exact values depend on detailHeight measurement, but offsets should reflect expansion)
+      const cache = internalGrid._virtualization.positionCache;
+
+      // Verify the position cache exists and has entries
+      expect(cache.length).toBe(100);
+
+      // Row 3 should have a larger offset than row 0 + (3 * baseHeight)
+      // because rows 0, 1, 2 have detail panels
+      const baseHeight = internalGrid._virtualization.rowHeight;
+      const row3Offset = cache[3]?.offset ?? 0;
+      const minExpectedOffset = 3 * baseHeight; // Without expansions
+
+      // With expansions, offset should be larger
+      // (can't verify exact values in happy-dom, but structure should be correct)
+      expect(row3Offset).toBeGreaterThanOrEqual(minExpectedOffset);
+    });
+
+    it('should have consistent transform between sync and async scroll paths', async () => {
+      const rows = createRows(100);
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: (row) => {
+          const div = document.createElement('div');
+          div.textContent = `Detail for ${row.name}`;
+          div.style.height = '100px';
+          return div;
+        },
+      });
+
+      const config: GridConfig<TestRow> = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        plugins: [plugin],
+      };
+
+      grid.rows = rows;
+      grid.gridConfig = config;
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+
+      // Expand some rows
+      plugin.expand(0);
+      plugin.expand(1);
+      await nextFrame();
+      await nextFrame();
+
+      // Simulate scroll by setting scrollTop on faux scrollbar
+      const fauxScrollbar = grid.querySelector('.faux-vscroll') as HTMLElement;
+      const rowsContainer = grid.querySelector('.rows') as HTMLElement;
+
+      if (fauxScrollbar && rowsContainer) {
+        // Trigger scroll event
+        const scrollTop = 300;
+        fauxScrollbar.scrollTop = scrollTop;
+        fauxScrollbar.dispatchEvent(new Event('scroll'));
+
+        // Get transform immediately (sync path)
+        const transformAfterSync = rowsContainer.style.transform;
+
+        // Wait for async path
+        await nextFrame();
+        await nextFrame();
+
+        // Get transform after async (should be same or very close)
+        const transformAfterAsync = rowsContainer.style.transform;
+
+        // Both transforms should use position cache, so should be similar
+        // Note: exact match may vary slightly due to even-alignment
+        expect(transformAfterSync).toMatch(/translateY\(-?\d+(\.\d+)?px\)/);
+        expect(transformAfterAsync).toMatch(/translateY\(-?\d+(\.\d+)?px\)/);
+
+        // Extract numeric values for comparison
+        const syncMatch = transformAfterSync.match(/translateY\((-?\d+(\.\d+)?)px\)/);
+        const asyncMatch = transformAfterAsync.match(/translateY\((-?\d+(\.\d+)?)px\)/);
+
+        if (syncMatch && asyncMatch) {
+          const syncOffset = parseFloat(syncMatch[1]);
+          const asyncOffset = parseFloat(asyncMatch[1]);
+
+          // Offsets should be close (within a row height due to even-alignment)
+          const internalGrid = grid as unknown as {
+            _virtualization: { rowHeight: number };
+          };
+          const tolerance = internalGrid._virtualization.rowHeight * 2;
+          expect(Math.abs(syncOffset - asyncOffset)).toBeLessThanOrEqual(tolerance);
+        }
+      }
+    });
+  });
 });

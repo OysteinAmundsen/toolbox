@@ -353,6 +353,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     averageHeight: 28,
     measuredCount: 0,
     variableHeights: false,
+    cachedViewportHeight: 0,
+    cachedFauxHeight: 0,
   };
 
   // Focus & navigation
@@ -768,6 +770,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       renderVirtualWindow: () => this.refreshVirtualWindow(true, true),
       afterRender: () => {
         this.#pluginManager?.afterRender();
+
+        // Recalculate spacer height after plugins modify the DOM in afterRender.
+        // Plugins like MasterDetailPlugin create/remove detail elements in afterRender,
+        // which changes the total content height. Since refreshVirtualWindow was called
+        // with skipAfterRender=true (scheduler calls afterRender separately), the
+        // microtask that normally handles this recalculation was skipped.
+        if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
+          queueMicrotask(() => {
+            if (!this._virtualization.totalHeightEl) return;
+            const newTotalHeight = this.#calculateTotalSpacerHeight(this._rows.length);
+            this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
+          });
+        }
+
         // Auto-size columns on first render if fitMode is 'fixed'
         const mode = this.#effectiveConfig.fitMode;
         if (mode === 'fixed' && !this.__didInitialAutoSize) {
@@ -1491,9 +1507,25 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             // Virtualized mode: calculate sub-pixel offset for smooth scrolling
             // Even-aligned start preserves zebra stripe parity
             // DOM nth-child(even) will always match data row parity
-            const rawStart = Math.floor(currentScrollTop / rowHeight);
-            const evenAlignedStart = rawStart - (rawStart % 2);
-            const subPixelOffset = -(currentScrollTop - evenAlignedStart * rowHeight);
+            const positionCache = this._virtualization.positionCache;
+            let rawStart: number;
+            let startRowOffset: number;
+
+            if (this._virtualization.variableHeights && positionCache && positionCache.length > 0) {
+              // Variable heights: use binary search on position cache
+              rawStart = getRowIndexAtOffset(positionCache, currentScrollTop);
+              if (rawStart === -1) rawStart = 0;
+              const evenAlignedStart = rawStart - (rawStart % 2);
+              // Use actual offset from position cache for accurate transform
+              startRowOffset = positionCache[evenAlignedStart]?.offset ?? evenAlignedStart * rowHeight;
+            } else {
+              // Fixed heights: simple division
+              rawStart = Math.floor(currentScrollTop / rowHeight);
+              const evenAlignedStart = rawStart - (rawStart % 2);
+              startRowOffset = evenAlignedStart * rowHeight;
+            }
+
+            const subPixelOffset = -(currentScrollTop - startRowOffset);
             rowsEl.style.transform = `translateY(${subPixelOffset}px)`;
           }
 
@@ -1598,6 +1630,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // (e.g., when footer is added, window resizes, or shell panel toggles)
     if (this._virtualization.viewportEl) {
       this.#resizeObserver = new ResizeObserver(() => {
+        // Update cached geometry so refreshVirtualWindow can skip forced layout reads
+        this.#updateCachedGeometry();
         // Use scheduler for viewport resize - batches with other pending work
         // The scheduler already batches multiple requests per RAF
         this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'resize-observer');
@@ -2183,12 +2217,34 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   #onScrollBatched(scrollTop: number): void {
+    // PERF: Read all geometry values BEFORE DOM writes to avoid forced synchronous layout.
+    // refreshVirtualWindow and onScrollRender write to the DOM (transforms, innerHTML, attributes).
+    // Reading geometry after those writes forces the browser to synchronously compute layout.
+    // By reading first, we batch reads together, then do all writes.
+    let scrollLeft = 0;
+    let scrollHeight = 0;
+    let scrollWidth = 0;
+    let clientHeight = 0;
+    let clientWidth = 0;
+    if (this.#hasScrollPlugins) {
+      const fauxScrollbar = this._virtualization.container;
+      const scrollArea = this.#scrollAreaEl;
+      scrollLeft = scrollArea?.scrollLeft ?? 0;
+      scrollHeight = fauxScrollbar?.scrollHeight ?? 0;
+      scrollWidth = scrollArea?.scrollWidth ?? 0;
+      clientHeight = fauxScrollbar?.clientHeight ?? 0;
+      clientWidth = scrollArea?.clientWidth ?? 0;
+    }
+
     // Faux scrollbar pattern: content never scrolls, just update transforms
     // Old content stays visible until new transforms are applied
-    this.refreshVirtualWindow(false);
+    const windowChanged = this.refreshVirtualWindow(false);
 
     // Let plugins reapply visual state to recycled DOM elements
-    this.#pluginManager?.onScrollRender();
+    // Only run when the visible window actually changed to avoid expensive DOM queries
+    if (windowChanged) {
+      this.#pluginManager?.onScrollRender();
+    }
 
     // Schedule debounced measurement for variable heights mode
     // This progressively builds up the height cache as user scrolls
@@ -2204,19 +2260,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Dispatch to plugins (using cached flag and pooled event object to avoid GC)
+    // Geometry values were read before DOM writes above - use pre-read values.
     if (this.#hasScrollPlugins) {
-      const fauxScrollbar = this._virtualization.container;
-      const scrollArea = this.#scrollAreaEl;
-      // Reuse pooled event object - update values in-place instead of allocating new object
       const scrollEvent = this.#pooledScrollEvent;
       scrollEvent.scrollTop = scrollTop;
-      // Get horizontal scroll from scroll area (where horizontal scrolling actually happens)
-      scrollEvent.scrollLeft = scrollArea?.scrollLeft ?? 0;
-      scrollEvent.scrollHeight = fauxScrollbar?.scrollHeight ?? 0;
-      scrollEvent.scrollWidth = scrollArea?.scrollWidth ?? 0;
-      scrollEvent.clientHeight = fauxScrollbar?.clientHeight ?? 0;
-      scrollEvent.clientWidth = scrollArea?.clientWidth ?? 0;
-      // Note: originalEvent removed to avoid allocation - plugins should not rely on it
+      scrollEvent.scrollLeft = scrollLeft;
+      scrollEvent.scrollHeight = scrollHeight;
+      scrollEvent.scrollWidth = scrollWidth;
+      scrollEvent.clientHeight = clientHeight;
+      scrollEvent.clientWidth = clientWidth;
       this.#pluginManager?.onScroll(scrollEvent);
     }
   }
@@ -3702,6 +3754,23 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #endregion
 
   // #region Virtualization
+
+  /**
+   * Update cached viewport and faux scrollbar geometry.
+   * Called by ResizeObserver and on force-refresh to avoid forced layout reads during scroll.
+   * @internal
+   */
+  #updateCachedGeometry(): void {
+    const fauxScrollbar = this._virtualization.container;
+    const viewportEl = this._virtualization.viewportEl ?? fauxScrollbar;
+    if (viewportEl) {
+      this._virtualization.cachedViewportHeight = viewportEl.clientHeight;
+    }
+    if (fauxScrollbar) {
+      this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight;
+    }
+  }
+
   /**
    * Calculate total height for the faux scrollbar spacer element.
    * Used by both bypass and virtualized rendering paths to ensure consistent scroll behavior.
@@ -3713,9 +3782,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const viewportHeight = viewportEl.clientHeight;
 
     // Get scroll-area height (may differ from faux when h-scrollbar present)
-    const shadowRoot = (this as unknown as Element).shadowRoot;
-    const scrollAreaEl = shadowRoot?.querySelector('.tbw-scroll-area');
-    const scrollAreaHeight = scrollAreaEl ? (scrollAreaEl as HTMLElement).clientHeight : fauxScrollHeight;
+    // Query from the grid element directly (light DOM, not shadow DOM)
+    const scrollAreaEl = this.querySelector('.tbw-scroll-area') as HTMLElement | null;
+    const scrollAreaHeight = scrollAreaEl ? scrollAreaEl.clientHeight : fauxScrollHeight;
 
     // Use scroll-area height as reference since it contains the actual content
     const containerHeight = scrollAreaHeight;
@@ -3877,10 +3946,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * or standard row window rendering.
    * @param force - Whether to force a full refresh (not just scroll update)
    * @param skipAfterRender - When true, skip calling afterRender (used by scheduler which calls it separately)
+   * @returns Whether the visible row window changed (start/end differ from previous)
    * @internal Plugin API
    */
-  refreshVirtualWindow(force = false, skipAfterRender = false): void {
-    if (!this._bodyEl) return;
+  refreshVirtualWindow(force = false, skipAfterRender = false): boolean {
+    if (!this._bodyEl) return false;
 
     const totalRows = this._rows.length;
 
@@ -3889,7 +3959,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (!skipAfterRender) {
         this.#pluginManager?.afterRender();
       }
-      return;
+      return true;
     }
 
     if (this._rows.length <= this._virtualization.bypassThreshold) {
@@ -3911,14 +3981,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (!skipAfterRender) {
         this.#pluginManager?.afterRender();
       }
-      return;
+      return true;
     }
 
     // --- Normal virtualization path with faux scrollbar pattern ---
     // Faux scrollbar provides scrollTop, viewport provides visible height
     const fauxScrollbar = this._virtualization.container ?? this;
     const viewportEl = this._virtualization.viewportEl ?? fauxScrollbar;
-    const viewportHeight = viewportEl.clientHeight;
+    // On force-refresh (structural changes), read fresh geometry and update cache.
+    // On scroll-triggered updates, use cached height to avoid forced synchronous layout.
+    // The cache is kept current by ResizeObserver + force-refresh calls.
+    const viewportHeight = force
+      ? (this._virtualization.cachedViewportHeight = viewportEl.clientHeight)
+      : this._virtualization.cachedViewportHeight ||
+        (this._virtualization.cachedViewportHeight = viewportEl.clientHeight);
     const rowHeight = this._virtualization.rowHeight;
     const scrollTop = fauxScrollbar.scrollTop;
 
@@ -3997,6 +4073,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     if (end > totalRows) end = totalRows;
 
+    // Early-exit: if the visible window hasn't changed and this isn't a force refresh,
+    // skip re-rendering rows entirely. The sync scroll handler already updated the transform.
+    // This is the key perf optimization - row rendering is the most expensive part.
+    const prevStart = this._virtualization.start;
+    const prevEnd = this._virtualization.end;
+    if (!force && start === prevStart && end === prevEnd) {
+      // Transform was already applied by the sync scroll handler.
+      // Just update it here for consistency (the sync handler may have used a slightly
+      // different sub-pixel offset due to timing, but it's close enough to skip re-render).
+      return false;
+    }
+
     this._virtualization.start = start;
     this._virtualization.end = end;
 
@@ -4004,7 +4092,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // The faux-vscroll is a sibling of .tbw-scroll-area, so it doesn't shrink when
     // elements inside scroll-area (header, column groups, footer, hScrollbar) take vertical space.
     // viewportHeightDiff captures ALL these differences - no extra buffer needed.
-    const fauxScrollHeight = fauxScrollbar.clientHeight;
+    // Use cached geometry on scroll path; read fresh on force-refresh.
+    const fauxScrollHeight = force
+      ? (this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight)
+      : this._virtualization.cachedFauxHeight || (this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight);
 
     // Guard: Skip height calculation if faux scrollbar has no height but viewport does
     // This indicates stale DOM references during recreation (e.g., shell toggle)
@@ -4013,7 +4104,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Stale refs detected, schedule retry through the scheduler
       // Using scheduler ensures this batches with other pending work
       this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'stale-refs-retry');
-      return;
+      return false;
     }
 
     // Only recalculate height on force refresh (structural changes like data/plugin changes)
@@ -4077,6 +4168,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         }
       });
     }
+
+    return true;
   }
   // #endregion
 

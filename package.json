@@ -24,7 +24,10 @@
     "e2e:full": "bun run build && concurrently --kill-others --success first -n servers,e2e -c gray,magenta \"bun run demo:dist\" \"bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 -t 60000 && bun run e2e\"",
     "lint": "nx run-many --target=lint --exclude=docs --output-style=stream",
     "coverage": "bun run test --coverage",
-    "watch": "bun run build --watch",
+    "build:libs": "NX_TUI=false nx run-many --target=build --projects=grid,grid-angular,grid-react,grid-vue --output-style=stream --skip-nx-cache",
+    "build:watch": "bash scripts/watch-libs.sh",
+    "link:push": "bash -c 'for dir in dist/libs/*/; do [ -f \"${dir}package.json\" ] && (cd \"$dir\" && yalc push --sig); done' || true",
+    "dev": "NX_TUI=false bun run build:libs && bun run link:push && bun run build:watch",
     "update": "nx migrate latest && nx migrate --run-migrations --if-exists && git commit -am 'chore: update dependencies' && bunx npm-check-updates --format group -u --cooldown 5 --target minor && bun install"
   },
   "devDependencies": {
@@ -56,6 +59,8 @@
     "@vitest/ui": "4.0.17",
     "@vueless/storybook-dark-mode": "^10.0.6",
     "ajv": "^8.17.1",
+    "chokidar-cli": "^3.0.0",
+    "comment-parser": "^1.4.5",
     "concurrently": "^9.2.1",
     "eslint": "9.39.2",
     "eslint-config-prettier": "10.1.8",

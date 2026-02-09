@@ -19,12 +19,7 @@ import type {
   ColumnViewRenderer,
   FrameworkAdapter,
 } from '@toolbox-web/grid';
-import {
-  isComponentClass,
-  type ColumnConfig,
-  type GridConfig,
-  type TypeDefault,
-} from './angular-column-config';
+import { isComponentClass, type ColumnConfig, type GridConfig, type TypeDefault } from './angular-column-config';
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
 import { getDetailTemplate, GridDetailContext } from './directives/grid-detail-view.directive';

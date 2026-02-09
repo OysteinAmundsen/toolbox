@@ -6,7 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { PluginManifest } from '../../core/plugin/base-plugin';
+import type { AfterCellRenderContext, PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import {
@@ -133,6 +133,8 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   // #region Internal State
   private groups: ColumnGroup[] = [];
   private isActive = false;
+  /** Fields that are the last column in a group (for group-end border class). */
+  #groupEndFields = new Set<string>();
   // #endregion
 
   // #region Lifecycle
@@ -141,6 +143,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
   override detach(): void {
     this.groups = [];
     this.isActive = false;
+    this.#groupEndFields.clear();
   }
   // #endregion
 
@@ -203,6 +206,15 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     this.isActive = true;
     this.groups = groups;
 
+    // Pre-compute group-end fields for the afterCellRender hook
+    this.#groupEndFields.clear();
+    for (const g of groups) {
+      const lastCol = g.columns[g.columns.length - 1];
+      if (lastCol?.field) {
+        this.#groupEndFields.add(lastCol.field);
+      }
+    }
+
     // Return columns with group info applied
     return processedColumns;
   }
@@ -251,40 +263,17 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
       headerRow.classList.toggle('no-group-borders', !this.config.showGroupBorders);
       applyGroupedHeaderCellClasses(headerRow, groups, finalColumns);
     }
-
-    // Apply group-end class to data cells for continuous border styling
-    this.#applyGroupEndToDataCells(groups);
   }
 
   /**
-   * Apply group-end class to all data cells in the last column of each group.
-   * This extends the strong border separator through all data rows.
+   * Apply group-end class to individual cells during render and scroll.
+   * This is more efficient than querySelectorAll in afterRender and ensures
+   * cells recycled during scroll also get the class applied.
+   * @internal
    */
-  #applyGroupEndToDataCells(groups: ColumnGroup[]): void {
-    if (!this.config.showGroupBorders) return;
-
-    const gridEl = this.gridElement;
-    if (!gridEl) return;
-
-    // Collect the field names of all group-end columns
-    const groupEndFields = new Set<string>();
-    for (const g of groups) {
-      const lastCol = g.columns[g.columns.length - 1];
-      if (lastCol?.field) {
-        groupEndFields.add(lastCol.field);
-      }
-    }
-
-    // Apply group-end class to all data cells with those fields
-    const allDataCells = gridEl.querySelectorAll('.rows .cell[data-field]');
-    for (const cell of allDataCells) {
-      const field = cell.getAttribute('data-field');
-      if (field && groupEndFields.has(field)) {
-        cell.classList.add('group-end');
-      } else {
-        cell.classList.remove('group-end');
-      }
-    }
+  override afterCellRender(context: AfterCellRenderContext): void {
+    if (!this.isActive || !this.config.showGroupBorders) return;
+    context.cellElement.classList.toggle('group-end', this.#groupEndFields.has(context.column.field));
   }
   // #endregion
 

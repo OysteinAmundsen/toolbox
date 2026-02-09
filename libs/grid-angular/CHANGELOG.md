@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.11.0...grid-angular-0.11.1) (2026-02-09)
+
+
+### Bug Fixes
+
+* **grid-angular:** propperly intercept and handle angular specific config before handing over to grid ([0f0ba35](https://github.com/OysteinAmundsen/toolbox/commit/0f0ba3521c865a8d88b7e119be3fde43cc2799f3))
+
+
+### Performance Improvements
+
+* **grid:** optimize scroll rendering and fix master-detail height measurement ([0f5865d](https://github.com/OysteinAmundsen/toolbox/commit/0f5865d0d434f302752061395a2c9c0e03be824f))
+
 ## [0.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.10.0...grid-angular-0.11.0) (2026-02-07)
 
 

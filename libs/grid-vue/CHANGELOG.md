@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.3.0...grid-vue-0.3.1) (2026-02-09)
+
+
+### Bug Fixes
+
+* **grid-vue:** prevent double-wrapping of Vue renderers in demo and adapter ([5c19d34](https://github.com/OysteinAmundsen/toolbox/commit/5c19d346850add91e28ce3d5fae91ed3083bcf83))
+* **grid-vue:** process config-based renderers/editors through adapter ([b7217db](https://github.com/OysteinAmundsen/toolbox/commit/b7217db3ab1fd9e610858ed0bf5a86ceaad1a21f))
+
 ## [0.3.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.2.0...grid-vue-0.3.0) (2026-02-07)
 
 

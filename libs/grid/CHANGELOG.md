@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.12.0...grid-1.12.1) (2026-02-09)
+
+
+### Bug Fixes
+
+* **grid:** apply group-end class via afterCellRender hook for scroll ([6bd7f76](https://github.com/OysteinAmundsen/toolbox/commit/6bd7f76bab32fd5a9b57a91d458611225fbca863))
+* **grid:** enable variable heights when plugins are added after connectedCallback ([7bf4a3b](https://github.com/OysteinAmundsen/toolbox/commit/7bf4a3bd983d5fbf903b6c4b76d21d9dbbb9fbea))
+* **grid:** re-setup scroll listeners when scroll plugins added dynamically ([5a8a98b](https://github.com/OysteinAmundsen/toolbox/commit/5a8a98b6906b3eabb9dadd10af2534dabe106475))
+* **grid:** target .tbw-grid-root in ContextMenuPlugin instead of children[0] ([2ebee96](https://github.com/OysteinAmundsen/toolbox/commit/2ebee964002eeee7b19dd4eafb9a4029514c7695))
+
+
+### Performance Improvements
+
+* **grid:** optimize scroll rendering and fix master-detail height measurement ([0f5865d](https://github.com/OysteinAmundsen/toolbox/commit/0f5865d0d434f302752061395a2c9c0e03be824f))
+
 ## [1.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.11.0...grid-1.12.0) (2026-02-07)
 
 

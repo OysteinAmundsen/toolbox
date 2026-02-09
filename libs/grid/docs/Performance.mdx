@@ -176,18 +176,22 @@ For very large datasets, consider:
 ```typescript
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 
+const serverSide = new ServerSidePlugin({ pageSize: 100 });
+
 grid.gridConfig = {
-  plugins: [
-    new ServerSidePlugin({
-      fetchRows: async ({ startRow, endRow, sortModel, filterModel }) => {
-        const response = await fetch(`/api/employees?start=${startRow}&end=${endRow}`);
-        const { rows, totalRows } = await response.json();
-        return { rows, totalRows };
-      },
-      blockSize: 100, // Fetch 100 rows at a time
-    }),
-  ],
+  plugins: [serverSide],
 };
+
+// Set the data source after the grid is ready
+grid.ready().then(() => {
+  serverSide.setDataSource({
+    async getRows({ startRow, endRow, sortModel, filterModel }) {
+      const response = await fetch(`/api/employees?start=${startRow}&end=${endRow}`);
+      const { rows, totalRowCount } = await response.json();
+      return { rows, totalRowCount };
+    },
+  });
+});
 ```
 
 ## Plugin Performance
@@ -259,7 +263,7 @@ grid.addEventListener('render-complete', (e) => {
 
 // Monitor scroll performance
 let lastScroll = performance.now();
-grid.shadowRoot?.querySelector('.scroll-container')?.addEventListener('scroll', () => {
+grid.querySelector('.data-grid-container')?.addEventListener('scroll', () => {
   const now = performance.now();
   const fps = 1000 / (now - lastScroll);
   if (fps < 30) console.warn('Low FPS:', fps);

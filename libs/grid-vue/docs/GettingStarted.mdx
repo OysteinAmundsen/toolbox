@@ -145,6 +145,8 @@ Each feature prop enables a specific plugin with simplified configuration:
 | `undo-redo` | `features/undo-redo` | Edit undo/redo |
 | `export` | `features/export` | CSV/Excel export |
 | `print` | `features/print` | Print support |
+| `pivot` | `features/pivot` | Pivot table functionality |
+| `server-side` | `features/server-side` | Server-side data loading |
 
 **Core Config Props (no feature import needed):**
 
@@ -452,7 +454,7 @@ interface Employee {
 }
 
 const employees = ref<Employee[]>([/* ... */]);
-const { gridElement, forceLayout } = useGrid<Employee>();
+const { gridElement, forceLayout } = useGrid();
 
 function refreshGrid() {
   forceLayout();
@@ -492,17 +494,19 @@ import { ref } from 'vue';
 const editHistory = ref<string[]>([]);
 const selectedCount = ref(0);
 
-const { gridElement } = useGrid<Employee>();
+const { gridElement } = useGrid();
 
 // Subscribe to cell-commit events
-useGridEvent(gridElement, 'cell-commit', (detail: CellCommitDetail<Employee>) => {
-  editHistory.value.push(\`\${detail.column.field}: \${detail.oldValue} → \${detail.newValue}\`);
-});
+useGridEvent('cell-commit', (event: CustomEvent<CellCommitDetail<Employee>>) => {
+  const detail = event.detail;
+  editHistory.value.push(`${detail.column.field}: ${detail.oldValue} → ${detail.newValue}`);
+}, gridElement);
 
 // Subscribe to selection-change events
-useGridEvent(gridElement, 'selection-change', (detail: SelectionChangeDetail<Employee>) => {
+useGridEvent('selection-change', (event: CustomEvent<SelectionChangeDetail<Employee>>) => {
+  const detail = event.detail;
   selectedCount.value = detail.ranges?.length ?? 0;
-});
+}, gridElement);
 </script>
 
 <template>

@@ -153,19 +153,21 @@ const editHistory = ref<string[]>([]);
 const selectedCount = ref(0);
 const employees = ref<Employee[]>([/* ... */]);
 
-const { gridElement } = useGrid<Employee>();
+const { gridElement } = useGrid();
 
 // Subscribe to cell-commit events - auto-cleaned up on unmount
-useGridEvent(gridElement, 'cell-commit', (detail: CellCommitDetail<Employee>) => {
+useGridEvent('cell-commit', (event: CustomEvent<CellCommitDetail<Employee>>) => {
+  const detail = event.detail;
   editHistory.value.push(
     \`\${detail.column.field}: \${detail.oldValue} → \${detail.newValue}\`
   );
-});
+}, gridElement);
 
 // Subscribe to selection-change events
-useGridEvent(gridElement, 'selection-change', (detail: SelectionChangeDetail<Employee>) => {
+useGridEvent('selection-change', (event: CustomEvent<SelectionChangeDetail<Employee>>) => {
+  const detail = event.detail;
   selectedCount.value = detail.ranges?.length ?? 0;
-});
+}, gridElement);
 </script>
 
 <template>
@@ -207,14 +209,14 @@ const { exportToCsv, exportToExcel, exportToJson, isExporting } = useGridExport(
 <template>
   <div>
     <div class="toolbar">
-      <button @click="exportToCsv('employees.csv')" :disabled="isExporting.value">
+      <button @click="exportToCsv('employees.csv')" :disabled="isExporting()">
         Export CSV
       </button>
-      <button @click="exportToExcel('employees.xlsx')" :disabled="isExporting.value">
+      <button @click="exportToExcel('employees.xlsx')" :disabled="isExporting()">
         Export Excel
       </button>
     </div>
-    <TbwGrid :rows="employees" :columns="columns" :export-enabled="true" />
+    <TbwGrid :rows="employees" :columns="columns" export />
   </div>
 </template>
 `}
@@ -352,11 +354,12 @@ Update rows efficiently while preserving grid state:
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/editing';
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import type { CellCommitDetail } from '@toolbox-web/grid';
 import { ref } from 'vue';
 
 const employees = ref<Employee[]>(initialData);
-const { gridElement, forceLayout } = useGrid<Employee>();
+const { gridElement, forceLayout } = useGrid();
 
 // Add a new employee
 function handleAdd() {
@@ -378,8 +381,8 @@ function handleDelete() {
   const grid = gridElement.value;
   if (!grid) return;
 
-  const config = grid.effectiveConfig;
-  const selectedRows = config?.selection?.selectedRows ?? [];
+  const selection = grid.getPlugin(SelectionPlugin);
+  const selectedRows = selection?.getSelectedRows() ?? [];
   const selectedIds = new Set(selectedRows.map((row: Employee) => row.id));
   employees.value = employees.value.filter(emp => !selectedIds.has(emp.id));
 }
@@ -804,7 +807,7 @@ const config = markRaw<VueGridConfig<Employee>>({
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
 import { onMounted } from 'vue';
 
-const { gridElement } = useGrid<Employee>();
+const { gridElement } = useGrid();
 
 onMounted(async () => {
   const grid = gridElement.value;

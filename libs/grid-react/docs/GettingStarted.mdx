@@ -122,7 +122,7 @@ function EmployeeGrid() {
 | Import | Prop | Example |
 |--------|------|---------|
 | `features/selection` | `selection` | `selection="range"` or `selection={{ mode: 'row', checkbox: true }}` |
-| `features/multi-sort` | `multiSort` | `multiSort` or `multiSort={{ maxSortLevels: 3 }}` |
+| `features/multi-sort` | `multiSort` | `multiSort` or `multiSort={{ maxSortColumns: 3 }}` |
 | `features/filtering` | `filtering` | `filtering` or `filtering={{ debounceMs: 200 }}` |
 | `features/editing` | `editing` | `editing="dblclick"` or `editing="click"` |
 | `features/clipboard` | `clipboard` | `clipboard` (requires selection) |
@@ -138,6 +138,11 @@ function EmployeeGrid() {
 | `features/responsive` | `responsive` | `responsive` (card layout on mobile) |
 | `features/export` | `export` | `export` |
 | `features/print` | `print` | `print` |
+| `features/pinned-rows` | `pinnedRows` | `pinnedRows` or `pinnedRows={{ position: 'bottom' }}` |
+| `features/column-virtualization` | `columnVirtualization` | `columnVirtualization` |
+| `features/row-reorder` | `rowReorder` | `rowReorder` |
+| `features/pivot` | `pivot` | `pivot={{ rowFields: ['category'], valueField: 'sales' }}` |
+| `features/server-side` | `serverSide` | `serverSide={{ pageSize: 50 }}` |
 
 ### Core Config Props (no import needed)
 
@@ -248,7 +253,7 @@ import '@toolbox-web/grid-react/features/editing';
 import { DataGrid, type ReactGridConfig, type GridEditorContext } from '@toolbox-web/grid-react';
 
 // Custom select editor component
-function StatusEditor({ value, commit, cancel }: GridEditorContext<Employee, string>) {
+function StatusEditor({ value, commit, cancel }: GridEditorContext<string, Employee>) {
   return (
     <select
       defaultValue={value}

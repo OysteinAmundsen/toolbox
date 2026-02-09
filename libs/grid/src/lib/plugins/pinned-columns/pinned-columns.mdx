@@ -6,7 +6,7 @@ import * as PinnedColumnsStories from './pinned-columns.stories';
 
 # Pinned Columns Plugin
 
-The Pinned Columns plugin freezes columns to the left or right edge of the grid—essential for keeping key identifiers or action buttons visible while scrolling through wide datasets. Just set `pinned: 'left'` or `pinned: 'right'` on your column definitions and the plugin handles the rest.
+The Pinned Columns plugin freezes columns to the left or right edge of the grid—essential for keeping key identifiers or action buttons visible while scrolling through wide datasets. Just set `sticky: 'left'` or `sticky: 'right'` on your column definitions and the plugin handles the rest.
 
 ## Installation
 
@@ -24,12 +24,12 @@ Pin important columns like ID on the left and action buttons on the right. The p
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
-    { field: 'id', header: 'ID', pinned: 'left', width: 80 },
+    { field: 'id', header: 'ID', sticky: 'left', width: 80 },
     { field: 'name', header: 'Name' },
     { field: 'email', header: 'Email' },
     { field: 'department', header: 'Department' },
     { field: 'salary', header: 'Salary', type: 'currency' },
-    { field: 'actions', header: 'Actions', pinned: 'right', width: 120 },
+    { field: 'actions', header: 'Actions', sticky: 'right', width: 120 },
   ],
   plugins: [new PinnedColumnsPlugin()],
 };
@@ -144,7 +144,24 @@ The plugin has no configuration options. It is activated when columns have `stic
 ```ts
 const plugin = grid.getPlugin(PinnedColumnsPlugin);
 
-plugin.pinColumn('email', 'left');
-plugin.unpinColumn('email');
-const leftPinned = plugin.getPinnedColumns('left');
+// Get currently pinned columns
+const leftPinned = plugin.getLeftPinnedColumns();
+const rightPinned = plugin.getRightPinnedColumns();
+
+// Clear all sticky positions
+plugin.clearStickyPositions();
+
+// Recalculate offsets (e.g., after column resize)
+plugin.refreshStickyOffsets();
+```
+
+> **Note:** To pin or unpin columns at runtime, update the column's `sticky` property in your `gridConfig.columns` and re-assign the config. The plugin reads `sticky` from column definitions during each render cycle.
+
+### RTL Support
+
+For direction-independent pinning, use logical values `'start'` and `'end'` instead of `'left'`/`'right'`:
+
+```ts
+{ field: 'id', sticky: 'start' }  // Left in LTR, Right in RTL
+{ field: 'actions', sticky: 'end' } // Right in LTR, Left in RTL
 ```

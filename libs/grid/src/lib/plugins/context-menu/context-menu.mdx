@@ -31,10 +31,10 @@ grid.gridConfig = {
   plugins: [
     new ContextMenuPlugin({
       items: [
-        { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
-        { id: 'edit', label: 'Edit Row', action: (ctx) => grid.startEditing(ctx.rowIndex, ctx.colIndex) },
-        { type: 'separator' },
-        { id: 'delete', label: 'Delete Row', action: (ctx) => removeRow(ctx.rowIndex) },
+        { id: 'copy', name: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+        { id: 'edit', name: 'Edit Row', action: (ctx) => grid.startEditing(ctx.rowIndex, ctx.colIndex) },
+        { id: 'sep1', name: '', separator: true },
+        { id: 'delete', name: 'Delete Row', action: (ctx) => removeRow(ctx.rowIndex) },
       ],
     }),
   ],
@@ -48,20 +48,20 @@ import { DataGrid, useGrid } from '@toolbox-web/grid-react';
 import type { ContextMenuConfig } from '@toolbox-web/grid/plugins/context-menu';
 
 function MyGrid({ data, onDelete }) {
-  const { gridRef } = useGrid();
+  const { ref, element } = useGrid();
 
   const contextMenu: ContextMenuConfig = {
     items: [
-      { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
-      { id: 'edit', label: 'Edit Row', action: (ctx) => gridRef.current?.startEditing(ctx.rowIndex, ctx.colIndex) },
-      { type: 'separator' },
-      { id: 'delete', label: 'Delete Row', action: (ctx) => onDelete(ctx.rowIndex) },
+      { id: 'copy', name: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(ctx.value) },
+      { id: 'edit', name: 'Edit Row', action: (ctx) => element?.startEditing(ctx.rowIndex, ctx.colIndex) },
+      { id: 'sep1', name: '', separator: true },
+      { id: 'delete', name: 'Delete Row', action: (ctx) => onDelete(ctx.rowIndex) },
     ],
   };
 
   return (
     <DataGrid
-      ref={gridRef}
+      ref={ref}
       rows={data}
       columns={[
         { field: 'name', header: 'Name' },
@@ -90,10 +90,10 @@ const gridRef = ref(null);
 
 const contextMenuPlugin = markRaw(new ContextMenuPlugin({
   items: [
-    { id: 'copy', label: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(String(ctx.value)) },
-    { id: 'edit', label: 'Edit Row', action: (ctx) => gridRef.value?.element?.startEditing(ctx.rowIndex, ctx.colIndex) },
-    { type: 'separator' },
-    { id: 'delete', label: 'Delete Row', action: (ctx) => console.log('Delete row:', ctx.rowIndex) },
+    { id: 'copy', name: 'Copy Cell', action: (ctx) => navigator.clipboard.writeText(String(ctx.value)) },
+    { id: 'edit', name: 'Edit Row', action: (ctx) => gridRef.value?.element?.startEditing(ctx.rowIndex, ctx.colIndex) },
+    { id: 'sep1', name: '', separator: true },
+    { id: 'delete', name: 'Delete Row', action: (ctx) => console.log('Delete row:', ctx.rowIndex) },
   ],
 }));
 </script>
@@ -114,7 +114,8 @@ import '@toolbox-web/grid-angular/features/context-menu';
 
 import { Component, output, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import type { ColumnConfig, ContextMenuItem } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
+import type { ContextMenuItem } from '@toolbox-web/grid/plugins/context-menu';
 
 @Component({
   selector: 'app-my-grid',
@@ -142,10 +143,10 @@ export class MyGridComponent {
 
   contextMenuConfig = {
     items: [
-      { id: 'copy', label: 'Copy Cell', action: (ctx: any) => navigator.clipboard.writeText(ctx.value) },
-      { id: 'edit', label: 'Edit Row', action: (ctx: any) => (document.querySelector('tbw-grid') as any).startEditing(ctx.rowIndex, ctx.colIndex) },
-      { type: 'separator' },
-      { id: 'delete', label: 'Delete Row', action: (ctx: any) => this.deleteRow.emit(ctx.rowIndex) },
+      { id: 'copy', name: 'Copy Cell', action: (ctx: any) => navigator.clipboard.writeText(ctx.value) },
+      { id: 'edit', name: 'Edit Row', action: (ctx: any) => (document.querySelector('tbw-grid') as any).startEditing(ctx.rowIndex, ctx.colIndex) },
+      { id: 'sep1', name: '', separator: true },
+      { id: 'delete', name: 'Delete Row', action: (ctx: any) => this.deleteRow.emit(ctx.rowIndex) },
     ] as ContextMenuItem[],
   };
 }
@@ -178,23 +179,22 @@ Show/hide items based on context.
 
 | Option  | Type         | Default | Description           |
 | ------- | ------------ | ------- | --------------------- |
-| `items` | `MenuItem[]` | `[]`    | Menu items to display |
+| `items` | `ContextMenuItem[]` | `[]`    | Menu items to display |
 
 ## Menu Item Types
 
 ```ts
-interface MenuItem {
+interface ContextMenuItem {
   id: string;
-  label: string;
-  icon?: string; // Icon class or HTML
-  action?: (ctx: MenuContext) => void;
-  disabled?: boolean | ((ctx: MenuContext) => boolean);
-  visible?: boolean | ((ctx: MenuContext) => boolean);
-  items?: MenuItem[]; // Submenu items
-}
-
-interface SeparatorItem {
-  type: 'separator';
+  name: string;
+  icon?: string;      // Icon HTML, emoji, or class
+  shortcut?: string;  // Display-only shortcut hint
+  action?: (params: ContextMenuParams) => void;
+  disabled?: boolean | ((params: ContextMenuParams) => boolean);
+  hidden?: boolean | ((params: ContextMenuParams) => boolean);
+  subMenu?: ContextMenuItem[];  // Nested submenu items
+  separator?: boolean;          // Renders a separator line
+  cssClass?: string;            // Optional CSS class
 }
 ```
 
@@ -203,13 +203,15 @@ interface SeparatorItem {
 The action callback receives context about the clicked cell:
 
 ```ts
-interface MenuContext {
-  rowIndex: number;
-  colIndex: number;
+interface ContextMenuParams {
+  row: unknown;
+  rowIndex: number;    // -1 for header clicks
+  column: unknown;
+  columnIndex: number;
   field: string;
-  value: any;
-  row: any;
-  column: ColumnConfig;
+  value: unknown;
+  isHeader: boolean;
+  event: MouseEvent;
 }
 ```
 
@@ -220,13 +222,13 @@ new ContextMenuPlugin({
   items: [
     {
       id: 'edit',
-      label: 'Edit',
-      visible: (ctx) => ctx.column.editable === true,
+      name: 'Edit',
+      hidden: (params) => params.column.editable !== true,
     },
     {
       id: 'delete',
-      label: 'Delete',
-      disabled: (ctx) => ctx.row.locked === true,
+      name: 'Delete',
+      disabled: (params) => params.row.locked === true,
     },
   ],
 });

@@ -75,6 +75,7 @@ grid.ready().then(() => plugin.setDataSource(dataSource));
 ```tsx
 import '@toolbox-web/grid-react/features/server-side';
 import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 import { useEffect, useMemo } from 'react';
 
 const dataSource = {

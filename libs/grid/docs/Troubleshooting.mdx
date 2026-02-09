@@ -341,23 +341,23 @@ plugins: [
 
 **Problem**: CSS targeting `.data-grid-cell` doesn't work.
 
-**Cause**: The grid uses Shadow DOM, which encapsulates styles.
+**Cause**: The grid uses Light DOM with CSS cascade layers (`@layer`), but your CSS is likely not specific enough or is targeting wrong class names.
 
 **Solutions**:
 
-1. **Use CSS custom properties**:
+1. **Use CSS custom properties** (recommended):
 
 ```css
 tbw-grid {
-  --tbw-row-hover-bg: #e0f7fa;
+  --tbw-color-row-hover: #e0f7fa;
   --tbw-cell-padding: 12px 16px;
 }
 ```
 
-2. **Use `::part()` selectors** (limited):
+2. **Target grid CSS classes directly** — since the grid uses Light DOM, normal CSS selectors work:
 
 ```css
-tbw-grid::part(header) {
+tbw-grid .data-grid-header {
   background: #1976d2;
   color: white;
 }
@@ -422,7 +422,7 @@ animation: { mode: 'off' }
 ## Still Stuck?
 
 1. **Check the console**: Look for error messages or warnings
-2. **Inspect the DOM**: Use browser DevTools to examine the shadow DOM
+2. **Inspect the DOM**: Use browser DevTools to examine the grid's DOM structure
 3. **Minimal reproduction**: Create a minimal example to isolate the issue
 4. **Check GitHub Issues**: Someone may have encountered the same problem
 5. **Open an issue**: Provide a reproduction case for fastest help

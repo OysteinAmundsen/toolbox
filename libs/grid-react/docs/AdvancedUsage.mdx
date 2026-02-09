@@ -194,14 +194,14 @@ function EmployeeGrid() {
   return (
     <div>
       <div className="toolbar">
-        <button onClick={() => exportToCsv('employees.csv')} disabled={isExporting}>
+        <button onClick={() => exportToCsv('employees.csv')} disabled={isExporting()}>
           Export CSV
         </button>
-        <button onClick={() => exportToExcel('employees.xlsx')} disabled={isExporting}>
+        <button onClick={() => exportToExcel('employees.xlsx')} disabled={isExporting()}>
           Export Excel
         </button>
       </div>
-      <DataGrid rows={employees} columns={columns} exportEnabled />
+      <DataGrid rows={employees} columns={columns} export />
     </div>
   );
 }
@@ -252,7 +252,7 @@ Override the default sort comparator for complex sorting requirements:
 <Source
   language="tsx"
   code={`
-import '@toolbox-web/grid-react/features/sorting';
+import '@toolbox-web/grid-react/features/multi-sort';
 import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
 
 function EmployeeGrid() {
@@ -280,7 +280,7 @@ function EmployeeGrid() {
     ],
   };
 
-  return <DataGrid rows={employees} gridConfig={config} sorting />;
+  return <DataGrid rows={employees} gridConfig={config} multiSort />;
 }
 `}
 />
@@ -469,9 +469,8 @@ Pattern for loading data from an API:
   language="tsx"
   code={`
 import { useState, useEffect, useCallback } from 'react';
-import '@toolbox-web/grid-react/features/sorting';
-import { DataGrid } from '@toolbox-web/grid-react';
-import type { SortState, SortChangeDetail } from '@toolbox-web/grid';
+import '@toolbox-web/grid-react/features/multi-sort';
+import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
 
 interface ApiResponse {
   data: Employee[];
@@ -481,15 +480,14 @@ interface ApiResponse {
 function ServerSideGrid() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [sortState, setSortState] = useState<SortState[]>([]);
 
-  const fetchData = useCallback(async (sort: SortState[]) => {
+  const fetchData = useCallback(async (sortField?: string, sortDir?: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (sort.length > 0) {
-        params.set('sortField', sort[0].field);
-        params.set('sortDir', sort[0].direction);
+      if (sortField) {
+        params.set('sortField', sortField);
+        params.set('sortDir', sortDir ?? 'asc');
       }
       const response = await fetch(\`/api/employees?\${params}\`);
       const { data }: ApiResponse = await response.json();
@@ -500,21 +498,29 @@ function ServerSideGrid() {
   }, []);
 
   useEffect(() => {
-    fetchData(sortState);
-  }, [sortState, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleSortChange = useCallback((detail: SortChangeDetail) => {
-    setSortState(detail.sortState);
-  }, []);
+  // Use sortHandler for server-side sorting
+  const config: ReactGridConfig<Employee> = {
+    columns,
+    sortHandler: async (rows, sortState) => {
+      const dir = sortState.direction === 1 ? 'asc' : 'desc';
+      const response = await fetch(
+        \`/api/employees?sortField=\${sortState.field}&sortDir=\${dir}\`
+      );
+      const { data }: ApiResponse = await response.json();
+      return data;
+    },
+  };
 
   return (
     <div>
       {loading && <div className="loading-overlay">Loading...</div>}
       <DataGrid
         rows={employees}
-        columns={columns}
-        sorting={{ mode: 'external', sortState }}
-        onSortChange={handleSortChange}
+        gridConfig={config}
+        multiSort
       />
     </div>
   );

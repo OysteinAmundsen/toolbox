@@ -2,13 +2,15 @@
  * Tests for VueGridAdapter registration and lookup
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { VNode } from 'vue';
+import { defineComponent, h, type VNode } from 'vue';
 
 import {
   clearFieldRegistries,
   getColumnEditor,
   getColumnRenderer,
   getRegisteredFields,
+  GridAdapter,
+  isVueComponent,
   registerColumnEditor,
   registerColumnRenderer,
   VueGridAdapter,
@@ -222,4 +224,230 @@ describe('VueGridAdapter', () => {
       });
     });
   });
+
+  // #region isVueComponent
+
+  describe('isVueComponent', () => {
+    it('should return false for null/undefined', () => {
+      expect(isVueComponent(null)).toBe(false);
+      expect(isVueComponent(undefined)).toBe(false);
+    });
+
+    it('should return false for plain arrow function', () => {
+      const fn = () => 'hello';
+      expect(isVueComponent(fn)).toBe(false);
+    });
+
+    it('should return false for function expression', () => {
+      // eslint-disable-next-line prefer-arrow-callback
+      expect(
+        isVueComponent(function namedFn() {
+          return 'hello';
+        }),
+      ).toBe(false);
+    });
+
+    it('should return false for primitive values', () => {
+      expect(isVueComponent(42)).toBe(false);
+      expect(isVueComponent('string')).toBe(false);
+      expect(isVueComponent(true)).toBe(false);
+    });
+
+    it('should return false for plain objects', () => {
+      expect(isVueComponent({ foo: 'bar' })).toBe(false);
+    });
+
+    it('should return true for object with __name (SFC compiled)', () => {
+      const sfc = {
+        __name: 'MyComponent',
+        setup() {
+          return {};
+        },
+      };
+      expect(isVueComponent(sfc)).toBe(true);
+    });
+
+    it('should return true for object with setup function (Composition API)', () => {
+      const comp = {
+        setup() {
+          return {};
+        },
+      };
+      expect(isVueComponent(comp)).toBe(true);
+    });
+
+    it('should return true for object with render function (Options API)', () => {
+      const comp = {
+        render() {
+          return h('div');
+        },
+      };
+      expect(isVueComponent(comp)).toBe(true);
+    });
+
+    it('should return true for defineComponent result', () => {
+      const comp = defineComponent({
+        setup() {
+          return () => h('div', 'test');
+        },
+      });
+      expect(isVueComponent(comp)).toBe(true);
+    });
+
+    it('should return true for ES6 class', () => {
+      class MyComponent {}
+      expect(isVueComponent(MyComponent)).toBe(true);
+    });
+  });
+
+  // #endregion
+
+  // #region processGridConfig
+
+  describe('processGridConfig', () => {
+    it('should pass through config without columns unchanged', () => {
+      const adapter = new GridAdapter();
+      const config = { fitMode: 'fill' as const };
+      const result = adapter.processGridConfig(config);
+      expect(result.fitMode).toBe('fill');
+    });
+
+    it('should pass through columns with no renderer/editor unchanged', () => {
+      const adapter = new GridAdapter();
+      const config = {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'age', header: 'Age' },
+        ],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns).toHaveLength(2);
+      expect(result.columns![0].field).toBe('name');
+      expect(result.columns![1].field).toBe('age');
+    });
+
+    it('should wrap VNode-returning renderer function', () => {
+      const adapter = new GridAdapter();
+      const vueRenderer = (ctx: any) => h('span', ctx.value);
+      const config = {
+        columns: [{ field: 'status', renderer: vueRenderer }],
+      };
+      const result = adapter.processGridConfig(config);
+      // The renderer should have been wrapped (not the same function reference)
+      expect(result.columns![0].renderer).toBeDefined();
+      expect(result.columns![0].renderer).not.toBe(vueRenderer);
+    });
+
+    it('should wrap Vue component renderer', () => {
+      const adapter = new GridAdapter();
+      const StatusBadge = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('span', props.value);
+        },
+      });
+      const config = {
+        columns: [{ field: 'status', renderer: StatusBadge }],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].renderer).toBeDefined();
+      expect(result.columns![0].renderer).not.toBe(StatusBadge);
+    });
+
+    it('should wrap VNode-returning editor function', () => {
+      const adapter = new GridAdapter();
+      const vueEditor = (ctx: any) => h('input', { value: ctx.value });
+      const config = {
+        columns: [{ field: 'name', editor: vueEditor }],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].editor).toBeDefined();
+      expect(result.columns![0].editor).not.toBe(vueEditor);
+    });
+
+    it('should wrap Vue component editor', () => {
+      const adapter = new GridAdapter();
+      const StatusEditor = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('select', props.value);
+        },
+      });
+      const config = {
+        columns: [{ field: 'status', editor: StatusEditor }],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].editor).toBeDefined();
+      expect(result.columns![0].editor).not.toBe(StatusEditor);
+    });
+
+    it('should be idempotent - double processing is safe', () => {
+      const adapter = new GridAdapter();
+      const vueRenderer = (ctx: any) => h('span', ctx.value);
+      const config = {
+        columns: [{ field: 'status', renderer: vueRenderer }],
+      };
+      const first = adapter.processGridConfig(config);
+      const second = adapter.processGridConfig(first as any);
+      // Should not throw and columns should survive
+      expect(second.columns).toHaveLength(1);
+      expect(second.columns![0].renderer).toBeDefined();
+    });
+
+    it('should process typeDefaults with Vue renderers', () => {
+      const adapter = new GridAdapter();
+      const vueRenderer = (ctx: any) => h('span', ctx.value);
+      const config = {
+        columns: [{ field: 'name' }],
+        typeDefaults: {
+          country: { renderer: vueRenderer },
+        },
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.typeDefaults).toBeDefined();
+      expect(result.typeDefaults!['country']).toBeDefined();
+      expect(result.typeDefaults!['country'].renderer).toBeDefined();
+    });
+
+    it('should process typeDefaults with Vue component renderers', () => {
+      const adapter = new GridAdapter();
+      const CountryBadge = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('span', props.value);
+        },
+      });
+      const config = {
+        columns: [{ field: 'country' }],
+        typeDefaults: {
+          country: { renderer: CountryBadge },
+        },
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.typeDefaults!['country'].renderer).toBeDefined();
+      expect(result.typeDefaults!['country'].renderer).not.toBe(CountryBadge);
+    });
+
+    it('should preserve non-renderer/editor column properties', () => {
+      const adapter = new GridAdapter();
+      const config = {
+        columns: [
+          {
+            field: 'name',
+            header: 'Full Name',
+            width: 200,
+            sortable: true,
+            renderer: (ctx: any) => h('span', ctx.value),
+          },
+        ],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].field).toBe('name');
+      expect(result.columns![0].header).toBe('Full Name');
+      expect(result.columns![0].width).toBe(200);
+      expect(result.columns![0].sortable).toBe(true);
+    });
+  });
+
+  // #endregion
 });

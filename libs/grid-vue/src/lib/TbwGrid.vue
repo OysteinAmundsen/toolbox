@@ -28,7 +28,7 @@ import { createPluginFromFeature, type FeatureName } from './feature-registry';
 import { useGridIcons } from './grid-icon-registry';
 import { useGridTypeDefaults } from './grid-type-registry';
 import { GRID_ELEMENT_KEY } from './use-grid';
-import { GridAdapter, VueGridAdapter } from './vue-grid-adapter';
+import { GridAdapter, VueGridAdapter, type GridConfig as VueGridConfig } from './vue-grid-adapter';
 
 // Track if adapter is registered
 let adapterRegistered = false;
@@ -329,6 +329,51 @@ function handleReady(event: Event) {
   emit('ready', event as CustomEvent);
 }
 
+/**
+ * Intercepts the element's `gridConfig` property so ALL writes
+ * go through the adapter's processGridConfig first.
+ *
+ * This converts Vue component classes and VNode-returning functions
+ * to DOM-returning functions before the grid core sees them.
+ * Handles cases where `:grid-config` is bound directly to the
+ * custom element (bypassing TbwGrid.vue).
+ */
+function interceptElementGridConfig(grid: HTMLElement, adapter: GridAdapter): void {
+  const proto = Object.getPrototypeOf(grid);
+  const desc = Object.getOwnPropertyDescriptor(proto, 'gridConfig');
+  if (!desc?.set || !desc?.get) return;
+
+  const originalSet = desc.set;
+  const originalGet = desc.get;
+
+  // Instance-level override (does not affect the prototype or other grid elements)
+  Object.defineProperty(grid, 'gridConfig', {
+    get() {
+      return originalGet.call(this);
+    },
+    set(value: VueGridConfig | undefined) {
+      if (value && adapter) {
+        // processGridConfig is idempotent: already-processed functions pass
+        // through isVueComponent unchanged, so double-processing is safe.
+        originalSet.call(this, adapter.processGridConfig(value));
+      } else {
+        originalSet.call(this, value);
+      }
+    },
+    configurable: true,
+  });
+}
+
+/**
+ * Removes the instance-level gridConfig interceptor,
+ * restoring the prototype's original getter/setter.
+ */
+function removeGridConfigInterceptor(grid: HTMLElement): void {
+  // Deleting the instance property restores the prototype accessor
+  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+  delete (grid as any).gridConfig;
+}
+
 // Setup and cleanup
 onMounted(() => {
   const grid = gridRef.value as unknown as HTMLElement & DataGridElement<TRow>;
@@ -341,6 +386,10 @@ onMounted(() => {
 
   // Pass type defaults to the adapter
   adapter.setTypeDefaults(typeDefaults ?? null);
+
+  // Intercept the element's gridConfig setter so ALL writes
+  // (including direct custom element bindings) go through processGridConfig.
+  interceptElementGridConfig(grid, adapter);
 
   // Add event listeners
   grid.addEventListener('cell-commit', handleCellCommit);
@@ -357,6 +406,7 @@ onMounted(() => {
     grid.rows = props.rows;
   }
   if (mergedConfig.value) {
+    // Process through adapter before passing to grid
     grid.gridConfig = mergedConfig.value;
   }
   if (props.fitMode) {
@@ -367,6 +417,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   const grid = gridRef.value as unknown as HTMLElement & DataGridElement<TRow>;
   if (!grid) return;
+
+  // Remove the gridConfig setter interceptor
+  removeGridConfigInterceptor(grid);
 
   // Remove event listeners
   grid.removeEventListener('cell-commit', handleCellCommit);

@@ -55,7 +55,7 @@ export type { CellSlotProps, EditorSlotProps } from './lib/slot-types';
 export type { ToolPanelContext } from './lib/tool-panel-registry';
 
 // Vue grid adapter
-export { GridAdapter } from './lib/vue-grid-adapter';
+export { GridAdapter, isVueComponent } from './lib/vue-grid-adapter';
 /** @deprecated Use `GridAdapter` instead */
 export { VueGridAdapter } from './lib/vue-grid-adapter';
 

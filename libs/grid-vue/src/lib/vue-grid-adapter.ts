@@ -1,4 +1,6 @@
 import type {
+  ColumnConfig as BaseColumnConfig,
+  GridConfig as BaseGridConfig,
   TypeDefault as BaseTypeDefault,
   CellRenderContext,
   ColumnEditorContext,
@@ -6,10 +8,11 @@ import type {
   ColumnViewRenderer,
   FrameworkAdapter,
 } from '@toolbox-web/grid';
-import { createApp, type App, type VNode } from 'vue';
+import { createApp, createVNode, type App, type Component, type VNode } from 'vue';
 import { detailRegistry, type DetailPanelContext } from './detail-panel-registry';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
+import type { ColumnConfig, GridConfig } from './vue-column-config';
 
 /**
  * Registry mapping column elements to their Vue render functions.
@@ -124,6 +127,66 @@ export function clearFieldRegistries(): void {
   fieldRegistries.clear();
 }
 
+// #region Vue Component Detection
+
+/**
+ * Checks if a value is a Vue component (SFC or defineComponent result).
+ *
+ * Vue components are identified by:
+ * - Having `__name` (SFC compiled marker)
+ * - Having `setup` function (Composition API component)
+ * - Having `render` function (Options API component)
+ * - Being an ES6 class (class-based component)
+ *
+ * Regular functions `(ctx) => HTMLElement` that are already processed
+ * will not match these checks, making this idempotent.
+ */
+export function isVueComponent(value: unknown): value is Component {
+  if (value == null) return false;
+
+  // Already a DOM-returning function (processed) — skip
+  if (typeof value === 'function' && value.prototype === undefined) {
+    // Plain arrow/function — could be a VNode-returning render fn OR
+    // an already-processed DOM-returning fn. We can't distinguish at runtime,
+    // so we check if it looks like a Vue component (has component markers).
+    // Plain functions without component markers are treated as VNode-returning.
+    return false;
+  }
+
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    // SFC compiled marker
+    if ('__name' in obj) return true;
+    // Composition API
+    if (typeof obj['setup'] === 'function') return true;
+    // Options API
+    if (typeof obj['render'] === 'function') return true;
+  }
+
+  if (typeof value === 'function') {
+    // ES6 class-based component
+    const fnString = Function.prototype.toString.call(value);
+    if (fnString.startsWith('class ') || fnString.startsWith('class{')) return true;
+
+    // defineComponent returns a function with component markers
+    const fn = value as Record<string, unknown>;
+    if ('__name' in fn || typeof fn['setup'] === 'function') return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks if a value is a VNode-returning render function.
+ * These are plain functions (not component objects) that return VNodes.
+ * They need wrapping to produce HTMLElements for the grid core.
+ */
+function isVNodeRenderFunction(value: unknown): value is (...args: unknown[]) => VNode {
+  return typeof value === 'function' && !isVueComponent(value);
+}
+
+// #endregion
+
 /**
  * Tracks mounted Vue apps for cleanup.
  */
@@ -173,6 +236,305 @@ interface CellAppCache {
 export class GridAdapter implements FrameworkAdapter {
   private mountedViews: MountedView[] = [];
   private typeDefaults: TypeDefaultsMap | null = null;
+
+  // #region Config Processing
+
+  /**
+   * Processes a Vue grid configuration, converting Vue component references
+   * and VNode-returning render functions to DOM-returning functions.
+   *
+   * This is idempotent — already-processed configs pass through safely.
+   *
+   * @example
+   * ```ts
+   * import { GridAdapter, type GridConfig } from '@toolbox-web/grid-vue';
+   * import StatusBadge from './StatusBadge.vue';
+   *
+   * const config: GridConfig<Employee> = {
+   *   columns: [
+   *     { field: 'status', renderer: StatusBadge },
+   *   ],
+   * };
+   *
+   * const adapter = new GridAdapter();
+   * const processedConfig = adapter.processGridConfig(config);
+   * ```
+   *
+   * @param config - Vue grid config with possible component/VNode references
+   * @returns Processed config with DOM-returning functions
+   */
+  processGridConfig<TRow = unknown>(config: GridConfig<TRow>): BaseGridConfig<TRow> {
+    const result = { ...config } as BaseGridConfig<TRow>;
+
+    // Process columns
+    if (config.columns) {
+      result.columns = config.columns.map((col) => this.processColumn(col));
+    }
+
+    // Process typeDefaults
+    if (config.typeDefaults) {
+      result.typeDefaults = this.processTypeDefaults(config.typeDefaults as Record<string, TypeDefault>);
+    }
+
+    return result;
+  }
+
+  /**
+   * Processes typeDefaults, converting Vue component/VNode references
+   * to DOM-returning functions.
+   *
+   * @param typeDefaults - Vue type defaults with possible component references
+   * @returns Processed TypeDefault record
+   */
+  processTypeDefaults<TRow = unknown>(
+    typeDefaults: Record<string, TypeDefault<TRow>>,
+  ): Record<string, BaseTypeDefault<TRow>> {
+    const processed: Record<string, BaseTypeDefault<TRow>> = {};
+
+    for (const [type, config] of Object.entries(typeDefaults)) {
+      const processedConfig: BaseTypeDefault<TRow> = {
+        editorParams: config.editorParams,
+      };
+
+      if (config.renderer) {
+        if (isVueComponent(config.renderer)) {
+          processedConfig.renderer = this.createConfigComponentRenderer(config.renderer as Component);
+        } else if (isVNodeRenderFunction(config.renderer)) {
+          processedConfig.renderer = this.createTypeRenderer(
+            config.renderer as (ctx: CellRenderContext<TRow>) => VNode,
+          );
+        }
+      }
+
+      if (config.editor) {
+        if (isVueComponent(config.editor)) {
+          processedConfig.editor = this.createConfigComponentEditor(
+            config.editor as Component,
+          ) as BaseTypeDefault['editor'];
+        } else if (isVNodeRenderFunction(config.editor)) {
+          processedConfig.editor = this.createTypeEditor(
+            config.editor as (ctx: ColumnEditorContext<TRow>) => VNode,
+          ) as BaseTypeDefault['editor'];
+        }
+      }
+
+      processed[type] = processedConfig;
+    }
+
+    return processed;
+  }
+
+  /**
+   * Processes a single column configuration, converting Vue component references
+   * and VNode-returning render functions to DOM-returning functions.
+   *
+   * @param column - Vue column config
+   * @returns Processed ColumnConfig with DOM-returning functions
+   */
+  processColumn<TRow = unknown>(column: ColumnConfig<TRow>): BaseColumnConfig<TRow> {
+    const processed = { ...column } as BaseColumnConfig<TRow>;
+
+    if (column.renderer) {
+      if (isVueComponent(column.renderer)) {
+        processed.renderer = this.createConfigComponentRenderer(column.renderer as Component);
+      } else if (isVNodeRenderFunction(column.renderer)) {
+        processed.renderer = this.createConfigVNodeRenderer(column.renderer as (ctx: CellRenderContext<TRow>) => VNode);
+      }
+    }
+
+    if (column.editor) {
+      if (isVueComponent(column.editor)) {
+        processed.editor = this.createConfigComponentEditor(column.editor as Component);
+      } else if (isVNodeRenderFunction(column.editor)) {
+        processed.editor = this.createConfigVNodeEditor(column.editor as (ctx: ColumnEditorContext<TRow>) => VNode);
+      }
+    }
+
+    return processed;
+  }
+
+  /**
+   * Creates a DOM-returning renderer from a Vue component class.
+   * Used for config-based renderers (not slot-based).
+   * @internal
+   */
+  private createConfigComponentRenderer<TRow = unknown, TValue = unknown>(
+    component: Component,
+  ): ColumnViewRenderer<TRow, TValue> {
+    const cellCache = new WeakMap<HTMLElement, CellAppCache>();
+
+    return (ctx: CellRenderContext<TRow, TValue>) => {
+      const cellEl = (ctx as any).cellEl as HTMLElement | undefined;
+
+      if (cellEl) {
+        const cached = cellCache.get(cellEl);
+        if (cached) {
+          cached.update(ctx as CellRenderContext<unknown, unknown>);
+          return cached.container;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'vue-cell-renderer';
+        container.style.display = 'contents';
+
+        let currentCtx = ctx as CellRenderContext<unknown, unknown>;
+        const comp = component;
+
+        const app = createApp({
+          render() {
+            return createVNode(comp, { ...currentCtx });
+          },
+        });
+
+        app.mount(container);
+
+        cellCache.set(cellEl, {
+          app,
+          container,
+          update: (newCtx) => {
+            currentCtx = newCtx;
+            app._instance?.update();
+          },
+        });
+
+        return container;
+      }
+
+      const container = document.createElement('div');
+      container.className = 'vue-cell-renderer';
+      container.style.display = 'contents';
+
+      const comp = component;
+      const app = createApp({
+        render() {
+          return createVNode(comp, { ...ctx });
+        },
+      });
+
+      app.mount(container);
+      this.mountedViews.push({ app, container });
+
+      return container;
+    };
+  }
+
+  /**
+   * Creates a DOM-returning renderer from a VNode-returning render function.
+   * Used for config-based renderers (not slot-based).
+   * @internal
+   */
+  private createConfigVNodeRenderer<TRow = unknown, TValue = unknown>(
+    renderFn: (ctx: CellRenderContext<TRow, TValue>) => VNode,
+  ): ColumnViewRenderer<TRow, TValue> {
+    const cellCache = new WeakMap<HTMLElement, CellAppCache>();
+
+    return (ctx: CellRenderContext<TRow, TValue>) => {
+      const cellEl = (ctx as any).cellEl as HTMLElement | undefined;
+
+      if (cellEl) {
+        const cached = cellCache.get(cellEl);
+        if (cached) {
+          cached.update(ctx as CellRenderContext<unknown, unknown>);
+          return cached.container;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'vue-cell-renderer';
+        container.style.display = 'contents';
+
+        let currentCtx = ctx as CellRenderContext<unknown, unknown>;
+
+        const app = createApp({
+          render() {
+            return renderFn(currentCtx as CellRenderContext<TRow, TValue>);
+          },
+        });
+
+        app.mount(container);
+
+        cellCache.set(cellEl, {
+          app,
+          container,
+          update: (newCtx) => {
+            currentCtx = newCtx;
+            app._instance?.update();
+          },
+        });
+
+        return container;
+      }
+
+      const container = document.createElement('div');
+      container.className = 'vue-cell-renderer';
+      container.style.display = 'contents';
+
+      const app = createApp({
+        render() {
+          return renderFn(ctx);
+        },
+      });
+
+      app.mount(container);
+      this.mountedViews.push({ app, container });
+
+      return container;
+    };
+  }
+
+  /**
+   * Creates a DOM-returning editor from a Vue component class.
+   * Used for config-based editors (not slot-based).
+   * @internal
+   */
+  private createConfigComponentEditor<TRow = unknown, TValue = unknown>(
+    component: Component,
+  ): ColumnEditorSpec<TRow, TValue> {
+    return (ctx: ColumnEditorContext<TRow, TValue>): HTMLElement => {
+      const container = document.createElement('div');
+      container.className = 'vue-cell-editor';
+      container.style.display = 'contents';
+
+      const comp = component;
+      const app = createApp({
+        render() {
+          return createVNode(comp, { ...ctx });
+        },
+      });
+
+      app.mount(container);
+      this.mountedViews.push({ app, container });
+
+      return container;
+    };
+  }
+
+  /**
+   * Creates a DOM-returning editor from a VNode-returning render function.
+   * Used for config-based editors (not slot-based).
+   * @internal
+   */
+  private createConfigVNodeEditor<TRow = unknown, TValue = unknown>(
+    renderFn: (ctx: ColumnEditorContext<TRow, TValue>) => VNode,
+  ): ColumnEditorSpec<TRow, TValue> {
+    return (ctx: ColumnEditorContext<TRow, TValue>): HTMLElement => {
+      const container = document.createElement('div');
+      container.className = 'vue-cell-editor';
+      container.style.display = 'contents';
+
+      const app = createApp({
+        render() {
+          return renderFn(ctx);
+        },
+      });
+
+      app.mount(container);
+      this.mountedViews.push({ app, container });
+
+      return container;
+    };
+  }
+
+  // #endregion
 
   /**
    * Sets the type defaults map for this adapter.

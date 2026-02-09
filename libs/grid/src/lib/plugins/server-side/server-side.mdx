@@ -251,7 +251,7 @@ See the [Filtering Plugin documentation](?path=/docs/grid-plugins-filtering--doc
 | `cacheBlockSize`        | `number` | `pageSize` | Cache block size           |
 | `maxConcurrentRequests` | `number` | `2`        | Max parallel data requests |
 
-## Data Source Interface
+## TypeScript Interfaces
 
 ```ts
 interface ServerSideDataSource {
@@ -334,3 +334,9 @@ The ServerSidePlugin works well with:
 | `ExportPlugin` | Only exports cached rows by default |
 
 **Note:** `RowGroupingPlugin` and `TreePlugin` are not recommended with server-side data as they require all data to be present for grouping calculations.
+
+## See Also
+
+- **[Filtering](../?path=/docs/grid-plugins-filtering--docs)** — Client-side filtering
+- **[Multi-Sort](../?path=/docs/grid-plugins-multi-sort--docs)** — Client-side multi-sort
+- **[Export](../?path=/docs/grid-plugins-export--docs)** — Export grid data

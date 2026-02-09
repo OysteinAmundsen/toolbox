@@ -170,7 +170,16 @@ When combined with SelectionPlugin, export only selected rows.
 
 <Canvas of={ExportStories.ExportSelected} withToolbar />
 
-## Programmatic Export
+## Configuration Options
+
+| Option           | Type              | Default         | Description                       |
+| ---------------- | ----------------- | --------------- | --------------------------------- |
+| `filename`       | `string`          | `'grid-export'` | Base filename (without extension) |
+| `format`         | `'csv' \| 'json'` | `'csv'`         | Export format                     |
+| `includeHeaders` | `boolean`         | `true`          | Include column headers in export  |
+| `delimiter`      | `string`          | `','`           | CSV delimiter character           |
+
+## Programmatic API
 
 ```ts
 const exportPlugin = grid.getPlugin(ExportPlugin);
@@ -186,11 +195,8 @@ exportPlugin.exportToCSV({
 });
 ```
 
-## Configuration Options
+## See Also
 
-| Option           | Type              | Default         | Description                       |
-| ---------------- | ----------------- | --------------- | --------------------------------- |
-| `filename`       | `string`          | `'grid-export'` | Base filename (without extension) |
-| `format`         | `'csv' \| 'json'` | `'csv'`         | Export format                     |
-| `includeHeaders` | `boolean`         | `true`          | Include column headers in export  |
-| `delimiter`      | `string`          | `','`           | CSV delimiter character           |
+- **[Clipboard](../?path=/docs/grid-plugins-clipboard--docs)** — Copy cells to clipboard
+- **[Print](../?path=/docs/grid-plugins-print--docs)** — Print the grid
+- **[Server-Side Data](../?path=/docs/grid-plugins-server-side-data--docs)** — Export with server data

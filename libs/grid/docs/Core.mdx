@@ -138,17 +138,9 @@ Experiment with all core grid options using the controls below. [Open with contr
 
 ### Keyboard Navigation
 
-The grid implements [ARIA grid keyboard patterns](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) out of the box—no configuration required:
+The grid implements [ARIA grid keyboard patterns](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) out of the box—arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down all work with no configuration required.
 
-| Key                      | Action                       |
-| ------------------------ | ---------------------------- |
-| `↑` `↓` `←` `→`          | Navigate cells               |
-| `Tab` / `Shift+Tab`      | Move to next/previous cell   |
-| `Enter`                  | Start editing / confirm edit |
-| `Escape`                 | Cancel editing               |
-| `Home` / `End`           | Jump to first/last column    |
-| `Ctrl+Home` / `Ctrl+End` | Jump to first/last row       |
-| `Page Up` / `Page Down`  | Scroll by viewport           |
+See the full [keyboard shortcut reference](?path=/docs/grid-dev-accessibility--docs#keyboard-navigation) in the Accessibility guide.
 
 ### RTL (Right-to-Left) Support
 
@@ -410,7 +402,7 @@ In this example, the **Name** column uses `headerLabelRenderer` to add a require
 
 The grid tracks user modifications to columns—resizing, reordering, hiding, and sorting—and exposes this state for you to persist wherever makes sense for your application (localStorage, a backend API, user preferences service, etc.). The grid intentionally does **not** auto-store state; you control where and how it's saved.
 
-#### What State Contains
+### What State Contains
 
 The [`GridColumnState`](/docs/grid-api-core-interfaces-gridcolumnstate--docs) object captures everything needed to restore a user's column layout:
 
@@ -431,7 +423,7 @@ interface ColumnState {
 }
 ```
 
-#### Listening for Changes
+### Listening for Changes
 
 Subscribe to the `column-state-change` event to detect when users modify columns:
 
@@ -445,7 +437,7 @@ grid.addEventListener('column-state-change', (e) => {
 
 The event fires (debounced) when users resize, reorder, hide/show, or sort columns.
 
-#### Applying Saved State
+### Applying Saved State
 
 Restore state on initialization via `gridConfig.columnState`:
 
@@ -463,7 +455,7 @@ Or apply at runtime:
 grid.columnState = JSON.parse(localStorage.getItem('grid-prefs'));
 ```
 
-#### Resetting State
+### Resetting State
 
 Reset to the original column configuration:
 
@@ -759,3 +751,11 @@ and resizing columns to see the events in the log:
 ## Methods
 
 For the complete list of grid methods, see the [API Reference](?path=/docs/grid-api--docs#methods).
+
+## See Also
+
+- **[API Reference](?path=/docs/grid-api--docs)** — Complete properties, methods, events, and CSS variables
+- **[Theming](?path=/docs/grid-theming--docs)** — Customize colors, fonts, and sizing with CSS variables
+- **[Plugins](?path=/docs/grid-plugins--docs)** — Extend the grid with selection, editing, filtering, and more
+- **[Performance Guide](?path=/docs/grid-dev-performance--docs)** — Optimization tips for large datasets
+- **[Accessibility](?path=/docs/grid-dev-accessibility--docs)** — ARIA roles, keyboard navigation, and screen reader support

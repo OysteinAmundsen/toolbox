@@ -212,7 +212,7 @@ interface RowMoveDetail<T = unknown> {
 | `rows`      | `T[]`                  | Complete rows array after reordering             |
 | `source`    | `'keyboard' \| 'drag'` | How the move was initiated                       |
 
-## Keyboard Support
+## Keyboard Shortcuts
 
 | Key          | Action                    |
 | ------------ | ------------------------- |
@@ -248,3 +248,8 @@ Override the default grip icon via CSS:
 - **Data Mutation**: The plugin reorders `grid.rows` in place. The `row-move` event provides the updated array.
 - **Virtualization**: Works with virtualized grids - only visible rows are rendered but logical indices are preserved.
 - **Keyboard Debounce**: Rapid keyboard moves are debounced (150ms) to prevent excessive rerenders.
+
+## See Also
+
+- **[Column Reorder](../?path=/docs/grid-plugins-column-reorder--docs)** — Drag-to-reorder columns
+- **[Selection](../?path=/docs/grid-plugins-selection--docs)** — Row and cell selection

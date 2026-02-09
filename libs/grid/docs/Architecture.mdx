@@ -7,7 +7,7 @@ import { Meta } from '@storybook/addon-docs/blocks';
 
 This document explains the internal architecture of the grid component for contributors and plugin developers.
 
-> **Note:** This is a summary. The full architecture documentation with Mermaid diagrams is available in [ARCHITECTURE.md on GitHub](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/ARCHITECTURE.md). Mermaid diagrams render natively on GitHub and in VS Code.
+> **Tip:** The full architecture documentation with interactive Mermaid diagrams is also available in [ARCHITECTURE.md on GitHub](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/ARCHITECTURE.md).
 
 ## Overview
 
@@ -19,88 +19,368 @@ This document explains the internal architecture of the grid component for contr
 4. **Type-Safe**: Strongly typed with TypeScript generics
 5. **Single Source of Truth**: All configuration converges into one effective config
 
-## Key Architecture Concepts
+### DOM Structure
 
-### Configuration Architecture
+```
+┌───────────────────────────────────────────────────────┐
+│                        <tbw-grid>                     │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │                    Light DOM                    │  │
+│  │  ┌───────────────────────────────────────────┐  │  │
+│  │  │              Header Row                   │  │  │
+│  │  └───────────────────────────────────────────┘  │  │
+│  │  ┌───────────────────────────────────────────┐  │  │
+│  │  │           Rows Viewport (scrollable)      │  │  │
+│  │  │  ┌─────────────────────────────────────┐  │  │  │
+│  │  │  │  Spacer (virtual scroll height)     │  │  │  │
+│  │  │  ├─────────────────────────────────────┤  │  │  │
+│  │  │  │  Visible Rows (row pool)            │  │  │  │
+│  │  │  └─────────────────────────────────────┘  │  │  │
+│  │  └───────────────────────────────────────────┘  │  │
+│  └─────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────────────────┘
+```
 
-The grid follows a **single source of truth** pattern. All configuration inputs converge into one `effectiveConfig` object:
+### CSS Classes
 
-- **ConfigManager** (`internal/config-manager.ts`) - Owns configuration lifecycle
-- **Two-layer design** - Immutable `original` config + mutable `effective` config
-- **Multiple input sources** - `gridConfig` prop, `columns` prop, light DOM elements, individual props
+All class names are defined in `constants.ts` (`GridClasses`):
 
-### Rendering Pipeline
+| Class | Element | Purpose |
+|---|---|---|
+| `.tbw-grid-root` | Container | Root wrapper |
+| `.header` | Container | Header section |
+| `.header-row` | Row | Header cells container |
+| `.cell` | Cell | Header or data cell |
+| `.rows-viewport` | Container | Scrollable body area |
+| `.rows-spacer` | Div | Creates virtual scroll height |
+| `.rows` | Container | Visible rows container |
+| `.data-row` | Row | Individual data row |
+| `.group-row` | Row | Grouped row header |
 
-The grid uses a **centralized RenderScheduler** (`internal/render-scheduler.ts`):
+### Data Attributes
 
-- **Single RAF per frame** - All render requests batch into one `requestAnimationFrame`
-- **Phase-based execution** - Work organized into phases (STYLE → VIRTUALIZATION → HEADER → ROWS → COLUMNS → FULL)
-- **Highest phase wins** - Multiple requests merge to the highest phase
+All attribute names are defined in `constants.ts` (`GridDataAttrs`):
+
+| Attribute | Element | Value |
+|---|---|---|
+| `data-row-index` | `.data-row` | Row index in data array |
+| `data-col-index` | `.cell` | Column index |
+| `data-field` | `.cell` | Column field name |
+
+## Configuration Architecture
+
+The grid follows a **single source of truth** pattern with a two-layer config architecture.
+
+### Two-Layer Design
+
+**Layer 1: Original Config** — Built from all sources, frozen (immutable). Serves as the reset point.
+
+**Layer 2: Effective Config** — Deep cloned from original. Mutable — runtime changes (column visibility, widths, sort order) go here. All rendering reads from this layer.
+
+| Operation | What Happens |
+|---|---|
+| Source changes (gridConfig, columns, etc.) | `merge()` rebuilds both layers |
+| Runtime mutation (hide column, resize) | Modify effective only, original untouched |
+| `resetState()` | Clone original → effective, discarding runtime changes |
+| `collectState()` | Diff effective vs original to get user changes |
+
+### Input Precedence
+
+When the same property is set via multiple sources, higher precedence wins:
+
+| Priority | Source | Example |
+|---|---|---|
+| 1 (lowest) | HTML attributes | `<tbw-grid fit-mode="stretch">` |
+| 2 | `gridConfig` property | `grid.gridConfig = { fitMode: 'stretch' }` |
+| 3 | Light DOM elements | `<tbw-grid-column field="name">` |
+| 4 | `columns` property | `grid.columns = [{ field: 'name' }]` |
+| 5 | Inferred columns | (auto-detected from first row) |
+| 6 (highest) | Individual props | `grid.fitMode = 'fixed'` |
+
+### Source Change Optimization
+
+Sources are re-collected only when `sourcesChanged` is `true` AND columns already exist. Setting `gridConfig`, `columns`, `fitMode`, or light DOM columns auto-marks sources changed. `merge()` is a no-op if sources haven't changed, preventing unnecessary rebuilds when called multiple times per frame.
+
+## Rendering Pipeline
+
+All rendering goes through a **centralized RenderScheduler** that batches work into a single `requestAnimationFrame` callback.
+
+### Render Phases
+
+Work is organized into ordered phases. Multiple requests in the same frame merge to the **highest requested phase**:
 
 | Phase | Value | Work Performed |
-|-------|-------|----------------|
+|---|---|---|
 | `STYLE` | 1 | Plugin `afterRender()` hooks only |
-| `VIRTUALIZATION` | 2 | Recalculate virtual window |
-| `HEADER` | 3 | Re-render header row |
-| `ROWS` | 4 | Rebuild row model |
-| `COLUMNS` | 5 | Process columns, update CSS template |
-| `FULL` | 6 | Merge effective config + all lower phases |
+| `VIRTUALIZATION` | 2 | Recalculate virtual window (+ STYLE) |
+| `HEADER` | 3 | Re-render header row (+ VIRTUALIZATION) |
+| `ROWS` | 4 | Rebuild row model (+ HEADER) |
+| `COLUMNS` | 5 | Process columns, update CSS template (+ ROWS) |
+| `FULL` | 6 | Merge effective config (+ COLUMNS) |
 
-### Runtime Configuration Validation
+**Example**: If the React adapter requests `COLUMNS` and a ResizeObserver requests `VIRTUALIZATION` in the same frame, only `COLUMNS` runs (which includes all lower phases).
 
-The grid validates plugin-owned properties at runtime and throws helpful errors:
+### Execution Order
+
+The scheduler executes work in a deterministic order that respects data dependencies:
+
+```
+mergeConfig → processRows → processColumns → updateTemplate → renderHeader → renderVirtualWindow → afterRender
+```
+
+Each step only runs if the requested phase is high enough.
+
+### Intentional Bypasses
+
+Some operations bypass the scheduler for performance:
+
+| Operation | Reason |
+|---|---|
+| Scroll rendering | Hot path — must be synchronous for 60 fps |
+| Shell rebuild | Creates DOM structure, not content updates |
+| Row height measurement | One-time post-paint measurement |
+
+### Debugging Renders
+
+Enable debug mode to trace all render requests:
+
+```ts
+grid._scheduler.setDebug(true);
+
+// After interactions, inspect the log
+grid._scheduler.getRenderLog();
+// → [{ phase: 5, source: 'applyGridConfigUpdate', timestamp: 1234.56 }, ...]
+```
+
+## Virtualization
+
+Row virtualization handles large datasets efficiently.
+
+### How It Works
+
+1. **Spacer Element** — A `div` with `height = totalRows × rowHeight` creates the scroll area
+2. **Row Pool** — Only ~20–50 row elements exist in DOM at any time
+3. **Window Calculation** — On scroll, compute which rows are visible
+4. **Row Recycling** — Reuse existing row elements, just update content
+
+```ts
+interface VirtualState {
+  rowHeight: number;    // Default: 28px
+  headerHeight: number; // Default: 32px
+  overscan: number;     // Extra rows above/below viewport (default: 8)
+  startIndex: number;   // First visible row index
+  endIndex: number;     // Last visible row index
+  offsetY: number;      // CSS transform offset
+}
+```
+
+### Small Dataset Bypass
+
+For datasets ≤8 rows (by default), virtualization is bypassed — the overhead isn't worth it.
+
+## Plugin System
+
+Plugins extend `BaseGridPlugin` and implement lifecycle hooks. See [Writing Custom Plugins](?path=/docs/grid-dev-custom-plugins--docs) for a full guide.
+
+### Lifecycle
+
+1. **Constructor** — Stores user configuration
+2. **`attach(grid)`** — Plugin receives grid reference, merges config, sets up event listeners
+3. **Render hooks** — `processColumns()`, `processRows()`, `afterRender()` called each render cycle
+4. **Interaction hooks** — `onCellClick()`, `onKeyDown()`, `onScroll()` called on user actions
+5. **`detach()`** — Cleanup on grid disconnect (listeners with `disconnectSignal` auto-cleanup)
+
+### Plugin Communication
+
+Plugins can access other plugin instances:
+
+```ts
+const selection = this.getPlugin(SelectionPlugin);
+if (selection) {
+  const selectedRows = selection.getSelectedRows();
+}
+```
+
+### Runtime Validation
+
+The grid validates plugin-owned properties at runtime and throws helpful errors if required plugins are missing:
 
 | Property | Required Plugin | Level |
-|----------|-----------------|-------|
+|---|---|---|
 | `editable` | `EditingPlugin` | Column |
 | `editor` | `EditingPlugin` | Column |
 | `group` | `GroupingColumnsPlugin` | Column |
 | `sticky` | `PinnedColumnsPlugin` | Column |
 | `columnGroups` | `GroupingColumnsPlugin` | Config |
 
-Example error:
+## Event Flow
+
+### Grid Events (Core)
+
+| Event | Detail Type | When |
+|---|---|---|
+| `cell-commit` | `CellCommitDetail` | Cell value committed |
+| `row-commit` | `RowCommitDetail` | Row edit committed |
+| `sort-change` | `SortChangeDetail` | Sort state changed |
+| `column-resize` | `ColumnResizeDetail` | Column resized |
+| `activate-cell` | `ActivateCellDetail` | Cell focus changed |
+| `group-toggle` | `GroupToggleDetail` | Group expanded/collapsed |
+| `column-state-change` | `ColumnStateChangeDetail` | Column config changed |
+| `mount-external-view` | `MountExternalViewDetail` | Framework renderer needed |
+| `mount-external-editor` | `MountExternalEditorDetail` | Framework editor needed |
+
+### Plugin Events
+
+| Event | Plugin | Detail |
+|---|---|---|
+| `selection-change` | Selection | `SelectionChangeDetail` |
+| `tree-expand` | Tree | `TreeExpandDetail` |
+| `filter-change` | Filtering | `FilterModel` |
+| `sort-model-change` | MultiSort | `SortModel[]` |
+| `export-start` / `export-complete` | Export | Export details |
+| `clipboard-copy` / `clipboard-paste` | Clipboard | Clipboard details |
+| `context-menu-open` / `context-menu-close` | ContextMenu | Menu details |
+| `history-change` | UndoRedo | `HistoryChangeDetail` |
+| `server-loading` / `server-error` | ServerSide | `boolean` / `Error` |
+| `column-visibility-change` | Visibility | `VisibilityChangeDetail` |
+| `column-reorder` | Reorder | `ReorderDetail` |
+| `detail-expand` | MasterDetail | `DetailExpandDetail` |
+| `group-expand` | GroupingRows | `GroupExpandDetail` |
+
+### Event Constants
+
+```ts
+import { DGEvents, PluginEvents } from '@toolbox-web/grid';
+
+grid.addEventListener(DGEvents.CELL_COMMIT, (e) => { /* ... */ });
+grid.addEventListener(PluginEvents.SELECTION_CHANGE, (e) => { /* ... */ });
 ```
-[tbw-grid] Configuration error:
 
-Column(s) [name, email] use the "editable" column property, but the required plugin is not loaded.
-  → Add the plugin to your gridConfig.plugins array:
-    import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-    plugins: [new EditingPlugin(), ...]
+## Styling Architecture
+
+### Custom Styles (adoptedStyleSheets)
+
+Custom styles use the browser's `adoptedStyleSheets` API — more efficient than `<style>` elements because they survive `replaceChildren()` calls:
+
+```ts
+grid.registerStyles('my-styles', '.custom-cell { color: blue; }');
+grid.unregisterStyles('my-styles');
 ```
 
-### Plugin System
+### CSS Cascade Layers
 
-Plugins extend `BaseGridPlugin` and implement lifecycle hooks:
+```css
+@layer tbw-base, tbw-plugins, tbw-theme;
+```
 
-- `attach(grid)` - Called when plugin is attached
-- `detach()` - Called when plugin is removed
-- `processColumns(columns)` - Transform column definitions
-- `processRows(rows)` - Transform row data
-- `afterRender()` - DOM manipulation after render
-- `onKeyDown(event)` - Handle keyboard events
+User CSS is unlayered and always wins — no `!important` needed.
 
-### Virtualization
+### Plugin Style Injection
 
-Row virtualization handles large datasets:
+Plugins inject CSS via their `styles` property using `?inline` imports:
 
-- **Spacer element** - Creates scroll area (height = totalRows × rowHeight)
-- **Row pool** - Only ~20-50 row elements in DOM
-- **Window calculation** - Compute visible rows on scroll
-- **Row recycling** - Reuse elements, just update content
+```ts
+import styles from './my-plugin.css?inline';
+
+export class MyPlugin extends BaseGridPlugin<MyConfig> {
+  override readonly styles = styles;
+}
+```
+
+### Layered Fallback Pattern
+
+Plugins use CSS variable fallback chains for flexibility:
+
+```css
+/* Plugin-specific → Global fallback */
+background: var(--tbw-selection-bg, var(--tbw-color-selection));
+```
+
+This allows overriding just one plugin's appearance or changing all selections globally.
+
+## Performance Techniques
+
+### DOM Optimization
+
+| Technique | Benefit |
+|---|---|
+| Template cloning (`<template>` elements) | 3–4× faster than `createElement` |
+| Direct DOM construction (`dom-builder.ts`) | Avoids `innerHTML` parsing overhead |
+| DocumentFragment for cell batching | Single reflow per row |
+| Row pooling during scroll | Zero allocation during scroll |
+| Cached DOM references | Avoid `querySelector` in hot paths |
+
+### Rendering
+
+| Technique | Benefit |
+|---|---|
+| Centralized RenderScheduler | Eliminates race conditions |
+| Phase-based merging | No duplicate work per frame |
+| `adoptedStyleSheets` | Survives DOM rebuilds, zero overhead |
+| Idle scheduling (`idle-scheduler.ts`) | Faster time-to-interactive |
+| Fast-path patching for plain text | Skip expensive template logic |
+| Cell display value memoization | Avoid recomputing during scroll |
+
+### Events & Memory
+
+| Technique | Benefit |
+|---|---|
+| Event delegation (single body listener) | Constant memory regardless of row count |
+| Pooled scroll events | Zero GC pressure during scroll |
+| `AbortController` cleanup (`disconnectSignal`) | No memory leaks on disconnect |
+| Epoch-based cache invalidation | Minimal DOM updates on data change |
+
+## Directory Structure
+
+```
+libs/grid/src/
+├─ index.ts                # Main entry (auto-registers element)
+├─ public.ts               # Public API surface
+├─ all.ts                  # All-in-one bundle with all plugins
+└─ lib/
+   ├─ core/
+   │  ├─ grid.ts             # Main component class
+   │  ├─ grid.css            # Core styles
+   │  ├─ types.ts            # Public type definitions
+   │  ├─ constants.ts        # DOM class/attribute constants
+   │  └─ internal/           # Pure helper functions
+   │     ├─ config-manager.ts # Config lifecycle & state
+   │     ├─ render-scheduler.ts # RAF-based render batching
+   │     ├─ columns.ts        # Column resolution, sizing
+   │     ├─ rows.ts           # Row rendering
+   │     ├─ header.ts         # Header rendering
+   │     ├─ virtualization.ts # Virtual scroll math
+   │     ├─ dom-builder.ts    # Direct DOM construction
+   │     ├─ event-delegation.ts # Delegated event handlers
+   │     ├─ validate-config.ts # Runtime plugin validation
+   │     └─ ...              # keyboard, resize, sorting, etc.
+   ├─ core/plugin/           # Plugin infrastructure
+   │  ├─ base-plugin.ts      # Abstract base class
+   │  └─ plugin-manager.ts   # Plugin lifecycle
+   └─ plugins/               # Built-in plugins (22+)
+      ├─ selection/           # Row/cell/range selection
+      ├─ editing/             # Inline cell editing
+      ├─ filtering/           # Column filters
+      └─ ...                 # Each self-contained
+```
 
 ## Key Files
 
 | File | Purpose |
-|------|---------|
+|---|---|
 | `core/grid.ts` | Main component implementation |
 | `core/types.ts` | Type definitions |
-| `internal/config-manager.ts` | Configuration lifecycle |
-| `internal/render-scheduler.ts` | Render orchestration |
-| `internal/validate-config.ts` | Runtime validation |
-| `plugin/base-plugin.ts` | Plugin base class |
+| `internal/config-manager.ts` | Configuration lifecycle, two-layer architecture |
+| `internal/render-scheduler.ts` | Render orchestration, phase-based batching |
+| `internal/validate-config.ts` | Runtime plugin property validation |
+| `plugin/base-plugin.ts` | Plugin base class with helpers |
+| `plugin/plugin-manager.ts` | Plugin lifecycle management |
 
-## Full Documentation
+## See Also
 
-For complete architecture documentation with diagrams, see:
-
-- **[ARCHITECTURE.md](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/ARCHITECTURE.md)** - Full architecture docs with Mermaid diagrams
+- **[Performance Guide](?path=/docs/grid-dev-performance--docs)** — Renderer optimization, virtualization, and memory management
+- **[Writing Custom Plugins](?path=/docs/grid-dev-custom-plugins--docs)** — Plugin development guide
+- **[API Reference](?path=/docs/grid-api--docs)** — Full public API documentation
+- **[ARCHITECTURE.md](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/ARCHITECTURE.md)** — Full docs with Mermaid diagrams on GitHub
+- **[Custom Plugin Development](?path=/docs/grid-dev-custom-plugins--docs)** — Build plugins using the architecture described here
+- **[Plugins](?path=/docs/grid-plugins--docs)** — Built-in plugin catalog and usage patterns

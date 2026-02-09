@@ -169,7 +169,7 @@ export function isVueComponent(value: unknown): value is Component {
     if (fnString.startsWith('class ') || fnString.startsWith('class{')) return true;
 
     // defineComponent returns a function with component markers
-    const fn = value as Record<string, unknown>;
+    const fn = value as unknown as Record<string, unknown>;
     if ('__name' in fn || typeof fn['setup'] === 'function') return true;
   }
 
@@ -280,7 +280,10 @@ export class GridAdapter implements FrameworkAdapter {
 
     // Process typeDefaults
     if (config.typeDefaults) {
-      result.typeDefaults = this.processTypeDefaults(config.typeDefaults as Record<string, TypeDefault>);
+      result.typeDefaults = this.processTypeDefaults(config.typeDefaults as Record<string, TypeDefault>) as Record<
+        string,
+        BaseTypeDefault<TRow>
+      >;
     }
 
     return result;
@@ -341,27 +344,27 @@ export class GridAdapter implements FrameworkAdapter {
   processColumn<TRow = unknown>(column: ColumnConfig<TRow>): BaseColumnConfig<TRow> {
     const processed = { ...column } as BaseColumnConfig<TRow>;
 
-    if (column.renderer && !(column.renderer as Record<symbol, unknown>)[PROCESSED_MARKER]) {
+    if (column.renderer && !(column.renderer as unknown as Record<symbol, unknown>)[PROCESSED_MARKER]) {
       if (isVueComponent(column.renderer)) {
         const wrapped = this.createConfigComponentRenderer(column.renderer as Component);
-        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
-        processed.renderer = wrapped;
+        (wrapped as unknown as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.renderer = wrapped as BaseColumnConfig<TRow>['renderer'];
       } else if (isVNodeRenderFunction(column.renderer)) {
         const wrapped = this.createConfigVNodeRenderer(column.renderer as (ctx: CellRenderContext<TRow>) => VNode);
-        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
-        processed.renderer = wrapped;
+        (wrapped as unknown as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.renderer = wrapped as BaseColumnConfig<TRow>['renderer'];
       }
     }
 
-    if (column.editor && !(column.editor as Record<symbol, unknown>)[PROCESSED_MARKER]) {
+    if (column.editor && !(column.editor as unknown as Record<symbol, unknown>)[PROCESSED_MARKER]) {
       if (isVueComponent(column.editor)) {
         const wrapped = this.createConfigComponentEditor(column.editor as Component);
-        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
-        processed.editor = wrapped;
+        (wrapped as unknown as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.editor = wrapped as BaseColumnConfig<TRow>['editor'];
       } else if (isVNodeRenderFunction(column.editor)) {
         const wrapped = this.createConfigVNodeEditor(column.editor as (ctx: ColumnEditorContext<TRow>) => VNode);
-        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
-        processed.editor = wrapped;
+        (wrapped as unknown as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.editor = wrapped as BaseColumnConfig<TRow>['editor'];
       }
     }
 

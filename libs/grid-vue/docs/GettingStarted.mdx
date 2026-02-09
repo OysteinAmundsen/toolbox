@@ -481,45 +481,9 @@ async function exportCsv() {
 
 ## The `useGridEvent` Composable
 
-For programmatic event handling, use the `useGridEvent` composable:
+For programmatic event handling beyond template bindings, use the `useGridEvent` composable. It provides type-safe event subscription with automatic cleanup.
 
-<Source
-  language="html"
-  code={`
-<script setup lang="ts">
-import { TbwGrid, useGrid, useGridEvent } from '@toolbox-web/grid-vue';
-import type { CellCommitDetail, SelectionChangeDetail } from '@toolbox-web/grid';
-import { ref } from 'vue';
-
-const editHistory = ref<string[]>([]);
-const selectedCount = ref(0);
-
-const { gridElement } = useGrid();
-
-// Subscribe to cell-commit events
-useGridEvent('cell-commit', (event: CustomEvent<CellCommitDetail<Employee>>) => {
-  const detail = event.detail;
-  editHistory.value.push(`${detail.column.field}: ${detail.oldValue} → ${detail.newValue}`);
-}, gridElement);
-
-// Subscribe to selection-change events
-useGridEvent('selection-change', (event: CustomEvent<SelectionChangeDetail<Employee>>) => {
-  const detail = event.detail;
-  selectedCount.value = detail.ranges?.length ?? 0;
-}, gridElement);
-</script>
-
-<template>
-  <div>
-    <p>Selected ranges: {{ selectedCount }}</p>
-    <ul>
-      <li v-for="(entry, i) in editHistory" :key="i">{{ entry }}</li>
-    </ul>
-    <TbwGrid :rows="employees" :columns="columns" selection="range" editing="dblclick" />
-  </div>
-</template>
-`}
-/>
+See the [Advanced Usage guide](/docs/grid-vue-advanced-usage--docs#the-usegridevent-composable) for full documentation and examples.
 
 ## Master-Detail Panels
 

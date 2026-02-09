@@ -181,7 +181,7 @@ Show/hide items based on context.
 | ------- | ------------ | ------- | --------------------- |
 | `items` | `ContextMenuItem[]` | `[]`    | Menu items to display |
 
-## Menu Item Types
+## TypeScript Interfaces
 
 ```ts
 interface ContextMenuItem {
@@ -198,7 +198,7 @@ interface ContextMenuItem {
 }
 ```
 
-## Menu Context
+### Menu Context
 
 The action callback receives context about the clicked cell:
 
@@ -286,3 +286,9 @@ The menu uses these class names for advanced customization:
 | `.tbw-context-menu-label` | Item label text |
 | `.tbw-context-menu-shortcut` | Keyboard shortcut |
 | `.tbw-context-menu-separator` | Divider line |
+
+## See Also
+
+- **[Selection](../?path=/docs/grid-plugins-selection--docs)** — Row and cell selection
+- **[Editing](../?path=/docs/grid-plugins-editing--docs)** — Inline cell editing
+- **[Clipboard](../?path=/docs/grid-plugins-clipboard--docs)** — Copy/paste cells

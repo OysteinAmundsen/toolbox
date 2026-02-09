@@ -236,71 +236,12 @@ new ExportPlugin({
 
 ## Creating Custom Plugins
 
-Plugins extend `BaseGridPlugin` and implement lifecycle hooks:
+The grid's plugin system lets you build fully custom functionality. Plugins extend `BaseGridPlugin` and can hook into lifecycle events, process rows/columns, handle keyboard events, and inject CSS.
 
-```typescript
-import { BaseGridPlugin } from '@toolbox-web/grid/plugins';
+For the full development guide including lifecycle hooks, plugin communication, the query system, and styling patterns, see [Writing Custom Plugins](?path=/docs/grid-dev-custom-plugins--docs).
 
-interface MyPluginConfig {
-  option1: string;
-  option2: boolean;
-}
+## See Also
 
-class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
-  readonly name = 'myPlugin';
-
-  // CSS styles (loaded from external file in real plugins)
-  override readonly styles = `
-    .my-plugin-class { color: blue; }
-  `;
-
-  // Called when plugin is attached to grid
-  attach(grid) {
-    super.attach(grid);
-    // Setup: add event listeners, initialize state
-  }
-
-  // Called when plugin is detached
-  detach() {
-    // Cleanup: remove listeners, clear state
-    super.detach();
-  }
-
-  // Transform column definitions
-  processColumns(columns) {
-    return columns.map((col) => ({
-      ...col,
-      // Add custom column processing
-    }));
-  }
-
-  // Transform row data
-  processRows(rows) {
-    return rows; // Filter, sort, group, etc.
-  }
-
-  // Called after grid renders
-  afterRender() {
-    // DOM manipulation, measurements, etc.
-  }
-
-  // Handle keyboard events
-  onKeyDown(event) {
-    if (event.key === 'MyHotkey') {
-      // Handle and return true to prevent default
-      return true;
-    }
-    return false;
-  }
-}
-```
-
-## Plugin Lifecycle
-
-1. **Construction**: `new MyPlugin(config)` - Store configuration
-2. **Attach**: `attach(grid)` - Grid reference provided, setup listeners
-3. **Process**: `processColumns()` / `processRows()` - Transform data
-4. **Render**: `afterRender()` - Post-render DOM work
-5. **Detach**: `detach()` - Cleanup when removed or grid destroyed
-
-Plugins receive a `disconnectSignal` (AbortSignal) for automatic cleanup of event listeners when the plugin is detached.
+- **[Custom Plugin Development](?path=/docs/grid-dev-custom-plugins--docs)** — Build your own plugins with hooks, events, and the query system
+- **[API Reference](?path=/docs/grid-api--docs#plugin-methods)** — Plugin access methods on the grid element
+- **[Architecture](?path=/docs/grid-dev-architecture--docs)** — How the plugin system fits into the grid's internals

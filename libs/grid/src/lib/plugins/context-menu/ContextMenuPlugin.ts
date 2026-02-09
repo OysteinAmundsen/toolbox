@@ -305,7 +305,10 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     const gridEl = this.gridElement;
     if (!gridEl) return;
 
-    const container = gridEl.children[0];
+    // Use querySelector instead of children[0] because light DOM children
+    // (e.g. <tbw-grid-column>) are re-appended before .tbw-grid-root, making
+    // children[0] point to a declarative element instead of the data container.
+    const container = gridEl.querySelector('.tbw-grid-root');
     if (!container) return;
 
     // Check if handler already attached

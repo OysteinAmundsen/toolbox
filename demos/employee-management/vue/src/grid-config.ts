@@ -11,56 +11,9 @@
  */
 
 import { DEPARTMENTS, type Employee } from '@demo/shared';
-// Import from /all to get the augmented types with plugin properties like 'editable'
-import type { CellRenderContext, ColumnEditorContext, GridConfig } from '@toolbox-web/grid/all';
-import { render, type VNode } from 'vue';
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// VUE RENDER HELPERS
-// Wrap Vue VNode-returning functions into DOM-returning functions
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Wraps a Vue renderer function into a DOM-returning renderer.
- * Uses Vue's render() directly for lightweight mounting without creating full apps.
- */
-function wrapVueRenderer<TRow = Employee, TValue = unknown>(
-  renderFn: (ctx: CellRenderContext<TRow, TValue>) => VNode,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
-  return (ctx: CellRenderContext<TRow, TValue>) => {
-    const container = document.createElement('div');
-    container.className = 'vue-cell-renderer';
-    container.style.display = 'contents';
-
-    // Use Vue's render() directly - lighter than createApp
-    const vnode = renderFn(ctx);
-    render(vnode, container);
-
-    return container;
-  };
-}
-
-/**
- * Wraps a Vue editor function into a DOM-returning editor.
- * Uses Vue's render() directly for lightweight mounting.
- */
-function wrapVueEditor<TRow = Employee, TValue = unknown>(
-  editorFn: (ctx: ColumnEditorContext<TRow, TValue>) => VNode,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
-  return (ctx: ColumnEditorContext<TRow, TValue>) => {
-    const container = document.createElement('div');
-    container.className = 'vue-cell-editor';
-    container.style.display = 'contents';
-
-    // Use Vue's render() directly - lighter than createApp
-    const vnode = editorFn(ctx);
-    render(vnode, container);
-
-    return container;
-  };
-}
+// Import Vue-specific GridConfig that accepts VNode renderers/editors
+import type { GridConfig } from '@toolbox-web/grid-vue';
+import type { VNode } from 'vue';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -175,9 +128,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         sortable: enableSorting,
         format: (v: number) =>
           v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }),
-        editor: wrapVueEditor((ctx) =>
-          editors.bonus(ctx.value as number, (ctx.row as Employee).salary, ctx.commit, ctx.cancel),
-        ),
+        editor: (ctx) => editors.bonus(ctx.value as number, (ctx.row as Employee).salary, ctx.commit, ctx.cancel),
       },
       {
         field: 'status',
@@ -185,8 +136,8 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         width: 140,
         sortable: enableSorting,
         editable: enableEditing,
-        renderer: wrapVueRenderer((ctx) => renderers.status(ctx.value as Employee['status'])),
-        editor: wrapVueEditor((ctx) => editors.status(ctx.value as Employee['status'], ctx.commit, ctx.cancel)),
+        renderer: (ctx) => renderers.status(ctx.value as Employee['status']),
+        editor: (ctx) => editors.status(ctx.value as Employee['status'], ctx.commit, ctx.cancel),
       },
       {
         field: 'hireDate',
@@ -195,7 +146,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         type: 'date',
         sortable: enableSorting,
         editable: enableEditing,
-        editor: wrapVueEditor((ctx) => editors.date(ctx.value as string, ctx.commit, ctx.cancel)),
+        editor: (ctx) => editors.date(ctx.value as string, ctx.commit, ctx.cancel),
       },
       {
         field: 'rating',
@@ -204,8 +155,8 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         type: 'number',
         sortable: enableSorting,
         editable: enableEditing,
-        renderer: wrapVueRenderer((ctx) => renderers.rating(ctx.value as number)),
-        editor: wrapVueEditor((ctx) => editors.rating(ctx.value as number, ctx.commit, ctx.cancel)),
+        renderer: (ctx) => renderers.rating(ctx.value as number),
+        editor: (ctx) => editors.rating(ctx.value as number, ctx.commit, ctx.cancel),
       },
       {
         field: 'isTopPerformer',
@@ -213,7 +164,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         width: 50,
         type: 'boolean',
         sortable: false,
-        renderer: wrapVueRenderer((ctx) => renderers.topPerformer(ctx.value as boolean)),
+        renderer: (ctx) => renderers.topPerformer(ctx.value as boolean),
       },
       { field: 'location', header: 'Location', width: 110, sortable: enableSorting },
     ],

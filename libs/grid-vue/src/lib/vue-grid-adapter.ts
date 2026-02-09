@@ -185,6 +185,13 @@ function isVNodeRenderFunction(value: unknown): value is (...args: unknown[]) =>
   return typeof value === 'function' && !isVueComponent(value);
 }
 
+/**
+ * Symbol used to mark renderer/editor functions that have already been
+ * processed by the adapter (i.e., wrapped from VNode/Component → DOM).
+ * Prevents double-wrapping when `processGridConfig` is called multiple times.
+ */
+const PROCESSED_MARKER = Symbol.for('tbw:vue-processed');
+
 // #endregion
 
 /**
@@ -334,19 +341,27 @@ export class GridAdapter implements FrameworkAdapter {
   processColumn<TRow = unknown>(column: ColumnConfig<TRow>): BaseColumnConfig<TRow> {
     const processed = { ...column } as BaseColumnConfig<TRow>;
 
-    if (column.renderer) {
+    if (column.renderer && !(column.renderer as Record<symbol, unknown>)[PROCESSED_MARKER]) {
       if (isVueComponent(column.renderer)) {
-        processed.renderer = this.createConfigComponentRenderer(column.renderer as Component);
+        const wrapped = this.createConfigComponentRenderer(column.renderer as Component);
+        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.renderer = wrapped;
       } else if (isVNodeRenderFunction(column.renderer)) {
-        processed.renderer = this.createConfigVNodeRenderer(column.renderer as (ctx: CellRenderContext<TRow>) => VNode);
+        const wrapped = this.createConfigVNodeRenderer(column.renderer as (ctx: CellRenderContext<TRow>) => VNode);
+        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.renderer = wrapped;
       }
     }
 
-    if (column.editor) {
+    if (column.editor && !(column.editor as Record<symbol, unknown>)[PROCESSED_MARKER]) {
       if (isVueComponent(column.editor)) {
-        processed.editor = this.createConfigComponentEditor(column.editor as Component);
+        const wrapped = this.createConfigComponentEditor(column.editor as Component);
+        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.editor = wrapped;
       } else if (isVNodeRenderFunction(column.editor)) {
-        processed.editor = this.createConfigVNodeEditor(column.editor as (ctx: ColumnEditorContext<TRow>) => VNode);
+        const wrapped = this.createConfigVNodeEditor(column.editor as (ctx: ColumnEditorContext<TRow>) => VNode);
+        (wrapped as Record<symbol, unknown>)[PROCESSED_MARKER] = true;
+        processed.editor = wrapped;
       }
     }
 

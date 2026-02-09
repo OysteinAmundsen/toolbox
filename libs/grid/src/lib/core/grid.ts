@@ -1042,6 +1042,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Track the new plugins array
     this.#lastPluginsArray = newPlugins;
 
+    // Re-check variable heights mode: a plugin with getRowHeight() may have been added
+    // after initial setup (e.g., Angular/React set gridConfig asynchronously via effects).
+    // Without this, variableHeights stays false and the scroll handler uses fixed-height math,
+    // producing incorrect translateY when detail rows are expanded.
+    this.#configureVariableHeights();
+
     // Re-collect plugin shell contributions (tool panels, header content)
     // Now the new plugin instances will add their fresh panel definitions
     this.#collectPluginShellContributions();
@@ -1353,32 +1359,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Note: click/dblclick handlers are set up via setupCellEventDelegation in #setupScrollListeners
     // This consolidates all body-level delegated event handlers in one place (event-delegation.ts)
 
-    // Determine row height for virtualization:
-    // 1. User-configured rowHeight in gridConfig takes precedence
-    // 2. Otherwise, measure actual row height from DOM (respects CSS variable --tbw-row-height)
-    const userRowHeight = this.#effectiveConfig.rowHeight;
-
-    // Variable row heights: rowHeight is a function OR a plugin implements getRowHeight()
-    const hasRowHeightPlugin = this.#pluginManager.hasRowHeightPlugin();
-    if (typeof userRowHeight === 'function' || hasRowHeightPlugin) {
-      this._virtualization.variableHeights = true;
-      // Default row height used for unmeasured rows (estimated height for scrollbar)
-      this._virtualization.rowHeight = typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : 28;
-      // Initialize position cache (will be rebuilt when rows are processed)
-      this.#initializePositionCache();
-      // For plugin-based variable heights (not rowHeight function), flag for measurement
-      // after first render completes (when rows actually exist in DOM)
-      if (typeof userRowHeight !== 'function') {
-        this.#needsRowHeightMeasurement = true;
-      }
-    } else if (typeof userRowHeight === 'number' && userRowHeight > 0) {
-      this._virtualization.rowHeight = userRowHeight;
-      this._virtualization.variableHeights = false;
-    } else {
-      // Initial measurement after first paint (CSS is already loaded via Vite)
-      // ResizeObserver in #setupScrollListeners handles subsequent dynamic changes
-      requestAnimationFrame(() => this.#measureRowHeight());
-    }
+    // Configure variable row heights based on plugins and user config
+    this.#configureVariableHeights();
 
     // Initialize ARIA selection state
     queueMicrotask(() => this.#updateAriaSelection());
@@ -1388,6 +1370,43 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Framework adapters (React/Angular) will request COLUMNS phase via refreshColumns(),
     // which will be batched with this request - highest phase wins.
     this.#scheduler.requestPhase(RenderPhase.FULL, 'afterConnect');
+  }
+
+  /**
+   * Configure variable row heights based on plugins and user config.
+   * Called from both #afterConnect (initial setup) and #updatePluginConfigs (plugin changes).
+   *
+   * Handles three scenarios:
+   * 1. Variable heights needed (rowHeight function or plugin with getRowHeight) → enable + init cache
+   * 2. Fixed numeric rowHeight → set directly
+   * 3. No config → measure from DOM after first paint
+   */
+  #configureVariableHeights(): void {
+    const userRowHeight = this.#effectiveConfig.rowHeight;
+    const hasRowHeightPlugin = this.#pluginManager.hasRowHeightPlugin();
+
+    if (typeof userRowHeight === 'function' || hasRowHeightPlugin) {
+      if (!this._virtualization.variableHeights) {
+        this._virtualization.variableHeights = true;
+        this._virtualization.rowHeight =
+          typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : this._virtualization.rowHeight || 28;
+        this.#initializePositionCache();
+        if (typeof userRowHeight !== 'function') {
+          this.#needsRowHeightMeasurement = true;
+        }
+      }
+    } else if (!hasRowHeightPlugin && typeof userRowHeight !== 'function' && this._virtualization.variableHeights) {
+      // Plugin was removed — revert to fixed heights
+      this._virtualization.variableHeights = false;
+      this._virtualization.positionCache = null;
+    } else if (typeof userRowHeight === 'number' && userRowHeight > 0) {
+      this._virtualization.rowHeight = userRowHeight;
+      this._virtualization.variableHeights = false;
+    } else {
+      // No config — measure from DOM after first paint
+      // ResizeObserver in #setupScrollListeners handles subsequent dynamic changes
+      requestAnimationFrame(() => this.#measureRowHeight());
+    }
   }
 
   /**

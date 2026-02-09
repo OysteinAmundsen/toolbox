@@ -31,15 +31,19 @@
 
       &.top {
         border-top: 2px solid var(--tbw-range-border-color);
+        padding-top: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
       }
       &.bottom {
         border-bottom: 2px solid var(--tbw-range-border-color);
+        padding-bottom: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
       }
       &.first {
         border-left: 2px solid var(--tbw-range-border-color);
+        padding-left: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
       }
       &.last {
         border-right: 2px solid var(--tbw-range-border-color);
+        padding-right: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
       }
     }
 

@@ -313,6 +313,9 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   private detailElements: Map<any, HTMLElement> = new Map();
   /** Cached measured heights - persists even when elements are virtualized out */
   private measuredDetailHeights: Map<any, number> = new Map();
+  /** Rows that were just expanded by user action and should animate.
+   * Prevents re-animation when rows scroll back into the virtual window. */
+  private rowsToAnimate: Set<any> = new Set();
 
   /** Default height for detail rows when not configured */
   private static readonly DEFAULT_DETAIL_HEIGHT = 150;
@@ -355,10 +358,14 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   private toggleAndEmit(row: any, rowIndex: number): void {
     this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
+    const expanded = this.expandedRows.has(row as object);
+    if (expanded) {
+      this.rowsToAnimate.add(row);
+    }
     this.emit<DetailExpandDetail>('detail-expand', {
       rowIndex,
       row: row as Record<string, unknown>,
-      expanded: this.expandedRows.has(row as object),
+      expanded,
     });
     this.requestRender();
   }
@@ -371,6 +378,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     this.expandedRows.clear();
     this.detailElements.clear();
     this.measuredDetailHeights.clear();
+    this.rowsToAnimate.clear();
   }
   // #endregion
 
@@ -581,8 +589,14 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       rowEl.after(detailEl);
       this.detailElements.set(row, detailEl);
 
-      // Apply expand animation (must be before measurement scheduling)
-      const willAnimate = this.animateExpand(detailEl, row, rowIndex);
+      // Only animate if this row was just expanded by a user action (click, keyboard, API).
+      // Rows re-appearing from scroll (virtualization) should not re-animate.
+      const shouldAnimate = this.rowsToAnimate.has(row);
+      if (shouldAnimate) {
+        this.rowsToAnimate.delete(row);
+      }
+
+      const willAnimate = shouldAnimate && this.animateExpand(detailEl, row, rowIndex);
 
       if (!willAnimate) {
         // No animation - measure height after layout settles via RAF
@@ -722,6 +736,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   expand(rowIndex: number): void {
     const row = this.rows[rowIndex];
     if (row) {
+      this.rowsToAnimate.add(row);
       this.expandedRows = expandDetailRow(this.expandedRows, row);
       this.requestRender();
     }
@@ -747,6 +762,9 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     const row = this.rows[rowIndex];
     if (row) {
       this.expandedRows = toggleDetailRow(this.expandedRows, row);
+      if (this.expandedRows.has(row)) {
+        this.rowsToAnimate.add(row);
+      }
       this.requestRender();
     }
   }
@@ -766,6 +784,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   expandAll(): void {
     for (const row of this.rows) {
+      this.rowsToAnimate.add(row);
       this.expandedRows.add(row);
     }
     this.requestRender();

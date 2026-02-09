@@ -101,6 +101,58 @@ describe('variable row height with plugins', () => {
       // the measurement would update the spacer to reflect actual CSS row height.
     });
 
+    it('should enable variable heights when plugin is added after connectedCallback (framework adapter scenario)', async () => {
+      // Simulates Angular/React flow: grid connects first, then plugins are added
+      // via gridConfig setter in a framework effect/useEffect
+      const rows = createRows(200);
+
+      // Step 1: Set rows and connect element WITHOUT plugins
+      grid.rows = rows;
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+      };
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+      await nextFrame();
+
+      const internalGrid = grid as unknown as {
+        _virtualization: { variableHeights: boolean; rowHeight: number; positionCache: unknown[] | null };
+      };
+
+      // At this point, no row-height plugin → variableHeights should be false
+      expect(internalGrid._virtualization.variableHeights).toBe(false);
+
+      // Step 2: Set gridConfig with MasterDetailPlugin AFTER connection
+      // This simulates Angular's effect() firing after connectedCallback
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: (row) => {
+          const div = document.createElement('div');
+          div.textContent = `Detail for ${row.name}`;
+          div.style.height = '100px';
+          return div;
+        },
+      });
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        plugins: [plugin],
+      };
+      await nextFrame();
+      await nextFrame();
+
+      // After adding plugin, variableHeights MUST be true
+      expect(internalGrid._virtualization.variableHeights).toBe(true);
+      expect(internalGrid._virtualization.positionCache).toBeDefined();
+      expect(internalGrid._virtualization.positionCache).not.toBeNull();
+      expect(internalGrid._virtualization.positionCache!.length).toBe(200);
+    });
+
     it('should have position cache with correct structure', async () => {
       const rows = createRows(50);
       const plugin = new MasterDetailPlugin({

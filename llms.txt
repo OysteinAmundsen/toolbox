@@ -10,7 +10,7 @@ Via plugins (22 available): Selection (cell/row/range/checkbox), inline editing 
 
 ## Important Notes
 
-- This is a **Web Component** (`<tbw-grid>`) that works natively in all frameworks without wrappers (though optional adapter packages exist for React and Angular to enable JSX/template renderers)
+- This is a **Web Component** (`<tbw-grid>`) that works natively in all frameworks without wrappers (though optional adapter packages exist for React, Angular, and Vue to enable JSX/template/slot renderers)
 - All features are **opt-in via plugins** - import only what you need for tree-shaking
 - Configuration uses a **single source of truth** pattern via `gridConfig` property
 - Editing requires `EditingPlugin` - calling `editable: true` without it will throw a helpful error
@@ -47,6 +47,8 @@ Key TypeScript interfaces for configuration and events:
   - **Feature Props**: Declarative inputs with side-effect imports for tree-shakeable plugin loading (e.g., `[selection]="'range'"`, `[editing]="true"`, `[filtering]="true"`)
   - [Reactive Forms Integration](https://toolboxjs.com/?path=/docs/grid-angular-reactive-forms-integration--docs): Bind FormArray to grid with cell-level validation
 - [@toolbox-web/grid-react](https://www.npmjs.com/package/@toolbox-web/grid-react): React adapter with `DataGrid` component, hooks, and JSX renderers
+  - **Feature Props**: Declarative props with side-effect imports for tree-shakeable plugin loading (e.g., `selection="range"`, `editing`, `filtering`)
+- [@toolbox-web/grid-vue](https://www.npmjs.com/package/@toolbox-web/grid-vue): Vue adapter with `TbwGrid` component, composables (`useGrid`, `useGridEvent`), and `#cell`/`#editor` slot renderers
   - **Feature Props**: Declarative props with side-effect imports for tree-shakeable plugin loading (e.g., `selection="range"`, `editing`, `filtering`)
 
 ## Plugins
@@ -105,6 +107,7 @@ Key TypeScript interfaces for configuration and events:
 - [Grid Library Source](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid): Core grid implementation
 - [Angular Adapter Source](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-angular): Angular directives
 - [React Adapter Source](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-react): React components and hooks
+- [Vue Adapter Source](https://github.com/OysteinAmundsen/toolbox/tree/main/libs/grid-vue): Vue components and composables
 
 ## Optional
 

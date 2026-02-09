@@ -100,6 +100,7 @@ After completing a feature or fix, check if any documentation needs updating:
 - **README.md files** - Plugin READMEs, library READMEs, demo READMEs
 - **MDX documentation** - Theming.mdx, plugin-specific .mdx files in `libs/grid/src/lib/plugins/*/`
 - **API documentation** - If public API changed, update API.mdx
+- **LLM context files** - If public API, plugins, events, CSS variables, or framework adapters changed, update `llms.txt` (index) and `llms-full.txt` (full AI implementation guide)
 - **Copilot instructions** - If workflow or conventions changed, update `.github/copilot-instructions.md`
 - **AGENTS.md** - If Nx or workspace conventions changed
 

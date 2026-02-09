@@ -198,35 +198,28 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
         coreConfigOverrides['icons'] = { ...registryIcons, ...existingIcons };
       }
 
-      // If gridConfig is provided, process it (converts component classes to renderer functions)
-      const processedConfig = angularCfg ? this.adapter.processGridConfig(angularCfg as GridConfig) : null;
-
-      // IMPORTANT: If user is NOT using gridConfig input, and there are no feature plugins
-      // or config overrides to merge, do NOT overwrite grid.gridConfig.
-      // This allows [gridConfig]="myConfig" binding to work correctly without the directive
-      // creating a new object that strips properties like typeDefaults.
+      // Nothing to do if there's no config input and no feature inputs
       const hasFeaturePlugins = featurePlugins.length > 0;
       const hasConfigOverrides = Object.keys(coreConfigOverrides).length > 0;
 
-      // The input signal gives us reactive tracking of the user's config
-      const existingConfig = angularCfg || {};
-
-      if (!processedConfig && !hasFeaturePlugins && !hasConfigOverrides && !angularCfg) {
-        // Nothing to merge and no config input - let the user's DOM binding work directly
+      if (!angularCfg && !hasFeaturePlugins && !hasConfigOverrides) {
         return;
       }
 
-      // Merge: processed config < feature plugins
-      const configPlugins = processedConfig?.plugins || existingConfig.plugins || [];
+      const userConfig = angularCfg || {};
+
+      // Merge feature-input plugins with the user's own plugins
+      const configPlugins = userConfig.plugins || [];
       const mergedPlugins = [...featurePlugins, ...configPlugins];
 
-      // Build the final config, preserving ALL existing properties (including typeDefaults)
-      const baseConfig = processedConfig || existingConfig;
+      // The interceptor on element.gridConfig (installed in ngOnInit)
+      // handles converting component classes → functions via processGridConfig,
+      // so we can pass the raw Angular config through. The interceptor is
+      // idempotent, making this safe even if the config is already processed.
       grid.gridConfig = {
-        ...existingConfig, // Start with existing config to preserve all properties (including typeDefaults)
-        ...baseConfig, // Then apply processed/angular config
+        ...userConfig,
         ...coreConfigOverrides,
-        plugins: mergedPlugins.length > 0 ? mergedPlugins : baseConfig.plugins,
+        plugins: mergedPlugins.length > 0 ? mergedPlugins : userConfig.plugins,
       };
     });
 
@@ -1094,6 +1087,13 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
     const grid = this.elementRef.nativeElement;
 
+    // Intercept the element's gridConfig setter so that ALL writes
+    // (including Angular's own template property binding when CUSTOM_ELEMENTS_SCHEMA
+    // is used) go through the adapter's processGridConfig first.
+    // This converts Angular component classes to vanilla renderer/editor functions
+    // before the grid's internal ConfigManager ever sees them.
+    this.interceptElementGridConfig(grid);
+
     // Wire up all event listeners based on eventOutputMap
     this.setupEventListeners(grid);
 
@@ -1101,6 +1101,43 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     // via the __frameworkAdapter hook during attach()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (grid as any).__frameworkAdapter = this.adapter;
+  }
+
+  /**
+   * Overrides the element's `gridConfig` property so every write is processed
+   * through the adapter before reaching the grid core.
+   *
+   * Why: Angular with `CUSTOM_ELEMENTS_SCHEMA` may bind `[gridConfig]` to both
+   * the directive input AND the native custom-element property. The directive
+   * input feeds an effect that merges feature plugins, but the native property
+   * receives the raw config (with component classes as editors/renderers).
+   * Intercepting the setter guarantees only processed configs reach the grid.
+   */
+  private interceptElementGridConfig(grid: GridElement): void {
+    const proto = Object.getPrototypeOf(grid);
+    const desc = Object.getOwnPropertyDescriptor(proto, 'gridConfig');
+    if (!desc?.set || !desc?.get) return;
+
+    const originalSet = desc.set;
+    const originalGet = desc.get;
+    const adapter = this.adapter!;
+
+    // Instance-level override (does not affect the prototype or other grid elements)
+    Object.defineProperty(grid, 'gridConfig', {
+      get() {
+        return originalGet.call(this);
+      },
+      set(value: GridConfig | undefined) {
+        if (value && adapter) {
+          // processGridConfig is idempotent: already-processed functions pass
+          // through isComponentClass unchanged, so double-processing is safe.
+          originalSet.call(this, adapter.processGridConfig(value));
+        } else {
+          originalSet.call(this, value);
+        }
+      },
+      configurable: true,
+    });
   }
 
   /**
@@ -1300,6 +1337,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
   ngOnDestroy(): void {
     const grid = this.elementRef.nativeElement;
+
+    // Remove the gridConfig interceptor (restores prototype behavior)
+    if (grid) {
+      delete (grid as Record<string, unknown>)['gridConfig'];
+    }
 
     // Cleanup all event listeners
     if (grid) {

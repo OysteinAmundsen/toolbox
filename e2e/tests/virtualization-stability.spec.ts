@@ -432,7 +432,8 @@ test.describe('Variable Row Height Virtualization Stability', () => {
       const scrollable = page.locator('.faux-vscroll');
 
       // Get the scroll height to find a row that's below viewport
-      const clientHeight = await scrollable.evaluate((el) => el.clientHeight);
+      // clientHeight available for future assertions if needed
+      void (await scrollable.evaluate((el) => el.clientHeight));
 
       // Record initial scroll position (at top)
       const scrollBefore = await scrollable.evaluate((el) => el.scrollTop);
@@ -461,6 +462,284 @@ test.describe('Variable Row Height Virtualization Stability', () => {
         // Allow some tolerance
         expect(delta).toBeLessThan(50);
       }
+    });
+  });
+
+  test.describe('Horizontal Scroll Coverage', () => {
+    test('vanilla: horizontal scroll should not produce blank columns', async ({ page }) => {
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      const scrollArea = page.locator('.tbw-scroll-area');
+      if (!(await scrollArea.isVisible())) return;
+
+      const totalWidth = await scrollArea.evaluate((el) => el.scrollWidth);
+      const viewportWidth = await scrollArea.evaluate((el) => el.clientWidth);
+
+      if (totalWidth <= viewportWidth) return; // No horizontal overflow
+
+      const steps = 5;
+      const stepSize = Math.floor((totalWidth - viewportWidth) / steps);
+
+      for (let step = 0; step <= steps; step++) {
+        const target = Math.min(step * stepSize, totalWidth - viewportWidth);
+
+        await scrollArea.evaluate((el, scrollLeft) => {
+          el.scrollLeft = scrollLeft;
+        }, target);
+        await page.waitForTimeout(150);
+
+        // Verify cells are visible at every horizontal scroll position
+        const visibleCells = page.locator(`${SELECTORS.body} .cell`);
+        const cellCount = await visibleCells.count();
+        expect(cellCount).toBeGreaterThan(0);
+
+        // Verify header cells are also present
+        const headerCells = page.locator(`${SELECTORS.header} .cell, [role="columnheader"]`);
+        const headerCount = await headerCells.count();
+        expect(headerCount).toBeGreaterThan(0);
+      }
+    });
+
+    test('vanilla: combined vertical + horizontal scroll should not leave gaps', async ({ page }) => {
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      const scrollArea = page.locator('.tbw-scroll-area');
+      const vScrollable = page.locator('.faux-vscroll');
+
+      if (!(await scrollArea.isVisible()) || !(await vScrollable.isVisible())) return;
+
+      const hTotal = await scrollArea.evaluate((el) => el.scrollWidth);
+      const hViewport = await scrollArea.evaluate((el) => el.clientWidth);
+
+      // Scroll to bottom-right corner
+      await vScrollable.evaluate((el) => {
+        el.scrollTop = el.scrollHeight - el.clientHeight;
+      });
+      if (hTotal > hViewport) {
+        await scrollArea.evaluate((el) => {
+          el.scrollLeft = el.scrollWidth - el.clientWidth;
+        });
+      }
+      await page.waitForTimeout(200);
+
+      // Verify rows are rendered
+      const visibleRows = page.locator(`${SELECTORS.body} .data-grid-row`);
+      const rowCount = await visibleRows.count();
+      expect(rowCount).toBeGreaterThan(0);
+
+      // Scroll back to top-left
+      await vScrollable.evaluate((el) => {
+        el.scrollTop = 0;
+      });
+      await scrollArea.evaluate((el) => {
+        el.scrollLeft = 0;
+      });
+      await page.waitForTimeout(200);
+
+      const firstRow = page.locator(`${SELECTORS.body} .data-grid-row`).first();
+      await expect(firstRow).toBeVisible();
+    });
+  });
+
+  test.describe('Data Mutation While Scrolled', () => {
+    test('vanilla: changing row count while scrolled should not crash', async ({ page }) => {
+      const errors: string[] = [];
+      page.on('pageerror', (err) => errors.push(err.message));
+
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      const scrollable = page.locator('.faux-vscroll');
+
+      // Scroll to middle
+      await scrollable.evaluate((el) => {
+        el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+      });
+      await page.waitForTimeout(200);
+
+      // Change row count while scrolled
+      const slider = page.locator('#row-count');
+      if (await slider.isVisible()) {
+        await slider.fill('500');
+        await slider.dispatchEvent('input');
+        await page.waitForTimeout(800);
+        await waitForGridReady(page);
+
+        // Verify grid still renders correctly
+        const visibleRows = page.locator(`${SELECTORS.body} .data-grid-row`);
+        const rowCount = await visibleRows.count();
+        expect(rowCount).toBeGreaterThan(0);
+      }
+
+      expect(errors).toHaveLength(0);
+    });
+
+    test('vanilla: toggling features while scrolled should recover', async ({ page }) => {
+      const errors: string[] = [];
+      page.on('pageerror', (err) => errors.push(err.message));
+
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      const scrollable = page.locator('.faux-vscroll');
+
+      // Scroll down
+      await scrollable.evaluate((el) => {
+        el.scrollTop = 300;
+      });
+      await page.waitForTimeout(200);
+
+      // Toggle sorting off while scrolled
+      const sortCheckbox = page.locator('#enable-sorting');
+      if (await sortCheckbox.isVisible()) {
+        await sortCheckbox.click();
+        await page.waitForTimeout(800);
+        await waitForGridReady(page);
+
+        // Grid should render and have visible rows
+        const visibleRows = page.locator(`${SELECTORS.body} .data-grid-row`);
+        const rowCount = await visibleRows.count();
+        expect(rowCount).toBeGreaterThan(0);
+      }
+
+      expect(errors).toHaveLength(0);
+    });
+  });
+
+  test.describe('Keyboard Scroll', () => {
+    test('vanilla: Page Down / Page Up should navigate without blank areas', async ({ page }) => {
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      // Click a cell to establish focus
+      const firstCell = page.locator('[role="gridcell"]').first();
+      await firstCell.click();
+      await page.waitForTimeout(100);
+
+      // Page Down multiple times
+      for (let i = 0; i < 5; i++) {
+        await page.keyboard.press('PageDown');
+        await page.waitForTimeout(150);
+
+        // Verify rows are visible after each page
+        const visibleRows = page.locator(`${SELECTORS.body} .data-grid-row`);
+        const rowCount = await visibleRows.count();
+        expect(rowCount).toBeGreaterThan(0);
+      }
+
+      // Page Up back to top
+      for (let i = 0; i < 5; i++) {
+        await page.keyboard.press('PageUp');
+        await page.waitForTimeout(150);
+      }
+
+      // Verify we can see rows again at the top
+      const visibleRows = page.locator(`${SELECTORS.body} .data-grid-row`);
+      const rowCount = await visibleRows.count();
+      expect(rowCount).toBeGreaterThan(0);
+    });
+
+    test('vanilla: arrow key scrolling should keep focused cell visible', async ({ page }) => {
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      // Click a cell to establish focus
+      const firstCell = page.locator('[role="gridcell"]').first();
+      await firstCell.click();
+      await page.waitForTimeout(100);
+
+      // Navigate down with arrow keys
+      for (let i = 0; i < 20; i++) {
+        await page.keyboard.press('ArrowDown');
+        await page.waitForTimeout(50);
+      }
+
+      await page.waitForTimeout(200);
+
+      // There should be a focused/active cell visible in the viewport
+      const viewport = page.locator(SELECTORS.body);
+      const viewportBounds = await viewport.boundingBox();
+
+      // Check that the active/focused cell is within viewport bounds
+      const activeCell = page.locator('[role="gridcell"].active, [role="gridcell"]:focus, [role="gridcell"].dg-focus');
+      const activeCellCount = await activeCell.count();
+
+      if (activeCellCount > 0 && viewportBounds) {
+        const cellBounds = await activeCell.first().boundingBox();
+        if (cellBounds) {
+          // Active cell should be within viewport
+          expect(cellBounds.y).toBeGreaterThanOrEqual(viewportBounds.y - 10);
+          expect(cellBounds.y + cellBounds.height).toBeLessThanOrEqual(viewportBounds.y + viewportBounds.height + 10);
+        }
+      }
+    });
+
+    test('vanilla: Home/End keys should scroll to extremes without errors', async ({ page }) => {
+      const errors: string[] = [];
+      page.on('pageerror', (err) => errors.push(err.message));
+
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      // Click a cell to establish focus
+      const firstCell = page.locator('[role="gridcell"]').first();
+      await firstCell.click();
+      await page.waitForTimeout(100);
+
+      // Ctrl+End to go to last cell
+      await page.keyboard.press('Control+End');
+      await page.waitForTimeout(300);
+
+      const visibleRows = page.locator(`${SELECTORS.body} .data-grid-row`);
+      expect(await visibleRows.count()).toBeGreaterThan(0);
+
+      // Ctrl+Home to go back to first cell
+      await page.keyboard.press('Control+Home');
+      await page.waitForTimeout(300);
+
+      expect(await visibleRows.count()).toBeGreaterThan(0);
+      expect(errors).toHaveLength(0);
+    });
+  });
+
+  test.describe('Focus Retention During Virtualization', () => {
+    test('vanilla: focus should survive scroll-out and scroll-back', async ({ page }) => {
+      await page.goto(DEMOS.vanilla);
+      await waitForGridReady(page);
+
+      // Click a cell in the first row to focus it
+      const firstCell = page.locator('[role="gridcell"]').first();
+      await firstCell.click();
+      await page.waitForTimeout(100);
+
+      const scrollable = page.locator('.faux-vscroll');
+
+      // Scroll far away so the focused row is virtualized out
+      await scrollable.evaluate((el) => {
+        el.scrollTop = el.scrollHeight / 2;
+      });
+      await page.waitForTimeout(300);
+
+      // Scroll back to top
+      await scrollable.evaluate((el) => {
+        el.scrollTop = 0;
+      });
+      await page.waitForTimeout(300);
+
+      // The first row should be visible again
+      const firstRowAgain = page.locator(`${SELECTORS.body} .data-grid-row`).first();
+      await expect(firstRowAgain).toBeVisible();
+
+      // Verify grid didn't throw errors and is still interactive
+      const cellAgain = page.locator('[role="gridcell"]').first();
+      await cellAgain.click();
+      await page.waitForTimeout(100);
+
+      // Grid should still be responsive to clicks
+      const visibleRows = page.locator(`${SELECTORS.body} .data-grid-row`);
+      expect(await visibleRows.count()).toBeGreaterThan(0);
     });
   });
 

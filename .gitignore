@@ -64,3 +64,6 @@ playwright-report/
 **/RFC/*
 ANALYSIS-*.md
 tsconfig.tsbuildinfo
+.vscode/tasks.json
+scripts/analyze-trace.mjs
+test-results/.last-run.json

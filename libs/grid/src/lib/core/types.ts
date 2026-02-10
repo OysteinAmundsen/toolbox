@@ -1465,6 +1465,12 @@ export interface VirtualState {
 
   /** Cached faux scrollbar element height. Updated alongside viewport height. */
   cachedFauxHeight: number;
+
+  /** Cached scroll-area element height. Updated alongside viewport/faux heights. */
+  cachedScrollAreaHeight: number;
+
+  /** Cached reference to .tbw-scroll-area element. Set during scroll listener setup. */
+  scrollAreaEl: HTMLElement | null;
 }
 
 // RowElementInternal is now defined earlier in the file with all internal properties

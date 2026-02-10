@@ -355,6 +355,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     variableHeights: false,
     cachedViewportHeight: 0,
     cachedFauxHeight: 0,
+    cachedScrollAreaHeight: 0,
+    scrollAreaEl: null,
   };
 
   // Focus & navigation
@@ -776,6 +778,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         // which changes the total content height. Since refreshVirtualWindow was called
         // with skipAfterRender=true (scheduler calls afterRender separately), the
         // microtask that normally handles this recalculation was skipped.
+        // Use forceRead=false (cached geometry) since the scheduler's renderVirtualWindow
+        // already read fresh geometry and updated caches before calling afterRender.
+        // Plugins modify content inside containers, not container geometry itself.
+        // Any container geometry changes are caught asynchronously by ResizeObserver.
         if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
           queueMicrotask(() => {
             if (!this._virtualization.totalHeightEl) return;
@@ -1568,6 +1574,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // This is needed for plugins like column virtualization that need to respond to horizontal scroll
       const scrollArea = this.#renderRoot.querySelector('.tbw-scroll-area') as HTMLElement;
       this.#scrollAreaEl = scrollArea; // Store reference for use in #onScrollBatched
+      this._virtualization.scrollAreaEl = scrollArea; // Cache for #calculateTotalSpacerHeight
       if (scrollArea && this.#hasScrollPlugins) {
         scrollArea.addEventListener(
           'scroll',
@@ -3788,26 +3795,51 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (fauxScrollbar) {
       this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight;
     }
+    const scrollAreaEl = this._virtualization.scrollAreaEl;
+    if (scrollAreaEl) {
+      this._virtualization.cachedScrollAreaHeight = scrollAreaEl.clientHeight;
+    }
   }
 
   /**
    * Calculate total height for the faux scrollbar spacer element.
    * Used by both bypass and virtualized rendering paths to ensure consistent scroll behavior.
+   *
+   * @param totalRows - Total number of rows to calculate height for
+   * @param forceRead - When true, reads fresh geometry from DOM (used after structural changes).
+   *   When false, uses cached values from ResizeObserver to avoid forced synchronous layout.
    */
-  #calculateTotalSpacerHeight(totalRows: number): number {
-    const fauxScrollbar = this._virtualization.container ?? this;
-    const viewportEl = this._virtualization.viewportEl ?? fauxScrollbar;
-    const fauxScrollHeight = fauxScrollbar.clientHeight;
-    const viewportHeight = viewportEl.clientHeight;
+  #calculateTotalSpacerHeight(totalRows: number, forceRead = false): number {
+    const virt = this._virtualization;
 
-    // Get scroll-area height (may differ from faux when h-scrollbar present)
-    // Query from the grid element directly (light DOM, not shadow DOM)
-    const scrollAreaEl = this.querySelector('.tbw-scroll-area') as HTMLElement | null;
-    const scrollAreaHeight = scrollAreaEl ? scrollAreaEl.clientHeight : fauxScrollHeight;
+    // Use cached geometry to avoid forced synchronous layout reads.
+    // Caches are kept current by ResizeObserver (#updateCachedGeometry) and force-refresh paths.
+    // Only read fresh values when forceRead is explicitly requested (structural DOM changes).
+    let fauxScrollHeight: number;
+    let viewportHeight: number;
+    let scrollAreaHeight: number;
+
+    if (forceRead) {
+      const fauxScrollbar = virt.container ?? this;
+      const viewportEl = virt.viewportEl ?? fauxScrollbar;
+      const scrollAreaEl = virt.scrollAreaEl;
+
+      fauxScrollHeight = fauxScrollbar.clientHeight;
+      viewportHeight = viewportEl.clientHeight;
+      scrollAreaHeight = scrollAreaEl ? scrollAreaEl.clientHeight : fauxScrollHeight;
+
+      // Update caches while we have fresh values
+      virt.cachedFauxHeight = fauxScrollHeight;
+      virt.cachedViewportHeight = viewportHeight;
+      virt.cachedScrollAreaHeight = scrollAreaHeight;
+    } else {
+      fauxScrollHeight = virt.cachedFauxHeight;
+      viewportHeight = virt.cachedViewportHeight;
+      scrollAreaHeight = virt.cachedScrollAreaHeight || fauxScrollHeight;
+    }
 
     // Use scroll-area height as reference since it contains the actual content
-    const containerHeight = scrollAreaHeight;
-    const viewportHeightDiff = containerHeight - viewportHeight;
+    const viewportHeightDiff = scrollAreaHeight - viewportHeight;
 
     // Horizontal scrollbar compensation: When a horizontal scrollbar appears inside scroll-area,
     // the faux scrollbar (sibling) is taller than scroll-area. Add the difference as padding.
@@ -3817,15 +3849,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     let rowContentHeight: number;
     let pluginExtraHeight = 0;
 
-    if (this._virtualization.variableHeights && this._virtualization.positionCache) {
+    if (virt.variableHeights && virt.positionCache) {
       // Variable heights mode: position cache includes heights from getRowHeight() plugin hooks
       // Do NOT add pluginExtraHeight here - it would double-count since getRowHeight() already
       // reports expanded detail heights via the position cache
-      rowContentHeight = getTotalHeight(this._virtualization.positionCache);
+      rowContentHeight = getTotalHeight(virt.positionCache);
     } else {
       // Fixed heights mode: use simple multiplication and add plugin extra heights
       // (for plugins using deprecated getExtraHeight() that don't implement getRowHeight())
-      rowContentHeight = totalRows * this._virtualization.rowHeight;
+      rowContentHeight = totalRows * virt.rowHeight;
       pluginExtraHeight = this.#pluginManager?.getExtraHeight() ?? 0;
     }
 
@@ -3993,7 +4025,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Only recalculate height on force refresh (structural changes)
       // Skip on scroll-only updates to prevent scrollbar jumpiness
       if (force && this._virtualization.totalHeightEl) {
-        this._virtualization.totalHeightEl.style.height = `${this.#calculateTotalSpacerHeight(totalRows)}px`;
+        this._virtualization.totalHeightEl.style.height = `${this.#calculateTotalSpacerHeight(totalRows, true)}px`;
       }
       // Update ARIA counts on the grid container
       this.#updateAriaCounts(totalRows, this._visibleColumns.length);
@@ -4116,6 +4148,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       ? (this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight)
       : this._virtualization.cachedFauxHeight || (this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight);
 
+    // Also update scroll-area height cache on force-refresh
+    if (force) {
+      const scrollAreaEl = this._virtualization.scrollAreaEl;
+      if (scrollAreaEl) {
+        this._virtualization.cachedScrollAreaHeight = scrollAreaEl.clientHeight;
+      }
+    }
+
     // Guard: Skip height calculation if faux scrollbar has no height but viewport does
     // This indicates stale DOM references during recreation (e.g., shell toggle)
     // When both are 0 (test environment or not in DOM), proceed normally
@@ -4173,18 +4213,19 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // After plugins modify the DOM (e.g., add footer, column groups),
       // heights may have changed. Recalculate spacer height in a microtask
       // to catch these changes before the next paint.
+      // Use forceRead=false (cached geometry) since the force path above
+      // already read fresh geometry and updated all caches. Plugins modify
+      // content inside containers, not container geometry itself.
       queueMicrotask(() => {
-        const newFauxHeight = fauxScrollbar.clientHeight;
-        const newViewportHeight = viewportEl.clientHeight;
-        // Skip if faux scrollbar is stale (0 height but viewport has height)
-        if (newFauxHeight === 0 && newViewportHeight > 0) return;
+        if (!this._virtualization.totalHeightEl) return;
 
-        // Recalculate using the shared helper
+        // Use cached geometry - avoids forced synchronous layout
         const newTotalHeight = this.#calculateTotalSpacerHeight(totalRows);
 
-        if (this._virtualization.totalHeightEl) {
-          this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
-        }
+        // Guard: skip if stale refs detected (0 faux height with positive viewport)
+        if (this._virtualization.cachedFauxHeight === 0 && this._virtualization.cachedViewportHeight > 0) return;
+
+        this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
       });
     }
 

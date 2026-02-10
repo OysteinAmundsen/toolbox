@@ -70,7 +70,9 @@
 
     /* ========== Cell & Row Dimensions ========== */
     --tbw-cell-padding-header: var(--tbw-spacing-xs) var(--tbw-spacing-md);
-    --tbw-cell-padding: var(--tbw-spacing-xs) var(--tbw-spacing-md);
+    --tbw-cell-padding-v: var(--tbw-spacing-xs);
+    --tbw-cell-padding-h: var(--tbw-spacing-md);
+    --tbw-cell-padding: var(--tbw-cell-padding-v) var(--tbw-cell-padding-h);
     --tbw-cell-padding-input: var(--tbw-spacing-xs) var(--tbw-spacing-sm);
     --tbw-row-height: 1.75em; /* ~28px at 16px font */
     --tbw-header-height: 1.875em; /* ~30px at 16px font */

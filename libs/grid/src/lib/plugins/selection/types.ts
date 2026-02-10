@@ -148,6 +148,25 @@ export interface SelectionConfig<T = unknown> {
   triggerOn?: SelectionTrigger;
 
   /**
+   * Show a checkbox column for row selection (row mode only).
+   *
+   * When `true` and mode is `'row'`, adds a narrow utility column with checkboxes:
+   * - **Row checkboxes**: Click to toggle individual row selection
+   * - **Header checkbox**: Click to select/deselect all rows
+   * - Indeterminate state shown when some (but not all) rows are selected
+   *
+   * Checkboxes work with Shift+Click (range select) and follow `isSelectable` rules.
+   *
+   * @default false
+   *
+   * @example
+   * ```ts
+   * new SelectionPlugin({ mode: 'row', checkbox: true })
+   * ```
+   */
+  checkbox?: boolean;
+
+  /**
    * Callback that determines whether a specific row or cell can be selected.
    *
    * Non-selectable rows/cells:

@@ -197,6 +197,153 @@ describe('SelectionPlugin', () => {
 
       expect(plugin.getSelection().ranges.map((r) => r.from.row)).toEqual([2]);
     });
+
+    it('should toggle row with Ctrl+Click', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      // Click row 0
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: rows[0],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      // Ctrl+Click row 2, should toggle on
+      plugin.onCellClick({
+        rowIndex: 2,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: rows[2],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click', { ctrlKey: true }),
+      });
+
+      expect(plugin.getSelectedRowIndices()).toEqual([0, 2]);
+
+      // Ctrl+Click row 0, should toggle off
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: rows[0],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click', { ctrlKey: true }),
+      });
+
+      expect(plugin.getSelectedRowIndices()).toEqual([2]);
+    });
+
+    it('should range-select with Shift+Click', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      // Click row 1 to set anchor
+      plugin.onCellClick({
+        rowIndex: 1,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: rows[1],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      // Shift+Click row 3, should select 1,2,3
+      plugin.onCellClick({
+        rowIndex: 3,
+        colIndex: 0,
+        field: 'name',
+        value: 'Test',
+        row: rows[3],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click', { shiftKey: true }),
+      });
+
+      expect(plugin.getSelectedRowIndices()).toEqual([1, 2, 3]);
+    });
+
+    it('should select all rows with selectAll()', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      plugin.selectAll();
+
+      expect(plugin.getSelectedRowIndices()).toEqual([0, 1, 2]);
+    });
+
+    it('should select specific rows with selectRows()', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      plugin.selectRows([0, 2, 3]);
+
+      expect(plugin.getSelectedRowIndices()).toEqual([0, 2, 3]);
+    });
+
+    it('should inject checkbox column when checkbox: true', () => {
+      const columns = [{ field: 'name' }, { field: 'age' }];
+      const mockGrid = createMockGrid([], columns);
+      const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
+      plugin.attach(mockGrid);
+
+      const result = plugin.processColumns(columns);
+
+      expect(result.length).toBe(3);
+      expect(result[0].field).toBe('__tbw_checkbox');
+      expect(result[0].meta?.utility).toBe(true);
+      expect(result[0].meta?.checkboxColumn).toBe(true);
+    });
+
+    it('should toggle row on checkbox column click', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const columns = [{ field: 'name', meta: { checkboxColumn: true } }];
+      const mockGrid = createMockGrid(rows, columns);
+      const plugin = new SelectionPlugin({ mode: 'row', checkbox: true });
+      plugin.attach(mockGrid);
+
+      // Click on checkbox column cell (toggle on)
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: '__tbw_checkbox',
+        value: undefined,
+        row: rows[0],
+        column: columns[0],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin.getSelectedRowIndices()).toEqual([0]);
+
+      // Click on checkbox column cell again (toggle off)
+      plugin.onCellClick({
+        rowIndex: 0,
+        colIndex: 0,
+        field: '__tbw_checkbox',
+        value: undefined,
+        row: rows[0],
+        column: columns[0],
+        cellEl: document.createElement('div'),
+        originalEvent: new MouseEvent('click'),
+      });
+
+      expect(plugin.getSelectedRowIndices()).toEqual([]);
+    });
   });
 
   describe('triggerOn option', () => {
@@ -498,15 +645,16 @@ describe('SelectionPlugin', () => {
       });
     });
 
-    it('should not select all with Ctrl+A in row mode', () => {
-      const rows = [{ id: 1 }, { id: 2 }];
+    it('should select all rows with Ctrl+A in row mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
       const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
       const plugin = new SelectionPlugin({ mode: 'row' });
       plugin.attach(mockGrid);
 
       const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }));
 
-      expect(handled).toBe(false);
+      expect(handled).toBe(true);
+      expect(plugin.getSelectedRowIndices()).toEqual([0, 1, 2]);
     });
 
     it('should not extend selection with Shift+Tab in range mode', () => {

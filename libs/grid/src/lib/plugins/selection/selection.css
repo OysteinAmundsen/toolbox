@@ -21,7 +21,8 @@
     }
 
     /* Disable cell-focus outline in row mode - row is the focus unit */
-    &[data-selection-mode='row'] .cell-focus {
+    &[data-selection-mode='row'] .cell-focus,
+    &[data-selection-mode='range'] .cell-focus {
       outline: none;
     }
 
@@ -31,19 +32,19 @@
 
       &.top {
         border-top: 2px solid var(--tbw-range-border-color);
-        padding-top: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
+        padding-top: calc(var(--tbw-cell-padding-v) - 2px);
       }
       &.bottom {
         border-bottom: 2px solid var(--tbw-range-border-color);
-        padding-bottom: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
+        padding-bottom: calc(var(--tbw-cell-padding-v) - 2px);
       }
       &.first {
         border-left: 2px solid var(--tbw-range-border-color);
-        padding-left: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
+        padding-left: calc(var(--tbw-cell-padding-h) - 2px);
       }
       &.last {
         border-right: 2px solid var(--tbw-range-border-color);
-        padding-right: calc(var(--tbw-cell-padding, 2px 8px) - 2px);
+        padding-right: calc(var(--tbw-cell-padding-h) - 2px);
       }
     }
 
@@ -74,6 +75,36 @@
       font-size: var(--tbw-font-size-sm, 0.8125rem);
       color: var(--tbw-color-fg-muted);
       white-space: nowrap;
+    }
+
+    /* Checkbox column styles */
+    .data-grid-row > .cell[data-field='__tbw_checkbox'] {
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Row checkboxes are visual indicators - clicks pass through to cell */
+    .tbw-select-row-checkbox {
+      pointer-events: none;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    /* Header select-all checkbox container */
+    .tbw-checkbox-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+    }
+
+    .tbw-select-all-checkbox {
+      margin: 0;
+      cursor: pointer;
     }
   }
 } /* End @layer tbw-plugins */

@@ -11,7 +11,8 @@
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
 import type { GridElement, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
-import { isUtilityColumn } from '../../core/plugin/expander-column';
+import type { ColumnConfig } from '../../core/types';
+import { isExpanderColumn, isUtilityColumn } from '../../core/plugin/expander-column';
 import {
   createRangeFromAnchor,
   getAllCellsInRanges,
@@ -29,6 +30,9 @@ import type {
   SelectionMode,
   SelectionResult,
 } from './types';
+
+/** Special field name for the selection checkbox column */
+const CHECKBOX_COLUMN_FIELD = '__tbw_checkbox';
 
 /**
  * Build the selection change event detail for the current state.
@@ -205,6 +209,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /** Last synced focus col (cell mode) */
   private lastSyncedFocusCol = -1;
 
+  /** True when selection was explicitly set (click/keyboard) — prevents #syncSelectionToFocus from overwriting */
+  private explicitSelection = false;
+
   // #endregion
 
   // #region Private Helpers - Selection Enabled Check
@@ -350,19 +357,48 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false;
     }
 
-    // ROW MODE: Select entire row - utility column clicks still select the row
+    // ROW MODE: Multi-select with Shift/Ctrl, checkbox toggle, or single select
     if (mode === 'row') {
       if (!this.isRowSelectable(rowIndex)) {
         return false; // Row is not selectable
       }
-      // Only emit if selection actually changed
-      if (this.selected.size === 1 && this.selected.has(rowIndex)) {
-        return false; // Same row already selected
-      }
-      this.selected.clear();
-      this.selected.add(rowIndex);
-      this.lastSelected = rowIndex;
 
+      const shiftKey = originalEvent.shiftKey;
+      const ctrlKey = originalEvent.ctrlKey || originalEvent.metaKey;
+      const isCheckbox = column?.meta?.checkboxColumn === true;
+
+      if (shiftKey && this.anchor !== null) {
+        // Shift+Click: Range select from anchor to clicked row
+        const start = Math.min(this.anchor, rowIndex);
+        const end = Math.max(this.anchor, rowIndex);
+        if (!ctrlKey) {
+          this.selected.clear();
+        }
+        for (let i = start; i <= end; i++) {
+          if (this.isRowSelectable(i)) {
+            this.selected.add(i);
+          }
+        }
+      } else if (ctrlKey || isCheckbox) {
+        // Ctrl+Click or checkbox click: Toggle individual row
+        if (this.selected.has(rowIndex)) {
+          this.selected.delete(rowIndex);
+        } else {
+          this.selected.add(rowIndex);
+        }
+        this.anchor = rowIndex;
+      } else {
+        // Plain click: Clear all, select only clicked row
+        if (this.selected.size === 1 && this.selected.has(rowIndex)) {
+          return false; // Same row already selected
+        }
+        this.selected.clear();
+        this.selected.add(rowIndex);
+        this.anchor = rowIndex;
+      }
+
+      this.lastSelected = rowIndex;
+      this.explicitSelection = true;
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
       this.requestAfterRender();
       return false;
@@ -486,24 +522,56 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false; // Let grid handle navigation
     }
 
-    // ROW MODE: Only Up/Down arrows move row selection (but respects selectability)
-    if (mode === 'row' && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
-      // Let grid move focus first, then sync row selection
-      queueMicrotask(() => {
-        const focusRow = this.grid._focusRow;
-        // Only select if the row is selectable
-        if (this.isRowSelectable(focusRow)) {
-          this.selected.clear();
-          this.selected.add(focusRow);
-          this.lastSelected = focusRow;
-        } else {
-          // Clear selection when navigating to non-selectable row
-          this.selected.clear();
+    // ROW MODE: Arrow keys move selection, Shift+Arrow extends, Ctrl+A selects all
+    if (mode === 'row') {
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        const shiftKey = event.shiftKey;
+
+        // Set anchor before grid moves focus
+        if (shiftKey && this.anchor === null) {
+          this.anchor = this.grid._focusRow;
         }
-        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-        this.requestAfterRender();
-      });
-      return false; // Let grid handle navigation
+
+        // Let grid move focus first, then sync row selection
+        queueMicrotask(() => {
+          const focusRow = this.grid._focusRow;
+
+          if (shiftKey && this.anchor !== null) {
+            // Shift+Arrow: Extend selection from anchor
+            this.selected.clear();
+            const start = Math.min(this.anchor, focusRow);
+            const end = Math.max(this.anchor, focusRow);
+            for (let i = start; i <= end; i++) {
+              if (this.isRowSelectable(i)) {
+                this.selected.add(i);
+              }
+            }
+          } else {
+            // Plain arrow: Single select
+            if (this.isRowSelectable(focusRow)) {
+              this.selected.clear();
+              this.selected.add(focusRow);
+              this.anchor = focusRow;
+            } else {
+              this.selected.clear();
+            }
+          }
+
+          this.lastSelected = focusRow;
+          this.explicitSelection = true;
+          this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+          this.requestAfterRender();
+        });
+        return false; // Let grid handle navigation
+      }
+
+      // Ctrl+A: Select all rows
+      if (event.key === 'a' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectAll();
+        return true;
+      }
     }
 
     // RANGE MODE: Shift+Arrow extends, plain Arrow resets
@@ -532,25 +600,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     // Ctrl+A selects all in range mode
     if (mode === 'range' && event.key === 'a' && (event.ctrlKey || event.metaKey)) {
-      const rowCount = this.rows.length;
-      const colCount = this.columns.length;
-      if (rowCount > 0 && colCount > 0) {
-        // Prevent browser's select-all behavior
-        event.preventDefault();
-        event.stopPropagation();
-
-        const allRange: InternalCellRange = {
-          startRow: 0,
-          startCol: 0,
-          endRow: rowCount - 1,
-          endCol: colCount - 1,
-        };
-        this.ranges = [allRange];
-        this.activeRange = allRange;
-        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
-        this.requestAfterRender();
-        return true;
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.selectAll();
+      return true;
     }
 
     return false;
@@ -669,39 +722,163 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
   }
 
+  // #region Checkbox Column
+
   /**
-   * Apply selection classes to visible cells/rows.
+   * Inject checkbox column when `checkbox: true` and mode is `'row'`.
+   * @internal
+   */
+  override processColumns(columns: ColumnConfig[]): ColumnConfig[] {
+    if (this.config.checkbox && this.config.mode === 'row') {
+      // Check if checkbox column already exists
+      if (columns.some((col) => col.field === CHECKBOX_COLUMN_FIELD)) {
+        return columns;
+      }
+      const checkboxCol = this.#createCheckboxColumn();
+      // Insert after expander column if present, otherwise first
+      const expanderIdx = columns.findIndex(isExpanderColumn);
+      const insertAt = expanderIdx >= 0 ? expanderIdx + 1 : 0;
+      return [...columns.slice(0, insertAt), checkboxCol, ...columns.slice(insertAt)];
+    }
+    return columns;
+  }
+
+  /**
+   * Create the checkbox utility column configuration.
+   */
+  #createCheckboxColumn(): ColumnConfig {
+    return {
+      field: CHECKBOX_COLUMN_FIELD,
+      header: '',
+      width: 32,
+      resizable: false,
+      sortable: false,
+      meta: {
+        lockPosition: true,
+        suppressMovable: true,
+        utility: true,
+        checkboxColumn: true,
+      },
+      headerRenderer: () => {
+        const container = document.createElement('div');
+        container.className = 'tbw-checkbox-header';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'tbw-select-all-checkbox';
+        checkbox.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent header sort
+          if ((e.target as HTMLInputElement).checked) {
+            this.selectAll();
+          } else {
+            this.clearSelection();
+          }
+        });
+        container.appendChild(checkbox);
+        return container;
+      },
+      renderer: (ctx) => {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'tbw-select-row-checkbox';
+        // Set initial checked state from current selection
+        const cellEl = ctx.cellEl;
+        if (cellEl) {
+          const rowIndex = parseInt(cellEl.getAttribute('data-row') ?? '-1', 10);
+          if (rowIndex >= 0) {
+            checkbox.checked = this.selected.has(rowIndex);
+          }
+        }
+        return checkbox;
+      },
+    };
+  }
+
+  /**
+   * Update checkbox checked states to reflect current selection.
+   * Called from #applySelectionClasses.
+   */
+  #updateCheckboxStates(gridEl: HTMLElement): void {
+    // Update row checkboxes
+    const rowCheckboxes = gridEl.querySelectorAll('.tbw-select-row-checkbox') as NodeListOf<HTMLInputElement>;
+    rowCheckboxes.forEach((checkbox) => {
+      const cell = checkbox.closest('.cell');
+      const rowIndex = cell ? getRowIndexFromCell(cell) : -1;
+      if (rowIndex >= 0) {
+        checkbox.checked = this.selected.has(rowIndex);
+      }
+    });
+
+    // Update header select-all checkbox
+    const headerCheckbox = gridEl.querySelector('.tbw-select-all-checkbox') as HTMLInputElement | null;
+    if (headerCheckbox) {
+      const rowCount = this.rows.length;
+      let selectableCount = 0;
+      if (this.config.isSelectable) {
+        for (let i = 0; i < rowCount; i++) {
+          if (this.isRowSelectable(i)) selectableCount++;
+        }
+      } else {
+        selectableCount = rowCount;
+      }
+      const allSelected = selectableCount > 0 && this.selected.size >= selectableCount;
+      const someSelected = this.selected.size > 0;
+      headerCheckbox.checked = allSelected;
+      headerCheckbox.indeterminate = someSelected && !allSelected;
+    }
+  }
+
+  // #endregion
+
   /**
    * Sync selection state to the grid's current focus position.
    * In row mode, keeps `selected` in sync with `_focusRow`.
    * In cell mode, keeps `selectedCell` in sync with `_focusRow`/`_focusCol`.
-   * Only updates when the focus has changed since the last sync, so explicit
-   * selection (click, setSelection, etc.) is never overwritten.
+   * Only updates when the focus has changed since the last sync.
+   * Skips when `explicitSelection` is set (click/keyboard set selection directly).
    */
   #syncSelectionToFocus(mode: string): void {
     const focusRow = this.grid._focusRow;
     const focusCol = this.grid._focusCol;
 
-    if (mode === 'row' && focusRow !== this.lastSyncedFocusRow) {
-      this.lastSyncedFocusRow = focusRow;
-      if (this.isRowSelectable(focusRow)) {
-        if (!this.selected.has(focusRow) || this.selected.size !== 1) {
-          this.selected.clear();
-          this.selected.add(focusRow);
-          this.lastSelected = focusRow;
-          this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    if (mode === 'row') {
+      // Skip auto-sync when selection was explicitly set (Shift/Ctrl click, keyboard)
+      if (this.explicitSelection) {
+        this.explicitSelection = false;
+        this.lastSyncedFocusRow = focusRow;
+        return;
+      }
+
+      if (focusRow !== this.lastSyncedFocusRow) {
+        this.lastSyncedFocusRow = focusRow;
+        if (this.isRowSelectable(focusRow)) {
+          if (!this.selected.has(focusRow) || this.selected.size !== 1) {
+            this.selected.clear();
+            this.selected.add(focusRow);
+            this.lastSelected = focusRow;
+            this.anchor = focusRow;
+            this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+          }
         }
       }
     }
 
-    if (mode === 'cell' && (focusRow !== this.lastSyncedFocusRow || focusCol !== this.lastSyncedFocusCol)) {
-      this.lastSyncedFocusRow = focusRow;
-      this.lastSyncedFocusCol = focusCol;
-      if (this.isCellSelectable(focusRow, focusCol)) {
-        const cur = this.selectedCell;
-        if (!cur || cur.row !== focusRow || cur.col !== focusCol) {
-          this.selectedCell = { row: focusRow, col: focusCol };
-          this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    if (mode === 'cell') {
+      if (this.explicitSelection) {
+        this.explicitSelection = false;
+        this.lastSyncedFocusRow = focusRow;
+        this.lastSyncedFocusCol = focusCol;
+        return;
+      }
+
+      if (focusRow !== this.lastSyncedFocusRow || focusCol !== this.lastSyncedFocusCol) {
+        this.lastSyncedFocusRow = focusRow;
+        this.lastSyncedFocusCol = focusCol;
+        if (this.isCellSelectable(focusRow, focusCol)) {
+          const cur = this.selectedCell;
+          if (!cur || cur.row !== focusRow || cur.col !== focusCol) {
+            this.selectedCell = { row: focusRow, col: focusCol };
+            this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+          }
         }
       }
     }
@@ -737,7 +914,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       }
     });
 
-    // ROW MODE: Add row-focus class to selected rows, disable cell-focus
+    // ROW MODE: Add row-focus class to selected rows, disable cell-focus, update checkboxes
     if (mode === 'row') {
       // In row mode, disable ALL cell-focus styling - row selection takes precedence
       clearCellFocus(gridEl);
@@ -755,6 +932,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
           }
         }
       });
+
+      // Update checkbox states if checkbox column is enabled
+      if (this.config.checkbox) {
+        this.#updateCheckboxStates(gridEl);
+      }
     }
 
     // CELL/RANGE MODE: Mark non-selectable cells
@@ -772,15 +954,23 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     // RANGE MODE: Add selected and edge classes to cells
+    // Uses neighbor-based edge detection for correct multi-range borders
     if (mode === 'range' && this.ranges.length > 0) {
       // Clear all cell-focus first - selection plugin manages focus styling in range mode
       clearCellFocus(gridEl);
 
-      const normalized = this.activeRange ? normalizeRange(this.activeRange) : null;
+      // Pre-normalize ranges for efficient neighbor checks
+      const normalizedRanges = this.ranges.map(normalizeRange);
 
-      // Find the first non-utility column index for proper .first class application
-      const firstDataColIndex = this.columns.findIndex((col) => !isUtilityColumn(col));
-      const lastDataColIndex = this.columns.length - 1; // Last column is always data
+      // Fast selection check against pre-normalized ranges
+      const isInSelection = (r: number, c: number): boolean => {
+        for (const range of normalizedRanges) {
+          if (r >= range.startRow && r <= range.endRow && c >= range.startCol && c <= range.endCol) {
+            return true;
+          }
+        }
+        return false;
+      };
 
       const cells = gridEl.querySelectorAll('.cell[data-row][data-col]');
       cells.forEach((cell) => {
@@ -793,19 +983,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
             return;
           }
 
-          const inRange = isCellInAnyRange(rowIndex, colIndex, this.ranges);
-
-          if (inRange) {
+          if (isInSelection(rowIndex, colIndex)) {
             cell.classList.add('selected');
 
-            if (normalized) {
-              if (rowIndex === normalized.startRow) cell.classList.add('top');
-              if (rowIndex === normalized.endRow) cell.classList.add('bottom');
-              // Apply .first to the first data column in range (skip utility columns)
-              const effectiveStartCol = Math.max(normalized.startCol, firstDataColIndex);
-              if (colIndex === effectiveStartCol) cell.classList.add('first');
-              if (colIndex === normalized.endCol) cell.classList.add('last');
-            }
+            // Edge detection: add border class where neighbor is not selected
+            // This handles single ranges, multi-range, and irregular selections correctly
+            if (!isInSelection(rowIndex - 1, colIndex)) cell.classList.add('top');
+            if (!isInSelection(rowIndex + 1, colIndex)) cell.classList.add('bottom');
+            if (!isInSelection(rowIndex, colIndex - 1)) cell.classList.add('first');
+            if (!isInSelection(rowIndex, colIndex + 1)) cell.classList.add('last');
           }
         }
       });
@@ -917,6 +1103,91 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   isCellSelected(row: number, col: number): boolean {
     return isCellInAnyRange(row, col, this.ranges);
+  }
+
+  /**
+   * Select all selectable rows (row mode) or all cells (range mode).
+   *
+   * In row mode, selects every row where `isSelectable` returns true (or all rows if no callback).
+   * In range mode, creates a single range spanning all rows and columns.
+   * Has no effect in cell mode.
+   *
+   * @example
+   * ```ts
+   * const plugin = grid.getPlugin(SelectionPlugin);
+   * plugin.selectAll(); // Selects everything in current mode
+   * ```
+   */
+  selectAll(): void {
+    const { mode } = this.config;
+
+    if (mode === 'row') {
+      this.selected.clear();
+      for (let i = 0; i < this.rows.length; i++) {
+        if (this.isRowSelectable(i)) {
+          this.selected.add(i);
+        }
+      }
+      this.explicitSelection = true;
+      this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+      this.requestAfterRender();
+    } else if (mode === 'range') {
+      const rowCount = this.rows.length;
+      const colCount = this.columns.length;
+      if (rowCount > 0 && colCount > 0) {
+        const allRange: InternalCellRange = {
+          startRow: 0,
+          startCol: 0,
+          endRow: rowCount - 1,
+          endCol: colCount - 1,
+        };
+        this.ranges = [allRange];
+        this.activeRange = allRange;
+        this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+        this.requestAfterRender();
+      }
+    }
+  }
+
+  /**
+   * Select specific rows by index (row mode only).
+   * Replaces the current selection with the provided row indices.
+   * Indices that are out of bounds or fail the `isSelectable` check are ignored.
+   *
+   * @param indices - Array of row indices to select
+   *
+   * @example
+   * ```ts
+   * const plugin = grid.getPlugin(SelectionPlugin);
+   * plugin.selectRows([0, 2, 4]); // Select rows 0, 2, and 4
+   * ```
+   */
+  selectRows(indices: number[]): void {
+    if (this.config.mode !== 'row') return;
+    this.selected.clear();
+    for (const idx of indices) {
+      if (idx >= 0 && idx < this.rows.length && this.isRowSelectable(idx)) {
+        this.selected.add(idx);
+      }
+    }
+    this.anchor = indices.length > 0 ? indices[indices.length - 1] : null;
+    this.explicitSelection = true;
+    this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+    this.requestAfterRender();
+  }
+
+  /**
+   * Get the indices of all selected rows (convenience for row mode).
+   * Returns indices sorted in ascending order.
+   *
+   * @example
+   * ```ts
+   * const plugin = grid.getPlugin(SelectionPlugin);
+   * const rows = plugin.getSelectedRowIndices(); // [0, 2, 4]
+   * ```
+   */
+  getSelectedRowIndices(): number[] {
+    return [...this.selected].sort((a, b) => a - b);
   }
 
   /**

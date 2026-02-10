@@ -170,9 +170,13 @@ function createTextEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElemen
     if (params?.pattern) input.pattern = params.pattern;
     if (params?.placeholder) input.placeholder = params.placeholder;
 
-    // Commit function preserves numeric type if original value was a number
+    // Commit function preserves original type when possible
     const commit = () => {
       const inputVal = input.value;
+      // Preserve null/undefined: empty input on a null/undefined field means no change
+      if ((ctx.value === null || ctx.value === undefined) && inputVal === '') {
+        return;
+      }
       // Preserve numeric type for custom column types (e.g., currency)
       if (typeof ctx.value === 'number' && inputVal !== '') {
         ctx.commit(Number(inputVal));

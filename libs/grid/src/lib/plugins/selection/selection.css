@@ -113,7 +113,8 @@
     }
 
     /* Checkbox column styles */
-    .data-grid-row > .cell[data-field='__tbw_checkbox'] {
+    .data-grid-row > .cell[data-field='__tbw_checkbox'],
+    .header-row > .cell[data-field='__tbw_checkbox'] {
       text-align: center;
       cursor: pointer;
       padding: 0;

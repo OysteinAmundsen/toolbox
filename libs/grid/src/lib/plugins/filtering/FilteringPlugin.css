@@ -106,18 +106,8 @@
     border-bottom: 1px solid var(--tbw-filter-divider, var(--tbw-color-border, light-dark(#d0d0d4, #454545)));
     min-height: var(--tbw-filter-item-height, 28px);
   }
-
-  .tbw-filter-action-btn {
-    background: transparent;
-    border: none;
-    color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
-    cursor: pointer;
-    font-size: var(--tbw-font-size-xs, 0.75rem);
-    padding: 2px 0;
-  }
-
-  .tbw-filter-action-btn:hover {
-    text-decoration: underline;
+  .tbw-filter-actions .tbw-filter-value-item {
+    flex: 1;
   }
 
   .tbw-filter-values {

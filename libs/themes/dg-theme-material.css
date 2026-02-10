@@ -98,5 +98,248 @@
 
     /* ========== Row Animations ========== */
     --tbw-row-change-color: rgba(from var(--tbw-color-accent) r g b / 20%);
+
+    /* ========== M3 Header Icons ========== */
+    /* M3 uses larger, bolder icons (18px vs default 12px) */
+    --tbw-icon-size: 18px;
+    --tbw-icon-size-sm: 16px;
+
+    /* Sort indicator — larger for M3, works with any icon type */
+    .header-row .cell > span[part~='sort-indicator'] {
+      font-size: var(--tbw-icon-size-sm);
+
+      > * {
+        width: 1em;
+        height: 1em;
+      }
+    }
+
+    /* Filter button — larger for M3, works with any icon type */
+    .header-row .cell .tbw-filter-btn {
+      font-size: var(--tbw-icon-size-sm);
+
+      > * {
+        width: 1em;
+        height: 1em;
+      }
+    }
+
+    /* ========== M3 Filled Text Fields ========== */
+    /* Material Design 3 filled text field: tinted background, bottom border, accent on focus */
+    .data-grid-row > .cell.editing input:not([type='checkbox']),
+    .data-grid-row > .cell.editing select,
+    .data-grid-row > .cell.editing textarea {
+      background: var(--tbw-color-panel-bg);
+      color: var(--tbw-color-fg);
+      border: none;
+      border-bottom: 1px solid var(--tbw-color-border-strong);
+      border-radius: 4px 4px 0 0;
+      padding: 8px 12px;
+      font-family: var(--tbw-font-family);
+      font-size: var(--tbw-font-size);
+      caret-color: var(--tbw-color-accent);
+      outline: none;
+      transition: border-color 150ms var(--tbw-transition-ease);
+
+      &:focus {
+        border-bottom: 2px solid var(--tbw-color-accent);
+        padding-bottom: 7px; /* compensate for thicker border */
+      }
+    }
+
+    /* M3 select dropdown caret */
+    .data-grid-row > .cell.editing select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2379747e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+
+    /* ========== M3 Editing border override ========== */
+    --tbw-editing-border: none;
+    --tbw-editing-row-outline-width: 2px;
+  }
+
+  tbw-grid,
+  .tbw-filter-panel {
+    /* ========== M3 Checkboxes ========== */
+    /* Material Design 3 styled checkboxes for all grid & filter panel checkboxes */
+    input[type='checkbox'] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--tbw-color-border-strong);
+      border-radius: 2px;
+      background: transparent;
+      position: relative;
+      transition:
+        background-color 100ms cubic-bezier(0.2, 0, 0, 1),
+        border-color 100ms cubic-bezier(0.2, 0, 0, 1);
+      cursor: pointer;
+      outline: none;
+      vertical-align: middle;
+      flex-shrink: 0;
+
+      &::after {
+        content: '';
+        position: absolute;
+        display: none;
+        left: 4px;
+        top: 0;
+        width: 5px;
+        height: 10px;
+        border: solid var(--tbw-color-accent-fg);
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+
+      &:checked {
+        background-color: var(--tbw-color-accent);
+        border-color: var(--tbw-color-accent);
+
+        &::after {
+          display: block;
+        }
+      }
+
+      &:indeterminate {
+        background-color: var(--tbw-color-accent);
+        border-color: var(--tbw-color-accent);
+
+        &::after {
+          display: block;
+          left: 3px;
+          top: 6px;
+          width: 8px;
+          height: 0;
+          border-width: 0 0 2px 0;
+          transform: none;
+        }
+      }
+
+      &:hover::before {
+        content: '';
+        position: absolute;
+        inset: -10px;
+        border-radius: 50%;
+        background: rgba(from var(--tbw-color-accent) r g b / 8%);
+      }
+
+      &:focus-visible::before {
+        content: '';
+        position: absolute;
+        inset: -10px;
+        border-radius: 50%;
+        background: rgba(from var(--tbw-color-accent) r g b / 12%);
+      }
+    }
+
+    /* ========== M3 Checkboxes ========== */
+    /* Material Design 3 buttons */
+    button {
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      min-height: 36px;
+      border-radius: 20px;
+      transition:
+        filter 150ms var(--tbw-transition-ease),
+        box-shadow 150ms var(--tbw-transition-ease);
+    }
+  }
+
+  .tbw-filter-panel {
+    /* Provide --tbw-* values for filter panel (rendered outside tbw-grid) */
+    --tbw-color-accent: light-dark(#6750a4, #d0bcff);
+    --tbw-color-accent-fg: light-dark(#fff, #381e72);
+    --tbw-color-border-strong: light-dark(#79747e, #938f99);
+    --tbw-color-panel-bg: light-dark(#f7f2fa, #2b2930);
+    --tbw-color-row-hover: light-dark(rgba(103, 80, 164, 0.08), rgba(208, 188, 255, 0.08));
+    --tbw-transition-ease: cubic-bezier(0.2, 0, 0, 1);
+    --tbw-filter-item-height: 36px;
+
+    /* M3 surface container with tonal elevation */
+    border-radius: 12px;
+    font-family: 'Roboto Flex', 'Roboto', system-ui, sans-serif;
+    box-shadow:
+      0 1px 3px 0 rgba(0, 0, 0, 0.3),
+      0 4px 8px 3px rgba(0, 0, 0, 0.15);
+
+    /* M3 filled text fields — shared base for all text inputs */
+    .tbw-filter-search-input,
+    .tbw-filter-range-input,
+    .tbw-filter-date-input {
+      background: var(--tbw-color-panel-bg);
+      border: none;
+      border-bottom: 1px solid var(--tbw-color-border-strong);
+      border-radius: 4px 4px 0 0;
+      height: 36px;
+      padding: 8px 12px;
+      font-family: inherit;
+      caret-color: var(--tbw-color-accent);
+      transition: border-color 150ms var(--tbw-transition-ease);
+
+      &:focus {
+        border-bottom: 2px solid var(--tbw-color-accent);
+        padding-bottom: 7px;
+        box-shadow: none;
+      }
+    }
+
+    /* M3 value items with ripple-like hover */
+    .tbw-filter-value-item {
+      border-radius: 8px;
+      transition: background 150ms var(--tbw-transition-ease);
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+    }
+
+    /* M3 buttons — shared base */
+
+    /* Filled button (Apply) */
+    .tbw-filter-apply-btn {
+      &:hover {
+        filter: brightness(1.08);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+    }
+
+    /* Outlined button (Clear) */
+    .tbw-filter-clear-btn {
+      color: var(--tbw-color-accent);
+      border-color: var(--tbw-color-border-strong);
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+    }
+
+    /* M3 range slider */
+    .tbw-filter-range-track,
+    .tbw-filter-range-fill {
+      height: 4px;
+      border-radius: 2px;
+    }
+
+    .tbw-filter-range-thumb::-webkit-slider-thumb {
+      width: 20px;
+      height: 20px;
+      border: none;
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.2),
+        0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .tbw-filter-range-thumb::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border: none;
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.2),
+        0 1px 2px rgba(0, 0, 0, 0.1);
+    }
   }
 } /* End @layer tbw-theme */

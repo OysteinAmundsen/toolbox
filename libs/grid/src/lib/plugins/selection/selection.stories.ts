@@ -69,6 +69,42 @@ const columns = [
   { field: 'email', header: 'Email' },
 ];
 
+// Mutable ref so source.transform always reads the latest mode
+let currentMode: SelectionMode = 'cell';
+
+function getSelectionSourceCode(mode: SelectionMode): string {
+  const modeHelpers =
+    mode === 'row'
+      ? `\n  // Row mode helpers\n  console.log('Selected rows:', plugin.getSelectedRowIndices());`
+      : mode === 'range'
+        ? `\n  // Range/cell helpers\n  console.log('Selected cells:', plugin.getSelectedCells());\n  console.log('Cell count:', plugin.getSelectedCells().length);`
+        : `\n  // Cell helpers\n  console.log('Is (2,1) selected?', plugin.isCellSelected(2, 1));`;
+
+  return `import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const grid = document.querySelector('tbw-grid');
+const plugin = new SelectionPlugin({ mode: '${mode}' });
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [plugin],
+};
+grid.rows = [...];
+
+// Listen for selection changes
+grid.addEventListener('selection-change', () => {
+  const sel = plugin.getSelection();
+  console.log('Mode:', sel.mode);
+  console.log('Ranges:', sel.ranges);${modeHelpers}
+});`;
+}
+
 /**
  * Interactive selection demo with mode switcher. Use the controls to switch
  * between cell, row, and range selection modes.
@@ -80,181 +116,75 @@ export const Default: Story = {
   parameters: {
     docs: {
       source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 350px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-
-const grid = document.querySelector('tbw-grid');
-
-grid.gridConfig = {
-  columns: [
-    { field: 'id', header: 'ID', type: 'number' },
-    { field: 'name', header: 'Name' },
-    { field: 'department', header: 'Department' },
-    { field: 'salary', header: 'Salary', type: 'number' },
-  ],
-  plugins: [new SelectionPlugin({ mode: 'cell' })],
-};
-
-grid.rows = [
-  { id: 1, name: 'Alice', department: 'Engineering', salary: 95000 },
-  { id: 2, name: 'Bob', department: 'Marketing', salary: 75000 },
-  // ...
-];
-</script>
-`,
-        language: 'html',
+        language: 'typescript',
+        // Dynamic source code based on current mode control
+        transform: () => getSelectionSourceCode(currentMode),
       },
     },
   },
   render: (args: SelectionArgs) => {
+    currentMode = args.mode;
+
+    const container = document.createElement('div');
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '350px';
     grid.style.display = 'block';
 
+    const plugin = new SelectionPlugin({ mode: args.mode });
     grid.gridConfig = {
       columns,
-      plugins: [new SelectionPlugin({ mode: args.mode })],
+      plugins: [plugin],
     };
     grid.rows = sampleData;
 
-    return grid;
-  },
-};
+    // Selection state panel
+    const panel = document.createElement('div');
+    panel.style.cssText =
+      'margin-top: 12px; padding: 12px; border: 1px solid var(--sb-border, #ccc); border-radius: 4px; font-family: monospace; font-size: 12px; background: var(--sbdocs-bg, #fafafa); max-height: 160px; overflow-y: auto;';
+    panel.innerHTML = '<span style="color: var(--sbdocs-fg, #666);">Click or drag to see selection state…</span>';
 
-/**
- * Cell selection mode - click to select individual cells.
- * The focused cell is highlighted.
- */
-export const CellMode: Story = {
-  args: { mode: 'cell' },
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 300px;"></tbw-grid>
+    const updatePanel = () => {
+      const sel = plugin.getSelection();
+      const lines: string[] = [`<b>mode:</b> '${sel.mode}'`];
 
-<script type="module">
-import '@toolbox-web/grid';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+      if (sel.mode === 'row') {
+        const indices = plugin.getSelectedRowIndices();
+        lines.push(`<b>selectedRows:</b> [${indices.join(', ')}]`);
+        if (indices.length > 0) {
+          const names = indices.map((i) => sampleData[i]?.name).filter(Boolean);
+          lines.push(`<b>rowData:</b> ${names.map((n) => `"${n}"`).join(', ')}`);
+        }
+      }
 
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  columns: [...],
-  plugins: [new SelectionPlugin({ mode: 'cell' })],
-};
-grid.rows = [...];
-</script>
-`,
-        language: 'html',
-      },
-    },
-  },
-  render: () => {
-    const grid = document.createElement('tbw-grid') as GridElement;
-    grid.style.height = '300px';
-    grid.style.display = 'block';
+      if (sel.ranges.length > 0) {
+        const rangeStrs = sel.ranges.map(
+          (r) => `{ from: {row:${r.from.row}, col:${r.from.col}}, to: {row:${r.to.row}, col:${r.to.col}} }`,
+        );
+        lines.push(
+          `<b>ranges:</b> [${rangeStrs.length > 2 ? '\n  ' + rangeStrs.join(',\n  ') + '\n' : rangeStrs.join(', ')}]`,
+        );
 
-    grid.gridConfig = {
-      columns,
-      plugins: [new SelectionPlugin({ mode: 'cell' })],
+        if (sel.mode === 'range') {
+          const cells = plugin.getSelectedCells();
+          lines.push(`<b>cellCount:</b> ${cells.length}`);
+        }
+      } else {
+        lines.push('<b>ranges:</b> []');
+      }
+
+      if (sel.anchor) {
+        lines.push(`<b>anchor:</b> {row:${sel.anchor.row}, col:${sel.anchor.col}}`);
+      }
+
+      panel.innerHTML = lines.join('<br>');
     };
-    grid.rows = sampleData;
 
-    return grid;
-  },
-};
+    grid.addEventListener('selection-change', updatePanel);
 
-/**
- * Row selection mode - clicking any cell selects the entire row.
- * The selected row is highlighted with a border.
- */
-export const RowMode: Story = {
-  args: { mode: 'row' },
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 300px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  columns: [...],
-  plugins: [new SelectionPlugin({ mode: 'row' })],
-};
-grid.rows = [...];
-</script>
-`,
-        language: 'html',
-      },
-    },
-  },
-  render: () => {
-    const grid = document.createElement('tbw-grid') as GridElement;
-    grid.style.height = '300px';
-    grid.style.display = 'block';
-
-    grid.gridConfig = {
-      columns,
-      plugins: [new SelectionPlugin({ mode: 'row' })],
-    };
-    grid.rows = sampleData;
-
-    return grid;
-  },
-};
-
-/**
- * Range selection mode - shift+click or click-and-drag to select
- * rectangular regions of cells.
- */
-export const RangeMode: Story = {
-  args: { mode: 'range' },
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 300px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  columns: [...],
-  plugins: [new SelectionPlugin({ mode: 'range' })],
-};
-grid.rows = [...];
-</script>
-`,
-        language: 'html',
-      },
-    },
-  },
-  render: () => {
-    const grid = document.createElement('tbw-grid') as GridElement;
-    grid.style.height = '300px';
-    grid.style.display = 'block';
-
-    grid.gridConfig = {
-      columns,
-      plugins: [new SelectionPlugin({ mode: 'range' })],
-    };
-    grid.rows = sampleData;
-
-    return grid;
+    container.appendChild(grid);
+    container.appendChild(panel);
+    return container;
   },
 };
 
@@ -348,6 +278,48 @@ grid.rows = [
       ],
     };
     grid.rows = statusData;
+
+    return grid;
+  },
+};
+
+/**
+ * Row selection with checkbox column — adds a checkbox as the first column with
+ * a "select all" checkbox in the header. Supports Ctrl+Click to toggle individual
+ * rows and Shift+Click to select a contiguous range.
+ */
+export const CheckboxSelection: Story = {
+  args: { mode: 'row' },
+  parameters: {
+    docs: {
+      source: {
+        code: `
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new SelectionPlugin({ mode: 'row', checkbox: true }),
+  ],
+};
+grid.rows = [...];
+`,
+        language: 'typescript',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+    grid.style.display = 'block';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [new SelectionPlugin({ mode: 'row', checkbox: true })],
+    };
+    grid.rows = sampleData;
 
     return grid;
   },

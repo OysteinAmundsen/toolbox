@@ -126,24 +126,26 @@ export class MyGridComponent {
 
 ## Demos
 
-### Default (Cell Mode)
+### Default
 
-Click cells to select them individually. Great for spreadsheet-style interactions.
+- **Cell mode:** Click cells to select them individually. Great for spreadsheet-style interactions.
+- **Row mode:** Click anywhere in a row to select the entire row.
+  Use Ctrl+Click (⌘+Click on Mac) to toggle individual rows, and Shift+Click to select a contiguous range.
+- **Range mode:** Click and drag to select rectangular ranges.
+  Hold Ctrl (⌘ on Mac) while dragging to create multiple independent ranges. Shift+Click extends the most recent range.
 
 <Canvas of={SelectionStories.Default} withToolbar />
 <Controls of={SelectionStories.Default} />
 
-### Row Selection Mode
+### Checkbox Selection
 
-Click anywhere in a row to select the entire row. Perfect for data grids where you're working with complete records.
+Add `checkbox: true` to show a selection checkbox column with a "select all" header. Works exclusively in row mode. Checkboxes toggle individual rows (like Ctrl+Click), and Shift+Click between checkboxes selects the range.
 
-<Canvas of={SelectionStories.RowMode} withToolbar />
+<Canvas of={SelectionStories.CheckboxSelection} withToolbar />
 
-### Range Selection Mode
-
-Click and drag or Shift+Click to select rectangular ranges. Ideal for data export or bulk operations.
-
-<Canvas of={SelectionStories.RangeMode} withToolbar />
+```ts
+new SelectionPlugin({ mode: 'row', checkbox: true })
+```
 
 ## Configuration Options
 
@@ -167,6 +169,7 @@ This is useful for toggling selection on/off at runtime without removing the plu
 | `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
 | `enabled` | `boolean` | `true` | Plugin-level enable/disable (same effect as `gridConfig.selectable`) |
 | `triggerOn` | `'click' \| 'dblclick'` | `'click'` | Selection trigger type |
+| `checkbox` | `boolean` | `false` | Show checkbox column (row mode only) |
 | `isSelectable` | `(row, rowIndex, column?, colIndex?) => boolean` | `undefined` | Callback to conditionally disable selection |
 
 ### Double-Click Selection Trigger
@@ -234,14 +237,15 @@ new SelectionPlugin({
 
 The plugin provides full keyboard support for accessibility and power users:
 
-| Shortcut        | Action                          |
-| --------------- | ------------------------------- |
-| `Arrow Keys`    | Move selection                  |
-| `Shift + Arrow` | Extend selection (range mode)   |
-| `Ctrl + Click`  | Toggle selection (multi-select) |
-| `Shift + Click` | Extend to clicked cell/row      |
-| `Ctrl + A`      | Select all (range mode)         |
-| `Escape`        | Clear selection                 |
+| Shortcut             | Action                                          |
+| -------------------- | ----------------------------------------------- |
+| `Arrow Keys`         | Move focus                                      |
+| `Shift + Arrow`      | Extend selection (range mode)                   |
+| `Ctrl/⌘ + Click`    | Toggle row/cell without clearing (multi-select) |
+| `Shift + Click`      | Extend selection from anchor to clicked row/cell|
+| `Shift + Ctrl + Click` | Add contiguous range to existing selection    |
+| `Ctrl/⌘ + A`        | Select all (row and range modes)                |
+| `Escape`             | Clear selection                                 |
 
 ## Programmatic API
 
@@ -251,18 +255,24 @@ You can control selection programmatically via the plugin instance:
 // Get the plugin instance from the grid
 const plugin = grid.getPlugin(SelectionPlugin);
 
-// Select specific cells/rows
-plugin.selectCell(rowIndex, colIndex);
-plugin.selectRow(rowIndex);
-plugin.selectRange({ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } });
+// Query current selection (unified across all modes)
+const selection = plugin.getSelection();
+// => { mode: 'row', ranges: [{ from: {row:0,col:0}, to: {row:0,col:4} }], anchor: {row:0,col:0} }
 
-// Query current selection
-const ranges = plugin.getSelectedRanges();
-const selectedRows = plugin.getSelectedRows();
+// Row mode: select specific rows by index
+plugin.selectRows([0, 2, 4]);
+const indices = plugin.getSelectedRowIndices(); // [0, 2, 4]
 
-// Modify selection
-plugin.clearSelection();
-plugin.selectAll();
+// Range mode: set ranges programmatically
+plugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } }]);
+
+// Check individual cells
+plugin.isCellSelected(2, 1); // true/false
+const cells = plugin.getSelectedCells(); // [{ row, col }, ...]
+
+// Actions
+plugin.selectAll();       // Select all (row/range modes)
+plugin.clearSelection();  // Clear everything
 ```
 
 ## Events

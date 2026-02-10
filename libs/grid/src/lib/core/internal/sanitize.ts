@@ -174,7 +174,7 @@ export function evalTemplateString(raw: string, ctx: EvalContext): string {
   // If any expression was blocked due to forbidden token (EMPTY_SENTINEL) we *still* only output ''
   // but do not escalate to BLOCKED_SENTINEL unless the original contained explicit forbidden tokens.
   const allEmpty = parts.length && parts.every((p) => p.result === '' || p.result === EMPTY_SENTINEL);
-  const hadForbidden = /Reflect\.|\bProxy\b|ownKeys\(/.test(raw);
+  const hadForbidden = REFLECTIVE_RE.test(raw);
   if (hadForbidden || allEmpty) return '';
   return finalStr;
 }
@@ -182,7 +182,7 @@ export function evalTemplateString(raw: string, ctx: EvalContext): string {
 function evalSingle(expr: string, ctx: EvalContext): string {
   expr = (expr || '').trim();
   if (!expr) return EMPTY_SENTINEL;
-  if (/\b(Reflect|Proxy|ownKeys)\b/.test(expr)) return EMPTY_SENTINEL;
+  if (REFLECTIVE_RE.test(expr)) return EMPTY_SENTINEL;
   if (expr === 'value') return ctx.value == null ? EMPTY_SENTINEL : String(ctx.value);
   if (expr.startsWith('row.') && !/[()?]/.test(expr) && !expr.includes(':')) {
     const key = expr.slice(4);
@@ -197,7 +197,7 @@ function evalSingle(expr: string, ctx: EvalContext): string {
     const fn = new Function('value', 'row', `return (${expr});`);
     const out = fn(ctx.value, ctx.row);
     const str = out == null ? '' : String(out);
-    if (/Reflect|Proxy|ownKeys/.test(str)) return EMPTY_SENTINEL;
+    if (REFLECTIVE_RE.test(str)) return EMPTY_SENTINEL;
     return str || EMPTY_SENTINEL;
   } catch {
     return EMPTY_SENTINEL;
@@ -206,36 +206,30 @@ function evalSingle(expr: string, ctx: EvalContext): string {
 // #endregion
 
 // #region Cell Scrubbing
+/** Pattern matching reflective/introspective APIs that must be stripped from output. */
+const REFLECTIVE_RE = /Reflect|Proxy|ownKeys/;
+
 function postProcess(s: string): string {
   if (!s) return s;
-  return s
-    .replace(new RegExp(EMPTY_SENTINEL, 'g'), '')
-    .replace(/Reflect\.[^<>{}\s]+/g, '')
-    .replace(/\bProxy\b/g, '')
-    .replace(/ownKeys\([^)]*\)/g, '');
+  return s.replace(new RegExp(EMPTY_SENTINEL, 'g'), '').replace(/Reflect\.[^<>{}\s]+|\bProxy\b|ownKeys\([^)]*\)/g, '');
 }
 
 export function finalCellScrub(cell: HTMLElement): void {
-  if (/Reflect|Proxy|ownKeys/.test(cell.textContent || '')) {
-    Array.from(cell.childNodes).forEach((n) => {
-      if (n.nodeType === Node.TEXT_NODE && /Reflect|Proxy|ownKeys/.test(n.textContent || '')) n.textContent = '';
-    });
-    if (/Reflect|Proxy|ownKeys/.test(cell.textContent || '')) {
-      // If remaining content still includes forbidden tokens inside element nodes, clear children entirely.
-      const still = /Reflect|Proxy|ownKeys/.test(cell.textContent || '');
-      if (still) {
-        while (cell.firstChild) cell.removeChild(cell.firstChild);
-      }
-      cell.textContent = (cell.textContent || '').replace(/Reflect|Proxy|ownKeys/g, '');
-    }
-    if ((cell.textContent || '').trim().length === 0) cell.textContent = '';
+  if (!REFLECTIVE_RE.test(cell.textContent || '')) return;
+  // First pass: clear only text nodes containing forbidden tokens
+  for (const n of cell.childNodes) {
+    if (n.nodeType === Node.TEXT_NODE && REFLECTIVE_RE.test(n.textContent || '')) n.textContent = '';
+  }
+  // If forbidden tokens persist in element nodes, nuke everything
+  if (REFLECTIVE_RE.test(cell.textContent || '')) {
+    cell.textContent = '';
   }
 }
 // #endregion
 
 // #region Template Compilation
 export function compileTemplate(raw: string) {
-  const forceBlank = /Reflect\.|\bProxy\b|ownKeys\(/.test(raw);
+  const forceBlank = REFLECTIVE_RE.test(raw);
   const fn = ((ctx: EvalContext) => {
     if (forceBlank) return '';
     const out = evalTemplateString(raw, ctx);

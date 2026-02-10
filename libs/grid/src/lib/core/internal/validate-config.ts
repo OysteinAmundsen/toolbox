@@ -57,7 +57,6 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     pluginName: 'editing',
     level: 'column',
     description: 'the "editable" column property',
-    importHint: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
     isUsed: (v) => v === true,
   },
   {
@@ -65,14 +64,12 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     pluginName: 'editing',
     level: 'column',
     description: 'the "editor" column property',
-    importHint: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
   },
   {
     property: 'editorParams',
     pluginName: 'editing',
     level: 'column',
     description: 'the "editorParams" column property',
-    importHint: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
   },
   // GroupingColumnsPlugin
   {
@@ -80,7 +77,6 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     pluginName: 'groupingColumns',
     level: 'column',
     description: 'the "group" column property',
-    importHint: "import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';",
   },
   // PinnedColumnsPlugin
   {
@@ -88,7 +84,6 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     pluginName: 'pinnedColumns',
     level: 'column',
     description: 'the "sticky" column property',
-    importHint: "import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';",
     isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
   },
 ];
@@ -103,7 +98,6 @@ const KNOWN_CONFIG_PROPERTIES: InternalPropertyDefinition[] = [
     pluginName: 'groupingColumns',
     level: 'config',
     description: 'the "columnGroups" config property',
-    importHint: "import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';",
     isUsed: (v) => Array.isArray(v) && v.length > 0,
   },
 ];
@@ -111,39 +105,19 @@ const KNOWN_CONFIG_PROPERTIES: InternalPropertyDefinition[] = [
 
 // #region Import Hints
 /**
- * Map of known plugin names to their npm import paths.
- * Used to generate helpful error messages with import hints.
+ * Convert a camelCase plugin name to kebab-case for import paths.
+ * e.g. 'groupingRows' → 'grouping-rows', 'editing' → 'editing'
  */
-const PLUGIN_IMPORT_HINTS: Record<string, string> = {
-  editing: "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';",
-  selection: "import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';",
-  reorder: "import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';",
-  clipboard: "import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';",
-  filtering: "import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';",
-  multiSort: "import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';",
-  groupingRows: "import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';",
-  groupingColumns: "import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';",
-  tree: "import { TreePlugin } from '@toolbox-web/grid/plugins/tree';",
-  masterDetail: "import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';",
-  pinnedColumns: "import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';",
-  pinnedRows: "import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';",
-  visibility: "import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';",
-  undoRedo: "import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';",
-  export: "import { ExportPlugin } from '@toolbox-web/grid/plugins/export';",
-  contextMenu: "import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';",
-  pivot: "import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';",
-  serverSide: "import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';",
-  columnVirtualization: "import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';",
-};
+function toKebabCase(s: string): string {
+  return s.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+}
 
 /**
- * Get the import hint for a plugin, with a fallback for unknown plugins.
+ * Generate the import hint for a plugin from its name.
+ * e.g. 'editing' → "import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';"
  */
 function getImportHint(pluginName: string): string {
-  return (
-    PLUGIN_IMPORT_HINTS[pluginName] ??
-    `import { ${capitalize(pluginName)}Plugin } from '@toolbox-web/grid/plugins/${pluginName}';`
-  );
+  return `import { ${capitalize(pluginName)}Plugin } from '@toolbox-web/grid/plugins/${toKebabCase(pluginName)}';`;
 }
 // #endregion
 
@@ -209,7 +183,7 @@ export function validatePluginProperties<T>(config: GridConfig<T>, plugins: read
     const isUsed = def.isUsed ? def.isUsed(value) : value !== undefined;
 
     if (isUsed && !hasPlugin(plugins, def.pluginName)) {
-      addError(def.pluginName, def.description, def.importHint ?? getImportHint(def.pluginName), def.property, true);
+      addError(def.pluginName, def.description, getImportHint(def.pluginName), def.property, true);
     }
   }
 
@@ -224,7 +198,7 @@ export function validatePluginProperties<T>(config: GridConfig<T>, plugins: read
 
         if (isUsed && !hasPlugin(plugins, def.pluginName)) {
           const field = (column as ColumnConfig).field || '<unknown>';
-          addError(def.pluginName, def.description, def.importHint ?? getImportHint(def.pluginName), field);
+          addError(def.pluginName, def.description, getImportHint(def.pluginName), field);
         }
       }
     }
@@ -240,7 +214,7 @@ export function validatePluginProperties<T>(config: GridConfig<T>, plugins: read
           `Config uses ${description}, but the required plugin is not loaded.\n` +
             `  → Add the plugin to your gridConfig.plugins array:\n` +
             `    ${importHint}\n` +
-            `    plugins: [new ${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)}Plugin(), ...]`,
+            `    plugins: [new ${capitalize(pluginName)}Plugin(), ...]`,
         );
       } else {
         // Column-level property error
@@ -249,7 +223,7 @@ export function validatePluginProperties<T>(config: GridConfig<T>, plugins: read
           `Column(s) [${fieldList}] use ${description}, but the required plugin is not loaded.\n` +
             `  → Add the plugin to your gridConfig.plugins array:\n` +
             `    ${importHint}\n` +
-            `    plugins: [new ${pluginName.charAt(0).toUpperCase() + pluginName.slice(1)}Plugin(), ...]`,
+            `    plugins: [new ${capitalize(pluginName)}Plugin(), ...]`,
         );
       }
     }

@@ -29,22 +29,33 @@
     /* Selection cell styles - for range mode */
     .data-grid-row > .cell.selected {
       background-color: var(--tbw-range-selection-bg);
+      position: relative;
 
-      &.top {
-        border-top: 2px solid var(--tbw-range-border-color);
-        padding-top: calc(var(--tbw-cell-padding-v) - 2px);
+      /* Pseudo-element draws the selection range border inside the cell's
+         padding box. Uses inset: 0 to stay within overflow: hidden bounds.
+         The cell's own borders (row divider, column border) remain visible
+         outside the selection border — this is intentional and consistent
+         across all themes regardless of border width or visibility. */
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border: 0 solid var(--tbw-range-border-color);
+        z-index: 1;
       }
-      &.bottom {
-        border-bottom: 2px solid var(--tbw-range-border-color);
-        padding-bottom: calc(var(--tbw-cell-padding-v) - 2px);
+
+      &.top::after {
+        border-top-width: 2px;
       }
-      &.first {
-        border-left: 2px solid var(--tbw-range-border-color);
-        padding-left: calc(var(--tbw-cell-padding-h) - 2px);
+      &.bottom::after {
+        border-bottom-width: 2px;
       }
-      &.last {
-        border-right: 2px solid var(--tbw-range-border-color);
-        padding-right: calc(var(--tbw-cell-padding-h) - 2px);
+      &.first::after {
+        border-left-width: 2px;
+      }
+      &.last::after {
+        border-right-width: 2px;
       }
     }
 

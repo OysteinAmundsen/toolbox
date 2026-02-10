@@ -64,10 +64,10 @@
     --tbw-animation-easing: ease-in-out;
 
     /* ========== Focus & Selection ========== */
-    /* Bootstrap's focus ring style */
-    --tbw-focus-outline: 0 0 0 0.25rem rgba(from var(--tbw-color-accent) r g b / 25%);
-    --tbw-focus-outline-offset: 0;
-    --tbw-focus-background: transparent;
+    /* Bootstrap's focus ring style (outline syntax, not box-shadow) */
+    --tbw-focus-outline: 3px solid rgba(from var(--tbw-color-accent) r g b / 40%);
+    --tbw-focus-outline-offset: -3px;
+    --tbw-focus-background: light-dark(rgba(13, 110, 253, 0.08), rgba(110, 168, 254, 0.12));
 
     --tbw-range-border-color: var(--tbw-color-accent);
     --tbw-range-selection-bg: rgba(from var(--tbw-color-accent) r g b / 12%);

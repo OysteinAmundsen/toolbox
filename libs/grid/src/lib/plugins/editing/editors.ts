@@ -177,6 +177,11 @@ function createTextEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElemen
       if ((ctx.value === null || ctx.value === undefined) && inputVal === '') {
         return;
       }
+      // Preserve values with characters that <input> can't represent (newlines, etc.).
+      // If stripping those characters produces the same string, the user didn't change anything.
+      if (typeof ctx.value === 'string' && inputVal === ctx.value.replace(/[\n\r]/g, '')) {
+        return;
+      }
       // Preserve numeric type for custom column types (e.g., currency)
       if (typeof ctx.value === 'number' && inputVal !== '') {
         ctx.commit(Number(inputVal));

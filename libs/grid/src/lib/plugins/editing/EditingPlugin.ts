@@ -144,6 +144,10 @@ function getInputValue(
     if ((originalValue === null || originalValue === undefined) && input.value === '') {
       return originalValue;
     }
+    // Preserve values with characters <input> can't represent (newlines, etc.)
+    if (typeof originalValue === 'string' && input.value === originalValue.replace(/[\n\r]/g, '')) {
+      return originalValue;
+    }
     return input.value;
   }
   // For textarea/select, check column type OR original value type

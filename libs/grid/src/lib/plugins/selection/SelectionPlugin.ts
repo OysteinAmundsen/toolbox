@@ -11,8 +11,8 @@
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
 import type { GridElement, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
-import type { ColumnConfig } from '../../core/types';
 import { isExpanderColumn, isUtilityColumn } from '../../core/plugin/expander-column';
+import type { ColumnConfig } from '../../core/types';
 import {
   createRangeFromAnchor,
   getAllCellsInRanges,
@@ -59,10 +59,21 @@ function buildSelectionEvent(
   }
 
   if (mode === 'row' && state.selected.size > 0) {
-    const ranges = [...state.selected].map((rowIndex) => ({
-      from: { row: rowIndex, col: 0 },
-      to: { row: rowIndex, col: colCount - 1 },
-    }));
+    // Sort rows and merge contiguous indices into minimal ranges
+    const sorted = [...state.selected].sort((a, b) => a - b);
+    const ranges: CellRange[] = [];
+    let start = sorted[0];
+    let end = start;
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === end + 1) {
+        end = sorted[i];
+      } else {
+        ranges.push({ from: { row: start, col: 0 }, to: { row: end, col: colCount - 1 } });
+        start = sorted[i];
+        end = start;
+      }
+    }
+    ranges.push({ from: { row: start, col: 0 }, to: { row: end, col: colCount - 1 } });
     return { mode, ranges };
   }
 

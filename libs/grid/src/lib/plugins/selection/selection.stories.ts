@@ -141,7 +141,7 @@ export const Default: Story = {
     // Selection state panel
     const panel = document.createElement('div');
     panel.style.cssText =
-      'margin-top: 12px; padding: 12px; border: 1px solid var(--sb-border, #ccc); border-radius: 4px; font-family: monospace; font-size: 12px; background: var(--sbdocs-bg, #fafafa); max-height: 160px; overflow-y: auto;';
+      'margin-top: 12px; padding: 12px; border: 1px solid var(--sb-border, #ccc); border-radius: 4px; font-family: monospace; font-size: 12px; background: var(--sbdocs-bg, #fafafa); height: 160px; overflow-y: auto;';
     panel.innerHTML = '<span style="color: var(--sbdocs-fg, #666);">Click or drag to see selection state…</span>';
 
     const updatePanel = () => {

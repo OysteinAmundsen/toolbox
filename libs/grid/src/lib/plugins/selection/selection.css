@@ -18,10 +18,34 @@
     /* Row selection - use accent color for row focus (only when grid is focused) */
     &[data-has-focus] .data-grid-row.row-focus {
       background-color: var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%));
+      /* Replace outline with per-side pseudo-element borders that can collapse */
+      outline: none;
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border: 0 solid var(--tbw-range-border-color, var(--tbw-color-accent));
+        border-top-width: 2px;
+        border-bottom-width: 2px;
+        z-index: 1;
+      }
+
+      /* Collapse borders between adjacent selected rows */
+      + .data-grid-row.row-focus::after {
+        border-top-width: 0;
+      }
+      &:has(+ .data-grid-row.row-focus)::after {
+        border-bottom-width: 0;
+      }
     }
 
-    /* Disable cell-focus outline in row mode - row is the focus unit */
+    /* Disable cell-focus outline in row mode - row is the focus unit.
+       Also disable row-focus outline - selection plugin uses ::after borders instead. */
     &[data-selection-mode='row'] .cell-focus,
+    &[data-selection-mode='row'] .row-focus,
     &[data-selection-mode='range'] .cell-focus {
       outline: none;
     }

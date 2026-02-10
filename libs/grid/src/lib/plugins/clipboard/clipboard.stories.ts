@@ -50,20 +50,11 @@ interface ClipboardArgs {
 }
 type Story = StoryObj<ClipboardArgs>;
 
-/**
- * Select cells with range selection, then use Ctrl+C to copy.
- * Paste into Excel, Google Sheets, or any text editor.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 350px;"></tbw-grid>
+// Mutable ref so source.transform always reads the latest args
+let currentClipboardArgs: ClipboardArgs = { includeHeaders: false, quoteStrings: false };
 
-<script type="module">
-import '@toolbox-web/grid';
+function getClipboardSourceCode(args: ClipboardArgs): string {
+  return `import '@toolbox-web/grid';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
 
@@ -78,27 +69,32 @@ grid.gridConfig = {
   plugins: [
     new SelectionPlugin({ mode: 'range' }),
     new ClipboardPlugin({
-      includeHeaders: false,
-      quoteStrings: false,
+      includeHeaders: ${args.includeHeaders},
+      quoteStrings: ${args.quoteStrings},
     }),
   ],
 };
+grid.rows = [...];
 
-grid.rows = [
-  { id: 1, name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
-  { id: 2, name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
-  { id: 3, name: 'Carol', email: 'carol@example.com', department: 'Engineering' },
-  { id: 4, name: 'Dan', email: 'dan@example.com', department: 'Sales' },
-];
+// Select cells with mouse drag, then Ctrl+C to copy`;
+}
 
-// Select cells with mouse drag, then Ctrl+C to copy
-</script>
-`,
-        language: 'html',
+/**
+ * Select cells with range selection, then use Ctrl+C to copy.
+ * Paste into Excel, Google Sheets, or any text editor.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getClipboardSourceCode(currentClipboardArgs),
       },
     },
   },
   render: (args: ClipboardArgs) => {
+    currentClipboardArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '350px';
 

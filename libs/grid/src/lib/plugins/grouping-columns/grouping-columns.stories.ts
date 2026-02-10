@@ -59,20 +59,11 @@ interface GroupingColumnsArgs {
 }
 type Story = StoryObj<GroupingColumnsArgs>;
 
-/**
- * Group related columns under a shared header row. Columns with the same
- * group ID are grouped together.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 350px;"></tbw-grid>
+// Mutable ref so source.transform always reads the latest args
+let currentGroupingColsArgs: GroupingColumnsArgs = { showGroupBorders: true };
 
-<script type="module">
-import '@toolbox-web/grid';
+function getGroupingColumnsSourceCode(args: GroupingColumnsArgs): string {
+  return `import '@toolbox-web/grid';
 import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
 
 const grid = document.querySelector('tbw-grid');
@@ -86,21 +77,27 @@ grid.gridConfig = {
     { field: 'title', header: 'Title', group: { id: 'work', label: 'Work Info' } },
     { field: 'salary', header: 'Salary', type: 'number', group: { id: 'work', label: 'Work Info' } },
   ],
-  plugins: [new GroupingColumnsPlugin({ showGroupBorders: true })],
+  plugins: [new GroupingColumnsPlugin({ showGroupBorders: ${args.showGroupBorders} })],
 };
+grid.rows = [...];`;
+}
 
-grid.rows = [
-  { id: 1, firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com', department: 'Engineering', title: 'Senior Engineer', salary: 95000 },
-  { id: 2, firstName: 'Bob', lastName: 'Smith', email: 'bob@example.com', department: 'Marketing', title: 'Marketing Manager', salary: 85000 },
-  { id: 3, firstName: 'Carol', lastName: 'Williams', email: 'carol@example.com', department: 'Engineering', title: 'Lead Engineer', salary: 115000 },
-];
-</script>
-`,
-        language: 'html',
+/**
+ * Group related columns under a shared header row. Columns with the same
+ * group ID are grouped together.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getGroupingColumnsSourceCode(currentGroupingColsArgs),
       },
     },
   },
   render: (args: GroupingColumnsArgs) => {
+    currentGroupingColsArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '350px';
 

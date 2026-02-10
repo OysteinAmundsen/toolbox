@@ -58,35 +58,19 @@ interface ExportArgs {
 }
 type Story = StoryObj<ExportArgs>;
 
-/**
- * Export grid data to CSV, Excel, or JSON formats. Click the export buttons
- * above the grid to download data.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<div>
-  <div class="export-controls" style="padding: 8px; display: flex; gap: 8px;">
-    <button class="export-csv" style="padding: 6px 12px; cursor: pointer;">Export CSV</button>
-    <button class="export-excel" style="padding: 6px 12px; cursor: pointer;">Export Excel</button>
-    <button class="export-json" style="padding: 6px 12px; cursor: pointer;">Export JSON</button>
-  </div>
-  <tbw-grid style="height: 350px;"></tbw-grid>
-</div>
+// Mutable ref so source.transform always reads the latest args
+let currentExportArgs: ExportArgs = { includeHeaders: true, onlyVisible: true, onlySelected: false };
 
-<script type="module">
-import '@toolbox-web/grid';
+function getExportSourceCode(args: ExportArgs): string {
+  return `import '@toolbox-web/grid';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 
 const grid = document.querySelector('tbw-grid');
 const exportPlugin = new ExportPlugin({
-  includeHeaders: true,
-  onlyVisible: true,
-  onlySelected: false,
+  includeHeaders: ${args.includeHeaders},
+  onlyVisible: ${args.onlyVisible},
+  onlySelected: ${args.onlySelected},
   fileName: 'grid-export',
 });
 
@@ -96,32 +80,36 @@ grid.gridConfig = {
     { field: 'name', header: 'Name' },
     { field: 'department', header: 'Department' },
     { field: 'salary', header: 'Salary', type: 'number' },
-    { field: 'startDate', header: 'Start Date' },
   ],
   plugins: [
     new SelectionPlugin({ mode: 'range' }),
     exportPlugin,
   ],
 };
+grid.rows = [...];
 
-grid.rows = [
-  { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, startDate: '2023-01-15' },
-  { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000, startDate: '2022-06-20' },
-  { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000, startDate: '2021-03-10' },
-  { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, startDate: '2023-08-05' },
-];
+// Trigger export
+exportPlugin.exportCsv();
+exportPlugin.exportExcel();
+exportPlugin.exportJson();`;
+}
 
-// Wire up export buttons
-document.querySelector('.export-csv').addEventListener('click', () => exportPlugin.exportCsv());
-document.querySelector('.export-excel').addEventListener('click', () => exportPlugin.exportExcel());
-document.querySelector('.export-json').addEventListener('click', () => exportPlugin.exportJson());
-</script>
-`,
-        language: 'html',
+/**
+ * Export grid data to CSV, Excel, or JSON formats. Click the export buttons
+ * above the grid to download data.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getExportSourceCode(currentExportArgs),
       },
     },
   },
   render: (args: ExportArgs) => {
+    currentExportArgs = args;
+
     const container = document.createElement('div');
 
     // Create export buttons

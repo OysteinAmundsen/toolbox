@@ -54,23 +54,11 @@ interface PinnedRowsArgs {
 }
 type Story = StoryObj<PinnedRowsArgs>;
 
-// Currency formatter for price columns
-const formatCurrency = (value: unknown) => `$${(value as number).toFixed(2)}`;
+// Mutable ref so source.transform always reads the latest args
+let currentPinnedRowsArgs: PinnedRowsArgs = { position: 'bottom', showRowCount: true };
 
-/**
- * Status bar with aggregation rows showing totals at the bottom.
- * Scroll to see the pinned rows stay fixed.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
+function getPinnedRowsSourceCode(args: PinnedRowsArgs): string {
+  return `import '@toolbox-web/grid';
 import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 
 const grid = document.querySelector('tbw-grid');
@@ -83,45 +71,43 @@ grid.gridConfig = {
   ],
   plugins: [
     new PinnedRowsPlugin({
-      position: 'bottom',
-      showRowCount: true,
-      aggregationRows: [
-        {
-          id: 'totals',
-          position: 'bottom',
-          aggregators: {
-            // Custom aggregator function
-            name: (rows) => \`\${new Set(rows.map(r => r.name)).size} unique\`,
-            // Built-in aggregator
-            quantity: 'sum',
-            // Object syntax with formatter for currency
-            price: {
-              aggFunc: 'sum',
-              formatter: (value) => \`$\${value.toFixed(2)}\`,
-            },
-          },
-          cells: { id: 'Totals:' },
+      position: '${args.position}',
+      showRowCount: ${args.showRowCount},
+      aggregationRows: [{
+        id: 'totals',
+        position: 'bottom',
+        aggregators: {
+          name: (rows) => \`\${new Set(rows.map(r => r.name)).size} unique\`,
+          quantity: 'sum',
+          price: { aggFunc: 'sum', formatter: (v) => \`$\${v.toFixed(2)}\` },
         },
-      ],
+        cells: { id: 'Totals:' },
+      }],
     }),
   ],
 };
+grid.rows = [...];`;
+}
 
-// Generate sample product data
-grid.rows = [
-  { id: 1, name: 'Widget', quantity: 50, price: 25.00 },
-  { id: 2, name: 'Gadget', quantity: 30, price: 45.50 },
-  { id: 3, name: 'Widget', quantity: 25, price: 25.00 },
-  { id: 4, name: 'Gizmo', quantity: 80, price: 12.99 },
-  // ... more rows
-];
-</script>
-`,
-        language: 'html',
+// Currency formatter for price columns
+const formatCurrency = (value: unknown) => `$${(value as number).toFixed(2)}`;
+
+/**
+ * Status bar with aggregation rows showing totals at the bottom.
+ * Scroll to see the pinned rows stay fixed.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getPinnedRowsSourceCode(currentPinnedRowsArgs),
       },
     },
   },
   render: (args: PinnedRowsArgs) => {
+    currentPinnedRowsArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 

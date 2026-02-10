@@ -20,6 +20,63 @@ import './shared/demo-styles.css';
 
 type Story = StoryObj<EmployeeGridOptions>;
 
+let currentEmployeeArgs: EmployeeGridOptions = {} as EmployeeGridOptions;
+
+function getEmployeeSourceCode(args: EmployeeGridOptions): string {
+  const imports = [`import '@toolbox-web/grid';`];
+  const pluginImports: string[] = [];
+  const pluginInstances: string[] = [];
+
+  if (args.enableSelection) {
+    pluginImports.push('SelectionPlugin');
+    pluginInstances.push(`new SelectionPlugin({ mode: 'range' })`);
+  }
+  if (args.enableFiltering) {
+    pluginImports.push('FilteringPlugin');
+    pluginInstances.push('new FilteringPlugin()');
+  }
+  if (args.enableSorting) {
+    pluginImports.push('MultiSortPlugin');
+    pluginInstances.push('new MultiSortPlugin()');
+  }
+  if (args.enableEditing) {
+    pluginImports.push('EditingPlugin');
+    pluginInstances.push('new EditingPlugin()');
+  }
+  if (args.enableMasterDetail) {
+    pluginImports.push('MasterDetailPlugin');
+    pluginInstances.push(`new MasterDetailPlugin({ detailHeight: 'auto' })`);
+  }
+  if (args.enableRowGrouping) {
+    pluginImports.push('GroupingRowsPlugin');
+    pluginInstances.push(`new GroupingRowsPlugin({ groupBy: ['department'] })`);
+  }
+
+  if (pluginImports.length > 0) {
+    imports.push(`import { ${pluginImports.join(', ')} } from '@toolbox-web/grid/all';`);
+  }
+
+  const pluginsBlock =
+    pluginInstances.length > 0 ? `\n  plugins: [\n    ${pluginInstances.join(',\n    ')},\n  ],` : '';
+
+  return `${imports.join('\n')}
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+    { field: 'rating', header: 'Rating', type: 'number' },
+    // ... more columns
+  ],${pluginsBlock}
+};
+
+grid.rows = generateEmployees(${args.rowCount});
+`;
+}
+
 /**
  * Creates a container with fixed height for the grid.
  * Required for virtualization to work in Storybook Canvas.
@@ -109,12 +166,15 @@ export const AllFeatures: Story = {
   parameters: {
     docs: {
       source: {
-        code: '// See full source code in demos/employee-management/vanilla/',
+        transform: () => getEmployeeSourceCode(currentEmployeeArgs),
         language: 'typescript',
       },
     },
   },
-  render: (args) => renderGridInContainer(args),
+  render: (args) => {
+    currentEmployeeArgs = args;
+    return renderGridInContainer(args);
+  },
 };
 
 /**

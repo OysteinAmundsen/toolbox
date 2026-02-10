@@ -41,24 +41,15 @@ interface UndoRedoArgs {
 }
 type Story = StoryObj<UndoRedoArgs>;
 
-/**
- * Double-click to edit cells, then use Ctrl+Z to undo and Ctrl+Y to redo.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 350px;"></tbw-grid>
+// Mutable ref so source.transform always reads the latest args
+let currentUndoRedoArgs: UndoRedoArgs = { maxHistorySize: 100 };
 
-<script type="module">
-import '@toolbox-web/grid';
-import { queryGrid } from '@toolbox-web/grid';
+function getUndoRedoSourceCode(args: UndoRedoArgs): string {
+  return `import '@toolbox-web/grid';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
-const grid = queryGrid('tbw-grid');
+const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID', type: 'number' },
@@ -69,25 +60,28 @@ grid.gridConfig = {
   plugins: [
     new EditingPlugin(),
     new UndoRedoPlugin({
-      maxHistorySize: 100,
+      maxHistorySize: ${args.maxHistorySize},
     }),
   ],
 };
+grid.rows = [...];\n\n// Double-click to edit, Ctrl+Z to undo, Ctrl+Y to redo`;
+}
 
-grid.rows = [
-  { id: 1, name: 'Widget A', quantity: 10, price: 25.99 },
-  { id: 2, name: 'Widget B', quantity: 5, price: 49.99 },
-  { id: 3, name: 'Widget C', quantity: 20, price: 15.00 },
-];
-
-// Double-click to edit, Ctrl+Z to undo, Ctrl+Y to redo
-</script>
-`,
-        language: 'html',
+/**
+ * Double-click to edit cells, then use Ctrl+Z to undo and Ctrl+Y to redo.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getUndoRedoSourceCode(currentUndoRedoArgs),
       },
     },
   },
   render: (args: UndoRedoArgs) => {
+    currentUndoRedoArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '350px';
 

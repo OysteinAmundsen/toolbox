@@ -52,20 +52,11 @@ interface MultiSortArgs {
 }
 type Story = StoryObj<MultiSortArgs>;
 
-/**
- * Hold Shift and click column headers to sort by multiple columns.
- * Sort badges (1, 2, 3) indicate the priority when enabled.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 350px;"></tbw-grid>
+// Mutable ref so source.transform always reads the latest args
+let currentMultiSortArgs: MultiSortArgs = { maxSortColumns: 3, showSortIndex: true };
 
-<script type="module">
-import '@toolbox-web/grid';
+function getMultiSortSourceCode(args: MultiSortArgs): string {
+  return `import '@toolbox-web/grid';
 import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
 
 const grid = document.querySelector('tbw-grid');
@@ -75,31 +66,33 @@ grid.gridConfig = {
     { field: 'name', header: 'Name', sortable: true },
     { field: 'department', header: 'Department', sortable: true },
     { field: 'salary', header: 'Salary', type: 'number', sortable: true },
-    { field: 'joined', header: 'Joined', type: 'date', sortable: true },
   ],
   plugins: [
     new MultiSortPlugin({
-      maxSortColumns: 3,
-      showSortIndex: true,
+      maxSortColumns: ${args.maxSortColumns},
+      showSortIndex: ${args.showSortIndex},
     }),
   ],
 };
+grid.rows = [...];`;
+}
 
-grid.rows = [
-  { id: 1, name: 'Alice', department: 'Engineering', salary: 95000, joined: '2023-01-15' },
-  { id: 2, name: 'Bob', department: 'Marketing', salary: 75000, joined: '2022-06-20' },
-  { id: 3, name: 'Carol', department: 'Engineering', salary: 105000, joined: '2021-03-10' },
-  { id: 4, name: 'Dan', department: 'Engineering', salary: 85000, joined: '2023-08-05' },
-  { id: 5, name: 'Eve', department: 'Marketing', salary: 72000, joined: '2024-01-12' },
-  { id: 6, name: 'Frank', department: 'Sales', salary: 82000, joined: '2022-11-30' },
-];
-</script>
-`,
-        language: 'html',
+/**
+ * Hold Shift and click column headers to sort by multiple columns.
+ * Sort badges (1, 2, 3) indicate the priority when enabled.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getMultiSortSourceCode(currentMultiSortArgs),
       },
     },
   },
   render: (args: MultiSortArgs) => {
+    currentMultiSortArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '350px';
 

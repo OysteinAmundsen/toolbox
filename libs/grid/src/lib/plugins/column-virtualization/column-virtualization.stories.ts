@@ -75,6 +75,36 @@ interface ColumnVirtualizationArgs {
 }
 type Story = StoryObj<ColumnVirtualizationArgs>;
 
+// Mutable ref so source.transform always reads the latest args
+let currentColVirtArgs: ColumnVirtualizationArgs = { columnCount: 50, autoEnable: true, threshold: 30, overscan: 3 };
+
+function getColumnVirtSourceCode(args: ColumnVirtualizationArgs): string {
+  return `import '@toolbox-web/grid';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: generateColumns(${args.columnCount}),
+  fitMode: 'fixed',
+  plugins: [
+    new ColumnVirtualizationPlugin({
+      autoEnable: ${args.autoEnable},
+      threshold: ${args.threshold},
+      overscan: ${args.overscan},
+    }),
+  ],
+};
+grid.rows = generateRows(100, ${args.columnCount});
+
+function generateColumns(count) {
+  const cols = [{ field: 'id', header: 'ID', type: 'number', width: 60 }];
+  for (let i = 1; i < count; i++) {
+    cols.push({ field: \`col\${i}\`, header: \`Column \${i}\`, type: 'number', width: 100 });
+  }
+  return cols;
+}`;
+}
+
 /**
  * Only visible columns are rendered for better performance.
  * This demo has 50 columns and 100 rows — scroll horizontally to see virtualization.
@@ -83,57 +113,14 @@ export const Default: Story = {
   parameters: {
     docs: {
       source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
-
-// Generate many columns for demo
-function generateColumns(count) {
-  const columns = [{ field: 'id', header: 'ID', type: 'number', width: 60 }];
-  for (let i = 1; i < count; i++) {
-    columns.push({ field: \`col\${i}\`, header: \`Column \${i}\`, type: 'number', width: 100 });
-  }
-  return columns;
-}
-
-// Generate sample data
-function generateRows(rowCount, colCount) {
-  const rows = [];
-  for (let r = 0; r < rowCount; r++) {
-    const row = { id: r + 1 };
-    for (let c = 1; c < colCount; c++) {
-      row[\`col\${c}\`] = Math.floor(Math.random() * 1000);
-    }
-    rows.push(row);
-  }
-  return rows;
-}
-
-const grid = document.querySelector('tbw-grid');
-grid.gridConfig = {
-  columns: generateColumns(50),
-  fitMode: 'fixed',
-  plugins: [
-    new ColumnVirtualizationPlugin({
-      autoEnable: true,
-      threshold: 30,
-      overscan: 3,
-    }),
-  ],
-};
-
-grid.rows = generateRows(100, 50);
-</script>
-`,
-        language: 'html',
+        language: 'typescript',
+        transform: () => getColumnVirtSourceCode(currentColVirtArgs),
       },
     },
   },
   render: (args: ColumnVirtualizationArgs) => {
+    currentColVirtArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 

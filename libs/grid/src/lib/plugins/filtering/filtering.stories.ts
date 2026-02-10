@@ -57,6 +57,32 @@ interface FilteringArgs {
 }
 type Story = StoryObj<FilteringArgs>;
 
+// Mutable ref so source.transform always reads the latest args
+let currentFilteringArgs: FilteringArgs = { debounceMs: 150, caseSensitive: false };
+
+function getFilteringSourceCode(args: FilteringArgs): string {
+  return `import '@toolbox-web/grid';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', filterable: false },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+    { field: 'status', header: 'Status' },
+  ],
+  plugins: [
+    new FilteringPlugin({
+      debounceMs: ${args.debounceMs},
+      caseSensitive: ${args.caseSensitive},
+    }),
+  ],
+};
+grid.rows = [...];`;
+}
+
 /**
  * Basic filtering with built-in checkbox panel. Click the filter icon (⊻)
  * in any column header to open the filter panel. Use the controls to adjust
@@ -66,39 +92,14 @@ export const Default: Story = {
   parameters: {
     docs: {
       source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
-
-const grid = document.querySelector('tbw-grid');
-
-grid.gridConfig = {
-  columns: [
-    { field: 'id', header: 'ID', type: 'number' },
-    { field: 'name', header: 'Name' },
-    { field: 'department', header: 'Department' },
-    { field: 'status', header: 'Status' },
-  ],
-  plugins: [
-    new FilteringPlugin({
-      debounceMs: 150,
-      caseSensitive: false,
-    }),
-  ],
-};
-
-grid.rows = [...];
-</script>
-`,
-        language: 'html',
+        language: 'typescript',
+        transform: () => getFilteringSourceCode(currentFilteringArgs),
       },
     },
   },
   render: (args: FilteringArgs) => {
+    currentFilteringArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 

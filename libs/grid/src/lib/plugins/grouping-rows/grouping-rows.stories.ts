@@ -89,19 +89,30 @@ interface GroupingRowsArgs {
 }
 type Story = StoryObj<GroupingRowsArgs>;
 
-/**
- * Group rows by a field value. Click group headers to expand/collapse.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
+// Mutable ref so source.transform always reads the latest args
+let currentGroupingRowsArgs: GroupingRowsArgs = {
+  animation: 'slide',
+  defaultExpanded: false,
+  showRowCount: true,
+  indentWidth: 20,
+  fullWidth: true,
+  accordion: false,
+  showAggregators: false,
+};
 
-<script type="module">
-import '@toolbox-web/grid';
+function getGroupingRowsSourceCode(args: GroupingRowsArgs): string {
+  const animationStr = args.animation === false ? 'false' : `'${args.animation}'`;
+  const opts = [
+    `groupOn: (row) => row.department`,
+    `animation: ${animationStr}`,
+    `defaultExpanded: ${args.defaultExpanded}`,
+    `showRowCount: ${args.showRowCount}`,
+    `indentWidth: ${args.indentWidth}`,
+    `fullWidth: ${args.fullWidth}`,
+    `accordion: ${args.accordion}`,
+  ];
+  if (args.showAggregators) opts.push(`aggregators: { salary: 'sum' }`);
+  return `import '@toolbox-web/grid';
 import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
 
 const grid = document.querySelector('tbw-grid');
@@ -114,30 +125,28 @@ grid.gridConfig = {
   ],
   plugins: [
     new GroupingRowsPlugin({
-      groupOn: (row) => row.department,
-      defaultExpanded: false,
-      showRowCount: true,
-      indentWidth: 20,
+      ${opts.join(',\n      ')},
     }),
   ],
 };
+grid.rows = [...];`;
+}
 
-grid.rows = [
-  { id: 1, name: 'Alice', department: 'Engineering', salary: 95000 },
-  { id: 2, name: 'Bob', department: 'Marketing', salary: 75000 },
-  { id: 3, name: 'Carol', department: 'Engineering', salary: 105000 },
-  { id: 4, name: 'Dan', department: 'Sales', salary: 85000 },
-  { id: 5, name: 'Eve', department: 'Marketing', salary: 72000 },
-  { id: 6, name: 'Frank', department: 'Engineering', salary: 98000 },
-  { id: 7, name: 'Grace', department: 'Sales', salary: 88000 },
-];
-</script>
-`,
-        language: 'html',
+/**
+ * Group rows by a field value. Click group headers to expand/collapse.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getGroupingRowsSourceCode(currentGroupingRowsArgs),
       },
     },
   },
   render: (args: GroupingRowsArgs) => {
+    currentGroupingRowsArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 

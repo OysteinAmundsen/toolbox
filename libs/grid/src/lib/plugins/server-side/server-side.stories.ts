@@ -53,28 +53,17 @@ interface ServerSideArgs {
 }
 type Story = StoryObj<ServerSideArgs>;
 
-/**
- * Virtual scroll with lazy loading. Scroll down to fetch more rows automatically.
- * This demo simulates 10,000 rows with a 200ms network delay.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
+// Mutable ref so source.transform always reads the latest args
+let currentServerSideArgs: ServerSideArgs = { pageSize: 50 };
 
-<script type="module">
-import '@toolbox-web/grid';
-import { queryGrid } from '@toolbox-web/grid';
+function getServerSideSourceCode(args: ServerSideArgs): string {
+  return `import '@toolbox-web/grid';
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
-import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
 
-const grid = queryGrid('tbw-grid');
+const grid = document.querySelector('tbw-grid');
 const plugin = new ServerSidePlugin({
-  pageSize: 50,
-  cacheBlockSize: 50,
+  pageSize: ${args.pageSize},
+  cacheBlockSize: ${args.pageSize},
 });
 
 grid.gridConfig = {
@@ -85,39 +74,38 @@ grid.gridConfig = {
     { field: 'salary', header: 'Salary', type: 'number', sortable: true },
     { field: 'email', header: 'Email' },
   ],
-  plugins: [
-    plugin,
-    // Optional: shows scroll info in footer
-    new PinnedRowsPlugin({
-      position: 'bottom',
-      showRowCount: true,
-      customPanels: [
-        { id: 'scroll-info', position: 'right', render: () => '<em>Scroll to load more rows...</em>' },
-      ],
-    }),
-  ],
+  plugins: [plugin],
 };
 
 // Set data source after grid is ready
 grid.ready().then(() => {
   plugin.setDataSource({
     async getRows(params) {
-      // Simulate network delay
       await new Promise(r => setTimeout(r, 200));
-
       const response = await fetch(\`/api/data?start=\${params.startRow}&end=\${params.endRow}\`);
       const { rows, totalRowCount } = await response.json();
       return { rows, totalRowCount };
     },
   });
-});
-</script>
-`,
-        language: 'html',
+});`;
+}
+
+/**
+ * Virtual scroll with lazy loading. Scroll down to fetch more rows automatically.
+ * This demo simulates 10,000 rows with a 200ms network delay.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getServerSideSourceCode(currentServerSideArgs),
       },
     },
   },
   render: (args: ServerSideArgs) => {
+    currentServerSideArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 

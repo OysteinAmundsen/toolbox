@@ -63,6 +63,31 @@ interface ResponsiveArgs {
 }
 type Story = StoryObj<ResponsiveArgs>;
 
+// Mutable ref so source.transform always reads the latest args
+let currentResponsiveArgs: ResponsiveArgs = { breakpoint: 500, hideHeader: true, debounceMs: 100 };
+
+function getResponsiveSourceCode(args: ResponsiveArgs): string {
+  const opts = [`breakpoint: ${args.breakpoint}`];
+  if (args.hideHeader) opts.push(`hideHeader: ${args.hideHeader}`);
+  if (args.debounceMs !== 100) opts.push(`debounceMs: ${args.debounceMs}`);
+  return `import '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ],
+  plugins: [
+    new ResponsivePlugin({ ${opts.join(', ')} }),
+  ],
+};
+grid.rows = [...];`;
+}
+
 // Sample data
 const sampleData = [
   {
@@ -128,34 +153,14 @@ export const Default: Story = {
   parameters: {
     docs: {
       source: {
-        code: `
-<!-- HTML -->
-<div style="resize: horizontal; overflow: auto; width: 700px; border: 2px dashed #ccc; padding: 8px;">
-  <tbw-grid style="height: 350px;"></tbw-grid>
-</div>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
-
-const grid = document.querySelector('tbw-grid');
-
-grid.gridConfig = {
-  columns: [
-    { field: 'id', header: 'ID', type: 'number' },
-    { field: 'name', header: 'Name' },
-    { field: 'department', header: 'Department' },
-    { field: 'salary', header: 'Salary', type: 'number' },
-  ],
-  plugins: [new ResponsivePlugin({ breakpoint: 500 })],
-};
-grid.rows = data;
-</script>
-`,
+        language: 'typescript',
+        transform: () => getResponsiveSourceCode(currentResponsiveArgs),
       },
     },
   },
   render: (args) => {
+    currentResponsiveArgs = args as ResponsiveArgs;
+
     // Outer wrapper with padding to keep resize handle above "Show code" button
     const wrapper = document.createElement('div');
     wrapper.style.cssText = 'padding-bottom: 20px;';

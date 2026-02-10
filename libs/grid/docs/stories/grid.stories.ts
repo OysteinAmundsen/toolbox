@@ -109,6 +109,53 @@ interface GridArgs {
 }
 type Story = StoryObj<GridArgs>;
 
+// Mutable ref so source.transform always reads the latest args
+let currentPlaygroundArgs: GridArgs = {
+  rowCount: 100,
+  fitMode: 'stretch',
+  fixedHeight: true,
+  height: '500px',
+  visibleColumns: [...ALL_COLUMNS],
+  sortable: true,
+  resizable: true,
+};
+
+function getPlaygroundSourceCode(args: GridArgs): string {
+  const colEntries = args.visibleColumns.map((key) => {
+    const props: string[] = [`field: '${key}'`];
+    const headers: Record<string, string> = {
+      id: 'ID',
+      name: 'Name',
+      active: 'Active',
+      score: 'Score',
+      created: 'Created',
+      role: 'Role',
+    };
+    props.push(`header: '${headers[key]}'`);
+    if (key === 'id' || key === 'score') props.push(`type: 'number'`);
+    else if (key === 'active') props.push(`type: 'boolean'`);
+    else if (key === 'created') props.push(`type: 'date'`);
+    else if (key === 'role') props.push(`type: 'select'`);
+    return `    { ${props.join(', ')} }`;
+  });
+  const heightLine = args.fixedHeight ? `\ngrid.style.height = '${args.height}';` : '';
+
+  // Grid-wide config properties
+  const configParts: string[] = [];
+  configParts.push(`  columns: [\n${colEntries.join(',\n')}\n  ]`);
+  if (!args.sortable) configParts.push(`  sortable: false`);
+  if (!args.resizable) configParts.push(`  resizable: false`);
+
+  return `import '@toolbox-web/grid';
+
+const grid = document.querySelector('tbw-grid');${heightLine}
+grid.fitMode = '${args.fitMode}';
+grid.gridConfig = {
+${configParts.join(',\n')},
+};
+grid.rows = generateRows(${args.rowCount});`;
+}
+
 // Column definitions factory
 function buildColumnDefs(visibleColumns: ColumnKey[], opts: { sortable: boolean; resizable: boolean }): ColumnConfig[] {
   const columnDefs: Record<ColumnKey, ColumnConfig> = {
@@ -184,51 +231,14 @@ export const Playground: Story = {
   parameters: {
     docs: {
       source: {
-        code: `
-<!-- HTML -->
-<tbw-grid></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-
-const grid = document.querySelector('tbw-grid');
-
-// Configure grid
-grid.fitMode = 'stretch';
-grid.editOn = 'dblClick';
-
-grid.columns = [
-  { field: 'id', header: 'ID', type: 'number', sortable: true, resizable: true },
-  { field: 'name', header: 'Name', sortable: true, resizable: true },
-  { field: 'active', header: 'Active', type: 'boolean', sortable: true },
-  { field: 'score', header: 'Score', type: 'number', sortable: true, resizable: true },
-  { field: 'created', header: 'Created', type: 'date', sortable: true, resizable: true },
-  {
-    field: 'role',
-    header: 'Role',
-    type: 'select',
-    sortable: true,
-    options: [
-      { label: 'Admin', value: 'admin' },
-      { label: 'User', value: 'user' },
-      { label: 'Guest', value: 'guest' },
-    ],
-  },
-];
-
-grid.rows = generateRows(100);
-
-// Listen for cell edits
-grid.addEventListener('cell-commit', (e) => {
-  console.log('cell-commit:', e.detail.field, '=', e.detail.newValue);
-});
-</script>
-`,
-        language: 'html',
+        language: 'typescript',
+        transform: () => getPlaygroundSourceCode(currentPlaygroundArgs),
       },
     },
   },
   render: (args: GridArgs) => {
+    currentPlaygroundArgs = args;
+
     const effectiveHeight = args.fixedHeight ? args.height : 'auto';
 
     const grid = document.createElement('tbw-grid') as GridElement;
@@ -723,6 +733,83 @@ interface ShellArgs {
   showToolbarButton: boolean;
 }
 
+let currentShellArgs: ShellArgs = {} as ShellArgs;
+
+function getShellSourceCode(args: ShellArgs): string {
+  const imports = [`import '@toolbox-web/grid';`];
+  if (args.showVisibilityPlugin) {
+    imports.push(`import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';`);
+  }
+
+  const headerParts: string[] = [];
+  if (args.showTitle) {
+    headerParts.push(`title: '${args.title}'`);
+  }
+  const headerLine = headerParts.length > 0 ? `\n    header: { ${headerParts.join(', ')} },` : '';
+
+  const toolPanelLine = args.panelPosition !== 'right' ? `\n    toolPanel: { position: '${args.panelPosition}' },` : '';
+
+  const shellBlock = headerLine || toolPanelLine ? `\n  shell: {${headerLine}${toolPanelLine}\n  },` : '';
+
+  const pluginsLine = args.showVisibilityPlugin ? `\n  plugins: [new VisibilityPlugin()],` : '';
+
+  const extras: string[] = [];
+  if (args.showHeaderContent) {
+    extras.push(`
+// Register custom header content
+grid.registerHeaderContent({
+  id: 'row-count',
+  render: (container) => {
+    container.innerHTML = '<span>20 rows</span>';
+  },
+});`);
+  }
+  if (args.showCustomPanel) {
+    extras.push(`
+// Register custom tool panel
+grid.registerToolPanel({
+  id: 'settings',
+  title: 'Settings',
+  icon: '⚙',
+  tooltip: 'Grid settings',
+  order: 10,
+  render: (container) => {
+    container.innerHTML = '<div>Custom settings panel</div>';
+    return () => container.innerHTML = '';
+  },
+});`);
+  }
+  if (args.showToolbarButton) {
+    extras.push(`
+// Add toolbar button via light DOM
+const toolButtons = document.createElement('tbw-grid-tool-buttons');
+const refreshBtn = document.createElement('button');
+refreshBtn.className = 'tbw-toolbar-btn';
+refreshBtn.title = 'Refresh Data';
+refreshBtn.textContent = '↻';
+refreshBtn.onclick = () => { grid.rows = generateRows(20); };
+toolButtons.appendChild(refreshBtn);
+grid.appendChild(toolButtons);`);
+  }
+
+  return `<!-- HTML -->
+<tbw-grid></tbw-grid>
+
+<script type="module">
+${imports.join('\n')}
+
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {${shellBlock}${pluginsLine}
+};
+
+grid.columns = [...];
+grid.rows = [...];
+${extras.join('\n')}
+</script>
+`;
+}
+
 /**
  * ## Shell with Title and Visibility Plugin
  *
@@ -791,6 +878,7 @@ export const ShellBasic: StoryObj<ShellArgs> = {
     showToolbarButton: true,
   },
   render: (args: ShellArgs) => {
+    currentShellArgs = args;
     const htmlSnippet = `<tbw-grid style="height: 500px; display: block;"></tbw-grid>`;
 
     const grid = document.createElement('tbw-grid') as GridElement;
@@ -888,36 +976,7 @@ export const ShellBasic: StoryObj<ShellArgs> = {
   parameters: {
     docs: {
       source: {
-        code: `
-<!-- HTML -->
-<tbw-grid></tbw-grid>
-
-<script type="module">
-import '@toolbox-web/grid';
-import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
-
-const grid = document.querySelector('tbw-grid');
-
-grid.gridConfig = {
-  shell: {
-    header: { title: 'Employee Data' },
-    toolPanel: { position: 'right' },
-  },
-  plugins: [new VisibilityPlugin()],
-};
-
-grid.columns = [...];
-grid.rows = [...];
-
-// Register custom header content
-grid.registerHeaderContent({
-  id: 'row-count',
-  render: (container) => {
-    container.innerHTML = '<span>20 rows</span>';
-  },
-});
-</script>
-`,
+        transform: () => getShellSourceCode(currentShellArgs),
         language: 'html',
       },
     },

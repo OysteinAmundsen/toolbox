@@ -85,24 +85,15 @@ interface TreeArgs {
 }
 type Story = StoryObj<TreeArgs>;
 
-/**
- * Display hierarchical data with expand/collapse functionality.
- * Click the ▶ icon to expand a folder and see its children.
- */
-export const Default: Story = {
-  parameters: {
-    docs: {
-      source: {
-        code: `
-<!-- HTML -->
-<tbw-grid style="height: 400px;"></tbw-grid>
+// Mutable ref so source.transform always reads the latest args
+let currentTreeArgs: TreeArgs = { animation: 'slide', defaultExpanded: false, indentWidth: 20 };
 
-<script type="module">
-import '@toolbox-web/grid';
-import { queryGrid } from '@toolbox-web/grid';
+function getTreeSourceCode(args: TreeArgs): string {
+  const animationStr = args.animation === false ? 'false' : `'${args.animation}'`;
+  return `import '@toolbox-web/grid';
 import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
 
-const grid = queryGrid('tbw-grid');
+const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name' },
@@ -112,50 +103,46 @@ grid.gridConfig = {
   plugins: [
     new TreePlugin({
       childrenField: 'children',
-      defaultExpanded: false,
-      indentWidth: 20,
-      showExpandIcons: true,
+      animation: ${animationStr},
+      defaultExpanded: ${args.defaultExpanded},
+      indentWidth: ${args.indentWidth},
     }),
   ],
 };
 
 grid.rows = [
   {
-    name: 'Documents',
-    type: 'folder',
-    size: '-',
+    name: 'Documents', type: 'folder', size: '-',
     children: [
       { name: 'Resume.pdf', type: 'file', size: '2.4 MB' },
       { name: 'Cover Letter.docx', type: 'file', size: '156 KB' },
-      {
-        name: 'Projects',
-        type: 'folder',
-        size: '-',
-        children: [
-          { name: 'Project A', type: 'folder', size: '-', children: [{ name: 'notes.txt', type: 'file', size: '12 KB' }] },
-          { name: 'Project B', type: 'folder', size: '-' },
-        ],
-      },
     ],
   },
-  {
-    name: 'Pictures',
-    type: 'folder',
-    size: '-',
+  { name: 'Pictures', type: 'folder', size: '-',
     children: [
       { name: 'vacation.jpg', type: 'file', size: '4.2 MB' },
-      { name: 'family.png', type: 'file', size: '3.1 MB' },
     ],
   },
   { name: 'readme.md', type: 'file', size: '1 KB' },
-];
-</script>
-`,
-        language: 'html',
+];`;
+}
+
+/**
+ * Display hierarchical data with expand/collapse functionality.
+ * Click the ▶ icon to expand a folder and see its children.
+ */
+export const Default: Story = {
+  parameters: {
+    docs: {
+      source: {
+        language: 'typescript',
+        transform: () => getTreeSourceCode(currentTreeArgs),
       },
     },
   },
   render: (args: TreeArgs) => {
+    currentTreeArgs = args;
+
     const grid = document.createElement('tbw-grid') as GridElement;
     grid.style.height = '400px';
 

@@ -49,10 +49,11 @@
     --tbw-header-letter-spacing: normal;
 
     /* ========== Dimensions ========== */
-    --tbw-cell-padding: 8px 12px;
-    --tbw-cell-padding-header: 8px 12px;
-    --tbw-row-height: 44px;
-    --tbw-header-height: 48px;
+    /* Bootstrap .table uses 0.5rem cell padding */
+    --tbw-cell-padding: 0.5rem 0.75rem;
+    --tbw-cell-padding-header: 0.5rem 0.75rem;
+    --tbw-row-height: 37px;
+    --tbw-header-height: 41px;
 
     /* Bootstrap uses rectangular tables */
     --tbw-border-radius: 0.375rem;
@@ -96,5 +97,188 @@
 
     /* ========== Row Animations ========== */
     --tbw-row-change-color: rgba(from var(--tbw-color-accent) r g b / 20%);
+
+    /* ========== Header Icons ========== */
+    /* Scale icons to match Bootstrap's 1rem base font */
+    .header-row .cell > span[part~='sort-indicator'] {
+      font-size: 14px;
+    }
+
+    .header-row .cell .tbw-filter-btn {
+      font-size: 14px;
+
+      > * {
+        width: 1em;
+        height: 1em;
+      }
+    }
+
+    /* ========== Bootstrap 5 Form Inputs ========== */
+    /* Standard Bootstrap form-control styling for editing cells */
+    .data-grid-row > .cell.editing input:not([type='checkbox']),
+    .data-grid-row > .cell.editing select,
+    .data-grid-row > .cell.editing textarea {
+      background: var(--tbw-color-bg);
+      color: var(--tbw-color-fg);
+      border: 1px solid light-dark(#ced4da, #495057);
+      border-radius: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      font-family: var(--tbw-font-family);
+      font-size: var(--tbw-font-size);
+      outline: none;
+      transition:
+        border-color 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
+
+      &:focus {
+        border-color: light-dark(#86b7fe, #6ea8fe);
+        box-shadow: 0 0 0 0.25rem rgba(from var(--tbw-color-accent) r g b / 25%);
+      }
+    }
+
+    /* Bootstrap select caret */
+    .data-grid-row > .cell.editing select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 16px 12px;
+      padding-right: 2.25rem;
+    }
+  }
+
+  tbw-grid,
+  .tbw-filter-panel {
+    /* ========== Bootstrap 5 Checkboxes ========== */
+    /* Matches Bootstrap's .form-check-input styling */
+    input[type='checkbox'] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1.125em;
+      height: 1.125em;
+      border: 1px solid light-dark(#dee2e6, #495057);
+      border-radius: 0.25em;
+      background-color: light-dark(#ffffff, #212529);
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      cursor: pointer;
+      outline: none;
+      vertical-align: middle;
+      flex-shrink: 0;
+      transition:
+        background-color 0.15s ease-in-out,
+        border-color 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
+
+      &:checked {
+        background-color: var(--tbw-color-accent);
+        border-color: var(--tbw-color-accent);
+        /* Bootstrap SVG checkmark */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3E%3C/svg%3E");
+      }
+
+      &:indeterminate {
+        background-color: var(--tbw-color-accent);
+        border-color: var(--tbw-color-accent);
+        /* Bootstrap SVG dash */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3E%3C/svg%3E");
+      }
+
+      &:focus {
+        border-color: light-dark(#86b7fe, #6ea8fe);
+        box-shadow: 0 0 0 0.25rem rgba(from var(--tbw-color-accent) r g b / 25%);
+      }
+    }
+
+    /* ========== Bootstrap 5 Buttons ========== */
+    /* Standard Bootstrap .btn base styling */
+    button {
+      border-radius: 0.375rem;
+      font-weight: 400;
+      letter-spacing: normal;
+      transition:
+        color 0.15s ease-in-out,
+        background-color 0.15s ease-in-out,
+        border-color 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
+
+      &:focus-visible {
+        box-shadow: 0 0 0 0.25rem rgba(from var(--tbw-color-accent) r g b / 50%);
+      }
+    }
+  }
+
+  .tbw-filter-panel {
+    /* Provide --tbw-* values for filter panel (rendered outside tbw-grid) */
+    --tbw-color-accent: light-dark(#0d6efd, #6ea8fe);
+    --tbw-color-bg: light-dark(#ffffff, #212529);
+    --tbw-color-fg: light-dark(#212529, #dee2e6);
+    --tbw-color-border: light-dark(#dee2e6, #495057);
+    --tbw-color-border-strong: light-dark(#adb5bd, #6c757d);
+    --tbw-color-panel-bg: light-dark(#f8f9fa, #2b3035);
+    --tbw-color-row-hover: light-dark(rgba(0, 0, 0, 0.075), rgba(255, 255, 255, 0.05));
+    --tbw-filter-item-height: 32px;
+
+    /* Bootstrap card-like panel */
+    border-radius: 0.375rem;
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      Roboto,
+      'Helvetica Neue',
+      Arial,
+      sans-serif;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+
+    /* Bootstrap form-control inputs */
+    .tbw-filter-search-input,
+    .tbw-filter-range-input,
+    .tbw-filter-date-input {
+      background: var(--tbw-color-bg);
+      border: 1px solid var(--tbw-color-border);
+      border-radius: 0.375rem;
+      height: 32px;
+      padding: 0.25rem 0.5rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      transition:
+        border-color 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
+
+      &:focus {
+        border-color: light-dark(#86b7fe, #6ea8fe);
+        box-shadow: 0 0 0 0.25rem rgba(from var(--tbw-color-accent) r g b / 25%);
+      }
+    }
+
+    /* Value items with Bootstrap hover */
+    .tbw-filter-value-item {
+      border-radius: 0.25rem;
+      transition: background 0.15s ease-in-out;
+
+      &:hover {
+        background: var(--tbw-color-row-hover);
+      }
+    }
+
+    /* Bootstrap primary button (Apply) */
+    .tbw-filter-apply-btn {
+      &:hover {
+        filter: brightness(0.9);
+      }
+    }
+
+    /* Bootstrap outline button (Clear) */
+    .tbw-filter-clear-btn {
+      color: var(--tbw-color-accent);
+      border-color: var(--tbw-color-accent);
+
+      &:hover {
+        color: #fff;
+        background: var(--tbw-color-accent);
+      }
+    }
   }
 } /* End @layer tbw-theme */

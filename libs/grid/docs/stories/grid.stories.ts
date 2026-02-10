@@ -1103,7 +1103,7 @@ export const ShellMultiplePanels: StoryObj = {
       order: 20,
       render: (container) => {
         const content = document.createElement('div');
-        content.style.cssText = '';
+        content.style.cssText = 'padding: 0.75rem;';
         content.innerHTML = `
           <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #666;">Name contains</label>
@@ -1135,7 +1135,7 @@ export const ShellMultiplePanels: StoryObj = {
       order: 50,
       render: (container) => {
         const content = document.createElement('div');
-        content.style.cssText = '';
+        content.style.cssText = 'padding: 0.75rem;';
         content.innerHTML = `
           <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
             <input type="checkbox" checked />

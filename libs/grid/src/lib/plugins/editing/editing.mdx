@@ -188,7 +188,7 @@ new EditingPlugin({ editOn: 'dblclick' }) // or 'click', 'manual'
 | `'dblclick'`| Double-click on cell enters edit mode (default) |
 | `'manual'`  | Programmatic only via `startEdit(row, field)` |
 
-Additionally, pressing **Enter** or **F2** on a focused cell will start editing.
+Additionally, pressing **Enter** on a focused cell will start editing.
 
 ## Grid Mode (Spreadsheet-like Editing)
 
@@ -649,7 +649,7 @@ The `ctx` object passed to custom editors contains:
 
 | Key | Action |
 | --- | ------ |
-| **Enter** / **F2** | Start editing focused cell |
+| **Enter** | Start editing focused cell |
 | **Enter** | Commit edit and move down |
 | **Tab** | Commit and move to next editable cell |
 | **Shift+Tab** | Commit and move to previous editable cell |
@@ -664,6 +664,8 @@ then press Enter or click away to see the events:
 
 | Event | Type | Description |
 | ----- | ---- | ----------- |
+| `edit-open` | `EditOpenDetail` | Fired when a row enters edit mode (row mode only) |
+| `edit-close` | `EditCloseDetail` | Fired when a row exits edit mode — commit or cancel (row mode only) |
 | `cell-commit` | [`CellCommitDetail`](/docs/grid-plugins-editing-interfaces-cellcommitdetail--docs) | Fired when a cell value is committed (cancelable) |
 | `row-commit` | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs) | Fired when a row editing session ends (cancelable) |
 | `changed-rows-reset` | [`ChangedRowsResetDetail`](/docs/grid-plugins-editing-interfaces-changedrowsresetdetail--docs) | Fired when `resetChangedRows()` is called |

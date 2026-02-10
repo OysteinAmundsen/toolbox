@@ -585,6 +585,8 @@ grid.gridConfig = {
  * ## Editing Events
  *
  * The EditingPlugin emits events during the editing lifecycle:
+ * - `edit-open` - Fired when a row enters edit mode (row mode only)
+ * - `edit-close` - Fired when a row exits edit mode, whether committed or cancelled (row mode only)
  * - `cell-commit` - Fired when a cell value is committed (Enter, blur, or programmatic)
  * - `row-commit` - Fired when a row is committed after bulk edit mode
  * - `changed-rows-reset` - Fired when the changed rows tracking is reset
@@ -599,6 +601,16 @@ export const EditingEvents: Story = {
 import { queryGrid } from '@toolbox-web/grid';
 
 const grid = queryGrid('tbw-grid');
+
+// Row edit session started (row mode only)
+grid.addEventListener('edit-open', (e) => {
+  console.log('Edit opened: row', e.detail.rowIndex, e.detail.rowId);
+});
+
+// Row edit session ended (row mode only, fires on both commit and cancel)
+grid.addEventListener('edit-close', (e) => {
+  console.log('Edit closed: row', e.detail.rowIndex, 'reverted:', e.detail.reverted);
+});
 
 // Cell value committed
 grid.addEventListener('cell-commit', (e) => {
@@ -676,6 +688,16 @@ grid.addEventListener('changed-rows-reset', (e) => {
 
       clearBtn?.addEventListener('click', () => {
         log.innerHTML = '';
+      });
+
+      grid.addEventListener('edit-open', (e) => {
+        const d = e.detail;
+        addLog('edit-open', `row ${d.rowIndex} (${d.rowId})`);
+      });
+
+      grid.addEventListener('edit-close', (e) => {
+        const d = e.detail;
+        addLog('edit-close', `row ${d.rowIndex} (${d.rowId}), reverted: ${d.reverted}`);
       });
 
       grid.addEventListener('cell-commit', (e) => {

@@ -12,6 +12,8 @@ export type {
   ChangedRowsResetDetail,
   // Editor config types
   DateEditorParams,
+  EditCloseDetail,
+  EditOpenDetail,
   EditingConfig,
   EditorContext,
   EditorParams,

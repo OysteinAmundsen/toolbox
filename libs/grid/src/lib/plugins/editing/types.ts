@@ -122,6 +122,48 @@ export interface ChangedRowsResetDetail<TRow = unknown> {
   ids: string[];
 }
 
+/**
+ * Detail payload for the `edit-open` event.
+ *
+ * Fired when row editing begins (user clicks/double-clicks a row to edit).
+ * Only fires in `mode: 'row'` — never in `mode: 'grid'` where all rows
+ * are perpetually editable.
+ *
+ * @category Events
+ */
+export interface EditOpenDetail<TRow = unknown> {
+  /** Index of the row entering edit mode. */
+  rowIndex: number;
+  /** Stable row identifier (from getRowId). */
+  rowId: string;
+  /** Row object reference. */
+  row: TRow;
+}
+
+/**
+ * Detail payload for the `edit-close` event.
+ *
+ * Fired when row editing ends, whether committed or reverted.
+ * Only fires in `mode: 'row'` — never in `mode: 'grid'` where all rows
+ * are perpetually editable.
+ *
+ * Unlike `row-commit` (which only fires on commit), `edit-close` fires for
+ * both commit and cancel/revert, making it suitable for cleanup tasks like
+ * closing overlays or resetting state.
+ *
+ * @category Events
+ */
+export interface EditCloseDetail<TRow = unknown> {
+  /** Index of the row that left edit mode. */
+  rowIndex: number;
+  /** Stable row identifier (from getRowId). */
+  rowId: string;
+  /** Row object reference (current state). */
+  row: TRow;
+  /** Whether the edit was reverted (true) or committed (false). */
+  reverted: boolean;
+}
+
 // ============================================================================
 // Module Augmentation - Add editing properties to column config
 // ============================================================================
@@ -227,6 +269,10 @@ declare module '../../core/types' {
     'row-commit': RowCommitDetail<TRow>;
     /** Fired when changed rows tracking is reset. */
     'changed-rows-reset': ChangedRowsResetDetail<TRow>;
+    /** Fired when a row enters edit mode (row mode only, not grid mode). */
+    'edit-open': EditOpenDetail<TRow>;
+    /** Fired when a row leaves edit mode, whether committed or reverted (row mode only). */
+    'edit-close': EditCloseDetail<TRow>;
   }
 }
 

@@ -28,7 +28,15 @@ import type {
 } from '../../core/types';
 import styles from './editing.css?inline';
 import { defaultEditorFor } from './editors';
-import type { CellCommitDetail, ChangedRowsResetDetail, EditingConfig, EditorContext, RowCommitDetail } from './types';
+import type {
+  CellCommitDetail,
+  ChangedRowsResetDetail,
+  EditCloseDetail,
+  EditingConfig,
+  EditOpenDetail,
+  EditorContext,
+  RowCommitDetail,
+} from './types';
 
 // ============================================================================
 // Helper Functions
@@ -1392,6 +1400,22 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#rowEditSnapshots.set(rowIndex, { ...rowData });
       this.#activeEditRow = rowIndex;
       this.#syncGridEditState();
+
+      // Emit edit-open event (row mode only)
+      if (!this.#isGridMode) {
+        const internalGrid = this.grid as unknown as InternalGrid<T>;
+        let rowId = '';
+        try {
+          rowId = internalGrid.getRowId?.(rowData) ?? '';
+        } catch {
+          // Row has no ID
+        }
+        this.emit<EditOpenDetail<T>>('edit-open', {
+          rowIndex,
+          rowId,
+          row: rowData,
+        });
+      }
     }
   }
 
@@ -1525,6 +1549,16 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!rowEl) {
       this.#restoreCellFocus(internalGrid);
       this.#pendingFocusRestore = false;
+    }
+
+    // Emit edit-close event (row mode only, fires for both commit and revert)
+    if (!this.#isGridMode && current) {
+      this.emit<EditCloseDetail<T>>('edit-close', {
+        rowIndex,
+        rowId: rowId ?? '',
+        row: current,
+        reverted: revert,
+      });
     }
   }
 

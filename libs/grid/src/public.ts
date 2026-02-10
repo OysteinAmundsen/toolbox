@@ -117,6 +117,8 @@ export const DGEvents = {
   CELL_CHANGE: 'cell-change',
   CELL_COMMIT: 'cell-commit',
   ROW_COMMIT: 'row-commit',
+  EDIT_OPEN: 'edit-open',
+  EDIT_CLOSE: 'edit-close',
   CHANGED_ROWS_RESET: 'changed-rows-reset',
   MOUNT_EXTERNAL_VIEW: 'mount-external-view',
   MOUNT_EXTERNAL_EDITOR: 'mount-external-editor',

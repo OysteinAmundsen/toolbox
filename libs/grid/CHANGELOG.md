@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.12.1...grid-1.13.0) (2026-02-10)
+
+
+### Features
+
+* **grid:** add multi-select for row mode with Shift/Ctrl click and checkbox column ([0f2f572](https://github.com/OysteinAmundsen/toolbox/commit/0f2f572570441d4e79e66f89fac114f1faa94c02))
+
+
+### Bug Fixes
+
+* **grid,themes:** render selection borders inside cell padding box and fix Bootstrap focus variables ([3a04a86](https://github.com/OysteinAmundsen/toolbox/commit/3a04a866bbc445d531cafb283cabe3e91e735993))
+* **grid:** added missing events for editing ([00e1ec4](https://github.com/OysteinAmundsen/toolbox/commit/00e1ec48706cfc3580b0252f78798aea70f21737))
+* **grid:** improved the material theme ([44141b0](https://github.com/OysteinAmundsen/toolbox/commit/44141b012b02e1dc7f89eb62e86b9ff9787b51a5))
+* **grid:** merge contiguous row selections into minimal ranges ([f7fcb49](https://github.com/OysteinAmundsen/toolbox/commit/f7fcb49d322ce1a1bfc2ca5b26650e5ea50b4c7c))
+* **grid:** preserve newline characters on built-in text editors ([31d5274](https://github.com/OysteinAmundsen/toolbox/commit/31d5274bde6e3f6260ddc164966dc14222272595))
+* **grid:** preserve null on blur for built-in text editor ([73461f3](https://github.com/OysteinAmundsen/toolbox/commit/73461f3713dca3d7596f20ad3b96391fe929330d))
+* **grid:** sync selection state to focus ([99e467e](https://github.com/OysteinAmundsen/toolbox/commit/99e467e2cba6b07281c4dcb596c492d3772bf966))
+* **theme:** improved the bootstrap theme ([f9b28ca](https://github.com/OysteinAmundsen/toolbox/commit/f9b28cacc7400db0c72b63a7f8ea0dcd966b9b01))
+
+
+### Performance Improvements
+
+* **grid:** reduce core bundle via import hint generation and sanitize deduplication ([87f2f58](https://github.com/OysteinAmundsen/toolbox/commit/87f2f5878e3d63cf5e12f72e0e73a86714d0573a))
+
 ## [1.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.12.0...grid-1.12.1) (2026-02-09)
 
 

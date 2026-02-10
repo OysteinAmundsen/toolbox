@@ -200,6 +200,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   /** Cell selection state (cell mode) */
   private selectedCell: { row: number; col: number } | null = null;
 
+  /** Last synced focus row — used to detect when grid focus moves so selection follows */
+  private lastSyncedFocusRow = -1;
+  /** Last synced focus col (cell mode) */
+  private lastSyncedFocusCol = -1;
+
   // #endregion
 
   // #region Private Helpers - Selection Enabled Check
@@ -283,6 +288,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.isDragging = false;
     this.selectedCell = null;
     this.pendingKeyboardUpdate = null;
+    this.lastSyncedFocusRow = -1;
+    this.lastSyncedFocusCol = -1;
   }
 
   /**
@@ -297,6 +304,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.selectedCell = null;
     this.lastSelected = null;
     this.anchor = null;
+    this.lastSyncedFocusRow = -1;
+    this.lastSyncedFocusCol = -1;
     this.requestAfterRender();
   }
 
@@ -662,6 +671,44 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
   /**
    * Apply selection classes to visible cells/rows.
+  /**
+   * Sync selection state to the grid's current focus position.
+   * In row mode, keeps `selected` in sync with `_focusRow`.
+   * In cell mode, keeps `selectedCell` in sync with `_focusRow`/`_focusCol`.
+   * Only updates when the focus has changed since the last sync, so explicit
+   * selection (click, setSelection, etc.) is never overwritten.
+   */
+  #syncSelectionToFocus(mode: string): void {
+    const focusRow = this.grid._focusRow;
+    const focusCol = this.grid._focusCol;
+
+    if (mode === 'row' && focusRow !== this.lastSyncedFocusRow) {
+      this.lastSyncedFocusRow = focusRow;
+      if (this.isRowSelectable(focusRow)) {
+        if (!this.selected.has(focusRow) || this.selected.size !== 1) {
+          this.selected.clear();
+          this.selected.add(focusRow);
+          this.lastSelected = focusRow;
+          this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+        }
+      }
+    }
+
+    if (mode === 'cell' && (focusRow !== this.lastSyncedFocusRow || focusCol !== this.lastSyncedFocusCol)) {
+      this.lastSyncedFocusRow = focusRow;
+      this.lastSyncedFocusCol = focusCol;
+      if (this.isCellSelectable(focusRow, focusCol)) {
+        const cur = this.selectedCell;
+        if (!cur || cur.row !== focusRow || cur.col !== focusCol) {
+          this.selectedCell = { row: focusRow, col: focusCol };
+          this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
+        }
+      }
+    }
+  }
+
+  /**
+   * Apply CSS selection classes to row/cell elements.
    * Shared by afterRender and onScrollRender.
    */
   #applySelectionClasses(): void {
@@ -802,6 +849,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
       this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
     }
+
+    // Sync selection to grid's focus position.
+    // This ensures selection follows keyboard navigation (Tab, arrows, etc.)
+    // regardless of which plugin moved the focus.
+    this.#syncSelectionToFocus(mode);
 
     // Set data attribute on host for CSS variable scoping
     (this.grid as unknown as Element).setAttribute('data-selection-mode', mode);

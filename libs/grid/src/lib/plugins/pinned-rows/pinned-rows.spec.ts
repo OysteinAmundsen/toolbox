@@ -370,6 +370,37 @@ describe('pinnedRows', () => {
       expect(label).toBeNull(); // No label element when label is empty
     });
 
+    it('should render fullWidth row with dynamic label function', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'name' }, { field: 'price' }];
+      const dataRows = [
+        { name: 'A', price: 10 },
+        { name: 'B', price: 20 },
+        { name: 'C', price: 30 },
+      ];
+      const rows: AggregationRowConfig[] = [{ fullWidth: true, label: (r) => `Total: ${r.length} rows` }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const label = container.querySelector('.tbw-aggregation-label');
+      expect(label?.textContent).toBe('Total: 3 rows');
+    });
+
+    it('should pass columns to dynamic label function', () => {
+      const container = document.createElement('div');
+      const columns = [
+        { field: 'a', header: 'Alpha' },
+        { field: 'b', header: 'Beta' },
+      ];
+      const dataRows = [{ a: 1, b: 2 }];
+      const rows: AggregationRowConfig[] = [{ fullWidth: true, label: (_r, cols) => `${cols.length} columns` }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const label = container.querySelector('.tbw-aggregation-label');
+      expect(label?.textContent).toBe('2 columns');
+    });
+
     it('should render per-column cells with static values', () => {
       const container = document.createElement('div');
       const columns = [{ field: 'name' }, { field: 'value' }];

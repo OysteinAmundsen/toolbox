@@ -161,11 +161,12 @@ function renderFullWidthAggregationRow(
   cell.className = 'tbw-aggregation-cell tbw-aggregation-cell-full';
   cell.style.gridColumn = '1 / -1';
 
-  // Label
-  if (rowConfig.label) {
+  // Label (static string or dynamic function)
+  const labelValue = typeof rowConfig.label === 'function' ? rowConfig.label(dataRows, columns) : rowConfig.label;
+  if (labelValue) {
     const labelSpan = document.createElement('span');
     labelSpan.className = 'tbw-aggregation-label';
-    labelSpan.textContent = rowConfig.label;
+    labelSpan.textContent = labelValue;
     cell.appendChild(labelSpan);
   }
 

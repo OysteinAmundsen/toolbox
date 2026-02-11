@@ -41,8 +41,21 @@ export interface AggregationRowConfig {
   position?: 'top' | 'bottom';
   /** If true, row rendered as single spanning cell with label */
   fullWidth?: boolean;
-  /** Label when in fullWidth mode */
-  label?: string;
+  /**
+   * Label for fullWidth mode. Can be a static string or a function that receives
+   * the current rows and columns for dynamic content.
+   *
+   * @example Static label
+   * ```ts
+   * { fullWidth: true, label: 'Totals' }
+   * ```
+   *
+   * @example Dynamic label
+   * ```ts
+   * { fullWidth: true, label: (rows) => `Total: ${rows.length} rows` }
+   * ```
+   */
+  label?: string | ((rows: unknown[], columns: ColumnConfig[]) => string);
   /** Static or computed cell values keyed by field */
   cells?: Record<string, unknown | string | ((rows: unknown[], field: string, column?: ColumnConfig) => unknown)>;
   /**

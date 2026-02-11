@@ -9,6 +9,7 @@ export {
   defaultPasteHandler,
   type ClipboardConfig,
   type CopyDetail,
+  type CopyOptions,
   type PasteDetail,
   type PasteHandler,
   type PasteTarget,

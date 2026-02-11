@@ -69,15 +69,64 @@ grid.addEventListener('paste', (e) => {
 
 Access via `grid.getPlugin(ClipboardPlugin)`:
 
+### `copy(options?: CopyOptions): Promise<string>`
+
+Copy data to the system clipboard. Without options, copies the current selection (or entire grid).
+With options, copies exactly the specified columns and/or rows.
+
 ```typescript
 const clipboard = grid.getPlugin(ClipboardPlugin);
 
-// Copy selection to clipboard
+// Copy current selection
 await clipboard.copy();
 
-// Paste from clipboard
-await clipboard.paste();
-
-// Copy specific range
-await clipboard.copyRange(startRow, startCol, endRow, endCol);
+// Copy specific columns from specific rows
+await clipboard.copy({
+  rowIndices: [0, 3, 7],
+  columns: ['name', 'email'],
+  includeHeaders: true,
+});
 ```
+
+### `copyRows(indices: number[], options?: CopyOptions): Promise<string>`
+
+Copy specific rows by index. Supports non-contiguous indices.
+
+```typescript
+await clipboard.copyRows([0, 5], { columns: ['name', 'email'] });
+```
+
+### `getSelectionAsText(options?: CopyOptions): string`
+
+Get the text representation without writing to the system clipboard.
+Useful for previewing content or feeding into a custom UI dialog.
+
+```typescript
+const text = clipboard.getSelectionAsText({
+  columns: ['name', 'department'],
+  includeHeaders: true,
+});
+```
+
+### `paste(): Promise<string[][] | null>`
+
+Read and parse clipboard content.
+
+```typescript
+const parsed = await clipboard.paste();
+```
+
+### `getLastCopied(): { text: string; timestamp: number } | null`
+
+Get info about the most recent copy operation.
+
+### `CopyOptions`
+
+| Option           | Type                            | Default      | Description                                    |
+| ---------------- | ------------------------------- | ------------ | ---------------------------------------------- |
+| `columns`        | `string[]`                      | -            | Specific column fields to include              |
+| `rowIndices`     | `number[]`                      | -            | Specific row indices to copy                   |
+| `includeHeaders` | `boolean`                       | config value | Include column headers in copied text          |
+| `delimiter`      | `string`                        | config value | Column delimiter override                      |
+| `newline`        | `string`                        | config value | Row delimiter override                         |
+| `processCell`    | `(value, field, row) => string` | config value | Custom cell value processor for this operation |

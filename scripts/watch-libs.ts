@@ -23,6 +23,7 @@ function run(cmd: string): boolean {
     cwd: ROOT,
     stdout: 'inherit',
     stderr: 'inherit',
+    env: { ...process.env, NX_DAEMON: 'false' },
   });
   return result.exitCode === 0;
 }

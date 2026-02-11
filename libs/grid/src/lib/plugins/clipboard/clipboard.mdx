@@ -210,20 +210,73 @@ If you paste `"1\t2\t3"` into this grid, only the `name` and `email` columns rec
 
 ## Programmatic API
 
+The ClipboardPlugin exposes methods for programmatic copy operations with fine-grained control over which columns and rows to include. This is ideal for workflows where users select rows in the grid, then choose columns via a dialog before copying.
+
+### Basic Copy
+
 ```ts
 const plugin = grid.getPlugin(ClipboardPlugin);
 
-// Copy selection to clipboard
+// Copy current selection to clipboard
 await plugin.copy();
 
-// Copy with custom options
+// Copy with headers included
 await plugin.copy({ includeHeaders: true });
+```
 
+### Copy with Column/Row Control (`CopyOptions`)
+
+The `copy()` method accepts `CopyOptions` to precisely control what gets copied—independently of the current selection:
+
+```ts
+const plugin = grid.getPlugin(ClipboardPlugin);
+
+// Copy specific columns from specific rows
+await plugin.copy({
+  rowIndices: [0, 3, 7],         // Non-contiguous rows supported
+  columns: ['name', 'email'],    // Only these columns
+  includeHeaders: true,
+});
+
+// Copy specific rows with all visible columns
+await plugin.copyRows([0, 5]);
+
+// Copy specific rows with column filter
+await plugin.copyRows([0, 5], { columns: ['name', 'department'] });
+```
+
+### Preview Without Copying
+
+Use `getSelectionAsText()` to get the formatted text without writing to the clipboard—useful for preview dialogs:
+
+```ts
+const text = plugin.getSelectionAsText({
+  columns: ['name', 'email', 'department'],
+  includeHeaders: true,
+});
+// "Name\tEmail\tDepartment\nAlice\talice@example.com\tEngineering\n..."
+```
+
+### `CopyOptions` Reference
+
+| Option           | Type                            | Default       | Description                                        |
+| ---------------- | ------------------------------- | ------------- | -------------------------------------------------- |
+| `columns`        | `string[]`                      | -             | Specific column fields to include                  |
+| `rowIndices`     | `number[]`                      | -             | Specific row indices to copy (non-contiguous OK)   |
+| `includeHeaders` | `boolean`                       | config value  | Include column headers in copied text              |
+| `delimiter`      | `string`                        | config value  | Column delimiter override                          |
+| `newline`        | `string`                        | config value  | Row delimiter override                             |
+| `processCell`    | `(value, field, row) => string` | config value  | Custom cell value processor for this operation     |
+
+### Paste
+
+```ts
 // Paste from clipboard
 await plugin.paste();
 
-// Get clipboard text without copying
-const text = plugin.getSelectionAsText();
+// Get last copied info
+const lastCopied = plugin.getLastCopied();
+// { text: '...', timestamp: 1234567890 }
 ```
 
 ## Excel Compatibility

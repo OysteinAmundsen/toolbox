@@ -24,7 +24,7 @@ grid.gridConfig = {
 
 // Export via API
 const exporter = grid.getPlugin(ExportPlugin);
-exporter.exportCsv('data.csv');
+exporter.exportCsv({ fileName: 'data' });
 ```
 
 ## Configuration
@@ -44,47 +44,37 @@ Access via `grid.getPlugin(ExportPlugin)`:
 const exporter = grid.getPlugin(ExportPlugin);
 
 // Export to CSV
-exporter.exportCsv('data.csv', {
-  delimiter: ',',
+exporter.exportCsv({
+  fileName: 'data',
   includeHeaders: true,
 });
 
 // Export to Excel (XML format)
-exporter.exportExcel('data.xlsx', {
-  sheetName: 'Data',
-});
+exporter.exportExcel({ fileName: 'data' });
 
 // Export to JSON
-exporter.exportJson('data.json', {
-  pretty: true,
+exporter.exportJson({ fileName: 'data' });
+
+// Export specific columns/rows
+exporter.exportCsv({
+  columns: ['name', 'email'],
+  rowIndices: [0, 1, 2],
 });
 
-// Get export data without downloading
-const csvString = exporter.toCsv();
-const jsonData = exporter.toJson();
+// Check export status
+const isExporting = exporter.isExporting();
+const lastExport = exporter.getLastExport();
 ```
 
-## Export Options
+## Export Parameters (`ExportParams`)
 
-### CSV Options
+All export methods accept optional `ExportParams`:
 
-| Option           | Type      | Default | Description               |
-| ---------------- | --------- | ------- | ------------------------- |
-| `delimiter`      | `string`  | `','`   | Field delimiter           |
-| `includeHeaders` | `boolean` | `true`  | Include column headers    |
-| `selectedOnly`   | `boolean` | `false` | Export only selected rows |
-
-### Excel Options
-
-| Option           | Type      | Default    | Description               |
-| ---------------- | --------- | ---------- | ------------------------- |
-| `sheetName`      | `string`  | `'Sheet1'` | Excel sheet name          |
-| `includeHeaders` | `boolean` | `true`     | Include column headers    |
-| `selectedOnly`   | `boolean` | `false`    | Export only selected rows |
-
-### JSON Options
-
-| Option         | Type      | Default | Description               |
-| -------------- | --------- | ------- | ------------------------- |
-| `pretty`       | `boolean` | `false` | Pretty-print JSON         |
-| `selectedOnly` | `boolean` | `false` | Export only selected rows |
+| Option           | Type                         | Default      | Description                      |
+| ---------------- | ---------------------------- | ------------ | -------------------------------- |
+| `fileName`       | `string`                     | config value | File name (without extension)    |
+| `columns`        | `string[]`                   | -            | Specific column fields to export |
+| `rowIndices`     | `number[]`                   | -            | Specific row indices to export   |
+| `includeHeaders` | `boolean`                    | config value | Include column headers in export |
+| `processCell`    | `(value, field, row) => any` | -            | Custom cell value processor      |
+| `processHeader`  | `(header, field) => string`  | -            | Custom header processor          |

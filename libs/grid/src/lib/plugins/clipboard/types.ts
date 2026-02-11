@@ -28,6 +28,38 @@ import type { GridElement } from '../../core/plugin/base-plugin';
  */
 export type PasteHandler = (detail: PasteDetail, grid: GridElement) => boolean | void;
 
+/**
+ * Options for programmatic copy operations.
+ *
+ * Allows callers to control exactly which columns and rows are included
+ * in a copy, independently of the current selection state.
+ *
+ * @example Copy specific columns from selected rows
+ * ```ts
+ * const clipboard = grid.getPlugin(ClipboardPlugin);
+ * // User selected rows 0, 2, 4 via a dialog, chose columns to include
+ * const text = await clipboard.copy({
+ *   rowIndices: [0, 2, 4],
+ *   columns: ['name', 'email'],
+ *   includeHeaders: true,
+ * });
+ * ```
+ */
+export interface CopyOptions {
+  /** Specific column fields to include. If omitted, uses current selection or all visible columns. */
+  columns?: string[];
+  /** Specific row indices to copy. If omitted, uses current selection or all rows. */
+  rowIndices?: number[];
+  /** Include column headers in copied text. Defaults to the plugin config value. */
+  includeHeaders?: boolean;
+  /** Column delimiter override. Defaults to the plugin config value. */
+  delimiter?: string;
+  /** Row delimiter override. Defaults to the plugin config value. */
+  newline?: string;
+  /** Custom cell value processor for this operation. Overrides the plugin config's `processCell`. */
+  processCell?: (value: unknown, field: string, row: unknown) => string;
+}
+
 /** Configuration options for the clipboard plugin */
 export interface ClipboardConfig {
   /** Include column headers in copied text (default: false) */

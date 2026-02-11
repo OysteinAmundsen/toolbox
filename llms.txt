@@ -68,10 +68,10 @@ Key TypeScript interfaces for configuration and events:
 - [Row Reorder Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-row-reorder--docs): Drag-and-drop row reordering with drag handles
 - [Visibility Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-visibility--docs): Column visibility panel
 - [Column Virtualization Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-column-virtualization--docs): Horizontal virtualization for many columns, render only visible columns, wide table support
-- [Export Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-export--docs): Export to CSV, JSON, Excel XML (XLSX-compatible), download file, custom filename
+- [Export Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-export--docs): Export to CSV, JSON, Excel XML (XLSX-compatible), download file, custom filename, programmatic API with column/row selection (`exportCsv({ columns, rowIndices })`)
 - [Print Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-print--docs): Print grid with configurable options (orientation, fit-to-page, headers/footers)
 - [Context Menu Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-context-menu--docs): Right-click menus
-- [Clipboard Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-clipboard--docs): Copy/paste with Ctrl+C/V, Excel-compatible format, paste from Excel/Google Sheets
+- [Clipboard Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-clipboard--docs): Copy/paste with Ctrl+C/V, Excel-compatible format, paste from Excel/Google Sheets, programmatic API with column/row selection (`copy({ columns, rowIndices })`, `getSelectionAsText()`)
 - [Undo/Redo Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-undo-redo--docs): Edit history with Ctrl+Z/Ctrl+Y
 - [Server-Side Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-server-side--docs): Server-side row model (SSRM-style), infinite scrolling, lazy loading from remote APIs, block-based caching, server-side sorting/filtering/pagination, async data fetching, large dataset support
 - [Pivot Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-pivot--docs): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max), dynamic pivot columns

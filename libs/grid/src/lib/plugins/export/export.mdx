@@ -16,7 +16,7 @@ import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 
 ## Basic Usage
 
-Add the plugin and call `exportToCSV()` or `exportToJSON()` when you're ready to download. You can also combine it with the SelectionPlugin to export only selected rows.
+Add the plugin and call `exportCsv()` or `exportJson()` when you're ready to download. You can also combine it with the SelectionPlugin to export only selected rows.
 
 <Tabs>
   <Tab label="Vanilla JS">
@@ -40,7 +40,7 @@ grid.gridConfig = {
 // Trigger export via button click
 document.getElementById('export-btn').addEventListener('click', () => {
   const plugin = grid.getPlugin(ExportPlugin);
-  plugin.exportToCSV();
+  plugin.exportCsv();
 });
 ```
   </Tab>
@@ -54,7 +54,7 @@ function EmployeeGrid({ data }) {
   const { gridRef, getPlugin } = useGrid();
 
   const handleExport = () => {
-    getPlugin(ExportPlugin)?.exportToCSV();
+    getPlugin(ExportPlugin)?.exportCsv();
   };
 
   return (
@@ -96,7 +96,7 @@ const exportPlugin = markRaw(new ExportPlugin({
 }));
 
 const handleExport = () => {
-  gridRef.value?.element?.getPlugin(ExportPlugin)?.exportToCSV();
+  gridRef.value?.element?.getPlugin(ExportPlugin)?.exportCsv();
 };
 </script>
 
@@ -149,7 +149,7 @@ export class DataGridComponent {
 
   handleExport() {
     const plugin = this.gridRef()?.nativeElement.getPlugin(ExportPlugin);
-    plugin?.exportToCSV();
+    plugin?.exportCsv();
   }
 }
 ```
@@ -181,19 +181,59 @@ When combined with SelectionPlugin, export only selected rows.
 
 ## Programmatic API
 
+The ExportPlugin provides methods for exporting data with fine-grained control over which columns and rows to include. Like the ClipboardPlugin, it accepts `columns` and `rowIndices` parameters so you can export exactly the data you need.
+
+### Basic Export
+
 ```ts
 const exportPlugin = grid.getPlugin(ExportPlugin);
 
-// Export all data
-exportPlugin.exportToCSV();
+// Export all visible data to CSV
+exportPlugin.exportCsv();
 
-// Export with custom options
-exportPlugin.exportToCSV({
-  filename: 'custom-export',
+// Export to Excel XML
+exportPlugin.exportExcel();
+
+// Export to JSON
+exportPlugin.exportJson();
+```
+
+### Export with Column/Row Control (`ExportParams`)
+
+```ts
+const exportPlugin = grid.getPlugin(ExportPlugin);
+
+// Export specific columns
+exportPlugin.exportCsv({
+  columns: ['name', 'email', 'department'],
+  fileName: 'contacts',
   includeHeaders: true,
-  selectedOnly: false,
+});
+
+// Export specific rows
+exportPlugin.exportCsv({
+  rowIndices: [0, 3, 7],
+  fileName: 'selected-employees',
+});
+
+// Export specific columns from specific rows
+exportPlugin.exportExcel({
+  columns: ['name', 'salary'],
+  rowIndices: [0, 1, 2],
+  fileName: 'salary-report',
 });
 ```
+
+### `ExportParams` Reference
+
+| Option           | Type                            | Default       | Description                         |
+| ---------------- | ------------------------------- | ------------- | ----------------------------------- |
+| `fileName`       | `string`                        | config value  | File name (without extension)       |
+| `columns`        | `string[]`                      | -             | Specific column fields to export    |
+| `rowIndices`     | `number[]`                      | -             | Specific row indices to export      |
+| `includeHeaders` | `boolean`                       | config value  | Include column headers in export    |
+| `processCell`    | `(value, field, row) => any`    | -             | Custom cell value processor         |
+| `processHeader`  | `(header, field) => string`     | -             | Custom header processor             |
 
 ## See Also
 

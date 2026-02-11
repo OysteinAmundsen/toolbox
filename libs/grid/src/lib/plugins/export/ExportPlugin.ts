@@ -9,6 +9,7 @@
 
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
+import { resolveColumns, resolveRows } from '../shared/data-collection';
 import { buildCsv, downloadBlob, downloadCsv } from './csv';
 import { buildExcelXml, downloadExcel } from './excel';
 import type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportParams } from './types';
@@ -130,27 +131,22 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       rowIndices: params?.rowIndices,
     };
 
-    // Get columns to export
-    let columns = [...this.columns] as ColumnConfig[];
-    if (config.onlyVisible) {
-      columns = columns.filter((c) => !c.hidden && !c.field.startsWith('__'));
-    }
-    if (params?.columns) {
-      const colSet = new Set(params.columns);
-      columns = columns.filter((c) => colSet.has(c.field));
-    }
+    // Get columns to export (shared utility handles hidden/utility filtering)
+    const columns = resolveColumns(this.columns, params?.columns, config.onlyVisible) as ColumnConfig[];
 
     // Get rows to export
-    let rows = [...this.rows] as Record<string, unknown>[];
-    if (config.onlySelected) {
+    let rows: Record<string, unknown>[];
+    if (params?.rowIndices) {
+      rows = resolveRows(this.rows as Record<string, unknown>[], params.rowIndices);
+    } else if (config.onlySelected) {
       const selectionState = this.getSelectionState();
       if (selectionState?.selected?.size) {
-        const sortedIndices = [...selectionState.selected].sort((a, b) => a - b);
-        rows = sortedIndices.map((i) => this.rows[i]).filter(Boolean) as Record<string, unknown>[];
+        rows = resolveRows(this.rows as Record<string, unknown>[], [...selectionState.selected]);
+      } else {
+        rows = [...this.rows] as Record<string, unknown>[];
       }
-    }
-    if (params?.rowIndices) {
-      rows = params.rowIndices.map((i) => this.rows[i]).filter(Boolean) as Record<string, unknown>[];
+    } else {
+      rows = [...this.rows] as Record<string, unknown>[];
     }
 
     this.isExportingFlag = true;

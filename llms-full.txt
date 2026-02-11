@@ -870,6 +870,43 @@ new ResponsivePlugin({
 })
 ```
 
+### ClipboardPlugin
+
+```typescript
+new ClipboardPlugin({
+  includeHeaders?: boolean,                               // Include headers in copy (default: false)
+  delimiter?: string,                                     // Column delimiter (default: '\t')
+  newline?: string,                                       // Row delimiter (default: '\n')
+  quoteStrings?: boolean,                                 // Wrap strings with quotes (default: false)
+  processCell?: (value, field, row) => string,            // Custom value formatter
+  pasteHandler?: PasteHandler | null,                     // Custom paste handler (null = disable)
+})
+// Programmatic API:
+const clipboard = grid.getPlugin(ClipboardPlugin);
+await clipboard.copy();                                   // Copy current selection
+await clipboard.copy({ columns: ['name', 'email'], rowIndices: [0, 3, 7], includeHeaders: true });
+await clipboard.copyRows([0, 5], { columns: ['name'] }); // Copy specific rows
+const text = clipboard.getSelectionAsText({ columns: ['name'] }); // Preview without copying
+await clipboard.paste();                                  // Read & parse clipboard
+```
+
+### ExportPlugin
+
+```typescript
+new ExportPlugin({
+  fileName?: string,              // Base filename (default: 'export')
+  includeHeaders?: boolean,       // Include headers (default: true)
+  onlyVisible?: boolean,          // Export only visible columns (default: true)
+  onlySelected?: boolean,         // Export only selected rows (default: false)
+})
+// Programmatic API:
+const exporter = grid.getPlugin(ExportPlugin);
+exporter.exportCsv();                                     // Export all visible data
+exporter.exportCsv({ columns: ['name', 'email'], rowIndices: [0, 3], fileName: 'contacts' });
+exporter.exportExcel({ fileName: 'report' });
+exporter.exportJson({ fileName: 'data' });
+```
+
 ---
 
 ## Grid API

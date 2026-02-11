@@ -449,7 +449,7 @@ export interface GridElementRef {
    * const responses = grid.query<boolean>('canMoveColumn', column);
    * const canMove = !responses.includes(false);
    */
-  query<T>(type: string, context: unknown): T[];
+  query<T>(type: string, context?: unknown): T[];
 
   // =========================================================================
   // DOM Access

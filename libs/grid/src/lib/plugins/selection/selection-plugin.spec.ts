@@ -37,6 +37,8 @@ describe('SelectionPlugin', () => {
       getPlugin: vi.fn(),
       getPluginByName: vi.fn(),
       setAttribute: vi.fn(),
+      query: vi.fn().mockReturnValue([]),
+      queryPlugins: vi.fn().mockReturnValue([]),
     });
 
     // Override dispatchEvent to track calls
@@ -625,6 +627,22 @@ describe('SelectionPlugin', () => {
 
       expect(handled).toBe(true);
       expect(plugin.getSelection().ranges).toEqual([]);
+    });
+
+    it('should defer Escape to EditingPlugin when editing is active', () => {
+      const mockGrid = createMockGrid([{ id: 1 }], [{ field: 'name' }]);
+      // Mock query to report editing is active
+      mockGrid.query = vi.fn().mockReturnValue([true]);
+
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+      plugin['selected'].add(0);
+
+      const handled = plugin.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+      expect(handled).toBe(false);
+      // Selection should NOT be cleared — EditingPlugin should handle Escape first
+      expect(plugin['selected'].size).toBe(1);
     });
 
     it('should select all with Ctrl+A in range mode', () => {

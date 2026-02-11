@@ -498,7 +498,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const isNavKey = navKeys.includes(event.key);
 
     // Escape clears selection in all modes
+    // But if editing is active, let the EditingPlugin handle Escape first
     if (event.key === 'Escape') {
+      const isEditing = this.grid.query<boolean>('isEditing');
+      if (isEditing.some(Boolean)) {
+        return false; // Defer to EditingPlugin to cancel the active edit
+      }
+
       if (mode === 'cell') {
         this.selectedCell = null;
       } else if (mode === 'row') {

@@ -327,7 +327,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    * Returns undefined if no selection plugin is loaded or nothing is selected.
    */
   #getSelection(): SelectionQueryResult | undefined {
-    const responses = this.grid?.query<SelectionQueryResult>('getSelection', undefined);
+    const responses = this.grid?.query<SelectionQueryResult>('getSelection');
     return responses?.[0];
   }
 

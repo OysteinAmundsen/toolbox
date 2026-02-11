@@ -162,7 +162,14 @@ export function animateRowById<T>(grid: InternalGrid<T>, rowId: string, animatio
     return false;
   }
 
-  const rowIndex = rows.findIndex((row) => getRowId(row) === rowId);
+  const rowIndex = rows.findIndex((row) => {
+    if (row == null) return false;
+    try {
+      return getRowId(row) === rowId;
+    } catch {
+      return false;
+    }
+  });
   if (rowIndex < 0) {
     return false;
   }

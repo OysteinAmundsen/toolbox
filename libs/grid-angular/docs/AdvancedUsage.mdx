@@ -270,6 +270,43 @@ export class EmployeeGridComponent {
 `}
 />
 
+### Signal-Based Selection (Recommended)
+
+For a more Angular-idiomatic approach, use `injectGridSelection()` which provides reactive signals
+that automatically update when the selection changes:
+
+<Source
+  language="typescript"
+  code={`
+import { Component, computed, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { injectGridSelection } from '@toolbox-web/grid-angular/features/selection';
+import { SelectionPlugin } from '@toolbox-web/grid/all';
+
+@Component({
+  selector: 'app-employee-grid',
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: \`
+    <tbw-grid [rows]="employees" [gridConfig]="gridConfig"></tbw-grid>
+    <p>Selected: {{ selectedCount() }}</p>
+    <button (click)="gridSelection.selectAll()">Select All</button>
+    <button (click)="gridSelection.clearSelection()">Clear</button>
+  \`,
+})
+export class EmployeeGridComponent {
+  gridSelection = injectGridSelection();
+
+  // Reactive signals — auto-update on selection change
+  selectedCount = computed(() => this.gridSelection.selectedRowIndices().length);
+
+  gridConfig = {
+    plugins: [new SelectionPlugin({ mode: 'row', checkbox: true })],
+  };
+}
+`}
+/>
+
 ## Dynamic Row Updates
 
 Update rows dynamically with add, remove, and modify operations:
@@ -673,7 +710,7 @@ export class ExportGridComponent {
 | Function | Import | Returns |
 |----------|--------|---------|
 | `injectGridExport()` | `features/export` | `exportToCsv`, `exportToExcel`, `exportToJson`, `isExporting` |
-| `injectGridSelection()` | `features/selection` | Selection state and methods |
+| `injectGridSelection()` | `features/selection` | Selection methods + reactive signals (`selection`, `selectedRowIndices`) |
 
 ### Comparison with injectGrid
 

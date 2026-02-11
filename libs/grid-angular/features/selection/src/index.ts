@@ -32,10 +32,15 @@
  * @packageDocumentation
  */
 
-import { ElementRef, inject, signal, type Signal } from '@angular/core';
+import { DestroyRef, ElementRef, inject, signal, type Signal } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeature } from '@toolbox-web/grid-angular';
-import { SelectionPlugin, type CellRange, type SelectionResult } from '@toolbox-web/grid/plugins/selection';
+import {
+  SelectionPlugin,
+  type CellRange,
+  type SelectionChangeDetail,
+  type SelectionResult,
+} from '@toolbox-web/grid/plugins/selection';
 
 registerFeature('selection', (config) => {
   // Handle shorthand: 'cell', 'row', 'range'
@@ -64,8 +69,8 @@ export interface SelectionMethods {
   clearSelection: () => void;
 
   /**
-   * Get the current selection state.
-   * Use this to derive selected rows, indices, etc.
+   * Get the current selection state (imperative, point-in-time snapshot).
+   * For reactive selection state, use the `selection` signal instead.
    */
   getSelection: () => SelectionResult | null;
 
@@ -78,6 +83,43 @@ export interface SelectionMethods {
    * Set selection ranges programmatically.
    */
   setRanges: (ranges: CellRange[]) => void;
+
+  /**
+   * Reactive selection state. Updates automatically whenever the selection changes.
+   * Null when no SelectionPlugin is active or no selection has been made yet.
+   *
+   * @example
+   * ```typescript
+   * readonly selection = injectGridSelection();
+   *
+   * // In template:
+   * // {{ selection.selection()?.ranges?.length ?? 0 }} cells selected
+   *
+   * // In computed:
+   * readonly hasSelection = computed(() => (this.selection.selection()?.ranges?.length ?? 0) > 0);
+   * ```
+   */
+  selection: Signal<SelectionResult | null>;
+
+  /**
+   * Reactive selected row indices (sorted ascending). Updates automatically.
+   * Convenience signal for row-mode selection — returns `[]` in cell/range modes
+   * or when nothing is selected.
+   *
+   * @example
+   * ```typescript
+   * readonly selection = injectGridSelection();
+   *
+   * // In template:
+   * // {{ selection.selectedRowIndices().length }} rows selected
+   *
+   * // In computed:
+   * readonly selectedRows = computed(() =>
+   *   this.selection.selectedRowIndices().map(i => this.rows[i])
+   * );
+   * ```
+   */
+  selectedRowIndices: Signal<number[]>;
 
   /**
    * Signal indicating if grid is ready.
@@ -128,11 +170,45 @@ export interface SelectionMethods {
  */
 export function injectGridSelection<TRow = unknown>(): SelectionMethods {
   const elementRef = inject(ElementRef);
+  const destroyRef = inject(DestroyRef);
   const isReady = signal(false);
+
+  // Reactive selection state
+  const selectionSignal = signal<SelectionResult | null>(null);
+  const selectedRowIndicesSignal = signal<number[]>([]);
 
   // Lazy discovery: cached grid reference
   let cachedGrid: DataGridElement<TRow> | null = null;
   let readyPromiseStarted = false;
+  let listenerAttached = false;
+
+  /**
+   * Handle selection-change events from the grid.
+   * Updates both reactive signals.
+   */
+  const onSelectionChange = (e: Event): void => {
+    const detail = (e as CustomEvent<SelectionChangeDetail>).detail;
+    const plugin = getPlugin();
+    if (plugin) {
+      selectionSignal.set(plugin.getSelection());
+      selectedRowIndicesSignal.set(detail.mode === 'row' ? plugin.getSelectedRowIndices() : []);
+    }
+  };
+
+  /**
+   * Attach the selection-change event listener to the grid element.
+   * Called once when the grid is first discovered.
+   */
+  const attachListener = (grid: DataGridElement<TRow>): void => {
+    if (listenerAttached) return;
+    listenerAttached = true;
+
+    grid.addEventListener('selection-change', onSelectionChange);
+
+    destroyRef.onDestroy(() => {
+      grid.removeEventListener('selection-change', onSelectionChange);
+    });
+  };
 
   /**
    * Lazily find the grid element. Called on each method invocation.
@@ -144,6 +220,7 @@ export function injectGridSelection<TRow = unknown>(): SelectionMethods {
     const grid = elementRef.nativeElement.querySelector('tbw-grid') as DataGridElement<TRow> | null;
     if (grid) {
       cachedGrid = grid;
+      attachListener(grid);
       // Start ready() check only once
       if (!readyPromiseStarted) {
         readyPromiseStarted = true;
@@ -159,6 +236,8 @@ export function injectGridSelection<TRow = unknown>(): SelectionMethods {
 
   return {
     isReady: isReady.asReadonly(),
+    selection: selectionSignal.asReadonly(),
+    selectedRowIndices: selectedRowIndicesSignal.asReadonly(),
 
     selectAll: () => {
       const plugin = getPlugin();

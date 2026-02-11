@@ -79,15 +79,18 @@
     --tbw-cell-white-space: nowrap;
 
     /* ========== Borders ========== */
-    --tbw-border-input: 1px solid var(--tbw-color-border-strong);
-    --tbw-border-header: 1px solid var(--tbw-color-border-header);
-    --tbw-row-divider: 1px solid var(--tbw-color-border-cell);
+    --tbw-border-width: 1px;
+    --tbw-border-style: solid;
+    --tbw-border-input: var(--tbw-border-width) var(--tbw-border-style) var(--tbw-color-border-strong);
+    --tbw-border-header: var(--tbw-border-width) var(--tbw-border-style) var(--tbw-color-border-header);
+    --tbw-row-divider: var(--tbw-border-width) var(--tbw-border-style) var(--tbw-color-border-cell);
     --tbw-row-hover-outline: 0;
     --tbw-color-active-row-bg: var(--tbw-color-selection);
     --tbw-active-row-outline: 0;
 
     /* ========== Focus & Outline ========== */
-    --tbw-focus-outline: 2px solid var(--tbw-color-accent);
+    --tbw-focus-outline-width: 2px;
+    --tbw-focus-outline: var(--tbw-focus-outline-width) var(--tbw-border-style) var(--tbw-color-accent);
     --tbw-focus-outline-offset: -2px;
     --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 12%);
 

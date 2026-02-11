@@ -16,7 +16,7 @@
     }
 
     /* Row selection - use accent color for row focus (only when grid is focused) */
-    &[data-has-focus] .data-grid-row.row-focus {
+    .data-grid-row.row-focus {
       background-color: var(--tbw-focus-background, rgba(from var(--tbw-color-accent) r g b / 12%));
       /* Replace outline with per-side pseudo-element borders that can collapse */
       outline: none;
@@ -27,9 +27,11 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        border: 0 solid var(--tbw-range-border-color, var(--tbw-color-accent));
-        border-top-width: 2px;
-        border-bottom-width: 2px;
+        border-width: 0;
+        border-style: var(--tbw-selection-border-style, var(--tbw-border-style));
+        border-color: var(--tbw-range-border-color, var(--tbw-color-accent));
+        border-top-width: var(--tbw-selection-border-width, var(--tbw-border-width));
+        border-bottom-width: var(--tbw-selection-border-width, var(--tbw-border-width));
         z-index: 1;
       }
 
@@ -65,21 +67,21 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        border: 0 solid var(--tbw-range-border-color);
+        border: 0 var(--tbw-selection-border-style, var(--tbw-border-style)) var(--tbw-range-border-color);
         z-index: 1;
       }
 
       &.top::after {
-        border-top-width: 2px;
+        border-top-width: var(--tbw-selection-border-width, var(--tbw-border-width));
       }
       &.bottom::after {
-        border-bottom-width: 2px;
+        border-bottom-width: var(--tbw-selection-border-width, var(--tbw-border-width));
       }
       &.first::after {
-        border-left-width: 2px;
+        border-left-width: var(--tbw-selection-border-width, var(--tbw-border-width));
       }
       &.last::after {
-        border-right-width: 2px;
+        border-right-width: var(--tbw-selection-border-width, var(--tbw-border-width));
       }
     }
 

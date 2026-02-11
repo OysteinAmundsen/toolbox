@@ -4,7 +4,7 @@
  * Configuration and event types for the EditingPlugin.
  */
 
-import type { ColumnConfig } from '../../core/types';
+import type { ColumnEditorContext } from '../../core/types';
 
 // ============================================================================
 // Event Detail Types - Editing-specific events
@@ -349,37 +349,12 @@ export interface EditingConfig {
 
 /**
  * Context passed to editor factory functions.
+ *
+ * Extends the public {@link ColumnEditorContext} with no additional properties.
+ * Kept as a separate type for backward compatibility with existing plugin code
+ * that imports `EditorContext` from the editing plugin.
  */
-export interface EditorContext<T = any, V = unknown> {
-  /** The row data object */
-  row: T;
-  /** Stable row identifier (from getRowId) */
-  rowId: string;
-  /** Current cell value */
-  value: V;
-  /** Field name being edited */
-  field: string;
-  /** Column configuration */
-  column: ColumnConfig<T>;
-  /** Call to commit the new value */
-  commit: (newValue: V) => void;
-  /** Call to cancel editing */
-  cancel: () => void;
-  /**
-   * Update other fields in this row.
-   * Useful for editors that affect multiple fields (e.g., address lookup).
-   * Changes will be committed with source: 'cascade'.
-   */
-  updateRow: (changes: Partial<T>) => void;
-  /**
-   * Register a callback invoked when the cell's underlying value changes
-   * while the editor is open (e.g., via cascade from another cell's commit).
-   *
-   * Built-in editors auto-update their input values. Custom/framework editors
-   * should use this to stay in sync with external mutations.
-   */
-  onValueChange?: (callback: (newValue: V) => void) => void;
-}
+export type EditorContext<T = any, V = unknown> = ColumnEditorContext<T, V>;
 
 // ============================================================================
 // Editor Parameters - Configuration for built-in editors

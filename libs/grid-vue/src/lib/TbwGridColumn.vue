@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
 import { h, onMounted, ref, type VNode } from 'vue';
-import { registerColumnEditor, registerColumnRenderer } from './vue-grid-adapter';
 import type { CellSlotProps, EditorSlotProps } from './slot-types';
+import { registerColumnEditor, registerColumnRenderer } from './vue-grid-adapter';
 
 /**
  * Props for TbwGridColumn
@@ -75,8 +75,12 @@ onMounted(() => {
         value: ctx.value,
         row: ctx.row,
         column: ctx.column,
+        field: ctx.field,
+        rowId: ctx.rowId ?? '',
         commit: ctx.commit,
         cancel: ctx.cancel,
+        updateRow: ctx.updateRow,
+        onValueChange: ctx.onValueChange,
       });
       return h('div', { style: 'display: contents' }, slotContent);
     });

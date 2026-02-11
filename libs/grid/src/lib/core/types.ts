@@ -886,10 +886,34 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
   field: keyof TRow & string;
   /** Column configuration reference. */
   column: ColumnConfig<TRow>;
+  /**
+   * Stable row identifier (from `getRowId`).
+   * Empty string if no `getRowId` is configured.
+   */
+  rowId: string;
   /** Accept the edit; triggers change tracking + rerender. */
   commit: (newValue: TValue) => void;
   /** Abort edit without persisting changes. */
   cancel: () => void;
+  /**
+   * Update other fields in this row while the editor is open.
+   * Changes are committed with source `'cascade'`, triggering
+   * `cell-change` events and `onValueChange` pushes to sibling editors.
+   *
+   * Useful for editors that affect multiple fields (e.g., an address
+   * lookup that sets city + zip + state).
+   *
+   * @example
+   * ```typescript
+   * // In a cell-commit listener:
+   * grid.addEventListener('cell-commit', (e) => {
+   *   if (e.detail.field === 'quantity') {
+   *     e.detail.updateRow({ total: e.detail.row.price * e.detail.value });
+   *   }
+   * });
+   * ```
+   */
+  updateRow: (changes: Partial<TRow>) => void;
   /**
    * Register a callback invoked when the cell's underlying value changes
    * while the editor is open (e.g., via `updateRow()` from another cell's commit).
@@ -3156,9 +3180,6 @@ export type DataGridEventDetail<K extends keyof DataGridEventMap<unknown>, TRow 
 export type DataGridCustomEvent<K extends keyof DataGridEventMap<unknown>, TRow = unknown> = CustomEvent<
   DataGridEventMap<TRow>[K]
 >;
-
-// Internal code now reuses the public ColumnEditorContext; provide alias for backward compatibility
-export type EditorContext<T = unknown> = ColumnEditorContext<T, unknown>;
 
 /**
  * Template evaluation context for dynamic templates.

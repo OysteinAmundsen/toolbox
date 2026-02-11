@@ -9,7 +9,7 @@
  * inlineEnterEdit) is responsible for focusing the correct editor after insertion.
  */
 
-import type { ColumnConfig, EditorContext } from '../../core/types';
+import type { ColumnConfig, ColumnEditorContext } from '../../core/types';
 import type { DateEditorParams, NumberEditorParams, SelectEditorParams, TextEditorParams } from './types';
 
 // ============================================================================
@@ -39,7 +39,7 @@ function resolveOptions(column: AnyColumn): ColumnOption[] {
 // ============================================================================
 
 /** Creates a number input editor */
-function createNumberEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElement {
+function createNumberEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement {
   return (ctx) => {
     const params = column.editorParams as NumberEditorParams | undefined;
     const input = document.createElement('input');
@@ -63,7 +63,7 @@ function createNumberEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElem
 }
 
 /** Creates a checkbox editor for boolean values */
-function createBooleanEditor(): (ctx: EditorContext) => HTMLElement {
+function createBooleanEditor(): (ctx: ColumnEditorContext) => HTMLElement {
   return (ctx) => {
     const input = document.createElement('input');
     input.type = 'checkbox';
@@ -74,7 +74,7 @@ function createBooleanEditor(): (ctx: EditorContext) => HTMLElement {
 }
 
 /** Creates a date input editor */
-function createDateEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElement {
+function createDateEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement {
   return (ctx) => {
     const params = column.editorParams as DateEditorParams | undefined;
     const input = document.createElement('input');
@@ -111,7 +111,7 @@ function createDateEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElemen
 }
 
 /** Creates a select dropdown editor */
-function createSelectEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElement {
+function createSelectEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement {
   return (ctx) => {
     const params = column.editorParams as SelectEditorParams | undefined;
     const select = document.createElement('select');
@@ -159,7 +159,7 @@ function createSelectEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElem
 }
 
 /** Creates a text input editor (default) */
-function createTextEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElement {
+function createTextEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement {
   return (ctx) => {
     const params = column.editorParams as TextEditorParams | undefined;
     const input = document.createElement('input');
@@ -210,7 +210,7 @@ function createTextEditor(column: AnyColumn): (ctx: EditorContext) => HTMLElemen
  *
  * Note: Focus is NOT called here - the calling code handles focusing after DOM insertion.
  */
-export function defaultEditorFor(column: AnyColumn): (ctx: EditorContext) => HTMLElement | string {
+export function defaultEditorFor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement | string {
   switch (column.type) {
     case 'number':
       return createNumberEditor(column);

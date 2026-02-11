@@ -378,10 +378,14 @@ export class GridAdapter implements FrameworkAdapter {
         $implicit: ctx.value,
         value: ctx.value,
         row: ctx.row,
+        field: ctx.field as string,
         column: ctx.column,
+        rowId: ctx.rowId ?? '',
         // Preferred: simple callback functions
         onCommit,
         onCancel,
+        updateRow: ctx.updateRow,
+        onValueChange: ctx.onValueChange,
         // FormControl from FormArray (if available)
         control,
         // Deprecated: EventEmitters (for backwards compatibility)
@@ -411,6 +415,25 @@ export class GridAdapter implements FrameworkAdapter {
           ctx.cancel();
         });
       }
+
+      // Auto-update editor when value changes externally (e.g., via updateRow cascade).
+      // This keeps Angular template editors in sync without manual DOM patching.
+      ctx.onValueChange?.((newVal: unknown) => {
+        context.$implicit = newVal as TValue;
+        context.value = newVal as TValue;
+        viewRef.markForCheck();
+        // Also patch raw DOM inputs as a fallback for editors that don't bind to context
+        if (rootNode) {
+          const input = rootNode.querySelector?.('input,textarea,select') as HTMLInputElement | null;
+          if (input) {
+            if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+              input.checked = !!newVal;
+            } else {
+              input.value = String(newVal ?? '');
+            }
+          }
+        }
+      });
 
       return rootNode;
     };
@@ -739,6 +762,25 @@ export class GridAdapter implements FrameworkAdapter {
         (value) => ctx.commit(value),
         () => ctx.cancel(),
       );
+
+      // Auto-update editor when value changes externally (e.g., via updateRow cascade).
+      // This keeps Angular component editors in sync without manual DOM patching.
+      ctx.onValueChange?.((newVal: unknown) => {
+        try {
+          componentRef.setInput('value', newVal);
+          componentRef.changeDetectorRef.detectChanges();
+        } catch {
+          // Input doesn't exist or component is destroyed — fall back to DOM patching
+          const input = hostElement.querySelector?.('input,textarea,select') as HTMLInputElement | null;
+          if (input) {
+            if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+              input.checked = !!newVal;
+            } else {
+              input.value = String(newVal ?? '');
+            }
+          }
+        }
+      });
 
       return hostElement;
     };

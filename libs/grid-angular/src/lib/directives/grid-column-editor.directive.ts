@@ -12,8 +12,12 @@ export interface GridEditorContext<TValue = unknown, TRow = unknown> {
   value: TValue;
   /** The full row data object */
   row: TRow;
+  /** Field name being edited */
+  field: string;
   /** The column configuration */
   column: unknown;
+  /** Stable row identifier (from `getRowId`). Empty string if no `getRowId` is configured. */
+  rowId: string;
   /**
    * Callback function to commit the edited value.
    * Use with Angular event binding: `(commit)="onCommit($event)"`
@@ -24,6 +28,19 @@ export interface GridEditorContext<TValue = unknown, TRow = unknown> {
    * Use with Angular event binding: `(cancel)="onCancel()"`
    */
   onCancel: () => void;
+  /**
+   * Update other fields in this row while the editor is open.
+   * Changes trigger `cell-change` events with source `'cascade'`.
+   */
+  updateRow: (changes: Partial<TRow>) => void;
+  /**
+   * Register a callback to receive value updates when the cell is modified
+   * externally (e.g., via `updateRow()` from another cell's commit).
+   *
+   * The framework adapter auto-patches `value`/`$implicit` for template editors,
+   * but custom components may use this for additional reactivity.
+   */
+  onValueChange?: (callback: (newValue: TValue) => void) => void;
   /**
    * The FormControl for this cell, if the grid is bound to a FormArray with FormGroups.
    *

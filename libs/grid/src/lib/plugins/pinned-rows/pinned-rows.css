@@ -75,5 +75,21 @@
   .tbw-aggregation-cell-full {
     grid-column: 1 / -1;
     border-right: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--tbw-spacing-lg, 0.75rem);
+  }
+  .tbw-aggregation-label {
+    white-space: nowrap;
+  }
+  .tbw-aggregation-aggregates {
+    display: flex;
+    align-items: center;
+    gap: var(--tbw-spacing-lg, 0.75rem);
+    font-weight: normal;
+    opacity: 0.85;
+  }
+  .tbw-aggregation-aggregate {
+    white-space: nowrap;
   }
 } /* End @layer tbw-plugins */

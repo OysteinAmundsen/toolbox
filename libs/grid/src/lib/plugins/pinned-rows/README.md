@@ -40,14 +40,15 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option              | Type                     | Default    | Description                           |
-| ------------------- | ------------------------ | ---------- | ------------------------------------- |
-| `position`          | `'top' \| 'bottom'`      | `'bottom'` | Position of the info bar              |
-| `showRowCount`      | `boolean`                | `true`     | Show total row count                  |
-| `showSelectedCount` | `boolean`                | `true`     | Show selected row count               |
-| `showFilteredCount` | `boolean`                | `true`     | Show filtered row count               |
-| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | Aggregation rows with computed values |
-| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | Custom status panels                  |
+| Option              | Type                     | Default    | Description                                     |
+| ------------------- | ------------------------ | ---------- | ----------------------------------------------- |
+| `position`          | `'top' \| 'bottom'`      | `'bottom'` | Position of the info bar                        |
+| `showRowCount`      | `boolean`                | `true`     | Show total row count                            |
+| `showSelectedCount` | `boolean`                | `true`     | Show selected row count                         |
+| `showFilteredCount` | `boolean`                | `true`     | Show filtered row count                         |
+| `fullWidth`         | `boolean`                | `false`    | Default fullWidth mode for all aggregation rows |
+| `aggregationRows`   | `AggregationRowConfig[]` | `[]`       | Aggregation rows with computed values           |
+| `customPanels`      | `PinnedRowsPanel[]`      | `[]`       | Custom status panels                            |
 
 ## Aggregation Rows
 
@@ -74,6 +75,34 @@ Configure computed footer/header rows:
 }
 ```
 
+### Full-Width Mode
+
+When `fullWidth` is `true`, an aggregation row renders as a single spanning cell with the label and aggregated values displayed inline (similar to the row grouping plugin's full-width mode). When `false` (the default), each column gets its own cell aligned to the grid template.
+
+You can set `fullWidth` globally on `PinnedRowsConfig` or per-row on `AggregationRowConfig`. Per-row settings override the global default.
+
+```typescript
+// Global fullWidth: all aggregation rows span full width
+new PinnedRowsPlugin({
+  fullWidth: true,
+  aggregationRows: [
+    {
+      id: 'totals',
+      label: 'Totals',
+      aggregators: { quantity: 'sum', price: 'sum' },
+    },
+    {
+      id: 'per-column',
+      fullWidth: false, // Override: this row renders per-column
+      aggregators: { quantity: 'avg', price: 'avg' },
+      cells: { product: 'Averages:' },
+    },
+  ],
+});
+```
+
+````
+
 ### Aggregator Syntax
 
 | Syntax   | Example                                              | Description                |
@@ -92,7 +121,7 @@ The `formatter` function formats the computed value for display:
 
 ```typescript
 formatter: (value, field, column) => string;
-```
+````
 
 - `value` - The computed aggregation value
 - `field` - The column field name

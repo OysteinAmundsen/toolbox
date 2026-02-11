@@ -352,7 +352,8 @@ describe('pinnedRows', () => {
 
       const cell = container.querySelector('.tbw-aggregation-cell-full');
       expect(cell).not.toBeNull();
-      expect(cell?.textContent).toBe('Summary Row');
+      const label = cell?.querySelector('.tbw-aggregation-label');
+      expect(label?.textContent).toBe('Summary Row');
       expect(cell?.getAttribute('style')).toContain('grid-column');
     });
 
@@ -365,7 +366,8 @@ describe('pinnedRows', () => {
       renderAggregationRows(container, rows, columns, dataRows);
 
       const cell = container.querySelector('.tbw-aggregation-cell-full');
-      expect(cell?.textContent).toBe('');
+      const label = cell?.querySelector('.tbw-aggregation-label');
+      expect(label).toBeNull(); // No label element when label is empty
     });
 
     it('should render per-column cells with static values', () => {
@@ -649,5 +651,166 @@ describe('pinnedRows', () => {
       const cell = container.querySelector('[data-field="value"]');
       expect(cell?.textContent).toBe('Value Column: 42');
     });
+
+    // #region fullWidth with inline aggregates
+    it('should render fullWidth row with inline aggregated values', () => {
+      const container = document.createElement('div');
+      const columns = [
+        { field: 'name', header: 'Name' },
+        { field: 'amount', header: 'Amount' },
+      ];
+      const dataRows = [
+        { name: 'A', amount: 100 },
+        { name: 'B', amount: 200 },
+      ];
+      const rows: AggregationRowConfig[] = [
+        {
+          fullWidth: true,
+          label: 'Totals',
+          aggregators: { amount: 'sum' },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('.tbw-aggregation-cell-full');
+      expect(cell).not.toBeNull();
+      // Label
+      const label = cell?.querySelector('.tbw-aggregation-label');
+      expect(label?.textContent).toBe('Totals');
+      // Aggregates container
+      const aggregates = cell?.querySelector('.tbw-aggregation-aggregates');
+      expect(aggregates).not.toBeNull();
+      const aggSpan = aggregates?.querySelector('[data-field="amount"]');
+      expect(aggSpan?.textContent).toBe('Amount: 300');
+    });
+
+    it('should render fullWidth row with static cell values inline', () => {
+      const container = document.createElement('div');
+      const columns = [
+        { field: 'category', header: 'Category' },
+        { field: 'count', header: 'Count' },
+      ];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [
+        {
+          fullWidth: true,
+          label: 'Summary',
+          cells: { count: 42 },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('.tbw-aggregation-cell-full');
+      const aggregates = cell?.querySelector('.tbw-aggregation-aggregates');
+      expect(aggregates).not.toBeNull();
+      const aggSpan = aggregates?.querySelector('[data-field="count"]');
+      expect(aggSpan?.textContent).toBe('Count: 42');
+    });
+
+    it('should render fullWidth row with formatter in inline aggregates', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'price', header: 'Price' }];
+      const dataRows = [{ price: 100 }, { price: 50.5 }];
+      const formatter = vi.fn((value: unknown) => `$${(value as number).toFixed(2)}`);
+      const rows: AggregationRowConfig[] = [
+        {
+          fullWidth: true,
+          label: 'Total',
+          aggregators: { price: { aggFunc: 'sum', formatter } },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const aggSpan = container.querySelector('.tbw-aggregation-aggregate[data-field="price"]');
+      expect(aggSpan?.textContent).toBe('Price: $150.50');
+    });
+
+    it('should not show aggregates container when no aggregators or cells are defined', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'a' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{ fullWidth: true, label: 'Empty' }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const cell = container.querySelector('.tbw-aggregation-cell-full');
+      const aggregates = cell?.querySelector('.tbw-aggregation-aggregates');
+      expect(aggregates).toBeNull();
+    });
+
+    it('should use field name as header fallback in inline aggregates', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'myField' }]; // no header property
+      const dataRows = [{ myField: 10 }];
+      const rows: AggregationRowConfig[] = [
+        {
+          fullWidth: true,
+          aggregators: { myField: 'sum' },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const aggSpan = container.querySelector('.tbw-aggregation-aggregate[data-field="myField"]');
+      expect(aggSpan?.textContent).toBe('myField: 10');
+    });
+
+    it('should use global fullWidth when per-row fullWidth is not set', () => {
+      const container = document.createElement('div');
+      const columns = [
+        { field: 'name', header: 'Name' },
+        { field: 'value', header: 'Value' },
+      ];
+      const dataRows = [{ name: 'A', value: 100 }];
+      const rows: AggregationRowConfig[] = [{ id: 'totals', label: 'Totals', aggregators: { value: 'sum' } }];
+
+      // Pass globalFullWidth = true
+      renderAggregationRows(container, rows, columns, dataRows, true);
+
+      // Should render as fullWidth (single spanning cell)
+      const fullCell = container.querySelector('.tbw-aggregation-cell-full');
+      expect(fullCell).not.toBeNull();
+      expect(fullCell?.querySelector('.tbw-aggregation-label')?.textContent).toBe('Totals');
+    });
+
+    it('should allow per-row fullWidth to override global fullWidth', () => {
+      const container = document.createElement('div');
+      const columns = [
+        { field: 'name', header: 'Name' },
+        { field: 'value', header: 'Value' },
+      ];
+      const dataRows = [{ name: 'A', value: 100 }];
+      const rows: AggregationRowConfig[] = [
+        // Global is true, but this row explicitly sets false
+        { id: 'per-col', fullWidth: false, cells: { name: 'Label', value: 100 } },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows, true);
+
+      // Should render per-column cells (NOT fullWidth)
+      const fullCell = container.querySelector('.tbw-aggregation-cell-full');
+      expect(fullCell).toBeNull();
+      const cells = container.querySelectorAll('.tbw-aggregation-cell');
+      expect(cells.length).toBe(2);
+    });
+
+    it('should render per-column by default when global fullWidth is false', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'a' }, { field: 'b' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{}];
+
+      // Explicit globalFullWidth = false (default behavior)
+      renderAggregationRows(container, rows, columns, dataRows, false);
+
+      const fullCell = container.querySelector('.tbw-aggregation-cell-full');
+      expect(fullCell).toBeNull();
+      const cells = container.querySelectorAll('.tbw-aggregation-cell');
+      expect(cells.length).toBe(2);
+    });
+    // #endregion
   });
 });

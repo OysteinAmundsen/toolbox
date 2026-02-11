@@ -33,6 +33,7 @@ import type { AggregationRowConfig, PinnedRowsConfig, PinnedRowsContext, PinnedR
  * | `showRowCount` | `boolean` | `true` | Show total row count |
  * | `showSelectedCount` | `boolean` | `true` | Show selected row count |
  * | `showFilteredCount` | `boolean` | `true` | Show filtered row count |
+ * | `fullWidth` | `boolean` | `false` | Default fullWidth for aggregation rows |
  * | `aggregationRows` | `AggregationRowConfig[]` | - | Aggregation row configs |
  *
  * ## Built-in Aggregation Functions
@@ -190,6 +191,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
         topRows,
         this.visibleColumns as ColumnConfig[],
         this.sourceRows as unknown[],
+        this.config.fullWidth,
       );
     } else if (this.topAggregationContainer) {
       this.topAggregationContainer.remove();
@@ -240,6 +242,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
           bottomRows,
           this.visibleColumns as ColumnConfig[],
           this.sourceRows as unknown[],
+          this.config.fullWidth,
         );
       }
 

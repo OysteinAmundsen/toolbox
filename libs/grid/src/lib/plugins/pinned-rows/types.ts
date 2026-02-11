@@ -71,6 +71,14 @@ export interface PinnedRowsConfig {
   customPanels?: PinnedRowsPanel[];
   /** Aggregation rows (footer/header rows with computed values) */
   aggregationRows?: AggregationRowConfig[];
+  /**
+   * Default fullWidth mode for all aggregation rows.
+   * When true, each aggregation row renders as a single spanning cell with label and
+   * aggregated values inline. When false (default), rows render per-column cells aligned
+   * to the grid template. Individual `AggregationRowConfig.fullWidth` overrides this.
+   * @default false
+   */
+  fullWidth?: boolean;
 }
 
 /** Custom panel definition for the status bar */

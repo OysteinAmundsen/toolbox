@@ -115,12 +115,14 @@ export function createAggregationContainer(position: 'top' | 'bottom'): HTMLElem
  * @param rows - Aggregation row configurations
  * @param columns - Current column configuration
  * @param dataRows - Current row data for aggregation calculations
+ * @param globalFullWidth - Global fullWidth default from PinnedRowsConfig (default: false)
  */
 export function renderAggregationRows(
   container: HTMLElement,
   rows: AggregationRowConfig[],
   columns: ColumnConfig[],
   dataRows: unknown[],
+  globalFullWidth = false,
 ): void {
   container.innerHTML = '';
 
@@ -133,61 +135,145 @@ export function renderAggregationRows(
       rowEl.setAttribute('data-aggregation-id', rowConfig.id);
     }
 
-    if (rowConfig.fullWidth) {
-      // Full-width mode: single cell spanning all columns
-      const cell = document.createElement('div');
-      cell.className = 'tbw-aggregation-cell tbw-aggregation-cell-full';
-      cell.style.gridColumn = '1 / -1';
-      cell.textContent = rowConfig.label || '';
-      rowEl.appendChild(cell);
+    // Per-row fullWidth overrides global default
+    const isFullWidth = rowConfig.fullWidth ?? globalFullWidth;
+
+    if (isFullWidth) {
+      renderFullWidthAggregationRow(rowEl, rowConfig, columns, dataRows);
     } else {
-      // Per-column mode: one cell per column with aggregated/static values
-      for (const col of columns) {
-        const cell = document.createElement('div');
-        cell.className = 'tbw-aggregation-cell';
-        cell.setAttribute('data-field', col.field);
-
-        let value: unknown;
-        let formatter: ((value: unknown, field: string, column?: ColumnConfig) => string) | undefined;
-
-        // Check for aggregator first
-        const aggDef = rowConfig.aggregators?.[col.field];
-        if (aggDef) {
-          // Handle both simple ref and full config object
-          if (isAggregatorConfig(aggDef)) {
-            const aggFn = getAggregator(aggDef.aggFunc);
-            if (aggFn) {
-              value = aggFn(dataRows, col.field, col);
-            }
-            formatter = aggDef.formatter;
-          } else {
-            const aggFn = getAggregator(aggDef);
-            if (aggFn) {
-              value = aggFn(dataRows, col.field, col);
-            }
-          }
-        } else if (rowConfig.cells && Object.prototype.hasOwnProperty.call(rowConfig.cells, col.field)) {
-          // Static or computed cell value
-          const staticVal = rowConfig.cells[col.field];
-          if (typeof staticVal === 'function') {
-            value = staticVal(dataRows, col.field, col);
-          } else {
-            value = staticVal;
-          }
-        }
-
-        // Apply formatter if provided, otherwise convert to string
-        if (value != null) {
-          cell.textContent = formatter ? formatter(value, col.field, col) : String(value);
-        } else {
-          cell.textContent = '';
-        }
-        rowEl.appendChild(cell);
-      }
+      renderPerColumnAggregationRow(rowEl, rowConfig, columns, dataRows);
     }
 
     container.appendChild(rowEl);
   }
+}
+
+/**
+ * Renders a full-width aggregation row: single spanning cell with label and inline aggregated values.
+ */
+function renderFullWidthAggregationRow(
+  rowEl: HTMLElement,
+  rowConfig: AggregationRowConfig,
+  columns: ColumnConfig[],
+  dataRows: unknown[],
+): void {
+  const cell = document.createElement('div');
+  cell.className = 'tbw-aggregation-cell tbw-aggregation-cell-full';
+  cell.style.gridColumn = '1 / -1';
+
+  // Label
+  if (rowConfig.label) {
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'tbw-aggregation-label';
+    labelSpan.textContent = rowConfig.label;
+    cell.appendChild(labelSpan);
+  }
+
+  // Inline aggregated values
+  const aggregatesContainer = renderInlineAggregates(rowConfig, columns, dataRows);
+  if (aggregatesContainer) {
+    cell.appendChild(aggregatesContainer);
+  }
+
+  // If nothing was added (no label, no aggregates), ensure cell is empty but present
+  rowEl.appendChild(cell);
+}
+
+/**
+ * Renders per-column aggregation cells aligned to the grid template.
+ */
+function renderPerColumnAggregationRow(
+  rowEl: HTMLElement,
+  rowConfig: AggregationRowConfig,
+  columns: ColumnConfig[],
+  dataRows: unknown[],
+): void {
+  for (const col of columns) {
+    const cell = document.createElement('div');
+    cell.className = 'tbw-aggregation-cell';
+    cell.setAttribute('data-field', col.field);
+
+    const { value, formatter } = resolveAggregatedValue(rowConfig, col, dataRows);
+
+    if (value != null) {
+      cell.textContent = formatter ? formatter(value, col.field, col) : String(value);
+    } else {
+      cell.textContent = '';
+    }
+    rowEl.appendChild(cell);
+  }
+}
+
+/**
+ * Resolves the aggregated value for a single column in an aggregation row.
+ * Returns the computed value and an optional formatter function.
+ */
+function resolveAggregatedValue(
+  rowConfig: AggregationRowConfig,
+  col: ColumnConfig,
+  dataRows: unknown[],
+): { value: unknown; formatter?: (value: unknown, field: string, column?: ColumnConfig) => string } {
+  let value: unknown;
+  let formatter: ((value: unknown, field: string, column?: ColumnConfig) => string) | undefined;
+
+  // Check for aggregator first
+  const aggDef = rowConfig.aggregators?.[col.field];
+  if (aggDef) {
+    if (isAggregatorConfig(aggDef)) {
+      const aggFn = getAggregator(aggDef.aggFunc);
+      if (aggFn) {
+        value = aggFn(dataRows, col.field, col);
+      }
+      formatter = aggDef.formatter;
+    } else {
+      const aggFn = getAggregator(aggDef);
+      if (aggFn) {
+        value = aggFn(dataRows, col.field, col);
+      }
+    }
+  } else if (rowConfig.cells && Object.prototype.hasOwnProperty.call(rowConfig.cells, col.field)) {
+    const staticVal = rowConfig.cells[col.field];
+    if (typeof staticVal === 'function') {
+      value = staticVal(dataRows, col.field, col);
+    } else {
+      value = staticVal;
+    }
+  }
+
+  return { value, formatter };
+}
+
+/**
+ * Renders inline aggregate values for a full-width aggregation row.
+ * Returns a container element with aggregate spans, or null if no aggregates are defined.
+ */
+function renderInlineAggregates(
+  rowConfig: AggregationRowConfig,
+  columns: ColumnConfig[],
+  dataRows: unknown[],
+): HTMLElement | null {
+  // Collect fields that have aggregators or cell values
+  const hasAggregators = rowConfig.aggregators && Object.keys(rowConfig.aggregators).length > 0;
+  const hasCells = rowConfig.cells && Object.keys(rowConfig.cells).length > 0;
+  if (!hasAggregators && !hasCells) return null;
+
+  const container = document.createElement('span');
+  container.className = 'tbw-aggregation-aggregates';
+
+  for (const col of columns) {
+    const { value, formatter } = resolveAggregatedValue(rowConfig, col, dataRows);
+    if (value != null) {
+      const span = document.createElement('span');
+      span.className = 'tbw-aggregation-aggregate';
+      span.setAttribute('data-field', col.field);
+      const header = col.header ?? col.field;
+      const displayValue = formatter ? formatter(value, col.field, col) : String(value);
+      span.textContent = `${header}: ${displayValue}`;
+      container.appendChild(span);
+    }
+  }
+
+  return container.children.length > 0 ? container : null;
 }
 
 /**

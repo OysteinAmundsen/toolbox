@@ -6,6 +6,7 @@ import type {
   FrameworkAdapter,
   TypeDefault,
 } from '@toolbox-web/grid';
+import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
@@ -471,6 +472,11 @@ export class GridAdapter implements FrameworkAdapter {
       typeDefault.editor = this.createTypeEditor<TRow>(reactDefault.editor) as TypeDefault['editor'];
     }
 
+    // Create filterPanelRenderer function that renders React component into filter panel
+    if (reactDefault.filterPanelRenderer) {
+      typeDefault.filterPanelRenderer = this.createFilterPanelRenderer(reactDefault.filterPanelRenderer);
+    }
+
     return typeDefault;
   }
 
@@ -515,6 +521,28 @@ export class GridAdapter implements FrameworkAdapter {
       });
 
       return container;
+    };
+  }
+
+  /**
+   * Creates a filter panel renderer that mounts React content into the filter panel container.
+   * @internal
+   */
+  private createFilterPanelRenderer(
+    renderFn: (params: FilterPanelParams) => ReactNode,
+  ): (container: HTMLElement, params: FilterPanelParams) => void {
+    return (container: HTMLElement, params: FilterPanelParams) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'contents';
+
+      const root = createRoot(wrapper);
+      this.mountedViews.push({ root, container: wrapper });
+
+      flushSync(() => {
+        root.render(renderFn(params) as React.ReactElement);
+      });
+
+      container.appendChild(wrapper);
     };
   }
 

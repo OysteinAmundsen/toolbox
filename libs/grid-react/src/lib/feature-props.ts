@@ -41,6 +41,21 @@ import type {
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
 import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
+import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
+import type { ReactNode } from 'react';
+
+// #region React-specific Filter Config
+/**
+ * React-specific filter config that allows React components as `filterPanelRenderer`.
+ *
+ * Extends the base FilterConfig to accept a React render function
+ * `(params: FilterPanelParams) => ReactNode` in addition to the vanilla
+ * `(container: HTMLElement, params: FilterPanelParams) => void` signature.
+ */
+type ReactFilterConfig<TRow = unknown> = Omit<FilterConfig<TRow>, 'filterPanelRenderer'> & {
+  filterPanelRenderer?: FilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => ReactNode);
+};
+// #endregion
 
 /**
  * Feature props for declarative plugin configuration.
@@ -163,7 +178,7 @@ export interface FeatureProps<TRow = unknown> {
    * <DataGrid filtering={{ debounceMs: 200 }} />
    * ```
    */
-  filtering?: boolean | FilterConfig<TRow>;
+  filtering?: boolean | ReactFilterConfig<TRow>;
 
   // ═══════════════════════════════════════════════════════════════════
   // COLUMN FEATURES

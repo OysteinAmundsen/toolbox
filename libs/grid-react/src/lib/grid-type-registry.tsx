@@ -5,6 +5,7 @@
  * that all grids inherit automatically via React Context.
  */
 import type { TypeDefault as BaseTypeDefault, CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
+import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { createContext, useContext, type FC, type ReactNode } from 'react';
 
 // #region TypeDefault Interface
@@ -33,6 +34,25 @@ export interface TypeDefault<TRow = unknown, TValue = unknown> {
   editor?: (ctx: ColumnEditorContext<TRow, TValue>) => ReactNode;
   /** Default editorParams for this type */
   editorParams?: Record<string, unknown>;
+  /**
+   * Custom filter panel renderer for this type. Requires FilteringPlugin.
+   *
+   * Returns JSX to render as the custom filter panel content.
+   * The rendered content is mounted into the filter panel container.
+   *
+   * @example
+   * ```tsx
+   * filterPanelRenderer: (params) => (
+   *   <MyFilterPanel
+   *     field={params.field}
+   *     uniqueValues={params.uniqueValues}
+   *     onApply={(values) => params.applySetFilter(values)}
+   *     onClear={params.clearFilter}
+   *   />
+   * )
+   * ```
+   */
+  filterPanelRenderer?: (params: FilterPanelParams) => ReactNode;
 }
 
 /**
@@ -184,7 +204,30 @@ export function typeDefaultToBaseTypeDefault<TRow = unknown>(
     }) as BaseTypeDefault['editor'];
   }
 
+  if (typeDefault.filterPanelRenderer) {
+    const reactFilterRenderer = typeDefault.filterPanelRenderer;
+    baseTypeDefault.filterPanelRenderer = wrapReactFilterPanelRenderer(reactFilterRenderer, renderReactNode);
+  }
+
   return baseTypeDefault;
+}
+
+/**
+ * Wraps a React filter panel renderer into a vanilla FilterPanelRenderer.
+ *
+ * Mounts react content into the filter panel container element.
+ * Automatically unmounts the previous root when a new panel opens.
+ *
+ * @internal
+ */
+export function wrapReactFilterPanelRenderer(
+  reactFn: (params: FilterPanelParams) => ReactNode,
+  renderReactNode: (node: ReactNode) => HTMLElement,
+): (container: HTMLElement, params: FilterPanelParams) => void {
+  return (container: HTMLElement, params: FilterPanelParams) => {
+    const rendered = renderReactNode(reactFn(params));
+    container.appendChild(rendered);
+  };
 }
 
 /**

@@ -32,13 +32,40 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { FilteringPlugin, type FilterModel } from '@toolbox-web/grid/plugins/filtering';
+import {
+  FilteringPlugin,
+  type FilterConfig,
+  type FilterModel,
+  type FilterPanelParams,
+} from '@toolbox-web/grid/plugins/filtering';
+import type { ReactNode } from 'react';
 import { useCallback, useContext } from 'react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { GridElementContext } from '../lib/data-grid';
 import { registerFeature } from '../lib/feature-registry';
 
-registerFeature('filtering', (config) => {
-  const options = typeof config === 'boolean' ? {} : ((config as any) ?? {});
+registerFeature('filtering', (rawConfig) => {
+  if (typeof rawConfig === 'boolean') return new FilteringPlugin();
+  if (!rawConfig) return new FilteringPlugin();
+
+  const config = rawConfig as FilterConfig & { filterPanelRenderer?: unknown };
+  const options = { ...config } as FilterConfig;
+
+  // Bridge React filterPanelRenderer (1 arg) to vanilla (2 args)
+  if (typeof config.filterPanelRenderer === 'function' && config.filterPanelRenderer.length <= 1) {
+    const reactFn = config.filterPanelRenderer as unknown as (params: FilterPanelParams) => ReactNode;
+    options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'contents';
+      const root = createRoot(wrapper);
+      flushSync(() => {
+        root.render(reactFn(params) as React.ReactElement);
+      });
+      container.appendChild(wrapper);
+    };
+  }
+
   return new FilteringPlugin(options);
 });
 

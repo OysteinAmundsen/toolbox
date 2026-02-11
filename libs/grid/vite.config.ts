@@ -15,7 +15,7 @@ const pluginsDir = resolve(__dirname, 'src/lib/plugins');
 
 /** Auto-discover plugin names from filesystem */
 const pluginNames = readdirSync(pluginsDir, { withFileTypes: true })
-  .filter((d) => d.isDirectory() && d.name !== 'all')
+  .filter((d) => d.isDirectory() && d.name !== 'all' && d.name !== 'shared')
   .map((d) => d.name);
 
 /** Convert plugin name to UMD global: "pinned-rows" -> "TbwGridPlugin_pinnedRows" */

@@ -719,6 +719,10 @@ interface ColumnEditorContext<TRow, TValue> {
   cellEl: HTMLElement;     // Cell DOM element
   commit: (newValue: TValue) => void;  // Commit the edit
   cancel: () => void;                   // Cancel the edit
+  onValueChange?: (callback: (newValue: TValue) => void) => void;
+    // Register to receive pushed values when the cell is updated externally
+    // (e.g., via updateRow from another cell's commit). Built-in editors
+    // are auto-wired; custom editors should use this for cascade reactivity.
 }
 ```
 

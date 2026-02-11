@@ -890,6 +890,26 @@ export interface ColumnEditorContext<TRow = any, TValue = any> {
   commit: (newValue: TValue) => void;
   /** Abort edit without persisting changes. */
   cancel: () => void;
+  /**
+   * Register a callback invoked when the cell's underlying value changes
+   * while the editor is open (e.g., via `updateRow()` from another cell's commit).
+   *
+   * Built-in editors auto-update their input values. Custom/framework editors
+   * should use this to stay in sync with external mutations.
+   *
+   * @example
+   * ```typescript
+   * const editor = (ctx: ColumnEditorContext) => {
+   *   const input = document.createElement('input');
+   *   input.value = String(ctx.value);
+   *   ctx.onValueChange?.((newValue) => {
+   *     input.value = String(newValue);
+   *   });
+   *   return input;
+   * };
+   * ```
+   */
+  onValueChange?: (callback: (newValue: TValue) => void) => void;
 }
 // #endregion
 

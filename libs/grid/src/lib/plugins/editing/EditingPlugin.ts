@@ -361,6 +361,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Set of cells currently in edit mode: "rowIndex:colIndex" */
   #editingCells = new Set<string>();
 
+  /**
+   * Value-change callbacks for active editors.
+   * Keyed by "rowIndex:field" → callback that pushes updated values to the editor.
+   * Populated during #injectEditor, cleaned up when editors are removed.
+   */
+  #editorValueCallbacks = new Map<string, (newValue: unknown) => void>();
+
   /** Flag to restore focus after next render (used when exiting edit mode) */
   #pendingFocusRestore = false;
 
@@ -479,6 +486,27 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       { signal },
     );
 
+    // Listen for external row mutations to push updated values to active editors.
+    // When field A commits and sets field B via updateRow(), field B's editor
+    // (if open) must reflect the new value.
+    this.gridElement.addEventListener(
+      'cell-change',
+      (e: Event) => {
+        const detail = (e as CustomEvent).detail as {
+          rowIndex: number;
+          field: string;
+          newValue: unknown;
+          source: string;
+        };
+        // Only push updates from cascade/api sources — not from the editor's own commit
+        if (detail.source === 'user') return;
+        const key = `${detail.rowIndex}:${detail.field}`;
+        const cb = this.#editorValueCallbacks.get(key);
+        if (cb) cb(detail.newValue);
+      },
+      { signal },
+    );
+
     // In grid mode, request a full render to trigger afterCellRender hooks
     if (this.#isGridMode) {
       this.gridElement.classList.add('tbw-grid-mode');
@@ -557,6 +585,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#rowEditSnapshots.clear();
     this.#changedRowIds.clear();
     this.#editingCells.clear();
+    this.#editorValueCallbacks.clear();
     this.#gridModeInputFocused = false;
     this.#gridModeEditLocked = false;
     super.detach();
@@ -1533,6 +1562,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         this.#editingCells.delete(cellKey);
       }
     }
+    // Remove value-change callbacks for this row
+    for (const callbackKey of this.#editorValueCallbacks.keys()) {
+      if (callbackKey.startsWith(`${rowIndex}:`)) {
+        this.#editorValueCallbacks.delete(callbackKey);
+      }
+    }
 
     // Re-render the row to remove editors
     if (rowEl) {
@@ -1763,12 +1798,42 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const editorSpec = resolveEditor(this.grid as unknown as InternalGrid<T>, colInternal) ?? defaultEditorFor(column);
     const value = originalValue;
 
+    // Value-change callback registration.
+    // Editors call onValueChange(cb) to receive pushes when the underlying row
+    // is mutated externally (e.g., via updateRow from another cell's commit).
+    // Multiple callbacks can be registered (user + auto-wire).
+    const callbackKey = `${rowIndex}:${column.field}`;
+    const callbacks: Array<(newValue: unknown) => void> = [];
+    this.#editorValueCallbacks.set(callbackKey, (newVal) => {
+      for (const cb of callbacks) cb(newVal);
+    });
+    const onValueChange = (cb: (newValue: unknown) => void) => {
+      callbacks.push(cb);
+    };
+
     if (editorSpec === 'template' && tplHolder) {
       this.#renderTemplateEditor(editorHost, colInternal, rowData, originalValue, commit, cancel, skipFocus, rowIndex);
+      // Auto-update built-in template editors when value changes externally
+      onValueChange((newVal) => {
+        const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+          'input,textarea,select',
+        );
+        if (input) {
+          if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+            input.checked = !!newVal;
+          } else {
+            input.value = String(newVal ?? '');
+          }
+        }
+      });
     } else if (typeof editorSpec === 'string') {
       const el = document.createElement(editorSpec) as HTMLElement & { value?: unknown };
       el.value = value;
       el.addEventListener('change', () => commit(el.value));
+      // Auto-update custom element editors when value changes externally
+      onValueChange((newVal) => {
+        el.value = newVal;
+      });
       editorHost.appendChild(el);
       if (!skipFocus) {
         queueMicrotask(() => {
@@ -1786,6 +1851,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         commit,
         cancel,
         updateRow,
+        onValueChange,
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const produced = (editorSpec as any)(ctx);
@@ -1793,20 +1859,36 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         editorHost.innerHTML = produced;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         wireEditorInputs(editorHost, column as any, commit, originalValue);
+        // Auto-update wired inputs when value changes externally
+        onValueChange((newVal) => {
+          const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+            'input,textarea,select',
+          );
+          if (input) {
+            if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+              input.checked = !!newVal;
+            } else {
+              input.value = String(newVal ?? '');
+            }
+          }
+        });
       } else if (produced instanceof Node) {
         editorHost.appendChild(produced);
-        // Mark cell as having an externally-managed editor (framework adapter) ONLY if
-        // the returned element is NOT a simple input/select/textarea. Framework adapters
-        // typically wrap their editors in containers (div, span, custom elements).
-        // When marked, we'll skip DOM input reading in #exitRowEdit because:
-        // - Those inputs may show formatted display values (e.g., "Dec 3, 2025" for "2025-12-03")
-        // - The framework editor handles its own commits via commit() callback
         const isSimpleInput =
           produced instanceof HTMLInputElement ||
           produced instanceof HTMLSelectElement ||
           produced instanceof HTMLTextAreaElement;
         if (!isSimpleInput) {
           cell.setAttribute('data-editor-managed', '');
+        } else {
+          // Auto-update simple inputs returned by factory functions
+          onValueChange((newVal) => {
+            if (produced instanceof HTMLInputElement && produced.type === 'checkbox') {
+              produced.checked = !!newVal;
+            } else {
+              (produced as HTMLInputElement).value = String(newVal ?? '');
+            }
+          });
         }
       }
       if (!skipFocus) {
@@ -1820,9 +1902,6 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       placeholder.setAttribute('data-external-editor', '');
       placeholder.setAttribute('data-field', column.field);
       editorHost.appendChild(placeholder);
-      // Mark cell as having an externally-managed editor.
-      // The editor handles its own commits - we should NOT try to read values
-      // from DOM inputs in #exitRowEdit.
       cell.setAttribute('data-editor-managed', '');
       const context: EditorContext<T> = {
         row: rowData,
@@ -1833,6 +1912,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         commit,
         cancel,
         updateRow,
+        onValueChange,
       };
       if (editorSpec.mount) {
         try {

@@ -1396,4 +1396,200 @@ describe('EditingPlugin', () => {
   });
 
   // #endregion
+
+  // #region onValueChange (stale editor fix)
+
+  describe('onValueChange (stale editor cascade)', () => {
+    it('pushes updated value to built-in editor when another cell commits with updateRow', async () => {
+      // Scenario: two editable columns, committing "name" cascades an update to "email"
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'email', header: 'Email', editable: true },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', email: 'alice@old.com' }];
+      await waitUpgrade(grid);
+
+      // Listen for cell-commit on "name" → cascade-update "email"
+      grid.addEventListener('cell-commit', (e: CustomEvent) => {
+        if (e.detail.field === 'name') {
+          e.detail.updateRow({ email: `${e.detail.value.toLowerCase()}@new.com` });
+        }
+      });
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+
+      // Enter row edit by dblclick on name cell
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Both editors should now be visible (row editing)
+      const nameInput = nameCell.querySelector('input') as HTMLInputElement;
+      const emailCell = row.querySelector('.cell[data-col="2"]') as HTMLElement;
+      const emailInput = emailCell.querySelector('input') as HTMLInputElement;
+      expect(nameInput).toBeTruthy();
+      expect(emailInput).toBeTruthy();
+      expect(emailInput.value).toBe('alice@old.com');
+
+      // Change name and blur to commit
+      nameInput.value = 'Bob';
+      nameInput.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      nameInput.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // Email editor should now reflect the cascaded value
+      expect(emailInput.value).toBe('bob@new.com');
+    });
+
+    it('passes onValueChange callback to factory function editors', async () => {
+      const onValueChangeSpy = vi.fn();
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          {
+            field: 'email',
+            header: 'Email',
+            editable: true,
+            editor: (ctx: any) => {
+              // Register for value changes
+              ctx.onValueChange?.((newVal: unknown) => onValueChangeSpy(newVal));
+              const input = document.createElement('input');
+              input.value = String(ctx.value ?? '');
+              input.addEventListener('change', () => ctx.commit(input.value));
+              return input;
+            },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', email: 'alice@old.com' }];
+      await waitUpgrade(grid);
+
+      // Cascade email update on name commit
+      grid.addEventListener('cell-commit', (e: CustomEvent) => {
+        if (e.detail.field === 'name') {
+          e.detail.updateRow({ email: 'updated@new.com' });
+        }
+      });
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Commit name
+      const nameInput = nameCell.querySelector('input') as HTMLInputElement;
+      nameInput.value = 'Bob';
+      nameInput.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      nameInput.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      // onValueChange callback should have been invoked with the cascaded value
+      expect(onValueChangeSpy).toHaveBeenCalledWith('updated@new.com');
+    });
+
+    it('does not fire onValueChange for the committing cell itself', async () => {
+      const onValueChangeSpy = vi.fn();
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          {
+            field: 'name',
+            header: 'Name',
+            editable: true,
+            editor: (ctx: any) => {
+              ctx.onValueChange?.((newVal: unknown) => onValueChangeSpy(newVal));
+              const input = document.createElement('input');
+              input.value = String(ctx.value ?? '');
+              input.addEventListener('change', () => ctx.commit(input.value));
+              return input;
+            },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Commit name — the commit uses direct mutation (not cell-change), so
+      // the same cell's onValueChange should NOT be called
+      const nameInput = nameCell.querySelector('input') as HTMLInputElement;
+      nameInput.value = 'Bob';
+      nameInput.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      nameInput.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+      await nextFrame();
+
+      expect(onValueChangeSpy).not.toHaveBeenCalled();
+    });
+
+    it('cleans up value-change callbacks when exiting edit mode', async () => {
+      const cascadeSpy = vi.fn();
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          {
+            field: 'email',
+            header: 'Email',
+            editable: true,
+            editor: (ctx: any) => {
+              ctx.onValueChange?.((newVal: unknown) => cascadeSpy(newVal));
+              const input = document.createElement('input');
+              input.value = String(ctx.value ?? '');
+              return input;
+            },
+          },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', email: 'alice@old.com' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Cancel edit via Escape on the input (exits row edit)
+      const nameInput = nameCell.querySelector('input') as HTMLInputElement;
+      nameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+      await nextFrame();
+
+      // After exit, cascade updates should no longer trigger callbacks
+      cascadeSpy.mockClear();
+      grid.updateRow('1', { email: 'after-exit@new.com' });
+      await nextFrame();
+
+      // The callback should NOT be called — it was cleaned up on exit
+      expect(cascadeSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
 });

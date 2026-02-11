@@ -371,6 +371,14 @@ export interface EditorContext<T = any, V = unknown> {
    * Changes will be committed with source: 'cascade'.
    */
   updateRow: (changes: Partial<T>) => void;
+  /**
+   * Register a callback invoked when the cell's underlying value changes
+   * while the editor is open (e.g., via cascade from another cell's commit).
+   *
+   * Built-in editors auto-update their input values. Custom/framework editors
+   * should use this to stay in sync with external mutations.
+   */
+  onValueChange?: (callback: (newValue: V) => void) => void;
 }
 
 // ============================================================================

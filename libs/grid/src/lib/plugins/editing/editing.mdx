@@ -641,9 +641,50 @@ The `ctx` object passed to custom editors contains:
 | `row` | `T` | Full row data |
 | `column` | `ColumnConfig` | Column configuration |
 | `field` | `string` | Field name |
-| `rowIndex` | `number` | Row index in data array |
+| `rowId` | `string` | Row ID (from `getRowId`) |
 | `commit(value)` | `function` | Call to save new value |
 | `cancel()` | `function` | Call to discard changes |
+| `updateRow(changes)` | `function` | Update other fields on the same row (triggers `cell-change` events) |
+| `onValueChange(cb)` | `function` | Register a callback to receive pushed values when the cell's value changes externally (e.g., via `updateRow` from another cell's commit) |
+
+### Cascade Updates (onValueChange)
+
+When one cell's commit updates other fields via `updateRow()`, any editors open on those fields
+receive the new value automatically. The grid does this for built-in editors out of the box.
+
+For custom editors, use `onValueChange` to keep your inputs in sync:
+
+```ts
+{
+  field: 'total',
+  editable: true,
+  editor: (ctx) => {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = String(ctx.value);
+
+    // Stay in sync when another cell updates this field
+    ctx.onValueChange?.((newValue) => {
+      input.value = String(newValue ?? '');
+    });
+
+    input.onchange = () => ctx.commit(Number(input.value));
+    return input;
+  },
+}
+```
+
+This is especially useful when fields are interdependent — for example, updating `quantity`
+recalculates `total`:
+
+```ts
+grid.addEventListener('cell-commit', (e) => {
+  if (e.detail.field === 'quantity') {
+    const price = e.detail.row.price;
+    e.detail.updateRow({ total: price * e.detail.value });
+  }
+});
+```
 
 ## Keyboard Shortcuts
 

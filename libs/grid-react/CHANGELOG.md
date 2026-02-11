@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.11.0...grid-react-0.12.0) (2026-02-11)
+
+
+### Features
+
+* **grid-react:** bridge filterPanelRenderer in framework adapters ([47e0e7b](https://github.com/OysteinAmundsen/toolbox/commit/47e0e7bcd8f59a56f0c4675997f324d11a7c9613))
+
 ## [0.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.10.0...grid-react-0.11.0) (2026-02-07)
 
 

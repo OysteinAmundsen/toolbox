@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.14.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.13.0...grid-1.14.0) (2026-02-11)
+
+
+### Features
+
+* **grid:** add fullWidth support to pinned rows plugin ([1c78d13](https://github.com/OysteinAmundsen/toolbox/commit/1c78d13a6f54fcb46fb8a328c02f14a149047d2d))
+* **grid:** add onValueChange to editors for cascade reactivity ([c2be2b3](https://github.com/OysteinAmundsen/toolbox/commit/c2be2b33ac2b65c0801780b88133b5ce17dc8ddf))
+* **grid:** bridge filterPanelRenderer in framework adapters ([a526b28](https://github.com/OysteinAmundsen/toolbox/commit/a526b28493d7bbc67d2f7c4397f6d844b8a91e64))
+* **grid:** expose programmatic copy API with column/row options and extract shared data-collection utility ([b447d56](https://github.com/OysteinAmundsen/toolbox/commit/b447d56f40803852cbcd71fa45462157f1186db3))
+* **grid:** support dynamic label function in fullWidth aggregation rows ([fb57ab1](https://github.com/OysteinAmundsen/toolbox/commit/fb57ab18e9f8a332a1888b943afbd3419fb0289e))
+* **grid:** sync context-menu selection with query system + tests + docs ([800c344](https://github.com/OysteinAmundsen/toolbox/commit/800c34469b85e80fca64d6cfa4e9c9c09dcefd88))
+
+
+### Bug Fixes
+
+* **grid:** null-safe the row animations api ([064467b](https://github.com/OysteinAmundsen/toolbox/commit/064467b83a2c5c66d8973f8a589c424ce1728830))
+* **grid:** selection plugin should not hijack Esc when editing is in progress. ([2f7d568](https://github.com/OysteinAmundsen/toolbox/commit/2f7d56829df78639077e12b3eb94faed25c89931))
+
+
+### Enhancements
+
+* **grid:** add more extensibility for css using varialbes ([fdb0b45](https://github.com/OysteinAmundsen/toolbox/commit/fdb0b45cd795e978726050960695494308862b68))
+
 ## [1.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.12.1...grid-1.13.0) (2026-02-10)
 
 

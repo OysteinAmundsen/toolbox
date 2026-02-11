@@ -6,6 +6,7 @@
  */
 import type { Type } from '@angular/core';
 import type { ColumnConfig as BaseColumnConfig, GridConfig as BaseGridConfig } from '@toolbox-web/grid';
+import type { FilterPanelParams, FilterPanelRenderer } from '@toolbox-web/grid/plugins/filtering';
 
 // #region CellRenderer Interface
 /**
@@ -90,6 +91,39 @@ export interface CellEditor<TRow = unknown, TValue = unknown> extends CellRender
 export type AngularCellEditor<TRow = unknown, TValue = unknown> = CellEditor<TRow, TValue>;
 // #endregion
 
+// #region FilterPanel Interface
+/**
+ * Interface for filter panel components.
+ *
+ * Filter panel components receive the full `FilterPanelParams` as a single input,
+ * providing access to field info, unique values, and filter action methods.
+ *
+ * @example
+ * ```typescript
+ * import { Component, input } from '@angular/core';
+ * import type { FilterPanel } from '@toolbox-web/grid-angular';
+ * import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
+ *
+ * @Component({
+ *   selector: 'app-custom-filter',
+ *   template: `
+ *     <div>
+ *       <input (input)="onSearch($event)" />
+ *       <button (click)="params().clearFilter()">Clear</button>
+ *     </div>
+ *   `
+ * })
+ * export class CustomFilterComponent implements FilterPanel {
+ *   params = input.required<FilterPanelParams>();
+ * }
+ * ```
+ */
+export interface FilterPanel {
+  /** The filter panel parameters — use `input.required<FilterPanelParams>()` */
+  params: { (): FilterPanelParams };
+}
+// #endregion
+
 // #region TypeDefault Interface
 /**
  * Type default configuration.
@@ -122,6 +156,23 @@ export interface TypeDefault<TRow = unknown> {
   editor?: BaseColumnConfig<TRow>['editor'] | Type<CellEditor<TRow, unknown>>;
   /** Default editor parameters */
   editorParams?: Record<string, unknown>;
+  /**
+   * Custom filter panel renderer for this type. Requires FilteringPlugin.
+   *
+   * Can be:
+   * - A vanilla `FilterPanelRenderer` function `(container, params) => void`
+   * - An Angular component class implementing `FilterPanel`
+   *
+   * @example Using an Angular component
+   * ```typescript
+   * typeDefaults: {
+   *   date: {
+   *     filterPanelRenderer: DateFilterPanelComponent,
+   *   }
+   * }
+   * ```
+   */
+  filterPanelRenderer?: FilterPanelRenderer | Type<FilterPanel>;
 }
 
 /**

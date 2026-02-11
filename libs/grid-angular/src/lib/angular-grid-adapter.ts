@@ -19,6 +19,7 @@ import type {
   ColumnViewRenderer,
   FrameworkAdapter,
 } from '@toolbox-web/grid';
+import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { isComponentClass, type ColumnConfig, type GridConfig, type TypeDefault } from './angular-column-config';
 import { getEditorTemplate, GridEditorContext } from './directives/grid-column-editor.directive';
 import { getViewTemplate, GridCellContext } from './directives/grid-column-view.directive';
@@ -201,6 +202,11 @@ export class GridAdapter implements FrameworkAdapter {
       // Convert editor component class to function
       if (config.editor && isComponentClass(config.editor)) {
         (processedConfig as any).editor = this.createComponentEditor(config.editor);
+      }
+
+      // Convert filterPanelRenderer component class to function
+      if (config.filterPanelRenderer && isComponentClass(config.filterPanelRenderer)) {
+        processedConfig.filterPanelRenderer = this.createComponentFilterPanelRenderer(config.filterPanelRenderer);
       }
 
       processed[type] = processedConfig;
@@ -640,6 +646,13 @@ export class GridAdapter implements FrameworkAdapter {
       typeDefault.editor = this.createComponentEditor<TRow, unknown>(config.editor) as BaseTypeDefault['editor'];
     }
 
+    // Create filterPanelRenderer function that instantiates the Angular component
+    if (config.filterPanelRenderer && isComponentClass(config.filterPanelRenderer)) {
+      typeDefault.filterPanelRenderer = this.createComponentFilterPanelRenderer(config.filterPanelRenderer);
+    } else if (config.filterPanelRenderer) {
+      typeDefault.filterPanelRenderer = config.filterPanelRenderer as BaseTypeDefault['filterPanelRenderer'];
+    }
+
     return typeDefault;
   }
 
@@ -783,6 +796,40 @@ export class GridAdapter implements FrameworkAdapter {
       });
 
       return hostElement;
+    };
+  }
+
+  /**
+   * Creates a filter panel renderer function from an Angular component class.
+   *
+   * The component must implement `FilterPanel` (i.e., have a `params` input).
+   * The component is mounted into the filter panel container element.
+   * @internal
+   */
+  private createComponentFilterPanelRenderer(
+    componentClass: Type<unknown>,
+  ): (container: HTMLElement, params: FilterPanelParams) => void {
+    return (container: HTMLElement, params: FilterPanelParams) => {
+      const hostElement = document.createElement('span');
+      hostElement.style.display = 'contents';
+
+      const componentRef = createComponent(componentClass, {
+        environmentInjector: this.injector,
+        hostElement,
+      });
+
+      // Set params input
+      try {
+        componentRef.setInput('params', params);
+      } catch {
+        // Input doesn't exist on component — ignore
+      }
+
+      this.appRef.attachView(componentRef.hostView);
+      this.componentRefs.push(componentRef);
+      componentRef.changeDetectorRef.detectChanges();
+
+      container.appendChild(hostElement);
     };
   }
 

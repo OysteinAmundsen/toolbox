@@ -13,6 +13,7 @@ import {
   Type,
 } from '@angular/core';
 import type { TypeDefault } from '@toolbox-web/grid';
+import type { FilterPanelRenderer } from '@toolbox-web/grid/plugins/filtering';
 
 /**
  * Type default registration configuration.
@@ -35,6 +36,14 @@ export interface TypeDefaultRegistration<TRow = unknown> {
   editor?: Type<any>;
   /** Default editorParams for this type */
   editorParams?: Record<string, unknown>;
+  /**
+   * Custom filter panel for this type.
+   *
+   * Accepts either:
+   * - An Angular component class implementing `FilterPanel` (has a `params` signal input)
+   * - A vanilla imperative function `(container, params) => void`
+   */
+  filterPanelRenderer?: FilterPanelRenderer | Type<any>;
 }
 
 /**

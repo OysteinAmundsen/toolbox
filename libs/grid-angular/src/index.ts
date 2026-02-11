@@ -31,6 +31,7 @@ export type {
   CellEditor,
   CellRenderer,
   ColumnConfig,
+  FilterPanel,
   GridConfig,
   TypeDefault,
 } from './lib/angular-column-config';
@@ -65,9 +66,9 @@ export { GridColumnView } from './lib/directives/grid-column-view.directive';
 export type { GridCellContext } from './lib/directives/grid-column-view.directive';
 export { GridDetailView } from './lib/directives/grid-detail-view.directive';
 export type { GridDetailContext } from './lib/directives/grid-detail-view.directive';
-export { getFormArrayContext, GridFormArray } from './lib/directives/grid-form-array.directive';
+export { GridFormArray, getFormArrayContext } from './lib/directives/grid-form-array.directive';
 export type { FormArrayContext } from './lib/directives/grid-form-array.directive';
-export { getLazyFormContext, GridLazyForm } from './lib/directives/grid-lazy-form.directive';
+export { GridLazyForm, getLazyFormContext } from './lib/directives/grid-lazy-form.directive';
 export type { LazyFormFactory, RowFormChangeEvent } from './lib/directives/grid-lazy-form.directive';
 export { GridResponsiveCard } from './lib/directives/grid-responsive-card.directive';
 export type { GridResponsiveCardContext } from './lib/directives/grid-responsive-card.directive';

@@ -13,6 +13,7 @@ import { detailRegistry, type DetailPanelContext } from './detail-panel-registry
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
 import type { ColumnConfig, GridConfig } from './vue-column-config';
+export type { GridConfig };
 
 /**
  * Registry mapping column elements to their Vue render functions.

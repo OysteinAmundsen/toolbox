@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.11.1...grid-angular-0.12.0) (2026-02-11)
+
+
+### Features
+
+* **grid-angular:** add signal-based selection API ([58610de](https://github.com/OysteinAmundsen/toolbox/commit/58610de90c6abc8eb753c01a0f32491fa8668122))
+* **grid-angular:** bridge filterPanelRenderer in framework adapters ([8142ed9](https://github.com/OysteinAmundsen/toolbox/commit/8142ed932113f49354ece1d7969f9b8957e7300e))
+
+
+### Enhancements
+
+* **grid-angular:** improve the custom editor lifecycle ([31e0343](https://github.com/OysteinAmundsen/toolbox/commit/31e0343a7f5142f750a5651c8d6d0ef1a35bd719))
+
 ## [0.11.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.11.0...grid-angular-0.11.1) (2026-02-09)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.3.1...grid-vue-0.4.0) (2026-02-11)
+
+
+### Features
+
+* **grid-vue:** bridge filterPanelRenderer in framework adapters ([3923133](https://github.com/OysteinAmundsen/toolbox/commit/39231335334f0661c611a0e5c3ca40c5972a2f04))
+
+
+### Bug Fixes
+
+* **grid-vue:** re-exporting the GridConfig ([45f55f0](https://github.com/OysteinAmundsen/toolbox/commit/45f55f05ce860ce4087366c71afecdaee4913094))
+
 ## [0.3.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.3.0...grid-vue-0.3.1) (2026-02-09)
 
 

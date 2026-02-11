@@ -32,16 +32,46 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { FilteringPlugin, type FilterModel } from '@toolbox-web/grid/plugins/filtering';
-import { inject, ref } from 'vue';
+import {
+  FilteringPlugin,
+  type FilterConfig,
+  type FilterModel,
+  type FilterPanelParams,
+} from '@toolbox-web/grid/plugins/filtering';
+import { createApp, inject, ref, type VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 
-registerFeature('filtering', (config) => {
-  if (config === true) {
+registerFeature('filtering', (rawConfig) => {
+  if (rawConfig === true) {
     return new FilteringPlugin();
   }
-  return new FilteringPlugin(config ?? undefined);
+  if (!rawConfig) {
+    return new FilteringPlugin();
+  }
+
+  const config = rawConfig as FilterConfig & { filterPanelRenderer?: unknown };
+  const options = { ...config } as FilterConfig;
+
+  // Bridge Vue filterPanelRenderer (1 arg: params → VNode) to vanilla (2 args: container, params)
+  if (typeof config.filterPanelRenderer === 'function' && config.filterPanelRenderer.length <= 1) {
+    const vueFn = config.filterPanelRenderer as unknown as (params: FilterPanelParams) => VNode;
+    options.filterPanelRenderer = (container: HTMLElement, params: FilterPanelParams) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'contents';
+
+      const app = createApp({
+        render() {
+          return vueFn(params);
+        },
+      });
+
+      app.mount(wrapper);
+      container.appendChild(wrapper);
+    };
+  }
+
+  return new FilteringPlugin(options);
 });
 
 /**

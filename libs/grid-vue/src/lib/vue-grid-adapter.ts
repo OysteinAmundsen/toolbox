@@ -8,6 +8,7 @@ import type {
   ColumnViewRenderer,
   FrameworkAdapter,
 } from '@toolbox-web/grid';
+import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { createApp, createVNode, type App, type Component, type VNode } from 'vue';
 import { detailRegistry, type DetailPanelContext } from './detail-panel-registry';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
@@ -327,6 +328,10 @@ export class GridAdapter implements FrameworkAdapter {
             config.editor as (ctx: ColumnEditorContext<TRow>) => VNode,
           ) as BaseTypeDefault['editor'];
         }
+      }
+
+      if (config.filterPanelRenderer) {
+        processedConfig.filterPanelRenderer = this.createFilterPanelRenderer(config.filterPanelRenderer);
       }
 
       processed[type] = processedConfig;
@@ -823,6 +828,11 @@ export class GridAdapter implements FrameworkAdapter {
       typeDefault.editor = this.createTypeEditor<TRow>(vueDefault.editor) as BaseTypeDefault['editor'];
     }
 
+    // Create filterPanelRenderer function that renders Vue component
+    if (vueDefault.filterPanelRenderer) {
+      typeDefault.filterPanelRenderer = this.createFilterPanelRenderer(vueDefault.filterPanelRenderer);
+    }
+
     return typeDefault;
   }
 
@@ -871,6 +881,32 @@ export class GridAdapter implements FrameworkAdapter {
       this.mountedViews.push({ app, container });
 
       return container;
+    };
+  }
+
+  /**
+   * Creates a filter panel renderer function from a Vue render function.
+   *
+   * Wraps a Vue `(params: FilterPanelParams) => VNode` function into the
+   * imperative `(container, params) => void` signature expected by the core grid.
+   * @internal
+   */
+  private createFilterPanelRenderer(
+    renderFn: (params: FilterPanelParams) => VNode,
+  ): (container: HTMLElement, params: FilterPanelParams) => void {
+    return (container: HTMLElement, params: FilterPanelParams) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'contents';
+
+      const app = createApp({
+        render() {
+          return renderFn(params);
+        },
+      });
+
+      app.mount(wrapper);
+      this.mountedViews.push({ app, container: wrapper });
+      container.appendChild(wrapper);
     };
   }
 

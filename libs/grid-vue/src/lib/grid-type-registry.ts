@@ -5,6 +5,7 @@
  * that all grids inherit automatically via Vue's provide/inject.
  */
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
+import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
 import { defineComponent, inject, provide, type InjectionKey, type PropType, type VNode } from 'vue';
 
 // #region TypeDefault Interface
@@ -36,6 +37,28 @@ export interface TypeDefault<TRow = unknown, TValue = unknown> {
   editor?: (ctx: ColumnEditorContext<TRow, TValue>) => VNode;
   /** Default editorParams for this type */
   editorParams?: Record<string, unknown>;
+  /**
+   * Vue render function for custom filter panels for this type.
+   *
+   * Unlike the core imperative API `(container, params) => void`, this accepts
+   * a Vue render function that receives only the params and returns a VNode.
+   * The bridge handles mounting and appending to the container automatically.
+   *
+   * @example
+   * ```ts
+   * import { h } from 'vue';
+   * import CustomFilter from './CustomFilter.vue';
+   *
+   * const typeDefault: TypeDefault = {
+   *   filterPanelRenderer: (params) => h(CustomFilter, {
+   *     field: params.field,
+   *     uniqueValues: params.uniqueValues,
+   *     onApply: (values: Set<unknown>) => params.applySetFilter(values),
+   *   }),
+   * };
+   * ```
+   */
+  filterPanelRenderer?: (params: FilterPanelParams) => VNode;
 }
 
 /**

@@ -41,6 +41,22 @@ import type {
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
 import type { EditingConfig } from '@toolbox-web/grid/plugins/editing';
+import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
+import type { VNode } from 'vue';
+
+/**
+ * Vue-specific filter configuration that extends `FilterConfig` to accept
+ * Vue render functions for `filterPanelRenderer`.
+ *
+ * The `filterPanelRenderer` property accepts either:
+ * - The core imperative signature: `(container: HTMLElement, params: FilterPanelParams) => void`
+ * - A Vue render function: `(params: FilterPanelParams) => VNode`
+ *
+ * @template TRow - The row data type
+ */
+export type VueFilterConfig<TRow = unknown> = Omit<FilterConfig<TRow>, 'filterPanelRenderer'> & {
+  filterPanelRenderer?: FilterConfig<TRow>['filterPanelRenderer'] | ((params: FilterPanelParams) => VNode);
+};
 
 /**
  * Feature props for declarative plugin configuration.
@@ -154,6 +170,9 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable column filtering.
    *
+   * The `filterPanelRenderer` property accepts either the core imperative signature
+   * `(container, params) => void` or a Vue render function `(params) => VNode`.
+   *
    * @requires `import '@toolbox-web/grid-vue/features/filtering';`
    *
    * @example
@@ -162,7 +181,7 @@ export interface FeatureProps<TRow = unknown> {
    * <TbwGrid :filtering="{ debounceMs: 200 }" />
    * ```
    */
-  filtering?: boolean | FilterConfig<TRow>;
+  filtering?: boolean | VueFilterConfig<TRow>;
 
   // ═══════════════════════════════════════════════════════════════════
   // COLUMN FEATURES

@@ -169,7 +169,11 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * @internal
    */
   static override readonly manifest: PluginManifest<SelectionConfig> = {
-    queries: [{ type: 'getSelection', description: 'Get the current selection state' }],
+    queries: [
+      { type: 'getSelection', description: 'Get the current selection state' },
+      { type: 'selectRows', description: 'Select specific rows by index (row mode only)' },
+      { type: 'getSelectedRowIndices', description: 'Get sorted array of selected row indices' },
+    ],
     configRules: [
       {
         id: 'selection/range-dblclick',
@@ -293,6 +297,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   override handleQuery(query: PluginQuery): unknown {
     if (query.type === 'getSelection') {
       return this.getSelection();
+    }
+    if (query.type === 'getSelectedRowIndices') {
+      return this.getSelectedRowIndices();
+    }
+    if (query.type === 'selectRows') {
+      this.selectRows(query.context as number[]);
+      return true;
     }
     return undefined;
   }

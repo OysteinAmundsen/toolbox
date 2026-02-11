@@ -791,6 +791,10 @@ new SelectionPlugin({
   multiSelect?: boolean,             // Ctrl/Shift multi-select (default: true)
   selectOnClick?: boolean,           // Select on click (default: true in row mode)
 })
+// Plugin queries (for inter-plugin communication via grid.query()):
+//   'getSelection'           → returns current selection state
+//   'selectRows'             → select rows by index array (row mode)
+//   'getSelectedRowIndices'  → returns sorted number[] of selected row indices
 ```
 
 ### EditingPlugin
@@ -905,6 +909,29 @@ exporter.exportCsv();                                     // Export all visible 
 exporter.exportCsv({ columns: ['name', 'email'], rowIndices: [0, 3], fileName: 'contacts' });
 exporter.exportExcel({ fileName: 'report' });
 exporter.exportJson({ fileName: 'data' });
+```
+
+### ContextMenuPlugin
+
+```typescript
+new ContextMenuPlugin({
+  items?: ContextMenuItem[] | ((params: ContextMenuParams) => ContextMenuItem[]),
+})
+// ContextMenuParams passed to action callbacks:
+interface ContextMenuParams {
+  row: unknown;          // Row data (null for headers)
+  rowIndex: number;      // Row index (-1 for headers)
+  column: unknown;       // Column configuration
+  columnIndex: number;
+  field: string;
+  value: unknown;
+  isHeader: boolean;
+  event: MouseEvent;
+  selectedRows: number[]; // Currently selected row indices (auto-synced with SelectionPlugin)
+}
+// Selection sync: right-click on selected row preserves multi-selection;
+// right-click on unselected row selects only that row.
+// Uses plugin query system (no hard dependency on SelectionPlugin).
 ```
 
 ---

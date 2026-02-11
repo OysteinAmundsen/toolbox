@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ContextMenuPlugin } from './ContextMenuPlugin';
 import { buildMenuItems, createMenuElement, isItemDisabled, positionMenu } from './menu';
 import type { ContextMenuItem, ContextMenuParams } from './types';
 
@@ -15,6 +16,7 @@ function createMockParams(overrides: Partial<ContextMenuParams> = {}): ContextMe
     value: 'Test Row',
     isHeader: false,
     event: new MouseEvent('contextmenu'),
+    selectedRows: [],
     ...overrides,
   };
 }
@@ -607,6 +609,120 @@ describe('contextMenu', () => {
 
       const top = parseInt(menu.style.top, 10);
       expect(top).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('syncSelectionOnContextMenu', () => {
+    /**
+     * Creates a mock grid with a configurable query function for testing
+     * the selection sync behavior.
+     */
+    function createMockGridForPlugin(queryFn: (...args: unknown[]) => unknown[] = () => []) {
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+
+      const container = document.createElement('div');
+      container.className = 'tbw-grid-root';
+      grid.appendChild(container);
+
+      Object.assign(grid, {
+        rows: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+        columns: [{ field: 'id' }],
+        gridConfig: {},
+        effectiveConfig: {},
+        focusRow: 0,
+        focusCol: 0,
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        query: vi.fn(queryFn),
+        queryPlugins: vi.fn().mockReturnValue([]),
+      });
+
+      grid.dispatchEvent = vi.fn();
+      return grid;
+    }
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should return empty array when rowIndex is negative', () => {
+      const plugin = new ContextMenuPlugin();
+      const grid = createMockGridForPlugin();
+      plugin.attach(grid as never);
+
+      const result = plugin['syncSelectionOnContextMenu'](-1);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return [rowIndex] when no selection plugin is loaded', () => {
+      // query returns empty array (no plugin responded)
+      const plugin = new ContextMenuPlugin();
+      const grid = createMockGridForPlugin(() => []);
+      plugin.attach(grid as never);
+
+      const result = plugin['syncSelectionOnContextMenu'](2);
+
+      expect(result).toEqual([2]);
+    });
+
+    it('should preserve multi-selection when right-clicked row is already selected', () => {
+      const plugin = new ContextMenuPlugin();
+      // getSelectedRowIndices returns [0, 2, 3]
+      const grid = createMockGridForPlugin((type: unknown) => {
+        if (type === 'getSelectedRowIndices') return [[0, 2, 3]];
+        return [];
+      });
+      plugin.attach(grid as never);
+
+      const result = plugin['syncSelectionOnContextMenu'](2);
+
+      expect(result).toEqual([0, 2, 3]);
+      // selectRows should NOT have been called
+      const queryCalls = (grid as unknown as { query: ReturnType<typeof vi.fn> }).query.mock.calls;
+      const selectRowsCalls = queryCalls.filter((c: unknown[]) => c[0] === 'selectRows');
+      expect(selectRowsCalls).toHaveLength(0);
+    });
+
+    it('should select only the right-clicked row when it is not in the current selection', () => {
+      const plugin = new ContextMenuPlugin();
+      const grid = createMockGridForPlugin((type: unknown) => {
+        if (type === 'getSelectedRowIndices') return [[0, 1]];
+        return [];
+      });
+      plugin.attach(grid as never);
+
+      const result = plugin['syncSelectionOnContextMenu'](3);
+
+      expect(result).toEqual([3]);
+      // selectRows SHOULD have been called with [3]
+      const queryCalls = (grid as unknown as { query: ReturnType<typeof vi.fn> }).query.mock.calls;
+      const selectRowsCalls = queryCalls.filter((c: unknown[]) => c[0] === 'selectRows');
+      expect(selectRowsCalls).toHaveLength(1);
+      expect(selectRowsCalls[0][1]).toEqual([3]);
+    });
+
+    it('should select the right-clicked row when selection is empty', () => {
+      const plugin = new ContextMenuPlugin();
+      const grid = createMockGridForPlugin((type: unknown) => {
+        if (type === 'getSelectedRowIndices') return [[]];
+        return [];
+      });
+      plugin.attach(grid as never);
+
+      const result = plugin['syncSelectionOnContextMenu'](1);
+
+      expect(result).toEqual([1]);
+      // selectRows should have been called
+      const queryCalls = (grid as unknown as { query: ReturnType<typeof vi.fn> }).query.mock.calls;
+      const selectRowsCalls = queryCalls.filter((c: unknown[]) => c[0] === 'selectRows');
+      expect(selectRowsCalls).toHaveLength(1);
+      expect(selectRowsCalls[0][1]).toEqual([1]);
     });
   });
 });

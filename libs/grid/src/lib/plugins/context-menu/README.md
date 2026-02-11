@@ -62,8 +62,19 @@ interface ContextMenuParams {
   value: any;
   isHeader: boolean;
   event: MouseEvent;
+  selectedRows: number[]; // Currently selected row indices (requires SelectionPlugin)
 }
 ```
+
+### Selection Sync Behavior
+
+When the `SelectionPlugin` is active in row mode, right-clicking a row automatically
+syncs the selection:
+
+- **Right-click on a selected row** → preserves existing multi-selection
+- **Right-click on an unselected row** → selects only that row
+- **No SelectionPlugin loaded** → `selectedRows` contains just the right-clicked row index
+- **Header right-click** → `selectedRows` is `[]`
 
 ## Dynamic Menu Example
 

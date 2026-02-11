@@ -52,6 +52,13 @@ export interface ContextMenuParams {
   isHeader: boolean;
   /** The original mouse event */
   event: MouseEvent;
+  /**
+   * The currently selected row indices (sorted ascending).
+   * Populated when the SelectionPlugin is active in row mode.
+   * If the right-clicked row was not part of a multi-selection,
+   * this contains only the right-clicked row index.
+   */
+  selectedRows: number[];
 }
 
 /**

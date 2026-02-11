@@ -1238,4 +1238,60 @@ describe('SelectionPlugin', () => {
       });
     });
   });
+
+  describe('handleQuery', () => {
+    it('should return selection state for getSelection query', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      // Select some rows manually
+      plugin['selected'].add(0);
+      plugin['selected'].add(2);
+
+      const result = plugin.handleQuery({ type: 'getSelection', context: undefined });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should return selected row indices for getSelectedRowIndices query', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      plugin['selected'].add(2);
+      plugin['selected'].add(0);
+
+      const result = plugin.handleQuery({ type: 'getSelectedRowIndices', context: undefined });
+
+      // Should return sorted array
+      expect(result).toEqual([0, 2]);
+    });
+
+    it('should select rows via selectRows query', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      const result = plugin.handleQuery({ type: 'selectRows', context: [1, 2] });
+
+      expect(result).toBe(true);
+      expect(plugin['selected'].has(1)).toBe(true);
+      expect(plugin['selected'].has(2)).toBe(true);
+      expect(plugin['selected'].has(0)).toBe(false);
+    });
+
+    it('should return undefined for unknown query types', () => {
+      const mockGrid = createMockGrid([], []);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      const result = plugin.handleQuery({ type: 'unknownQuery', context: undefined });
+
+      expect(result).toBeUndefined();
+    });
+  });
 });

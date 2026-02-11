@@ -205,15 +205,30 @@ The action callback receives context about the clicked cell:
 ```ts
 interface ContextMenuParams {
   row: unknown;
-  rowIndex: number;    // -1 for header clicks
+  rowIndex: number;       // -1 for header clicks
   column: unknown;
   columnIndex: number;
   field: string;
   value: unknown;
   isHeader: boolean;
   event: MouseEvent;
+  selectedRows: number[]; // Currently selected row indices
 }
 ```
+
+### Selection Sync
+
+When used with the `SelectionPlugin` (row mode), the context menu automatically syncs
+the selection on right-click:
+
+| Scenario | Behavior |
+|----------|----------|
+| Right-click a selected row | Multi-selection preserved |
+| Right-click an unselected row | Selects only that row |
+| No SelectionPlugin loaded | `selectedRows` = `[rowIndex]` |
+| Right-click on header | `selectedRows` = `[]` |
+
+This uses the **plugin query system** for loose coupling — no hard dependency on `SelectionPlugin`.
 
 ## Conditional Items
 

@@ -164,6 +164,33 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
   // #region Private Methods
 
   /**
+   * Sync selection with the right-clicked row.
+   * If the right-clicked row is already selected, keeps the multi-selection.
+   * If not, selects only the right-clicked row (standard behavior in file managers / spreadsheets).
+   *
+   * @returns Sorted array of selected row indices after sync
+   */
+  private syncSelectionOnContextMenu(rowIndex: number): number[] {
+    if (rowIndex < 0) return [];
+
+    // Use the query system for loose coupling — no import of SelectionPlugin needed
+    const selectionResult = this.grid?.query<number[]>('getSelectedRowIndices');
+    const currentSelection = selectionResult?.[0];
+
+    // No selection plugin loaded
+    if (!currentSelection) return [rowIndex];
+
+    if (currentSelection.includes(rowIndex)) {
+      // Right-clicked row is already selected — preserve multi-selection
+      return currentSelection;
+    }
+
+    // Right-clicked row is NOT selected — select only this row
+    this.grid?.query('selectRows', [rowIndex]);
+    return [rowIndex];
+  }
+
+  /**
    * CSS variables to copy from the grid element to the context menu.
    * Includes both base variables and context-menu specific overrides.
    */
@@ -331,6 +358,10 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         const column = this.columns[colIndex];
         const row = this.rows[rowIndex];
 
+        // Sync selection: if the right-clicked row is not already selected,
+        // select it (clearing multi-selection). If it IS selected, keep all.
+        const selectedRows = this.syncSelectionOnContextMenu(rowIndex);
+
         params = {
           row,
           rowIndex,
@@ -340,6 +371,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
           value: row?.[column?.field as keyof typeof row] ?? null,
           isHeader: false,
           event,
+          selectedRows,
         };
       } else if (header) {
         const colIndex = parseInt(header.getAttribute('data-col') ?? '-1', 10);
@@ -354,6 +386,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
           value: null,
           isHeader: true,
           event,
+          selectedRows: [],
         };
       } else {
         return;
@@ -411,6 +444,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       value: params.value ?? null,
       isHeader: params.isHeader ?? false,
       event: params.event ?? new MouseEvent('contextmenu'),
+      selectedRows: params.selectedRows ?? [],
     };
 
     const items = buildMenuItems(this.config.items ?? defaultItems, fullParams);

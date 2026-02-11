@@ -1,4 +1,4 @@
-import { computed, Directive, ElementRef, inject, input, output } from '@angular/core';
+import { afterNextRender, computed, DestroyRef, Directive, ElementRef, inject, input, output } from '@angular/core';
 import type { AbstractControl } from '@angular/forms';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
@@ -65,6 +65,10 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 @Directive()
 export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
   private readonly elementRef = inject(ElementRef);
+  private readonly _destroyRef = inject(DestroyRef);
+
+  /** Cleanup function for the edit-close listener */
+  private _editCloseCleanup: (() => void) | null = null;
 
   // ============================================================================
   // Inputs
@@ -177,8 +181,56 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
   });
 
   // ============================================================================
+  // Lifecycle
+  // ============================================================================
+
+  constructor() {
+    afterNextRender(() => this._initEditCloseListener());
+    this._destroyRef.onDestroy(() => {
+      this._editCloseCleanup?.();
+      this._editCloseCleanup = null;
+    });
+  }
+
+  private _initEditCloseListener(): void {
+    const grid = this.elementRef.nativeElement.closest('tbw-grid');
+    if (!grid) return;
+
+    const handler = () => this.onEditClose();
+    grid.addEventListener('edit-close', handler, { once: true });
+    this._editCloseCleanup = () => grid.removeEventListener('edit-close', handler);
+  }
+
+  // ============================================================================
   // Methods
   // ============================================================================
+
+  /**
+   * Whether this editor's cell is the currently focused cell.
+   *
+   * In row editing mode the grid creates editors for every editable cell
+   * in the row simultaneously. Use this to conditionally auto-focus inputs
+   * or open panels only in the active cell.
+   *
+   * Performs a synchronous DOM check — safe to call from `ngAfterViewInit`.
+   */
+  protected isCellFocused(): boolean {
+    return this.elementRef.nativeElement.closest('[part="cell"]')?.classList.contains('cell-focus') ?? false;
+  }
+
+  /**
+   * Called when the grid ends the editing session for this cell.
+   *
+   * Override to perform cleanup such as closing overlay panels, autocomplete
+   * dropdowns, or other floating UI that lives at `<body>` level and would
+   * otherwise persist after the editor DOM is removed.
+   *
+   * The listener is set up automatically via `afterNextRender` — no manual
+   * wiring required.
+   */
+  protected onEditClose(): void {
+    // Default: no-op. Subclasses override.
+  }
 
   /**
    * Commit a new value. Emits the commit output AND dispatches a DOM event.

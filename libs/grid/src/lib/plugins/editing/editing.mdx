@@ -188,7 +188,18 @@ new EditingPlugin({ editOn: 'dblclick' }) // or 'click', 'manual'
 | `'dblclick'`| Double-click on cell enters edit mode (default) |
 | `'manual'`  | Programmatic only via `startEdit(row, field)` |
 
-Additionally, pressing **Enter** on a focused cell will start editing.
+### Keyboard Shortcuts (Row Mode)
+
+| Key | Behavior |
+| --- | -------- |
+| **Enter** | Start editing the entire row (all editable cells get editors) |
+| **F2** | Start editing only the focused cell (single-cell edit) |
+| **Escape** | Cancel the current edit and revert changes |
+| **Tab** / **Shift+Tab** | Move to next/previous editable cell |
+| **Arrow Up/Down** | Commit current edit, exit edit mode, and move to adjacent row |
+| **Space** | Toggle boolean cells (when not in edit mode) |
+
+> **Tip:** Use **F2** when you only need to edit one cell without activating editors on the entire row.
 
 ## Grid Mode (Spreadsheet-like Editing)
 

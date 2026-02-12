@@ -395,6 +395,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   #gridModeEditLocked = false;
 
+  /**
+   * When true, only a single cell is being edited (triggered by F2 or `beginCellEdit`).
+   * Tab and Arrow keys commit and close the editor instead of navigating to adjacent cells.
+   */
+  #singleCellEdit = false;
+
   // #endregion
 
   // #region Lifecycle
@@ -588,6 +594,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#editorValueCallbacks.clear();
     this.#gridModeInputFocused = false;
     this.#gridModeEditLocked = false;
+    this.#singleCellEdit = false;
     super.detach();
   }
 
@@ -722,6 +729,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Tab/Shift+Tab while editing: move to next/prev editable cell
     if (event.key === 'Tab' && (this.#activeEditRow !== -1 || this.#isGridMode)) {
       event.preventDefault();
+
+      // In single-cell edit mode (F2), commit and close instead of navigating
+      if (this.#singleCellEdit) {
+        this.#exitRowEdit(this.#activeEditRow, false);
+        return true;
+      }
+
       const forward = !event.shiftKey;
       this.#handleTabNavigation(forward);
       return true;
@@ -832,6 +846,26 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         }
       }
       // No editable columns - don't block keyboard navigation
+      return false;
+    }
+
+    // F2: begin single-cell edit on the focused cell
+    if (event.key === 'F2') {
+      if (this.#activeEditRow !== -1 || this.#isGridMode) return false;
+
+      const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
+      if (editOn === false) return false;
+
+      const focusRow = internalGrid._focusRow;
+      const focusCol = internalGrid._focusCol;
+      if (focusRow >= 0 && focusCol >= 0) {
+        const column = internalGrid._visibleColumns[focusCol];
+        if (column?.editable && column.field) {
+          event.preventDefault();
+          this.beginCellEdit(focusRow, column.field);
+          return true;
+        }
+      }
       return false;
     }
 
@@ -1232,6 +1266,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const cellEl = rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
     if (!cellEl) return;
 
+    this.#singleCellEdit = true;
     this.#beginCellEdit(rowIndex, colIndex, cellEl);
   }
 
@@ -1251,6 +1286,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
     if (!rowEl) return;
+
+    // Bulk edit clears single-cell mode
+    this.#singleCellEdit = false;
 
     // Start row edit
     const rowData = internalGrid._rows[rowIndex];
@@ -1554,6 +1592,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#rowEditSnapshots.delete(rowIndex);
     this.#activeEditRow = -1;
     this.#activeEditCol = -1;
+    this.#singleCellEdit = false;
     this.#syncGridEditState();
 
     // Remove all editing cells for this row

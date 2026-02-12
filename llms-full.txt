@@ -811,6 +811,7 @@ new EditingPlugin({
   commitOnEnter?: boolean,                         // (default: true)
   cancelOnEscape?: boolean,                        // (default: true)
 })
+// Keyboard: Enter = row edit, F2 = single-cell edit, Escape = cancel, Tab = next cell
 ```
 
 ### FilteringPlugin

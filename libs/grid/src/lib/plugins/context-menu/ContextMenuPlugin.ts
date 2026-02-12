@@ -381,7 +381,14 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       }
       const group = Math.floor((item.order ?? 100) / 10);
       if (lastGroup >= 0 && group !== lastGroup) {
-        result.push({ id: `__sep-${lastGroup}-${group}`, label: '', separator: true, action: () => {} });
+        result.push({
+          id: `__sep-${lastGroup}-${group}`,
+          label: '',
+          separator: true,
+          action: () => {
+            /* noop */
+          },
+        });
       }
       lastGroup = group;
       result.push(item);
@@ -430,14 +437,14 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
       const target = event.target as HTMLElement;
       const cell = target.closest('[data-row][data-col]');
-      const header = target.closest('.header-cell');
+      const header = target.closest('[part~="header-cell"]');
 
       let params: ContextMenuParams;
 
       if (cell) {
         const rowIndex = parseInt(cell.getAttribute('data-row') ?? '-1', 10);
         const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
-        const column = this.columns[colIndex];
+        const column = this.visibleColumns[colIndex];
         const row = this.rows[rowIndex];
 
         // Sync selection: if the right-clicked row is not already selected,
@@ -457,7 +464,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         };
       } else if (header) {
         const colIndex = parseInt(header.getAttribute('data-col') ?? '-1', 10);
-        const column = this.columns[colIndex];
+        const column = this.visibleColumns[colIndex];
 
         params = {
           row: null,

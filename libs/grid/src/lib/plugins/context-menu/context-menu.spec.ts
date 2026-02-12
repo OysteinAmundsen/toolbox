@@ -758,8 +758,8 @@ describe('contextMenu', () => {
       const grid = createMockGrid((type: unknown) => {
         if (type === 'getContextMenuItems') {
           return [
-            [{ id: 'hide', label: 'Hide Column', icon: '👁', order: 30, action: () => {} }],
-            [{ id: 'clear-filter', label: 'Clear Filter', icon: '✕', order: 20, action: () => {} }],
+            [{ id: 'hide', label: 'Hide Column', icon: '👁', order: 30, action: () => { /* noop */ } }],
+            [{ id: 'clear-filter', label: 'Clear Filter', icon: '✕', order: 20, action: () => { /* noop */ } }],
           ];
         }
         return [];
@@ -806,9 +806,9 @@ describe('contextMenu', () => {
     it('should insert separators between different order groups', () => {
       const plugin = new ContextMenuPlugin();
       const items = [
-        { id: 'a', label: 'A', order: 20, action: () => {} },
-        { id: 'b', label: 'B', order: 21, action: () => {} },
-        { id: 'c', label: 'C', order: 30, action: () => {} },
+        { id: 'a', label: 'A', order: 20, action: () => { /* noop */ } },
+        { id: 'b', label: 'B', order: 21, action: () => { /* noop */ } },
+        { id: 'c', label: 'C', order: 30, action: () => { /* noop */ } },
       ];
 
       const result = plugin['insertGroupSeparators'](items);
@@ -824,8 +824,8 @@ describe('contextMenu', () => {
     it('should not insert separators within the same group', () => {
       const plugin = new ContextMenuPlugin();
       const items = [
-        { id: 'a', label: 'A', order: 20, action: () => {} },
-        { id: 'b', label: 'B', order: 21, action: () => {} },
+        { id: 'a', label: 'A', order: 20, action: () => { /* noop */ } },
+        { id: 'b', label: 'B', order: 21, action: () => { /* noop */ } },
       ];
 
       const result = plugin['insertGroupSeparators'](items);
@@ -843,7 +843,7 @@ describe('contextMenu', () => {
 
     it('should return single item unchanged', () => {
       const plugin = new ContextMenuPlugin();
-      const items = [{ id: 'a', label: 'A', order: 10, action: () => {} }];
+      const items = [{ id: 'a', label: 'A', order: 10, action: () => { /* noop */ } }];
 
       const result = plugin['insertGroupSeparators'](items);
 
@@ -871,7 +871,7 @@ describe('contextMenu', () => {
 
     it('should convert disabled items correctly', () => {
       const plugin = new ContextMenuPlugin();
-      const items = [{ id: 'disabled', label: 'Disabled', disabled: true, action: () => {} }];
+      const items = [{ id: 'disabled', label: 'Disabled', disabled: true, action: () => { /* noop */ } }];
 
       const result = plugin['convertPluginItems'](items);
 
@@ -880,7 +880,7 @@ describe('contextMenu', () => {
 
     it('should convert separator items correctly', () => {
       const plugin = new ContextMenuPlugin();
-      const items = [{ id: 'sep', label: '', separator: true as const, action: () => {} }];
+      const items = [{ id: 'sep', label: '', separator: true as const, action: () => { /* noop */ } }];
 
       const result = plugin['convertPluginItems'](items);
 

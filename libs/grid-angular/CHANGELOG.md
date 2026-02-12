@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.12.0...grid-angular-0.12.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* **grid-angular:** added sideeffects annotation to package ([95fc4de](https://github.com/OysteinAmundsen/toolbox/commit/95fc4def576fa0df29a8f6c87737502a0ed56a20))
+
 ## [0.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.11.1...grid-angular-0.12.0) (2026-02-11)
 
 

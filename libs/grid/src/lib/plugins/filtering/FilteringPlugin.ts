@@ -163,6 +163,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private filters: Map<string, FilterModel> = new Map();
   private cachedResult: unknown[] | null = null;
   private cacheKey: string | null = null;
+  /** Spot-check of input rows for cache invalidation when upstream plugins (e.g. sort) change row order */
+  private cachedInputSpot: { len: number; first: unknown; mid: unknown; last: unknown } | null = null;
   private openPanelField: string | null = null;
   private panelElement: HTMLElement | null = null;
   private panelAnchorElement: HTMLElement | null = null; // For CSS anchor positioning cleanup
@@ -221,6 +223,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.filters.clear();
     this.cachedResult = null;
     this.cacheKey = null;
+    this.cachedInputSpot = null;
     this.openPanelField = null;
     if (this.panelElement) {
       this.panelElement.remove();
@@ -250,9 +253,22 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       return [...rows];
     }
 
-    // Check cache
+    // Check cache — also verify input rows haven't changed (e.g. due to sort)
     const newCacheKey = computeFilterCacheKey(filterList);
-    if (this.cacheKey === newCacheKey && this.cachedResult) {
+    const inputSpot = {
+      len: rows.length,
+      first: rows[0],
+      mid: rows[Math.floor(rows.length / 2)],
+      last: rows[rows.length - 1],
+    };
+    const inputUnchanged =
+      this.cachedInputSpot != null &&
+      inputSpot.len === this.cachedInputSpot.len &&
+      inputSpot.first === this.cachedInputSpot.first &&
+      inputSpot.mid === this.cachedInputSpot.mid &&
+      inputSpot.last === this.cachedInputSpot.last;
+
+    if (this.cacheKey === newCacheKey && this.cachedResult && inputUnchanged) {
       return this.cachedResult;
     }
 
@@ -262,6 +278,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Update cache
     this.cachedResult = result;
     this.cacheKey = newCacheKey;
+    this.cachedInputSpot = inputSpot;
 
     return result;
   }
@@ -353,6 +370,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Invalidate cache
     this.cachedResult = null;
     this.cacheKey = null;
+    this.cachedInputSpot = null;
 
     this.emit<FilterChangeDetail>('filter-change', {
       filters: [...this.filters.values()],
@@ -396,6 +414,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
     this.cachedResult = null;
     this.cacheKey = null;
+    this.cachedInputSpot = null;
 
     this.emit<FilterChangeDetail>('filter-change', {
       filters: [...this.filters.values()],
@@ -1396,6 +1415,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private applyFiltersInternal(): void {
     this.cachedResult = null;
     this.cacheKey = null;
+    this.cachedInputSpot = null;
 
     const filterList = [...this.filters.values()];
 
@@ -1488,6 +1508,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Invalidate cache so filter is reapplied
     this.cachedResult = null;
     this.cacheKey = null;
+    this.cachedInputSpot = null;
   }
   // #endregion
 }

@@ -33,3 +33,29 @@ export interface ColumnVisibilityDetail {
   /** List of all currently visible column fields */
   visibleColumns: string[];
 }
+
+/**
+ * Column grouping info returned by the `getColumnGrouping` plugin query.
+ * Plugins like GroupingColumnsPlugin respond with this to describe
+ * how columns are organized into groups for the visibility panel.
+ *
+ * **Important:** This type describes group *membership* — which fields belong
+ * to which group. For authoritative display order, use `grid.getAllColumns()`
+ * or `grid.getColumnOrder()` from the ConfigManager, which reflects the
+ * current column positions after any reordering.
+ */
+export interface ColumnGroupInfo {
+  /** Unique group identifier */
+  id: string;
+  /** Display label for the group */
+  label: string;
+  /**
+   * Column field names belonging to this group.
+   *
+   * The order of fields is best-effort (sorted by current display order when
+   * available), but consumers should **not** rely on it for rendering.
+   * Use `grid.getAllColumns()` for authoritative display order and filter
+   * by group membership using this array.
+   */
+  fields: string[];
+}

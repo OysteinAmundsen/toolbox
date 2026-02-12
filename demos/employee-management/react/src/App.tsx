@@ -48,7 +48,6 @@ import {
   type ToolPanelContext,
 } from '@toolbox-web/grid-react';
 import { useGridExport } from '@toolbox-web/grid-react/features/export';
-import type { ColumnMoveDetail } from '@toolbox-web/grid/plugins/reorder';
 import { useCallback, useMemo, useState } from 'react';
 
 // Import shared data, types, and styles
@@ -56,7 +55,7 @@ import { generateEmployees, type Employee } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 
 // Grid configuration (columns, groups, pinned rows, responsive)
-import { COLUMN_GROUPS, createGridConfig, PINNED_ROWS_CONFIG, RESPONSIVE_CONFIG } from './grid-config';
+import { createGridConfig, PINNED_ROWS_CONFIG, RESPONSIVE_CONFIG } from './grid-config';
 
 // React-specific renderers and editors
 import { BonusSliderEditor } from './components/editors/BonusSliderEditor';
@@ -98,50 +97,6 @@ export function App() {
     setRowCount(newCount);
     setEmployees(generateEmployees(newCount));
   }, []);
-
-  /**
-   * Column group contiguity constraint.
-   * Prevents moving columns outside their group.
-   */
-  const handleColumnMove = useCallback(
-    (detail: ColumnMoveDetail, event?: Event) => {
-      const { field, columnOrder } = detail;
-
-      // Find which group this field belongs to
-      const sourceGroup = COLUMN_GROUPS.find((g) => g.children.includes(field));
-      if (!sourceGroup) return;
-
-      // Get the indices of all columns in the source group
-      const groupColumnIndices = sourceGroup.children
-        .map((f) => columnOrder.indexOf(f))
-        .filter((i) => i !== -1)
-        .sort((a, b) => a - b);
-
-      if (groupColumnIndices.length <= 1) return;
-
-      // Check if the group columns are contiguous
-      const minIndex = groupColumnIndices[0];
-      const maxIndex = groupColumnIndices[groupColumnIndices.length - 1];
-      const isContiguous = groupColumnIndices.length === maxIndex - minIndex + 1;
-
-      if (!isContiguous) {
-        console.log(`[Column Move Cancelled] Cannot move "${field}" outside its group "${sourceGroup.id}"`);
-        event?.preventDefault();
-
-        // Flash error animation
-        const grid = ref.current?.element;
-        const headerCell = grid?.querySelector(`.header-row .cell[data-field="${field}"]`) as HTMLElement;
-        if (headerCell) {
-          headerCell.style.setProperty('--_flash-color', 'var(--tbw-color-error)');
-          headerCell.animate(
-            [{ backgroundColor: 'rgba(from var(--_flash-color) r g b / 30%)' }, { backgroundColor: 'transparent' }],
-            { duration: 400, easing: 'ease-out' },
-          );
-        }
-      }
-    },
-    [ref],
-  );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GRID CONFIG
@@ -235,7 +190,7 @@ export function App() {
             reorder
             visibility
             pinnedColumns
-            groupingColumns
+            groupingColumns={{ lockGroupOrder: true }}
             columnVirtualization
             export
             responsive={RESPONSIVE_CONFIG}
@@ -245,7 +200,6 @@ export function App() {
             // EVENT PROPS - Automatic cleanup, no useEffect needed
             // ═══════════════════════════════════════════════════════════════
             onRowsChange={setEmployees}
-            onColumnMove={handleColumnMove}
           >
             {/* Toolbar buttons */}
             <GridToolButtons>

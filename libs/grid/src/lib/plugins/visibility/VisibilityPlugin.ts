@@ -21,7 +21,7 @@ import {
 } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
-import type { VisibilityConfig } from './types';
+import type { ColumnGroupInfo, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
 
 /**
@@ -188,6 +188,33 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   // #endregion
 
   // #region Lifecycle
+
+  /** @internal */
+  override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
+    super.attach(grid);
+
+    // Listen for column-move events (emitted by ReorderPlugin after any reorder,
+    // including header drag-drop and visibility panel drag-drop) to keep the
+    // panel list in sync with the grid's column order.
+    (grid as unknown as HTMLElement).addEventListener(
+      'column-move',
+      () => {
+        if (this.columnListElement) {
+          // column-move fires BEFORE setColumnOrder runs. Defer the rebuild
+          // to allow the full reorder cycle (setColumnOrder + renderHeader +
+          // refreshVirtualWindow) to complete before reading the new order.
+          // Use RAF to run after the current synchronous work and any
+          // animation frames queued by the animation system.
+          requestAnimationFrame(() => {
+            if (this.columnListElement) {
+              this.rebuildToggles(this.columnListElement);
+            }
+          });
+        }
+      },
+      { signal: this.disconnectSignal },
+    );
+  }
 
   /** @internal */
   override detach(): void {
@@ -437,6 +464,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   /**
    * Build the column toggle checkboxes.
+   * When GroupingColumnsPlugin is present, renders columns under collapsible group headers.
    * When a reorder plugin is present, adds drag handles for reordering.
    */
   private rebuildToggles(columnList: HTMLElement): void {
@@ -444,59 +472,186 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
     columnList.innerHTML = '';
 
-    // getAllColumns() now returns columns in their effective display order
+    // getAllColumns() returns columns in their effective display order
     // Filter out utility columns (e.g., expander column) as they're internal
     const allColumns = this.grid.getAllColumns().filter((c) => !c.utility);
 
-    for (let i = 0; i < allColumns.length; i++) {
-      const col = allColumns[i];
-      const label = col.header || col.field;
+    // Query for column grouping info from GroupingColumnsPlugin (or any responder)
+    const groupResults = this.grid.query<ColumnGroupInfo[]>('getColumnGrouping');
+    const groups: ColumnGroupInfo[] = groupResults?.flat().filter((g) => g && g.fields.length > 0) ?? [];
 
-      const row = document.createElement('div');
-      row.className = col.lockVisible ? 'tbw-visibility-row locked' : 'tbw-visibility-row';
-      row.setAttribute('data-field', col.field);
-      row.setAttribute('data-index', String(i));
-
-      // Add drag handle if reorder is enabled
-      if (reorderEnabled && canMoveColumn(col as unknown as ColumnConfig)) {
-        row.draggable = true;
-        row.classList.add('reorderable');
-
-        this.setupDragListeners(row, col.field, i, columnList);
-      }
-
-      const labelWrapper = document.createElement('label');
-      labelWrapper.className = 'tbw-visibility-label';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = col.visible;
-      checkbox.disabled = col.lockVisible ?? false;
-      checkbox.addEventListener('change', () => {
-        this.grid.toggleColumnVisibility(col.field);
-        // Refresh after toggle (grid may re-render)
-        setTimeout(() => this.rebuildToggles(columnList), 0);
-      });
-
-      const text = document.createElement('span');
-      text.textContent = label;
-
-      labelWrapper.appendChild(checkbox);
-      labelWrapper.appendChild(text);
-
-      // Add drag handle icon if reorderable
-      if (reorderEnabled && canMoveColumn(col as unknown as ColumnConfig)) {
-        const handle = document.createElement('span');
-        handle.className = 'tbw-visibility-handle';
-        // Use grid-level icons (fall back to defaults)
-        this.setIcon(handle, this.resolveIcon('dragHandle'));
-        handle.title = 'Drag to reorder';
-        row.appendChild(handle);
-      }
-
-      row.appendChild(labelWrapper);
-      columnList.appendChild(row);
+    if (groups.length === 0) {
+      // No grouping — render flat list (original behavior)
+      this.renderFlatColumnList(allColumns, reorderEnabled, columnList);
+      return;
     }
+
+    // Build field → group lookup
+    const fieldToGroup = new Map<string, ColumnGroupInfo>();
+    for (const group of groups) {
+      for (const field of group.fields) fieldToGroup.set(field, group);
+    }
+
+    // Walk columns in display order, interleaving groups and ungrouped columns.
+    // When we encounter the first column of a group, render the entire group section.
+    const renderedGroups = new Set<string>();
+
+    for (const col of allColumns) {
+      const group = fieldToGroup.get(col.field);
+
+      if (group) {
+        // Column belongs to a group — render entire group section at first encounter
+        if (!renderedGroups.has(group.id)) {
+          renderedGroups.add(group.id);
+          // Filter allColumns (which is in display order) to group members.
+          // This preserves the current column order after reordering,
+          // rather than using group.fields which may be in static/original order.
+          const groupFieldSet = new Set(group.fields);
+          const groupCols = allColumns.filter((c) => groupFieldSet.has(c.field));
+          if (groupCols.length > 0) {
+            this.renderGroupSection(group, groupCols, reorderEnabled, columnList);
+          }
+        }
+        // Subsequent columns of the same group are already rendered — skip
+      } else {
+        // Ungrouped column — render as individual row at its natural position
+        const fullIndex = allColumns.indexOf(col);
+        columnList.appendChild(this.createColumnRow(col, fullIndex, reorderEnabled, columnList));
+      }
+    }
+  }
+
+  /**
+   * Render a group section with header checkbox and indented column rows.
+   */
+  private renderGroupSection(
+    group: ColumnGroupInfo,
+    columns: ReturnType<typeof this.grid.getAllColumns>,
+    reorderEnabled: boolean,
+    container: HTMLElement,
+  ): void {
+    // Group header row
+    const header = document.createElement('div');
+    header.className = 'tbw-visibility-group-header';
+    header.setAttribute('data-group-id', group.id);
+
+    const headerLabel = document.createElement('label');
+    headerLabel.className = 'tbw-visibility-label';
+
+    const groupCheckbox = document.createElement('input');
+    groupCheckbox.type = 'checkbox';
+
+    // Calculate tri-state: all visible, all hidden, or mixed
+    const visibleCount = columns.filter((c) => c.visible).length;
+    const allLocked = columns.every((c) => c.lockVisible);
+    if (visibleCount === columns.length) {
+      groupCheckbox.checked = true;
+      groupCheckbox.indeterminate = false;
+    } else if (visibleCount === 0) {
+      groupCheckbox.checked = false;
+      groupCheckbox.indeterminate = false;
+    } else {
+      groupCheckbox.checked = false;
+      groupCheckbox.indeterminate = true;
+    }
+    groupCheckbox.disabled = allLocked;
+
+    // Toggle all columns in group
+    groupCheckbox.addEventListener('change', () => {
+      const newVisible = groupCheckbox.checked;
+      for (const col of columns) {
+        if (col.lockVisible) continue;
+        this.grid.setColumnVisible(col.field, newVisible);
+      }
+      setTimeout(() => this.rebuildToggles(container), 0);
+    });
+
+    const headerText = document.createElement('span');
+    headerText.textContent = group.label;
+
+    headerLabel.appendChild(groupCheckbox);
+    headerLabel.appendChild(headerText);
+    header.appendChild(headerLabel);
+    container.appendChild(header);
+
+    // Render indented column rows
+    const allColumnsFullList = this.grid.getAllColumns().filter((c) => !c.utility);
+    for (const col of columns) {
+      const fullIndex = allColumnsFullList.findIndex((c) => c.field === col.field);
+      const row = this.createColumnRow(col, fullIndex, reorderEnabled, container);
+      row.classList.add('tbw-visibility-row--grouped');
+      container.appendChild(row);
+    }
+  }
+
+  /**
+   * Render a flat (ungrouped) list of column rows.
+   */
+  private renderFlatColumnList(
+    columns: ReturnType<typeof this.grid.getAllColumns>,
+    reorderEnabled: boolean,
+    container: HTMLElement,
+  ): void {
+    const allColumnsFullList = this.grid.getAllColumns().filter((c) => !c.utility);
+    for (const col of columns) {
+      const fullIndex = allColumnsFullList.findIndex((c) => c.field === col.field);
+      container.appendChild(this.createColumnRow(col, fullIndex, reorderEnabled, container));
+    }
+  }
+
+  /**
+   * Create a single column visibility row element.
+   */
+  private createColumnRow(
+    col: ReturnType<typeof this.grid.getAllColumns>[number],
+    index: number,
+    reorderEnabled: boolean,
+    columnList: HTMLElement,
+  ): HTMLElement {
+    const label = col.header || col.field;
+
+    const row = document.createElement('div');
+    row.className = col.lockVisible ? 'tbw-visibility-row locked' : 'tbw-visibility-row';
+    row.setAttribute('data-field', col.field);
+    row.setAttribute('data-index', String(index));
+
+    // Add drag handle if reorder is enabled
+    if (reorderEnabled && canMoveColumn(col as unknown as ColumnConfig)) {
+      row.draggable = true;
+      row.classList.add('reorderable');
+      this.setupDragListeners(row, col.field, index, columnList);
+    }
+
+    const labelWrapper = document.createElement('label');
+    labelWrapper.className = 'tbw-visibility-label';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = col.visible;
+    checkbox.disabled = col.lockVisible ?? false;
+    checkbox.addEventListener('change', () => {
+      this.grid.toggleColumnVisibility(col.field);
+      // Refresh after toggle (grid may re-render)
+      setTimeout(() => this.rebuildToggles(columnList), 0);
+    });
+
+    const text = document.createElement('span');
+    text.textContent = label;
+
+    labelWrapper.appendChild(checkbox);
+    labelWrapper.appendChild(text);
+
+    // Add drag handle icon if reorderable
+    if (reorderEnabled && canMoveColumn(col as unknown as ColumnConfig)) {
+      const handle = document.createElement('span');
+      handle.className = 'tbw-visibility-handle';
+      this.setIcon(handle, this.resolveIcon('dragHandle'));
+      handle.title = 'Drag to reorder';
+      row.appendChild(handle);
+    }
+
+    row.appendChild(labelWrapper);
+    return row;
   }
 
   /**
@@ -579,11 +734,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
           toIndex: fullOrderToIndex,
         };
         this.emit<ColumnReorderRequestDetail>('column-reorder-request', detail);
-
-        // Rebuild the panel after reorder (deferred to allow re-render)
-        setTimeout(() => {
-          this.rebuildToggles(columnList);
-        }, 0);
+        // Panel rebuild is handled by the column-move listener in attach()
       }
     });
   }

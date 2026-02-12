@@ -13,7 +13,13 @@ import '@toolbox-web/grid-angular/features/visibility';
 
 import { CurrencyPipe } from '@angular/common';
 import { Component, computed, CUSTOM_ELEMENTS_SCHEMA, inject, signal } from '@angular/core';
-import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormBuilder,
+  FormGroup,
+  FormsModule,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { generateEmployees, type Employee } from '@demo/shared';
 import { shadowDomStyles } from '@demo/shared/styles';
 import {
@@ -28,9 +34,7 @@ import {
   TbwRenderer,
 } from '@toolbox-web/grid-angular';
 import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
-import type { ColumnMoveDetail } from '@toolbox-web/grid/all';
-
-import { COLUMN_GROUPS, createGridConfig } from './grid-config';
+import { createGridConfig } from './grid-config';
 
 // Import components so they're available in templates
 // Note: RatingDisplayComponent and StarRatingEditorComponent are configured via gridConfig,
@@ -143,56 +147,6 @@ export class AppComponent {
   onCellCommit(event: CellCommitEvent): void {
     console.log(`[Grid] Cell committed: ${event.field} = ${event.value} (row ${event.rowIndex})`);
     // Example: could trigger auto-save, show notification, etc.
-  }
-
-  /**
-   * Handle column-move events to enforce group constraints.
-   * This demonstrates the cancelable event feature - prevents columns
-   * from being moved outside their assigned column groups.
-   */
-  onColumnMove(event: Event): void {
-    const customEvent = event as CustomEvent<ColumnMoveDetail>;
-    const { field, columnOrder } = customEvent.detail;
-
-    // Find which group this field belongs to
-    const sourceGroup = COLUMN_GROUPS.find((g) => g.children.includes(field));
-    if (!sourceGroup) return; // Not in a group, allow the move
-
-    // Get the indices of all columns in the source group (in the new/proposed order)
-    const groupColumnIndices = sourceGroup.children
-      .map((f) => columnOrder.indexOf(f))
-      .filter((i) => i !== -1)
-      .sort((a, b) => a - b);
-
-    if (groupColumnIndices.length <= 1) return;
-
-    // Check if the group columns are contiguous (no gaps between them)
-    const minIndex = groupColumnIndices[0];
-    const maxIndex = groupColumnIndices[groupColumnIndices.length - 1];
-    const isContiguous = groupColumnIndices.length === maxIndex - minIndex + 1;
-
-    if (!isContiguous) {
-      console.log(
-        `[Column Move Cancelled] Cannot move "${field}" outside its group "${sourceGroup.id}"`,
-      );
-      event.preventDefault();
-
-      // Flash the column header with error color to indicate cancellation
-      const gridEl = this.grid.element();
-      const headerCell = gridEl?.querySelector(
-        `.header-row .cell[data-field="${field}"]`,
-      ) as HTMLElement;
-      if (headerCell) {
-        headerCell.style.setProperty('--_flash-color', 'var(--tbw-color-error)');
-        headerCell.animate(
-          [
-            { backgroundColor: 'rgba(from var(--_flash-color) r g b / 30%)' },
-            { backgroundColor: 'transparent' },
-          ],
-          { duration: 400, easing: 'ease-out' },
-        );
-      }
-    }
   }
 
   /**

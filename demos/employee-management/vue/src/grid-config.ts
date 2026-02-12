@@ -42,9 +42,8 @@ export interface GridConfigOptions {
 
 /**
  * Column groups for multi-level headers.
- * Exported so the column-move constraint handler can reference them.
  */
-export const COLUMN_GROUPS = [
+const COLUMN_GROUPS = [
   { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
   { id: 'organization', header: 'Organization', children: ['department', 'team', 'title', 'level'] },
   { id: 'compensation', header: 'Compensation', children: ['salary', 'bonus'] },

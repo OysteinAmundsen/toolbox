@@ -250,3 +250,62 @@ describe('getColumnGroupId', () => {
     expect(getColumnGroupId({ field: 'a', header: 'A', group: { id: 'g1', label: 'Label' } } as any)).toBe('g1');
   });
 });
+
+describe('GroupingColumnsPlugin.handleQuery (getColumnGrouping)', async () => {
+  const { GroupingColumnsPlugin } = await import('./GroupingColumnsPlugin');
+
+  function createPluginWithGroups(columns: any[]): InstanceType<typeof GroupingColumnsPlugin> {
+    const plugin = new GroupingColumnsPlugin();
+    // Simulate processColumns to populate internal groups
+    plugin.processColumns(columns);
+    return plugin;
+  }
+
+  it('returns empty array when grouping is inactive', () => {
+    const plugin = new GroupingColumnsPlugin();
+    const result = plugin.handleQuery({ type: 'getColumnGrouping', context: undefined });
+    expect(result).toEqual([]);
+  });
+
+  it('returns explicit groups as ColumnGroupInfo', () => {
+    const plugin = createPluginWithGroups([
+      { field: 'name', header: 'Name', group: { id: 'personal', label: 'Personal' } },
+      { field: 'email', header: 'Email', group: { id: 'personal', label: 'Personal' } },
+      { field: 'dept', header: 'Department', group: { id: 'work', label: 'Work' } },
+    ]);
+
+    const result = plugin.handleQuery({ type: 'getColumnGrouping', context: undefined }) as any[];
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ id: 'personal', label: 'Personal', fields: ['name', 'email'] });
+    expect(result[1]).toEqual({ id: 'work', label: 'Work', fields: ['dept'] });
+  });
+
+  it('filters out implicit groups', () => {
+    const plugin = createPluginWithGroups([
+      { field: 'id', header: 'ID' }, // ungrouped → implicit group
+      { field: 'name', header: 'Name', group: { id: 'personal', label: 'Personal' } },
+      { field: 'email', header: 'Email', group: { id: 'personal', label: 'Personal' } },
+    ]);
+
+    const result = plugin.handleQuery({ type: 'getColumnGrouping', context: undefined }) as any[];
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('personal');
+  });
+
+  it('uses group id as label fallback when label is undefined', () => {
+    const plugin = createPluginWithGroups([
+      { field: 'a', header: 'A', group: 'MyGroup' },
+      { field: 'b', header: 'B', group: 'MyGroup' },
+    ]);
+
+    const result = plugin.handleQuery({ type: 'getColumnGrouping', context: undefined }) as any[];
+    expect(result).toHaveLength(1);
+    expect(result[0].label).toBe('MyGroup');
+  });
+
+  it('returns undefined for unknown query types', () => {
+    const plugin = new GroupingColumnsPlugin();
+    const result = plugin.handleQuery({ type: 'unknownQuery', context: undefined });
+    expect(result).toBeUndefined();
+  });
+});

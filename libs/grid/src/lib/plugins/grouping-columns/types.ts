@@ -55,6 +55,13 @@ export interface GroupingColumnsConfig {
   groupHeaderRenderer?: (params: GroupHeaderRenderParams) => HTMLElement | string | void;
   /** Whether to show group borders (default: true) */
   showGroupBorders?: boolean;
+  /**
+   * Prevent columns from being reordered outside their group.
+   * When enabled, column moves that would break group contiguity are blocked.
+   * Works with both header drag-and-drop and visibility panel drag-and-drop.
+   * @default false
+   */
+  lockGroupOrder?: boolean;
 }
 
 /** Parameters passed to custom group header renderer */

@@ -242,7 +242,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
       new ClipboardPlugin(),
       new ContextMenuPlugin(),
       new ReorderPlugin(),
-      new GroupingColumnsPlugin(),
+      new GroupingColumnsPlugin({ lockGroupOrder: true }),
       new PinnedColumnsPlugin(),
       new ColumnVirtualizationPlugin(),
       new VisibilityPlugin(),

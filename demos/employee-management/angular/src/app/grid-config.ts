@@ -44,7 +44,7 @@ export interface GridConfigOptions {
 
 /**
  * Column groups for the employee grid.
- * Exported so the column-move constraint handler can reference them.
+ * Used in the gridConfig.columnGroups configuration.
  */
 export const COLUMN_GROUPS = [
   { id: 'employee', header: 'Employee Info', children: ['firstName', 'lastName', 'email'] },
@@ -189,7 +189,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
     // Dynamic features (toggled via checkboxes) configured via plugins:
     plugins: [
       // GroupingColumnsPlugin: uses columnGroups config property
-      new GroupingColumnsPlugin(),
+      new GroupingColumnsPlugin({ lockGroupOrder: true }),
       // ResponsivePlugin: uses <tbw-grid-responsive-card> template element
       new ResponsivePlugin({
         breakpoint: 700,

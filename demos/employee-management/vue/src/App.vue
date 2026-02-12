@@ -48,7 +48,6 @@ import {
   useGrid,
 } from '@toolbox-web/grid-vue';
 import { useGridExport } from '@toolbox-web/grid-vue/features/export';
-import type { ColumnMoveDetail } from '@toolbox-web/grid/plugins/reorder';
 import { computed, h, markRaw, ref } from 'vue';
 
 // Import shared data, types, and styles
@@ -56,7 +55,7 @@ import { generateEmployees, type Employee } from '@demo/shared';
 import '@demo/shared/demo-styles.css';
 
 // Grid configuration (columns, groups, pinned rows, responsive)
-import { COLUMN_GROUPS, createGridConfig, PINNED_ROWS_CONFIG, RESPONSIVE_CONFIG } from './grid-config';
+import { createGridConfig, PINNED_ROWS_CONFIG, RESPONSIVE_CONFIG } from './grid-config';
 
 // Vue-specific renderers and editors
 import BonusSliderEditor from './components/editors/BonusSliderEditor.vue';
@@ -98,47 +97,6 @@ const handleRowCountChange = (e: Event) => {
   const newCount = parseInt(target.value, 10);
   rowCount.value = newCount;
   employees.value = generateEmployees(newCount);
-};
-
-/**
- * Column group contiguity constraint.
- * Prevents moving columns outside their group.
- */
-const handleColumnMove = (event: CustomEvent<ColumnMoveDetail>) => {
-  const { field, columnOrder } = event.detail;
-
-  // Find which group this field belongs to
-  const sourceGroup = COLUMN_GROUPS.find((g) => g.children.includes(field));
-  if (!sourceGroup) return;
-
-  // Get the indices of all columns in the source group
-  const groupColumnIndices = sourceGroup.children
-    .map((f) => columnOrder.indexOf(f))
-    .filter((i) => i !== -1)
-    .sort((a, b) => a - b);
-
-  if (groupColumnIndices.length <= 1) return;
-
-  // Check if the group columns are contiguous
-  const minIndex = groupColumnIndices[0];
-  const maxIndex = groupColumnIndices[groupColumnIndices.length - 1];
-  const isContiguous = groupColumnIndices.length === maxIndex - minIndex + 1;
-
-  if (!isContiguous) {
-    console.log(`[Column Move Cancelled] Cannot move "${field}" outside its group "${sourceGroup.id}"`);
-    event.preventDefault();
-
-    // Flash error animation
-    const grid = gridElement.value;
-    const headerCell = grid?.querySelector(`.header-row .cell[data-field="${field}"]`) as HTMLElement;
-    if (headerCell) {
-      headerCell.style.setProperty('--_flash-color', 'var(--tbw-color-error)');
-      headerCell.animate(
-        [{ backgroundColor: 'rgba(from var(--_flash-color) r g b / 30%)' }, { backgroundColor: 'transparent' }],
-        { duration: 400, easing: 'ease-out' },
-      );
-    }
-  }
 };
 
 const handleRowsChange = (event: CustomEvent<{ rows: Employee[] }>) => {
@@ -232,14 +190,13 @@ const masterDetailConfig = computed(() =>
           reorder
           visibility
           pinnedColumns
-          groupingColumns
+          :groupingColumns="{ lockGroupOrder: true }"
           columnVirtualization
           export
           :responsive="RESPONSIVE_CONFIG"
           :masterDetail="masterDetailConfig"
           :pinnedRows="PINNED_ROWS_CONFIG"
           @rows-change="handleRowsChange"
-          @column-move="handleColumnMove"
         >
           <!-- Toolbar buttons -->
           <TbwGridToolButtons>

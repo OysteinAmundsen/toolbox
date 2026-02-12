@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.14.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.14.0...grid-1.14.1) (2026-02-12)
+
+
+### Bug Fixes
+
+* **grid:** invalidate filter cache when upstream plugins change row order ([c0bb985](https://github.com/OysteinAmundsen/toolbox/commit/c0bb985f75aa63a07581654ae325d2e01f6e8273))
+* **grid:** selection plugin should not react to ctrl+a when editing. ([a9f5d57](https://github.com/OysteinAmundsen/toolbox/commit/a9f5d578aee5db3e6138d8c49027aaec9dc141cb))
+* **grid:** use real DOM elements for row loading spinner ([7cd2e4a](https://github.com/OysteinAmundsen/toolbox/commit/7cd2e4a3a660bacf93da53f63838b0bd30eca9f1))
+
+
+### Enhancements
+
+* **grid:** add "show only blank" option to date filter panel ([f6603c4](https://github.com/OysteinAmundsen/toolbox/commit/f6603c4d0ea23d761e992c534dd091191491041a))
+
 ## [1.14.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.13.0...grid-1.14.0) (2026-02-11)
 
 

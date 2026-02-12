@@ -29,7 +29,7 @@
  * @packageDocumentation
  */
 
-import { ElementRef, inject, signal, type Signal } from '@angular/core';
+import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeature } from '@toolbox-web/grid-angular';
 import { ExportPlugin, type ExportFormat, type ExportParams } from '@toolbox-web/grid/plugins/export';
@@ -122,6 +122,7 @@ export interface ExportMethods {
  */
 export function injectGridExport(): ExportMethods {
   const elementRef = inject(ElementRef);
+  const destroyRef = inject(DestroyRef);
   const isReady = signal(false);
 
   // Lazy discovery: cached grid reference
@@ -150,6 +151,21 @@ export function injectGridExport(): ExportMethods {
   const getPlugin = (): ExportPlugin | undefined => {
     return getGrid()?.getPlugin(ExportPlugin);
   };
+
+  // Eagerly discover the grid after the first render so isReady updates
+  // without requiring a programmatic method call. Falls back to a
+  // MutationObserver for lazy-rendered tabs, *ngIf, @defer, etc.
+  afterNextRender(() => {
+    if (getGrid()) return;
+
+    const host = elementRef.nativeElement as HTMLElement;
+    const observer = new MutationObserver(() => {
+      if (getGrid()) observer.disconnect();
+    });
+    observer.observe(host, { childList: true, subtree: true });
+
+    destroyRef.onDestroy(() => observer.disconnect());
+  });
 
   return {
     isReady: isReady.asReadonly(),

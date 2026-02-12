@@ -28,7 +28,7 @@
  * @packageDocumentation
  */
 
-import { ElementRef, inject, signal, type Signal } from '@angular/core';
+import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeature } from '@toolbox-web/grid-angular';
 import { PrintPlugin, type PrintParams } from '@toolbox-web/grid/plugins/print';
@@ -100,6 +100,7 @@ export interface PrintMethods {
  */
 export function injectGridPrint(): PrintMethods {
   const elementRef = inject(ElementRef);
+  const destroyRef = inject(DestroyRef);
   const isReady = signal(false);
 
   let cachedGrid: DataGridElement | null = null;
@@ -122,6 +123,21 @@ export function injectGridPrint(): PrintMethods {
   const getPlugin = (): PrintPlugin | undefined => {
     return getGrid()?.getPlugin(PrintPlugin);
   };
+
+  // Eagerly discover the grid after the first render so isReady updates
+  // without requiring a programmatic method call. Falls back to a
+  // MutationObserver for lazy-rendered tabs, *ngIf, @defer, etc.
+  afterNextRender(() => {
+    if (getGrid()) return;
+
+    const host = elementRef.nativeElement as HTMLElement;
+    const observer = new MutationObserver(() => {
+      if (getGrid()) observer.disconnect();
+    });
+    observer.observe(host, { childList: true, subtree: true });
+
+    destroyRef.onDestroy(() => observer.disconnect());
+  });
 
   return {
     isReady: isReady.asReadonly(),

@@ -32,7 +32,7 @@
  * @packageDocumentation
  */
 
-import { DestroyRef, ElementRef, inject, signal, type Signal } from '@angular/core';
+import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeature } from '@toolbox-web/grid-angular';
 import {
@@ -233,6 +233,44 @@ export function injectGridSelection<TRow = unknown>(): SelectionMethods {
   const getPlugin = (): SelectionPlugin | undefined => {
     return getGrid()?.getPlugin(SelectionPlugin);
   };
+
+  /**
+   * Sync reactive signals with the current plugin state.
+   * Called once when the grid is first discovered and ready.
+   */
+  const syncSignals = (): void => {
+    const plugin = getPlugin();
+    if (plugin) {
+      selectionSignal.set(plugin.getSelection());
+      const mode = (plugin as any).config?.mode;
+      selectedRowIndicesSignal.set(mode === 'row' ? plugin.getSelectedRowIndices() : []);
+    }
+  };
+
+  // Discover the grid after the first render so the selection-change
+  // listener is attached without requiring a programmatic method call.
+  // Uses a MutationObserver as fallback for lazy-rendered tabs, *ngIf,
+  // @defer, etc. where the grid may not be in the DOM on first render.
+  afterNextRender(() => {
+    const grid = getGrid();
+    if (grid) {
+      grid.ready?.().then(syncSignals);
+      return;
+    }
+
+    // Grid not in DOM yet — watch for it to appear.
+    const host = elementRef.nativeElement as HTMLElement;
+    const observer = new MutationObserver(() => {
+      const discovered = getGrid();
+      if (discovered) {
+        observer.disconnect();
+        discovered.ready?.().then(syncSignals);
+      }
+    });
+    observer.observe(host, { childList: true, subtree: true });
+
+    destroyRef.onDestroy(() => observer.disconnect());
+  });
 
   return {
     isReady: isReady.asReadonly(),

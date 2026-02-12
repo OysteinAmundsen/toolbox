@@ -236,9 +236,10 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     const existingGroupRow = header.querySelector('.header-group-row');
     if (existingGroupRow) existingGroupRow.remove();
 
-    // Recompute groups from the final column list (which includes plugin-added columns like expander).
-    // The groups computed during processColumns may be stale if other plugins added columns.
-    const finalColumns = this.columns as ColumnConfig[];
+    // Recompute groups from visible columns only (hidden columns have no CSS grid track).
+    // This also picks up any plugin-added columns (e.g. expander) that weren't present
+    // during processColumns.
+    const finalColumns = this.visibleColumns as ColumnConfig[];
     const groups = computeColumnGroups(finalColumns);
     if (groups.length === 0) return;
 

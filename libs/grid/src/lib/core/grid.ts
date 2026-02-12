@@ -2059,19 +2059,72 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
           // Preserve hidden columns at the end
           this._columns = [...processedColumns, ...hiddenCols] as ColumnInternal<T>[];
         } else {
-          // Plugins may have:
-          // 1. Modified existing columns
-          // 2. Added new columns (e.g., expander column)
-          // 3. Reordered columns
-          // We trust the plugin's output order and include all columns they returned
-          // plus any hidden columns at the end
-          this._columns = [...processedColumns, ...hiddenCols] as ColumnInternal<T>[];
+          // Plugins may have modified, added, or reordered visible columns.
+          // Re-interleave hidden columns at their original positions (from sourceColumns)
+          // so that showing a column later restores it to its correct position.
+          this._columns = this.#mergeColumnsPreservingOrder(
+            sourceColumns,
+            processedColumns as ColumnInternal<T>[],
+            hiddenCols,
+          );
         }
       } else {
         // Plugins returned columns unchanged, but we may need to restore from base
         this._columns = [...sourceColumns] as ColumnInternal<T>[];
       }
     }
+  }
+
+  /**
+   * Merge plugin-processed visible columns with hidden columns, preserving original order.
+   * Hidden columns are re-inserted at their original positions (from sourceColumns) so that
+   * showing a column later restores it to the correct position instead of appending at end.
+   *
+   * @param sourceColumns - The original columns in correct order (from #baseColumns)
+   * @param processedVisible - Plugin-processed visible columns
+   * @param hiddenCols - Hidden columns to re-interleave
+   * @returns Merged columns array preserving original ordering for hidden columns
+   */
+  #mergeColumnsPreservingOrder(
+    sourceColumns: ColumnInternal<T>[],
+    processedVisible: ColumnInternal<T>[],
+    hiddenCols: ColumnInternal<T>[],
+  ): ColumnInternal<T>[] {
+    if (hiddenCols.length === 0) return processedVisible;
+
+    // Build a map of processed visible columns by field for O(1) lookup
+    const processedMap = new Map<string, ColumnInternal<T>>();
+    for (const col of processedVisible) {
+      processedMap.set(col.field, col);
+    }
+
+    // Collect plugin-added columns (not in source) — these go at the end
+    const sourceFields = new Set(sourceColumns.map((c) => c.field));
+    const pluginAdded: ColumnInternal<T>[] = [];
+    for (const col of processedVisible) {
+      if (!sourceFields.has(col.field)) {
+        pluginAdded.push(col);
+      }
+    }
+
+    // Walk sourceColumns in original order, picking from processed (visible) or hidden
+    const result: ColumnInternal<T>[] = [];
+    for (const srcCol of sourceColumns) {
+      const processed = processedMap.get(srcCol.field);
+      if (processed) {
+        // Visible column — use the plugin-processed version
+        result.push(processed);
+      } else if (srcCol.hidden) {
+        // Hidden column — keep at original position
+        result.push(srcCol);
+      }
+      // else: column was removed by plugins — skip
+    }
+
+    // Append any plugin-added columns (e.g., expander) at the end
+    result.push(...pluginAdded);
+
+    return result;
   }
 
   /** Recompute row model via plugin hooks. */

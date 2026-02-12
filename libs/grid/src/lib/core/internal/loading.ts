@@ -73,6 +73,8 @@ export function hideLoadingOverlay(overlayEl: HTMLElement | undefined): void {
 
 /**
  * Update a row element's loading state.
+ * Uses real DOM elements instead of ::before/::after pseudo-elements
+ * because the selection plugin already uses ::after on rows for border styling.
  * @param rowEl - The row element
  * @param loading - Whether the row is loading
  */
@@ -80,9 +82,25 @@ export function setRowLoadingState(rowEl: HTMLElement, loading: boolean): void {
   if (loading) {
     rowEl.classList.add('tbw-row-loading');
     rowEl.setAttribute('aria-busy', 'true');
+
+    // Create overlay + spinner DOM elements if not already present
+    if (!rowEl.querySelector('.tbw-row-loading-overlay')) {
+      const overlay = document.createElement('div');
+      overlay.className = 'tbw-row-loading-overlay';
+      overlay.setAttribute('aria-hidden', 'true');
+
+      const spinner = document.createElement('div');
+      spinner.className = 'tbw-row-loading-spinner';
+      overlay.appendChild(spinner);
+
+      rowEl.appendChild(overlay);
+    }
   } else {
     rowEl.classList.remove('tbw-row-loading');
     rowEl.removeAttribute('aria-busy');
+
+    // Remove overlay + spinner DOM elements
+    rowEl.querySelector('.tbw-row-loading-overlay')?.remove();
   }
 }
 

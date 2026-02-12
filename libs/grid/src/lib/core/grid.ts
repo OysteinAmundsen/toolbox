@@ -817,6 +817,13 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
             });
           });
         }
+
+        // Show loading overlay if loading was set before the grid root was created.
+        // The setter calls #updateLoadingOverlay which requires .tbw-grid-root,
+        // but that element doesn't exist until this first render completes.
+        if (this.#loading) {
+          this.#updateLoadingOverlay();
+        }
       },
       isConnected: () => this.isConnected && this.#connected,
     });
@@ -2130,6 +2137,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       };
     }
     renderVisibleRows(this as unknown as InternalGrid<T>, start, end, epoch, this.#renderRowHook);
+
+    // Re-apply loading state for rows that are currently loading.
+    // renderInlineRow clears innerHTML (destroying overlay DOM) and removes the loading class,
+    // so we must re-inject the overlay after row rendering completes.
+    if (this.#loadingRows.size > 0) {
+      for (const rowId of this.#loadingRows) {
+        this.#updateRowLoadingState(rowId, true);
+      }
+    }
   }
 
   // ARIA state - uses external module for pure functions

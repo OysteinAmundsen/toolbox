@@ -216,7 +216,13 @@ export function renderVisibleRows(
 
     const rowEpoch = rowEl.__epoch;
     const prevRef = rowEl.__rowDataRef;
-    const cellCount = rowEl.children.length;
+    let cellCount = rowEl.children.length;
+
+    // Loading overlay is a non-cell child appended at the end — exclude from cell count
+    // to avoid false structure-invalid detection that causes unnecessary full rebuilds.
+    if (cellCount > colLen && rowEl.lastElementChild?.classList.contains('tbw-row-loading-overlay')) {
+      cellCount--;
+    }
 
     // Check if we need a full rebuild vs fast update
     const epochMatch = rowEpoch === epoch;
@@ -607,6 +613,10 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
  * Attaches event handlers for editing and accessibility per cell.
  */
 export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
+  // Clear loading state before rebuild — grid will re-apply after render for actually-loading rows.
+  // This prevents stale tbw-row-loading class from persisting when pool elements are recycled.
+  rowEl.classList.remove('tbw-row-loading');
+  rowEl.removeAttribute('aria-busy');
   rowEl.innerHTML = '';
 
   // Pre-cache values used in the loop

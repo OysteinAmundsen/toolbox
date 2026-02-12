@@ -49,38 +49,35 @@
     --tbw-spinner-border-width: 2px;
   }
 
-  /* Row loading state - uses same spinner style as grid-level loading */
+  /* Row loading state - uses real DOM elements instead of ::before/::after
+     because the selection plugin uses ::after on rows for border styling. */
   .data-grid-row.tbw-row-loading {
     position: relative;
     pointer-events: none;
+  }
 
-    /* Backdrop overlay */
-    &::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: light-dark(rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0.5));
-      z-index: 10;
-      animation: tbw-fade-in 0.15s ease-out;
-    }
+  /* Row loading backdrop overlay (real DOM element) */
+  .tbw-row-loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: light-dark(rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0.5));
+    z-index: 26;
+    animation: tbw-fade-in 0.15s ease-out;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+  }
 
-    /* Spinner - same style as .tbw-spinner but smaller */
-    &::after {
-      --_spinner-size: calc(var(--tbw-row-height, 28px) * 0.6);
-      content: '';
-      position: absolute;
-      left: var(--tbw-spacing-md);
-      top: 0;
-      bottom: 0;
-      margin: auto 0;
-      width: var(--_spinner-size);
-      height: var(--_spinner-size);
-      border: 2px solid var(--tbw-spinner-track-color, var(--tbw-color-border));
-      border-top-color: var(--tbw-spinner-color, var(--tbw-color-accent));
-      border-radius: 50%;
-      animation: tbw-spin 0.8s linear infinite;
-      z-index: 11;
-    }
+  /* Row loading spinner (real DOM element) */
+  .tbw-row-loading-spinner {
+    --_spinner-size: calc(var(--tbw-row-height, 28px) * 0.6);
+    margin-left: var(--tbw-spacing-md);
+    width: var(--_spinner-size);
+    height: var(--_spinner-size);
+    border: 2px solid var(--tbw-spinner-track-color, var(--tbw-color-border));
+    border-top-color: var(--tbw-spinner-color, var(--tbw-color-accent));
+    border-radius: 50%;
+    animation: tbw-spin 0.8s linear infinite;
   }
 
   /* Cell loading state - uses same spinner style as grid-level loading */
@@ -88,13 +85,13 @@
     position: relative;
     pointer-events: none;
 
-    /* Backdrop overlay */
+    /* Backdrop overlay — must be above sticky columns (z-index: 25) */
     &::before {
       content: '';
       position: absolute;
       inset: 0;
       background: light-dark(rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0.5));
-      z-index: 10;
+      z-index: 26;
       animation: tbw-fade-in 0.15s ease-out;
     }
 
@@ -113,7 +110,7 @@
       border-top-color: var(--tbw-spinner-color, var(--tbw-color-accent));
       border-radius: 50%;
       animation: tbw-spin 0.8s linear infinite;
-      z-index: 11;
+      z-index: 27;
     }
   }
 }

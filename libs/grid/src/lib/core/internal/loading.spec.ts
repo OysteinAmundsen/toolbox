@@ -136,6 +136,31 @@ describe('loading', () => {
       expect(row.getAttribute('aria-busy')).toBe('true');
     });
 
+    it('should inject overlay and spinner DOM elements when loading is true', () => {
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+
+      setRowLoadingState(row, true);
+
+      const overlay = row.querySelector('.tbw-row-loading-overlay');
+      expect(overlay).not.toBeNull();
+      expect(overlay!.getAttribute('aria-hidden')).toBe('true');
+
+      const spinner = overlay!.querySelector('.tbw-row-loading-spinner');
+      expect(spinner).not.toBeNull();
+    });
+
+    it('should not double-inject overlay when called twice', () => {
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+
+      setRowLoadingState(row, true);
+      setRowLoadingState(row, true);
+
+      const overlays = row.querySelectorAll('.tbw-row-loading-overlay');
+      expect(overlays.length).toBe(1);
+    });
+
     it('should remove loading class and aria-busy when loading is false', () => {
       const row = document.createElement('div');
       row.className = 'data-grid-row tbw-row-loading';
@@ -145,6 +170,17 @@ describe('loading', () => {
 
       expect(row.classList.contains('tbw-row-loading')).toBe(false);
       expect(row.getAttribute('aria-busy')).toBeNull();
+    });
+
+    it('should remove overlay DOM elements when loading is false', () => {
+      const row = document.createElement('div');
+      row.className = 'data-grid-row';
+
+      setRowLoadingState(row, true);
+      expect(row.querySelector('.tbw-row-loading-overlay')).not.toBeNull();
+
+      setRowLoadingState(row, false);
+      expect(row.querySelector('.tbw-row-loading-overlay')).toBeNull();
     });
   });
   // #endregion

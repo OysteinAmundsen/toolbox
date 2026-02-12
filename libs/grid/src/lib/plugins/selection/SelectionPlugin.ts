@@ -593,8 +593,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         return false; // Let grid handle navigation
       }
 
-      // Ctrl+A: Select all rows
+      // Ctrl+A: Select all rows (skip when editing)
       if (event.key === 'a' && (event.ctrlKey || event.metaKey)) {
+        const isEditing = this.grid.query<boolean>('isEditing');
+        if (isEditing.some(Boolean)) return false;
         event.preventDefault();
         event.stopPropagation();
         this.selectAll();
@@ -626,8 +628,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false; // Let grid handle navigation
     }
 
-    // Ctrl+A selects all in range mode
+    // Ctrl+A selects all in range mode (skip when editing)
     if (mode === 'range' && event.key === 'a' && (event.ctrlKey || event.metaKey)) {
+      const isEditing = this.grid.query<boolean>('isEditing');
+      if (isEditing.some(Boolean)) return false;
       event.preventDefault();
       event.stopPropagation();
       this.selectAll();

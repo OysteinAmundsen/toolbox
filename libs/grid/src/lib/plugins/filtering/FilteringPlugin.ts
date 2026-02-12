@@ -1221,6 +1221,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const currentFilter = this.filters.get(field);
     let currentFrom = '';
     let currentTo = '';
+    const isBlankFilter = currentFilter?.operator === 'blank';
     if (currentFilter?.operator === 'between') {
       currentFrom = parseFilterParam(currentFilter.value) || '';
       currentTo = parseFilterParam(currentFilter.valueTo) || '';
@@ -1280,6 +1281,33 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     panel.appendChild(rangeContainer);
 
+    // "Show only blank" checkbox
+    const blankRow = document.createElement('label');
+    blankRow.className = 'tbw-filter-blank-option';
+
+    const blankCheckbox = document.createElement('input');
+    blankCheckbox.type = 'checkbox';
+    blankCheckbox.className = 'tbw-filter-blank-checkbox';
+    blankCheckbox.checked = isBlankFilter;
+
+    const blankLabel = document.createTextNode('Show only blank');
+    blankRow.appendChild(blankCheckbox);
+    blankRow.appendChild(blankLabel);
+
+    // Toggle date inputs disabled state when blank is checked
+    const toggleDateInputs = (disabled: boolean): void => {
+      fromInput.disabled = disabled;
+      toInput.disabled = disabled;
+      rangeContainer.classList.toggle('tbw-filter-disabled', disabled);
+    };
+    toggleDateInputs(isBlankFilter);
+
+    blankCheckbox.addEventListener('change', () => {
+      toggleDateInputs(blankCheckbox.checked);
+    });
+
+    panel.appendChild(blankRow);
+
     // Apply/Clear buttons
     const buttonRow = document.createElement('div');
     buttonRow.className = 'tbw-filter-buttons';
@@ -1288,6 +1316,11 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     applyBtn.className = 'tbw-filter-apply-btn';
     applyBtn.textContent = 'Apply';
     applyBtn.addEventListener('click', () => {
+      if (blankCheckbox.checked) {
+        params.applyTextFilter('blank', '');
+        return;
+      }
+
       const from = fromInput.value;
       const to = toInput.value;
 

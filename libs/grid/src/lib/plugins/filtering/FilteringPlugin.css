@@ -245,6 +245,30 @@
     padding-bottom: var(--tbw-spacing-xs, 0.25rem);
   }
 
+  /* Blank option checkbox */
+  .tbw-filter-blank-option {
+    display: flex;
+    align-items: center;
+    gap: var(--tbw-spacing-sm, 0.375rem);
+    padding: var(--tbw-spacing-xs, 0.25rem) 0;
+    margin-bottom: var(--tbw-spacing-xs, 0.25rem);
+    font-size: var(--tbw-font-size-sm, 0.8125rem);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .tbw-filter-blank-checkbox {
+    accent-color: var(--tbw-filter-accent, var(--tbw-color-accent, #3b82f6));
+    margin: 0;
+    cursor: pointer;
+  }
+
+  /* Disabled state for date range when blank is checked */
+  .tbw-filter-date-range.tbw-filter-disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
   /* Dual-thumb range slider */
   .tbw-filter-range-slider {
     position: relative;

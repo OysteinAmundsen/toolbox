@@ -7,6 +7,19 @@
 import type { FilterModel } from './types';
 
 /**
+ * Convert a value to a comparable number.
+ * Handles Date objects, numeric values, and date/ISO strings.
+ */
+function toNumeric(value: unknown): number {
+  if (value instanceof Date) return value.getTime();
+  const n = Number(value);
+  if (!isNaN(n)) return n;
+  // Try parsing as a date string (ISO 8601, etc.)
+  const d = new Date(value as string);
+  return d.getTime(); // NaN if unparseable
+}
+
+/**
  * Check if a single row matches a filter condition.
  *
  * @param row - The row data object
@@ -53,21 +66,21 @@ export function matchesFilter(row: Record<string, unknown>, filter: FilterModel,
     case 'endsWith':
       return compareValue.endsWith(filterValue);
 
-    // Number/Date operators (use raw numeric values)
+    // Number/Date operators (use toNumeric for Date objects and date strings)
     case 'lessThan':
-      return Number(rawValue) < Number(filter.value);
+      return toNumeric(rawValue) < toNumeric(filter.value);
 
     case 'lessThanOrEqual':
-      return Number(rawValue) <= Number(filter.value);
+      return toNumeric(rawValue) <= toNumeric(filter.value);
 
     case 'greaterThan':
-      return Number(rawValue) > Number(filter.value);
+      return toNumeric(rawValue) > toNumeric(filter.value);
 
     case 'greaterThanOrEqual':
-      return Number(rawValue) >= Number(filter.value);
+      return toNumeric(rawValue) >= toNumeric(filter.value);
 
     case 'between':
-      return Number(rawValue) >= Number(filter.value) && Number(rawValue) <= Number(filter.valueTo);
+      return toNumeric(rawValue) >= toNumeric(filter.value) && toNumeric(rawValue) <= toNumeric(filter.valueTo);
 
     // Set operators
     case 'in':
@@ -93,7 +106,7 @@ export function matchesFilter(row: Record<string, unknown>, filter: FilterModel,
 export function filterRows<T extends Record<string, unknown>>(
   rows: T[],
   filters: FilterModel[],
-  caseSensitive = false
+  caseSensitive = false,
 ): T[] {
   if (!filters.length) return rows;
   return rows.filter((row) => filters.every((f) => matchesFilter(row, f, caseSensitive)));
@@ -113,7 +126,7 @@ export function computeFilterCacheKey(filters: FilterModel[]): string {
       operator: f.operator,
       value: f.value,
       valueTo: f.valueTo,
-    }))
+    })),
   );
 }
 

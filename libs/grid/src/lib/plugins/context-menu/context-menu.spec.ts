@@ -725,4 +725,166 @@ describe('contextMenu', () => {
       expect(selectRowsCalls[0][1]).toEqual([1]);
     });
   });
+
+  describe('collectPluginItems', () => {
+    function createMockGrid(queryFn: (...args: unknown[]) => unknown[] = () => []) {
+      const grid = document.createElement('div');
+      Object.assign(grid, {
+        rows: [],
+        columns: [],
+        gridConfig: {},
+        effectiveConfig: {},
+        focusRow: 0,
+        focusCol: 0,
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        query: vi.fn(queryFn),
+        queryPlugins: vi.fn().mockReturnValue([]),
+      });
+      grid.dispatchEvent = vi.fn();
+      return grid;
+    }
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should collect items from plugin query responses', () => {
+      const plugin = new ContextMenuPlugin();
+      const grid = createMockGrid((type: unknown) => {
+        if (type === 'getContextMenuItems') {
+          return [
+            [{ id: 'hide', label: 'Hide Column', icon: '👁', order: 30, action: () => {} }],
+            [{ id: 'clear-filter', label: 'Clear Filter', icon: '✕', order: 20, action: () => {} }],
+          ];
+        }
+        return [];
+      });
+      plugin.attach(grid as never);
+
+      const params = createMockParams({ isHeader: true });
+      const result = plugin['collectPluginItems'](params);
+
+      // Should be sorted by order (20 before 30), with separator between groups
+      expect(result.length).toBeGreaterThanOrEqual(2);
+      const nonSeparators = result.filter((i) => !i.separator);
+      expect(nonSeparators[0].id).toBe('clear-filter');
+      expect(nonSeparators[1].id).toBe('hide');
+    });
+
+    it('should return empty array when no plugins respond', () => {
+      const plugin = new ContextMenuPlugin();
+      const grid = createMockGrid(() => []);
+      plugin.attach(grid as never);
+
+      const params = createMockParams({ isHeader: true });
+      const result = plugin['collectPluginItems'](params);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should filter out non-array responses', () => {
+      const plugin = new ContextMenuPlugin();
+      const grid = createMockGrid((type: unknown) => {
+        if (type === 'getContextMenuItems') return [undefined, null, 'invalid'];
+        return [];
+      });
+      plugin.attach(grid as never);
+
+      const params = createMockParams({ isHeader: true });
+      const result = plugin['collectPluginItems'](params);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('insertGroupSeparators', () => {
+    it('should insert separators between different order groups', () => {
+      const plugin = new ContextMenuPlugin();
+      const items = [
+        { id: 'a', label: 'A', order: 20, action: () => {} },
+        { id: 'b', label: 'B', order: 21, action: () => {} },
+        { id: 'c', label: 'C', order: 30, action: () => {} },
+      ];
+
+      const result = plugin['insertGroupSeparators'](items);
+
+      // group 2 (20, 21) and group 3 (30) → separator between them
+      expect(result).toHaveLength(4);
+      expect(result[0].id).toBe('a');
+      expect(result[1].id).toBe('b');
+      expect(result[2].separator).toBe(true);
+      expect(result[3].id).toBe('c');
+    });
+
+    it('should not insert separators within the same group', () => {
+      const plugin = new ContextMenuPlugin();
+      const items = [
+        { id: 'a', label: 'A', order: 20, action: () => {} },
+        { id: 'b', label: 'B', order: 21, action: () => {} },
+      ];
+
+      const result = plugin['insertGroupSeparators'](items);
+
+      expect(result).toHaveLength(2);
+      expect(result.every((i) => !i.separator)).toBe(true);
+    });
+
+    it('should return empty array for empty input', () => {
+      const plugin = new ContextMenuPlugin();
+      const result = plugin['insertGroupSeparators']([]);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return single item unchanged', () => {
+      const plugin = new ContextMenuPlugin();
+      const items = [{ id: 'a', label: 'A', order: 10, action: () => {} }];
+
+      const result = plugin['insertGroupSeparators'](items);
+
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('convertPluginItems', () => {
+    it('should convert HeaderContextMenuItems to ContextMenuItems', () => {
+      const plugin = new ContextMenuPlugin();
+      const action = vi.fn();
+      const items = [{ id: 'test', label: 'Test Item', icon: '📋', shortcut: 'Ctrl+H', action }];
+
+      const result = plugin['convertPluginItems'](items);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('test');
+      expect(result[0].name).toBe('Test Item');
+      expect(result[0].icon).toBe('📋');
+      expect(result[0].shortcut).toBe('Ctrl+H');
+      // Should wrap action
+      result[0].action?.({} as ContextMenuParams);
+      expect(action).toHaveBeenCalled();
+    });
+
+    it('should convert disabled items correctly', () => {
+      const plugin = new ContextMenuPlugin();
+      const items = [{ id: 'disabled', label: 'Disabled', disabled: true, action: () => {} }];
+
+      const result = plugin['convertPluginItems'](items);
+
+      expect(result[0].disabled).toBe(true);
+    });
+
+    it('should convert separator items correctly', () => {
+      const plugin = new ContextMenuPlugin();
+      const items = [{ id: 'sep', label: '', separator: true as const, action: () => {} }];
+
+      const result = plugin['convertPluginItems'](items);
+
+      expect(result[0].separator).toBe(true);
+    });
+  });
 });

@@ -8,6 +8,7 @@ import { getDirection } from '../../core/internal/utils';
 import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
+import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
 import {
   applyStickyOffsets,
   clearStickyOffsets,
@@ -38,6 +39,7 @@ const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
  * | Property | Type | Description |
  * |----------|------|-------------|
  * | `pinned` | `'left' \| 'right' \| 'start' \| 'end'` | Pin column to edge (logical or physical) |
+ * | `meta.lockPinning` | `boolean` | `false` | Prevent user from pin/unpin via context menu |
  *
  * ### RTL Support
  *
@@ -109,6 +111,10 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       {
         type: 'getStickyOffsets',
         description: 'Returns the sticky offsets for left/right pinned columns',
+      },
+      {
+        type: 'getContextMenuItems',
+        description: 'Contributes pin/unpin items to the header context menu',
       },
     ],
   };
@@ -207,6 +213,47 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
           right: Object.fromEntries(this.rightOffsets),
         };
       }
+      case 'getContextMenuItems': {
+        const params = query.context as ContextMenuParams;
+        if (!params.isHeader) return undefined;
+
+        const column = params.column as ColumnConfig & { sticky?: StickyPosition };
+        if (!column?.field) return undefined;
+
+        // Don't offer pin/unpin for locked-pinning columns
+        if (column.meta?.lockPinning) return undefined;
+
+        const sticky = column.sticky;
+        const isPinned = sticky === 'left' || sticky === 'right' || sticky === 'start' || sticky === 'end';
+        const items: HeaderContextMenuItem[] = [];
+
+        if (isPinned) {
+          items.push({
+            id: 'pinned/unpin',
+            label: 'Unpin Column',
+            icon: '📌',
+            order: 40,
+            action: () => this.setPinPosition(column.field, undefined),
+          });
+        } else {
+          items.push({
+            id: 'pinned/pin-left',
+            label: 'Pin Left',
+            icon: '⬅',
+            order: 40,
+            action: () => this.setPinPosition(column.field, 'left'),
+          });
+          items.push({
+            id: 'pinned/pin-right',
+            label: 'Pin Right',
+            icon: '➡',
+            order: 41,
+            action: () => this.setPinPosition(column.field, 'right'),
+          });
+        }
+
+        return items;
+      }
       default:
         return undefined;
     }
@@ -214,6 +261,36 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   // #endregion
 
   // #region Public API
+
+  /**
+   * Set the pin position for a column.
+   * Updates the column's `sticky` property and triggers a full re-render.
+   *
+   * @param field - The field name of the column to pin/unpin
+   * @param position - The sticky position (`'left'`, `'right'`, `'start'`, `'end'`), or `undefined` to unpin
+   */
+  setPinPosition(field: string, position: StickyPosition | undefined): void {
+    const gridEl = this.grid as unknown as HTMLElement & {
+      columns?: ColumnConfig[];
+      gridConfig?: { columns?: ColumnConfig[] };
+    };
+    const currentColumns = gridEl.gridConfig?.columns ?? gridEl.columns;
+    if (!currentColumns) return;
+
+    const updated = currentColumns.map((col) => {
+      if (col.field !== field) return col;
+      const copy = { ...col };
+      if (position) {
+        (copy as ColumnConfig & { sticky?: StickyPosition }).sticky = position;
+      } else {
+        delete (copy as ColumnConfig & { sticky?: StickyPosition }).sticky;
+      }
+      return copy;
+    });
+
+    // Set via columns setter to trigger re-render
+    gridEl.columns = updated;
+  }
 
   /**
    * Re-apply sticky offsets (e.g., after column resize).

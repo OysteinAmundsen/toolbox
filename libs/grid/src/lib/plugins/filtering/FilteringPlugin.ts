@@ -7,9 +7,10 @@
  */
 
 import { computeVirtualWindow, shouldBypassVirtualization } from '../../core/internal/virtualization';
-import { BaseGridPlugin, type GridElement, type PluginManifest } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
+import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
 import { computeFilterCacheKey, filterRows, getUniqueValues } from './filter-model';
 import styles from './filtering.css?inline';
 import filterPanelStyles from './FilteringPlugin.css?inline';
@@ -120,6 +121,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       {
         type: 'filter-applied',
         description: 'Emitted when filter criteria change. Subscribers can react to row visibility changes.',
+      },
+    ],
+    queries: [
+      {
+        type: 'getContextMenuItems',
+        description: 'Contributes filter-related items to the header context menu',
       },
     ],
   };
@@ -234,6 +241,56 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Abort panel-scoped listeners (document click handler, etc.)
     this.panelAbortController?.abort();
     this.panelAbortController = null;
+  }
+  // #endregion
+
+  // #region Query Handlers
+
+  /**
+   * Handle inter-plugin queries.
+   * Contributes filter-related items to the header context menu.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'getContextMenuItems') {
+      const params = query.context as ContextMenuParams;
+      if (!params.isHeader) return undefined;
+
+      const column = params.column as ColumnConfig;
+      if (!column?.field) return undefined;
+
+      // Only contribute items if filtering is enabled for this column
+      if (!this.isFilteringEnabled()) return undefined;
+      if (!this.isColumnFilterable(column)) return undefined;
+
+      const items: HeaderContextMenuItem[] = [];
+      const fieldFiltered = this.isFieldFiltered(column.field);
+      const hasAnyFilter = this.filters.size > 0;
+
+      if (fieldFiltered) {
+        items.push({
+          id: 'filtering/clear-column-filter',
+          label: `Clear Filter`,
+          icon: '✕',
+          order: 20,
+          action: () => this.clearFieldFilter(column.field),
+        });
+      }
+
+      if (hasAnyFilter) {
+        items.push({
+          id: 'filtering/clear-all-filters',
+          label: 'Clear All Filters',
+          icon: '✕',
+          order: 21,
+          disabled: !hasAnyFilter,
+          action: () => this.clearAllFilters(),
+        });
+      }
+
+      return items.length > 0 ? items : undefined;
+    }
+    return undefined;
   }
   // #endregion
 

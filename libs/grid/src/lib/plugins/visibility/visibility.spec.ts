@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { filterVisibleColumns, canHideColumn, toggleColumnVisibility } from './visibility';
+import { describe, expect, it } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
+import { canHideColumn, filterVisibleColumns, toggleColumnVisibility } from './visibility';
 
 describe('visibility', () => {
   describe('filterVisibleColumns', () => {
@@ -262,5 +262,60 @@ describe('visibility', () => {
       const visible = filterVisibleColumns(columns, cleared);
       expect(visible).toHaveLength(4);
     });
+  });
+});
+
+describe('VisibilityPlugin.handleQuery (getContextMenuItems)', async () => {
+  const { VisibilityPlugin } = await import('./VisibilityPlugin');
+
+  it('returns hide-column item for header context', () => {
+    const plugin = new VisibilityPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: { field: 'name', header: 'Name' }, field: 'name' },
+    }) as unknown[];
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 'visibility/hide-column', label: 'Hide Column' });
+  });
+
+  it('returns undefined for non-header context', () => {
+    const plugin = new VisibilityPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: false, column: { field: 'name' }, field: 'name' },
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined for columns with lockVisibility', () => {
+    const plugin = new VisibilityPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: { field: 'id', meta: { lockVisibility: true } }, field: 'id' },
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined for columns without a field', () => {
+    const plugin = new VisibilityPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: {} },
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined for unknown query types', () => {
+    const plugin = new VisibilityPlugin();
+    const result = plugin.handleQuery({
+      type: 'unknownQuery',
+      context: {},
+    });
+
+    expect(result).toBeUndefined();
   });
 });

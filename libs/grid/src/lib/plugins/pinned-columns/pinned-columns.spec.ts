@@ -271,6 +271,74 @@ describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
   });
 });
 
+describe('PinnedColumnsPlugin.handleQuery (getContextMenuItems)', async () => {
+  const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+
+  it('returns pin-left and pin-right items for unpinned column', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: { field: 'name' }, field: 'name' },
+    }) as unknown[];
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ id: 'pinned/pin-left', label: 'Pin Left' });
+    expect(result[1]).toMatchObject({ id: 'pinned/pin-right', label: 'Pin Right' });
+  });
+
+  it('returns unpin item for column with sticky: left', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: { field: 'id', sticky: 'left' }, field: 'id' },
+    }) as unknown[];
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 'pinned/unpin', label: 'Unpin Column' });
+  });
+
+  it('returns unpin item for column with sticky: right', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: { field: 'actions', sticky: 'right' }, field: 'actions' },
+    }) as unknown[];
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 'pinned/unpin', label: 'Unpin Column' });
+  });
+
+  it('returns undefined for non-header context', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: false, column: { field: 'name' }, field: 'name' },
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined when column has no field', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: {} },
+    });
+
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined for columns with lockPinning', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const result = plugin.handleQuery({
+      type: 'getContextMenuItems',
+      context: { isHeader: true, column: { field: 'id', meta: { lockPinning: true } }, field: 'id' },
+    });
+
+    expect(result).toBeUndefined();
+  });
+});
+
 describe('PinnedColumnsPlugin lifecycle and API', () => {
   let plugin: typeof import('./PinnedColumnsPlugin').PinnedColumnsPlugin.prototype;
 

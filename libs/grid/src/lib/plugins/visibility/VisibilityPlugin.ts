@@ -13,8 +13,14 @@
  * Drag-drop emits 'column-reorder-request' events that the ReorderPlugin can listen for.
  */
 
-import { BaseGridPlugin, type PluginDependency } from '../../core/plugin/base-plugin';
+import {
+  BaseGridPlugin,
+  type PluginDependency,
+  type PluginManifest,
+  type PluginQuery,
+} from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
+import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
 import type { VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
 
@@ -136,6 +142,19 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     { name: 'reorder', required: false, reason: 'Enables drag-to-reorder columns in visibility panel' },
   ];
 
+  /**
+   * Plugin manifest - declares handled queries.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    queries: [
+      {
+        type: 'getContextMenuItems',
+        description: 'Contributes "Hide column" item to the header context menu',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'visibility';
 
@@ -177,6 +196,40 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     this.draggedField = null;
     this.draggedIndex = null;
     this.dropIndex = null;
+  }
+  // #endregion
+
+  // #region Query Handlers
+
+  /**
+   * Handle inter-plugin queries.
+   * Contributes a "Hide column" item to the header context menu.
+   * @internal
+   */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'getContextMenuItems') {
+      const params = query.context as ContextMenuParams;
+      if (!params.isHeader) return undefined;
+
+      const column = params.column as ColumnConfig;
+      if (!column?.field) return undefined;
+
+      // Don't offer "Hide" for locked-visibility columns
+      if (column.meta?.lockVisibility) return undefined;
+
+      const items: HeaderContextMenuItem[] = [
+        {
+          id: 'visibility/hide-column',
+          label: 'Hide Column',
+          icon: '👁',
+          order: 30,
+          action: () => this.hideColumn(column.field),
+        },
+      ];
+
+      return items;
+    }
+    return undefined;
   }
   // #endregion
 

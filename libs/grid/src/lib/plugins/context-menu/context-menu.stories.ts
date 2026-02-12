@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
 import type { GridElement } from '../../../public';
+import { FilteringPlugin } from '../filtering';
+import { PinnedColumnsPlugin } from '../pinned-columns';
+import { VisibilityPlugin } from '../visibility';
 import { ContextMenuPlugin } from './ContextMenuPlugin';
 import type { ContextMenuItem, ContextMenuParams } from './types';
 
@@ -311,6 +314,85 @@ grid.rows = [
     grid.gridConfig = {
       columns,
       plugins: [new ContextMenuPlugin({ items: menuItems })],
+    };
+    grid.rows = sampleData;
+
+    return grid;
+  },
+};
+
+/**
+ * When ContextMenuPlugin is loaded alongside other plugins (Visibility, Filtering, Pinned Columns),
+ * right-clicking a column header automatically includes items contributed by each plugin
+ * via the query system. Items are grouped and separated by category:
+ *
+ * - **Filter** (order 20-29): "Clear Filter", "Clear All Filters"
+ * - **Visibility** (order 30-39): "Hide Column"
+ * - **Pinning** (order 40-49): "Pin Left", "Pin Right", "Unpin Column"
+ *
+ * Try filtering the "Status" column first, then right-click its header to see the "Clear Filter" item.
+ */
+export const PluginContributedItems: Story = {
+  parameters: {
+    docs: {
+      source: {
+        code: `
+<!-- HTML -->
+<tbw-grid style="height: 350px;"></tbw-grid>
+
+<script type="module">
+import '@toolbox-web/grid';
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'status', header: 'Status' },
+  ],
+  plugins: [
+    // Each plugin contributes header context menu items automatically
+    new FilteringPlugin(),
+    new VisibilityPlugin(),
+    new PinnedColumnsPlugin(),
+    new ContextMenuPlugin({
+      // Your custom cell items still work as before
+      items: [
+        { id: 'copy', name: 'Copy Row', icon: '📋', action: (p) => console.log('Copy', p.row) },
+      ],
+    }),
+  ],
+};
+
+grid.rows = [
+  { id: 1, name: 'Alice', email: 'alice@example.com', status: 'active' },
+  { id: 2, name: 'Bob', email: 'bob@example.com', status: 'pending' },
+  { id: 3, name: 'Carol', email: 'carol@example.com', status: 'active' },
+  { id: 4, name: 'Dan', email: 'dan@example.com', status: 'inactive' },
+];
+</script>
+`,
+        language: 'html',
+      },
+    },
+  },
+  render: () => {
+    const grid = document.createElement('tbw-grid') as GridElement;
+    grid.style.height = '350px';
+
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new FilteringPlugin(),
+        new VisibilityPlugin(),
+        new PinnedColumnsPlugin(),
+        new ContextMenuPlugin({ items: defaultMenuItems }),
+      ],
     };
     grid.rows = sampleData;
 

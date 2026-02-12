@@ -70,6 +70,53 @@ export interface ContextMenuConfig {
 }
 
 /**
+ * Context menu item contributed by plugins via the `getContextMenuItems` query.
+ *
+ * Plugins return these from `handleQuery({ type: 'getContextMenuItems' })` to add
+ * items to the right-click context menu. Unlike user-configured `ContextMenuItem`,
+ * these are lightweight and statically typed — no dynamic `disabled`/`hidden` callbacks
+ * (the plugin decides at query time what to include).
+ *
+ * @example
+ * ```typescript
+ * override handleQuery(query: PluginQuery): unknown {
+ *   if (query.type === 'getContextMenuItems') {
+ *     const { column } = query.context as ContextMenuParams;
+ *     return [
+ *       { id: 'hide-column', label: 'Hide Column', icon: '👁', action: () => this.hideColumn(column.field) },
+ *     ] satisfies HeaderContextMenuItem[];
+ *   }
+ * }
+ * ```
+ *
+ * @category Plugin Development
+ */
+export interface HeaderContextMenuItem {
+  /** Unique identifier for the menu item */
+  id: string;
+  /** Display label */
+  label: string;
+  /** Optional icon (HTML string, emoji, or SVG string) */
+  icon?: string;
+  /** Optional keyboard shortcut hint (display only) */
+  shortcut?: string;
+  /** Whether the item is disabled */
+  disabled?: boolean;
+  /** Action handler when the item is clicked */
+  action: () => void;
+  /** Whether this is a separator (only `id` is required) */
+  separator?: boolean;
+  /** Optional CSS class to add to the menu item (e.g. 'danger') */
+  cssClass?: string;
+  /**
+   * Sort order for positioning within the menu.
+   * Lower values appear first. Default is `100`.
+   * Built-in ranges: sort (10-19), filter (20-29), visibility (30-39), pinning (40-49).
+   */
+  order?: number;
+}
+
+/**
  * Internal state managed by the context menu plugin.
  */
 export interface ContextMenuState {

@@ -5,10 +5,14 @@
  * Supports custom menu items, submenus, icons, shortcuts, and dynamic item generation.
  */
 
+import type { PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import contextMenuStyles from './context-menu.css?inline';
 import { buildMenuItems, createMenuElement, positionMenu } from './menu';
-import type { ContextMenuConfig, ContextMenuItem, ContextMenuParams } from './types';
+import type { ContextMenuConfig, ContextMenuItem, ContextMenuParams, HeaderContextMenuItem } from './types';
+
+/** Query type for collecting context menu items from plugins */
+const QUERY_GET_CONTEXT_MENU_ITEMS = 'getContextMenuItems';
 
 /** Global click handler reference for cleanup */
 let globalClickHandler: ((e: Event) => void) | null = null;
@@ -123,6 +127,19 @@ const defaultItems: ContextMenuItem[] = [
  * @internal Extends BaseGridPlugin
  */
 export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
+  /**
+   * Plugin manifest - declares queries used by this plugin.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    queries: [
+      {
+        type: QUERY_GET_CONTEXT_MENU_ITEMS,
+        description: 'Collects context menu items from other plugins for header right-click menus',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'contextMenu';
 
@@ -323,6 +340,71 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       globalStyleSheet = null;
     }
   }
+
+  /**
+   * Query all plugins for context menu items via the query system.
+   * Each plugin that handles `getContextMenuItems` can return an array of HeaderContextMenuItem.
+   */
+  private collectPluginItems(params: ContextMenuParams): HeaderContextMenuItem[] {
+    if (!this.grid) return [];
+
+    const responses = this.grid.query<HeaderContextMenuItem[]>(QUERY_GET_CONTEXT_MENU_ITEMS, params);
+    const items: HeaderContextMenuItem[] = [];
+
+    for (const response of responses) {
+      if (Array.isArray(response)) {
+        items.push(...response);
+      }
+    }
+
+    // Sort by order (default 100), then stable by insertion order
+    items.sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+
+    // Insert separators between different order groups
+    return this.insertGroupSeparators(items);
+  }
+
+  /**
+   * Insert separators between groups of items with different order ranges.
+   * Groups are defined by the tens digit (10-19, 20-29, etc.).
+   */
+  private insertGroupSeparators(items: HeaderContextMenuItem[]): HeaderContextMenuItem[] {
+    if (items.length <= 1) return items;
+
+    const result: HeaderContextMenuItem[] = [];
+    let lastGroup = -1;
+
+    for (const item of items) {
+      if (item.separator) {
+        result.push(item);
+        continue;
+      }
+      const group = Math.floor((item.order ?? 100) / 10);
+      if (lastGroup >= 0 && group !== lastGroup) {
+        result.push({ id: `__sep-${lastGroup}-${group}`, label: '', separator: true, action: () => {} });
+      }
+      lastGroup = group;
+      result.push(item);
+    }
+
+    return result;
+  }
+
+  /**
+   * Convert plugin-contributed HeaderContextMenuItems to the internal ContextMenuItem format.
+   */
+  private convertPluginItems(items: HeaderContextMenuItem[]): ContextMenuItem[] {
+    return items.map((item) => ({
+      id: item.id,
+      name: item.label,
+      icon: item.icon,
+      shortcut: item.shortcut,
+      disabled: item.disabled ?? false,
+      action: () => item.action(),
+      separator: item.separator,
+      cssClass: item.cssClass,
+    }));
+  }
   // #endregion
 
   // #region Hooks
@@ -395,7 +477,23 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       this.params = params;
       this.position = { x: event.clientX, y: event.clientY };
 
-      const items = buildMenuItems(this.config.items ?? defaultItems, params);
+      // Collect plugin-contributed items via the query system
+      const pluginItems = this.collectPluginItems(params);
+
+      // Build configured items
+      let items = buildMenuItems(this.config.items ?? defaultItems, params);
+
+      // Merge plugin items with configured items
+      if (pluginItems.length > 0) {
+        const converted = this.convertPluginItems(pluginItems);
+        if (items.length > 0 && converted.length > 0) {
+          // Add separator between configured and plugin items
+          items = [...items, { id: '__plugin-sep', name: '', separator: true }, ...converted];
+        } else {
+          items = [...items, ...converted];
+        }
+      }
+
       if (!items.length) return;
 
       if (this.menuElement) {
@@ -447,7 +545,17 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       selectedRows: params.selectedRows ?? [],
     };
 
-    const items = buildMenuItems(this.config.items ?? defaultItems, fullParams);
+    const pluginItems = this.collectPluginItems(fullParams);
+    let items = buildMenuItems(this.config.items ?? defaultItems, fullParams);
+
+    if (pluginItems.length > 0) {
+      const converted = this.convertPluginItems(pluginItems);
+      if (items.length > 0 && converted.length > 0) {
+        items = [...items, { id: '__plugin-sep', name: '', separator: true }, ...converted];
+      } else {
+        items = [...items, ...converted];
+      }
+    }
 
     if (this.menuElement) {
       this.menuElement.remove();

@@ -124,6 +124,10 @@ async function loadStory(
 // navigations. Results are collected and assertions run at the end.
 
 test.describe('Storybook Smoke Tests', () => {
+  // Disable retries — retrying all 110 stories because one failed is wasteful.
+  // Storybook smoke tests are informational; flakes should be investigated, not retried.
+  test.describe.configure({ retries: 0 });
+
   let stories: StoryIndexEntry[] = [];
   let storybookAvailable = false;
 
@@ -145,8 +149,8 @@ test.describe('Storybook Smoke Tests', () => {
 
   test('all stories render correctly', async ({ page }) => {
     test.skip(!storybookAvailable, 'Storybook not running');
-    // ~5s per story for navigation + render + assertions
-    test.setTimeout(stories.length * 5000);
+    // Budget ~3s per story for CI (locally ~0.3s). Cap at 5 minutes to prevent runaway.
+    test.setTimeout(Math.min(stories.length * 3000, 5 * 60 * 1000));
 
     // Collect results in a single pass
     const jsErrors: { id: string; errors: string[] }[] = [];

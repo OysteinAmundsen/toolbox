@@ -98,6 +98,7 @@ export function getColumnStickyPosition(column: any): StickyPosition | null {
   return getColumnPinned(column) ?? null;
 }
 
+
 /**
  * Calculate left offsets for sticky-left columns.
  * Returns a map of field -> offset in pixels.
@@ -209,6 +210,33 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
       }
     }
   }
+}
+
+/**
+ * Reorder columns so that pinned-left columns come first and pinned-right columns come last.
+ * Maintains the relative order within each group (left-pinned, unpinned, right-pinned).
+ *
+ * @param columns - Array of column configurations (in their current order)
+ * @param direction - Text direction ('ltr' or 'rtl'), used to resolve logical positions
+ * @returns New array with pinned columns moved to the edges
+ */
+export function reorderColumnsForPinning(columns: readonly any[], direction: TextDirection = 'ltr'): any[] {
+  const left: any[] = [];
+  const middle: any[] = [];
+  const right: any[] = [];
+
+  for (const col of columns) {
+    const pinned = getColumnPinned(col);
+    if (pinned) {
+      const resolved = resolveStickyPosition(pinned, direction);
+      if (resolved === 'left') left.push(col);
+      else right.push(col);
+    } else {
+      middle.push(col);
+    }
+  }
+
+  return [...left, ...middle, ...right];
 }
 
 /**

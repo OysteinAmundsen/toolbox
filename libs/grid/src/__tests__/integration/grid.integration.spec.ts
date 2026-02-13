@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import '../../lib/core/grid';
 // Import plugins used by integration tests
+import { ColumnVirtualizationPlugin } from '../../lib/plugins/column-virtualization';
 import { EditingPlugin } from '../../lib/plugins/editing';
 import { GroupingColumnsPlugin } from '../../lib/plugins/grouping-columns';
 import { GroupingRowsPlugin } from '../../lib/plugins/grouping-rows';
@@ -474,6 +475,192 @@ describe('tbw-grid integration: column grouping / sticky', () => {
   it('applies sticky class to left column', () => {
     const stickyHeader = grid.querySelector('.header-row .cell.sticky-left');
     expect(stickyHeader).toBeTruthy();
+  });
+});
+
+describe('tbw-grid integration: setPinPosition via context menu', () => {
+  let grid: any;
+  beforeEach(async () => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    grid.style.display = 'block';
+    grid.style.height = '300px';
+    document.body.appendChild(grid);
+    // Use gridConfig (not columns prop) — matches real-world demos
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 60 },
+        { field: 'name', header: 'Name', width: 120 },
+        { field: 'email', header: 'Email', width: 200 },
+        { field: 'dept', header: 'Department', width: 120 },
+      ],
+      fitMode: 'fixed' as const,
+      plugins: [new PinnedColumnsPlugin()],
+    };
+    grid.rows = [
+      { id: 1, name: 'Alice', email: 'alice@test.com', dept: 'Eng' },
+      { id: 2, name: 'Bob', email: 'bob@test.com', dept: 'Sales' },
+    ];
+    await waitUpgrade(grid);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('pins a column left via setPinPosition', async () => {
+    // Verify no sticky classes initially
+    expect(grid.querySelector('.header-row .cell.sticky-left')).toBeFalsy();
+
+    // Get the PinnedColumnsPlugin and pin 'email' left
+    const pinnedPlugin = grid.getPlugin(PinnedColumnsPlugin);
+    expect(pinnedPlugin).toBeTruthy();
+    pinnedPlugin.setPinPosition('email', 'left');
+
+    // Wait for re-render
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // afterRender uses queueMicrotask, so wait for that too
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Check that the email header cell has sticky-left class
+    const emailHeader = grid.querySelector('.header-row .cell[data-field="email"]');
+    expect(emailHeader).toBeTruthy();
+    expect(emailHeader.classList.contains('sticky-left')).toBe(true);
+  });
+
+  it('pins a column right via setPinPosition', async () => {
+    const pinnedPlugin = grid.getPlugin(PinnedColumnsPlugin);
+    pinnedPlugin.setPinPosition('dept', 'right');
+
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 50));
+
+    const deptHeader = grid.querySelector('.header-row .cell[data-field="dept"]');
+    expect(deptHeader).toBeTruthy();
+    expect(deptHeader.classList.contains('sticky-right')).toBe(true);
+  });
+
+  it('unpins a previously pinned column', async () => {
+    const pinnedPlugin = grid.getPlugin(PinnedColumnsPlugin);
+    // Pin first
+    pinnedPlugin.setPinPosition('email', 'left');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(grid.querySelector('.header-row .cell[data-field="email"]').classList.contains('sticky-left')).toBe(true);
+
+    // Unpin
+    pinnedPlugin.setPinPosition('email', undefined);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(grid.querySelector('.header-row .cell[data-field="email"]').classList.contains('sticky-left')).toBe(false);
+  });
+});
+
+describe('tbw-grid integration: setPinPosition with column groups', () => {
+  let grid: any;
+  beforeEach(async () => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    grid.style.display = 'block';
+    grid.style.height = '300px';
+    document.body.appendChild(grid);
+    // Mirror the vanilla demo: gridConfig with column groups and multiple plugins
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 60 },
+        { field: 'name', header: 'Name', width: 120 },
+        { field: 'email', header: 'Email', width: 200 },
+        { field: 'dept', header: 'Department', width: 120 },
+        { field: 'salary', header: 'Salary', width: 100 },
+      ],
+      columnGroups: [
+        { id: 'personal', header: 'Personal', children: ['name', 'email'] },
+        { id: 'work', header: 'Work', children: ['dept', 'salary'] },
+      ],
+      fitMode: 'fixed' as const,
+      plugins: [new GroupingColumnsPlugin(), new PinnedColumnsPlugin()],
+    };
+    grid.rows = [
+      { id: 1, name: 'Alice', email: 'alice@test.com', dept: 'Eng', salary: 100000 },
+      { id: 2, name: 'Bob', email: 'bob@test.com', dept: 'Sales', salary: 90000 },
+    ];
+    await waitUpgrade(grid);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('pins a grouped column left via setPinPosition', async () => {
+    // Verify no sticky classes initially
+    expect(grid.querySelector('.header-row .cell.sticky-left')).toBeFalsy();
+
+    const pinnedPlugin = grid.getPlugin(PinnedColumnsPlugin);
+    pinnedPlugin.setPinPosition('email', 'left');
+
+    // Wait for re-render + afterRender microtask
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Check email column now has pinned: 'left' in the effective config
+    const emailCol = grid.columns.find((c: any) => c.field === 'email');
+    expect(emailCol.pinned).toBe('left');
+
+    // Check email is pinned in DOM
+    const emailHeader = grid.querySelector('.header-row .cell[data-field="email"]');
+    expect(emailHeader).toBeTruthy();
+    expect(emailHeader.classList.contains('sticky-left')).toBe(true);
+  });
+});
+
+describe('tbw-grid integration: setPinPosition with ColumnVirtualizationPlugin', () => {
+  let grid: any;
+  beforeEach(async () => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    grid.style.display = 'block';
+    grid.style.height = '300px';
+    document.body.appendChild(grid);
+    // Mirror real-world demo: gridConfig with ColumnVirtualizationPlugin + PinnedColumnsPlugin
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 60 },
+        { field: 'name', header: 'Name', width: 120 },
+        { field: 'email', header: 'Email', width: 200 },
+        { field: 'dept', header: 'Department', width: 120 },
+      ],
+      fitMode: 'fixed' as const,
+      plugins: [new PinnedColumnsPlugin(), new ColumnVirtualizationPlugin()],
+    };
+    grid.rows = [
+      { id: 1, name: 'Alice', email: 'alice@test.com', dept: 'Eng' },
+      { id: 2, name: 'Bob', email: 'bob@test.com', dept: 'Sales' },
+    ];
+    await waitUpgrade(grid);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('does not lose pinned property when ColumnVirtualizationPlugin is loaded', async () => {
+    expect(grid.querySelector('.header-row .cell.sticky-left')).toBeFalsy();
+
+    const pinnedPlugin = grid.getPlugin(PinnedColumnsPlugin);
+    pinnedPlugin.setPinPosition('email', 'left');
+
+    // Wait for re-render + afterRender microtask
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Check email column retains pinned: 'left' in effective config
+    const emailCol = grid.columns.find((c: any) => c.field === 'email');
+    expect(emailCol.pinned).toBe('left');
+
+    // Check email is pinned in DOM
+    const emailHeader = grid.querySelector('.header-row .cell[data-field="email"]');
+    expect(emailHeader).toBeTruthy();
+    expect(emailHeader.classList.contains('sticky-left')).toBe(true);
   });
 });
 

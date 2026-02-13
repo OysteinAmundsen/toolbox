@@ -12,6 +12,7 @@ import {
   getLeftStickyColumns,
   getRightStickyColumns,
   hasStickyColumns,
+  reorderColumnsForPinning,
   resolveStickyPosition,
 } from './pinned-columns';
 
@@ -391,10 +392,36 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
   });
 
   describe('processColumns', () => {
-    it('returns columns unchanged', () => {
+    it('reorders pinned-left columns to the start', () => {
+      const columns = [
+        { field: 'a' },
+        { field: 'b', pinned: 'left' },
+        { field: 'c' },
+      ];
+      const result = plugin.processColumns(columns as any);
+      expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
+    });
+
+    it('reorders pinned-right columns to the end', () => {
+      const columns = [
+        { field: 'a', pinned: 'right' },
+        { field: 'b' },
+        { field: 'c' },
+      ];
+      const result = plugin.processColumns(columns as any);
+      expect(result.map((c: any) => c.field)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('keeps order unchanged when already at correct edges', () => {
       const columns = [{ field: 'id', sticky: 'left' }, { field: 'name' }];
       const result = plugin.processColumns(columns as any);
       expect(result).toEqual(columns);
+    });
+
+    it('returns columns unchanged when none are pinned', () => {
+      const columns = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+      const result = plugin.processColumns(columns as any);
+      expect(result.map((c: any) => c.field)).toEqual(['a', 'b', 'c']);
     });
 
     it('sets isApplied flag when sticky columns exist', () => {
@@ -550,6 +577,234 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
 
       expect(result?.skipScroll).toBeFalsy();
     });
+  });
+});
+
+describe('reorderColumnsForPinning', () => {
+  it('moves left-pinned columns to the front', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b', pinned: 'left' },
+      { field: 'c' },
+      { field: 'd', pinned: 'left' },
+    ];
+    const result = reorderColumnsForPinning(cols);
+    expect(result.map((c: any) => c.field)).toEqual(['b', 'd', 'a', 'c']);
+  });
+
+  it('moves right-pinned columns to the end', () => {
+    const cols = [
+      { field: 'a', pinned: 'right' },
+      { field: 'b' },
+      { field: 'c', pinned: 'right' },
+    ];
+    const result = reorderColumnsForPinning(cols);
+    expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('handles both left and right pinned columns', () => {
+    const cols = [
+      { field: 'a', pinned: 'left' },
+      { field: 'b' },
+      { field: 'c', pinned: 'right' },
+      { field: 'd' },
+      { field: 'e', pinned: 'left' },
+    ];
+    const result = reorderColumnsForPinning(cols);
+    expect(result.map((c: any) => c.field)).toEqual(['a', 'e', 'b', 'd', 'c']);
+  });
+
+  it('preserves relative order within each group', () => {
+    const cols = [
+      { field: 'left2', pinned: 'left' },
+      { field: 'mid1' },
+      { field: 'right1', pinned: 'right' },
+      { field: 'left1', pinned: 'left' },
+      { field: 'mid2' },
+      { field: 'right2', pinned: 'right' },
+    ];
+    const result = reorderColumnsForPinning(cols);
+    expect(result.map((c: any) => c.field)).toEqual([
+      'left2', 'left1', 'mid1', 'mid2', 'right1', 'right2',
+    ]);
+  });
+
+  it('returns same order when no columns are pinned', () => {
+    const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
+    const result = reorderColumnsForPinning(cols);
+    expect(result.map((c: any) => c.field)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('handles sticky (deprecated) property', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b', sticky: 'left' },
+      { field: 'c', sticky: 'right' },
+    ];
+    const result = reorderColumnsForPinning(cols);
+    expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
+  });
+
+  it('handles logical positions in RTL', () => {
+    const cols = [
+      { field: 'a', pinned: 'start' },
+      { field: 'b' },
+      { field: 'c', pinned: 'end' },
+    ];
+    // In RTL: start → right, end → left
+    const result = reorderColumnsForPinning(cols, 'rtl');
+    expect(result.map((c: any) => c.field)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('does not mutate input array', () => {
+    const cols = [{ field: 'a' }, { field: 'b', pinned: 'left' }];
+    const original = [...cols];
+    reorderColumnsForPinning(cols);
+    expect(cols).toEqual(original);
+  });
+});
+
+describe('setPinPosition with reordering', () => {
+  let plugin: any;
+
+  beforeEach(async () => {
+    const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
+    plugin = new PinnedColumnsPlugin();
+  });
+
+  function attachWithColumns(columns: any[]) {
+    const mockGrid = document.createElement('div') as any;
+    mockGrid.columns = undefined;
+    // Mock the columns accessor (this.columns returns post-processColumns)
+    Object.defineProperty(plugin, 'columns', {
+      get: () => mockGrid._processed ?? columns,
+      configurable: true,
+    });
+    Object.defineProperty(plugin, 'gridElement', {
+      get: () => mockGrid,
+      configurable: true,
+    });
+    plugin.grid = mockGrid;
+
+    // Intercept columns setter to simulate processColumns
+    const origDescriptor = Object.getOwnPropertyDescriptor(mockGrid, 'columns');
+    Object.defineProperty(mockGrid, 'columns', {
+      get: () => origDescriptor?.value,
+      set: (val: any[]) => {
+        origDescriptor!.value = val;
+        // Simulate processColumns reordering
+        mockGrid._processed = plugin.processColumns(val);
+      },
+      configurable: true,
+    });
+
+    return mockGrid;
+  }
+
+  it('pinning moves column and processColumns reorders to edge', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b' },
+      { field: 'c' },
+      { field: 'd' },
+    ];
+    const grid = attachWithColumns(cols);
+
+    plugin.setPinPosition('c', 'left');
+
+    const result = grid._processed;
+    expect(result.map((c: any) => c.field)).toEqual(['c', 'a', 'b', 'd']);
+    expect(result[0].pinned).toBe('left');
+  });
+
+  it('unpinning restores column to original position', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b' },
+      { field: 'c' },
+      { field: 'd' },
+    ];
+    const grid = attachWithColumns(cols);
+
+    // Pin column c to the left
+    plugin.setPinPosition('c', 'left');
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['c', 'a', 'b', 'd']);
+
+    // Unpin column c → should restore to original position (between b and d)
+    plugin.setPinPosition('c', undefined);
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('unpinning restores correctly when multiple columns pinned and unpinned', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b' },
+      { field: 'c' },
+      { field: 'd' },
+      { field: 'e' },
+    ];
+    const grid = attachWithColumns(cols);
+
+    // Pin c left, then d left
+    plugin.setPinPosition('c', 'left');
+    plugin.setPinPosition('d', 'left');
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['c', 'd', 'a', 'b', 'e']);
+
+    // Unpin c → should restore between b and d
+    plugin.setPinPosition('c', undefined);
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['d', 'a', 'b', 'c', 'e']);
+
+    // Unpin d → fully restored
+    plugin.setPinPosition('d', undefined);
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['a', 'b', 'c', 'd', 'e']);
+  });
+
+  it('pin right moves column to the end', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b' },
+      { field: 'c' },
+    ];
+    const grid = attachWithColumns(cols);
+
+    plugin.setPinPosition('a', 'right');
+
+    const result = grid._processed;
+    expect(result.map((c: any) => c.field)).toEqual(['b', 'c', 'a']);
+    expect(result[2].pinned).toBe('right');
+  });
+
+  it('unpin right restores column to original position', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b' },
+      { field: 'c' },
+    ];
+    const grid = attachWithColumns(cols);
+
+    plugin.setPinPosition('a', 'right');
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['b', 'c', 'a']);
+
+    plugin.setPinPosition('a', undefined);
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('clears original column order snapshot when all columns unpinned', () => {
+    const cols = [
+      { field: 'a' },
+      { field: 'b', pinned: 'left' },
+    ];
+    const grid = attachWithColumns(cols);
+
+    // Pin a to the left (b is already pinned)
+    plugin.setPinPosition('a', 'left');
+    // Unpin b
+    plugin.setPinPosition('b', undefined);
+    // Unpin a → all unpinned, snapshot should be cleared
+    plugin.setPinPosition('a', undefined);
+
+    // Verify no errors and columns are restored
+    expect(grid._processed.map((c: any) => c.field)).toEqual(['a', 'b']);
   });
 });
 

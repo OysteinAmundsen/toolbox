@@ -16,6 +16,7 @@ import {
   getLeftStickyColumns,
   getRightStickyColumns,
   hasStickyColumns,
+  reorderColumnsForPinning,
 } from './pinned-columns';
 import type { PinnedColumnsConfig, PinnedPosition } from './types';
 
@@ -110,6 +111,14 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
       },
     ],
+    incompatibleWith: [
+      {
+        name: 'groupingColumns',
+        reason:
+          'Pinning reorders columns to the grid edges, but moving a column out of its column group ' +
+          'is not supported. The group header layout cannot accommodate members at different positions.',
+      },
+    ],
     queries: [
       {
         type: QUERY_CAN_MOVE_COLUMN,
@@ -138,6 +147,11 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   private isApplied = false;
   private leftOffsets = new Map<string, number>();
   private rightOffsets = new Map<string, number>();
+  /**
+   * Snapshot of the column field order before the first context-menu pin.
+   * Used to restore original positions when unpinning.
+   */
+  #originalColumnOrder: string[] = [];
   // #endregion
 
   // #region Lifecycle
@@ -147,6 +161,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     this.leftOffsets.clear();
     this.rightOffsets.clear();
     this.isApplied = false;
+    this.#originalColumnOrder = [];
   }
   // #endregion
 
@@ -166,9 +181,13 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    // Mark that we have sticky columns to apply
-    this.isApplied = hasStickyColumns([...columns]);
-    return [...columns];
+    const cols = [...columns];
+    this.isApplied = hasStickyColumns(cols);
+    if (!this.isApplied) return cols;
+
+    const host = this.gridElement;
+    const direction = host ? getDirection(host) : 'ltr';
+    return reorderColumnsForPinning(cols, direction) as ColumnConfig[];
   }
 
   /** @internal */
@@ -224,6 +243,12 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         // Don't offer pin/unpin for locked-pinning columns
         if (column.meta?.lockPinning) return undefined;
 
+        // Don't offer pin/unpin when column grouping is active (incompatible)
+        const groupingPlugin = this.grid?.getPluginByName('groupingColumns') as
+          | { isGroupingActive(): boolean }
+          | undefined;
+        if (groupingPlugin?.isGroupingActive()) return undefined;
+
         const pinned = getColumnPinned(column);
         const isPinned = pinned != null;
         const items: HeaderContextMenuItem[] = [];
@@ -276,24 +301,66 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     const currentColumns = this.columns;
     if (!currentColumns?.length) return;
 
-    const updated = currentColumns.map((col) => {
-      if (col.field !== field) return col;
-      const copy = { ...col };
-      if (position) {
-        (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned = position;
-      } else {
-        delete (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned;
-      }
-      // Clean up deprecated sticky property if present
-      delete (copy as ColumnConfig & { sticky?: PinnedPosition }).sticky;
-      return copy;
-    });
+    const currentIndex = currentColumns.findIndex((col) => col.field === field);
+    if (currentIndex === -1) return;
 
-    // Set via columns setter to trigger re-render
-    const gridEl = this.grid as unknown as HTMLElement & {
-      columns?: ColumnConfig[];
-    };
-    gridEl.columns = updated;
+    const gridEl = this.grid as unknown as HTMLElement & { columns?: ColumnConfig[] };
+
+    if (position) {
+      // PINNING: snapshot original column order if this is the first context-menu pin.
+      // The snapshot lets us restore columns to their original positions on unpin.
+      if (this.#originalColumnOrder.length === 0) {
+        this.#originalColumnOrder = currentColumns.map((c) => c.field);
+      }
+
+      // Set the pinned property; processColumns will reorder on next render
+      const updated = currentColumns.map((col) => {
+        if (col.field !== field) return col;
+        const copy = { ...col };
+        (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned = position;
+        delete (copy as ColumnConfig & { sticky?: PinnedPosition }).sticky;
+        return copy;
+      });
+
+      gridEl.columns = updated;
+    } else {
+      // UNPINNING: restore column to its original position
+      const col = currentColumns[currentIndex];
+      const copy = { ...col };
+      delete (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned;
+      delete (copy as ColumnConfig & { sticky?: PinnedPosition }).sticky;
+
+      // Remove from current position
+      const remaining = [...currentColumns];
+      remaining.splice(currentIndex, 1);
+
+      // Find the best insertion point using the original order snapshot
+      const originalIndex = this.#originalColumnOrder.indexOf(field);
+      if (originalIndex >= 0) {
+        // Scan remaining non-pinned columns and find the first whose original
+        // position is greater than this column's original position.
+        let insertIndex = remaining.length;
+        for (let i = 0; i < remaining.length; i++) {
+          if (getColumnPinned(remaining[i])) continue; // skip pinned columns
+          const otherOriginal = this.#originalColumnOrder.indexOf(remaining[i].field);
+          if (otherOriginal > originalIndex) {
+            insertIndex = i;
+            break;
+          }
+        }
+        remaining.splice(insertIndex, 0, copy);
+      } else {
+        // Original position unknown — keep at current index
+        remaining.splice(Math.min(currentIndex, remaining.length), 0, copy);
+      }
+
+      // If no more pinned columns remain, clear the snapshot
+      if (!remaining.some((c) => getColumnPinned(c) != null)) {
+        this.#originalColumnOrder = [];
+      }
+
+      gridEl.columns = remaining;
+    }
   }
 
   /**

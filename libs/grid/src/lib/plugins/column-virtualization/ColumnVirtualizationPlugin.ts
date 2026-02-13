@@ -160,13 +160,16 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
 
   /** @internal */
   override processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
-    // Detect if this is a new column set or just a scroll-triggered re-render
-    // We only consider it a "new" column set if:
+    // Detect if this is a new column set or just a scroll-triggered re-render.
+    // We consider it "new" if:
     // 1. We don't have any stored yet (first time)
-    // 2. Incoming has MORE columns than we stored (genuine new config from grid)
-    // We do NOT compare fields because when startCol shifts, the first column's
-    // field will differ from the original first column's field
-    const isNewColumnSet = this.originalColumns.length === 0 || columns.length > this.originalColumns.length;
+    // 2. Incoming has AS MANY OR MORE columns than we stored (genuine new config)
+    //    When virtualization is active, our output is a SUBSET (fewer columns),
+    //    so a scroll-triggered re-render will have fewer columns than originalColumns.
+    //    When virtualization is off, our output has the same count as originalColumns,
+    //    but any config change (e.g., pinning a column) also has the same count.
+    //    Using >= ensures we pick up property-only changes (like adding `pinned`).
+    const isNewColumnSet = this.originalColumns.length === 0 || columns.length >= this.originalColumns.length;
 
     if (isNewColumnSet) {
       // Store the full column set

@@ -119,6 +119,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
       },
       toolPanel: { position: 'right' as const, width: 300 },
     },
+    fitMode: 'fixed',
 
     // Column groups for grouped headers
     columnGroups: COLUMN_GROUPS,

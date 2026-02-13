@@ -120,20 +120,14 @@ export class EmployeeGridComponent {
   </Tab>
 </Tabs>
 
-## Demos
+## Demo
 
-### Default (Both Sides)
+Use the controls below to change which columns are pinned to the left, right, or not pinned.
+Pinned columns are automatically reordered to the grid edges—left-pinned columns move to the
+start, right-pinned columns move to the end. Unpinning restores the column to its original position.
 
 <Canvas of={PinnedColumnsStories.Default} withToolbar />
 <Controls of={PinnedColumnsStories.Default} />
-
-### Left Pinned Only
-
-<Canvas of={PinnedColumnsStories.LeftPinnedOnly} withToolbar />
-
-### Right Pinned Only
-
-<Canvas of={PinnedColumnsStories.RightPinnedOnly} withToolbar />
 
 ## Configuration Options
 
@@ -165,6 +159,33 @@ For direction-independent pinning, use logical values `'start'` and `'end'` inst
 { field: 'id', pinned: 'start' }  // Left in LTR, Right in RTL
 { field: 'actions', pinned: 'end' } // Right in LTR, Left in RTL
 ```
+
+## Column Reordering Behaviour
+
+When a column is pinned (either via config or the context menu), the plugin **automatically
+reorders** it to the appropriate edge of the grid:
+
+- `pinned: 'left'` → moved to the leftmost position (after other left-pinned columns)
+- `pinned: 'right'` → moved to the rightmost position (before other right-pinned columns)
+
+When a column is unpinned via the context menu, it is restored to its **original position**
+in the column order.
+
+This ensures pinned columns are always visible at the grid edges without requiring the user
+to scroll.
+
+## Known Limitations
+
+- **Incompatible with Column Groups**: Pinned columns cannot be used together with the
+  [Column Groups plugin](../?path=/docs/grid-plugins-column-groups--docs). Pinning reorders
+  columns to the grid edges, but moving a column out of its column group is not supported.
+  When both plugins are loaded, a development-mode warning is shown and the pin/unpin
+  context menu items are hidden.
+
+- **Header-only sticky in virtualized grids**: Due to the row virtualization architecture
+  (`will-change: transform` on the rows container), `position: sticky` only works on
+  **header cells**. Data row cells receive the sticky CSS classes but the browser cannot
+  honour them because the transformed ancestor creates a new containing block.
 
 ## See Also
 

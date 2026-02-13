@@ -32,8 +32,10 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  /* Retry on CI only - individual test files override with retries: 0
+   * where appropriate. This acts as a fallback for any test files that
+   * don't set their own retry policy. */
+  retries: 0,
   /* Run tests in parallel - since visual baselines are not committed and
    * expectScreenshotIfBaselineExists skips comparisons when no baseline exists,
    * we can safely parallelize even in CI */

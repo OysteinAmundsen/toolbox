@@ -29,6 +29,9 @@ const CUSTOM_EDITORS = [
 const CUSTOM_STYLED_EDITORS = ['bonus', 'status', 'rating'] as const;
 
 test.describe('Custom Editors', () => {
+  // Disable retries — these tests are deterministic; retrying masks real bugs
+  test.describe.configure({ retries: 0 });
+
   test.describe('Editor Activation', () => {
     for (const [demoName, url] of Object.entries(DEMOS) as [DemoName, string][]) {
       test(`${demoName}: double-clicking row opens editors`, async ({ page }) => {

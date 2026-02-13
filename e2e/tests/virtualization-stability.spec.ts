@@ -12,6 +12,9 @@ import { DEMOS, SELECTORS, waitForGridReady } from './utils';
  * - Scroll position remains stable when expanding/collapsing details
  */
 test.describe('Variable Row Height Virtualization Stability', () => {
+  // Disable retries — these tests are deterministic; retrying masks real bugs
+  test.describe.configure({ retries: 0 });
+
   test.describe('Scroll Stability with Master-Detail', () => {
     test('vanilla: should not have blank areas when scrolling with expanded details', async ({ page }) => {
       await page.goto(DEMOS.vanilla);

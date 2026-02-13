@@ -31,7 +31,8 @@ import {
 // =============================================================================
 
 test.describe('Cross-Framework Visual Parity', () => {
-  test.describe.configure({ mode: 'serial' });
+  // Disable retries — visual tests are deterministic; retrying masks real bugs
+  test.describe.configure({ mode: 'serial', retries: 0 });
 
   test.describe('Initial Grid Render', () => {
     for (const [demoName, url] of Object.entries(DEMOS)) {

@@ -6,6 +6,9 @@ import { DEMOS, waitForGridReady } from './utils';
  * Tests that clicking the expander shows the detail panel.
  */
 test.describe('Master-Detail Panel', () => {
+  // Disable retries — these tests are deterministic; retrying masks real bugs
+  test.describe.configure({ retries: 0 });
+
   test('vanilla: clicking expander shows detail panel', async ({ page }) => {
     await page.goto(DEMOS.vanilla);
     await waitForGridReady(page);

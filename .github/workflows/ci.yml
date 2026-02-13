@@ -165,6 +165,7 @@ jobs:
     needs: [setup]
     if: needs.setup.outputs.should_validate == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       # Disable Nx interactive prompts for CI
       NX_INTERACTIVE: "false"

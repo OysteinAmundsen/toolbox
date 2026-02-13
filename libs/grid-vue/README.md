@@ -217,6 +217,72 @@ import '@toolbox-web/grid-vue/features/editing';
 | `commit` | `(value: any) => void` | Save the new value |
 | `cancel` | `() => void`           | Cancel editing     |
 
+## Events
+
+Handle grid events using Vue's template syntax or the `useGridEvent` composable.
+
+### Template Event Binding
+
+```vue
+<script setup lang="ts">
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { CellClickDetail, SortChangeDetail } from '@toolbox-web/grid';
+
+function onCellClick(e: CustomEvent<CellClickDetail>) {
+  console.log(`Clicked ${e.detail.field} at row ${e.detail.rowIndex}`);
+}
+
+function onSortChange(e: CustomEvent<SortChangeDetail>) {
+  console.log(`Sorted by ${e.detail.field} ${e.detail.direction}`);
+}
+</script>
+
+<template>
+  <TbwGrid :rows="rows" @cell-click="onCellClick" @sort-change="onSortChange">
+    <TbwGridColumn field="name" header="Name" sortable />
+  </TbwGrid>
+</template>
+```
+
+### Available Events
+
+| Event                  | Detail Type          | Description                       |
+| ---------------------- | -------------------- | --------------------------------- |
+| `@cell-click`          | `CellClickDetail`    | Cell was clicked                  |
+| `@row-click`           | `RowClickDetail`     | Row was clicked                   |
+| `@cell-commit`         | `CellCommitDetail`   | Cell value committed (cancelable) |
+| `@row-commit`          | `RowCommitDetail`    | Row edit completed (cancelable)   |
+| `@cell-change`         | `CellChangeDetail`   | Row updated via API               |
+| `@sort-change`         | `SortChangeDetail`   | Sort state changed                |
+| `@column-resize`       | `ColumnResizeDetail` | Column was resized                |
+| `@cell-activate`       | `CellActivateDetail` | Cell activated (cancelable)       |
+| `@column-state-change` | `GridColumnState`    | Column visibility/order changed   |
+
+## Using Plugins (Advanced)
+
+For full control, pass plugin instances directly via `:grid-config`. Use `markRaw()` to prevent Vue from making plugin instances reactive:
+
+```vue
+<script setup lang="ts">
+import { markRaw } from 'vue';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const gridConfig = {
+  plugins: markRaw([new SelectionPlugin({ mode: 'range' }), new FilteringPlugin({ debounceMs: 200 })]),
+};
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :grid-config="gridConfig">
+    <TbwGridColumn field="name" header="Name" />
+  </TbwGrid>
+</template>
+```
+
+> **Important:** Always wrap plugin arrays with `markRaw()`. Vue's reactivity proxy breaks plugin internal state.
+
 ## Composables
 
 ### useGrid
@@ -479,6 +545,19 @@ const props = defineProps<{
 | `VueCellRenderer`       | Deprecated - use `CellRenderer`      |
 | `VueCellEditor`         | Deprecated - use `CellEditor`        |
 | `VueTypeDefault`        | Deprecated - use `TypeDefault`       |
+
+## Requirements
+
+- **Vue 3.4+** (uses `defineModel` and improved generics)
+- **@toolbox-web/grid** (peer dependency)
+
+## Demo
+
+See the [Vue demo app](../../demos/employee-management/vue/) for a full-featured example using `@toolbox-web/grid-vue`.
+
+```bash
+bun nx serve demo-vue
+```
 
 ## Building
 

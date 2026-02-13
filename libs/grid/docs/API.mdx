@@ -31,6 +31,13 @@ The custom element is registered as `tbw-grid` (Toolbox Web Grid).
 | --------- | ---------------------- | ----------- | ---------------------- |
 | `fitMode` | `'stretch' \| 'fixed'` | `'stretch'` | Column sizing strategy |
 
+### State Properties
+
+| Property      | Type                       | Default | Description                                 |
+| ------------- | -------------------------- | ------- | ------------------------------------------- |
+| `loading`     | `boolean \| LoadingContext` | `false` | Grid-level loading state with optional renderer |
+| `columnState` | [`GridColumnState`](/docs/grid-api-core-interfaces-gridcolumnstate--docs)`[]` | -       | Get/set column widths, order, visibility, sort |
+
 ### Read-only Properties
 
 | Property      | Type                      | Description                   |
@@ -431,6 +438,50 @@ if (selection) {
 }
 ```
 
+### Custom Styles API
+
+```typescript
+// Register custom styles (uses adoptedStyleSheets — survives DOM rebuilds)
+grid.registerStyles('my-id', '.my-class { color: blue; }');
+
+// Remove custom styles
+grid.unregisterStyles('my-id');
+```
+
+> **Important:** Do not create `<style>` elements manually — they are wiped by internal `replaceChildren()` calls. Always use `registerStyles()` instead.
+
+### Row Animation API
+
+```typescript
+import type { RowAnimationType } from '@toolbox-web/grid';
+
+// Animate a single row by index
+grid.animateRow(rowIndex, 'update'); // 'insert' | 'update' | 'remove'
+
+// Animate a row by its ID
+grid.animateRowById('EMP-123', 'insert');
+
+// Animate multiple rows at once
+grid.animateRows([0, 1, 2], 'update');
+```
+
+### Loading States
+
+```typescript
+// Grid-level loading
+grid.loading = true;
+grid.loading = { message: 'Loading data...' };
+grid.loading = { renderer: (container) => { container.textContent = 'Custom...'; } };
+
+// Row-level loading
+grid.setRowLoading(rowIndex, true);
+grid.setRowLoading(rowIndex, false);
+
+// Cell-level loading
+grid.setCellLoading(rowIndex, 'fieldName', true);
+grid.setCellLoading(rowIndex, 'fieldName', false);
+```
+
 ### Column State Persistence
 
 ```typescript
@@ -487,8 +538,10 @@ const panels = grid.getToolPanels();
 | `cell-change`        | [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs)  | No         | Row updated via Row Update API      |
 | `row-commit`         | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs)   | ✅ Yes     | Bulk row edit completed             |
 | `changed-rows-reset` | -                   | No         | Changed rows were reset             |
+| `edit-open`          | `EditOpenDetail`    | No         | Row entered edit mode               |
+| `edit-close`         | `EditCloseDetail`   | No         | Row left edit mode                  |
 
-> **Note:** `cell-commit`, `row-commit`, and `changed-rows-reset` events require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs). The `cell-change` event is a core event that fires for any programmatic row updates via the Row Update API.
+> **Note:** `cell-commit`, `row-commit`, `changed-rows-reset`, `edit-open`, and `edit-close` events require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs). The `cell-change` event is a core event that fires for any programmatic row updates via the Row Update API.
 
 ```typescript
 import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';

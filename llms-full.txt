@@ -939,6 +939,224 @@ interface ContextMenuParams {
 // Uses plugin query system (no hard dependency on SelectionPlugin).
 ```
 
+### PivotPlugin
+
+```typescript
+new PivotPlugin({
+  active?: boolean,                  // Whether pivot is active on load (default: true when fields configured)
+  rowGroupFields?: string[],         // Fields to group rows by
+  columnGroupFields?: string[],      // Fields to create pivot columns from
+  valueFields?: PivotValueField[],   // Value fields with aggregation: { field, aggFunc, header? }
+                                     //   aggFunc: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last'
+  showTotals?: boolean,              // Show row totals column
+  showGrandTotal?: boolean,          // Show grand total row
+  defaultExpanded?: boolean,         // Groups expanded by default (default: true)
+  indentWidth?: number,              // Indent per depth level in px (default: 20)
+  showToolPanel?: boolean,           // Show pivot config tool panel (default: true)
+  animation?: false | 'slide' | 'fade', // Expand/collapse animation (default: 'slide')
+})
+// Programmatic API:
+const pivot = grid.getPlugin(PivotPlugin);
+pivot.enablePivot();                 // Activate pivot mode
+pivot.disablePivot();                // Deactivate pivot mode
+pivot.isPivotActive();               // Check if pivot is active
+pivot.getPivotResult();              // Get current PivotResult | null
+pivot.setRowGroupFields(fields);     // Update row group fields
+pivot.setColumnGroupFields(fields);  // Update column group fields
+pivot.setValueFields(fields);        // Update value fields
+pivot.refresh();                     // Force re-compute pivot
+pivot.expandAll();                   // Expand all groups
+pivot.collapseAll();                 // Collapse all groups
+```
+
+### MultiSortPlugin
+
+```typescript
+new MultiSortPlugin({
+  maxSortColumns?: number,           // Max columns to sort by (default: 3)
+  showSortIndex?: boolean,           // Show sort order badges on headers (default: true)
+})
+// Events: 'sort-change' → { sortModel: SortModel[] }
+// Programmatic API:
+const sort = grid.getPlugin(MultiSortPlugin);
+sort.getSortModel();                 // Get current SortModel[] (copy)
+sort.setSortModel(model);            // Set sort model programmatically
+sort.clearSort();                    // Remove all sorting
+sort.getSortIndex(field);            // Get 1-based sort index or undefined
+sort.getSortDirection(field);        // Get 'asc' | 'desc' | undefined
+```
+
+### PinnedColumnsPlugin
+
+```typescript
+new PinnedColumnsPlugin({
+  // No constructor options — activated by column config: { field: 'id', pinned: 'left' }
+})
+// Column config augmentation (requires PinnedColumnsPlugin):
+//   pinned?: 'left' | 'right' | 'start' | 'end'
+//   'start'/'end' are logical (flip in RTL)
+// Programmatic API:
+const pinned = grid.getPlugin(PinnedColumnsPlugin);
+pinned.setPinPosition(field, position); // Pin/unpin: position = 'left'|'right'|'start'|'end' | undefined
+pinned.refreshStickyOffsets();          // Re-apply sticky offsets (e.g., after column resize)
+pinned.getLeftPinnedColumns();          // Get columns pinned left
+pinned.getRightPinnedColumns();         // Get columns pinned right
+pinned.clearStickyPositions();          // Remove all sticky positioning
+```
+
+### PinnedRowsPlugin
+
+```typescript
+new PinnedRowsPlugin({
+  position?: 'top' | 'bottom',                // Info bar position (default: 'bottom')
+  showRowCount?: boolean,                      // Show total row count (default: true)
+  showSelectedCount?: boolean,                 // Show selected count (default: true)
+  showFilteredCount?: boolean,                 // Show filtered count (default: true)
+  customPanels?: PinnedRowsPanel[],            // Custom info bar panels
+  aggregationRows?: AggregationRowConfig[],    // Footer/header aggregation rows
+  fullWidth?: boolean,                         // Default fullWidth for all aggregation rows (default: false)
+})
+// Programmatic API:
+const rows = grid.getPlugin(PinnedRowsPlugin);
+rows.refresh();                      // Refresh status bar
+rows.addPanel(panel);                // Add a custom info bar panel
+rows.removePanel(id);                // Remove a custom panel by ID
+rows.addAggregationRow(config);      // Add an aggregation row at runtime
+rows.removeAggregationRow(id);       // Remove an aggregation row by ID
+```
+
+### ReorderPlugin
+
+```typescript
+new ReorderPlugin({
+  animation?: false | 'flip' | 'fade', // Animation type (default: 'flip')
+  animationDuration?: number,           // Animation duration ms (default: 200)
+})
+// Events: 'column-move' (cancelable) → { field, fromIndex, toIndex, columnOrder }
+// Programmatic API:
+const reorder = grid.getPlugin(ReorderPlugin);
+reorder.getColumnOrder();            // Get current column order (string[])
+reorder.moveColumn(field, toIndex);  // Move column to new position
+reorder.setColumnOrder(order);       // Set explicit column order
+reorder.resetColumnOrder();          // Reset to original config order
+```
+
+### RowReorderPlugin
+
+```typescript
+new RowReorderPlugin({
+  enableKeyboard?: boolean,          // Ctrl+Up/Down shortcuts (default: true)
+  showDragHandle?: boolean,          // Show drag handle column (default: true)
+  dragHandlePosition?: 'left' | 'right', // Handle column position (default: 'left')
+  dragHandleWidth?: number,          // Handle column width in px (default: 40)
+  canMove?: (row, fromIndex, toIndex, direction) => boolean, // Validation callback
+  debounceMs?: number,               // Keyboard move debounce ms (default: 150)
+  animation?: false | 'flip',        // Row movement animation (default: 'flip')
+})
+// Events: 'row-move' (cancelable) → { row, fromIndex, toIndex, rows, source }
+// Programmatic API:
+const rowReorder = grid.getPlugin(RowReorderPlugin);
+rowReorder.moveRow(fromIndex, toIndex); // Move a row programmatically
+rowReorder.canMoveRow(fromIndex, toIndex); // Check if move is allowed
+```
+
+### VisibilityPlugin
+
+```typescript
+new VisibilityPlugin({
+  allowHideAll?: boolean,            // Allow hiding all columns (default: false)
+})
+// Programmatic API:
+const vis = grid.getPlugin(VisibilityPlugin);
+vis.show();                          // Open visibility tool panel
+vis.hide();                          // Close tool panel
+vis.toggle();                        // Toggle visibility panel
+vis.isPanelVisible();                // Check if panel is visible
+vis.isColumnVisible(field);          // Check column visibility
+vis.setColumnVisible(field, visible); // Set column visibility
+vis.toggleColumn(field);             // Toggle a column's visibility
+vis.showAll();                       // Show all columns
+vis.getVisibleColumns();             // Get visible field names
+vis.getHiddenColumns();              // Get hidden field names
+```
+
+### ColumnVirtualizationPlugin
+
+```typescript
+new ColumnVirtualizationPlugin({
+  autoEnable?: boolean,              // Auto-enable above threshold (default: true)
+  threshold?: number,                // Column count threshold (default: 30)
+  overscan?: number,                 // Extra columns per side (default: 3)
+})
+// Programmatic API:
+const colVirt = grid.getPlugin(ColumnVirtualizationPlugin);
+colVirt.getIsVirtualized();          // Check if virtualization is active
+colVirt.getVisibleColumnRange();     // Get { start, end } column indices
+colVirt.scrollToColumn(columnIndex); // Scroll to bring column into view
+colVirt.getTotalWidth();             // Get total width of all columns (px)
+```
+
+### GroupingColumnsPlugin
+
+```typescript
+new GroupingColumnsPlugin({
+  groupHeaderRenderer?: (params) => HTMLElement | string | void, // Custom group header
+  showGroupBorders?: boolean,        // Show borders between groups (default: true)
+  lockGroupOrder?: boolean,          // Prevent reorder across groups (default: false)
+})
+// Column config augmentation:
+//   group?: { id: string; label?: string } | string
+// GridConfig augmentation:
+//   columnGroups?: ColumnGroupDefinition[] — { id, header, children: string[] }
+// Programmatic API:
+const groups = grid.getPlugin(GroupingColumnsPlugin);
+groups.isGroupingActive();           // Check if groups are active
+groups.getGroups();                  // Get computed ColumnGroup[]
+groups.getGroupColumns(groupId);     // Get columns in a specific group
+groups.refresh();                    // Recompute groups from current columns
+```
+
+### PrintPlugin
+
+```typescript
+new PrintPlugin({
+  button?: boolean,                  // Show print button in toolbar (default: false)
+  orientation?: 'portrait' | 'landscape', // Page orientation (default: 'landscape')
+  warnThreshold?: number,            // Confirm dialog above N rows (default: 500, 0 = disabled)
+  maxRows?: number,                  // Hard limit on rows to print (default: 0 = unlimited)
+  includeTitle?: boolean,            // Include grid title in output (default: true)
+  includeTimestamp?: boolean,        // Include timestamp in footer (default: true)
+  title?: string,                    // Custom print title (overrides shell title)
+  isolate?: boolean,                 // Hide other content during print (default: false)
+})
+// Column config augmentation:
+//   printHidden?: boolean           // Hide column when printing (default: false)
+// Programmatic API:
+const printer = grid.getPlugin(PrintPlugin);
+printer.isPrinting();                // Check if print is in progress
+await printer.print();               // Open browser print dialog
+await printer.print({ orientation, title, maxRows }); // Override config per print
+```
+
+### UndoRedoPlugin
+
+```typescript
+new UndoRedoPlugin({
+  maxHistorySize?: number,           // Max undo actions in stack (default: 100)
+})
+// Keyboard: Ctrl+Z = undo, Ctrl+Y / Ctrl+Shift+Z = redo
+// Dependencies: Requires EditingPlugin
+// Programmatic API:
+const undoRedo = grid.getPlugin(UndoRedoPlugin);
+undoRedo.undo();                     // Undo last action
+undoRedo.redo();                     // Redo last undone action
+undoRedo.canUndo();                  // Check if undo stack is non-empty
+undoRedo.canRedo();                  // Check if redo stack is non-empty
+undoRedo.clearHistory();             // Clear all undo/redo history
+undoRedo.getUndoStack();             // Get copy of undo stack
+undoRedo.getRedoStack();             // Get copy of redo stack
+```
+
 ---
 
 ## Grid API

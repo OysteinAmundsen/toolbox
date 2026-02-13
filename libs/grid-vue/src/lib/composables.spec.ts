@@ -104,23 +104,23 @@ describe('use-grid-event', () => {
 
     it('should accept different event types', () => {
       expect(() => {
-        useGridEvent('cell-dblclick', () => {});
+        useGridEvent('cell-dblclick', () => undefined);
       }).not.toThrow();
 
       expect(() => {
-        useGridEvent('cell-commit', () => {});
+        useGridEvent('cell-commit', () => undefined);
       }).not.toThrow();
 
       expect(() => {
-        useGridEvent('selection-change', () => {});
+        useGridEvent('selection-change', () => undefined);
       }).not.toThrow();
 
       expect(() => {
-        useGridEvent('sort-change', () => {});
+        useGridEvent('sort-change', () => undefined);
       }).not.toThrow();
 
       expect(() => {
-        useGridEvent('row-toggle', () => {});
+        useGridEvent('row-toggle', () => undefined);
       }).not.toThrow();
     });
 

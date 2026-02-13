@@ -497,6 +497,7 @@ The grid uses a plugin architecture for optional features. Each plugin has its o
 
 | Plugin                | Description                    | Documentation                                               |
 | --------------------- | ------------------------------ | ----------------------------------------------------------- |
+| Editing               | Inline cell editing            | [README](./src/lib/plugins/editing/README.md)               |
 | Selection             | Cell, row, and range selection | [README](./src/lib/plugins/selection/README.md)             |
 | Multi-Sort            | Multi-column sorting           | [README](./src/lib/plugins/multi-sort/README.md)            |
 | Filtering             | Column filters                 | [README](./src/lib/plugins/filtering/README.md)             |
@@ -506,14 +507,17 @@ The grid uses a plugin architecture for optional features. Each plugin has its o
 | Pivot                 | Pivot table transformation     | [README](./src/lib/plugins/pivot/README.md)                 |
 | Master-Detail         | Expandable detail rows         | [README](./src/lib/plugins/master-detail/README.md)         |
 | Pinned Columns        | Sticky columns                 | [README](./src/lib/plugins/pinned-columns/README.md)        |
+| Pinned Rows           | Footer aggregations            | [README](./src/lib/plugins/pinned-rows/README.md)           |
 | Reorder               | Column drag reordering         | [README](./src/lib/plugins/reorder/README.md)               |
+| Row Reorder           | Row drag reordering            | [README](./src/lib/plugins/row-reorder/README.md)           |
 | Visibility            | Column visibility UI           | [README](./src/lib/plugins/visibility/README.md)            |
+| Responsive            | Card layout for mobile         | [README](./src/lib/plugins/responsive/README.md)            |
 | Clipboard             | Copy/paste                     | [README](./src/lib/plugins/clipboard/README.md)             |
 | Context Menu          | Right-click menus              | [README](./src/lib/plugins/context-menu/README.md)          |
 | Export                | CSV/Excel/JSON export          | [README](./src/lib/plugins/export/README.md)                |
+| Print                 | Print-optimized layout         | [README](./src/lib/plugins/print/README.md)                 |
 | Undo/Redo             | Edit history                   | [README](./src/lib/plugins/undo-redo/README.md)             |
 | Server-Side           | Lazy data loading              | [README](./src/lib/plugins/server-side/README.md)           |
-| Pinned Rows           | Footer aggregations            | [README](./src/lib/plugins/pinned-rows/README.md)           |
 | Column Virtualization | Horizontal virtualization      | [README](./src/lib/plugins/column-virtualization/README.md) |
 
 ### Creating Custom Plugins

@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ColumnConfig } from '../../core/types';
-import { buildClipboardText, formatCellValue, type CopyParams } from './copy';
-import { parseClipboardText } from './paste';
+import { ClipboardPlugin } from './ClipboardPlugin';
+import { buildClipboardText, copyToClipboard, formatCellValue, type CopyParams } from './copy';
+import { parseClipboardText, readFromClipboard } from './paste';
 import type { ClipboardConfig, PasteDetail } from './types';
 import { defaultPasteHandler } from './types';
 
@@ -667,4 +668,355 @@ describe('clipboard', () => {
       expect(grid.rows[0]).toEqual({ col1: 'A1', col2: 'B1' });
     });
   });
+
+  // #region copyToClipboard & readFromClipboard
+
+  describe('copyToClipboard', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('should write text using navigator.clipboard API', async () => {
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: writeTextMock },
+        writable: true,
+        configurable: true,
+      });
+
+      const result = await copyToClipboard('hello world');
+      expect(result).toBe(true);
+      expect(writeTextMock).toHaveBeenCalledWith('hello world');
+    });
+
+    it('should return false when clipboard API fails', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+        writable: true,
+        configurable: true,
+      });
+      // Mock execCommand fallback (not available in happy-dom)
+      document.execCommand = vi.fn(() => false);
+
+      const result = await copyToClipboard('test');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('readFromClipboard', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('should read text from navigator.clipboard API', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { readText: vi.fn().mockResolvedValue('clipboard content') },
+        writable: true,
+        configurable: true,
+      });
+
+      const result = await readFromClipboard();
+      expect(result).toBe('clipboard content');
+    });
+
+    it('should return empty string when clipboard API fails', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { readText: vi.fn().mockRejectedValue(new Error('denied')) },
+        writable: true,
+        configurable: true,
+      });
+
+      const result = await readFromClipboard();
+      expect(result).toBe('');
+    });
+  });
+
+  // #endregion
+
+  // #region ClipboardPlugin class
+
+  describe('ClipboardPlugin class', () => {
+    function createGridMockForPlugin(rows: Record<string, unknown>[] = [], columns: ColumnConfig[] = []) {
+      return {
+        rows,
+        sourceRows: rows,
+        columns,
+        _columns: columns,
+        _visibleColumns: columns,
+        _focusRow: 0,
+        _focusCol: 0,
+        gridConfig: {},
+        effectiveConfig: {},
+        getPlugin: () => undefined,
+        query: () => [],
+        queryPlugins: () => [],
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(() => true),
+        requestRender: vi.fn(),
+        children: [document.createElement('div')],
+        querySelectorAll: () => [],
+        querySelector: () => null,
+        clientWidth: 800,
+        classList: { add: vi.fn(), remove: vi.fn() },
+      };
+    }
+
+    it('should have correct name', () => {
+      const plugin = new ClipboardPlugin();
+      expect(plugin.name).toBe('clipboard');
+    });
+
+    it('should have selection as optional dependency', () => {
+      expect(ClipboardPlugin.dependencies).toBeDefined();
+      const dep = ClipboardPlugin.dependencies![0];
+      expect(dep.name).toBe('selection');
+      expect(dep.required).toBe(false);
+    });
+
+    it('should attach and detach cleanly', () => {
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin();
+      plugin.attach(grid as any);
+      expect(grid.addEventListener).toHaveBeenCalled();
+
+      plugin.detach();
+      expect(plugin.getLastCopied()).toBeNull();
+    });
+
+    it('should return null from getLastCopied when nothing copied', () => {
+      const plugin = new ClipboardPlugin();
+      expect(plugin.getLastCopied()).toBeNull();
+    });
+
+    it('should return empty string from getSelectionAsText when no data', () => {
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin([], []);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('');
+    });
+
+    it('should build text from all rows when no selection', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'age', header: 'Age' },
+      ];
+      const rows = [
+        { name: 'Alice', age: 30 },
+        { name: 'Bob', age: 25 },
+      ];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toContain('Alice');
+      expect(text).toContain('Bob');
+    });
+
+    it('should include headers when configured', () => {
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const rows = [{ name: 'Alice' }];
+      const plugin = new ClipboardPlugin({ includeHeaders: true });
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toContain('Name');
+      expect(text).toContain('Alice');
+    });
+
+    it('should respect options override for includeHeaders', () => {
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const rows = [{ name: 'Alice' }];
+      const plugin = new ClipboardPlugin({ includeHeaders: false });
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText({ includeHeaders: true });
+      expect(text).toContain('Name');
+    });
+
+    it('should respect columns option in getSelectionAsText', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'name', header: 'Name' },
+        { field: 'age', header: 'Age' },
+        { field: 'email', header: 'Email' },
+      ];
+      const rows = [{ name: 'Alice', age: 30, email: 'alice@test.com' }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText({ columns: ['name', 'email'] });
+      expect(text).toContain('Alice');
+      expect(text).toContain('alice@test.com');
+      expect(text).not.toContain('30');
+    });
+
+    it('should copy data and update lastCopied', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        writable: true,
+        configurable: true,
+      });
+
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const rows = [{ name: 'Alice' }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = await plugin.copy();
+      expect(text).toContain('Alice');
+      expect(plugin.getLastCopied()).not.toBeNull();
+      expect(plugin.getLastCopied()?.text).toBe(text);
+    });
+
+    it('should emit copy event on successful copy', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        writable: true,
+        configurable: true,
+      });
+
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const rows = [{ name: 'Alice' }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      await plugin.copy();
+      expect(grid.dispatchEvent).toHaveBeenCalled();
+      const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent;
+      expect(event.type).toBe('copy');
+      expect(event.detail.rowCount).toBe(1);
+      expect(event.detail.columnCount).toBe(1);
+    });
+
+    it('should return empty string from copy when no data', async () => {
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin([], []);
+      plugin.attach(grid as any);
+
+      const text = await plugin.copy();
+      expect(text).toBe('');
+    });
+
+    it('should copy specific rows via copyRows', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        writable: true,
+        configurable: true,
+      });
+
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const rows = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Charlie' }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = await plugin.copyRows([0, 2]);
+      expect(text).toContain('Alice');
+      expect(text).toContain('Charlie');
+      expect(text).not.toContain('Bob');
+    });
+
+    it('should return empty string from copyRows with empty indices', async () => {
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin([], []);
+      plugin.attach(grid as any);
+
+      const text = await plugin.copyRows([]);
+      expect(text).toBe('');
+    });
+
+    it('should parse clipboard content via paste()', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { readText: vi.fn().mockResolvedValue('A\tB\nC\tD') },
+        writable: true,
+        configurable: true,
+      });
+
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin();
+      plugin.attach(grid as any);
+
+      const result = await plugin.paste();
+      expect(result).toEqual([
+        ['A', 'B'],
+        ['C', 'D'],
+      ]);
+    });
+
+    it('should return null from paste() when clipboard is empty', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { readText: vi.fn().mockResolvedValue('') },
+        writable: true,
+        configurable: true,
+      });
+
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin();
+      plugin.attach(grid as any);
+
+      const result = await plugin.paste();
+      expect(result).toBeNull();
+    });
+
+    it('should handle onKeyDown for Ctrl+C', () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        writable: true,
+        configurable: true,
+      });
+
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const rows = [{ name: 'Alice' }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const event = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true });
+      const cell = document.createElement('div');
+      Object.defineProperty(event, 'target', { value: cell });
+
+      const result = plugin.onKeyDown(event);
+      expect(result).toBe(true);
+    });
+
+    it('should not handle onKeyDown for non-copy keys', () => {
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin();
+      plugin.attach(grid as any);
+
+      const event = new KeyboardEvent('keydown', { key: 'a', ctrlKey: true });
+      const result = plugin.onKeyDown(event);
+      expect(result).toBe(false);
+    });
+
+    it('should clear lastCopied on detach', async () => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        writable: true,
+        configurable: true,
+      });
+
+      const columns: ColumnConfig[] = [{ field: 'name', header: 'Name' }];
+      const rows = [{ name: 'Alice' }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      await plugin.copy();
+      expect(plugin.getLastCopied()).not.toBeNull();
+
+      plugin.detach();
+      expect(plugin.getLastCopied()).toBeNull();
+    });
+  });
+
+  // #endregion
 });

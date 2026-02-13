@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { computeFilterCacheKey, filterRows, getUniqueValues, matchesFilter } from './filter-model';
+import { FilteringPlugin } from './FilteringPlugin';
 import type { FilterModel } from './types';
 
 describe('filter-model', () => {
@@ -664,3 +665,321 @@ describe('FilterConfig async handlers', () => {
     });
   });
 });
+
+// #region FilteringPlugin class tests
+
+describe('FilteringPlugin class', () => {
+  function createGridMock(rows: Record<string, unknown>[] = [], columns: any[] = []) {
+    const gridEl = document.createElement('tbw-grid');
+    const container = document.createElement('div');
+    gridEl.appendChild(container);
+    document.body.appendChild(gridEl);
+
+    return {
+      rows,
+      sourceRows: rows,
+      _columns: columns,
+      _visibleColumns: columns,
+      _focusRow: 0,
+      _focusCol: 0,
+      effectiveConfig: { filterable: true },
+      gridConfig: {},
+      getPlugin: () => undefined,
+      query: () => [],
+      queryPlugins: () => [],
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => true),
+      requestRender: vi.fn(),
+      registerStyles: vi.fn(),
+      unregisterStyles: vi.fn(),
+      children: [container],
+      querySelectorAll: gridEl.querySelectorAll.bind(gridEl),
+      querySelector: gridEl.querySelector.bind(gridEl),
+      clientWidth: 800,
+      classList: gridEl.classList,
+      ownerDocument: document,
+      tagName: 'TBW-GRID',
+      closest: () => null,
+      style: gridEl.style,
+      // Clean up when done
+      _cleanup: () => gridEl.remove(),
+    };
+  }
+
+  it('should have correct plugin name', () => {
+    const plugin = new FilteringPlugin();
+    expect(plugin.name).toBe('filtering');
+  });
+
+  it('should have default config values', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    // Plugin is instantiated with defaults
+    expect(plugin.getFilters()).toEqual([]);
+    grid._cleanup();
+  });
+
+  it('should set and get a filter', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'Alice' });
+    const filter = plugin.getFilter('name');
+    expect(filter).toBeDefined();
+    expect(filter?.field).toBe('name');
+    expect(filter?.operator).toBe('contains');
+    expect(filter?.value).toBe('Alice');
+    grid._cleanup();
+  });
+
+  it('should remove a filter when passing null', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'Alice' });
+    expect(plugin.isFieldFiltered('name')).toBe(true);
+
+    plugin.setFilter('name', null);
+    expect(plugin.isFieldFiltered('name')).toBe(false);
+    expect(plugin.getFilter('name')).toBeUndefined();
+    grid._cleanup();
+  });
+
+  it('should return all active filters via getFilters', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    plugin.setFilter('age', { type: 'number', operator: 'greaterThan', value: 25 });
+
+    const filters = plugin.getFilters();
+    expect(filters).toHaveLength(2);
+    expect(filters.map((f) => f.field).sort()).toEqual(['age', 'name']);
+    grid._cleanup();
+  });
+
+  it('getFilterModel should be alias for getFilters', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'test' });
+    expect(plugin.getFilterModel()).toEqual(plugin.getFilters());
+    grid._cleanup();
+  });
+
+  it('should set filters from array via setFilterModel', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    const filters: FilterModel[] = [
+      { field: 'name', type: 'text', operator: 'contains', value: 'A' },
+      { field: 'city', type: 'text', operator: 'equals', value: 'NYC' },
+    ];
+    plugin.setFilterModel(filters);
+
+    expect(plugin.getFilters()).toHaveLength(2);
+    expect(plugin.isFieldFiltered('name')).toBe(true);
+    expect(plugin.isFieldFiltered('city')).toBe(true);
+    grid._cleanup();
+  });
+
+  it('setFilterModel should replace existing filters', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('old', { type: 'text', operator: 'contains', value: 'x' });
+    plugin.setFilterModel([{ field: 'new', type: 'text', operator: 'contains', value: 'y' }]);
+
+    expect(plugin.isFieldFiltered('old')).toBe(false);
+    expect(plugin.isFieldFiltered('new')).toBe(true);
+    grid._cleanup();
+  });
+
+  it('should clear all filters', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    plugin.setFilter('age', { type: 'number', operator: 'greaterThan', value: 25 });
+    expect(plugin.getFilters()).toHaveLength(2);
+
+    plugin.clearAllFilters();
+    expect(plugin.getFilters()).toHaveLength(0);
+    grid._cleanup();
+  });
+
+  it('should clear a specific field filter', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    plugin.setFilter('age', { type: 'number', operator: 'greaterThan', value: 25 });
+
+    plugin.clearFieldFilter('name');
+    expect(plugin.isFieldFiltered('name')).toBe(false);
+    expect(plugin.isFieldFiltered('age')).toBe(true);
+    grid._cleanup();
+  });
+
+  it('isFieldFiltered should return correct boolean', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    expect(plugin.isFieldFiltered('name')).toBe(false);
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    expect(plugin.isFieldFiltered('name')).toBe(true);
+    grid._cleanup();
+  });
+
+  it('should emit filter-change event on setFilter', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+
+    expect(grid.dispatchEvent).toHaveBeenCalled();
+    const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent;
+    expect(event.type).toBe('filter-change');
+    expect(event.detail.filters).toHaveLength(1);
+    grid._cleanup();
+  });
+
+  it('should request render after setFilter', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    expect(grid.requestRender).toHaveBeenCalled();
+    grid._cleanup();
+  });
+
+  it('processRows should filter rows when filters are active', () => {
+    const plugin = new FilteringPlugin();
+    const rows = [
+      { name: 'Alice', age: 30 },
+      { name: 'Bob', age: 25 },
+      { name: 'Charlie', age: 35 },
+    ];
+    const grid = createGridMock(rows);
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'li' });
+
+    const result = plugin.processRows(rows);
+    expect(result).toHaveLength(2); // Alice & Charlie
+  });
+
+  it('processRows should return all rows when no filters', () => {
+    const plugin = new FilteringPlugin();
+    const rows = [{ name: 'Alice' }, { name: 'Bob' }];
+    const grid = createGridMock(rows);
+    plugin.attach(grid as any);
+
+    const result = plugin.processRows(rows);
+    expect(result).toHaveLength(2);
+  });
+
+  it('processRows should use cache on subsequent calls', () => {
+    const plugin = new FilteringPlugin();
+    const rows = [
+      { name: 'Alice', age: 30 },
+      { name: 'Bob', age: 25 },
+    ];
+    const grid = createGridMock(rows);
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'Ali' });
+    const result1 = plugin.processRows(rows);
+    const result2 = plugin.processRows(rows);
+
+    // Should return the same cached reference
+    expect(result1).toBe(result2);
+    grid._cleanup();
+  });
+
+  it('processRows should invalidate cache when filter changes', () => {
+    const plugin = new FilteringPlugin();
+    const rows = [
+      { name: 'Alice', age: 30 },
+      { name: 'Bob', age: 25 },
+    ];
+    const grid = createGridMock(rows);
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'Ali' });
+    const result1 = plugin.processRows(rows);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'Bo' });
+    const result2 = plugin.processRows(rows);
+
+    expect(result1).not.toBe(result2);
+    expect(result1).toHaveLength(1);
+    expect(result2).toHaveLength(1);
+    grid._cleanup();
+  });
+
+  it('getActiveFilters should be alias for getFilters', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'X' });
+    expect(plugin.getActiveFilters()).toEqual(plugin.getFilters());
+    grid._cleanup();
+  });
+
+  it('getFilteredRowCount returns row count from cache', () => {
+    const plugin = new FilteringPlugin();
+    const rows = [{ name: 'Alice' }, { name: 'Bob' }, { name: 'Charlie' }];
+    const grid = createGridMock(rows);
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'li' });
+    plugin.processRows(rows);
+    expect(plugin.getFilteredRowCount()).toBe(2); // Alice & Charlie
+    grid._cleanup();
+  });
+
+  it('should clean up state on detach', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    expect(plugin.getFilters()).toHaveLength(1);
+
+    plugin.detach();
+    expect(plugin.getFilters()).toHaveLength(0);
+    grid._cleanup();
+  });
+
+  it('getUniqueValues should return unique values from source rows', () => {
+    const rows = [{ city: 'New York' }, { city: 'Boston' }, { city: 'New York' }, { city: 'Chicago' }];
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock(rows);
+    plugin.attach(grid as any);
+
+    const values = plugin.getUniqueValues('city');
+    expect(values).toHaveLength(3);
+    expect(values).toContain('New York');
+    expect(values).toContain('Boston');
+    expect(values).toContain('Chicago');
+    grid._cleanup();
+  });
+});
+
+// #endregion

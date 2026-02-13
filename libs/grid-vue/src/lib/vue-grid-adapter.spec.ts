@@ -450,4 +450,135 @@ describe('VueGridAdapter', () => {
   });
 
   // #endregion
+
+  // #region cleanup
+
+  describe('cleanup', () => {
+    it('should not throw when called with no mounted views', () => {
+      const adapter = new GridAdapter();
+      expect(() => adapter.cleanup()).not.toThrow();
+    });
+
+    it('should be callable multiple times safely', () => {
+      const adapter = new GridAdapter();
+      adapter.cleanup();
+      adapter.cleanup();
+      // Should not throw
+    });
+  });
+
+  // #endregion
+
+  // #region parseDetailElement
+
+  describe('parseDetailElement', () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return undefined when element has no parent grid', () => {
+      const adapter = new GridAdapter();
+      const detailElement = document.createElement('tbw-grid-detail');
+      // Not inside a tbw-grid
+      container.appendChild(detailElement);
+
+      const result = adapter.parseDetailElement(detailElement);
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when grid has no tbw-grid-detail child', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const someOtherElement = document.createElement('div');
+      gridElement.appendChild(someOtherElement);
+      container.appendChild(gridElement);
+
+      // Pass the div, which is inside a grid but not a detail element
+      const result = adapter.parseDetailElement(someOtherElement);
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when detail element has no registered renderer', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const detailElement = document.createElement('tbw-grid-detail');
+      gridElement.appendChild(detailElement);
+      container.appendChild(gridElement);
+
+      const result = adapter.parseDetailElement(detailElement);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  // #endregion
+
+  // #region parseResponsiveCardElement
+
+  describe('parseResponsiveCardElement', () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return undefined when element has no parent grid', () => {
+      const adapter = new GridAdapter();
+      const cardElement = document.createElement('tbw-grid-responsive-card');
+      container.appendChild(cardElement);
+
+      const result = adapter.parseResponsiveCardElement(cardElement);
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when grid has no tbw-grid-responsive-card child', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const someOtherElement = document.createElement('div');
+      gridElement.appendChild(someOtherElement);
+      container.appendChild(gridElement);
+
+      const result = adapter.parseResponsiveCardElement(someOtherElement);
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when card element has no registered renderer', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const cardElement = document.createElement('tbw-grid-responsive-card');
+      gridElement.appendChild(cardElement);
+      container.appendChild(gridElement);
+
+      const result = adapter.parseResponsiveCardElement(cardElement);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  // #endregion
+
+  // #region VueGridAdapter alias
+
+  describe('VueGridAdapter alias', () => {
+    it('should be the same as GridAdapter', () => {
+      expect(VueGridAdapter).toBe(GridAdapter);
+    });
+
+    it('should produce instances with same prototype', () => {
+      const adapter = new VueGridAdapter();
+      expect(adapter).toBeInstanceOf(GridAdapter);
+    });
+  });
+
+  // #endregion
 });

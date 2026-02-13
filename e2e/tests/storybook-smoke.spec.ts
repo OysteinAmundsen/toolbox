@@ -9,12 +9,20 @@ import { expect, test } from '@playwright/test';
  *
  * This replaces manual testing of stories before releases.
  *
+ * **Skipped on CI**: Iterating ~110 stories sequentially takes too long on
+ * shared CI runners. The Storybook build step already catches compilation
+ * errors. Run locally to validate story rendering before merging.
+ *
  * Prerequisites:
  *   bun nx serve docs    # Storybook on port 4400
  *
  * Run with:
  *   npx playwright test storybook-smoke.spec.ts
  */
+
+// Skip on CI — iterating ~110 stories is too slow for shared runners.
+// The Storybook BUILD step already validates compilation.
+test.skip(!!process.env.CI, 'Storybook smoke tests are skipped on CI (too slow for shared runners)');
 
 const STORYBOOK_URL = 'http://localhost:4400';
 

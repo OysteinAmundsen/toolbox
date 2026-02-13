@@ -1164,3 +1164,220 @@ test.describe('Performance Regression: Error Budget', () => {
 });
 
 // #endregion
+// #region Large Column Count Performance
+
+test.describe('Performance Regression: Large Column Count', () => {
+  test('vanilla: 50-column grid renders within budget', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const result = (await page.evaluate(`
+      (async () => {
+        const grid = document.querySelector('tbw-grid');
+        if (!grid) return { renderTime: 9999, domCells: 0, error: 'no-grid' };
+
+        // Generate 50 columns
+        const columns = [];
+        for (let i = 0; i < 50; i++) {
+          columns.push({ field: 'col' + i, header: 'Column ' + i });
+        }
+
+        // Generate 200 rows × 50 columns
+        const rows = [];
+        for (let r = 0; r < 200; r++) {
+          const row = { id: r };
+          for (let c = 0; c < 50; c++) {
+            row['col' + c] = 'R' + r + 'C' + c;
+          }
+          rows.push(row);
+        }
+
+        ${RAF_WAIT}
+        const start = performance.now();
+        grid.gridConfig = { columns };
+        grid.rows = rows;
+        await new Promise(r => setTimeout(r, 1000));
+        ${RAF_WAIT}
+        const renderTime = performance.now() - start;
+
+        const domCells = grid.querySelectorAll('[role="gridcell"]').length;
+        return { renderTime, domCells };
+      })()
+    `)) as { renderTime: number; domCells: number; error?: string };
+
+    // 50 columns × 200 rows should render in < 5s
+    expect(result.renderTime).toBeLessThan(5000);
+
+    // With column virtualization off, all column cells are rendered per row
+    // With it on, only visible ones. Either way, should be bounded.
+    expect(result.domCells).toBeGreaterThan(0);
+  });
+
+  test('vanilla: 100-column grid scroll stays responsive', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    const result = (await page.evaluate(`
+      (async () => {
+        const grid = document.querySelector('tbw-grid');
+        if (!grid) return { renderTime: 999, scrollAvg: 999, error: 'no-grid' };
+
+        // Generate 100 columns
+        const columns = [];
+        for (let i = 0; i < 100; i++) {
+          columns.push({ field: 'c' + i, header: 'Col ' + i, width: 120 });
+        }
+
+        const rows = [];
+        for (let r = 0; r < 100; r++) {
+          const row = { id: r };
+          for (let c = 0; c < 100; c++) row['c' + c] = 'v' + r + '.' + c;
+          rows.push(row);
+        }
+
+        ${RAF_WAIT}
+        const start = performance.now();
+        grid.gridConfig = { columns };
+        grid.rows = rows;
+        await new Promise(r => setTimeout(r, 1500));
+        ${RAF_WAIT}
+        const renderTime = performance.now() - start;
+
+        // Horizontal scroll measurement
+        const scrollArea = grid.querySelector('.tbw-scroll-area');
+        if (!scrollArea) return { renderTime, scrollAvg: -1, error: 'no-scroll-area' };
+
+        const totalWidth = scrollArea.scrollWidth;
+        const viewportWidth = scrollArea.clientWidth;
+        const steps = 15;
+        const stepSize = (totalWidth - viewportWidth) / steps;
+
+        if (stepSize <= 0) return { renderTime, scrollAvg: 0 };
+
+        const frameTimes = [];
+        for (let i = 0; i <= steps; i++) {
+          const s = performance.now();
+          scrollArea.scrollLeft = i * stepSize;
+          await new Promise(r => requestAnimationFrame(() => r()));
+          frameTimes.push(performance.now() - s);
+        }
+
+        const scrollAvg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+        return { renderTime, scrollAvg };
+      })()
+    `)) as { renderTime: number; scrollAvg: number };
+
+    // 100-column grid initial render < 8s (generous for CI)
+    expect(result.renderTime).toBeLessThan(8000);
+
+    // Horizontal scroll should remain responsive
+    if (result.scrollAvg >= 0) {
+      expect(result.scrollAvg).toBeLessThan(100);
+    }
+  });
+});
+
+// #endregion
+
+// #region Memory Stability
+
+test.describe('Performance Regression: Memory Stability', () => {
+  test('vanilla: repeated data replacement does not leak memory', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+
+    // Needs CDP for heap metrics
+    const cdp = await page.context().newCDPSession(page);
+
+    // Force GC and get baseline
+    await cdp.send('HeapProfiler.collectGarbage');
+    const baseline = (await cdp.send('Runtime.getHeapUsage')) as {
+      usedSize: number;
+      totalSize: number;
+    };
+
+    // Perform 10 cycles of data replacement (each replaces all rows)
+    await page.evaluate(`
+      (async () => {
+        const grid = document.querySelector('tbw-grid');
+        if (!grid) return;
+
+        for (let cycle = 0; cycle < 10; cycle++) {
+          const rows = [];
+          for (let i = 0; i < 500; i++) {
+            rows.push({
+              id: 'c' + cycle + '-' + i,
+              firstName: 'First' + i,
+              lastName: 'Last' + i,
+              email: 'e' + i + '@test.com',
+              department: 'Dept' + (i % 5),
+              salary: 50000 + i * 100,
+            });
+          }
+          grid.rows = rows;
+          await new Promise(r => setTimeout(r, 200));
+        }
+      })()
+    `);
+
+    // Force GC and measure final state
+    await cdp.send('HeapProfiler.collectGarbage');
+    const final = (await cdp.send('Runtime.getHeapUsage')) as {
+      usedSize: number;
+      totalSize: number;
+    };
+
+    const growthMB = (final.usedSize - baseline.usedSize) / 1024 / 1024;
+
+    // After 10 data replacements (500 rows each), heap growth should be bounded.
+    // Allow up to 20MB growth (generous for CI variance + renderer caches)
+    expect(growthMB).toBeLessThan(20);
+
+    await cdp.detach();
+  });
+
+  test('vanilla: scroll does not leak DOM nodes', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+    await setRowCount(page, 1000);
+
+    // Count DOM nodes before scrolling
+    const before = await page.evaluate(() => document.querySelectorAll('*').length);
+
+    // Scroll through entire dataset multiple times
+    await page.evaluate(`
+      (async () => {
+        const scrollable = document.querySelector('.faux-vscroll');
+        if (!scrollable) return;
+
+        const maxScroll = scrollable.scrollHeight - scrollable.clientHeight;
+
+        for (let pass = 0; pass < 3; pass++) {
+          // Scroll down in steps
+          for (let pos = 0; pos <= maxScroll; pos += maxScroll / 20) {
+            scrollable.scrollTop = pos;
+            await new Promise(r => requestAnimationFrame(() => r()));
+          }
+          // Scroll back up
+          for (let pos = maxScroll; pos >= 0; pos -= maxScroll / 20) {
+            scrollable.scrollTop = pos;
+            await new Promise(r => requestAnimationFrame(() => r()));
+          }
+        }
+
+        // Return to top
+        scrollable.scrollTop = 0;
+        await new Promise(r => setTimeout(r, 200));
+      })()
+    `);
+
+    // Count DOM nodes after scrolling
+    const after = await page.evaluate(() => document.querySelectorAll('*').length);
+
+    // DOM node count should be roughly stable (virtualization reuses nodes)
+    // Allow 20% growth tolerance for any deferred rendering
+    expect(after).toBeLessThan(before * 1.2);
+  });
+});
+
+// #endregion

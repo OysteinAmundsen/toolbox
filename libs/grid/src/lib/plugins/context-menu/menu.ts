@@ -17,7 +17,7 @@ import type { ContextMenuItem, ContextMenuParams } from './types';
  */
 export function buildMenuItems(
   items: ContextMenuItem[] | ((params: ContextMenuParams) => ContextMenuItem[]),
-  params: ContextMenuParams
+  params: ContextMenuParams,
 ): ContextMenuItem[] {
   const menuItems = typeof items === 'function' ? items(params) : items;
 
@@ -26,6 +26,28 @@ export function buildMenuItems(
     if (typeof item.hidden === 'function' && item.hidden(params)) return false;
     return true;
   });
+}
+
+/**
+ * Remove consecutive, leading, and trailing separators from a menu item list.
+ *
+ * @param items - Array of menu items
+ * @returns Cleaned array with no redundant separators
+ */
+export function collapseSeparators(items: ContextMenuItem[]): ContextMenuItem[] {
+  const result: ContextMenuItem[] = [];
+  for (const item of items) {
+    if (item.separator) {
+      // Skip if the last item is already a separator (consecutive) or list is empty (leading)
+      if (result.length === 0 || result[result.length - 1].separator) continue;
+    }
+    result.push(item);
+  }
+  // Remove trailing separator
+  if (result.length > 0 && result[result.length - 1].separator) {
+    result.pop();
+  }
+  return result;
 }
 
 /**
@@ -54,11 +76,14 @@ export function createMenuElement(
   items: ContextMenuItem[],
   params: ContextMenuParams,
   onAction: (item: ContextMenuItem) => void,
-  submenuArrow: IconValue = DEFAULT_GRID_ICONS.submenuArrow
+  submenuArrow: IconValue = DEFAULT_GRID_ICONS.submenuArrow,
 ): HTMLElement {
   const menu = document.createElement('div');
   menu.className = 'tbw-context-menu';
   menu.setAttribute('role', 'menu');
+
+  // Check if any non-separator item has an icon
+  const hasAnyIcon = items.some((item) => !item.separator && item.icon);
 
   for (const item of items) {
     if (item.separator) {
@@ -85,6 +110,12 @@ export function createMenuElement(
       const icon = document.createElement('span');
       icon.className = 'tbw-context-menu-icon';
       icon.innerHTML = item.icon;
+      menuItem.appendChild(icon);
+    } else if (hasAnyIcon) {
+      // Add empty placeholder to align labels when other items have icons
+      const icon = document.createElement('span');
+      icon.className = 'tbw-context-menu-icon';
+      icon.innerHTML = '&nbsp;';
       menuItem.appendChild(icon);
     }
 

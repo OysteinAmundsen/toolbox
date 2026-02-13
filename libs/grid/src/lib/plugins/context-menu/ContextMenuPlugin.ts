@@ -8,7 +8,7 @@
 import type { PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import contextMenuStyles from './context-menu.css?inline';
-import { buildMenuItems, createMenuElement, positionMenu } from './menu';
+import { buildMenuItems, collapseSeparators, createMenuElement, positionMenu } from './menu';
 import type { ContextMenuConfig, ContextMenuItem, ContextMenuParams, HeaderContextMenuItem } from './types';
 
 /** Query type for collecting context menu items from plugins */
@@ -501,6 +501,9 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         }
       }
 
+      // Collapse consecutive/leading/trailing separators
+      items = collapseSeparators(items);
+
       if (!items.length) return;
 
       if (this.menuElement) {
@@ -563,6 +566,9 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         items = [...items, ...converted];
       }
     }
+
+    // Collapse consecutive/leading/trailing separators
+    items = collapseSeparators(items);
 
     if (this.menuElement) {
       this.menuElement.remove();

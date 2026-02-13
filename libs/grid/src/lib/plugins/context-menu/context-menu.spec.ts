@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContextMenuPlugin } from './ContextMenuPlugin';
-import { buildMenuItems, createMenuElement, isItemDisabled, positionMenu } from './menu';
+import { buildMenuItems, collapseSeparators, createMenuElement, isItemDisabled, positionMenu } from './menu';
 import type { ContextMenuItem, ContextMenuParams } from './types';
 
 /**
@@ -106,6 +106,78 @@ describe('contextMenu', () => {
       const result = buildMenuItems(items, params);
 
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('collapseSeparators', () => {
+    it('should remove consecutive separators', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'item1', name: 'Item 1' },
+        { id: 'sep1', name: '', separator: true },
+        { id: 'sep2', name: '', separator: true },
+        { id: 'sep3', name: '', separator: true },
+        { id: 'item2', name: 'Item 2' },
+      ];
+
+      const result = collapseSeparators(items);
+
+      expect(result).toHaveLength(3);
+      expect(result[0].id).toBe('item1');
+      expect(result[1].separator).toBe(true);
+      expect(result[2].id).toBe('item2');
+    });
+
+    it('should remove leading separators', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'sep1', name: '', separator: true },
+        { id: 'item1', name: 'Item 1' },
+      ];
+
+      const result = collapseSeparators(items);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('item1');
+    });
+
+    it('should remove trailing separators', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'item1', name: 'Item 1' },
+        { id: 'sep1', name: '', separator: true },
+      ];
+
+      const result = collapseSeparators(items);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('item1');
+    });
+
+    it('should handle empty array', () => {
+      const result = collapseSeparators([]);
+      expect(result).toHaveLength(0);
+    });
+
+    it('should handle separator-only array', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'sep1', name: '', separator: true },
+        { id: 'sep2', name: '', separator: true },
+      ];
+
+      const result = collapseSeparators(items);
+
+      expect(result).toHaveLength(0);
+    });
+
+    it('should keep valid single separators between items', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'item1', name: 'Item 1' },
+        { id: 'sep1', name: '', separator: true },
+        { id: 'item2', name: 'Item 2' },
+      ];
+
+      const result = collapseSeparators(items);
+
+      expect(result).toHaveLength(3);
+      expect(result[1].separator).toBe(true);
     });
   });
 
@@ -220,6 +292,36 @@ describe('contextMenu', () => {
 
       expect(icon).not.toBeNull();
       expect(icon?.innerHTML).toBe('📋');
+    });
+
+    it('should add icon placeholder when at least one item has an icon', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'with-icon', name: 'With Icon', icon: '📋' },
+        { id: 'without-icon', name: 'Without Icon' },
+      ];
+
+      const menu = createMenuElement(items, params, onAction);
+      const menuItems = menu.querySelectorAll('.tbw-context-menu-item');
+      const icons = menu.querySelectorAll('.tbw-context-menu-icon');
+
+      // Both items should have icon elements
+      expect(icons).toHaveLength(2);
+      // First has the real icon
+      expect(icons[0].innerHTML).toBe('📋');
+      // Second has a placeholder
+      expect(icons[1].innerHTML).toBe('&nbsp;');
+    });
+
+    it('should not add icon placeholder when no items have icons', () => {
+      const items: ContextMenuItem[] = [
+        { id: 'item1', name: 'Item 1' },
+        { id: 'item2', name: 'Item 2' },
+      ];
+
+      const menu = createMenuElement(items, params, onAction);
+      const icons = menu.querySelectorAll('.tbw-context-menu-icon');
+
+      expect(icons).toHaveLength(0);
     });
 
     it('should render shortcut when provided', () => {
@@ -758,8 +860,28 @@ describe('contextMenu', () => {
       const grid = createMockGrid((type: unknown) => {
         if (type === 'getContextMenuItems') {
           return [
-            [{ id: 'hide', label: 'Hide Column', icon: '👁', order: 30, action: () => { /* noop */ } }],
-            [{ id: 'clear-filter', label: 'Clear Filter', icon: '✕', order: 20, action: () => { /* noop */ } }],
+            [
+              {
+                id: 'hide',
+                label: 'Hide Column',
+                icon: '👁',
+                order: 30,
+                action: () => {
+                  /* noop */
+                },
+              },
+            ],
+            [
+              {
+                id: 'clear-filter',
+                label: 'Clear Filter',
+                icon: '✕',
+                order: 20,
+                action: () => {
+                  /* noop */
+                },
+              },
+            ],
           ];
         }
         return [];
@@ -806,9 +928,30 @@ describe('contextMenu', () => {
     it('should insert separators between different order groups', () => {
       const plugin = new ContextMenuPlugin();
       const items = [
-        { id: 'a', label: 'A', order: 20, action: () => { /* noop */ } },
-        { id: 'b', label: 'B', order: 21, action: () => { /* noop */ } },
-        { id: 'c', label: 'C', order: 30, action: () => { /* noop */ } },
+        {
+          id: 'a',
+          label: 'A',
+          order: 20,
+          action: () => {
+            /* noop */
+          },
+        },
+        {
+          id: 'b',
+          label: 'B',
+          order: 21,
+          action: () => {
+            /* noop */
+          },
+        },
+        {
+          id: 'c',
+          label: 'C',
+          order: 30,
+          action: () => {
+            /* noop */
+          },
+        },
       ];
 
       const result = plugin['insertGroupSeparators'](items);
@@ -824,8 +967,22 @@ describe('contextMenu', () => {
     it('should not insert separators within the same group', () => {
       const plugin = new ContextMenuPlugin();
       const items = [
-        { id: 'a', label: 'A', order: 20, action: () => { /* noop */ } },
-        { id: 'b', label: 'B', order: 21, action: () => { /* noop */ } },
+        {
+          id: 'a',
+          label: 'A',
+          order: 20,
+          action: () => {
+            /* noop */
+          },
+        },
+        {
+          id: 'b',
+          label: 'B',
+          order: 21,
+          action: () => {
+            /* noop */
+          },
+        },
       ];
 
       const result = plugin['insertGroupSeparators'](items);
@@ -843,7 +1000,16 @@ describe('contextMenu', () => {
 
     it('should return single item unchanged', () => {
       const plugin = new ContextMenuPlugin();
-      const items = [{ id: 'a', label: 'A', order: 10, action: () => { /* noop */ } }];
+      const items = [
+        {
+          id: 'a',
+          label: 'A',
+          order: 10,
+          action: () => {
+            /* noop */
+          },
+        },
+      ];
 
       const result = plugin['insertGroupSeparators'](items);
 
@@ -871,7 +1037,16 @@ describe('contextMenu', () => {
 
     it('should convert disabled items correctly', () => {
       const plugin = new ContextMenuPlugin();
-      const items = [{ id: 'disabled', label: 'Disabled', disabled: true, action: () => { /* noop */ } }];
+      const items = [
+        {
+          id: 'disabled',
+          label: 'Disabled',
+          disabled: true,
+          action: () => {
+            /* noop */
+          },
+        },
+      ];
 
       const result = plugin['convertPluginItems'](items);
 
@@ -880,7 +1055,16 @@ describe('contextMenu', () => {
 
     it('should convert separator items correctly', () => {
       const plugin = new ContextMenuPlugin();
-      const items = [{ id: 'sep', label: '', separator: true as const, action: () => { /* noop */ } }];
+      const items = [
+        {
+          id: 'sep',
+          label: '',
+          separator: true as const,
+          action: () => {
+            /* noop */
+          },
+        },
+      ];
 
       const result = plugin['convertPluginItems'](items);
 

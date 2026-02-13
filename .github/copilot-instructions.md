@@ -6,6 +6,21 @@ This is an **Nx monorepo** for building a **suite of framework-agnostic componen
 
 Currently houses `@toolbox-web/grid` as the flagship component (`<tbw-grid>`), with more libraries planned. The repo uses **Bun** as package manager/runtime, **Vitest** for testing, **Vite** for building, and **Storybook** for component development.
 
+## Skills Reference
+
+Task-specific workflows are documented in dedicated skill files (loaded on demand). Reference these when performing specialized tasks:
+
+| Skill                 | Description                                    | When to use                                           |
+| --------------------- | ---------------------------------------------- | ----------------------------------------------------- |
+| `new-plugin`          | Create a new grid plugin                       | Adding a plugin with hooks, styles, tests, stories    |
+| `bundle-check`        | Verify bundle size budget                      | After code changes that may affect bundle size        |
+| `test-coverage`       | Analyze and improve test coverage              | Writing tests, improving coverage for a file          |
+| `new-adapter-feature` | Add features across Angular/React/Vue adapters | Ensuring feature parity across framework adapters     |
+| `release-prep`        | Pre-release checklist                          | Preparing a library version for release               |
+| `storybook-story`     | Create Storybook stories and MDX docs          | Adding demos or documentation for features            |
+| `debug-perf`          | Performance investigation                      | Profiling, hot path analysis, render scheduler issues |
+| `docs-update`         | Documentation update checklist                 | After any feature, fix, or refactor                   |
+
 ## Core Development Principles
 
 **Every change must consider these three pillars:**
@@ -93,16 +108,7 @@ All libraries in this suite are built as **standard web components** (custom ele
 
 Prompt the user to commit at logical stopping points during work sessions. Small, focused commits are preferred over large omnibus commits.
 
-**Before suggesting a commit, review documentation:**
-
-After completing a feature or fix, check if any documentation needs updating:
-
-- **README.md files** - Plugin READMEs, library READMEs, demo READMEs
-- **MDX documentation** - Theming.mdx, plugin-specific .mdx files in `libs/grid/src/lib/plugins/*/`
-- **API documentation** - If public API changed, update API.mdx
-- **LLM context files** - If public API, plugins, events, CSS variables, or framework adapters changed, update `llms.txt` (index) and `llms-full.txt` (full AI implementation guide)
-- **Copilot instructions** - If workflow or conventions changed, update `.github/copilot-instructions.md`
-- **AGENTS.md** - If Nx or workspace conventions changed
+**Before suggesting a commit, review documentation** — use the `docs-update` skill for the full checklist of what to update (READMEs, MDX, llms.txt, copilot-instructions, etc.).
 
 **When to suggest a commit:**
 
@@ -143,6 +149,7 @@ type(scope): short description
 - **`libs/grid/`** - First library in suite; single `<tbw-grid>` component with extensive internal modules
 - **`libs/grid-angular/`** - Angular adapter library (`@toolbox-web/grid-angular`) with directives for template-driven column renderers/editors
 - **`libs/grid-react/`** - React adapter library (`@toolbox-web/grid-react`) with DataGrid component, hooks, and JSX renderer/editor support
+- **`libs/grid-vue/`** - Vue adapter library (`@toolbox-web/grid-vue`) with DataGrid component, composables, and slot-based renderers
 - **`libs/*/`** - Additional component libraries will follow same pure TypeScript + web standards pattern
 - **`apps/docs/`** - Storybook documentation site with live HMR via Vite
 - **`libs/themes/`** - Shared CSS theme system (currently Grid themes; will expand for suite-wide theming)
@@ -150,7 +157,8 @@ type(scope): short description
   - `vanilla/` - Pure TypeScript/Vite demo (`demo-vanilla` project)
   - `angular/` - Angular demo using grid-angular adapter (`demo-angular` project)
   - `react/` - React demo using grid-react adapter (`demo-react` project)
-  - `shared/` - Shared types and mock data used by both demos
+  - `vue/` - Vue demo using grid-vue adapter (`demo-vue` project)
+  - `shared/` - Shared types and mock data used by all demos
 
 ### Grid Component Architecture
 
@@ -170,137 +178,13 @@ The `<tbw-grid>` component ([libs/grid/src/lib/core/grid.ts](libs/grid/src/lib/c
   - `sticky.ts` - Sticky column offset calculations
   - `inference.ts` - Column type inference from data
 
-### Custom Header Renderers
+### Framework Adapters (Angular, React, Vue)
 
-Header columns support custom rendering via two properties:
+Each adapter auto-registers a framework-specific `GridAdapter` on `<tbw-grid>` elements. See the `new-adapter-feature` skill for full API details, usage examples, and key files for each adapter.
 
-- **`headerLabelRenderer`** - Customize only the label content. Framework automatically adds sort icons and resize handles.
-- **`headerRenderer`** - Full control over header cell content. Provides helper functions to optionally include standard elements.
-
-```typescript
-// Label-only customization (framework handles icons)
-{
-  field: 'name',
-  header: 'Name',
-  headerLabelRenderer: ({ value }) => `${value} *`,
-}
-
-// Full control (resize handles are automatic)
-{
-  field: 'email',
-  headerRenderer: (ctx) => {
-    const div = document.createElement('div');
-    div.textContent = ctx.value;
-    const sortIcon = ctx.renderSortIcon(); // Helper function
-    if (sortIcon) div.appendChild(sortIcon);
-    return div;
-  }
-}
-```
-
-**HeaderCellContext** provides:
-
-- `column` - Column configuration
-- `value` - Header text
-- `sortState` - `'asc'` | `'desc'` | `null`
-- `cellEl` - The header cell element
-- `renderSortIcon()` - Creates sort indicator (returns null if not sortable)
-- `renderFilterButton()` - Creates filter button (returns null if FilteringPlugin not active)
-
-> **Note:** Resize handles are added automatically for resizable columns - you don't need to render them.
-
-### Angular Adapter (`@toolbox-web/grid-angular`)
-
-The Angular adapter library provides directives for seamless Angular integration with `<tbw-grid>`:
-
-**Exported Directives:**
-
-- **`Grid`** - Auto-registers `AngularGridAdapter` on `<tbw-grid>` elements, enabling Angular template rendering
-- **`TbwRenderer`** - Structural directive (`*tbwRenderer`) for clean cell renderer syntax
-- **`TbwEditor`** - Structural directive (`*tbwEditor`) for clean cell editor syntax with auto-wired commit/cancel
-- **`GridColumnView`** / **`GridColumnEditor`** - Alternative nested element syntax with explicit `<ng-template>`
-
-**Usage Example:**
-
-```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
-
-@Component({
-  imports: [Grid, TbwRenderer, TbwEditor],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  template: `
-    <tbw-grid [rows]="data" [gridConfig]="config">
-      <tbw-grid-column field="status">
-        <!-- Clean structural directive syntax -->
-        <app-status-badge *tbwRenderer="let value; row as row" [value]="value" [row]="row" />
-        <!-- Editor with auto-wired commit/cancel outputs -->
-        <app-status-select *tbwEditor="let value" [value]="value" />
-      </tbw-grid-column>
-    </tbw-grid>
-  `
-})
-export class GridComponent { ... }
-```
-
-**Key Features:**
-
-- Auto-adapter registration via `Grid` directive (no manual setup)
-- Template context provides `value`, `row`, `column`, and for editors: `commit`/`cancel` emitters
-- Works with Angular 17+ (standalone components)
-
-### React Adapter (`@toolbox-web/grid-react`)
-
-The React adapter library provides a complete React integration for `<tbw-grid>`:
-
-**Exported Components:**
-
-- **`DataGrid`** - Main component wrapper with React props and event handlers
-- **`GridColumn`** - Declarative column definition with render props
-- **`GridDetailPanel`** - Master-detail panels with React content
-- **`GridToolPanel`** - Custom sidebar panels
-- **`GridToolButtons`** - Toolbar button container
-
-**Exported Hooks:**
-
-- **`useGrid`** - Programmatic grid access (forceLayout, getConfig, etc.)
-- **`useGridEvent`** - Type-safe event subscription with auto-cleanup
-
-**Exported Types:**
-
-- **`ReactGridConfig`** - Extends `GridConfig` with `renderer` and `editor` accepting React components
-- **`ReactColumnConfig`** - Column config with React renderer/editor support
-
-**Usage Example:**
-
-```tsx
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
-import { SelectionPlugin } from '@toolbox-web/grid/all';
-
-const config: ReactGridConfig<Employee> = {
-  columns: [
-    { field: 'name', header: 'Name' },
-    {
-      field: 'status',
-      header: 'Status',
-      renderer: (ctx) => <StatusBadge value={ctx.value} />,
-      editor: (ctx) => <StatusSelect value={ctx.value} onCommit={ctx.commit} />,
-    },
-  ],
-  plugins: [new SelectionPlugin({ mode: 'row' })],
-};
-
-function App() {
-  return <DataGrid rows={employees} gridConfig={config} />;
-}
-```
-
-**Key Features:**
-
-- Inline React renderers/editors via `ReactGridConfig`
-- Auto-adapter registration (no manual setup)
-- Type-safe event handling via props or hooks
-- Full TypeScript generics support
+- **Angular** (`@toolbox-web/grid-angular`) — Directives: `Grid`, `TbwRenderer`, `TbwEditor`
+- **React** (`@toolbox-web/grid-react`) — Components: `DataGrid`, `GridColumn`; Hooks: `useGrid`, `useGridEvent`
+- **Vue** (`@toolbox-web/grid-vue`) — Components: `DataGrid`, `GridColumn`; Composables: `useGrid`, `useGridEvent`
 
 ### Configuration Precedence System (Single Source of Truth)
 
@@ -336,45 +220,11 @@ See `ARCHITECTURE.md` for detailed diagrams and `config-precedence.spec.ts` for 
 
 ### Testing Pattern
 
-- **Unit tests**: Co-located with source files (e.g., `columns.ts` → `columns.spec.ts` in same folder)
-- **Integration tests**: `src/__tests__/integration/*.spec.ts` for tests requiring full component lifecycle
-  - `waitUpgrade(grid)` - Wait for component upgrade + `ready()` promise
-  - `nextFrame()` - Wait for RAF to complete rendering
-- **Plugin tests**: Each plugin has its own `*.spec.ts` files co-located with plugin source
-- Run tests: `bun nx test grid` or `bun nx run-many -t test`
+Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Integration tests live in `src/__tests__/integration/`. Use `waitUpgrade(grid)` and `nextFrame()` helpers. Run via `bun nx test grid`. See the `test-coverage` skill for detailed patterns, mock grid templates, and library-specific guidance.
 
-### Storybook Development
+### Storybook & Documentation
 
-- **Core stories**: `libs/grid/src/lib/core/*.stories.ts` for general grid features
-- **Plugin stories**: Co-located with each plugin (e.g., `libs/grid/src/lib/plugins/selection/selection.stories.ts`)
-- **MDX documentation**: `libs/grid/docs/*.mdx` for high-level docs, plugin-specific MDX in `libs/grid/src/lib/plugins/*/`
-- **Demo stories**: `demos/employee-management/employee-management.stories.ts` for full-featured demo
-- **Live source imports**: `import '../src/index'` enables HMR without rebuilds
-- **Autodocs**: All stories auto-generate documentation pages from JSDoc comments
-- Run Storybook: `bun nx serve docs` (port 4400)
-- Build Storybook: `bun nx build docs` (outputs to `dist/docs/`)
-
-### MDX Documentation
-
-MDX files combine Markdown with live component examples:
-
-```mdx
-import { Meta, Canvas } from '@storybook/addon-docs/blocks';
-import * as GridStories from '../src/lib/core/grid.stories';
-
-<Meta title="Grid/Introduction" />
-
-# Grid Introduction
-
-<Canvas of={GridStories.Playground} />
-```
-
-Key Doc Blocks:
-
-- `<Canvas of={Story} />` - Renders story with source code panel
-- `<Controls of={Story} />` - Interactive prop controls
-- `<ArgTypes of={Stories} />` - Auto-generated prop table from JSDoc
-- `<Source code={...} />` - Syntax-highlighted code block
+Stories are co-located with plugins and core features. MDX docs live alongside stories and in `libs/grid/docs/`. Run Storybook: `bun nx serve docs` (port 4400). See the `storybook-story` skill for templates and the `docs-update` skill for the full documentation inventory.
 
 ## Critical Workflows
 
@@ -416,6 +266,7 @@ bun nx serve demo-angular
 ```
 
 **Common mistakes to avoid:**
+
 - ❌ `npx vitest run path/to/spec.ts` — bypasses Nx config; will fail
 - ❌ `bunx vitest …` — same issue
 - ❌ `npx eslint …` — use `bun nx lint <project>` instead
@@ -518,35 +369,7 @@ getData() { ... }
 
 #### Dead Code Removal
 
-Actively identify and remove dead code to minimize bundle size:
-
-**Before each commit, check for:**
-
-- Unused imports (ESLint will flag these)
-- Unused functions, variables, or type definitions
-- Commented-out code blocks (remove or convert to documentation)
-- Deprecated code that's no longer referenced
-- Unused CSS classes or variables
-
-**Tools to help identify dead code:**
-
-```bash
-# TypeScript compiler will flag unused locals
-bun nx build grid
-
-# ESLint checks for unused variables/imports
-bun nx lint grid
-
-# Search for potentially unused exports
-grep -r "export.*functionName" --include="*.ts"
-```
-
-**When removing code:**
-
-1. Verify no usages exist (use `list_code_usages` or grep)
-2. Check for dynamic imports or string-based references
-3. Consider if code is used by external consumers (public API)
-4. Remove associated tests if the feature is fully removed
+See the `bundle-check` skill for the full dead code removal checklist, tools, and process.
 
 #### CSS Color Guidelines
 
@@ -598,30 +421,13 @@ Configured in `vite.config.ts`:
 
 ### Centralized Render Scheduler
 
-All grid rendering is orchestrated through a **single RenderScheduler** (`internal/render-scheduler.ts`):
+All grid rendering is orchestrated through a **single RenderScheduler** (`internal/render-scheduler.ts`). See the `debug-perf` skill for the full phase table and pipeline details.
 
-**Key Principles:**
-
-- **Single RAF per frame**: All render requests batch into one `requestAnimationFrame` callback
-- **Phase-based execution**: Work organized into phases (STYLE → VIRTUALIZATION → HEADER → ROWS → COLUMNS → FULL)
-- **Highest phase wins**: Multiple requests merge - only the highest phase executes
-- **Deterministic order**: `mergeConfig → processRows → processColumns → renderHeader → virtualWindow → afterRender`
-
-**Render Phases:**
-| Phase | Value | Work Performed |
-|-------|-------|----------------|
-| `STYLE` | 1 | Plugin `afterRender()` hooks only |
-| `VIRTUALIZATION` | 2 | Recalculate virtual window |
-| `HEADER` | 3 | Re-render header row |
-| `ROWS` | 4 | Rebuild row model |
-| `COLUMNS` | 5 | Process columns, update CSS template |
-| `FULL` | 6 | Merge effective config + all lower phases |
-
-**When contributing:**
+**Key rules:**
 
 - Use `this.#scheduler.requestPhase(RenderPhase.X, 'source')` to request renders
 - Never call `requestAnimationFrame` directly for rendering (exception: scroll hot path)
-- The scheduler handles `ready()` promise resolution after render completes
+- Phases: STYLE(1) → VIRTUALIZATION(2) → HEADER(3) → ROWS(4) → COLUMNS(5) → FULL(6); highest wins
 
 ### Custom Styles API (adoptedStyleSheets)
 
@@ -647,425 +453,32 @@ The Grid uses **row virtualization**:
 
 ## Plugin Development Pattern
 
-All grid plugins must follow this **canonical structure** for consistency:
+See the `new-plugin` skill for the complete plugin development guide including:
 
-### File Organization
+- File structure scaffold and templates
+- Plugin hooks, helpers, and lifecycle
+- Event bus (plugin-to-plugin communication)
+- Query system (synchronous state retrieval)
+- Manifest system (validation, owned properties, config rules)
+- Dependencies and incompatibilities
+- Runtime configuration validation
 
-```
-libs/grid/src/lib/plugins/[plugin-name]/
-├── index.ts                # Barrel exports (plugin class + types)
-├── [PluginName]Plugin.ts   # Plugin class extending BaseGridPlugin
-├── [plugin-name].css       # External CSS styles (imported via Vite)
-├── types.ts                # Config and exported types
-├── [plugin-name].ts        # Pure helper functions (optional)
-├── [plugin-name].spec.ts   # Unit tests
-├── [plugin-name].stories.ts# Storybook demo (optional)
-├── [plugin-name].mdx       # Documentation (required - appears in Storybook docs)
-└── README.md               # Package-level documentation (optional)
-```
-
-### Accessing the Grid's DOM
-
-In class-based plugins, use the built-in `gridElement` helper:
+### Quick Plugin Reference
 
 ```typescript
-class MyPlugin extends BaseGridPlugin<MyConfig> {
-  afterRender(): void {
-    // Use this.gridElement for DOM queries
-    const gridEl = this.gridElement;
-    if (!gridEl) return;
-
-    // Query elements directly
-    const cells = gridEl.querySelectorAll('.dg-cell');
-    // ... work with DOM
-  }
-}
-```
-
-For HTMLElement access (e.g., clientWidth, classList):
-
-```typescript
-const width = this.gridElement.clientWidth;
-this.gridElement.classList.add('my-plugin-active');
-```
-
-To access the root container element:
-
-```typescript
-const container = this.gridElement.children[0];
-```
-
-### Injecting Styles
-
-Plugins should use **external CSS files** imported via Vite's `?inline` query:
-
-```typescript
-// Import CSS as inline string (Vite handles this)
-import styles from './my-plugin.css?inline';
-
-export class MyPlugin extends BaseGridPlugin<MyConfig> {
-  readonly name = 'myPlugin';
-  override readonly styles = styles;
-
-  // ... hooks
-}
-```
-
-The CSS file (`my-plugin.css`) contains the styles:
-
-```css
-.my-plugin-element {
-  /* styles here */
-}
-```
-
-**Do NOT** use inline template literal styles or create `<style>` elements manually.
-
-### Built-in Plugin Helpers
-
-BaseGridPlugin provides these protected helpers - use them instead of type casting:
-
-| Helper                         | Description                                       |
-| ------------------------------ | ------------------------------------------------- |
-| `this.grid`                    | Typed `GridElementRef` with all plugin APIs       |
-| `this.gridElement`             | Grid as `HTMLElement` for DOM queries (preferred) |
-| `this.shadowRoot`              | **Deprecated** - use `this.gridElement` instead   |
-| `this.columns`                 | Current column configurations                     |
-| `this.visibleColumns`          | Only visible columns (for rendering)              |
-| `this.rows`                    | Processed rows (after filtering, grouping)        |
-| `this.sourceRows`              | Original unfiltered rows                          |
-| `this.disconnectSignal`        | AbortSignal for auto-cleanup of event listeners   |
-| `this.isAnimationEnabled`      | Whether grid animations are enabled               |
-| `this.animationDuration`       | Animation duration in ms (default: 200)           |
-| `this.gridIcons`               | Merged icon configuration                         |
-| `this.getPlugin(PluginClass)`  | Get another plugin instance                       |
-| `this.emit(eventName, detail)` | Dispatch custom event from grid                   |
-| `this.requestRender()`         | Request full re-render                            |
-| `this.requestAfterRender()`    | Request lightweight style update                  |
-| `this.resolveIcon(name)`       | Get icon value by name                            |
-| `this.setIcon(el, icon)`       | Set icon on element (string or SVG)               |
-
-### Event Bus (Plugin-to-Plugin Communication)
-
-Plugins can communicate via an internal Event Bus. This is distinct from DOM events:
-
-- **DOM events** (`this.emit()`) - For external consumers to `addEventListener()` on the grid
-- **Plugin events** (`this.emitPluginEvent()`) - For inter-plugin communication only
-
-**Subscribing to events:**
-
-```typescript
-class MyPlugin extends BaseGridPlugin<MyConfig> {
-  override attach(grid: GridElementRef): void {
-    super.attach(grid);
-
-    // Subscribe to events from other plugins
-    this.on('filter-change', (detail) => {
-      console.log('Filter changed:', detail);
-    });
-  }
-}
-```
-
-**Emitting events:**
-
-```typescript
-class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
-  // Declare events in manifest
-  static override readonly manifest: PluginManifest = {
-    events: [{ type: 'filter-change', description: 'Emitted when filter criteria change' }],
-  };
-
-  private applyFilter(): void {
-    // ... filter logic
-
-    // Notify other plugins (not DOM events)
-    this.emitPluginEvent('filter-change', { field: 'name', value: 'Alice' });
-  }
-}
-```
-
-**Event Bus Methods:**
-
-| Method                                    | Description                                         |
-| ----------------------------------------- | --------------------------------------------------- |
-| `this.on(eventType, callback)`            | Subscribe to plugin events (auto-cleaned on detach) |
-| `this.off(eventType)`                     | Unsubscribe from a plugin event                     |
-| `this.emitPluginEvent(eventType, detail)` | Emit to subscribed plugins (not DOM)                |
-
-### Query System (Synchronous State Retrieval)
-
-Plugins can expose queryable state via the Query System. Other plugins or the grid can retrieve this data synchronously. The PluginManager uses **manifest-based routing** to efficiently route queries only to plugins that declare handling them.
-
-**How Routing Works:**
-
-1. Plugins declare what queries they handle in `manifest.queries`
-2. At registration, the PluginManager indexes these handlers
-3. When a query is made, only plugins that declared the query type are invoked
-4. Falls back to querying all plugins for backwards compatibility with legacy plugins
-
-**Declaring and handling queries:**
-
-```typescript
-class PinnedColumnsPlugin extends BaseGridPlugin<PinnedConfig> {
-  // Declare queries in manifest - enables efficient routing
-  static override readonly manifest: PluginManifest = {
-    queries: [{ type: 'canMoveColumn', description: 'Check if a column can be moved' }],
-  };
-
-  // Handle queries - only called if declared in manifest (or via legacy fallback)
-  override handleQuery(query: PluginQuery): unknown {
-    if (query.type === 'canMoveColumn') {
-      const column = query.context as ColumnConfig;
-      return !column.pinned; // Can't move pinned columns
-    }
-    return undefined;
-  }
-}
-```
-
-**Querying from another plugin:**
-
-```typescript
-class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
-  private canMoveColumn(column: ColumnConfig): boolean {
-    // Query plugins that declared 'canMoveColumn' handler
-    // If any returns false, disallow the move
-    const responses = this.grid.query<boolean>('canMoveColumn', column);
-    return !responses.includes(false);
-  }
-}
-```
-
-**Query Methods:**
-
-| Method                              | Description                                     |
-| ----------------------------------- | ----------------------------------------------- |
-| `handleQuery(query)`                | Override to handle incoming queries (preferred) |
-| `onPluginQuery(query)`              | Legacy hook (deprecated, use `handleQuery`)     |
-| `this.grid.query<T>(type, context)` | Send query to all plugins, collect responses    |
-| `this.grid.queryPlugins<T>(query)`  | Full query object version                       |
-
-**PLUGIN_QUERIES Deprecation:**
-
-The `PLUGIN_QUERIES` constant is deprecated. Use string literals with `grid.query()` instead:
-
-```typescript
-// ❌ Deprecated
-import { PLUGIN_QUERIES } from '@toolbox-web/grid';
-const responses = grid.queryPlugins({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column });
-
-// ✅ Recommended
-const responses = grid.query<boolean>('canMoveColumn', column);
-```
-
-### Plugin Hooks (Class Methods)
-
-Override these methods in your plugin class (implement only what's needed):
-
-- `attach(grid)` - Called when plugin is attached to grid; call `super.attach(grid)` first
-- `detach()` - Called when plugin is removed; cleanup listeners, timers, etc.
-- `processColumns(columns)` - Transform column definitions; return modified array
-- `processRows(rows)` - Transform row data; return modified array
-- `afterRender()` - DOM manipulation after grid renders
-- `onScroll(event)` - Handle scroll events
-- `onCellClick(event)` - Handle cell click events
-- `onCellMouseDown(event)` - Handle cell mousedown; return `true` to prevent default
-- `onKeyDown(event)` - Handle keyboard events; return `true` to prevent default
-- `renderRow(row, rowEl, rowIndex)` - Custom row rendering; return `true` to skip default
-
-### Plugin Dependencies
-
-Plugins can declare dependencies on other plugins using a static `dependencies` property. This enables runtime validation with helpful error messages when dependencies are missing.
-
-**Declaring Dependencies:**
-
-```typescript
-import { BaseGridPlugin, type PluginDependency } from '@toolbox-web/grid';
-
-export class MyPlugin extends BaseGridPlugin<MyConfig> {
-  /**
-   * Declare dependencies on other plugins.
-   * Use `override` since it overrides the base class property.
-   */
-  static override readonly dependencies: PluginDependency[] = [
-    // Required dependency - throws error if missing
-    { name: 'editing', required: true, reason: 'MyPlugin tracks edit history' },
-    // Optional dependency - logs info if missing, continues working
-    { name: 'selection', required: false, reason: 'Enables advanced selection features' },
-  ];
-
-  readonly name = 'myPlugin';
-  readonly version = '1.0.0';
-  // ... rest of plugin
-}
-```
-
-**Dependency Types:**
-
-| Property   | Type      | Default | Description                                    |
-| ---------- | --------- | ------- | ---------------------------------------------- |
-| `name`     | `string`  | -       | Plugin name (matches `plugin.name` property)   |
-| `required` | `boolean` | `true`  | Hard dependency throws, soft logs info message |
-| `reason`   | `string`  | -       | Human-readable explanation shown in errors     |
-
-**Built-in Plugin Dependencies:**
-
-| Plugin             | Depends On        | Required | Reason                                      |
-| ------------------ | ----------------- | -------- | ------------------------------------------- |
-| `UndoRedoPlugin`   | `EditingPlugin`   | Yes      | Tracks cell edit history                    |
-| `ClipboardPlugin`  | `SelectionPlugin` | Yes      | Needs selection to know what cells to copy  |
-| `VisibilityPlugin` | `ReorderPlugin`   | No       | Enables drag-to-reorder in visibility panel |
-
-**Plugin Order Matters:**
-
-Dependencies must be loaded **before** the dependent plugin:
-
-```typescript
-// ✅ Correct - EditingPlugin loaded before UndoRedoPlugin
-plugins: [new EditingPlugin(), new UndoRedoPlugin()];
-
-// ❌ Wrong - UndoRedoPlugin loaded before its dependency
-plugins: [new UndoRedoPlugin(), new EditingPlugin()];
-// Throws: "[tbw-grid] Plugin dependency error: UndoRedoPlugin tracks cell edit history..."
-```
-
-### Plugin Incompatibilities
-
-Some plugins are mutually incompatible due to conflicting functionality. Declare incompatibilities via the manifest's `incompatibleWith` property:
-
-```typescript
-static override readonly manifest: PluginManifest = {
-  incompatibleWith: [
-    { name: 'groupingRows', reason: 'Responsive card layout does not support row grouping yet' },
-  ],
-};
-```
-
-**Built-in Plugin Incompatibilities:**
-
-| Plugin             | Incompatible With    | Reason                                               |
-| ------------------ | -------------------- | ---------------------------------------------------- |
-| `ResponsivePlugin` | `GroupingRowsPlugin` | Variable row heights cause scroll calculation issues |
-
-When incompatible plugins are loaded together, a warning is logged in development mode.
-
-### Plugin Manifest System
-
-Plugins can declare a **static manifest** for declarative validation and metadata. The manifest provides:
-
-1. **`ownedProperties`** - Column/config properties the plugin owns (for helpful error messages)
-2. **`hookPriority`** - Reserved for future hook ordering (not yet implemented)
-3. **`configRules`** - Declarative validation rules with severity levels
-4. **`incompatibleWith`** - Plugins that conflict with this one (warns when both loaded)
-
-**Declaring a Manifest:**
-
-```typescript
-import { BaseGridPlugin, type PluginManifest } from '@toolbox-web/grid';
-import type { MyPluginConfig } from './types';
-
-export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
-  static override readonly manifest: PluginManifest<MyPluginConfig> = {
-    // Declare properties this plugin owns
-    ownedProperties: [
-      { property: 'myOption', level: 'column' },
-      { property: 'globalSetting', level: 'config' },
-    ],
-    // Declarative validation rules
-    configRules: [
-      {
-        id: 'myPlugin/invalid-combo',
-        severity: 'warn', // 'warn' logs to console, 'error' throws
-        message: 'optionA and optionB cannot both be true',
-        check: (config) => config.optionA === true && config.optionB === true,
-      },
-    ],
-  };
-
-  readonly name = 'myPlugin';
-  readonly version = '1.0.0';
-}
-```
-
-**Manifest Properties:**
-
-| Property          | Type                                | Description                                              |
-| ----------------- | ----------------------------------- | -------------------------------------------------------- |
-| `ownedProperties` | `PluginPropertyDefinition[]`        | Properties owned by plugin (level: 'column' or 'config') |
-| `hookPriority`    | `Partial<Record<HookName, number>>` | Reserved for future hook ordering                        |
-| `configRules`     | `PluginConfigRule<TConfig>[]`       | Validation rules executed at initialization              |
-
-**Config Rules:**
-
-| Property   | Type                     | Description                                     |
-| ---------- | ------------------------ | ----------------------------------------------- |
-| `id`       | `string`                 | Unique rule ID (format: `pluginName/rule-name`) |
-| `severity` | `'warn' \| 'error'`      | 'warn' logs warning, 'error' throws             |
-| `message`  | `string`                 | Human-readable message shown when violated      |
-| `check`    | `(config: T) => boolean` | Returns `true` if rule is violated              |
-
-**Plugins with Manifests:**
-
-| Plugin                  | Owned Properties                     | Config Rules           |
-| ----------------------- | ------------------------------------ | ---------------------- |
-| `EditingPlugin`         | `editable`, `editor`, `editorParams` | -                      |
-| `GroupingColumnsPlugin` | `group`, `columnGroups`              | -                      |
-| `PinnedColumnsPlugin`   | `pinned`, `sticky` (deprecated)      | -                      |
-| `SelectionPlugin`       | -                                    | range+dblclick warning |
-
-**Adding New Plugin-Owned Properties:**
-
-When adding a new property to a plugin that augments `GridConfig` or `ColumnConfig`:
-
-1. **Always**: Add to the plugin's `manifest.ownedProperties` (documentation, lives with plugin)
-2. **Optionally**: Add to `KNOWN_COLUMN_PROPERTIES` or `KNOWN_CONFIG_PROPERTIES` in `validate-config.ts`
-
-Why step 2 is needed: If a developer uses a plugin property but forgets to add the plugin,
-we can't read the manifest (the plugin class was never imported!). The static arrays in
-`validate-config.ts` enable "forgot to add plugin" detection for well-known properties.
-
-Not every property needs step 2 - only add high-value properties where developers commonly
-forget to include the plugin.
-
-### Type Exports
-
-The `index.ts` barrel file exports the plugin class and types:
-
-```typescript
-// index.ts
-export { MyPlugin } from './MyPlugin';
-export type { MyPluginConfig } from './types';
-```
-
-### Using Plugins
-
-Plugins are class instances passed in the `gridConfig.plugins` array:
-
-```typescript
+// Import individual plugins (smaller bundles)
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
+// All-in-one bundle
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+
+// Configuration
 grid.gridConfig = {
   plugins: [new SelectionPlugin({ mode: 'row' }), new FilteringPlugin({ debounceMs: 200 })],
 };
-```
 
-For convenience, import all plugins from the all-in-one bundle (`src/all.ts`):
-
-```typescript
-import { SelectionPlugin, FilteringPlugin, TreePlugin } from '@toolbox-web/grid/all';
-```
-
-Note: This includes all plugins in the bundle. For smaller bundles, import plugins individually.
-
-Access plugin instances via `grid.getPlugin()`:
-
-```typescript
-const selection = grid.getPlugin(SelectionPlugin);
-if (selection) {
-  selection.selectAll();
-}
+// Access at runtime
+const sel = grid.getPlugin(SelectionPlugin);
 ```
 
 ## Common Pitfalls
@@ -1084,36 +497,7 @@ if (selection) {
 
 ## Runtime Configuration Validation
 
-The grid validates plugin-owned properties at runtime and throws helpful errors if required plugins are missing:
-
-**Plugin-owned properties that require their respective plugins:**
-
-| Property       | Required Plugin         | Level  |
-| -------------- | ----------------------- | ------ |
-| `editable`     | `EditingPlugin`         | Column |
-| `editor`       | `EditingPlugin`         | Column |
-| `editorParams` | `EditingPlugin`         | Column |
-| `group`        | `GroupingColumnsPlugin` | Column |
-| `pinned`       | `PinnedColumnsPlugin`   | Column |
-| `sticky`       | `PinnedColumnsPlugin`   | Column |
-| `columnGroups` | `GroupingColumnsPlugin` | Config |
-
-**Example error message:**
-
-```
-[tbw-grid] Configuration error:
-
-Column(s) [name, email] use the "editable" column property, but the required plugin is not loaded.
-  → Add the plugin to your gridConfig.plugins array:
-    import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
-    plugins: [new EditingPlugin(), ...]
-```
-
-This validation is implemented in `libs/grid/src/lib/core/internal/validate-config.ts` and runs after plugins are initialized.
-
-**Development-only warnings:**
-
-Config rule warnings (severity: 'warn') are only shown in development environments (localhost or `NODE_ENV !== 'production'`) to avoid polluting production logs. Errors (severity: 'error') always throw regardless of environment.
+The grid validates plugin-owned properties at runtime. See the `new-plugin` skill for the full validation table, manifest system, and config rules.
 
 ## External Dependencies
 
@@ -1143,10 +527,12 @@ Config rule warnings (severity: 'warn') are only shown in development environmen
 - **`libs/grid/docs/RFC-RENDER-SCHEDULER.md`** - RFC document explaining the scheduler design
 - **`libs/grid-angular/src/index.ts`** - Angular adapter exports (Grid, TbwRenderer, TbwEditor directives)
 - **`libs/grid-react/src/index.ts`** - React adapter exports (DataGrid, GridColumn, hooks)
+- **`libs/grid-vue/src/index.ts`** - Vue adapter exports (DataGrid, GridColumn, composables)
 - **`demos/employee-management/shared/`** - Shared demo types, data, and utilities
 - **`demos/employee-management/vanilla/`** - Vanilla TypeScript demo application
 - **`demos/employee-management/angular/`** - Angular demo application
 - **`demos/employee-management/react/`** - React demo application
+- **`demos/employee-management/vue/`** - Vue demo application
 - **`tsconfig.base.json`** - Workspace-wide TypeScript paths
 - **`nx.json`** - Nx workspace config with plugins and target defaults
 - **`.github/workflows/ci.yml`** - CI pipeline (Bun-based)

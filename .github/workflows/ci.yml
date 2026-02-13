@@ -198,6 +198,9 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
+      - name: Build Storybook
+        run: bun nx run docs:build:ci
+
       - name: Start demo servers (against dist)
         run: |
           # Demos use USE_DIST=true env to resolve from dist/ instead of source
@@ -205,8 +208,10 @@ jobs:
           bun nx run demo-react:serve:dist &
           bun nx run demo-angular:serve:dist &
           bun nx run demo-vue:serve:dist &
+          # Serve built Storybook on port 4400 for smoke tests
+          bunx serve dist/docs -l 4400 --single &
           # Wait for all servers to be ready
-          bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 --timeout 120000
+          bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 http://localhost:4400 --timeout 120000
 
       - name: Run E2E tests
         run: bun nx run e2e:e2e --skip-nx-cache

@@ -1,17 +1,15 @@
 import { expect, test } from '@playwright/test';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 
 /**
  * Storybook Smoke Tests
  *
- * Automatically discovers all stories from Storybook's index endpoint and
- * generates one test per story. Each test verifies the story loads without
- * JavaScript errors and renders a functioning grid component.
- *
- * This replaces manual testing of stories before releases.
- *
- * **Skipped on CI**: Iterating ~110 stories sequentially takes too long on
- * shared CI runners. The Storybook build step already catches compilation
- * errors. Run locally to validate story rendering before merging.
+ * Generates one test per story so Playwright can parallelize across workers.
+ * The story index is fetched during globalSetup (scripts/fetch-story-index.ts)
+ * and cached as JSON. Each test loads a single story and verifies:
+ *   1. No JavaScript errors
+ *   2. A `<tbw-grid>` element is rendered (for grid stories)
  *
  * Prerequisites:
  *   bun nx serve docs    # Storybook on port 4400
@@ -20,25 +18,20 @@ import { expect, test } from '@playwright/test';
  *   npx playwright test storybook-smoke.spec.ts
  */
 
-// Skip on CI — iterating ~110 stories is too slow for shared runners.
-// The Storybook BUILD step already validates compilation.
-test.skip(!!process.env.CI, 'Storybook smoke tests are skipped on CI (too slow for shared runners)');
-
 const STORYBOOK_URL = 'http://localhost:4400';
 
-// Stories that are known to not contain a <tbw-grid> element
-// (e.g., theming tools, docs-only, benchmark harnesses)
+// #region Story Classification
+
+/** Stories that don't contain a <tbw-grid> element (theming tools, etc.) */
 const NON_GRID_STORIES = new Set(['grid-theming-variable-reference--reference', 'grid-theming-theme-builder--builder']);
 
-// Stories with known JS errors (story bugs, not grid bugs).
-// These are excluded from the JS error test but still checked for grid rendering.
-// TODO: Fix these stories and remove from this list.
+/** Stories with known JS errors (story bugs, not grid bugs) */
 const KNOWN_ERROR_STORIES = new Set([
   // Missing EditingPlugin — clipboard story uses editable columns without it
   'grid-plugins-clipboard--copy-paste',
 ]);
 
-// Stories that need extra time to render (async data, large datasets, etc.)
+/** Stories that need extra time to render (async data, large datasets) */
 const SLOW_STORIES = new Set([
   'grid-benchmarks--performance-stress-test',
   'grid-plugins-server-side--default',
@@ -48,6 +41,10 @@ const SLOW_STORIES = new Set([
   'demos-employee-management--grouped-by-department',
 ]);
 
+// #endregion
+
+// #region Story Index
+
 interface StoryIndexEntry {
   id: string;
   title: string;
@@ -55,169 +52,93 @@ interface StoryIndexEntry {
   type: 'story' | 'docs';
 }
 
-interface StoryIndex {
-  v: number;
-  entries: Record<string, StoryIndexEntry>;
-}
-
 /**
- * Fetch all story IDs from Storybook's index endpoint.
- * Filters to only 'story' type entries (excludes MDX docs pages).
+ * Read the story index that was cached by globalSetup.
+ * Returns an empty array if the file doesn't exist (Storybook not running).
  */
-async function fetchStoryIds(): Promise<StoryIndexEntry[]> {
-  const res = await fetch(`${STORYBOOK_URL}/index.json`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch Storybook index: ${res.status} ${res.statusText}`);
-  }
-  const index = (await res.json()) as StoryIndex;
-  return Object.values(index.entries).filter((entry) => entry.type === 'story');
-}
-
-/**
- * Load a story in Storybook's iframe mode and return diagnostics.
- *
- * Optimization: Uses 'domcontentloaded' instead of 'networkidle' and waits
- * for a rendered element rather than a fixed timeout. This cuts per-story
- * time from ~1.7s to ~0.4s, saving ~2 minutes across 110 stories.
- */
-async function loadStory(
-  page: import('@playwright/test').Page,
-  storyId: string,
-): Promise<{ errors: string[]; hasGrid: boolean; rowCount: number }> {
-  const errors: string[] = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-
-  const isSlow = SLOW_STORIES.has(storyId);
-
-  await page.goto(`${STORYBOOK_URL}/iframe.html?id=${storyId}&viewMode=story`, {
-    timeout: isSlow ? 15000 : 8000,
-    waitUntil: 'domcontentloaded',
-  });
-
-  // Wait for Storybook to mount the story (root gets children)
+function readCachedStoryIndex(): StoryIndexEntry[] {
+  const indexPath = resolve(__dirname, '..', 'test-results', 'story-index.json');
+  if (!existsSync(indexPath)) return [];
   try {
-    await page.waitForFunction(
-      () => {
-        const root = document.querySelector('#storybook-root');
-        return root && root.children.length > 0;
-      },
-      { timeout: isSlow ? 8000 : 3000 },
-    );
+    return JSON.parse(readFileSync(indexPath, 'utf-8')) as StoryIndexEntry[];
   } catch {
-    // Some stories may render empty — that's fine, we check below
+    return [];
   }
-
-  // Minimal settle time for async renders (only slow stories need more)
-  if (isSlow) {
-    await page.waitForTimeout(1000);
-  }
-
-  const diagnostics = await page.evaluate(() => {
-    const root = document.querySelector('#storybook-root');
-    const grid = root?.querySelector('tbw-grid');
-    const rows = root?.querySelectorAll('tbw-grid [role="row"]:has([role="gridcell"])');
-    return {
-      hasGrid: !!grid,
-      rowCount: rows?.length ?? 0,
-    };
-  });
-
-  page.removeAllListeners('pageerror');
-
-  return { errors, ...diagnostics };
 }
 
-// ─── Test Generation ───────────────────────────────────────────────────
-// All stories are loaded in a single pass to avoid repeating ~110 page
-// navigations. Results are collected and assertions run at the end.
+const stories = readCachedStoryIndex();
+
+// #endregion
+
+// #region Test Generation
 
 test.describe('Storybook Smoke Tests', () => {
-  // Disable retries — retrying all 110 stories because one failed is wasteful.
-  // Storybook smoke tests are informational; flakes should be investigated, not retried.
+  // No retries — flakes should be investigated, not retried
   test.describe.configure({ retries: 0 });
 
-  let stories: StoryIndexEntry[] = [];
-  let storybookAvailable = false;
-
-  test.beforeAll(async () => {
-    try {
-      stories = await fetchStoryIds();
-      storybookAvailable = stories.length > 0;
-    } catch {
-      console.warn('⚠️  Could not connect to Storybook at', STORYBOOK_URL);
-      console.warn('   Start it with: bun nx serve docs');
-    }
-  });
-
   test('storybook index is accessible and has stories', async () => {
-    test.skip(!storybookAvailable, 'Storybook not running at ' + STORYBOOK_URL);
-    // We should have at least 50 stories in the project
+    test.skip(stories.length === 0, 'Storybook not running or index not fetched');
     expect(stories.length).toBeGreaterThan(50);
   });
 
-  test('all stories render correctly', async ({ page }) => {
-    test.skip(!storybookAvailable, 'Storybook not running');
-    // Budget ~3s per story for CI (locally ~0.3s). Cap at 5 minutes to prevent runaway.
-    test.setTimeout(Math.min(stories.length * 3000, 5 * 60 * 1000));
+  // Generate one test per story — Playwright distributes across workers
+  for (const story of stories) {
+    const skipErrors = KNOWN_ERROR_STORIES.has(story.id);
+    const skipGrid = NON_GRID_STORIES.has(story.id);
+    const isSlow = SLOW_STORIES.has(story.id);
 
-    // Collect results in a single pass
-    const jsErrors: { id: string; errors: string[] }[] = [];
-    const missingGrid: string[] = [];
-    const noRows: string[] = [];
+    test(`story: ${story.id}`, async ({ page }) => {
+      // Increase timeout for slow stories
+      if (isSlow) test.setTimeout(20_000);
 
-    for (const story of stories) {
-      const skipErrors = KNOWN_ERROR_STORIES.has(story.id);
-      const skipGrid = NON_GRID_STORIES.has(story.id);
+      const errors: string[] = [];
+      page.on('pageerror', (err) => errors.push(err.message));
 
+      await page.goto(`${STORYBOOK_URL}/iframe.html?id=${story.id}&viewMode=story`, {
+        timeout: isSlow ? 15_000 : 8_000,
+        waitUntil: 'domcontentloaded',
+      });
+
+      // Wait for Storybook to mount the story
       try {
-        const result = await loadStory(page, story.id);
-
-        // Check 1: JS errors
-        if (!skipErrors && result.errors.length > 0) {
-          jsErrors.push({ id: story.id, errors: result.errors });
-        }
-
-        // Check 2: Grid element present
-        if (!skipGrid && !result.hasGrid) {
-          missingGrid.push(story.id);
-        }
-
-        // Check 3: Data rows rendered (soft — some stories are intentionally empty)
-        if (!skipGrid && result.hasGrid && result.rowCount === 0) {
-          noRows.push(story.id);
-        }
-      } catch (e) {
-        if (!skipErrors) {
-          jsErrors.push({ id: story.id, errors: [(e as Error).message] });
-        }
-        if (!skipGrid) {
-          missingGrid.push(`${story.id} (load failed)`);
-        }
+        await page.waitForFunction(
+          () => {
+            const root = document.querySelector('#storybook-root');
+            return root && root.children.length > 0;
+          },
+          { timeout: isSlow ? 8_000 : 3_000 },
+        );
+      } catch {
+        // Some stories may render empty — checked below
       }
-    }
 
-    // Report stories with 0 rows (informational, not a failure)
-    if (noRows.length > 0) {
-      console.warn(
-        `⚠️  ${noRows.length} stories have a grid but 0 visible data rows:\n` +
-          noRows.map((s) => `  - ${s}`).join('\n'),
-      );
-    }
+      if (isSlow) await page.waitForTimeout(1_000);
 
-    // Assert: no JS errors
-    if (jsErrors.length > 0) {
-      const report = jsErrors.map((f) => `  ❌ ${f.id}:\n${f.errors.map((e) => `     ${e}`).join('\n')}`).join('\n');
-      expect.soft(jsErrors, `${jsErrors.length}/${stories.length} stories had JS errors:\n${report}`).toHaveLength(0);
-    }
+      const diagnostics = await page.evaluate(() => {
+        const root = document.querySelector('#storybook-root');
+        const grid = root?.querySelector('tbw-grid');
+        const rows = root?.querySelectorAll('tbw-grid [role="row"]:has([role="gridcell"])');
+        return { hasGrid: !!grid, rowCount: rows?.length ?? 0 };
+      });
 
-    // Assert: all grid stories have a <tbw-grid>
-    if (missingGrid.length > 0) {
-      expect
-        .soft(
-          missingGrid,
-          `${missingGrid.length} stories missing <tbw-grid>:\n${missingGrid.map((m) => `  ❌ ${m}`).join('\n')}`,
-        )
-        .toHaveLength(0);
-    }
-  });
+      page.removeAllListeners('pageerror');
+
+      // Assert: no JS errors
+      if (!skipErrors) {
+        expect(errors, `Story "${story.id}" had JS errors: ${errors.join(', ')}`).toHaveLength(0);
+      }
+
+      // Assert: grid element present
+      if (!skipGrid) {
+        expect(diagnostics.hasGrid, `Story "${story.id}" is missing <tbw-grid>`).toBe(true);
+      }
+
+      // Informational: warn about stories with 0 rows (not a failure)
+      if (!skipGrid && diagnostics.hasGrid && diagnostics.rowCount === 0) {
+        console.warn(`⚠️  Story "${story.id}" has a grid but 0 visible data rows`);
+      }
+    });
+  }
 });
+
+// #endregion

@@ -28,6 +28,8 @@ const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
 
 export default defineConfig({
   testDir: './tests',
+  /* Fetch Storybook story index before tests run (enables parallel smoke tests) */
+  globalSetup: './scripts/fetch-story-index.ts',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */

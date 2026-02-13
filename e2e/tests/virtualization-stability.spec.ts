@@ -17,7 +17,10 @@ import { DEMOS, SELECTORS, waitForGridReady } from './utils';
  */
 
 // Skip on CI — scroll-heavy tests with many waitForTimeout calls are unreliable on shared runners
-test.skip(!!process.env.CI, 'Virtualization stability tests are skipped on CI (scroll-heavy, unreliable on shared runners)');
+test.skip(
+  !!process.env.CI,
+  'Virtualization stability tests are skipped on CI (scroll-heavy, unreliable on shared runners)',
+);
 test.describe('Variable Row Height Virtualization Stability', () => {
   // Disable retries — these tests are deterministic; retrying masks real bugs
   test.describe.configure({ retries: 0 });

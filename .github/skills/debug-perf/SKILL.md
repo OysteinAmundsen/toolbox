@@ -20,7 +20,7 @@ Common performance issues:
 
 ## Step 2: Profile
 
-### Playwright Trace Capture (Primary Method)
+e th### Playwright Trace Capture (Primary Method)
 
 Playwright captures identical data to Chrome DevTools Performance tab, but scriptable and CI-friendly:
 

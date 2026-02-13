@@ -31,6 +31,51 @@ async function setRowCount(page: import('@playwright/test').Page, count: number)
 }
 
 /**
+ * Inject rows directly into the grid element.
+ * Used for demos without a row-count slider (Angular, React, Vue).
+ */
+async function injectRows(page: import('@playwright/test').Page, count: number): Promise<void> {
+  await page.evaluate((n) => {
+    const grid = document.querySelector('tbw-grid');
+    if (!grid) return;
+    const depts = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Legal', 'Ops'];
+    const statuses = ['Active', 'On Leave', 'Remote'];
+    const rows = [];
+    for (let i = 0; i < n; i++) {
+      rows.push({
+        id: `emp-${i}`,
+        firstName: `First${i}`,
+        lastName: `Last${i}`,
+        email: `emp${i}@example.com`,
+        department: depts[i % depts.length],
+        title: `Title ${i % 20}`,
+        status: statuses[i % statuses.length],
+        salary: 50000 + Math.random() * 100000,
+        level: (i % 10) + 1,
+        rating: Math.round(Math.random() * 5 * 10) / 10,
+        hireDate: new Date(2015 + (i % 10), i % 12, (i % 28) + 1).toISOString().split('T')[0],
+      });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (grid as any).rows = rows;
+  }, count);
+  await page.waitForTimeout(500);
+  await waitForGridReady(page);
+}
+
+/**
+ * Set row count via slider if available, otherwise inject directly.
+ */
+async function ensureRowCount(page: import('@playwright/test').Page, count: number): Promise<void> {
+  const slider = page.locator('#row-count');
+  if (await slider.isVisible()) {
+    await setRowCount(page, count);
+  } else {
+    await injectRows(page, count);
+  }
+}
+
+/**
  * Helper to wait a single rAF in Playwright evaluate context.
  */
 const RAF_WAIT = `await new Promise(r => requestAnimationFrame(() => r()));`;
@@ -244,6 +289,260 @@ test.describe('Performance Regression: Scroll', () => {
   });
 });
 
+// Cross-framework scroll performance tests
+// These run the same scroll measurements against Angular, React, and Vue demos
+// to catch framework-specific regressions (adapter overhead, change detection, etc.)
+
+const SCROLL_MEASUREMENT = `
+  (async () => {
+    const scrollable = document.querySelector('.faux-vscroll');
+    if (!scrollable) return { avg: 999, p95: 999, p99: 999, max: 999, error: 'no-scrollable' };
+
+    const totalHeight = scrollable.scrollHeight;
+    const viewportHeight = scrollable.clientHeight;
+    const steps = 30;
+    const stepSize = (totalHeight - viewportHeight) / steps;
+
+    if (stepSize <= 0) return { avg: 0, p95: 0, p99: 0, max: 0, error: 'nothing-to-scroll' };
+
+    // Warm-up pass
+    for (let i = 0; i <= steps; i++) {
+      scrollable.scrollTop = i * stepSize;
+      await new Promise(r => requestAnimationFrame(() => r()));
+    }
+    scrollable.scrollTop = 0;
+    await new Promise(r => setTimeout(r, 100));
+
+    // Measurement pass
+    const frameTimes = [];
+    for (let i = 0; i <= steps; i++) {
+      const start = performance.now();
+      scrollable.scrollTop = i * stepSize;
+      await new Promise(r => requestAnimationFrame(() => r()));
+      frameTimes.push(performance.now() - start);
+    }
+
+    const sorted = [...frameTimes].sort((a, b) => a - b);
+    const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+    const p95 = sorted[Math.floor(sorted.length * 0.95)];
+    const p99 = sorted[Math.floor(sorted.length * 0.99)];
+    const max = sorted[sorted.length - 1];
+
+    return { avg, p95, p99, max };
+  })()
+`;
+
+const RANDOM_JUMP_MEASUREMENT = `
+  (async () => {
+    const scrollable = document.querySelector('.faux-vscroll');
+    if (!scrollable) return { avg: 999, max: 999, error: 'no-scrollable' };
+
+    const totalHeight = scrollable.scrollHeight;
+    const viewportHeight = scrollable.clientHeight;
+    const maxScroll = totalHeight - viewportHeight;
+
+    // Warm-up
+    scrollable.scrollTop = maxScroll;
+    await new Promise(r => requestAnimationFrame(() => r()));
+    scrollable.scrollTop = 0;
+    await new Promise(r => setTimeout(r, 100));
+
+    // Random jump measurement
+    const frameTimes = [];
+    const jumps = 20;
+    for (let i = 0; i < jumps; i++) {
+      const pos = Math.random() * maxScroll;
+      const start = performance.now();
+      scrollable.scrollTop = pos;
+      await new Promise(r => requestAnimationFrame(() => r()));
+      frameTimes.push(performance.now() - start);
+    }
+
+    const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+    const max = Math.max(...frameTimes);
+    return { avg, max };
+  })()
+`;
+
+for (const framework of ['angular', 'react', 'vue'] as const) {
+  test.describe(`Performance Regression: Scroll (${framework})`, () => {
+    test(`${framework}: vertical scroll frame times stay under budget`, async ({ page }) => {
+      await page.goto(DEMOS[framework]);
+      await waitForGridReady(page);
+      await ensureRowCount(page, 500);
+
+      const result = (await page.evaluate(SCROLL_MEASUREMENT)) as {
+        avg: number;
+        p95: number;
+        p99: number;
+        max: number;
+      };
+
+      expect(result.avg).toBeLessThan(50);
+      expect(result.p95).toBeLessThan(80);
+      expect(result.p99).toBeLessThan(100);
+    });
+
+    test(`${framework}: stress scroll (random jumps) stays under budget`, async ({ page }) => {
+      await page.goto(DEMOS[framework]);
+      await waitForGridReady(page);
+      await ensureRowCount(page, 500);
+
+      const result = (await page.evaluate(RANDOM_JUMP_MEASUREMENT)) as {
+        avg: number;
+        max: number;
+      };
+
+      expect(result.avg).toBeLessThan(80);
+      expect(result.max).toBeLessThan(150);
+    });
+  });
+}
+
+// Cross-framework initial render tests
+// Measure how quickly each framework demo loads and renders the grid
+for (const framework of ['angular', 'react', 'vue'] as const) {
+  test.describe(`Performance Regression: Initial Render (${framework})`, () => {
+    test(`${framework}: initial page load + grid render within budget`, async ({ page }) => {
+      const before = Date.now();
+
+      await page.goto(DEMOS[framework]);
+      await waitForGridReady(page);
+
+      const renderTime = Date.now() - before;
+
+      // Budget: full page load + framework bootstrap + grid render < 8s
+      // Frameworks have more overhead than vanilla (Angular zone.js, React hydration, etc.)
+      expect(renderTime).toBeLessThan(8000);
+    });
+
+    test(`${framework}: grid renders 500 rows within time budget`, async ({ page }) => {
+      await page.goto(DEMOS[framework]);
+      await waitForGridReady(page);
+
+      const renderTime = await page.evaluate(`
+        (async () => {
+          const grid = document.querySelector('tbw-grid');
+          if (!grid) return 9999;
+
+          ${RAF_WAIT}
+          const start = performance.now();
+
+          // Inject 500 rows directly
+          const depts = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+          const rows = [];
+          for (let i = 0; i < 500; i++) {
+            rows.push({
+              id: 'perf-' + i,
+              firstName: 'First' + i,
+              lastName: 'Last' + i,
+              email: 'e' + i + '@test.com',
+              department: depts[i % depts.length],
+              title: 'Title ' + (i % 20),
+              status: i % 3 === 0 ? 'Active' : 'Remote',
+              salary: 50000 + i * 100,
+              level: (i % 10) + 1,
+              rating: (i % 50) / 10,
+              hireDate: '2020-01-01',
+            });
+          }
+          grid.rows = rows;
+
+          await new Promise(r => setTimeout(r, 500));
+          ${RAF_WAIT}
+          return performance.now() - start;
+        })()
+      `);
+
+      // Budget: 500 rows re-render < 3s (generous for framework overhead)
+      expect(renderTime).toBeLessThan(3000);
+    });
+  });
+}
+
+// #endregion
+
+// Cross-framework interaction latency tests
+// Measure cell click and keyboard navigation response across frameworks
+// to catch framework adapter overhead (change detection, reconciliation)
+
+// #region Cross-Framework Interaction Latency
+
+const CELL_CLICK_MEASUREMENT = `
+  (async () => {
+    const cell = document.querySelector('[role="gridcell"]');
+    if (!cell) return 999;
+
+    ${RAF_WAIT}
+    const start = performance.now();
+    cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    cell.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    ${RAF_WAIT}
+    return performance.now() - start;
+  })()
+`;
+
+const KEYBOARD_NAV_MEASUREMENT = `
+  (async () => {
+    const grid = document.querySelector('tbw-grid');
+    if (!grid) return { avg: 999, max: 999 };
+
+    // Click a cell first to establish focus
+    const cell = grid.querySelector('[role="gridcell"]');
+    if (cell) {
+      cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    }
+    await new Promise(r => requestAnimationFrame(() => r()));
+
+    const frameTimes = [];
+    const keys = ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight',
+                  'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowUp',
+                  'ArrowUp', 'ArrowLeft'];
+
+    for (const key of keys) {
+      const start = performance.now();
+      grid.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      await new Promise(r => requestAnimationFrame(() => r()));
+      frameTimes.push(performance.now() - start);
+    }
+
+    const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+    const max = Math.max(...frameTimes);
+    return { avg, max };
+  })()
+`;
+
+for (const framework of ['angular', 'react', 'vue'] as const) {
+  test.describe(`Performance Regression: Interaction Latency (${framework})`, () => {
+    test(`${framework}: cell click response time stays under budget`, async ({ page }) => {
+      await page.goto(DEMOS[framework]);
+      await waitForGridReady(page);
+
+      const clickTime = await page.evaluate(CELL_CLICK_MEASUREMENT);
+
+      // Click response should be < 100ms (feels instant)
+      // Framework adapters may add small overhead but should not be noticeable
+      expect(clickTime).toBeLessThan(100);
+    });
+
+    test(`${framework}: keyboard navigation response time`, async ({ page }) => {
+      await page.goto(DEMOS[framework]);
+      await waitForGridReady(page);
+
+      const navTime = (await page.evaluate(KEYBOARD_NAV_MEASUREMENT)) as {
+        avg: number;
+        max: number;
+      };
+
+      // Arrow key nav should be < 50ms average
+      expect(navTime.avg).toBeLessThan(50);
+      expect(navTime.max).toBeLessThan(100);
+    });
+  });
+}
+
 // #endregion
 
 // #region Sort & Filter Performance
@@ -305,6 +604,155 @@ test.describe('Performance Regression: Sort & Filter', () => {
     expect(totalTime).toBeLessThan(1000);
   });
 });
+
+// #endregion
+
+// #region Filter Latency Performance
+
+/**
+ * Filter latency tests measure the time from clicking a filter button,
+ * typing in a search term, and the grid completing the re-render.
+ * This catches regressions in the FilteringPlugin debounce + render pipeline.
+ */
+test.describe('Performance Regression: Filter Latency', () => {
+  test('vanilla: filter panel open + type + re-render stays under budget', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+    await setRowCount(page, 500);
+
+    const filterTime = (await page.evaluate(`
+      (async () => {
+        // Find any filterable column header with a filter button
+        const filterBtn = document.querySelector('.tbw-filter-btn');
+        if (!filterBtn) return { openTime: -1, filterTime: -1, error: 'no-filter-btn' };
+
+        // Measure panel open time
+        ${RAF_WAIT}
+        const openStart = performance.now();
+        filterBtn.click();
+        ${RAF_WAIT}
+        await new Promise(r => setTimeout(r, 200));
+        const openTime = performance.now() - openStart;
+
+        // Find search input in the filter panel
+        const searchInput = document.querySelector('.tbw-filter-search-input');
+        if (!searchInput) return { openTime, filterTime: -1, error: 'no-search-input' };
+
+        // Type a filter term and measure re-render time
+        const filterStart = performance.now();
+        searchInput.value = 'Eng';
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        // Wait for debounce (200ms default) + re-render
+        await new Promise(r => setTimeout(r, 400));
+        ${RAF_WAIT}
+        const filterTime = performance.now() - filterStart;
+
+        return { openTime, filterTime };
+      })()
+    `)) as { openTime: number; filterTime: number; error?: string };
+
+    if (filterTime.error) return; // Skip if filtering not available
+
+    // Panel open should be < 300ms
+    expect(filterTime.openTime).toBeLessThan(300);
+    // Filter re-render (including 200ms debounce) should be < 800ms
+    expect(filterTime.filterTime).toBeLessThan(800);
+  });
+
+  test('vanilla: rapid filter typing does not cause compounding delays', async ({ page }) => {
+    await page.goto(DEMOS.vanilla);
+    await waitForGridReady(page);
+    await setRowCount(page, 500);
+
+    const result = (await page.evaluate(`
+      (async () => {
+        // Open filter panel
+        const filterBtn = document.querySelector('.tbw-filter-btn');
+        if (!filterBtn) return { times: [], error: 'no-filter-btn' };
+
+        filterBtn.click();
+        await new Promise(r => setTimeout(r, 200));
+
+        const searchInput = document.querySelector('.tbw-filter-search-input');
+        if (!searchInput) return { times: [], error: 'no-search-input' };
+
+        // Type characters rapidly, measuring each keystroke's frame time
+        const chars = 'Engineering'.split('');
+        const times = [];
+
+        for (const char of chars) {
+          searchInput.value += char;
+          const start = performance.now();
+          searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+          await new Promise(r => requestAnimationFrame(() => r()));
+          times.push(performance.now() - start);
+        }
+
+        // Wait for final debounce + render
+        await new Promise(r => setTimeout(r, 400));
+
+        return { times };
+      })()
+    `)) as { times: number[]; error?: string };
+
+    if (result.error || result.times.length === 0) return;
+
+    // Individual keystrokes should be fast (debounce absorbs the heavy work)
+    const avg = result.times.reduce((a: number, b: number) => a + b, 0) / result.times.length;
+    expect(avg).toBeLessThan(50); // Each keystroke event < 50ms
+
+    // Later keystrokes should not be slower than earlier ones (no compounding)
+    const firstHalf = result.times.slice(0, 5);
+    const secondHalf = result.times.slice(5);
+    if (secondHalf.length > 0) {
+      const firstAvg = firstHalf.reduce((a: number, b: number) => a + b, 0) / firstHalf.length;
+      const secondAvg = secondHalf.reduce((a: number, b: number) => a + b, 0) / secondHalf.length;
+      expect(secondAvg).toBeLessThan(firstAvg * 3 + 20); // Generous tolerance
+    }
+  });
+});
+
+// Cross-framework filter latency
+for (const framework of ['angular', 'react', 'vue'] as const) {
+  test.describe(`Performance Regression: Filter Latency (${framework})`, () => {
+    test(`${framework}: filter panel open + type + re-render stays under budget`, async ({ page }) => {
+      await page.goto(DEMOS[framework]);
+      await waitForGridReady(page);
+
+      const filterTime = (await page.evaluate(`
+        (async () => {
+          const filterBtn = document.querySelector('.tbw-filter-btn');
+          if (!filterBtn) return { openTime: -1, filterTime: -1, error: 'no-filter-btn' };
+
+          ${RAF_WAIT}
+          const openStart = performance.now();
+          filterBtn.click();
+          ${RAF_WAIT}
+          await new Promise(r => setTimeout(r, 200));
+          const openTime = performance.now() - openStart;
+
+          const searchInput = document.querySelector('.tbw-filter-search-input');
+          if (!searchInput) return { openTime, filterTime: -1, error: 'no-search-input' };
+
+          const filterStart = performance.now();
+          searchInput.value = 'Eng';
+          searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+          await new Promise(r => setTimeout(r, 400));
+          ${RAF_WAIT}
+          const filterTime = performance.now() - filterStart;
+
+          return { openTime, filterTime };
+        })()
+      `)) as { openTime: number; filterTime: number; error?: string };
+
+      if (filterTime.error) return;
+
+      // Panel open < 300ms, filter re-render < 800ms (including debounce)
+      expect(filterTime.openTime).toBeLessThan(300);
+      expect(filterTime.filterTime).toBeLessThan(800);
+    });
+  });
+}
 
 // #endregion
 

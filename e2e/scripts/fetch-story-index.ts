@@ -6,7 +6,7 @@
  * If Storybook is not running, writes an empty array — tests will
  * skip gracefully.
  */
-import { writeFileSync, mkdirSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 
 const STORYBOOK_URL = 'http://localhost:4400';

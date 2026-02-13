@@ -178,10 +178,14 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   private draggedField: string | null = null;
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
+  /** When dragging a group, holds the group ID; null for individual column drags. */
+  private draggedGroupId: string | null = null;
+  /** Fields belonging to the group currently being dragged. */
+  private draggedGroupFields: string[] = [];
 
-  /** Clear drag-related classes from all rows in a list. */
+  /** Clear drag-related classes from all rows and group headers in a list. */
   private clearDragClasses(container: HTMLElement): void {
-    container.querySelectorAll('.tbw-visibility-row').forEach((r) => {
+    container.querySelectorAll('.tbw-visibility-row, .tbw-visibility-group-header').forEach((r) => {
       r.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after');
     });
   }
@@ -535,6 +539,13 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     header.className = 'tbw-visibility-group-header';
     header.setAttribute('data-group-id', group.id);
 
+    // Make group header draggable when reorder is enabled
+    if (reorderEnabled) {
+      header.draggable = true;
+      header.classList.add('reorderable');
+      this.setupGroupDragListeners(header, group, container);
+    }
+
     const headerLabel = document.createElement('label');
     headerLabel.className = 'tbw-visibility-label';
 
@@ -572,6 +583,17 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     headerLabel.appendChild(groupCheckbox);
     headerLabel.appendChild(headerText);
     header.appendChild(headerLabel);
+
+    // Add drag handle icon for group if reorderable
+    if (reorderEnabled) {
+      const handle = document.createElement('span');
+      handle.className = 'tbw-visibility-handle';
+      this.setIcon(handle, this.resolveIcon('dragHandle'));
+      handle.title = 'Drag to reorder group';
+      // Insert handle before the label
+      header.insertBefore(handle, headerLabel);
+    }
+
     container.appendChild(header);
 
     // Render indented column rows
@@ -655,6 +677,118 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   }
 
   /**
+   * Set up drag-and-drop listeners for a group header row.
+   * Dragging a group moves all its member columns as a block.
+   */
+  private setupGroupDragListeners(header: HTMLElement, group: ColumnGroupInfo, columnList: HTMLElement): void {
+    header.addEventListener('dragstart', (e: DragEvent) => {
+      this.isDragging = true;
+      this.draggedGroupId = group.id;
+      this.draggedGroupFields = [...group.fields];
+      // Use first field as representative for dataTransfer
+      this.draggedField = null;
+      this.draggedIndex = null;
+
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', `group:${group.id}`);
+      }
+
+      // Mark entire group (header + children) as dragging
+      header.classList.add('dragging');
+      columnList.querySelectorAll(`.tbw-visibility-row--grouped`).forEach((row) => {
+        const field = row.getAttribute('data-field');
+        if (field && this.draggedGroupFields.includes(field)) {
+          row.classList.add('dragging');
+        }
+      });
+    });
+
+    header.addEventListener('dragend', () => {
+      this.isDragging = false;
+      this.draggedGroupId = null;
+      this.draggedGroupFields = [];
+      this.draggedField = null;
+      this.draggedIndex = null;
+      this.dropIndex = null;
+      this.clearDragClasses(columnList);
+    });
+
+    // Group headers are also drop targets for other groups
+    header.addEventListener('dragover', (e: DragEvent) => {
+      e.preventDefault();
+      if (!this.isDragging) return;
+      // Can't drop onto self
+      if (this.draggedGroupId === group.id) return;
+      // Can't drop individual columns onto group headers
+      if (!this.draggedGroupId) return;
+
+      const rect = header.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const before = e.clientY < midY;
+
+      this.clearDragClasses(columnList);
+      header.classList.add('drop-target');
+      header.classList.toggle('drop-before', before);
+      header.classList.toggle('drop-after', !before);
+    });
+
+    header.addEventListener('dragleave', () => {
+      header.classList.remove('drop-target', 'drop-before', 'drop-after');
+    });
+
+    header.addEventListener('drop', (e: DragEvent) => {
+      e.preventDefault();
+      if (!this.isDragging || !this.draggedGroupId || this.draggedGroupId === group.id) return;
+
+      const rect = header.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+
+      this.executeGroupDrop(this.draggedGroupFields, group.fields, before, columnList);
+    });
+  }
+
+  /**
+   * Execute a group drop — move the dragged group's fields as a block
+   * to the position relative to the target group or column.
+   */
+  private executeGroupDrop(
+    draggedFields: string[],
+    targetFields: string[],
+    before: boolean,
+    columnList: HTMLElement,
+  ): void {
+    const allColumns = this.grid.getAllColumns();
+    const currentOrder = allColumns.map((c) => c.field);
+
+    // Remove dragged fields from current order
+    const remaining = currentOrder.filter((f) => !draggedFields.includes(f));
+
+    // Find insertion point relative to target
+    // Use the first field of target group if inserting before, last if after
+    const anchorField = before ? targetFields[0] : targetFields[targetFields.length - 1];
+    const insertAt = remaining.indexOf(anchorField);
+    if (insertAt === -1) return;
+
+    // Insert the dragged group block at the correct position
+    const insertIndex = before ? insertAt : insertAt + 1;
+
+    // Preserve the dragged fields' original relative order
+    const draggedInOrder = currentOrder.filter((f) => draggedFields.includes(f));
+    remaining.splice(insertIndex, 0, ...draggedInOrder);
+
+    this.grid.setColumnOrder(remaining);
+    // Panel rebuild handled by column-move listener — but since we're calling
+    // setColumnOrder directly (not through ReorderPlugin.moveColumn), we need
+    // to manually trigger a rebuild.
+    requestAnimationFrame(() => {
+      if (this.columnListElement) {
+        this.rebuildToggles(this.columnListElement);
+      }
+    });
+  }
+
+  /**
    * Set up drag-and-drop event listeners for a row.
    * On drop, emits a 'column-reorder-request' event for other plugins to handle.
    */
@@ -663,6 +797,9 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       this.isDragging = true;
       this.draggedField = field;
       this.draggedIndex = index;
+      // Clear any stale group drag state
+      this.draggedGroupId = null;
+      this.draggedGroupFields = [];
 
       if (e.dataTransfer) {
         e.dataTransfer.effectAllowed = 'move';
@@ -682,17 +819,34 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
     row.addEventListener('dragover', (e: DragEvent) => {
       e.preventDefault();
-      if (!this.isDragging || this.draggedField === field) return;
+      if (!this.isDragging) return;
+
+      // If dragging a group, only allow drop on ungrouped rows
+      if (this.draggedGroupId) {
+        if (row.classList.contains('tbw-visibility-row--grouped')) return;
+      } else if (this.draggedField === field) {
+        return;
+      }
 
       const rect = row.getBoundingClientRect();
       const midY = rect.top + rect.height / 2;
 
       this.dropIndex = e.clientY < midY ? index : index + 1;
 
-      // Clear other row highlights
-      columnList.querySelectorAll('.tbw-visibility-row').forEach((r) => {
-        if (r !== row) r.classList.remove('drop-target', 'drop-before', 'drop-after');
-      });
+      // Clear other highlights
+      this.clearDragClasses(columnList);
+      // Re-mark dragged elements
+      if (this.draggedGroupId) {
+        columnList
+          .querySelector(`.tbw-visibility-group-header[data-group-id="${this.draggedGroupId}"]`)
+          ?.classList.add('dragging');
+        columnList.querySelectorAll('.tbw-visibility-row--grouped').forEach((r) => {
+          const f = r.getAttribute('data-field');
+          if (f && this.draggedGroupFields.includes(f)) r.classList.add('dragging');
+        });
+      } else if (this.draggedField) {
+        columnList.querySelector(`.tbw-visibility-row[data-field="${this.draggedField}"]`)?.classList.add('dragging');
+      }
 
       row.classList.add('drop-target');
       row.classList.toggle('drop-before', e.clientY < midY);
@@ -705,11 +859,24 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
     row.addEventListener('drop', (e: DragEvent) => {
       e.preventDefault();
+
+      if (!this.isDragging) return;
+
+      // Group drop onto an ungrouped row
+      if (this.draggedGroupId && this.draggedGroupFields.length > 0) {
+        if (row.classList.contains('tbw-visibility-row--grouped')) return;
+        const rect = row.getBoundingClientRect();
+        const before = e.clientY < rect.top + rect.height / 2;
+        this.executeGroupDrop(this.draggedGroupFields, [field], before, columnList);
+        return;
+      }
+
+      // Individual column drop
       const draggedField = this.draggedField;
       const draggedIndex = this.draggedIndex;
       const dropIndex = this.dropIndex;
 
-      if (!this.isDragging || draggedField === null || draggedIndex === null || dropIndex === null) {
+      if (draggedField === null || draggedIndex === null || dropIndex === null) {
         return;
       }
 

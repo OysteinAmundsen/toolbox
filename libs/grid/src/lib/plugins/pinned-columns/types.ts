@@ -1,11 +1,11 @@
 /**
- * Sticky Columns Plugin Types
+ * Pinned Columns Plugin Types
  *
  * Type definitions for column pinning (sticky left/right columns).
  */
 
 /**
- * Sticky column position.
+ * Column pin position.
  *
  * **Physical values** (always pin to specified side):
  * - `'left'` - Pin to left edge
@@ -21,26 +21,36 @@
  * @example
  * ```typescript
  * // Physical - always pins to left side regardless of direction
- * { field: 'id', sticky: 'left' }
+ * { field: 'id', pinned: 'left' }
  *
  * // Logical - pins to visual start (left in LTR, right in RTL)
- * { field: 'id', sticky: 'start' }
+ * { field: 'id', pinned: 'start' }
  * ```
  */
-export type StickyPosition = 'left' | 'right' | 'start' | 'end';
+export type PinnedPosition = 'left' | 'right' | 'start' | 'end';
 
 /**
- * Physical sticky position after resolving logical values.
+ * @deprecated Use {@link PinnedPosition} instead. Will be removed in a future major version.
+ */
+export type StickyPosition = PinnedPosition;
+
+/**
+ * Physical pin position after resolving logical values.
  * Used internally after applying RTL resolution.
  */
-export type ResolvedStickyPosition = 'left' | 'right';
+export type ResolvedPinnedPosition = 'left' | 'right';
+
+/**
+ * @deprecated Use {@link ResolvedPinnedPosition} instead. Will be removed in a future major version.
+ */
+export type ResolvedStickyPosition = ResolvedPinnedPosition;
 
 // ============================================================================
-// Module Augmentation - Add sticky property to column config
+// Module Augmentation - Add pinned property to column config
 // ============================================================================
 
 /**
- * When PinnedColumnsPlugin is imported, the `sticky` property becomes available on column config.
+ * When PinnedColumnsPlugin is imported, the `pinned` property becomes available on column config.
  * This augments the core BaseColumnConfig interface.
  */
 declare module '../../core/types' {
@@ -58,7 +68,12 @@ declare module '../../core/types' {
      *
      * Requires PinnedColumnsPlugin.
      */
-    sticky?: StickyPosition;
+    pinned?: PinnedPosition;
+
+    /**
+     * @deprecated Use `pinned` instead. Will be removed in a future major version.
+     */
+    sticky?: PinnedPosition;
   }
 }
 

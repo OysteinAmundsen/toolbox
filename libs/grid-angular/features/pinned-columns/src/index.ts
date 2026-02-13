@@ -8,7 +8,7 @@
  * import '@toolbox-web/grid-angular/features/pinned-columns';
  *
  * <tbw-grid [pinnedColumns]="true" [columns]="[
- *   { field: 'id', sticky: 'left' },
+ *   { field: 'id', pinned: 'left' },
  *   { field: 'name' }
  * ]" />
  * ```

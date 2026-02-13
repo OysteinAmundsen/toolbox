@@ -1402,7 +1402,7 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 | `rowData` | `rows` |
 | `defaultColDef` | `typeDefaults` |
 | `headerName` | `header` |
-| `pinned: 'left'` | `sticky: 'left'` (+ `PinnedColumnsPlugin`) |
+| `pinned: 'left'` | `pinned: 'left'` (+ `PinnedColumnsPlugin`) |
 | `filter: true` | `filterable: true` (+ `FilteringPlugin`) |
 | `cellRenderer` | `renderer` |
 | `onCellValueChanged` | `addEventListener('cell-commit', ...)` |

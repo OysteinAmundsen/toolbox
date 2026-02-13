@@ -12,11 +12,12 @@ import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/t
 import {
   applyStickyOffsets,
   clearStickyOffsets,
+  getColumnPinned,
   getLeftStickyColumns,
   getRightStickyColumns,
   hasStickyColumns,
 } from './pinned-columns';
-import type { PinnedColumnsConfig, StickyPosition } from './types';
+import type { PinnedColumnsConfig, PinnedPosition } from './types';
 
 /** Query type constant for checking if a column can be moved */
 const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
@@ -97,9 +98,15 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   static override readonly manifest: PluginManifest = {
     ownedProperties: [
       {
+        property: 'pinned',
+        level: 'column',
+        description: 'the "pinned" column property',
+        isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
+      },
+      {
         property: 'sticky',
         level: 'column',
-        description: 'the "sticky" column property',
+        description: 'the "sticky" column property (deprecated, use "pinned")',
         isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
       },
     ],
@@ -195,13 +202,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         // Prevent pinned columns from being moved/reordered.
         // Pinned columns have fixed positions and should not be draggable.
         const column = query.context as ColumnConfig;
-        const sticky = (column as ColumnConfig & { sticky?: StickyPosition }).sticky;
-        if (sticky === 'left' || sticky === 'right' || sticky === 'start' || sticky === 'end') {
-          return false;
-        }
-        // Also check meta.sticky for backwards compatibility
-        const metaSticky = (column.meta as { sticky?: StickyPosition } | undefined)?.sticky;
-        if (metaSticky === 'left' || metaSticky === 'right' || metaSticky === 'start' || metaSticky === 'end') {
+        if (getColumnPinned(column) != null) {
           return false;
         }
         return undefined; // Let other plugins or default behavior decide
@@ -217,14 +218,14 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         const params = query.context as ContextMenuParams;
         if (!params.isHeader) return undefined;
 
-        const column = params.column as ColumnConfig & { sticky?: StickyPosition };
+        const column = params.column as ColumnConfig;
         if (!column?.field) return undefined;
 
         // Don't offer pin/unpin for locked-pinning columns
         if (column.meta?.lockPinning) return undefined;
 
-        const sticky = column.sticky;
-        const isPinned = sticky === 'left' || sticky === 'right' || sticky === 'start' || sticky === 'end';
+        const pinned = getColumnPinned(column);
+        const isPinned = pinned != null;
         const items: HeaderContextMenuItem[] = [];
 
         if (isPinned) {
@@ -264,31 +265,34 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
   /**
    * Set the pin position for a column.
-   * Updates the column's `sticky` property and triggers a full re-render.
+   * Updates the column's `pinned` property and triggers a full re-render.
    *
    * @param field - The field name of the column to pin/unpin
-   * @param position - The sticky position (`'left'`, `'right'`, `'start'`, `'end'`), or `undefined` to unpin
+   * @param position - The pin position (`'left'`, `'right'`, `'start'`, `'end'`), or `undefined` to unpin
    */
-  setPinPosition(field: string, position: StickyPosition | undefined): void {
-    const gridEl = this.grid as unknown as HTMLElement & {
-      columns?: ColumnConfig[];
-      gridConfig?: { columns?: ColumnConfig[] };
-    };
-    const currentColumns = gridEl.gridConfig?.columns ?? gridEl.columns;
-    if (!currentColumns) return;
+  setPinPosition(field: string, position: PinnedPosition | undefined): void {
+    // Read the currently-visible columns from the plugin accessor.
+    // These are the post-processColumns result, which is the authoritative column set.
+    const currentColumns = this.columns;
+    if (!currentColumns?.length) return;
 
     const updated = currentColumns.map((col) => {
       if (col.field !== field) return col;
       const copy = { ...col };
       if (position) {
-        (copy as ColumnConfig & { sticky?: StickyPosition }).sticky = position;
+        (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned = position;
       } else {
-        delete (copy as ColumnConfig & { sticky?: StickyPosition }).sticky;
+        delete (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned;
       }
+      // Clean up deprecated sticky property if present
+      delete (copy as ColumnConfig & { sticky?: PinnedPosition }).sticky;
       return copy;
     });
 
     // Set via columns setter to trigger re-render
+    const gridEl = this.grid as unknown as HTMLElement & {
+      columns?: ColumnConfig[];
+    };
     gridEl.columns = updated;
   }
 

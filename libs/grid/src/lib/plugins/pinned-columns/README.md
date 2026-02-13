@@ -19,10 +19,10 @@ grid.gridConfig = {
 
 // Pin columns via column config
 grid.columns = [
-  { field: 'id', sticky: 'left' },
+  { field: 'id', pinned: 'left' },
   { field: 'name' },
   { field: 'email' },
-  { field: 'actions', sticky: 'right' },
+  { field: 'actions', pinned: 'right' },
 ];
 ```
 
@@ -30,7 +30,7 @@ grid.columns = [
 
 | Option   | Type                                    | Description        |
 | -------- | --------------------------------------- | ------------------ |
-| `sticky` | `'left' \| 'right' \| 'start' \| 'end'` | Pin column to edge |
+| `pinned` | `'left' \| 'right' \| 'start' \| 'end'` | Pin column to edge |
 
 ### Physical vs Logical Values
 
@@ -48,9 +48,9 @@ For RTL (Right-to-Left) language support, use logical values:
 ```typescript
 // Works correctly in both LTR and RTL layouts
 grid.columns = [
-  { field: 'id', sticky: 'start' }, // Left in LTR, Right in RTL
+  { field: 'id', pinned: 'start' }, // Left in LTR, Right in RTL
   { field: 'name' },
-  { field: 'actions', sticky: 'end' }, // Right in LTR, Left in RTL
+  { field: 'actions', pinned: 'end' }, // Right in LTR, Left in RTL
 ];
 ```
 
@@ -78,15 +78,15 @@ pinned.clearStickyPositions();
 
 ### ReorderPlugin
 
-Pinned columns **cannot be reordered**. When using both `PinnedColumnsPlugin` and `ReorderPlugin`, columns with any `sticky` value (`'left'`, `'right'`, `'start'`, or `'end'`) are automatically marked as non-draggable. This ensures the sticky positioning behavior remains consistent.
+Pinned columns **cannot be reordered**. When using both `PinnedColumnsPlugin` and `ReorderPlugin`, columns with any `pinned` value (`'left'`, `'right'`, `'start'`, or `'end'`) are automatically marked as non-draggable. This ensures the sticky positioning behavior remains consistent.
 
 ```typescript
 grid.gridConfig = {
   plugins: [new PinnedColumnsPlugin(), new ReorderPlugin()],
   columns: [
-    { field: 'id', sticky: 'left' }, // Not draggable
+    { field: 'id', pinned: 'left' }, // Not draggable
     { field: 'name' }, // Draggable
-    { field: 'actions', sticky: 'right' }, // Not draggable
+    { field: 'actions', pinned: 'right' }, // Not draggable
   ],
 };
 ```

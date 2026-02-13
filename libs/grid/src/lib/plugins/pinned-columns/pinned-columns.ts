@@ -1,45 +1,59 @@
 /**
- * Sticky Columns Core Logic
+ * Pinned Columns Core Logic
  *
- * Pure functions for applying sticky (pinned) column positioning.
+ * Pure functions for applying pinned (sticky) column positioning.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
-import type { ResolvedStickyPosition, StickyPosition } from './types';
+import type { PinnedPosition, ResolvedPinnedPosition } from './types';
+
+// Keep deprecated imports working (StickyPosition = PinnedPosition)
+type StickyPosition = PinnedPosition;
+type ResolvedStickyPosition = ResolvedPinnedPosition;
 
 /**
- * Resolve a sticky position to a physical position based on text direction.
+ * Get the effective pinned position from a column, checking `pinned` first then `sticky` (deprecated).
+ *
+ * @param col - Column configuration object
+ * @returns The pinned position, or undefined if not pinned
+ */
+export function getColumnPinned(col: any): PinnedPosition | undefined {
+  return col.pinned ?? col.sticky ?? col.meta?.pinned ?? col.meta?.sticky;
+}
+
+/**
+ * Resolve a pinned position to a physical position based on text direction.
  *
  * - `'left'` / `'right'` → unchanged (physical values)
  * - `'start'` → `'left'` in LTR, `'right'` in RTL
  * - `'end'` → `'right'` in LTR, `'left'` in RTL
  *
- * @param position - The sticky position (logical or physical)
+ * @param position - The pinned position (logical or physical)
  * @param direction - Text direction ('ltr' or 'rtl')
- * @returns Physical sticky position ('left' or 'right')
+ * @returns Physical pinned position ('left' or 'right')
  */
 export function resolveStickyPosition(position: StickyPosition, direction: TextDirection): ResolvedStickyPosition {
   return resolveInlinePosition(position, direction);
 }
 
 /**
- * Check if a column is sticky on the left (after resolving logical positions).
+ * Check if a column is pinned on the left (after resolving logical positions).
  */
 function isResolvedLeft(col: any, direction: TextDirection): boolean {
-  const sticky = col.sticky as StickyPosition | undefined;
-  if (!sticky) return false;
-  return resolveStickyPosition(sticky, direction) === 'left';
+  const pinned = getColumnPinned(col);
+  if (!pinned) return false;
+  return resolveStickyPosition(pinned, direction) === 'left';
 }
 
 /**
- * Check if a column is sticky on the right (after resolving logical positions).
+ * Check if a column is pinned on the right (after resolving logical positions).
  */
 function isResolvedRight(col: any, direction: TextDirection): boolean {
-  const sticky = col.sticky as StickyPosition | undefined;
-  if (!sticky) return false;
-  return resolveStickyPosition(sticky, direction) === 'right';
+  const pinned = getColumnPinned(col);
+  if (!pinned) return false;
+  return resolveStickyPosition(pinned, direction) === 'right';
 }
 
 /**
@@ -71,9 +85,7 @@ export function getRightStickyColumns(columns: any[], direction: TextDirection =
  * @returns True if any column has sticky position
  */
 export function hasStickyColumns(columns: any[]): boolean {
-  return columns.some(
-    (col) => col.sticky === 'left' || col.sticky === 'right' || col.sticky === 'start' || col.sticky === 'end',
-  );
+  return columns.some((col) => getColumnPinned(col) != null);
 }
 
 /**
@@ -83,11 +95,7 @@ export function hasStickyColumns(columns: any[]): boolean {
  * @returns The sticky position or null if not sticky
  */
 export function getColumnStickyPosition(column: any): StickyPosition | null {
-  if (column.sticky === 'left') return 'left';
-  if (column.sticky === 'right') return 'right';
-  if (column.sticky === 'start') return 'start';
-  if (column.sticky === 'end') return 'end';
-  return null;
+  return getColumnPinned(column) ?? null;
 }
 
 /**
@@ -161,30 +169,22 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
   // Detect text direction from the host element
   const direction = getDirection(host);
 
-  // Build column index map for matching body cells (which use data-col, not data-field)
-  const fieldToIndex = new Map<string, number>();
-  columns.forEach((col, i) => {
-    if (col.field) fieldToIndex.set(col.field, i);
-  });
-
   // Apply left sticky (includes 'start' in LTR, 'end' in RTL)
   let left = 0;
   for (const col of columns) {
     if (isResolvedLeft(col, direction)) {
-      const colIndex = fieldToIndex.get(col.field);
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
         cell.classList.add('sticky-left');
         cell.style.position = 'sticky';
         cell.style.left = left + 'px';
-        // Body cells use data-col (column index), not data-field
-        if (colIndex !== undefined) {
-          host.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
-            el.classList.add('sticky-left');
-            (el as HTMLElement).style.position = 'sticky';
-            (el as HTMLElement).style.left = left + 'px';
-          });
-        }
+        // Body cells: use data-field for reliable matching (data-col indices may differ
+        // between _columns and _visibleColumns due to hidden/utility columns)
+        host.querySelectorAll(`.data-grid-row .cell[data-field="${col.field}"]`).forEach((el) => {
+          el.classList.add('sticky-left');
+          (el as HTMLElement).style.position = 'sticky';
+          (el as HTMLElement).style.left = left + 'px';
+        });
         left += cell.offsetWidth;
       }
     }
@@ -194,20 +194,17 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): void {
   let right = 0;
   for (const col of [...columns].reverse()) {
     if (isResolvedRight(col, direction)) {
-      const colIndex = fieldToIndex.get(col.field);
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
         cell.classList.add('sticky-right');
         cell.style.position = 'sticky';
         cell.style.right = right + 'px';
-        // Body cells use data-col (column index), not data-field
-        if (colIndex !== undefined) {
-          host.querySelectorAll(`.data-grid-row .cell[data-col="${colIndex}"]`).forEach((el) => {
-            el.classList.add('sticky-right');
-            (el as HTMLElement).style.position = 'sticky';
-            (el as HTMLElement).style.right = right + 'px';
-          });
-        }
+        // Body cells: use data-field for reliable matching
+        host.querySelectorAll(`.data-grid-row .cell[data-field="${col.field}"]`).forEach((el) => {
+          el.classList.add('sticky-right');
+          (el as HTMLElement).style.position = 'sticky';
+          (el as HTMLElement).style.right = right + 'px';
+        });
         right += cell.offsetWidth;
       }
     }

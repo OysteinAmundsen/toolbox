@@ -158,9 +158,9 @@ describe('sticky-columns', () => {
           <div class="cell" data-field="c">C</div>
         </div>
         <div class="data-grid-row">
-          <div class="cell" data-col="0">1</div>
-          <div class="cell" data-col="1">2</div>
-          <div class="cell" data-col="2">3</div>
+          <div class="cell" data-col="0" data-field="a">1</div>
+          <div class="cell" data-col="1" data-field="b">2</div>
+          <div class="cell" data-col="2" data-field="c">3</div>
         </div>
       `;
       document.body.appendChild(host);
@@ -263,6 +263,25 @@ describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
     const plugin = new PinnedColumnsPlugin();
     const column = { field: 'name' };
     expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(undefined);
+  });
+
+  it('returns false for column with pinned: left (canonical property)', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const column = { field: 'id', pinned: 'left' };
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
+  });
+
+  it('returns false for column with pinned: right (canonical property)', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const column = { field: 'actions', pinned: 'right' };
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
+  });
+
+  it('pinned takes precedence over sticky when both are set', () => {
+    const plugin = new PinnedColumnsPlugin();
+    const column = { field: 'id', pinned: 'left', sticky: 'right' };
+    // getColumnPinned returns pinned first
+    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
   it('returns undefined for unknown query types', () => {

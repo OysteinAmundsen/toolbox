@@ -575,9 +575,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * @example
    * ```html
    * <tbw-grid [pinnedColumns]="true" [columns]="[
-   *   { field: 'id', sticky: 'left' },
+   *   { field: 'id', pinned: 'left' },
    *   { field: 'name' },
-   *   { field: 'actions', sticky: 'right' }
+   *   { field: 'actions', pinned: 'right' }
    * ]" />
    * ```
    */

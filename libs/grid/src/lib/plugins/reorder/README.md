@@ -55,7 +55,7 @@ new ReorderPlugin({ animation: 'fade' });
 
 ### Sticky (Pinned) Columns
 
-Columns with `sticky: 'left'` or `sticky: 'right'` cannot be reordered. This is by design:
+Columns with `pinned: 'left'` or `pinned: 'right'` cannot be reordered. This is by design:
 
 - Sticky columns use `position: sticky` CSS which requires them to stay in their designated position
 - Allowing drag-and-drop on sticky columns would conflict with their pinned behavior
@@ -63,7 +63,7 @@ Columns with `sticky: 'left'` or `sticky: 'right'` cannot be reordered. This is 
 
 ```typescript
 // This column will NOT be draggable
-{ field: 'id', sticky: 'left' }
+{ field: 'id', pinned: 'left' }
 
 // Use PinnedColumnsPlugin alongside ReorderPlugin
 grid.gridConfig = {
@@ -72,9 +72,9 @@ grid.gridConfig = {
     new PinnedColumnsPlugin(),
   ],
   columns: [
-    { field: 'id', sticky: 'left' },  // Pinned, not draggable
+    { field: 'id', pinned: 'left' },  // Pinned, not draggable
     { field: 'name' },                 // Draggable
-    { field: 'actions', sticky: 'right' }, // Pinned, not draggable
+    { field: 'actions', pinned: 'right' }, // Pinned, not draggable
   ],
 };
 ```

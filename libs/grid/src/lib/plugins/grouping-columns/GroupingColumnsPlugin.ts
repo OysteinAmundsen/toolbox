@@ -199,17 +199,44 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
    */
   #recomputeGroupEndFields(columnOrder: string[]): void {
     this.#groupEndFields.clear();
+    // Find the last field of each group (including implicit groups between explicit ones).
+    // Skip the very last group overall — no adjacent group follows it, so no separator needed.
+    const lastGroupEndField = this.#findLastGroupEndField(columnOrder);
     for (const group of this.groups) {
-      if (group.id.startsWith('__implicit__')) continue;
       const groupFields = new Set(group.columns.map((c) => c.field));
       // Walk the column order in reverse to find the last member of this group
       for (let i = columnOrder.length - 1; i >= 0; i--) {
         if (groupFields.has(columnOrder[i])) {
-          this.#groupEndFields.add(columnOrder[i]);
+          const field = columnOrder[i];
+          // Don't mark the last group's trailing field — nothing follows it
+          if (field !== lastGroupEndField) {
+            this.#groupEndFields.add(field);
+          }
           break;
         }
       }
     }
+  }
+
+  /**
+   * Find the trailing field of the last group in column order (to exclude from group-end marking).
+   */
+  #findLastGroupEndField(columnOrder: string[]): string | null {
+    if (this.groups.length === 0) return null;
+    // Determine which group contains the last field in column order
+    for (let i = columnOrder.length - 1; i >= 0; i--) {
+      const field = columnOrder[i];
+      for (const group of this.groups) {
+        if (group.columns.some((c) => c.field === field)) {
+          // This group is the last in display order — find its last field
+          const groupFields = new Set(group.columns.map((c) => c.field));
+          for (let j = columnOrder.length - 1; j >= 0; j--) {
+            if (groupFields.has(columnOrder[j])) return columnOrder[j];
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /**
@@ -421,10 +448,13 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
 
     // Keep #groupEndFields in sync for afterCellRender (covers scheduler-driven renders)
     this.#groupEndFields.clear();
-    for (const g of groups) {
-      if (g.id.startsWith('__implicit__')) continue;
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi];
       const lastCol = g.columns[g.columns.length - 1];
-      if (lastCol?.field) this.#groupEndFields.add(lastCol.field);
+      // Don't mark the last group — no adjacent group follows it
+      if (lastCol?.field && gi < groups.length - 1) {
+        this.#groupEndFields.add(lastCol.field);
+      }
     }
 
     // Build and insert group header row

@@ -220,9 +220,9 @@ export interface FeatureProps<TRow = unknown> {
    * @example
    * ```vue
    * <TbwGrid pinnedColumns :columns="[
-   *   { field: 'id', sticky: 'left' },
+   *   { field: 'id', pinned: 'left' },
    *   { field: 'name' },
-   *   { field: 'actions', sticky: 'right' },
+   *   { field: 'actions', pinned: 'right' },
    * ]" />
    * ```
    */

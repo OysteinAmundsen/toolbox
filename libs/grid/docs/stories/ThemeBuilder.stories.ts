@@ -59,7 +59,7 @@ const employees = generateEmployees(100);
 // COLUMN CONFIG
 // ============================================================================
 const columns: ColumnConfig<Employee>[] = [
-  { field: 'id', header: 'ID', width: 60, sticky: 'left' },
+  { field: 'id', header: 'ID', width: 60, pinned: 'left' },
   { field: 'name', header: 'Name', width: 150 },
   { field: 'department', header: 'Department', width: 120 },
   { field: 'role', header: 'Role', width: 100 },

@@ -33,15 +33,15 @@ import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
-    { field: 'id', header: 'ID', type: 'number', width: 60, sticky: 'left' },
-    { field: 'name', header: 'Name', width: 150, sticky: 'left' },
+    { field: 'id', header: 'ID', type: 'number', width: 60, pinned: 'left' },
+    { field: 'name', header: 'Name', width: 150, pinned: 'left' },
     { field: 'email', header: 'Email', width: 200 },
     { field: 'department', header: 'Department', width: 150 },
     { field: 'phone', header: 'Phone', width: 150 },
     { field: 'address', header: 'Address', width: 250 },
     { field: 'city', header: 'City', width: 120 },
     { field: 'country', header: 'Country', width: 120 },
-    { field: 'actions', header: 'Actions', width: 100, sticky: 'right' },
+    { field: 'actions', header: 'Actions', width: 100, pinned: 'right' },
   ],
   fitMode: 'fixed',
   plugins: [new PinnedColumnsPlugin()],
@@ -64,15 +64,15 @@ grid.rows = [
 
     grid.gridConfig = {
       columns: [
-        { field: 'id', header: 'ID', type: 'number', width: 60, sticky: 'left' },
-        { field: 'name', header: 'Name', width: 150, sticky: 'left' },
+        { field: 'id', header: 'ID', type: 'number', width: 60, pinned: 'left' },
+        { field: 'name', header: 'Name', width: 150, pinned: 'left' },
         { field: 'email', header: 'Email', width: 200 },
         { field: 'department', header: 'Department', width: 150 },
         { field: 'phone', header: 'Phone', width: 150 },
         { field: 'address', header: 'Address', width: 250 },
         { field: 'city', header: 'City', width: 120 },
         { field: 'country', header: 'Country', width: 120 },
-        { field: 'actions', header: 'Actions', width: 100, sticky: 'right' },
+        { field: 'actions', header: 'Actions', width: 100, pinned: 'right' },
       ],
       fitMode: 'fixed',
       plugins: [new PinnedColumnsPlugin()],
@@ -136,8 +136,8 @@ import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {
   columns: [
-    { field: 'id', header: 'ID', type: 'number', width: 60, sticky: 'left' },
-    { field: 'name', header: 'Name', width: 150, sticky: 'left' },
+    { field: 'id', header: 'ID', type: 'number', width: 60, pinned: 'left' },
+    { field: 'name', header: 'Name', width: 150, pinned: 'left' },
     { field: 'email', header: 'Email', width: 200 },
     { field: 'department', header: 'Department', width: 150 },
     { field: 'phone', header: 'Phone', width: 150 },
@@ -166,8 +166,8 @@ grid.rows = [
 
     grid.gridConfig = {
       columns: [
-        { field: 'id', header: 'ID', type: 'number', width: 60, sticky: 'left' },
-        { field: 'name', header: 'Name', width: 150, sticky: 'left' },
+        { field: 'id', header: 'ID', type: 'number', width: 60, pinned: 'left' },
+        { field: 'name', header: 'Name', width: 150, pinned: 'left' },
         { field: 'email', header: 'Email', width: 200 },
         { field: 'department', header: 'Department', width: 150 },
         { field: 'phone', header: 'Phone', width: 150 },
@@ -240,7 +240,7 @@ grid.gridConfig = {
     { field: 'department', header: 'Department', width: 150 },
     { field: 'phone', header: 'Phone', width: 150 },
     { field: 'address', header: 'Address', width: 250 },
-    { field: 'actions', header: 'Actions', width: 100, sticky: 'right' },
+    { field: 'actions', header: 'Actions', width: 100, pinned: 'right' },
   ],
   fitMode: 'fixed',
   plugins: [new PinnedColumnsPlugin()],
@@ -269,7 +269,7 @@ grid.rows = [
         { field: 'department', header: 'Department', width: 150 },
         { field: 'phone', header: 'Phone', width: 150 },
         { field: 'address', header: 'Address', width: 250 },
-        { field: 'actions', header: 'Actions', width: 100, sticky: 'right' },
+        { field: 'actions', header: 'Actions', width: 100, pinned: 'right' },
       ],
       fitMode: 'fixed',
       plugins: [new PinnedColumnsPlugin()],

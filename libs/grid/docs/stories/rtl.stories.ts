@@ -27,12 +27,12 @@ const sampleData = [
 
 // Columns with logical pinning
 const columns: ColumnConfig[] = [
-  { field: 'id', header: 'ID', width: 80, sticky: 'start' },
+  { field: 'id', header: 'ID', width: 80, pinned: 'start' },
   { field: 'name', header: 'Name', width: 200 },
   { field: 'role', header: 'Role', width: 120 },
   { field: 'department', header: 'Department', width: 140 },
   { field: 'salary', header: 'Salary', type: 'number', width: 100 },
-  { field: 'active', header: 'Active', type: 'boolean', width: 80, sticky: 'end' },
+  { field: 'active', header: 'Active', type: 'boolean', width: 80, pinned: 'end' },
 ];
 
 interface RTLDemoArgs {
@@ -66,8 +66,8 @@ export default meta;
  * Toggle the RTL control to see how the grid adapts its layout.
  *
  * Notice how:
- * - The ID column (`sticky: 'start'`) pins to the left in LTR, right in RTL
- * - The Active column (`sticky: 'end'`) pins to the right in LTR, left in RTL
+ * - The ID column (`pinned: 'start'`) pins to the left in LTR, right in RTL
+ * - The Active column (`pinned: 'end'`) pins to the right in LTR, left in RTL
  * - Keyboard navigation (arrow keys) flips direction in RTL mode
  */
 export const Demo: StoryObj<RTLDemoArgs> = {
@@ -89,7 +89,7 @@ export const Demo: StoryObj<RTLDemoArgs> = {
       description: {
         story: `Toggle the **RTL** control to switch between Left-to-Right and Right-to-Left layouts.
 
-The columns use logical pinning (\`sticky: 'start'\` and \`sticky: 'end'\`) which automatically adapts to the text direction.`,
+The columns use logical pinning (\`pinned: 'start'\` and \`pinned: 'end'\`) which automatically adapts to the text direction.`,
       },
     },
   },

@@ -217,9 +217,9 @@ export interface FeatureProps<TRow = unknown> {
    * @example
    * ```tsx
    * <DataGrid pinnedColumns columns={[
-   *   { field: 'id', sticky: 'left' },
+   *   { field: 'id', pinned: 'left' },
    *   { field: 'name' },
-   *   { field: 'actions', sticky: 'right' },
+   *   { field: 'actions', pinned: 'right' },
    * ]} />
    * ```
    */

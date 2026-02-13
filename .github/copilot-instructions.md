@@ -380,6 +380,8 @@ Key Doc Blocks:
 
 ### Development Commands
 
+> **Important**: Always run tasks through **Nx**, never invoke Vitest, Vite, or ESLint directly. Direct invocations (e.g. `npx vitest run …`) will fail or behave unexpectedly because the workspace relies on Nx-configured project paths, environment variables, and plugin resolution.
+
 ```bash
 # Start Storybook with live reload
 bun nx serve docs
@@ -396,6 +398,9 @@ bun run test
 # Run tests for specific project
 bun nx test grid
 
+# Run a single test file (via Nx, not vitest directly)
+bun nx test grid --testFile=src/lib/plugins/visibility/group-drag.spec.ts
+
 # Lint all projects
 bun run lint
 
@@ -409,6 +414,13 @@ bun nx affected -t test
 bun nx serve demo-vanilla
 bun nx serve demo-angular
 ```
+
+**Common mistakes to avoid:**
+- ❌ `npx vitest run path/to/spec.ts` — bypasses Nx config; will fail
+- ❌ `bunx vitest …` — same issue
+- ❌ `npx eslint …` — use `bun nx lint <project>` instead
+- ❌ `npx vite build` — use `bun nx build <project>` instead
+- ✅ Always use `bun nx <target> <project>` or `bun run <script>`
 
 ### Adding a New Library to the Suite
 
@@ -805,7 +817,7 @@ class PinnedColumnsPlugin extends BaseGridPlugin<PinnedConfig> {
   override handleQuery(query: PluginQuery): unknown {
     if (query.type === 'canMoveColumn') {
       const column = query.context as ColumnConfig;
-      return !column.sticky; // Can't move sticky columns
+      return !column.pinned; // Can't move pinned columns
     }
     return undefined;
   }
@@ -999,7 +1011,7 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
 | ----------------------- | ------------------------------------ | ---------------------- |
 | `EditingPlugin`         | `editable`, `editor`, `editorParams` | -                      |
 | `GroupingColumnsPlugin` | `group`, `columnGroups`              | -                      |
-| `PinnedColumnsPlugin`   | `sticky`                             | -                      |
+| `PinnedColumnsPlugin`   | `pinned`, `sticky` (deprecated)      | -                      |
 | `SelectionPlugin`       | -                                    | range+dblclick warning |
 
 **Adding New Plugin-Owned Properties:**
@@ -1082,6 +1094,7 @@ The grid validates plugin-owned properties at runtime and throws helpful errors 
 | `editor`       | `EditingPlugin`         | Column |
 | `editorParams` | `EditingPlugin`         | Column |
 | `group`        | `GroupingColumnsPlugin` | Column |
+| `pinned`       | `PinnedColumnsPlugin`   | Column |
 | `sticky`       | `PinnedColumnsPlugin`   | Column |
 | `columnGroups` | `GroupingColumnsPlugin` | Config |
 

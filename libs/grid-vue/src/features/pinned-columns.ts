@@ -11,7 +11,7 @@
  *
  * <template>
  *   <TbwGrid pinnedColumns :columns="[
- *     { field: 'id', sticky: 'left' },
+ *     { field: 'id', pinned: 'left' },
  *     { field: 'name' },
  *   ]" />
  * </template>

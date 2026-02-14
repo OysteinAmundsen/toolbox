@@ -106,6 +106,11 @@ export function generateSmokeTests(
   test.describe(describeName, () => {
     test.describe.configure({ retries: 0 });
 
+    // Storybook smoke tests are too slow on CI runners (~3-4s per story × 111 stories).
+    // The build-storybook CI job already validates compilation; these catch runtime
+    // errors which is valuable locally but not worth the CI cost.
+    test.skip(!!process.env.CI, 'Storybook smoke tests skipped on CI (too slow)');
+
     for (const story of stories) {
       const skipErrors = KNOWN_ERROR_STORIES.has(story.id);
       const skipGrid = NON_GRID_STORIES.has(story.id);

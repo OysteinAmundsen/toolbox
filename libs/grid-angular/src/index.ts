@@ -58,8 +58,12 @@ export {
 } from './lib/feature-registry';
 export type { FeatureName, PluginFactory } from './lib/feature-registry';
 
-// Directives and context types
+// Base classes for editors and filter panels
+export { BaseFilterPanel } from './lib/base-filter-panel';
 export { BaseGridEditor } from './lib/base-grid-editor';
+export { BaseGridEditorCVA } from './lib/base-grid-editor-cva';
+export { BaseOverlayEditor } from './lib/base-overlay-editor';
+export type { OverlayPosition } from './lib/base-overlay-editor';
 export { GridColumnEditor } from './lib/directives/grid-column-editor.directive';
 export type { GridEditorContext } from './lib/directives/grid-column-editor.directive';
 export { GridColumnView } from './lib/directives/grid-column-view.directive';

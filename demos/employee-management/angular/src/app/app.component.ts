@@ -12,7 +12,7 @@ import '@toolbox-web/grid-angular/features/visibility';
 // Also in plugins: groupingColumns (columnGroups config), responsive (<tbw-grid-responsive-card>)
 
 import { CurrencyPipe } from '@angular/common';
-import { Component, computed, CUSTOM_ELEMENTS_SCHEMA, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -31,6 +31,9 @@ import {
   GridToolPanel,
   injectGrid,
   TbwEditor,
+  TbwGridColumn,
+  TbwGridHeader,
+  TbwGridToolButtons,
   TbwRenderer,
 } from '@toolbox-web/grid-angular';
 import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
@@ -58,6 +61,9 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
     GridLazyForm,
     GridResponsiveCard,
     GridToolPanel,
+    TbwGridColumn,
+    TbwGridHeader,
+    TbwGridToolButtons,
     TbwRenderer,
     TbwEditor,
     // Renderer components (RatingDisplayComponent is configured in gridConfig instead)
@@ -72,7 +78,6 @@ import { AnalyticsPanelComponent, QuickFiltersPanelComponent } from './tool-pane
     QuickFiltersPanelComponent,
     AnalyticsPanelComponent,
   ],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   templateUrl: './app.component.html',
 })
 export class AppComponent {

@@ -13,10 +13,13 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import type {
+  ColumnConfig as BaseColumnConfig,
   CellActivateDetail,
   CellChangeDetail,
   CellClickDetail,
+  ColumnConfigMap,
   ColumnResizeDetail,
+  FitMode,
   GridColumnState,
   DataGridElement as GridElement,
   RowClickDetail,
@@ -65,7 +68,7 @@ import type {
   UndoRedoDetail,
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
-import type { GridConfig } from '../angular-column-config';
+import type { ColumnConfig, GridConfig } from '../angular-column-config';
 import { GridAdapter } from '../angular-grid-adapter';
 import { createPluginFromFeature, type FeatureName } from '../feature-registry';
 import { GridIconRegistry } from '../grid-icon-registry';
@@ -115,13 +118,12 @@ export interface RowCommitEvent<TRow = unknown> {
  * ## Usage
  *
  * ```typescript
- * import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+ * import { Component } from '@angular/core';
  * import { Grid } from '@toolbox-web/grid-angular';
  *
  * @Component({
  *   selector: 'app-root',
  *   imports: [Grid],
- *   schemas: [CUSTOM_ELEMENTS_SCHEMA],
  *   template: `
  *     <tbw-grid [rows]="rows" [gridConfig]="config" [customStyles]="myStyles">
  *       <!-- column templates -->
@@ -230,6 +232,33 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
 
       const grid = this.elementRef.nativeElement;
       grid.loading = loadingValue;
+    });
+
+    // Effect to sync rows to the grid element
+    effect(() => {
+      const rowsValue = this.rows();
+      if (rowsValue === undefined) return;
+
+      const grid = this.elementRef.nativeElement;
+      grid.rows = rowsValue;
+    });
+
+    // Effect to sync columns to the grid element
+    effect(() => {
+      const columnsValue = this.columns();
+      if (columnsValue === undefined) return;
+
+      const grid = this.elementRef.nativeElement;
+      grid.columns = columnsValue as BaseColumnConfig[] | ColumnConfigMap;
+    });
+
+    // Effect to sync fitMode to the grid element
+    effect(() => {
+      const fitModeValue = this.fitMode();
+      if (fitModeValue === undefined) return;
+
+      const grid = this.elementRef.nativeElement;
+      grid.fitMode = fitModeValue;
     });
   }
 
@@ -344,6 +373,56 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   loading = input<boolean>();
+
+  /**
+   * The data rows to display in the grid.
+   *
+   * Accepts an array of data objects. Each object represents one row.
+   * The grid reads property values for each column's `field` from these objects.
+   *
+   * @example
+   * ```html
+   * <tbw-grid [rows]="employees()" [gridConfig]="config" />
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows = input<any[]>();
+
+  /**
+   * Column configuration array.
+   *
+   * Shorthand for setting columns without wrapping them in a full `gridConfig`.
+   * If both `columns` and `gridConfig.columns` are set, `columns` takes precedence
+   * (see configuration precedence system).
+   *
+   * @example
+   * ```html
+   * <tbw-grid [rows]="data" [columns]="[
+   *   { field: 'id', header: 'ID', pinned: 'left', width: 80 },
+   *   { field: 'name', header: 'Name' },
+   *   { field: 'email', header: 'Email' }
+   * ]" />
+   * ```
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columns = input<ColumnConfig<any>[]>();
+
+  /**
+   * Column sizing strategy.
+   *
+   * - `'stretch'` (default) — columns stretch to fill available width
+   * - `'fixed'` — columns use their declared widths; enables horizontal scrolling
+   * - `'auto-fit'` — columns auto-size to content, then stretch to fill
+   *
+   * @default 'stretch'
+   *
+   * @example
+   * ```html
+   * <tbw-grid [rows]="data" fitMode="fixed" />
+   * <tbw-grid [rows]="data" [fitMode]="dynamicMode()" />
+   * ```
+   */
+  fitMode = input<FitMode>();
 
   /**
    * Grid configuration object with optional Angular-specific extensions.

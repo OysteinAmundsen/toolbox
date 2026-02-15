@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.0...grid-react-0.12.1) (2026-02-15)
+
+
+### Bug Fixes
+
+* **grid:** fix test failures and update docs to use pinned property ([295a6c8](https://github.com/OysteinAmundsen/toolbox/commit/295a6c8dc0346ff1de700eca81b49732b17a17c0))
+
 ## [0.12.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.11.0...grid-react-0.12.0) (2026-02-11)
 
 

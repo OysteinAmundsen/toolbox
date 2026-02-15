@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.12.1...grid-angular-0.13.0) (2026-02-15)
+
+
+### Features
+
+* **grid-angular:** ([#129](https://github.com/OysteinAmundsen/toolbox/issues/129)) add BaseFilterPanel, BaseGridEditorCVA, and BaseOverlayEditor base classes ([34d4cf6](https://github.com/OysteinAmundsen/toolbox/commit/34d4cf627184d70d6145a9c8e09f0d497b00199e))
+* **grid-angular:** eliminate CUSTOM_ELEMENTS_SCHEMA requirement ([1f097c3](https://github.com/OysteinAmundsen/toolbox/commit/1f097c3c89d977cdad0f210667389c2733a6b391))
+
+
+### Bug Fixes
+
+* **grid-angular:** handle lazy-rendered grids in selection discovery ([ccb75f6](https://github.com/OysteinAmundsen/toolbox/commit/ccb75f67f04884b6d00fd19d6d091b0149e1cfcc))
+* **grid:** fix test failures and update docs to use pinned property ([295a6c8](https://github.com/OysteinAmundsen/toolbox/commit/295a6c8dc0346ff1de700eca81b49732b17a17c0))
+
+
+### Enhancements
+
+* **grid-angular:** eager grid discovery & reactive undo-redo signals ([3d649af](https://github.com/OysteinAmundsen/toolbox/commit/3d649af1382bf372d4d28ae51b4388459e97fcff))
+
 ## [0.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.12.0...grid-angular-0.12.1) (2026-02-12)
 
 

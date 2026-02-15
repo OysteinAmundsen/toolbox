@@ -1536,6 +1536,97 @@ bootstrapApplication(AppComponent, {
 });
 ```
 
+### Base Classes for Custom Editors & Filters
+
+Angular adapter provides base classes to reduce boilerplate when creating custom editors and filter panels.
+
+| Class | Extends | Purpose |
+|-------|---------|---------|
+| `BaseGridEditor` | — | Common inputs/outputs, validation helpers, edit-close lifecycle |
+| `BaseGridEditorCVA` | `BaseGridEditor` | Adds `ControlValueAccessor` so same component works in grid and standalone forms |
+| `BaseOverlayEditor` | `BaseGridEditor` | Floating overlay panel with CSS Anchor Positioning + JS fallback, focus gating, click-outside |
+| `BaseFilterPanel` | — | Ready-made `params` input for `FilteringPlugin`, `applyAndClose()` / `clearAndClose()` helpers |
+
+**Overlay editor example:**
+
+```typescript
+import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { BaseOverlayEditor } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-date-editor',
+  template: `
+    <input #inlineInput readonly [value]="currentValue()"
+           (click)="onInlineClick()" (keydown)="onInlineKeydown($event)" />
+    <div #panel class="tbw-overlay-panel" style="width: 280px;">
+      <input type="date" [value]="currentValue()" (change)="selectAndClose($event.target.value)" />
+      <button (click)="hideOverlay()">Cancel</button>
+    </div>
+  `
+})
+export class DateEditorComponent extends BaseOverlayEditor<MyRow, string> implements AfterViewInit {
+  @ViewChild('panel') panelRef!: ElementRef<HTMLElement>;
+  @ViewChild('inlineInput') inputRef!: ElementRef<HTMLInputElement>;
+
+  protected override overlayPosition = 'below' as const;
+
+  ngAfterViewInit(): void {
+    this.initOverlay(this.panelRef.nativeElement);
+    if (this.isCellFocused()) this.showOverlay();
+  }
+
+  protected getInlineInput() { return this.inputRef?.nativeElement ?? null; }
+  protected onOverlayOutsideClick() { this.hideOverlay(); }
+
+  selectAndClose(date: string): void {
+    this.commitValue(date);
+    this.hideOverlay();
+  }
+}
+```
+
+**CVA editor example** (dual grid + form control):
+
+```typescript
+import { Component, forwardRef } from '@angular/core';
+import { NG_VALUE_ACCESSOR } from '@angular/forms';
+import { BaseGridEditorCVA } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-date-picker',
+  providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => DatePickerComponent), multi: true }],
+  template: `
+    <input type="date" [value]="displayValue()" [disabled]="disabledState()"
+           (change)="commitBoth($event.target.value)" (keydown.escape)="cancelEdit()" />
+  `
+})
+export class DatePickerComponent extends BaseGridEditorCVA<MyRow, string> {}
+```
+
+**Filter panel example:**
+
+```typescript
+import { Component, ViewChild, ElementRef } from '@angular/core';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-text-filter',
+  template: `
+    <input #input (keydown.enter)="applyAndClose()" />
+    <button (click)="applyAndClose()">Apply</button>
+    <button (click)="clearAndClose()">Clear</button>
+  `
+})
+export class TextFilterComponent extends BaseFilterPanel {
+  @ViewChild('input') input!: ElementRef<HTMLInputElement>;
+  applyFilter(): void {
+    this.params().applyTextFilter('contains', this.input.nativeElement.value);
+  }
+}
+```
+
+Use in column config: `{ field: 'name', filterable: true, filterPanel: TextFilterComponent }`.
+
 ---
 
 ## FRAMEWORK DEEP DIVE: Vue

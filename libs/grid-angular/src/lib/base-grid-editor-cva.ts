@@ -62,9 +62,11 @@ export abstract class BaseGridEditorCVA<TRow = unknown, TValue = unknown>
   // ============================================================================
 
   /** Internal onChange callback registered by the form control. */
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private _onChange: (value: TValue | null) => void = () => {};
 
   /** Internal onTouched callback registered by the form control. */
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private _onTouched: () => void = () => {};
 
   /**

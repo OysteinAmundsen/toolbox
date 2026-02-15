@@ -46,6 +46,7 @@ Key TypeScript interfaces for configuration and events:
 - [@toolbox-web/grid-angular](https://www.npmjs.com/package/@toolbox-web/grid-angular): Angular adapter with structural directives (`*tbwRenderer`, `*tbwEditor`)
   - **Feature Props**: Declarative inputs with side-effect imports for tree-shakeable plugin loading (e.g., `[selection]="'range'"`, `[editing]="true"`, `[filtering]="true"`)
   - [Reactive Forms Integration](https://toolboxjs.com/?path=/docs/grid-angular-reactive-forms-integration--docs): Bind FormArray to grid with cell-level validation
+  - [Base Classes](https://toolboxjs.com/?path=/docs/grid-angular-base-classes--docs): `BaseGridEditor`, `BaseGridEditorCVA` (dual grid/form), `BaseOverlayEditor` (floating panels), `BaseFilterPanel` (custom filter UIs)
 - [@toolbox-web/grid-react](https://www.npmjs.com/package/@toolbox-web/grid-react): React adapter with `DataGrid` component, hooks, and JSX renderers
   - **Feature Props**: Declarative props with side-effect imports for tree-shakeable plugin loading (e.g., `selection="range"`, `editing`, `filtering`)
 - [@toolbox-web/grid-vue](https://www.npmjs.com/package/@toolbox-web/grid-vue): Vue adapter with `TbwGrid` component, composables (`useGrid`, `useGridEvent`), and `#cell`/`#editor` slot renderers

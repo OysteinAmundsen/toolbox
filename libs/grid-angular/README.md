@@ -822,6 +822,85 @@ if (context?.hasFormGroups) {
 | `getRowErrors(idx)`    | `Record<string, unknown> \| null` | Aggregated errors from all controls, or null |
 | `getRowFormGroup(idx)` | `FormGroup \| undefined`          | The FormGroup for the row                    |
 
+## Base Classes for Custom Editors & Filters
+
+The adapter provides base classes that eliminate boilerplate when building custom editors and filter panels.
+
+| Base Class | Extends | Purpose |
+| --- | --- | --- |
+| `BaseGridEditor` | — | Common inputs (`value`, `row`, `column`, `control`), outputs (`commit`, `cancel`), validation helpers |
+| `BaseGridEditorCVA` | `BaseGridEditor` | Adds `ControlValueAccessor` for dual grid + standalone form use |
+| `BaseOverlayEditor` | `BaseGridEditor` | Floating overlay panel with CSS Anchor Positioning, focus gating, click-outside detection |
+| `BaseFilterPanel` | — | Ready-made `params` input for `FilteringPlugin`, with `applyAndClose()` / `clearAndClose()` helpers |
+
+### BaseOverlayEditor Example
+
+```typescript
+import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { BaseOverlayEditor } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-date-editor',
+  template: `
+    <input
+      #inlineInput
+      readonly
+      [value]="currentValue()"
+      (click)="onInlineClick()"
+      (keydown)="onInlineKeydown($event)"
+    />
+    <div #panel class="tbw-overlay-panel" style="width: 280px; padding: 12px;">
+      <input type="date" [value]="currentValue()" (change)="selectAndClose($event.target.value)" />
+      <button (click)="hideOverlay()">Cancel</button>
+    </div>
+  `
+})
+export class DateEditorComponent extends BaseOverlayEditor<MyRow, string> implements AfterViewInit {
+  @ViewChild('panel') panelRef!: ElementRef<HTMLElement>;
+  @ViewChild('inlineInput') inputRef!: ElementRef<HTMLInputElement>;
+
+  protected override overlayPosition = 'below' as const;
+
+  ngAfterViewInit(): void {
+    this.initOverlay(this.panelRef.nativeElement);
+    if (this.isCellFocused()) this.showOverlay();
+  }
+
+  protected getInlineInput() { return this.inputRef?.nativeElement ?? null; }
+  protected onOverlayOutsideClick() { this.hideOverlay(); }
+
+  selectAndClose(date: string): void {
+    this.commitValue(date);
+    this.hideOverlay();
+  }
+}
+```
+
+### BaseFilterPanel Example
+
+```typescript
+import { Component, ViewChild, ElementRef } from '@angular/core';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-text-filter',
+  template: `
+    <input #input (keydown.enter)="applyAndClose()" />
+    <button (click)="applyAndClose()">Apply</button>
+    <button (click)="clearAndClose()">Clear</button>
+  `
+})
+export class TextFilterComponent extends BaseFilterPanel {
+  @ViewChild('input') input!: ElementRef<HTMLInputElement>;
+
+  applyFilter(): void {
+    this.params().applyTextFilter('contains', this.input.nativeElement.value);
+  }
+}
+```
+
+> See the [full Base Classes documentation](https://toolboxjs.com/?path=/docs/grid-angular-base-classes--docs) for detailed API tables, all overlay positions, and CVA usage.
+
 ## API Reference
 
 ### Exported Directives
@@ -836,6 +915,15 @@ if (context?.hasFormGroups) {
 | `GridColumnEditor` | `tbw-grid-column-editor`                             | Nested directive for cell editors      |
 | `GridDetailView`   | `tbw-grid-detail`                                    | Master-detail panel template           |
 | `GridToolPanel`    | `tbw-grid-tool-panel`                                | Custom sidebar panel                   |
+
+### Base Classes
+
+| Class | Description |
+| --- | --- |
+| `BaseGridEditor<TRow, TValue>` | Base class for inline cell editors with validation helpers |
+| `BaseGridEditorCVA<TRow, TValue>` | `BaseGridEditor` + `ControlValueAccessor` for dual grid/form editors |
+| `BaseOverlayEditor<TRow, TValue>` | `BaseGridEditor` + floating overlay panel infrastructure |
+| `BaseFilterPanel` | Base class for custom filter panels with `params` input |
 
 ### Type Registry
 
@@ -915,6 +1003,16 @@ import type {
   AngularTypeDefault,
   // Reactive Forms
   FormArrayContext,
+  // Overlay position type
+  OverlayPosition,
+} from '@toolbox-web/grid-angular';
+
+// Base classes for custom editors and filter panels
+import {
+  BaseGridEditor,
+  BaseGridEditorCVA,
+  BaseOverlayEditor,
+  BaseFilterPanel,
 } from '@toolbox-web/grid-angular';
 
 // Type guard for component class detection

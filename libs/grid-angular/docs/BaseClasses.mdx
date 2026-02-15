@@ -1,0 +1,421 @@
+{/* @jsxRuntime automatic */}
+
+import { Meta, Source } from '@storybook/addon-docs/blocks';
+
+<Meta title="Grid/Angular/Base Classes" />
+
+# Base Classes for Editors & Filter Panels
+
+The `@toolbox-web/grid-angular` package provides base classes that eliminate boilerplate when building custom editors and filter panels. Each class handles common infrastructure — lifecycle, cleanup, positioning, form integration — so you can focus on your component's UI and logic.
+
+## Class Hierarchy
+
+```
+BaseGridEditor          ← common inputs/outputs, validation helpers
+  ├── BaseGridEditorCVA  ← + ControlValueAccessor (dual grid/form use)
+  └── BaseOverlayEditor  ← + floating overlay panel infrastructure
+```
+
+| Class | Purpose | Extend when… |
+|-------|---------|--------------|
+| `BaseGridEditor` | Inline cell editors | You need a simple input that renders inside the cell |
+| `BaseGridEditorCVA` | Dual grid + form editors | The same component is used inside `<tbw-grid>` **and** standalone `<form>` |
+| `BaseOverlayEditor` | Overlay/popup editors | You need a floating panel (date picker, autocomplete, dropdown) |
+| `BaseFilterPanel` | Column filter panels | You need a custom filter UI for the FilteringPlugin |
+
+---
+
+## BaseGridEditor
+
+The foundation class for all Angular cell editors. Provides common inputs, outputs, validation state, and automatic cleanup.
+
+### API
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `value` | `input<TValue>()` | Cell value (fallback when no `FormControl`) |
+| `row` | `input<TRow>()` | Row data object |
+| `column` | `input<ColumnConfig>()` | Column configuration |
+| `control` | `input<AbstractControl>()` | Cell's `FormControl` (when using `FormArray`) |
+| `commit` | `output<TValue>()` | Emitted when value is committed |
+| `cancel` | `output<void>()` | Emitted when edit is cancelled |
+| `currentValue()` | `Signal<TValue>` | Resolved value (prefers `control.value` over `value`) |
+| `isInvalid()` | `Signal<boolean>` | Whether control has validation errors |
+| `hasErrors()` | `Signal<boolean>` | Alias for `isInvalid()` |
+| `firstErrorMessage()` | `Signal<string>` | Human-readable first error message |
+| `commitValue(v)` | Method | Emit commit event + DOM `CustomEvent` |
+| `cancelEdit()` | Method | Emit cancel event + DOM `CustomEvent` |
+| `isCellFocused()` | Method | Whether the parent cell has the `cell-focus` class |
+
+### Example
+
+<Source
+  language="typescript"
+  code={`
+import { Component } from '@angular/core';
+import { BaseGridEditor } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-text-editor',
+  template: \`
+    <input
+      [value]="currentValue()"
+      [class.is-invalid]="isInvalid()"
+      (input)="commitValue($event.target.value)"
+      (keydown.escape)="cancelEdit()"
+    />
+    @if (hasErrors()) {
+      <div class="error">{{ firstErrorMessage() }}</div>
+    }
+  \`
+})
+export class TextEditorComponent extends BaseGridEditor<MyRow, string> {
+  protected override getErrorMessage(errorKey: string): string {
+    if (errorKey === 'required') return 'This field is required';
+    return super.getErrorMessage(errorKey);
+  }
+}
+`}
+/>
+
+---
+
+## BaseGridEditorCVA
+
+Combines `BaseGridEditor` with Angular's `ControlValueAccessor` interface. Use this when a single component needs to work both as a grid cell editor **and** as a standalone form control.
+
+### Additional API (on top of BaseGridEditor)
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `cvaValue` | `Signal<TValue \| null>` | Value written by the form control |
+| `disabledState` | `Signal<boolean>` | Tracks `setDisabledState()` calls |
+| `displayValue` | `Computed<TValue \| null>` | Prefers grid value, falls back to CVA value |
+| `commitBoth(v)` | Method | Commits via both CVA `onChange` **and** grid `commitValue` |
+| `writeValue` / `registerOn*` / `setDisabledState` | CVA methods | Full `ControlValueAccessor` implementation |
+
+### Example
+
+<Source
+  language="typescript"
+  code={`
+import { Component, forwardRef } from '@angular/core';
+import { NG_VALUE_ACCESSOR } from '@angular/forms';
+import { BaseGridEditorCVA } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-date-picker',
+  providers: [{
+    provide: NG_VALUE_ACCESSOR,
+    useExisting: forwardRef(() => DatePickerComponent),
+    multi: true,
+  }],
+  template: \`
+    <input
+      type="date"
+      [value]="displayValue()"
+      [disabled]="disabledState()"
+      (change)="commitBoth($event.target.value)"
+      (keydown.escape)="cancelEdit()"
+    />
+  \`
+})
+export class DatePickerComponent extends BaseGridEditorCVA<MyRow, string> {}
+`}
+/>
+
+> **Note:** Subclasses must still provide `NG_VALUE_ACCESSOR` themselves because
+> `forwardRef(() => ConcreteClass)` must reference the concrete component — this
+> is an Angular limitation.
+
+### Using in both contexts
+
+<Source
+  language="typescript"
+  code={`
+// Inside a grid
+<tbw-grid-column field="startDate" editable>
+  <app-date-picker *tbwEditor="let value" [value]="value" />
+</tbw-grid-column>
+
+// Inside a standalone form
+<app-date-picker formControlName="startDate" />
+`}
+/>
+
+---
+
+## BaseOverlayEditor
+
+Base class for editors that display a **floating overlay panel** (date pickers, autocomplete dropdowns, color pickers, etc.). Handles all the positioning, focus gating, click-outside detection, and cleanup infrastructure.
+
+### Features
+
+- **CSS Anchor Positioning** with JS `getBoundingClientRect()` fallback for Firefox/Safari
+- **Focus gating** — in row editing mode, only the focused cell's overlay is shown
+- **Click-outside detection** — configurable via `onOverlayOutsideClick()`
+- **Keyboard routing** — Enter/Space/ArrowDown/F2 open, Escape closes
+- **Automatic teardown** — panel removed from `<body>` + all listeners cleaned up on destroy
+
+### API
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `overlayPosition` | `OverlayPosition` | Position relative to cell: `'below'` (default), `'above'`, `'below-right'`, `'over-left'` |
+| `initOverlay(panel)` | Method | Initialize with the panel element. Call in `ngAfterViewInit`. |
+| `showOverlay()` | Method | Show the overlay panel |
+| `hideOverlay(suppressTab?)` | Method | Hide the overlay panel |
+| `reopenOverlay()` | Method | Close and re-open (repositions after content change) |
+| `teardownOverlay()` | Method | Remove panel from DOM + cleanup (auto-called on destroy) |
+| `onInlineKeydown(e)` | Method | Keydown handler for the inline input |
+| `onInlineClick()` | Method | Click handler for the inline input (toggle overlay) |
+| `handleEscape(e)` | Method | Close overlay or cancel edit |
+| `advanceGridFocus(backward?)` | Method | Dispatch synthetic Tab to move to next cell |
+| `getInlineInput()` | **Abstract** | Return the inline `<input>` element (for focus return) |
+| `onOverlayOutsideClick()` | **Abstract** | Called on click outside — typically call `hideOverlay()` |
+| `onOverlayOpened()` | Hook | Called after overlay opens (focus inner element, etc.) |
+
+### Example
+
+<Source
+  language="typescript"
+  code={`
+import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { BaseOverlayEditor } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-date-editor',
+  template: \`
+    <input
+      #inlineInput
+      readonly
+      [value]="currentValue()"
+      (click)="onInlineClick()"
+      (keydown)="onInlineKeydown($event)"
+    />
+    <div #panel class="tbw-overlay-panel" style="width: 280px; padding: 12px;">
+      <input
+        type="date"
+        [value]="currentValue()"
+        (change)="selectAndClose($event.target.value)"
+      />
+      <div class="actions">
+        <button (click)="hideOverlay()">Cancel</button>
+      </div>
+    </div>
+  \`
+})
+export class DateEditorComponent
+  extends BaseOverlayEditor<MyRow, string>
+  implements AfterViewInit
+{
+  @ViewChild('panel') panelRef!: ElementRef<HTMLElement>;
+  @ViewChild('inlineInput') inputRef!: ElementRef<HTMLInputElement>;
+
+  protected override overlayPosition = 'below' as const;
+
+  ngAfterViewInit(): void {
+    this.initOverlay(this.panelRef.nativeElement);
+    if (this.isCellFocused()) this.showOverlay();
+  }
+
+  protected getInlineInput(): HTMLInputElement | null {
+    return this.inputRef?.nativeElement ?? null;
+  }
+
+  protected onOverlayOutsideClick(): void {
+    this.hideOverlay();
+  }
+
+  selectAndClose(date: string): void {
+    this.commitValue(date);
+    this.hideOverlay();
+  }
+}
+`}
+/>
+
+### Overlay Position Options
+
+| Value | Description |
+|-------|-------------|
+| `'below'` | Panel below the cell, left-aligned (default). Flips above if viewport overflows. |
+| `'above'` | Panel above the cell, left-aligned. Flips below if off-screen. |
+| `'below-right'` | Panel below the cell, right-aligned. Flips above if viewport overflows. |
+| `'over-left'` | Panel covers the cell, left-aligned. No flip. |
+
+### CSS Customization
+
+The overlay panel uses CSS custom properties from the grid theme:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `--tbw-overlay-bg` | `#fff` | Panel background |
+| `--tbw-overlay-border` | `#ccc` | Panel border color |
+| `--tbw-overlay-radius` | `4px` | Panel border radius |
+| `--tbw-overlay-shadow` | `0 4px 12px rgba(0,0,0,0.15)` | Panel box shadow |
+
+---
+
+## BaseFilterPanel
+
+Base class for custom column filter panels used with the `FilteringPlugin`. Provides the `params` input and lifecycle helpers so you only need to implement your filter logic.
+
+### API
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `params` | `input.required<FilterPanelParams>()` | Injected by the grid's filtering infrastructure |
+| `applyFilter()` | **Abstract** | Implement your filter logic here |
+| `applyAndClose()` | Method | Calls `applyFilter()` then `closePanel()` |
+| `clearAndClose()` | Method | Calls `clearFilter()` then `closePanel()` |
+
+### FilterPanelParams
+
+The `params` input provides these members:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `field` | `string` | Column field name |
+| `column` | `ColumnConfig` | Full column configuration |
+| `uniqueValues` | `unknown[]` | Distinct values in the column |
+| `excludedValues` | `Set<unknown>` | Currently excluded values (set filter) |
+| `searchText` | `string` | Current search text |
+| `applySetFilter(excluded)` | Method | Apply include/exclude filter |
+| `applyTextFilter(op, value, valueTo?)` | Method | Apply text/number filter |
+| `clearFilter()` | Method | Clear column filter |
+| `closePanel()` | Method | Close filter panel |
+
+### Example: Text Filter
+
+<Source
+  language="typescript"
+  code={`
+import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-text-filter',
+  template: \`
+    <div class="filter-panel">
+      <input
+        #input
+        placeholder="Search..."
+        (keydown.enter)="applyAndClose()"
+      />
+      <div class="actions">
+        <button (click)="applyAndClose()">Apply</button>
+        <button (click)="clearAndClose()">Clear</button>
+      </div>
+    </div>
+  \`
+})
+export class TextFilterComponent extends BaseFilterPanel implements AfterViewInit {
+  @ViewChild('input') input!: ElementRef<HTMLInputElement>;
+
+  ngAfterViewInit(): void {
+    this.input.nativeElement.focus();
+  }
+
+  applyFilter(): void {
+    this.params().applyTextFilter('contains', this.input.nativeElement.value);
+  }
+}
+`}
+/>
+
+### Example: Set Filter (Checkbox List)
+
+<Source
+  language="typescript"
+  code={`
+import { Component, signal } from '@angular/core';
+import { BaseFilterPanel } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-set-filter',
+  template: \`
+    <div class="filter-panel">
+      @for (val of params().uniqueValues; track val) {
+        <label>
+          <input
+            type="checkbox"
+            [checked]="!excluded().has(val)"
+            (change)="toggle(val)"
+          />
+          {{ val }}
+        </label>
+      }
+      <div class="actions">
+        <button (click)="applyAndClose()">Apply</button>
+        <button (click)="clearAndClose()">Clear</button>
+      </div>
+    </div>
+  \`
+})
+export class SetFilterComponent extends BaseFilterPanel {
+  excluded = signal(new Set<unknown>());
+
+  toggle(value: unknown): void {
+    this.excluded.update(set => {
+      const next = new Set(set);
+      next.has(value) ? next.delete(value) : next.add(value);
+      return next;
+    });
+  }
+
+  applyFilter(): void {
+    this.params().applySetFilter(this.excluded());
+  }
+}
+`}
+/>
+
+### Usage in Column Config
+
+<Source
+  language="typescript"
+  code={`
+import type { GridConfig } from '@toolbox-web/grid-angular';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { TextFilterComponent } from './text-filter.component';
+import { SetFilterComponent } from './set-filter.component';
+
+const gridConfig: GridConfig = {
+  columns: [
+    { field: 'name', filterable: true, filterPanel: TextFilterComponent },
+    { field: 'status', filterable: true, filterPanel: SetFilterComponent },
+  ],
+  plugins: [new FilteringPlugin()],
+};
+`}
+/>
+
+---
+
+## When to Use Which Class
+
+| Scenario | Base Class |
+|----------|-----------|
+| Simple text/number input in cell | `BaseGridEditor` |
+| Date picker input used in both grid and forms | `BaseGridEditorCVA` |
+| Dropdown/autocomplete with floating panel | `BaseOverlayEditor` |
+| Custom column filter UI | `BaseFilterPanel` |
+| Date picker overlay + form control | Compose: extend `BaseOverlayEditor` and implement `ControlValueAccessor` manually |
+
+## Imports
+
+All base classes are exported from the main package:
+
+<Source
+  language="typescript"
+  code={`
+import {
+  BaseGridEditor,
+  BaseGridEditorCVA,
+  BaseOverlayEditor,
+  BaseFilterPanel,
+  type OverlayPosition,
+} from '@toolbox-web/grid-angular';
+`}
+/>

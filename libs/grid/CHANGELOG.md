@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.14.1...grid-1.15.0) (2026-02-15)
+
+
+### Features
+
+* **grid:** add F2 keyboard shortcut for single-cell editing ([836dd15](https://github.com/OysteinAmundsen/toolbox/commit/836dd1591f2f6d68583a8e15df49afa46f5d48fd))
+* **grid:** add group drag-and-drop in visibility panel ([67db4f6](https://github.com/OysteinAmundsen/toolbox/commit/67db4f69d723ef8fcf8c71f3e9e1cb6dba5a2ae6))
+* **grid:** add plugin-contributed header context menu items ([229d7d8](https://github.com/OysteinAmundsen/toolbox/commit/229d7d84bb9a3d4dac21714a6e25f4e076bd12f5))
+* **grid:** grouped visibility panel via plugin query collaboration ([a13290b](https://github.com/OysteinAmundsen/toolbox/commit/a13290b04d0cdcc5e0058955d31cff3d23fb4918))
+* **grid:** reorder columns to grid edges on pin/unpin with position restore ([77aa826](https://github.com/OysteinAmundsen/toolbox/commit/77aa826e5160f646e3f843f93682da3362291e76))
+
+
+### Bug Fixes
+
+* **grid:** collapse duplicate context menu separators and align icon placeholders ([b2e0465](https://github.com/OysteinAmundsen/toolbox/commit/b2e04655b6a73d0053aefe78ca0edcc4a6ca3629))
+* **grid:** fix test failures and update docs to use pinned property ([295a6c8](https://github.com/OysteinAmundsen/toolbox/commit/295a6c8dc0346ff1de700eca81b49732b17a17c0))
+* **grid:** preserve column order when toggling visibility ([91889c5](https://github.com/OysteinAmundsen/toolbox/commit/91889c5c20dc1509780682a329255777cb91b367))
+* **grid:** use part attribute selector for header context menu ([7f92ee9](https://github.com/OysteinAmundsen/toolbox/commit/7f92ee902bbd3a260aa3f0f8943659f912e1a786))
+
 ## [1.14.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.14.0...grid-1.14.1) (2026-02-12)
 
 

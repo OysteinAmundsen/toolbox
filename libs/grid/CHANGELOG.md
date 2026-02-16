@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.15.0...grid-1.16.0) (2026-02-16)
+
+
+### Features
+
+* **grid:** render context menu shortcuts as kbd key combos ([a223915](https://github.com/OysteinAmundsen/toolbox/commit/a2239153c2a3aa2a512b7cd95920e19d98f8a8ac))
+* **grid:** support shortcut key combos in context menu items ([c0342c9](https://github.com/OysteinAmundsen/toolbox/commit/c0342c9578adf3d3a0b51abf89caf0281d5bb209))
+
+
+### Bug Fixes
+
+* **grid:** allow ArrowUp/Down to reach editors in grid edit mode ([05fa7c4](https://github.com/OysteinAmundsen/toolbox/commit/05fa7c4877d4a9e9c0bd18ca838de3505e8cdd89))
+* **grid:** check onBeforeEditClose for Escape in grid edit mode ([846ac39](https://github.com/OysteinAmundsen/toolbox/commit/846ac39b340e2e036ccec0de5b84019725b5def7))
+* **grid:** handle null values correctly in set filter operators (in/notIn) ([12a34dd](https://github.com/OysteinAmundsen/toolbox/commit/12a34ddfec83540447ec96b6eb819bb20dc16e82))
+* **grid:** ignore modified Enter key in editing keyboard handler ([fc2f0ab](https://github.com/OysteinAmundsen/toolbox/commit/fc2f0abe31f205ede1f440754e34f35c93cb8060))
+* **grid:** preserve editors in grid edit mode on row reference change ([04d21dc](https://github.com/OysteinAmundsen/toolbox/commit/04d21dc205e20cf53b9b8df9dc570b5abadc3386))
+* **grid:** prevent editor memory leak via releaseCell lifecycle hook ([00d2ef5](https://github.com/OysteinAmundsen/toolbox/commit/00d2ef5a1803a5329713a728f031a466c9d7d824))
+* **grid:** support string widths (%, fr) in column template ([99357d9](https://github.com/OysteinAmundsen/toolbox/commit/99357d938a3cc79675de3fe1be9caad26d8e5861))
+
 ## [1.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.14.1...grid-1.15.0) (2026-02-15)
 
 

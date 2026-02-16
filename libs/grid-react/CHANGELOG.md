@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.1...grid-react-0.12.2) (2026-02-16)
+
+
+### Bug Fixes
+
+* **grid:** prevent editor memory leak via releaseCell lifecycle hook ([00d2ef5](https://github.com/OysteinAmundsen/toolbox/commit/00d2ef5a1803a5329713a728f031a466c9d7d824))
+* **grid:** route type/config editors to editorViews for releaseCell cleanup ([4be2a0d](https://github.com/OysteinAmundsen/toolbox/commit/4be2a0d278183cb47ddab1442e5b81b29985b276))
+
 ## [0.12.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.0...grid-react-0.12.1) (2026-02-15)
 
 

@@ -1393,6 +1393,63 @@ describe('EditingPlugin', () => {
         // EditingPlugin returns false, letting default keyboard navigation handle it
       });
     });
+
+    it('preserves editors when rows data reference changes (e.g., FormArray valueChanges)', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'email', header: 'Email', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', email: 'alice@example.com' },
+        { id: 2, name: 'Bob', email: 'bob@example.com' },
+      ];
+      await waitUpgrade(grid);
+
+      // All editable cells should have editors
+      const editingCellsBefore = grid.querySelectorAll('.cell.editing');
+      expect(editingCellsBefore.length).toBe(4);
+
+      // Each editing cell should have an input
+      const inputsBefore = Array.from(editingCellsBefore).map((cell: Element) => cell.querySelector('input'));
+      expect(inputsBefore.every(Boolean)).toBe(true);
+
+      // Simulate FormArray valueChanges: set new rows with same data but new reference
+      grid.rows = [
+        { id: 1, name: 'Alice', email: 'alice@example.com' },
+        { id: 2, name: 'Bob', email: 'bob@example.com' },
+      ];
+      await nextFrame();
+      await nextFrame();
+
+      // Editors should still be present — the editing state survived the data reference change
+      const editingCellsAfter = grid.querySelectorAll('.cell.editing');
+      expect(editingCellsAfter.length).toBe(4);
+
+      // All editing cells should still contain functional inputs with correct values
+      const inputsAfter = Array.from(editingCellsAfter).map((cell: Element) => cell.querySelector('input'));
+      expect(inputsAfter.every(Boolean)).toBe(true);
+      // Verify values are preserved (not blank or corrupted)
+      expect(inputsAfter.map((i) => i!.value)).toEqual(['Alice', 'alice@example.com', 'Bob', 'bob@example.com']);
+    });
+
+    it('sets _isGridEditMode flag on internal grid', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice' }];
+      await waitUpgrade(grid);
+
+      const internalGrid = grid as any;
+      expect(internalGrid._isGridEditMode).toBe(true);
+    });
   });
 
   // #endregion

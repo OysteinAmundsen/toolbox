@@ -315,6 +315,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   _focusCol: number;
   /** Currently active edit row index. Injected by EditingPlugin. @internal */
   _activeEditRows?: number;
+  /** Whether the grid is in 'grid' editing mode (all rows editable). Injected by EditingPlugin. @internal */
+  _isGridEditMode?: boolean;
   /** Snapshots of row data before editing. Injected by EditingPlugin. @internal */
   _rowEditSnapshots?: Map<number, T>;
   /** Get all changed rows. Injected by EditingPlugin. */

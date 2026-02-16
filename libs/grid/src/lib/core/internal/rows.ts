@@ -228,6 +228,8 @@ export function renderVisibleRows(
     const epochMatch = rowEpoch === epoch;
     const structureValid = epochMatch && cellCount === colLen;
     const dataRefChanged = prevRef !== rowData;
+    // In grid edit mode, all rows have editing cells that must be preserved
+    const isGridEditMode = !!grid._isGridEditMode;
 
     // Need external view rebuild check when structure is valid but data changed
     let needsExternalRebuild = false;
@@ -248,7 +250,7 @@ export function renderVisibleRows(
       // Full rebuild needed - epoch changed, cell count mismatch, or external view missing
       // Use cached editing state for O(1) check instead of querySelector
       const hasEditing = hasEditingCells(rowEl);
-      const isActivelyEditedRow = grid._activeEditRows === rowIndex;
+      const isActivelyEditedRow = isGridEditMode || grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
       // (This happens when virtualization recycles the DOM element for a different row)
@@ -282,7 +284,7 @@ export function renderVisibleRows(
       // Same structure, different row data - fast update
       // Use cached editing state for O(1) check instead of querySelector
       const hasEditing = hasEditingCells(rowEl);
-      const isActivelyEditedRow = grid._activeEditRows === rowIndex;
+      const isActivelyEditedRow = isGridEditMode || grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
       if (hasEditing && !isActivelyEditedRow) {
@@ -299,7 +301,7 @@ export function renderVisibleRows(
       // Same row data reference - just patch if any values changed
       // Use cached editing state for O(1) check instead of querySelector
       const hasEditing = hasEditingCells(rowEl);
-      const isActivelyEditedRow = grid._activeEditRows === rowIndex;
+      const isActivelyEditedRow = isGridEditMode || grid._activeEditRows === rowIndex;
 
       // If DOM element has editors but this is NOT the actively edited row, clear them
       if (hasEditing && !isActivelyEditedRow) {

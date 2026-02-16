@@ -515,6 +515,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // In grid mode, request a full render to trigger afterCellRender hooks
     if (this.#isGridMode) {
+      internalGrid._isGridEditMode = true;
       this.gridElement.classList.add('tbw-grid-mode');
       this.requestRender();
 
@@ -585,6 +586,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /** @internal */
   override detach(): void {
+    const internalGrid = this.gridElement as unknown as InternalGrid<T>;
+    internalGrid._isGridEditMode = false;
     this.gridElement.classList.remove('tbw-grid-mode');
     this.#activeEditRow = -1;
     this.#activeEditCol = -1;

@@ -309,8 +309,23 @@ export class GridAdapter implements FrameworkAdapter {
       // Trigger change detection
       viewRef.detectChanges();
 
-      // Get the first root node (the component's host element)
-      const rootNode = viewRef.rootNodes[0];
+      // Find the first Element root node. When *tbwRenderer is used on <ng-container>,
+      // rootNodes[0] is a comment node (<!--ng-container-->); the actual content is in
+      // subsequent root nodes. For single-element templates, rootNodes[0] IS the element.
+      let rootNode: Node = viewRef.rootNodes[0];
+      const elementNodes = viewRef.rootNodes.filter((n: Node) => n.nodeType === Node.ELEMENT_NODE);
+      if (elementNodes.length === 1) {
+        // Single element among the root nodes — use it directly
+        rootNode = elementNodes[0];
+      } else if (elementNodes.length > 1) {
+        // Multiple element nodes — wrap in a span container so all are rendered
+        const wrapper = document.createElement('span');
+        wrapper.style.display = 'contents';
+        for (const node of viewRef.rootNodes) {
+          wrapper.appendChild(node);
+        }
+        rootNode = wrapper;
+      }
 
       // Cache for reuse on scroll recycles
       if (cellEl) {

@@ -382,6 +382,8 @@ export class GridFormArray implements OnInit, OnDestroy {
    */
   #storeFormContext(grid: GridElement): void {
     const getRowFormGroup = (rowIndex: number) => this.#getRowFormGroup(rowIndex);
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
 
     const context: FormArrayContext = {
       getRow: <T>(rowIndex: number): T | null => {
@@ -402,7 +404,9 @@ export class GridFormArray implements OnInit, OnDestroy {
       getValue: <T>(): T[] => {
         return this.formArray().getRawValue() as T[];
       },
-      hasFormGroups: this.#isFormArrayOfFormGroups(),
+      get hasFormGroups() {
+        return self.#isFormArrayOfFormGroups();
+      },
       getControl: (rowIndex: number, field: string): AbstractControl | undefined => {
         const rowFormGroup = getRowFormGroup(rowIndex);
         if (!rowFormGroup) return undefined;

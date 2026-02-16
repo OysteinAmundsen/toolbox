@@ -516,7 +516,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       const root = createRoot(container);
-      this.mountedViews.push({ root, container });
+      // Track in editor-specific array for per-cell cleanup via releaseCell
+      this.editorViews.push({ root, container });
 
       flushSync(() => {
         root.render(renderFn(ctx) as React.ReactElement);

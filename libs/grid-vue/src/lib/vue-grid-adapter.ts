@@ -528,7 +528,8 @@ export class GridAdapter implements FrameworkAdapter {
       });
 
       app.mount(container);
-      this.mountedViews.push({ app, container });
+      // Track in editor-specific array for per-cell cleanup via releaseCell
+      this.editorViews.push({ app, container });
 
       return container;
     };
@@ -554,7 +555,8 @@ export class GridAdapter implements FrameworkAdapter {
       });
 
       app.mount(container);
-      this.mountedViews.push({ app, container });
+      // Track in editor-specific array for per-cell cleanup via releaseCell
+      this.editorViews.push({ app, container });
 
       return container;
     };
@@ -881,7 +883,8 @@ export class GridAdapter implements FrameworkAdapter {
       });
 
       app.mount(container);
-      this.mountedViews.push({ app, container });
+      // Track in editor-specific array for per-cell cleanup via releaseCell
+      this.editorViews.push({ app, container });
 
       return container;
     };

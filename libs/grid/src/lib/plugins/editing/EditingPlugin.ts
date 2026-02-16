@@ -698,6 +698,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       return false;
     }
 
+    // Arrow Up/Down in grid mode when input is focused: let the editor handle it
+    // (e.g., ArrowDown opens autocomplete/datepicker overlays, ArrowUp/Down navigates options)
+    if (this.#isGridMode && this.#gridModeInputFocused && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      return true; // Handled: block grid navigation, let event reach editor
+    }
+
     // Arrow Up/Down while editing: commit and exit edit mode, move to adjacent row (only in 'row' mode)
     if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && this.#activeEditRow !== -1 && !this.#isGridMode) {
       // Allow users to prevent row navigation via callback (e.g., when dropdown is open)

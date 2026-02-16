@@ -324,14 +324,31 @@ describe('contextMenu', () => {
       expect(icons).toHaveLength(0);
     });
 
-    it('should render shortcut when provided', () => {
-      const items: ContextMenuItem[] = [{ id: 'test', name: 'Test', shortcut: 'Ctrl+C' }];
+    it('should render shortcut string as a single code block', () => {
+      const items: ContextMenuItem[] = [{ id: 'test', name: 'Test', shortcut: 'Enter' }];
+
+      const menu = createMenuElement(items, params, onAction);
+      const shortcut = menu.querySelector('.tbw-context-menu-shortcut');
+
+      expect(shortcut).not.toBeNull();
+      expect(shortcut?.textContent).toBe('Enter');
+      const codes = shortcut?.querySelectorAll('code');
+      expect(codes).toHaveLength(1);
+      expect(codes?.[0].textContent).toBe('Enter');
+    });
+
+    it('should render shortcut array as key combo with + separators', () => {
+      const items: ContextMenuItem[] = [{ id: 'test', name: 'Test', shortcut: ['Ctrl', 'C'] }];
 
       const menu = createMenuElement(items, params, onAction);
       const shortcut = menu.querySelector('.tbw-context-menu-shortcut');
 
       expect(shortcut).not.toBeNull();
       expect(shortcut?.textContent).toBe('Ctrl+C');
+      const codes = shortcut?.querySelectorAll('code');
+      expect(codes).toHaveLength(2);
+      expect(codes?.[0].textContent).toBe('Ctrl');
+      expect(codes?.[1].textContent).toBe('C');
     });
 
     it('should render label correctly', () => {

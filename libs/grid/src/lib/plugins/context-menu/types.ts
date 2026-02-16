@@ -15,8 +15,8 @@ export interface ContextMenuItem {
   name: string;
   /** Optional icon (HTML string, emoji, or icon class) */
   icon?: string;
-  /** Optional keyboard shortcut hint (display only) */
-  shortcut?: string;
+  /** Optional keyboard shortcut hint (display only). String array renders as key combo (e.g. ['Ctrl', 'A'] → `<code>Ctrl</code>+<code>A</code>`) */
+  shortcut?: string | string[];
   /** Whether the item is disabled (static or dynamic) */
   disabled?: boolean | ((params: ContextMenuParams) => boolean);
   /** Whether the item is hidden (static or dynamic) */
@@ -98,8 +98,8 @@ export interface HeaderContextMenuItem {
   label: string;
   /** Optional icon (HTML string, emoji, or SVG string) */
   icon?: string;
-  /** Optional keyboard shortcut hint (display only) */
-  shortcut?: string;
+  /** Optional keyboard shortcut hint (display only). String array renders as key combo (e.g. ['Ctrl', 'A'] → `<code>Ctrl</code>+<code>A</code>`) */
+  shortcut?: string | string[];
   /** Whether the item is disabled */
   disabled?: boolean;
   /** Action handler when the item is clicked */

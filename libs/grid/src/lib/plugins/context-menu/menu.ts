@@ -127,7 +127,18 @@ export function createMenuElement(
     if (item.shortcut) {
       const shortcut = document.createElement('span');
       shortcut.className = 'tbw-context-menu-shortcut';
-      shortcut.textContent = item.shortcut;
+      if (Array.isArray(item.shortcut)) {
+        item.shortcut.forEach((key, i) => {
+          if (i > 0) shortcut.appendChild(document.createTextNode('+'));
+          const code = document.createElement('code');
+          code.textContent = key;
+          shortcut.appendChild(code);
+        });
+      } else {
+        const code = document.createElement('code');
+        code.textContent = item.shortcut;
+        shortcut.appendChild(code);
+      }
       menuItem.appendChild(shortcut);
     }
 

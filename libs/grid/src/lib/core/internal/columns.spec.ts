@@ -215,6 +215,7 @@ describe('column configuration', () => {
   });
 
   it('updateTemplate warns on invalid string width', () => {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const g = makeGrid({ columns: [{ field: 'bad', width: 'banana' }] });
     updateTemplate(g);

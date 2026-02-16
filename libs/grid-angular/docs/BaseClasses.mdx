@@ -161,7 +161,7 @@ Base class for editors that display a **floating overlay panel** (date pickers, 
 
 | Member | Type | Description |
 |--------|------|-------------|
-| `overlayPosition` | `OverlayPosition` | Position relative to cell: `'below'` (default), `'above'`, `'below-right'`, `'over-left'` |
+| `overlayPosition` | `OverlayPosition` | Position relative to cell: `'below'` (default), `'above'`, `'below-right'`, `'over-top-left'`, `'over-bottom-left'` |
 | `initOverlay(panel)` | Method | Initialize with the panel element. Call in `ngAfterViewInit`. |
 | `showOverlay()` | Method | Show the overlay panel |
 | `hideOverlay(suppressTab?)` | Method | Hide the overlay panel |
@@ -242,7 +242,8 @@ export class DateEditorComponent
 | `'below'` | Panel below the cell, left-aligned (default). Flips above if viewport overflows. |
 | `'above'` | Panel above the cell, left-aligned. Flips below if off-screen. |
 | `'below-right'` | Panel below the cell, right-aligned. Flips above if viewport overflows. |
-| `'over-left'` | Panel covers the cell, left-aligned. No flip. |
+| `'over-top-left'` | Panel top-left aligns with cell top-left (opens downward). No flip. |
+| `'over-bottom-left'` | Panel bottom-left aligns with cell bottom-left (opens upward). No flip. |
 
 ### CSS Customization
 

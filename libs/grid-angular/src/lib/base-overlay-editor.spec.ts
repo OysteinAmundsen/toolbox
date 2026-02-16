@@ -236,8 +236,8 @@ describe('BaseOverlayEditor', () => {
 
   describe('OverlayPosition type', () => {
     it('should accept valid position values', () => {
-      const positions: OverlayPosition[] = ['below', 'above', 'below-right', 'over-left'];
-      expect(positions).toHaveLength(4);
+      const positions: OverlayPosition[] = ['below', 'above', 'below-right', 'over-top-left', 'over-bottom-left'];
+      expect(positions).toHaveLength(5);
     });
   });
 

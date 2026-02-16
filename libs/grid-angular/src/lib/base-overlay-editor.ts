@@ -9,9 +9,10 @@ import { BaseGridEditor } from './base-grid-editor';
  * - `'below'` — panel appears below the cell, left-aligned (default)
  * - `'above'` — panel appears above the cell, left-aligned
  * - `'below-right'` — panel appears below the cell, right-aligned
- * - `'over-left'` — panel covers the cell, left-aligned
+ * - `'over-top-left'` — panel top-left corner aligns with cell top-left corner (opens downward)
+ * - `'over-bottom-left'` — panel bottom-left corner aligns with cell bottom-left corner (opens upward)
  */
-export type OverlayPosition = 'below' | 'above' | 'below-right' | 'over-left';
+export type OverlayPosition = 'below' | 'above' | 'below-right' | 'over-top-left' | 'over-bottom-left';
 
 // #endregion
 
@@ -64,8 +65,12 @@ const OVERLAY_STYLES = /* css */ `
     right: anchor(right);
     position-try-fallbacks: flip-block;
   }
-  .tbw-overlay-panel[data-pos="over-left"] {
+  .tbw-overlay-panel[data-pos="over-top-left"] {
     top: anchor(top);
+    left: anchor(left);
+  }
+  .tbw-overlay-panel[data-pos="over-bottom-left"] {
+    bottom: anchor(bottom);
     left: anchor(left);
   }
 }
@@ -486,8 +491,13 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
         if (top + panelRect.height > viewportH) top = cellRect.top - panelRect.height;
         break;
       }
-      case 'over-left': {
+      case 'over-top-left': {
         top = cellRect.top;
+        left = cellRect.left;
+        break;
+      }
+      case 'over-bottom-left': {
+        top = cellRect.bottom - panelRect.height;
         left = cellRect.left;
         break;
       }

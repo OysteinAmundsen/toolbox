@@ -38,6 +38,16 @@ export function matchesFilter(row: Record<string, unknown>, filter: FilterModel,
     return rawValue != null && rawValue !== '';
   }
 
+  // Set operators handle null explicitly: null is never "in" a set,
+  // and null is never excluded by "notIn" (it's not a listed value).
+  if (filter.operator === 'notIn') {
+    if (rawValue == null) return true;
+    return Array.isArray(filter.value) && !filter.value.includes(rawValue);
+  }
+  if (filter.operator === 'in') {
+    return Array.isArray(filter.value) && filter.value.includes(rawValue);
+  }
+
   // Null/undefined values don't match other filters
   if (rawValue == null) return false;
 
@@ -81,13 +91,6 @@ export function matchesFilter(row: Record<string, unknown>, filter: FilterModel,
 
     case 'between':
       return toNumeric(rawValue) >= toNumeric(filter.value) && toNumeric(rawValue) <= toNumeric(filter.valueTo);
-
-    // Set operators
-    case 'in':
-      return Array.isArray(filter.value) && filter.value.includes(rawValue);
-
-    case 'notIn':
-      return Array.isArray(filter.value) && !filter.value.includes(rawValue);
 
     default:
       return true;

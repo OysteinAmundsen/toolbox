@@ -374,6 +374,20 @@ describe('filter-model', () => {
         };
         expect(matchesFilter(sampleRows[0], filter)).toBe(true);
       });
+
+      it('should pass null/undefined values through (not excluded)', () => {
+        const filter: FilterModel = {
+          field: 'city',
+          type: 'set',
+          operator: 'notIn',
+          value: ['New York', 'Los Angeles', 'Boston'],
+        };
+        // null is not in the excluded list, so the row should pass
+        expect(matchesFilter({ city: null }, filter)).toBe(true);
+        expect(matchesFilter({ city: undefined }, filter)).toBe(true);
+        // missing field = undefined
+        expect(matchesFilter({}, filter)).toBe(true);
+      });
     });
   });
 

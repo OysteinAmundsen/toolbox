@@ -779,8 +779,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       return false;
     }
 
-    // Enter: start row edit, commit, or enter edit mode in grid mode
-    if (event.key === 'Enter' && !event.shiftKey) {
+    // Enter (unmodified): start row edit, commit, or enter edit mode in grid mode
+    if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
       // In grid mode when not editing: focus the current cell's input
       if (this.#isGridMode && !this.#gridModeInputFocused) {
         this.#focusCurrentCellEditor();

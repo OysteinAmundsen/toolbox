@@ -15,8 +15,8 @@
  * @packageDocumentation
  */
 
-import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
 import { registerFeature } from '@toolbox-web/grid-angular';
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
 
 registerFeature('clipboard', (config) => {
   if (config === true) {

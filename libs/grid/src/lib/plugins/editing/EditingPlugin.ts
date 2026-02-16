@@ -555,6 +555,15 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         'keydown',
         (e: KeyboardEvent) => {
           if (e.key === 'Escape' && this.#gridModeInputFocused) {
+            // Allow users to prevent Escape handling via callback (e.g., when overlay is open).
+            // In grid mode, Escape transitions from editing to navigation mode, so we check
+            // onBeforeEditClose to let overlays (dropdowns, autocompletes) close first.
+            if (this.config.onBeforeEditClose) {
+              const shouldClose = this.config.onBeforeEditClose(e);
+              if (shouldClose === false) {
+                return; // Let the overlay handle Escape
+              }
+            }
             const activeEl = document.activeElement as HTMLElement;
             if (activeEl && this.gridElement.contains(activeEl)) {
               activeEl.blur();
@@ -664,6 +673,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (event.key === 'Escape') {
       // In grid mode: blur input to enable arrow key navigation
       if (this.#isGridMode && this.#gridModeInputFocused) {
+        // Allow users to prevent Escape handling via callback (e.g., when overlay is open)
+        if (this.config.onBeforeEditClose) {
+          const shouldClose = this.config.onBeforeEditClose(event);
+          if (shouldClose === false) {
+            return true; // Handled: block grid navigation, let overlay handle Escape
+          }
+        }
         const activeEl = document.activeElement as HTMLElement;
         if (activeEl && this.gridElement.contains(activeEl)) {
           activeEl.blur();

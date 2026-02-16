@@ -1791,12 +1791,20 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // In grid mode, always allow commits (we're always editing)
       // In row mode, only allow commits if we're in an active edit session
       if (editFinalized || (!this.#isGridMode && this.#activeEditRow === -1)) return;
-      this.#commitCellValue(rowIndex, column, newValue, rowData);
+      // Resolve rowData fresh from the grid's current rows array.
+      // The captured `rowData` may be stale if grid.rows was re-set (e.g. by
+      // a FormArray valueChanges subscription pushing getRawValue() which
+      // creates new object references). Using the live row ensures the
+      // committed value lands on the correct object.
+      const currentRowData = ((this.grid as unknown as InternalGrid<T>)._rows[rowIndex] as T) ?? rowData;
+      this.#commitCellValue(rowIndex, column, newValue, currentRowData);
     };
     const cancel = () => {
       editFinalized = true;
       if (isSafePropertyKey(column.field)) {
-        (rowData as Record<string, unknown>)[column.field] = originalValue;
+        // Use fresh row data to restore the original value, same rationale as commit
+        const currentRowData = ((this.grid as unknown as InternalGrid<T>)._rows[rowIndex] as T) ?? rowData;
+        (currentRowData as Record<string, unknown>)[column.field] = originalValue;
       }
     };
 

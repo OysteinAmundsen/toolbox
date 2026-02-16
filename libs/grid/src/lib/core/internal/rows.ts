@@ -430,6 +430,10 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       // Skip cells in edit mode - they have editors that must be preserved
       if (cell.classList.contains('editing')) continue;
 
+      // Release editor views if cell has element children (indicating prior editor/renderer DOM).
+      // Plain text cells (textContent-only) have no element children, so this is a fast O(1) skip.
+      if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+
       const col = columns[i];
       const value = rowData[col.field];
       cell.textContent = value == null ? '' : String(value);
@@ -533,16 +537,21 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         cellEl: cell,
       });
       if (typeof produced === 'string') {
+        // Release editor views before wiping cell content
+        grid.__frameworkAdapter?.releaseCell?.(cell);
         cell.innerHTML = sanitizeHTML(produced);
       } else if (produced instanceof Node) {
         // Check if this container is already a child of the cell (reused by framework adapter)
         if (produced.parentElement !== cell) {
+          // Release editor views before wiping cell content
+          grid.__frameworkAdapter?.releaseCell?.(cell);
           cell.innerHTML = '';
           cell.appendChild(produced);
         }
         // If already a child, the framework adapter has re-rendered in place
       } else if (produced == null) {
         // Renderer returned null/undefined - show raw value
+        grid.__frameworkAdapter?.releaseCell?.(cell);
         cell.textContent = renderedValue == null ? '' : String(renderedValue);
       }
       // If produced is truthy but not a string or Node, the framework handles it
@@ -619,6 +628,19 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
   // This prevents stale tbw-row-loading class from persisting when pool elements are recycled.
   rowEl.classList.remove('tbw-row-loading');
   rowEl.removeAttribute('aria-busy');
+
+  // Release framework editor views before wiping DOM to prevent memory leaks.
+  // Without this, Angular EmbeddedViewRefs / React roots / Vue apps created by
+  // editor factories would remain alive in the adapter's tracking arrays even
+  // after their DOM is destroyed, leaking memory on every edit cycle.
+  const adapter = grid.__frameworkAdapter;
+  if (adapter?.releaseCell) {
+    const children = rowEl.children;
+    for (let i = children.length - 1; i >= 0; i--) {
+      adapter.releaseCell(children[i] as HTMLElement);
+    }
+  }
+
   rowEl.innerHTML = '';
 
   // Pre-cache values used in the loop

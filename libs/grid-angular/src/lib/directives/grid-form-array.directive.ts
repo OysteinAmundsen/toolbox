@@ -196,9 +196,20 @@ export class GridFormArray implements OnInit, OnDestroy {
     // Subscribe to valueChanges to sync grid rows when FormArray content changes.
     // Use startWith to immediately sync the current value.
     // Note: We use getRawValue() to include disabled controls.
+    //
+    // In grid mode, editors bind directly to FormControls, so every keystroke
+    // fires valueChanges. We skip the sync when an editor input is focused to
+    // prevent destroying/recreating editors mid-edit (which orphans overlays
+    // like mat-autocomplete/mat-select panels and causes focus loss).
     this.valueChangesSubscription = formArray.valueChanges
       .pipe(startWith(formArray.getRawValue()), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
+        // Skip sync while an editor is actively focused in the grid.
+        // The FormArray already has the latest values via its own controls;
+        // re-setting grid.rows would create new object references and trigger
+        // an unnecessary render cycle.
+        if (this.#isEditorFocused(grid)) return;
+
         grid.rows = formArray.getRawValue();
       });
   });
@@ -282,6 +293,19 @@ export class GridFormArray implements OnInit, OnDestroy {
     ) as (EditingPluginValidation & EditingPluginConfig) | undefined;
 
     return editingPlugin?.config?.mode === 'grid';
+  }
+
+  /**
+   * Checks if a focusable editor element inside the grid currently has focus.
+   * Used to skip valueChanges → grid.rows sync while a user is actively editing,
+   * preventing editor destruction (which orphans overlay panels like autocomplete/select).
+   */
+  #isEditorFocused(grid: GridElement): boolean {
+    if (!this.#isGridMode()) return false;
+    const active = document.activeElement;
+    if (!active) return false;
+    // Check if the focused element is inside the grid
+    return grid.contains(active) && active.closest('.editing') != null;
   }
 
   /**

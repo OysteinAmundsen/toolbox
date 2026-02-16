@@ -1240,6 +1240,17 @@ export interface FrameworkAdapter {
    * @returns Type defaults for renderer/editor, or undefined if not registered
    */
   getTypeDefault?<TRow = unknown>(type: string): TypeDefault<TRow> | undefined;
+
+  /**
+   * Called when a cell's content is about to be wiped (e.g., when exiting edit mode,
+   * scroll-recycling a row, or rebuilding a row).
+   *
+   * Framework adapters should use this to properly destroy cached views/components
+   * associated with the cell to prevent memory leaks.
+   *
+   * @param cellEl - The cell element whose content is being released
+   */
+  releaseCell?(cellEl: HTMLElement): void;
 }
 // #endregion
 

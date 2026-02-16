@@ -171,6 +171,8 @@ interface CellRootCache {
  */
 export class GridAdapter implements FrameworkAdapter {
   private mountedViews: MountedView[] = [];
+  /** Editor-specific views tracked separately for per-cell cleanup via releaseCell. */
+  private editorViews: MountedView[] = [];
   private typeDefaults: TypeDefaultsMap | null = null;
 
   /**
@@ -300,8 +302,8 @@ export class GridAdapter implements FrameworkAdapter {
         root.render(editorFn(ctx as ColumnEditorContext<unknown, unknown>));
       });
 
-      // Track for cleanup
-      this.mountedViews.push({ root, container });
+      // Track for cleanup (editor-specific for per-cell cleanup via releaseCell)
+      this.editorViews.push({ root, container });
 
       return container;
     };
@@ -559,6 +561,32 @@ export class GridAdapter implements FrameworkAdapter {
       }
     });
     this.mountedViews = [];
+    this.editorViews.forEach(({ root }) => {
+      try {
+        root.unmount();
+      } catch {
+        // Ignore cleanup errors
+      }
+    });
+    this.editorViews = [];
+  }
+
+  /**
+   * Called when a cell's content is about to be wiped.
+   * Destroys editor React roots whose container is inside the cell.
+   */
+  releaseCell(cellEl: HTMLElement): void {
+    for (let i = this.editorViews.length - 1; i >= 0; i--) {
+      const { root, container } = this.editorViews[i];
+      if (cellEl.contains(container)) {
+        try {
+          root.unmount();
+        } catch {
+          // Ignore cleanup errors
+        }
+        this.editorViews.splice(i, 1);
+      }
+    }
   }
 
   /**

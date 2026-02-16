@@ -244,6 +244,8 @@ interface CellAppCache {
  */
 export class GridAdapter implements FrameworkAdapter {
   private mountedViews: MountedView[] = [];
+  /** Editor-specific views tracked separately for per-cell cleanup via releaseCell. */
+  private editorViews: MountedView[] = [];
   private typeDefaults: TypeDefaultsMap | null = null;
 
   // #region Config Processing
@@ -690,7 +692,8 @@ export class GridAdapter implements FrameworkAdapter {
       });
 
       app.mount(container);
-      this.mountedViews.push({ app, container });
+      // Track in editor-specific array for per-cell cleanup via releaseCell
+      this.editorViews.push({ app, container });
 
       return container;
     };
@@ -925,6 +928,34 @@ export class GridAdapter implements FrameworkAdapter {
       }
     }
     this.mountedViews = [];
+    for (const { app, container } of this.editorViews) {
+      try {
+        app.unmount();
+        container.remove();
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+    this.editorViews = [];
+  }
+
+  /**
+   * Called when a cell's content is about to be wiped.
+   * Destroys editor Vue apps whose container is inside the cell.
+   */
+  releaseCell(cellEl: HTMLElement): void {
+    for (let i = this.editorViews.length - 1; i >= 0; i--) {
+      const { app, container } = this.editorViews[i];
+      if (cellEl.contains(container)) {
+        try {
+          app.unmount();
+          container.remove();
+        } catch {
+          // Ignore cleanup errors
+        }
+        this.editorViews.splice(i, 1);
+      }
+    }
   }
 }
 

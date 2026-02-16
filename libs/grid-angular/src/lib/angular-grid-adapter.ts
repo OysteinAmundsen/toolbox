@@ -118,6 +118,10 @@ function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorConte
 export class GridAdapter implements FrameworkAdapter {
   private viewRefs: EmbeddedViewRef<unknown>[] = [];
   private componentRefs: ComponentRef<unknown>[] = [];
+  /** Editor-specific view refs tracked separately for per-cell cleanup via releaseCell. */
+  private editorViewRefs: EmbeddedViewRef<unknown>[] = [];
+  /** Editor-specific component refs tracked separately for per-cell cleanup via releaseCell. */
+  private editorComponentRefs: ComponentRef<unknown>[] = [];
   private typeRegistry: GridTypeRegistry | null = null;
 
   constructor(
@@ -416,7 +420,8 @@ export class GridAdapter implements FrameworkAdapter {
 
       // Create embedded view from template
       const viewRef = this.viewContainerRef.createEmbeddedView(template, context);
-      this.viewRefs.push(viewRef);
+      // Track in editor-specific array for per-cell cleanup via releaseCell
+      this.editorViewRefs.push(viewRef);
 
       // Trigger change detection
       viewRef.detectChanges();
@@ -679,6 +684,7 @@ export class GridAdapter implements FrameworkAdapter {
   private mountComponent<TRow, TValue>(
     componentClass: Type<unknown>,
     inputs: { value: TValue; row: TRow; column: ColumnConfig<TRow> },
+    isEditor = false,
   ): { hostElement: HTMLSpanElement; componentRef: ComponentRef<unknown> } {
     // Create a host element for the component
     const hostElement = document.createElement('span');
@@ -695,7 +701,12 @@ export class GridAdapter implements FrameworkAdapter {
 
     // Attach to app for change detection
     this.appRef.attachView(componentRef.hostView);
-    this.componentRefs.push(componentRef);
+    // Track in editor-specific array for per-cell cleanup, or general array for renderers
+    if (isEditor) {
+      this.editorComponentRefs.push(componentRef);
+    } else {
+      this.componentRefs.push(componentRef);
+    }
 
     // Trigger change detection
     componentRef.changeDetectorRef.detectChanges();
@@ -778,11 +789,15 @@ export class GridAdapter implements FrameworkAdapter {
     componentClass: Type<unknown>,
   ): ColumnEditorSpec<TRow, TValue> {
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
-      const { hostElement, componentRef } = this.mountComponent<TRow, TValue>(componentClass, {
-        value: ctx.value,
-        row: ctx.row,
-        column: ctx.column,
-      });
+      const { hostElement, componentRef } = this.mountComponent<TRow, TValue>(
+        componentClass,
+        {
+          value: ctx.value,
+          row: ctx.row,
+          column: ctx.column,
+        },
+        true, // isEditor — tracked separately for per-cell cleanup
+      );
 
       this.wireEditorCallbacks<TValue>(
         hostElement,
@@ -882,14 +897,46 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
+   * Called when a cell's content is about to be wiped (e.g., exiting edit mode,
+   * scroll-recycling a row, or rebuilding a row).
+   *
+   * Destroys any editor embedded views or component refs whose DOM is
+   * inside the given cell element. This prevents memory leaks from
+   * orphaned Angular views that would otherwise stay in the change
+   * detection tree indefinitely.
+   */
+  releaseCell(cellEl: HTMLElement): void {
+    // Release editor embedded views whose root nodes are inside this cell
+    for (let i = this.editorViewRefs.length - 1; i >= 0; i--) {
+      const ref = this.editorViewRefs[i];
+      if (ref.rootNodes.some((n: Node) => cellEl.contains(n))) {
+        ref.destroy();
+        this.editorViewRefs.splice(i, 1);
+      }
+    }
+    // Release editor component refs whose host element is inside this cell
+    for (let i = this.editorComponentRefs.length - 1; i >= 0; i--) {
+      const ref = this.editorComponentRefs[i];
+      if (cellEl.contains(ref.location.nativeElement)) {
+        ref.destroy();
+        this.editorComponentRefs.splice(i, 1);
+      }
+    }
+  }
+
+  /**
    * Clean up all view references and component references.
    * Call this when your app/component is destroyed.
    */
   destroy(): void {
     this.viewRefs.forEach((ref) => ref.destroy());
     this.viewRefs = [];
+    this.editorViewRefs.forEach((ref) => ref.destroy());
+    this.editorViewRefs = [];
     this.componentRefs.forEach((ref) => ref.destroy());
     this.componentRefs = [];
+    this.editorComponentRefs.forEach((ref) => ref.destroy());
+    this.editorComponentRefs = [];
   }
 }
 

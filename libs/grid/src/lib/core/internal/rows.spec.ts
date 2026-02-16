@@ -639,3 +639,192 @@ describe('afterRowRender hook', () => {
     expect(cellsRenderedBeforeRowHook).toBe(4);
   });
 });
+
+// #region releaseCell integration tests
+describe('releaseCell lifecycle', () => {
+  /**
+   * Tests that the grid core calls FrameworkAdapter.releaseCell()
+   * before wiping cell DOM, preventing memory leaks in framework
+   * adapters (Angular EmbeddedViewRefs, React roots, Vue apps).
+   */
+
+  it('calls adapter.releaseCell for each cell in renderInlineRow', () => {
+    const g = makeGrid();
+    const releaseSpy = vi.fn();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+
+    // Initial render creates cells
+    renderVisibleRows(g, 0, 1, 1);
+    releaseSpy.mockClear();
+
+    // Force full rebuild by bumping epoch — this triggers renderInlineRow
+    renderVisibleRows(g, 0, 1, 2);
+
+    // Should have been called once per cell in the row (4 columns)
+    expect(releaseSpy).toHaveBeenCalledTimes(4);
+    // Each call should receive a cell element
+    for (const call of releaseSpy.mock.calls) {
+      expect(call[0]).toBeInstanceOf(HTMLElement);
+      expect((call[0] as HTMLElement).classList.contains('cell')).toBe(true);
+    }
+  });
+
+  it('calls adapter.releaseCell before innerHTML wipe in fastPatchRow standard path', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    // Add a renderer so we hit the standard path (not ultra-fast)
+    g._columns = [
+      { field: 'id' },
+      {
+        field: 'name',
+        renderer: (ctx: any) => {
+          const el = document.createElement('span');
+          el.textContent = String(ctx.value);
+          return el;
+        },
+      },
+    ];
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+    g.__hasSpecialColumns = undefined; // Reset cache
+
+    // Initial render
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Inject fake editor content into a cell to simulate post-edit state
+    const row = g._bodyEl.querySelector('.data-grid-row') as HTMLElement;
+    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+    const editorHost = document.createElement('div');
+    editorHost.className = 'tbw-editor-host';
+    nameCell.innerHTML = '';
+    nameCell.appendChild(editorHost);
+
+    releaseSpy.mockClear();
+
+    // Change data to trigger fastPatchRow standard path
+    g._rows[0] = { ...g._rows[0], name: 'Changed' };
+    renderVisibleRows(g, 0, 1, 1);
+
+    // releaseCell should have been called for the cell with the renderer
+    // (renderer returns a new Node, so parentElement !== cell, triggering innerHTML wipe)
+    expect(releaseSpy).toHaveBeenCalled();
+    const calledCells = releaseSpy.mock.calls.map((c: any[]) => c[0] as HTMLElement);
+    // The name cell (with renderer) should have been released
+    expect(calledCells.some((el: HTMLElement) => el.getAttribute('data-field') === 'name')).toBe(true);
+  });
+
+  it('calls adapter.releaseCell in ultra-fast path for cells with element children', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    // Use only plain columns (no renderers) for ultra-fast path
+    g._columns = [{ field: 'id' }, { field: 'name' }];
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+    g.__hasSpecialColumns = false; // Force ultra-fast path
+
+    // Initial render
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Inject a child element into a cell (simulating editor host from prior editing)
+    const row = g._bodyEl.querySelector('.data-grid-row') as HTMLElement;
+    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+    nameCell.innerHTML = '<div class="tbw-editor-host"><input /></div>';
+
+    releaseSpy.mockClear();
+
+    // Re-render same data (same ref) triggers fastPatchRow
+    renderVisibleRows(g, 0, 1, 1);
+
+    // releaseCell should have been called for the cell with element children
+    expect(releaseSpy).toHaveBeenCalled();
+    const calledCells = releaseSpy.mock.calls.map((c: any[]) => c[0] as HTMLElement);
+    expect(calledCells.some((el: HTMLElement) => el.getAttribute('data-field') === 'name')).toBe(true);
+  });
+
+  it('does NOT call releaseCell for cells in editing mode', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    g._columns = [{ field: 'id' }, { field: 'name' }];
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+    g.__hasSpecialColumns = false;
+
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Mark a cell as editing
+    const row = g._bodyEl.querySelector('.data-grid-row') as HTMLElement;
+    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+    nameCell.classList.add('editing');
+    nameCell.innerHTML = '<div class="tbw-editor-host"><input /></div>';
+    // Set editing state on row to trigger the editing-aware path
+    (row as any).__editingCellCount = 1;
+    row.setAttribute('data-has-editing', '');
+    g._activeEditRows = 0;
+
+    releaseSpy.mockClear();
+    renderVisibleRows(g, 0, 1, 1);
+
+    // The editing cell should NOT have been released (editing cells are preserved)
+    const calledCells = releaseSpy.mock.calls.map((c: any[]) => c[0] as HTMLElement);
+    expect(calledCells.every((el: HTMLElement) => !el.classList.contains('editing'))).toBe(true);
+  });
+
+  it('does not error when adapter has no releaseCell method', () => {
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      // No releaseCell method
+    };
+
+    renderVisibleRows(g, 0, 1, 1);
+    // Should not throw when re-rendering
+    expect(() => renderVisibleRows(g, 0, 1, 2)).not.toThrow();
+  });
+
+  it('releases cells when row is recycled for a different data row', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    g._rows = [
+      { id: 1, name: 'Alpha', active: true, date: new Date('2024-01-01') },
+      { id: 2, name: 'Beta', active: false, date: '2024-01-02' },
+      { id: 3, name: 'Gamma', active: true, date: '2024-01-03' },
+    ];
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+
+    // Render rows 0-1
+    renderVisibleRows(g, 0, 2, 1);
+    releaseSpy.mockClear();
+
+    // Now render rows 1-2 (row 0's pool element is recycled for row 2)
+    // This triggers a full rebuild since data ref changed, calling renderInlineRow
+    renderVisibleRows(g, 1, 3, 2);
+
+    // releaseCell should have been called for cells being recycled
+    expect(releaseSpy).toHaveBeenCalled();
+  });
+});
+// #endregion

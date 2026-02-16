@@ -54,7 +54,7 @@
     flex: 1;
   }
 
-  .tbw-context-menu-shortcut code {
+  .tbw-context-menu-shortcut kbd {
     color: var(--tbw-context-menu-muted, var(--tbw-color-fg-muted));
     font-size: var(--tbw-context-menu-shortcut-size, var(--tbw-font-size-xs));
   }

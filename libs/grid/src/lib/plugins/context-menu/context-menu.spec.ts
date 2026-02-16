@@ -324,7 +324,7 @@ describe('contextMenu', () => {
       expect(icons).toHaveLength(0);
     });
 
-    it('should render shortcut string as a single code block', () => {
+    it('should render shortcut string as a single kbd element', () => {
       const items: ContextMenuItem[] = [{ id: 'test', name: 'Test', shortcut: 'Enter' }];
 
       const menu = createMenuElement(items, params, onAction);
@@ -332,9 +332,9 @@ describe('contextMenu', () => {
 
       expect(shortcut).not.toBeNull();
       expect(shortcut?.textContent).toBe('Enter');
-      const codes = shortcut?.querySelectorAll('code');
-      expect(codes).toHaveLength(1);
-      expect(codes?.[0].textContent).toBe('Enter');
+      const kbds = shortcut?.querySelectorAll('kbd');
+      expect(kbds).toHaveLength(1);
+      expect(kbds?.[0].textContent).toBe('Enter');
     });
 
     it('should render shortcut array as key combo with + separators', () => {
@@ -345,10 +345,10 @@ describe('contextMenu', () => {
 
       expect(shortcut).not.toBeNull();
       expect(shortcut?.textContent).toBe('Ctrl+C');
-      const codes = shortcut?.querySelectorAll('code');
-      expect(codes).toHaveLength(2);
-      expect(codes?.[0].textContent).toBe('Ctrl');
-      expect(codes?.[1].textContent).toBe('C');
+      const kbds = shortcut?.querySelectorAll('kbd');
+      expect(kbds).toHaveLength(2);
+      expect(kbds?.[0].textContent).toBe('Ctrl');
+      expect(kbds?.[1].textContent).toBe('C');
     });
 
     it('should render label correctly', () => {

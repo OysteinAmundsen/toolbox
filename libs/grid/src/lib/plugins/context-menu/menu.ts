@@ -130,14 +130,14 @@ export function createMenuElement(
       if (Array.isArray(item.shortcut)) {
         item.shortcut.forEach((key, i) => {
           if (i > 0) shortcut.appendChild(document.createTextNode('+'));
-          const code = document.createElement('code');
-          code.textContent = key;
-          shortcut.appendChild(code);
+          const kbd = document.createElement('kbd');
+          kbd.textContent = key;
+          shortcut.appendChild(kbd);
         });
       } else {
-        const code = document.createElement('code');
-        code.textContent = item.shortcut;
-        shortcut.appendChild(code);
+        const kbd = document.createElement('kbd');
+        kbd.textContent = item.shortcut;
+        shortcut.appendChild(kbd);
       }
       menuItem.appendChild(shortcut);
     }

@@ -244,6 +244,19 @@ export function autoSizeColumns(grid: InternalGrid): void {
  * Uses `fr` units for flexible (non user-resized) columns in stretch mode, otherwise
  * explicit pixel widths or auto sizing.
  */
+// Valid CSS grid track size patterns: numbers with units (px, %, fr, em, rem, etc.),
+// calc(), min-content, max-content, minmax(), fit-content(), auto
+const VALID_CSS_WIDTH = /^(?:\d+(?:\.\d+)?(?:px|%|fr|em|rem|ch|vw|vh|vmin|vmax)|calc\(.+\)|min-content|max-content|minmax\(.+\)|fit-content\(.+\)|auto)$/i;
+
+/** Resolve a column width to a CSS grid track value. Numbers get `px` appended; strings pass through with a dev-mode validity check. */
+function resolveWidth(width: string | number, field?: string): string {
+  if (typeof width === 'number') return `${width}px`;
+  if (!VALID_CSS_WIDTH.test(width)) {
+    console.warn(`[tbw-grid] Column '${field ?? '?'}' has an invalid CSS width value: '${width}'. Expected a number (px) or a valid CSS unit string (e.g. '30%', '2fr', 'calc(...)').`);
+  }
+  return width;
+}
+
 export function updateTemplate(grid: InternalGrid): void {
   // Modes:
   //  - 'stretch': columns with explicit width use that width; columns without width are flexible
@@ -256,7 +269,7 @@ export function updateTemplate(grid: InternalGrid): void {
   if (mode === FitModeEnum.STRETCH) {
     grid._gridTemplate = grid._visibleColumns
       .map((c: ColumnInternal) => {
-        if (c.width) return `${c.width}px`;
+        if (c.width != null) return resolveWidth(c.width, c.field);
         // Flexible column: pure 1fr unless minWidth specified
         const min = c.minWidth;
         return min != null ? `minmax(${min}px, 1fr)` : '1fr';
@@ -266,7 +279,10 @@ export function updateTemplate(grid: InternalGrid): void {
   } else {
     // fixed mode: explicit pixel widths or max-content for content-based sizing
     grid._gridTemplate = grid._visibleColumns
-      .map((c: ColumnInternal) => (c.width ? `${c.width}px` : 'max-content'))
+      .map((c: ColumnInternal) => {
+        if (c.width != null) return resolveWidth(c.width, c.field);
+        return 'max-content';
+      })
       .join(' ');
   }
   (grid as unknown as HTMLElement).style.setProperty('--tbw-column-template', grid._gridTemplate);

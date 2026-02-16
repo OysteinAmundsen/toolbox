@@ -193,6 +193,37 @@ describe('column configuration', () => {
     expect(g._gridTemplate).toBe('minmax(100px, 1fr) 1fr');
   });
 
+  it('updateTemplate preserves string widths (e.g. percentages) without appending px', () => {
+    const g = makeGrid({
+      columns: [
+        { field: 'a', width: '30%' },
+        { field: 'b', width: '20%' },
+        { field: 'c', width: 40 },
+      ],
+    });
+    updateTemplate(g);
+    expect(g._gridTemplate).toBe('30% 20% 40px');
+  });
+
+  it('updateTemplate preserves string widths in fixed mode', () => {
+    const g = makeGrid({
+      columns: [{ field: 'a', width: '2fr' }, { field: 'b', width: 100 }, { field: 'c' }],
+      fitMode: FitModeEnum.FIXED,
+    });
+    updateTemplate(g);
+    expect(g._gridTemplate).toBe('2fr 100px max-content');
+  });
+
+  it('updateTemplate warns on invalid string width', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const g = makeGrid({ columns: [{ field: 'bad', width: 'banana' }] });
+    updateTemplate(g);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("invalid CSS width value: 'banana'"));
+    // The value is still used (passed through) so CSS can reject it
+    expect(g._gridTemplate).toBe('banana');
+    warnSpy.mockRestore();
+  });
+
   it('autoSizeColumns sets width when fit=stretch and not previously sized', () => {
     const g = makeGrid({ fitMode: FitModeEnum.STRETCH });
     renderHeader(g);

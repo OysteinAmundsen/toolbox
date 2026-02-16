@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.13.0...grid-angular-0.13.1) (2026-02-16)
+
+
+### Bug Fixes
+
+* **grid-angular:** handle ng-container comment nodes and live hasFormGroups ([24e503c](https://github.com/OysteinAmundsen/toolbox/commit/24e503cbd5895f66e890199b4112041b497bf1c4))
+* **grid:** check onBeforeEditClose for Escape in grid edit mode ([846ac39](https://github.com/OysteinAmundsen/toolbox/commit/846ac39b340e2e036ccec0de5b84019725b5def7))
+* **grid:** prevent editor memory leak via releaseCell lifecycle hook ([00d2ef5](https://github.com/OysteinAmundsen/toolbox/commit/00d2ef5a1803a5329713a728f031a466c9d7d824))
+
+
+### Enhancements
+
+* **grid-angular:** add over-bottom-left overlay position, rename over-left to over-top-left ([d2ef2f4](https://github.com/OysteinAmundsen/toolbox/commit/d2ef2f41a4debbe40c87d2ce3e366feaae438bbd))
+
 ## [0.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.12.1...grid-angular-0.13.0) (2026-02-15)
 
 

@@ -175,7 +175,7 @@ export function injectGrid<TRow = unknown>(): InjectGridReturn<TRow> {
     // Wait for grid to be ready
     gridElement.ready?.().then(async () => {
       isReady.set(true);
-      const effectiveConfig = gridElement.getConfig?.();
+      const effectiveConfig = await gridElement.getConfig?.();
       if (effectiveConfig) {
         config.set(effectiveConfig as GridConfig<TRow>);
       }

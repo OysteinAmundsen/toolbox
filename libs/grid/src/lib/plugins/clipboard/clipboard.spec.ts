@@ -966,7 +966,7 @@ describe('clipboard', () => {
       expect(result).toBeNull();
     });
 
-    it('should handle onKeyDown for Ctrl+C', () => {
+    it('should handle onKeyDown for Ctrl+C and preventDefault', () => {
       Object.defineProperty(navigator, 'clipboard', {
         value: { writeText: vi.fn().mockResolvedValue(undefined) },
         writable: true,
@@ -980,11 +980,13 @@ describe('clipboard', () => {
       plugin.attach(grid as any);
 
       const event = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true });
+      const preventSpy = vi.spyOn(event, 'preventDefault');
       const cell = document.createElement('div');
       Object.defineProperty(event, 'target', { value: cell });
 
       const result = plugin.onKeyDown(event);
       expect(result).toBe(true);
+      expect(preventSpy).toHaveBeenCalled();
     });
 
     it('should not handle onKeyDown for non-copy keys', () => {

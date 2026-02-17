@@ -151,12 +151,10 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     // Listen for native paste events to get clipboard data synchronously
     // This is more reliable than the async Clipboard API in iframe contexts
-    // Cast to HTMLElement since GridElement is an interface
-    (grid as unknown as HTMLElement).addEventListener(
-      'paste',
-      (e: Event) => this.#handleNativePaste(e as ClipboardEvent),
-      { signal: this.disconnectSignal },
-    );
+    const el = grid as unknown as HTMLElement;
+    el.addEventListener('paste', (e: Event) => this.#handleNativePaste(e as ClipboardEvent), {
+      signal: this.disconnectSignal,
+    });
   }
 
   /** @internal */
@@ -172,8 +170,11 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
     const isCopy = (event.ctrlKey || event.metaKey) && event.key === 'c';
 
     if (isCopy) {
+      // Prevent the browser's default copy action so it doesn't overwrite
+      // our clipboard write with whatever text is selected in the DOM.
+      event.preventDefault();
       this.#handleCopy(event.target as HTMLElement);
-      return true; // Prevent default browser behavior
+      return true;
     }
 
     // For paste, we do NOT return true - let the native paste event fire
@@ -465,7 +466,9 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
    */
   async copy(options?: CopyOptions): Promise<string> {
     const { columns, rows } = this.#resolveData(options);
-    if (columns.length === 0 || rows.length === 0) return '';
+    if (columns.length === 0 || rows.length === 0) {
+      return '';
+    }
 
     const text = this.#buildText(columns, rows, options);
     await copyToClipboard(text);

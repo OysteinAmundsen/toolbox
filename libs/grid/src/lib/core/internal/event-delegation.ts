@@ -51,6 +51,17 @@ function handleCellMousedown(grid: InternalGrid, cell: HTMLElement): void {
   clearCellFocus(grid._bodyEl);
   cell.classList.add('cell-focus');
   cell.setAttribute('aria-selected', 'true');
+
+  // Ensure the grid element has DOM focus so keyboard events (like Ctrl+C for clipboard)
+  // bubble through the grid's keydown listener. Without this, clicking on non-focusable
+  // cells may leave focus elsewhere, making keyboard shortcuts unreachable.
+  // Always call focus() — even when activeElement is inside the grid — because
+  // browser default behaviors (e.g., shift+click text selection, cell re-pooling)
+  // can move focus to document.body between mousedown and the next keydown.
+  const gridEl = cell.closest('tbw-grid') as HTMLElement | null;
+  if (gridEl && document.activeElement !== gridEl) {
+    gridEl.focus({ preventScroll: true });
+  }
 }
 // #endregion
 
@@ -192,6 +203,12 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
       // Skip if clicking inside an editing cell (let the editor handle it)
       if (cell.classList.contains('editing')) return;
 
+      // Prevent the browser from managing focus for grid cells.
+      // Without this, the browser can steal focus (e.g., shift+click extends
+      // a native text selection, moving activeElement to document.body).
+      // We manage focus explicitly via handleCellMousedown → gridEl.focus().
+      e.preventDefault();
+
       handleCellMousedown(grid, cell);
     },
     { signal },
@@ -203,6 +220,18 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
     (e) => {
       const rowEl = (e.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
       if (rowEl) handleRowClick(grid, e as MouseEvent, rowEl);
+
+      // After click handling: keep focus on the grid element (not individual cells).
+      // In a virtualized grid, cells can be detached by subsequent render cycles
+      // (e.g., SelectionPlugin's requestAfterRender → RAF render → row recycling).
+      // A detached focused cell causes activeElement to revert to <body>, breaking
+      // keyboard shortcuts like Ctrl+C. The grid element (tabindex=0) is stable
+      // and receives all keyboard events via bubble phase.
+      // Skip if an editor is active — editors manage their own focus.
+      if (!document.activeElement?.closest('.cell.editing')) {
+        const gridEl = (e.target as HTMLElement).closest('tbw-grid') as HTMLElement | null;
+        if (gridEl) gridEl.focus({ preventScroll: true });
+      }
     },
     { signal },
   );

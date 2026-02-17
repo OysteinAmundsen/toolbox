@@ -94,7 +94,7 @@ export function buildClipboardText(params: CopyParams): string {
     if (!row) continue;
 
     const cells = visibleColumns.map((col) =>
-      formatCellValue((row as Record<string, unknown>)[col.field], col.field, row, config)
+      formatCellValue((row as Record<string, unknown>)[col.field], col.field, row, config),
     );
     lines.push(cells.join(delimiter));
   }
@@ -115,7 +115,8 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
-  } catch {
+  } catch (err) {
+    console.warn('[copyToClipboard] Clipboard API failed:', err);
     // Fallback for older browsers or when Clipboard API is not available
     const textarea = document.createElement('textarea');
     textarea.value = text;

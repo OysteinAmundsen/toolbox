@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.16.0...grid-1.16.1) (2026-02-17)
+
+
+### Bug Fixes
+
+* **grid:** ensure grid retains DOM focus for keyboard shortcuts after cell clicks ([ffba5a6](https://github.com/OysteinAmundsen/toolbox/commit/ffba5a6069112e1e2529337ffd38375f3076c317))
+
 ## [1.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.15.0...grid-1.16.0) (2026-02-16)
 
 

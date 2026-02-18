@@ -61,6 +61,10 @@ Access via `grid.getPlugin(PinnedColumnsPlugin)`:
 ```typescript
 const pinned = grid.getPlugin(PinnedColumnsPlugin);
 
+// Pin or unpin a column programmatically
+pinned.setPinPosition('email', 'left');
+pinned.setPinPosition('email', undefined); // unpin
+
 // Get left pinned columns (after resolving logical positions)
 const leftPinned = pinned.getLeftPinnedColumns();
 

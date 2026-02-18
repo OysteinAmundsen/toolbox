@@ -35,10 +35,11 @@ grid.columns = [
 
 ## Configuration
 
-| Option                | Type                                | Default | Description                  |
-| --------------------- | ----------------------------------- | ------- | ---------------------------- |
-| `showGroupBorders`    | `boolean`                           | `true`  | Show borders between groups  |
-| `groupHeaderRenderer` | `(params) => HTMLElement \| string` | -       | Custom group header renderer |
+| Option                | Type                                | Default | Description                               |
+| --------------------- | ----------------------------------- | ------- | ----------------------------------------- |
+| `showGroupBorders`    | `boolean`                           | `true`  | Show borders between groups               |
+| `lockGroupOrder`      | `boolean`                           | `false` | Prevent reordering columns outside groups |
+| `groupHeaderRenderer` | `(params) => HTMLElement \| string` | -       | Custom group header renderer              |
 
 ## Custom Group Header
 

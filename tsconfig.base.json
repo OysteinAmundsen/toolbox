@@ -42,7 +42,6 @@
       "@toolbox-web/grid/plugins/row-reorder": ["dist/libs/grid/lib/plugins/row-reorder/index.d.ts"],
       "@toolbox-web/grid/plugins/selection": ["dist/libs/grid/lib/plugins/selection/index.d.ts"],
       "@toolbox-web/grid/plugins/server-side": ["dist/libs/grid/lib/plugins/server-side/index.d.ts"],
-      "@toolbox-web/grid/plugins/sorting": ["dist/libs/grid/lib/plugins/sorting/index.d.ts"],
       "@toolbox-web/grid/plugins/tree": ["dist/libs/grid/lib/plugins/tree/index.d.ts"],
       "@toolbox-web/grid/plugins/undo-redo": ["dist/libs/grid/lib/plugins/undo-redo/index.d.ts"],
       "@toolbox-web/grid/plugins/visibility": ["dist/libs/grid/lib/plugins/visibility/index.d.ts"],
@@ -55,8 +54,6 @@
       "@toolbox-web/grid-vue": ["dist/libs/grid-vue/index.d.ts"],
       "@toolbox-web/grid-vue/features/*": ["dist/libs/grid-vue/features/*.d.ts"],
       "@toolbox/themes/*": ["libs/themes/*"],
-      "@toolbox/datagrid": ["libs/datagrid/src/"],
-      "@toolbox/datagrid/*": ["libs/datagrid/src/lib/*"],
       "@demo/shared": ["demos/employee-management/shared/index.ts"],
       "@demo/shared/styles": ["demos/employee-management/shared/styles.ts"],
       "@demo/shared/demo-styles.css": ["demos/employee-management/shared/demo-styles.css"]

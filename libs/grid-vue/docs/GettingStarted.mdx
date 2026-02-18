@@ -203,7 +203,7 @@ For complex scenarios requiring dynamic plugin toggling or advanced configuratio
   language="html"
   code={`
 <script setup lang="ts">
-import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
@@ -220,7 +220,7 @@ interface Employee {
 const employees = ref<Employee[]>([/* ... */]);
 
 // Use markRaw to prevent Vue from making plugins reactive
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: [
     { field: 'id', header: 'ID', width: 70 },
     { field: 'name', header: 'Name', editable: true, sortable: true },
@@ -531,10 +531,10 @@ Add sidebar panels with `TbwGridToolPanel`:
   language="html"
   code={`
 <script setup lang="ts">
-import { TbwGrid, TbwGridToolPanel, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, TbwGridToolPanel, type GridConfig } from '@toolbox-web/grid-vue';
 import { markRaw, ref } from 'vue';
 
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: [/* ... */],
   shell: {
     toolPanels: [{ id: 'filters', icon: '🔍', position: 'left' }],

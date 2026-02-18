@@ -256,14 +256,9 @@ grid.gridConfig = {
 ### Grid Metrics
 
 ```typescript
-// Log render timing
-grid.addEventListener('render-complete', (e) => {
-  console.log('Render time:', e.detail.duration);
-});
-
 // Monitor scroll performance
 let lastScroll = performance.now();
-grid.querySelector('.data-grid-container')?.addEventListener('scroll', () => {
+grid.querySelector('.rows-viewport')?.addEventListener('scroll', () => {
   const now = performance.now();
   const fps = 1000 / (now - lastScroll);
   if (fps < 30) console.warn('Low FPS:', fps);

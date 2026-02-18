@@ -33,12 +33,16 @@ bun run test
 libs/
   grid/           # @toolbox-web/grid - Data grid component
   grid-angular/   # @toolbox-web/grid-angular - Angular adapter
+  grid-react/     # @toolbox-web/grid-react - React adapter
+  grid-vue/       # @toolbox-web/grid-vue - Vue 3 adapter
   themes/         # Shared CSS themes
 demos/
   employee-management/   # Full-featured demo applications
     shared/              # Shared types and data generators
     vanilla/             # Pure TypeScript/Vite demo
     angular/             # Angular 21 demo
+    react/               # React 19 demo
+    vue/                 # Vue 3 demo
 apps/
   docs/           # Storybook documentation site
 ```
@@ -75,6 +79,8 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). This enable
 
 - `grid` - Changes to @toolbox-web/grid
 - `grid-angular` - Changes to @toolbox-web/grid-angular
+- `grid-react` - Changes to @toolbox-web/grid-react
+- `grid-vue` - Changes to @toolbox-web/grid-vue
 - `themes` - Changes to shared themes
 - `demos` - Changes to demo applications
 
@@ -130,7 +136,7 @@ chore: update dependencies
 
 ### Components
 
-- Use Shadow DOM for style encapsulation
+- Use Light DOM with CSS nesting for style scoping
 - Expose theming via CSS custom properties
 - Follow the plugin pattern for optional features
 

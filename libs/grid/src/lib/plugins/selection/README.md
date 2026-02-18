@@ -24,9 +24,13 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option | Type                         | Default  | Description    |
-| ------ | ---------------------------- | -------- | -------------- |
-| `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection mode |
+| Option         | Type                                          | Default   | Description                                    |
+| -------------- | --------------------------------------------- | --------- | ---------------------------------------------- |
+| `mode`         | `'cell' \| 'row' \| 'range'`                  | `'cell'`  | Selection mode                                 |
+| `triggerOn`    | `'click' \| 'dblclick'`                       | `'click'` | Mouse event type that triggers selection       |
+| `enabled`      | `boolean`                                     | `true`    | Whether selection is enabled                   |
+| `checkbox`     | `boolean`                                     | `false`   | Show checkbox column (row mode only)           |
+| `isSelectable` | `(row, rowIndex, col?, colIndex?) => boolean` | -         | Callback to control per-row/cell selectability |
 
 ## Selection Modes
 
@@ -70,20 +74,29 @@ Access via `grid.getPlugin(SelectionPlugin)`:
 ```typescript
 const selection = grid.getPlugin(SelectionPlugin);
 
-// Get selected rows (row mode)
-const rows = selection.getSelectedRows();
+// Get current selection (all modes - returns { mode, ranges, anchor })
+const result = selection.getSelection();
 
-// Get selected ranges (range mode)
-const ranges = selection.getSelectedRanges();
+// Get selected row indices (row mode, sorted ascending)
+const indices = selection.getSelectedRowIndices();
 
-// Select all rows
+// Select specific rows by index (row mode only)
+selection.selectRows([0, 2, 4]);
+
+// Select all (rows in row mode, all cells in range mode)
 selection.selectAll();
 
 // Clear selection
 selection.clearSelection();
 
-// Check if row is selected
-const isSelected = selection.isRowSelected(rowIndex);
+// Set ranges programmatically
+selection.setRanges([{ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } }]);
+
+// Check if a specific cell is in range selection
+const isSelected = selection.isCellSelected(row, col);
+
+// Get all selected cells across all ranges
+const cells = selection.getSelectedCells();
 ```
 
 ## CSS Variables

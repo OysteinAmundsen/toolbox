@@ -332,7 +332,7 @@ override renderRow(row: T, rowEl: HTMLElement, rowIndex: number): boolean {
 
 ## Injecting Styles
 
-Plugins can inject CSS into the grid's shadow DOM via the `styles` property:
+Plugins can inject CSS into the grid via the `styles` property (uses `adoptedStyleSheets` on the document):
 
 <Tabs>
   <Tab label="External CSS File">

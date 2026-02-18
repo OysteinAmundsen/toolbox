@@ -32,23 +32,14 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option                   | Type                             | Default | Description                    |
-| ------------------------ | -------------------------------- | ------- | ------------------------------ | ----------------- |
-| `detailRenderer`         | `(row, rowIndex) => HTMLElement` | -       | Render detail content          |
-| `detailHeight`           | `number \\                       | 'auto'` | `'auto'`                       | Detail row height |
-| `expandOnRowClick`       | `boolean`                        | `false` | Expand on row click            |
-| `collapseOnClickOutside` | `boolean`                        | `false` | Collapse when clicking outside |
-| `showExpandColumn`       | `boolean`                        | `true`  | Show expand/collapse column    |
-
-## Detail Renderer Parameters
-
-```typescript
-interface DetailRenderParams {
-  row: any; // Row data
-  rowIndex: number; // Row index
-  api: GridApi; // Grid API access
-}
-```
+| Option                   | Type                                                                        | Default   | Description                    |
+| ------------------------ | --------------------------------------------------------------------------- | --------- | ------------------------------ |
+| `detailRenderer`         | `(row: Record<string, unknown>, rowIndex: number) => HTMLElement \| string` | -         | Render detail content          |
+| `detailHeight`           | `number \| 'auto'`                                                          | `'auto'`  | Detail row height              |
+| `expandOnRowClick`       | `boolean`                                                                   | `false`   | Expand on row click            |
+| `collapseOnClickOutside` | `boolean`                                                                   | `false`   | Collapse when clicking outside |
+| `showExpandColumn`       | `boolean`                                                                   | `true`    | Show expand/collapse column    |
+| `animation`              | `false \| 'slide' \| 'fade'`                                                | `'slide'` | Expand/collapse animation      |
 
 ## Events
 
@@ -58,6 +49,7 @@ Fired when detail row is expanded/collapsed.
 
 ```typescript
 grid.addEventListener('detail-expand', (e) => {
+  console.log('Row index:', e.detail.rowIndex);
   console.log('Row:', e.detail.row);
   console.log('Expanded:', e.detail.expanded);
 });
@@ -78,6 +70,15 @@ masterDetail.toggle(rowIndex);
 // Check state
 const isExpanded = masterDetail.isExpanded(rowIndex);
 
+// Expand all rows
+masterDetail.expandAll();
+
 // Collapse all
 masterDetail.collapseAll();
+
+// Get indices of all expanded rows
+const expanded = masterDetail.getExpandedRows();
+
+// Get the detail DOM element for a row
+const element = masterDetail.getDetailElement(rowIndex);
 ```

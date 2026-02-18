@@ -38,13 +38,14 @@ grid.rows = data;
 
 ## Configuration
 
-| Option            | Type      | Default      | Description                     |
-| ----------------- | --------- | ------------ | ------------------------------- |
-| `childrenField`   | `string`  | `'children'` | Property name for child nodes   |
-| `autoDetect`      | `boolean` | `true`       | Auto-detect tree structure      |
-| `defaultExpanded` | `boolean` | `false`      | Expand all nodes initially      |
-| `indentWidth`     | `number`  | `20`         | Pixels of indentation per level |
-| `showExpandIcons` | `boolean` | `true`       | Show expand/collapse icons      |
+| Option            | Type                         | Default      | Description                     |
+| ----------------- | ---------------------------- | ------------ | ------------------------------- |
+| `childrenField`   | `string`                     | `'children'` | Property name for child nodes   |
+| `autoDetect`      | `boolean`                    | `true`       | Auto-detect tree structure      |
+| `defaultExpanded` | `boolean`                    | `false`      | Expand all nodes initially      |
+| `indentWidth`     | `number`                     | `20`         | Pixels of indentation per level |
+| `showExpandIcons` | `boolean`                    | `true`       | Show expand/collapse icons      |
+| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'`    | Expand/collapse animation style |
 
 ## Auto-Detection
 
@@ -58,9 +59,10 @@ Fired when a node is expanded or collapsed.
 
 ```typescript
 grid.addEventListener('tree-expand', (e) => {
+  console.log('Key:', e.detail.key);
   console.log('Row:', e.detail.row);
   console.log('Expanded:', e.detail.expanded);
-  console.log('Level:', e.detail.level);
+  console.log('Depth:', e.detail.depth);
 });
 ```
 
@@ -71,14 +73,14 @@ Access via `grid.getPlugin(TreePlugin)`:
 ```typescript
 const tree = grid.getPlugin(TreePlugin);
 
-// Expand a node
-tree.expand(rowIndex);
+// Expand a node by key
+tree.expand(key);
 
-// Collapse a node
-tree.collapse(rowIndex);
+// Collapse a node by key
+tree.collapse(key);
 
 // Toggle expand/collapse
-tree.toggle(rowIndex);
+tree.toggle(key);
 
 // Expand all nodes
 tree.expandAll();
@@ -87,15 +89,28 @@ tree.expandAll();
 tree.collapseAll();
 
 // Check if node is expanded
-const isExpanded = tree.isExpanded(rowIndex);
+const isExpanded = tree.isExpanded(key);
 
-// Get node depth level
-const level = tree.getLevel(rowIndex);
+// Get all expanded node keys
+const expandedKeys = tree.getExpandedKeys();
+
+// Expand all ancestors so a node becomes visible
+tree.expandToKey(key);
+
+// Get flattened tree rows (with depth, parentKey, etc.)
+const flatRows = tree.getFlattenedRows();
+
+// Get row data by key
+const row = tree.getRowByKey(key);
 ```
 
 ## CSS Variables
 
-| Variable            | Description                |
-| ------------------- | -------------------------- |
-| `--tbw-tree-indent` | Indentation per level      |
-| `--tbw-tree-accent` | Expand/collapse icon color |
+| Variable                   | Default                       | Description                        |
+| -------------------------- | ----------------------------- | ---------------------------------- |
+| `--tbw-tree-indent-width`  | `var(--tbw-tree-toggle-size)` | Indentation per level              |
+| `--tbw-tree-toggle-size`   | `1.25em`                      | Toggle icon width/height           |
+| `--tbw-tree-accent`        | `var(--tbw-color-accent)`     | Toggle icon hover color            |
+| `--tbw-animation-duration` | `200ms`                       | Expand/collapse animation duration |
+| `--tbw-animation-easing`   | `ease-out`                    | Animation easing curve             |
+| `--tbw-tree-accent`        | Expand/collapse icon color    |

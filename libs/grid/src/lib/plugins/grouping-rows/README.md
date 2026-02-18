@@ -28,16 +28,19 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option             | Type                          | Default | Description                            |
-| ------------------ | ----------------------------- | ------- | -------------------------------------- |
-| `groupOn`          | `(row) => string \| string[]` | -       | Function returning group key(s)        |
-| `aggregators`      | `Record<string, Aggregator>`  | `{}`    | Aggregation functions per field        |
-| `fullWidth`        | `boolean`                     | `true`  | Group rows span full width             |
-| `defaultExpanded`  | `boolean`                     | `false` | Start groups expanded                  |
-| `showRowCount`     | `boolean`                     | `true`  | Show row count in group headers        |
-| `indentWidth`      | `number`                      | `20`    | Indent width per depth level in pixels |
-| `groupRowRenderer` | `(params) => Element\|string` | -       | Custom group row renderer              |
-| `formatLabel`      | `(value, depth, key) => str`  | -       | Custom format function for group label |
+| Option             | Type                                        | Default   | Description                            |
+| ------------------ | ------------------------------------------- | --------- | -------------------------------------- |
+| `groupOn`          | `(row) => any[] \| any \| null \| false`    | -         | Function returning group key(s)        |
+| `aggregators`      | `Record<string, AggregatorRef>`             | `{}`      | Aggregation functions per field        |
+| `fullWidth`        | `boolean`                                   | `true`    | Group rows span full width             |
+| `defaultExpanded`  | `boolean \| number \| string \| string[]`   | `false`   | Start groups expanded                  |
+| `showRowCount`     | `boolean`                                   | `true`    | Show row count in group headers        |
+| `indentWidth`      | `number`                                    | `20`      | Indent width per depth level in pixels |
+| `animation`        | `false \| 'slide' \| 'fade'`                | `'slide'` | Expand/collapse animation style        |
+| `accordion`        | `boolean`                                   | `false`   | Only one group open at a time          |
+| `groupRowHeight`   | `number`                                    | -         | Height of group header rows (px)       |
+| `groupRowRenderer` | `(params) => HTMLElement \| string \| void` | -         | Custom group row renderer              |
+| `formatLabel`      | `(value, depth, key) => string`             | -         | Custom format function for group label |
 
 ## Multi-Level Grouping
 
@@ -74,6 +77,8 @@ Fired when a group is expanded or collapsed.
 grid.addEventListener('group-toggle', (e) => {
   console.log('Group key:', e.detail.key);
   console.log('Expanded:', e.detail.expanded);
+  console.log('Value:', e.detail.value);
+  console.log('Depth:', e.detail.depth);
 });
 ```
 
@@ -84,15 +89,42 @@ Access via `grid.getPlugin(GroupingRowsPlugin)`:
 ```typescript
 const grouping = grid.getPlugin(GroupingRowsPlugin);
 
-// Expand a group
-grouping.expandGroup(groupKey);
+// Expand a group by key
+grouping.expand(key);
 
-// Collapse a group
-grouping.collapseGroup(groupKey);
+// Collapse a group by key
+grouping.collapse(key);
+
+// Toggle a group
+grouping.toggle(key);
+
+// Check if group is expanded
+const isExpanded = grouping.isExpanded(key);
 
 // Expand all groups
 grouping.expandAll();
 
 // Collapse all groups
 grouping.collapseAll();
+
+// Get expanded group keys
+const expanded = grouping.getExpandedGroups();
+
+// Get current group state
+const state = grouping.getGroupState();
+
+// Get visible row count
+const count = grouping.getRowCount();
+
+// Get flattened row model
+const rows = grouping.getFlattenedRows();
+
+// Check if grouping is active
+const active = grouping.isGroupingActive();
+
+// Set groupOn dynamically
+grouping.setGroupOn((row) => row.category);
+
+// Refresh grouped row model
+grouping.refreshGroups();
 ```

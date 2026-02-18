@@ -76,7 +76,8 @@ Fired when filter model changes.
 
 ```typescript
 grid.addEventListener('filter-change', (e) => {
-  console.log('Filter model:', e.detail.filterModel);
+  console.log('Filters:', e.detail.filters);
+  console.log('Filtered row count:', e.detail.filteredRowCount);
 });
 ```
 
@@ -87,25 +88,37 @@ Access via `grid.getPlugin(FilteringPlugin)`:
 ```typescript
 const filtering = grid.getPlugin(FilteringPlugin);
 
-// Get current filter model
-const model = filtering.getFilterModel();
+// Get all active filters
+const filters = filtering.getFilters();
+// or: const filters = filtering.getFilterModel(); // alias
 
-// Set filter model programmatically
-filtering.setFilterModel({
-  name: { type: 'contains', value: 'John' },
-  price: { type: 'greaterThan', value: 100 },
-});
+// Set filter on a specific field
+filtering.setFilter('name', { type: 'text', operator: 'contains', value: 'John' });
+filtering.setFilter('price', { type: 'number', operator: 'greaterThan', value: 100 });
+
+// Set filter model (replaces all existing filters)
+filtering.setFilterModel([
+  { field: 'name', type: 'text', operator: 'contains', value: 'John' },
+  { field: 'price', type: 'number', operator: 'greaterThan', value: 100 },
+]);
 
 // Clear all filters
-filtering.clearFilters();
+filtering.clearAllFilters();
 
 // Clear filter for specific column
-filtering.clearFilter('name');
+filtering.clearFieldFilter('name');
+
+// Check if a field has an active filter
+filtering.isFieldFiltered('name');
 ```
 
 ## CSS Variables
 
-| Variable                       | Description               |
-| ------------------------------ | ------------------------- |
-| `--tbw-filtering-panel-bg`     | Filter panel background   |
-| `--tbw-filtering-input-border` | Filter input border color |
+| Variable                    | Description             |
+| --------------------------- | ----------------------- |
+| `--tbw-filter-panel-bg`     | Panel background        |
+| `--tbw-filter-panel-fg`     | Panel text color        |
+| `--tbw-filter-panel-border` | Panel border            |
+| `--tbw-filter-active-color` | Active filter indicator |
+| `--tbw-filter-input-bg`     | Input background        |
+| `--tbw-filter-input-focus`  | Input focus border      |

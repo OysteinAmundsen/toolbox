@@ -695,11 +695,11 @@ import type {
   // Deprecated aliases
   ReactGridConfig,
   ReactColumnConfig,
-  // Context types
-  CellRenderContext,
-  ColumnEditorContext,
-  DetailPanelContext,
-  ToolPanelContext,
+  // Context types (React-specific wrappers)
+  GridCellContext,
+  GridEditorContext,
+  GridDetailContext,
+  GridToolPanelContext,
   DataGridRef,
   DataGridProps,
   // Feature props
@@ -760,28 +760,28 @@ import type {
 
 ### GridColumn Props
 
-| Prop        | Type                                          | Description             |
-| ----------- | --------------------------------------------- | ----------------------- |
-| `field`     | `string`                                      | Field key in row object |
-| `header`    | `string`                                      | Column header text      |
-| `type`      | `'string' \| 'number' \| 'date' \| 'boolean'` | Data type               |
-| `editable`  | `boolean`                                     | Enable editing          |
-| `sortable`  | `boolean`                                     | Enable sorting          |
-| `resizable` | `boolean`                                     | Enable column resizing  |
-| `width`     | `string \| number`                            | Column width            |
-| `children`  | `(ctx: CellRenderContext) => ReactNode`       | Custom renderer         |
-| `editor`    | `(ctx: ColumnEditorContext) => ReactNode`     | Custom editor           |
+| Prop        | Type                                                    | Description                                             |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------- |
+| `field`     | `string`                                                | Field key in row object                                 |
+| `header`    | `string`                                                | Column header text                                      |
+| `type`      | `'string' \| 'number' \| 'date' \| 'boolean'`           | Data type                                               |
+| `editable`  | `boolean`                                               | Enable editing                                          |
+| `sortable`  | `boolean`                                               | Enable sorting                                          |
+| `resizable` | `boolean`                                               | Enable column resizing                                  |
+| `width`     | `string \| number`                                      | Column width                                            |
+| `children`  | `(ctx: CellRenderContext<TRow, TValue>) => ReactNode`   | Custom renderer (context type from `@toolbox-web/grid`) |
+| `editor`    | `(ctx: ColumnEditorContext<TRow, TValue>) => ReactNode` | Custom editor (context type from `@toolbox-web/grid`)   |
 
 ### DataGridRef Methods
 
 | Method                    | Description                 |
-| ------------------------- | --------------------------- | -------------------- |
+| ------------------------- | --------------------------- |
 | `getConfig()`             | Get effective configuration |
 | `ready()`                 | Wait for grid ready         |
 | `forceLayout()`           | Force layout recalculation  |
 | `toggleGroup(key)`        | Toggle group expansion      |
 | `registerStyles(id, css)` | Register custom styles      |
-| `unregisterStyles(id)`    | `void`                      | Remove custom styles |
+| `unregisterStyles(id)`    | Remove custom styles        |
 
 ### ReactGridAdapter
 

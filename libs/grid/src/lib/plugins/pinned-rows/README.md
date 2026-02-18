@@ -139,6 +139,18 @@ pinned.refresh();
 
 // Get current context
 const context = pinned.getContext();
+
+// Add a custom panel dynamically
+pinned.addPanel({ id: 'my-panel', render: () => 'Custom content' });
+
+// Remove a custom panel
+pinned.removePanel('my-panel');
+
+// Add an aggregation row dynamically
+pinned.addAggregationRow({ id: 'avg', aggregators: { price: 'avg' } });
+
+// Remove an aggregation row
+pinned.removeAggregationRow('avg');
 ```
 
 ## CSS Variables

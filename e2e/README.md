@@ -1,6 +1,6 @@
 # Cross-Framework E2E Visual Regression Tests
 
-This folder contains Playwright end-to-end tests that verify visual and functional parity across all three demo implementations (Vanilla JS, React, Angular).
+This folder contains Playwright end-to-end tests that verify visual and functional parity across the demo implementations (Vanilla JS, React, Angular). The Vue demo also exists but is not yet included in the e2e visual regression suite.
 
 ## Purpose
 
@@ -103,8 +103,18 @@ e2e/
 ├── project.json              # Nx project configuration
 ├── tsconfig.json             # TypeScript configuration
 ├── README.md                 # This file
+├── reporters/
+│   └── clean-list-reporter.ts  # Custom local reporter
+├── scripts/
+│   └── fetch-story-index.ts   # Storybook story index fetcher
 ├── tests/
-│   └── cross-framework-visual.spec.ts  # Main test file
+│   ├── cross-framework-visual.spec.ts  # Cross-framework visual parity
+│   ├── custom-editors.spec.ts          # Custom editor tests
+│   ├── master-detail.spec.ts           # Master-detail panel tests
+│   ├── performance-regression.spec.ts  # Performance regression tests
+│   ├── virtualization-stability.spec.ts # Virtualization stability tests
+│   ├── utils.ts                        # Shared test utilities
+│   └── storybook/                      # Storybook-specific tests
 └── test-results/             # Generated test artifacts (gitignored)
 ```
 
@@ -187,7 +197,7 @@ See `.github/workflows/ci.yml` for the full configuration.
 If demos don't start in time:
 
 1. Increase `webServer.timeout` in `playwright.config.ts`
-2. Check that ports 5173, 5174, 4200 are available
+2. Check that ports 4000, 4300, 4200 are available
 
 ### Screenshot Differences
 

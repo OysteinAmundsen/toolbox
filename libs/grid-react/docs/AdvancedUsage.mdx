@@ -20,7 +20,7 @@ While [feature props](/docs/grid-react-getting-started--docs) are recommended fo
   language="tsx"
   code={`
 import { useMemo } from 'react';
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 import {
   SelectionPlugin,
   EditingPlugin,
@@ -37,7 +37,7 @@ function EmployeeGrid() {
     new UndoRedoPlugin({ maxHistory: 100 }),
   ], []);
 
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [
       { field: 'id', header: 'ID' },
       { field: 'name', header: 'Name', editable: true },
@@ -61,7 +61,7 @@ Feature props and manual plugins can be mixed. The grid merges them, with manual
   language="tsx"
   code={`
 import '@toolbox-web/grid-react/features/selection';
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 import { ResponsivePlugin } from '@toolbox-web/grid/all';
 
 function EmployeeGrid() {
@@ -74,7 +74,7 @@ function EmployeeGrid() {
     []
   );
 
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: columns,
     plugins: [responsivePlugin],
   };
@@ -253,10 +253,10 @@ Override the default sort comparator for complex sorting requirements:
   language="tsx"
   code={`
 import '@toolbox-web/grid-react/features/multi-sort';
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
 function EmployeeGrid() {
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [
       { field: 'name', header: 'Name', sortable: true },
       {
@@ -393,10 +393,10 @@ Fine-tune virtualization for optimal performance:
 <Source
   language="tsx"
   code={`
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
 function LargeDataGrid() {
-  const config: ReactGridConfig<DataRow> = {
+  const config: GridConfig<DataRow> = {
     columns: columns,
     virtualization: {
       rowHeight: 32,    // Fixed row height (default: 28)
@@ -426,7 +426,7 @@ Add custom actions to the context menu:
   code={`
 import '@toolbox-web/grid-react/features/context-menu';
 import '@toolbox-web/grid-react/features/selection';
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 import type { ContextMenuItem } from '@toolbox-web/grid';
 
 function EmployeeGrid() {
@@ -470,7 +470,7 @@ Pattern for loading data from an API:
   code={`
 import { useState, useEffect, useCallback } from 'react';
 import '@toolbox-web/grid-react/features/multi-sort';
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
 interface ApiResponse {
   data: Employee[];
@@ -502,7 +502,7 @@ function ServerSideGrid() {
   }, [fetchData]);
 
   // Use sortHandler for server-side sorting
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns,
     sortHandler: async (rows, sortState) => {
       const dir = sortState.direction === 1 ? 'asc' : 'desc';
@@ -589,7 +589,7 @@ Switch between table and card views based on screen size:
 <Source
   language="tsx"
   code={`
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 import { ResponsivePlugin } from '@toolbox-web/grid/all';
 
 function ResponsiveGrid() {
@@ -602,7 +602,7 @@ function ResponsiveGrid() {
     []
   );
 
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [
       { field: 'name', header: 'Name' },
       { field: 'role', header: 'Role' },
@@ -625,13 +625,13 @@ function ResponsiveGrid() {
   language="tsx"
   code={`
 // ✅ Good: Memoized config
-const config = useMemo<ReactGridConfig<Employee>>(() => ({
+const config = useMemo<GridConfig<Employee>>(() => ({
   columns: [/* ... */],
   plugins: [new SelectionPlugin()],
 }), []);
 
 // ❌ Bad: Creates new config every render
-const config: ReactGridConfig<Employee> = {
+const config: GridConfig<Employee> = {
   columns: [/* ... */],
   plugins: [new SelectionPlugin()], // New instance every render!
 };

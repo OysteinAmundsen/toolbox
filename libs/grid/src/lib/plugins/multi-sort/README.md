@@ -31,8 +31,9 @@ grid.gridConfig = {
 
 ## User Interaction
 
-- **Click header**: Sort by column (replaces existing sort)
-- **Ctrl+Click header**: Add column to multi-sort
+- **Click header**: Sort by column (clears other sorts)
+- **Shift+Click header**: Add column to multi-sort stack
+- **Ctrl+Click header**: Toggle sort direction
 - **Click sorted header**: Toggle asc/desc/none
 
 ## Events
@@ -67,6 +68,9 @@ multiSort.setSortModel([
 // Clear all sorting
 multiSort.clearSort();
 
-// Sort by single column
-multiSort.sortBy('name', 'desc');
+// Get sort index for a field (1-based, or undefined)
+const index = multiSort.getSortIndex('name');
+
+// Get sort direction for a field ('asc' | 'desc' | undefined)
+const dir = multiSort.getSortDirection('name');
 ```

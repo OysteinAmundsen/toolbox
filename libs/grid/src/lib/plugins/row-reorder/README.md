@@ -43,7 +43,7 @@ grid.addEventListener('row-move', (e) => {
 | `dragHandlePosition` | `'left' \| 'right'`                     | `'left'` | Position of drag handle column         |
 | `dragHandleWidth`    | `number`                                | `40`     | Width of drag handle column (px)       |
 | `canMove`            | `(row, from, to, direction) => boolean` | -        | Validation callback                    |
-| `debounceMs`         | `number`                                | `300`    | Debounce time for keyboard moves       |
+| `debounceMs`         | `number`                                | `150`    | Debounce time for keyboard moves       |
 | `animation`          | `false \| 'flip'`                       | `'flip'` | Animation style for row transitions    |
 
 ## Keyboard Shortcuts
@@ -114,13 +114,14 @@ const canMove = plugin.canMoveRow(fromIndex, toIndex);
 
 ## CSS Variables
 
-| Variable                   | Description               |
-| -------------------------- | ------------------------- |
-| `--tbw-color-accent`       | Drop indicator color      |
-| `--tbw-color-bg-hover`     | Dragging row background   |
-| `--tbw-color-bg-selected`  | Keyboard moving highlight |
-| `--tbw-color-fg-muted`     | Drag handle icon color    |
-| `--tbw-animation-duration` | FLIP animation duration   |
+| Variable                          | Description             |
+| --------------------------------- | ----------------------- |
+| `--tbw-row-reorder-handle-color`  | Drag handle icon color  |
+| `--tbw-row-reorder-handle-hover`  | Drag handle hover color |
+| `--tbw-row-reorder-indicator`     | Drop indicator color    |
+| `--tbw-row-reorder-moving-bg`     | Moving row background   |
+| `--tbw-row-reorder-moving-border` | Moving row border       |
+| `--tbw-animation-duration`        | FLIP animation duration |
 
 ## Styling the Drag Handle
 

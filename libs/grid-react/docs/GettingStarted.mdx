@@ -186,7 +186,7 @@ Define custom renderers inline using the `renderer` property on columns:
   language="tsx"
   code={`
 import '@toolbox-web/grid-react/features/editing';
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
 interface Employee {
   id: number;
@@ -217,7 +217,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function EmployeeGrid() {
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [
       { field: 'id', header: 'ID', width: 70 },
       { field: 'name', header: 'Name' },
@@ -250,7 +250,7 @@ Define custom editors with the `editor` property. The editor receives `commit` a
   language="tsx"
   code={`
 import '@toolbox-web/grid-react/features/editing';
-import { DataGrid, type ReactGridConfig, type GridEditorContext } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig, type GridEditorContext } from '@toolbox-web/grid-react';
 
 // Custom select editor component
 function StatusEditor({ value, commit, cancel }: GridEditorContext<string, Employee>) {
@@ -270,7 +270,7 @@ function StatusEditor({ value, commit, cancel }: GridEditorContext<string, Emplo
 }
 
 function EmployeeGrid() {
-  const config: ReactGridConfig<Employee> = {
+  const config: GridConfig<Employee> = {
     columns: [
       { field: 'id', header: 'ID', width: 70 },
       { field: 'name', header: 'Name', editable: true },
@@ -506,7 +506,7 @@ The grid supports variable row heights for complex layouts. Configure via `rowHe
 <Source
   language="tsx"
   code={`
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 
 interface Employee {
   id: number;
@@ -515,7 +515,7 @@ interface Employee {
   expanded: boolean;
 }
 
-const config: ReactGridConfig<Employee> = {
+const config: GridConfig<Employee> = {
   rowId: 'id', // Required for height caching when rows are recreated
   rowHeight: (row, index) => {
     // Return known fixed height when possible (fast)
@@ -543,10 +543,10 @@ Plugins like `GroupingRowsPlugin` provide their own row heights automatically:
 <Source
   language="tsx"
   code={`
-import { DataGrid, type ReactGridConfig } from '@toolbox-web/grid-react';
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react';
 import { GroupingRowsPlugin } from '@toolbox-web/grid/all';
 
-const config: ReactGridConfig<Employee> = {
+const config: GridConfig<Employee> = {
   plugins: [
     new GroupingRowsPlugin({
       field: 'department',

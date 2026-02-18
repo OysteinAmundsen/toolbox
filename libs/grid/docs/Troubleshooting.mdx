@@ -110,26 +110,21 @@ grid.rows = [...]; // ✅ Works
 
 ### "Property 'columnState' (or 'ready', 'toggleToolPanel') does not exist on type 'GridElement'"
 
-**Problem**: You imported `GridElement` but public API methods are missing.
+**Problem**: TypeScript doesn't recognize the grid element's API methods.
 
-**Solution**: Use `DataGridElement` instead. There are two similarly-named types:
-
-- **`DataGridElement`** - The public consumer type with all API methods (`ready()`, `columnState`, `toggleToolPanel()`, etc.)
-- **`GridElement`** - An internal type for plugin authors (minimal interface)
+**Solution**: Use `DataGridElement` (or its alias `GridElement`) from the public API. Both are the same type — `GridElement` is re-exported as an alias of `DataGridElement`:
 
 ```typescript
-// ❌ Wrong - GridElement is for plugin authors
-import type { GridElement } from '@toolbox-web/grid';
-const grid = document.querySelector('tbw-grid') as GridElement;
-grid.columnState; // Error!
-
-// ✅ Correct - DataGridElement is the public type
+// Both work — they are the same type
 import type { DataGridElement } from '@toolbox-web/grid';
+// or: import type { GridElement } from '@toolbox-web/grid';
 const grid = document.querySelector('tbw-grid') as DataGridElement;
 grid.columnState; // Works!
 grid.ready?.().then(() => console.log('Grid ready'));
 grid.toggleToolPanel?.();
 ```
+
+> **Note**: The internal `GridElement` interface in `base-plugin.ts` (used by plugin authors) is a different, minimal interface — but it is NOT exported from `@toolbox-web/grid`. The public `GridElement` export is identical to `DataGridElement`.
 
 ### Module not found: '@toolbox-web/grid/plugins/selection'
 
@@ -263,10 +258,10 @@ grid.addEventListener('sort-change', handler);
 ```typescript
 // ❌ Event might fire before listener is added
 grid.rows = data;
-grid.addEventListener('render-complete', handler);
+grid.addEventListener('cell-commit', handler);
 
 // ✅ Add listener first
-grid.addEventListener('render-complete', handler);
+grid.addEventListener('cell-commit', handler);
 grid.rows = data;
 ```
 
@@ -357,7 +352,7 @@ tbw-grid {
 2. **Target grid CSS classes directly** — since the grid uses Light DOM, normal CSS selectors work:
 
 ```css
-tbw-grid .data-grid-header {
+tbw-grid .header {
   background: #1976d2;
   color: white;
 }
@@ -432,10 +427,6 @@ animation: { mode: 'off' }
 When reporting issues, include:
 
 ```typescript
-// Grid version
-import { version } from '@toolbox-web/grid';
-console.log('Grid version:', version);
-
 // Browser info
 console.log('User Agent:', navigator.userAgent);
 

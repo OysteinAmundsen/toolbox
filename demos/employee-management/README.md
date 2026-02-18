@@ -1,6 +1,6 @@
 # Employee Management Demo
 
-A comprehensive real-world demo showcasing `@toolbox-web/grid` capabilities in an enterprise employee management scenario. Available in three implementations: Vanilla TypeScript, Angular, and React.
+A comprehensive real-world demo showcasing `@toolbox-web/grid` capabilities in an enterprise employee management scenario. Available in four implementations: Vanilla TypeScript, Angular, React, and Vue.
 
 ## 📂 Project Structure
 
@@ -32,13 +32,21 @@ employee-management/
 │   │   │   └── tool-panels/             # Tool panel components
 │   │   └── App.tsx                      # Main application
 │   └── README.md                        # React-specific docs
+├── vue/                                 # Vue 3 demo
+│   ├── src/                             # Vue application
+│   │   ├── components/                  # Vue components
+│   │   │   ├── editors/                 # Editor components
+│   │   │   ├── renderers/               # Renderer components
+│   │   │   └── tool-panels/             # Tool panel components
+│   │   └── App.vue                      # Main application
+│   └── README.md                        # Vue-specific docs
 ├── employee-management.css              # Shared styles for Storybook
 └── employee-management.stories.ts       # Storybook stories
 ```
 
 ### Shared Code (`shared/`)
 
-All three demos share the same data model, generators, and custom styles:
+All four demos share the same data model, generators, and custom styles:
 
 | File                            | Description                                                        |
 | ------------------------------- | ------------------------------------------------------------------ |
@@ -83,6 +91,16 @@ bun nx serve demo-react
 bun run dev
 ```
 
+### Vue Demo
+
+Vue 3 implementation with Composition API, slots for renderers/editors, and composables.
+
+```bash
+bun nx serve demo-vue
+# or from demos/employee-management/vue:
+bun run dev
+```
+
 ### Dist Mode (Validation)
 
 Run demos against **built packages** (`dist/`) to validate releases before publishing:
@@ -95,6 +113,7 @@ bun run build
 bun nx serve:dist demo-vanilla
 bun nx serve:dist demo-react
 bun nx serve:dist demo-angular
+bun nx serve:dist demo-vue
 
 # Or set USE_DIST manually:
 USE_DIST=true bun nx serve demo-vanilla
@@ -104,15 +123,15 @@ This mode is used by CI to ensure the published packages work correctly.
 
 ## 🛠️ Framework Comparison
 
-All three demos implement the same functionality, showcasing framework-specific patterns:
+All four demos implement the same functionality, showcasing framework-specific patterns:
 
-| Feature              | Vanilla                     | Angular                  | React                                              |
-| -------------------- | --------------------------- | ------------------------ | -------------------------------------------------- |
-| **Custom Renderers** | `renderer: (ctx) => html`   | `*tbwRenderer` directive | `renderer: (ctx) => JSX` or `GridColumn` children  |
-| **Custom Editors**   | `editor: (ctx) => html`     | `*tbwEditor` directive   | `editor: (ctx) => JSX` or `GridColumn` editor prop |
-| **Tool Panels**      | `registerToolPanel()`       | `<tbw-grid-tool-panel>`  | `<GridToolPanel>` component                        |
-| **Master-Detail**    | `MasterDetailPlugin` config | `<tbw-grid-detail>`      | `<GridDetailPanel>` component                      |
-| **Event Handling**   | `addEventListener()`        | `(cellCommit)` output    | `onCellEdit` prop or `useGridEvent` hook           |
+| Feature              | Vanilla                     | Angular                  | React                                              | Vue                                               |
+| -------------------- | --------------------------- | ------------------------ | -------------------------------------------------- | ------------------------------------------------- |
+| **Custom Renderers** | `renderer: (ctx) => html`   | `*tbwRenderer` directive | `renderer: (ctx) => JSX` or `GridColumn` children  | `#cell` slot on `TbwGridColumn`                   |
+| **Custom Editors**   | `editor: (ctx) => html`     | `*tbwEditor` directive   | `editor: (ctx) => JSX` or `GridColumn` editor prop | `#editor` slot on `TbwGridColumn`                 |
+| **Tool Panels**      | `registerToolPanel()`       | `<tbw-grid-tool-panel>`  | `<GridToolPanel>` component                        | `<TbwGridToolPanel>` component                    |
+| **Master-Detail**    | `MasterDetailPlugin` config | `<tbw-grid-detail>`      | `<GridDetailPanel>` component                      | `<TbwGridDetailPanel>` component                  |
+| **Event Handling**   | `addEventListener()`        | `(cellCommit)` output    | `onCellEdit` prop or `useGridEvent` hook           | `@cell-commit` event or `useGridEvent` composable |
 
 ## 🚀 Features Demonstrated
 

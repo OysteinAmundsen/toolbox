@@ -40,12 +40,10 @@ This document outlines planned features and improvements for the grid component,
 - [x] Clipboard copy/paste (`clipboard`)
 - [x] Column filtering (`filtering`)
 - [x] Column header grouping (`grouping-columns`)
-- [x] Column menu (`column-menu`) - [#68](https://github.com/OysteinAmundsen/toolbox/issues/68)
 - [x] Column pinning (`pinned-columns`)
 - [x] Column reordering (`reorder`)
 - [x] Column virtualization (`column-virtualization`)
 - [x] Column visibility panel (`visibility`)
-- [x] Conditional formatting (`conditional-formatting`) - [#69](https://github.com/OysteinAmundsen/toolbox/issues/69)
 - [x] Context menus (`context-menu`)
 - [x] Export - CSV, Excel, JSON (`export`)
 - [x] Footer aggregations / Pinned rows (`pinned-rows`)
@@ -65,19 +63,21 @@ This document outlines planned features and improvements for the grid component,
 
 | Plugin                     | Priority | Effort | Value | Issue                                                       |
 | -------------------------- | -------- | ------ | ----- | ----------------------------------------------------------- |
+| Column Menu                | 🟡 P2    | Medium | High  | [#68](https://github.com/OysteinAmundsen/toolbox/issues/68) |
+| Conditional Formatting     | 🟡 P2    | Medium | High  | [#69](https://github.com/OysteinAmundsen/toolbox/issues/69) |
 | Real-time Data (WebSocket) | 🟢 P3    | Medium | Niche | [#79](https://github.com/OysteinAmundsen/toolbox/issues/79) |
 
 **Framework Adapters:**
 
 Framework adapters enable idiomatic integration with popular JavaScript frameworks, allowing framework components as cell renderers/editors, proper lifecycle management, and type-safe APIs.
 
-| Package                     | Framework   | Priority | Effort | Status      | Issue                                                       |
-| --------------------------- | ----------- | -------- | ------ | ----------- | ----------------------------------------------------------- |
-| `@toolbox-web/grid-angular` | Angular 17+ | ✅       | -      | Complete    | -                                                           |
-| `@toolbox-web/grid-react`   | React 18+   | ✅       | -      | Complete    | -                                                           |
-| `@toolbox-web/grid-vue`     | Vue 3       | 🟡 P2    | Medium | Not started | [#72](https://github.com/OysteinAmundsen/toolbox/issues/72) |
-| `@toolbox-web/grid-svelte`  | Svelte 4/5  | 🟢 P3    | Medium | Not started | -                                                           |
-| `@toolbox-web/grid-solid`   | Solid       | 🟢 P3    | Medium | Not started | -                                                           |
+| Package                     | Framework   | Priority | Effort | Status      | Issue |
+| --------------------------- | ----------- | -------- | ------ | ----------- | ----- |
+| `@toolbox-web/grid-angular` | Angular 17+ | ✅       | -      | Complete    | -     |
+| `@toolbox-web/grid-react`   | React 18+   | ✅       | -      | Complete    | -     |
+| `@toolbox-web/grid-vue`     | Vue 3       | ✅       | -      | Complete    | -     |
+| `@toolbox-web/grid-svelte`  | Svelte 4/5  | 🟢 P3    | Medium | Not started | -     |
+| `@toolbox-web/grid-solid`   | Solid       | 🟢 P3    | Medium | Not started | -     |
 
 **Adapter Enhancements (Planned):**
 
@@ -181,26 +181,33 @@ Seamless integration with Angular Reactive Forms (FormArray) and future Signal F
 
 ---
 
-### Plugin Event Bus & Query System [core]
+### Plugin Event Bus & Query System [core] ✅
 
-Formalized pub/sub system for plugin-to-plugin communication, plus a refactored query system for synchronous state retrieval. Currently plugins query each other directly via `grid.getPlugin(PluginClass)`, which creates tight coupling.
+Formalized pub/sub system for plugin-to-plugin communication, plus a query system for synchronous state retrieval.
 
 **Two Systems**:
 
-- **Event Bus (Change Streams)**: Plugins emit/subscribe to typed events for async notifications
-- **Query System (Current State)**: Plugins declare and respond to queries in their manifest
+- **Event Bus (Change Streams)**: Plugins emit/subscribe to typed events via `emitPluginEvent()` / `onPluginEvent()`
+- **Query System (Current State)**: Plugins declare queries in their manifest and respond via `handleQuery()`
 
-**API**: Plugins emit/subscribe to typed events through a central bus:
+**API**: Plugins emit/subscribe to typed events through the plugin manager:
 
 ```typescript
-// In a plugin
-this.emit('selection-cleared', { reason: 'filter-change' });
-this.on('filter-change', (detail) => { ... });
+// In a plugin - emit to other plugins (not DOM)
+this.emitPluginEvent('filter-change', { field: 'name', value: 'Alice' });
+
+// Subscribe to plugin events
+this.onPluginEvent('selection-cleared', (detail) => { ... });
+
+// Query system - synchronous state retrieval
+handleQuery(query: PluginQuery): unknown {
+  if (query.type === 'canMoveColumn') return this.canMoveColumn(query.context);
+}
 ```
 
 **Use case**: Decouples plugins; allows third-party plugins to react to built-in plugin events without direct imports.
 
-**Status**: Not started - [#83](https://github.com/OysteinAmundsen/toolbox/issues/83)
+**Status**: ✅ Complete - [#83](https://github.com/OysteinAmundsen/toolbox/issues/83)
 
 ---
 

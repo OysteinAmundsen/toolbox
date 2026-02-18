@@ -40,6 +40,7 @@ libs/
   grid/           # @toolbox-web/grid - Data grid component
   grid-angular/   # @toolbox-web/grid-angular - Angular adapter
   grid-react/     # @toolbox-web/grid-react - React adapter
+  grid-vue/       # @toolbox-web/grid-vue - Vue 3 adapter
   themes/         # Shared theme system
 demos/
   employee-management/   # Full-featured demo applications
@@ -47,6 +48,7 @@ demos/
     vanilla/             # Pure TypeScript/Vite demo
     angular/             # Angular 21 demo
     react/               # React 19 demo
+    vue/                 # Vue 3 demo
 apps/
   docs/           # Storybook documentation site
 ```

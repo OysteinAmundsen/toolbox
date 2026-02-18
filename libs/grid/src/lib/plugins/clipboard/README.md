@@ -16,7 +16,7 @@ import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
 grid.gridConfig = {
   plugins: [
     new ClipboardPlugin({
-      copyHeaders: true,
+      includeHeaders: true,
       delimiter: '\t',
     }),
   ],
@@ -25,20 +25,22 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option           | Type                            | Default | Description                                    |
-| ---------------- | ------------------------------- | ------- | ---------------------------------------------- |
-| `includeHeaders` | `boolean`                       | `false` | Include headers when copying                   |
-| `delimiter`      | `string`                        | `'\t'`  | Column delimiter (tab for Excel compatibility) |
-| `newline`        | `string`                        | `'\n'`  | Row delimiter                                  |
-| `quoteStrings`   | `boolean`                       | `false` | Wrap string values with quotes                 |
-| `processCell`    | `(value, field, row) => string` | -       | Custom cell value processor                    |
+| Option           | Type                            | Default               | Description                                    |
+| ---------------- | ------------------------------- | --------------------- | ---------------------------------------------- |
+| `includeHeaders` | `boolean`                       | `false`               | Include column headers in copied text          |
+| `delimiter`      | `string`                        | `'\t'`                | Column delimiter (tab for Excel compatibility) |
+| `newline`        | `string`                        | `'\n'`                | Row delimiter                                  |
+| `quoteStrings`   | `boolean`                       | `false`               | Wrap string values with quotes                 |
+| `processCell`    | `(value, field, row) => string` | -                     | Custom cell value processor                    |
+| `pasteHandler`   | `PasteHandler \| null`          | `defaultPasteHandler` | Custom paste handler. Set to `null` to disable |
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action                   |
-| -------- | ------------------------ |
-| `Ctrl+C` | Copy selected cells/rows |
-| `Ctrl+V` | Paste into grid          |
+| Shortcut           | Action                   |
+| ------------------ | ------------------------ |
+| `Ctrl+C` / `Cmd+C` | Copy selected cells/rows |
+| `Ctrl+V` / `Cmd+V` | Paste into grid          |
+| `Ctrl+X` / `Cmd+X` | Cut selected cells       |
 
 ## Events
 

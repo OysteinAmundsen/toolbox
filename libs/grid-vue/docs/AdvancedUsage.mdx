@@ -20,7 +20,7 @@ While [feature props](/docs/grid-vue-getting-started--docs) are recommended for 
   language="html"
   code={`
 <script setup lang="ts">
-import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
 import {
   SelectionPlugin,
   EditingPlugin,
@@ -38,7 +38,7 @@ interface Employee {
 const employees = ref<Employee[]>([/* ... */]);
 
 // Use markRaw to prevent Vue from making plugins reactive
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: [
     { field: 'id', header: 'ID' },
     { field: 'name', header: 'Name', editable: true },
@@ -70,7 +70,7 @@ Feature props and manual plugins can be mixed. The grid merges them, with manual
   code={`
 <script setup lang="ts">
 import '@toolbox-web/grid-vue/features/selection';
-import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
 import { ResponsivePlugin } from '@toolbox-web/grid/all';
 import { markRaw, ref } from 'vue';
 
@@ -82,7 +82,7 @@ const responsivePlugin = new ResponsivePlugin({
   cardTitleField: 'name',
 });
 
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: columns,
   plugins: [responsivePlugin],
 });
@@ -270,12 +270,12 @@ Override the default sort comparator for complex sorting requirements:
   code={`
 <script setup lang="ts">
 import '@toolbox-web/grid-vue/features/multi-sort';
-import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
 import { markRaw, ref } from 'vue';
 
 const employees = ref<Employee[]>([/* ... */]);
 
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: [
     { field: 'name', header: 'Name', sortable: true },
     {
@@ -419,12 +419,12 @@ Fine-tune virtualization for optimal performance:
   language="html"
   code={`
 <script setup lang="ts">
-import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
 import { markRaw, ref } from 'vue';
 
 const largeDataset = ref<DataRow[]>([/* 100,000 rows */]);
 
-const config = markRaw<VueGridConfig<DataRow>>({
+const config = markRaw<GridConfig<DataRow>>({
   columns: columns,
   virtualization: {
     rowHeight: 32,    // Fixed row height (default: 28)
@@ -455,7 +455,7 @@ Add custom actions to the context menu:
 <script setup lang="ts">
 import '@toolbox-web/grid-vue/features/context-menu';
 import '@toolbox-web/grid-vue/features/selection';
-import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
 import type { ContextMenuItem } from '@toolbox-web/grid';
 import { markRaw, ref } from 'vue';
 
@@ -480,7 +480,7 @@ const contextMenuItems: ContextMenuItem<Employee>[] = [
   },
 ];
 
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: columns,
 });
 </script>
@@ -612,7 +612,7 @@ Switch between table and card views based on screen size:
   language="html"
   code={`
 <script setup lang="ts">
-import { TbwGrid, TbwGridResponsiveCard, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, TbwGridResponsiveCard, type GridConfig } from '@toolbox-web/grid-vue';
 import { ResponsivePlugin } from '@toolbox-web/grid/all';
 import { markRaw, ref } from 'vue';
 
@@ -624,7 +624,7 @@ const responsivePlugin = new ResponsivePlugin({
   cardSubtitleField: 'role', // Show role as subtitle
 });
 
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: [
     { field: 'name', header: 'Name' },
     { field: 'role', header: 'Role' },
@@ -783,10 +783,10 @@ function onSearchInput(event: Event) {
   language="html"
   code={`
 <script setup lang="ts">
-import { TbwGrid, type VueGridConfig } from '@toolbox-web/grid-vue';
+import { TbwGrid, type GridConfig } from '@toolbox-web/grid-vue';
 import { markRaw } from 'vue';
 
-const config = markRaw<VueGridConfig<Employee>>({
+const config = markRaw<GridConfig<Employee>>({
   columns: columns,
   debug: true, // Enables verbose logging
 });

@@ -12,15 +12,19 @@ import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 
 ```typescript
 import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
 grid.gridConfig = {
   plugins: [
+    new EditingPlugin(), // Required dependency
     new UndoRedoPlugin({
       maxHistorySize: 50,
     }),
   ],
 };
 ```
+
+> **Note:** `UndoRedoPlugin` requires `EditingPlugin` — it tracks cell edit history and will not function without it.
 
 ## Configuration
 

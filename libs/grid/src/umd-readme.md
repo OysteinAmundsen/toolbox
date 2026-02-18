@@ -5,7 +5,10 @@
 ```html
 <script src="https://cdn.example.com/@toolbox-web/grid/umd/grid.umd.js"></script>
 <script>
-  const { registerPlugin } = TbwGrid;
+  const { createGrid } = TbwGrid;
+  const grid = createGrid();
+  grid.rows = myData;
+  document.body.appendChild(grid);
 </script>
 ```
 
@@ -14,8 +17,12 @@
 ```html
 <script src="https://cdn.example.com/@toolbox-web/grid/umd/grid.all.umd.js"></script>
 <script>
-  const { registerPlugin, selectionPlugin } = TbwGrid;
-  registerPlugin(selectionPlugin);
+  const { createGrid, SelectionPlugin, FilteringPlugin } = TbwGrid;
+  const grid = createGrid({
+    plugins: [new SelectionPlugin(), new FilteringPlugin()],
+  });
+  grid.rows = myData;
+  document.body.appendChild(grid);
 </script>
 ```
 
@@ -25,6 +32,12 @@
 <script src="https://cdn.example.com/@toolbox-web/grid/umd/grid.umd.js"></script>
 <script src="https://cdn.example.com/@toolbox-web/grid/umd/plugins/selection.umd.js"></script>
 <script>
-  TbwGrid.registerPlugin(TbwGridPlugin_selection.selectionPlugin);
+  const { createGrid } = TbwGrid;
+  const { SelectionPlugin } = TbwGridPlugin_selection;
+  const grid = createGrid({
+    plugins: [new SelectionPlugin({ mode: 'row' })],
+  });
+  grid.rows = myData;
+  document.body.appendChild(grid);
 </script>
 ```

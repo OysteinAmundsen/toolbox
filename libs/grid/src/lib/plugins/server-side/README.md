@@ -13,34 +13,37 @@ import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 ```typescript
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 
+const serverSide = new ServerSidePlugin({
+  pageSize: 100,
+  cacheBlockSize: 100,
+});
+
 grid.gridConfig = {
-  plugins: [
-    new ServerSidePlugin({
-      dataSource: {
-        getRows: async (params) => {
-          const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
-          const data = await response.json();
-          return {
-            rows: data.rows,
-            totalRows: data.total,
-          };
-        },
-      },
-      blockSize: 100,
-      cacheBlockCount: 10,
-    }),
-  ],
+  plugins: [serverSide],
 };
+
+// Set data source via method (not config)
+serverSide.setDataSource({
+  getRows: async (params) => {
+    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    const data = await response.json();
+    return {
+      rows: data.rows,
+      totalRowCount: data.total,
+    };
+  },
+});
 ```
 
 ## Configuration
 
-| Option                  | Type                   | Default | Description                |
-| ----------------------- | ---------------------- | ------- | -------------------------- |
-| `dataSource`            | `ServerSideDataSource` | -       | Data source implementation |
-| `pageSize`              | `number`               | `100`   | Rows per page/block        |
-| `cacheBlockSize`        | `number`               | `100`   | Rows per cache block       |
-| `maxConcurrentRequests` | `number`               | `2`     | Max concurrent block loads |
+| Option                  | Type     | Default | Description                |
+| ----------------------- | -------- | ------- | -------------------------- |
+| `pageSize`              | `number` | `100`   | Rows per page/block        |
+| `cacheBlockSize`        | `number` | `100`   | Rows per cache block       |
+| `maxConcurrentRequests` | `number` | `2`     | Max concurrent block loads |
+
+> **Note:** `dataSource` is set via the `setDataSource()` method, not as a config option.
 
 ## Data Source Interface
 

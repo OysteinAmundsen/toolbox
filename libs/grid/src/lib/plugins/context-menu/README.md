@@ -28,25 +28,24 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option     | Type                            | Description                         |
-| ---------- | ------------------------------- | ----------------------------------- |
-| `items`    | `ContextMenuItem[]`             | Menu items to display               |
-| `getItems` | `(params) => ContextMenuItem[]` | Dynamic menu items based on context |
+| Option  | Type                                                                      | Description                                   |
+| ------- | ------------------------------------------------------------------------- | --------------------------------------------- |
+| `items` | `ContextMenuItem[] \| ((params: ContextMenuParams) => ContextMenuItem[])` | Menu items — static array or dynamic function |
 
 ## Menu Item Options
 
-| Option      | Type                | Description                 |
-| ----------- | ------------------- | --------------------------- | ------------ |
-| `id`        | `string`            | Unique identifier           |
-| `name`      | `string`            | Display label               |
-| `icon`      | `string`            | Icon (emoji or HTML)        |
-| `shortcut`  | `string`            | Keyboard shortcut hint      |
-| `disabled`  | `boolean \\         | (params) => boolean`        | Disable item |
-| `hidden`    | `boolean \\         | (params) => boolean`        | Hide item    |
-| `separator` | `boolean`           | Render as separator line    |
-| `subMenu`   | `ContextMenuItem[]` | Nested submenu              |
-| `action`    | `(params) => void`  | Click handler               |
-| `cssClass`  | `string`            | Optional CSS class for item |
+| Option      | Type                             | Description              |
+| ----------- | -------------------------------- | ------------------------ |
+| `id`        | `string`                         | Unique identifier        |
+| `name`      | `string`                         | Display label            |
+| `icon`      | `string`                         | Icon (emoji or HTML)     |
+| `shortcut`  | `string \| string[]`             | Keyboard shortcut hint   |
+| `disabled`  | `boolean \| (params) => boolean` | Disable item             |
+| `hidden`    | `boolean \| (params) => boolean` | Hide item                |
+| `separator` | `boolean`                        | Render as separator line |
+| `subMenu`   | `ContextMenuItem[]`              | Nested submenu           |
+| `action`    | `(params) => void`               | Click handler            |
+| `cssClass`  | `string`                         | Optional CSS class       |
 
 ## Context Parameters
 
@@ -54,12 +53,12 @@ The `params` object passed to callbacks:
 
 ```typescript
 interface ContextMenuParams {
-  row: any; // Row data (null for headers)
+  row: unknown; // Row data (null for headers)
   rowIndex: number; // Row index (-1 for headers)
-  column: ColumnConfig;
+  column: unknown; // Column config
   columnIndex: number;
   field: string;
-  value: any;
+  value: unknown;
   isHeader: boolean;
   event: MouseEvent;
   selectedRows: number[]; // Currently selected row indices (requires SelectionPlugin)
@@ -80,7 +79,7 @@ syncs the selection:
 
 ```typescript
 new ContextMenuPlugin({
-  getItems: (params) => {
+  items: (params) => {
     const items = [{ id: 'copy', name: 'Copy Cell', action: () => copyCell(params) }];
 
     if (!params.isHeader) {

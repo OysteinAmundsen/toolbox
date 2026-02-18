@@ -559,7 +559,7 @@ The grid can be used as an Angular form control with `formControlName` or `formC
 ```typescript
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { Grid, GridFormControl } from '@toolbox-web/grid-angular';
+import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import type { GridConfig } from '@toolbox-web/grid';
 
@@ -569,7 +569,7 @@ interface Employee {
 }
 
 @Component({
-  imports: [Grid, GridFormControl, ReactiveFormsModule],
+  imports: [Grid, GridFormArray, ReactiveFormsModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [formControl]="employeesControl" [gridConfig]="config" style="height: 400px; display: block;" />
@@ -602,11 +602,11 @@ export class MyComponent {
 ```typescript
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Grid, GridFormControl } from '@toolbox-web/grid-angular';
+import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
 @Component({
-  imports: [Grid, GridFormControl, ReactiveFormsModule],
+  imports: [Grid, GridFormArray, ReactiveFormsModule],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <form [formGroup]="form">
@@ -670,7 +670,7 @@ Angular's form system automatically adds these classes to the grid element:
 
 Additionally, when the control is disabled:
 
-- `.form-disabled` - Added by `GridFormControl`
+- `.form-disabled` - Added by `GridFormArray`
 
 You can style these states:
 
@@ -692,7 +692,7 @@ For fine-grained control over validation and form state at the cell level, use a
 ```typescript
 import { Component, CUSTOM_ELEMENTS_SCHEMA, input, output } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Grid, GridFormControl, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
+import { Grid, GridFormArray, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
 // Custom editor that uses the FormControl directly
@@ -731,7 +731,7 @@ export class ValidatedInputComponent {
 }
 
 @Component({
-  imports: [Grid, GridFormControl, TbwRenderer, TbwEditor, ReactiveFormsModule, ValidatedInputComponent],
+  imports: [Grid, GridFormArray, TbwRenderer, TbwEditor, ReactiveFormsModule, ValidatedInputComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [formControl]="employeesArray" [gridConfig]="config">
@@ -826,12 +826,12 @@ if (context?.hasFormGroups) {
 
 The adapter provides base classes that eliminate boilerplate when building custom editors and filter panels.
 
-| Base Class | Extends | Purpose |
-| --- | --- | --- |
-| `BaseGridEditor` | — | Common inputs (`value`, `row`, `column`, `control`), outputs (`commit`, `cancel`), validation helpers |
-| `BaseGridEditorCVA` | `BaseGridEditor` | Adds `ControlValueAccessor` for dual grid + standalone form use |
-| `BaseOverlayEditor` | `BaseGridEditor` | Floating overlay panel with CSS Anchor Positioning, focus gating, click-outside detection |
-| `BaseFilterPanel` | — | Ready-made `params` input for `FilteringPlugin`, with `applyAndClose()` / `clearAndClose()` helpers |
+| Base Class          | Extends          | Purpose                                                                                               |
+| ------------------- | ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `BaseGridEditor`    | —                | Common inputs (`value`, `row`, `column`, `control`), outputs (`commit`, `cancel`), validation helpers |
+| `BaseGridEditorCVA` | `BaseGridEditor` | Adds `ControlValueAccessor` for dual grid + standalone form use                                       |
+| `BaseOverlayEditor` | `BaseGridEditor` | Floating overlay panel with CSS Anchor Positioning, focus gating, click-outside detection             |
+| `BaseFilterPanel`   | —                | Ready-made `params` input for `FilteringPlugin`, with `applyAndClose()` / `clearAndClose()` helpers   |
 
 ### BaseOverlayEditor Example
 
@@ -853,7 +853,7 @@ import { BaseOverlayEditor } from '@toolbox-web/grid-angular';
       <input type="date" [value]="currentValue()" (change)="selectAndClose($event.target.value)" />
       <button (click)="hideOverlay()">Cancel</button>
     </div>
-  `
+  `,
 })
 export class DateEditorComponent extends BaseOverlayEditor<MyRow, string> implements AfterViewInit {
   @ViewChild('panel') panelRef!: ElementRef<HTMLElement>;
@@ -866,8 +866,12 @@ export class DateEditorComponent extends BaseOverlayEditor<MyRow, string> implem
     if (this.isCellFocused()) this.showOverlay();
   }
 
-  protected getInlineInput() { return this.inputRef?.nativeElement ?? null; }
-  protected onOverlayOutsideClick() { this.hideOverlay(); }
+  protected getInlineInput() {
+    return this.inputRef?.nativeElement ?? null;
+  }
+  protected onOverlayOutsideClick() {
+    this.hideOverlay();
+  }
 
   selectAndClose(date: string): void {
     this.commitValue(date);
@@ -888,7 +892,7 @@ import { BaseFilterPanel } from '@toolbox-web/grid-angular';
     <input #input (keydown.enter)="applyAndClose()" />
     <button (click)="applyAndClose()">Apply</button>
     <button (click)="clearAndClose()">Clear</button>
-  `
+  `,
 })
 export class TextFilterComponent extends BaseFilterPanel {
   @ViewChild('input') input!: ElementRef<HTMLInputElement>;
@@ -908,7 +912,7 @@ export class TextFilterComponent extends BaseFilterPanel {
 | Directive          | Selector                                             | Description                            |
 | ------------------ | ---------------------------------------------------- | -------------------------------------- |
 | `Grid`             | `tbw-grid`                                           | Main directive, auto-registers adapter |
-| `GridFormControl`  | `tbw-grid[formControlName]`, `tbw-grid[formControl]` | Reactive Forms integration             |
+| `GridFormArray`    | `tbw-grid[formControlName]`, `tbw-grid[formControl]` | Reactive Forms integration             |
 | `TbwRenderer`      | `*tbwRenderer`                                       | Structural directive for cell views    |
 | `TbwEditor`        | `*tbwEditor`                                         | Structural directive for cell editors  |
 | `GridColumnView`   | `tbw-grid-column-view`                               | Nested directive for cell views        |
@@ -918,12 +922,12 @@ export class TextFilterComponent extends BaseFilterPanel {
 
 ### Base Classes
 
-| Class | Description |
-| --- | --- |
-| `BaseGridEditor<TRow, TValue>` | Base class for inline cell editors with validation helpers |
+| Class                             | Description                                                          |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `BaseGridEditor<TRow, TValue>`    | Base class for inline cell editors with validation helpers           |
 | `BaseGridEditorCVA<TRow, TValue>` | `BaseGridEditor` + `ControlValueAccessor` for dual grid/form editors |
-| `BaseOverlayEditor<TRow, TValue>` | `BaseGridEditor` + floating overlay panel infrastructure |
-| `BaseFilterPanel` | Base class for custom filter panels with `params` input |
+| `BaseOverlayEditor<TRow, TValue>` | `BaseGridEditor` + floating overlay panel infrastructure             |
+| `BaseFilterPanel`                 | Base class for custom filter panels with `params` input              |
 
 ### Type Registry
 
@@ -951,12 +955,29 @@ export class TextFilterComponent extends BaseFilterPanel {
 
 ### Grid Directive Outputs
 
-| Output         | Type                              | Description          |
-| -------------- | --------------------------------- | -------------------- |
-| `cellCommit`   | `EventEmitter<CellCommitEvent>`   | Cell value committed |
-| `rowCommit`    | `EventEmitter<RowCommitEvent>`    | Row edit committed   |
-| `sortChange`   | `EventEmitter<SortChangeEvent>`   | Sort state changed   |
-| `columnResize` | `EventEmitter<ColumnResizeEvent>` | Column resized       |
+| Output              | Type                                       | Description                  |
+| ------------------- | ------------------------------------------ | ---------------------------- |
+| `cellCommit`        | `OutputEmitterRef<CellCommitEvent>`        | Cell value committed         |
+| `rowCommit`         | `OutputEmitterRef<RowCommitEvent>`         | Row edit committed           |
+| `sortChange`        | `OutputEmitterRef<SortChangeDetail>`       | Sort state changed           |
+| `columnResize`      | `OutputEmitterRef<ColumnResizeDetail>`     | Column resized               |
+| `cellClick`         | `OutputEmitterRef<CellClickDetail>`        | Cell clicked                 |
+| `rowClick`          | `OutputEmitterRef<RowClickDetail>`         | Row clicked                  |
+| `cellActivate`      | `OutputEmitterRef<CellActivateDetail>`     | Cell focus changed           |
+| `cellChange`        | `OutputEmitterRef<CellChangeDetail>`       | Cell value changed           |
+| `changedRowsReset`  | `OutputEmitterRef<ChangedRowsResetDetail>` | Changed rows cache cleared   |
+| `filterChange`      | `OutputEmitterRef<FilterChangeDetail>`     | Filter state changed         |
+| `columnMove`        | `OutputEmitterRef<ColumnMoveDetail>`       | Column moved                 |
+| `columnVisibility`  | `OutputEmitterRef<ColumnVisibilityDetail>` | Column visibility changed    |
+| `columnStateChange` | `OutputEmitterRef<GridColumnState>`        | Column state changed         |
+| `selectionChange`   | `OutputEmitterRef<SelectionChangeDetail>`  | Selection changed            |
+| `rowMove`           | `OutputEmitterRef<RowMoveDetail>`          | Row moved (drag & drop)      |
+| `groupToggle`       | `OutputEmitterRef<GroupToggleDetail>`      | Group expanded/collapsed     |
+| `treeExpand`        | `OutputEmitterRef<TreeExpandDetail>`       | Tree node expanded/collapsed |
+| `detailExpand`      | `OutputEmitterRef<DetailExpandDetail>`     | Detail panel toggled         |
+| `responsiveChange`  | `OutputEmitterRef<ResponsiveChangeDetail>` | Responsive mode changed      |
+| `copy`              | `OutputEmitterRef<CopyDetail>`             | Data copied to clipboard     |
+| `paste`             | `OutputEmitterRef<PasteDetail>`            | Data pasted from clipboard   |
 
 ### GridDetailView Inputs
 
@@ -1008,12 +1029,7 @@ import type {
 } from '@toolbox-web/grid-angular';
 
 // Base classes for custom editors and filter panels
-import {
-  BaseGridEditor,
-  BaseGridEditorCVA,
-  BaseOverlayEditor,
-  BaseFilterPanel,
-} from '@toolbox-web/grid-angular';
+import { BaseGridEditor, BaseGridEditorCVA, BaseOverlayEditor, BaseFilterPanel } from '@toolbox-web/grid-angular';
 
 // Type guard for component class detection
 import { isComponentClass } from '@toolbox-web/grid-angular';

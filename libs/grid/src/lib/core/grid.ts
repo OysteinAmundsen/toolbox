@@ -2497,7 +2497,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     if (!col) return false;
 
     const headerClickEvent: HeaderClickEvent = {
-      colIndex: this._columns.indexOf(col),
+      colIndex: this._columns.indexOf(col as ColumnInternal<T>),
       field: col.field,
       column: col,
       headerEl,

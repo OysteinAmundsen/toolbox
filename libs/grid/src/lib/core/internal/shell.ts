@@ -581,6 +581,45 @@ export function setupShellEventListeners(
 }
 
 /**
+ * Set up a click-outside listener that closes the tool panel when the user
+ * clicks anywhere inside the grid but outside the tool panel itself.
+ *
+ * Only active when `config.toolPanel.closeOnClickOutside` is `true` AND the
+ * panel is open. The listener is added on `mousedown` (not `click`) so it
+ * fires before focus changes.
+ *
+ * @returns A cleanup function that removes the listener.
+ */
+export function setupClickOutsideDismiss(
+  gridElement: Element,
+  config: ShellConfig | undefined,
+  state: ShellState,
+  onClose: () => void,
+): () => void {
+  if (!config?.toolPanel?.closeOnClickOutside) {
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    return () => {};
+  }
+
+  const handler = (e: Event) => {
+    if (!state.isPanelOpen) return;
+
+    const target = e.target as Element | null;
+    if (!target) return;
+
+    // Ignore clicks inside the tool panel itself or its toggle button
+    if (target.closest('.tbw-tool-panel') || target.closest('[data-panel-toggle]')) {
+      return;
+    }
+
+    onClose();
+  };
+
+  gridElement.addEventListener('mousedown', handler);
+  return () => gridElement.removeEventListener('mousedown', handler);
+}
+
+/**
  * Set up resize handle for tool panel.
  * Returns a cleanup function to remove event listeners.
  */

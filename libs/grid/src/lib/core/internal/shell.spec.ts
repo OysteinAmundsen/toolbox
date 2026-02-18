@@ -4,13 +4,14 @@
  * Tests the pure functions for shell header bar and tool panel infrastructure.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from '../types';
 import {
   cleanupShellState,
   createShellState,
   renderShellBody,
   renderShellHeader,
+  setupClickOutsideDismiss,
   shouldRenderShellHeader,
   type ShellState,
 } from './shell';
@@ -619,6 +620,119 @@ describe('shell module', () => {
       const container = document.createElement('div');
       panel!.render(container);
       expect(container.querySelector('.my-content')).toBeTruthy();
+    });
+  });
+
+  describe('setupClickOutsideDismiss', () => {
+    let gridEl: HTMLElement;
+    let onClose: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+      // Simulate minimal grid DOM structure
+      const toolPanel = document.createElement('div');
+      toolPanel.className = 'tbw-tool-panel';
+      gridEl.appendChild(toolPanel);
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.setAttribute('data-panel-toggle', '');
+      gridEl.appendChild(toggleBtn);
+
+      const gridBody = document.createElement('div');
+      gridBody.className = 'grid-body';
+      gridEl.appendChild(gridBody);
+
+      document.body.appendChild(gridEl);
+      onClose = vi.fn();
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('returns no-op cleanup when closeOnClickOutside is not set', () => {
+      const config: ShellConfig = { toolPanel: {} };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      // Click on grid body — should NOT close
+      gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('returns no-op cleanup when config is undefined', () => {
+      const cleanup = setupClickOutsideDismiss(gridEl, undefined, state, onClose);
+
+      gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('closes panel when clicking outside tool panel', () => {
+      const config: ShellConfig = { toolPanel: { closeOnClickOutside: true } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      // Click on grid body (outside panel)
+      gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      cleanup();
+    });
+
+    it('does NOT close when clicking inside tool panel', () => {
+      const config: ShellConfig = { toolPanel: { closeOnClickOutside: true } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      // Click inside the tool panel
+      gridEl.querySelector('.tbw-tool-panel')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('does NOT close when clicking the toggle button', () => {
+      const config: ShellConfig = { toolPanel: { closeOnClickOutside: true } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      // Click the panel toggle button
+      gridEl.querySelector('[data-panel-toggle]')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('does NOT close when panel is not open', () => {
+      const config: ShellConfig = { toolPanel: { closeOnClickOutside: true } };
+      state.isPanelOpen = false;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+
+      gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+
+      cleanup();
+    });
+
+    it('cleanup removes the listener', () => {
+      const config: ShellConfig = { toolPanel: { closeOnClickOutside: true } };
+      state.isPanelOpen = true;
+
+      const cleanup = setupClickOutsideDismiss(gridEl, config, state, onClose);
+      cleanup();
+
+      // Click after cleanup — should NOT close
+      gridEl.querySelector('.grid-body')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 });

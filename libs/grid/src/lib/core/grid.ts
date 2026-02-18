@@ -28,6 +28,7 @@ import {
   renderCustomToolbarContents,
   renderHeaderContent,
   renderShellHeader,
+  setupClickOutsideDismiss,
   setupShellEventListeners,
   setupToolPanelResize,
   shouldRenderShellHeader,
@@ -291,6 +292,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #shellState: ShellState = createShellState();
   #shellController!: ShellController;
   #resizeCleanup?: () => void;
+  #clickOutsideCleanup?: () => void;
 
   // Loading State
   #loading = false;
@@ -1230,6 +1232,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Clean up tool panel resize handler
     this.#resizeCleanup?.();
     this.#resizeCleanup = undefined;
+
+    // Clean up click-outside dismiss handler
+    this.#clickOutsideCleanup?.();
+    this.#clickOutsideCleanup = undefined;
 
     // Cancel any ongoing touch momentum animation
     cancelMomentum(this.#touchState);
@@ -4346,6 +4352,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Update the CSS variable to persist the new width
       this.style.setProperty('--tbw-tool-panel-width', `${width}px`);
     });
+
+    // Set up click-outside dismiss for tool panel
+    this.#clickOutsideCleanup?.();
+    this.#clickOutsideCleanup = setupClickOutsideDismiss(this, this.#effectiveConfig?.shell, this.#shellState, () =>
+      this.closeToolPanel(),
+    );
   }
   // #endregion
 }

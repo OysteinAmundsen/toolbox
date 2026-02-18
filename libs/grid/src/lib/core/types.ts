@@ -2633,6 +2633,13 @@ export interface ToolPanelConfig {
   defaultOpen?: string;
   /** Whether to persist open/closed state (requires Column State Events) */
   persistState?: boolean;
+  /**
+   * Close the tool panel when clicking outside of it.
+   * When `true`, clicking anywhere outside the tool panel (but inside the grid)
+   * will close the panel automatically.
+   * @default false
+   */
+  closeOnClickOutside?: boolean;
 }
 
 /**

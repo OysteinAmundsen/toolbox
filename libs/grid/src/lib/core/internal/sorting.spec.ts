@@ -42,7 +42,7 @@ function makeGrid(opts: Partial<any> = {}) {
       },
     },
     dispatchEvent: (ev: any) => events.push(ev),
-    _dispatchHeaderClick: () => false,
+    _dispatchHeaderClick: () => false as boolean,
     refreshVirtualWindow: () => {
       /* empty */
     },

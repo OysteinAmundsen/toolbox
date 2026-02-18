@@ -2420,6 +2420,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       detail: {
         rowIndex,
         colIndex,
+        column: col,
         field,
         value,
         row,
@@ -2439,6 +2440,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       row,
       rowIndex,
       colIndex,
+      column: col,
       field,
       value,
       cellEl,
@@ -2485,12 +2487,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Dispatch a header click event to the plugin system.
    * Returns true if any plugin handled the event.
    */
-  _dispatchHeaderClick(event: MouseEvent, colIndex: number, headerEl: HTMLElement): boolean {
-    const col = this._columns[colIndex];
+  _dispatchHeaderClick(event: MouseEvent, col: ColumnConfig, headerEl: HTMLElement): boolean {
     if (!col) return false;
 
     const headerClickEvent: HeaderClickEvent = {
-      colIndex,
+      colIndex: this._columns.indexOf(col),
       field: col.field,
       column: col,
       headerEl,

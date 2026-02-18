@@ -32,6 +32,7 @@ export interface CellCoords {
 export interface CellClickEvent {
   rowIndex: number;
   colIndex: number;
+  column: ColumnConfig;
   field: string;
   value: unknown;
   row: unknown;

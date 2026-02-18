@@ -92,13 +92,13 @@ function setupSortHandlers(grid: InternalGrid, col: ColumnInternal, colIndex: nu
 
   cell.addEventListener('click', (e) => {
     if (grid._resizeController?.isResizing) return;
-    if (grid._dispatchHeaderClick?.(e, colIndex, cell)) return;
+    if (grid._dispatchHeaderClick?.(e, col, cell)) return;
     toggleSort(grid, col);
   });
   cell.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (grid._dispatchHeaderClick?.(e as unknown as MouseEvent, colIndex, cell)) return;
+      if (grid._dispatchHeaderClick?.(e as unknown as MouseEvent, col, cell)) return;
       toggleSort(grid, col);
     }
   });

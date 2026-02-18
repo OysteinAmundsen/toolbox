@@ -48,7 +48,7 @@ function makeGrid(opts: Partial<any> = {}) {
     dispatchEvent: () => {
       /* empty */
     },
-    _dispatchHeaderClick: () => false,
+    _dispatchHeaderClick: () => false as boolean,
     refreshVirtualWindow: () => {
       /* empty */
     },

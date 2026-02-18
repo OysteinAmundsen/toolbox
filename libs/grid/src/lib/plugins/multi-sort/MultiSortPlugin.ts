@@ -201,7 +201,10 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
         }
       } else {
         cell.removeAttribute('data-sort');
-        // For unsorted columns, leave the base indicator (⇅) alone
+        // Remove any stale sort indicators left by a previous afterRender cycle
+        // Base indicators use part="sort-indicator", plugin indicators use class="sort-indicator"
+        const staleIndicator = cell.querySelector('[part~="sort-indicator"], .sort-indicator');
+        staleIndicator?.remove();
       }
     });
   }

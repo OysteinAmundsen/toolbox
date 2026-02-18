@@ -143,6 +143,7 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       const detail = {
         rowIndex,
         colIndex,
+        column,
         field,
         value,
         row,

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.13.1...grid-angular-0.13.2) (2026-02-18)
+
+
+### Bug Fixes
+
+* **grid:** add missing await for async method ([f2f790f](https://github.com/OysteinAmundsen/toolbox/commit/f2f790f490e07f1a1a6056b0863bac6fa9b94e4d))
+
 ## [0.13.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.13.0...grid-angular-0.13.1) (2026-02-16)
 
 

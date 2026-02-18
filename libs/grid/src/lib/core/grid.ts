@@ -3511,12 +3511,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *   render: (container) => {
    *     const csvBtn = document.createElement('button');
    *     csvBtn.textContent = 'Export CSV';
-   *     csvBtn.className = 'dg-toolbar-btn';
+   *     csvBtn.className = 'tbw-toolbar-btn';
    *     csvBtn.addEventListener('click', () => exportToCSV(grid.rows));
    *
    *     const jsonBtn = document.createElement('button');
    *     jsonBtn.textContent = 'Export JSON';
-   *     jsonBtn.className = 'dg-toolbar-btn';
+   *     jsonBtn.className = 'tbw-toolbar-btn';
    *     jsonBtn.addEventListener('click', () => exportToJSON(grid.rows));
    *
    *     container.append(csvBtn, jsonBtn);

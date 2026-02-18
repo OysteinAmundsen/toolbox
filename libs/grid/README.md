@@ -168,52 +168,137 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 
 ### Properties
 
-| Property     | Type                   | Description                                        |
-| ------------ | ---------------------- | -------------------------------------------------- |
-| `rows`       | `T[]`                  | Data array                                         |
-| `sourceRows` | `T[]` (readonly)       | Original unfiltered/unprocessed rows               |
-| `columns`    | `ColumnConfig[]`       | Column definitions (→ `gridConfig.columns`)        |
-| `gridConfig` | `GridConfig`           | Full configuration object (single source of truth) |
-| `fitMode`    | `'stretch' \| 'fixed'` | Column sizing behavior (→ `gridConfig.fitMode`)    |
+| Property      | Type                                | Description                                        |
+| ------------- | ----------------------------------- | -------------------------------------------------- |
+| `rows`        | `T[]`                               | Data array                                         |
+| `columns`     | `ColumnConfig[]`                    | Column definitions (→ `gridConfig.columns`)        |
+| `gridConfig`  | `GridConfig`                        | Full configuration object (single source of truth) |
+| `fitMode`     | `'stretch' \| 'fixed'`              | Column sizing behavior (→ `gridConfig.fitMode`)    |
+| `loading`     | `boolean \| LoadingContext`         | Grid-level loading state                           |
+| `columnState` | `GridColumnState[]`                 | Get/set column widths, order, visibility, sort     |
+| `changedRows` | `T[]` (readonly)                    | Rows with pending edits (requires EditingPlugin)   |
+| `sortState`   | `Map<string, SortState>` (readonly) | Current sort state per column                      |
 
 ### Methods
 
-| Method                             | Returns               | Description                                 |
-| ---------------------------------- | --------------------- | ------------------------------------------- |
-| `ready()`                          | `Promise<void>`       | Resolves when fully initialized             |
-| `forceLayout()`                    | `Promise<void>`       | Force re-layout                             |
-| `getConfig()`                      | `Promise<GridConfig>` | Get effective configuration                 |
-| `getRowId(row)`                    | `string`              | Get unique identifier for a row             |
-| `getRow(id)`                       | `T \| undefined`      | Get row by its ID                           |
-| `updateRow(id, changes, source?)`  | `void`                | Update a single row by ID                   |
-| `updateRows(updates, source?)`     | `void`                | Batch update multiple rows                  |
-| `resetChangedRows(silent?)`        | `Promise<void>`       | Clear change tracking                       |
-| `beginBulkEdit(rowIndex)`          | `Promise<void>`       | Start row editing                           |
-| `commitActiveRowEdit()`            | `Promise<void>`       | Commit current edit                         |
-| `setColumnVisible(field, visible)` | `boolean`             | Set column visibility                       |
-| `setColumnOrder(order)`            | `void`                | Reorder columns by field array              |
-| `getAllColumns()`                  | `ColumnInfo[]`        | Get all columns with visibility status      |
-| `getPlugin(PluginClass)`           | `P \| undefined`      | Get plugin instance by class                |
-| `getPluginByName(name)`            | `Plugin \| undefined` | Get plugin instance by name                 |
-| `animateRow(index, type)`          | `void`                | Animate a single row (change/insert/remove) |
-| `animateRows(indices, type)`       | `void`                | Animate multiple rows at once               |
-| `animateRowById(id, type)`         | `boolean`             | Animate row by ID (returns true if found)   |
+#### Data Methods
+
+| Method                            | Returns               | Description                     |
+| --------------------------------- | --------------------- | ------------------------------- |
+| `ready()`                         | `Promise<void>`       | Resolves when fully initialized |
+| `forceLayout()`                   | `Promise<void>`       | Force re-layout                 |
+| `getConfig()`                     | `Promise<GridConfig>` | Get effective configuration     |
+| `getRowId(row)`                   | `string`              | Get unique identifier for a row |
+| `getRow(id)`                      | `T \| undefined`      | Get row by its ID               |
+| `updateRow(id, changes, source?)` | `void`                | Update a single row by ID       |
+| `updateRows(updates, source?)`    | `void`                | Batch update multiple rows      |
+
+#### Editing Methods (require EditingPlugin)
+
+| Method                      | Returns | Description             |
+| --------------------------- | ------- | ----------------------- |
+| `beginBulkEdit(rowIndex)`   | `void`  | Start row editing       |
+| `commitActiveRowEdit()`     | `void`  | Commit current row edit |
+| `cancelActiveRowEdit()`     | `void`  | Cancel current row edit |
+| `resetChangedRows(silent?)` | `void`  | Clear change tracking   |
+
+#### Column Methods
+
+| Method                             | Returns             | Description                            |
+| ---------------------------------- | ------------------- | -------------------------------------- |
+| `setColumnVisible(field, visible)` | `boolean`           | Set column visibility                  |
+| `toggleColumnVisibility(field)`    | `void`              | Toggle column visible/hidden           |
+| `isColumnVisible(field)`           | `boolean`           | Check if column is visible             |
+| `showAllColumns()`                 | `void`              | Show all hidden columns                |
+| `setColumnOrder(order)`            | `void`              | Reorder columns by field array         |
+| `getColumnOrder()`                 | `string[]`          | Get current column order               |
+| `getAllColumns()`                  | `ColumnInfo[]`      | Get all columns with visibility status |
+| `getColumnState()`                 | `GridColumnState[]` | Get column state (for persistence)     |
+| `resetColumnState()`               | `void`              | Reset to initial column configuration  |
+
+#### Shell Methods
+
+| Method                                | Returns                 | Description                           |
+| ------------------------------------- | ----------------------- | ------------------------------------- |
+| `openToolPanel()`                     | `void`                  | Open the tool panel sidebar           |
+| `closeToolPanel()`                    | `void`                  | Close the tool panel sidebar          |
+| `toggleToolPanel()`                   | `void`                  | Toggle tool panel open/closed         |
+| `toggleToolPanelSection(sectionId)`   | `void`                  | Toggle a tool panel accordion section |
+| `isToolPanelOpen`                     | `boolean` (getter)      | Whether tool panel is open            |
+| `expandedToolPanelSections`           | `string[]` (getter)     | IDs of expanded accordion sections    |
+| `getToolPanels()`                     | `ToolPanelDefinition[]` | Get registered tool panels            |
+| `registerToolPanel(panel)`            | `void`                  | Register a custom tool panel          |
+| `unregisterToolPanel(panelId)`        | `void`                  | Remove a registered tool panel        |
+| `registerHeaderContent(content)`      | `void`                  | Add custom header content             |
+| `unregisterHeaderContent(contentId)`  | `void`                  | Remove custom header content          |
+| `registerToolbarContent(content)`     | `void`                  | Add custom toolbar button             |
+| `unregisterToolbarContent(contentId)` | `void`                  | Remove custom toolbar button          |
+
+#### Style Methods
+
+| Method                    | Returns                      | Description                              |
+| ------------------------- | ---------------------------- | ---------------------------------------- |
+| `registerStyles(id, css)` | `void`                       | Register custom CSS (adoptedStyleSheets) |
+| `unregisterStyles(id)`    | `void`                       | Remove custom CSS by ID                  |
+| `getRegisteredStyles()`   | `Map<string, CSSStyleSheet>` | Get all registered styles                |
+
+#### Loading Methods
+
+| Method                                  | Returns   | Description                      |
+| --------------------------------------- | --------- | -------------------------------- |
+| `setRowLoading(rowId, loading)`         | `void`    | Show/hide row loading indicator  |
+| `setCellLoading(rowId, field, loading)` | `void`    | Show/hide cell loading indicator |
+| `isRowLoading(rowId)`                   | `boolean` | Check if row is loading          |
+| `isCellLoading(rowId, field)`           | `boolean` | Check if cell is loading         |
+| `clearAllLoading()`                     | `void`    | Clear all loading states         |
+
+#### Animation Methods
+
+| Method                       | Returns   | Description                                 |
+| ---------------------------- | --------- | ------------------------------------------- |
+| `animateRow(index, type)`    | `void`    | Animate a single row (change/insert/remove) |
+| `animateRows(indices, type)` | `void`    | Animate multiple rows at once               |
+| `animateRowById(id, type)`   | `boolean` | Animate row by ID (returns true if found)   |
+
+#### Plugin Methods
+
+| Method                   | Returns               | Description                  |
+| ------------------------ | --------------------- | ---------------------------- |
+| `getPlugin(PluginClass)` | `P \| undefined`      | Get plugin instance by class |
+| `getPluginByName(name)`  | `Plugin \| undefined` | Get plugin instance by name  |
 
 ### Events
 
-| Event                   | Detail                      | Description                        |
-| ----------------------- | --------------------------- | ---------------------------------- |
-| `cell-commit`           | `CellCommitDetail`          | Cell value committed (inline edit) |
-| `cell-change`           | `CellChangeDetail`          | Row updated via Row Update API     |
-| `row-commit`            | `RowCommitDetail`           | Row edit committed                 |
-| `changed-rows-reset`    | `ChangedRowsResetDetail`    | Change tracking cleared            |
-| `sort-change`           | `SortChangeDetail`          | Sort state changed                 |
-| `column-resize`         | `ColumnResizeDetail`        | Column resized                     |
-| `column-state-change`   | `ColumnState`               | Column state changed               |
-| `activate-cell`         | `ActivateCellDetail`        | Cell activated                     |
-| `group-toggle`          | `GroupToggleDetail`         | Row group expanded/collapsed       |
-| `mount-external-view`   | `ExternalMountViewDetail`   | External view mount request        |
-| `mount-external-editor` | `ExternalMountEditorDetail` | External editor mount request      |
+#### Core Events
+
+| Event                   | Detail                      | Description                                       |
+| ----------------------- | --------------------------- | ------------------------------------------------- |
+| `cell-click`            | `CellClickDetail`           | Cell clicked                                      |
+| `row-click`             | `RowClickDetail`            | Row clicked                                       |
+| `cell-activate`         | `CellActivateDetail`        | Cell activated via keyboard or click (cancelable) |
+| `cell-change`           | `CellChangeDetail`          | Row updated via Row Update API                    |
+| `sort-change`           | `SortChangeDetail`          | Sort state changed                                |
+| `column-resize`         | `ColumnResizeDetail`        | Column resized                                    |
+| `column-state-change`   | `GridColumnState`           | Column state changed                              |
+| `group-toggle`          | `GroupToggleDetail`         | Row group expanded/collapsed                      |
+| `mount-external-view`   | `ExternalMountViewDetail`   | External view mount request                       |
+| `mount-external-editor` | `ExternalMountEditorDetail` | External editor mount request                     |
+
+#### Editing Events (require EditingPlugin)
+
+| Event                | Detail                   | Description                       |
+| -------------------- | ------------------------ | --------------------------------- |
+| `cell-commit`        | `CellCommitDetail`       | Cell value committed (cancelable) |
+| `row-commit`         | `RowCommitDetail`        | Row edit committed (cancelable)   |
+| `edit-open`          | `EditOpenDetail`         | Row entered edit mode             |
+| `edit-close`         | `EditCloseDetail`        | Row left edit mode                |
+| `changed-rows-reset` | `ChangedRowsResetDetail` | Change tracking cleared           |
+
+#### Deprecated Events
+
+| Event           | Detail               | Description                                |
+| --------------- | -------------------- | ------------------------------------------ |
+| `activate-cell` | `ActivateCellDetail` | ⚠️ Deprecated. Use `cell-activate` instead |
 
 Import event names from the `DGEvents` constant:
 
@@ -250,7 +335,7 @@ Configure animation behavior globally:
 grid.gridConfig = {
   animation: {
     mode: 'on', // 'on' | 'off' | 'reduced-motion'
-    style: 'smooth', // Animation easing
+    style: 'smooth', // Animation easing (alias for `easing`)
     duration: 200, // Default duration in ms
   },
 };

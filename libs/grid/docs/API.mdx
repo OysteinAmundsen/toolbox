@@ -456,13 +456,13 @@ grid.unregisterStyles('my-id');
 import type { RowAnimationType } from '@toolbox-web/grid';
 
 // Animate a single row by index
-grid.animateRow(rowIndex, 'update'); // 'insert' | 'update' | 'remove'
+grid.animateRow(rowIndex, 'change'); // 'insert' | 'change' | 'remove'
 
 // Animate a row by its ID
 grid.animateRowById('EMP-123', 'insert');
 
 // Animate multiple rows at once
-grid.animateRows([0, 1, 2], 'update');
+grid.animateRows([0, 1, 2], 'change');
 ```
 
 ### Loading States
@@ -832,9 +832,11 @@ grid.gridConfig = {
       title: 'Employee Directory',
     },
     toolPanel: {
-      position: 'right',  // 'left' | 'right'
-      width: 280,
-      defaultOpen: 'filters', // Panel ID to open initially
+      position: 'right',           // 'left' | 'right'
+      width: 280,                   // Panel width in pixels
+      defaultOpen: 'filters',       // Panel ID to open initially
+      persistState: true,           // Persist open/closed state
+      closeOnClickOutside: true,    // Close when clicking outside panel
     },
   },
 };

@@ -265,10 +265,14 @@ libs/grid/src/
    │  │  ├─ sanitize.ts       # Template security
    │  │  ├─ shell.ts          # Shell/toolbar rendering
    │  │  ├─ sorting.ts        # Sort comparators
+   │  │  ├─ sticky.ts         # Sticky column offset calculations
    │  │  ├─ touch-scroll.ts   # Touch/momentum scrolling
    │  │  ├─ utils.ts          # Shared utilities
    │  │  ├─ validate-config.ts # Runtime plugin property validation
    │  │  └─ virtualization.ts # Virtual scroll math
+   │  ├─ styles/             # Component stylesheets
+   │  │  ├─ variables.css     # CSS custom property definitions
+   │  │  └─ shell.css         # Shell/toolbar/tool panel styles
    │  └─ plugin/             # Plugin infrastructure
    │     ├─ base-plugin.ts    # Abstract base class
    │     ├─ plugin-manager.ts # Plugin lifecycle
@@ -310,7 +314,7 @@ libs/grid/src/
 
 ### DataGridElement (`grid.ts`)
 
-The main custom element class (~1100 lines). Responsibilities:
+The main custom element class (~4400 lines). Responsibilities:
 
 1. **Property Management**: `rows`, `columns`, `gridConfig` with reactive setters
 2. **Light DOM Setup**: Creates internal structure, injects styles via adoptedStyleSheets
@@ -703,18 +707,24 @@ Validation is implemented in `internal/validate-config.ts`:
 
 Core events emitted by the grid itself:
 
-| Event                   | Detail Type                 | When                          |
-| ----------------------- | --------------------------- | ----------------------------- |
-| `cell-commit`           | `CellCommitDetail`          | Cell value committed          |
-| `row-commit`            | `RowCommitDetail`           | Row edit committed            |
-| `changed-rows-reset`    | `void`                      | Changed rows cleared          |
-| `sort-change`           | `SortChangeDetail`          | Sort state changed            |
-| `column-resize`         | `ColumnResizeDetail`        | Column resized                |
-| `activate-cell`         | `ActivateCellDetail`        | Cell focus changed            |
-| `group-toggle`          | `GroupToggleDetail`         | Group row expanded/collapsed  |
-| `column-state-change`   | `ColumnStateChangeDetail`   | Column config changed         |
-| `mount-external-view`   | `MountExternalViewDetail`   | External view renderer needed |
-| `mount-external-editor` | `MountExternalEditorDetail` | External editor needed        |
+| Event                   | Detail Type                 | When                                |
+| ----------------------- | --------------------------- | ----------------------------------- |
+| `cell-click`            | `CellClickDetail`           | Cell clicked                        |
+| `row-click`             | `RowClickDetail`            | Row clicked                         |
+| `cell-activate`         | `CellActivateDetail`        | Cell activated (keyboard/click)     |
+| `cell-commit`           | `CellCommitDetail`          | Cell value committed                |
+| `row-commit`            | `RowCommitDetail`           | Row edit committed                  |
+| `cell-change`           | `CellChangeDetail`          | Row updated via Row Update API      |
+| `edit-open`             | `EditOpenDetail`            | Row entered edit mode               |
+| `edit-close`            | `EditCloseDetail`           | Row left edit mode                  |
+| `changed-rows-reset`    | `void`                      | Changed rows cleared                |
+| `sort-change`           | `SortChangeDetail`          | Sort state changed                  |
+| `column-resize`         | `ColumnResizeDetail`        | Column resized                      |
+| `column-state-change`   | `ColumnStateChangeDetail`   | Column config changed               |
+| `group-toggle`          | `GroupToggleDetail`         | Group row expanded/collapsed        |
+| `mount-external-view`   | `MountExternalViewDetail`   | External view renderer needed       |
+| `mount-external-editor` | `MountExternalEditorDetail` | External editor needed              |
+| `activate-cell`         | `ActivateCellDetail`        | ⚠️ Deprecated — use `cell-activate` |
 
 ### Plugin Events
 

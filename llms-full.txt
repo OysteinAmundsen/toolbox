@@ -762,13 +762,46 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 
 | Event | Detail Properties |
 |-------|-------------------|
-| `cell-click` | `row`, `rowIndex`, `field`, `value`, `column`, `cellEl` |
-| `row-click` | `row`, `rowIndex`, `rowEl`, `event` |
-| `cell-change` | `row`, `rowId`, `field`, `oldValue`, `newValue`, `source` |
-| `cell-activate` | `rowIndex`, `colIndex`, `field`, `value`, `trigger` |
+| `cell-click` | `row`, `rowIndex`, `colIndex`, `column`, `field`, `value`, `cellEl`, `originalEvent` |
+| `row-click` | `row`, `rowIndex`, `rowEl`, `originalEvent` |
+| `cell-change` | `row`, `rowId`, `rowIndex`, `field`, `oldValue`, `newValue`, `changes`, `source` |
+| `cell-activate` | `row`, `rowIndex`, `colIndex`, `field`, `value`, `cellEl`, `trigger`, `originalEvent` |
 | `sort-change` | `field`, `direction` (0=none, 1=asc, -1=desc) |
 | `column-resize` | `field`, `width` |
 | `column-state-change` | `columns` array with field, order, width, visible, sort |
+
+**Editing Events (require EditingPlugin):**
+
+| Event | Detail Properties |
+|-------|-------------------|
+| `cell-commit` | `row`, `rowIndex`, `field`, `value`, `oldValue` (cancelable) |
+| `row-commit` | `row`, `rowIndex`, `changes` (cancelable) |
+| `edit-open` | `row`, `rowIndex` |
+| `edit-close` | `row`, `rowIndex` |
+| `changed-rows-reset` | — |
+| `group-toggle` | `key`, `expanded` |
+
+**Plugin Events (via `PluginEvents` constant):**
+
+| Event | Plugin | Detail Properties |
+|-------|--------|-------------------|
+| `selection-change` | Selection | `SelectionChangeDetail` |
+| `filter-change` | Filtering | `FilterModel` |
+| `sort-model-change` | MultiSort | `SortModel[]` |
+| `tree-expand` | Tree | `TreeExpandDetail` |
+| `detail-expand` | MasterDetail | `DetailExpandDetail` |
+| `group-expand` | GroupingRows | `GroupExpandDetail` |
+| `export-start` | Export | `ExportStartDetail` |
+| `export-complete` | Export | `ExportCompleteDetail` |
+| `clipboard-copy` | Clipboard | `ClipboardCopyDetail` |
+| `clipboard-paste` | Clipboard | `ClipboardPasteDetail` |
+| `context-menu-open` | ContextMenu | `ContextMenuOpenDetail` |
+| `context-menu-close` | ContextMenu | — |
+| `history-change` | UndoRedo | `HistoryChangeDetail` |
+| `server-loading` | ServerSide | `boolean` |
+| `server-error` | ServerSide | `Error` |
+| `column-visibility-change` | Visibility | `VisibilityChangeDetail` |
+| `column-reorder` | Reorder | `ReorderDetail` |
 
 **React event handling:** Use the `on` prefix props on `<DataGrid>`:
 
@@ -1258,7 +1291,7 @@ grid.animateRow(3, 'remove');   // Fade-out for deleted row
 grid.animateRows([0, 1, 2], 'change'); // Animate multiple rows
 
 gridConfig: {
-  animation: { mode: 'on', style: 'smooth', duration: 200 },
+  animation: { mode: 'on', easing: 'ease-in-out', duration: 200 },
 }
 ```
 
@@ -1274,14 +1307,14 @@ gridConfig: {
         order: 10,
         render: (container) => {
           const btn = document.createElement('button');
-          btn.className = 'dg-toolbar-btn';
+          btn.className = 'tbw-toolbar-btn';
           btn.textContent = 'Export';
           btn.onclick = () => exportData(grid.rows);
           container.appendChild(btn);
         },
       }],
     },
-    toolPanel: { position: 'right', width: 280 },
+    toolPanel: { position: 'right', width: 280, closeOnClickOutside: true },
   },
   plugins: [new VisibilityPlugin()], // Adds column visibility panel
 }
@@ -1296,7 +1329,7 @@ gridConfig: {
       <span>20 employees</span>
     </tbw-grid-header-content>
     <tbw-grid-tool-buttons>
-      <button class="dg-toolbar-btn">Export</button>
+      <button class="tbw-toolbar-btn">Export</button>
     </tbw-grid-tool-buttons>
   </tbw-grid-header>
 </tbw-grid>

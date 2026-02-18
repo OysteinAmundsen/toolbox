@@ -538,7 +538,7 @@ grid.gridConfig = {
           order: 10, // Lower = rendered first
           render: (container) => {
             const btn = document.createElement('button');
-            btn.className = 'dg-toolbar-btn';
+            btn.className = 'tbw-toolbar-btn';
             btn.textContent = 'Export';
             btn.onclick = () => exportData(grid.rows);
             container.appendChild(btn);
@@ -558,7 +558,7 @@ grid.registerToolbarContent({
   order: 20,
   render: (container) => {
     const btn = document.createElement('button');
-    btn.className = 'dg-toolbar-btn';
+    btn.className = 'tbw-toolbar-btn';
     btn.textContent = 'Refresh';
     btn.onclick = () => loadData();
     container.appendChild(btn);
@@ -743,7 +743,7 @@ and resizing columns to see the events in the log:
 | `cell-click`          | [`CellClickDetail`](/docs/grid-api-core-interfaces-cellclickdetail--docs) | Cell clicked                                    |
 | `row-click`           | [`RowClickDetail`](/docs/grid-api-core-interfaces-rowclickdetail--docs) | Row clicked                                     |
 | `cell-activate`       | [`CellActivateDetail`](/docs/grid-api-core-interfaces-cellactivatedetail--docs) | Cell activated via keyboard navigation          |
-| `cell-change`         | [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs) | Cell value changed (before commit)            |
+| `cell-change`         | [`CellChangeDetail`](/docs/grid-api-core-interfaces-cellchangedetail--docs) | Row updated via Row Update API                  |
 | `sort-change`         | [`SortChangeDetail`](/docs/grid-api-core-interfaces-sortchangedetail--docs) | Sort state changed (0=none, 1=asc, -1=desc)     |
 | `column-resize`       | [`ColumnResizeDetail`](/docs/grid-api-core-interfaces-columnresizedetail--docs) | Column width changed                            |
 | `column-state-change` | [`GridColumnState`](/docs/grid-api-core-interfaces-gridcolumnstate--docs) | Column state (widths, order, visibility) changed |

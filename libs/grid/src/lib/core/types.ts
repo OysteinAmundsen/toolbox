@@ -2880,6 +2880,8 @@ export interface CellClickDetail<TRow = unknown> {
   rowIndex: number;
   /** Zero-based column index of the clicked cell. */
   colIndex: number;
+  /** Column configuration object for the clicked cell. */
+  column: ColumnConfig<TRow>;
   /** Field name of the clicked column. */
   field: string;
   /** Cell value at the clicked position. */

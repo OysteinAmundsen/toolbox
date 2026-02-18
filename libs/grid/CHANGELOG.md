@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.16.1...grid-1.17.0) (2026-02-18)
+
+
+### Features
+
+* **grid:** add closeOnClickOutside option for tool panel sidebar ([20e3c59](https://github.com/OysteinAmundsen/toolbox/commit/20e3c595970c428781b85a675370d156f191dfe2))
+
+
+### Bug Fixes
+
+* **grid:** fix stale sort indicators by enriching click events with column object ([b0a79a5](https://github.com/OysteinAmundsen/toolbox/commit/b0a79a5bd0df090211e155f7473133ebc51ba241))
+
 ## [1.16.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.16.0...grid-1.16.1) (2026-02-17)
 
 

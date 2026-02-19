@@ -25,9 +25,15 @@ function toNumeric(value: unknown): number {
  * @param row - The row data object
  * @param filter - The filter to apply
  * @param caseSensitive - Whether text comparisons are case sensitive
+ * @param filterValue - Optional extractor for complex cell values (arrays, objects)
  * @returns True if the row matches the filter
  */
-export function matchesFilter(row: Record<string, unknown>, filter: FilterModel, caseSensitive = false): boolean {
+export function matchesFilter(
+  row: Record<string, unknown>,
+  filter: FilterModel,
+  caseSensitive = false,
+  filterValue?: (value: unknown, row: Record<string, unknown>) => unknown | unknown[],
+): boolean {
   const rawValue = row[filter.field];
 
   // Handle blank/notBlank first - these work on null/undefined/empty
@@ -36,6 +42,26 @@ export function matchesFilter(row: Record<string, unknown>, filter: FilterModel,
   }
   if (filter.operator === 'notBlank') {
     return rawValue != null && rawValue !== '';
+  }
+
+  // When a filterValue extractor is present, use array-aware matching for set operators.
+  // Each extracted value is checked individually against the filter set.
+  if (filterValue && (filter.operator === 'notIn' || filter.operator === 'in')) {
+    const extracted = filterValue(rawValue, row);
+    const values = Array.isArray(extracted) ? extracted : extracted != null ? [extracted] : [];
+
+    if (filter.operator === 'notIn') {
+      // Row is hidden if ANY extracted value is in the excluded set.
+      // Empty values array (null/empty cell) → vacuously passes (no value to exclude).
+      const excluded = filter.value;
+      if (!Array.isArray(excluded)) return true;
+      return !values.some((v) => excluded.includes(v));
+    }
+    if (filter.operator === 'in') {
+      // Row passes if ANY extracted value is in the included set.
+      const included = filter.value;
+      return Array.isArray(included) && values.some((v) => included.includes(v));
+    }
   }
 
   // Set operators handle null explicitly: null is never "in" a set,
@@ -54,27 +80,27 @@ export function matchesFilter(row: Record<string, unknown>, filter: FilterModel,
   // Prepare values for comparison
   const stringValue = String(rawValue);
   const compareValue = caseSensitive ? stringValue : stringValue.toLowerCase();
-  const filterValue = caseSensitive ? String(filter.value) : String(filter.value).toLowerCase();
+  const compareFilterValue = caseSensitive ? String(filter.value) : String(filter.value).toLowerCase();
 
   switch (filter.operator) {
     // Text operators
     case 'contains':
-      return compareValue.includes(filterValue);
+      return compareValue.includes(compareFilterValue);
 
     case 'notContains':
-      return !compareValue.includes(filterValue);
+      return !compareValue.includes(compareFilterValue);
 
     case 'equals':
-      return compareValue === filterValue;
+      return compareValue === compareFilterValue;
 
     case 'notEquals':
-      return compareValue !== filterValue;
+      return compareValue !== compareFilterValue;
 
     case 'startsWith':
-      return compareValue.startsWith(filterValue);
+      return compareValue.startsWith(compareFilterValue);
 
     case 'endsWith':
-      return compareValue.endsWith(filterValue);
+      return compareValue.endsWith(compareFilterValue);
 
     // Number/Date operators (use toNumeric for Date objects and date strings)
     case 'lessThan':
@@ -104,15 +130,28 @@ export function matchesFilter(row: Record<string, unknown>, filter: FilterModel,
  * @param rows - The rows to filter
  * @param filters - Array of filters to apply
  * @param caseSensitive - Whether text comparisons are case sensitive
+ * @param filterValues - Optional map of field → value extractor for complex columns
  * @returns Filtered rows
  */
 export function filterRows<T extends Record<string, unknown>>(
   rows: T[],
   filters: FilterModel[],
   caseSensitive = false,
+  filterValues?: Map<string, (value: unknown, row: T) => unknown | unknown[]>,
 ): T[] {
   if (!filters.length) return rows;
-  return rows.filter((row) => filters.every((f) => matchesFilter(row, f, caseSensitive)));
+  return rows.filter((row) =>
+    filters.every((f) =>
+      matchesFilter(
+        row,
+        f,
+        caseSensitive,
+        filterValues?.get(f.field) as
+          | ((value: unknown, row: Record<string, unknown>) => unknown | unknown[])
+          | undefined,
+      ),
+    ),
+  );
 }
 
 /**
@@ -137,16 +176,37 @@ export function computeFilterCacheKey(filters: FilterModel[]): string {
  * Extract unique values from a field across all rows.
  * Useful for populating "set" filter dropdowns.
  *
+ * When `filterValue` is provided, the extractor is called for each row's cell value.
+ * If it returns an array, each element is added individually (flattened).
+ * This enables complex-valued cells (e.g., arrays of objects) to expose
+ * their individual filterable values.
+ *
  * @param rows - The rows to extract values from
  * @param field - The field name
+ * @param filterValue - Optional extractor for complex cell values
  * @returns Sorted array of unique non-null values
  */
-export function getUniqueValues<T extends Record<string, unknown>>(rows: T[], field: string): unknown[] {
+export function getUniqueValues<T extends Record<string, unknown>>(
+  rows: T[],
+  field: string,
+  filterValue?: (value: unknown, row: T) => unknown | unknown[],
+): unknown[] {
   const values = new Set<unknown>();
   for (const row of rows) {
-    const value = row[field];
-    if (value != null) {
-      values.add(value);
+    const cellValue = row[field];
+    if (filterValue) {
+      const extracted = filterValue(cellValue, row);
+      if (Array.isArray(extracted)) {
+        for (const v of extracted) {
+          if (v != null) values.add(v);
+        }
+      } else if (extracted != null) {
+        values.add(extracted);
+      }
+    } else {
+      if (cellValue != null) {
+        values.add(cellValue);
+      }
     }
   }
   return [...values].sort((a, b) => {

@@ -438,6 +438,61 @@ describe('filter-model', () => {
     });
   });
 
+  describe('matchesFilter with filterValue extractor', () => {
+    const arrayRows = [
+      { id: 1, sellers: [{ name: 'Apple' }, { name: 'Google' }] },
+      { id: 2, sellers: [{ name: 'Google' }, { name: 'Meta' }] },
+      { id: 3, sellers: [{ name: 'Apple' }] },
+      { id: 4, sellers: null },
+      { id: 5, sellers: [] },
+    ];
+    const extractor = (value: unknown) => (value as { name: string }[] | null)?.map((s) => s.name) ?? [];
+
+    it('should match "in" when ANY extracted value is in the included set', () => {
+      const filter: FilterModel = { field: 'sellers', type: 'set', operator: 'in', value: ['Apple'] };
+      expect(matchesFilter(arrayRows[0] as Record<string, unknown>, filter, false, extractor)).toBe(true);
+      expect(matchesFilter(arrayRows[1] as Record<string, unknown>, filter, false, extractor)).toBe(false);
+      expect(matchesFilter(arrayRows[2] as Record<string, unknown>, filter, false, extractor)).toBe(true);
+    });
+
+    it('should fail "in" for null/empty cell values', () => {
+      const filter: FilterModel = { field: 'sellers', type: 'set', operator: 'in', value: ['Apple'] };
+      expect(matchesFilter(arrayRows[3] as Record<string, unknown>, filter, false, extractor)).toBe(false);
+      expect(matchesFilter(arrayRows[4] as Record<string, unknown>, filter, false, extractor)).toBe(false);
+    });
+
+    it('should match "notIn" — hide row if ANY extracted value is excluded', () => {
+      const filter: FilterModel = { field: 'sellers', type: 'set', operator: 'notIn', value: ['Google'] };
+      // Row 0: [Apple, Google] → Google is excluded → hidden
+      expect(matchesFilter(arrayRows[0] as Record<string, unknown>, filter, false, extractor)).toBe(false);
+      // Row 2: [Apple] → no excluded values → passes
+      expect(matchesFilter(arrayRows[2] as Record<string, unknown>, filter, false, extractor)).toBe(true);
+    });
+
+    it('should pass "notIn" for null/empty cell values (vacuous truth)', () => {
+      const filter: FilterModel = { field: 'sellers', type: 'set', operator: 'notIn', value: ['Apple'] };
+      expect(matchesFilter(arrayRows[3] as Record<string, unknown>, filter, false, extractor)).toBe(true);
+      expect(matchesFilter(arrayRows[4] as Record<string, unknown>, filter, false, extractor)).toBe(true);
+    });
+
+    it('should handle single-value (non-array) extractor return', () => {
+      const singleExtractor = (value: unknown) => (value as { name: string } | null)?.name;
+      const row = { id: 1, seller: { name: 'Apple' } };
+      const filter: FilterModel = { field: 'seller', type: 'set', operator: 'in', value: ['Apple'] };
+      expect(matchesFilter(row as Record<string, unknown>, filter, false, singleExtractor)).toBe(true);
+    });
+
+    it('should fall through to raw value for non-set operators even with extractor', () => {
+      // "contains" should use rawValue, not the extractor
+      const filter: FilterModel = { field: 'sellers', type: 'text', operator: 'contains', value: 'name' };
+      // rawValue is an array of objects → String([{name:'Apple'},...]) contains "name"
+      // The extractor should NOT be consulted for non-in/notIn operators
+      const result = matchesFilter(arrayRows[0] as Record<string, unknown>, filter, false, extractor);
+      // Just verify it doesn't throw — the exact result depends on String() of the array
+      expect(typeof result).toBe('boolean');
+    });
+  });
+
   describe('filterRows', () => {
     it('should return all rows when no filters applied', () => {
       const result = filterRows(sampleRows, []);
@@ -481,6 +536,38 @@ describe('filter-model', () => {
       const filters: FilterModel[] = [{ field: 'name', type: 'text', operator: 'equals', value: 'Alice' }];
       const result = filterRows(sampleRows, filters);
       expect(result[0]).toBe(sampleRows[0]);
+    });
+
+    it('should use filterValues map for array-valued columns', () => {
+      const rows = [
+        { id: 1, tags: [{ label: 'A' }, { label: 'B' }] },
+        { id: 2, tags: [{ label: 'C' }] },
+        { id: 3, tags: [{ label: 'A' }, { label: 'C' }] },
+      ];
+      const extractor = (value: unknown) => (value as { label: string }[] | null)?.map((t) => t.label) ?? [];
+      const filterValues = new Map([['tags', extractor]]);
+      const filters: FilterModel[] = [{ field: 'tags', type: 'set', operator: 'in', value: ['A'] }];
+      const result = filterRows(rows, filters, false, filterValues);
+      expect(result).toHaveLength(2);
+      expect(result.map((r) => r.id)).toEqual([1, 3]);
+    });
+
+    it('should combine filterValues with regular filters', () => {
+      const rows = [
+        { id: 1, name: 'Alice', tags: [{ label: 'A' }] },
+        { id: 2, name: 'Bob', tags: [{ label: 'A' }, { label: 'B' }] },
+        { id: 3, name: 'Charlie', tags: [{ label: 'B' }] },
+      ];
+      const filterValues = new Map([
+        ['tags', (value: unknown) => (value as { label: string }[])?.map((t) => t.label) ?? []],
+      ]);
+      const filters: FilterModel[] = [
+        { field: 'tags', type: 'set', operator: 'in', value: ['A'] },
+        { field: 'name', type: 'text', operator: 'contains', value: 'ob' },
+      ];
+      const result = filterRows(rows, filters, false, filterValues);
+      expect(result).toHaveLength(1);
+      expect(result[0].name).toBe('Bob');
     });
   });
 
@@ -579,6 +666,48 @@ describe('filter-model', () => {
     it('should handle empty rows array', () => {
       const values = getUniqueValues([], 'any');
       expect(values).toEqual([]);
+    });
+
+    it('should flatten array values when filterValue extractor is provided', () => {
+      const rows = [
+        { id: 1, sellers: [{ name: 'Apple' }, { name: 'Google' }] },
+        { id: 2, sellers: [{ name: 'Google' }, { name: 'Meta' }] },
+        { id: 3, sellers: null },
+      ];
+      const extractor = (value: unknown) => (value as { name: string }[] | null)?.map((s) => s.name) ?? [];
+      const values = getUniqueValues(rows, 'sellers', extractor);
+      expect(values).toEqual(['Apple', 'Google', 'Meta']);
+    });
+
+    it('should deduplicate flattened values from filterValue extractor', () => {
+      const rows = [
+        { id: 1, tags: ['a', 'b'] },
+        { id: 2, tags: ['b', 'c'] },
+      ];
+      const extractor = (value: unknown) => value as string[];
+      const values = getUniqueValues(rows, 'tags', extractor);
+      expect(values).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should handle single-value (non-array) return from filterValue extractor', () => {
+      const rows = [
+        { id: 1, seller: { name: 'Apple' } },
+        { id: 2, seller: { name: 'Google' } },
+        { id: 3, seller: { name: 'Apple' } },
+      ];
+      const extractor = (value: unknown) => (value as { name: string })?.name;
+      const values = getUniqueValues(rows, 'seller', extractor);
+      expect(values).toEqual(['Apple', 'Google']);
+    });
+
+    it('should skip null extracted values from filterValue extractor', () => {
+      const rows = [
+        { id: 1, data: [1, null, 2] },
+        { id: 2, data: null },
+      ];
+      const extractor = (value: unknown) => value as unknown[] | null;
+      const values = getUniqueValues(rows, 'data', extractor);
+      expect(values).toEqual([1, 2]);
     });
   });
 

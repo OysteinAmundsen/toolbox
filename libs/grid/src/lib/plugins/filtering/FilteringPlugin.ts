@@ -182,6 +182,26 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     return col.filterable !== false;
   }
 
+  /**
+   * Build a map of field → filterValue extractor for columns that have one.
+   * Used to pass array-aware value extraction to the pure filter functions.
+   */
+  private getFilterValues():
+    | Map<string, (value: unknown, row: Record<string, unknown>) => unknown | unknown[]>
+    | undefined {
+    const columns = this.grid.effectiveConfig?.columns;
+    if (!columns) return undefined;
+
+    let map: Map<string, (value: unknown, row: Record<string, unknown>) => unknown | unknown[]> | undefined;
+    for (const col of columns) {
+      if (col.field && col.filterValue) {
+        if (!map) map = new Map();
+        map.set(col.field, col.filterValue);
+      }
+    }
+    return map;
+  }
+
   // #endregion
 
   // #region Internal State
@@ -348,7 +368,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     // Filter rows synchronously (worker support can be added later)
-    const result = filterRows([...rows] as Record<string, unknown>[], filterList, this.config.caseSensitive);
+    const result = filterRows(
+      [...rows] as Record<string, unknown>[],
+      filterList,
+      this.config.caseSensitive,
+      this.getFilterValues(),
+    );
 
     // Update cache
     this.cachedResult = result;
@@ -546,9 +571,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   /**
    * Get unique values for a field (for set filter dropdowns).
    * Uses sourceRows to include all values regardless of current filter.
+   * When a column has `filterValue`, individual extracted values are returned.
    */
   getUniqueValues(field: string): unknown[] {
-    return getUniqueValues(this.sourceRows as Record<string, unknown>[], field);
+    const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
+    const getter = col?.filterValue;
+    return getUniqueValues(this.sourceRows as Record<string, unknown>[], field, getter);
   }
   // #endregion
 
@@ -640,7 +668,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     // Sync path: get unique values from local rows
-    const uniqueValues = getUniqueValues(this.sourceRows as Record<string, unknown>[], field);
+    const uniqueValues = getUniqueValues(this.sourceRows as Record<string, unknown>[], field, column.filterValue);
 
     // Position and append to body BEFORE rendering content
     // so getListItemHeight() can read CSS variables from computed styles
@@ -843,9 +871,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const itemHeight = this.getListItemHeight();
 
     // Helper: format a value using the column's format function (for ID-to-name translation, etc.)
+    // When filterValue is set, unique values are already extracted primitives — skip format.
     const formatValue = (value: unknown): string => {
       if (value == null) return '(Blank)';
-      if (column.format) {
+      if (column.format && !column.filterValue) {
         const formatted = column.format(value, undefined as never);
         if (formatted) return formatted;
       }

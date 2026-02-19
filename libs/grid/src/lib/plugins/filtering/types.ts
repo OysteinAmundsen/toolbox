@@ -23,6 +23,32 @@ declare module '../../core/types' {
      * Falls back to editorParams if not set.
      */
     filterParams?: FilterParams;
+
+    /**
+     * Custom value extractor for filtering. Use this when the cell value is
+     * a complex type (e.g., an array of objects) and the filter should operate
+     * on derived primitive values instead.
+     *
+     * The function receives the raw cell value and the full row, and should
+     * return either a single filterable value or an array of filterable values.
+     * When an array is returned, each element becomes an individual entry in
+     * the filter panel's unique values list. During filtering:
+     *
+     * - **`notIn`** (set filter): row is hidden if ANY extracted value is in the excluded set
+     * - **`in`** (set filter): row passes if ANY extracted value is in the included set
+     *
+     * @example
+     * ```typescript
+     * // Array-of-objects column: extract individual names for filtering
+     * {
+     *   field: 'sellers',
+     *   filterValue: (value) =>
+     *     (value as { companyName: string }[])?.map(s => s.companyName) ?? [],
+     *   format: (value) => (value as { companyName: string }[])?.map(s => s.companyName).join(', ') ?? '',
+     * }
+     * ```
+     */
+    filterValue?: (value: unknown, row: any) => unknown | unknown[];
   }
 
   interface TypeDefault {

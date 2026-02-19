@@ -276,7 +276,8 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
         }
       }
 
-      if (grid._activeEditRows !== undefined && grid._activeEditRows !== -1 && cell.classList.contains('editing')) {
+      if (isEditing && cell.classList.contains('editing')) {
+        // Editing cell: focus the editor input inside it
         const focusTarget = cell.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
         if (focusTarget && document.activeElement !== focusTarget) {
           try {
@@ -285,12 +286,25 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
             /* empty */
           }
         }
-      } else if (!cell.contains(document.activeElement)) {
+      } else if (isEditing && !cell.contains(document.activeElement)) {
+        // Active edit row but this cell isn't the editing cell — focus it
+        // so Tab navigation within the row can attach editors
         if (!cell.hasAttribute('tabindex')) cell.setAttribute('tabindex', '-1');
         try {
           cell.focus({ preventScroll: true });
         } catch {
           /* empty */
+        }
+      } else if (!isEditing) {
+        // NOT editing: keep focus on the grid element (tabindex=0) rather than
+        // individual cells. In a virtualized grid, cells can be detached by
+        // subsequent render cycles (e.g., SelectionPlugin's requestAfterRender
+        // → RAF → row recycling). A detached focused cell causes activeElement
+        // to revert to <body>, breaking keyboard navigation.
+        // Visual focus is managed by the .cell-focus CSS class + data-has-focus.
+        const gridEl = grid as unknown as HTMLElement;
+        if (document.activeElement !== gridEl) {
+          gridEl.focus({ preventScroll: true });
         }
       }
     }

@@ -242,6 +242,9 @@ describe('keyboard navigation', () => {
         refreshVirtualWindow: () => {
           /* empty */
         },
+        focus: () => {
+          /* mock focus for ensureCellVisible */
+        },
         getHorizontalScrollOffsets: () => ({ left: 100, right: 100, skipScroll: false }),
       };
       return { grid, scrollArea };
@@ -337,6 +340,114 @@ describe('keyboard navigation', () => {
 
       // The keyboard handler should have called preventDefault on the original keydown event
       expect(e.defaultPrevented).toBe(true);
+    });
+  });
+
+  describe('focus management', () => {
+    /**
+     * Create a grid mock with real DOM elements so focus behavior can be tested.
+     * The grid element itself is an ordinary div with tabindex=0 that acts as
+     * the host element (standing in for <tbw-grid>).
+     */
+    function makeGridWithDOM(rows = 5, cols = 3) {
+      const gridEl = document.createElement('div');
+      gridEl.tabIndex = 0;
+      document.body.appendChild(gridEl);
+
+      const bodyEl = document.createElement('div');
+      gridEl.appendChild(bodyEl);
+
+      for (let r = 0; r < rows; r++) {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'data-grid-row';
+        for (let c = 0; c < cols; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.setAttribute('data-row', String(r));
+          cell.setAttribute('data-col', String(c));
+          rowEl.appendChild(cell);
+        }
+        bodyEl.appendChild(rowEl);
+      }
+
+      // Build a mock InternalGrid backed by the real DOM
+      const grid: any = Object.create(gridEl);
+      Object.assign(grid, {
+        _rows: Array.from({ length: rows }, (_, i) => ({ id: i })),
+        _columns: Array.from({ length: cols }, (_, i) => ({ field: 'c' + i })),
+        get _visibleColumns() {
+          return this._columns;
+        },
+        _focusRow: 0,
+        _focusCol: 0,
+        _virtualization: { enabled: false, start: 0, end: rows },
+        _bodyEl: bodyEl,
+        refreshVirtualWindow: () => false,
+        querySelector: (sel: string) => gridEl.querySelector(sel),
+        dispatchEvent: (ev: Event) => gridEl.dispatchEvent(ev),
+        focus: (opts?: FocusOptions) => gridEl.focus(opts),
+      });
+      return { grid, gridEl, bodyEl };
+    }
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('ArrowDown keeps focus on the grid element, not individual cells', () => {
+      const { grid, gridEl } = makeGridWithDOM();
+      gridEl.focus();
+      expect(document.activeElement).toBe(gridEl);
+
+      key(grid, 'ArrowDown');
+
+      // Focus should remain on the grid element — NOT on a cell.
+      // Focusing cells directly risks losing focus to <body> when cells are
+      // detached by virtualization recycling.
+      expect(document.activeElement).toBe(gridEl);
+      expect(grid._focusRow).toBe(1);
+    });
+
+    it('Shift+ArrowDown keeps focus on grid element', () => {
+      const { grid, gridEl } = makeGridWithDOM();
+      gridEl.focus();
+
+      key(grid, 'ArrowDown', { shiftKey: true });
+
+      expect(document.activeElement).toBe(gridEl);
+      expect(grid._focusRow).toBe(1);
+    });
+
+    it('Tab keeps focus on grid element when not editing', () => {
+      const { grid, gridEl } = makeGridWithDOM();
+      gridEl.focus();
+
+      key(grid, 'Tab');
+
+      expect(document.activeElement).toBe(gridEl);
+    });
+
+    it('ArrowDown focuses editor when in editing mode', () => {
+      const { grid, gridEl, bodyEl } = makeGridWithDOM(5, 2);
+      grid._activeEditRows = 1;
+      grid.commitActiveRowEdit = vi.fn();
+
+      // Mark the target cell (row 2, col 0) as editing with a focusable editor
+      const targetRow = bodyEl.querySelectorAll('.data-grid-row')[2];
+      const targetCell = targetRow.querySelector('.cell[data-col="0"]') as HTMLElement;
+      targetCell.classList.add('editing');
+      const input = document.createElement('input');
+      input.type = 'text';
+      targetCell.appendChild(input);
+
+      gridEl.focus();
+      grid._focusRow = 1;
+      grid._focusCol = 0;
+
+      key(grid, 'ArrowDown');
+
+      // Should focus the editor input inside the editing cell
+      expect(document.activeElement).toBe(input);
     });
   });
 });

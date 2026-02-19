@@ -601,7 +601,33 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   options?: Array<{ label: string; value: unknown }> | (() => Array<{ label: string; value: unknown }>);
   /** For select - allow multi select */
   multi?: boolean;
-  /** Optional formatter */
+  /**
+   * Formats the raw cell value into a display string.
+   *
+   * Used both for **cell rendering** and the **built-in filter panel**:
+   * - In cells, the formatted value replaces the raw value as text content.
+   * - In the filter panel (set filter), checkbox labels show the formatted value
+   *   instead of the raw value, and search matches against the formatted text.
+   *
+   * The `row` parameter is available during cell rendering but is `undefined`
+   * when called from the filter panel (standalone value formatting). Avoid
+   * accessing `row` properties in format functions intended for filter display.
+   *
+   * @example
+   * ```typescript
+   * // Currency formatter — works in both cells and filter panel
+   * {
+   *   field: 'price',
+   *   format: (value) => `$${Number(value).toFixed(2)}`,
+   * }
+   *
+   * // ID-to-name lookup — filter panel shows names, not IDs
+   * {
+   *   field: 'departmentId',
+   *   format: (value) => departmentMap.get(value as string) ?? String(value),
+   * }
+   * ```
+   */
   format?: (value: TValue, row: TRow) => string;
   /** Arbitrary extra metadata */
   meta?: Record<string, unknown>;

@@ -68,6 +68,38 @@ Checkbox list of unique values in the column.
 
 True/false toggle filter.
 
+## Column Formatters in Filter Panel
+
+When a column defines a `format` function, the built-in **set filter** panel automatically uses it to display formatted labels instead of raw values. This applies to:
+
+- **Checkbox labels** — show the formatted value (e.g., `$9.99` instead of `9.99`)
+- **Search** — matches against the formatted text, not the raw value
+- **Sort order** — filter values are sorted alphabetically by their formatted display name
+
+```typescript
+grid.columns = [
+  {
+    field: 'price',
+    filterable: true,
+    format: (value) => `$${Number(value).toFixed(2)}`,
+    // Filter checkboxes: ☑ $9.99  ☑ $19.50  ☑ $100.00
+  },
+  {
+    field: 'departmentId',
+    filterable: true,
+    format: (value) => departmentMap.get(value as string) ?? String(value),
+    // Filter checkboxes: ☑ Engineering  ☑ Sales  ☑ Marketing
+  },
+];
+```
+
+> **Note:** The `format` function's `row` parameter is `undefined` in the filter panel context
+> (there is no row when formatting standalone values). Avoid accessing `row` properties
+> in format functions that should also work in the filter panel.
+
+For fully custom filter UIs, use the `filterPanelRenderer` config option or a type-level
+`filterPanelRenderer` in `typeDefaults`.
+
 ## Events
 
 ### `filter-change`

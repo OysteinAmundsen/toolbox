@@ -86,6 +86,24 @@ import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams }
  * grid.rows = data;
  * ```
  *
+ * @example Column Formatters in Filter Panel
+ * When a column defines a `format` function, the built-in set filter panel
+ * displays formatted labels instead of raw values. Search within the panel
+ * also matches against the formatted text.
+ * ```ts
+ * grid.gridConfig = {
+ *   columns: [
+ *     {
+ *       field: 'price',
+ *       filterable: true,
+ *       format: (value) => `$${Number(value).toFixed(2)}`,
+ *       // Filter checkboxes show "$9.99" instead of "9.99"
+ *     },
+ *   ],
+ *   plugins: [new FilteringPlugin()],
+ * };
+ * ```
+ *
  * @example Server-Side Filtering with Async Handlers
  * ```ts
  * new FilteringPlugin({
@@ -820,9 +838,22 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     uniqueValues: unknown[],
     excludedValues: Set<unknown>,
   ): void {
-    const { field } = params;
+    const { field, column } = params;
     // Get item height from CSS variable or use default
     const itemHeight = this.getListItemHeight();
+
+    // Helper: format a value using the column's format function (for ID-to-name translation, etc.)
+    const formatValue = (value: unknown): string => {
+      if (value == null) return '(Blank)';
+      if (column.format) {
+        const formatted = column.format(value, undefined as never);
+        if (formatted) return formatted;
+      }
+      return String(value);
+    };
+
+    // Sort unique values by formatted display name
+    uniqueValues = uniqueValues.slice().sort((a, b) => formatValue(a).localeCompare(formatValue(b)));
 
     // Search input
     const searchContainer = document.createElement('div');
@@ -907,7 +938,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // Create a single checkbox item element
     const createItem = (value: unknown, index: number): HTMLElement => {
-      const strValue = value == null ? '(Blank)' : String(value);
+      const displayValue = formatValue(value);
       const key = value == null ? '__null__' : String(value);
 
       const item = document.createElement('label');
@@ -931,7 +962,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       });
 
       const label = document.createElement('span');
-      label.textContent = strValue;
+      label.textContent = displayValue;
 
       item.appendChild(checkbox);
       item.appendChild(label);
@@ -981,10 +1012,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       const caseSensitive = this.config.caseSensitive ?? false;
       const compareFilter = caseSensitive ? filterText : filterText.toLowerCase();
 
-      // Filter the unique values
+      // Filter the unique values - search against formatted display name
       filteredValues = uniqueValues.filter((value) => {
-        const strValue = value == null ? '(Blank)' : String(value);
-        const compareValue = caseSensitive ? strValue : strValue.toLowerCase();
+        const displayStr = formatValue(value);
+        const compareValue = caseSensitive ? displayStr : displayStr.toLowerCase();
         return !filterText || compareValue.includes(compareFilter);
       });
 

@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { computeFilterCacheKey, filterRows, getUniqueValues, matchesFilter } from './filter-model';
+import {
+  BLANK_FILTER_VALUE,
+  computeFilterCacheKey,
+  filterRows,
+  getUniqueValues,
+  getUniqueValuesBatch,
+  matchesFilter,
+} from './filter-model';
 import { FilteringPlugin } from './FilteringPlugin';
 import type { FilterModel } from './types';
 
@@ -455,10 +462,23 @@ describe('filter-model', () => {
       expect(matchesFilter(arrayRows[2] as Record<string, unknown>, filter, false, extractor)).toBe(true);
     });
 
-    it('should fail "in" for null/empty cell values', () => {
+    it('should fail "in" for null/empty cell values when (Blank) is not included', () => {
       const filter: FilterModel = { field: 'sellers', type: 'set', operator: 'in', value: ['Apple'] };
       expect(matchesFilter(arrayRows[3] as Record<string, unknown>, filter, false, extractor)).toBe(false);
       expect(matchesFilter(arrayRows[4] as Record<string, unknown>, filter, false, extractor)).toBe(false);
+    });
+
+    it('should pass "in" for null/empty cell values when (Blank) IS included', () => {
+      const filter: FilterModel = {
+        field: 'sellers',
+        type: 'set',
+        operator: 'in',
+        value: ['Apple', BLANK_FILTER_VALUE],
+      };
+      // null sellers → blank → passes because (Blank) is in the included set
+      expect(matchesFilter(arrayRows[3] as Record<string, unknown>, filter, false, extractor)).toBe(true);
+      // empty array sellers → blank → same
+      expect(matchesFilter(arrayRows[4] as Record<string, unknown>, filter, false, extractor)).toBe(true);
     });
 
     it('should match "notIn" — hide row if ANY extracted value is excluded', () => {
@@ -469,8 +489,20 @@ describe('filter-model', () => {
       expect(matchesFilter(arrayRows[2] as Record<string, unknown>, filter, false, extractor)).toBe(true);
     });
 
-    it('should pass "notIn" for null/empty cell values (vacuous truth)', () => {
+    it('should exclude "notIn" for null/empty cell values when (Blank) is excluded', () => {
+      const filter: FilterModel = {
+        field: 'sellers',
+        type: 'set',
+        operator: 'notIn',
+        value: ['Apple', BLANK_FILTER_VALUE],
+      };
+      expect(matchesFilter(arrayRows[3] as Record<string, unknown>, filter, false, extractor)).toBe(false);
+      expect(matchesFilter(arrayRows[4] as Record<string, unknown>, filter, false, extractor)).toBe(false);
+    });
+
+    it('should include "notIn" for null/empty cell values when (Blank) is NOT excluded', () => {
       const filter: FilterModel = { field: 'sellers', type: 'set', operator: 'notIn', value: ['Apple'] };
+      // (Blank) is not in the excluded set, so blank rows pass
       expect(matchesFilter(arrayRows[3] as Record<string, unknown>, filter, false, extractor)).toBe(true);
       expect(matchesFilter(arrayRows[4] as Record<string, unknown>, filter, false, extractor)).toBe(true);
     });
@@ -668,11 +700,23 @@ describe('filter-model', () => {
       expect(values).toEqual([]);
     });
 
-    it('should flatten array values when filterValue extractor is provided', () => {
+    it('should include (Blank) sentinel when filterValue extractor yields empty results', () => {
       const rows = [
         { id: 1, sellers: [{ name: 'Apple' }, { name: 'Google' }] },
         { id: 2, sellers: [{ name: 'Google' }, { name: 'Meta' }] },
         { id: 3, sellers: null },
+      ];
+      const extractor = (value: unknown) => (value as { name: string }[] | null)?.map((s) => s.name) ?? [];
+      const values = getUniqueValues(rows, 'sellers', extractor);
+      expect(values).toContain(BLANK_FILTER_VALUE);
+      expect(values).toEqual(expect.arrayContaining(['Apple', 'Google', 'Meta', BLANK_FILTER_VALUE]));
+      expect(values).toHaveLength(4);
+    });
+
+    it('should flatten array values when filterValue extractor is provided', () => {
+      const rows = [
+        { id: 1, sellers: [{ name: 'Apple' }, { name: 'Google' }] },
+        { id: 2, sellers: [{ name: 'Google' }, { name: 'Meta' }] },
       ];
       const extractor = (value: unknown) => (value as { name: string }[] | null)?.map((s) => s.name) ?? [];
       const values = getUniqueValues(rows, 'sellers', extractor);
@@ -707,7 +751,51 @@ describe('filter-model', () => {
       ];
       const extractor = (value: unknown) => value as unknown[] | null;
       const values = getUniqueValues(rows, 'data', extractor);
-      expect(values).toEqual([1, 2]);
+      // null row → extractor returns null → hasBlank, plus [1, null, 2] → null skipped
+      expect(values).toContain(BLANK_FILTER_VALUE);
+      expect(values).toContain(1);
+      expect(values).toContain(2);
+      expect(values).toHaveLength(3);
+    });
+  });
+
+  describe('getUniqueValuesBatch', () => {
+    it('should extract unique values for multiple fields in a single pass', () => {
+      const rows = [
+        { id: 1, city: 'NYC', dept: 'Eng' },
+        { id: 2, city: 'LA', dept: 'Sales' },
+        { id: 3, city: 'NYC', dept: 'Sales' },
+      ];
+      const result = getUniqueValuesBatch(rows, [{ field: 'city' }, { field: 'dept' }]);
+      expect(result.get('city')).toEqual(['LA', 'NYC']);
+      expect(result.get('dept')).toEqual(['Eng', 'Sales']);
+    });
+
+    it('should handle filterValue extractors in batch', () => {
+      const rows = [
+        { id: 1, tags: [{ label: 'A' }, { label: 'B' }] },
+        { id: 2, tags: [{ label: 'B' }, { label: 'C' }] },
+        { id: 3, tags: null },
+      ];
+      const extractor = (value: unknown) => (value as { label: string }[] | null)?.map((t) => t.label) ?? [];
+      const result = getUniqueValuesBatch(rows, [{ field: 'tags', filterValue: extractor }]);
+      const values = result.get('tags')!;
+      expect(values).toContain('A');
+      expect(values).toContain('B');
+      expect(values).toContain('C');
+      expect(values).toContain(BLANK_FILTER_VALUE);
+      expect(values).toHaveLength(4);
+    });
+
+    it('should produce same results as individual getUniqueValues calls', () => {
+      const rows = [
+        { id: 1, name: 'Alice', city: 'NYC' },
+        { id: 2, name: 'Bob', city: null },
+        { id: 3, name: 'Alice', city: 'LA' },
+      ];
+      const batch = getUniqueValuesBatch(rows, [{ field: 'name' }, { field: 'city' }]);
+      expect(batch.get('name')).toEqual(getUniqueValues(rows, 'name'));
+      expect(batch.get('city')).toEqual(getUniqueValues(rows, 'city'));
     });
   });
 

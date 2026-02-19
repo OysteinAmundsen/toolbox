@@ -7,6 +7,13 @@
 import type { FilterModel } from './types';
 
 /**
+ * Sentinel value used in set-filter unique values to represent rows with
+ * no value (null, undefined, empty array via filterValue extractor).
+ * Exported so server-side implementations can use the same constant.
+ */
+export const BLANK_FILTER_VALUE = '(Blank)';
+
+/**
  * Convert a value to a comparable number.
  * Handles Date objects, numeric values, and date/ISO strings.
  */
@@ -52,15 +59,19 @@ export function matchesFilter(
 
     if (filter.operator === 'notIn') {
       // Row is hidden if ANY extracted value is in the excluded set.
-      // Empty values array (null/empty cell) → vacuously passes (no value to exclude).
+      // Empty values array (null/empty cell) → controlled by BLANK_FILTER_VALUE sentinel.
       const excluded = filter.value;
       if (!Array.isArray(excluded)) return true;
+      if (values.length === 0) return !excluded.includes(BLANK_FILTER_VALUE);
       return !values.some((v) => excluded.includes(v));
     }
     if (filter.operator === 'in') {
       // Row passes if ANY extracted value is in the included set.
+      // Empty values array (null/empty cell) → controlled by BLANK_FILTER_VALUE sentinel.
       const included = filter.value;
-      return Array.isArray(included) && values.some((v) => included.includes(v));
+      if (!Array.isArray(included)) return false;
+      if (values.length === 0) return included.includes(BLANK_FILTER_VALUE);
+      return values.some((v) => included.includes(v));
     }
   }
 
@@ -192,22 +203,33 @@ export function getUniqueValues<T extends Record<string, unknown>>(
   filterValue?: (value: unknown, row: T) => unknown | unknown[],
 ): unknown[] {
   const values = new Set<unknown>();
+  let hasBlank = false;
   for (const row of rows) {
     const cellValue = row[field];
     if (filterValue) {
       const extracted = filterValue(cellValue, row);
       if (Array.isArray(extracted)) {
+        if (extracted.length === 0) {
+          hasBlank = true;
+        }
         for (const v of extracted) {
           if (v != null) values.add(v);
         }
       } else if (extracted != null) {
         values.add(extracted);
+      } else {
+        hasBlank = true;
       }
     } else {
       if (cellValue != null) {
         values.add(cellValue);
       }
     }
+  }
+  // When a filterValue extractor is present and some rows have no values,
+  // include a "(Blank)" sentinel so users can explicitly filter empty rows.
+  if (filterValue && hasBlank) {
+    values.add(BLANK_FILTER_VALUE);
   }
   return [...values].sort((a, b) => {
     // Handle mixed types gracefully
@@ -216,4 +238,61 @@ export function getUniqueValues<T extends Record<string, unknown>>(
     }
     return String(a).localeCompare(String(b));
   });
+}
+
+/**
+ * Extract unique values for multiple fields in a single pass through the rows.
+ * This is more efficient than calling `getUniqueValues` N times when
+ * computing derived state for several set filters at once.
+ *
+ * @param rows - The rows to extract values from
+ * @param fields - Array of { field, filterValue? } descriptors
+ * @returns Map of field → sorted unique values (same contract as `getUniqueValues`)
+ */
+export function getUniqueValuesBatch<T extends Record<string, unknown>>(
+  rows: T[],
+  fields: { field: string; filterValue?: (value: unknown, row: T) => unknown | unknown[] }[],
+): Map<string, unknown[]> {
+  // Per-field accumulators
+  const acc = new Map<string, { values: Set<unknown>; hasBlank: boolean; hasExtractor: boolean }>();
+  for (const { field, filterValue } of fields) {
+    acc.set(field, { values: new Set(), hasBlank: false, hasExtractor: !!filterValue });
+  }
+
+  // Single pass through all rows
+  for (const row of rows) {
+    for (const { field, filterValue } of fields) {
+      const entry = acc.get(field)!;
+      const cellValue = row[field];
+      if (filterValue) {
+        const extracted = filterValue(cellValue, row);
+        if (Array.isArray(extracted)) {
+          if (extracted.length === 0) entry.hasBlank = true;
+          for (const v of extracted) {
+            if (v != null) entry.values.add(v);
+          }
+        } else if (extracted != null) {
+          entry.values.add(extracted);
+        } else {
+          entry.hasBlank = true;
+        }
+      } else {
+        if (cellValue != null) entry.values.add(cellValue);
+      }
+    }
+  }
+
+  // Build sorted output
+  const result = new Map<string, unknown[]>();
+  for (const [field, { values, hasBlank, hasExtractor }] of acc) {
+    if (hasExtractor && hasBlank) values.add(BLANK_FILTER_VALUE);
+    result.set(
+      field,
+      [...values].sort((a, b) => {
+        if (typeof a === 'number' && typeof b === 'number') return a - b;
+        return String(a).localeCompare(String(b));
+      }),
+    );
+  }
+  return result;
 }

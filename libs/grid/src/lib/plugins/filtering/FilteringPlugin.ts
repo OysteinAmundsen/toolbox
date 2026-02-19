@@ -11,7 +11,7 @@ import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
-import { computeFilterCacheKey, filterRows, getUniqueValues } from './filter-model';
+import { computeFilterCacheKey, filterRows, getUniqueValues, getUniqueValuesBatch } from './filter-model';
 import styles from './filtering.css?inline';
 import filterPanelStyles from './FilteringPlugin.css?inline';
 import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams } from './types';
@@ -238,6 +238,37 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       }
     }
     return FilteringPlugin.DEFAULT_LIST_ITEM_HEIGHT;
+  }
+
+  /**
+   * Compute the inclusion (selected) map from the current filters and excluded values.
+   * For set filters this is: uniqueValues \ excludedValues.
+   * Only includes entries for fields that have a set filter.
+   * Uses a single-pass batch extraction to avoid iterating sourceRows per field.
+   */
+  private computeSelected(): Record<string, unknown[]> {
+    // Collect the fields that need unique values
+    const setFields: {
+      field: string;
+      filterValue?: (value: unknown, row: Record<string, unknown>) => unknown | unknown[];
+    }[] = [];
+    for (const [field, filter] of this.filters) {
+      if (filter.type !== 'set' || filter.operator !== 'notIn') continue;
+      const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
+      setFields.push({ field, filterValue: col?.filterValue });
+    }
+    if (setFields.length === 0) return {};
+
+    // Single pass through sourceRows for all fields
+    const uniqueMap = getUniqueValuesBatch(this.sourceRows as Record<string, unknown>[], setFields);
+
+    const selected: Record<string, unknown[]> = {};
+    for (const { field } of setFields) {
+      const excluded = this.excludedValues.get(field);
+      const unique = uniqueMap.get(field) ?? [];
+      selected[field] = excluded ? unique.filter((v) => !excluded.has(v)) : unique;
+    }
+    return selected;
   }
 
   /**
@@ -475,6 +506,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.emit<FilterChangeDetail>('filter-change', {
       filters: [...this.filters.values()],
       filteredRowCount: 0, // Will be accurate after processRows
+      selected: this.computeSelected(),
     });
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
@@ -519,6 +551,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.emit<FilterChangeDetail>('filter-change', {
       filters: [...this.filters.values()],
       filteredRowCount: 0,
+      selected: this.computeSelected(),
     });
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
@@ -1554,6 +1587,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         this.emit<FilterChangeDetail>('filter-change', {
           filters: filterList,
           filteredRowCount: rows.length,
+          selected: this.computeSelected(),
         });
         // Notify other plugins via Event Bus
         this.emitPluginEvent('filter-applied', { filters: filterList });
@@ -1574,6 +1608,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.emit<FilterChangeDetail>('filter-change', {
       filters: filterList,
       filteredRowCount: 0,
+      selected: this.computeSelected(),
     });
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: filterList });

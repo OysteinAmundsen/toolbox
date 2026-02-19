@@ -305,4 +305,11 @@ export interface FilterChangeDetail {
   filters: FilterModel[];
   /** Number of rows after filtering */
   filteredRowCount: number;
+  /**
+   * Inclusion map: field → selected (checked) values.
+   * Only present for set-type filters. Useful for server-side filtering
+   * where sending the selected values is more efficient than sending
+   * the excluded values (which is what `filters[].value` contains for `notIn`).
+   */
+  selected?: Record<string, unknown[]>;
 }

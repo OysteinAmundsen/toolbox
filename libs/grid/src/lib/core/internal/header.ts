@@ -157,6 +157,7 @@ export function renderHeader(grid: InternalGrid): void {
     cell.setAttribute('aria-colindex', String(i + 1));
     cell.setAttribute('data-field', col.field);
     cell.setAttribute('data-col', String(i)); // Add data-col for consistency with body cells
+    if (col.type) cell.setAttribute('data-type', col.type);
 
     // Compute header value and sort state for context
     const headerValue = col.header ?? col.field;

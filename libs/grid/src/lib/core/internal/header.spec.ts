@@ -97,6 +97,21 @@ describe('renderHeader', () => {
     expect(cells[1].getAttribute('data-col')).toBe('1');
   });
 
+  it('sets data-type attribute when column has a type', () => {
+    const g = makeGrid({
+      columns: [
+        { field: 'id', type: 'number' },
+        { field: 'name' }, // no type
+        { field: 'active', type: 'boolean' },
+      ],
+    });
+    renderHeader(g);
+    const cells = g._headerRowEl.querySelectorAll('.cell');
+    expect(cells[0].getAttribute('data-type')).toBe('number');
+    expect(cells[1].getAttribute('data-type')).toBeNull();
+    expect(cells[2].getAttribute('data-type')).toBe('boolean');
+  });
+
   it('displays column header text or field name', () => {
     const g = makeGrid({
       columns: [

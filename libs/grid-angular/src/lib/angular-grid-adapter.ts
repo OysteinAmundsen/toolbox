@@ -116,6 +116,36 @@ function getAnyEditorTemplate(element: HTMLElement): TemplateRef<GridEditorConte
  * - Handles editor callbacks (onCommit/onCancel)
  * - Manages view lifecycle and change detection
  */
+
+/**
+ * Synchronize an embedded view's rootNodes into a stable container element.
+ *
+ * Angular's control flow blocks (@if, @for, @switch) can dynamically add or
+ * remove rootNodes during `detectChanges()`. This helper ensures the container
+ * always reflects the current set of rootNodes, preventing orphaned or stale
+ * nodes when the template's DOM structure changes between renders.
+ */
+function syncRootNodes(viewRef: EmbeddedViewRef<unknown>, container: HTMLElement): void {
+  // Fast path: if the container already holds exactly the right nodes, skip DOM mutations.
+  const rootNodes: Node[] = viewRef.rootNodes;
+  const children = container.childNodes;
+
+  let needsSync = children.length !== rootNodes.length;
+  if (!needsSync) {
+    for (let i = 0; i < rootNodes.length; i++) {
+      if (children[i] !== rootNodes[i]) {
+        needsSync = true;
+        break;
+      }
+    }
+  }
+
+  if (needsSync) {
+    // Clear and re-append. replaceChildren is efficient (single reflow).
+    container.replaceChildren(...rootNodes);
+  }
+}
+
 export class GridAdapter implements FrameworkAdapter {
   private viewRefs: EmbeddedViewRef<unknown>[] = [];
   private componentRefs: ComponentRef<unknown>[] = [];
@@ -267,14 +297,20 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined as unknown as ColumnViewRenderer<TRow, TValue>;
     }
 
-    // Cell cache for this column - maps cell element to its view ref and root node.
+    // Cell cache for this column - maps cell element to its view ref and container.
     // When the grid recycles pool elements during scroll, the same cellEl is reused
     // for different row data. By caching per cellEl, we reuse the Angular view and
     // just update its context instead of creating a new embedded view every time.
     // This matches what React and Vue adapters do with their cell caches.
+    //
+    // IMPORTANT: We always use a stable wrapper container (display:contents) rather
+    // than caching individual rootNodes. This is critical because Angular's control
+    // flow (@if, @for, @switch) can dynamically add/remove rootNodes during
+    // detectChanges(). If we cached a single rootNode, newly created nodes (e.g.,
+    // from an @if becoming true) would be orphaned outside the grid cell.
     const cellCache = new WeakMap<
       HTMLElement,
-      { viewRef: EmbeddedViewRef<GridCellContext<TValue, TRow>>; rootNode: Node }
+      { viewRef: EmbeddedViewRef<GridCellContext<TValue, TRow>>; container: HTMLElement }
     >();
 
     return (ctx: CellRenderContext<TRow, TValue>) => {
@@ -295,7 +331,10 @@ export class GridAdapter implements FrameworkAdapter {
           cached.viewRef.context.row = ctx.row;
           cached.viewRef.context.column = ctx.column;
           cached.viewRef.detectChanges();
-          return cached.rootNode;
+          // Re-sync rootNodes into the container. Angular's control flow (@if/@for)
+          // may have added or removed nodes during detectChanges().
+          syncRootNodes(cached.viewRef, cached.container);
+          return cached.container;
         }
       }
 
@@ -314,30 +353,18 @@ export class GridAdapter implements FrameworkAdapter {
       // Trigger change detection
       viewRef.detectChanges();
 
-      // Find the first Element root node. When *tbwRenderer is used on <ng-container>,
-      // rootNodes[0] is a comment node (<!--ng-container-->); the actual content is in
-      // subsequent root nodes. For single-element templates, rootNodes[0] IS the element.
-      let rootNode: Node = viewRef.rootNodes[0];
-      const elementNodes = viewRef.rootNodes.filter((n: Node) => n.nodeType === Node.ELEMENT_NODE);
-      if (elementNodes.length === 1) {
-        // Single element among the root nodes — use it directly
-        rootNode = elementNodes[0];
-      } else if (elementNodes.length > 1) {
-        // Multiple element nodes — wrap in a span container so all are rendered
-        const wrapper = document.createElement('span');
-        wrapper.style.display = 'contents';
-        for (const node of viewRef.rootNodes) {
-          wrapper.appendChild(node);
-        }
-        rootNode = wrapper;
-      }
+      // Always use a stable wrapper container so Angular can freely add/remove
+      // rootNodes (via @if, @for, etc.) without orphaning them outside the grid cell.
+      const container = document.createElement('span');
+      container.style.display = 'contents';
+      syncRootNodes(viewRef, container);
 
       // Cache for reuse on scroll recycles
       if (cellEl) {
-        cellCache.set(cellEl, { viewRef, rootNode });
+        cellCache.set(cellEl, { viewRef, container });
       }
 
-      return rootNode;
+      return container;
     };
   }
 

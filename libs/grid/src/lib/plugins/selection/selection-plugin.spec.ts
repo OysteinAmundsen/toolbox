@@ -1284,6 +1284,20 @@ describe('SelectionPlugin', () => {
       expect(plugin['selected'].has(0)).toBe(false);
     });
 
+    it('should return selected rows for getSelectedRows query', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      plugin['selected'].add(0);
+      plugin['selected'].add(2);
+
+      const result = plugin.handleQuery({ type: 'getSelectedRows', context: undefined });
+
+      expect(result).toEqual([{ id: 1 }, { id: 3 }]);
+    });
+
     it('should return undefined for unknown query types', () => {
       const mockGrid = createMockGrid([], []);
       const plugin = new SelectionPlugin({ mode: 'row' });
@@ -1292,6 +1306,96 @@ describe('SelectionPlugin', () => {
       const result = plugin.handleQuery({ type: 'unknownQuery', context: undefined });
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getSelectedRows', () => {
+    it('should return selected row objects in row mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      plugin['selected'].add(2);
+      plugin['selected'].add(0);
+
+      const result = plugin.getSelectedRows();
+
+      // Should return rows sorted by index
+      expect(result).toEqual([{ id: 1 }, { id: 3 }]);
+    });
+
+    it('should return empty array when no rows selected in row mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      expect(plugin.getSelectedRows()).toEqual([]);
+    });
+
+    it('should return single row in cell mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'cell' });
+      plugin.attach(mockGrid);
+
+      plugin['selectedCell'] = { row: 1, col: 0 };
+
+      expect(plugin.getSelectedRows()).toEqual([{ id: 2 }]);
+    });
+
+    it('should return empty array when no cell selected in cell mode', () => {
+      const rows = [{ id: 1 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'cell' });
+      plugin.attach(mockGrid);
+
+      expect(plugin.getSelectedRows()).toEqual([]);
+    });
+
+    it('should return unique row objects in range mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }, { field: 'name' }]);
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(mockGrid);
+
+      // Two overlapping ranges: rows 0-1 and rows 1-2
+      plugin['ranges'] = [
+        { startRow: 0, startCol: 0, endRow: 1, endCol: 1 },
+        { startRow: 1, startCol: 0, endRow: 2, endCol: 1 },
+      ];
+
+      const result = plugin.getSelectedRows();
+
+      // Should deduplicate row 1
+      expect(result).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    });
+
+    it('should filter out out-of-bounds indices in row mode', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(mockGrid);
+
+      plugin['selected'].add(0);
+      plugin['selected'].add(5); // out of bounds
+
+      expect(plugin.getSelectedRows()).toEqual([{ id: 1 }]);
+    });
+
+    it('should clamp range to valid row bounds', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const mockGrid = createMockGrid(rows, [{ field: 'id' }]);
+      const plugin = new SelectionPlugin({ mode: 'range' });
+      plugin.attach(mockGrid);
+
+      plugin['ranges'] = [{ startRow: 0, startCol: 0, endRow: 10, endCol: 0 }];
+
+      const result = plugin.getSelectedRows();
+
+      // Should clamp to actual row count
+      expect(result).toEqual([{ id: 1 }, { id: 2 }]);
     });
   });
 });

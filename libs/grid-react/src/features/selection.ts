@@ -48,7 +48,7 @@ registerFeature('selection', (config) => {
  * Uses React context to access the grid ref - works reliably regardless of
  * when the grid mounts or conditional rendering.
  */
-export interface SelectionMethods {
+export interface SelectionMethods<TRow = unknown> {
   /**
    * Select all rows (row mode) or all cells (range mode).
    */
@@ -74,6 +74,17 @@ export interface SelectionMethods {
    * Set selection ranges programmatically.
    */
   setRanges: (ranges: CellRange[]) => void;
+
+  /**
+   * Get actual row objects for the current selection.
+   * Works in all selection modes (row, cell, range) — resolves indices
+   * against the grid's processed (sorted/filtered) rows.
+   *
+   * This is the recommended way to get selected rows. Unlike manual
+   * index mapping, it correctly resolves rows even when the grid is
+   * sorted or filtered.
+   */
+  getSelectedRows: () => TRow[];
 }
 
 /**
@@ -100,7 +111,7 @@ export interface SelectionMethods {
  * }
  * ```
  */
-export function useGridSelection<TRow = unknown>(): SelectionMethods {
+export function useGridSelection<TRow = unknown>(): SelectionMethods<TRow> {
   const gridRef = useContext(GridElementContext);
 
   const getPlugin = useCallback((): SelectionPlugin | undefined => {
@@ -159,11 +170,16 @@ export function useGridSelection<TRow = unknown>(): SelectionMethods {
     [getPlugin],
   );
 
+  const getSelectedRows = useCallback((): TRow[] => {
+    return getPlugin()?.getSelectedRows<TRow>() ?? [];
+  }, [getPlugin]);
+
   return {
     selectAll,
     clearSelection,
     getSelection,
     isCellSelected,
     setRanges,
+    getSelectedRows,
   };
 }

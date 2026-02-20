@@ -52,7 +52,7 @@ registerFeature('selection', (config) => {
  * Uses the injected grid element from TbwGrid's provide/inject.
  * Methods work immediately when grid is available.
  */
-export interface SelectionMethods {
+export interface SelectionMethods<TRow = unknown> {
   /**
    * Select all rows (row mode) or all cells (range mode).
    */
@@ -78,6 +78,17 @@ export interface SelectionMethods {
    * Set selection ranges programmatically.
    */
   setRanges: (ranges: CellRange[]) => void;
+
+  /**
+   * Get actual row objects for the current selection.
+   * Works in all selection modes (row, cell, range) — resolves indices
+   * against the grid's processed (sorted/filtered) rows.
+   *
+   * This is the recommended way to get selected rows. Unlike manual
+   * index mapping, it correctly resolves rows even when the grid is
+   * sorted or filtered.
+   */
+  getSelectedRows: () => TRow[];
 }
 
 /**
@@ -101,7 +112,7 @@ export interface SelectionMethods {
  * </script>
  * ```
  */
-export function useGridSelection<TRow = unknown>(): SelectionMethods {
+export function useGridSelection<TRow = unknown>(): SelectionMethods<TRow> {
   const gridElement = inject(GRID_ELEMENT_KEY, ref(null));
 
   const getPlugin = (): SelectionPlugin | undefined => {
@@ -153,6 +164,10 @@ export function useGridSelection<TRow = unknown>(): SelectionMethods {
 
     setRanges: (ranges: CellRange[]) => {
       getPlugin()?.setRanges(ranges);
+    },
+
+    getSelectedRows: (): TRow[] => {
+      return getPlugin()?.getSelectedRows<TRow>() ?? [];
     },
   };
 }

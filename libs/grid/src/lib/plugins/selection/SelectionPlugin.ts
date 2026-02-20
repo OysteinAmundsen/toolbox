@@ -173,6 +173,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       { type: 'getSelection', description: 'Get the current selection state' },
       { type: 'selectRows', description: 'Select specific rows by index (row mode only)' },
       { type: 'getSelectedRowIndices', description: 'Get sorted array of selected row indices' },
+      { type: 'getSelectedRows', description: 'Get actual row objects for the current selection (works in all modes)' },
     ],
     configRules: [
       {
@@ -300,6 +301,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
     if (query.type === 'getSelectedRowIndices') {
       return this.getSelectedRowIndices();
+    }
+    if (query.type === 'getSelectedRows') {
+      return this.getSelectedRows();
     }
     if (query.type === 'selectRows') {
       this.selectRows(query.context as number[]);
@@ -1220,6 +1224,56 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   getSelectedRowIndices(): number[] {
     return [...this.selected].sort((a, b) => a - b);
+  }
+
+  /**
+   * Get the actual row objects for the current selection.
+   *
+   * Works across all selection modes:
+   * - **Row mode**: Returns the row objects for all selected rows.
+   * - **Cell mode**: Returns the single row containing the selected cell, or `[]`.
+   * - **Range mode**: Returns the unique row objects that intersect any selected range.
+   *
+   * Row objects are resolved from the grid's processed (sorted/filtered) row array,
+   * so they always reflect the current visual order.
+   *
+   * @example
+   * ```ts
+   * const plugin = grid.getPlugin(SelectionPlugin);
+   * const selected = plugin.getSelectedRows(); // [{ id: 1, name: 'Alice' }, ...]
+   * ```
+   */
+  getSelectedRows<T = unknown>(): T[] {
+    const { mode } = this.config;
+    const rows = this.rows;
+
+    if (mode === 'row') {
+      return this.getSelectedRowIndices()
+        .filter((i) => i >= 0 && i < rows.length)
+        .map((i) => rows[i]) as T[];
+    }
+
+    if (mode === 'cell' && this.selectedCell) {
+      const { row } = this.selectedCell;
+      return row >= 0 && row < rows.length ? [rows[row] as T] : [];
+    }
+
+    if (mode === 'range' && this.ranges.length > 0) {
+      // Collect unique row indices across all ranges
+      const rowIndices = new Set<number>();
+      for (const range of this.ranges) {
+        const minRow = Math.max(0, Math.min(range.startRow, range.endRow));
+        const maxRow = Math.min(rows.length - 1, Math.max(range.startRow, range.endRow));
+        for (let r = minRow; r <= maxRow; r++) {
+          rowIndices.add(r);
+        }
+      }
+      return [...rowIndices]
+        .sort((a, b) => a - b)
+        .map((i) => rows[i]) as T[];
+    }
+
+    return [];
   }
 
   /**

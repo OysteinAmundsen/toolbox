@@ -57,7 +57,7 @@ registerFeature('selection', (config) => {
  * Uses lazy discovery - the grid is found on first method call, not during initialization.
  * This ensures it works with lazy-rendered tabs, conditional rendering, etc.
  */
-export interface SelectionMethods {
+export interface SelectionMethods<TRow = unknown> {
   /**
    * Select all rows (row mode) or all cells (range mode).
    */
@@ -106,20 +106,39 @@ export interface SelectionMethods {
    * Convenience signal for row-mode selection — returns `[]` in cell/range modes
    * or when nothing is selected.
    *
+   * **Prefer `selectedRows`** for getting actual row objects — it handles
+   * index-to-object resolution correctly regardless of sorting/filtering.
+   *
    * @example
    * ```typescript
    * readonly selection = injectGridSelection();
    *
    * // In template:
    * // {{ selection.selectedRowIndices().length }} rows selected
-   *
-   * // In computed:
-   * readonly selectedRows = computed(() =>
-   *   this.selection.selectedRowIndices().map(i => this.rows[i])
-   * );
    * ```
    */
   selectedRowIndices: Signal<number[]>;
+
+  /**
+   * Reactive selected row objects. Updates automatically whenever the selection changes.
+   * Works in all selection modes (row, cell, range) — returns the actual row objects
+   * from the grid's processed (sorted/filtered) rows.
+   *
+   * This is the recommended way to get selected rows. Unlike manual index mapping,
+   * it correctly resolves rows even when the grid is sorted or filtered.
+   *
+   * @example
+   * ```typescript
+   * readonly selection = injectGridSelection<Employee>();
+   *
+   * // In template:
+   * // {{ selection.selectedRows().length }} rows selected
+   *
+   * // In computed:
+   * readonly hasSelection = computed(() => this.selection.selectedRows().length > 0);
+   * ```
+   */
+  selectedRows: Signal<TRow[]>;
 
   /**
    * Signal indicating if grid is ready.
@@ -168,7 +187,7 @@ export interface SelectionMethods {
  * }
  * ```
  */
-export function injectGridSelection<TRow = unknown>(): SelectionMethods {
+export function injectGridSelection<TRow = unknown>(): SelectionMethods<TRow> {
   const elementRef = inject(ElementRef);
   const destroyRef = inject(DestroyRef);
   const isReady = signal(false);
@@ -176,6 +195,7 @@ export function injectGridSelection<TRow = unknown>(): SelectionMethods {
   // Reactive selection state
   const selectionSignal = signal<SelectionResult | null>(null);
   const selectedRowIndicesSignal = signal<number[]>([]);
+  const selectedRowsSignal = signal<TRow[]>([]);
 
   // Lazy discovery: cached grid reference
   let cachedGrid: DataGridElement<TRow> | null = null;
@@ -192,6 +212,7 @@ export function injectGridSelection<TRow = unknown>(): SelectionMethods {
     if (plugin) {
       selectionSignal.set(plugin.getSelection());
       selectedRowIndicesSignal.set(detail.mode === 'row' ? plugin.getSelectedRowIndices() : []);
+      selectedRowsSignal.set(plugin.getSelectedRows<TRow>());
     }
   };
 
@@ -244,6 +265,7 @@ export function injectGridSelection<TRow = unknown>(): SelectionMethods {
       selectionSignal.set(plugin.getSelection());
       const mode = (plugin as any).config?.mode;
       selectedRowIndicesSignal.set(mode === 'row' ? plugin.getSelectedRowIndices() : []);
+      selectedRowsSignal.set(plugin.getSelectedRows<TRow>());
     }
   };
 
@@ -276,6 +298,7 @@ export function injectGridSelection<TRow = unknown>(): SelectionMethods {
     isReady: isReady.asReadonly(),
     selection: selectionSignal.asReadonly(),
     selectedRowIndices: selectedRowIndicesSignal.asReadonly(),
+    selectedRows: selectedRowsSignal.asReadonly(),
 
     selectAll: () => {
       const plugin = getPlugin();

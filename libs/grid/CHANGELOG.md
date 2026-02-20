@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.18.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.17.0...grid-1.18.0) (2026-02-20)
+
+
+### Features
+
+* **grid:** add BLANK_FILTER_VALUE sentinel, selected map, and batch unique extraction ([1a40c05](https://github.com/OysteinAmundsen/toolbox/commit/1a40c056bf4e86c37442cf9f2fd454392e24c7cd))
+* **grid:** add filterValue column extractor for complex cell filtering ([5944a45](https://github.com/OysteinAmundsen/toolbox/commit/5944a452df59b97b32565b5fe65c07ced0790a37))
+
+
+### Bug Fixes
+
+* **grid:** harden EditingPlugin row resolution against stale indices ([0208b15](https://github.com/OysteinAmundsen/toolbox/commit/0208b158278874d3ffee1d80e1152682130a6fc1))
+* **grid:** keep focus on grid element during keyboard navigation ([2d3c44a](https://github.com/OysteinAmundsen/toolbox/commit/2d3c44a79d066271fc0d8250e1055d5f44f8155f))
+
+
+### Enhancements
+
+* **grid:** add data-type attribute to header cells ([b57b873](https://github.com/OysteinAmundsen/toolbox/commit/b57b873e4d06a39ba2426b1ff41d31956b626697))
+* **grid:** use column format function in filter panel display values ([d1f284c](https://github.com/OysteinAmundsen/toolbox/commit/d1f284c1777e47514a6b1ecd9daec3f454c3018d))
+
 ## [1.17.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.16.1...grid-1.17.0) (2026-02-18)
 
 

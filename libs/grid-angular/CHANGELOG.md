@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.13.2...grid-angular-0.13.3) (2026-02-20)
+
+
+### Bug Fixes
+
+* **grid:** harden EditingPlugin row resolution against stale indices ([0208b15](https://github.com/OysteinAmundsen/toolbox/commit/0208b158278874d3ffee1d80e1152682130a6fc1))
+
 ## [0.13.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.13.1...grid-angular-0.13.2) (2026-02-18)
 
 

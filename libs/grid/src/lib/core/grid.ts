@@ -2149,6 +2149,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Note: processedRows may contain group markers that plugins handle via renderRow hook
     this._rows = processedRows as T[];
 
+    // Rebuild row ID map to keep indices in sync with the (possibly sorted) _rows.
+    // Without this, #rowIdMap has stale indices from the unsorted copy set in #applyRowsUpdate.
+    this.#rebuildRowIdMap();
+
     // Rebuild position cache for variable heights (rows may have changed)
     if (this._virtualization.variableHeights) {
       this.#initializePositionCache();
@@ -2743,6 +2747,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   getRow(id: string): T | undefined {
     return this.#rowIdMap.get(id)?.row;
+  }
+
+  /**
+   * Get a row and its current index by ID.
+   * Used internally by plugins to resolve a row's current position in `_rows`
+   * after sorting, filtering, or rows replacement.
+   * @internal
+   */
+  _getRowEntry(id: string): { row: T; index: number } | undefined {
+    return this.#rowIdMap.get(id);
   }
 
   /**

@@ -349,6 +349,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Currently active edit row index, or -1 if not editing */
   #activeEditRow = -1;
 
+  /** Row ID of the currently active edit row (stable across _rows replacement) */
+  #activeEditRowId: string | undefined;
+
+  /** Reference to the row object at edit-open time. Used as fallback in
+   *  #exitRowEdit when no row ID is available (prevents stale-index access). */
+  #activeEditRowRef: T | undefined;
+
   /** Currently active edit column index, or -1 if not editing */
   #activeEditCol = -1;
 
@@ -599,6 +606,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     internalGrid._isGridEditMode = false;
     this.gridElement.classList.remove('tbw-grid-mode');
     this.#activeEditRow = -1;
+    this.#activeEditRowId = undefined;
+    this.#activeEditRowRef = undefined;
     this.#activeEditCol = -1;
     this.#rowEditSnapshots.clear();
     this.#changedRowIds.clear();
@@ -1495,20 +1504,23 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (this.#activeEditRow !== rowIndex) {
       this.#rowEditSnapshots.set(rowIndex, { ...rowData });
       this.#activeEditRow = rowIndex;
+      this.#activeEditRowRef = rowData;
+
+      // Store stable row ID for resilience against _rows replacement during editing
+      const internalGrid = this.grid as unknown as InternalGrid<T>;
+      try {
+        this.#activeEditRowId = internalGrid.getRowId?.(rowData) ?? undefined;
+      } catch {
+        this.#activeEditRowId = undefined;
+      }
+
       this.#syncGridEditState();
 
       // Emit edit-open event (row mode only)
       if (!this.#isGridMode) {
-        const internalGrid = this.grid as unknown as InternalGrid<T>;
-        let rowId = '';
-        try {
-          rowId = internalGrid.getRowId?.(rowData) ?? '';
-        } catch {
-          // Row has no ID
-        }
         this.emit<EditOpenDetail<T>>('edit-open', {
           rowIndex,
-          rowId,
+          rowId: this.#activeEditRowId ?? '',
           row: rowData,
         });
       }
@@ -1523,12 +1535,19 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     const internalGrid = this.grid as unknown as InternalGrid<T>;
     const snapshot = this.#rowEditSnapshots.get(rowIndex);
-    const current = internalGrid._rows[rowIndex];
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
 
-    // Get row ID for change tracking
-    let rowId: string | undefined;
-    if (current) {
+    // Resolve the row being edited using the stored row ID.
+    // The _rows array may have been replaced (e.g. Angular pushing new rows
+    // via directive effect) since editing started, so _rows[rowIndex] could
+    // point to a completely different row. The ID map is always up-to-date.
+    // Without an ID we fall back to the stored row reference from edit-open
+    // (#activeEditRowRef) — safer than _rows[rowIndex] which may be stale.
+    let rowId = this.#activeEditRowId;
+    const entry = rowId ? internalGrid._getRowEntry(rowId) : undefined;
+    const current = entry?.row ?? this.#activeEditRowRef ?? internalGrid._rows[rowIndex];
+
+    if (!rowId && current) {
       try {
         rowId = internalGrid.getRowId?.(current);
       } catch {
@@ -1616,22 +1635,32 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Clear editing state
     this.#rowEditSnapshots.delete(rowIndex);
     this.#activeEditRow = -1;
+    this.#activeEditRowId = undefined;
+    this.#activeEditRowRef = undefined;
     this.#activeEditCol = -1;
     this.#singleCellEdit = false;
     this.#syncGridEditState();
 
-    // Remove all editing cells for this row
+    // Remove all editing cells for this row.
+    // Note: these keys use the rowIndex captured at edit-open time. Even if _rows
+    // was replaced and the row moved to a different index, the keys still match
+    // what was inserted during this edit session (same captured rowIndex).
     for (const cellKey of this.#editingCells) {
       if (cellKey.startsWith(`${rowIndex}:`)) {
         this.#editingCells.delete(cellKey);
       }
     }
-    // Remove value-change callbacks for this row
+    // Remove value-change callbacks for this row (same captured-index rationale)
     for (const callbackKey of this.#editorValueCallbacks.keys()) {
       if (callbackKey.startsWith(`${rowIndex}:`)) {
         this.#editorValueCallbacks.delete(callbackKey);
       }
     }
+
+    // Mark that focus should be restored after the upcoming render completes.
+    // This must be set BEFORE refreshVirtualWindow because it calls afterRender()
+    // synchronously, which reads this flag.
+    this.#pendingFocusRestore = true;
 
     // Re-render the row to remove editors
     if (rowEl) {
@@ -1641,15 +1670,15 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         clearEditingState(cell.parentElement as RowElementInternal);
       });
 
-      // Request grid re-render to restore cell content
-      this.requestRender();
-    }
-
-    // Mark that focus should be restored after render completes
-    this.#pendingFocusRestore = true;
-
-    // If no render was scheduled (row not visible), restore focus immediately
-    if (!rowEl) {
+      // Refresh the virtual window to restore cell content WITHOUT rebuilding
+      // the row model. requestRender() would trigger processRows (ROWS phase)
+      // which re-sorts — causing the edited row to jump to a new position and
+      // disappear from view. refreshVirtualWindow re-renders visible cells from
+      // the current _rows order, keeping the row in place until the user
+      // explicitly sorts again or new data arrives.
+      internalGrid.refreshVirtualWindow(true);
+    } else {
+      // Row not visible - restore focus immediately (no render will happen)
       this.#restoreCellFocus(internalGrid);
       this.#pendingFocusRestore = false;
     }
@@ -1791,19 +1820,25 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // In grid mode, always allow commits (we're always editing)
       // In row mode, only allow commits if we're in an active edit session
       if (editFinalized || (!this.#isGridMode && this.#activeEditRow === -1)) return;
-      // Resolve rowData fresh from the grid's current rows array.
-      // The captured `rowData` may be stale if grid.rows was re-set (e.g. by
-      // a FormArray valueChanges subscription pushing getRawValue() which
-      // creates new object references). Using the live row ensures the
-      // committed value lands on the correct object.
-      const currentRowData = ((this.grid as unknown as InternalGrid<T>)._rows[rowIndex] as T) ?? rowData;
-      this.#commitCellValue(rowIndex, column, newValue, currentRowData);
+      // Resolve row and index fresh at commit time.
+      // With a row ID we use _getRowEntry for O(1) lookup — this is resilient
+      // against _rows being replaced (e.g. Angular directive effect).
+      // Without a row ID we fall back to the captured rowData reference.
+      // Using _rows[rowIndex] without an ID is unsafe: the index may be stale
+      // after _rows replacement, which would commit to the WRONG row.
+      const internalGrid = this.grid as unknown as InternalGrid<T>;
+      const entry = rowId ? internalGrid._getRowEntry(rowId) : undefined;
+      const currentRowData = (entry?.row ?? rowData) as T;
+      const currentIndex = entry?.index ?? rowIndex;
+      this.#commitCellValue(currentIndex, column, newValue, currentRowData);
     };
     const cancel = () => {
       editFinalized = true;
       if (isSafePropertyKey(column.field)) {
-        // Use fresh row data to restore the original value, same rationale as commit
-        const currentRowData = ((this.grid as unknown as InternalGrid<T>)._rows[rowIndex] as T) ?? rowData;
+        // Same ID-first / captured-rowData fallback as commit — see comment above.
+        const internalGrid = this.grid as unknown as InternalGrid<T>;
+        const entry = rowId ? internalGrid._getRowEntry(rowId) : undefined;
+        const currentRowData = (entry?.row ?? rowData) as T;
         (currentRowData as Record<string, unknown>)[column.field] = originalValue;
       }
     };

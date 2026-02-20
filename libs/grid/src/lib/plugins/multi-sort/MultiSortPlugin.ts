@@ -107,6 +107,10 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
   // #region Internal State
   private sortModel: SortModel[] = [];
+  /** Cached sort result — returned as-is while a row edit is active to prevent
+   *  the edited row from jumping to a new sorted position mid-edit. Row data
+   *  mutations are still visible because the array holds shared object refs. */
+  private cachedSortResult: unknown[] | null = null;
   // #endregion
 
   // #region Lifecycle
@@ -114,6 +118,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   /** @internal */
   override detach(): void {
     this.sortModel = [];
+    this.cachedSortResult = null;
   }
   // #endregion
 
@@ -122,9 +127,27 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
   /** @internal */
   override processRows(rows: readonly unknown[]): unknown[] {
     if (this.sortModel.length === 0) {
+      this.cachedSortResult = null;
       return [...rows];
     }
-    return applySorts([...rows], this.sortModel, [...this.columns]);
+
+    // Freeze sort order while a row is actively being edited (row mode only).
+    // Re-sorting mid-edit would move the edited row to a new index while the
+    // editors remain at the old position, causing data/UI mismatch.
+    // In grid mode (_isGridEditMode) sorting is safe — afterCellRender
+    // re-injects editors into the re-sorted cells.
+    // We return the cached previous sort result (same object references, so
+    // in-place value mutations are already visible) instead of unsorted input.
+    const el = this.gridElement as unknown as Record<string, unknown> | undefined;
+    if (el && !el._isGridEditMode && typeof el._activeEditRows === 'number' && el._activeEditRows !== -1) {
+      if (this.cachedSortResult && this.cachedSortResult.length === rows.length) {
+        return [...this.cachedSortResult];
+      }
+    }
+
+    const sorted = applySorts([...rows], this.sortModel, [...this.columns]);
+    this.cachedSortResult = sorted;
+    return sorted;
   }
 
   /** @internal */
@@ -139,6 +162,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
     this.emit('sort-change', { sortModel: [...this.sortModel] });
     this.requestRender();
+    this.grid?.requestStateChange?.();
 
     return true;
   }
@@ -228,6 +252,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     this.sortModel = [...model];
     this.emit('sort-change', { sortModel: [...model] });
     this.requestRender();
+    this.grid?.requestStateChange?.();
   }
 
   /**
@@ -237,6 +262,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     this.sortModel = [];
     this.emit('sort-change', { sortModel: [] });
     this.requestRender();
+    this.grid?.requestStateChange?.();
   }
 
   /**

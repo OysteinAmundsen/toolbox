@@ -330,6 +330,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   findRenderedRowElement?: (rowIndex: number) => HTMLElement | null;
   /** Get a row by its ID. Implemented in grid.ts */
   getRow?: (id: string) => T | undefined;
+  /** Get a row and its current index by ID. Returns undefined if not found. @internal */
+  _getRowEntry: (id: string) => { row: T; index: number } | undefined;
   /** Get the unique ID for a row. Implemented in grid.ts */
   getRowId?: (row: T) => string;
   /** Update a row by ID. Implemented in grid.ts */

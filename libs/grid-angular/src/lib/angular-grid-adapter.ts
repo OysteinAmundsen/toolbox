@@ -28,6 +28,7 @@ import { getFormArrayContext } from './directives/grid-form-array.directive';
 import { getResponsiveCardTemplate, GridResponsiveCardContext } from './directives/grid-responsive-card.directive';
 import { getToolPanelTemplate, GridToolPanelContext } from './directives/grid-tool-panel.directive';
 import { getStructuralEditorTemplate, getStructuralViewTemplate } from './directives/structural-directives';
+import { wireEditorCallbacks } from './editor-wiring';
 import { GridTypeRegistry } from './grid-type-registry';
 
 /**
@@ -715,31 +716,6 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
-   * Wires up commit/cancel handlers for an editor component.
-   * Supports both Angular outputs and DOM CustomEvents.
-   * @internal
-   */
-  private wireEditorCallbacks<TValue>(
-    hostElement: HTMLElement,
-    componentRef: ComponentRef<unknown>,
-    commit: (value: TValue) => void,
-    cancel: () => void,
-  ): void {
-    // Subscribe to Angular outputs (commit/cancel) on the component instance.
-    // This works with Angular's output() signal API.
-    const instance = componentRef.instance as Record<string, unknown>;
-    this.subscribeToOutput(instance, 'commit', commit);
-    this.subscribeToOutput(instance, 'cancel', cancel);
-
-    // Also listen for DOM events as fallback (for components that dispatch CustomEvents)
-    hostElement.addEventListener('commit', (e: Event) => {
-      const customEvent = e as CustomEvent<TValue>;
-      commit(customEvent.detail);
-    });
-    hostElement.addEventListener('cancel', () => cancel());
-  }
-
-  /**
    * Creates a renderer function from an Angular component class.
    * @internal
    */
@@ -799,9 +775,9 @@ export class GridAdapter implements FrameworkAdapter {
         true, // isEditor — tracked separately for per-cell cleanup
       );
 
-      this.wireEditorCallbacks<TValue>(
+      wireEditorCallbacks<TValue>(
         hostElement,
-        componentRef,
+        componentRef.instance as Record<string, unknown>,
         (value) => ctx.commit(value),
         () => ctx.cancel(),
       );
@@ -861,25 +837,6 @@ export class GridAdapter implements FrameworkAdapter {
 
       container.appendChild(hostElement);
     };
-  }
-
-  /**
-   * Subscribes to an Angular output on a component instance.
-   * Works with both EventEmitter and OutputEmitterRef (signal outputs).
-   * @internal
-   */
-  private subscribeToOutput<T>(
-    instance: Record<string, unknown>,
-    outputName: string,
-    callback: (value: T) => void,
-  ): void {
-    const output = instance[outputName];
-    if (!output) return;
-
-    // Check if it's an Observable-like (EventEmitter or OutputEmitterRef)
-    if (typeof (output as { subscribe?: unknown }).subscribe === 'function') {
-      (output as { subscribe: (fn: (v: T) => void) => void }).subscribe(callback);
-    }
   }
 
   /**

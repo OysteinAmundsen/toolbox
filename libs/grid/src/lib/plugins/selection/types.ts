@@ -118,6 +118,33 @@ export interface SelectionConfig<T = unknown> {
   mode: SelectionMode;
 
   /**
+   * Allow multiple items to be selected simultaneously (default: true).
+   *
+   * When `false`:
+   * - **Row mode**: Only one row can be selected at a time. Ctrl+Click and Shift+Click
+   *   behave like plain clicks (select only the clicked row). "Select all" is disabled.
+   * - **Range mode**: Only one range exists at a time. Ctrl+Click starts a new range
+   *   instead of adding to existing ranges.
+   * - **Cell mode**: No effect (cell mode is always single-cell).
+   *
+   * Checkbox behavior when `multiSelect: false`:
+   * - Header "select all" checkbox is hidden
+   * - Row checkboxes replace the current selection instead of toggling
+   *
+   * @default true
+   *
+   * @example
+   * ```ts
+   * // Single row selection only
+   * new SelectionPlugin({ mode: 'row', multiSelect: false })
+   *
+   * // Single row with checkbox (no "select all" in header)
+   * new SelectionPlugin({ mode: 'row', multiSelect: false, checkbox: true })
+   * ```
+   */
+  multiSelect?: boolean;
+
+  /**
    * Whether selection is enabled (default: true).
    *
    * When `false`, disables all selection interactions while keeping the plugin loaded.

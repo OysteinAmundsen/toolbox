@@ -27,6 +27,7 @@ grid.gridConfig = {
 | Option         | Type                                          | Default   | Description                                    |
 | -------------- | --------------------------------------------- | --------- | ---------------------------------------------- |
 | `mode`         | `'cell' \| 'row' \| 'range'`                  | `'cell'`  | Selection mode                                 |
+| `multiSelect`  | `boolean`                                     | `true`    | Allow multiple items selected at once          |
 | `triggerOn`    | `'click' \| 'dblclick'`                       | `'click'` | Mouse event type that triggers selection       |
 | `enabled`      | `boolean`                                     | `true`    | Whether selection is enabled                   |
 | `checkbox`     | `boolean`                                     | `false`   | Show checkbox column (row mode only)           |

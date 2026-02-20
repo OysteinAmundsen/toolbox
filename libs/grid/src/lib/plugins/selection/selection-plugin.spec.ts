@@ -1398,4 +1398,268 @@ describe('SelectionPlugin', () => {
       expect(result).toEqual([{ id: 1 }, { id: 2 }]);
     });
   });
+
+  describe('multiSelect: false', () => {
+    describe('row mode', () => {
+      it('should select only one row at a time on plain click', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelectedRowIndices()).toEqual([0]);
+
+        plugin.onCellClick({
+          rowIndex: 2,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[2],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelectedRowIndices()).toEqual([2]);
+      });
+
+      it('should ignore Ctrl+Click and select only clicked row', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        // Ctrl+Click should NOT add row 2, should replace with row 2
+        plugin.onCellClick({
+          rowIndex: 2,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[2],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click', { ctrlKey: true }),
+        });
+
+        expect(plugin.getSelectedRowIndices()).toEqual([2]);
+      });
+
+      it('should ignore Shift+Click and select only clicked row', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        plugin.onCellClick({
+          rowIndex: 1,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[1],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        // Shift+Click should NOT range-select 1-3, should just select row 3
+        plugin.onCellClick({
+          rowIndex: 3,
+          colIndex: 0,
+          field: 'name',
+          value: 'Test',
+          row: rows[3],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click', { shiftKey: true }),
+        });
+
+        expect(plugin.getSelectedRowIndices()).toEqual([3]);
+      });
+
+      it('should make selectAll() a no-op', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        plugin.selectAll();
+
+        expect(plugin.getSelectedRowIndices()).toEqual([]);
+      });
+
+      it('should limit selectRows() to last index only', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        plugin.selectRows([0, 2, 3]);
+
+        // Only last index should be selected
+        expect(plugin.getSelectedRowIndices()).toEqual([3]);
+      });
+
+      it('should allow selectRows() with a single index', () => {
+        const rows = [{ id: 1 }, { id: 2 }];
+        const mockGrid = createMockGrid(rows, [{ field: 'name' }]);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        plugin.selectRows([1]);
+
+        expect(plugin.getSelectedRowIndices()).toEqual([1]);
+      });
+
+      it('should replace selection on checkbox click instead of toggle-adding', () => {
+        const rows = [{ id: 1 }, { id: 2 }];
+        const columns = [{ field: 'name', meta: { checkboxColumn: true } }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false, checkbox: true });
+        plugin.attach(mockGrid);
+
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: '__tbw_checkbox',
+          value: undefined,
+          row: rows[0],
+          column: columns[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelectedRowIndices()).toEqual([0]);
+
+        // Checkbox click on row 1 should replace, not add
+        plugin.onCellClick({
+          rowIndex: 1,
+          colIndex: 0,
+          field: '__tbw_checkbox',
+          value: undefined,
+          row: rows[1],
+          column: columns[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelectedRowIndices()).toEqual([1]);
+      });
+
+      it('should hide select-all header checkbox', () => {
+        const columns = [{ field: 'name' }];
+        const mockGrid = createMockGrid([], columns);
+        const plugin = new SelectionPlugin({ mode: 'row', multiSelect: false, checkbox: true });
+        plugin.attach(mockGrid);
+
+        const result = plugin.processColumns(columns);
+        const checkboxCol = result.find((c: any) => c.field === '__tbw_checkbox');
+
+        // Header renderer should return a container with no checkbox inside
+        const headerEl = checkboxCol!.headerRenderer!({} as any);
+        expect(headerEl.querySelector('input')).toBeNull();
+      });
+    });
+
+    describe('range mode', () => {
+      it('should not add multiple ranges with Ctrl+Click', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const columns = [{ field: 'a' }, { field: 'b' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({ mode: 'range', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        // Click cell (0,0)
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: 'a',
+          value: 'v',
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        expect(plugin.getSelection().ranges).toHaveLength(1);
+
+        // Ctrl+Click cell (2,1) - should replace, not add
+        plugin.onCellClick({
+          rowIndex: 2,
+          colIndex: 1,
+          field: 'b',
+          value: 'v',
+          row: rows[2],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click', { ctrlKey: true }),
+        });
+
+        // Should still have only 1 range, not 2
+        expect(plugin.getSelection().ranges).toHaveLength(1);
+        expect(plugin.getSelection().ranges[0].from).toEqual({ row: 2, col: 1 });
+      });
+
+      it('should not add multiple ranges via Ctrl+mousedown drag', () => {
+        const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+        const columns = [{ field: 'a' }, { field: 'b' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({ mode: 'range', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        // First range via click
+        plugin.onCellClick({
+          rowIndex: 0,
+          colIndex: 0,
+          field: 'a',
+          value: 'v',
+          row: rows[0],
+          cellEl: document.createElement('div'),
+          originalEvent: new MouseEvent('click'),
+        });
+
+        // Ctrl+mousedown should not add a second range
+        plugin.onCellMouseDown({
+          rowIndex: 2,
+          colIndex: 1,
+          originalEvent: new MouseEvent('mousedown', { ctrlKey: true }),
+        } as any);
+
+        // Should have replaced, not appended
+        expect(plugin.getSelection().ranges).toHaveLength(1);
+        expect(plugin.getSelection().ranges[0].from).toEqual({ row: 2, col: 1 });
+      });
+
+      it('should make selectAll() a no-op in range mode', () => {
+        const rows = [{ id: 1 }, { id: 2 }];
+        const columns = [{ field: 'a' }];
+        const mockGrid = createMockGrid(rows, columns);
+        const plugin = new SelectionPlugin({ mode: 'range', multiSelect: false });
+        plugin.attach(mockGrid);
+
+        plugin.selectAll();
+
+        expect(plugin.getSelection().ranges).toHaveLength(0);
+      });
+    });
+
+    it('should default multiSelect to true', () => {
+      const plugin = new SelectionPlugin({ mode: 'row' });
+      plugin.attach(createMockGrid());
+      expect(plugin['config'].multiSelect).toBe(true);
+    });
+  });
 });

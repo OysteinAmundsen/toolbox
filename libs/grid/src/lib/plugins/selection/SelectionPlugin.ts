@@ -115,6 +115,9 @@ function buildSelectionEvent(
  * | `Ctrl/Cmd + A` | Select all (range mode) |
  * | `Escape` | Clear selection |
  *
+ * > **Note:** When `multiSelect: false`, Ctrl/Shift modifiers are ignored —
+ * > clicks always select a single item.
+ *
  * ## CSS Custom Properties
  *
  * | Property | Description |
@@ -199,6 +202,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       mode: 'cell',
       triggerOn: 'click',
       enabled: true,
+      multiSelect: true,
     };
   }
 
@@ -389,8 +393,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         return false; // Row is not selectable
       }
 
-      const shiftKey = originalEvent.shiftKey;
-      const ctrlKey = originalEvent.ctrlKey || originalEvent.metaKey;
+      const multiSelect = this.config.multiSelect !== false;
+      const shiftKey = originalEvent.shiftKey && multiSelect;
+      const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && multiSelect;
       const isCheckbox = column?.meta?.checkboxColumn === true;
 
       if (shiftKey && this.anchor !== null) {
@@ -405,7 +410,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
             this.selected.add(i);
           }
         }
-      } else if (ctrlKey || isCheckbox) {
+      } else if (ctrlKey || (isCheckbox && multiSelect)) {
         // Ctrl+Click or checkbox click: Toggle individual row
         if (this.selected.has(rowIndex)) {
           this.selected.delete(rowIndex);
@@ -414,7 +419,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         }
         this.anchor = rowIndex;
       } else {
-        // Plain click: Clear all, select only clicked row
+        // Plain click (or any click when multiSelect is false): select only clicked row
         if (this.selected.size === 1 && this.selected.has(rowIndex)) {
           return false; // Same row already selected
         }
@@ -443,7 +448,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       }
 
       const shiftKey = originalEvent.shiftKey;
-      const ctrlKey = originalEvent.ctrlKey || originalEvent.metaKey;
+      const ctrlKey = (originalEvent.ctrlKey || originalEvent.metaKey) && this.config.multiSelect !== false;
 
       if (shiftKey && this.cellAnchor) {
         // Extend selection from anchor
@@ -556,8 +561,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
     // ROW MODE: Arrow keys move selection, Shift+Arrow extends, Ctrl+A selects all
     if (mode === 'row') {
+      const multiSelect = this.config.multiSelect !== false;
+
       if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        const shiftKey = event.shiftKey;
+        const shiftKey = event.shiftKey && multiSelect;
 
         // Set anchor before grid moves focus
         if (shiftKey && this.anchor === null) {
@@ -597,8 +604,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         return false; // Let grid handle navigation
       }
 
-      // Ctrl+A: Select all rows (skip when editing)
-      if (event.key === 'a' && (event.ctrlKey || event.metaKey)) {
+      // Ctrl+A: Select all rows (skip when editing, skip when single-select)
+      if (multiSelect && event.key === 'a' && (event.ctrlKey || event.metaKey)) {
         const isEditing = this.grid.query<boolean>('isEditing');
         if (isEditing.some(Boolean)) return false;
         event.preventDefault();
@@ -632,8 +639,13 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       return false; // Let grid handle navigation
     }
 
-    // Ctrl+A selects all in range mode (skip when editing)
-    if (mode === 'range' && event.key === 'a' && (event.ctrlKey || event.metaKey)) {
+    // Ctrl+A selects all in range mode (skip when editing, skip when single-select)
+    if (
+      mode === 'range' &&
+      this.config.multiSelect !== false &&
+      event.key === 'a' &&
+      (event.ctrlKey || event.metaKey)
+    ) {
       const isEditing = this.grid.query<boolean>('isEditing');
       if (isEditing.some(Boolean)) return false;
       event.preventDefault();
@@ -675,7 +687,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const rowIndex = event.rowIndex;
     const colIndex = event.colIndex;
 
-    const ctrlKey = event.originalEvent.ctrlKey || event.originalEvent.metaKey;
+    // When multiSelect is false, Ctrl+click starts a new single range instead of adding
+    const ctrlKey = (event.originalEvent.ctrlKey || event.originalEvent.metaKey) && this.config.multiSelect !== false;
 
     const newRange: InternalCellRange = {
       startRow: rowIndex,
@@ -798,6 +811,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       headerRenderer: () => {
         const container = document.createElement('div');
         container.className = 'tbw-checkbox-header';
+        // Hide "select all" checkbox in single-select mode
+        if (this.config.multiSelect === false) return container;
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'tbw-select-all-checkbox';
@@ -1155,7 +1170,10 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    * ```
    */
   selectAll(): void {
-    const { mode } = this.config;
+    const { mode, multiSelect } = this.config;
+
+    // Single-select mode: selectAll is a no-op
+    if (multiSelect === false) return;
 
     if (mode === 'row') {
       this.selected.clear();
@@ -1200,13 +1218,16 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
    */
   selectRows(indices: number[]): void {
     if (this.config.mode !== 'row') return;
+    // In single-select mode, only use the last index
+    const effectiveIndices =
+      this.config.multiSelect === false && indices.length > 1 ? [indices[indices.length - 1]] : indices;
     this.selected.clear();
-    for (const idx of indices) {
+    for (const idx of effectiveIndices) {
       if (idx >= 0 && idx < this.rows.length && this.isRowSelectable(idx)) {
         this.selected.add(idx);
       }
     }
-    this.anchor = indices.length > 0 ? indices[indices.length - 1] : null;
+    this.anchor = effectiveIndices.length > 0 ? effectiveIndices[effectiveIndices.length - 1] : null;
     this.explicitSelection = true;
     this.emit<SelectionChangeDetail>('selection-change', this.#buildEvent());
     this.requestAfterRender();
@@ -1268,9 +1289,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
           rowIndices.add(r);
         }
       }
-      return [...rowIndices]
-        .sort((a, b) => a - b)
-        .map((i) => rows[i]) as T[];
+      return [...rowIndices].sort((a, b) => a - b).map((i) => rows[i]) as T[];
     }
 
     return [];

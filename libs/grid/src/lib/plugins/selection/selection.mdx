@@ -140,6 +140,7 @@ export class MyGridComponent {
 ### Checkbox Selection
 
 Add `checkbox: true` to show a selection checkbox column with a "select all" header. Works exclusively in row mode. Checkboxes toggle individual rows (like Ctrl+Click), and Shift+Click between checkboxes selects the range.
+When `multiSelect: false`, the header checkbox is hidden and row checkboxes replace the current selection instead of toggling.
 
 <Canvas of={SelectionStories.CheckboxSelection} withToolbar />
 
@@ -167,6 +168,7 @@ This is useful for toggling selection on/off at runtime without removing the plu
 | Option | Type                         | Default  | Description             |
 | ------ | ---------------------------- | -------- | ----------------------- |
 | `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
+| `multiSelect` | `boolean` | `true` | Allow multiple items selected at once |
 | `enabled` | `boolean` | `true` | Plugin-level enable/disable (same effect as `gridConfig.selectable`) |
 | `triggerOn` | `'click' \| 'dblclick'` | `'click'` | Selection trigger type |
 | `checkbox` | `boolean` | `false` | Show checkbox column (row mode only) |

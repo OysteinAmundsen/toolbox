@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.13.3...grid-angular-0.14.0) (2026-02-20)
+
+
+### Features
+
+* **grid, grid-angular, grid-react, grid-vue:** add getSelectedRows() to SelectionPlugin ([a0bb977](https://github.com/OysteinAmundsen/toolbox/commit/a0bb977f5e623149dc6a1b5a8f71aeeccc6466e5))
+
+
+### Bug Fixes
+
+* **grid-angular:** use stable container for renderer rootNodes ([9e23de3](https://github.com/OysteinAmundsen/toolbox/commit/9e23de306df39ff2c29190d843a2302033cb0c02))
+
 ## [0.13.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.13.2...grid-angular-0.13.3) (2026-02-20)
 
 

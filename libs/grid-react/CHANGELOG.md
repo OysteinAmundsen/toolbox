@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.2...grid-react-0.13.0) (2026-02-20)
+
+
+### Features
+
+* **grid, grid-angular, grid-react, grid-vue:** add getSelectedRows() to SelectionPlugin ([a0bb977](https://github.com/OysteinAmundsen/toolbox/commit/a0bb977f5e623149dc6a1b5a8f71aeeccc6466e5))
+
 ## [0.12.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.12.1...grid-react-0.12.2) (2026-02-16)
 
 

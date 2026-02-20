@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.19.0...grid-1.19.1) (2026-02-20)
+
+
+### Enhancements
+
+* **grid:** add multiSelect option to SelectionPlugin ([3a684b5](https://github.com/OysteinAmundsen/toolbox/commit/3a684b5447272c64f9c503e99c074f58a85c4578))
+
 ## [1.19.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.18.0...grid-1.19.0) (2026-02-20)
 
 

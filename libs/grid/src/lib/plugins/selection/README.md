@@ -80,6 +80,9 @@ const result = selection.getSelection();
 // Get selected row indices (row mode, sorted ascending)
 const indices = selection.getSelectedRowIndices();
 
+// Get actual row objects (preferred — works in all modes)
+const rows = selection.getSelectedRows<Employee>();
+
 // Select specific rows by index (row mode only)
 selection.selectRows([0, 2, 4]);
 

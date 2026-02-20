@@ -451,6 +451,24 @@ The Grid uses **row virtualization**:
 - Row pooling via `rowPool: HTMLElement[]` for efficient DOM reuse
 - Update via `refreshVirtualWindow(full: boolean)` - called via scheduler or directly for scroll
 
+### Row Data Access Convention
+
+When plugins or APIs expose row references to consumers, **prefer returning row data objects** over raw indices:
+
+- **Row objects are stable identifiers** — indices shift when the grid sorts, filters, or groups data. A row index from `selection-change` refers to the grid's _processed_ `rows` array, not the user's original input array.
+- **Always offer a row-object alternative** — e.g., `getSelectedRows()` alongside `getSelectedRowIndices()`. Framework adapters should expose the object-based accessor as the primary API.
+- **Indices are fine as positional coordinates** — `CellRange`, `rowIndex`/`colIndex` in events, and similar positional references are naturally index-based. But when the consumer's goal is _data access_, provide the resolved object.
+- **Use `this.rows`** (or `this.grid?.rows`) in plugins to resolve indices — this returns the grid's current post-processing row array, which is what indices correspond to.
+
+```typescript
+// ✅ Preferred: return actual row objects
+const employees = selection.getSelectedRows<Employee>();
+
+// ⚠️ Fragile: forces consumer to maintain index mapping
+const indices = selection.getSelectedRowIndices();
+const employees = indices.map((i) => myLocalData[i]); // May be wrong after sort/filter!
+```
+
 ## Plugin Development Pattern
 
 See the `new-plugin` skill for the complete plugin development guide including:
@@ -494,6 +512,7 @@ const sel = grid.getPlugin(SelectionPlugin);
 9. **Don't call RAF directly for rendering** - Use `this.#scheduler.requestPhase()` to batch work; exception: scroll hot path
 10. **Don't create `<style>` elements** - Use `registerStyles()` which uses `adoptedStyleSheets` (survives DOM rebuilds)
 11. **Editing is opt-in** - Using `editable: true` or `editor` requires `EditingPlugin`; the grid validates and throws helpful errors
+12. **Prefer row objects over indices** - When exposing selection or row references to consumers, provide actual row data objects (e.g., `getSelectedRows()`) rather than forcing users to resolve indices manually. Row indices refer to positions in the grid's _current_ (sorted/filtered/grouped) row array, which may differ from the user's original data source. Indices are still useful as positional coordinates (e.g., `CellRange`), but always offer a row-object alternative for data access.
 
 ## Runtime Configuration Validation
 

@@ -832,6 +832,7 @@ new SelectionPlugin({
 //   'getSelection'           → returns current selection state
 //   'selectRows'             → select rows by index array (row mode)
 //   'getSelectedRowIndices'  → returns sorted number[] of selected row indices
+//   'getSelectedRows'        → returns actual row objects (preferred over index lookup)
 ```
 
 ### EditingPlugin
@@ -966,6 +967,8 @@ interface ContextMenuParams {
   isHeader: boolean;
   event: MouseEvent;
   selectedRows: number[]; // Currently selected row indices (auto-synced with SelectionPlugin)
+                         // Note: these are indices into the grid's processed (sorted/filtered) rows,
+                         // not the original input array. Prefer getSelectedRows() for row objects.
 }
 // Selection sync: right-click on selected row preserves multi-selection;
 // right-click on unselected row selects only that row.

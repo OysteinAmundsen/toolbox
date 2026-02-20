@@ -263,6 +263,9 @@ const selection = plugin.getSelection();
 plugin.selectRows([0, 2, 4]);
 const indices = plugin.getSelectedRowIndices(); // [0, 2, 4]
 
+// Get actual row objects (recommended over manual index lookup)
+const rows = plugin.getSelectedRows<Employee>(); // Employee[]
+
 // Range mode: set ranges programmatically
 plugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } }]);
 
@@ -274,6 +277,12 @@ const cells = plugin.getSelectedCells(); // [{ row, col }, ...]
 plugin.selectAll();       // Select all (row/range modes)
 plugin.clearSelection();  // Clear everything
 ```
+
+> **Best practice:** Use `getSelectedRows()` to retrieve actual row data objects rather
+> than resolving indices manually with `getSelectedRowIndices()`. Row indices refer to
+> positions in the grid's current (sorted/filtered) row array, which may differ from
+> your original data array. `getSelectedRows()` handles this mapping for you in all
+> selection modes.
 
 ## Events
 

@@ -6,6 +6,16 @@
   "main": "./index.js",
   "module": "./index.js",
   "types": "./index.d.ts",
+  "typesVersions": {
+    "*": {
+      "all": [
+        "all.d.ts"
+      ],
+      "plugins/*": [
+        "lib/plugins/*/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "types": "./index.d.ts",

@@ -23,6 +23,13 @@
   "publishConfig": {
     "access": "public"
   },
+  "typesVersions": {
+    "*": {
+      "features/*": [
+        "types/toolbox-web-grid-angular-features-*.d.ts"
+      ]
+    }
+  },
   "sideEffects": [
     "./features/*/src/index.ts",
     "./fesm2022/toolbox-web-grid-angular-features-*.mjs"

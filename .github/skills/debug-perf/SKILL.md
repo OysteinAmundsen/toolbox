@@ -20,7 +20,85 @@ Common performance issues:
 
 ## Step 2: Profile
 
-e th### Playwright Trace Capture (Primary Method)
+> **Need general browser debugging?** (DOM inspection, console, screenshots, script evaluation)
+> See the `debug-browser` skill for the full Chrome DevTools MCP workflow.
+
+### Live Browser Profiling via Chrome DevTools MCP
+
+The Chrome DevTools MCP server (pre-configured in `.vscode/mcp.json`) provides performance tracing tools that run against a live browser:
+
+1. **Start a dev server** (see `debug-browser` skill for server table):
+
+   ```bash
+   bun nx serve docs          # Storybook on port 4400
+   bun nx serve demo-angular   # Angular demo on port 4200
+   ```
+
+2. **Navigate** to the page with the performance issue:
+
+   ```
+   navigate_page → url: http://localhost:4200/
+   ```
+
+3. **Start a performance trace:**
+
+   ```
+   performance_start_trace
+   ```
+
+4. **Reproduce the issue** — use `click`, `press_key`, `fill`, `evaluate_script` to interact with the page.
+
+5. **Stop the trace and analyze:**
+
+   ```
+   performance_stop_trace
+   performance_analyze_insight
+   ```
+
+   The MCP server returns structured results including LCP, CLS, TTFB, render delay, forced reflows, DOM size analysis, and render-blocking resources.
+
+6. **Targeted measurement via script evaluation** — for measuring specific code paths:
+
+   ```javascript
+   // Measure the cost of rows replacement
+   () => {
+     const grid = document.querySelector('tbw-grid');
+     const start = performance.now();
+     grid.rows = [...grid.rows]; // Trigger re-render
+     return new Promise((resolve) => {
+       requestAnimationFrame(() => {
+         requestAnimationFrame(() => {
+           resolve({ durationMs: performance.now() - start });
+         });
+       });
+     });
+   };
+   ```
+
+7. **Monkey-patch hot paths** to count executions or measure timings:
+   ```javascript
+   // Track how often renderVisibleRows is called and how long it takes
+   () => {
+     const grid = document.querySelector('tbw-grid');
+     const original = grid.refreshVirtualWindow.bind(grid);
+     window.__renderLogs = [];
+     grid.refreshVirtualWindow = (force, skip) => {
+       const start = performance.now();
+       const result = original(force, skip);
+       window.__renderLogs.push({
+         force,
+         duration: performance.now() - start,
+         stack: new Error().stack?.split('\n').slice(1, 3).join('\n'),
+       });
+       return result;
+     };
+     return { patched: true };
+   };
+   ```
+
+This approach is ideal for investigating **real-world scenarios** that are hard to reproduce in test environments — such as framework adapter interaction, Angular change detection overhead, or large dataset rendering.
+
+### Playwright Trace Capture (CI-Friendly)
 
 Playwright captures identical data to Chrome DevTools Performance tab, but scriptable and CI-friendly:
 
@@ -114,6 +192,8 @@ it('should render 10k rows within budget', async () => {
 # Run with Node profiling
 node --prof node_modules/.bin/vitest run libs/grid/src/lib/core/internal/rows.spec.ts
 ```
+
+> **Tip**: For complex investigations that span multiple tools (e.g., profiling in Chrome MCP → identifying code path → writing a targeted unit test → verifying fix in browser), combine the `debug-perf` and `debug-browser` skills.
 
 ## Step 3: Investigate Hot Paths
 

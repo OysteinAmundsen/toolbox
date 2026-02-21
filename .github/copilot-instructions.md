@@ -19,6 +19,7 @@ Task-specific workflows are documented in dedicated skill files (loaded on deman
 | `release-prep`        | Pre-release checklist                          | Preparing a library version for release               |
 | `storybook-story`     | Create Storybook stories and MDX docs          | Adding demos or documentation for features            |
 | `debug-perf`          | Performance investigation                      | Profiling, hot path analysis, render scheduler issues |
+| `debug-browser`       | Live browser debugging via Chrome DevTools MCP | DOM inspection, screenshots, console, script eval     |
 | `docs-update`         | Documentation update checklist                 | After any feature, fix, or refactor                   |
 
 ## Core Development Principles

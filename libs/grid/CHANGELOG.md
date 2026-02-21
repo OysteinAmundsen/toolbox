@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.19.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.19.1...grid-1.19.2) (2026-02-21)
+
+
+### Bug Fixes
+
+* **grid:** plug memory leaks in framework adapter lifecycle ([0612c88](https://github.com/OysteinAmundsen/toolbox/commit/0612c8820441fd73caf725cff75dd68422eceedf))
+
+
+### Performance Improvements
+
+* **grid:** avoid destroying framework renderers on rows-only updates ([c233dc7](https://github.com/OysteinAmundsen/toolbox/commit/c233dc776dc7114b124373dc16df7f441d156665))
+
 ## [1.19.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.19.0...grid-1.19.1) (2026-02-20)
 
 

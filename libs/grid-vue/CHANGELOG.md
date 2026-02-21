@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.5.0...grid-vue-0.5.1) (2026-02-21)
+
+
+### Bug Fixes
+
+* **grid:** plug memory leaks in framework adapter lifecycle ([0612c88](https://github.com/OysteinAmundsen/toolbox/commit/0612c8820441fd73caf725cff75dd68422eceedf))
+
 ## [0.5.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.4.2...grid-vue-0.5.0) (2026-02-20)
 
 

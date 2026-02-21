@@ -151,6 +151,16 @@ Follow existing story patterns with Lit html templates. See the `storybook-story
 
 Required for Storybook sidebar. Use Canvas and Controls blocks. See the `docs-update` skill for templates.
 
+## 10. Update Storybook Sidebar Sort Order
+
+Storybook requires `storySort` to be defined inline (no imports). Run the helper script to regenerate the plugin sort array, then paste the output into `apps/docs/.storybook/preview.ts`:
+
+```bash
+bun apps/docs/.storybook/scripts/generate-plugin-sort.ts
+```
+
+Copy the printed array into the `storySort.order` config in `preview.ts`.
+
 ---
 
 ## Plugin API Reference

@@ -558,6 +558,15 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       const isRowVisible = rowIndex >= 0 && visibleRowMap.has(rowIndex);
 
       if (!isStillExpanded || !isRowVisible) {
+        // Clean up framework adapter resources (React root, Vue app, Angular view)
+        // before removing to prevent memory leaks.
+        const adapter = (this.grid as unknown as { __frameworkAdapter?: { unmount?(c: HTMLElement): void } })
+          .__frameworkAdapter;
+        if (adapter?.unmount) {
+          const detailCell = detailEl.querySelector('.master-detail-cell');
+          const container = detailCell?.firstElementChild as HTMLElement | null;
+          if (container) adapter.unmount(container);
+        }
         if (detailEl.parentNode) detailEl.remove();
         this.detailElements.delete(row);
       }

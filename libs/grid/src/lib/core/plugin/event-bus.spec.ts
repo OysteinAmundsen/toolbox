@@ -18,7 +18,6 @@ import type { GridElementRef } from './types';
 /** Mock grid element for testing */
 function createMockGrid(): GridElementRef {
   return {
-    shadowRoot: null,
     clientWidth: 800,
     clientHeight: 600,
     addEventListener: vi.fn(),

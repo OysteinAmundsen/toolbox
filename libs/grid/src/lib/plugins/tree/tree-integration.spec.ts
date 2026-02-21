@@ -41,7 +41,6 @@ describe('tree plugin integration', () => {
       },
       rows: [],
       _columns: [],
-      shadowRoot: null,
     };
     plugin.attach(mockGrid as any);
 
@@ -82,7 +81,6 @@ describe('tree plugin integration', () => {
       },
       rows: [],
       _columns: [],
-      shadowRoot: null,
     };
     plugin.attach(mockGrid as any);
 
@@ -110,7 +108,6 @@ describe('tree plugin integration', () => {
       },
       rows: [],
       _columns: [],
-      shadowRoot: null,
     };
     plugin.attach(mockGrid as any);
 
@@ -272,7 +269,6 @@ describe('tree plugin integration', () => {
         },
         rows: rows, // Provide rows for expandAll/collapseAll/expandToKey
         _columns: [],
-        shadowRoot: null,
       };
       plugin.attach(mockGrid as any);
 
@@ -446,7 +442,6 @@ describe('tree plugin integration', () => {
         },
         rows: [],
         _columns: [],
-        shadowRoot: null,
       };
       plugin.attach(mockGrid as any);
 
@@ -470,7 +465,6 @@ describe('tree plugin integration', () => {
         },
         rows: [],
         _columns: [],
-        shadowRoot: null,
       };
       plugin.attach(mockGrid as any);
 
@@ -497,7 +491,6 @@ describe('tree plugin integration', () => {
         },
         rows: [],
         _columns: [],
-        shadowRoot: null,
       };
       plugin.attach(mockGrid as any);
 

@@ -676,12 +676,6 @@ describe('ReorderPlugin', () => {
         _activeEditRows: undefined,
         _rows: [],
         columns,
-        shadowRoot: {
-          querySelectorAll: () => [],
-          querySelector: () => null,
-          host: { offsetHeight: 0 },
-          children: [],
-        },
         effectiveConfig: { animation: { mode: 'off' } },
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {

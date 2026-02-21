@@ -85,10 +85,10 @@ export function getColIndexFromCell(cell: Element | null): number {
 }
 
 /**
- * Clear all cell-focus styling from a root element (shadowRoot or bodyEl).
+ * Clear all cell-focus styling from a root element.
  * Used when changing focus or when selection plugin takes over focus management.
  */
-export function clearCellFocus(root: Element | ShadowRoot | null): void {
+export function clearCellFocus(root: Element | null): void {
   if (!root) return;
   root.querySelectorAll('.cell-focus').forEach((el) => el.classList.remove('cell-focus'));
 }

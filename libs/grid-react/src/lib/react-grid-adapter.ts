@@ -14,6 +14,7 @@ import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel'
 import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
+import { cleanupConfigRootsIn } from './react-column-config';
 
 /**
  * Registry mapping grid elements to their React render functions.
@@ -575,6 +576,8 @@ export class GridAdapter implements FrameworkAdapter {
   /**
    * Called when a cell's content is about to be wiped.
    * Destroys editor React roots whose container is inside the cell.
+   * Also cleans up config-based editor roots (from processGridConfig/wrapReactEditor)
+   * that bypass the adapter's tracking arrays.
    */
   releaseCell(cellEl: HTMLElement): void {
     for (let i = this.editorViews.length - 1; i >= 0; i--) {
@@ -588,6 +591,8 @@ export class GridAdapter implements FrameworkAdapter {
         this.editorViews.splice(i, 1);
       }
     }
+    // Clean up config-based editor roots created by wrapReactEditor
+    cleanupConfigRootsIn(cellEl);
   }
 
   /**

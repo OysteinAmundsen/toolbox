@@ -295,8 +295,6 @@ export interface GridElementRef {
   // HTMLElement-like Properties (avoid casting to HTMLElement)
   // =========================================================================
 
-  /** The grid's shadow root. */
-  shadowRoot: ShadowRoot | null;
   /** Grid element width in pixels. */
   readonly clientWidth: number;
   /** Grid element height in pixels. */

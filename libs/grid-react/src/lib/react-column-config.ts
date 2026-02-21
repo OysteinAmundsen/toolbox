@@ -96,8 +96,32 @@ export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns'> &
 export type ReactGridConfig<TRow = unknown> = GridConfig<TRow>;
 // #endregion
 
-// Track mounted roots for cleanup
-const mountedRoots: Root[] = [];
+// Track mounted roots for cleanup (stores root + container for targeted cleanup)
+const mountedRoots: { root: Root; container: HTMLElement }[] = [];
+
+/**
+ * Clean up config-based editor React roots whose containers are inside the given element.
+ * Called by the React GridAdapter's releaseCell to properly unmount editor roots
+ * that were created by `wrapReactEditor` (which bypasses the adapter's tracking).
+ *
+ * Only targets editor containers (`.react-cell-editor`), not renderer containers,
+ * since renderers use a WeakMap cache and must survive cell recycling.
+ *
+ * @internal
+ */
+export function cleanupConfigRootsIn(parentEl: HTMLElement): void {
+  for (let i = mountedRoots.length - 1; i >= 0; i--) {
+    const entry = mountedRoots[i];
+    if (parentEl.contains(entry.container) && entry.container.classList.contains('react-cell-editor')) {
+      try {
+        entry.root.unmount();
+      } catch {
+        // Ignore cleanup errors
+      }
+      mountedRoots.splice(i, 1);
+    }
+  }
+}
 
 /**
  * Wraps a React renderer function into a DOM-returning viewRenderer.
@@ -134,7 +158,7 @@ export function wrapReactRenderer<TRow>(
     if (cellEl) {
       cellCache.set(cellEl, { root, container });
     }
-    mountedRoots.push(root);
+    mountedRoots.push({ root, container });
 
     return container;
   };
@@ -156,7 +180,7 @@ export function wrapReactEditor<TRow>(
     flushSync(() => {
       root.render(editorFn(ctx));
     });
-    mountedRoots.push(root);
+    mountedRoots.push({ root, container });
 
     return container;
   };

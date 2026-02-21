@@ -943,6 +943,26 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
+   * Unmount a specific container (e.g., detail panel, tool panel).
+   * Finds the matching entry in mountedViews by container reference
+   * and properly destroys the Vue app to prevent memory leaks.
+   */
+  unmount(container: HTMLElement): void {
+    for (let i = this.mountedViews.length - 1; i >= 0; i--) {
+      const view = this.mountedViews[i];
+      if (view.container === container || container.contains(view.container)) {
+        try {
+          view.app.unmount();
+        } catch {
+          // Ignore cleanup errors
+        }
+        this.mountedViews.splice(i, 1);
+        return;
+      }
+    }
+  }
+
+  /**
    * Called when a cell's content is about to be wiped.
    * Destroys editor Vue apps whose container is inside the cell.
    */

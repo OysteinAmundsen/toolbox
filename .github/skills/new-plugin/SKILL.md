@@ -178,7 +178,7 @@ BaseGridPlugin provides these protected helpers — use them instead of type cas
 | `this.resolveIcon(name)`       | Get icon value by name                            |
 | `this.setIcon(el, icon)`       | Set icon on element (string or SVG)               |
 
-> **Deprecated**: `this.shadowRoot` — use `this.gridElement` instead.
+> **Note**: The grid uses light DOM. Use `this.gridElement` for all DOM queries.
 
 ### Plugin Hooks (Class Methods)
 
@@ -328,7 +328,7 @@ const sel = grid.getPlugin(SelectionPlugin);
 
 ## Key Rules
 
-- **Use `this.gridElement`** for DOM queries (not shadowRoot)
+- **Use `this.gridElement`** for DOM queries (light DOM, no Shadow DOM)
 - **Use `this.gridElement.children[0]`** for root container (not hardcoded selectors)
 - **Use `this.disconnectSignal`** for event listener cleanup
 - **Use `registerStyles()`** not `<style>` elements (they get wiped by `replaceChildren()`)

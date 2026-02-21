@@ -1682,9 +1682,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // the initial FULL render from #setup already includes virtualization.
     // Requesting it again here caused duplicate renders on initialization.
 
-    // Track focus state via data attribute (shadow DOM doesn't reliably support :focus-within)
-    // Listen on shadow root to catch focus events from shadow DOM elements
-    // Cast to EventTarget since TypeScript's lib.dom doesn't include focus events on ShadowRoot
+    // Track focus state via data attribute
+    // Listen on render root to catch focus events from child elements
     (this.#renderRoot as EventTarget).addEventListener(
       'focusin',
       () => {

@@ -251,7 +251,6 @@ describe('masterDetail', () => {
     // Create a minimal mock grid for plugin attachment
     const createMockGrid = () =>
       ({
-        shadowRoot: null,
         rows: [],
         columns: [],
         gridConfig: {},
@@ -348,7 +347,6 @@ describe('masterDetail', () => {
     // Create a minimal mock grid for plugin attachment
     const createMockGrid = (rows: any[] = []) =>
       ({
-        shadowRoot: null,
         rows,
         columns: [],
         gridConfig: {},
@@ -426,7 +424,6 @@ describe('masterDetail', () => {
 
     const createMockGrid = (rows: any[] = []) =>
       ({
-        shadowRoot: null,
         rows,
         columns: [],
         gridConfig: {},
@@ -527,7 +524,6 @@ describe('masterDetail', () => {
   describe('MasterDetailPlugin.processColumns', () => {
     const createMockGrid = (rows: any[] = []) =>
       ({
-        shadowRoot: null,
         rows,
         columns: [],
         gridConfig: {},
@@ -715,7 +711,6 @@ describe('masterDetail', () => {
   describe('MasterDetailPlugin.onRowClick', () => {
     const createMockGrid = (rows: any[] = []) =>
       ({
-        shadowRoot: null,
         rows,
         columns: [],
         gridConfig: {},
@@ -824,7 +819,6 @@ describe('masterDetail', () => {
   describe('MasterDetailPlugin public API', () => {
     const createMockGrid = (rows: any[] = []) =>
       ({
-        shadowRoot: null,
         rows,
         columns: [],
         gridConfig: {},
@@ -1051,10 +1045,8 @@ describe('masterDetail', () => {
   });
 
   describe('MasterDetailPlugin.onScrollRender', () => {
-    const createMockGridWithShadowRoot = (rows: any[] = []) => {
-      const shadowRoot = document.createElement('div') as unknown as ShadowRoot;
+    const createMockGridForScroll = (rows: any[] = []) => {
       return {
-        shadowRoot,
         rows,
         columns: [{ field: 'name' }],
         gridConfig: {},
@@ -1070,7 +1062,7 @@ describe('masterDetail', () => {
 
     it('should do nothing when no detailRenderer configured', () => {
       const plugin = new MasterDetailPlugin({});
-      plugin.attach(createMockGridWithShadowRoot());
+      plugin.attach(createMockGridForScroll());
 
       // Should not throw
       plugin.onScrollRender();
@@ -1078,7 +1070,7 @@ describe('masterDetail', () => {
 
     it('should do nothing when no rows are expanded', () => {
       const plugin = new MasterDetailPlugin({ detailRenderer: () => 'test' });
-      plugin.attach(createMockGridWithShadowRoot());
+      plugin.attach(createMockGridForScroll());
 
       // Should not throw
       plugin.onScrollRender();
@@ -1296,4 +1288,145 @@ describe('masterDetail', () => {
       expect(plugin['config'].detailRenderer).toBe(adapterRenderer);
     });
   });
+
+  // #region Framework adapter unmount on detail removal
+  describe('MasterDetailPlugin adapter.unmount on detail removal', () => {
+    /**
+     * Tests that the MasterDetailPlugin calls adapter.unmount() when detail rows
+     * are removed (collapse or scroll-out), preventing framework instance leaks.
+     */
+
+    function createGridWithAdapter(rows: any[]) {
+      // Build a real DOM structure: gridEl > .rows > .data-grid-row (pool)
+      const gridEl = document.createElement('div');
+      const rowsContainer = document.createElement('div');
+      rowsContainer.className = 'rows';
+      gridEl.appendChild(rowsContainer);
+
+      const rowPool: HTMLElement[] = [];
+      for (let i = 0; i < rows.length; i++) {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'data-grid-row';
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-row', String(i));
+        rowEl.appendChild(cell);
+        rowsContainer.appendChild(rowEl);
+        rowPool.push(rowEl);
+      }
+
+      const unmountSpy = vi.fn();
+
+      // Use defineProperties to set properties on a real DOM element
+      Object.defineProperties(gridEl, {
+        rows: { value: rows, writable: true },
+        columns: { value: [{ field: 'name' }], writable: true },
+        gridConfig: { value: {}, writable: true },
+        disconnectSignal: { value: new AbortController().signal },
+        requestRender: { value: vi.fn() },
+        requestAfterRender: { value: vi.fn() },
+        forceLayout: { value: vi.fn().mockResolvedValue(undefined) },
+        getPlugin: { value: vi.fn() },
+        getPluginByName: { value: vi.fn() },
+        dispatchEvent: { value: vi.fn() },
+        _rowPool: { value: rowPool, writable: true },
+        _virtualization: { value: { start: 0, end: rows.length }, writable: true },
+        __frameworkAdapter: { value: { unmount: unmountSpy }, writable: true, configurable: true },
+      });
+
+      return { gridEl: gridEl as any, rowsContainer, rowPool, unmountSpy };
+    }
+
+    it('should call adapter.unmount when a detail row is collapsed', () => {
+      const rows = [{ id: 1 }, { id: 2 }];
+      const { gridEl, unmountSpy } = createGridWithAdapter(rows);
+
+      // detailRenderer returns a container div (simulates framework adapter container)
+      const detailContainer = document.createElement('div');
+      detailContainer.className = 'react-detail-panel';
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => detailContainer,
+      });
+      plugin.attach(gridEl);
+
+      // Expand row 0 and sync to create the detail
+      plugin['expandedRows'].add(rows[0]);
+      plugin.afterRender();
+
+      // Detail should be in the DOM
+      expect(plugin['detailElements'].has(rows[0])).toBe(true);
+
+      // Now collapse row 0 and sync again
+      plugin['expandedRows'].delete(rows[0]);
+      plugin.afterRender();
+
+      // unmount should have been called with the detail container
+      expect(unmountSpy).toHaveBeenCalledTimes(1);
+      expect(unmountSpy).toHaveBeenCalledWith(detailContainer);
+      // Detail should be removed from tracking
+      expect(plugin['detailElements'].has(rows[0])).toBe(false);
+    });
+
+    it('should call adapter.unmount when detail row scrolls out of view', () => {
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const { gridEl, unmountSpy } = createGridWithAdapter(rows);
+
+      const detailContainer = document.createElement('div');
+      detailContainer.className = 'vue-detail-panel';
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => detailContainer,
+      });
+      plugin.attach(gridEl);
+
+      // Expand row 0 and sync
+      plugin['expandedRows'].add(rows[0]);
+      plugin.afterRender();
+      expect(plugin['detailElements'].has(rows[0])).toBe(true);
+
+      // Simulate scroll: row 0 is no longer visible (virtualization window starts at 2)
+      gridEl._virtualization = { start: 2, end: 3 };
+      plugin.afterRender();
+
+      // unmount should be called since detail is no longer visible
+      expect(unmountSpy).toHaveBeenCalledTimes(1);
+      expect(unmountSpy).toHaveBeenCalledWith(detailContainer);
+    });
+
+    it('should not call adapter.unmount when no adapter is registered', () => {
+      const rows = [{ id: 1 }];
+      const { gridEl } = createGridWithAdapter(rows);
+      delete gridEl.__frameworkAdapter;
+
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => document.createElement('div'),
+      });
+      plugin.attach(gridEl);
+
+      plugin['expandedRows'].add(rows[0]);
+      plugin.afterRender();
+
+      plugin['expandedRows'].delete(rows[0]);
+      // Should not throw
+      expect(() => plugin.afterRender()).not.toThrow();
+    });
+
+    it('should not call adapter.unmount when adapter has no unmount method', () => {
+      const rows = [{ id: 1 }];
+      const { gridEl } = createGridWithAdapter(rows);
+      gridEl.__frameworkAdapter = { canHandle: () => true }; // No unmount
+
+      const plugin = new MasterDetailPlugin({
+        detailRenderer: () => document.createElement('div'),
+      });
+      plugin.attach(gridEl);
+
+      plugin['expandedRows'].add(rows[0]);
+      plugin.afterRender();
+
+      plugin['expandedRows'].delete(rows[0]);
+      // Should not throw
+      expect(() => plugin.afterRender()).not.toThrow();
+    });
+  });
+  // #endregion
 });

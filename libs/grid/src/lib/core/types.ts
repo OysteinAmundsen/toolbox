@@ -1279,6 +1279,18 @@ export interface FrameworkAdapter {
    * @param cellEl - The cell element whose content is being released
    */
   releaseCell?(cellEl: HTMLElement): void;
+
+  /**
+   * Unmount a specific framework container and free its resources.
+   *
+   * Called by the grid core (e.g., MasterDetailPlugin) when a container
+   * created by the adapter is about to be removed from the DOM.
+   * The adapter should destroy the associated framework instance
+   * (React root, Vue app, Angular view) and remove it from tracking arrays.
+   *
+   * @param container - The container element returned by a create* method
+   */
+  unmount?(container: HTMLElement): void;
 }
 // #endregion
 

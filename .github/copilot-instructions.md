@@ -508,7 +508,7 @@ const sel = grid.getPlugin(SelectionPlugin);
 4. **Test isolation** - Clean up DOM with `afterEach(() => { document.body.innerHTML = '' })`
 5. **TypeScript paths** - Use workspace paths (`@toolbox/*`) not relative paths between libs
 6. **Nx target names** - Use inferred targets from plugins (e.g., `test`, `build`, `lint`); check `project.json` for custom targets
-7. **Plugin DOM access** - Use `this.gridElement` for DOM queries; `shadowRoot` is deprecated
+7. **Plugin DOM access** - Use `this.gridElement` for DOM queries; the grid uses light DOM (no Shadow DOM)
 8. **Plugin container access** - Use `this.gridElement.children[0]`, not hardcoded selectors like `.data-grid-container`
 9. **Don't call RAF directly for rendering** - Use `this.#scheduler.requestPhase()` to batch work; exception: scroll hot path
 10. **Don't create `<style>` elements** - Use `registerStyles()` which uses `adoptedStyleSheets` (survives DOM rebuilds)

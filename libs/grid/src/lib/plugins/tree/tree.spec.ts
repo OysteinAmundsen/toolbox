@@ -522,7 +522,6 @@ describe('TreePlugin sorting', () => {
     const plugin = new TreePlugin({});
     // Mock grid to initialize plugin properly
     const mockGrid = {
-      shadowRoot: null,
       rows: [],
       columns: [],
       gridConfig: {},

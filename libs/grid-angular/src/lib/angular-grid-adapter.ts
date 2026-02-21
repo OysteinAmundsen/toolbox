@@ -909,6 +909,30 @@ export class GridAdapter implements FrameworkAdapter {
   }
 
   /**
+   * Unmount a specific container (e.g., detail panel, tool panel).
+   * Finds the matching view or component ref whose DOM nodes are inside
+   * the container and properly destroys it to prevent memory leaks.
+   */
+  unmount(container: HTMLElement): void {
+    for (let i = this.viewRefs.length - 1; i >= 0; i--) {
+      const ref = this.viewRefs[i];
+      if (ref.rootNodes.some((n: Node) => container.contains(n))) {
+        ref.destroy();
+        this.viewRefs.splice(i, 1);
+        return;
+      }
+    }
+    for (let i = this.componentRefs.length - 1; i >= 0; i--) {
+      const ref = this.componentRefs[i];
+      if (container.contains(ref.location.nativeElement)) {
+        ref.destroy();
+        this.componentRefs.splice(i, 1);
+        return;
+      }
+    }
+  }
+
+  /**
    * Clean up all view references and component references.
    * Call this when your app/component is destroyed.
    */

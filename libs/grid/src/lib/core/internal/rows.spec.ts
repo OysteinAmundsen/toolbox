@@ -828,3 +828,169 @@ describe('releaseCell lifecycle', () => {
   });
 });
 // #endregion
+
+// #region Epoch Optimization Tests
+describe('renderVisibleRows — epoch-based row reuse', () => {
+  it('uses fastPatchRow (no releaseCell) when epoch unchanged and same row refs', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+
+    // Initial render at epoch 1
+    renderVisibleRows(g, 0, 2, 1);
+    releaseSpy.mockClear();
+
+    // Re-render at same epoch with same row refs — fastPatchRow, no releaseCell
+    renderVisibleRows(g, 0, 2, 1);
+
+    expect(releaseSpy).not.toHaveBeenCalled();
+  });
+
+  it('uses fastPatchRow when epoch unchanged but data refs changed', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+
+    // Initial render at epoch 1
+    renderVisibleRows(g, 0, 2, 1);
+    releaseSpy.mockClear();
+
+    // Replace rows with new objects (different refs, same epoch)
+    g._rows = [
+      { id: 10, name: 'New1', active: true, date: '2025-01-01' },
+      { id: 20, name: 'New2', active: false, date: '2025-01-02' },
+    ];
+
+    // Same epoch — should use fastPatchRow, NOT renderInlineRow
+    renderVisibleRows(g, 0, 2, 1);
+
+    // fastPatchRow ultra-fast path doesn't call releaseCell
+    // (only called when cell has firstElementChild, which plain text cells don't)
+    expect(releaseSpy).not.toHaveBeenCalled();
+
+    // Verify data was updated correctly
+    const cells = g._bodyEl.querySelectorAll('.data-grid-row:first-child .cell');
+    expect((cells[0] as HTMLElement).textContent).toBe('10');
+    expect((cells[1] as HTMLElement).textContent).toBe('New1');
+  });
+
+  it('forces full renderInlineRow when epoch changes (column structure change)', () => {
+    const releaseSpy = vi.fn();
+    const g = makeGrid();
+    g.__frameworkAdapter = {
+      canHandle: () => false,
+      createRenderer: () => () => null,
+      createEditor: () => () => document.createElement('input'),
+      releaseCell: releaseSpy,
+    };
+
+    // Initial render at epoch 1
+    renderVisibleRows(g, 0, 2, 1);
+    releaseSpy.mockClear();
+
+    // Bump epoch (simulating column structure change) — forces full rebuild
+    renderVisibleRows(g, 0, 2, 2);
+
+    // renderInlineRow calls releaseCell for each cell before wiping
+    expect(releaseSpy).toHaveBeenCalledTimes(g._columns.length * 2);
+  });
+
+  it('preserves renderer container when fastPatchRow reuses cached view', () => {
+    const g = makeGrid();
+    // Use a renderer that returns the same container element
+    const container = document.createElement('span');
+    container.style.display = 'contents';
+    g._columns = [
+      {
+        field: 'name',
+        renderer: (ctx: any) => {
+          container.textContent = String(ctx.value);
+          return container;
+        },
+      },
+    ];
+    g.__hasSpecialColumns = undefined;
+
+    // Initial render at epoch 1
+    renderVisibleRows(g, 0, 1, 1);
+
+    const row = g._bodyEl.querySelector('.data-grid-row') as HTMLElement;
+    const cell = row.querySelector('.cell') as HTMLElement;
+    // Container should be appended
+    expect(cell.contains(container)).toBe(true);
+
+    // Replace row with different data, same epoch
+    g._rows = [{ id: 99, name: 'Updated', active: false, date: '2025-06-01' }];
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Container should still be the same DOM element (reused, not recreated)
+    expect(cell.contains(container)).toBe(true);
+    expect(container.textContent).toBe('Updated');
+  });
+
+  it('updates compiled view template cells during fastPatchRow', () => {
+    const g = makeGrid();
+    const compiledFn = vi.fn((ctx: any) => `<b>${ctx.value}</b>`) as any;
+    compiledFn.__blocked = false;
+    g._columns = [{ field: 'name', __compiledView: compiledFn }];
+    g.__hasSpecialColumns = undefined;
+
+    // Initial render at epoch 1
+    renderVisibleRows(g, 0, 1, 1);
+    const row = g._bodyEl.querySelector('.data-grid-row') as HTMLElement;
+    const cell = row.querySelector('.cell') as HTMLElement;
+    expect(cell.innerHTML).toContain('Alpha');
+
+    compiledFn.mockClear();
+
+    // Replace row data, same epoch — fastPatchRow should re-evaluate template
+    g._rows = [{ id: 1, name: 'Changed', active: true, date: '2024-01-01' }];
+    renderVisibleRows(g, 0, 1, 1);
+
+    expect(compiledFn).toHaveBeenCalledWith(expect.objectContaining({ value: 'Changed' }));
+    expect(cell.innerHTML).toContain('Changed');
+  });
+
+  it('skips editing cells during fastPatchRow (preserves editors)', () => {
+    const g = makeGrid();
+    g._columns = [{ field: 'id' }, { field: 'name' }];
+    g.__hasSpecialColumns = undefined;
+
+    // Initial render
+    renderVisibleRows(g, 0, 1, 1);
+    const row = g._bodyEl.querySelector('.data-grid-row') as HTMLElement;
+    const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+    // Simulate editor in name cell
+    nameCell.classList.add('editing');
+    (row as any).__editingCellCount = 1;
+    const editorInput = document.createElement('input');
+    editorInput.value = 'editing value';
+    nameCell.innerHTML = '';
+    nameCell.appendChild(editorInput);
+
+    // Replace row data, same epoch — fastPatchRow should SKIP the editing cell
+    g._rows = [{ id: 1, name: 'NewValue', active: true, date: '2024-01-01' }];
+    g._activeEditRows = 0; // This row is actively being edited
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Editor should still be there
+    expect(nameCell.classList.contains('editing')).toBe(true);
+    expect(nameCell.querySelector('input')).toBeTruthy();
+    expect((nameCell.querySelector('input') as HTMLInputElement).value).toBe('editing value');
+
+    // Non-editing cell should be updated
+    const idCell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
+    expect(idCell.textContent).toBe('1');
+  });
+});

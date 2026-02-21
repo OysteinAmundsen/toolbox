@@ -570,8 +570,60 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       continue;
     }
 
-    // Skip templated / external cells (these need full rebuild to remount)
-    if (col.__viewTemplate || col.__compiledView || col.externalView) {
+    // Handle compiled view templates — re-evaluate with current row data
+    if (col.__compiledView) {
+      const value = rowData[col.field];
+      const output = col.__compiledView({ row: rowData, value, field: col.field, column: col });
+      const blocked = col.__compiledView.__blocked;
+      if (blocked) {
+        cell.textContent = '';
+      } else {
+        // Release any framework views before replacing innerHTML
+        if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+        cell.innerHTML = sanitizeHTML(output);
+        finalCellScrub(cell);
+      }
+      if (hasCellHook) {
+        grid._afterCellRender?.({
+          row: rowData,
+          rowIndex,
+          column: col,
+          colIndex: i,
+          value,
+          cellElement: cell,
+          rowElement: rowEl,
+        });
+      }
+      continue;
+    }
+
+    // Handle inline view templates — re-evaluate with current row data
+    if (col.__viewTemplate) {
+      const value = rowData[col.field];
+      const rawTpl = col.__viewTemplate.innerHTML;
+      if (/Reflect\.|\bProxy\b|ownKeys\(/.test(rawTpl)) {
+        cell.textContent = '';
+      } else {
+        if (cell.firstElementChild) grid.__frameworkAdapter?.releaseCell?.(cell);
+        cell.innerHTML = sanitizeHTML(evalTemplateString(rawTpl, { row: rowData, value }));
+        finalCellScrub(cell);
+      }
+      if (hasCellHook) {
+        grid._afterCellRender?.({
+          row: rowData,
+          rowIndex,
+          column: col,
+          colIndex: i,
+          value,
+          cellElement: cell,
+          rowElement: rowEl,
+        });
+      }
+      continue;
+    }
+
+    // Skip external view cells (mounted once, manages own state)
+    if (col.externalView) {
       continue;
     }
 

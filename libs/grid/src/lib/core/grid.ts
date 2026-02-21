@@ -2042,6 +2042,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // (e.g., setting rows, columns, gridConfig in quick succession) into a single update cycle.
 
   #processColumns(): void {
+    // Bump the row-render epoch so that renderVisibleRows knows the column
+    // structure may have changed and triggers a full inline rebuild for each
+    // pooled row element.  This is intentionally done here — NOT inside
+    // refreshVirtualWindow — so that a pure ROWS-phase refresh (data change,
+    // same columns) can skip the expensive destroy-and-recreate cycle and
+    // use fastPatchRow instead.
+    this.__rowRenderEpoch++;
+
     // Let plugins process visible columns (column grouping, etc.)
     // Start from base columns (before any plugin transformation) - like #rebuildRowModel uses #rows
     if (this.#pluginManager) {
@@ -4111,7 +4119,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (force) {
         this._bodyEl.style.transform = 'translateY(0px)';
       }
-      this.#renderVisibleRows(0, totalRows, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
+      this.#renderVisibleRows(0, totalRows, this.__rowRenderEpoch);
       // Only recalculate height on force refresh (structural changes)
       // Skip on scroll-only updates to prevent scrollbar jumpiness
       if (force && this._virtualization.totalHeightEl) {
@@ -4284,7 +4292,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const subPixelOffset = -(scrollTop - startRowOffset);
     this._bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
 
-    this.#renderVisibleRows(start, end, force ? ++this.__rowRenderEpoch : this.__rowRenderEpoch);
+    this.#renderVisibleRows(start, end, this.__rowRenderEpoch);
 
     // Measure rendered row heights for variable height mode
     // Only on force refresh to avoid hot path overhead during scroll

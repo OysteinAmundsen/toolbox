@@ -1,6 +1,6 @@
 // This file has been automatically migrated to valid ESM format by Storybook.
 import type { StorybookConfig } from '@storybook/web-components-vite';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'path';
 import remarkGfm from 'remark-gfm';
@@ -12,11 +12,19 @@ const __dirname = dirname(__filename);
 const gridPkg = JSON.parse(readFileSync(resolve(__dirname, '../../../libs/grid/package.json'), 'utf-8'));
 const gridVersion = gridPkg.version;
 
+// Pagefind search index lives in dist/docs/pagefind (generated AFTER storybook builds).
+// In dev mode it exists from a prior `bun nx build docs`; in CI it won't exist yet.
+// Only map it when the directory is already present to avoid a build error.
+const pagefindDir = resolve(__dirname, '../../../dist/docs/pagefind');
+const pagefindStatic: StorybookConfig['staticDirs'] = existsSync(pagefindDir)
+  ? [{ from: '../../../dist/docs/pagefind', to: 'pagefind' }]
+  : [];
+
 const config: StorybookConfig = {
   // 'assets' — icons, logos, etc. shipped with .storybook/
   // pagefind mapping — serves the build-generated search index at /pagefind
   //   (run `bun nx build docs` once to generate the index, then `bun nx serve docs`)
-  staticDirs: ['assets', { from: '../../../dist/docs/pagefind', to: 'pagefind' }],
+  staticDirs: ['assets', ...pagefindStatic],
   // Disable toolbar features that don't add value for this component library
   features: {
     // Grid overlay - not useful for grid component demos

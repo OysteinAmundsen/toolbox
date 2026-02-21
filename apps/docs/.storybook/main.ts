@@ -13,7 +13,10 @@ const gridPkg = JSON.parse(readFileSync(resolve(__dirname, '../../../libs/grid/p
 const gridVersion = gridPkg.version;
 
 const config: StorybookConfig = {
-  staticDirs: ['assets'],
+  // 'assets' — icons, logos, etc. shipped with .storybook/
+  // pagefind mapping — serves the build-generated search index at /pagefind
+  //   (run `bun nx build docs` once to generate the index, then `bun nx serve docs`)
+  staticDirs: ['assets', { from: '../../../dist/docs/pagefind', to: 'pagefind' }],
   // Disable toolbar features that don't add value for this component library
   features: {
     // Grid overlay - not useful for grid component demos

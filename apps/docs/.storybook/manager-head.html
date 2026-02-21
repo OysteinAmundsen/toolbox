@@ -214,3 +214,188 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="dns-prefetch" href="https://www.npmjs.com" />
 <link rel="dns-prefetch" href="https://github.com" />
+
+<!-- Pagefind enhanced search (loads from build-generated assets) -->
+<link rel="stylesheet" href="./pagefind/pagefind-ui.css" onerror="this.remove()" />
+<script src="./pagefind/pagefind-ui.js" defer onerror="this.remove()"></script>
+<script>
+  // Enhanced Pagefind search integration for Storybook
+  // Intercepts the default search bar and provides full-text search across MDX content
+  document.addEventListener('DOMContentLoaded', () => {
+    // Only initialize if Pagefind UI loaded successfully
+    if (typeof PagefindUI === 'undefined') return;
+
+    // Create overlay DOM
+    const overlay = document.createElement('div');
+    overlay.className = 'pf-search-overlay';
+    overlay.innerHTML = `
+      <div class="pf-search-container">
+        <div id="pagefind-search"></div>
+        <div class="pf-search-close-hint"><kbd>Esc</kbd> to close</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Initialize Pagefind UI
+    const pf = new PagefindUI({
+      element: '#pagefind-search',
+      showSubResults: true,
+      showImages: false,
+      excerptLength: 20,
+      resetStyles: false,
+    });
+
+    // Inject breadcrumb subtitles after Pagefind renders results.
+    // Pagefind sanitizes meta.title so we can't inject HTML via processResult.
+    const injectBreadcrumbs = () => {
+      overlay.querySelectorAll('.pagefind-ui__result-tag[data-pagefind-ui-meta="breadcrumb"]').forEach((tag) => {
+        const result = tag.closest('.pagefind-ui__result');
+        if (!result || result.querySelector('.pf-breadcrumb')) return;
+        const titleEl = result.querySelector('.pagefind-ui__result-title');
+        if (!titleEl) return;
+        const raw = tag.textContent?.replace(/^Breadcrumb:\s*/i, '').trim();
+        if (!raw) return;
+        const crumb = raw.replace(/\s*>\s*/g, ' › ');
+        const span = document.createElement('span');
+        span.className = 'pf-breadcrumb';
+        span.textContent = crumb;
+        titleEl.appendChild(span);
+      });
+    };
+
+    // Observe the results area for new results being rendered
+    const resultsObserver = new MutationObserver(() => injectBreadcrumbs());
+    const searchEl = document.getElementById('pagefind-search');
+    if (searchEl) {
+      resultsObserver.observe(searchEl, { childList: true, subtree: true });
+    }
+
+    /** @returns {HTMLInputElement|null} */
+    const getPfInput = () => overlay.querySelector('.pagefind-ui__search-input');
+
+    // Close overlay
+    const closeOverlay = () => {
+      overlay.classList.remove('open');
+    };
+
+    /**
+     * Open the Pagefind overlay. Optionally seed the search input with text.
+     * @param {string} [seedText] - Text to pre-fill in the search input
+     */
+    const openOverlay = (seedText) => {
+      overlay.classList.add('open');
+      requestAnimationFrame(() => {
+        const input = getPfInput();
+        if (!input) return;
+        if (seedText && !input.value) {
+          // Seed the Pagefind input with whatever was typed into Storybook's search
+          input.value = seedText;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        input.focus();
+      });
+    };
+
+    // Close on backdrop click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeOverlay();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overlay.classList.contains('open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeOverlay();
+      }
+    });
+
+    // Navigate to result on click
+    overlay.addEventListener('click', (e) => {
+      const link = e.target.closest?.('.pagefind-ui__result-link');
+      if (!link) return;
+
+      e.preventDefault();
+      const href = link.getAttribute('href');
+      if (href) {
+        // href is like "?path=/docs/grid-core--core#heading"
+        const url = new URL(href, window.location.origin);
+        const storyPath = url.searchParams.get('path') || url.search.replace('?', '');
+        const hash = url.hash;
+
+        if (storyPath) {
+          window.location.search = `?path=${storyPath}`;
+          if (hash) {
+            setTimeout(() => {
+              const iframe = document.querySelector('#storybook-preview-iframe');
+              if (iframe?.contentDocument) {
+                const anchor = iframe.contentDocument.querySelector(hash);
+                if (anchor) anchor.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 1500);
+          }
+        }
+        closeOverlay();
+      }
+    });
+
+    // Ctrl+K / Cmd+K shortcut
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        e.stopPropagation();
+        overlay.classList.contains('open') ? closeOverlay() : openOverlay();
+      }
+    });
+
+    // ---- Inject search button into Storybook toolbar ----
+    // Place a compact search trigger between the left toolbar group
+    // (theme toggle + theme chooser) and the right group (fullscreen + editor).
+
+    const isMac = navigator.platform?.includes('Mac');
+    const shortcutLabel = isMac ? '⌘K' : 'Ctrl+K';
+
+    const createSearchButton = () => {
+      const btn = document.createElement('button');
+      btn.className = 'pf-toolbar-search';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Search documentation');
+      btn.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 18 18"><circle cx="8" cy="8" r="5.5"/><line x1="12.5" y1="12.5" x2="16" y2="16"/></svg>Search<kbd>${shortcutLabel}</kbd>`;
+      btn.addEventListener('click', () => openOverlay());
+      return btn;
+    };
+
+    let btnInjected = false;
+
+    const injectToolbarButton = () => {
+      if (btnInjected) return;
+      // The toolbar bar contains two child groups inside a flex wrapper.
+      // We insert after the first group (theme controls) as a sibling.
+      const bar = document.querySelector('.sb-bar');
+      if (!bar) return;
+      const wrapper = bar.querySelector(':scope > div');
+      if (!wrapper) return;
+      const groups = wrapper.querySelectorAll(':scope > div');
+      if (groups.length < 2) return;
+
+      const btn = createSearchButton();
+      // Insert before the right-side group (fullscreen / editor)
+      wrapper.insertBefore(btn, groups[groups.length - 1]);
+      btnInjected = true;
+    };
+
+    // Retry until Storybook renders the toolbar
+    const pollForToolbar = () => {
+      injectToolbarButton();
+      if (!btnInjected) setTimeout(pollForToolbar, 300);
+    };
+
+    // Also watch for Storybook re-rendering the toolbar (e.g., hot reload)
+    const observer = new MutationObserver(() => {
+      if (!btnInjected) injectToolbarButton();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(pollForToolbar, 500);
+  });
+</script>

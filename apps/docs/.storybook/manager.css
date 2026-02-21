@@ -35,7 +35,365 @@
   flex-shrink: 0;
 }
 
+/* Hide the Storybook settings/about button (gear icon in sidebar header) */
+.sidebar-header button[aria-label='settings' i] {
+  display: none !important;
+}
+
+/* Hide the default Storybook sidebar search — replaced by Pagefind toolbar button */
+.search-field,
+#storybook-explorer-searchfield {
+  display: none !important;
+}
+
 /* Default color-scheme - toggle is handled via inline style set by preview decorator */
 :root {
   color-scheme: light dark;
 }
+
+/* #region Pagefind toolbar button */
+.pf-toolbar-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  align-self: stretch;
+  margin: 0 8px;
+  padding: 0 12px;
+  border: 1px solid light-dark(#d0d7de, #30363d);
+  border-radius: 6px;
+  background: transparent;
+  color: light-dark(#656d76, #8b949e);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
+  white-space: nowrap;
+}
+
+.pf-toolbar-search:hover {
+  color: light-dark(#2e3438, #c9cdcf);
+  border-color: light-dark(#8b949e, #656d76);
+}
+
+.pf-toolbar-search svg {
+  flex-shrink: 0;
+}
+
+.pf-toolbar-search kbd {
+  margin-left: auto;
+  font-size: 11px;
+  font-family: inherit;
+  background: light-dark(#eff1f3, #252525);
+  color: light-dark(#656d76, #8b949e);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid light-dark(#d0d7de, #30363d);
+  line-height: 1.3;
+}
+/* #endregion */
+
+/* ================================================================
+   Pagefind search overlay — CSS grid layout
+   ================================================================
+   Structure:
+     .pf-search-overlay          (fixed backdrop, centers dialog)
+       .pf-search-container      (dialog — grid: input / results / hint)
+         #pagefind-search        (Pagefind UI root)
+         .pf-search-close-hint   (footer bar)
+   ================================================================ */
+
+/* Sync color-scheme with Storybook's dark-mode toggle.
+   The addon sets .light / .dark on <html>; we mirror that to
+   color-scheme so light-dark() picks the correct palette. */
+html.light {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+/* #region Overlay backdrop */
+.pf-search-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  place-content: start center;
+  padding-top: 10vh;
+}
+
+.pf-search-overlay.open {
+  display: grid;
+}
+/* #endregion */
+
+/* #region Dialog container */
+.pf-search-container {
+  --pf-bg: light-dark(#fff, #1a1a1a);
+  --pf-bg-hover: light-dark(#f6f8fa, #252525);
+  --pf-fg: light-dark(#2e3438, #c9cdcf);
+  --pf-fg-muted: light-dark(#656d76, #8b949e);
+  --pf-border: light-dark(#d0d7de, #30363d);
+  --pf-accent: light-dark(#0969da, #58a6ff);
+  --pf-highlight-bg: light-dark(#fff8c5, #3a3000);
+  --pf-highlight-fg: light-dark(#1a1a1a, #f0e68c);
+
+  display: grid;
+  grid-template-rows: 1fr auto;
+  width: min(720px, 92vw);
+  max-height: 80vh;
+  background: var(--pf-bg);
+  color: var(--pf-fg);
+  border: 1px solid var(--pf-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+/* #endregion */
+
+/* #region Pagefind UI internals — grid passthrough */
+/* Each intermediate wrapper becomes a single-column grid so the
+   results area stretches to fill all available space. */
+.pf-search-container > #pagefind-search,
+.pf-search-container .pagefind-ui,
+.pf-search-container .pagefind-ui__form {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+}
+
+.pf-search-container .pagefind-ui {
+  --pagefind-ui-scale: 0.85;
+  --pagefind-ui-primary: var(--pf-accent);
+  --pagefind-ui-text: var(--pf-fg);
+  --pagefind-ui-background: var(--pf-bg);
+  --pagefind-ui-border: var(--pf-border);
+  --pagefind-ui-tag: var(--pf-accent);
+  --pagefind-ui-border-width: 0;
+  --pagefind-ui-border-radius: 0;
+  --pagefind-ui-font: inherit;
+}
+
+/* Hide the filter sidebar entirely — we use custom records, not categories */
+.pf-search-container .pagefind-ui__filter-panel {
+  display: none !important;
+}
+/* #endregion */
+
+/* #region Search input */
+.pf-search-container .pagefind-ui__form {
+  /* The form wraps input + clear-btn + drawer.
+     Position:relative so we can absolutely-position the icon. */
+  position: relative;
+}
+
+.pf-search-container .pagefind-ui__search-input {
+  font-size: 16px;
+  padding: 14px 48px 14px 44px;
+  border: none;
+  border-bottom: 1px solid var(--pf-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--pf-fg);
+  outline: none;
+  /* Magnifier icon via inline SVG data-uri */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%238b949e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='8' r='5.5'/%3E%3Cline x1='12.5' y1='12.5' x2='16' y2='16'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 14px center;
+  background-size: 18px;
+}
+
+.pf-search-container .pagefind-ui__search-input::placeholder {
+  color: var(--pf-fg-muted);
+}
+
+.pf-search-container .pagefind-ui__search-input:focus {
+  outline: none;
+  border-bottom-color: var(--pf-accent);
+}
+
+/* Clear button — minimal ghost style */
+.pf-search-container .pagefind-ui__search-clear {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: 1px solid var(--pf-border);
+  border-radius: 6px;
+  color: var(--pf-fg-muted);
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+  line-height: 1.4;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+  z-index: 1;
+  height: 34px;
+}
+
+.pf-search-container .pagefind-ui__search-clear:hover {
+  color: var(--pf-fg);
+  border-color: var(--pf-fg-muted);
+}
+/* #endregion */
+
+/* #region Results area */
+.pf-search-container .pagefind-ui__results-area {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  padding: 0 12px 12px;
+}
+
+.pf-search-container .pagefind-ui__message {
+  font-size: 12px;
+  color: var(--pf-fg-muted);
+  padding: 8px 4px 4px;
+}
+
+/* Scrollable drawer fills all remaining height */
+.pf-search-container .pagefind-ui__drawer {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  min-height: 0;
+}
+/* #endregion */
+
+/* #region Result cards */
+.pf-search-container .pagefind-ui__result {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none !important;
+  transition: background-color 0.1s;
+}
+
+.pf-search-container .pagefind-ui__result:hover {
+  background: var(--pf-bg-hover);
+}
+
+/* Hide the default thumbnail/image column */
+.pf-search-container .pagefind-ui__result-thumb,
+.pf-search-container .pagefind-ui__result-image {
+  display: none !important;
+}
+
+.pf-search-container .pagefind-ui__result-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.pf-search-container .pagefind-ui__result-link {
+  color: var(--pf-accent);
+  text-decoration: none;
+}
+
+.pf-search-container .pagefind-ui__result-link:hover {
+  text-decoration: underline;
+}
+
+.pf-search-container .pagefind-ui__result-excerpt {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pf-fg-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.pf-search-container mark {
+  background: var(--pf-highlight-bg);
+  color: var(--pf-highlight-fg);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 600;
+}
+/* #endregion */
+
+/* #region Tags & breadcrumbs */
+/* Hide Pagefind's built-in tags — we inject .pf-breadcrumb via JS instead */
+.pf-search-container .pagefind-ui__result-tags {
+  display: none !important;
+}
+
+.pf-search-container .pf-breadcrumb {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--pf-fg-muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* #endregion */
+
+/* #region Sub-results */
+.pf-search-container .pagefind-ui__result-nested {
+  border-left: 2px solid var(--pf-border);
+  margin-left: 8px;
+  padding-left: 12px;
+  margin-top: 4px;
+}
+
+.pf-search-container .pagefind-ui__result-nested .pagefind-ui__result-link {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pf-search-container .pagefind-ui__result-nested .pagefind-ui__result-excerpt {
+  font-size: 11px;
+  -webkit-line-clamp: 1;
+}
+/* #endregion */
+
+/* #region Load-more button */
+.pf-search-container .pagefind-ui__button {
+  background: transparent;
+  color: var(--pf-accent);
+  border: 1px solid var(--pf-border);
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 8px 16px;
+  cursor: pointer;
+  margin: 8px auto;
+  display: block;
+  transition: background-color 0.1s;
+}
+
+.pf-search-container .pagefind-ui__button:hover {
+  background: var(--pf-bg-hover);
+}
+/* #endregion */
+
+/* #region Close-hint footer */
+.pf-search-close-hint {
+  padding: 6px 16px;
+  font-size: 11px;
+  color: var(--pf-fg-muted);
+  text-align: right;
+  border-top: 1px solid var(--pf-border);
+}
+
+.pf-search-close-hint kbd {
+  background: var(--pf-border);
+  color: var(--pf-fg);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+}
+/* #endregion */

@@ -10,12 +10,20 @@
       "executor": "nx:run-commands",
       "outputs": ["{workspaceRoot}/dist/docs"],
       "options": {
-        "commands": ["nx run docs:_build-storybook", "bun apps/docs/scripts/generate-sitemap.ts"],
+        "commands": [
+          "nx run docs:_build-storybook",
+          "bun apps/docs/scripts/generate-sitemap.ts",
+          "bun apps/docs/scripts/generate-search-index.ts"
+        ],
         "parallel": false
       },
       "configurations": {
         "ci": {
-          "commands": ["nx run docs:_build-storybook:ci", "bun apps/docs/scripts/generate-sitemap.ts"]
+          "commands": [
+            "nx run docs:_build-storybook:ci",
+            "bun apps/docs/scripts/generate-sitemap.ts",
+            "bun apps/docs/scripts/generate-search-index.ts"
+          ]
         }
       }
     },
@@ -51,7 +59,8 @@
       "dependsOn": ["build"],
       "options": {
         "staticFilePath": "dist/docs",
-        "spa": true
+        "spa": true,
+        "watch": false
       }
     },
     "test": {

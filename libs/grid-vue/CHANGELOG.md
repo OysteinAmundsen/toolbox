@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.5.1...grid-vue-0.5.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* **grid,grid-angular,grid-react,grid-vue:** add typesVersions for Jest/CommonJS type resolution ([#137](https://github.com/OysteinAmundsen/toolbox/issues/137)) ([cfdf327](https://github.com/OysteinAmundsen/toolbox/commit/cfdf3271916225926d27842569c0dbfdb0fb986c))
+
 ## [0.5.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.5.0...grid-vue-0.5.1) (2026-02-21)
 
 

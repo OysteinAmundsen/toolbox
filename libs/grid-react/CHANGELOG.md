@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.13.1...grid-react-0.13.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* **grid,grid-angular,grid-react,grid-vue:** add typesVersions for Jest/CommonJS type resolution ([#137](https://github.com/OysteinAmundsen/toolbox/issues/137)) ([cfdf327](https://github.com/OysteinAmundsen/toolbox/commit/cfdf3271916225926d27842569c0dbfdb0fb986c))
+
 ## [0.13.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.13.0...grid-react-0.13.1) (2026-02-21)
 
 

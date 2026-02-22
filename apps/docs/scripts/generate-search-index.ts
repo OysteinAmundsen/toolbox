@@ -44,6 +44,12 @@ const STRIP_PATTERNS = [
   /^\s*\|[-:|\s]+\|$/, // table separator rows (|---|---|)
 ];
 
+/**
+ * Heading patterns whose sections should be excluded from the search index.
+ * These produce noise (cross-link lists, boilerplate) without useful content.
+ */
+const EXCLUDED_HEADINGS = /^see\s+also$/i;
+
 // #endregion
 
 // #region Types
@@ -242,6 +248,9 @@ function buildRecords(entries: StoryEntry[]): DocRecord[] {
     for (const section of sections) {
       if (!section.content.trim() && !section.heading) continue;
 
+      // Skip noisy cross-link sections (e.g. "See Also")
+      if (section.heading && EXCLUDED_HEADINGS.test(section.heading)) continue;
+
       const url = section.anchor ? `${baseUrl}#${section.anchor}` : baseUrl;
 
       // Build breadcrumb: "Grid > Core > Section Heading"
@@ -262,7 +271,10 @@ function buildRecords(entries: StoryEntry[]): DocRecord[] {
     }
 
     // Also create a top-level record for the whole document if it has content
-    const allContent = sections.map((s) => [s.heading, s.content].filter(Boolean).join(': ')).join('. ');
+    const allContent = sections
+      .filter((s) => !s.heading || !EXCLUDED_HEADINGS.test(s.heading))
+      .map((s) => [s.heading, s.content].filter(Boolean).join(': '))
+      .join('. ');
     if (allContent.trim()) {
       records.push({
         url: baseUrl,

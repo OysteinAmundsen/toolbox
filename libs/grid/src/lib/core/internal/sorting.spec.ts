@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applySort, builtInSort, defaultComparator, toggleSort } from './sorting';
+import { applySort, builtInSort, defaultComparator, reapplyCoreSort, toggleSort } from './sorting';
 
 // Mock renderHeader to avoid import resolution issues in tests
 vi.mock('./header', () => ({
@@ -315,5 +315,27 @@ describe('builtInSort', () => {
     const original = [...rows];
     builtInSort(rows, { field: 'id', direction: 1 }, columns as any);
     expect(rows.map((r) => r.id)).toEqual(original.map((r) => r.id));
+  });
+});
+
+describe('reapplyCoreSort', () => {
+  it('returns rows unchanged when no sort state', () => {
+    const g = makeGrid({ _sortState: null });
+    const rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+    expect(reapplyCoreSort(g, rows)).toBe(rows);
+  });
+
+  it('re-sorts rows using active sort state', () => {
+    const g = makeGrid({ _sortState: { field: 'id', direction: 1 } });
+    const rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+    const result = reapplyCoreSort(g, rows);
+    expect(result.map((r: any) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it('updates __originalOrder to current unsorted data', () => {
+    const g = makeGrid({ _sortState: { field: 'id', direction: 1 } });
+    const rows = [{ id: 30 }, { id: 10 }, { id: 20 }];
+    reapplyCoreSort(g, rows);
+    expect(g.__originalOrder.map((r: any) => r.id)).toEqual([30, 10, 20]);
   });
 });

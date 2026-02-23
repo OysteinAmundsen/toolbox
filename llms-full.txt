@@ -1230,6 +1230,7 @@ const existing = queryGrid<Employee>('#my-grid');
 | `forceLayout()` | Force recalculate layout |
 | `resetColumnState()` | Reset column widths, order, visibility |
 | `getPlugin(PluginClass)` | Get plugin instance |
+| `suspendProcessing()` | Skip sort/filter/group for the next `rows` update (one-shot) |
 | `animateRow(index, type)` | Animate row ('change', 'insert', 'remove') |
 | `animateRows(indices, type)` | Animate multiple rows |
 | `animateRowById(id, type)` | Animate row by ID |
@@ -1282,6 +1283,20 @@ gridConfig: {
 // Reset
 grid.resetColumnState();
 ```
+
+### Suspend Row Processing
+
+When inserting or removing rows by hand while sort/filter is active, call `suspendProcessing()` before assigning `rows` so the new row stays exactly where you placed it. The flag auto-resets after one render cycle.
+
+```typescript
+// Insert a row at index 3 without re-sorting or re-filtering
+data.splice(3, 0, newRow);
+grid.suspendProcessing();
+grid.rows = data;
+grid.animateRow(3, 'insert');
+```
+
+Do NOT use for data refreshes (API responses, WebSocket) — let sort/filter re-apply normally.
 
 ### Row Animation
 

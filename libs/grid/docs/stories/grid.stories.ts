@@ -1818,7 +1818,8 @@ grid.animateRow(2, 'change');
 // Animate multiple rows
 grid.animateRows([0, 3, 5], 'change');
 
-// Animate newly inserted row
+// Animate newly inserted row (suspend processing to keep position)
+grid.suspendProcessing();
 grid.rows = [...grid.rows, newRow];
 grid.animateRow(grid.rows.length - 1, 'insert');
 
@@ -1880,6 +1881,7 @@ grid.animateRow(grid.rows.length - 1, 'insert');
       grid.animateRow(idx, 'remove');
       setTimeout(() => {
         rowData = rowData.filter((r) => r.id !== id);
+        grid.suspendProcessing();
         grid.rows = rowData;
         // Clean up stale remove animation attributes after re-render
         requestAnimationFrame(() => {
@@ -1903,6 +1905,7 @@ grid.animateRow(grid.rows.length - 1, 'insert');
         status: 'Pending',
       };
       rowData = [...rowData.slice(0, idx + 1), newRow, ...rowData.slice(idx + 1)];
+      grid.suspendProcessing();
       grid.rows = rowData;
       requestAnimationFrame(() => {
         grid.animateRow(idx + 1, 'insert');
@@ -1991,6 +1994,7 @@ grid.animateRow(grid.rows.length - 1, 'insert');
           status: 'Pending',
         };
         rowData = [newRow, ...rowData];
+        grid.suspendProcessing();
         grid.rows = rowData;
         // Wait for render, then animate the first row (index 0)
         requestAnimationFrame(() => {
@@ -2031,6 +2035,7 @@ grid.animateRow(grid.rows.length - 1, 'insert');
               status: 'Pending',
             };
             rowData = [...rowData, newRow];
+            grid.suspendProcessing();
             grid.rows = rowData;
             requestAnimationFrame(() => {
               grid.animateRow(rowData.length - 1, 'insert');
@@ -2041,6 +2046,7 @@ grid.animateRow(grid.rows.length - 1, 'insert');
             grid.animateRow(idx, 'remove');
             setTimeout(() => {
               rowData = rowData.filter((_, i) => i !== idx);
+              grid.suspendProcessing();
               grid.rows = rowData;
               // Clean up stale remove animation attributes after re-render
               requestAnimationFrame(() => {

@@ -76,6 +76,12 @@ export interface PublicGrid<T = any> {
   ready?: () => Promise<void>;
   /** Force a layout / measurement pass (e.g. after container resize). */
   forceLayout?: () => Promise<void>;
+  /**
+   * Suspend row processing for the next `rows` update.
+   * Skips plugin processRows hooks (sort, filter, group) and core sort for one cycle.
+   * Auto-resets after the rows render. Use before inserting/removing rows by hand.
+   */
+  suspendProcessing?: () => void;
   /** Return effective resolved config (after inference & precedence). */
   getConfig?: () => Promise<Readonly<GridConfig<T>>>;
   /** Toggle expansion state of a group row by its generated key. */

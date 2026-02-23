@@ -88,6 +88,20 @@ export function toggleSort(grid: InternalGrid, col: ColumnConfig<any>): void {
 }
 
 /**
+ * Re-apply the current core sort to rows during #rebuildRowModel.
+ * Updates __originalOrder so "clear sort" restores the current dataset.
+ * Returns rows unchanged if no core sort is active or handler is async.
+ */
+export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
+  if (!grid._sortState) return rows;
+  grid.__originalOrder = [...rows];
+  const handler: SortHandler<any> = grid.effectiveConfig?.sortHandler ?? builtInSort;
+  const result = handler(rows, grid._sortState, grid._columns as ColumnConfig<any>[]);
+  if (result && typeof (result as Promise<unknown[]>).then === 'function') return rows;
+  return result as T[];
+}
+
+/**
  * Apply a concrete sort direction to rows.
  *
  * Uses custom sortHandler from gridConfig if provided, otherwise uses built-in sorting.

@@ -326,6 +326,21 @@ grid.animateRows([0, 2, 5], 'change');
 
 **Automatic Animation:** When using the **EditingPlugin**, rows are automatically animated with `'change'` after a successful edit commit.
 
+**Preserving row position during insert/remove:**
+
+When sorting or filtering is active, assigning `rows` normally re-applies those
+pipelines — so an inserted row may jump to a different position. Call
+`suspendProcessing()` before the assignment to keep it in place:
+
+```typescript
+data.splice(3, 0, newRow);
+grid.suspendProcessing(); // skip sort/filter for this one update
+grid.rows = data;
+grid.animateRow(3, 'insert');
+```
+
+The flag auto-resets after one render cycle. See the [API Reference → Suspend Row Processing](?path=/docs/grid-api--docs#suspend-row-processing) for details.
+
 **Customizing Appearance:**
 
 ```css

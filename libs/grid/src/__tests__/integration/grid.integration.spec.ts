@@ -1679,3 +1679,74 @@ describe('tbw-grid scroll height calculation', () => {
     expect((spacer as HTMLElement).style.height).toBeDefined();
   });
 });
+
+// #region suspendProcessing
+describe('suspendProcessing', () => {
+  let grid: any;
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+  });
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('core sort re-applies when rows are refreshed', async () => {
+    grid.columns = [{ field: 'id', sortable: true }];
+    grid.rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+    await waitUpgrade(grid);
+
+    // Click header to sort ascending
+    const header = grid.querySelector('.header-row .cell') as HTMLElement;
+    header.click();
+    expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
+
+    // Refresh rows — sort should reapply
+    grid.rows = [{ id: 30 }, { id: 10 }, { id: 20 }];
+    await nextFrame();
+    await nextFrame();
+    expect(grid._rows.map((r: any) => r.id)).toEqual([10, 20, 30]);
+  });
+
+  it('skips sort/filter for one render cycle', async () => {
+    grid.columns = [{ field: 'id', sortable: true }];
+    grid.rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+    await waitUpgrade(grid);
+
+    // Sort ascending
+    const header = grid.querySelector('.header-row .cell') as HTMLElement;
+    header.click();
+    expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
+
+    // Insert with suspend — order preserved
+    grid.suspendProcessing();
+    grid.rows = [{ id: 3 }, { id: 1 }, { id: 99 }, { id: 2 }];
+    await nextFrame();
+    await nextFrame();
+    expect(grid._rows.map((r: any) => r.id)).toEqual([3, 1, 99, 2]);
+  });
+
+  it('auto-resets after one cycle', async () => {
+    grid.columns = [{ field: 'id', sortable: true }];
+    grid.rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+    await waitUpgrade(grid);
+
+    // Sort ascending
+    grid.querySelector('.header-row .cell').click();
+
+    // Suspended update
+    grid.suspendProcessing();
+    grid.rows = [{ id: 3 }, { id: 1 }, { id: 99 }, { id: 2 }];
+    await nextFrame();
+    await nextFrame();
+    expect(grid._rows.map((r: any) => r.id)).toEqual([3, 1, 99, 2]);
+
+    // Next update without suspend — sort reapplies
+    grid.rows = [{ id: 3 }, { id: 1 }, { id: 99 }, { id: 2 }];
+    await nextFrame();
+    await nextFrame();
+    expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3, 99]);
+  });
+});
+// #endregion

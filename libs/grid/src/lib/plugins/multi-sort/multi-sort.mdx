@@ -238,8 +238,24 @@ tbw-grid .sort-badge {
 }
 ```
 
-## See Also
+## Row Insertion with Active Sort
 
-- **[Filtering](../?path=/docs/grid-plugins-filtering--docs)** — Column filtering
-- **[Server-Side Data](../?path=/docs/grid-plugins-server-side-data--docs)** — Server-side sorting via `sortHandler`
-- **[Core Configuration](../?path=/docs/grid-core--docs)** — Built-in single-column sorting
+When multi-sort is active, assigning `rows` automatically re-sorts the data — so a
+newly inserted row will jump to its sorted position. If you want the row to stay
+exactly where you placed it (e.g., after a user clicks "Add Row"), call
+`suspendProcessing()` before the assignment:
+
+```ts
+data.splice(3, 0, newRow);
+grid.suspendProcessing(); // skip sort for this one update
+grid.rows = data;
+```
+
+The flag auto-resets — the next `rows` assignment sorts normally. See the
+[API Reference → Suspend Row Processing](?path=/docs/grid-api--docs#suspend-row-processing)
+for full details.
+
+> **Tip:** Do **not** use `suspendProcessing()` for data refreshes (API responses,
+> WebSocket updates). In those cases you want re-sorting to keep the grid consistent.
+
+## See Also

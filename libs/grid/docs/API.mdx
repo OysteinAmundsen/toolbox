@@ -450,6 +450,40 @@ grid.unregisterStyles('my-id');
 
 > **Important:** Do not create `<style>` elements manually — they are wiped by internal `replaceChildren()` calls. Always use `registerStyles()` instead.
 
+### Suspend Row Processing
+
+When you set `rows`, the grid automatically re-applies all active processing — sorting,
+filtering, grouping — so the data stays consistent. This is the right behavior for
+data refreshes (e.g., API responses), but **not** for manual row insertion or removal
+where you want the new row to stay exactly where you placed it.
+
+`suspendProcessing()` is a **one-shot** flag: call it immediately before assigning
+`rows` and the grid will skip all plugin row processing and core sort for that single
+update. The flag auto-resets — the next `rows` assignment processes normally.
+
+```typescript
+// Insert a row at a specific position without re-sorting
+const data = [...grid.rows];
+data.splice(3, 0, newEmployee);
+grid.suspendProcessing();
+grid.rows = data;
+grid.animateRow(3, 'insert');
+```
+
+```typescript
+// Delete a row without re-filtering
+grid.suspendProcessing();
+grid.rows = grid.rows.filter(r => r.id !== targetId);
+```
+
+> **When to use:** Only for user-initiated row insertion/removal where position matters.
+> Do **not** call it for data refreshes — you want sort and filter to re-apply so the
+> grid stays consistent with the underlying data.
+
+> **When NOT to use:** When receiving fresh data from an API, WebSocket, or any
+> external source. In those cases, just set `grid.rows = newData` normally and let
+> the grid re-sort and re-filter.
+
 ### Row Animation API
 
 ```typescript

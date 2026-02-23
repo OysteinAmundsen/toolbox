@@ -458,6 +458,26 @@ The filter panel uses these class names for advanced customization:
 | `.tbw-filter-clear` | Clear filter button |
 | `.tbw-filter-apply` | Apply filter button |
 
+## Row Insertion with Active Filters
+
+When filtering is active, assigning `rows` automatically re-filters the data — so a
+newly inserted row may be hidden if it doesn't match the current filter. If you want
+the row to appear exactly where you placed it (e.g., after a user clicks "Add Row"),
+call `suspendProcessing()` before the assignment:
+
+```ts
+data.splice(3, 0, newRow);
+grid.suspendProcessing(); // skip filtering for this one update
+grid.rows = data;
+```
+
+The flag auto-resets — the next `rows` assignment filters normally. See the
+[API Reference → Suspend Row Processing](?path=/docs/grid-api--docs#suspend-row-processing)
+for full details.
+
+> **Tip:** Do **not** use `suspendProcessing()` for data refreshes (API responses,
+> WebSocket updates). In those cases you want re-filtering to keep the grid consistent.
+
 ## See Also
 
 - **[Multi-Sort](../?path=/docs/grid-plugins-multi-sort--docs)** — Multi-column sorting

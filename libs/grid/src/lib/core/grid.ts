@@ -36,6 +36,7 @@ import {
   type ShellState,
   type ToolPanelRendererFactory,
 } from './internal/shell';
+import { reapplyCoreSort } from './internal/sorting';
 import { addPluginStyles, injectStyles } from './internal/style-injector';
 import {
   cancelMomentum,
@@ -369,6 +370,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // Sort state
   _sortState: { field: string; direction: 1 | -1 } | null = null;
+  #processingSuspended = false;
 
   // Layout
   _gridTemplate = '';
@@ -2148,12 +2150,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Start fresh from original rows (plugins will transform them)
     const originalRows = Array.isArray(this.#rows) ? [...this.#rows] : [];
 
-    // Let plugins process rows (they may add, remove, transform rows)
-    // Plugins can add markers for specialized rendering via the renderRow hook
-    const processedRows = this.#pluginManager?.processRows(originalRows) ?? originalRows;
+    // Check and consume the one-shot suspend flag
+    const suspended = this.#processingSuspended;
+    if (suspended) this.#processingSuspended = false;
+
+    // When suspended, skip all processing — render rows in consumer-provided order.
+    // Otherwise run plugin processRows (sort, filter, group) + core sort.
+    const processedRows = suspended
+      ? originalRows
+      : reapplyCoreSort(this, (this.#pluginManager?.processRows(originalRows) ?? originalRows) as T[]);
 
     // Store processed rows for rendering
-    // Note: processedRows may contain group markers that plugins handle via renderRow hook
     this._rows = processedRows as T[];
 
     // Rebuild row ID map to keep indices in sync with the (possibly sorted) _rows.
@@ -2697,6 +2704,31 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#scheduler.requestPhase(RenderPhase.FULL, 'forceLayout');
     // Wait for the render cycle to complete
     return this.#scheduler.whenReady();
+  }
+
+  /**
+   * Suspend row processing for the next rows update.
+   *
+   * When called before setting `rows`, the grid skips all plugin row processing
+   * (sorting, filtering, grouping) and core sort re-application for **one** update.
+   * Rows render in the exact order you provide. The flag auto-resets after one
+   * render cycle — subsequent `rows` assignments process normally.
+   *
+   * Use this when inserting or removing rows by hand and you want the new row
+   * to stay exactly where you placed it, even when sort/filter plugins are active.
+   *
+   * @group Lifecycle
+   *
+   * @example
+   * ```typescript
+   * // Insert a row at index 3 without re-sorting or re-filtering
+   * data.splice(3, 0, newRow);
+   * grid.suspendProcessing();
+   * grid.rows = data;
+   * ```
+   */
+  suspendProcessing(): void {
+    this.#processingSuspended = true;
   }
 
   /**

@@ -514,6 +514,7 @@ const sel = grid.getPlugin(SelectionPlugin);
 10. **Don't create `<style>` elements** - Use `registerStyles()` which uses `adoptedStyleSheets` (survives DOM rebuilds)
 11. **Editing is opt-in** - Using `editable: true` or `editor` requires `EditingPlugin`; the grid validates and throws helpful errors
 12. **Prefer row objects over indices** - When exposing selection or row references to consumers, provide actual row data objects (e.g., `getSelectedRows()`) rather than forcing users to resolve indices manually. Row indices refer to positions in the grid's _current_ (sorted/filtered/grouped) row array, which may differ from the user's original data source. Indices are still useful as positional coordinates (e.g., `CellRange`), but always offer a row-object alternative for data access.
+13. **Use `suspendProcessing()` for manual row insert/remove** - When inserting or deleting rows by hand (splice + reassign `rows`), call `grid.suspendProcessing()` first so the new row stays where you placed it. This is a one-shot flag that auto-resets after one render. Do **not** use it for data refreshes (API responses, WebSocket updates) — let sort/filter re-apply normally.
 
 ## Runtime Configuration Validation
 

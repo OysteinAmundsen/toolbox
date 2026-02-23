@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.21.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.20.0...grid-1.21.0) (2026-02-23)
+
+
+### Features
+
+* **grid:** auto-animate insertRow/removeRow, return Promises from animateRow ([19980c8](https://github.com/OysteinAmundsen/toolbox/commit/19980c844fe367d9d91d68f03481a8545bc31d45))
+
+
+### Bug Fixes
+
+* **grid:** clear stale core _sortState when MultiSortPlugin owns sorting ([4022d79](https://github.com/OysteinAmundsen/toolbox/commit/4022d79b094c6c0a558bd41e421a7138bb61254d))
+
 ## [1.20.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.19.3...grid-1.20.0) (2026-02-23)
 
 

@@ -110,14 +110,13 @@ const columnGroups = [
 // Feature import - enables the [groupingColumns] input
 import '@toolbox-web/grid-angular/features/grouping-columns';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig, ColumnGroup } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       [rows]="rows"

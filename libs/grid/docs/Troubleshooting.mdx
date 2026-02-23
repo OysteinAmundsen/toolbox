@@ -204,14 +204,15 @@ useGridEvent(gridRef, 'cell-commit', (e) => {
 
 ### "tbw-grid" is not a known element
 
-**Solution**: Add `CUSTOM_ELEMENTS_SCHEMA` to your component:
+**Solution**: Import the `Grid` directive from `@toolbox-web/grid-angular`:
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-grid',
-  schemas: [CUSTOM_ELEMENTS_SCHEMA], // Required!
+  imports: [Grid],
   template: `<tbw-grid></tbw-grid>`
 })
 export class GridComponent {}
@@ -228,7 +229,6 @@ import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid], // Enables property binding
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `<tbw-grid [rows]="data" [gridConfig]="config"></tbw-grid>`
 })
 ```

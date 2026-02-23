@@ -112,7 +112,7 @@ const contextMenuPlugin = markRaw(new ContextMenuPlugin({
 // Feature import - enables the [contextMenu] input
 import '@toolbox-web/grid-angular/features/context-menu';
 
-import { Component, output, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, output } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 import type { ContextMenuItem } from '@toolbox-web/grid/plugins/context-menu';
@@ -120,7 +120,6 @@ import type { ContextMenuItem } from '@toolbox-web/grid/plugins/context-menu';
 @Component({
   selector: 'app-my-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       #grid

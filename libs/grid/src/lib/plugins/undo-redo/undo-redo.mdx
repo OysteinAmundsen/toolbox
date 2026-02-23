@@ -96,14 +96,13 @@ const data = [
 import '@toolbox-web/grid-angular/features/editing';
 import '@toolbox-web/grid-angular/features/undo-redo';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-my-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       [rows]="rows"

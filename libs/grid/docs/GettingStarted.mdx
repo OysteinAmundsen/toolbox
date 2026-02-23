@@ -365,7 +365,7 @@ import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/filtering';
 
 import '@toolbox-web/grid';
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 import type { ColumnConfig, CellCommitDetail } from '@toolbox-web/grid';
 
@@ -378,7 +378,6 @@ interface Employee {
 @Component({
   selector: 'app-employee-grid',
   imports: [Grid, TbwRenderer, TbwEditor],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       [rows]="employees"

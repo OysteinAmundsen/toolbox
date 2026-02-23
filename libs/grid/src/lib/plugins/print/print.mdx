@@ -137,7 +137,7 @@ const handlePrint = async () => {
 // Feature import - enables the [print] input
 import '@toolbox-web/grid-angular/features/print';
 
-import { Component, viewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, viewChild, ElementRef } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
 import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
@@ -145,7 +145,6 @@ import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
 @Component({
   selector: 'app-employee-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <button (click)="handlePrint()">Print Report</button>
     <tbw-grid

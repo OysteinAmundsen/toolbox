@@ -72,7 +72,7 @@ export interface PrintMethods {
  *
  * @example
  * ```typescript
- * import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+ * import { Component } from '@angular/core';
  * import { Grid } from '@toolbox-web/grid-angular';
  * import '@toolbox-web/grid-angular/features/print';
  * import { injectGridPrint } from '@toolbox-web/grid-angular/features/print';
@@ -80,7 +80,6 @@ export interface PrintMethods {
  * @Component({
  *   selector: 'app-my-grid',
  *   imports: [Grid],
- *   schemas: [CUSTOM_ELEMENTS_SCHEMA],
  *   template: `
  *     <button (click)="handlePrint()" [disabled]="gridPrint.isPrinting()">
  *       {{ gridPrint.isPrinting() ? 'Printing...' : 'Print' }}

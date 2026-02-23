@@ -108,7 +108,7 @@ export interface FilteringMethods {
  *
  * @example
  * ```typescript
- * import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+ * import { Component } from '@angular/core';
  * import { Grid } from '@toolbox-web/grid-angular';
  * import '@toolbox-web/grid-angular/features/filtering';
  * import { injectGridFiltering } from '@toolbox-web/grid-angular/features/filtering';
@@ -116,7 +116,6 @@ export interface FilteringMethods {
  * @Component({
  *   selector: 'app-my-grid',
  *   imports: [Grid],
- *   schemas: [CUSTOM_ELEMENTS_SCHEMA],
  *   template: `
  *     <input (input)="applyFilter($event)" placeholder="Filter by name..." />
  *     <span>{{ filtering.getFilteredRowCount() }} results</span>

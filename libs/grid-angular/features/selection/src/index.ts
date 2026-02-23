@@ -158,7 +158,7 @@ export interface SelectionMethods<TRow = unknown> {
  *
  * @example
  * ```typescript
- * import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+ * import { Component } from '@angular/core';
  * import { Grid } from '@toolbox-web/grid-angular';
  * import '@toolbox-web/grid-angular/features/selection';
  * import { injectGridSelection } from '@toolbox-web/grid-angular/features/selection';
@@ -166,7 +166,6 @@ export interface SelectionMethods<TRow = unknown> {
  * @Component({
  *   selector: 'app-my-grid',
  *   imports: [Grid],
- *   schemas: [CUSTOM_ELEMENTS_SCHEMA],
  *   template: `
  *     <button (click)="handleSelectAll()">Select All</button>
  *     <tbw-grid [rows]="rows" [selection]="'range'"></tbw-grid>

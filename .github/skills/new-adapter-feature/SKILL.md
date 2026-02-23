@@ -41,12 +41,11 @@ Before touching adapters, understand how the feature works in the vanilla grid:
 ### Usage Example
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid, TbwRenderer, TbwEditor],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [rows]="data" [gridConfig]="config">
       <tbw-grid-column field="status">

@@ -114,14 +114,13 @@ const pinnedRowsConfig = {
 // Feature import - enables the [pinnedRows] input
 import '@toolbox-web/grid-angular/features/pinned-rows';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-order-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       [rows]="rows"

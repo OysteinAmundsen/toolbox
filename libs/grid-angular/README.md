@@ -51,13 +51,12 @@ import '@toolbox-web/grid';
 ### 2. Use in Components
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
   selector: 'app-my-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: ` <tbw-grid [rows]="rows" [gridConfig]="config" style="height: 400px; display: block;"> </tbw-grid> `,
 })
 export class MyGridComponent {
@@ -85,12 +84,11 @@ The cleanest way to define custom renderers and editors is with structural direc
 Use `*tbwRenderer` to customize how cell values are displayed:
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid, TbwRenderer, StatusBadgeComponent],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [rows]="rows" [gridConfig]="config">
       <tbw-grid-column field="status">
@@ -115,7 +113,7 @@ export class MyGridComponent {}
 Use `*tbwEditor` for custom cell editors. The adapter automatically listens for `commit` and `cancel` events from your component, so you don't need to manually wire up callbacks:
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA, output } from '@angular/core';
+import { Component, output } from '@angular/core';
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 
 // Your editor component just needs to emit 'commit' and 'cancel' events
@@ -136,7 +134,6 @@ export class StatusEditorComponent {
 
 @Component({
   imports: [Grid, TbwRenderer, TbwEditor, StatusBadgeComponent, StatusEditorComponent],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [rows]="rows" [gridConfig]="config">
       <tbw-grid-column field="status" editable>
@@ -173,7 +170,6 @@ import { Grid, GridColumnView } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid, GridColumnView],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [rows]="rows" [gridConfig]="config">
       <tbw-grid-column field="status">
@@ -195,7 +191,6 @@ import { Grid, GridColumnView, GridColumnEditor } from '@toolbox-web/grid-angula
 
 @Component({
   imports: [Grid, GridColumnView, GridColumnEditor],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [rows]="rows" [gridConfig]="config">
       <tbw-grid-column field="status" editable>
@@ -331,14 +326,13 @@ Then any grid with columns using `type: 'country'` will automatically use the re
 
 ```typescript
 // my-grid.component.ts
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import type { GridConfig } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `<tbw-grid [rows]="data" [gridConfig]="config" />`,
 })
 export class MyGridComponent {
@@ -485,14 +479,13 @@ export class BonusEditorComponent implements CellEditor<Employee, number> {
 Use `GridConfig` with the `gridConfig` input for type-safe component references:
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid, type GridConfig } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 import { StatusBadgeComponent, BonusEditorComponent } from './components';
 
 @Component({
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `<tbw-grid [gridConfig]="config" [rows]="employees" />`,
 })
 export class MyGridComponent {
@@ -523,14 +516,13 @@ Both interfaces also support an optional `column()` input for accessing the colu
 Import plugins individually for smaller bundles:
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 
 @Component({
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `<tbw-grid [rows]="rows" [gridConfig]="config" />`,
 })
 export class MyGridComponent {
@@ -557,7 +549,7 @@ The grid can be used as an Angular form control with `formControlName` or `formC
 ### Basic Usage with FormControl
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
@@ -570,7 +562,6 @@ interface Employee {
 
 @Component({
   imports: [Grid, GridFormArray, ReactiveFormsModule],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [formControl]="employeesControl" [gridConfig]="config" style="height: 400px; display: block;" />
 
@@ -600,14 +591,13 @@ export class MyComponent {
 ### Usage with FormGroup
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Grid, GridFormArray } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
 
 @Component({
   imports: [Grid, GridFormArray, ReactiveFormsModule],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <form [formGroup]="form">
       <tbw-grid formControlName="employees" [gridConfig]="config" style="height: 400px; display: block;" />
@@ -690,7 +680,7 @@ tbw-grid.form-disabled {
 For fine-grained control over validation and form state at the cell level, use a `FormArray` of `FormGroup`s. This approach exposes the `FormControl` for each cell in the editor context, allowing custom editors to bind directly:
 
 ```typescript
-import { Component, CUSTOM_ELEMENTS_SCHEMA, input, output } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Grid, GridFormArray, TbwEditor, TbwRenderer } from '@toolbox-web/grid-angular';
 import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
@@ -732,7 +722,6 @@ export class ValidatedInputComponent {
 
 @Component({
   imports: [Grid, GridFormArray, TbwRenderer, TbwEditor, ReactiveFormsModule, ValidatedInputComponent],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [formControl]="employeesArray" [gridConfig]="config">
       <tbw-grid-column field="age" editable>

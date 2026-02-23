@@ -117,7 +117,7 @@ const handleExport = () => {
 // Feature import - enables the [exportFeature] input
 import '@toolbox-web/grid-angular/features/export';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA, viewChild, ElementRef } from '@angular/core';
+import { Component, viewChild, ElementRef } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
@@ -125,7 +125,6 @@ import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
 @Component({
   selector: 'app-data-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <button (click)="handleExport()">Export CSV</button>
     <tbw-grid

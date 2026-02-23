@@ -216,12 +216,11 @@ function EmployeeGrid({ employees }) {
 
 ```typescript
 import '@toolbox-web/grid';
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `<tbw-grid [rows]="employees" [columns]="columns" style="height: 400px; display: block;" />`,
 })
 export class EmployeeGridComponent {
@@ -393,12 +392,11 @@ function EmployeeGrid({ employees }) {
 ```typescript
 import '@toolbox-web/grid';
 import '@toolbox-web/grid-angular/features/editing';
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid, TbwRenderer, TbwEditor],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid [rows]="employees" [columns]="columns" [editing]="'dblclick'" style="height: 400px; display: block;">
       <tbw-grid-column field="status" header="Status" [editable]="true">
@@ -1475,9 +1473,9 @@ import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid-angular/features/selection';   // Feature side-effect imports
 ```
 
-### CUSTOM_ELEMENTS_SCHEMA Required
+### No CUSTOM_ELEMENTS_SCHEMA Needed
 
-Angular requires `schemas: [CUSTOM_ELEMENTS_SCHEMA]` in the `@Component` decorator to recognize `<tbw-grid>`.
+The `Grid` directive's selector is `'tbw-grid'`, so Angular recognizes the element automatically when you import `Grid`. No `schemas: [CUSTOM_ELEMENTS_SCHEMA]` is needed.
 
 ### Template Renderers (`*tbwRenderer` / `*tbwEditor`)
 
@@ -1525,7 +1523,6 @@ import { Grid, GridFormArray, TbwEditor } from '@toolbox-web/grid-angular';
 
 @Component({
   imports: [Grid, GridFormArray, TbwEditor, ReactiveFormsModule],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <form [formGroup]="form">
       <tbw-grid [formArray]="form.controls.employees" [gridConfig]="config">
@@ -1937,7 +1934,7 @@ gridConfig: {
 | "Configuration error: EditingPlugin not loaded" | Add `EditingPlugin` to plugins array |
 | Grid not rendering / zero height | Add `height: 400px; display: block;` CSS |
 | React renderers not working | Use `GridConfig` type from `@toolbox-web/grid-react` and `gridConfig` prop (not `columns` prop) |
-| Angular templates not rendering | Import `Grid` directive and add `schemas: [CUSTOM_ELEMENTS_SCHEMA]` |
+| Angular templates not rendering | Import `Grid` directive from `@toolbox-web/grid-angular` |
 | Angular component renderers not working | Call `adapter.processGridConfig(config)` before passing to grid |
 | TypeScript "Property does not exist on GridElement" | Use `DataGridElement` type instead of `GridElement` |
 | `<tbw-grid>` renders as empty unknown element | Add `import '@toolbox-web/grid';` side-effect import |

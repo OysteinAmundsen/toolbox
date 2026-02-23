@@ -125,13 +125,12 @@ export interface InjectGridReturn<TRow = unknown> extends SelectionMethods<TRow>
  * ## Usage
  *
  * ```typescript
- * import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+ * import { Component } from '@angular/core';
  * import { Grid, injectGrid } from '@toolbox-web/grid-angular';
  *
  * @Component({
  *   selector: 'app-my-grid',
  *   imports: [Grid],
- *   schemas: [CUSTOM_ELEMENTS_SCHEMA],
  *   template: `
  *     <button (click)="handleResize()">Force Layout</button>
  *     <button (click)="handleExport()" [disabled]="!grid.isReady()">Export</button>

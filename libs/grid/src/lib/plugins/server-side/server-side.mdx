@@ -152,7 +152,7 @@ onMounted(async () => {
 // Feature import - enables the [serverSide] input
 import '@toolbox-web/grid-angular/features/server-side';
 
-import { Component, viewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, viewChild, ElementRef } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
 import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
@@ -160,7 +160,6 @@ import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
 @Component({
   selector: 'app-server-side-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       #grid

@@ -107,13 +107,12 @@ const onCellCommit = (e) => {
 // Feature import - enables the [editing] input
 import '@toolbox-web/grid-angular/features/editing';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid, TbwEditor } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid, TbwEditor],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       [rows]="data"
@@ -432,13 +431,12 @@ function MyGrid({ data }) {
 // Feature import - enables the [editing] input
 import '@toolbox-web/grid-angular/features/editing';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig, TypeDefaultsMap } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `<tbw-grid [rows]="data" [columns]="columns" [editing]="true" [typeDefaults]="typeDefaults" />`
 })
 export class MyGridComponent {
@@ -537,13 +535,12 @@ export const appConfig: ApplicationConfig = {
 // Feature import - enables the [editing] input
 import '@toolbox-web/grid-angular/features/editing';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `<tbw-grid [rows]="data" [columns]="columns" [editing]="true" />`
 })
 export class GridComponent {

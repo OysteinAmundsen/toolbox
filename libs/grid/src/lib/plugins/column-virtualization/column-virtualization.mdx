@@ -75,14 +75,13 @@ const columns = Array.from({ length: 100 }, (_, i) => ({
 // Feature import - enables the [columnVirtualization] input
 import '@toolbox-web/grid-angular/features/column-virtualization';
 
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
 @Component({
   selector: 'app-wide-grid',
   imports: [Grid],
-  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <tbw-grid
       [rows]="rows"

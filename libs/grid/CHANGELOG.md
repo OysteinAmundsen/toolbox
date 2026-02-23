@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.20.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.19.3...grid-1.20.0) (2026-02-23)
+
+
+### Features
+
+* **grid:** add suspendProcessing() API and restore core sort in rebuildRowModel ([0fede1f](https://github.com/OysteinAmundsen/toolbox/commit/0fede1f50ad346d5761cf2c6030e4d8c3979ffff))
+
+
+### Bug Fixes
+
+* **grid:** use visible-column index when resolving columns from data-col ([1034a8a](https://github.com/OysteinAmundsen/toolbox/commit/1034a8a84d0eb9558ac5d1e410f37666589ac38c))
+
 ## [1.19.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.19.2...grid-1.19.3) (2026-02-22)
 
 

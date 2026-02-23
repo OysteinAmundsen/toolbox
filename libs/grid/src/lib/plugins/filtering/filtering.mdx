@@ -463,20 +463,20 @@ The filter panel uses these class names for advanced customization:
 When filtering is active, assigning `rows` automatically re-filters the data — so a
 newly inserted row may be hidden if it doesn't match the current filter. If you want
 the row to appear exactly where you placed it (e.g., after a user clicks "Add Row"),
-call `suspendProcessing()` before the assignment:
+use `insertRow()`:
 
 ```ts
-data.splice(3, 0, newRow);
-grid.suspendProcessing(); // skip filtering for this one update
-grid.rows = data;
+grid.insertRow(3, newRow); // stays at visible index 3, auto-animates
 ```
 
-The flag auto-resets — the next `rows` assignment filters normally. See the
-[API Reference → Suspend Row Processing](?path=/docs/grid-api--docs#suspend-row-processing)
+The row is also added to source data, so the next full `grid.rows = freshData`
+assignment re-filters normally. See the
+[API Reference → Insert & Remove Rows](?path=/docs/grid-api--docs#insert--remove-rows)
 for full details.
 
-> **Tip:** Do **not** use `suspendProcessing()` for data refreshes (API responses,
-> WebSocket updates). In those cases you want re-filtering to keep the grid consistent.
+> **Tip:** Do **not** use `insertRow()` for data refreshes (API responses,
+> WebSocket updates). In those cases just set `grid.rows = newData` and let
+> the filter re-apply.
 
 ## See Also
 

@@ -1680,8 +1680,7 @@ describe('tbw-grid scroll height calculation', () => {
   });
 });
 
-// #region suspendProcessing
-describe('suspendProcessing', () => {
+describe('insertRow / removeRow', () => {
   let grid: any;
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -1692,61 +1691,149 @@ describe('suspendProcessing', () => {
     document.body.innerHTML = '';
   });
 
-  it('core sort re-applies when rows are refreshed', async () => {
-    grid.columns = [{ field: 'id', sortable: true }];
-    grid.rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+  it('insertRow adds a row at the specified visible index', async () => {
+    grid.columns = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
     await waitUpgrade(grid);
-
-    // Click header to sort ascending
-    const header = grid.querySelector('.header-row .cell') as HTMLElement;
-    header.click();
-    expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
-
-    // Refresh rows — sort should reapply
-    grid.rows = [{ id: 30 }, { id: 10 }, { id: 20 }];
     await nextFrame();
+
+    grid.insertRow(1, { id: 99, name: 'Inserted' }, false);
     await nextFrame();
-    expect(grid._rows.map((r: any) => r.id)).toEqual([10, 20, 30]);
+
+    expect(grid.rows.length).toBe(4);
+    expect(grid.rows[1]).toEqual({ id: 99, name: 'Inserted' });
+    expect(grid.rows.map((r: any) => r.id)).toEqual([1, 99, 2, 3]);
+    // Source data also includes the new row
+    expect(grid.sourceRows.length).toBe(4);
   });
 
-  it('skips sort/filter for one render cycle', async () => {
-    grid.columns = [{ field: 'id', sortable: true }];
-    grid.rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+  it('removeRow removes the row at the specified visible index', async () => {
+    grid.columns = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+    ];
     await waitUpgrade(grid);
-
-    // Sort ascending
-    const header = grid.querySelector('.header-row .cell') as HTMLElement;
-    header.click();
-    expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
-
-    // Insert with suspend — order preserved
-    grid.suspendProcessing();
-    grid.rows = [{ id: 3 }, { id: 1 }, { id: 99 }, { id: 2 }];
     await nextFrame();
+
+    const removed = await grid.removeRow(1, false);
     await nextFrame();
-    expect(grid._rows.map((r: any) => r.id)).toEqual([3, 1, 99, 2]);
+
+    expect(removed).toEqual({ id: 2, name: 'Bob' });
+    expect(grid.rows.length).toBe(2);
+    expect(grid.rows.map((r: any) => r.id)).toEqual([1, 3]);
+    expect(grid.sourceRows.length).toBe(2);
   });
 
-  it('auto-resets after one cycle', async () => {
-    grid.columns = [{ field: 'id', sortable: true }];
-    grid.rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
+  it('insertRow preserves sorted view when core sort is active', async () => {
+    grid.columns = [
+      { field: 'id', header: 'ID', sortable: true },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = [
+      { id: 3, name: 'Charlie' },
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
     await waitUpgrade(grid);
+    await nextFrame();
 
-    // Sort ascending
-    grid.querySelector('.header-row .cell').click();
+    // Click header to sort ascending by id
+    const header = grid.querySelector('[role="columnheader"]');
+    header?.click();
+    await nextFrame();
 
-    // Suspended update
-    grid.suspendProcessing();
-    grid.rows = [{ id: 3 }, { id: 1 }, { id: 99 }, { id: 2 }];
-    await nextFrame();
-    await nextFrame();
-    expect(grid._rows.map((r: any) => r.id)).toEqual([3, 1, 99, 2]);
+    // Rows should now be sorted: Alice(1), Bob(2), Charlie(3)
+    expect(grid.rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
 
-    // Next update without suspend — sort reapplies
-    grid.rows = [{ id: 3 }, { id: 1 }, { id: 99 }, { id: 2 }];
+    // Insert at visible index 1 (between Alice and Bob)
+    grid.insertRow(1, { id: 99, name: 'Inserted' }, false);
+    await nextFrame();
+
+    expect(grid.rows.length).toBe(4);
+    expect(grid.rows[1]).toEqual({ id: 99, name: 'Inserted' });
+    expect(grid.rows.map((r: any) => r.id)).toEqual([1, 99, 2, 3]);
+    // Source data also includes the new row
+    expect(grid.sourceRows.length).toBe(4);
+  });
+
+  it('core sort re-applies when rows are refreshed after sort', async () => {
+    grid.columns = [
+      { field: 'id', header: 'ID', sortable: true },
+      { field: 'name', header: 'Name' },
+    ];
+    grid.rows = [
+      { id: 3, name: 'Charlie' },
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+    ];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Sort ascending by id
+    const header = grid.querySelector('[role="columnheader"]');
+    header?.click();
+    await nextFrame();
+    expect(grid.rows.map((r: any) => r.id)).toEqual([1, 2, 3]);
+
+    // Replace rows entirely (simulating data refresh)
+    grid.rows = [
+      { id: 5, name: 'Eve' },
+      { id: 4, name: 'Dave' },
+    ];
     await nextFrame();
     await nextFrame();
-    expect(grid._rows.map((r: any) => r.id)).toEqual([1, 2, 3, 99]);
+
+    // Core sort should be re-applied to the new data
+    expect(grid.rows.map((r: any) => r.id)).toEqual([4, 5]);
+  });
+
+  it('removeRow returns undefined for out-of-range index', async () => {
+    grid.columns = [{ field: 'id', header: 'ID' }];
+    grid.rows = [{ id: 1 }];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    expect(await grid.removeRow(5, false)).toBeUndefined();
+    expect(await grid.removeRow(-1, false)).toBeUndefined();
+    expect(grid.rows.length).toBe(1);
+  });
+
+  it('insertRow clamps index to valid range', async () => {
+    grid.columns = [{ field: 'id', header: 'ID' }];
+    grid.rows = [{ id: 1 }, { id: 2 }];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Insert beyond end — should append
+    grid.insertRow(100, { id: 99 }, false);
+    await nextFrame();
+    expect(grid.rows[grid.rows.length - 1]).toEqual({ id: 99 });
+
+    // Insert at negative — should prepend
+    grid.insertRow(-5, { id: 0 }, false);
+    await nextFrame();
+    expect(grid.rows[0]).toEqual({ id: 0 });
+  });
+
+  it('suspendProcessing is a no-op (deprecated)', async () => {
+    grid.columns = [{ field: 'id', header: 'ID' }];
+    grid.rows = [{ id: 1 }];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Should not throw
+    expect(() => grid.suspendProcessing()).not.toThrow();
   });
 });
-// #endregion

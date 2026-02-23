@@ -370,7 +370,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // Sort state
   _sortState: { field: string; direction: 1 | -1 } | null = null;
-  #processingSuspended = false;
 
   // Layout
   _gridTemplate = '';
@@ -2150,17 +2149,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Start fresh from original rows (plugins will transform them)
     const originalRows = Array.isArray(this.#rows) ? [...this.#rows] : [];
 
-    // Check and consume the one-shot suspend flag
-    const suspended = this.#processingSuspended;
-    if (suspended) this.#processingSuspended = false;
+    // Re-apply core sort before plugins so sorted order is maintained on data refresh.
+    // This runs BEFORE processRows so grouping/filtering work on sorted data.
+    const sortedRows = reapplyCoreSort(this, originalRows);
 
-    // When suspended, skip all processing — render rows in consumer-provided order.
-    // Otherwise run plugin processRows (sort, filter, group) + core sort.
-    const processedRows = suspended
-      ? originalRows
-      : reapplyCoreSort(this, (this.#pluginManager?.processRows(originalRows) ?? originalRows) as T[]);
+    // Let plugins process rows (they may add, remove, transform rows)
+    // Plugins can add markers for specialized rendering via the renderRow hook
+    const processedRows = this.#pluginManager?.processRows(sortedRows) ?? sortedRows;
 
     // Store processed rows for rendering
+    // Note: processedRows may contain group markers that plugins handle via renderRow hook
     this._rows = processedRows as T[];
 
     // Rebuild row ID map to keep indices in sync with the (possibly sorted) _rows.
@@ -2707,31 +2705,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Suspend row processing for the next rows update.
-   *
-   * When called before setting `rows`, the grid skips all plugin row processing
-   * (sorting, filtering, grouping) and core sort re-application for **one** update.
-   * Rows render in the exact order you provide. The flag auto-resets after one
-   * render cycle — subsequent `rows` assignments process normally.
-   *
-   * Use this when inserting or removing rows by hand and you want the new row
-   * to stay exactly where you placed it, even when sort/filter plugins are active.
-   *
-   * @group Lifecycle
-   *
-   * @example
-   * ```typescript
-   * // Insert a row at index 3 without re-sorting or re-filtering
-   * data.splice(3, 0, newRow);
-   * grid.suspendProcessing();
-   * grid.rows = data;
-   * ```
-   */
-  suspendProcessing(): void {
-    this.#processingSuspended = true;
-  }
-
-  /**
    * Get a frozen snapshot of the current effective configuration.
    * The returned object is read-only and reflects all merged config sources.
    *
@@ -2922,6 +2895,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /**
    * Animate a row at the specified index.
    * Applies a visual animation to highlight changes, insertions, or removals.
+   * Returns a `Promise` that resolves when the animation completes.
    *
    * **Animation types:**
    * - `'change'`: Flash highlight (for data changes, e.g., after cell edit)
@@ -2934,44 +2908,46 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @group Row Animation
    * @param rowIndex - Index of the row in the current row set
    * @param type - Type of animation to apply
+   * @returns `true` if the row was found and animated, `false` otherwise
    *
    * @example
    * ```typescript
-   * // Highlight a row after external data update
-   * grid.updateRow('row-123', { status: 'shipped' });
-   * grid.animateRow(rowIndex, 'change');
+   * // Highlight a row and wait for the animation to finish
+   * await grid.animateRow(rowIndex, 'change');
    *
-   * // Animate new row insertion
-   * grid.rows = [...grid.rows, newRow];
-   * grid.animateRow(grid.rows.length - 1, 'insert');
+   * // Fire-and-forget (animation runs in background)
+   * grid.animateRow(rowIndex, 'insert');
    * ```
    */
-  animateRow(rowIndex: number, type: RowAnimationType): void {
-    animateRow(this as unknown as InternalGrid, rowIndex, type);
+  animateRow(rowIndex: number, type: RowAnimationType): Promise<boolean> {
+    return animateRow(this as unknown as InternalGrid, rowIndex, type);
   }
 
   /**
    * Animate multiple rows at once.
    * More efficient than calling `animateRow()` multiple times.
+   * Returns a `Promise` that resolves when all animations complete.
    *
    * @group Row Animation
    * @param rowIndices - Indices of the rows to animate
    * @param type - Type of animation to apply to all rows
+   * @returns Number of rows that were actually animated (visible in viewport)
    *
    * @example
    * ```typescript
    * // Highlight all changed rows after bulk update
    * const changedIndices = [0, 2, 5];
-   * grid.animateRows(changedIndices, 'change');
+   * await grid.animateRows(changedIndices, 'change');
    * ```
    */
-  animateRows(rowIndices: number[], type: RowAnimationType): void {
-    animateRows(this as unknown as InternalGrid, rowIndices, type);
+  animateRows(rowIndices: number[], type: RowAnimationType): Promise<number> {
+    return animateRows(this as unknown as InternalGrid, rowIndices, type);
   }
 
   /**
    * Animate a row by its ID.
    * Uses the configured `getRowId` function to find the row.
+   * Returns a `Promise` that resolves when the animation completes.
    *
    * @group Row Animation
    * @param rowId - The row's unique identifier (from getRowId)
@@ -2981,14 +2957,165 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @example
    * ```typescript
    * // Highlight a row after real-time update
-   * socket.on('row-updated', (data) => {
+   * socket.on('row-updated', async (data) => {
    *   grid.updateRow(data.id, data.changes);
-   *   grid.animateRowById(data.id, 'change');
+   *   await grid.animateRowById(data.id, 'change');
    * });
    * ```
    */
-  animateRowById(rowId: string, type: RowAnimationType): boolean {
+  animateRowById(rowId: string, type: RowAnimationType): Promise<boolean> {
     return animateRowById(this as unknown as InternalGrid, rowId, type);
+  }
+
+  /**
+   * Insert a row at a specific position in the current view.
+   *
+   * The row is spliced into the visible (processed) row array at `index` and
+   * appended to the source data so that future pipeline runs (sort, filter,
+   * group) include it. No plugin processing is triggered — the row stays
+   * exactly where you place it until the next full pipeline run.
+   *
+   * By default, an `'insert'` animation is applied. Pass `animate: false` to
+   * skip the animation. The returned `Promise` resolves when the animation
+   * completes (or immediately when `animate` is `false`).
+   *
+   * @group Data Management
+   * @param index - Visible row index at which to insert (0-based)
+   * @param row - The row data object to insert
+   * @param animate - Whether to apply an 'insert' animation (default: `true`)
+   *
+   * @example
+   * ```typescript
+   * // Insert with animation (default)
+   * grid.insertRow(3, { id: nextId(), name: '', status: 'Draft' });
+   *
+   * // Insert without animation
+   * grid.insertRow(3, newRow, false);
+   *
+   * // Await animation completion
+   * await grid.insertRow(3, newRow);
+   * ```
+   */
+  async insertRow(index: number, row: T, animate = true): Promise<void> {
+    // Clamp index to valid range
+    const idx = Math.max(0, Math.min(index, this._rows.length));
+
+    // Add to source data (position irrelevant — pipeline will re-sort later)
+    this.#rows = [...this.#rows, row];
+
+    // Insert into processed view at the exact visible position
+    const newRows = [...this._rows];
+    newRows.splice(idx, 0, row);
+    this._rows = newRows;
+
+    // Keep __originalOrder in sync so "clear sort" includes the new row
+    if (this._sortState) {
+      this.__originalOrder = [...this.__originalOrder, row];
+    }
+
+    // Refresh caches and trigger immediate re-render
+    invalidateCellCache(this);
+    this.#rebuildRowIdMap();
+    this.__rowRenderEpoch++;
+    for (const r of this._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
+    this.refreshVirtualWindow(true);
+
+    if (animate) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await this.animateRow(idx, 'insert');
+    }
+  }
+
+  /**
+   * Remove a row at a specific position in the current view.
+   *
+   * The row is removed from both the visible (processed) row array and the
+   * source data. No plugin processing is triggered — remaining rows keep their
+   * current positions until the next full pipeline run.
+   *
+   * By default, a `'remove'` animation plays before the row is removed.
+   * Pass `animate: false` to remove immediately. When animated, `await` the
+   * result to ensure the row has been fully removed from data.
+   *
+   * @group Data Management
+   * @param index - Visible row index to remove (0-based)
+   * @param animate - Whether to apply a 'remove' animation first (default: `true`)
+   * @returns The removed row object, or `undefined` if index was out of range
+   *
+   * @example
+   * ```typescript
+   * // Remove with fade-out animation (default)
+   * await grid.removeRow(5);
+   *
+   * // Remove immediately, no animation
+   * const removed = await grid.removeRow(5, false);
+   * ```
+   */
+  async removeRow(index: number, animate = true): Promise<T | undefined> {
+    const row = this._rows[index];
+    if (!row) return undefined;
+
+    if (animate) {
+      await this.animateRow(index, 'remove');
+    }
+
+    // Find current position by reference (may have shifted during animation)
+    const currentIdx = this._rows.indexOf(row);
+    if (currentIdx < 0) return row; // Already removed by something else
+
+    // Remove from processed view
+    const newRows = [...this._rows];
+    newRows.splice(currentIdx, 1);
+    this._rows = newRows;
+
+    // Remove from source data
+    const srcIdx = this.#rows.indexOf(row);
+    if (srcIdx >= 0) {
+      const newSource = [...this.#rows];
+      newSource.splice(srcIdx, 1);
+      this.#rows = newSource;
+    }
+
+    // Keep __originalOrder in sync
+    if (this._sortState) {
+      const origIdx = this.__originalOrder.indexOf(row);
+      if (origIdx >= 0) {
+        const newOrig = [...this.__originalOrder];
+        newOrig.splice(origIdx, 1);
+        this.__originalOrder = newOrig;
+      }
+    }
+
+    // Refresh caches and trigger immediate re-render
+    invalidateCellCache(this);
+    this.#rebuildRowIdMap();
+    this.__rowRenderEpoch++;
+    for (const r of this._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
+    this.refreshVirtualWindow(true);
+
+    // Clean up stale remove animation attributes after re-render
+    if (animate) {
+      requestAnimationFrame(() => {
+        this.querySelectorAll('[data-animating="remove"]').forEach((el) => {
+          el.removeAttribute('data-animating');
+        });
+      });
+    }
+
+    return row;
+  }
+
+  /**
+   * Suspend row processing for the next rows update.
+   *
+   * @deprecated This method is a no-op. Use {@link insertRow} or {@link removeRow}
+   * instead, which correctly preserve the current sort/filter view while adding
+   * or removing individual rows.
+   *
+   * @group Lifecycle
+   */
+  suspendProcessing(): void {
+    // No-op — kept for backwards compatibility.
   }
   // #endregion
 

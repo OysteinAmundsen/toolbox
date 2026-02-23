@@ -252,13 +252,20 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `isCellLoading(rowId, field)`           | `boolean` | Check if cell is loading         |
 | `clearAllLoading()`                     | `void`    | Clear all loading states         |
 
+#### Row Mutation Methods
+
+| Method                            | Returns                   | Description                                        |
+| --------------------------------- | ------------------------- | -------------------------------------------------- |
+| `insertRow(index, row, animate?)` | `Promise<void>`           | Insert a row at a visible position (auto-animates) |
+| `removeRow(index, animate?)`      | `Promise<T \| undefined>` | Remove a row at a visible position (auto-animates) |
+
 #### Animation Methods
 
-| Method                       | Returns   | Description                                 |
-| ---------------------------- | --------- | ------------------------------------------- |
-| `animateRow(index, type)`    | `void`    | Animate a single row (change/insert/remove) |
-| `animateRows(indices, type)` | `void`    | Animate multiple rows at once               |
-| `animateRowById(id, type)`   | `boolean` | Animate row by ID (returns true if found)   |
+| Method                       | Returns            | Description                                 |
+| ---------------------------- | ------------------ | ------------------------------------------- |
+| `animateRow(index, type)`    | `Promise<boolean>` | Animate a single row (change/insert/remove) |
+| `animateRows(indices, type)` | `Promise<number>`  | Animate multiple rows at once               |
+| `animateRowById(id, type)`   | `Promise<boolean>` | Animate row by ID (resolves true if found)  |
 
 #### Plugin Methods
 
@@ -307,23 +314,42 @@ import { DGEvents } from '@toolbox-web/grid';
 grid.addEventListener(DGEvents.CELL_COMMIT, handler);
 ```
 
+### Insert & Remove Rows
+
+Add or remove rows at a specific visible position without re-running the sort/filter pipeline:
+
+```typescript
+// Insert with animation (default)
+grid.insertRow(3, newEmployee);
+
+// Insert without animation
+grid.insertRow(3, newEmployee, false);
+
+// Remove with fade-out animation and await completion
+await grid.removeRow(5);
+
+// Remove without animation
+const removed = await grid.removeRow(5, false);
+```
+
+Both methods update the source data automatically. The next full `grid.rows = freshData` assignment re-sorts/re-filters normally. Do **not** use them for bulk data refreshes — assign `grid.rows` directly instead.
+
 ### Row Animation API
 
-Trigger visual feedback when rows change:
+All animation methods return **Promises** that resolve when the animation completes:
 
 ```typescript
 // Flash highlight for updated row
-grid.animateRow(5, 'change');
-
-// Slide-in for new row
-grid.animateRow(0, 'insert');
-
-// Fade-out for removed row
-grid.animateRow(3, 'remove');
+await grid.animateRow(5, 'change');
 
 // Animate by row ID
-grid.animateRowById('emp-123', 'change');
+await grid.animateRowById('emp-123', 'change');
+
+// Animate multiple rows
+await grid.animateRows([0, 1, 2], 'change');
 ```
+
+> **Note:** `insertRow` and `removeRow` handle animation automatically — you only need `animateRow` directly for highlighting existing rows (e.g., after an external data update).
 
 **Animation Types:** `'change'` | `'insert'` | `'remove'`
 

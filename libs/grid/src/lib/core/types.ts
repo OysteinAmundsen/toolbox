@@ -72,16 +72,14 @@ export interface PublicGrid<T = any> {
   columns?: ColumnConfig<T>[];
   /** Current row data (after plugin processing like grouping, filtering). */
   rows?: T[];
+  /** Insert a row at a visible index, bypassing the sort/filter pipeline. Auto-animates by default. */
+  insertRow?(index: number, row: T, animate?: boolean): Promise<void>;
+  /** Remove a row at a visible index, bypassing the sort/filter pipeline. Auto-animates by default. */
+  removeRow?(index: number, animate?: boolean): Promise<T | undefined>;
   /** Resolves once the component has finished initial work (layout, inference). */
   ready?: () => Promise<void>;
   /** Force a layout / measurement pass (e.g. after container resize). */
   forceLayout?: () => Promise<void>;
-  /**
-   * Suspend row processing for the next `rows` update.
-   * Skips plugin processRows hooks (sort, filter, group) and core sort for one cycle.
-   * Auto-resets after the rows render. Use before inserting/removing rows by hand.
-   */
-  suspendProcessing?: () => void;
   /** Return effective resolved config (after inference & precedence). */
   getConfig?: () => Promise<Readonly<GridConfig<T>>>;
   /** Toggle expansion state of a group row by its generated key. */
@@ -342,12 +340,12 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   getRowId?: (row: T) => string;
   /** Update a row by ID. Implemented in grid.ts */
   updateRow?: (id: string, changes: Partial<T>, source?: UpdateSource) => void;
-  /** Animate a single row. Implemented in grid.ts */
-  animateRow?: (rowIndex: number, type: RowAnimationType) => void;
-  /** Animate multiple rows. Implemented in grid.ts */
-  animateRows?: (rowIndices: number[], type: RowAnimationType) => void;
-  /** Animate a row by its ID. Implemented in grid.ts */
-  animateRowById?: (rowId: string, type: RowAnimationType) => boolean;
+  /** Animate a single row. Returns Promise that resolves when animation completes. Implemented in grid.ts */
+  animateRow?: (rowIndex: number, type: RowAnimationType) => Promise<boolean>;
+  /** Animate multiple rows. Returns Promise that resolves when all animations complete. Implemented in grid.ts */
+  animateRows?: (rowIndices: number[], type: RowAnimationType) => Promise<number>;
+  /** Animate a row by its ID. Returns Promise that resolves when animation completes. Implemented in grid.ts */
+  animateRowById?: (rowId: string, type: RowAnimationType) => Promise<boolean>;
   /** Begin bulk edit on a row. Injected by EditingPlugin. */
   beginBulkEdit?: (rowIndex: number) => void;
   /** Commit active row edit. Injected by EditingPlugin. */

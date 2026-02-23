@@ -242,20 +242,19 @@ tbw-grid .sort-badge {
 
 When multi-sort is active, assigning `rows` automatically re-sorts the data — so a
 newly inserted row will jump to its sorted position. If you want the row to stay
-exactly where you placed it (e.g., after a user clicks "Add Row"), call
-`suspendProcessing()` before the assignment:
+exactly where you placed it (e.g., after a user clicks "Add Row"), use `insertRow()`:
 
 ```ts
-data.splice(3, 0, newRow);
-grid.suspendProcessing(); // skip sort for this one update
-grid.rows = data;
+grid.insertRow(3, newRow); // stays at visible index 3, auto-animates
 ```
 
-The flag auto-resets — the next `rows` assignment sorts normally. See the
-[API Reference → Suspend Row Processing](?path=/docs/grid-api--docs#suspend-row-processing)
+The row is also added to source data, so the next full `grid.rows = freshData`
+assignment re-sorts normally. See the
+[API Reference → Insert & Remove Rows](?path=/docs/grid-api--docs#insert--remove-rows)
 for full details.
 
-> **Tip:** Do **not** use `suspendProcessing()` for data refreshes (API responses,
-> WebSocket updates). In those cases you want re-sorting to keep the grid consistent.
+> **Tip:** Do **not** use `insertRow()` for data refreshes (API responses,
+> WebSocket updates). In those cases just set `grid.rows = newData` and let
+> multi-sort re-apply.
 
 ## See Also

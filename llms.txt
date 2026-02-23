@@ -94,8 +94,8 @@ Key TypeScript interfaces for configuration and events:
 - **Shell & Toolbar**: Header bar with title, center content, toolbar buttons, and tool panel sidebar (see [Shell Components](https://toolboxjs.com/?path=/docs/grid-core--docs#shell-components))
 - **Column State Persistence**: Save/restore column widths, order, visibility, and sort state via `columnState` property and `column-state-change` event
 - **Loading States**: Grid, row, and cell-level loading indicators with custom renderer support
-- **Row Animation**: Visual feedback for row changes (insert, update, remove) with `animateRow()`, `animateRowById()`, and `animateRows()` methods
-- **Suspend Processing**: `suspendProcessing()` — one-shot flag to skip sort/filter/group for a single `rows` update, so manually inserted/removed rows stay in place
+- **Row Animation**: Visual feedback for row changes (insert, update, remove) with `animateRow()`, `animateRowById()`, and `animateRows()` methods — all return Promises that resolve when animation completes
+- **Insert & Remove Rows**: `insertRow(index, row)` / `removeRow(index)` — add or remove rows at a specific visible position without re-sorting/filtering. Auto-animate by default (pass `false` to skip). Returns Promises; source data updated automatically
 - [Animation Configuration](https://toolboxjs.com/?path=/docs/grid-animation--docs): Global animation settings including mode (on/off/reduced-motion) and styles
 
 ## Live Examples

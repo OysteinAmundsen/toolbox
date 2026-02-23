@@ -319,23 +319,36 @@ describe('builtInSort', () => {
 });
 
 describe('reapplyCoreSort', () => {
-  it('returns rows unchanged when no sort state', () => {
+  it('returns rows unchanged when no sort state is active', () => {
     const g = makeGrid({ _sortState: null });
-    const rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
-    expect(reapplyCoreSort(g, rows)).toBe(rows);
+    const input = [{ id: 3 }, { id: 1 }, { id: 2 }];
+    const result = reapplyCoreSort(g, input);
+    expect(result).toBe(input); // same reference — no work done
   });
 
-  it('re-sorts rows using active sort state', () => {
-    const g = makeGrid({ _sortState: { field: 'id', direction: 1 } });
-    const rows = [{ id: 3 }, { id: 1 }, { id: 2 }];
-    const result = reapplyCoreSort(g, rows);
+  it('re-sorts rows when a core sort state is active', () => {
+    const g = makeGrid({
+      _sortState: { field: 'id', direction: 1 },
+    });
+    const input = [
+      { id: 3, name: 'C', value: 30 },
+      { id: 1, name: 'A', value: 10 },
+      { id: 2, name: 'B', value: 20 },
+    ];
+    const result = reapplyCoreSort(g, input);
     expect(result.map((r: any) => r.id)).toEqual([1, 2, 3]);
   });
 
-  it('updates __originalOrder to current unsorted data', () => {
-    const g = makeGrid({ _sortState: { field: 'id', direction: 1 } });
-    const rows = [{ id: 30 }, { id: 10 }, { id: 20 }];
-    reapplyCoreSort(g, rows);
-    expect(g.__originalOrder.map((r: any) => r.id)).toEqual([30, 10, 20]);
+  it('updates __originalOrder to the current (unsorted) input', () => {
+    const g = makeGrid({
+      _sortState: { field: 'id', direction: 1 },
+      __originalOrder: [{ id: 99 }], // stale
+    });
+    const input = [
+      { id: 3, name: 'C', value: 30 },
+      { id: 1, name: 'A', value: 10 },
+    ];
+    reapplyCoreSort(g, input);
+    expect(g.__originalOrder.map((r: any) => r.id)).toEqual([3, 1]);
   });
 });

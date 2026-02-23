@@ -48,8 +48,8 @@ grid.gridConfig = {
         const btn = document.createElement('button');
         btn.textContent = 'Delete';
         btn.onclick = () => {
-          grid.suspendProcessing();
-          grid.rows = grid.rows.filter(r => r.id !== ctx.row.id);
+          const idx = grid.rows.findIndex(r => r.id === ctx.row.id);
+          if (idx >= 0) grid.removeRow(idx);
         };
         return btn;
       },
@@ -66,11 +66,7 @@ grid.rows = [
 
 // Add new row when button is clicked
 addButton.addEventListener('click', () => {
-  grid.suspendProcessing();
-  grid.rows = [
-    ...grid.rows,
-    { id: idCounter++, name: '', email: '' },
-  ];
+  grid.insertRow(grid.rows.length, { id: idCounter++, name: '', email: '' });
 });
 `,
         language: 'ts',
@@ -126,8 +122,8 @@ addButton.addEventListener('click', () => {
               font-size: 12px;
             `;
             btn.onclick = () => {
-              grid.suspendProcessing();
-              grid.rows = grid.rows.filter((r) => r.id !== ctx.row.id);
+              const idx = grid.rows.findIndex((r) => r.id !== undefined && r.id === ctx.row.id);
+              if (idx >= 0) grid.removeRow(idx);
             };
             return btn;
           },
@@ -143,8 +139,7 @@ addButton.addEventListener('click', () => {
     ];
 
     addBtn.addEventListener('click', () => {
-      grid.suspendProcessing();
-      grid.rows = [...grid.rows, { id: idCounter++, name: '', email: '' }];
+      grid.insertRow(grid.rows.length, { id: idCounter++, name: '', email: '' });
     });
 
     container.appendChild(grid);

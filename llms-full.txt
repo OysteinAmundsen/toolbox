@@ -1230,10 +1230,11 @@ const existing = queryGrid<Employee>('#my-grid');
 | `forceLayout()` | Force recalculate layout |
 | `resetColumnState()` | Reset column widths, order, visibility |
 | `getPlugin(PluginClass)` | Get plugin instance |
-| `suspendProcessing()` | Skip sort/filter/group for the next `rows` update (one-shot) |
-| `animateRow(index, type)` | Animate row ('change', 'insert', 'remove') |
-| `animateRows(indices, type)` | Animate multiple rows |
-| `animateRowById(id, type)` | Animate row by ID |
+| `animateRow(index, type)` | Animate row ('change', 'insert', 'remove') → `Promise<boolean>` |
+| `animateRows(indices, type)` | Animate multiple rows → `Promise<number>` |
+| `animateRowById(id, type)` | Animate row by ID → `Promise<boolean>` |
+| `insertRow(index, row, animate?)` | Insert row at visible position (auto-animates) → `Promise<void>` |
+| `removeRow(index, animate?)` | Remove row at visible position (auto-animates) → `Promise<T \| undefined>` |
 | `setRowLoading(id, loading)` | Row-level loading indicator |
 | `setCellLoading(rowId, field, loading)` | Cell-level loading indicator |
 | `clearAllLoading()` | Clear all loading states |
@@ -1284,28 +1285,39 @@ gridConfig: {
 grid.resetColumnState();
 ```
 
-### Suspend Row Processing
-
-When inserting or removing rows by hand while sort/filter is active, call `suspendProcessing()` before assigning `rows` so the new row stays exactly where you placed it. The flag auto-resets after one render cycle.
-
-```typescript
-// Insert a row at index 3 without re-sorting or re-filtering
-data.splice(3, 0, newRow);
-grid.suspendProcessing();
-grid.rows = data;
-grid.animateRow(3, 'insert');
-```
-
-Do NOT use for data refreshes (API responses, WebSocket) — let sort/filter re-apply normally.
-
 ### Row Animation
 
-```typescript
-grid.animateRow(5, 'change');   // Flash highlight for updated row
-grid.animateRow(0, 'insert');   // Slide-in for new row
-grid.animateRow(3, 'remove');   // Fade-out for deleted row
-grid.animateRows([0, 1, 2], 'change'); // Animate multiple rows
+All animation methods return **Promises** that resolve when the animation completes.
 
+```typescript
+await grid.animateRow(5, 'change');   // Flash highlight for updated row
+await grid.animateRows([0, 1, 2], 'change'); // Animate multiple rows
+```
+
+### Insert & Remove Rows
+
+`insertRow` and `removeRow` operate on the current visible view without re-running
+the sort/filter pipeline. Both auto-animate by default.
+
+```typescript
+// Insert with animation
+grid.insertRow(3, newEmployee);
+
+// Insert without animation
+grid.insertRow(3, newEmployee, false);
+
+// Remove with animation, await completion
+await grid.removeRow(5);
+
+// Remove without animation
+const removed = await grid.removeRow(5, false);
+```
+
+Source data is updated automatically. Use `grid.rows = freshData` for bulk refreshes.
+
+### Animation Configuration
+
+```typescript
 gridConfig: {
   animation: { mode: 'on', easing: 'ease-in-out', duration: 200 },
 }

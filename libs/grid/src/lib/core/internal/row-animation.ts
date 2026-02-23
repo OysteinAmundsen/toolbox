@@ -110,22 +110,27 @@ export function animateRowElement(rowEl: HTMLElement, animationType: RowAnimatio
  * @param grid - The grid instance
  * @param rowIndex - The data row index (not DOM position)
  * @param animationType - The type of animation to apply
- * @returns true if the row was found and animated, false otherwise
+ * @returns Promise resolving to `true` if the row was found and animated, `false` otherwise
  */
-export function animateRow<T>(grid: InternalGrid<T>, rowIndex: number, animationType: RowAnimationType): boolean {
+export function animateRow<T>(
+  grid: InternalGrid<T>,
+  rowIndex: number,
+  animationType: RowAnimationType,
+): Promise<boolean> {
   // Guard against invalid indices
   if (rowIndex < 0) {
-    return false;
+    return Promise.resolve(false);
   }
 
   const rowEl = grid.findRenderedRowElement?.(rowIndex);
   if (!rowEl) {
     // Row is virtualized out of view - nothing to animate
-    return false;
+    return Promise.resolve(false);
   }
 
-  animateRowElement(rowEl, animationType);
-  return true;
+  return new Promise((resolve) => {
+    animateRowElement(rowEl, animationType, () => resolve(true));
+  });
 }
 
 /**
@@ -134,16 +139,16 @@ export function animateRow<T>(grid: InternalGrid<T>, rowIndex: number, animation
  * @param grid - The grid instance
  * @param rowIndices - Array of data row indices to animate
  * @param animationType - The type of animation to apply
- * @returns Number of rows that were actually animated (visible in viewport)
+ * @returns Promise resolving to the number of rows actually animated (visible in viewport)
  */
-export function animateRows<T>(grid: InternalGrid<T>, rowIndices: number[], animationType: RowAnimationType): number {
-  let animatedCount = 0;
-  for (const rowIndex of rowIndices) {
-    if (animateRow(grid, rowIndex, animationType)) {
-      animatedCount++;
-    }
-  }
-  return animatedCount;
+export function animateRows<T>(
+  grid: InternalGrid<T>,
+  rowIndices: number[],
+  animationType: RowAnimationType,
+): Promise<number> {
+  return Promise.all(rowIndices.map((idx) => animateRow(grid, idx, animationType))).then(
+    (results) => results.filter(Boolean).length,
+  );
 }
 
 /**
@@ -152,14 +157,18 @@ export function animateRows<T>(grid: InternalGrid<T>, rowIndices: number[], anim
  * @param grid - The grid instance
  * @param rowId - The row ID (requires getRowId to be configured)
  * @param animationType - The type of animation to apply
- * @returns true if the row was found and animated, false otherwise
+ * @returns Promise resolving to `true` if the row was found and animated, `false` otherwise
  */
-export function animateRowById<T>(grid: InternalGrid<T>, rowId: string, animationType: RowAnimationType): boolean {
+export function animateRowById<T>(
+  grid: InternalGrid<T>,
+  rowId: string,
+  animationType: RowAnimationType,
+): Promise<boolean> {
   // Find row index by searching _rows
   const rows = grid._rows ?? [];
   const getRowId = grid.getRowId;
   if (!getRowId) {
-    return false;
+    return Promise.resolve(false);
   }
 
   const rowIndex = rows.findIndex((row) => {
@@ -171,7 +180,7 @@ export function animateRowById<T>(grid: InternalGrid<T>, rowId: string, animatio
     }
   });
   if (rowIndex < 0) {
-    return false;
+    return Promise.resolve(false);
   }
   return animateRow(grid, rowIndex, animationType);
 }

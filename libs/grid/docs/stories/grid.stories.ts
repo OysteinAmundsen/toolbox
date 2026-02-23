@@ -1818,10 +1818,20 @@ grid.animateRow(2, 'change');
 // Animate multiple rows
 grid.animateRows([0, 3, 5], 'change');
 
-// Animate newly inserted row (suspend processing to keep position)
-grid.suspendProcessing();
-grid.rows = [...grid.rows, newRow];
-grid.animateRow(grid.rows.length - 1, 'insert');
+// Insert a row at a specific position (auto-animates by default)
+grid.insertRow(2, newRow);
+
+// Insert without animation
+grid.insertRow(2, newRow, false);
+
+// Remove with fade-out animation (default)
+await grid.removeRow(3);
+
+// Remove immediately, no animation
+grid.removeRow(3, false);
+
+// Wait for a standalone animation to complete
+await grid.animateRow(0, 'change');
 
 // Customize animation via CSS
 // tbw-grid {
@@ -1867,35 +1877,24 @@ grid.animateRow(grid.rows.length - 1, 'insert');
 
     // Generate initial data
     const statuses = ['Active', 'Pending', 'Complete', 'Error'];
-    let rowData = Array.from({ length: 15 }, (_, i) => ({
+    const initialRows = Array.from({ length: 15 }, (_, i) => ({
       id: i + 1,
       name: `Row ${i + 1}`,
       score: Math.floor(Math.random() * 100),
       status: statuses[Math.floor(Math.random() * statuses.length)],
     }));
 
-    // Helper to delete a row by id with animation
+    // Helper to delete a row by visible index with animation
     const deleteRow = (id: number) => {
-      const idx = rowData.findIndex((r) => r.id === id);
+      const idx = grid.rows.findIndex((r: any) => r.id === id);
       if (idx < 0) return;
-      grid.animateRow(idx, 'remove');
-      setTimeout(() => {
-        rowData = rowData.filter((r) => r.id !== id);
-        grid.suspendProcessing();
-        grid.rows = rowData;
-        // Clean up stale remove animation attributes after re-render
-        requestAnimationFrame(() => {
-          grid.querySelectorAll('[data-animating="remove"]').forEach((el) => {
-            el.removeAttribute('data-animating');
-          });
-        });
-      }, 250);
+      grid.removeRow(idx);
     };
 
     // Helper to insert a row after a given id with animation
-    let insertCounter = rowData.length;
+    let insertCounter = initialRows.length;
     const insertRowAfter = (afterId: number) => {
-      const idx = rowData.findIndex((r) => r.id === afterId);
+      const idx = grid.rows.findIndex((r: any) => r.id === afterId);
       if (idx < 0) return;
       insertCounter++;
       const newRow = {
@@ -1904,12 +1903,7 @@ grid.animateRow(grid.rows.length - 1, 'insert');
         score: Math.floor(Math.random() * 100),
         status: 'Pending',
       };
-      rowData = [...rowData.slice(0, idx + 1), newRow, ...rowData.slice(idx + 1)];
-      grid.suspendProcessing();
-      grid.rows = rowData;
-      requestAnimationFrame(() => {
-        grid.animateRow(idx + 1, 'insert');
-      });
+      grid.insertRow(idx + 1, newRow);
     };
 
     grid.columns = [
@@ -1954,15 +1948,16 @@ grid.animateRow(grid.rows.length - 1, 'insert');
         },
       },
     ];
-    grid.rows = rowData;
+    grid.rows = initialRows;
     grid.fitMode = 'stretch';
 
     // Button: Animate random row (change)
     controls.appendChild(
       createButton('🔄 Change Random Row', () => {
-        const idx = Math.floor(Math.random() * rowData.length);
-        rowData[idx].score = Math.floor(Math.random() * 100);
-        grid.rows = [...rowData];
+        const rows = grid.rows as any[];
+        const idx = Math.floor(Math.random() * rows.length);
+        rows[idx].score = Math.floor(Math.random() * 100);
+        grid.rows = [...rows];
         grid.animateRow(idx, 'change');
       }),
     );
@@ -1970,15 +1965,16 @@ grid.animateRow(grid.rows.length - 1, 'insert');
     // Button: Animate multiple rows
     controls.appendChild(
       createButton('🔄 Change 3 Rows', () => {
+        const rows = grid.rows as any[];
         const indices: number[] = [];
-        while (indices.length < 3 && indices.length < rowData.length) {
-          const idx = Math.floor(Math.random() * rowData.length);
+        while (indices.length < 3 && indices.length < rows.length) {
+          const idx = Math.floor(Math.random() * rows.length);
           if (!indices.includes(idx)) {
             indices.push(idx);
-            rowData[idx].score = Math.floor(Math.random() * 100);
+            rows[idx].score = Math.floor(Math.random() * 100);
           }
         }
-        grid.rows = [...rowData];
+        grid.rows = [...rows];
         grid.animateRows(indices, 'change');
       }),
     );
@@ -1993,13 +1989,7 @@ grid.animateRow(grid.rows.length - 1, 'insert');
           score: Math.floor(Math.random() * 100),
           status: 'Pending',
         };
-        rowData = [newRow, ...rowData];
-        grid.suspendProcessing();
-        grid.rows = rowData;
-        // Wait for render, then animate the first row (index 0)
-        requestAnimationFrame(() => {
-          grid.animateRow(0, 'insert');
-        });
+        grid.insertRow(0, newRow);
       }),
     );
 
@@ -2020,12 +2010,13 @@ grid.animateRow(grid.rows.length - 1, 'insert');
           const action = Math.random();
           if (action < 0.6) {
             // 60% chance: change random row
-            const idx = Math.floor(Math.random() * rowData.length);
-            rowData[idx].score = Math.floor(Math.random() * 100);
-            rowData[idx].status = statuses[Math.floor(Math.random() * statuses.length)];
-            grid.rows = [...rowData];
+            const rows = grid.rows as any[];
+            const idx = Math.floor(Math.random() * rows.length);
+            rows[idx].score = Math.floor(Math.random() * 100);
+            rows[idx].status = statuses[Math.floor(Math.random() * statuses.length)];
+            grid.rows = [...rows];
             grid.animateRow(idx, 'change');
-          } else if (action < 0.8 && rowData.length < 25) {
+          } else if (action < 0.8 && grid.rows.length < 25) {
             // 20% chance: insert row
             insertCounter++;
             const newRow = {
@@ -2034,27 +2025,11 @@ grid.animateRow(grid.rows.length - 1, 'insert');
               score: Math.floor(Math.random() * 100),
               status: 'Pending',
             };
-            rowData = [...rowData, newRow];
-            grid.suspendProcessing();
-            grid.rows = rowData;
-            requestAnimationFrame(() => {
-              grid.animateRow(rowData.length - 1, 'insert');
-            });
-          } else if (rowData.length > 5) {
+            grid.insertRow(grid.rows.length, newRow);
+          } else if (grid.rows.length > 5) {
             // 20% chance: remove row
-            const idx = Math.floor(Math.random() * rowData.length);
-            grid.animateRow(idx, 'remove');
-            setTimeout(() => {
-              rowData = rowData.filter((_, i) => i !== idx);
-              grid.suspendProcessing();
-              grid.rows = rowData;
-              // Clean up stale remove animation attributes after re-render
-              requestAnimationFrame(() => {
-                grid.querySelectorAll('[data-animating="remove"]').forEach((el) => {
-                  el.removeAttribute('data-animating');
-                });
-              });
-            }, 250);
+            const idx = Math.floor(Math.random() * grid.rows.length);
+            grid.removeRow(idx);
           }
         }, 1500);
         autoBtn.textContent = '⏹️ Stop Auto-Simulation';

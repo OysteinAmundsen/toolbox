@@ -71,32 +71,36 @@ describe('row-animation', () => {
   });
 
   describe('animateRow', () => {
-    it('should return false if row not found', () => {
+    it('should resolve false if row not found', async () => {
       const grid: any = {
         findRenderedRowElement: () => null,
       };
 
-      const result = animateRow(grid, 5, 'change');
+      const result = await animateRow(grid, 5, 'change');
       expect(result).toBe(false);
     });
 
-    it('should animate row element when found', () => {
+    it('should animate row element and resolve true when found', async () => {
       const grid: any = {
         findRenderedRowElement: (index: number) => (index === 3 ? rowEl : null),
       };
 
-      const result = animateRow(grid, 3, 'change');
+      const promise = animateRow(grid, 3, 'change');
 
-      expect(result).toBe(true);
       expect(rowEl.getAttribute('data-animating')).toBe('change');
+
+      // Advance past the default 'change' duration (500ms)
+      vi.advanceTimersByTime(500);
+      const result = await promise;
+      expect(result).toBe(true);
     });
 
-    it('should return false for negative indices', () => {
+    it('should resolve false for negative indices', async () => {
       const grid: any = {
         findRenderedRowElement: vi.fn(() => rowEl),
       };
 
-      const result = animateRow(grid, -1, 'change');
+      const result = await animateRow(grid, -1, 'change');
       expect(result).toBe(false);
       // Should not even call findRenderedRowElement for invalid index
       expect(grid.findRenderedRowElement).not.toHaveBeenCalled();
@@ -104,38 +108,44 @@ describe('row-animation', () => {
   });
 
   describe('animateRows', () => {
-    it('should animate multiple rows and return count', () => {
+    it('should animate multiple rows and resolve with count', async () => {
       const rows = [document.createElement('div'), document.createElement('div'), document.createElement('div')];
 
       const grid: any = {
         findRenderedRowElement: (index: number) => rows[index] ?? null,
       };
 
-      const result = animateRows(grid, [0, 1, 2], 'insert');
+      const promise = animateRows(grid, [0, 1, 2], 'insert');
 
-      expect(result).toBe(3);
       expect(rows[0].getAttribute('data-animating')).toBe('insert');
       expect(rows[1].getAttribute('data-animating')).toBe('insert');
       expect(rows[2].getAttribute('data-animating')).toBe('insert');
+
+      vi.advanceTimersByTime(300);
+      const result = await promise;
+      expect(result).toBe(3);
     });
 
-    it('should handle partial matches', () => {
+    it('should handle partial matches', async () => {
       const grid: any = {
         findRenderedRowElement: (index: number) => (index === 1 ? rowEl : null),
       };
 
-      const result = animateRows(grid, [0, 1, 2], 'change');
+      const promise = animateRows(grid, [0, 1, 2], 'change');
 
-      expect(result).toBe(1);
       expect(rowEl.getAttribute('data-animating')).toBe('change');
+
+      vi.advanceTimersByTime(500);
+      const result = await promise;
+      expect(result).toBe(1);
     });
 
-    it('should handle empty array', () => {
+    it('should handle empty array', async () => {
       const grid: any = {
         findRenderedRowElement: vi.fn(),
       };
 
-      const result = animateRows(grid, [], 'change');
+      const result = await animateRows(grid, [], 'change');
 
       expect(result).toBe(0);
       expect(grid.findRenderedRowElement).not.toHaveBeenCalled();
@@ -143,61 +153,64 @@ describe('row-animation', () => {
   });
 
   describe('animateRowById', () => {
-    it('should return false if getRowId not configured', () => {
+    it('should resolve false if getRowId not configured', async () => {
       const grid: any = {
         _rows: [{ id: '1' }],
         getRowId: undefined,
       };
 
-      const result = animateRowById(grid, '1', 'change');
+      const result = await animateRowById(grid, '1', 'change');
       expect(result).toBe(false);
     });
 
-    it('should return false if row not found', () => {
+    it('should resolve false if row not found', async () => {
       const grid: any = {
         _rows: [{ id: '1' }, { id: '2' }],
         getRowId: (row: any) => row.id,
         findRenderedRowElement: () => null,
       };
 
-      const result = animateRowById(grid, 'nonexistent', 'change');
+      const result = await animateRowById(grid, 'nonexistent', 'change');
       expect(result).toBe(false);
     });
 
-    it('should animate row when found by ID', () => {
+    it('should animate row when found by ID', async () => {
       const grid: any = {
         _rows: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
         getRowId: (row: any) => row.id,
         findRenderedRowElement: (index: number) => (index === 1 ? rowEl : null),
       };
 
-      const result = animateRowById(grid, 'b', 'insert');
+      const promise = animateRowById(grid, 'b', 'insert');
 
-      expect(result).toBe(true);
       expect(rowEl.getAttribute('data-animating')).toBe('insert');
+
+      vi.advanceTimersByTime(300);
+      const result = await promise;
+      expect(result).toBe(true);
     });
 
-    it('should handle empty rows array', () => {
+    it('should handle empty rows array', async () => {
       const grid: any = {
         _rows: [],
         getRowId: (row: any) => row.id,
         findRenderedRowElement: vi.fn(),
       };
 
-      const result = animateRowById(grid, '1', 'change');
+      const result = await animateRowById(grid, '1', 'change');
 
       expect(result).toBe(false);
       expect(grid.findRenderedRowElement).not.toHaveBeenCalled();
     });
 
-    it('should handle undefined _rows', () => {
+    it('should handle undefined _rows', async () => {
       const grid: any = {
         _rows: undefined,
         getRowId: (row: any) => row.id,
         findRenderedRowElement: vi.fn(),
       };
 
-      const result = animateRowById(grid, '1', 'change');
+      const result = await animateRowById(grid, '1', 'change');
 
       expect(result).toBe(false);
     });

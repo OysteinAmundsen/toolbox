@@ -262,7 +262,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const row = this.rows[rowIndex];
     if (!row) return false;
 
-    const column = colIndex !== undefined ? this.columns[colIndex] : undefined;
+    // colIndex is a visible-column index (from data-col), so use visibleColumns
+    const column = colIndex !== undefined ? this.visibleColumns[colIndex] : undefined;
     return isSelectable(row, rowIndex, column, colIndex);
   }
 
@@ -365,7 +366,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     }
 
     // Check if this is a utility column (expander columns, etc.)
-    const column = this.columns[colIndex];
+    // event.column is already resolved from _visibleColumns in the event builder
+    const column = event.column;
     const isUtility = column && isUtilityColumn(column);
 
     // CELL MODE: Single cell selection - skip utility columns and non-selectable cells
@@ -667,8 +669,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.rowIndex < 0) return; // Header
 
     // Skip utility columns (expander columns, etc.)
-    const column = this.columns[event.colIndex];
-    if (column && isUtilityColumn(column)) {
+    // event.column is already resolved from _visibleColumns in the event builder
+    if (event.column && isUtilityColumn(event.column)) {
       return; // Don't start selection on utility columns
     }
 
@@ -729,11 +731,12 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     if (event.rowIndex < 0) return;
 
     // When dragging, clamp to first data column (skip utility columns)
+    // colIndex from events is a visible-column index (from data-col)
     let targetCol = event.colIndex;
-    const column = this.columns[targetCol];
+    const column = this.visibleColumns[targetCol];
     if (column && isUtilityColumn(column)) {
-      // Find the first non-utility column
-      const firstDataCol = this.columns.findIndex((col) => !isUtilityColumn(col));
+      // Find the first non-utility visible column
+      const firstDataCol = this.visibleColumns.findIndex((col) => !isUtilityColumn(col));
       if (firstDataCol >= 0) {
         targetCol = firstDataCol;
       }
@@ -1029,7 +1032,8 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
         const colIndex = parseInt(cell.getAttribute('data-col') ?? '-1', 10);
         if (rowIndex >= 0 && colIndex >= 0) {
           // Skip utility columns entirely - don't add any selection classes
-          const column = this.columns[colIndex];
+          // colIndex from data-col is a visible-column index
+          const column = this.visibleColumns[colIndex];
           if (column && isUtilityColumn(column)) {
             return;
           }

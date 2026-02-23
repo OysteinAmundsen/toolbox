@@ -2423,7 +2423,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   _dispatchCellClick(event: MouseEvent, rowIndex: number, colIndex: number, cellEl: HTMLElement): boolean {
     const row = this._rows[rowIndex];
-    const col = this._columns[colIndex];
+    // colIndex from data-col is a visible-column index (rendering uses _visibleColumns).
+    // Use _visibleColumns so the resolved column matches the clicked cell.
+    const col = this._visibleColumns[colIndex];
     if (!row || !col) return false;
 
     const field = col.field;

@@ -247,18 +247,19 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       (firstRange.from.row !== firstRange.to.row || firstRange.from.col !== firstRange.to.col);
 
     const bounds = isMultiCell ? { endRow: firstRange.to.row, endCol: firstRange.to.col } : null;
-    const maxCol = bounds?.endCol ?? this.columns.length - 1;
+    // Selection range indices are visible-column indices (from data-col)
+    const maxCol = bounds?.endCol ?? this.visibleColumns.length - 1;
 
     // Build target info
-    const column = this.columns[targetCol];
+    const column = this.visibleColumns[targetCol];
     const target: PasteTarget | null = column ? { row: targetRow, col: targetCol, field: column.field, bounds } : null;
 
     // Build field list for paste width (constrained by bounds if set)
     const fields: string[] = [];
     const pasteWidth = parsed[0]?.length ?? 0;
     for (let i = 0; i < pasteWidth && targetCol + i <= maxCol; i++) {
-      const col = this.columns[targetCol + i];
-      if (col && !col.hidden) {
+      const col = this.visibleColumns[targetCol + i];
+      if (col) {
         fields.push(col.field);
       }
     }
@@ -323,10 +324,11 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       columns = resolveColumns(this.columns, options.columns);
     } else if (selection?.ranges.length && selection.mode !== 'row') {
       // Range/cell selection: restrict to selection column bounds
+      // Selection indices are visible-column indices (from data-col)
       const range = selection.ranges[selection.ranges.length - 1];
       const minCol = Math.min(range.from.col, range.to.col);
       const maxCol = Math.max(range.from.col, range.to.col);
-      columns = resolveColumns(this.columns.slice(minCol, maxCol + 1));
+      columns = resolveColumns(this.visibleColumns.slice(minCol, maxCol + 1));
     } else {
       // Row selection or no selection: all visible columns
       columns = resolveColumns(this.columns);

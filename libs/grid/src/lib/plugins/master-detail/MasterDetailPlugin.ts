@@ -469,7 +469,8 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
     const focusCol = this.grid._focusCol;
     const focusRow = this.grid._focusRow;
-    const column = this.columns[focusCol];
+    // _focusCol is a visible-column index (set from data-col), so use visibleColumns
+    const column = this.visibleColumns[focusCol];
 
     // Only handle SPACE on expander column
     if (!column || !isExpanderColumn(column)) return;

@@ -115,7 +115,8 @@ function buildCellMouseEvent(
     colIndex = parseInt(cellEl.getAttribute('data-col') ?? '-1', 10);
     if (rowIndex >= 0 && colIndex >= 0) {
       row = grid._rows[rowIndex];
-      column = grid._columns[colIndex];
+      // colIndex from data-col is a visible-column index (rendering uses _visibleColumns)
+      column = grid._visibleColumns[colIndex];
       field = (column as { field?: string })?.field;
       value = row && field ? (row as Record<string, unknown>)[field] : undefined;
     }

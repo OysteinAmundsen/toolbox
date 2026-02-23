@@ -27,6 +27,7 @@ describe('SelectionPlugin', () => {
     Object.assign(grid, {
       rows,
       columns,
+      _visibleColumns: columns.filter((c: any) => !c.hidden),
       gridConfig: {},
       focusRow: 0,
       focusCol: 0,

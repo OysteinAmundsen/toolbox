@@ -111,6 +111,18 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
    *  the edited row from jumping to a new sorted position mid-edit. Row data
    *  mutations are still visible because the array holds shared object refs. */
   private cachedSortResult: unknown[] | null = null;
+
+  /**
+   * Clear the core `_sortState` so that only this plugin's `processRows`
+   * sorting applies.  `ConfigManager.applyState()` always sets the core sort
+   * state when restoring from storage, even when a plugin handles sorting.
+   * Without this, the stale core state leaks into `collectState()` and
+   * `reapplyCoreSort()` after the plugin clears its own model.
+   */
+  private clearCoreSortState(): void {
+    const el = this.gridElement as unknown as { _sortState: unknown };
+    if (el) el._sortState = null;
+  }
   // #endregion
 
   // #region Lifecycle
@@ -159,6 +171,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     const maxColumns = this.config.maxSortColumns ?? 3;
 
     this.sortModel = toggleSort(this.sortModel, event.field, shiftKey, maxColumns);
+    this.clearCoreSortState();
 
     this.emit('sort-change', { sortModel: [...this.sortModel] });
     this.requestRender();
@@ -250,6 +263,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
    */
   setSortModel(model: SortModel[]): void {
     this.sortModel = [...model];
+    this.clearCoreSortState();
     this.emit('sort-change', { sortModel: [...model] });
     this.requestRender();
     this.grid?.requestStateChange?.();
@@ -260,6 +274,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
    */
   clearSort(): void {
     this.sortModel = [];
+    this.clearCoreSortState();
     this.emit('sort-change', { sortModel: [] });
     this.requestRender();
     this.grid?.requestStateChange?.();
@@ -331,8 +346,10 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
       this.sortModel.splice(state.sort.priority, 0, newEntry);
     }
 
-    // Re-sort the model by priority to ensure correct order
-    // This is handled after all columns are processed, but we maintain order here
+    // Clear core sort state — this plugin exclusively handles sorting via
+    // processRows. The core _sortState is set by ConfigManager.applyState()
+    // before plugins run; null it so reapplyCoreSort() is a no-op.
+    this.clearCoreSortState();
   }
   // #endregion
 }

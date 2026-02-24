@@ -195,8 +195,8 @@ export interface FilterPanelParams {
   searchText: string;
   /** Current active filter model for this field, if any */
   currentFilter?: FilterModel;
-  /** Apply a set filter (exclude these values) */
-  applySetFilter: (excludedValues: unknown[]) => void;
+  /** Apply a set filter (exclude these values). Pass optional `valueTo` metadata (e.g. a selected range) to store alongside the filter. */
+  applySetFilter: (excludedValues: unknown[], valueTo?: unknown) => void;
   /** Apply a text/number/date filter */
   applyTextFilter: (operator: FilterOperator, value: string | number, valueTo?: string | number) => void;
   /** Clear the filter for this field */

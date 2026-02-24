@@ -734,8 +734,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       excludedValues: excludedSet,
       searchText: currentSearchText,
       currentFilter: this.filters.get(field),
-      applySetFilter: (excluded: unknown[]) => {
-        this.applySetFilter(field, excluded);
+      applySetFilter: (excluded: unknown[], valueTo?: unknown) => {
+        this.applySetFilter(field, excluded, valueTo);
         this.closeFilterPanel();
       },
       applyTextFilter: (operator, value, valueTo) => {
@@ -1555,7 +1555,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   /**
    * Apply a set filter (exclude values)
    */
-  private applySetFilter(field: string, excluded: unknown[]): void {
+  private applySetFilter(field: string, excluded: unknown[], valueTo?: unknown): void {
     // Store excluded values
     this.excludedValues.set(field, new Set(excluded));
 
@@ -1563,12 +1563,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       // No exclusions = no filter
       this.filters.delete(field);
     } else {
-      // Create "notIn" filter
+      // Create "notIn" filter (include valueTo metadata when provided, e.g. user-selected date range)
       this.filters.set(field, {
         field,
         type: 'set',
         operator: 'notIn',
         value: excluded,
+        ...(valueTo !== undefined && { valueTo }),
       });
     }
 

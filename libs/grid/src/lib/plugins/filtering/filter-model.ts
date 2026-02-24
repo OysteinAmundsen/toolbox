@@ -75,13 +75,18 @@ export function matchesFilter(
     }
   }
 
-  // Set operators handle null explicitly: null is never "in" a set,
-  // and null is never excluded by "notIn" (it's not a listed value).
+  // Set operators: blank rows (null/undefined/empty string) are matched
+  // via the BLANK_FILTER_VALUE sentinel, mirroring the extractor-based path.
   if (filter.operator === 'notIn') {
-    if (rawValue == null) return true;
+    if (rawValue == null || rawValue === '') {
+      return !Array.isArray(filter.value) || !filter.value.includes(BLANK_FILTER_VALUE);
+    }
     return Array.isArray(filter.value) && !filter.value.includes(rawValue);
   }
   if (filter.operator === 'in') {
+    if (rawValue == null || rawValue === '') {
+      return Array.isArray(filter.value) && filter.value.includes(BLANK_FILTER_VALUE);
+    }
     return Array.isArray(filter.value) && filter.value.includes(rawValue);
   }
 
@@ -221,14 +226,16 @@ export function getUniqueValues<T extends Record<string, unknown>>(
         hasBlank = true;
       }
     } else {
-      if (cellValue != null) {
+      if (cellValue != null && cellValue !== '') {
         values.add(cellValue);
+      } else {
+        hasBlank = true;
       }
     }
   }
-  // When a filterValue extractor is present and some rows have no values,
+  // When some rows have no values (null, undefined, or empty string),
   // include a "(Blank)" sentinel so users can explicitly filter empty rows.
-  if (filterValue && hasBlank) {
+  if (hasBlank) {
     values.add(BLANK_FILTER_VALUE);
   }
   return [...values].sort((a, b) => {
@@ -277,15 +284,19 @@ export function getUniqueValuesBatch<T extends Record<string, unknown>>(
           entry.hasBlank = true;
         }
       } else {
-        if (cellValue != null) entry.values.add(cellValue);
+        if (cellValue != null && cellValue !== '') {
+          entry.values.add(cellValue);
+        } else {
+          entry.hasBlank = true;
+        }
       }
     }
   }
 
   // Build sorted output
   const result = new Map<string, unknown[]>();
-  for (const [field, { values, hasBlank, hasExtractor }] of acc) {
-    if (hasExtractor && hasBlank) values.add(BLANK_FILTER_VALUE);
+  for (const [field, { values, hasBlank }] of acc) {
+    if (hasBlank) values.add(BLANK_FILTER_VALUE);
     result.set(
       field,
       [...values].sort((a, b) => {

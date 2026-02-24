@@ -263,8 +263,10 @@
     cursor: pointer;
   }
 
-  /* Disabled state for date range when blank is checked */
-  .tbw-filter-date-range.tbw-filter-disabled {
+  /* Disabled state for date range / number range when blank is checked */
+  .tbw-filter-date-range.tbw-filter-disabled,
+  .tbw-filter-range-inputs.tbw-filter-disabled,
+  .tbw-filter-range-slider.tbw-filter-disabled {
     opacity: 0.4;
     pointer-events: none;
   }

@@ -357,6 +357,32 @@ describe('filter-model', () => {
         expect(matchesFilter(sampleRows[2], filter)).toBe(true);
         expect(matchesFilter(sampleRows[0], filter)).toBe(false);
       });
+
+      it('should include blank rows when (Blank) IS in the included set', () => {
+        const filter: FilterModel = {
+          field: 'city',
+          type: 'set',
+          operator: 'in',
+          value: [BLANK_FILTER_VALUE],
+        };
+        // null/undefined/empty string → blank → passes
+        expect(matchesFilter({ city: null }, filter)).toBe(true);
+        expect(matchesFilter({ city: undefined }, filter)).toBe(true);
+        expect(matchesFilter({ city: '' }, filter)).toBe(true);
+        // Non-blank values are excluded
+        expect(matchesFilter({ city: 'Chicago' }, filter)).toBe(false);
+      });
+
+      it('should exclude blank rows when (Blank) is NOT in the included set', () => {
+        const filter: FilterModel = {
+          field: 'city',
+          type: 'set',
+          operator: 'in',
+          value: ['Chicago'],
+        };
+        expect(matchesFilter({ city: null }, filter)).toBe(false);
+        expect(matchesFilter({ city: '' }, filter)).toBe(false);
+      });
     });
 
     describe('notIn', () => {
@@ -382,18 +408,33 @@ describe('filter-model', () => {
         expect(matchesFilter(sampleRows[0], filter)).toBe(true);
       });
 
-      it('should pass null/undefined values through (not excluded)', () => {
+      it('should pass blank rows when (Blank) is NOT in the excluded set', () => {
         const filter: FilterModel = {
           field: 'city',
           type: 'set',
           operator: 'notIn',
           value: ['New York', 'Los Angeles', 'Boston'],
         };
-        // null is not in the excluded list, so the row should pass
+        // (Blank) is not in the excluded list, so blank rows pass
         expect(matchesFilter({ city: null }, filter)).toBe(true);
         expect(matchesFilter({ city: undefined }, filter)).toBe(true);
-        // missing field = undefined
+        expect(matchesFilter({ city: '' }, filter)).toBe(true);
         expect(matchesFilter({}, filter)).toBe(true);
+      });
+
+      it('should exclude blank rows when (Blank) IS in the excluded set', () => {
+        const filter: FilterModel = {
+          field: 'city',
+          type: 'set',
+          operator: 'notIn',
+          value: ['New York', BLANK_FILTER_VALUE],
+        };
+        expect(matchesFilter({ city: null }, filter)).toBe(false);
+        expect(matchesFilter({ city: undefined }, filter)).toBe(false);
+        expect(matchesFilter({ city: '' }, filter)).toBe(false);
+        expect(matchesFilter({}, filter)).toBe(false);
+        // Non-blank, non-excluded values still pass
+        expect(matchesFilter({ city: 'Chicago' }, filter)).toBe(true);
       });
     });
   });
@@ -656,9 +697,12 @@ describe('filter-model', () => {
       expect(values).toContain('Miami');
     });
 
-    it('should exclude null values', () => {
+    it('should represent null/undefined/empty-string values as (Blank) sentinel', () => {
       const values = getUniqueValues(sampleRows, 'city');
       expect(values).not.toContain(null);
+      expect(values).not.toContain(undefined);
+      // Row 6 has city: null → should produce a (Blank) entry
+      expect(values).toContain(BLANK_FILTER_VALUE);
     });
 
     it('should return sorted values (strings)', () => {
@@ -668,14 +712,16 @@ describe('filter-model', () => {
     });
 
     it('should return sorted values (numbers)', () => {
-      const values = getUniqueValues(sampleRows, 'age') as number[];
-      // Filter out null age values
+      const values = getUniqueValues(sampleRows, 'age');
+      // Numeric values are present
       expect(values).toContain(22);
       expect(values).toContain(25);
       expect(values).toContain(28);
       expect(values).toContain(30);
       expect(values).toContain(35);
       expect(values).toContain(40);
+      // Row 7 has age: null → (Blank) sentinel
+      expect(values).toContain(BLANK_FILTER_VALUE);
     });
 
     it('should handle duplicates', () => {
@@ -688,16 +734,35 @@ describe('filter-model', () => {
       const values = getUniqueValues(sampleRows, 'active');
       expect(values).toContain(true);
       expect(values).toContain(false);
+      // Row 7 has active: null → (Blank) sentinel
+      expect(values).toContain(BLANK_FILTER_VALUE);
     });
 
-    it('should return empty array for non-existent field', () => {
+    it('should return (Blank) only for non-existent field', () => {
       const values = getUniqueValues(sampleRows, 'nonExistent');
-      expect(values).toEqual([]);
+      // Every row has undefined for this field → all blank
+      expect(values).toEqual([BLANK_FILTER_VALUE]);
     });
 
     it('should handle empty rows array', () => {
       const values = getUniqueValues([], 'any');
       expect(values).toEqual([]);
+    });
+
+    it('should treat empty strings as blank', () => {
+      const rows = [
+        { id: 1, status: 'active' },
+        { id: 2, status: '' },
+        { id: 3, status: 'inactive' },
+        { id: 4, status: null },
+      ];
+      const values = getUniqueValues(rows, 'status');
+      expect(values).toContain('active');
+      expect(values).toContain('inactive');
+      expect(values).toContain(BLANK_FILTER_VALUE);
+      expect(values).not.toContain('');
+      expect(values).not.toContain(null);
+      expect(values).toHaveLength(3);
     });
 
     it('should include (Blank) sentinel when filterValue extractor yields empty results', () => {

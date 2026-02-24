@@ -1187,6 +1187,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const currentFilter = this.filters.get(field);
     let currentMin = min;
     let currentMax = max;
+    const isBlankFilter = currentFilter?.operator === 'blank';
     if (currentFilter?.operator === 'between') {
       currentMin = toNumber(currentFilter.value, min);
       currentMax = toNumber(currentFilter.valueTo, max);
@@ -1280,6 +1281,36 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     sliderContainer.appendChild(maxSlider);
     panel.appendChild(sliderContainer);
 
+    // "Blank" checkbox — filter rows with no value in this column
+    const blankRow = document.createElement('label');
+    blankRow.className = 'tbw-filter-blank-option';
+
+    const blankCheckbox = document.createElement('input');
+    blankCheckbox.type = 'checkbox';
+    blankCheckbox.className = 'tbw-filter-blank-checkbox';
+    blankCheckbox.checked = isBlankFilter;
+
+    const blankLabel = document.createTextNode('Blank');
+    blankRow.appendChild(blankCheckbox);
+    blankRow.appendChild(blankLabel);
+
+    // Toggle range inputs disabled state when blank is checked
+    const toggleRangeInputs = (disabled: boolean): void => {
+      minInput.disabled = disabled;
+      maxInput.disabled = disabled;
+      minSlider.disabled = disabled;
+      maxSlider.disabled = disabled;
+      rangeContainer.classList.toggle('tbw-filter-disabled', disabled);
+      sliderContainer.classList.toggle('tbw-filter-disabled', disabled);
+    };
+    toggleRangeInputs(isBlankFilter);
+
+    blankCheckbox.addEventListener('change', () => {
+      toggleRangeInputs(blankCheckbox.checked);
+    });
+
+    panel.appendChild(blankRow);
+
     // Update fill position
     const updateFill = () => {
       const minVal = parseFloat(minSlider.value);
@@ -1332,6 +1363,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     applyBtn.className = 'tbw-filter-apply-btn';
     applyBtn.textContent = 'Apply';
     applyBtn.addEventListener('click', () => {
+      if (blankCheckbox.checked) {
+        params.applyTextFilter('blank', '');
+        return;
+      }
       const minVal = parseFloat(minInput.value);
       const maxVal = parseFloat(maxInput.value);
       params.applyTextFilter('between', minVal, maxVal);

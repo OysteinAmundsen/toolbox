@@ -39,24 +39,7 @@ import variables from './variables.css?inline';
  * 9. Animations (keyframes, transitions)
  * 10. Media Queries (accessibility, responsive)
  */
-export const gridStyles = `/**
- * tbw-grid Light DOM Styles
- *
- * This stylesheet uses CSS nesting to scope all styles to the tbw-grid element.
- * All selectors are automatically prefixed with \`tbw-grid\` for encapsulation.
- *
- * CSS Cascade Layers are used to control style priority:
- * - tbw-base: Core grid styles (lowest priority)
- * - tbw-plugins: Plugin styles (override base)
- * - tbw-theme: Theme overrides (override plugins)
- * - Unlayered CSS: User customizations (highest priority - always wins)
- *
- * @see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_nesting
- * @see https://developer.mozilla.org/en-US/docs/Web/CSS/@layer
- */
-
-/* Declare layer order - earlier layers have lower priority */
-@layer tbw-base, tbw-plugins, tbw-theme;
+export const gridStyles = `@layer tbw-base, tbw-plugins, tbw-theme;
 
 ${variables}
 ${base}

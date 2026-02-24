@@ -121,7 +121,7 @@ function buildPluginModules(): Plugin {
               outDir: dir,
               emptyOutDir: false,
               sourcemap: true,
-              minify: 'esbuild',
+              minify: 'terser',
               lib: {
                 entry: resolve(pluginsDir, `${name}/index.ts`),
                 formats: ['es'],
@@ -161,7 +161,7 @@ function buildUmdBundles(): Plugin {
       // Core + All-in-one UMD
       await libBuild({
         outDir: umd,
-        minify: 'esbuild',
+        minify: 'terser',
         entry: '',
         lib: {
           entry: resolve(__dirname, 'src/index.ts'),
@@ -172,7 +172,7 @@ function buildUmdBundles(): Plugin {
       });
       await libBuild({
         outDir: umd,
-        minify: 'esbuild',
+        minify: 'terser',
         entry: '',
         lib: {
           entry: resolve(__dirname, 'src/all.ts'),
@@ -192,7 +192,7 @@ function buildUmdBundles(): Plugin {
               outDir: umdPlugins,
               emptyOutDir: false,
               sourcemap: true,
-              minify: 'esbuild',
+              minify: 'terser',
               lib: {
                 entry: resolve(pluginsDir, `${name}/index.ts`),
                 name: toUmdGlobal(name),
@@ -280,7 +280,7 @@ export default defineConfig(({ command }) => ({
       makeAbsoluteExternalsRelative: false,
     },
     sourcemap: true,
-    minify: 'esbuild',
+    minify: 'terser',
     target: 'es2022',
   },
   test: {

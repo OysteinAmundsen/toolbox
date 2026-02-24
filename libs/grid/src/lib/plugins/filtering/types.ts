@@ -193,6 +193,8 @@ export interface FilterPanelParams {
   excludedValues: Set<unknown>;
   /** Current search text */
   searchText: string;
+  /** Current active filter model for this field, if any */
+  currentFilter?: FilterModel;
   /** Apply a set filter (exclude these values) */
   applySetFilter: (excludedValues: unknown[]) => void;
   /** Apply a text/number/date filter */

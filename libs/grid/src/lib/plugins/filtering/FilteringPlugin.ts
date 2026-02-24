@@ -733,6 +733,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       uniqueValues,
       excludedValues: excludedSet,
       searchText: currentSearchText,
+      currentFilter: this.filters.get(field),
       applySetFilter: (excluded: unknown[]) => {
         this.applySetFilter(field, excluded);
         this.closeFilterPanel();

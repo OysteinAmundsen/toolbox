@@ -1649,4 +1649,130 @@ describe('EditingPlugin', () => {
   });
 
   // #endregion
+
+  // #region before-edit-close event
+
+  describe('before-edit-close event', () => {
+    it('fires before-edit-close synchronously before state is cleared on commit', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alpha' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit mode
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Track events
+      const events: string[] = [];
+      let activeEditDuringBefore = -99;
+      grid.addEventListener('before-edit-close', () => {
+        events.push('before-edit-close');
+        activeEditDuringBefore = grid._activeEditRows;
+      });
+      grid.addEventListener('edit-close', () => {
+        events.push('edit-close');
+      });
+
+      // Commit via plugin API
+      editingPlugin.commitActiveRowEdit();
+      await nextFrame();
+      await nextFrame();
+
+      // before-edit-close should fire before edit-close
+      expect(events).toEqual(['before-edit-close', 'edit-close']);
+      // During before-edit-close, the edit row should still be active
+      expect(activeEditDuringBefore).toBe(0);
+    });
+
+    it('does NOT fire before-edit-close on revert', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alpha' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit mode
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      const beforeHandler = vi.fn();
+      grid.addEventListener('before-edit-close', beforeHandler);
+
+      // Revert via plugin API
+      editingPlugin.cancelActiveRowEdit();
+      await nextFrame();
+      await nextFrame();
+
+      expect(beforeHandler).not.toHaveBeenCalled();
+    });
+
+    it('allows managed editors to commit during before-edit-close', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'dblclick' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'notes', header: 'Notes', editable: true, editor: 'my-editor' },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alpha', notes: 'old' }];
+      await waitUpgrade(grid);
+
+      const row = grid.querySelector('.data-grid-row') as HTMLElement;
+      const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+      // Enter edit mode
+      nameCell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await nextFrame();
+      await nextFrame();
+
+      // Mark the notes cell as managed (simulating framework adapter behavior)
+      const notesCell = row.querySelector('.cell[data-col="2"]') as HTMLElement;
+      if (notesCell) {
+        notesCell.setAttribute('data-editor-managed', '');
+      }
+
+      // Listen for before-edit-close and simulate a managed editor committing
+      grid.addEventListener('before-edit-close', () => {
+        // Simulate what a framework adapter would do:
+        // dispatch a commit event from the managed cell
+        const commitEvent = new CustomEvent('commit', { detail: 'flushed-value', bubbles: true });
+        notesCell?.dispatchEvent(commitEvent);
+      });
+
+      // Commit via plugin API
+      editingPlugin.commitActiveRowEdit();
+      await nextFrame();
+      await nextFrame();
+
+      // The row should have exited edit mode
+      expect(grid._activeEditRows).toBe(-1);
+    });
+  });
+
+  // #endregion
 });

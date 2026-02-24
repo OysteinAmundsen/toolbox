@@ -8,6 +8,7 @@ export { EditingPlugin } from './EditingPlugin';
 export { defaultEditorFor } from './editors';
 export type {
   // Event detail types
+  BeforeEditCloseDetail,
   CellCommitDetail,
   ChangedRowsResetDetail,
   // Editor config types

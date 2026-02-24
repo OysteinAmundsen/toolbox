@@ -29,6 +29,7 @@ import type {
 import styles from './editing.css?inline';
 import { defaultEditorFor } from './editors';
 import type {
+  BeforeEditCloseDetail,
   CellCommitDetail,
   ChangedRowsResetDetail,
   EditCloseDetail,
@@ -1584,6 +1585,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
             this.#commitCellValue(rowIndex, col, val, current);
           }
         }
+      });
+    }
+
+    // Flush managed editors (framework adapters) before clearing state.
+    // At this point the commit() callback is still active, so editors can
+    // synchronously commit their pending values in response to this event.
+    if (!revert && !this.#isGridMode && current) {
+      this.emit<BeforeEditCloseDetail<T>>('before-edit-close', {
+        rowIndex,
+        rowId: rowId ?? '',
+        row: current,
       });
     }
 

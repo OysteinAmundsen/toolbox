@@ -141,6 +141,28 @@ export interface EditOpenDetail<TRow = unknown> {
 }
 
 /**
+ * Detail payload for the `before-edit-close` event.
+ *
+ * Fired **synchronously** just before the grid clears editing state and
+ * destroys editor DOM. At this point the commit callback is still active,
+ * so framework adapter editors (Angular/React/Vue) can flush pending values
+ * via their `commit()` callback.
+ *
+ * Only fires on the **commit** path (not on revert/cancel) and only in
+ * `mode: 'row'` — never in `mode: 'grid'`.
+ *
+ * @category Events
+ */
+export interface BeforeEditCloseDetail<TRow = unknown> {
+  /** Index of the row about to leave edit mode. */
+  rowIndex: number;
+  /** Stable row identifier (from getRowId). */
+  rowId: string;
+  /** Row object reference (current state — mutations are still accepted). */
+  row: TRow;
+}
+
+/**
  * Detail payload for the `edit-close` event.
  *
  * Fired when row editing ends, whether committed or reverted.
@@ -271,6 +293,8 @@ declare module '../../core/types' {
     'changed-rows-reset': ChangedRowsResetDetail<TRow>;
     /** Fired when a row enters edit mode (row mode only, not grid mode). */
     'edit-open': EditOpenDetail<TRow>;
+    /** Fired synchronously before editing state is cleared. Commit callbacks are still active. */
+    'before-edit-close': BeforeEditCloseDetail<TRow>;
     /** Fired when a row leaves edit mode, whether committed or reverted (row mode only). */
     'edit-close': EditCloseDetail<TRow>;
   }

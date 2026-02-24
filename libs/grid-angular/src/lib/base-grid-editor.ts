@@ -64,7 +64,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
  */
 @Directive()
 export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
-  private readonly elementRef = inject(ElementRef);
+  protected readonly elementRef = inject(ElementRef);
   private readonly _destroyRef = inject(DestroyRef);
 
   /** Cleanup function for the edit-close listener */
@@ -196,9 +196,15 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
     const grid = this.elementRef.nativeElement.closest('tbw-grid');
     if (!grid) return;
 
+    const beforeHandler = () => this.onBeforeEditClose();
+    grid.addEventListener('before-edit-close', beforeHandler, { once: true });
+
     const handler = () => this.onEditClose();
     grid.addEventListener('edit-close', handler, { once: true });
-    this._editCloseCleanup = () => grid.removeEventListener('edit-close', handler);
+    this._editCloseCleanup = () => {
+      grid.removeEventListener('before-edit-close', beforeHandler);
+      grid.removeEventListener('edit-close', handler);
+    };
   }
 
   // ============================================================================
@@ -216,6 +222,19 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
    */
   protected isCellFocused(): boolean {
     return this.elementRef.nativeElement.closest('[part="cell"]')?.classList.contains('cell-focus') ?? false;
+  }
+
+  /**
+   * Called **before** the grid clears editing state and destroys editor DOM.
+   *
+   * At this point the commit callback is still active, so subclasses can
+   * call {@link commitValue} to flush any pending/deferred values.
+   *
+   * This fires only on the **commit** path (not on revert/cancel).
+   * Use {@link onEditClose} for cleanup that should happen on both paths.
+   */
+  protected onBeforeEditClose(): void {
+    // Default: no-op. Subclasses override to flush pending values.
   }
 
   /**

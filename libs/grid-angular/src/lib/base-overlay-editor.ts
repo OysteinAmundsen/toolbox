@@ -183,7 +183,7 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
   private _panel: HTMLElement | null = null;
 
   /** Whether the overlay is currently visible. */
-  private _isOpen = false;
+  protected _isOpen = false;
 
   /** Unique anchor ID for CSS Anchor Positioning. */
   private _anchorId = '';
@@ -195,7 +195,7 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
   private _abortCtrl: AbortController | null = null;
 
   /** MutationObserver watching cell focus class changes. */
-  private _focusObserver: MutationObserver | null = null;
+  protected _focusObserver: MutationObserver | null = null;
 
   // ============================================================================
   // Lifecycle
@@ -542,10 +542,17 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
    * `cell-focus` class changes. This handles row-editing mode where
    * all editors exist simultaneously but only the focused cell's
    * editor should have its overlay visible.
+   *
+   * A `justOpened` flash guard suppresses the observer from
+   * immediately closing the overlay when `beginBulkEdit()` moves
+   * focus to the first editable column. Without this guard,
+   * double-click triggers a "flash open then close" effect.
    */
-  private _setupFocusObserver(): void {
+  protected _setupFocusObserver(): void {
     const cell = this._getCell();
     if (!cell) return;
+
+    let justOpened = false;
 
     this._focusObserver = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
@@ -554,9 +561,16 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
         const isFocused = cell.classList.contains('cell-focus');
         if (isFocused && !this._isOpen) {
           // Cell just gained focus — open overlay if appropriate
+          justOpened = true;
           this.showOverlay();
           this.onOverlayOpened();
-        } else if (!isFocused && this._isOpen) {
+          // Clear the guard after a macrotask so that an immediate
+          // focus-away (e.g. beginBulkEdit focus adjustment) does
+          // not close the overlay in the same event loop tick.
+          setTimeout(() => {
+            justOpened = false;
+          }, 0);
+        } else if (!isFocused && this._isOpen && !justOpened) {
           // Cell lost focus — hide overlay silently
           this.hideOverlay(true);
         }

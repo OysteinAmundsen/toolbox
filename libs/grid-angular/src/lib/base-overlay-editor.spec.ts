@@ -251,4 +251,71 @@ describe('BaseOverlayEditor', () => {
       expect(BaseOverlayEditor).toBeDefined();
     });
   });
+
+  describe('_setupFocusObserver flash guard', () => {
+    it('should have _setupFocusObserver method on the prototype', () => {
+      expect(typeof BaseOverlayEditor.prototype['_setupFocusObserver']).toBe('function');
+    });
+
+    it('should not close overlay immediately after opening (flash guard)', async () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      cell.setAttribute('part', 'cell');
+      document.body.appendChild(cell);
+
+      instance['_isOpen'] = false;
+      instance['_focusObserver'] = null;
+      instance['_elementRef'] = { nativeElement: cell.appendChild(document.createElement('span')) };
+      instance['showOverlay'] = vi.fn(() => {
+        instance['_isOpen'] = true;
+      });
+      instance['hideOverlay'] = vi.fn(() => {
+        instance['_isOpen'] = false;
+      });
+      instance['onOverlayOpened'] = vi.fn();
+
+      // Override _getCell to return our cell
+      instance['_getCell'] = () => cell;
+
+      // Set up the observer
+      instance['_setupFocusObserver']();
+      expect(instance['_focusObserver']).not.toBeNull();
+
+      // Simulate cell gaining focus
+      cell.classList.add('cell-focus');
+      // Flush microtask queue so MutationObserver callbacks fire
+      await new Promise((r) => setTimeout(r, 0));
+
+      // showOverlay should be called
+      expect(instance['showOverlay']).toHaveBeenCalledOnce();
+
+      // Immediately remove focus (simulating beginBulkEdit focus adjustment)
+      cell.classList.remove('cell-focus');
+      // Flush again
+      await new Promise((r) => setTimeout(r, 0));
+
+      // hideOverlay should NOT be called due to the flash guard
+      expect(instance['hideOverlay']).not.toHaveBeenCalled();
+
+      // Cleanup
+      instance['_focusObserver']?.disconnect();
+      document.body.removeChild(cell);
+    });
+  });
+
+  describe('protected member visibility', () => {
+    it('should have _isOpen accessible (protected)', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_isOpen'] = false;
+      expect(instance['_isOpen']).toBe(false);
+      instance['_isOpen'] = true;
+      expect(instance['_isOpen']).toBe(true);
+    });
+
+    it('should have _focusObserver accessible (protected)', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_focusObserver'] = null;
+      expect(instance['_focusObserver']).toBeNull();
+    });
+  });
 });

@@ -41,10 +41,9 @@
   ],
   "sideEffects": [
     "*.css",
-    "./src/index.ts",
-    "./src/index.js",
-    "./src/lib/core/grid.ts",
-    "./src/lib/core/grid.js"
+    "./index.js",
+    "./all.js",
+    "./lib/plugins/*/index.js"
   ],
   "keywords": [
     "data-grid",

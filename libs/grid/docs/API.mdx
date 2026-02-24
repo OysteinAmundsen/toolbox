@@ -426,11 +426,19 @@ await grid.resetChangedRows();
 
 ### Plugin Methods
 
+| Method                   | Returns                        | Description                                            |
+| ------------------------ | ------------------------------ | ------------------------------------------------------ |
+| `getPlugin(PluginClass)` | `P \| undefined`               | Get plugin instance by class (type-safe)               |
+| `getPluginByName(name)`  | `BaseGridPlugin \| undefined`  | Get plugin instance by name (loose coupling, no import needed) |
+
 ```typescript
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 
-// Get a registered plugin instance
+// Get a registered plugin instance by class (preferred — fully typed)
 const selection = grid.getPlugin(SelectionPlugin);
+
+// Get a plugin by its name string (useful for adapters / loose coupling)
+const editing = grid.getPluginByName('editing');
 
 // Check if plugin is registered
 if (selection) {

@@ -1239,7 +1239,8 @@ const existing = queryGrid<Employee>('#my-grid');
 | `ready()` | Promise that resolves when grid is fully rendered |
 | `forceLayout()` | Force recalculate layout |
 | `resetColumnState()` | Reset column widths, order, visibility |
-| `getPlugin(PluginClass)` | Get plugin instance |
+| `getPlugin(PluginClass)` | Get plugin instance by class (type-safe) |
+| `getPluginByName(name)` | Get plugin instance by name string (loose coupling) |
 | `animateRow(index, type)` | Animate row ('change', 'insert', 'remove') → `Promise<boolean>` |
 | `animateRows(indices, type)` | Animate multiple rows → `Promise<number>` |
 | `animateRowById(id, type)` | Animate row by ID → `Promise<boolean>` |

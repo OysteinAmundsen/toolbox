@@ -889,20 +889,36 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // #region Plugin System
   /**
-   * Get a plugin instance by its class.
-   * Used by plugins for inter-plugin communication.
+   * Get a plugin instance by its class constructor.
+   *
+   * @example
+   * ```ts
+   * import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+   * const selection = grid.getPlugin(SelectionPlugin);
+   * selection?.selectAll();
+   * ```
+   *
+   * @param PluginClass - The plugin class (constructor) to look up.
+   * @returns The plugin instance, or `undefined` if not registered.
    * @group Plugin Communication
-   * @internal Plugin API
    */
   getPlugin<P>(PluginClass: new (...args: any[]) => P): P | undefined {
     return this.#pluginManager?.getPlugin(PluginClass as new (...args: any[]) => BaseGridPlugin) as P | undefined;
   }
 
   /**
-   * Get a plugin instance by its name.
-   * Used for loose coupling between plugins (avoids static imports).
+   * Get a plugin instance by its string name.
+   * Useful for loose coupling when you don't want to import the plugin class
+   * (e.g., in framework adapters or dynamic scenarios).
+   *
+   * @example
+   * ```ts
+   * const editing = grid.getPluginByName('editing');
+   * ```
+   *
+   * @param name - The plugin name (matches {@link BaseGridPlugin.name}).
+   * @returns The plugin instance, or `undefined` if not registered.
    * @group Plugin Communication
-   * @internal Plugin API
    */
   getPluginByName(name: string): BaseGridPlugin | undefined {
     return this.#pluginManager?.getPluginByName(name);

@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.21.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.21.1...grid-1.21.2) (2026-02-24)
+
+
+### Bug Fixes
+
+* **grid,grid-angular:** flush managed editors before clearing edit state ([#142](https://github.com/OysteinAmundsen/toolbox/issues/142)) ([52b74e6](https://github.com/OysteinAmundsen/toolbox/commit/52b74e6700a28b95c108de2b9e2949a048eba06e))
+* **grid:** include blank rows in set-filter panel for all columns ([a607259](https://github.com/OysteinAmundsen/toolbox/commit/a607259deb8566c6c11b0b5e0e943c8f773f5432))
+
+
+### Enhancements
+
+* **grid:** add optional valueTo parameter to applySetFilter for metadata passthrough ([5980e7a](https://github.com/OysteinAmundsen/toolbox/commit/5980e7a1bd7ddd83b13e6f0cc2ae6c85f8bf872f))
+* **grid:** offer `currentFilter` property to custom filterPanelRenderers so that they can pre-set values to currently set filters ([3b407b5](https://github.com/OysteinAmundsen/toolbox/commit/3b407b5e16e15604f5ef6729c6f6eb28587b4790))
+
+
+### Performance Improvements
+
+* **grid:** switch to terser minification, strip CSS comment from bundle ([89f1131](https://github.com/OysteinAmundsen/toolbox/commit/89f1131cb67a8be87ebd20d8322e6b2c58105447))
+
 ## [1.21.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.21.0...grid-1.21.1) (2026-02-24)
 
 

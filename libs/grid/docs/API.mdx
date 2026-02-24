@@ -582,9 +582,10 @@ const panels = grid.getToolPanels();
 | `row-commit`         | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs)   | ✅ Yes     | Bulk row edit completed             |
 | `changed-rows-reset` | -                   | No         | Changed rows were reset             |
 | `edit-open`          | `EditOpenDetail`    | No         | Row entered edit mode               |
+| `before-edit-close`  | [`BeforeEditCloseDetail`](/docs/grid-plugins-editing-interfaces-beforeeditclosedetail--docs) | No | Fires before edit state is cleared (commit only, row mode) |
 | `edit-close`         | `EditCloseDetail`   | No         | Row left edit mode                  |
 
-> **Note:** `cell-commit`, `row-commit`, `changed-rows-reset`, `edit-open`, and `edit-close` events require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs). The `cell-change` event is a core event that fires for any programmatic row updates via the Row Update API.
+> **Note:** `cell-commit`, `row-commit`, `changed-rows-reset`, `edit-open`, `before-edit-close`, and `edit-close` events require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs). The `cell-change` event is a core event that fires for any programmatic row updates via the Row Update API.
 
 ```typescript
 import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';

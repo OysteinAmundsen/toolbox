@@ -775,6 +775,7 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `cell-commit` | `row`, `rowIndex`, `field`, `value`, `oldValue` (cancelable) |
 | `row-commit` | `row`, `rowIndex`, `changes` (cancelable) |
 | `edit-open` | `row`, `rowIndex` |
+| `before-edit-close` | `row`, `rowIndex`, `rowId` — fires before state cleared on commit (row mode); lets managed editors flush values |
 | `edit-close` | `row`, `rowIndex` |
 | `changed-rows-reset` | — |
 | `group-toggle` | `key`, `expanded` |
@@ -852,8 +853,17 @@ new EditingPlugin({
 new FilteringPlugin({
   debounceMs?: number,          // Debounce input (default: 300)
   showFilterRow?: boolean,      // Show inline filter row (default: false)
+  caseSensitive?: boolean,      // Case-sensitive text matching (default: false)
+  trimInput?: boolean,          // Trim whitespace from filter input (default: true)
+  useWorker?: boolean,          // Offload filtering to a Web Worker (default: false)
   filterHandler?: (rows, filters) => rows | Promise<rows>, // Custom/server-side filtering
+  valuesHandler?: (field, column) => Promise<unknown[]>,    // Async unique-value provider for filter panels
+  filterPanelRenderer?: (params: FilterPanelParams) => HTMLElement, // Custom filter panel renderer
 })
+// Column-level: { filterValue: (row) => value }  — custom extractor for filtering
+// Blank filtering: number/date panels include a Blank checkbox; set-filter panels show a "(Blank)" entry
+// Import BLANK_FILTER_VALUE sentinel from '@toolbox-web/grid/plugins/filtering' for programmatic blank filter models
+// FilterPanelParams.currentFilter gives the active FilterModel so custom panels can pre-populate
 ```
 
 ### TreePlugin

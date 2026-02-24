@@ -714,6 +714,7 @@ then press Enter or click away to see the events:
 | Event | Type | Description |
 | ----- | ---- | ----------- |
 | `edit-open` | `EditOpenDetail` | Fired when a row enters edit mode (row mode only) |
+| `before-edit-close` | [`BeforeEditCloseDetail`](/docs/grid-plugins-editing-interfaces-beforeeditclosedetail--docs) | Fires synchronously before edit state is cleared on commit (row mode only). Managed editors (e.g. Angular Material overlay, MUI Popover) can flush pending values. Does **not** fire on revert. |
 | `edit-close` | `EditCloseDetail` | Fired when a row exits edit mode — commit or cancel (row mode only) |
 | `cell-commit` | [`CellCommitDetail`](/docs/grid-plugins-editing-interfaces-cellcommitdetail--docs) | Fired when a cell value is committed (cancelable) |
 | `row-commit` | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs) | Fired when a row editing session ends (cancelable) |

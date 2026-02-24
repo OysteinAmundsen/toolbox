@@ -41,28 +41,33 @@ grid.columns = [
 
 ## Column Options
 
-| Option       | Type         | Description                                                       |
-| ------------ | ------------ | ----------------------------------------------------------------- |
-| `filterable` | `boolean`    | Enable filtering on this column                                   |
-| `filterType` | `FilterType` | Filter type: `'text'`, `'number'`, `'date'`, `'set'`, `'boolean'` |
+| Option        | Type                               | Description                                                       |
+| ------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| `filterable`  | `boolean`                          | Enable filtering on this column                                   |
+| `filterType`  | `FilterType`                       | Filter type: `'text'`, `'number'`, `'date'`, `'set'`, `'boolean'` |
+| `filterValue` | `(row: T) => unknown \| unknown[]` | Extract custom filter value(s) from a row for complex cell data   |
 
 ## Filter Types
 
 ### Text Filter
 
-Case-insensitive text matching with operators: contains, equals, starts with, ends with.
+Case-insensitive text matching with operators: contains, equals, starts with, ends with, blank, notBlank.
 
 ### Number Filter
 
-Numeric comparison with operators: equals, not equals, greater than, less than, between.
+Numeric comparison with operators: equals, not equals, greater than, less than, between. Includes a **"Blank" checkbox** to filter rows with empty/null values.
 
 ### Date Filter
 
-Date comparison with operators: equals, before, after, between.
+Date comparison with operators: equals, before, after, between. Includes a **"Show only blank" checkbox** to filter rows with no date.
 
 ### Set Filter
 
-Checkbox list of unique values in the column.
+Checkbox list of unique values in the column. Rows with `null`, `undefined`, or empty values appear as a **(Blank)** entry in the checkbox list. Import the `BLANK_FILTER_VALUE` sentinel to identify or programmatically toggle blank entries:
+
+```typescript
+import { BLANK_FILTER_VALUE } from '@toolbox-web/grid/plugins/filtering';
+```
 
 ### Boolean Filter
 
@@ -99,6 +104,27 @@ grid.columns = [
 
 For fully custom filter UIs, use the `filterPanelRenderer` config option or a type-level
 `filterPanelRenderer` in `typeDefaults`.
+
+## Custom Filter Panels
+
+The `filterPanelRenderer` option receives a `FilterPanelParams` object with these key properties:
+
+| Property         | Type           | Description                                                                        |
+| ---------------- | -------------- | ---------------------------------------------------------------------------------- |
+| `currentFilter`  | `FilterModel?` | The currently active filter for this field (if any)                                |
+| `uniqueValues`   | `unknown[]`    | All unique values for the column (includes `BLANK_FILTER_VALUE` for blank entries) |
+| `excludedValues` | `Set<unknown>` | Currently excluded values                                                          |
+
+Key methods:
+
+| Method            | Signature                                                                         | Description                                            |
+| ----------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `applySetFilter`  | `(excluded: unknown[], valueTo?: unknown) => void`                                | Apply a set filter; optional `valueTo` stores metadata |
+| `applyTextFilter` | `(op: FilterOperator, val: string \| number, valueTo?: string \| number) => void` | Apply a text/number/date filter with operator          |
+| `clearFilter`     | `() => void`                                                                      | Clear the filter for this field                        |
+| `closePanel`      | `() => void`                                                                      | Close the filter panel                                 |
+
+Use `currentFilter` to pre-populate your custom panel with the currently active filter state.
 
 ## Events
 

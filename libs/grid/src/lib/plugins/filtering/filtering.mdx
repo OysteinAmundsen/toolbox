@@ -147,15 +147,16 @@ Your custom renderer receives a `params` object with:
 | `uniqueValues`   | `unknown[]`    | All unique values for this field       |
 | `excludedValues` | `Set<unknown>` | Currently excluded values (set filter) |
 | `searchText`     | `string`       | Current search text                    |
+| `currentFilter`  | `FilterModel?` | Active filter model for this field (if any) — use to pre-populate custom UI |
 
 **Methods**
 
-| Method            | Signature                                   | Description                               |
-| ----------------- | ------------------------------------------- | ----------------------------------------- |
-| `applySetFilter`  | `(excluded: unknown[]) => void`             | Apply a set filter (exclude these values) |
-| `applyTextFilter` | `(op: FilterOperator, val: string) => void` | Apply a text filter with operator         |
-| `clearFilter`     | `() => void`                                | Clear the filter for this field           |
-| `closePanel`      | `() => void`                                | Close the filter panel                    |
+| Method            | Signature                                                                           | Description                               |
+| ----------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
+| `applySetFilter`  | `(excluded: unknown[], valueTo?: unknown) => void`                                  | Apply a set filter; optional `valueTo` stores metadata alongside the filter |
+| `applyTextFilter` | `(op: FilterOperator, val: string \| number, valueTo?: string \| number) => void` | Apply a text/number/date filter with operator |
+| `clearFilter`     | `() => void`                                                                        | Clear the filter for this field           |
+| `closePanel`      | `() => void`                                                                        | Close the filter panel                    |
 
 #### Example: Radio-button Filter
 
@@ -169,11 +170,14 @@ grid.gridConfig = {
         // Custom panel only for 'status' column
         if (params.field !== 'status') return undefined;
 
+        // Pre-select the current filter value (if any)
+        const activeValue = params.currentFilter?.value;
+
         container.innerHTML = `
           <div style="padding: 8px;">
-            <label><input type="radio" name="status" value="all" checked> All</label>
+            <label><input type="radio" name="status" value="all" ${!activeValue ? 'checked' : ''}> All</label>
             ${params.uniqueValues
-              .map((v) => `<label><input type="radio" name="status" value="${v}"> ${v}</label>`)
+              .map((v) => `<label><input type="radio" name="status" value="${v}" ${v === activeValue ? 'checked' : ''}> ${v}</label>`)
               .join('')}
           </div>
         `;
@@ -208,9 +212,9 @@ The Filtering plugin automatically displays appropriate filter UIs based on colu
 
 | Column Type | Filter UI | Description |
 | --- | --- | --- |
-| `number` | **Range Slider** | Dual-thumb slider with min/max inputs |
-| `date` | **Date Range Picker** | From/to date inputs with range selection |
-| (other) | **Checkbox Set** | Standard multi-select with search |
+| `number` | **Range Slider** | Dual-thumb slider with min/max inputs. Includes a **"Blank" checkbox** to filter rows with no value. |
+| `date` | **Date Range Picker** | From/to date inputs with range selection. Includes a **"Show only blank" checkbox** for empty dates. |
+| (other) | **Checkbox Set** | Standard multi-select with search. Rows with `null`/`undefined`/empty values appear as a **(Blank)** entry. |
 
 Configure bounds and step via `filterParams` on the column:
 

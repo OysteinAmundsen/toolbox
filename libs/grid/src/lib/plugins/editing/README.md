@@ -64,13 +64,14 @@ All editable cells always show editors (spreadsheet-like).
 
 ## Events
 
-| Event                | Detail                   | Description                         |
-| -------------------- | ------------------------ | ----------------------------------- |
-| `cell-commit`        | `CellCommitDetail<TRow>` | Cell value committed (cancelable)   |
-| `row-commit`         | `RowCommitDetail<TRow>`  | Row edit session ended (cancelable) |
-| `edit-open`          | `EditOpenDetail<TRow>`   | Row entered edit mode               |
-| `edit-close`         | `EditCloseDetail<TRow>`  | Row left edit mode                  |
-| `changed-rows-reset` | `ChangedRowsResetDetail` | Change tracking reset               |
+| Event                | Detail                        | Description                                                                                                                                |
+| -------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `cell-commit`        | `CellCommitDetail<TRow>`      | Cell value committed (cancelable)                                                                                                          |
+| `row-commit`         | `RowCommitDetail<TRow>`       | Row edit session ended (cancelable)                                                                                                        |
+| `edit-open`          | `EditOpenDetail<TRow>`        | Row entered edit mode                                                                                                                      |
+| `before-edit-close`  | `BeforeEditCloseDetail<TRow>` | Fires synchronously before edit state is cleared on commit (row mode). Lets managed editors flush pending values. Does not fire on revert. |
+| `edit-close`         | `EditCloseDetail<TRow>`       | Row left edit mode                                                                                                                         |
+| `changed-rows-reset` | `ChangedRowsResetDetail`      | Change tracking reset                                                                                                                      |
 
 ## API Methods
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.14.2...grid-angular-0.14.3) (2026-02-24)
+
+
+### Bug Fixes
+
+* **grid,grid-angular:** flush managed editors before clearing edit state ([#142](https://github.com/OysteinAmundsen/toolbox/issues/142)) ([52b74e6](https://github.com/OysteinAmundsen/toolbox/commit/52b74e6700a28b95c108de2b9e2949a048eba06e))
+
 ## [0.14.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.14.1...grid-angular-0.14.2) (2026-02-22)
 
 

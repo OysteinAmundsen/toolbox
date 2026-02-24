@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.21.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.21.0...grid-1.21.1) (2026-02-24)
+
+
+### Bug Fixes
+
+* **grid:** correct sideEffects paths to match published package structure ([c62c2f7](https://github.com/OysteinAmundsen/toolbox/commit/c62c2f713decd56a221fe683dcab6beacb416273))
+
 ## [1.21.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.20.0...grid-1.21.0) (2026-02-23)
 
 

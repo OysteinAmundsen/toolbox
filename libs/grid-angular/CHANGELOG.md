@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.14.3...grid-angular-0.15.0) (2026-02-25)
+
+
+### Features
+
+* **grid:** add external focus container registry and focusTrap option ([66cb973](https://github.com/OysteinAmundsen/toolbox/commit/66cb9732d8450a864bac570f9baa833aeff3f342))
+* **grid:** make getPluginByName type-safe and preferred plugin access method ([a69afef](https://github.com/OysteinAmundsen/toolbox/commit/a69afef45c5ccdf976e5d4c3286bd36f7d402cc4))
+
+
+### Bug Fixes
+
+* **grid,grid-angular:** stabilize overlay editor lifecycle during resize-triggered re-renders ([e1da999](https://github.com/OysteinAmundsen/toolbox/commit/e1da99942d0d5b9b72e5bbabea58200db1e3e97d))
+
 ## [0.14.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.14.2...grid-angular-0.14.3) (2026-02-24)
 
 

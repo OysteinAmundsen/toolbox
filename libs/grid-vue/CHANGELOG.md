@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.5.2...grid-vue-0.6.0) (2026-02-25)
+
+
+### Features
+
+* **grid:** make getPluginByName type-safe and preferred plugin access method ([a69afef](https://github.com/OysteinAmundsen/toolbox/commit/a69afef45c5ccdf976e5d4c3286bd36f7d402cc4))
+
 ## [0.5.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.5.1...grid-vue-0.5.2) (2026-02-22)
 
 

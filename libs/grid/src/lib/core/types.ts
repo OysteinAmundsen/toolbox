@@ -1835,7 +1835,7 @@ export interface GridPlugin {
  *
  * @category Plugin Development
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-empty-interface
 export interface PluginNameMap {}
 // #endregion
 

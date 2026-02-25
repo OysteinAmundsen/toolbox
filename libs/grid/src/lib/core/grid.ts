@@ -1717,7 +1717,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         // Only remove if focus is leaving the grid entirely
         // relatedTarget is null when focus leaves the document, or the new focus target
         const newFocus = (e as FocusEvent).relatedTarget as Node | null;
-        if (!newFocus || !this.#renderRoot.contains(newFocus)) {
+        if (!newFocus || (!this.#renderRoot.contains(newFocus) && !this.#isInExternalFocusContainer(newFocus))) {
           delete this.dataset.hasFocus;
         }
       },
@@ -3926,6 +3926,127 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     );
 
     document.adoptedStyleSheets = [...existingSheets, ...customSheets];
+  }
+  // #endregion
+
+  // #region External Focus Containers
+  /**
+   * Set of DOM elements that are logically "part of" this grid for focus
+   * tracking purposes. Overlay panels (datepickers, dropdowns) that render
+   * at `<body>` level should be registered here so that:
+   *
+   * 1. `data-has-focus` persists while an overlay has focus.
+   * 2. EditingPlugin's click-outside handler doesn't commit the row.
+   * 3. The optional focus trap doesn't reclaim focus.
+   */
+  #externalFocusContainers = new Set<Element>();
+
+  /** Cleanup functions for focusout listeners on external containers */
+  #externalFocusCleanups = new Map<Element, () => void>();
+
+  /**
+   * Register an external DOM element as a logical focus container of this grid.
+   *
+   * Focus moving into a registered container is treated as if it stayed inside
+   * the grid: `data-has-focus` is preserved, click-outside commit is suppressed,
+   * and the editing focus trap (when enabled) won't reclaim focus.
+   *
+   * Typical use case: overlay panels (datepickers, dropdowns, autocompletes)
+   * that render at `<body>` level to escape grid overflow clipping.
+   *
+   * @group Focus Management
+   * @param el - The external element to register
+   *
+   * @example
+   * ```typescript
+   * const overlay = document.createElement('div');
+   * document.body.appendChild(overlay);
+   *
+   * // Tell the grid this overlay is "part of" the grid
+   * grid.registerExternalFocusContainer(overlay);
+   *
+   * // Later, when overlay is removed
+   * grid.unregisterExternalFocusContainer(overlay);
+   * ```
+   */
+  registerExternalFocusContainer(el: Element): void {
+    if (this.#externalFocusContainers.has(el)) return;
+    this.#externalFocusContainers.add(el);
+
+    // Listen for focus events on the external container to keep
+    // data-has-focus in sync and detect when focus leaves entirely.
+    const ac = new AbortController();
+    const signal = ac.signal;
+
+    el.addEventListener(
+      'focusin',
+      () => {
+        this.dataset.hasFocus = '';
+      },
+      { signal },
+    );
+
+    el.addEventListener(
+      'focusout',
+      (e) => {
+        const newFocus = (e as FocusEvent).relatedTarget as Node | null;
+        if (!newFocus || !this.containsFocus(newFocus)) {
+          delete this.dataset.hasFocus;
+        }
+      },
+      { signal },
+    );
+
+    this.#externalFocusCleanups.set(el, () => ac.abort());
+  }
+
+  /**
+   * Unregister a previously registered external focus container.
+   *
+   * @group Focus Management
+   * @param el - The element to unregister
+   */
+  unregisterExternalFocusContainer(el: Element): void {
+    this.#externalFocusContainers.delete(el);
+    const cleanup = this.#externalFocusCleanups.get(el);
+    if (cleanup) {
+      cleanup();
+      this.#externalFocusCleanups.delete(el);
+    }
+  }
+
+  /**
+   * Check whether focus is logically inside this grid.
+   *
+   * Returns `true` when `document.activeElement` (or the given node) is
+   * inside the grid's own DOM **or** inside any element registered via
+   * {@link registerExternalFocusContainer}.
+   *
+   * @group Focus Management
+   * @param node - Optional node to test. Defaults to `document.activeElement`.
+   *
+   * @example
+   * ```typescript
+   * if (grid.containsFocus()) {
+   *   console.log('Grid or one of its overlays has focus');
+   * }
+   * ```
+   */
+  containsFocus(node?: Node | null): boolean {
+    const target = node ?? document.activeElement;
+    if (!target) return false;
+    if (this.contains(target)) return true;
+    return this.#isInExternalFocusContainer(target);
+  }
+
+  /**
+   * Check whether a node is inside any registered external focus container.
+   */
+  #isInExternalFocusContainer(node: Node): boolean {
+    for (const container of this.#externalFocusContainers) {
+      if (container.contains(node)) return true;
+    }
+    return false;
   }
   // #endregion
 

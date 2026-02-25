@@ -73,6 +73,14 @@ export interface GridElement extends GridElementRef {
    * @internal Plugin API
    */
   getPluginState?(name: string): unknown;
+
+  // Focus Management
+  /** Register an external DOM element as a logical focus container. @internal Plugin API */
+  registerExternalFocusContainer?(el: Element): void;
+  /** Unregister a previously registered external focus container. @internal Plugin API */
+  unregisterExternalFocusContainer?(el: Element): void;
+  /** Check whether focus is logically inside this grid (own DOM + external containers). @internal Plugin API */
+  containsFocus?(node?: Node | null): boolean;
 }
 
 /**

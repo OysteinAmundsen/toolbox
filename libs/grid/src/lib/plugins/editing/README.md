@@ -25,11 +25,12 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option              | Type                                              | Default   | Description                                                      |
-| ------------------- | ------------------------------------------------- | --------- | ---------------------------------------------------------------- |
-| `mode`              | `'row' \| 'grid'`                                 | `'row'`   | Row mode: edit one row at a time. Grid mode: all editors visible |
-| `editOn`            | `'click' \| 'dblclick' \| 'manual' \| false`      | `'click'` | How editing is triggered (row mode only)                         |
-| `onBeforeEditClose` | `(event: MouseEvent \| KeyboardEvent) => boolean` | —         | Return `false` to prevent row edit from closing                  |
+| Option              | Type                                              | Default   | Description                                                              |
+| ------------------- | ------------------------------------------------- | --------- | ------------------------------------------------------------------------ |
+| `mode`              | `'row' \| 'grid'`                                 | `'row'`   | Row mode: edit one row at a time. Grid mode: all editors visible         |
+| `editOn`            | `'click' \| 'dblclick' \| 'manual' \| false`      | `'click'` | How editing is triggered (row mode only)                                 |
+| `onBeforeEditClose` | `(event: MouseEvent \| KeyboardEvent) => boolean` | —         | Return `false` to prevent row edit from closing                          |
+| `focusTrap`         | `boolean`                                         | `false`   | When `true`, focus is returned to the editing cell if it leaves the grid |
 
 ## Edit Modes
 

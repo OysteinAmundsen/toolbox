@@ -843,8 +843,14 @@ new EditingPlugin({
   commitOnBlur?: boolean,                          // (default: true)
   commitOnEnter?: boolean,                         // (default: true)
   cancelOnEscape?: boolean,                        // (default: true)
+  focusTrap?: boolean,                             // (default: false) — reclaim focus when it leaves during edit
 })
 // Keyboard: Enter = row edit, F2 = single-cell edit, Escape = cancel, Tab = next cell
+// Focus Management: grid.registerExternalFocusContainer(el) / unregisterExternalFocusContainer(el)
+//   → overlays appended to <body> (datepickers, dropdowns) are treated as "inside" the grid
+//   → prevents editor close when clicking in registered containers
+//   → Angular BaseOverlayEditor auto-registers its panel; custom editors should register manually
+//   → grid.containsFocus(node?) checks grid DOM + all registered external containers
 ```
 
 ### FilteringPlugin

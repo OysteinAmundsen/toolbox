@@ -373,6 +373,30 @@ export interface EditingConfig {
    * ```
    */
   onBeforeEditClose?: (event: MouseEvent | KeyboardEvent) => boolean;
+
+  /**
+   * When `true`, prevents focus from leaving the grid (or its registered
+   * external focus containers) while a row is in edit mode.
+   *
+   * If the user tabs or clicks outside the grid during an active edit,
+   * focus is returned to the editing cell. This prevents accidental
+   * data loss from focus leaving the grid unexpectedly.
+   *
+   * Elements registered via `grid.registerExternalFocusContainer()` are
+   * considered "inside" the grid for focus trap purposes, so overlays
+   * (datepickers, dropdowns) continue to work normally.
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * new EditingPlugin({
+   *   focusTrap: true,
+   *   editOn: 'dblclick',
+   * })
+   * ```
+   */
+  focusTrap?: boolean;
 }
 
 /**

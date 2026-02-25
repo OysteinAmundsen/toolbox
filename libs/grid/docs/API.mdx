@@ -582,6 +582,31 @@ const sections = grid.expandedToolPanelSections;
 const panels = grid.getToolPanels();
 ```
 
+### Focus Management
+
+When building custom editors that render outside the grid DOM (overlays, datepickers,
+dropdowns appended to `<body>`), use the focus container registry so the grid treats
+focus inside those elements as "still in the grid".
+
+```typescript
+// Register an overlay panel so focus moving into it doesn't close the editor
+const panel = document.createElement('div');
+document.body.appendChild(panel);
+grid.registerExternalFocusContainer(panel);
+
+// When the overlay is torn down, unregister it
+grid.unregisterExternalFocusContainer(panel);
+
+// Check whether focus is logically inside the grid (own DOM + external containers)
+const hasFocus = grid.containsFocus(); // checks document.activeElement
+const nodeInGrid = grid.containsFocus(someNode); // checks specific node
+```
+
+> **Angular users:** `BaseOverlayEditor` automatically registers/unregisters its panel — no manual calls needed.
+
+The [`data-has-focus`](#data-has-focus) attribute on `<tbw-grid>` is also kept in sync:
+when focus enters a registered external container, `data-has-focus` stays on the grid.
+
 ## Events
 
 ### Edit Events

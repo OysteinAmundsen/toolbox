@@ -482,6 +482,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         const path = (e.composedPath && e.composedPath()) || [];
         if (path.includes(rowEl)) return;
 
+        // Check if click is inside a registered external focus container
+        // (e.g., overlays, datepickers, dropdowns at <body> level)
+        const target = e.target as Node | null;
+        if (target && this.grid.containsFocus?.(target)) {
+          return;
+        }
+
         // Allow users to prevent edit close via callback (e.g., when click is inside an overlay)
         if (this.config.onBeforeEditClose) {
           const shouldClose = this.config.onBeforeEditClose(e);
@@ -499,6 +506,34 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       },
       { signal },
     );
+
+    // Focus trap: when enabled, prevent focus from leaving the grid
+    // while a row is being edited. If focus moves outside the grid
+    // (and its registered external containers), reclaim it.
+    if (this.config.focusTrap) {
+      this.gridElement.addEventListener(
+        'focusout',
+        (e: FocusEvent) => {
+          // Only trap in row mode when actively editing
+          if (this.#isGridMode) return;
+          if (this.#activeEditRow === -1) return;
+
+          const related = e.relatedTarget as Node | null;
+          // If focus is going to an external container, that's fine
+          if (related && this.grid.containsFocus?.(related)) return;
+          // If focus is going to another element inside the grid, allow it
+          if (related && this.gridElement.contains(related)) return;
+
+          // Focus left the grid entirely — reclaim it
+          queueMicrotask(() => {
+            // Re-check in case editing was committed in the meantime
+            if (this.#activeEditRow === -1) return;
+            this.#focusCurrentCellEditor();
+          });
+        },
+        { signal },
+      );
+    }
 
     // Listen for external row mutations to push updated values to active editors.
     // When field A commits and sets field B via updateRow(), field B's editor
@@ -549,8 +584,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         'focusout',
         (e: FocusEvent) => {
           const related = e.relatedTarget as HTMLElement | null;
-          // Only clear if focus went outside grid or to a non-input element
-          if (!related || !this.gridElement.contains(related) || !related.matches(FOCUSABLE_EDITOR_SELECTOR)) {
+          // Only clear if focus went outside grid (and external containers) or to a non-input element
+          if (
+            !related ||
+            (!this.gridElement.contains(related) && !this.grid.containsFocus?.(related)) ||
+            !related.matches(FOCUSABLE_EDITOR_SELECTOR)
+          ) {
             this.#gridModeInputFocused = false;
           }
         },

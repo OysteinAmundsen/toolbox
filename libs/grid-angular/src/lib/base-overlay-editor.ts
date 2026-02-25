@@ -103,6 +103,7 @@ let anchorCounter = 0;
  * - **Escape handling** — closes the panel and returns focus to the inline input
  * - **Synthetic Tab dispatch** — advances grid focus after overlay close
  * - **Automatic teardown** — removes the panel from `<body>` and cleans up listeners
+ * - **External focus registration** — auto-registers the panel via `grid.registerExternalFocusContainer()` so the grid keeps `data-has-focus` and editors stay open while the overlay has focus
  *
  * ## Usage
  *
@@ -244,6 +245,10 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
     // Move panel to body so it escapes grid overflow clipping
     document.body.appendChild(panel);
 
+    // Register the panel as an external focus container on the grid
+    // so focus moving into the overlay is treated as "still in the grid"
+    this._getGridElement()?.registerExternalFocusContainer?.(panel);
+
     // Set up click-outside detection
     this._abortCtrl = new AbortController();
     document.addEventListener('pointerdown', (e) => this._onDocumentPointerDown(e), {
@@ -309,6 +314,11 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
 
     this._focusObserver?.disconnect();
     this._focusObserver = null;
+
+    // Unregister the panel from the grid's external focus container registry
+    if (this._panel) {
+      this._getGridElement()?.unregisterExternalFocusContainer?.(this._panel);
+    }
 
     if (this._panel?.parentNode) {
       this._panel.parentNode.removeChild(this._panel);
@@ -451,6 +461,16 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
   /** Find the parent cell element for this editor. */
   private _getCell(): HTMLElement | null {
     return this._elementRef.nativeElement.closest('[part="cell"]') ?? null;
+  }
+
+  /** Find the parent `<tbw-grid>` element for this editor. */
+  private _getGridElement():
+    | (HTMLElement & {
+        registerExternalFocusContainer?(el: Element): void;
+        unregisterExternalFocusContainer?(el: Element): void;
+      })
+    | null {
+    return this._elementRef.nativeElement.closest('tbw-grid') ?? null;
   }
 
   /**

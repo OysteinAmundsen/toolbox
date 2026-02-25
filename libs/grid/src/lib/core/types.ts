@@ -277,6 +277,58 @@ export interface PublicGrid<T = any> {
    * Clear all row and cell loading states.
    */
   clearAllLoading?(): void;
+
+  // Focus Management API
+  /**
+   * Register an external DOM element as a logical focus container of this grid.
+   *
+   * Focus moving into a registered container is treated as if it stayed inside
+   * the grid: `data-has-focus` is preserved, click-outside commit is suppressed,
+   * and the editing focus trap (when enabled) won't reclaim focus.
+   *
+   * Typical use case: overlay panels (datepickers, dropdowns, autocompletes)
+   * that render at `<body>` level to escape grid overflow clipping.
+   *
+   * @param el - The external element to register
+   *
+   * @example
+   * ```typescript
+   * const overlay = document.createElement('div');
+   * document.body.appendChild(overlay);
+   *
+   * // Tell the grid this overlay is "part of" the grid
+   * grid.registerExternalFocusContainer(overlay);
+   *
+   * // Later, when overlay is removed
+   * grid.unregisterExternalFocusContainer(overlay);
+   * ```
+   */
+  registerExternalFocusContainer?(el: Element): void;
+
+  /**
+   * Unregister a previously registered external focus container.
+   *
+   * @param el - The element to unregister
+   */
+  unregisterExternalFocusContainer?(el: Element): void;
+
+  /**
+   * Check whether focus is logically inside this grid.
+   *
+   * Returns `true` when `document.activeElement` (or the given node) is
+   * inside the grid's own DOM **or** inside any element registered via
+   * {@link registerExternalFocusContainer}.
+   *
+   * @param node - Optional node to test. Defaults to `document.activeElement`.
+   *
+   * @example
+   * ```typescript
+   * if (grid.containsFocus()) {
+   *   console.log('Grid or one of its overlays has focus');
+   * }
+   * ```
+   */
+  containsFocus?(node?: Node | null): boolean;
 }
 // #endregion
 

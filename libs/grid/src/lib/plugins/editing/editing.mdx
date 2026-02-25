@@ -770,6 +770,51 @@ Column(s) [name, price] use the "editable" column property, but the required plu
 
 This runtime validation helps catch misconfigurations early during development.
 
+## Focus Management
+
+### Focus Trap
+
+Enable `focusTrap` to prevent accidental focus loss during editing. When focus leaves
+the grid during an active edit, it is automatically returned to the editing cell:
+
+```ts
+new EditingPlugin({
+  editOn: 'dblclick',
+  focusTrap: true,
+})
+```
+
+Elements registered via `grid.registerExternalFocusContainer()` are excluded from the
+trap — overlays (datepickers, dropdowns) continue to work normally.
+
+### External Focus Containers
+
+Custom editors that append elements to `<body>` (e.g., datepicker overlays, dropdown
+panels) should register with the grid so focus inside them doesn't close the editor:
+
+```ts
+// In your editor function
+editor: (ctx) => {
+  const input = document.createElement('input');
+  const overlay = document.createElement('div');
+  overlay.className = 'my-overlay';
+  document.body.appendChild(overlay);
+
+  // Register so grid treats the overlay as "inside"
+  ctx.grid.registerExternalFocusContainer(overlay);
+
+  // When done, unregister
+  ctx.cancel = () => {
+    ctx.grid.unregisterExternalFocusContainer(overlay);
+    overlay.remove();
+  };
+
+  return input;
+}
+```
+
+> **Angular:** `BaseOverlayEditor` handles registration automatically.
+
 ## See Also
 
 - **[Undo/Redo](../?path=/docs/grid-plugins-undo-redo--docs)** — Track edit history with Ctrl+Z/Y

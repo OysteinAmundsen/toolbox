@@ -483,9 +483,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         if (path.includes(rowEl)) return;
 
         // Check if click is inside a registered external focus container
-        // (e.g., overlays, datepickers, dropdowns at <body> level)
+        // (e.g., overlays, datepickers, dropdowns at <body> level).
+        // Only check targets OUTSIDE the grid — clicks on other rows inside
+        // the grid should still commit the active edit row.
         const target = e.target as Node | null;
-        if (target && this.grid.containsFocus?.(target)) {
+        if (target && !this.gridElement.contains(target) && this.grid.containsFocus?.(target)) {
           return;
         }
 
@@ -1542,6 +1544,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   #startRowEdit(rowIndex: number, rowData: T): void {
     if (this.#activeEditRow !== rowIndex) {
+      // Commit the previous row before starting a new one
+      if (this.#activeEditRow !== -1) {
+        this.#exitRowEdit(this.#activeEditRow, false);
+      }
       this.#rowEditSnapshots.set(rowIndex, { ...rowData });
       this.#activeEditRow = rowIndex;
       this.#activeEditRowRef = rowData;

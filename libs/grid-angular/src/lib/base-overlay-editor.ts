@@ -574,13 +574,19 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
 
     let justOpened = false;
 
+    let pendingHideRaf = 0;
+
     this._focusObserver = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') continue;
 
         const isFocused = cell.classList.contains('cell-focus');
         if (isFocused && !this._isOpen) {
-          // Cell just gained focus — open overlay if appropriate
+          // Cell just gained focus — cancel any pending hide and open overlay.
+          if (pendingHideRaf) {
+            cancelAnimationFrame(pendingHideRaf);
+            pendingHideRaf = 0;
+          }
           justOpened = true;
           this.showOverlay();
           this.onOverlayOpened();
@@ -591,8 +597,19 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
             justOpened = false;
           }, 0);
         } else if (!isFocused && this._isOpen && !justOpened) {
-          // Cell lost focus — hide overlay silently
-          this.hideOverlay(true);
+          // Cell lost focus — defer hide to allow render cycles to settle.
+          // Re-renders (e.g., from ResizeObserver after a footer appears)
+          // may transiently toggle cell-focus within the same frame.
+          // Deferring to the next animation frame lets the render pipeline
+          // finish before we decide whether the overlay should actually close.
+          if (pendingHideRaf) cancelAnimationFrame(pendingHideRaf);
+          pendingHideRaf = requestAnimationFrame(() => {
+            pendingHideRaf = 0;
+            // Re-check settled state — cell-focus may have been re-applied
+            if (!cell.classList.contains('cell-focus') && this._isOpen) {
+              this.hideOverlay(true);
+            }
+          });
         }
       }
     });

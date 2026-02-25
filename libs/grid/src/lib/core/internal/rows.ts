@@ -488,12 +488,21 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
       cell.setAttribute('data-row', rowIndexStr);
     }
 
-    // Update focus state - must be data-driven, not DOM-element-driven
-    const shouldHaveFocus = focusRow === rowIndex && focusCol === i;
-    const hasFocus = cell.classList.contains('cell-focus');
-    if (shouldHaveFocus !== hasFocus) {
-      cell.classList.toggle('cell-focus', shouldHaveFocus);
-      cell.setAttribute('aria-selected', String(shouldHaveFocus));
+    // Check editing state once — reused for focus guard and content skip below.
+    const isEditing = cell.classList.contains('editing');
+
+    // Update focus state - must be data-driven, not DOM-element-driven.
+    // Skip editing cells — their focus state is managed by the navigation
+    // system (ensureCellVisible), not the render pipeline. Toggling here
+    // would fire MutationObservers (e.g., overlay editors) causing
+    // premature overlay teardown during re-renders triggered by resize.
+    if (!isEditing) {
+      const shouldHaveFocus = focusRow === rowIndex && focusCol === i;
+      const hasFocus = cell.classList.contains('cell-focus');
+      if (shouldHaveFocus !== hasFocus) {
+        cell.classList.toggle('cell-focus', shouldHaveFocus);
+        cell.setAttribute('aria-selected', String(shouldHaveFocus));
+      }
     }
 
     // Apply cellClass callback if configured
@@ -521,7 +530,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
     }
 
     // Skip cells in edit mode
-    if (cell.classList.contains('editing')) continue;
+    if (isEditing) continue;
 
     // Handle viewRenderer/renderer - must re-invoke to get updated content
     // Uses priority chain: column → typeDefaults → adapter → built-in

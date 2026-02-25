@@ -993,4 +993,81 @@ describe('renderVisibleRows — epoch-based row reuse', () => {
     const idCell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
     expect(idCell.textContent).toBe('1');
   });
+
+  it('fastPatchRow does NOT toggle cell-focus on editing cells', () => {
+    // Regression test: when fastPatchRow ran on an actively edited row,
+    // it toggled cell-focus on editing cells. This fired MutationObservers
+    // (e.g., overlay editors) causing premature overlay teardown during
+    // re-renders triggered by resize events.
+    const g = makeGrid();
+    g._rows = [{ id: 1, name: 'Alpha', active: true, date: '2024-01-01' }];
+    g._columns = [{ field: 'id' }, { field: 'name' }, { field: 'active', type: 'boolean', editable: true }];
+    renderVisibleRows(g, 0, 1, 1);
+
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+
+    // Simulate row edit: mark all cells as editing
+    const cells = row.querySelectorAll('.cell') as NodeListOf<HTMLElement>;
+    cells.forEach((cell) => {
+      cell.classList.add('editing');
+    });
+    (row as any).__editingCellCount = cells.length;
+
+    // Set focus on the last cell (simulating tab to overlay editor column)
+    g._focusRow = 0;
+    g._focusCol = 2;
+
+    // Manually set cell-focus on the target cell (as ensureCellVisible would)
+    cells[2].classList.add('cell-focus');
+    g._activeEditRows = 0;
+
+    // Track class mutations on the focused editing cell
+    let focusClassChanged = false;
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'class') {
+          focusClassChanged = true;
+        }
+      }
+    });
+    observer.observe(cells[2], { attributes: true, attributeFilter: ['class'] });
+
+    // Replace row data (simulating Angular signal-driven rows update)
+    // Same epoch → fastPatchRow path via structureValid + dataRefChanged
+    g._rows = [{ id: 1, name: 'Alpha', active: true, date: '2024-01-01' }];
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Flush pending MutationObserver records synchronously
+    observer.takeRecords();
+    observer.disconnect();
+
+    // cell-focus should NOT have been toggled on the editing cell
+    expect(focusClassChanged).toBe(false);
+    expect(cells[2].classList.contains('cell-focus')).toBe(true);
+  });
+
+  it('fastPatchRow still toggles cell-focus on non-editing cells', () => {
+    // Ensure the fix doesn't break focus toggling on non-editing cells
+    const g = makeGrid();
+    g._rows = [{ id: 1, name: 'Alpha', active: true, date: '2024-01-01' }];
+    g._columns = [{ field: 'id' }, { field: 'name' }];
+    renderVisibleRows(g, 0, 1, 1);
+
+    // Set focus on first cell
+    g._focusRow = 0;
+    g._focusCol = 0;
+
+    // Replace row data to trigger fastPatchRow (same epoch, dataRefChanged)
+    g._rows = [{ id: 1, name: 'Beta', active: true, date: '2024-01-01' }];
+    renderVisibleRows(g, 0, 1, 1);
+
+    const row = g._bodyEl.querySelector('.data-grid-row')!;
+    const firstCell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
+    const secondCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+    // First cell should have cell-focus
+    expect(firstCell.classList.contains('cell-focus')).toBe(true);
+    // Second cell should NOT have cell-focus
+    expect(secondCell.classList.contains('cell-focus')).toBe(false);
+  });
 });

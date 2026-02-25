@@ -104,7 +104,6 @@ Access the underlying `<tbw-grid>` element via the `useGrid` composable:
   code={`
 <script setup lang="ts">
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import type { GridElement } from '@toolbox-web/grid';
 import { onMounted, ref } from 'vue';
 
@@ -122,7 +121,7 @@ onMounted(async () => {
   console.log('Grid ready, row count:', grid.sourceRows.length);
 
   // Access plugin instances
-  const selection = grid.getPlugin(SelectionPlugin);
+  const selection = grid.getPluginByName('selection');
   if (selection) {
     selection.selectRow(0);
   }
@@ -354,7 +353,6 @@ Update rows efficiently while preserving grid state:
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/editing';
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
 import type { CellCommitDetail } from '@toolbox-web/grid';
 import { ref } from 'vue';
 
@@ -381,7 +379,7 @@ function handleDelete() {
   const grid = gridElement.value;
   if (!grid) return;
 
-  const selection = grid.getPlugin(SelectionPlugin);
+  const selection = grid.getPluginByName('selection');
   const selectedRows = selection?.getSelectedRows() ?? [];
   const selectedIds = new Set(selectedRows.map((row: Employee) => row.id));
   employees.value = employees.value.filter(emp => !selectedIds.has(emp.id));

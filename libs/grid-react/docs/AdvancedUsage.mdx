@@ -115,7 +115,7 @@ function EmployeeGrid() {
       console.log('Grid ready, row count:', grid.sourceRows.length);
 
       // Access plugin instances
-      const selection = grid.getPlugin(SelectionPlugin);
+      const selection = grid.getPluginByName('selection');
       if (selection) {
         selection.selectRow(0);
       }

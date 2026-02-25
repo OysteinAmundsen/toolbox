@@ -14,6 +14,7 @@ import type {
   GridPlugin,
   HeaderContentDefinition,
   IconValue,
+  PluginNameMap,
   ToolPanelDefinition,
 } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
@@ -62,7 +63,9 @@ import type {
  */
 export interface GridElement extends GridElementRef {
   getPlugin<T extends BaseGridPlugin>(PluginClass: new (...args: any[]) => T): T | undefined;
-  getPluginByName(name: string): BaseGridPlugin | undefined;
+  getPluginByName<K extends string>(
+    name: K,
+  ): (K extends keyof PluginNameMap ? PluginNameMap[K] : BaseGridPlugin) | undefined;
   /**
    * Get a plugin's state by plugin name.
    * This is a loose-coupling method for plugins to access other plugins' state

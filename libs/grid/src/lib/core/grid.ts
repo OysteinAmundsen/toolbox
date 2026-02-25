@@ -80,6 +80,7 @@ import type {
   GridConfig,
   HeaderContentDefinition,
   InternalGrid,
+  PluginNameMap,
   ResizeController,
   RowAnimationType,
   ToolbarContentDefinition,
@@ -920,8 +921,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @returns The plugin instance, or `undefined` if not registered.
    * @group Plugin Communication
    */
-  getPluginByName(name: string): BaseGridPlugin | undefined {
-    return this.#pluginManager?.getPluginByName(name);
+  getPluginByName<K extends string>(
+    name: K,
+  ): (K extends keyof PluginNameMap ? PluginNameMap[K] : BaseGridPlugin) | undefined {
+    return this.#pluginManager?.getPluginByName(name) as any;
   }
 
   /**

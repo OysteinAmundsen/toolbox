@@ -131,3 +131,10 @@ export interface PinnedRowsState {
   /** Footer wrapper for sticky bottom elements */
   footerWrapper: HTMLElement | null;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    pinnedRows: import('./PinnedRowsPlugin').PinnedRowsPlugin;
+  }
+}

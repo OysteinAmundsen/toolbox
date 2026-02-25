@@ -41,3 +41,10 @@ export interface ColumnVirtualizationViewport {
   /** Array of visible column indices */
   visibleColumns: number[];
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    columnVirtualization: import('./ColumnVirtualizationPlugin').ColumnVirtualizationPlugin;
+  }
+}

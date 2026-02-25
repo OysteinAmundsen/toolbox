@@ -298,6 +298,10 @@ declare module '../../core/types' {
     /** Fired when a row leaves edit mode, whether committed or reverted (row mode only). */
     'edit-close': EditCloseDetail<TRow>;
   }
+
+  interface PluginNameMap {
+    editing: import('./EditingPlugin').EditingPlugin;
+  }
 }
 
 // ============================================================================

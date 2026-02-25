@@ -56,3 +56,10 @@ export interface ExportCompleteDetail {
   /** Number of columns exported */
   columnCount: number;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    export: import('./ExportPlugin').ExportPlugin;
+  }
+}

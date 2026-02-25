@@ -43,6 +43,10 @@ declare module '../../core/types' {
      */
     columnGroups?: ColumnGroupDefinition[];
   }
+
+  interface PluginNameMap {
+    groupingColumns: import('./GroupingColumnsPlugin').GroupingColumnsPlugin;
+  }
 }
 
 // ============================================================================

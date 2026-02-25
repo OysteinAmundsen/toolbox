@@ -193,14 +193,13 @@ grid.gridConfig = {
 
 ### Accessing Plugin Instances
 
-Use `grid.getPlugin()` to access a registered plugin:
+Use `grid.getPluginByName()` to access a registered plugin — type-safe for all built-in plugins, no import needed:
 
 ```typescript
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-
-const selection = grid.getPlugin(SelectionPlugin);
+// Preferred — type-safe, no import needed
+const selection = grid.getPluginByName('selection');
 if (selection) {
-  // Call plugin methods
+  // Call plugin methods — fully typed as SelectionPlugin
   selection.selectAll();
   selection.clearSelection();
 

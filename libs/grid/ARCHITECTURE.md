@@ -646,7 +646,7 @@ Plugins can access other plugins:
 
 ```typescript
 // In a plugin method
-const selection = this.getPlugin(SelectionPlugin);
+const selection = this.getPluginByName('selection');
 if (selection) {
   const selectedRows = selection.getSelectedRows();
 }

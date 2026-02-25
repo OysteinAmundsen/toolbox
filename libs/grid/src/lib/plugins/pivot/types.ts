@@ -65,3 +65,10 @@ export interface PivotRow {
   /** Number of data rows in this group */
   rowCount?: number;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    pivot: import('./PivotPlugin').PivotPlugin;
+  }
+}

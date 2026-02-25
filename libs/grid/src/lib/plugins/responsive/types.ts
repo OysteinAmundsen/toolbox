@@ -152,3 +152,10 @@ export interface ResponsiveChangeDetail {
   /** Configured breakpoint in pixels */
   breakpoint: number;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    responsive: import('./ResponsivePlugin').ResponsivePlugin;
+  }
+}

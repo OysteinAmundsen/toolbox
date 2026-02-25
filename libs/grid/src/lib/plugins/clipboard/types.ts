@@ -209,3 +209,10 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
   // Update grid with new data
   grid.rows = newRows;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    clipboard: import('./ClipboardPlugin').ClipboardPlugin;
+  }
+}

@@ -417,7 +417,7 @@ export class EmployeeGridComponent {
   }
 
   async exportCsv() {
-    const exportPlugin = this.grid()?.nativeElement.getPlugin(ExportPlugin);
+    const exportPlugin = this.grid()?.nativeElement.getPluginByName('export');
     await exportPlugin?.exportToCsv({ filename: 'employees.csv' });
   }
 }

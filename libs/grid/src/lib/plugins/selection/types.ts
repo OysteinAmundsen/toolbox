@@ -34,6 +34,10 @@ declare module '../../core/types' {
      */
     selectable?: boolean;
   }
+
+  interface PluginNameMap {
+    selection: import('./SelectionPlugin').SelectionPlugin;
+  }
 }
 // #endregion
 

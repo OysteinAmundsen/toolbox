@@ -25,3 +25,10 @@ export interface MultiSortState {
   /** Current sort model - ordered list of sort columns */
   sortModel: SortModel[];
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    multiSort: import('./MultiSortPlugin').MultiSortPlugin;
+  }
+}

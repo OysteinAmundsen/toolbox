@@ -75,6 +75,10 @@ declare module '../../core/types' {
      */
     sticky?: PinnedPosition;
   }
+
+  interface PluginNameMap {
+    pinnedColumns: import('./PinnedColumnsPlugin').PinnedColumnsPlugin;
+  }
 }
 
 /** Configuration options for the pinned columns plugin */

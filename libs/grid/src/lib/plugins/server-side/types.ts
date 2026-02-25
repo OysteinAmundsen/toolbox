@@ -36,3 +36,10 @@ export interface ServerSideState {
   /** Cached request render function */
   requestRenderRef?: () => void;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    serverSide: import('./ServerSidePlugin').ServerSidePlugin;
+  }
+}

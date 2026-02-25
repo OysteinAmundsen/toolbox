@@ -181,7 +181,8 @@ BaseGridPlugin provides these protected helpers — use them instead of type cas
 | `this.isAnimationEnabled`      | Whether grid animations are enabled               |
 | `this.animationDuration`       | Animation duration in ms (default: 200)           |
 | `this.gridIcons`               | Merged icon configuration                         |
-| `this.getPlugin(PluginClass)`  | Get another plugin instance                       |
+| `this.getPluginByName(name)`   | Get another plugin instance by name (preferred)   |
+| `this.getPlugin(PluginClass)`  | Get another plugin instance by class              |
 | `this.emit(eventName, detail)` | Dispatch custom event from grid                   |
 | `this.requestRender()`         | Request full re-render                            |
 | `this.requestAfterRender()`    | Request lightweight style update                  |
@@ -332,8 +333,12 @@ grid.gridConfig = {
   plugins: [new SelectionPlugin({ mode: 'row' })],
 };
 
-// Access at runtime
-const sel = grid.getPlugin(SelectionPlugin);
+// Access at runtime — preferred (type-safe, no import needed)
+const sel = grid.getPluginByName('selection');
+sel?.selectAll();
+
+// Alternative — access by class (requires import)
+const sel2 = grid.getPlugin(SelectionPlugin);
 ```
 
 ## Key Rules

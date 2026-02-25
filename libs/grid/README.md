@@ -269,10 +269,10 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 
 #### Plugin Methods
 
-| Method                   | Returns               | Description                  |
-| ------------------------ | --------------------- | ---------------------------- |
-| `getPlugin(PluginClass)` | `P \| undefined`      | Get plugin instance by class |
-| `getPluginByName(name)`  | `Plugin \| undefined` | Get plugin instance by name  |
+| Method                   | Returns               | Description                                                               |
+| ------------------------ | --------------------- | ------------------------------------------------------------------------- |
+| `getPluginByName(name)`  | `Plugin \| undefined` | Get plugin instance by name — **preferred** (type-safe, no import needed) |
+| `getPlugin(PluginClass)` | `P \| undefined`      | Get plugin instance by class (requires import)                            |
 
 ### Events
 
@@ -754,12 +754,10 @@ Plugins can also define custom query types for their own inter-plugin communicat
 
 ### Accessing Plugin Instances
 
-Use `grid.getPlugin()` to get a plugin instance for inter-plugin communication or API access:
+Use `grid.getPluginByName()` to get a plugin instance for inter-plugin communication or API access:
 
 ```typescript
-import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-
-const selection = grid.getPlugin(SelectionPlugin);
+const selection = grid.getPluginByName('selection');
 if (selection) {
   selection.selectAll();
 }

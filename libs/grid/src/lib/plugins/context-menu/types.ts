@@ -129,3 +129,10 @@ export interface ContextMenuState {
   /** Reference to the menu DOM element */
   menuElement: HTMLElement | null;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    contextMenu: import('./ContextMenuPlugin').ContextMenuPlugin;
+  }
+}

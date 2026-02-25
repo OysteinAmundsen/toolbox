@@ -46,3 +46,10 @@ export interface DetailExpandDetail {
   /** Whether the row is now expanded */
   expanded: boolean;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    masterDetail: import('./MasterDetailPlugin').MasterDetailPlugin;
+  }
+}

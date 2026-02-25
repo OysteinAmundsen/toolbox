@@ -30,6 +30,10 @@ declare module '../../core/types' {
      */
     printHidden?: boolean;
   }
+
+  interface PluginNameMap {
+    print: import('./PrintPlugin').PrintPlugin;
+  }
 }
 
 /** Page orientation */

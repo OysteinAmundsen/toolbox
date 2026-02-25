@@ -118,9 +118,20 @@ export interface PublicGrid<T = any> {
   getPlugin?<P>(PluginClass: new (...args: any[]) => P): P | undefined;
   /**
    * Get a plugin instance by its name.
-   * Prefer `getPlugin(PluginClass)` for type safety.
+   *
+   * When a plugin augments the {@link PluginNameMap} interface, the return
+   * type is narrowed automatically:
+   *
+   * ```typescript
+   * const editing = grid.getPluginByName('editing');
+   * editing?.beginBulkEdit(0); // ✅ typed as EditingPlugin
+   * ```
+   *
+   * For unknown names the return type falls back to `GridPlugin | undefined`.
    */
-  getPluginByName?(name: string): GridPlugin | undefined;
+  getPluginByName?<K extends string>(
+    name: K,
+  ): (K extends keyof PluginNameMap ? PluginNameMap[K] : GridPlugin) | undefined;
 
   // Shell API
   /**
@@ -1748,6 +1759,32 @@ export interface GridPlugin {
   /** CSS styles to inject into the grid */
   readonly styles?: string;
 }
+
+/**
+ * Plugin name-to-type registry for type-safe `getPluginByName()`.
+ *
+ * Plugins augment this interface via `declare module` so that
+ * `grid.getPluginByName('editing')` returns `EditingPlugin | undefined`
+ * instead of `GridPlugin | undefined`.
+ *
+ * @example
+ * ```typescript
+ * // Plugin augmentation (done automatically when you import a plugin):
+ * declare module '../../core/types' {
+ *   interface PluginNameMap {
+ *     editing: EditingPlugin;
+ *   }
+ * }
+ *
+ * // Consumer usage — fully typed:
+ * const editing = grid.getPluginByName('editing');
+ * editing?.beginBulkEdit(0); // ✅ No cast needed
+ * ```
+ *
+ * @category Plugin Development
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface PluginNameMap {}
 // #endregion
 
 // #region Grid Config

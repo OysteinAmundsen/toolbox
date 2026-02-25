@@ -147,3 +147,10 @@ export interface GroupToggleDetail {
   /** Depth level */
   depth: number;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    groupingRows: import('./GroupingRowsPlugin').GroupingRowsPlugin;
+  }
+}

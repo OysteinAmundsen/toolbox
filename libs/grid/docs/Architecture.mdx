@@ -195,7 +195,7 @@ Plugins extend `BaseGridPlugin` and implement lifecycle hooks. See [Writing Cust
 Plugins can access other plugin instances:
 
 ```ts
-const selection = this.getPlugin(SelectionPlugin);
+const selection = this.getPluginByName('selection');
 if (selection) {
   const selectedRows = selection.getSelectedRows();
 }

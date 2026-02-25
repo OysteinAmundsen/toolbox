@@ -71,3 +71,10 @@ export interface TreeExpandDetail<T = TreeRow> {
   /** Depth level of the row */
   depth: number;
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    tree: import('./TreePlugin').TreePlugin;
+  }
+}

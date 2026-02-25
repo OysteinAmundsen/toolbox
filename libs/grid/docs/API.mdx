@@ -428,17 +428,20 @@ await grid.resetChangedRows();
 
 | Method                   | Returns                        | Description                                            |
 | ------------------------ | ------------------------------ | ------------------------------------------------------ |
-| `getPlugin(PluginClass)` | `P \| undefined`               | Get plugin instance by class (type-safe)               |
-| `getPluginByName(name)`  | `BaseGridPlugin \| undefined`  | Get plugin instance by name (loose coupling, no import needed) |
+| `getPluginByName(name)`  | `Plugin \| undefined`          | Get plugin instance by name — **preferred** (type-safe, no import needed) |
+| `getPlugin(PluginClass)` | `P \| undefined`               | Get plugin instance by class (requires import)         |
+
+`getPluginByName` is type-safe for all built-in plugins via the `PluginNameMap` interface — TypeScript
+automatically returns the correct plugin type (e.g., `SelectionPlugin` for `'selection'`).
 
 ```typescript
+// Preferred — type-safe, no import needed
+const selection = grid.getPluginByName('selection');
+selection?.selectAll(); // ✅ SelectionPlugin methods are available
+
+// Alternative — get by class (requires import)
 import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
-
-// Get a registered plugin instance by class (preferred — fully typed)
-const selection = grid.getPlugin(SelectionPlugin);
-
-// Get a plugin by its name string (useful for adapters / loose coupling)
-const editing = grid.getPluginByName('editing');
+const sel = grid.getPlugin(SelectionPlugin);
 
 // Check if plugin is registered
 if (selection) {

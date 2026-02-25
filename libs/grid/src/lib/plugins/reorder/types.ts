@@ -51,3 +51,10 @@ export interface ColumnMoveDetail {
   /** The complete column order after the move */
   columnOrder: string[];
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    reorder: import('./ReorderPlugin').ReorderPlugin;
+  }
+}

@@ -111,7 +111,6 @@ Access the underlying `<tbw-grid>` element via Angular's `viewChild`:
   code={`
 import { Component, viewChild, ElementRef, AfterViewInit, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { SelectionPlugin } from '@toolbox-web/grid/all';
 import type { DataGridElement } from '@toolbox-web/grid';
 
 @Component({
@@ -135,7 +134,7 @@ export class EmployeeGridComponent implements AfterViewInit {
     console.log('Row count:', grid.sourceRows.length);
 
     // Access plugin instances
-    const selection = grid.getPlugin(SelectionPlugin);
+    const selection = grid.getPluginByName('selection');
     selection?.selectRow(0);
   }
 }
@@ -224,7 +223,6 @@ Manage selection state externally via the `SelectionPlugin` API:
   code={`
 import { Component, viewChild, ElementRef, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
-import { SelectionPlugin } from '@toolbox-web/grid/all';
 import type { DataGridElement } from '@toolbox-web/grid';
 
 @Component({
@@ -258,12 +256,12 @@ export class EmployeeGridComponent {
   }
 
   selectAll() {
-    const plugin = this.gridRef()?.nativeElement.getPlugin(SelectionPlugin);
+    const plugin = this.gridRef()?.nativeElement.getPluginByName('selection');
     plugin?.selectAll();
   }
 
   clearSelection() {
-    const plugin = this.gridRef()?.nativeElement.getPlugin(SelectionPlugin);
+    const plugin = this.gridRef()?.nativeElement.getPluginByName('selection');
     plugin?.clearSelection();
   }
 }

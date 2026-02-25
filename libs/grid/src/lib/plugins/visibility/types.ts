@@ -59,3 +59,10 @@ export interface ColumnGroupInfo {
    */
   fields: string[];
 }
+
+// Module Augmentation - Register plugin name for type-safe getPluginByName()
+declare module '../../core/types' {
+  interface PluginNameMap {
+    visibility: import('./VisibilityPlugin').VisibilityPlugin;
+  }
+}

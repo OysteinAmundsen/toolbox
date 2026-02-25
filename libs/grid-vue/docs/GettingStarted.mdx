@@ -445,7 +445,6 @@ Use the `useGrid` composable for programmatic control:
   code={`
 <script setup lang="ts">
 import { TbwGrid, useGrid } from '@toolbox-web/grid-vue';
-import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
 import { ref } from 'vue';
 
 interface Employee {
@@ -464,7 +463,7 @@ async function exportCsv() {
   const grid = gridElement.value;
   if (!grid) return;
 
-  const exportPlugin = grid.getPlugin(ExportPlugin);
+  const exportPlugin = grid.getPluginByName('export');
   await exportPlugin?.exportToCsv({ filename: 'employees.csv' });
 }
 </script>

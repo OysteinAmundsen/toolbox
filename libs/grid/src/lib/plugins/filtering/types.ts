@@ -124,6 +124,10 @@ declare module '../../core/types' {
      */
     filterable?: boolean;
   }
+
+  interface PluginNameMap {
+    filtering: import('./FilteringPlugin').FilteringPlugin;
+  }
 }
 // #endregion
 

@@ -246,7 +246,8 @@ override afterRowRender(context: AfterRowRenderContext): void {
 | `this.isAnimationEnabled` | Whether grid animations are enabled |
 | `this.animationDuration` | Animation duration in ms (default: 200) |
 | `this.gridIcons` | Merged icon configuration |
-| `this.getPlugin(PluginClass)` | Get another plugin instance |
+| `this.getPluginByName(name)` | Get another plugin instance by name (preferred) |
+| `this.getPlugin(PluginClass)` | Get another plugin instance by class |
 | `this.emit(eventName, detail)` | Dispatch custom event from grid |
 | `this.requestRender()` | Request full re-render |
 | `this.requestAfterRender()` | Request lightweight style update |
@@ -740,4 +741,4 @@ describe('RowNumberPlugin', () => {
 
 - **[Plugins](?path=/docs/grid-plugins--docs)** — Built-in plugin catalog with dependencies and import paths
 - **[Architecture](?path=/docs/grid-dev-architecture--docs)** — How plugins fit into the grid's rendering pipeline
-- **[API Reference — Plugin Methods](?path=/docs/grid-api--docs#plugin-methods)** — `getPlugin()`, `addPlugin()`, and other plugin access methods
+- **[API Reference — Plugin Methods](?path=/docs/grid-api--docs#plugin-methods)** — `getPluginByName()`, `getPlugin()`, and other plugin access methods

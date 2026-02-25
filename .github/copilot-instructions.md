@@ -496,8 +496,12 @@ grid.gridConfig = {
   plugins: [new SelectionPlugin({ mode: 'row' }), new FilteringPlugin({ debounceMs: 200 })],
 };
 
-// Access at runtime
-const sel = grid.getPlugin(SelectionPlugin);
+// Access at runtime — preferred (type-safe, no import needed)
+const sel = grid.getPluginByName('selection');
+sel?.selectAll();
+
+// Alternative — access by class (requires import)
+const sel2 = grid.getPlugin(SelectionPlugin);
 ```
 
 ## Common Pitfalls

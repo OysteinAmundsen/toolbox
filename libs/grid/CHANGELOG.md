@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.22.0...grid-1.22.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* **grid:** click-outside commit regression from containsFocus check ([addb4dc](https://github.com/OysteinAmundsen/toolbox/commit/addb4dca5085035eec6834dc70b64761ed346754))
+
 ## [1.22.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.21.2...grid-1.22.0) (2026-02-25)
 
 

@@ -2620,6 +2620,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
             }
           });
         }
+      } else if (!produced && editorHost.hasChildNodes()) {
+        // Factory returned void but mounted content into the editor host
+        // (e.g. Angular/React/Vue adapter component editor). Mark the cell
+        // as externally managed so the native commit loop in #exitRowEdit
+        // does not read raw input values from framework editor DOM.
+        cell.setAttribute('data-editor-managed', '');
       }
       if (!skipFocus) {
         queueMicrotask(() => {

@@ -36,6 +36,7 @@ import { defaultEditorFor } from './editors';
 import {
   captureBaselines,
   getOriginalRow,
+  isCellDirty,
   isRowDirty,
   markPristine,
   revertToBaseline,
@@ -438,6 +439,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   #newRowIds = new Set<string>();
 
+  /**
+   * Set of row IDs whose edit session was committed (not cancelled).
+   * Used to gate `tbw-row-dirty` — the class is only applied after
+   * row-commit, not during active editing.
+   */
+  #committedDirtyRowIds = new Set<string>();
+
   // #endregion
 
   // #region Lifecycle
@@ -607,6 +615,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       };
       this.gridElement.addEventListener('undo', handleUndoRedo, { signal });
       this.gridElement.addEventListener('redo', handleUndoRedo, { signal });
+
+      // Listen for row-inserted events to auto-mark new rows for dirty tracking
+      this.on('row-inserted', (detail: { row: T; index: number }) => {
+        const rowId = this.grid.getRowId(detail.row);
+        if (rowId != null) {
+          this.markAsNew(String(rowId));
+        }
+      });
     }
 
     // In grid mode, request a full render to trigger afterCellRender hooks
@@ -704,6 +720,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#activeEditCol = -1;
     this.#rowEditSnapshots.clear();
     this.#changedRowIds.clear();
+    this.#committedDirtyRowIds.clear();
     this.#editingCells.clear();
     this.#editorValueCallbacks.clear();
     this.#baselines.clear();
@@ -1211,8 +1228,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /**
    * Apply dirty-tracking CSS classes to each rendered row.
    *
-   * Adds `tbw-row-dirty` when a row has been modified from its baseline,
-   * and `tbw-row-new` when a row was inserted via `insertRow()` with no baseline.
+   * - `tbw-cell-dirty` on individual cells whose value differs from baseline
+   *   (applied on cell-commit, visible during editing)
+   * - `tbw-row-dirty` on the row element only after the row edit session is
+   *   committed (edit-close without cancel)
+   * - `tbw-row-new` when a row was inserted via `insertRow()` with no baseline
+   *
    * Only active when `dirtyTracking: true`.
    *
    * @internal Plugin API
@@ -1225,14 +1246,39 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!rowId) return;
 
     const isNew = this.#newRowIds.has(rowId);
-    const isDirty = !isNew && this.#baselines.has(rowId) && isRowDirty(this.#baselines, rowId, context.row);
+    // Row-dirty requires BOTH: row was committed AND data still differs from baseline.
+    // The data check handles undo: after CTRL+Z restores all cells, the row should
+    // no longer appear dirty even though it was previously committed.
+    const isCommittedDirty =
+      !isNew && this.#committedDirtyRowIds.has(rowId) && isRowDirty(this.#baselines, rowId, context.row);
 
     const el = context.rowElement;
-    const hadDirty = el.classList.contains('tbw-row-dirty');
-    const hadNew = el.classList.contains('tbw-row-new');
 
-    if (isDirty !== hadDirty) el.classList.toggle('tbw-row-dirty', isDirty);
-    if (isNew !== hadNew) el.classList.toggle('tbw-row-new', isNew);
+    // Row-level classes (tbw-row-dirty only after row-commit AND data differs)
+    el.classList.toggle('tbw-row-dirty', isCommittedDirty);
+    el.classList.toggle('tbw-row-new', isNew);
+
+    // Cell-level classes (tbw-cell-dirty on individual cells with changed values)
+    // Only run the per-cell loop when the row has a baseline — avoids
+    // querySelectorAll on the hot path for rows without dirty tracking state.
+    const hasBaseline = this.#baselines.has(rowId);
+    if (hasBaseline) {
+      const cells = el.querySelectorAll('.cell[data-field]');
+      for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i] as HTMLElement;
+        const field = cell.getAttribute('data-field');
+        if (field) {
+          cell.classList.toggle('tbw-cell-dirty', isCellDirty(this.#baselines, rowId, context.row, field));
+        }
+      }
+    } else {
+      // Clean up stale tbw-cell-dirty classes on recycled row elements
+      // that previously displayed a dirty row but now show a pristine one.
+      const dirtyCells = el.querySelectorAll('.tbw-cell-dirty');
+      for (let i = 0; i < dirtyCells.length; i++) {
+        dirtyCells[i].classList.remove('tbw-cell-dirty');
+      }
+    }
   }
 
   /**
@@ -1382,11 +1428,37 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     markPristine(this.#baselines, rowId, row);
     this.#newRowIds.delete(rowId);
     this.#changedRowIds.delete(rowId);
+    this.#committedDirtyRowIds.delete(rowId);
     this.emit<DirtyChangeDetail<T>>('dirty-change', {
       rowId,
       row,
       original: row, // after mark-pristine, original === current
       type: 'pristine',
+    });
+  }
+
+  /**
+   * Programmatically mark a row as new (e.g. after `grid.insertRow()`).
+   *
+   * Adds the row to the new-row set so it receives the `tbw-row-new` CSS
+   * class and is included in `getDirtyRows()` / `dirtyRowIds`.
+   *
+   * Called automatically when `grid.insertRow()` emits a `row-inserted`
+   * plugin event and `dirtyTracking` is enabled — consumers typically
+   * don't need to call this directly.
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   */
+  markAsNew(rowId: string): void {
+    if (!this.config.dirtyTracking) return;
+    this.#newRowIds.add(rowId);
+    this.#committedDirtyRowIds.add(rowId);
+    const row = this.grid.getRow(rowId) as T | undefined;
+    this.emit<DirtyChangeDetail<T>>('dirty-change', {
+      rowId,
+      row: row as T,
+      original: undefined,
+      type: 'new',
     });
   }
 
@@ -1401,6 +1473,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return;
     this.#changedRowIds.add(rowId);
+    this.#committedDirtyRowIds.add(rowId);
     this.emit<DirtyChangeDetail<T>>('dirty-change', {
       rowId,
       row,
@@ -1423,6 +1496,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     }
     this.#newRowIds.clear();
     this.#changedRowIds.clear();
+    this.#committedDirtyRowIds.clear();
   }
 
   /**
@@ -1499,6 +1573,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const reverted = revertToBaseline(this.#baselines, rowId, row);
     if (reverted) {
       this.#changedRowIds.delete(rowId);
+      this.#committedDirtyRowIds.delete(rowId);
       this.emit<DirtyChangeDetail<T>>('dirty-change', {
         rowId,
         row,
@@ -1522,6 +1597,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
     }
     this.#changedRowIds.clear();
+    this.#committedDirtyRowIds.clear();
     this.requestRender();
   }
 
@@ -1691,6 +1767,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const rows = this.changedRows;
     const ids = this.changedRowIds;
     this.#changedRowIds.clear();
+    this.#committedDirtyRowIds.clear();
     this.#syncGridEditState();
 
     if (!silent) {
@@ -2077,6 +2154,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       });
       if (rowId) {
         this.#changedRowIds.delete(rowId);
+        this.#committedDirtyRowIds.delete(rowId);
         this.clearRowInvalid(rowId);
       }
     } else if (!revert && current) {
@@ -2106,12 +2184,24 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         });
         if (rowId) {
           this.#changedRowIds.delete(rowId);
+          this.#committedDirtyRowIds.delete(rowId);
           this.clearRowInvalid(rowId);
         }
-      } else if (!cancelled && changedThisSession && this.isAnimationEnabled) {
-        // Animate the row only if changes were made during this edit session
-        // (deferred to afterRender so the row element exists after re-render)
-        this.#pendingRowAnimation = rowIndex;
+      } else if (!cancelled) {
+        // Mark row as committed-dirty if it has actual changes vs baseline
+        if (rowId && this.config.dirtyTracking) {
+          if (isRowDirty(this.#baselines, rowId, current)) {
+            this.#committedDirtyRowIds.add(rowId);
+          } else {
+            this.#committedDirtyRowIds.delete(rowId);
+          }
+        }
+
+        if (changedThisSession && this.isAnimationEnabled) {
+          // Animate the row only if changes were made during this edit session
+          // (deferred to afterRender so the row element exists after re-render)
+          this.#pendingRowAnimation = rowIndex;
+        }
       }
     }
 

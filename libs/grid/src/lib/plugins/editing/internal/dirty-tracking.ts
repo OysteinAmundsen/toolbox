@@ -87,6 +87,19 @@ export function isRowDirty<T>(baselines: Map<string, T>, rowId: string, currentR
 }
 
 /**
+ * Check whether a single cell (field) differs from its baseline value.
+ *
+ * Returns `false` when no baseline exists for the row.
+ */
+export function isCellDirty<T>(baselines: Map<string, T>, rowId: string, currentRow: T, field: string): boolean {
+  const baseline = baselines.get(rowId);
+  if (!baseline) return false;
+  const baselineValue = (baseline as Record<string, unknown>)[field];
+  const currentValue = (currentRow as Record<string, unknown>)[field];
+  return !deepEqual(baselineValue, currentValue);
+}
+
+/**
  * Deep comparison of two values. Handles primitives, plain objects, arrays,
  * and Dates — the value types produced by `structuredClone` on row data.
  */

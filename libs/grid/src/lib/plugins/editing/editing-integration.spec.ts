@@ -2222,6 +2222,73 @@ describe('EditingPlugin', () => {
       expect(events[0].type).toBe('modified');
     });
 
+    it('markAsNew marks a row as new and emits dirty-change', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      // Insert a new row and verify markAsNew was called automatically
+      await grid.insertRow(0, { id: 99, name: 'New', age: 0 }, false);
+
+      expect(editingPlugin.isDirty('99')).toBe(true);
+      expect(editingPlugin.dirty).toBe(true);
+
+      const dirtyRows = editingPlugin.getDirtyRows();
+      const newEntry = dirtyRows.find((r: any) => r.id === '99');
+      expect(newEntry).toBeDefined();
+      expect(newEntry!.current.name).toBe('New');
+    });
+
+    it('insertRow applies tbw-row-new CSS class when dirtyTracking is enabled', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      await grid.insertRow(0, { id: 99, name: 'New', age: 0 }, false);
+      grid.refreshVirtualWindow(true);
+      await nextFrame();
+
+      const rowEl = grid.querySelectorAll('.data-grid-row')[0];
+      expect(rowEl?.classList.contains('tbw-row-new')).toBe(true);
+    });
+
+    it('markAllPristine clears new row state from insertRow', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      await grid.insertRow(0, { id: 99, name: 'New', age: 0 }, false);
+      expect(editingPlugin.isDirty('99')).toBe(true);
+
+      editingPlugin.markAllPristine();
+      expect(editingPlugin.isDirty('99')).toBe(false);
+      expect(editingPlugin.dirty).toBe(false);
+    });
+
     it('does nothing when dirtyTracking is not enabled', async () => {
       const editingPlugin = new EditingPlugin({ editOn: 'click' });
       grid.gridConfig = {
@@ -2274,7 +2341,7 @@ describe('EditingPlugin', () => {
     });
 
     describe('row CSS classes (tbw-row-dirty / tbw-row-new)', () => {
-      it('adds tbw-row-dirty class to modified rows', async () => {
+      it('adds tbw-row-dirty class after row commit', async () => {
         const editingPlugin = new EditingPlugin({
           editOn: 'click',
           dirtyTracking: true,
@@ -2298,16 +2365,50 @@ describe('EditingPlugin', () => {
         expect(rows[0]?.classList.contains('tbw-row-dirty')).toBe(false);
         expect(rows[1]?.classList.contains('tbw-row-dirty')).toBe(false);
 
-        // Mutate row 1 in-place (simulates cell commit)
+        // Mutate row 1 in-place — without row commit, tbw-row-dirty should NOT appear
         grid._rows[0].name = 'Alice-modified';
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
 
-        // Trigger re-render
+        const rowsMidEdit = grid.querySelectorAll('.data-grid-row');
+        expect(rowsMidEdit[0]?.classList.contains('tbw-row-dirty')).toBe(false);
+
+        // Simulate row commit via markAsDirty (programmatic row-commit equivalent)
+        editingPlugin.markAsDirty('1');
         grid.refreshVirtualWindow(true);
         await nextFrame();
 
         const rowsAfter = grid.querySelectorAll('.data-grid-row');
         expect(rowsAfter[0]?.classList.contains('tbw-row-dirty')).toBe(true);
         expect(rowsAfter[1]?.classList.contains('tbw-row-dirty')).toBe(false);
+      });
+
+      it('adds tbw-cell-dirty class to cells that differ from baseline', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [
+            { field: 'name', header: 'Name', editable: true },
+            { field: 'age', header: 'Age', type: 'number', editable: true },
+          ],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        // Mutate one field in-place (simulates cell-commit)
+        grid._rows[0].name = 'Modified';
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        const row = grid.querySelector('.data-grid-row')!;
+        const nameCell = row.querySelector('.cell[data-field="name"]');
+        const ageCell = row.querySelector('.cell[data-field="age"]');
+        expect(nameCell?.classList.contains('tbw-cell-dirty')).toBe(true);
+        expect(ageCell?.classList.contains('tbw-cell-dirty')).toBe(false);
       });
 
       it('removes tbw-row-dirty class when row is marked pristine', async () => {
@@ -2323,8 +2424,9 @@ describe('EditingPlugin', () => {
         grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
         await waitUpgrade(grid);
 
-        // Mutate and re-render
+        // Mutate, mark as committed-dirty, and re-render
         grid._rows[0].name = 'Modified';
+        editingPlugin.markAsDirty('1');
         grid.refreshVirtualWindow(true);
         await nextFrame();
 
@@ -2351,8 +2453,9 @@ describe('EditingPlugin', () => {
         grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
         await waitUpgrade(grid);
 
-        // Mutate and re-render
+        // Mutate, mark as committed-dirty, and re-render
         grid._rows[0].name = 'Modified';
+        editingPlugin.markAsDirty('1');
         grid.refreshVirtualWindow(true);
         await nextFrame();
 
@@ -2405,8 +2508,9 @@ describe('EditingPlugin', () => {
         ];
         await waitUpgrade(grid);
 
-        // Make row 1 dirty
+        // Make row 1 dirty and mark as committed
         grid._rows[0].name = 'Modified';
+        editingPlugin.markAsDirty('1');
         grid.refreshVirtualWindow(true);
         await nextFrame();
 

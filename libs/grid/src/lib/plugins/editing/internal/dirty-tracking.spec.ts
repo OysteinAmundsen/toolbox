@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { captureBaselines, getOriginalRow, isRowDirty, markPristine, revertToBaseline } from './dirty-tracking';
+import { captureBaselines, getOriginalRow, isCellDirty, isRowDirty, markPristine, revertToBaseline } from './dirty-tracking';
 
 interface TestRow {
   id: number;
@@ -260,6 +260,100 @@ describe('dirty-tracking pure functions', () => {
       // Changed nested array value
       const modified = { ...row, metadata: { scores: [10, 20, 99] } };
       expect(isRowDirty(complexBaselines, '1', modified)).toBe(true);
+    });
+  });
+
+  // #endregion
+
+  // #region isCellDirty
+
+  describe('isCellDirty', () => {
+    it('should return false when cell value matches baseline', () => {
+      baselines.set('1', { id: 1, name: 'Alice', age: 30 });
+      const current = { id: 1, name: 'Alice', age: 30 };
+
+      expect(isCellDirty(baselines, '1', current, 'name')).toBe(false);
+      expect(isCellDirty(baselines, '1', current, 'age')).toBe(false);
+    });
+
+    it('should return true when cell value differs from baseline', () => {
+      baselines.set('1', { id: 1, name: 'Alice', age: 30 });
+      const current = { id: 1, name: 'Bob', age: 30 };
+
+      expect(isCellDirty(baselines, '1', current, 'name')).toBe(true);
+      expect(isCellDirty(baselines, '1', current, 'age')).toBe(false);
+    });
+
+    it('should return false when no baseline exists', () => {
+      const current = { id: 1, name: 'Alice', age: 30 };
+
+      expect(isCellDirty(baselines, '99', current, 'name')).toBe(false);
+    });
+
+    it('should detect nested object property changes per cell', () => {
+      const complexBaselines = new Map<string, ComplexRow>();
+      complexBaselines.set('1', {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: ['admin'],
+        createdAt: new Date('2025-01-15'),
+      });
+      const current: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Bergen', zip: '0150' },
+        tags: ['admin'],
+        createdAt: new Date('2025-01-15'),
+      };
+
+      expect(isCellDirty(complexBaselines, '1', current, 'name')).toBe(false);
+      expect(isCellDirty(complexBaselines, '1', current, 'address')).toBe(true);
+      expect(isCellDirty(complexBaselines, '1', current, 'tags')).toBe(false);
+    });
+
+    it('should handle Date comparisons per cell', () => {
+      const complexBaselines = new Map<string, ComplexRow>();
+      complexBaselines.set('1', {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2025-01-15'),
+      });
+      const current: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2026-06-01'),
+      };
+
+      expect(isCellDirty(complexBaselines, '1', current, 'createdAt')).toBe(true);
+      expect(isCellDirty(complexBaselines, '1', current, 'name')).toBe(false);
+    });
+
+    it('should handle null-to-value transitions per cell', () => {
+      const complexBaselines = new Map<string, ComplexRow>();
+      complexBaselines.set('1', {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2025-01-15'),
+        metadata: null,
+      });
+      const current: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2025-01-15'),
+        metadata: { scores: [1, 2, 3] },
+      };
+
+      expect(isCellDirty(complexBaselines, '1', current, 'metadata')).toBe(true);
+      expect(isCellDirty(complexBaselines, '1', current, 'name')).toBe(false);
     });
   });
 

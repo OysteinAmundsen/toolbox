@@ -280,6 +280,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #pluginManager!: PluginManager;
   #lastPluginsArray?: BaseGridPlugin[]; // Track last attached plugins to avoid unnecessary re-initialization
 
+  /**
+   * Exposes plugin manager for event bus operations (subscribe/unsubscribe/emit).
+   * Plugins access this via `this.grid._pluginManager` in `BaseGridPlugin.on/off/emitPluginEvent`.
+   * @internal
+   */
+  get _pluginManager(): PluginManager | undefined {
+    return this.#pluginManager;
+  }
+
   // Event Listeners
   #eventListenersAdded = false; // Guard against adding duplicate component-level listeners
   #scrollAbortController?: AbortController; // Separate controller for DOM scroll listeners (recreated on DOM changes)
@@ -3039,6 +3048,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.__rowRenderEpoch++;
     for (const r of this._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
     this.refreshVirtualWindow(true);
+
+    // Notify plugins about the inserted row (e.g., editing dirty tracking)
+    this.#pluginManager?.emitPluginEvent('row-inserted', { row, index: idx });
 
     if (animate) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));

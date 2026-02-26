@@ -5,7 +5,9 @@
  * Supports Ctrl+Z/Cmd+Z for undo and Ctrl+Y/Cmd+Y (or Ctrl+Shift+Z) for redo.
  */
 
+import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
 import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
+import type { InternalGrid } from '../../core/types';
 import { canRedo, canUndo, clearHistory, createEditAction, pushAction, redo, undo } from './history';
 import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
 
@@ -98,6 +100,9 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   private undoStack: EditAction[] = [];
   private redoStack: EditAction[] = [];
 
+  /** Suppresses recording during undo/redo to prevent feedback loops. */
+  #suppressRecording = false;
+
   /**
    * Apply a value to a row cell, using `updateRow()` when possible so that
    * active editors (during row-edit mode) are notified via the `cell-change`
@@ -128,6 +133,35 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   }
 
   /**
+   * Move keyboard focus to the cell targeted by an undo/redo action.
+   * If the grid is in row-edit mode and the cell has an active editor,
+   * the editor input is focused so the user can continue editing.
+   */
+  #focusActionCell(action: EditAction): void {
+    const internalGrid = this.grid as unknown as InternalGrid;
+
+    // Map field name → visible column index
+    const colIdx = internalGrid._visibleColumns?.findIndex((c) => c.field === action.field) ?? -1;
+    if (colIdx < 0) return;
+
+    internalGrid._focusRow = action.rowIndex;
+    internalGrid._focusCol = colIdx;
+
+    // If we're in row-edit mode, focus the editor input in the target cell
+    const rowEl = internalGrid.findRenderedRowElement?.(action.rowIndex);
+    if (rowEl) {
+      const cellEl = rowEl.querySelector(`.cell[data-col="${colIdx}"]`) as HTMLElement | null;
+      if (cellEl?.classList.contains('editing')) {
+        // Defer focus to next microtask so the render cycle can update the editor value first
+        queueMicrotask(() => {
+          const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+          editor?.focus({ preventScroll: true });
+        });
+      }
+    }
+  }
+
+  /**
    * Subscribe to cell-edit-committed events from EditingPlugin.
    * @internal
    */
@@ -137,6 +171,12 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     this.on(
       'cell-edit-committed',
       (detail: { rowIndex: number; field: string; oldValue: unknown; newValue: unknown }) => {
+        // Skip recording during undo/redo operations. When undo/redo applies a
+        // value via updateRow, two things can cause re-entry:
+        // 1. updateRow → cell-change → onValueChange → editor triggers commit
+        // 2. Browser native undo (if not fully suppressed) fires input event → commit
+        // The suppress flag prevents these from corrupting the history stacks.
+        if (this.#suppressRecording) return;
         this.recordEdit(detail.rowIndex, detail.field, detail.oldValue, detail.newValue);
       },
     );
@@ -162,9 +202,16 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     const isRedo = (event.ctrlKey || event.metaKey) && (event.key === 'y' || (event.key === 'z' && event.shiftKey));
 
     if (isUndo) {
+      // Prevent browser native undo on text inputs — it would conflict
+      // with the grid's undo by mutating the input text independently,
+      // triggering re-commits that cancel the grid undo.
+      event.preventDefault();
+
       const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
       if (result.action) {
+        this.#suppressRecording = true;
         this.#applyValue(result.action, result.action.oldValue);
+        this.#suppressRecording = false;
 
         // Update state from result
         this.undoStack = result.newState.undoStack;
@@ -175,15 +222,21 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
           type: 'undo',
         });
 
+        this.#focusActionCell(result.action);
         this.requestRender();
       }
       return true;
     }
 
     if (isRedo) {
+      // Prevent browser native redo — same reason as undo above
+      event.preventDefault();
+
       const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
       if (result.action) {
+        this.#suppressRecording = true;
         this.#applyValue(result.action, result.action.newValue);
+        this.#suppressRecording = false;
 
         // Update state from result
         this.undoStack = result.newState.undoStack;
@@ -194,6 +247,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
           type: 'redo',
         });
 
+        this.#focusActionCell(result.action);
         this.requestRender();
       }
       return true;
@@ -232,9 +286,12 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   undo(): EditAction | null {
     const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
     if (result.action) {
+      this.#suppressRecording = true;
       this.#applyValue(result.action, result.action.oldValue);
+      this.#suppressRecording = false;
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
+      this.#focusActionCell(result.action);
       this.requestRender();
     }
     return result.action;
@@ -248,9 +305,12 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   redo(): EditAction | null {
     const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
     if (result.action) {
+      this.#suppressRecording = true;
       this.#applyValue(result.action, result.action.newValue);
+      this.#suppressRecording = false;
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
+      this.#focusActionCell(result.action);
       this.requestRender();
     }
     return result.action;

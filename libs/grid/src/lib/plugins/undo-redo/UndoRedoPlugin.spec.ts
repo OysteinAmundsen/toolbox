@@ -9,7 +9,10 @@ import { UndoRedoPlugin } from './UndoRedoPlugin';
  */
 function createMockGrid(
   rows: Record<string, unknown>[] = [],
-  opts: { getRowId?: (row: unknown) => string } = {},
+  opts: {
+    getRowId?: (row: unknown) => string;
+    columns?: { field: string }[];
+  } = {},
 ) {
   const grid = document.createElement('div');
 
@@ -30,6 +33,11 @@ function createMockGrid(
     query: vi.fn().mockReturnValue([]),
     queryPlugins: vi.fn().mockReturnValue([]),
     _pluginManager: pm,
+    // Internal state used by #focusActionCell
+    _visibleColumns: opts.columns ?? [{ field: 'id' }, { field: 'name' }, { field: 'price' }],
+    _focusRow: -1,
+    _focusCol: -1,
+    findRenderedRowElement: vi.fn().mockReturnValue(null),
     // updateRow: mutates the row in-place (simulating the real grid behavior)
     updateRow: vi.fn((id: string, changes: Record<string, unknown>) => {
       const row = rows.find((r) => String(r['id']) === id);
@@ -81,11 +89,7 @@ describe('UndoRedoPlugin', () => {
 
   describe('attach', () => {
     it('should subscribe to cell-edit-committed event bus', () => {
-      expect(grid._pluginManager.subscribe).toHaveBeenCalledWith(
-        plugin,
-        'cell-edit-committed',
-        expect.any(Function),
-      );
+      expect(grid._pluginManager.subscribe).toHaveBeenCalledWith(plugin, 'cell-edit-committed', expect.any(Function));
     });
   });
 
@@ -295,6 +299,226 @@ describe('UndoRedoPlugin', () => {
       grid.requestRender.mockClear();
       plugin.redo();
       expect(grid.requestRender).toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
+
+  // #region preventDefault on Ctrl+Z / Ctrl+Y
+
+  describe('preventDefault', () => {
+    it('should call preventDefault on Ctrl+Z to block browser native undo', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+
+      const event = ctrlZ();
+      const spy = vi.spyOn(event, 'preventDefault');
+      plugin.onKeyDown(event);
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should call preventDefault on Ctrl+Z even when nothing to undo', () => {
+      const event = ctrlZ();
+      const spy = vi.spyOn(event, 'preventDefault');
+      plugin.onKeyDown(event);
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should call preventDefault on Ctrl+Y to block browser native redo', () => {
+      const event = ctrlY();
+      const spy = vi.spyOn(event, 'preventDefault');
+      plugin.onKeyDown(event);
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should call preventDefault on Ctrl+Shift+Z (alternative redo)', () => {
+      const event = new KeyboardEvent('keydown', {
+        key: 'z',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+      });
+      const spy = vi.spyOn(event, 'preventDefault');
+      plugin.onKeyDown(event);
+
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
+
+  // #region suppressRecording (feedback loop prevention)
+
+  describe('suppressRecording during undo/redo', () => {
+    it('should not record edits triggered by undo via cell-edit-committed', () => {
+      // Simulate: edit committed → undo → updateRow triggers cell-change →
+      // editor re-commit → cell-edit-committed fires again.
+      // Without suppressRecording, the re-commit would be recorded as a new edit,
+      // wiping the redo stack.
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+
+      // Grab the cell-edit-committed handler from the subscribe call
+      const subscribeCalls = grid._pluginManager.subscribe.mock.calls;
+      const commitHandler = subscribeCalls.find((c: unknown[]) => c[1] === 'cell-edit-committed')?.[2] as (
+        detail: Record<string, unknown>,
+      ) => void;
+
+      // Make updateRow trigger a re-commit (simulating editor feedback loop)
+      grid.updateRow.mockImplementation((id: string, changes: Record<string, unknown>) => {
+        const row = rows.find((r) => String(r['id']) === id);
+        if (row) Object.assign(row, changes);
+        // Simulate the feedback: editor re-commits the value it received via onValueChange
+        commitHandler?.({
+          rowIndex: 0,
+          field: 'name',
+          oldValue: 'Changed',
+          newValue: 'Alpha',
+        });
+      });
+
+      plugin.undo();
+
+      // The redo stack should have exactly 1 entry (the original edit), not 2
+      expect(plugin.getRedoStack()).toHaveLength(1);
+      // The undo stack should be empty (we undid the only action)
+      expect(plugin.getUndoStack()).toHaveLength(0);
+    });
+
+    it('should not record edits triggered by redo via cell-edit-committed', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+      plugin.undo(); // undo first
+
+      const subscribeCalls = grid._pluginManager.subscribe.mock.calls;
+      const commitHandler = subscribeCalls.find((c: unknown[]) => c[1] === 'cell-edit-committed')?.[2] as (
+        detail: Record<string, unknown>,
+      ) => void;
+
+      grid.updateRow.mockImplementation((id: string, changes: Record<string, unknown>) => {
+        const row = rows.find((r) => String(r['id']) === id);
+        if (row) Object.assign(row, changes);
+        commitHandler?.({
+          rowIndex: 0,
+          field: 'name',
+          oldValue: 'Alpha',
+          newValue: 'Changed',
+        });
+      });
+
+      plugin.redo();
+
+      // After redo: undo stack should have 1 (the original edit), redo stack should be empty
+      expect(plugin.getUndoStack()).toHaveLength(1);
+      expect(plugin.getRedoStack()).toHaveLength(0);
+    });
+  });
+
+  // #endregion
+
+  // #region Focus management after undo/redo
+
+  describe('focus management', () => {
+    it('should set _focusRow and _focusCol after undo', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+
+      plugin.undo();
+
+      // 'name' is at index 1 in _visibleColumns [id, name, price]
+      expect(grid._focusRow).toBe(0);
+      expect(grid._focusCol).toBe(1);
+    });
+
+    it('should set _focusRow and _focusCol after redo', () => {
+      plugin.recordEdit(1, 'price', 20, 50);
+      rows[1]['price'] = 50;
+
+      plugin.undo();
+      plugin.redo();
+
+      // 'price' is at index 2 in _visibleColumns [id, name, price]
+      expect(grid._focusRow).toBe(1);
+      expect(grid._focusCol).toBe(2);
+    });
+
+    it('should set _focusRow and _focusCol after keyboard undo', () => {
+      plugin.recordEdit(0, 'price', 10, 99);
+      rows[0]['price'] = 99;
+
+      plugin.onKeyDown(ctrlZ());
+
+      expect(grid._focusRow).toBe(0);
+      expect(grid._focusCol).toBe(2);
+    });
+
+    it('should set _focusRow and _focusCol after keyboard redo', () => {
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+
+      plugin.onKeyDown(ctrlZ());
+      plugin.onKeyDown(ctrlY());
+
+      expect(grid._focusRow).toBe(0);
+      expect(grid._focusCol).toBe(1);
+    });
+
+    it('should not crash when field is not in visible columns', () => {
+      plugin.recordEdit(0, 'nonexistent', 'a', 'b');
+
+      // Should not throw, focus should not be set
+      expect(() => plugin.undo()).not.toThrow();
+      expect(grid._focusRow).toBe(-1);
+      expect(grid._focusCol).toBe(-1);
+    });
+
+    it('should focus editor input when cell is in editing mode', async () => {
+      // Create a mock row element with an editing cell containing an input
+      const input = document.createElement('input');
+      const focusSpy = vi.spyOn(input, 'focus');
+      const cellEl = document.createElement('div');
+      cellEl.classList.add('cell', 'editing');
+      cellEl.setAttribute('data-col', '1');
+      cellEl.appendChild(input);
+      const rowEl = document.createElement('div');
+      rowEl.appendChild(cellEl);
+
+      grid.findRenderedRowElement.mockReturnValue(rowEl);
+
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+
+      plugin.undo();
+
+      // The focus happens in a queueMicrotask, so we need to wait
+      await new Promise((r) => queueMicrotask(r));
+
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    });
+
+    it('should not focus editor when cell is not in editing mode', async () => {
+      const input = document.createElement('input');
+      const focusSpy = vi.spyOn(input, 'focus');
+      const cellEl = document.createElement('div');
+      cellEl.classList.add('cell'); // no 'editing' class
+      cellEl.setAttribute('data-col', '1');
+      cellEl.appendChild(input);
+      const rowEl = document.createElement('div');
+      rowEl.appendChild(cellEl);
+
+      grid.findRenderedRowElement.mockReturnValue(rowEl);
+
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      rows[0]['name'] = 'Changed';
+
+      plugin.undo();
+
+      await new Promise((r) => queueMicrotask(r));
+
+      expect(focusSpy).not.toHaveBeenCalled();
     });
   });
 

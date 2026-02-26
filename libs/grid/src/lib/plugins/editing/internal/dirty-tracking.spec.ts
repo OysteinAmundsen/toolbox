@@ -7,6 +7,15 @@ interface TestRow {
   age: number;
 }
 
+interface ComplexRow {
+  id: number;
+  name: string;
+  address: { city: string; zip: string };
+  tags: string[];
+  createdAt: Date;
+  metadata?: { scores: number[] } | null;
+}
+
 describe('dirty-tracking pure functions', () => {
   let baselines: Map<string, TestRow>;
   const getRowId = (row: TestRow) => String(row.id);
@@ -115,6 +124,142 @@ describe('dirty-tracking pure functions', () => {
 
       // Different key count = different
       expect(isRowDirty(baselines, '1', current as unknown as TestRow)).toBe(true);
+    });
+  });
+
+  // #endregion
+
+  // #region isRowDirty (deep comparison)
+
+  describe('isRowDirty (deep comparison with nested objects)', () => {
+    let complexBaselines: Map<string, ComplexRow>;
+    const getId = (row: ComplexRow) => String(row.id);
+
+    beforeEach(() => {
+      complexBaselines = new Map();
+    });
+
+    it('should return false when nested objects are equal (different references)', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: ['admin', 'user'],
+        createdAt: new Date('2025-01-15'),
+      };
+
+      // structuredClone creates new references for nested objects
+      captureBaselines(complexBaselines, [row], getId);
+
+      // Same row object — nested refs differ from cloned baseline
+      expect(isRowDirty(complexBaselines, '1', row)).toBe(false);
+    });
+
+    it('should detect nested object property change', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: ['admin'],
+        createdAt: new Date('2025-01-15'),
+      };
+      captureBaselines(complexBaselines, [row], getId);
+
+      // Mutate nested property
+      const modified = { ...row, address: { city: 'Bergen', zip: '0150' } };
+      expect(isRowDirty(complexBaselines, '1', modified)).toBe(true);
+    });
+
+    it('should detect array element change', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: ['admin', 'user'],
+        createdAt: new Date('2025-01-15'),
+      };
+      captureBaselines(complexBaselines, [row], getId);
+
+      const modified = { ...row, tags: ['admin', 'editor'] };
+      expect(isRowDirty(complexBaselines, '1', modified)).toBe(true);
+    });
+
+    it('should detect array length change', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: ['admin'],
+        createdAt: new Date('2025-01-15'),
+      };
+      captureBaselines(complexBaselines, [row], getId);
+
+      const modified = { ...row, tags: ['admin', 'user'] };
+      expect(isRowDirty(complexBaselines, '1', modified)).toBe(true);
+    });
+
+    it('should detect Date change', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2025-01-15'),
+      };
+      captureBaselines(complexBaselines, [row], getId);
+
+      const modified = { ...row, createdAt: new Date('2026-06-01') };
+      expect(isRowDirty(complexBaselines, '1', modified)).toBe(true);
+    });
+
+    it('should return false for equal Dates with different references', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2025-01-15'),
+      };
+      captureBaselines(complexBaselines, [row], getId);
+
+      // New Date object with same value
+      const same = { ...row, createdAt: new Date('2025-01-15') };
+      expect(isRowDirty(complexBaselines, '1', same)).toBe(false);
+    });
+
+    it('should handle null vs object', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2025-01-15'),
+        metadata: { scores: [1, 2, 3] },
+      };
+      captureBaselines(complexBaselines, [row], getId);
+
+      const modified = { ...row, metadata: null };
+      expect(isRowDirty(complexBaselines, '1', modified)).toBe(true);
+    });
+
+    it('should handle deeply nested arrays within objects', () => {
+      const row: ComplexRow = {
+        id: 1,
+        name: 'Alice',
+        address: { city: 'Oslo', zip: '0150' },
+        tags: [],
+        createdAt: new Date('2025-01-15'),
+        metadata: { scores: [10, 20, 30] },
+      };
+      captureBaselines(complexBaselines, [row], getId);
+
+      // Same values, different references
+      const same = { ...row, metadata: { scores: [10, 20, 30] } };
+      expect(isRowDirty(complexBaselines, '1', same)).toBe(false);
+
+      // Changed nested array value
+      const modified = { ...row, metadata: { scores: [10, 20, 99] } };
+      expect(isRowDirty(complexBaselines, '1', modified)).toBe(true);
     });
   });
 

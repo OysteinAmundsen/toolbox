@@ -77,30 +77,50 @@ export function captureBaselines<T>(
 /**
  * Check whether a row's current data differs from its baseline.
  *
- * Uses shallow property comparison (`!==`) on all enumerable keys — the same
- * strategy as EditingPlugin's `#hasRowChanged`.
+ * Uses deep property comparison so that `structuredClone`'d baselines
+ * with nested objects/arrays/Dates compare correctly.
  */
 export function isRowDirty<T>(baselines: Map<string, T>, rowId: string, currentRow: T): boolean {
   const baseline = baselines.get(rowId);
   if (!baseline) return false; // No baseline → row is "new" or untracked
-  return !shallowEqual(baseline, currentRow);
+  return !deepEqual(baseline, currentRow);
 }
 
 /**
- * Shallow comparison of two objects' enumerable properties.
+ * Deep comparison of two values. Handles primitives, plain objects, arrays,
+ * and Dates — the value types produced by `structuredClone` on row data.
  */
-function shallowEqual<T>(a: T, b: T): boolean {
+function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
-  if (!a || !b) return false;
-  const aObj = a as Record<string, unknown>;
-  const bObj = b as Record<string, unknown>;
-  const keysA = Object.keys(aObj);
-  const keysB = Object.keys(bObj);
-  if (keysA.length !== keysB.length) return false;
-  for (const key of keysA) {
-    if (aObj[key] !== bObj[key]) return false;
+  if (a == null || b == null) return false;
+  if (typeof a !== typeof b) return false;
+
+  // Date comparison
+  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+
+  // Array comparison
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false;
+    }
+    return true;
   }
-  return true;
+
+  // Object comparison
+  if (typeof a === 'object') {
+    const aObj = a as Record<string, unknown>;
+    const bObj = b as Record<string, unknown>;
+    const keysA = Object.keys(aObj);
+    const keysB = Object.keys(bObj);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) {
+      if (!deepEqual(aObj[key], bObj[key])) return false;
+    }
+    return true;
+  }
+
+  return false;
 }
 
 // #endregion

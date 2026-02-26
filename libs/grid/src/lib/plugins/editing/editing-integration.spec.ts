@@ -2526,6 +2526,178 @@ describe('EditingPlugin', () => {
         expect(rowElAfter?.classList.contains('tbw-row-dirty')).toBe(false);
       });
     });
+
+    describe('hasBaseline', () => {
+      it('returns true for tracked rows', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        expect(editingPlugin.hasBaseline('1')).toBe(true);
+      });
+
+      it('returns false for unknown row IDs', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        expect(editingPlugin.hasBaseline('999')).toBe(false);
+      });
+
+      it('returns false for newly inserted rows (no baseline)', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        await grid.insertRow(0, { id: 99, name: 'New', age: 0 }, false);
+
+        // Inserted row has no baseline (it's "new")
+        expect(editingPlugin.hasBaseline('99')).toBe(false);
+        expect(editingPlugin.hasBaseline('1')).toBe(true);
+      });
+
+      it('returns false when dirtyTracking is disabled', async () => {
+        const editingPlugin = new EditingPlugin({ editOn: 'click' });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        expect(editingPlugin.hasBaseline('1')).toBe(false);
+      });
+    });
+
+    describe('baselines-captured event', () => {
+      it('emits after initial rows assignment', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+
+        const events: any[] = [];
+        grid.addEventListener('baselines-captured', (e: CustomEvent) => {
+          events.push(e.detail);
+        });
+
+        grid.rows = [
+          { id: 1, name: 'Alice', age: 30 },
+          { id: 2, name: 'Bob', age: 25 },
+        ];
+        await waitUpgrade(grid);
+
+        expect(events.length).toBeGreaterThanOrEqual(1);
+        const last = events[events.length - 1];
+        expect(last.count).toBe(2);
+      });
+
+      it('emits when new rows are added via rows reassignment', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        const events: any[] = [];
+        grid.addEventListener('baselines-captured', (e: CustomEvent) => {
+          events.push(e.detail);
+        });
+
+        // Add a new row via reassignment
+        grid.rows = [
+          { id: 1, name: 'Alice', age: 30 },
+          { id: 2, name: 'Bob', age: 25 },
+        ];
+        await nextFrame();
+        await nextFrame();
+
+        expect(events.length).toBeGreaterThanOrEqual(1);
+        const last = events[events.length - 1];
+        expect(last.count).toBe(2);
+      });
+
+      it('does not emit when rows are reassigned with same data', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        const events: any[] = [];
+        grid.addEventListener('baselines-captured', (e: CustomEvent) => {
+          events.push(e.detail);
+        });
+
+        // Reassign with same row ID — no new baselines
+        grid.rows = [{ id: 1, name: 'Modified', age: 30 }];
+        await nextFrame();
+        await nextFrame();
+
+        expect(events).toHaveLength(0);
+      });
+
+      it('does not emit when dirtyTracking is disabled', async () => {
+        const editingPlugin = new EditingPlugin({ editOn: 'click' });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+
+        const events: any[] = [];
+        grid.addEventListener('baselines-captured', (e: CustomEvent) => {
+          events.push(e.detail);
+        });
+
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        expect(events).toHaveLength(0);
+      });
+    });
   });
 
   // #endregion

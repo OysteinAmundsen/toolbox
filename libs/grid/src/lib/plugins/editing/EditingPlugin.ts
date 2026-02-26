@@ -40,6 +40,7 @@ import {
   isRowDirty,
   markPristine,
   revertToBaseline,
+  type BaselinesCapturedDetail,
   type DirtyChangeDetail,
   type DirtyRowEntry,
 } from './internal/dirty-tracking';
@@ -432,6 +433,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Only used when `config.dirtyTracking === true`.
    */
   #baselines = new Map<string, T>();
+  /** Whether new baselines were captured during the current processRows cycle. */
+  #baselinesWereCaptured = false;
 
   /**
    * Set of row IDs inserted via `insertRow()` (no baseline available).
@@ -1087,6 +1090,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // --- Dirty tracking: capture baselines (first-write-wins) ---
     if (this.config.dirtyTracking && internalGrid.getRowId) {
+      const sizeBefore = this.#baselines.size;
       captureBaselines(this.#baselines, rows, (r) => {
         try {
           return internalGrid.getRowId?.(r);
@@ -1094,6 +1098,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           return undefined;
         }
       });
+      // Track whether new baselines were captured so afterRender can emit the event
+      if (this.#baselines.size > sizeBefore) {
+        this.#baselinesWereCaptured = true;
+      }
     }
 
     // --- Editing stability: swap in the in-progress row ---
@@ -1176,6 +1184,16 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       const rowIndex = this.#pendingRowAnimation;
       this.#pendingRowAnimation = -1;
       internalGrid.animateRow?.(rowIndex, 'change');
+    }
+
+    // Emit baselines-captured event when new baselines were captured this cycle.
+    // Emitted post-render so consumers can safely read grid.rows, query the DOM,
+    // or call getOriginalRow() in their handler.
+    if (this.#baselinesWereCaptured) {
+      this.#baselinesWereCaptured = false;
+      this.emit<BaselinesCapturedDetail>('baselines-captured', {
+        count: this.#baselines.size,
+      });
     }
 
     // In 'grid' mode, editors are injected via afterCellRender hook during render
@@ -1500,14 +1518,35 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   }
 
   /**
-   * Get the original (baseline) row data as a deep clone.
-   * Returns `undefined` if no baseline exists (e.g. newly inserted row).
+   * Get the original (baseline) row data before any edits.
+   *
+   * Returns a **deep clone** of the row as it was when first seen by the grid.
+   * Cache the result if calling repeatedly for the same row — each call
+   * performs a full `structuredClone`.
+   *
+   * Returns `undefined` if no baseline exists (e.g. newly inserted row via
+   * `grid.insertRow()`).
    *
    * @param rowId - Row ID (from `getRowId`)
    */
   getOriginalRow(rowId: string): T | undefined {
     if (!this.config.dirtyTracking) return undefined;
     return getOriginalRow<T>(this.#baselines, rowId);
+  }
+
+  /**
+   * Check whether a baseline snapshot exists for a row.
+   *
+   * Lightweight alternative to `getOriginalRow()` when you only need to know
+   * if the row has been tracked — no cloning is performed.
+   *
+   * Returns `false` when `dirtyTracking` is disabled.
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   */
+  hasBaseline(rowId: string): boolean {
+    if (!this.config.dirtyTracking) return false;
+    return this.#baselines.has(rowId);
   }
 
   /**

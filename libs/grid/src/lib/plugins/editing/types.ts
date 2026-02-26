@@ -5,6 +5,7 @@
  */
 
 import type { ColumnEditorContext } from '../../core/types';
+import type { BaselinesCapturedDetail, DirtyChangeDetail } from './internal/dirty-tracking';
 
 // ============================================================================
 // Event Detail Types - Editing-specific events
@@ -298,7 +299,9 @@ declare module '../../core/types' {
     /** Fired when a row leaves edit mode, whether committed or reverted (row mode only). */
     'edit-close': EditCloseDetail<TRow>;
     /** Fired when a row's dirty state changes (requires `dirtyTracking: true`). */
-    'dirty-change': import('./internal/dirty-tracking').DirtyChangeDetail<TRow>;
+    'dirty-change': DirtyChangeDetail<TRow>;
+    /** Fired after the render pipeline completes when new baselines were captured (requires `dirtyTracking: true`). */
+    'baselines-captured': BaselinesCapturedDetail;
   }
 
   interface PluginNameMap {

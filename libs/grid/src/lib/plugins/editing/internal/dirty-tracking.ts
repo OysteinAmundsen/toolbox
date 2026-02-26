@@ -39,6 +39,17 @@ export interface DirtyRowEntry<T = unknown> {
   current: T;
 }
 
+/**
+ * Detail for `baselines-captured` custom events.
+ *
+ * Emitted after the render pipeline completes when new baseline snapshots
+ * were captured during `processRows`.
+ */
+export interface BaselinesCapturedDetail {
+  /** Total number of tracked baselines (not just newly captured). */
+  count: number;
+}
+
 // #endregion
 
 // #region Baseline Capture

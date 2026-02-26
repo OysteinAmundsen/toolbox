@@ -2272,6 +2272,156 @@ describe('EditingPlugin', () => {
       // After detach, getOriginalRow should return undefined
       expect(editingPlugin.getOriginalRow('1')).toBeUndefined();
     });
+
+    describe('row CSS classes (tbw-row-dirty / tbw-row-new)', () => {
+      it('adds tbw-row-dirty class to modified rows', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [
+            { field: 'name', header: 'Name', editable: true },
+            { field: 'age', header: 'Age', type: 'number' },
+          ],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [
+          { id: 1, name: 'Alice', age: 30 },
+          { id: 2, name: 'Bob', age: 25 },
+        ];
+        await waitUpgrade(grid);
+
+        // Initially no rows should have dirty class
+        const rows = grid.querySelectorAll('.data-grid-row');
+        expect(rows[0]?.classList.contains('tbw-row-dirty')).toBe(false);
+        expect(rows[1]?.classList.contains('tbw-row-dirty')).toBe(false);
+
+        // Mutate row 1 in-place (simulates cell commit)
+        grid._rows[0].name = 'Alice-modified';
+
+        // Trigger re-render
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        const rowsAfter = grid.querySelectorAll('.data-grid-row');
+        expect(rowsAfter[0]?.classList.contains('tbw-row-dirty')).toBe(true);
+        expect(rowsAfter[1]?.classList.contains('tbw-row-dirty')).toBe(false);
+      });
+
+      it('removes tbw-row-dirty class when row is marked pristine', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        // Mutate and re-render
+        grid._rows[0].name = 'Modified';
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        expect(grid.querySelector('.data-grid-row')?.classList.contains('tbw-row-dirty')).toBe(true);
+
+        // Mark pristine and re-render
+        editingPlugin.markAsPristine('1');
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        expect(grid.querySelector('.data-grid-row')?.classList.contains('tbw-row-dirty')).toBe(false);
+      });
+
+      it('removes tbw-row-dirty class when row is reverted', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        // Mutate and re-render
+        grid._rows[0].name = 'Modified';
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        expect(grid.querySelector('.data-grid-row')?.classList.contains('tbw-row-dirty')).toBe(true);
+
+        // Revert and re-render
+        editingPlugin.revertRow('1');
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        expect(grid.querySelector('.data-grid-row')?.classList.contains('tbw-row-dirty')).toBe(false);
+      });
+
+      it('does not add CSS classes when dirtyTracking is disabled', async () => {
+        const editingPlugin = new EditingPlugin({ editOn: 'click' });
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+        await waitUpgrade(grid);
+
+        // Mutate and re-render
+        grid._rows[0].name = 'Modified';
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        // No dirty class since dirtyTracking is off
+        expect(grid.querySelector('.data-grid-row')?.classList.contains('tbw-row-dirty')).toBe(false);
+        expect(grid.querySelector('.data-grid-row')?.classList.contains('tbw-row-new')).toBe(false);
+      });
+
+      it('clears dirty/new classes from recycled rows', async () => {
+        const editingPlugin = new EditingPlugin({
+          editOn: 'click',
+          dirtyTracking: true,
+        });
+        grid.gridConfig = {
+          columns: [
+            { field: 'name', header: 'Name', editable: true },
+            { field: 'age', header: 'Age', type: 'number' },
+          ],
+          getRowId: (row: any) => String(row.id),
+          plugins: [editingPlugin],
+        };
+        grid.rows = [
+          { id: 1, name: 'Alice', age: 30 },
+          { id: 2, name: 'Bob', age: 25 },
+        ];
+        await waitUpgrade(grid);
+
+        // Make row 1 dirty
+        grid._rows[0].name = 'Modified';
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        const rowEl = grid.querySelectorAll('.data-grid-row')[0];
+        expect(rowEl?.classList.contains('tbw-row-dirty')).toBe(true);
+
+        // Revert row 1 — class should be removed
+        editingPlugin.revertRow('1');
+        grid.refreshVirtualWindow(true);
+        await nextFrame();
+
+        const rowElAfter = grid.querySelectorAll('.data-grid-row')[0];
+        expect(rowElAfter?.classList.contains('tbw-row-dirty')).toBe(false);
+      });
+    });
   });
 
   // #endregion

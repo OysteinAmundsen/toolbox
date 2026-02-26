@@ -17,7 +17,12 @@
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
-import type { AfterCellRenderContext, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
+import type {
+  AfterCellRenderContext,
+  AfterRowRenderContext,
+  PluginManifest,
+  PluginQuery,
+} from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
 import type {
   ColumnConfig,
@@ -1201,6 +1206,33 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Inject editor (don't track in editingCells - we're always editing in grid mode)
     this.#injectEditor(row as T, rowIndex, column as ColumnConfig<T>, colIndex, cellElement, true);
+  }
+
+  /**
+   * Apply dirty-tracking CSS classes to each rendered row.
+   *
+   * Adds `tbw-row-dirty` when a row has been modified from its baseline,
+   * and `tbw-row-new` when a row was inserted via `insertRow()` with no baseline.
+   * Only active when `dirtyTracking: true`.
+   *
+   * @internal Plugin API
+   */
+  override afterRowRender(context: AfterRowRenderContext): void {
+    if (!this.config.dirtyTracking) return;
+
+    const internalGrid = this.gridElement as unknown as InternalGrid;
+    const rowId = internalGrid.getRowId?.(context.row);
+    if (!rowId) return;
+
+    const isNew = this.#newRowIds.has(rowId);
+    const isDirty = !isNew && this.#baselines.has(rowId) && isRowDirty(this.#baselines, rowId, context.row);
+
+    const el = context.rowElement;
+    const hadDirty = el.classList.contains('tbw-row-dirty');
+    const hadNew = el.classList.contains('tbw-row-new');
+
+    if (isDirty !== hadDirty) el.classList.toggle('tbw-row-dirty', isDirty);
+    if (isNew !== hadNew) el.classList.toggle('tbw-row-new', isNew);
   }
 
   /**

@@ -153,7 +153,7 @@ export class MyGridComponent {
 ## Programmatic API
 
 ```ts
-const plugin = grid.getPlugin(UndoRedoPlugin);
+const plugin = grid.getPluginByName('undoRedo');
 
 plugin.undo();
 plugin.redo();
@@ -161,6 +161,32 @@ const canUndo = plugin.canUndo();
 const canRedo = plugin.canRedo();
 plugin.clearHistory();
 ```
+
+### Compound Actions (Transactions)
+
+When a user edit cascades programmatic changes to other fields, group them into
+a single undo step so Ctrl+Z reverts everything at once:
+
+```ts
+grid.addEventListener('cell-commit', (e) => {
+  const undoRedo = grid.getPluginByName('undoRedo');
+  undoRedo.beginTransaction();
+
+  // Record cascaded updates manually
+  const oldTotal = row.total;
+  undoRedo.recordEdit(rowIndex, 'total', oldTotal, newTotal);
+  grid.updateRow(rowId, { total: newTotal });
+
+  // End after the auto-recorded original edit is captured
+  queueMicrotask(() => undoRedo.endTransaction());
+});
+```
+
+| Method              | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `beginTransaction()`| Start buffering edits into a compound group         |
+| `endTransaction()`  | Finalize and push the compound as a single undo step|
+| `recordEdit()`      | Manually record a cell edit (buffered during txn)   |
 
 ## See Also
 

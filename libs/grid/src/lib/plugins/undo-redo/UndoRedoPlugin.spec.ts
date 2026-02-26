@@ -523,4 +523,264 @@ describe('UndoRedoPlugin', () => {
   });
 
   // #endregion
+
+  // #region Transaction API (beginTransaction / endTransaction)
+
+  describe('beginTransaction / endTransaction', () => {
+    it('should group multiple recordEdit calls into a single compound action', () => {
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      expect(plugin.getUndoStack()).toHaveLength(1);
+      const entry = plugin.getUndoStack()[0];
+      expect(entry.type).toBe('compound');
+      if (entry.type === 'compound') {
+        expect(entry.actions).toHaveLength(2);
+        expect(entry.actions[0].field).toBe('name');
+        expect(entry.actions[1].field).toBe('price');
+      }
+    });
+
+    it('should push single edit as regular EditAction (no wrapper)', () => {
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.endTransaction();
+
+      const entry = plugin.getUndoStack()[0];
+      expect(entry.type).toBe('cell-edit');
+    });
+
+    it('should no-op when transaction buffer is empty', () => {
+      plugin.beginTransaction();
+      plugin.endTransaction();
+
+      expect(plugin.getUndoStack()).toHaveLength(0);
+    });
+
+    it('should throw if beginTransaction is called while already in a transaction', () => {
+      plugin.beginTransaction();
+      expect(() => plugin.beginTransaction()).toThrow(/already in progress/);
+      plugin.endTransaction(); // cleanup
+    });
+
+    it('should throw if endTransaction is called without beginTransaction', () => {
+      expect(() => plugin.endTransaction()).toThrow(/No transaction in progress/);
+    });
+
+    it('should capture auto-recorded edits during transaction', () => {
+      // Simulate: beginTransaction, then cell-edit-committed fires (which calls recordEdit internally)
+      plugin.beginTransaction();
+
+      // Manual cascaded edit
+      plugin.recordEdit(0, 'price', 10, 99);
+
+      // Simulate auto-recorded edit from cell-edit-committed event bus
+      const subscribeCalls = grid._pluginManager.subscribe.mock.calls;
+      const commitHandler = subscribeCalls.find((c: unknown[]) => c[1] === 'cell-edit-committed')?.[2] as (
+        detail: Record<string, unknown>,
+      ) => void;
+      commitHandler?.({ rowIndex: 0, field: 'name', oldValue: 'Alpha', newValue: 'Changed' });
+
+      plugin.endTransaction();
+
+      expect(plugin.getUndoStack()).toHaveLength(1);
+      const entry = plugin.getUndoStack()[0];
+      expect(entry.type).toBe('compound');
+      if (entry.type === 'compound') {
+        expect(entry.actions).toHaveLength(2);
+      }
+    });
+
+    it('should clear transaction buffer on detach', () => {
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.detach();
+
+      // Re-attach and verify clean state
+      plugin.attach(grid);
+      expect(plugin.getUndoStack()).toHaveLength(0);
+      expect(() => plugin.endTransaction()).toThrow(/No transaction in progress/);
+    });
+
+    it('should clear transaction buffer on clearHistory', () => {
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.clearHistory();
+
+      // Transaction was aborted — endTransaction should throw
+      expect(() => plugin.endTransaction()).toThrow(/No transaction in progress/);
+      expect(plugin.getUndoStack()).toHaveLength(0);
+    });
+  });
+
+  // #endregion
+
+  // #region Compound undo / redo
+
+  describe('compound undo / redo', () => {
+    it('should revert all edits in a compound on undo', () => {
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      plugin.undo();
+
+      // Both fields should be reverted via updateRow
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { price: 10 });
+      expect(grid.updateRow).toHaveBeenCalledWith('1', { name: 'Alpha' });
+    });
+
+    it('should undo compound in reverse order', () => {
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      const calls: string[] = [];
+      grid.updateRow.mockImplementation((_id: string, changes: Record<string, unknown>) => {
+        calls.push(Object.keys(changes)[0]);
+        const row = rows.find((r) => String(r['id']) === _id);
+        if (row) Object.assign(row, changes);
+      });
+
+      plugin.undo();
+
+      // price was recorded second → undone first (reverse order)
+      expect(calls).toEqual(['price', 'name']);
+    });
+
+    it('should redo compound in forward order', () => {
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      plugin.undo();
+
+      const calls: string[] = [];
+      grid.updateRow.mockImplementation((_id: string, changes: Record<string, unknown>) => {
+        calls.push(Object.keys(changes)[0]);
+        const row = rows.find((r) => String(r['id']) === _id);
+        if (row) Object.assign(row, changes);
+      });
+
+      plugin.redo();
+
+      // Forward order on redo: name first, then price
+      expect(calls).toEqual(['name', 'price']);
+    });
+
+    it('should focus first action cell after compound undo', () => {
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      plugin.undo();
+
+      // First action is 'name' at _visibleColumns index 1
+      expect(grid._focusRow).toBe(0);
+      expect(grid._focusCol).toBe(1);
+    });
+
+    it('should handle keyboard undo of compound action', () => {
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      const events: CustomEvent[] = [];
+      grid.addEventListener('undo', (e: Event) => events.push(e as CustomEvent));
+
+      plugin.onKeyDown(ctrlZ());
+
+      expect(events).toHaveLength(1);
+      expect(events[0].detail.action.type).toBe('compound');
+      expect(grid.updateRow).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle keyboard redo of compound action', () => {
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      plugin.onKeyDown(ctrlZ()); // undo first
+      grid.updateRow.mockClear();
+
+      const events: CustomEvent[] = [];
+      grid.addEventListener('redo', (e: Event) => events.push(e as CustomEvent));
+
+      plugin.onKeyDown(ctrlY());
+
+      expect(events).toHaveLength(1);
+      expect(events[0].detail.action.type).toBe('compound');
+      expect(grid.updateRow).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not record during compound undo (suppressRecording)', () => {
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      // Simulate feedback: updateRow triggers cell-edit-committed
+      const subscribeCalls = grid._pluginManager.subscribe.mock.calls;
+      const commitHandler = subscribeCalls.find((c: unknown[]) => c[1] === 'cell-edit-committed')?.[2] as (
+        detail: Record<string, unknown>,
+      ) => void;
+
+      grid.updateRow.mockImplementation((_id: string, changes: Record<string, unknown>) => {
+        const row = rows.find((r) => String(r['id']) === _id);
+        if (row) Object.assign(row, changes);
+        const key = Object.keys(changes)[0];
+        commitHandler?.({ rowIndex: 0, field: key, oldValue: changes[key], newValue: 'feedback' });
+      });
+
+      plugin.undo();
+
+      // Should have 1 compound on the redo stack, nothing extra on undo
+      expect(plugin.getUndoStack()).toHaveLength(0);
+      expect(plugin.getRedoStack()).toHaveLength(1);
+    });
+
+    it('should request render after compound undo', () => {
+      plugin.beginTransaction();
+      plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
+      plugin.recordEdit(0, 'price', 10, 99);
+      plugin.endTransaction();
+
+      rows[0]['name'] = 'Changed';
+      rows[0]['price'] = 99;
+
+      plugin.undo();
+      expect(grid.requestRender).toHaveBeenCalled();
+    });
+  });
+
+  // #endregion
 });

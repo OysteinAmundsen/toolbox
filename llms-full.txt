@@ -1210,13 +1210,22 @@ new UndoRedoPlugin({
 // Dependencies: Requires EditingPlugin
 // Programmatic API:
 const undoRedo = grid.getPluginByName('undoRedo');
-undoRedo.undo();                     // Undo last action
+undoRedo.undo();                     // Undo last action (single or compound)
 undoRedo.redo();                     // Redo last undone action
 undoRedo.canUndo();                  // Check if undo stack is non-empty
 undoRedo.canRedo();                  // Check if redo stack is non-empty
 undoRedo.clearHistory();             // Clear all undo/redo history
 undoRedo.getUndoStack();             // Get copy of undo stack
 undoRedo.getRedoStack();             // Get copy of redo stack
+undoRedo.recordEdit(idx, field, old, new); // Manually record a cell edit
+
+// Compound actions (transaction API):
+// Group cascaded edits into a single undo step
+undoRedo.beginTransaction();         // Start buffering edits
+undoRedo.recordEdit(idx, 'total', oldTotal, newTotal);
+grid.updateRow(rowId, { total: newTotal });
+queueMicrotask(() => undoRedo.endTransaction()); // Push compound to stack
+// Undo reverts ALL grouped edits in reverse; redo replays in forward order
 ```
 
 ---

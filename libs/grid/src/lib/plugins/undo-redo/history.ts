@@ -5,7 +5,7 @@
  * These functions are stateless and return new state objects.
  */
 
-import type { EditAction, UndoRedoState } from './types';
+import type { CompoundEditAction, EditAction, UndoRedoAction, UndoRedoState } from './types';
 
 /**
  * Push a new action onto the undo stack.
@@ -16,7 +16,7 @@ import type { EditAction, UndoRedoState } from './types';
  * @param maxSize - Maximum history size
  * @returns New state with the action added
  */
-export function pushAction(state: UndoRedoState, action: EditAction, maxSize: number): UndoRedoState {
+export function pushAction(state: UndoRedoState, action: UndoRedoAction, maxSize: number): UndoRedoState {
   const undoStack = [...state.undoStack, action];
 
   // Trim oldest actions if over max size
@@ -39,7 +39,7 @@ export function pushAction(state: UndoRedoState, action: EditAction, maxSize: nu
  */
 export function undo(state: UndoRedoState): {
   newState: UndoRedoState;
-  action: EditAction | null;
+  action: UndoRedoAction | null;
 } {
   if (state.undoStack.length === 0) {
     return { newState: state, action: null };
@@ -72,7 +72,7 @@ export function undo(state: UndoRedoState): {
  */
 export function redo(state: UndoRedoState): {
   newState: UndoRedoState;
-  action: EditAction | null;
+  action: UndoRedoAction | null;
 } {
   if (state.redoStack.length === 0) {
     return { newState: state, action: null };
@@ -141,6 +141,20 @@ export function createEditAction(rowIndex: number, field: string, oldValue: unkn
     field,
     oldValue,
     newValue,
+    timestamp: Date.now(),
+  };
+}
+
+/**
+ * Create a compound action grouping multiple edits into a single undo/redo unit.
+ *
+ * @param actions - The individual edit actions to group (in chronological order)
+ * @returns A CompoundEditAction wrapping all provided edits
+ */
+export function createCompoundAction(actions: EditAction[]): CompoundEditAction {
+  return {
+    type: 'compound',
+    actions,
     timestamp: Date.now(),
   };
 }

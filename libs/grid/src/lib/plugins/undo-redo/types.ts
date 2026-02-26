@@ -27,18 +27,37 @@ export interface EditAction {
   timestamp: number;
 }
 
+/**
+ * A group of edit actions that are undone/redone as a single unit.
+ *
+ * Created via `beginTransaction()` / `endTransaction()` when multiple
+ * field edits should be treated as one logical operation (e.g., a user
+ * edit that cascades changes to other fields).
+ */
+export interface CompoundEditAction {
+  /** Discriminant for compound actions */
+  type: 'compound';
+  /** Individual edit actions in chronological order */
+  actions: EditAction[];
+  /** Unix timestamp when the compound was finalized */
+  timestamp: number;
+}
+
+/** A single edit or a compound group of edits on the undo/redo stack */
+export type UndoRedoAction = EditAction | CompoundEditAction;
+
 /** Internal state maintained by the undo/redo plugin */
 export interface UndoRedoState {
   /** Stack of actions that can be undone (most recent last) */
-  undoStack: EditAction[];
+  undoStack: UndoRedoAction[];
   /** Stack of actions that can be redone (most recent last) */
-  redoStack: EditAction[];
+  redoStack: UndoRedoAction[];
 }
 
 /** Event detail emitted when an undo or redo operation is performed */
 export interface UndoRedoDetail {
   /** The action that was undone or redone */
-  action: EditAction;
+  action: UndoRedoAction;
   /** Whether this was an undo or redo operation */
   type: 'undo' | 'redo';
 }

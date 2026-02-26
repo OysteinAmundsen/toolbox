@@ -32,7 +32,7 @@
 import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } from '@angular/core';
 import type { DataGridElement } from '@toolbox-web/grid';
 import { registerFeature } from '@toolbox-web/grid-angular';
-import { UndoRedoPlugin, type EditAction } from '@toolbox-web/grid/plugins/undo-redo';
+import { UndoRedoPlugin, type UndoRedoAction } from '@toolbox-web/grid/plugins/undo-redo';
 
 registerFeature('undoRedo', (config) => {
   if (config === true) {
@@ -49,15 +49,15 @@ registerFeature('undoRedo', (config) => {
 export interface UndoRedoMethods {
   /**
    * Undo the last edit action.
-   * @returns The undone action, or null if nothing to undo
+   * @returns The undone action (or compound action), or null if nothing to undo
    */
-  undo: () => EditAction | null;
+  undo: () => UndoRedoAction | null;
 
   /**
    * Redo the last undone action.
-   * @returns The redone action, or null if nothing to redo
+   * @returns The redone action (or compound action), or null if nothing to redo
    */
-  redo: () => EditAction | null;
+  redo: () => UndoRedoAction | null;
 
   /**
    * Reactive signal indicating whether undo is available.
@@ -97,12 +97,33 @@ export interface UndoRedoMethods {
   /**
    * Get a copy of the current undo stack.
    */
-  getUndoStack: () => EditAction[];
+  getUndoStack: () => UndoRedoAction[];
 
   /**
    * Get a copy of the current redo stack.
    */
-  getRedoStack: () => EditAction[];
+  getRedoStack: () => UndoRedoAction[];
+
+  /**
+   * Manually record an edit action.
+   * If a transaction is active, the action is buffered; otherwise it's pushed to the undo stack.
+   */
+  recordEdit: (rowIndex: number, field: string, oldValue: unknown, newValue: unknown) => void;
+
+  /**
+   * Begin a transaction. All edits recorded until `endTransaction()` are grouped
+   * into a single compound action for undo/redo.
+   * @throws If a transaction is already active
+   */
+  beginTransaction: () => void;
+
+  /**
+   * End the active transaction and push the compound action to the undo stack.
+   * If only one edit was recorded, it's pushed as a plain EditAction.
+   * If no edits were recorded, the transaction is discarded.
+   * @throws If no transaction is active
+   */
+  endTransaction: () => void;
 
   /**
    * Signal indicating if grid is ready.
@@ -275,5 +296,46 @@ export function injectGridUndoRedo(): UndoRedoMethods {
     getUndoStack: () => getPlugin()?.getUndoStack() ?? [],
 
     getRedoStack: () => getPlugin()?.getRedoStack() ?? [],
+
+    recordEdit: (rowIndex: number, field: string, oldValue: unknown, newValue: unknown) => {
+      const plugin = getPlugin();
+      if (!plugin) {
+        console.warn(
+          `[tbw-grid:undoRedo] UndoRedoPlugin not found.\n\n` +
+            `  → Enable undo/redo on the grid:\n` +
+            `    <tbw-grid [editing]="'dblclick'" [undoRedo]="true" />`,
+        );
+        return;
+      }
+      plugin.recordEdit(rowIndex, field, oldValue, newValue);
+      syncSignals();
+    },
+
+    beginTransaction: () => {
+      const plugin = getPlugin();
+      if (!plugin) {
+        console.warn(
+          `[tbw-grid:undoRedo] UndoRedoPlugin not found.\n\n` +
+            `  → Enable undo/redo on the grid:\n` +
+            `    <tbw-grid [editing]="'dblclick'" [undoRedo]="true" />`,
+        );
+        return;
+      }
+      plugin.beginTransaction();
+    },
+
+    endTransaction: () => {
+      const plugin = getPlugin();
+      if (!plugin) {
+        console.warn(
+          `[tbw-grid:undoRedo] UndoRedoPlugin not found.\n\n` +
+            `  → Enable undo/redo on the grid:\n` +
+            `    <tbw-grid [editing]="'dblclick'" [undoRedo]="true" />`,
+        );
+        return;
+      }
+      plugin.endTransaction();
+      syncSignals();
+    },
   };
 }

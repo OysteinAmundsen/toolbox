@@ -1,5 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { pushAction, undo, redo, canUndo, canRedo, clearHistory, createEditAction } from './history';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  canRedo,
+  canUndo,
+  clearHistory,
+  createCompoundAction,
+  createEditAction,
+  pushAction,
+  redo,
+  undo,
+} from './history';
 import type { UndoRedoState } from './types';
 
 describe('undo-redo history', () => {
@@ -312,4 +321,89 @@ describe('undo-redo history', () => {
       expect(state.undoStack[1]).toBe(action3);
     });
   });
+
+  // #region Compound Actions
+
+  describe('createCompoundAction', () => {
+    it('should create a compound with type discriminant', () => {
+      const actions = [createEditAction(0, 'a', 1, 2), createEditAction(0, 'b', 3, 4)];
+      const compound = createCompoundAction(actions);
+
+      expect(compound.type).toBe('compound');
+      expect(compound.actions).toBe(actions);
+      expect(compound.timestamp).toBeGreaterThan(0);
+    });
+
+    it('should preserve action order', () => {
+      const a1 = createEditAction(0, 'x', 'old1', 'new1');
+      const a2 = createEditAction(1, 'y', 'old2', 'new2');
+      const compound = createCompoundAction([a1, a2]);
+
+      expect(compound.actions[0]).toBe(a1);
+      expect(compound.actions[1]).toBe(a2);
+    });
+  });
+
+  describe('compound actions on stacks', () => {
+    it('should push a compound onto the undo stack', () => {
+      const compound = createCompoundAction([createEditAction(0, 'a', 1, 2), createEditAction(0, 'b', 3, 4)]);
+      const state = pushAction(emptyState, compound, 100);
+
+      expect(state.undoStack).toHaveLength(1);
+      expect(state.undoStack[0]).toBe(compound);
+      expect(state.undoStack[0].type).toBe('compound');
+    });
+
+    it('should undo a compound action', () => {
+      const compound = createCompoundAction([createEditAction(0, 'a', 1, 2), createEditAction(0, 'b', 3, 4)]);
+      const state = pushAction(emptyState, compound, 100);
+
+      const result = undo(state);
+      expect(result.action).toBe(compound);
+      expect(result.newState.undoStack).toHaveLength(0);
+      expect(result.newState.redoStack).toHaveLength(1);
+    });
+
+    it('should redo a compound action', () => {
+      const compound = createCompoundAction([createEditAction(0, 'a', 1, 2), createEditAction(0, 'b', 3, 4)]);
+      let state = pushAction(emptyState, compound, 100);
+      state = undo(state).newState;
+
+      const result = redo(state);
+      expect(result.action).toBe(compound);
+      expect(result.newState.undoStack).toHaveLength(1);
+      expect(result.newState.redoStack).toHaveLength(0);
+    });
+
+    it('should interleave single and compound actions', () => {
+      const single = createEditAction(0, 'x', 'a', 'b');
+      const compound = createCompoundAction([createEditAction(0, 'a', 1, 2), createEditAction(0, 'b', 3, 4)]);
+
+      let state = pushAction(emptyState, single, 100);
+      state = pushAction(state, compound, 100);
+
+      expect(state.undoStack).toHaveLength(2);
+      expect(state.undoStack[0].type).toBe('cell-edit');
+      expect(state.undoStack[1].type).toBe('compound');
+
+      // Undo compound first
+      const result1 = undo(state);
+      expect(result1.action?.type).toBe('compound');
+
+      // Then undo single
+      const result2 = undo(result1.newState);
+      expect(result2.action?.type).toBe('cell-edit');
+    });
+
+    it('should respect maxSize with compound actions', () => {
+      let state = emptyState;
+      for (let i = 0; i < 5; i++) {
+        const compound = createCompoundAction([createEditAction(i, 'f', i, i + 1)]);
+        state = pushAction(state, compound, 3);
+      }
+      expect(state.undoStack).toHaveLength(3);
+    });
+  });
+
+  // #endregion
 });

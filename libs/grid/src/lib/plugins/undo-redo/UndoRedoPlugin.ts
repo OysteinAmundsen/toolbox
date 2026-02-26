@@ -8,8 +8,17 @@
 import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
 import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
 import type { InternalGrid } from '../../core/types';
-import { canRedo, canUndo, clearHistory, createEditAction, pushAction, redo, undo } from './history';
-import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
+import {
+  canRedo,
+  canUndo,
+  clearHistory,
+  createCompoundAction,
+  createEditAction,
+  pushAction,
+  redo,
+  undo,
+} from './history';
+import type { EditAction, UndoRedoAction, UndoRedoConfig, UndoRedoDetail } from './types';
 
 /**
  * Undo/Redo Plugin for tbw-grid
@@ -45,11 +54,14 @@ import type { EditAction, UndoRedoConfig, UndoRedoDetail } from './types';
  *
  * | Method | Signature | Description |
  * |--------|-----------|-------------|
- * | `undo` | `() => void` | Undo the last edit |
- * | `redo` | `() => void` | Redo the last undone edit |
+ * | `undo` | `() => UndoRedoAction \| null` | Undo the last edit (or compound) |
+ * | `redo` | `() => UndoRedoAction \| null` | Redo the last undone edit (or compound) |
  * | `canUndo` | `() => boolean` | Check if undo is available |
  * | `canRedo` | `() => boolean` | Check if redo is available |
  * | `clearHistory` | `() => void` | Clear the entire history stack |
+ * | `recordEdit` | `(rowIndex, field, old, new) => void` | Manually record a cell edit |
+ * | `beginTransaction` | `() => void` | Start grouping edits into a compound |
+ * | `endTransaction` | `() => void` | Finalize and push the compound action |
  *
  * @example Basic Usage with EditingPlugin
  * ```ts
@@ -97,11 +109,14 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   }
 
   // State as class properties
-  private undoStack: EditAction[] = [];
-  private redoStack: EditAction[] = [];
+  private undoStack: UndoRedoAction[] = [];
+  private redoStack: UndoRedoAction[] = [];
 
   /** Suppresses recording during undo/redo to prevent feedback loops. */
   #suppressRecording = false;
+
+  /** Accumulates edits during a transaction; `null` when no transaction is active. */
+  #transactionBuffer: EditAction[] | null = null;
 
   /**
    * Apply a value to a row cell, using `updateRow()` when possible so that
@@ -162,6 +177,32 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   }
 
   /**
+   * Apply value changes for a single or compound action.
+   * Wraps `#applyValue` calls with `#suppressRecording` to prevent feedback loops.
+   */
+  #applyUndoRedoAction(action: UndoRedoAction, direction: 'undo' | 'redo'): void {
+    this.#suppressRecording = true;
+    if (action.type === 'compound') {
+      const subActions = direction === 'undo' ? [...action.actions].reverse() : action.actions;
+      for (const sub of subActions) {
+        this.#applyValue(sub, direction === 'undo' ? sub.oldValue : sub.newValue);
+      }
+    } else {
+      this.#applyValue(action, direction === 'undo' ? action.oldValue : action.newValue);
+    }
+    this.#suppressRecording = false;
+  }
+
+  /**
+   * Focus the cell associated with an undo/redo action.
+   * For compound actions, focuses the first action's cell (the user's original edit).
+   */
+  #focusUndoRedoAction(action: UndoRedoAction): void {
+    const target = action.type === 'compound' ? action.actions[0] : action;
+    if (target) this.#focusActionCell(target);
+  }
+
+  /**
    * Subscribe to cell-edit-committed events from EditingPlugin.
    * @internal
    */
@@ -189,6 +230,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   override detach(): void {
     this.undoStack = [];
     this.redoStack = [];
+    this.#transactionBuffer = null;
   }
 
   /**
@@ -209,9 +251,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
       const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
       if (result.action) {
-        this.#suppressRecording = true;
-        this.#applyValue(result.action, result.action.oldValue);
-        this.#suppressRecording = false;
+        this.#applyUndoRedoAction(result.action, 'undo');
 
         // Update state from result
         this.undoStack = result.newState.undoStack;
@@ -222,7 +262,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
           type: 'undo',
         });
 
-        this.#focusActionCell(result.action);
+        this.#focusUndoRedoAction(result.action);
         this.requestRender();
       }
       return true;
@@ -234,9 +274,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
       const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
       if (result.action) {
-        this.#suppressRecording = true;
-        this.#applyValue(result.action, result.action.newValue);
-        this.#suppressRecording = false;
+        this.#applyUndoRedoAction(result.action, 'redo');
 
         // Update state from result
         this.undoStack = result.newState.undoStack;
@@ -247,7 +285,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
           type: 'redo',
         });
 
-        this.#focusActionCell(result.action);
+        this.#focusUndoRedoAction(result.action);
         this.requestRender();
       }
       return true;
@@ -269,6 +307,78 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    */
   recordEdit(rowIndex: number, field: string, oldValue: unknown, newValue: unknown): void {
     const action = createEditAction(rowIndex, field, oldValue, newValue);
+
+    // Buffer during transactions instead of pushing to undo stack
+    if (this.#transactionBuffer) {
+      this.#transactionBuffer.push(action);
+      return;
+    }
+
+    const newState = pushAction(
+      { undoStack: this.undoStack, redoStack: this.redoStack },
+      action,
+      this.config.maxHistorySize ?? 100,
+    );
+    this.undoStack = newState.undoStack;
+    this.redoStack = newState.redoStack;
+  }
+
+  /**
+   * Begin grouping subsequent edits into a single compound action.
+   *
+   * While a transaction is active, all `recordEdit()` calls (both manual
+   * and auto-recorded from `cell-edit-committed`) are buffered instead of
+   * pushed to the undo stack. Call `endTransaction()` to finalize the group.
+   *
+   * **Typical usage** — group a user edit with its cascaded side-effects:
+   *
+   * ```ts
+   * grid.addEventListener('cell-commit', (e) => {
+   *   const undoRedo = grid.getPluginByName('undoRedo');
+   *   undoRedo.beginTransaction();
+   *
+   *   // Record cascaded updates (these won't auto-record)
+   *   const oldB = row.fieldB;
+   *   undoRedo.recordEdit(rowIndex, 'fieldB', oldB, computedB);
+   *   grid.updateRow(rowId, { fieldB: computedB });
+   *
+   *   // End after the auto-recorded original edit is captured
+   *   queueMicrotask(() => undoRedo.endTransaction());
+   * });
+   * ```
+   *
+   * @throws Error if a transaction is already in progress
+   */
+  beginTransaction(): void {
+    if (this.#transactionBuffer) {
+      throw new Error('UndoRedoPlugin: Transaction already in progress. Call endTransaction() first.');
+    }
+    this.#transactionBuffer = [];
+  }
+
+  /**
+   * Finalize the current transaction, wrapping all buffered edits into a
+   * single compound action on the undo stack.
+   *
+   * - If the buffer contains multiple edits, they are wrapped in a `CompoundEditAction`.
+   * - If the buffer contains a single edit, it is pushed as a regular `EditAction`.
+   * - If the buffer is empty, this is a no-op.
+   *
+   * Undoing a compound action reverts all edits in reverse order; redoing
+   * replays them in forward order.
+   *
+   * @throws Error if no transaction is in progress
+   */
+  endTransaction(): void {
+    const buffer = this.#transactionBuffer;
+    if (!buffer) {
+      throw new Error('UndoRedoPlugin: No transaction in progress. Call beginTransaction() first.');
+    }
+    this.#transactionBuffer = null;
+
+    if (buffer.length === 0) return;
+
+    const action: UndoRedoAction = buffer.length === 1 ? buffer[0] : createCompoundAction(buffer);
     const newState = pushAction(
       { undoStack: this.undoStack, redoStack: this.redoStack },
       action,
@@ -283,15 +393,13 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    *
    * @returns The undone action, or null if nothing to undo
    */
-  undo(): EditAction | null {
+  undo(): UndoRedoAction | null {
     const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
     if (result.action) {
-      this.#suppressRecording = true;
-      this.#applyValue(result.action, result.action.oldValue);
-      this.#suppressRecording = false;
+      this.#applyUndoRedoAction(result.action, 'undo');
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
-      this.#focusActionCell(result.action);
+      this.#focusUndoRedoAction(result.action);
       this.requestRender();
     }
     return result.action;
@@ -302,15 +410,13 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    *
    * @returns The redone action, or null if nothing to redo
    */
-  redo(): EditAction | null {
+  redo(): UndoRedoAction | null {
     const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
     if (result.action) {
-      this.#suppressRecording = true;
-      this.#applyValue(result.action, result.action.newValue);
-      this.#suppressRecording = false;
+      this.#applyUndoRedoAction(result.action, 'redo');
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
-      this.#focusActionCell(result.action);
+      this.#focusUndoRedoAction(result.action);
       this.requestRender();
     }
     return result.action;
@@ -337,19 +443,20 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     const newState = clearHistory();
     this.undoStack = newState.undoStack;
     this.redoStack = newState.redoStack;
+    this.#transactionBuffer = null;
   }
 
   /**
    * Get a copy of the current undo stack.
    */
-  getUndoStack(): EditAction[] {
+  getUndoStack(): UndoRedoAction[] {
     return [...this.undoStack];
   }
 
   /**
    * Get a copy of the current redo stack.
    */
-  getRedoStack(): EditAction[] {
+  getRedoStack(): UndoRedoAction[] {
     return [...this.redoStack];
   }
   // #endregion

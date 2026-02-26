@@ -41,10 +41,10 @@ grid.gridConfig = {
 
 ## API Methods
 
-Access via `grid.getPlugin(UndoRedoPlugin)`:
+Access via `grid.getPlugin(UndoRedoPlugin)` or `grid.getPluginByName('undoRedo')`:
 
 ```typescript
-const history = grid.getPlugin(UndoRedoPlugin);
+const history = grid.getPluginByName('undoRedo');
 
 // Undo/redo
 history.undo();
@@ -64,6 +64,29 @@ history.recordEdit(rowIndex, field, oldValue, newValue);
 const undoStack = history.getUndoStack();
 const redoStack = history.getRedoStack();
 ```
+
+### Compound Actions (Transactions)
+
+When a single user edit triggers cascaded changes to other fields, group them
+into one undo step using `beginTransaction()` / `endTransaction()`:
+
+```typescript
+grid.addEventListener('cell-commit', (e) => {
+  const undoRedo = grid.getPluginByName('undoRedo');
+  undoRedo.beginTransaction();
+
+  // Manually record cascaded side-effects
+  const oldTotal = row.total;
+  undoRedo.recordEdit(rowIndex, 'total', oldTotal, newTotal);
+  grid.updateRow(rowId, { total: newTotal });
+
+  // End after the auto-recorded original edit is captured
+  queueMicrotask(() => undoRedo.endTransaction());
+});
+```
+
+Undoing a compound action reverts **all** grouped edits in reverse order;
+redoing replays them in forward order.
 
 ## Events
 

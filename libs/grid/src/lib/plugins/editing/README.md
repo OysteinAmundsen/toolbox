@@ -31,6 +31,7 @@ grid.gridConfig = {
 | `editOn`            | `'click' \| 'dblclick' \| 'manual' \| false`      | `'click'` | How editing is triggered (row mode only)                                 |
 | `onBeforeEditClose` | `(event: MouseEvent \| KeyboardEvent) => boolean` | —         | Return `false` to prevent row edit from closing                          |
 | `focusTrap`         | `boolean`                                         | `false`   | When `true`, focus is returned to the editing cell if it leaves the grid |
+| `dirtyTracking`     | `boolean`                                         | `false`   | Track row baselines and expose dirty/pristine state                      |
 
 ## Edit Modes
 
@@ -73,6 +74,7 @@ All editable cells always show editors (spreadsheet-like).
 | `before-edit-close`  | `BeforeEditCloseDetail<TRow>` | Fires synchronously before edit state is cleared on commit (row mode). Lets managed editors flush pending values. Does not fire on revert. |
 | `edit-close`         | `EditCloseDetail<TRow>`       | Row left edit mode                                                                                                                         |
 | `changed-rows-reset` | `ChangedRowsResetDetail`      | Change tracking reset                                                                                                                      |
+| `dirty-change`       | `DirtyChangeDetail<TRow>`     | Row dirty state changed (requires `dirtyTracking: true`). Detail includes `rowId`, `row`, `original`, `type`                               |
 
 ## API Methods
 
@@ -103,7 +105,26 @@ editing.clearInvalid(rowId, field);
 editing.isCellInvalid(rowId, field);
 editing.hasInvalidCells(rowId);
 editing.getInvalidFields(rowId);
+
+// Dirty tracking (requires dirtyTracking: true)
+editing.isDirty(rowId); // true if row differs from baseline
+editing.isPristine(rowId); // opposite of isDirty
+editing.dirty; // true if any row is dirty
+editing.getDirtyRows(); // [{ id, original, current }]
+editing.markAsPristine(rowId); // re-snapshot after save
+editing.markAllPristine(); // re-snapshot all after batch save
+editing.revertRow(rowId); // revert to baseline values
+editing.getOriginalRow(rowId); // deep clone of baseline
 ```
+
+## Row CSS Classes
+
+When `dirtyTracking: true`, the plugin applies CSS classes to rows:
+
+| CSS Class       | Meaning                            |
+| --------------- | ---------------------------------- |
+| `tbw-row-dirty` | Row data differs from baseline     |
+| `tbw-row-new`   | Row was inserted via `insertRow()` |
 
 ## Documentation
 

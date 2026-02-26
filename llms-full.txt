@@ -779,6 +779,7 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `edit-close` | `row`, `rowIndex` |
 | `changed-rows-reset` | — |
 | `group-toggle` | `key`, `expanded` |
+| `dirty-change` | `rowId`, `row`, `original`, `type` (requires `dirtyTracking: true`) |
 
 **Plugin Events (via `PluginEvents` constant):**
 
@@ -844,6 +845,7 @@ new EditingPlugin({
   commitOnEnter?: boolean,                         // (default: true)
   cancelOnEscape?: boolean,                        // (default: true)
   focusTrap?: boolean,                             // (default: false) — reclaim focus when it leaves during edit
+  dirtyTracking?: boolean,                         // (default: false) — track row baselines for dirty/pristine state
 })
 // Keyboard: Enter = row edit, F2 = single-cell edit, Escape = cancel, Tab = next cell
 // Focus Management: grid.registerExternalFocusContainer(el) / unregisterExternalFocusContainer(el)
@@ -851,6 +853,14 @@ new EditingPlugin({
 //   → prevents editor close when clicking in registered containers
 //   → Angular BaseOverlayEditor auto-registers its panel; custom editors should register manually
 //   → grid.containsFocus(node?) checks grid DOM + all registered external containers
+// Dirty Tracking (requires dirtyTracking: true):
+//   isDirty(rowId), isPristine(rowId), dirty, pristine
+//   getDirtyRows() → [{ id, original, current }]
+//   markAsPristine(rowId), markAllPristine(), markAsDirty(rowId)
+//   revertRow(rowId), getOriginalRow(rowId)
+//   Event: 'dirty-change' → { rowId, row, original, type: 'modified'|'pristine'|'reverted' }
+//   CSS classes: .tbw-row-dirty, .tbw-row-new (auto-applied to rows)
+// Editing Stability: active edit session survives sort/filter/group pipeline changes
 ```
 
 ### FilteringPlugin
@@ -870,6 +880,8 @@ new FilteringPlugin({
 // Blank filtering: number/date panels include a Blank checkbox; set-filter panels show a "(Blank)" entry
 // Import BLANK_FILTER_VALUE sentinel from '@toolbox-web/grid/plugins/filtering' for programmatic blank filter models
 // FilterPanelParams.currentFilter gives the active FilterModel so custom panels can pre-populate
+// Silent mode: pass { silent: true } to setFilter/setFilterModel/clearAllFilters/clearFieldFilter
+//   to update filter state without triggering re-render — apply all at once with a non-silent final call
 ```
 
 ### TreePlugin
@@ -1237,6 +1249,7 @@ const existing = queryGrid<Employee>('#my-grid');
 | `fitMode` | `'stretch' \| 'fixed' \| 'auto'` | Column fit behavior |
 | `loading` | `boolean` | Show loading overlay |
 | `columnState` | `GridColumnState` | Save/restore column state |
+| `focusedCell` | `{ rowIndex, colIndex, field } \| null` | Currently focused cell (readonly) |
 
 ### Grid Methods
 
@@ -1252,6 +1265,9 @@ const existing = queryGrid<Employee>('#my-grid');
 | `animateRowById(id, type)` | Animate row by ID → `Promise<boolean>` |
 | `insertRow(index, row, animate?)` | Insert row at visible position (auto-animates) → `Promise<void>` |
 | `removeRow(index, animate?)` | Remove row at visible position (auto-animates) → `Promise<T \| undefined>` |
+| `focusCell(rowIndex, column)` | Focus cell by row index and column index or field name |
+| `scrollToRow(rowIndex, options?)` | Scroll row into view (align: start/center/end/nearest, behavior: instant/smooth) |
+| `scrollToRowById(rowId, options?)` | Scroll to row by ID |
 | `setRowLoading(id, loading)` | Row-level loading indicator |
 | `setCellLoading(rowId, field, loading)` | Cell-level loading indicator |
 | `clearAllLoading()` | Clear all loading states |

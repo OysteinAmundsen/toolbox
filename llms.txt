@@ -54,9 +54,9 @@ Key TypeScript interfaces for configuration and events:
 
 ## Plugins
 
-- [Editing Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-editing--docs): Inline cell editing and full row editing mode with built-in editors (text, number, date, boolean/checkbox, select/dropdown), custom editors, validation support
+- [Editing Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-editing--docs): Inline cell editing and full row editing mode with built-in editors (text, number, date, boolean/checkbox, select/dropdown), custom editors, validation support, dirty tracking (`dirtyTracking: true` — baseline snapshots, isDirty/isPristine, revert, `dirty-change` event, `tbw-row-dirty`/`tbw-row-new` CSS classes)
 - [Selection Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-selection--docs): Cell selection, row selection, range selection (Excel-like), checkbox column, Shift/Ctrl multi-select, select all
-- [Filtering Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-filtering--docs): Column filters with text, number, date, set (multi-select), boolean types; custom filter functions, filter row, quick filter
+- [Filtering Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-filtering--docs): Column filters with text, number, date, set (multi-select), boolean types; custom filter functions, filter row, quick filter, silent mode (`{ silent: true }` option on `setFilter`/`setFilterModel`/`clearAllFilters` for batch updates)
 - [Multi-Sort Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-multi-sort--docs): Sort by multiple columns with priority
 - [Row Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-rows--docs): Group rows by field values, nested grouping, expand/collapse, group footer aggregations (sum, avg, count, min, max)
 - [Column Grouping Plugin](https://toolboxjs.com/?path=/docs/grid-plugins-grouping-columns--docs): Group columns under shared headers, multi-level column spanning, header grouping
@@ -97,6 +97,7 @@ Key TypeScript interfaces for configuration and events:
 - **Row Animation**: Visual feedback for row changes (insert, update, remove) with `animateRow()`, `animateRowById()`, and `animateRows()` methods — all return Promises that resolve when animation completes
 - **Insert & Remove Rows**: `insertRow(index, row)` / `removeRow(index)` — add or remove rows at a specific visible position without re-sorting/filtering. Auto-animate by default (pass `false` to skip). Returns Promises; source data updated automatically
 - **Focus Management**: `registerExternalFocusContainer(el)` / `unregisterExternalFocusContainer(el)` / `containsFocus(node?)` — treat external overlay panels (datepickers, dropdowns) as logically inside the grid so focus doesn't close editors
+- **Focus & Navigation**: `focusCell(rowIndex, column)` / `focusedCell` / `scrollToRow(rowIndex, options?)` / `scrollToRowById(rowId, options?)` — programmatic cell focus and scroll-to-row with alignment options (`'start'`, `'center'`, `'end'`, `'nearest'`) and smooth scrolling
 - [Animation Configuration](https://toolboxjs.com/?path=/docs/grid-animation--docs): Global animation settings including mode (on/off/reduced-motion) and styles
 
 ## Live Examples

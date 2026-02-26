@@ -607,6 +607,38 @@ const nodeInGrid = grid.containsFocus(someNode); // checks specific node
 The [`data-has-focus`](#data-has-focus) attribute on `<tbw-grid>` is also kept in sync:
 when focus enters a registered external container, `data-has-focus` stays on the grid.
 
+### Focus & Navigation API
+
+Programmatic cell focus and scroll-to-row:
+
+```typescript
+// Focus a cell by column index or field name
+grid.focusCell(0, 2);         // row 0, column index 2
+grid.focusCell(5, 'email');   // row 5, field 'email'
+
+// Read the currently focused cell
+const cell = grid.focusedCell;
+if (cell) {
+  console.log(`Row ${cell.rowIndex}, field "${cell.field}"`);
+}
+
+// Scroll a row into view (no-op if already visible)
+grid.scrollToRow(42);
+
+// Center the row with smooth scrolling
+grid.scrollToRow(42, { align: 'center', behavior: 'smooth' });
+
+// Scroll by row ID (requires getRowId or id/_id property)
+grid.scrollToRowById('emp-42', { align: 'center' });
+```
+
+**`ScrollToRowOptions`:**
+
+| Option     | Type                                    | Default     | Description                      |
+| ---------- | --------------------------------------- | ----------- | -------------------------------- |
+| `align`    | `'start' \| 'center' \| 'end' \| 'nearest'` | `'nearest'` | Where to position the row        |
+| `behavior` | `'instant' \| 'smooth'`                | `'instant'` | Scroll animation                 |
+
 ## Events
 
 ### Edit Events
@@ -620,8 +652,9 @@ when focus enters a registered external container, `data-has-focus` stays on the
 | `edit-open`          | `EditOpenDetail`    | No         | Row entered edit mode               |
 | `before-edit-close`  | [`BeforeEditCloseDetail`](/docs/grid-plugins-editing-interfaces-beforeeditclosedetail--docs) | No | Fires before edit state is cleared (commit only, row mode) |
 | `edit-close`         | `EditCloseDetail`   | No         | Row left edit mode                  |
+| `dirty-change`       | [`DirtyChangeDetail`](/docs/grid-plugins-editing-interfaces-dirtychangedetail--docs) | No | Row dirty state changed (requires `dirtyTracking: true`) |
 
-> **Note:** `cell-commit`, `row-commit`, `changed-rows-reset`, `edit-open`, `before-edit-close`, and `edit-close` events require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs). The `cell-change` event is a core event that fires for any programmatic row updates via the Row Update API.
+> **Note:** `cell-commit`, `row-commit`, `changed-rows-reset`, `edit-open`, `before-edit-close`, `edit-close`, and `dirty-change` events require the [EditingPlugin](?path=/docs/grid-plugins-editing--docs). The `cell-change` event is a core event that fires for any programmatic row updates via the Row Update API.
 
 ```typescript
 import type { CellCommitDetail } from '@toolbox-web/grid/plugins/editing';

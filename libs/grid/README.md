@@ -168,16 +168,17 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 
 ### Properties
 
-| Property      | Type                                | Description                                        |
-| ------------- | ----------------------------------- | -------------------------------------------------- |
-| `rows`        | `T[]`                               | Data array                                         |
-| `columns`     | `ColumnConfig[]`                    | Column definitions (→ `gridConfig.columns`)        |
-| `gridConfig`  | `GridConfig`                        | Full configuration object (single source of truth) |
-| `fitMode`     | `'stretch' \| 'fixed'`              | Column sizing behavior (→ `gridConfig.fitMode`)    |
-| `loading`     | `boolean \| LoadingContext`         | Grid-level loading state                           |
-| `columnState` | `GridColumnState[]`                 | Get/set column widths, order, visibility, sort     |
-| `changedRows` | `T[]` (readonly)                    | Rows with pending edits (requires EditingPlugin)   |
-| `sortState`   | `Map<string, SortState>` (readonly) | Current sort state per column                      |
+| Property      | Type                                               | Description                                        |
+| ------------- | -------------------------------------------------- | -------------------------------------------------- |
+| `rows`        | `T[]`                                              | Data array                                         |
+| `columns`     | `ColumnConfig[]`                                   | Column definitions (→ `gridConfig.columns`)        |
+| `gridConfig`  | `GridConfig`                                       | Full configuration object (single source of truth) |
+| `fitMode`     | `'stretch' \| 'fixed'`                             | Column sizing behavior (→ `gridConfig.fitMode`)    |
+| `loading`     | `boolean \| LoadingContext`                        | Grid-level loading state                           |
+| `columnState` | `GridColumnState[]`                                | Get/set column widths, order, visibility, sort     |
+| `changedRows` | `T[]` (readonly)                                   | Rows with pending edits (requires EditingPlugin)   |
+| `sortState`   | `Map<string, SortState>` (readonly)                | Current sort state per column                      |
+| `focusedCell` | `{ rowIndex, colIndex, field } \| null` (readonly) | Currently focused cell position                    |
 
 ### Methods
 
@@ -201,6 +202,14 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `commitActiveRowEdit()`     | `void`  | Commit current row edit |
 | `cancelActiveRowEdit()`     | `void`  | Cancel current row edit |
 | `resetChangedRows(silent?)` | `void`  | Clear change tracking   |
+
+#### Focus & Navigation Methods
+
+| Method                             | Returns | Description                         |
+| ---------------------------------- | ------- | ----------------------------------- |
+| `focusCell(rowIndex, column)`      | `void`  | Focus a cell by index or field name |
+| `scrollToRow(rowIndex, options?)`  | `void`  | Scroll row into view                |
+| `scrollToRowById(rowId, options?)` | `void`  | Scroll to row by ID                 |
 
 #### Column Methods
 
@@ -300,6 +309,7 @@ The grid supports configuration via HTML attributes with JSON-serialized values:
 | `edit-open`          | `EditOpenDetail`         | Row entered edit mode             |
 | `edit-close`         | `EditCloseDetail`        | Row left edit mode                |
 | `changed-rows-reset` | `ChangedRowsResetDetail` | Change tracking cleared           |
+| `dirty-change`       | `DirtyChangeDetail`      | Row dirty state changed           |
 
 #### Deprecated Events
 

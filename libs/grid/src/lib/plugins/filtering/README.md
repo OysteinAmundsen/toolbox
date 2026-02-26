@@ -168,6 +168,15 @@ filtering.clearFieldFilter('name');
 
 // Check if a field has an active filter
 filtering.isFieldFiltered('name');
+
+// Silent mode: update filter state without re-rendering
+// Useful for setting multiple filters, then applying at once
+filtering.setFilter('name', { type: 'text', operator: 'contains', value: 'John' }, { silent: true });
+filtering.setFilter('price', { type: 'number', operator: 'greaterThan', value: 100 }); // last call triggers render
+
+// Also available on setFilterModel, clearAllFilters, clearFieldFilter:
+filtering.setFilterModel(filters, { silent: true });
+filtering.clearAllFilters({ silent: true });
 ```
 
 ## CSS Variables

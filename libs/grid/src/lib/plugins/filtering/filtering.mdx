@@ -346,6 +346,11 @@ plugin.clearFilters();
 
 // Clear specific filter
 plugin.clearFilter('name');
+
+// Silent mode: update filter state without triggering re-render
+// Useful for batching multiple filter changes
+plugin.setFilter('name', 'Alice', { silent: true });
+plugin.setFilter('dept', 'Engineering'); // last call applies all
 ```
 
 ## Events

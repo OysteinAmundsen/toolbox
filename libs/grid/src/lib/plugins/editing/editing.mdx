@@ -719,6 +719,7 @@ then press Enter or click away to see the events:
 | `cell-commit` | [`CellCommitDetail`](/docs/grid-plugins-editing-interfaces-cellcommitdetail--docs) | Fired when a cell value is committed (cancelable) |
 | `row-commit` | [`RowCommitDetail`](/docs/grid-plugins-editing-interfaces-rowcommitdetail--docs) | Fired when a row editing session ends (cancelable) |
 | `changed-rows-reset` | [`ChangedRowsResetDetail`](/docs/grid-plugins-editing-interfaces-changedrowsresetdetail--docs) | Fired when `resetChangedRows()` is called |
+| `dirty-change` | [`DirtyChangeDetail`](/docs/grid-plugins-editing-interfaces-dirtychangedetail--docs) | Fired when a row's dirty state changes (requires `dirtyTracking: true`) |
 
 ## Cell Validation
 
@@ -814,6 +815,100 @@ editor: (ctx) => {
 ```
 
 > **Angular:** `BaseOverlayEditor` handles registration automatically.
+
+## Dirty Tracking
+
+Enable dirty tracking to compare each row's current data against its original (baseline)
+snapshot. This lets you detect which rows have been modified, display visual indicators,
+and revert changes — useful for "save changes" workflows.
+
+### Configuration
+
+```ts
+new EditingPlugin({
+  dirtyTracking: true,
+})
+```
+
+When enabled, the plugin captures a deep-clone baseline of each row when data is first
+loaded (or when `grid.rows` is reassigned). Baselines are keyed by row ID, so
+`gridConfig.getRowId` (or a row `id`/`_id` property) is required.
+
+### API Methods
+
+Access via `grid.getPlugin(EditingPlugin)`:
+
+| Method / Property | Returns | Description |
+| --- | --- | --- |
+| `isDirty(rowId)` | `boolean` | Whether the row differs from its baseline |
+| `isPristine(rowId)` | `boolean` | Opposite of `isDirty` |
+| `dirty` | `boolean` | Whether **any** row is dirty |
+| `pristine` | `boolean` | Whether **all** rows are pristine |
+| `getDirtyRows()` | `DirtyRowEntry[]` | All dirty rows with `{ id, original, current }` |
+| `dirtyRowIds` | `string[]` | IDs of all dirty rows |
+| `getOriginalRow(rowId)` | `T \| undefined` | Deep clone of the baseline row |
+| `markAsPristine(rowId)` | `void` | Re-snapshot baseline from current data (call after save) |
+| `markAsDirty(rowId)` | `void` | Force-mark a row dirty (e.g., after external mutation) |
+| `markAllPristine()` | `void` | Re-snapshot all baselines (call after batch save) |
+| `revertRow(rowId)` | `void` | Revert a row to its baseline values |
+
+### Events
+
+The `dirty-change` event fires whenever a row's dirty state changes:
+
+```ts
+grid.addEventListener('dirty-change', (e: CustomEvent<DirtyChangeDetail>) => {
+  const { rowId, row, original, type } = e.detail;
+  // type: 'modified' | 'pristine' | 'reverted'
+  console.log(`Row ${rowId}: ${type}`);
+});
+```
+
+### Example: Save Workflow
+
+```ts
+const editing = grid.getPlugin(EditingPlugin);
+
+// Check if there are unsaved changes
+if (editing.dirty) {
+  const dirtyRows = editing.getDirtyRows();
+  await api.saveAll(dirtyRows.map(r => r.current));
+  editing.markAllPristine();
+}
+```
+
+## Row CSS Classes
+
+When dirty tracking is enabled, the EditingPlugin automatically applies CSS classes
+to rows based on their state:
+
+| CSS Class | Applied When |
+| --- | --- |
+| `tbw-row-dirty` | Row data differs from its baseline |
+| `tbw-row-new` | Row was inserted via `insertRow()` |
+
+These classes are toggled after every render, so they stay in sync with the data.
+
+### Styling Dirty Rows
+
+```css
+tbw-grid .data-grid-row.tbw-row-dirty {
+  background-color: #fffde7; /* Light yellow highlight */
+}
+tbw-grid .data-grid-row.tbw-row-new {
+  background-color: #e8f5e9; /* Light green highlight */
+}
+```
+
+## Editing Stability
+
+When rows are sorted, filtered, or grouped while a row is being edited, the
+EditingPlugin preserves the active edit session. The plugin tracks the editing row
+by identity (object reference) and remaps the edit index after the data pipeline
+runs, so the editor stays attached to the correct row even when its position changes.
+
+If the editing row is removed from the processed data (e.g., filtered out), the
+edit session is automatically canceled to prevent stale state.
 
 ## See Also
 

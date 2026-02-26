@@ -488,8 +488,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   /**
    * Set a filter on a specific field.
    * Pass null to remove the filter.
+   * @param options - `{ silent: true }` applies the filter without emitting `filter-change`
    */
-  setFilter(field: string, filter: Omit<FilterModel, 'field'> | null): void {
+  setFilter(field: string, filter: Omit<FilterModel, 'field'> | null, options?: { silent?: boolean }): void {
     if (filter === null) {
       this.filters.delete(field);
       this.syncExcludedValues(field, null);
@@ -503,11 +504,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.cacheKey = null;
     this.cachedInputSpot = null;
 
-    this.emit<FilterChangeDetail>('filter-change', {
-      filters: [...this.filters.values()],
-      filteredRowCount: 0, // Will be accurate after processRows
-      selected: this.computeSelected(),
-    });
+    if (!options?.silent) {
+      this.emit<FilterChangeDetail>('filter-change', {
+        filters: [...this.filters.values()],
+        filteredRowCount: 0, // Will be accurate after processRows
+        selected: this.computeSelected(),
+      });
+    }
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
     this.requestRender();
@@ -536,8 +539,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   /**
    * Set filters from an array (replaces all existing filters).
+   * @param options - `{ silent: true }` applies filters without emitting `filter-change`
    */
-  setFilterModel(filters: FilterModel[]): void {
+  setFilterModel(filters: FilterModel[], options?: { silent?: boolean }): void {
     this.filters.clear();
     this.excludedValues.clear();
     for (const filter of filters) {
@@ -548,11 +552,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.cacheKey = null;
     this.cachedInputSpot = null;
 
-    this.emit<FilterChangeDetail>('filter-change', {
-      filters: [...this.filters.values()],
-      filteredRowCount: 0,
-      selected: this.computeSelected(),
-    });
+    if (!options?.silent) {
+      this.emit<FilterChangeDetail>('filter-change', {
+        filters: [...this.filters.values()],
+        filteredRowCount: 0,
+        selected: this.computeSelected(),
+      });
+    }
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
     this.requestRender();
@@ -560,24 +566,26 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   /**
    * Clear all filters.
+   * @param options - `{ silent: true }` clears filters without emitting `filter-change`
    */
-  clearAllFilters(): void {
+  clearAllFilters(options?: { silent?: boolean }): void {
     this.filters.clear();
     this.excludedValues.clear();
     this.searchText.clear();
 
-    this.applyFiltersInternal();
+    this.applyFiltersInternal(options?.silent);
   }
 
   /**
    * Clear filter for a specific field.
+   * @param options - `{ silent: true }` clears filter without emitting `filter-change`
    */
-  clearFieldFilter(field: string): void {
+  clearFieldFilter(field: string, options?: { silent?: boolean }): void {
     this.filters.delete(field);
     this.excludedValues.delete(field);
     this.searchText.delete(field);
 
-    this.applyFiltersInternal();
+    this.applyFiltersInternal(options?.silent);
   }
 
   /**
@@ -1598,8 +1606,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   /**
    * Internal method to apply filters (sync or async based on config)
+   * @param silent - When true, suppress the `filter-change` consumer event
    */
-  private applyFiltersInternal(): void {
+  private applyFiltersInternal(silent?: boolean): void {
     this.cachedResult = null;
     this.cacheKey = null;
     this.cachedInputSpot = null;
@@ -1621,11 +1630,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         // Update grid rows directly for async filtering
         (this.grid as unknown as { rows: unknown[] }).rows = rows;
 
-        this.emit<FilterChangeDetail>('filter-change', {
-          filters: filterList,
-          filteredRowCount: rows.length,
-          selected: this.computeSelected(),
-        });
+        if (!silent) {
+          this.emit<FilterChangeDetail>('filter-change', {
+            filters: filterList,
+            filteredRowCount: rows.length,
+            selected: this.computeSelected(),
+          });
+        }
         // Notify other plugins via Event Bus
         this.emitPluginEvent('filter-applied', { filters: filterList });
 
@@ -1642,11 +1653,13 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     // Sync path: emit event and re-render (processRows will handle filtering)
-    this.emit<FilterChangeDetail>('filter-change', {
-      filters: filterList,
-      filteredRowCount: 0,
-      selected: this.computeSelected(),
-    });
+    if (!silent) {
+      this.emit<FilterChangeDetail>('filter-change', {
+        filters: filterList,
+        filteredRowCount: 0,
+        selected: this.computeSelected(),
+      });
+    }
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: filterList });
     this.requestRender();

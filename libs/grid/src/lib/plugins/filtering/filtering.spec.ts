@@ -1276,6 +1276,125 @@ describe('FilteringPlugin class', () => {
     expect(values).toContain('Chicago');
     grid._cleanup();
   });
+
+  // #region Silent filter option tests
+
+  it('setFilter with { silent: true } should not emit filter-change', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' }, { silent: true });
+
+    // Should NOT have dispatched a filter-change event
+    const filterChangeEvents = (grid.dispatchEvent.mock.calls as [CustomEvent][]).filter(
+      ([e]) => e.type === 'filter-change',
+    );
+    expect(filterChangeEvents).toHaveLength(0);
+
+    // But filter should still be applied
+    expect(plugin.getFilters()).toHaveLength(1);
+    expect(plugin.isFieldFiltered('name')).toBe(true);
+    // And render should still be requested
+    expect(grid.requestRender).toHaveBeenCalled();
+    grid._cleanup();
+  });
+
+  it('setFilter without silent option still emits filter-change', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+
+    const filterChangeEvents = (grid.dispatchEvent.mock.calls as [CustomEvent][]).filter(
+      ([e]) => e.type === 'filter-change',
+    );
+    expect(filterChangeEvents).toHaveLength(1);
+    grid._cleanup();
+  });
+
+  it('setFilterModel with { silent: true } should not emit filter-change', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilterModel([{ field: 'name', type: 'text', operator: 'contains', value: 'A' }], { silent: true });
+
+    const filterChangeEvents = (grid.dispatchEvent.mock.calls as [CustomEvent][]).filter(
+      ([e]) => e.type === 'filter-change',
+    );
+    expect(filterChangeEvents).toHaveLength(0);
+
+    // Filters should still be applied
+    expect(plugin.getFilters()).toHaveLength(1);
+    expect(grid.requestRender).toHaveBeenCalled();
+    grid._cleanup();
+  });
+
+  it('setFilterModel without silent option still emits filter-change', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    plugin.setFilterModel([{ field: 'name', type: 'text', operator: 'contains', value: 'A' }]);
+
+    const filterChangeEvents = (grid.dispatchEvent.mock.calls as [CustomEvent][]).filter(
+      ([e]) => e.type === 'filter-change',
+    );
+    expect(filterChangeEvents).toHaveLength(1);
+    grid._cleanup();
+  });
+
+  it('clearAllFilters with { silent: true } should not emit filter-change', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    // First set a filter (this emits)
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    grid.dispatchEvent.mockClear();
+
+    // Now clear with silent
+    plugin.clearAllFilters({ silent: true });
+
+    const filterChangeEvents = (grid.dispatchEvent.mock.calls as [CustomEvent][]).filter(
+      ([e]) => e.type === 'filter-change',
+    );
+    expect(filterChangeEvents).toHaveLength(0);
+
+    // Filters should be cleared
+    expect(plugin.getFilters()).toHaveLength(0);
+    expect(grid.requestRender).toHaveBeenCalled();
+    grid._cleanup();
+  });
+
+  it('clearFieldFilter with { silent: true } should not emit filter-change', () => {
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock();
+    plugin.attach(grid as any);
+
+    // Set two filters
+    plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'A' });
+    plugin.setFilter('age', { type: 'number', operator: 'greaterThan', value: 30 });
+    grid.dispatchEvent.mockClear();
+
+    // Clear one silently
+    plugin.clearFieldFilter('name', { silent: true });
+
+    const filterChangeEvents = (grid.dispatchEvent.mock.calls as [CustomEvent][]).filter(
+      ([e]) => e.type === 'filter-change',
+    );
+    expect(filterChangeEvents).toHaveLength(0);
+
+    // Only the 'age' filter should remain
+    expect(plugin.getFilters()).toHaveLength(1);
+    expect(plugin.isFieldFiltered('name')).toBe(false);
+    expect(plugin.isFieldFiltered('age')).toBe(true);
+    grid._cleanup();
+  });
+
+  // #endregion
 });
 
 // #endregion

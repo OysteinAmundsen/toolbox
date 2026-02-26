@@ -33,8 +33,21 @@ type TestGrid = HTMLElement & {
   registerExternalFocusContainer: (el: Element) => void;
   unregisterExternalFocusContainer: (el: Element) => void;
   containsFocus: (node?: Node | null) => boolean;
+  focusCell: (rowIndex: number, column: number | string) => void;
+  focusedCell: { rowIndex: number; colIndex: number; field: string } | null;
+  scrollToRow: (rowIndex: number, options?: { align?: string; behavior?: string }) => void;
+  scrollToRowById: (rowId: string, options?: { align?: string; behavior?: string }) => void;
   ready: () => Promise<void>;
   _activeEditRows: number;
+  _focusRow: number;
+  _focusCol: number;
+  _visibleColumns: { field: string }[];
+  _virtualization: {
+    enabled: boolean;
+    container: HTMLElement | null;
+    viewportEl: HTMLElement | null;
+    rowHeight: number;
+  };
 };
 
 describe('focus management', () => {
@@ -420,6 +433,182 @@ describe('EditingPlugin focus management', () => {
       // focusTrap defaults to false (undefined/falsy), no direct access to config
       // but the plugin should function normally
       expect(plugin.name).toBe('editing');
+    });
+  });
+
+  describe('focusCell API', () => {
+    beforeEach(async () => {
+      grid = document.createElement('tbw-grid') as TestGrid;
+      grid.style.display = 'block';
+      grid.style.height = '300px';
+      grid.columns = [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+      ];
+      grid.rows = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+        { id: 3, name: 'Charlie' },
+      ];
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+    });
+
+    it('should move focus to a cell by column index', async () => {
+      grid.focusCell(1, 1);
+      await nextFrame();
+      expect(grid._focusRow).toBe(1);
+      expect(grid._focusCol).toBe(1);
+    });
+
+    it('should move focus to a cell by field name', async () => {
+      grid.focusCell(0, 'name');
+      await nextFrame();
+      expect(grid._focusRow).toBe(0);
+      const nameColIndex = grid._visibleColumns.findIndex((c) => c.field === 'name');
+      expect(grid._focusCol).toBe(nameColIndex);
+    });
+
+    it('should clamp row index to valid range', async () => {
+      grid.focusCell(999, 0);
+      await nextFrame();
+      expect(grid._focusRow).toBe(grid.rows.length - 1);
+    });
+
+    it('should clamp column index to valid range', async () => {
+      grid.focusCell(0, 999);
+      await nextFrame();
+      expect(grid._focusCol).toBe(grid._visibleColumns.length - 1);
+    });
+
+    it('should not move focus if field name is not found', async () => {
+      grid.focusCell(0, 0);
+      await nextFrame();
+      const prevRow = grid._focusRow;
+      const prevCol = grid._focusCol;
+
+      grid.focusCell(1, 'nonexistent');
+      await nextFrame();
+      expect(grid._focusRow).toBe(prevRow);
+      expect(grid._focusCol).toBe(prevCol);
+    });
+  });
+
+  describe('focusedCell property', () => {
+    beforeEach(async () => {
+      grid = document.createElement('tbw-grid') as TestGrid;
+      grid.style.display = 'block';
+      grid.style.height = '300px';
+      grid.columns = [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+      ];
+      grid.rows = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+        { id: 3, name: 'Charlie' },
+      ];
+      document.body.appendChild(grid);
+      await waitUpgrade(grid);
+    });
+
+    it('should return current focus position', async () => {
+      grid.focusCell(1, 0);
+      await nextFrame();
+
+      const cell = grid.focusedCell;
+      expect(cell).not.toBeNull();
+      expect(cell!.rowIndex).toBe(1);
+      expect(cell!.colIndex).toBe(0);
+      expect(cell!.field).toBe('id');
+    });
+
+    it('should return null when no rows are loaded', async () => {
+      grid.rows = [];
+      await nextFrame();
+      expect(grid.focusedCell).toBeNull();
+    });
+
+    it('should include field name of focused column', async () => {
+      grid.focusCell(0, 'name');
+      await nextFrame();
+
+      const cell = grid.focusedCell;
+      expect(cell).not.toBeNull();
+      expect(cell!.field).toBe('name');
+    });
+  });
+
+  describe('scrollToRow API', () => {
+    let tallGrid: TestGrid;
+
+    beforeEach(async () => {
+      // Create a grid with many rows to enable scrolling
+      tallGrid = document.createElement('tbw-grid') as TestGrid;
+      tallGrid.style.display = 'block';
+      tallGrid.style.height = '200px';
+      tallGrid.columns = [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+      ];
+      tallGrid.rows = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, name: `Row ${i + 1}` }));
+      document.body.appendChild(tallGrid);
+      await waitUpgrade(tallGrid);
+    });
+
+    it('should not throw with align "start"', () => {
+      expect(() => tallGrid.scrollToRow(50, { align: 'start' })).not.toThrow();
+    });
+
+    it('should not throw with align "center"', () => {
+      expect(() => tallGrid.scrollToRow(50, { align: 'center' })).not.toThrow();
+    });
+
+    it('should not throw with align "end"', () => {
+      expect(() => tallGrid.scrollToRow(50, { align: 'end' })).not.toThrow();
+    });
+
+    it('should not throw with align "nearest" (default)', () => {
+      expect(() => tallGrid.scrollToRow(50)).not.toThrow();
+    });
+
+    it('should clamp row index to valid range', () => {
+      expect(() => tallGrid.scrollToRow(-5)).not.toThrow();
+      expect(() => tallGrid.scrollToRow(99999)).not.toThrow();
+    });
+
+    it('should handle empty grid gracefully', async () => {
+      tallGrid.rows = [];
+      await nextFrame();
+      expect(() => tallGrid.scrollToRow(0)).not.toThrow();
+    });
+  });
+
+  describe('scrollToRowById API', () => {
+    let tallGrid: TestGrid;
+
+    beforeEach(async () => {
+      tallGrid = document.createElement('tbw-grid') as TestGrid;
+      tallGrid.style.display = 'block';
+      tallGrid.style.height = '200px';
+      tallGrid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+        ],
+        getRowId: (row: any) => String(row.id),
+      };
+      tallGrid.rows = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, name: `Row ${i + 1}` }));
+      document.body.appendChild(tallGrid);
+      await waitUpgrade(tallGrid);
+    });
+
+    it('should not throw for a valid row ID', () => {
+      expect(() => tallGrid.scrollToRowById('50')).not.toThrow();
+    });
+
+    it('should handle non-existent row ID gracefully', () => {
+      expect(() => tallGrid.scrollToRowById('nonexistent')).not.toThrow();
     });
   });
 });

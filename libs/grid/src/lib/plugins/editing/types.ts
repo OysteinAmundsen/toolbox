@@ -297,6 +297,8 @@ declare module '../../core/types' {
     'before-edit-close': BeforeEditCloseDetail<TRow>;
     /** Fired when a row leaves edit mode, whether committed or reverted (row mode only). */
     'edit-close': EditCloseDetail<TRow>;
+    /** Fired when a row's dirty state changes (requires `dirtyTracking: true`). */
+    'dirty-change': import('./internal/dirty-tracking').DirtyChangeDetail<TRow>;
   }
 
   interface PluginNameMap {
@@ -325,6 +327,38 @@ export interface EditingConfig {
    * @default 'row'
    */
   mode?: 'row' | 'grid';
+
+  /**
+   * Enable per-row dirty tracking against deep-cloned baselines.
+   *
+   * When `true`, the plugin captures a `structuredClone` snapshot of each
+   * row the first time it appears in `processRows` (first-write-wins).
+   * Subsequent edits are compared against this baseline to determine dirty
+   * state.
+   *
+   * **Requires** `getRowId` to be resolvable (via config or `row.id` /
+   * `row._id` fallback). The plugin throws a clear error at activation time
+   * if row identity cannot be determined.
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * const grid = document.querySelector('tbw-grid');
+   * grid.gridConfig = {
+   *   getRowId: (r) => r.id,
+   *   columns: [...],
+   *   plugins: [new EditingPlugin({ editOn: 'dblclick', dirtyTracking: true })],
+   * };
+   *
+   * // After editing:
+   * const editing = grid.getPluginByName('editing')!;
+   * editing.isDirty('row-1');          // true if row differs from baseline
+   * editing.getDirtyRows();            // [{ id, original, current }]
+   * editing.markAsPristine('row-1');   // re-snapshot after save
+   * ```
+   */
+  dirtyTracking?: boolean;
 
   /**
    * Controls when editing is triggered (only applies to `mode: 'row'`).

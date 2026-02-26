@@ -293,6 +293,8 @@ export type {
   RowGroupRenderConfig,
   // Data update management
   RowUpdate,
+  // Focus & Navigation
+  ScrollToRowOptions,
   ShellConfig,
   ShellHeaderConfig,
   SortChangeDetail,

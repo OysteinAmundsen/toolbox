@@ -83,6 +83,7 @@ import type {
   PluginNameMap,
   ResizeController,
   RowAnimationType,
+  ScrollToRowOptions,
   ToolbarContentDefinition,
   ToolPanelDefinition,
   UpdateSource,
@@ -3135,6 +3136,178 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   suspendProcessing(): void {
     // No-op — kept for backwards compatibility.
+  }
+  // #endregion
+
+  // #region Focus & Navigation API
+  /**
+   * Move focus to a specific cell.
+   *
+   * Accepts a column index (into the visible columns array) or a field name.
+   * The grid scrolls the cell into view and applies focus styling.
+   *
+   * @group Focus & Navigation
+   * @param rowIndex - The row index to focus (0-based, in the current processed row array)
+   * @param column - Column index (0-based into visible columns) or field name string
+   *
+   * @example
+   * ```typescript
+   * // Focus by column index
+   * grid.focusCell(0, 2);
+   *
+   * // Focus by field name
+   * grid.focusCell(5, 'email');
+   * ```
+   */
+  focusCell(rowIndex: number, column: number | string): void {
+    const maxRow = this._rows.length - 1;
+    if (maxRow < 0) return;
+
+    let colIdx: number;
+    if (typeof column === 'string') {
+      colIdx = this._visibleColumns.findIndex((c) => c.field === column);
+      if (colIdx < 0) return; // Field not found in visible columns
+    } else {
+      colIdx = column;
+    }
+
+    const maxCol = this._visibleColumns.length - 1;
+    if (maxCol < 0) return;
+
+    this._focusRow = Math.max(0, Math.min(rowIndex, maxRow));
+    this._focusCol = Math.max(0, Math.min(colIdx, maxCol));
+    ensureCellVisible(this as unknown as InternalGrid);
+  }
+
+  /**
+   * The currently focused cell position, or `null` if no rows are loaded.
+   *
+   * Returns a snapshot object with the row index, visible column index, and
+   * the field name of the focused column.
+   *
+   * @group Focus & Navigation
+   *
+   * @example
+   * ```typescript
+   * const cell = grid.focusedCell;
+   * if (cell) {
+   *   console.log(`Focused on row ${cell.rowIndex}, column "${cell.field}"`);
+   * }
+   * ```
+   */
+  get focusedCell(): { rowIndex: number; colIndex: number; field: string } | null {
+    if (this._rows.length === 0 || this._visibleColumns.length === 0) return null;
+    const col = this._visibleColumns[this._focusCol];
+    return {
+      rowIndex: this._focusRow,
+      colIndex: this._focusCol,
+      field: col?.field ?? '',
+    };
+  }
+
+  /**
+   * Scroll the viewport so a row is visible.
+   *
+   * Uses the grid's internal virtualization state (row height, position cache)
+   * to calculate the correct scroll offset, including support for variable
+   * row heights and grouped rows.
+   *
+   * @group Focus & Navigation
+   * @param rowIndex - Row index (0-based, in the current processed row array)
+   * @param options - Alignment and scroll behavior
+   *
+   * @example
+   * ```typescript
+   * // Scroll to row, only if not already visible
+   * grid.scrollToRow(42);
+   *
+   * // Center the row in the viewport with smooth scrolling
+   * grid.scrollToRow(42, { align: 'center', behavior: 'smooth' });
+   * ```
+   */
+  scrollToRow(rowIndex: number, options?: ScrollToRowOptions): void {
+    const virt = this._virtualization;
+    if (!virt.enabled) return;
+
+    const scrollEl = virt.container as HTMLElement | undefined;
+    if (!scrollEl) return;
+
+    const totalRows = this._rows.length;
+    if (totalRows === 0) return;
+
+    const idx = Math.max(0, Math.min(rowIndex, totalRows - 1));
+    const align = options?.align ?? 'nearest';
+    const behavior = options?.behavior ?? 'instant';
+
+    // Calculate row offset and height, accounting for variable row heights
+    let rowTop: number;
+    let rowH: number;
+    const pc = virt.positionCache;
+    if (virt.variableHeights && pc && pc.length > idx) {
+      rowTop = pc[idx].offset;
+      rowH = pc[idx].height;
+    } else {
+      rowTop = idx * virt.rowHeight;
+      rowH = virt.rowHeight;
+    }
+
+    const viewportH = virt.viewportEl?.clientHeight ?? scrollEl.clientHeight ?? 0;
+    if (viewportH <= 0) return;
+
+    const currentTop = scrollEl.scrollTop;
+    const rowBottom = rowTop + rowH;
+    const viewBottom = currentTop + viewportH;
+
+    let target: number;
+    switch (align) {
+      case 'start':
+        target = rowTop;
+        break;
+      case 'center':
+        target = rowTop - viewportH / 2 + rowH / 2;
+        break;
+      case 'end':
+        target = rowBottom - viewportH;
+        break;
+      case 'nearest':
+      default:
+        // Already fully visible — no scroll needed
+        if (rowTop >= currentTop && rowBottom <= viewBottom) return;
+        // Scroll up or down to bring row into view (minimum movement)
+        target = rowTop < currentTop ? rowTop : rowBottom - viewportH;
+        break;
+    }
+
+    target = Math.max(0, target);
+
+    if (behavior === 'smooth') {
+      scrollEl.scrollTo({ top: target, behavior: 'smooth' });
+    } else {
+      scrollEl.scrollTop = target;
+    }
+  }
+
+  /**
+   * Scroll the viewport so a row is visible, identified by its unique ID.
+   *
+   * Uses {@link GridConfig.getRowId | getRowId} (or the fallback `row.id` / `row._id`)
+   * to find the row in the current (possibly sorted/filtered) data, then delegates
+   * to {@link scrollToRow}.
+   *
+   * @group Focus & Navigation
+   * @param rowId - The row's unique identifier
+   * @param options - Alignment and scroll behavior
+   *
+   * @example
+   * ```typescript
+   * // After inserting a row, scroll to it by ID
+   * grid.scrollToRowById('emp-42', { align: 'center' });
+   * ```
+   */
+  scrollToRowById(rowId: string, options?: ScrollToRowOptions): void {
+    const entry = this.#rowIdMap.get(rowId);
+    if (!entry) return;
+    this.scrollToRow(entry.index, options);
   }
   // #endregion
 

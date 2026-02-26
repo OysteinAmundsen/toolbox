@@ -1775,4 +1775,504 @@ describe('EditingPlugin', () => {
   });
 
   // #endregion
+
+  // #region Editing stability across row updates
+
+  describe('editing stability across row updates', () => {
+    it('preserves editor when rows array is reassigned with same row (by ID)', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        getRowId: (r: any) => String(r.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+        { id: 3, name: 'Charlie' },
+      ];
+      await waitUpgrade(grid);
+
+      // Start editing row 1 (Bob)
+      editingPlugin.beginBulkEdit(1);
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid._activeEditRows).toBe(1);
+      const editRowRef = (editingPlugin as any)['#activeEditRowRef'] ?? grid._rows[1];
+
+      // Simulate typing into the editor
+      const row = grid.querySelector('.data-grid-row[data-row-index="1"]');
+      const nameCell = row?.querySelector('.cell.editing');
+      const input = nameCell?.querySelector('input') as HTMLInputElement | null;
+      if (input) {
+        input.value = 'Bobby';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Reassign rows with same data (simulating a store/signal update)
+      grid.rows = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' }, // Server still has old value
+        { id: 3, name: 'Charlie' },
+      ];
+      await nextFrame();
+      await nextFrame();
+
+      // Editor should still be active at the same row
+      expect(grid._activeEditRows).toBe(1);
+      // The editing plugin should still be in editing state
+      expect(editingPlugin.handleQuery({ type: 'isEditing' } as any)).toBe(true);
+    });
+
+    it('tracks row position change when sort order changes during editing', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        getRowId: (r: any) => String(r.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+        { id: 3, name: 'Charlie' },
+      ];
+      await waitUpgrade(grid);
+
+      // Start editing row 0 (Alice)
+      editingPlugin.beginBulkEdit(0);
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid._activeEditRows).toBe(0);
+
+      // Reassign rows with different order — Alice is now at index 2
+      grid.rows = [
+        { id: 3, name: 'Charlie' },
+        { id: 2, name: 'Bob' },
+        { id: 1, name: 'Alice' },
+      ];
+      await nextFrame();
+      await nextFrame();
+
+      // Editor should now track the new index
+      expect(grid._activeEditRows).toBe(2);
+      expect(editingPlugin.handleQuery({ type: 'isEditing' } as any)).toBe(true);
+    });
+
+    it('closes editor when edited row is removed from data', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+        ],
+        getRowId: (r: any) => String(r.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' },
+        { id: 3, name: 'Charlie' },
+      ];
+      await waitUpgrade(grid);
+
+      // Start editing row 1 (Bob)
+      editingPlugin.beginBulkEdit(1);
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid._activeEditRows).toBe(1);
+
+      // Remove Bob from the data (deleted server-side)
+      grid.rows = [
+        { id: 1, name: 'Alice' },
+        { id: 3, name: 'Charlie' },
+      ];
+      await nextFrame();
+      await nextFrame();
+
+      // Wait for the scheduled cancelActiveRowEdit (setTimeout)
+      await new Promise((r) => setTimeout(r, 50));
+      await nextFrame();
+      await nextFrame();
+
+      // Editor should be closed
+      expect(grid._activeEditRows).toBe(-1);
+      expect(editingPlugin.handleQuery({ type: 'isEditing' } as any)).toBe(false);
+    });
+
+    it('preserves in-progress field values after row update', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click' });
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'age', header: 'Age', type: 'number', editable: true },
+        ],
+        getRowId: (r: any) => String(r.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', age: 30 },
+        { id: 2, name: 'Bob', age: 25 },
+      ];
+      await waitUpgrade(grid);
+
+      // Start editing row 1 (Bob)
+      editingPlugin.beginBulkEdit(1);
+      await nextFrame();
+      await nextFrame();
+
+      // Modify a field value on the row object (simulating a commit callback)
+      grid._rows[1].name = 'Bobby';
+
+      // Reassign rows — different data but same IDs
+      grid.rows = [
+        { id: 1, name: 'Alice-updated', age: 31 },
+        { id: 2, name: 'Robert', age: 26 }, // Server has different value
+      ];
+      await nextFrame();
+      await nextFrame();
+
+      // The in-progress row data should be preserved (not overwritten by server data)
+      expect(grid._rows[1].name).toBe('Bobby');
+    });
+
+    it('does nothing special without getRowId configured', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click' });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        // No getRowId configured, and rows have no 'id' property
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ name: 'Alice' }, { name: 'Bob' }];
+      await waitUpgrade(grid);
+
+      // Start editing
+      editingPlugin.beginBulkEdit(0);
+      await nextFrame();
+      await nextFrame();
+
+      expect(grid._activeEditRows).toBe(0);
+
+      // Reassign rows — without getRowId, stabilization is skipped
+      grid.rows = [{ name: 'Alice' }, { name: 'Bob' }];
+      await nextFrame();
+      await nextFrame();
+
+      // Editor state is lost (no stabilization without row ID)
+      // The plugin silently exits editing because the row reference is stale
+      // This is expected legacy behavior
+    });
+  });
+
+  // #endregion
+
+  // #region Dirty Tracking
+
+  describe('dirty tracking', () => {
+    it('tracks dirty state after cell commit', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'age', header: 'Age', type: 'number' },
+        ],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', age: 30 },
+        { id: 2, name: 'Bob', age: 25 },
+      ];
+      await waitUpgrade(grid);
+
+      // All rows should be pristine initially
+      expect(editingPlugin.isDirty('1')).toBe(false);
+      expect(editingPlugin.isDirty('2')).toBe(false);
+      expect(editingPlugin.dirty).toBe(false);
+      expect(editingPlugin.pristine).toBe(true);
+
+      // Mutate the row data in-place (what EditingPlugin does on commit)
+      grid._rows[0].name = 'Alice-modified';
+
+      // Now row 1 should be dirty
+      expect(editingPlugin.isDirty('1')).toBe(true);
+      expect(editingPlugin.isPristine('1')).toBe(false);
+      expect(editingPlugin.dirty).toBe(true);
+      expect(editingPlugin.pristine).toBe(false);
+
+      // Row 2 should still be pristine
+      expect(editingPlugin.isDirty('2')).toBe(false);
+    });
+
+    it('preserves baselines on rows reassignment (first-write-wins)', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      // Baseline captured as 'Alice'
+      const original = editingPlugin.getOriginalRow('1');
+      expect(original?.name).toBe('Alice');
+
+      // Mutate row in-place
+      grid._rows[0].name = 'Bob';
+
+      // Reassign rows (simulates Angular feedback loop)
+      grid.rows = [{ id: 1, name: 'Bob', age: 30 }];
+      await nextFrame();
+      await nextFrame();
+
+      // Baseline should still be original 'Alice' (first-write-wins)
+      const originalAfterReassign = editingPlugin.getOriginalRow('1');
+      expect(originalAfterReassign?.name).toBe('Alice');
+    });
+
+    it('markAsPristine resets dirty state and re-snapshots baseline', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      // Mutate
+      grid._rows[0].name = 'Bob';
+      expect(editingPlugin.isDirty('1')).toBe(true);
+
+      // Mark pristine
+      editingPlugin.markAsPristine('1');
+      expect(editingPlugin.isDirty('1')).toBe(false);
+
+      // New baseline should be 'Bob'
+      const original = editingPlugin.getOriginalRow('1');
+      expect(original?.name).toBe('Bob');
+    });
+
+    it('markAllPristine clears all dirty state', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', age: 30 },
+        { id: 2, name: 'Bob', age: 25 },
+      ];
+      await waitUpgrade(grid);
+
+      // Mutate both rows
+      grid._rows[0].name = 'Modified1';
+      grid._rows[1].name = 'Modified2';
+      expect(editingPlugin.dirty).toBe(true);
+
+      editingPlugin.markAllPristine();
+      expect(editingPlugin.dirty).toBe(false);
+      expect(editingPlugin.pristine).toBe(true);
+    });
+
+    it('revertRow restores baseline values in-place', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      // Mutate
+      grid._rows[0].name = 'Bob';
+      grid._rows[0].age = 99;
+      expect(editingPlugin.isDirty('1')).toBe(true);
+
+      // Revert
+      editingPlugin.revertRow('1');
+      expect(grid._rows[0].name).toBe('Alice');
+      expect(grid._rows[0].age).toBe(30);
+      expect(editingPlugin.isDirty('1')).toBe(false);
+    });
+
+    it('revertAll restores all rows to baselines', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', age: 30 },
+        { id: 2, name: 'Bob', age: 25 },
+      ];
+      await waitUpgrade(grid);
+
+      grid._rows[0].name = 'Modified1';
+      grid._rows[1].name = 'Modified2';
+      expect(editingPlugin.dirty).toBe(true);
+
+      editingPlugin.revertAll();
+      expect(grid._rows[0].name).toBe('Alice');
+      expect(grid._rows[1].name).toBe('Bob');
+      expect(editingPlugin.dirty).toBe(false);
+    });
+
+    it('getDirtyRows returns only modified rows', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', age: 30 },
+        { id: 2, name: 'Bob', age: 25 },
+        { id: 3, name: 'Carol', age: 35 },
+      ];
+      await waitUpgrade(grid);
+
+      // Mutate rows 1 and 3
+      grid._rows[0].name = 'Modified';
+      grid._rows[2].age = 100;
+
+      const dirtyRows = editingPlugin.getDirtyRows();
+      expect(dirtyRows).toHaveLength(2);
+      expect(dirtyRows.map((r: any) => r.id)).toEqual(['1', '3']);
+      expect(dirtyRows[0].original.name).toBe('Alice');
+      expect(dirtyRows[0].current.name).toBe('Modified');
+    });
+
+    it('dirtyRowIds returns IDs of all dirty rows', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [
+        { id: 1, name: 'Alice', age: 30 },
+        { id: 2, name: 'Bob', age: 25 },
+      ];
+      await waitUpgrade(grid);
+
+      grid._rows[0].name = 'Modified';
+      expect(editingPlugin.dirtyRowIds).toEqual(['1']);
+    });
+
+    it('emits dirty-change event on markAsDirty', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      const events: any[] = [];
+      grid.addEventListener('dirty-change', (e: CustomEvent) => {
+        events.push(e.detail);
+      });
+
+      editingPlugin.markAsDirty('1');
+
+      expect(events).toHaveLength(1);
+      expect(events[0].rowId).toBe('1');
+      expect(events[0].type).toBe('modified');
+    });
+
+    it('does nothing when dirtyTracking is not enabled', async () => {
+      const editingPlugin = new EditingPlugin({ editOn: 'click' });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      // isDirty always returns false when not enabled
+      expect(editingPlugin.isDirty('1')).toBe(false);
+      expect(editingPlugin.dirty).toBe(false);
+      expect(editingPlugin.getDirtyRows()).toEqual([]);
+      expect(editingPlugin.dirtyRowIds).toEqual([]);
+
+      // Methods are no-ops
+      editingPlugin.markAsPristine('1');
+      editingPlugin.markAsDirty('1');
+      editingPlugin.revertRow('1');
+      editingPlugin.revertAll();
+    });
+
+    it('cleans up baselines on detach', async () => {
+      const editingPlugin = new EditingPlugin({
+        editOn: 'click',
+        dirtyTracking: true,
+      });
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name', editable: true }],
+        getRowId: (row: any) => String(row.id),
+        plugins: [editingPlugin],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', age: 30 }];
+      await waitUpgrade(grid);
+
+      // Verify baseline was captured
+      expect(editingPlugin.getOriginalRow('1')).toBeDefined();
+
+      // Remove plugins (triggers detach)
+      grid.gridConfig = {
+        columns: [{ field: 'name', header: 'Name' }],
+        plugins: [],
+      };
+      await nextFrame();
+      await nextFrame();
+
+      // After detach, getOriginalRow should return undefined
+      expect(editingPlugin.getOriginalRow('1')).toBeUndefined();
+    });
+  });
+
+  // #endregion
 });

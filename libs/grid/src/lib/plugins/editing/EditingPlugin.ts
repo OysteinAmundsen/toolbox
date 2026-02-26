@@ -28,6 +28,15 @@ import type {
 } from '../../core/types';
 import styles from './editing.css?inline';
 import { defaultEditorFor } from './editors';
+import {
+  captureBaselines,
+  getOriginalRow,
+  isRowDirty,
+  markPristine,
+  revertToBaseline,
+  type DirtyChangeDetail,
+  type DirtyRowEntry,
+} from './internal/dirty-tracking';
 import type {
   BeforeEditCloseDetail,
   CellCommitDetail,
@@ -409,6 +418,21 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   #singleCellEdit = false;
 
+  // --- Dirty Tracking State ---
+
+  /**
+   * Baseline snapshots: rowId → deep-cloned original row data.
+   * Populated by processRows on first appearance (first-write-wins).
+   * Only used when `config.dirtyTracking === true`.
+   */
+  #baselines = new Map<string, T>();
+
+  /**
+   * Set of row IDs inserted via `insertRow()` (no baseline available).
+   * These are always considered dirty with type 'new'.
+   */
+  #newRowIds = new Set<string>();
+
   // #endregion
 
   // #region Lifecycle
@@ -558,6 +582,28 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       { signal },
     );
 
+    // --- Dirty tracking: listen for undo/redo events to re-evaluate dirty state ---
+    if (this.config.dirtyTracking) {
+      const handleUndoRedo = (e: Event) => {
+        const detail = (e as CustomEvent).detail as { action?: { rowIndex: number; field: string } };
+        const action = detail?.action;
+        if (!action) return;
+        const row = this.rows[action.rowIndex] as T | undefined;
+        if (!row) return;
+        const rowId = this.grid.getRowId(row);
+        if (!rowId) return;
+        const dirty = isRowDirty(this.#baselines, rowId, row);
+        this.emit<DirtyChangeDetail<T>>('dirty-change', {
+          rowId,
+          row,
+          original: getOriginalRow(this.#baselines, rowId),
+          type: dirty ? 'modified' : 'pristine',
+        });
+      };
+      this.gridElement.addEventListener('undo', handleUndoRedo, { signal });
+      this.gridElement.addEventListener('redo', handleUndoRedo, { signal });
+    }
+
     // In grid mode, request a full render to trigger afterCellRender hooks
     if (this.#isGridMode) {
       internalGrid._isGridEditMode = true;
@@ -655,6 +701,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#changedRowIds.clear();
     this.#editingCells.clear();
     this.#editorValueCallbacks.clear();
+    this.#baselines.clear();
+    this.#newRowIds.clear();
     this.#gridModeInputFocused = false;
     this.#gridModeEditLocked = false;
     this.#singleCellEdit = false;
@@ -997,6 +1045,79 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   }
 
   /**
+   * Stabilize the actively edited row across `rows` array replacements and
+   * capture dirty tracking baselines.
+   *
+   * **Editing stability:** When the consumer reassigns `grid.rows` while
+   * editing, the full pipeline (sort, filter, group) runs on the new data.
+   * This hook finds the edited row in the new array by ID and swaps in the
+   * in-progress row reference (`#activeEditRowRef`) so editors survive.
+   *
+   * **Dirty tracking baselines:** When `dirtyTracking` is enabled, captures
+   * a `structuredClone` snapshot of each row on first appearance
+   * (first-write-wins). This prevents Angular's feedback loop from
+   * overwriting baselines.
+   *
+   * @internal Plugin API — part of the render pipeline
+   */
+  override processRows(rows: readonly T[]): T[] {
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+
+    // --- Dirty tracking: capture baselines (first-write-wins) ---
+    if (this.config.dirtyTracking && internalGrid.getRowId) {
+      captureBaselines(this.#baselines, rows, (r) => {
+        try {
+          return internalGrid.getRowId?.(r);
+        } catch {
+          return undefined;
+        }
+      });
+    }
+
+    // --- Editing stability: swap in the in-progress row ---
+    if (this.#activeEditRow === -1 || this.#isGridMode) return rows as T[];
+
+    const editRowId = this.#activeEditRowId;
+    const editRowRef = this.#activeEditRowRef;
+
+    // Without a stable row ID we cannot match across array replacements
+    if (!editRowId || !editRowRef) return rows as T[];
+
+    const result = [...rows] as T[];
+
+    // Find the edited row's new position by ID
+    let newIndex = -1;
+    for (let i = 0; i < result.length; i++) {
+      try {
+        if (internalGrid.getRowId?.(result[i]) === editRowId) {
+          newIndex = i;
+          break;
+        }
+      } catch {
+        // Row has no ID — skip
+      }
+    }
+
+    if (newIndex === -1) {
+      // Row was deleted server-side — close the editor.
+      // Cannot close synchronously during the processRows pipeline;
+      // schedule for after the current render cycle completes.
+      setTimeout(() => this.cancelActiveRowEdit(), 0);
+      return result;
+    }
+
+    // Swap in the in-progress row data to preserve editor state
+    result[newIndex] = editRowRef;
+
+    // Update index-keyed state if the position changed (due to sort/filter)
+    if (this.#activeEditRow !== newIndex) {
+      this.#migrateEditRowIndex(this.#activeEditRow, newIndex);
+    }
+
+    return result;
+  }
+
+  /**
    * After render, reapply editors to cells in edit mode.
    * This handles virtualization - when a row scrolls back into view,
    * we need to re-inject the editor.
@@ -1004,6 +1125,23 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   override afterRender(): void {
     const internalGrid = this.grid as unknown as InternalGrid<T>;
+
+    // --- Editing stability: verify active edit row index ---
+    // After processRows, subsequent plugins (filtering, grouping) may have
+    // shifted row indices. Verify the index is still correct and fix if needed
+    // before re-injecting editors.
+    if (this.#activeEditRow !== -1 && this.#activeEditRowRef && !this.#isGridMode) {
+      if (internalGrid._rows[this.#activeEditRow] !== this.#activeEditRowRef) {
+        const newIndex = (internalGrid._rows as T[]).indexOf(this.#activeEditRowRef);
+        if (newIndex !== -1) {
+          this.#migrateEditRowIndex(this.#activeEditRow, newIndex);
+        } else {
+          // Row no longer in rendered set (filtered out or deleted)
+          setTimeout(() => this.cancelActiveRowEdit(), 0);
+          return;
+        }
+      }
+    }
 
     // Restore focus after exiting edit mode
     if (this.#pendingFocusRestore) {
@@ -1148,6 +1286,214 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   isRowChangedById(rowId: string): boolean {
     return this.#changedRowIds.has(rowId);
   }
+
+  // #region Dirty Tracking API
+
+  /**
+   * Check if a specific row's current data differs from its baseline.
+   * Requires `dirtyTracking: true` in plugin config.
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   * @returns `true` if the row has been modified or is a new row
+   */
+  isDirty(rowId: string): boolean {
+    if (!this.config.dirtyTracking) return false;
+    if (this.#newRowIds.has(rowId)) return true;
+    const row = this.grid.getRow(rowId) as T | undefined;
+    if (!row) return false;
+    return isRowDirty(this.#baselines, rowId, row);
+  }
+
+  /**
+   * Check if a specific row matches its baseline (not dirty).
+   * Requires `dirtyTracking: true` in plugin config.
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   */
+  isPristine(rowId: string): boolean {
+    return !this.isDirty(rowId);
+  }
+
+  /**
+   * Whether any row in the grid is dirty.
+   * Requires `dirtyTracking: true` in plugin config.
+   */
+  get dirty(): boolean {
+    if (!this.config.dirtyTracking) return false;
+    if (this.#newRowIds.size > 0) return true;
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    for (const [rowId, baseline] of this.#baselines) {
+      const row = internalGrid._getRowEntry(rowId)?.row;
+      if (row && isRowDirty(this.#baselines, rowId, row)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Whether all rows in the grid are pristine (not dirty).
+   * Requires `dirtyTracking: true` in plugin config.
+   */
+  get pristine(): boolean {
+    return !this.dirty;
+  }
+
+  /**
+   * Mark a row as pristine: re-snapshot baseline from current data.
+   * Call after a successful backend save to set the new "original."
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   */
+  markAsPristine(rowId: string): void {
+    if (!this.config.dirtyTracking) return;
+    const row = this.grid.getRow(rowId) as T | undefined;
+    if (!row) return;
+    markPristine(this.#baselines, rowId, row);
+    this.#newRowIds.delete(rowId);
+    this.#changedRowIds.delete(rowId);
+    this.emit<DirtyChangeDetail<T>>('dirty-change', {
+      rowId,
+      row,
+      original: row, // after mark-pristine, original === current
+      type: 'pristine',
+    });
+  }
+
+  /**
+   * Programmatically mark a row as dirty (e.g. after an external mutation
+   * that bypassed the editing pipeline).
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   */
+  markAsDirty(rowId: string): void {
+    if (!this.config.dirtyTracking) return;
+    const row = this.grid.getRow(rowId) as T | undefined;
+    if (!row) return;
+    this.#changedRowIds.add(rowId);
+    this.emit<DirtyChangeDetail<T>>('dirty-change', {
+      rowId,
+      row,
+      original: getOriginalRow(this.#baselines, rowId),
+      type: 'modified',
+    });
+  }
+
+  /**
+   * Mark all tracked rows as pristine. Call after a successful batch save.
+   */
+  markAllPristine(): void {
+    if (!this.config.dirtyTracking) return;
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    for (const [rowId] of this.#baselines) {
+      const row = internalGrid._getRowEntry(rowId)?.row;
+      if (row) {
+        markPristine(this.#baselines, rowId, row);
+      }
+    }
+    this.#newRowIds.clear();
+    this.#changedRowIds.clear();
+  }
+
+  /**
+   * Get the original (baseline) row data as a deep clone.
+   * Returns `undefined` if no baseline exists (e.g. newly inserted row).
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   */
+  getOriginalRow(rowId: string): T | undefined {
+    if (!this.config.dirtyTracking) return undefined;
+    return getOriginalRow<T>(this.#baselines, rowId);
+  }
+
+  /**
+   * Get all dirty rows with their original and current data.
+   */
+  getDirtyRows(): DirtyRowEntry<T>[] {
+    if (!this.config.dirtyTracking) return [];
+    const result: DirtyRowEntry<T>[] = [];
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    for (const [rowId, baseline] of this.#baselines) {
+      const entry = internalGrid._getRowEntry(rowId);
+      if (entry && isRowDirty(this.#baselines, rowId, entry.row as T)) {
+        result.push({
+          id: rowId,
+          original: structuredClone(baseline),
+          current: entry.row as T,
+        });
+      }
+    }
+    // Include new rows (no baseline)
+    for (const newId of this.#newRowIds) {
+      const entry = internalGrid._getRowEntry(newId);
+      if (entry) {
+        result.push({
+          id: newId,
+          original: undefined as unknown as T,
+          current: entry.row as T,
+        });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Get IDs of all dirty rows.
+   */
+  get dirtyRowIds(): string[] {
+    if (!this.config.dirtyTracking) return [];
+    const ids: string[] = [];
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    for (const [rowId] of this.#baselines) {
+      const entry = internalGrid._getRowEntry(rowId);
+      if (entry && isRowDirty(this.#baselines, rowId, entry.row as T)) {
+        ids.push(rowId);
+      }
+    }
+    for (const newId of this.#newRowIds) {
+      ids.push(newId);
+    }
+    return ids;
+  }
+
+  /**
+   * Revert a row to its baseline values (mutates the current row in-place).
+   * Triggers a re-render.
+   *
+   * @param rowId - Row ID (from `getRowId`)
+   */
+  revertRow(rowId: string): void {
+    if (!this.config.dirtyTracking) return;
+    const row = this.grid.getRow(rowId) as T | undefined;
+    if (!row) return;
+    const reverted = revertToBaseline(this.#baselines, rowId, row);
+    if (reverted) {
+      this.#changedRowIds.delete(rowId);
+      this.emit<DirtyChangeDetail<T>>('dirty-change', {
+        rowId,
+        row,
+        original: getOriginalRow(this.#baselines, rowId),
+        type: 'reverted',
+      });
+      this.requestRender();
+    }
+  }
+
+  /**
+   * Revert all dirty rows to their baseline values and re-render.
+   */
+  revertAll(): void {
+    if (!this.config.dirtyTracking) return;
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    for (const [rowId] of this.#baselines) {
+      const entry = internalGrid._getRowEntry(rowId);
+      if (entry) {
+        revertToBaseline(this.#baselines, rowId, entry.row as T);
+      }
+    }
+    this.#changedRowIds.clear();
+    this.requestRender();
+  }
+
+  // #endregion
 
   // #region Cell Validation
 
@@ -1420,6 +1766,54 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   // #endregion
 
   // #region Internal Methods
+
+  /**
+   * Migrate all index-keyed editing state when the active edit row moves to
+   * a different position in `_rows` (e.g. after sort, filter, or new data push).
+   *
+   * Updates: `#activeEditRow`, `#editingCells`, `#rowEditSnapshots`,
+   * `#editorValueCallbacks`, and syncs `_activeEditRows` on the grid.
+   */
+  #migrateEditRowIndex(oldIndex: number, newIndex: number): void {
+    this.#activeEditRow = newIndex;
+
+    // Migrate #editingCells keys ("rowIndex:colIndex")
+    const migratedCells = new Set<string>();
+    const prefix = `${oldIndex}:`;
+    for (const cellKey of this.#editingCells) {
+      if (cellKey.startsWith(prefix)) {
+        migratedCells.add(`${newIndex}:${cellKey.substring(prefix.length)}`);
+      } else {
+        migratedCells.add(cellKey);
+      }
+    }
+    this.#editingCells.clear();
+    for (const key of migratedCells) {
+      this.#editingCells.add(key);
+    }
+
+    // Migrate #rowEditSnapshots key
+    const snapshot = this.#rowEditSnapshots.get(oldIndex);
+    if (snapshot !== undefined) {
+      this.#rowEditSnapshots.delete(oldIndex);
+      this.#rowEditSnapshots.set(newIndex, snapshot);
+    }
+
+    // Migrate #editorValueCallbacks keys ("rowIndex:field")
+    const updates: [string, (newValue: unknown) => void][] = [];
+    for (const [key, cb] of this.#editorValueCallbacks) {
+      if (key.startsWith(prefix)) {
+        updates.push([`${newIndex}:${key.substring(prefix.length)}`, cb]);
+        this.#editorValueCallbacks.delete(key);
+      }
+    }
+    for (const [key, cb] of updates) {
+      this.#editorValueCallbacks.set(key, cb);
+    }
+
+    // Sync the grid's rendering state so rows.ts checks the correct index
+    this.#syncGridEditState();
+  }
 
   /**
    * Begin editing a single cell.
@@ -1819,6 +2213,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#changedRowIds.add(rowId);
     }
     this.#syncGridEditState();
+
+    // Emit dirty-change event if dirty tracking is enabled
+    if (this.config.dirtyTracking && rowId) {
+      const dirty = isRowDirty(this.#baselines, rowId, rowData);
+      this.emit<DirtyChangeDetail<T>>('dirty-change', {
+        rowId,
+        row: rowData,
+        original: getOriginalRow(this.#baselines, rowId),
+        type: dirty ? 'modified' : 'pristine',
+      });
+    }
 
     // Notify other plugins (e.g., UndoRedoPlugin) about the committed edit
     this.emitPluginEvent('cell-edit-committed', {

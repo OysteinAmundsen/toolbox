@@ -42,6 +42,41 @@ export type RowPositionEntry = RowPosition;
 export interface DataGridElement extends PublicGrid, HTMLElement {}
 // #endregion
 
+// #region ScrollToRowOptions
+/**
+ * Options for the {@link PublicGrid.scrollToRow} method.
+ *
+ * @group Focus & Navigation
+ *
+ * @example
+ * ```typescript
+ * grid.scrollToRow(42, { align: 'center', behavior: 'smooth' });
+ * ```
+ */
+export interface ScrollToRowOptions {
+  /**
+   * Where to position the row in the viewport.
+   *
+   * - `'start'`   — top of the viewport
+   * - `'center'`  — vertically centered
+   * - `'end'`     — bottom of the viewport
+   * - `'nearest'` — scroll only if the row is outside the viewport (default)
+   *
+   * @defaultValue `'nearest'`
+   */
+  align?: 'start' | 'center' | 'end' | 'nearest';
+  /**
+   * Scroll behavior.
+   *
+   * - `'instant'` — jump immediately (default)
+   * - `'smooth'`  — animate the scroll
+   *
+   * @defaultValue `'instant'`
+   */
+  behavior?: 'smooth' | 'instant';
+}
+// #endregion
+
 // #region PublicGrid Interface
 /**
  * Public API interface for DataGrid component.
@@ -329,6 +364,36 @@ export interface PublicGrid<T = any> {
    * ```
    */
   containsFocus?(node?: Node | null): boolean;
+
+  // Focus & Navigation API
+  /**
+   * Move focus to a specific cell.
+   *
+   * @param rowIndex - Row index (0-based, in the current processed row array)
+   * @param column - Column index (0-based into visible columns) or field name
+   */
+  focusCell?(rowIndex: number, column: number | string): void;
+
+  /**
+   * The currently focused cell position, or `null` if no rows are loaded.
+   */
+  readonly focusedCell?: { rowIndex: number; colIndex: number; field: string } | null;
+
+  /**
+   * Scroll to make a row visible by its index.
+   *
+   * @param rowIndex - Row index (0-based, in the current processed row array)
+   * @param options - Scroll alignment and behavior
+   */
+  scrollToRow?(rowIndex: number, options?: ScrollToRowOptions): void;
+
+  /**
+   * Scroll to make a row visible by its unique ID.
+   *
+   * @param rowId - The row's unique identifier (from {@link GridConfig.getRowId | getRowId})
+   * @param options - Scroll alignment and behavior
+   */
+  scrollToRowById?(rowId: string, options?: ScrollToRowOptions): void;
 }
 // #endregion
 

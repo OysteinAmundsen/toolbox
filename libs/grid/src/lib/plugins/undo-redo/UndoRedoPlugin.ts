@@ -99,6 +99,35 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   private redoStack: EditAction[] = [];
 
   /**
+   * Apply a value to a row cell, using `updateRow()` when possible so that
+   * active editors (during row-edit mode) are notified via the `cell-change`
+   * → `onValueChange` pipeline. Falls back to direct mutation when the row
+   * has no ID.
+   */
+  #applyValue(action: EditAction, value: unknown): void {
+    const rows = this.rows as Record<string, unknown>[];
+    const row = rows[action.rowIndex];
+    if (!row) return;
+
+    // Prefer updateRow() — it emits `cell-change` events which notify active
+    // editors via their `onValueChange` callbacks. Without this, undo/redo
+    // during row-edit mode is invisible because the render pipeline skips
+    // cells that have active editors.
+    try {
+      const rowId = this.grid.getRowId(row);
+      if (rowId) {
+        this.grid.updateRow(rowId, { [action.field]: value });
+        return;
+      }
+    } catch {
+      // No row ID configured — fall back to direct mutation
+    }
+
+    // Fallback: direct mutation (editors won't see the change during editing)
+    row[action.field] = value;
+  }
+
+  /**
    * Subscribe to cell-edit-committed events from EditingPlugin.
    * @internal
    */
@@ -135,11 +164,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     if (isUndo) {
       const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
       if (result.action) {
-        // Apply undo - restore old value
-        const rows = this.rows as Record<string, unknown>[];
-        if (rows[result.action.rowIndex]) {
-          rows[result.action.rowIndex][result.action.field] = result.action.oldValue;
-        }
+        this.#applyValue(result.action, result.action.oldValue);
 
         // Update state from result
         this.undoStack = result.newState.undoStack;
@@ -158,11 +183,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
     if (isRedo) {
       const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
       if (result.action) {
-        // Apply redo - restore new value
-        const rows = this.rows as Record<string, unknown>[];
-        if (rows[result.action.rowIndex]) {
-          rows[result.action.rowIndex][result.action.field] = result.action.newValue;
-        }
+        this.#applyValue(result.action, result.action.newValue);
 
         // Update state from result
         this.undoStack = result.newState.undoStack;
@@ -211,10 +232,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   undo(): EditAction | null {
     const result = undo({ undoStack: this.undoStack, redoStack: this.redoStack });
     if (result.action) {
-      const rows = this.rows as Record<string, unknown>[];
-      if (rows[result.action.rowIndex]) {
-        rows[result.action.rowIndex][result.action.field] = result.action.oldValue;
-      }
+      this.#applyValue(result.action, result.action.oldValue);
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
       this.requestRender();
@@ -230,10 +248,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
   redo(): EditAction | null {
     const result = redo({ undoStack: this.undoStack, redoStack: this.redoStack });
     if (result.action) {
-      const rows = this.rows as Record<string, unknown>[];
-      if (rows[result.action.rowIndex]) {
-        rows[result.action.rowIndex][result.action.field] = result.action.newValue;
-      }
+      this.#applyValue(result.action, result.action.newValue);
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
       this.requestRender();

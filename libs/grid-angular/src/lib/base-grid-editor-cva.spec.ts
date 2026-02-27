@@ -106,7 +106,7 @@ describe('BaseGridEditorCVA', () => {
       expect(commitValue).toHaveBeenCalledWith('new-value');
     });
 
-    it('should not call commitValue when value is null', () => {
+    it('should call commitValue when value is null (nullable columns)', () => {
       const instance = Object.create(BaseGridEditorCVA.prototype);
 
       const cvaValues: unknown[] = [];
@@ -123,8 +123,8 @@ describe('BaseGridEditorCVA', () => {
       expect(cvaValues).toEqual([null]);
       expect(instance['_onChange']).toHaveBeenCalledWith(null);
 
-      // Grid commitValue should NOT be called for null
-      expect(commitValue).not.toHaveBeenCalled();
+      // Grid commitValue IS called for null (nullable column support)
+      expect(commitValue).toHaveBeenCalledWith(null);
     });
   });
 });

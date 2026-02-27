@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.15.0...grid-angular-0.16.0) (2026-02-27)
+
+
+### Features
+
+* **grid:** add transaction API to UndoRedoPlugin for compound undo/redo ([b9d4132](https://github.com/OysteinAmundsen/toolbox/commit/b9d41326344969f8ba27542685833da5af8b5694))
+
+
+### Bug Fixes
+
+* **grid-angular:** allow null commits from Angular editors ([f549238](https://github.com/OysteinAmundsen/toolbox/commit/f54923819bf5f4c849ec7fd8aa376ac718be70e5))
+* **grid, grid-angular:** preserve focus on undo/redo and notify editors of external value changes ([596442a](https://github.com/OysteinAmundsen/toolbox/commit/596442ad2e7a137c2e6c6e35dbfa274ff372c80a))
+
 ## [0.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.14.3...grid-angular-0.15.0) (2026-02-25)
 
 

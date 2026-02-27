@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.14.0...grid-react-0.15.0) (2026-02-27)
+
+
+### Features
+
+* **grid:** add transaction API to UndoRedoPlugin for compound undo/redo ([b9d4132](https://github.com/OysteinAmundsen/toolbox/commit/b9d41326344969f8ba27542685833da5af8b5694))
+
 ## [0.14.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.13.2...grid-react-0.14.0) (2026-02-25)
 
 

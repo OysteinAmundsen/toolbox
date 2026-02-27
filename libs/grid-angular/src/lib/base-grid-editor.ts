@@ -252,6 +252,23 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
   }
 
   /**
+   * Called by the grid adapter when the cell value changes externally
+   * (e.g., via `updateRow()` cascade or undo/redo).
+   *
+   * Override in subclasses to reset internal state (search text, selection
+   * flags, etc.) so the editor displays the updated value.
+   *
+   * This runs **synchronously** before the value input is updated, giving
+   * the editor a chance to clear stale state before the next change-detection
+   * pass re-reads the template.
+   *
+   * @param _newVal The new cell value being pushed from the grid
+   */
+  onExternalValueChange(_newVal: TValue): void {
+    // Default: no-op. Subclasses override as needed.
+  }
+
+  /**
    * Commit a new value. Emits the commit output AND dispatches a DOM event.
    * The DOM event enables the grid's auto-wiring to catch the commit.
    * Call this when the user confirms their edit.

@@ -164,15 +164,12 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
     // If we're in row-edit mode, focus the editor input in the target cell
     const rowEl = internalGrid.findRenderedRowElement?.(action.rowIndex);
-    if (rowEl) {
-      const cellEl = rowEl.querySelector(`.cell[data-col="${colIdx}"]`) as HTMLElement | null;
-      if (cellEl?.classList.contains('editing')) {
-        // Defer focus to next microtask so the render cycle can update the editor value first
-        queueMicrotask(() => {
-          const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-          editor?.focus({ preventScroll: true });
-        });
-      }
+    if (!rowEl) return;
+
+    const cellEl = rowEl.querySelector(`.cell[data-col="${colIdx}"]`) as HTMLElement | null;
+    if (cellEl?.classList.contains('editing')) {
+      const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+      editor?.focus({ preventScroll: true });
     }
   }
 
@@ -195,10 +192,15 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
 
   /**
    * Focus the cell associated with an undo/redo action.
-   * For compound actions, focuses the first action's cell (the user's original edit).
+   * For compound actions, focuses the **last** action's cell. When consumers
+   * use `beginTransaction()` + `recordEdit()` (cascaded fields) followed by
+   * `queueMicrotask(() => endTransaction())`, the grid's auto-recorded
+   * primary field edit is appended last. Focusing it ensures the cursor
+   * lands on the field the user originally edited, not on a cascaded field
+   * whose column may not even be visible.
    */
   #focusUndoRedoAction(action: UndoRedoAction): void {
-    const target = action.type === 'compound' ? action.actions[0] : action;
+    const target = action.type === 'compound' ? action.actions[action.actions.length - 1] : action;
     if (target) this.#focusActionCell(target);
   }
 
@@ -263,7 +265,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
         });
 
         this.#focusUndoRedoAction(result.action);
-        this.requestRender();
+        this.requestRenderWithFocus();
       }
       return true;
     }
@@ -286,7 +288,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
         });
 
         this.#focusUndoRedoAction(result.action);
-        this.requestRender();
+        this.requestRenderWithFocus();
       }
       return true;
     }
@@ -400,7 +402,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
       this.#focusUndoRedoAction(result.action);
-      this.requestRender();
+      this.requestRenderWithFocus();
     }
     return result.action;
   }
@@ -417,7 +419,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
       this.undoStack = result.newState.undoStack;
       this.redoStack = result.newState.redoStack;
       this.#focusUndoRedoAction(result.action);
-      this.requestRender();
+      this.requestRenderWithFocus();
     }
     return result.action;
   }

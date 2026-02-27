@@ -27,6 +27,7 @@ function createMockGrid(
     gridConfig: {},
     disconnectSignal: new AbortController().signal,
     requestRender: vi.fn(),
+    requestRenderWithFocus: vi.fn(),
     requestAfterRender: vi.fn(),
     getPlugin: vi.fn(),
     getPluginByName: vi.fn(),
@@ -289,16 +290,16 @@ describe('UndoRedoPlugin', () => {
       plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
       rows[0]['name'] = 'Changed';
       plugin.undo();
-      expect(grid.requestRender).toHaveBeenCalled();
+      expect(grid.requestRenderWithFocus).toHaveBeenCalled();
     });
 
     it('should request render after redo', () => {
       plugin.recordEdit(0, 'name', 'Alpha', 'Changed');
       rows[0]['name'] = 'Changed';
       plugin.undo();
-      grid.requestRender.mockClear();
+      grid.requestRenderWithFocus.mockClear();
       plugin.redo();
-      expect(grid.requestRender).toHaveBeenCalled();
+      expect(grid.requestRenderWithFocus).toHaveBeenCalled();
     });
   });
 
@@ -682,7 +683,7 @@ describe('UndoRedoPlugin', () => {
       expect(calls).toEqual(['name', 'price']);
     });
 
-    it('should focus first action cell after compound undo', () => {
+    it('should focus last action cell after compound undo (primary field)', () => {
       rows[0]['name'] = 'Changed';
       rows[0]['price'] = 99;
 
@@ -693,9 +694,10 @@ describe('UndoRedoPlugin', () => {
 
       plugin.undo();
 
-      // First action is 'name' at _visibleColumns index 1
+      // Last action is 'price' at _visibleColumns index 2 (the primary field
+      // when using beginTransaction + queueMicrotask endTransaction pattern)
       expect(grid._focusRow).toBe(0);
-      expect(grid._focusCol).toBe(1);
+      expect(grid._focusCol).toBe(2);
     });
 
     it('should handle keyboard undo of compound action', () => {
@@ -778,7 +780,7 @@ describe('UndoRedoPlugin', () => {
       rows[0]['price'] = 99;
 
       plugin.undo();
-      expect(grid.requestRender).toHaveBeenCalled();
+      expect(grid.requestRenderWithFocus).toHaveBeenCalled();
     });
   });
 

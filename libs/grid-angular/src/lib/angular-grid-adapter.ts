@@ -813,6 +813,13 @@ export class GridAdapter implements FrameworkAdapter {
       // This keeps Angular component editors in sync without manual DOM patching.
       ctx.onValueChange?.((newVal: unknown) => {
         try {
+          // Notify the editor so it can clear stale internal state (e.g., searchText
+          // in autocomplete editors) before the value input updates. This ensures the
+          // template reads fresh state during the synchronous detectChanges() below.
+          const instance = componentRef.instance;
+          if (typeof (instance as Record<string, unknown>)['onExternalValueChange'] === 'function') {
+            (instance as { onExternalValueChange: (v: unknown) => void }).onExternalValueChange(newVal);
+          }
           componentRef.setInput('value', newVal);
           componentRef.changeDetectorRef.detectChanges();
         } catch {

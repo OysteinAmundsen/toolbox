@@ -142,6 +142,10 @@ Allow: /
 # Sitemap location
 Sitemap: ${BASE_URL}/sitemap.xml
 
+# LLM / AI agent documentation (llms.txt convention)
+# Full: https://raw.githubusercontent.com/OysteinAmundsen/toolbox/main/llms-full.txt
+# Summary: https://raw.githubusercontent.com/OysteinAmundsen/toolbox/main/llms.txt
+
 # Crawl-delay suggestion (be nice to servers)
 Crawl-delay: 1
 

@@ -2855,9 +2855,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       } as CellChangeDetail<T>);
     }
 
-    // Schedule re-render if anything changed
+    // Schedule re-render if anything changed.
+    // Use VIRTUALIZATION (not ROWS) so the visible cells are re-rendered
+    // without rebuilding the row model. A ROWS-phase rebuild re-applies
+    // sort/filter from #rows, which moves rows inserted via insertRow()
+    // to their sorted position — appearing as "ghost" duplicates.
+    // Since data was already mutated in-place, fastPatchRow will pick up
+    // the new values from the row object directly.
     if (changedFields.length > 0) {
-      this.#scheduler.requestPhase(RenderPhase.ROWS, 'updateRow');
+      invalidateCellCache(this);
+      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'updateRow');
     }
   }
 
@@ -2915,9 +2922,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       }
     }
 
-    // Schedule single re-render for all changes
+    // Schedule single re-render for all changes.
+    // Use VIRTUALIZATION (not ROWS) — see updateRow for rationale.
     if (anyChanged) {
-      this.#scheduler.requestPhase(RenderPhase.ROWS, 'updateRows');
+      invalidateCellCache(this);
+      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'updateRows');
     }
   }
 

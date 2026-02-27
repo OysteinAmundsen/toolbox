@@ -258,6 +258,212 @@ describe('Row Update API', () => {
     });
   });
 
+  describe('insertRow + updateRow interaction', () => {
+    it('updateRow does not move an insertRow-d row to its sorted position (ghost row bug)', async () => {
+      // Scenario: grid has sorted data, user inserts a new row at index 0,
+      // then updates it (e.g. cascaded field change). The row should stay at
+      // index 0 — NOT jump to the end of the list as a "ghost" duplicate.
+      const rows: TestRow[] = [
+        { id: 'r1', name: 'Alice', status: 'active', count: 10 },
+        { id: 'r2', name: 'Bob', status: 'active', count: 20 },
+        { id: 'r3', name: 'Carol', status: 'active', count: 30 },
+      ];
+      const grid = await createGrid(rows, {
+        columns: [
+          { field: 'id', header: 'ID', sortable: true },
+          { field: 'name', header: 'Name' },
+          { field: 'status', header: 'Status' },
+          { field: 'count', header: 'Count' },
+        ],
+      });
+
+      // Insert a new row at index 0 (top of the visible list)
+      const newRow: TestRow = { id: 'new-1', name: '', status: 'draft', count: 0 };
+      grid.insertRow(0, newRow, false);
+
+      // Verify the inserted row is at position 0
+      expect(grid.rows[0]).toBe(newRow);
+      expect(grid.rows.length).toBe(4);
+
+      // Simulate a cascaded update (e.g. user picks a terminal → status changes)
+      grid.updateRow('new-1', { status: 'confirmed', name: 'NewCargo' });
+
+      // The row must remain at index 0 — NOT appear at the end
+      expect(grid.rows[0]).toBe(newRow);
+      expect(grid.rows[0].status).toBe('confirmed');
+      expect(grid.rows[0].name).toBe('NewCargo');
+      expect(grid.rows.length).toBe(4);
+
+      // Verify no duplicate/ghost row at the end
+      const ids = grid.rows.map((r: TestRow) => r.id);
+      expect(ids).toEqual(['new-1', 'r1', 'r2', 'r3']);
+    });
+
+    it('updateRow on an insertRow-d row with active sort keeps row position', async () => {
+      // Same scenario but with an active core sort applied before insert
+      const rows: TestRow[] = [
+        { id: 'r3', name: 'Carol', status: 'active', count: 30 },
+        { id: 'r1', name: 'Alice', status: 'active', count: 10 },
+        { id: 'r2', name: 'Bob', status: 'active', count: 20 },
+      ];
+      const grid = await createGrid(rows, {
+        columns: [
+          { field: 'name', header: 'Name', sortable: true },
+          { field: 'id', header: 'ID' },
+          { field: 'status', header: 'Status' },
+          { field: 'count', header: 'Count' },
+        ],
+      });
+
+      // Click the Name header to sort ascending
+      const header = grid.querySelector('[role="columnheader"]');
+      header?.click();
+      // Wait for sort to apply
+      await new Promise((r) => requestAnimationFrame(r));
+
+      // After sort: Alice(r1), Bob(r2), Carol(r3)
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1', 'r2', 'r3']);
+
+      // Insert new row at top
+      const newRow: TestRow = { id: 'new-1', name: '', status: 'draft', count: 0 };
+      grid.insertRow(0, newRow, false);
+
+      expect(grid.rows[0]).toBe(newRow);
+
+      // Update the inserted row — should NOT trigger re-sort
+      grid.updateRow('new-1', { name: 'Zara', status: 'confirmed' });
+
+      // Row stays at index 0 despite 'Zara' sorting after 'Carol'
+      expect(grid.rows[0]).toBe(newRow);
+      expect(grid.rows[0].name).toBe('Zara');
+      expect(grid.rows.length).toBe(4);
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['new-1', 'r1', 'r2', 'r3']);
+    });
+  });
+
+  describe('insertRow + updateRow with MultiSortPlugin', () => {
+    it('updateRow does not re-sort an insertRow-d row via MultiSortPlugin', async () => {
+      const { MultiSortPlugin } = await import('../../lib/plugins/multi-sort');
+
+      const rows: TestRow[] = [
+        { id: 'r3', name: 'Carol', status: 'active', count: 30 },
+        { id: 'r1', name: 'Alice', status: 'active', count: 10 },
+        { id: 'r2', name: 'Bob', status: 'active', count: 20 },
+      ];
+      const plugin = new MultiSortPlugin();
+      const grid = await createGrid(rows, {
+        columns: [
+          { field: 'name', header: 'Name', sortable: true },
+          { field: 'id', header: 'ID' },
+          { field: 'status', header: 'Status' },
+          { field: 'count', header: 'Count' },
+        ],
+        plugins: [plugin],
+      });
+
+      // Apply multi-sort ascending on name
+      plugin.setSortModel([{ field: 'name', direction: 'asc' }]);
+      // Wait for the ROWS-phase render to apply the sort
+      await new Promise((r) => requestAnimationFrame(r));
+
+      // After sort: Alice(r1), Bob(r2), Carol(r3)
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1', 'r2', 'r3']);
+
+      // Insert new row at top
+      const newRow: TestRow = { id: 'new-1', name: '', status: 'draft', count: 0 };
+      grid.insertRow(0, newRow, false);
+      expect(grid.rows[0]).toBe(newRow);
+
+      // Update the inserted row — should NOT trigger MultiSort re-sort
+      grid.updateRow('new-1', { name: 'Zara', status: 'confirmed' });
+
+      // Row stays at index 0 despite 'Zara' sorting after 'Carol'
+      expect(grid.rows[0]).toBe(newRow);
+      expect(grid.rows[0].name).toBe('Zara');
+      expect(grid.rows.length).toBe(4);
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['new-1', 'r1', 'r2', 'r3']);
+    });
+  });
+
+  describe('insertRow + updateRow with FilteringPlugin', () => {
+    it('updateRow does not filter out an insertRow-d row', async () => {
+      const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+      const rows: TestRow[] = [
+        { id: 'r1', name: 'Alice', status: 'active', count: 10 },
+        { id: 'r2', name: 'Bob', status: 'active', count: 20 },
+        { id: 'r3', name: 'Carol', status: 'inactive', count: 30 },
+      ];
+      const plugin = new FilteringPlugin({});
+      const grid = await createGrid(rows, {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'id', header: 'ID' },
+          { field: 'status', header: 'Status', filterable: true },
+          { field: 'count', header: 'Count' },
+        ],
+        plugins: [plugin],
+      });
+
+      // Filter to only 'active' rows
+      plugin.setFilter('status', { type: 'text', operator: 'equals', value: 'active' });
+      // Wait for the ROWS-phase render to apply the filter
+      await new Promise((r) => requestAnimationFrame(r));
+
+      // Only Alice and Bob visible
+      expect(grid.rows.length).toBe(2);
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1', 'r2']);
+
+      // Insert a new row at top — it starts with status 'draft' which does NOT
+      // match the filter, but it should stay visible until the next full pipeline run.
+      const newRow: TestRow = { id: 'new-1', name: 'NewEntry', status: 'draft', count: 0 };
+      grid.insertRow(0, newRow, false);
+      expect(grid.rows[0]).toBe(newRow);
+      expect(grid.rows.length).toBe(3);
+
+      // Update the inserted row — should NOT trigger re-filter and remove it
+      grid.updateRow('new-1', { name: 'Updated', count: 5 });
+
+      // Row must still be visible at index 0
+      expect(grid.rows[0]).toBe(newRow);
+      expect(grid.rows[0].name).toBe('Updated');
+      expect(grid.rows.length).toBe(3);
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['new-1', 'r1', 'r2']);
+    });
+
+    it('updateRow on an existing row does not re-filter it out of view', async () => {
+      const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+      const rows: TestRow[] = [
+        { id: 'r1', name: 'Alice', status: 'active', count: 10 },
+        { id: 'r2', name: 'Bob', status: 'active', count: 20 },
+      ];
+      const plugin = new FilteringPlugin({});
+      const grid = await createGrid(rows, {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'status', header: 'Status', filterable: true },
+          { field: 'count', header: 'Count' },
+        ],
+        plugins: [plugin],
+      });
+
+      // Filter status = 'active'
+      plugin.setFilter('status', { type: 'text', operator: 'equals', value: 'active' });
+      // Wait for the ROWS-phase render to apply the filter
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(grid.rows.length).toBe(2);
+
+      // Change Bob's status to 'inactive' via updateRow — the row should NOT
+      // vanish immediately (that would be disorienting mid-edit)
+      grid.updateRow('r2', { status: 'inactive' });
+
+      expect(grid.rows.length).toBe(2);
+      expect(grid.rows[1].status).toBe('inactive');
+      expect(grid.rows.map((r: TestRow) => r.id)).toEqual(['r1', 'r2']);
+    });
+  });
+
   describe('row map rebuilding', () => {
     it('rebuilds map when rows array is replaced', async () => {
       const rows1: TestRow[] = [{ id: 'r1', name: 'Alice', status: 'active', count: 10 }];

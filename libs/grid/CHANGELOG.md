@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.23.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.22.1...grid-1.23.0) (2026-02-27)
+
+
+### Features
+
+* **grid:** add nullable column config for editing plugin ([af1af5e](https://github.com/OysteinAmundsen/toolbox/commit/af1af5e0447fbbc04b22f160b83d7fbf7c0fb4d0))
+* **grid:** add tbw-row-dirty/tbw-row-new CSS classes for dirty tracking ([bb5f653](https://github.com/OysteinAmundsen/toolbox/commit/bb5f653297ca304793f39c83091eddeec2afa16b))
+* **grid:** add transaction API to UndoRedoPlugin for compound undo/redo ([b9d4132](https://github.com/OysteinAmundsen/toolbox/commit/b9d41326344969f8ba27542685833da5af8b5694))
+* **grid:** auto-mark inserted rows as new in dirty tracking ([7b9d130](https://github.com/OysteinAmundsen/toolbox/commit/7b9d1302088d90a2bdfa07cf328166658fdab040))
+* **grid:** expose baseline API on EditingPlugin (hasBaseline, baselines-captured event) ([d91a59f](https://github.com/OysteinAmundsen/toolbox/commit/d91a59f3be8f0ed566e38cb5cfa7de0f61525645))
+* **grid:** implement dirty tracking in EditingPlugin ([ccb7756](https://github.com/OysteinAmundsen/toolbox/commit/ccb77568f6e6ae7127769b03f219f86218d15225))
+
+
+### Bug Fixes
+
+* **grid, grid-angular:** preserve focus on undo/redo and notify editors of external value changes ([596442a](https://github.com/OysteinAmundsen/toolbox/commit/596442ad2e7a137c2e6c6e35dbfa274ff372c80a))
+* **grid:** mark adapter editors as managed when factory returns void ([e900a2d](https://github.com/OysteinAmundsen/toolbox/commit/e900a2d8a78ca41e16f6cc13696ad648dfb2edc6))
+* **grid:** prevent updateRow from re-sorting on insertRow ([cf292a7](https://github.com/OysteinAmundsen/toolbox/commit/cf292a7088a1b3fce2452fcdb75ed10e7409ff84))
+* **grid:** undo/redo during active editing — preventDefault, suppress feedback, focus cell ([3170b57](https://github.com/OysteinAmundsen/toolbox/commit/3170b57900fe8c8fab28f324dcda1546ea6ca5db))
+* **grid:** use deep comparison for dirty tracking baselines ([56eef98](https://github.com/OysteinAmundsen/toolbox/commit/56eef98270befd2a87fc5e114103d3aeacc2bb32))
+* **grid:** use updateRow in UndoRedoPlugin for active editor sync ([1e2d537](https://github.com/OysteinAmundsen/toolbox/commit/1e2d5372a4dbd2d0cecb84aa6768175ffe953150))
+
 ## [1.22.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.22.0...grid-1.22.1) (2026-02-25)
 
 

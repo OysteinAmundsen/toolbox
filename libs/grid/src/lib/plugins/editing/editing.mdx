@@ -295,9 +295,10 @@ Configure built-in editors using the `editorParams` property. This allows you to
   type: 'date',
   editable: true,
   editorParams: {
-    min: '2024-01-01',  // Minimum date (ISO format)
-    max: '2024-12-31',  // Maximum date (ISO format)
-    placeholder: 'Select date'
+    min: '2024-01-01',      // Minimum date (ISO format)
+    max: '2024-12-31',      // Maximum date (ISO format)
+    placeholder: 'Select date',
+    default: '2024-01-01'   // Fallback when non-nullable column is cleared
   }
 }
 ```
@@ -331,6 +332,60 @@ import type {
   SelectEditorParams
 } from '@toolbox-web/grid/plugins/editing';
 ```
+
+## Nullable Columns
+
+Use the `nullable` column property to control whether a field can be set to `null`.
+Both `true` and `false` actively manage empty-input behaviour; omitting `nullable`
+preserves the default behaviour for each editor type.
+
+### nullable: true
+
+Editors allow clearing the field and commit `null`:
+
+```ts
+columns: [
+  // Text & number: clearing the input commits null
+  { field: 'nickname', editable: true, nullable: true },
+  { field: 'bonus', type: 'number', editable: true, nullable: true },
+
+  // Select: a "(Blank)" option is prepended that commits null
+  {
+    field: 'department', type: 'select', editable: true, nullable: true,
+    options: [{ label: 'Engineering', value: 'eng' }, { label: 'Sales', value: 'sales' }],
+  },
+
+  // Date: clearing the date commits null
+  { field: 'endDate', type: 'date', editable: true, nullable: true },
+]
+```
+
+The select editor's blank-option label defaults to `"(Blank)"` and can be
+customised via `editorParams.emptyLabel`.
+
+### nullable: false
+
+Editors prevent null values by providing sensible defaults when the user clears a field:
+
+| Editor   | Behaviour when cleared                                                      |
+|----------|-----------------------------------------------------------------------------|
+| **Text** | Commits `""` (empty string)                                                 |
+| **Number** | Commits `editorParams.min` if set, otherwise `0`                          |
+| **Date** | Commits `editorParams.default` if set, otherwise today's date             |
+| **Select** | No blank option is shown — the user must pick a value                   |
+
+```ts
+columns: [
+  { field: 'name', editable: true, nullable: false },
+  { field: 'price', type: 'number', editable: true, nullable: false,
+    editorParams: { min: 1 } },              // clears to 1
+  { field: 'startDate', type: 'date', editable: true, nullable: false,
+    editorParams: { default: '2024-01-01' } }, // clears to Jan 1, 2024
+]
+```
+
+> Custom editors receive `column.nullable` via the `ColumnEditorContext.column`
+> reference and can implement their own nullable logic.
 
 ## Type-Level Defaults
 

@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "@toolbox-web/source",
@@ -74,11 +75,11 @@
     },
     "libs/grid": {
       "name": "@toolbox-web/grid",
-      "version": "1.15.0",
+      "version": "1.22.1",
     },
     "libs/grid-angular": {
       "name": "@toolbox-web/grid-angular",
-      "version": "0.13.0",
+      "version": "0.15.0",
       "devDependencies": {
         "@angular/build": "^21.0.4",
         "@angular/cli": "^21.0.4",
@@ -97,7 +98,7 @@
     },
     "libs/grid-react": {
       "name": "@toolbox-web/grid-react",
-      "version": "0.12.1",
+      "version": "0.14.0",
       "devDependencies": {
         "@toolbox-web/grid": ">=0.4.0",
         "@types/react": "^19.0.0",
@@ -113,7 +114,7 @@
     },
     "libs/grid-vue": {
       "name": "@toolbox-web/grid-vue",
-      "version": "0.4.1",
+      "version": "0.6.0",
       "devDependencies": {
         "@toolbox-web/grid": ">=1.0.0",
         "vue": "^3.5.0",
@@ -125,12 +126,13 @@
     },
   },
   "overrides": {
-    "@angular/compiler": "21.1.1",
-    "@angular/core": "21.1.1",
-    "@angular/platform-browser": "21.1.1",
     "@angular/common": "21.1.1",
+    "@angular/compiler": "21.1.1",
     "@angular/compiler-cli": "21.1.1",
+    "@angular/core": "21.1.1",
     "@angular/forms": "21.1.1",
+    "@angular/platform-browser": "21.1.1",
+    "@angular/router": "21.1.1",
   },
   "packages": {
     "@acemir/cssom": ["@acemir/cssom@0.9.30", "", {}, "sha512-9CnlMCI0LmCIq0olalQqdWrJHPzm0/tw3gzOA9zJSgvFX7Xau3D24mAGa4BtwxwY69nsuJW6kQqqCzf/mEcQgg=="],

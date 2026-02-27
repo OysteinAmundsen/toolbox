@@ -34,6 +34,14 @@ function resolveOptions(column: AnyColumn): ColumnOption[] {
   return typeof raw === 'function' ? raw() : raw;
 }
 
+/** Format a Date as YYYY-MM-DD string */
+function toISODate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // ============================================================================
 // Editor Factories
 // ============================================================================
@@ -51,7 +59,18 @@ function createNumberEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HT
     if (params?.step !== undefined) input.step = String(params.step);
     if (params?.placeholder) input.placeholder = params.placeholder;
 
-    const commit = () => ctx.commit(input.value === '' ? null : Number(input.value));
+    const commit = () => {
+      if (input.value === '') {
+        if (column.nullable) {
+          ctx.commit(null);
+        } else {
+          // Non-nullable: fall back to min value or 0
+          ctx.commit(params?.min ?? 0);
+        }
+      } else {
+        ctx.commit(Number(input.value));
+      }
+    };
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') commit();
@@ -93,6 +112,22 @@ function createDateEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTML
 
     // Commit function preserves original type (string vs Date)
     const commit = () => {
+      if (!input.value) {
+        if (column.nullable) {
+          ctx.commit(null);
+        } else {
+          // Non-nullable: use configured default or today
+          const fallback = params?.default;
+          if (typeof ctx.value === 'string' || typeof fallback === 'string') {
+            // String mode: use default string or today as YYYY-MM-DD
+            ctx.commit(typeof fallback === 'string' ? fallback : toISODate(fallback ?? new Date()));
+          } else {
+            // Date object mode
+            ctx.commit(fallback instanceof Date ? fallback : new Date());
+          }
+        }
+        return;
+      }
       if (typeof ctx.value === 'string') {
         // Original was string, return string in YYYY-MM-DD format
         ctx.commit(input.value);
@@ -110,6 +145,9 @@ function createDateEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTML
   };
 }
 
+/** Sentinel value used internally to identify the nullable "(Blank)" option */
+const NULLABLE_BLANK_VALUE = '__tbw_null__';
+
 /** Creates a select dropdown editor */
 function createSelectEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTMLElement {
   return (ctx) => {
@@ -117,11 +155,13 @@ function createSelectEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HT
     const select = document.createElement('select');
     if (column.multi) select.multiple = true;
 
-    // Add empty option if requested
-    if (params?.includeEmpty) {
+    // Add blank option: nullable columns always get one, otherwise respect includeEmpty
+    const showBlank = column.nullable || params?.includeEmpty;
+    if (showBlank) {
       const emptyOpt = document.createElement('option');
-      emptyOpt.value = '';
-      emptyOpt.textContent = params.emptyLabel ?? '';
+      emptyOpt.value = column.nullable ? NULLABLE_BLANK_VALUE : '';
+      emptyOpt.textContent = column.nullable ? (params?.emptyLabel ?? '(Blank)') : (params?.emptyLabel ?? '');
+      if (ctx.value == null) emptyOpt.selected = true;
       select.appendChild(emptyOpt);
     }
 
@@ -143,6 +183,8 @@ function createSelectEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HT
       if (column.multi) {
         const values = Array.from(select.selectedOptions).map((o) => o.value);
         ctx.commit(values);
+      } else if (column.nullable && select.value === NULLABLE_BLANK_VALUE) {
+        ctx.commit(null);
       } else {
         ctx.commit(select.value);
       }
@@ -173,17 +215,25 @@ function createTextEditor(column: AnyColumn): (ctx: ColumnEditorContext) => HTML
     // Commit function preserves original type when possible
     const commit = () => {
       const inputVal = input.value;
-      // Preserve null/undefined: empty input on a null/undefined field means no change
-      if ((ctx.value === null || ctx.value === undefined) && inputVal === '') {
+
+      // Empty input handling
+      if (inputVal === '') {
+        if (column.nullable) {
+          ctx.commit(null);
+        } else {
+          // Non-nullable: commit empty string so the field is never null
+          ctx.commit('');
+        }
         return;
       }
+
       // Preserve values with characters that <input> can't represent (newlines, etc.).
       // If stripping those characters produces the same string, the user didn't change anything.
       if (typeof ctx.value === 'string' && inputVal === ctx.value.replace(/[\n\r]/g, '')) {
         return;
       }
       // Preserve numeric type for custom column types (e.g., currency)
-      if (typeof ctx.value === 'number' && inputVal !== '') {
+      if (typeof ctx.value === 'number') {
         ctx.commit(Number(inputVal));
       } else {
         ctx.commit(inputVal);
@@ -244,8 +294,19 @@ export function getInputValue(
   }
   if (input instanceof HTMLInputElement) {
     if (input.type === 'checkbox') return input.checked;
-    if (input.type === 'number') return input.value === '' ? null : Number(input.value);
-    if (input.type === 'date') return input.valueAsDate;
+    if (input.type === 'number') {
+      if (input.value === '') {
+        if (col.nullable) return null;
+        const params = col.editorParams as NumberEditorParams | undefined;
+        return params?.min ?? 0;
+      }
+      return Number(input.value);
+    }
+    if (input.type === 'date') {
+      if (!input.value && col.nullable) return null;
+      return input.valueAsDate;
+    }
   }
+  if (col.nullable && input.value === '') return null;
   return input.value;
 }

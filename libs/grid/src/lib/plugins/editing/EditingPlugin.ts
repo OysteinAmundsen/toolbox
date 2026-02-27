@@ -145,8 +145,21 @@ function getInputValue(
 ): unknown {
   if (input instanceof HTMLInputElement) {
     if (input.type === 'checkbox') return input.checked;
-    if (input.type === 'number') return input.value === '' ? null : Number(input.value);
+    if (input.type === 'number') {
+      if (input.value === '') {
+        if (column?.nullable) return null;
+        const params = column?.editorParams as { min?: number } | undefined;
+        return params?.min ?? 0;
+      }
+      return Number(input.value);
+    }
     if (input.type === 'date') {
+      if (!input.value) {
+        if (column?.nullable) return null;
+        // Non-nullable: preserve original or fall back to today
+        if (typeof originalValue === 'string') return originalValue || new Date().toISOString().slice(0, 10);
+        return (originalValue as Date) ?? new Date();
+      }
       // Preserve original type: if original was a string, return string (YYYY-MM-DD format)
       if (typeof originalValue === 'string') {
         return input.value; // input.value is already in YYYY-MM-DD format
@@ -155,11 +168,16 @@ function getInputValue(
     }
     // For text inputs, check if original value was a number to preserve type
     if (typeof originalValue === 'number') {
-      return input.value === '' ? null : Number(input.value);
+      if (input.value === '') {
+        if (column?.nullable) return null;
+        const params = column?.editorParams as { min?: number } | undefined;
+        return params?.min ?? 0;
+      }
+      return Number(input.value);
     }
-    // Preserve null/undefined: if original was null/undefined and input is empty, return original
-    if ((originalValue === null || originalValue === undefined) && input.value === '') {
-      return originalValue;
+    // Nullable text: empty → null; non-nullable: empty → ''
+    if (input.value === '' && (originalValue === null || originalValue === undefined)) {
+      return column?.nullable ? null : '';
     }
     // Preserve values with characters <input> can't represent (newlines, etc.)
     if (typeof originalValue === 'string' && input.value === originalValue.replace(/[\n\r]/g, '')) {
@@ -175,9 +193,9 @@ function getInputValue(
   if (typeof originalValue === 'number' && input.value !== '') {
     return Number(input.value);
   }
-  // Preserve null/undefined: if original was null/undefined and input is empty, return original
+  // Nullable: empty → null; non-nullable: empty → ''
   if ((originalValue === null || originalValue === undefined) && input.value === '') {
-    return originalValue;
+    return column?.nullable ? null : '';
   }
   return input.value;
 }
@@ -325,6 +343,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         property: 'editorParams',
         level: 'column',
         description: 'the "editorParams" column property',
+      },
+      {
+        property: 'nullable',
+        level: 'column',
+        description: 'the "nullable" column property (allows null values)',
       },
     ],
     events: [

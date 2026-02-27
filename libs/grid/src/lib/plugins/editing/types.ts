@@ -212,6 +212,46 @@ declare module '../../core/types' {
      * ```
      */
     editorParams?: EditorParams;
+    /**
+     * Whether this column allows `null` values. Requires EditingPlugin.
+     *
+     * When `true`:
+     * - **Text/number editors**: clearing all content commits `null`.
+     * - **Select editors**: a "(Blank)" option is automatically prepended that
+     *   commits `null`. The label defaults to `"(Blank)"` and can be overridden
+     *   via `SelectEditorParams.emptyLabel`.
+     * - **Date editors**: clearing the date commits `null`.
+     *
+     * When `false`:
+     * - **Text editors**: clearing commits `""` (empty string).
+     * - **Number editors**: clearing commits `editorParams.min` if set, otherwise `0`.
+     * - **Select editors**: no blank option is shown, forcing a selection.
+     * - **Date editors**: clearing commits `editorParams.default` if set,
+     *   otherwise today's date. The fallback preserves the original type
+     *   (string → `"YYYY-MM-DD"`, Date → `new Date()`).
+     *
+     * When omitted (default), behaviour matches `false` for text/number columns
+     * and no special handling is applied.
+     *
+     * Custom editors can read `column.nullable` from the {@link ColumnEditorContext}
+     * to implement their own nullable behaviour.
+     *
+     * @default false
+     *
+     * @example
+     * ```typescript
+     * columns: [
+     *   { field: 'nickname', editable: true, nullable: true },
+     *   { field: 'department', type: 'select', editable: true, nullable: true,
+     *     options: [{ label: 'Engineering', value: 'eng' }, { label: 'Sales', value: 'sales' }] },
+     *   { field: 'price', type: 'number', editable: true, nullable: false,
+     *     editorParams: { min: 0 } }, // clears to 0
+     *   { field: 'startDate', type: 'date', editable: true, nullable: false,
+     *     editorParams: { default: '2024-01-01' } }, // clears to Jan 1 2024
+     * ]
+     * ```
+     */
+    nullable?: boolean;
   }
 
   interface TypeDefault {
@@ -500,6 +540,12 @@ export interface DateEditorParams {
   max?: string;
   /** Placeholder text when empty */
   placeholder?: string;
+  /**
+   * Default date used when the user clears a non-nullable date column.
+   * Accepts an ISO date string (`'YYYY-MM-DD'`) or a `Date` object.
+   * When omitted, today's date is used as the fallback.
+   */
+  default?: string | Date;
 }
 
 /**

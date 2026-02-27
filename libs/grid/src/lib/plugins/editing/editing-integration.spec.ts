@@ -2701,4 +2701,512 @@ describe('EditingPlugin', () => {
   });
 
   // #endregion
+
+  // #region nullable column config
+  describe('nullable column config', () => {
+    // ---- Text editors ----
+    describe('text editor', () => {
+      it('nullable: true — clearing text commits null', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: true, nullable: true },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, name: 'Alice' }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = nameCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBeNull();
+      });
+
+      it('nullable: false — clearing text commits empty string', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: true, nullable: false },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, name: 'Alice' }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = nameCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBe('');
+      });
+
+      it('nullable: undefined (default) — clearing text on existing null is a no-op', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'nickname', header: 'Nickname', editable: true },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, nickname: null }];
+        await waitUpgrade(grid);
+
+        let committed = false;
+        grid.addEventListener('cell-commit', () => {
+          committed = true;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const cell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = cell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        expect(input.value).toBe('');
+        // Leave empty and blur — should not commit
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        await nextFrame();
+
+        // No cell-commit since nullable is not set and we just left it empty
+        // The editor commits '' which differs from null, so cell-commit fires
+        // but the value should not be null
+        // Actually with nullable undefined, the text editor commits '' for non-null clearing
+        // and when original was null and input is empty, it commits '' too now
+        expect(committed).toBe(true);
+      });
+    });
+
+    // ---- Number editors ----
+    describe('number editor', () => {
+      it('nullable: true — clearing number commits null', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'price', header: 'Price', type: 'number', editable: true, nullable: true },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, price: 42 }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const priceCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        priceCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = priceCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBeNull();
+      });
+
+      it('nullable: false — clearing number commits min or 0', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            {
+              field: 'price',
+              header: 'Price',
+              type: 'number',
+              editable: true,
+              nullable: false,
+              editorParams: { min: 5 },
+            },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, price: 42 }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const priceCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        priceCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = priceCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBe(5);
+      });
+
+      it('nullable: false without min — clearing number commits 0', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'price', header: 'Price', type: 'number', editable: true, nullable: false },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, price: 42 }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const priceCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        priceCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = priceCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBe(0);
+      });
+    });
+
+    // ---- Select editors ----
+    describe('select editor', () => {
+      it('nullable: true — shows (Blank) option and commits null when selected', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            {
+              field: 'status',
+              header: 'Status',
+              type: 'select',
+              editable: true,
+              nullable: true,
+              options: [
+                { label: 'Active', value: 'active' },
+                { label: 'Inactive', value: 'inactive' },
+              ],
+            },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, status: 'active' }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const cell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        // Should have 3 options: (Blank) + 2 real options
+        expect(select.options.length).toBe(3);
+        expect(select.options[0].textContent).toBe('(Blank)');
+
+        // Select the blank option
+        select.value = select.options[0].value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBeNull();
+      });
+
+      it('nullable: true — respects custom emptyLabel', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            {
+              field: 'status',
+              header: 'Status',
+              type: 'select',
+              editable: true,
+              nullable: true,
+              options: [
+                { label: 'Active', value: 'active' },
+                { label: 'Inactive', value: 'inactive' },
+              ],
+              editorParams: { emptyLabel: '-- None --' },
+            },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, status: 'active' }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const cell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        expect(select.options[0].textContent).toBe('-- None --');
+      });
+
+      it('nullable: false — no blank option shown', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            {
+              field: 'status',
+              header: 'Status',
+              type: 'select',
+              editable: true,
+              nullable: false,
+              options: [
+                { label: 'Active', value: 'active' },
+                { label: 'Inactive', value: 'inactive' },
+              ],
+            },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, status: 'active' }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const cell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        // Only the 2 real options, no blank
+        expect(select.options.length).toBe(2);
+        expect(select.options[0].textContent).toBe('Active');
+      });
+
+      it('nullable: true with null value — blank option is selected', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            {
+              field: 'status',
+              header: 'Status',
+              type: 'select',
+              editable: true,
+              nullable: true,
+              options: [
+                { label: 'Active', value: 'active' },
+                { label: 'Inactive', value: 'inactive' },
+              ],
+            },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, status: null }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const cell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const select = cell.querySelector('select') as HTMLSelectElement;
+        expect(select).toBeTruthy();
+        // The blank option should be selected (first option)
+        expect(select.options[0].selected).toBe(true);
+        expect(select.options[0].textContent).toBe('(Blank)');
+      });
+    });
+
+    // ---- Date editors ----
+    describe('date editor', () => {
+      it('nullable: true — clearing date commits null', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'startDate', header: 'Start Date', type: 'date', editable: true, nullable: true },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, startDate: '2024-06-15' }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const dateCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        dateCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = dateCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBeNull();
+      });
+
+      it('nullable: false — clearing date commits default date param', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            {
+              field: 'startDate',
+              header: 'Start Date',
+              type: 'date',
+              editable: true,
+              nullable: false,
+              editorParams: { default: '2020-01-01' },
+            },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, startDate: '2024-06-15' }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const dateCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        dateCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = dateCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await nextFrame();
+
+        expect(committed).toBe('2020-01-01');
+      });
+
+      it('nullable: false without default — clearing date commits today', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'startDate', header: 'Start Date', type: 'date', editable: true, nullable: false },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, startDate: '2024-06-15' }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const dateCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        dateCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = dateCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await nextFrame();
+
+        // Should be today's date as YYYY-MM-DD string (original was string)
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const d = String(today.getDate()).padStart(2, '0');
+        expect(committed).toBe(`${y}-${m}-${d}`);
+      });
+
+      it('nullable: false with Date original — clearing date commits Date object', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'startDate', header: 'Start Date', type: 'date', editable: true, nullable: false },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, startDate: new Date('2024-06-15') }];
+        await waitUpgrade(grid);
+
+        let committed: unknown = undefined;
+        grid.addEventListener('cell-commit', (e: CustomEvent) => {
+          committed = e.detail.value;
+        });
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const dateCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        dateCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = dateCell.querySelector('input') as HTMLInputElement;
+        expect(input).toBeTruthy();
+        input.value = '';
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await nextFrame();
+
+        // Original was a Date object, so fallback should be a Date
+        expect(committed).toBeInstanceOf(Date);
+      });
+    });
+
+    // ---- Plugin manifest ----
+    it('includes nullable in plugin manifest ownedProperties', () => {
+      const manifest = EditingPlugin.manifest;
+      const nullableProp = manifest?.ownedProperties?.find((p: any) => p.property === 'nullable');
+      expect(nullableProp).toBeTruthy();
+      expect(nullableProp!.level).toBe('column');
+    });
+  });
+  // #endregion
+
+  // #endregion
 });

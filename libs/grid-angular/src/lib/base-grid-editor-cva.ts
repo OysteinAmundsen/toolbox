@@ -147,9 +147,8 @@ export abstract class BaseGridEditorCVA<TRow = unknown, TValue = unknown>
     this._onChange(value);
     this._onTouched();
 
-    // Update grid
-    if (value != null) {
-      this.commitValue(value);
-    }
+    // Update grid (null is valid for nullable columns — the grid's cell-commit
+    // handler and EditingPlugin will apply it correctly)
+    this.commitValue(value);
   }
 }

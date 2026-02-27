@@ -102,8 +102,9 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
 
   /**
    * Emits when the user commits a new value.
+   * Emits `null` when a nullable field is cleared.
    */
-  readonly commit = output<TValue>();
+  readonly commit = output<TValue | null>();
 
   /**
    * Emits when the user cancels editing.
@@ -273,7 +274,7 @@ export abstract class BaseGridEditor<TRow = unknown, TValue = unknown> {
    * The DOM event enables the grid's auto-wiring to catch the commit.
    * Call this when the user confirms their edit.
    */
-  commitValue(newValue: TValue): void {
+  commitValue(newValue: TValue | null): void {
     // Emit Angular output for template bindings
     this.commit.emit(newValue);
 

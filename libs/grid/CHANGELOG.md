@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.0...grid-1.23.1) (2026-03-02)
+
+
+### Bug Fixes
+
+* **grid:** make filter column-state integration consistent via trackColumnState ([7d9e067](https://github.com/OysteinAmundsen/toolbox/commit/7d9e0670175593edf80da11c02f9f5d7dbad2df6))
+
 ## [1.23.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.22.1...grid-1.23.0) (2026-02-27)
 
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.23.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.1...grid-1.23.2) (2026-03-03)
+
+
+### Bug Fixes
+
+* **grid:** Prevent focus recursion in editing plugin ([3485802](https://github.com/OysteinAmundsen/toolbox/commit/3485802c101401b28e759cfeab647e9ed84689b6))
+* **grid:** recognize grid edit mode in ensureCellVisible focus logic ([23fad26](https://github.com/OysteinAmundsen/toolbox/commit/23fad263d2dcf92194b7b2dc9f2c9171682c6035))
+* **grid:** revert cell value on Escape in grid editing mode ([ce1fc3c](https://github.com/OysteinAmundsen/toolbox/commit/ce1fc3c6ba35f5afe4984aa45667943e82a639fb))
+* **grid:** support in operator in filter panel excludedValues ([8641e92](https://github.com/OysteinAmundsen/toolbox/commit/8641e92cbc56143575f15a39fcfb4f1c3fe7cbaa))
+
 ## [1.23.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.0...grid-1.23.1) (2026-03-02)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.16.0...grid-angular-0.16.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* **grid:** revert cell value on Escape in grid editing mode ([ce1fc3c](https://github.com/OysteinAmundsen/toolbox/commit/ce1fc3c6ba35f5afe4984aa45667943e82a639fb))
+
 ## [0.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.15.0...grid-angular-0.16.0) (2026-02-27)
 
 

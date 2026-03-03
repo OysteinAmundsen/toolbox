@@ -1576,6 +1576,268 @@ describe('tbw-grid integration: async filtering state persistence', () => {
     expect(grid._rows).toHaveLength(1);
     expect(grid._rows[0].status).toBe('Inactive');
   });
+
+  it('should sync excludedValues and panel checkboxes for "in" operator filters', async () => {
+    // Regression: setFilterModel with operator: 'in' should populate excludedValues
+    // so the filter panel correctly shows which values are checked/unchecked.
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const data = [
+      { id: 1, status: 'Active' },
+      { id: 2, status: 'Inactive' },
+      { id: 3, status: 'On Leave' },
+    ];
+
+    const plugin = new FilteringPlugin({});
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', filterable: false },
+        { field: 'status', header: 'Status', filterable: true },
+      ],
+      plugins: [plugin],
+    };
+    grid.rows = data;
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Apply an "in" filter — only include 'Active'
+    plugin.setFilterModel([{ field: 'status', type: 'set', operator: 'in', value: ['Active'] }]);
+    await nextFrame();
+    await nextFrame();
+
+    // Verify rows are filtered (only Active passes)
+    expect(grid._rows).toHaveLength(1);
+    expect(grid._rows[0].status).toBe('Active');
+
+    // Verify excludedValues is computed as the complement
+    const attachedPlugin = grid.getPlugin(FilteringPlugin);
+    const excluded = (attachedPlugin as any).excludedValues.get('status') as Set<unknown>;
+    expect(excluded).toBeDefined();
+    expect(excluded.has('Inactive')).toBe(true);
+    expect(excluded.has('On Leave')).toBe(true);
+    expect(excluded.has('Active')).toBe(false);
+
+    // Open filter panel and verify checkbox states
+    const statusHeaderCell = grid.querySelector('[part~="header-cell"][data-col="1"]');
+    const filterBtn = statusHeaderCell!.querySelector('.tbw-filter-btn') as HTMLElement;
+    filterBtn.click();
+    await nextFrame();
+
+    const panel = document.body.querySelector('.tbw-filter-panel') as HTMLElement;
+    expect(panel).not.toBeNull();
+
+    const checkboxes = panel.querySelectorAll('.tbw-filter-checkbox[data-value]');
+    for (const cb of checkboxes) {
+      const value = cb.getAttribute('data-value');
+      const checked = (cb as HTMLInputElement).checked;
+      if (value === 'Active') {
+        expect(checked).toBe(true);
+      } else {
+        // 'Inactive' and 'On Leave' should be unchecked
+        expect(checked).toBe(false);
+      }
+    }
+
+    // Clean up panel
+    panel.remove();
+  });
+
+  it('should sync excludedValues for "in" filter applied via setFilter (single)', async () => {
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const data = [
+      { id: 1, dept: 'Eng' },
+      { id: 2, dept: 'HR' },
+      { id: 3, dept: 'Sales' },
+      { id: 4, dept: 'Eng' },
+    ];
+
+    const plugin = new FilteringPlugin({});
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', filterable: false },
+        { field: 'dept', header: 'Dept', filterable: true },
+      ],
+      plugins: [plugin],
+    };
+    grid.rows = data;
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Apply single "in" filter — include only 'Eng' and 'HR'
+    plugin.setFilter('dept', { type: 'set', operator: 'in', value: ['Eng', 'HR'] });
+    await nextFrame();
+    await nextFrame();
+
+    // Verify rows
+    expect(grid._rows).toHaveLength(3);
+    expect(grid._rows.every((r: any) => r.dept === 'Eng' || r.dept === 'HR')).toBe(true);
+
+    // Verify excludedValues
+    const excluded = (plugin as any).excludedValues.get('dept') as Set<unknown>;
+    expect(excluded).toBeDefined();
+    expect(excluded.has('Sales')).toBe(true);
+    expect(excluded.has('Eng')).toBe(false);
+    expect(excluded.has('HR')).toBe(false);
+  });
+
+  it('should preserve "in" operator through panel Apply round-trip', async () => {
+    // Issue 1: opening the panel and clicking Apply should NOT convert `in` to `notIn`
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const data = [
+      { id: 1, status: 'Active' },
+      { id: 2, status: 'Inactive' },
+      { id: 3, status: 'On Leave' },
+    ];
+
+    const plugin = new FilteringPlugin({});
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', filterable: false },
+        { field: 'status', header: 'Status', filterable: true },
+      ],
+      plugins: [plugin],
+    };
+    grid.rows = data;
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Set an "in" filter
+    plugin.setFilter('status', { type: 'set', operator: 'in', value: ['Active'] });
+    await nextFrame();
+
+    // Verify initial operator
+    expect(plugin.getFilter('status')?.operator).toBe('in');
+
+    // Open panel
+    const statusHeaderCell = grid.querySelector('[part~="header-cell"][data-col="1"]');
+    const filterBtn = statusHeaderCell!.querySelector('.tbw-filter-btn') as HTMLElement;
+    filterBtn.click();
+    await nextFrame();
+
+    const panel = document.body.querySelector('.tbw-filter-panel') as HTMLElement;
+    expect(panel).not.toBeNull();
+
+    // Click Apply without changing anything
+    const applyBtn = panel.querySelector('.tbw-filter-apply-btn') as HTMLElement;
+    applyBtn.click();
+    await nextFrame();
+    await nextFrame();
+
+    // Operator should still be `in`, not converted to `notIn`
+    const filter = plugin.getFilter('status');
+    expect(filter).toBeDefined();
+    expect(filter!.operator).toBe('in');
+    expect(filter!.value).toEqual(['Active']);
+
+    // Rows should still be filtered correctly
+    expect(grid._rows).toHaveLength(1);
+    expect(grid._rows[0].status).toBe('Active');
+  });
+
+  it('should compute excludedValues lazily when "in" filter is set before data', async () => {
+    // Issue 2: setFilterModel called before rows are assigned should still
+    // produce correct panel checkbox state once data arrives.
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const plugin = new FilteringPlugin({});
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', filterable: false },
+        { field: 'status', header: 'Status', filterable: true },
+      ],
+      plugins: [plugin],
+    };
+    // Plugin must be attached to grid before calling API
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Set filter BEFORE data is loaded
+    plugin.setFilterModel([{ field: 'status', type: 'set', operator: 'in', value: ['Active'] }]);
+
+    // excludedValues should NOT have been eagerly computed (no data yet)
+    expect((plugin as any).excludedValues.has('status')).toBe(false);
+
+    // Now load data
+    grid.rows = [
+      { id: 1, status: 'Active' },
+      { id: 2, status: 'Inactive' },
+      { id: 3, status: 'On Leave' },
+    ];
+    await nextFrame();
+    await nextFrame();
+
+    // Rows should be filtered
+    expect(grid._rows).toHaveLength(1);
+    expect(grid._rows[0].status).toBe('Active');
+
+    // Open panel — should lazily recompute excludedValues from current data
+    const statusHeaderCell = grid.querySelector('[part~="header-cell"][data-col="1"]');
+    const filterBtn = statusHeaderCell!.querySelector('.tbw-filter-btn') as HTMLElement;
+    filterBtn.click();
+    await nextFrame();
+
+    const panel = document.body.querySelector('.tbw-filter-panel') as HTMLElement;
+    expect(panel).not.toBeNull();
+
+    // Verify checkbox states: Active checked, others unchecked
+    const checkboxes = panel.querySelectorAll('.tbw-filter-checkbox[data-value]');
+    for (const cb of checkboxes) {
+      const value = cb.getAttribute('data-value');
+      const checked = (cb as HTMLInputElement).checked;
+      if (value === 'Active') {
+        expect(checked).toBe(true);
+      } else {
+        expect(checked).toBe(false);
+      }
+    }
+
+    // Clean up
+    panel.remove();
+  });
+
+  it('should return "in" values from getFilterModel / computeSelected for "in" filters', async () => {
+    const { FilteringPlugin } = await import('../../lib/plugins/filtering');
+
+    const plugin = new FilteringPlugin({});
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', filterable: false },
+        { field: 'dept', header: 'Dept', filterable: true },
+      ],
+      plugins: [plugin],
+    };
+    grid.rows = [
+      { id: 1, dept: 'Eng' },
+      { id: 2, dept: 'HR' },
+      { id: 3, dept: 'Sales' },
+    ];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Track events to verify `selected` payload
+    const events: any[] = [];
+    grid.addEventListener('filter-change', (e: any) => events.push(e.detail));
+
+    plugin.setFilter('dept', { type: 'set', operator: 'in', value: ['Eng', 'HR'] });
+    await nextFrame();
+
+    // getFilterModel should return `in` with original values
+    const model = plugin.getFilterModel();
+    expect(model).toHaveLength(1);
+    expect(model[0].operator).toBe('in');
+    expect(model[0].value).toEqual(['Eng', 'HR']);
+
+    // filter-change event should have correct selected map
+    expect(events).toHaveLength(1);
+    expect(events[0].selected.dept).toEqual(expect.arrayContaining(['Eng', 'HR']));
+  });
 });
 
 describe('tbw-grid scroll height calculation', () => {

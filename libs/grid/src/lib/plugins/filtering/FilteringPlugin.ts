@@ -11,7 +11,13 @@ import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
-import { computeFilterCacheKey, filterRows, getUniqueValues, getUniqueValuesBatch } from './filter-model';
+import {
+  BLANK_FILTER_VALUE,
+  computeFilterCacheKey,
+  filterRows,
+  getUniqueValues,
+  getUniqueValuesBatch,
+} from './filter-model';
 import styles from './filtering.css?inline';
 import filterPanelStyles from './FilteringPlugin.css?inline';
 import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams } from './types';
@@ -242,43 +248,71 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
   /**
    * Compute the inclusion (selected) map from the current filters and excluded values.
-   * For set filters this is: uniqueValues \ excludedValues.
+   * For `notIn` filters this is: uniqueValues \ excludedValues.
+   * For `in` filters this is the filter's own value array (no data scan needed).
    * Only includes entries for fields that have a set filter.
-   * Uses a single-pass batch extraction to avoid iterating sourceRows per field.
    */
   private computeSelected(): Record<string, unknown[]> {
-    // Collect the fields that need unique values
-    const setFields: {
+    const selected: Record<string, unknown[]> = {};
+
+    // Collect `notIn` fields that need unique value lookups
+    const notInFields: {
       field: string;
       filterValue?: (value: unknown, row: Record<string, unknown>) => unknown | unknown[];
     }[] = [];
+
     for (const [field, filter] of this.filters) {
-      if (filter.type !== 'set' || filter.operator !== 'notIn') continue;
-      const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
-      setFields.push({ field, filterValue: col?.filterValue });
+      if (filter.type !== 'set') continue;
+      if (filter.operator === 'in' && Array.isArray(filter.value)) {
+        // For `in` filters, the selected values ARE the filter values — no data scan needed
+        selected[field] = filter.value;
+        continue;
+      }
+      if (filter.operator === 'notIn') {
+        const col = this.grid.effectiveConfig?.columns?.find((c) => c.field === field);
+        notInFields.push({ field, filterValue: col?.filterValue });
+      }
     }
-    if (setFields.length === 0) return {};
 
-    // Single pass through sourceRows for all fields
-    const uniqueMap = getUniqueValuesBatch(this.sourceRows as Record<string, unknown>[], setFields);
-
-    const selected: Record<string, unknown[]> = {};
-    for (const { field } of setFields) {
-      const excluded = this.excludedValues.get(field);
-      const unique = uniqueMap.get(field) ?? [];
-      selected[field] = excluded ? unique.filter((v) => !excluded.has(v)) : unique;
+    if (notInFields.length > 0) {
+      // Single pass through sourceRows for notIn fields only
+      const uniqueMap = getUniqueValuesBatch(this.sourceRows as Record<string, unknown>[], notInFields);
+      for (const { field } of notInFields) {
+        const excluded = this.excludedValues.get(field);
+        const unique = uniqueMap.get(field) ?? [];
+        selected[field] = excluded ? unique.filter((v) => !excluded.has(v)) : unique;
+      }
     }
+
     return selected;
   }
 
   /**
    * Sync excludedValues map from a filter model (for set filters).
+   * For `notIn` filters, the excluded values are stored directly.
+   * For `in` filters, the complement is computed (allUnique - inValues)
+   * so that the filter panel UI can render checked/unchecked states correctly.
    */
   private syncExcludedValues(field: string, filter: FilterModel | null): void {
     if (!filter) {
       this.excludedValues.delete(field);
     } else if (filter.type === 'set' && filter.operator === 'notIn' && Array.isArray(filter.value)) {
       this.excludedValues.set(field, new Set(filter.value));
+    } else if (filter.type === 'set' && filter.operator === 'in' && Array.isArray(filter.value)) {
+      // For `in` filters we need the complement (excluded = allUnique - included)
+      // so the filter panel can render correct checkbox states.
+      // This requires data to be loaded. If sourceRows is empty, defer — the
+      // complement will be computed lazily when the panel opens.
+      const sourceRows = this.sourceRows as Record<string, unknown>[];
+      if (!sourceRows || sourceRows.length === 0) {
+        this.excludedValues.delete(field);
+        return;
+      }
+      const inValues = filter.value as unknown[];
+      const included: Set<unknown> = new Set(inValues.map((v) => (v == null ? BLANK_FILTER_VALUE : v)));
+      const unique = this.getUniqueValues(field);
+      const excluded: Set<unknown> = new Set(unique.filter((v) => !included.has(v)));
+      this.excludedValues.set(field, excluded);
     } else if (filter.type === 'set') {
       // Other set operators may have different semantics; clear for safety
       this.excludedValues.delete(field);
@@ -730,6 +764,21 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
    * Render filter panel content with given values
    */
   private renderPanelContent(field: string, column: ColumnConfig, panel: HTMLElement, uniqueValues: unknown[]): void {
+    // For `in` filters, recompute excludedValues from current data if not yet populated.
+    // This handles the case where setFilterModel was called before rows were loaded.
+    const currentFilter = this.filters.get(field);
+    if (
+      currentFilter?.operator === 'in' &&
+      currentFilter.type === 'set' &&
+      Array.isArray(currentFilter.value) &&
+      !this.excludedValues.has(field)
+    ) {
+      const inValues = currentFilter.value as unknown[];
+      const included = new Set<unknown>(inValues.map((v) => (v == null ? BLANK_FILTER_VALUE : v)));
+      const excluded = new Set<unknown>(uniqueValues.filter((v) => !included.has(v)));
+      this.excludedValues.set(field, excluded);
+    }
+
     // Get current excluded values or initialize empty
     let excludedSet = this.excludedValues.get(field);
     if (!excludedSet) {
@@ -1567,24 +1616,42 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
-   * Apply a set filter (exclude values)
+   * Apply a set filter from the panel's excluded (unchecked) values.
+   * Preserves the original operator: if the current filter uses `in`,
+   * the included values are computed and stored as `in`; otherwise `notIn` is used.
    */
   private applySetFilter(field: string, excluded: unknown[], valueTo?: unknown): void {
-    // Store excluded values
+    // Store excluded values for panel checkbox state
     this.excludedValues.set(field, new Set(excluded));
 
     if (excluded.length === 0) {
       // No exclusions = no filter
       this.filters.delete(field);
     } else {
-      // Create "notIn" filter (include valueTo metadata when provided, e.g. user-selected date range)
-      this.filters.set(field, {
-        field,
-        type: 'set',
-        operator: 'notIn',
-        value: excluded,
-        ...(valueTo !== undefined && { valueTo }),
-      });
+      // Preserve the original operator through the panel round-trip
+      const currentFilter = this.filters.get(field);
+      if (currentFilter?.operator === 'in') {
+        // Convert excluded → included to maintain `in` semantics
+        const unique = this.getUniqueValues(field);
+        const excludedSet = new Set(excluded);
+        const included = unique.filter((v) => !excludedSet.has(v));
+        this.filters.set(field, {
+          field,
+          type: 'set',
+          operator: 'in',
+          value: included,
+          ...(valueTo !== undefined && { valueTo }),
+        });
+      } else {
+        // Default: create "notIn" filter
+        this.filters.set(field, {
+          field,
+          type: 'set',
+          operator: 'notIn',
+          value: excluded,
+          ...(valueTo !== undefined && { valueTo }),
+        });
+      }
     }
 
     this.applyFiltersInternal();

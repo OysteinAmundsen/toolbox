@@ -32,7 +32,7 @@ import type {
   RowElementInternal,
 } from '../../core/types';
 import styles from './editing.css?inline';
-import { defaultEditorFor } from './editors';
+import { defaultEditorFor, getInputValue } from './editors';
 import {
   captureBaselines,
   getOriginalRow,
@@ -111,13 +111,6 @@ function isSafePropertyKey(key: unknown): key is string {
 }
 
 /**
- * Check if a row element has any cells in editing mode.
- */
-export function hasEditingCells(rowEl: RowElementInternal): boolean {
-  return (rowEl.__editingCellCount ?? 0) > 0;
-}
-
-/**
  * Increment the editing cell count on a row element.
  */
 function incrementEditingCount(rowEl: RowElementInternal): void {
@@ -129,76 +122,9 @@ function incrementEditingCount(rowEl: RowElementInternal): void {
 /**
  * Clear all editing state from a row element.
  */
-export function clearEditingState(rowEl: RowElementInternal): void {
+function clearEditingState(rowEl: RowElementInternal): void {
   rowEl.__editingCellCount = 0;
   rowEl.removeAttribute('data-has-editing');
-}
-
-/**
- * Get the typed value from an input element based on its type, column config, and original value.
- * Preserves the type of the original value (e.g., numeric currency values stay as numbers,
- * string dates stay as strings).
- */
-function getInputValue(
-  input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
-  column?: ColumnConfig<any>,
-  originalValue?: unknown,
-): unknown {
-  if (input instanceof HTMLInputElement) {
-    if (input.type === 'checkbox') return input.checked;
-    if (input.type === 'number') {
-      if (input.value === '') {
-        if (column?.nullable) return null;
-        const params = column?.editorParams as { min?: number } | undefined;
-        return params?.min ?? 0;
-      }
-      return Number(input.value);
-    }
-    if (input.type === 'date') {
-      if (!input.value) {
-        if (column?.nullable) return null;
-        // Non-nullable: preserve original or fall back to today
-        if (typeof originalValue === 'string') return originalValue || new Date().toISOString().slice(0, 10);
-        return (originalValue as Date) ?? new Date();
-      }
-      // Preserve original type: if original was a string, return string (YYYY-MM-DD format)
-      if (typeof originalValue === 'string') {
-        return input.value; // input.value is already in YYYY-MM-DD format
-      }
-      return input.valueAsDate;
-    }
-    // For text inputs, check if original value was a number to preserve type
-    if (typeof originalValue === 'number') {
-      if (input.value === '') {
-        if (column?.nullable) return null;
-        const params = column?.editorParams as { min?: number } | undefined;
-        return params?.min ?? 0;
-      }
-      return Number(input.value);
-    }
-    // Nullable text: empty → null; non-nullable: empty → ''
-    if (input.value === '' && (originalValue === null || originalValue === undefined)) {
-      return column?.nullable ? null : '';
-    }
-    // Preserve values with characters <input> can't represent (newlines, etc.)
-    if (typeof originalValue === 'string' && input.value === originalValue.replace(/[\n\r]/g, '')) {
-      return originalValue;
-    }
-    return input.value;
-  }
-  // For textarea/select, check column type OR original value type
-  if (column?.type === 'number' && input.value !== '') {
-    return Number(input.value);
-  }
-  // Preserve numeric type for custom column types (e.g., currency)
-  if (typeof originalValue === 'number' && input.value !== '') {
-    return Number(input.value);
-  }
-  // Nullable: empty → null; non-nullable: empty → ''
-  if ((originalValue === null || originalValue === undefined) && input.value === '') {
-    return column?.nullable ? null : '';
-  }
-  return input.value;
 }
 
 /**

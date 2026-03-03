@@ -280,33 +280,68 @@ export function defaultEditorFor(column: AnyColumn): (ctx: ColumnEditorContext) 
 // ============================================================================
 
 /**
- * Gets the current value from an input element, with type coercion based on column type.
+ * Get the typed value from an input element based on its type, column config, and original value.
+ * Preserves the type of the original value (e.g., numeric currency values stay as numbers,
+ * string dates stay as strings, null/undefined for empty fields).
  */
 export function getInputValue(
   input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
-  col: AnyColumn,
+  column?: AnyColumn,
+  originalValue?: unknown,
 ): unknown {
-  if (input instanceof HTMLSelectElement) {
-    if (col.multi) {
-      return Array.from(input.selectedOptions).map((o) => o.value);
-    }
-    return input.value;
-  }
   if (input instanceof HTMLInputElement) {
     if (input.type === 'checkbox') return input.checked;
     if (input.type === 'number') {
       if (input.value === '') {
-        if (col.nullable) return null;
-        const params = col.editorParams as NumberEditorParams | undefined;
+        if (column?.nullable) return null;
+        const params = column?.editorParams as NumberEditorParams | undefined;
         return params?.min ?? 0;
       }
       return Number(input.value);
     }
     if (input.type === 'date') {
-      if (!input.value && col.nullable) return null;
+      if (!input.value) {
+        if (column?.nullable) return null;
+        // Non-nullable: preserve original or fall back to today
+        if (typeof originalValue === 'string') return originalValue || new Date().toISOString().slice(0, 10);
+        return (originalValue as Date) ?? new Date();
+      }
+      // Preserve original type: if original was a string, return string (YYYY-MM-DD format)
+      if (typeof originalValue === 'string') {
+        return input.value; // input.value is already in YYYY-MM-DD format
+      }
       return input.valueAsDate;
     }
+    // For text inputs, check if original value was a number to preserve type
+    if (typeof originalValue === 'number') {
+      if (input.value === '') {
+        if (column?.nullable) return null;
+        const params = column?.editorParams as NumberEditorParams | undefined;
+        return params?.min ?? 0;
+      }
+      return Number(input.value);
+    }
+    // Nullable text: empty → null; non-nullable: empty → ''
+    if (input.value === '' && (originalValue === null || originalValue === undefined)) {
+      return column?.nullable ? null : '';
+    }
+    // Preserve values with characters <input> can't represent (newlines, etc.)
+    if (typeof originalValue === 'string' && input.value === originalValue.replace(/[\n\r]/g, '')) {
+      return originalValue;
+    }
+    return input.value;
   }
-  if (col.nullable && input.value === '') return null;
+  // For textarea/select, check column type OR original value type
+  if (column?.type === 'number' && input.value !== '') {
+    return Number(input.value);
+  }
+  // Preserve numeric type for custom column types (e.g., currency)
+  if (typeof originalValue === 'number' && input.value !== '') {
+    return Number(input.value);
+  }
+  // Nullable: empty → null; non-nullable: empty → ''
+  if ((originalValue === null || originalValue === undefined) && input.value === '') {
+    return column?.nullable ? null : '';
+  }
   return input.value;
 }

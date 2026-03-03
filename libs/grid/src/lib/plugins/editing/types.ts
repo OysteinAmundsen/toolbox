@@ -12,6 +12,27 @@ import type { BaselinesCapturedDetail, DirtyChangeDetail } from './internal/dirt
 // ============================================================================
 
 /**
+ * Event detail for cell-level cancel in `mode: 'grid'`.
+ *
+ * Fired when the user presses Escape to transition from edit mode to
+ * navigation mode. The grid reverts the focused cell's row data to the
+ * value it had when the editor first received focus and emits this event
+ * so framework adapters (e.g., GridFormArray) can revert FormControls.
+ *
+ * @category Events
+ */
+export interface CellCancelDetail {
+  /** Index of the row whose cell was reverted. */
+  rowIndex: number;
+  /** Column index of the reverted cell. */
+  colIndex: number;
+  /** Field name of the reverted cell. */
+  field: string;
+  /** Value restored (the pre-edit snapshot). */
+  previousValue: unknown;
+}
+
+/**
  * Event detail for cell value commit.
  *
  * Fired immediately when a cell value is committed. The event is cancelable -

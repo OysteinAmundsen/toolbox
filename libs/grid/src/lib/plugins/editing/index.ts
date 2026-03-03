@@ -10,6 +10,7 @@ export type { DirtyChangeDetail, DirtyRowEntry } from './internal/dirty-tracking
 export type {
   // Event detail types
   BeforeEditCloseDetail,
+  CellCancelDetail,
   CellCommitDetail,
   ChangedRowsResetDetail,
   // Editor config types

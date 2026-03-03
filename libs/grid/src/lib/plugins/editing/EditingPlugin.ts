@@ -46,6 +46,7 @@ import {
 } from './internal/dirty-tracking';
 import type {
   BeforeEditCloseDetail,
+  CellCancelDetail,
   CellCommitDetail,
   ChangedRowsResetDetail,
   EditCloseDetail,
@@ -448,6 +449,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   #singleCellEdit = false;
 
+  /**
+   * In grid mode, snapshot of the focused cell's value when the editor first
+   * receives focus. Used to revert on Escape (cell-level cancel).
+   */
+  #gridModeCellSnapshot: { rowIndex: number; colIndex: number; field: string; value: unknown } | null = null;
+
   // --- Dirty Tracking State ---
 
   /**
@@ -673,6 +680,26 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
               this.gridElement.focus();
               return;
             }
+
+            // Snapshot cell value on initial focus or when moving to a different cell.
+            // This allows Escape to revert the cell to its pre-edit value.
+            const focusRow = internalGrid._focusRow;
+            const focusCol = internalGrid._focusCol;
+            const snap = this.#gridModeCellSnapshot;
+            if (!snap || snap.rowIndex !== focusRow || snap.colIndex !== focusCol) {
+              const column = internalGrid._visibleColumns?.[focusCol];
+              const rowData = internalGrid._rows?.[focusRow];
+              if (column?.field && rowData) {
+                const field = column.field as string;
+                this.#gridModeCellSnapshot = {
+                  rowIndex: focusRow,
+                  colIndex: focusCol,
+                  field,
+                  value: (rowData as Record<string, unknown>)[field],
+                };
+              }
+            }
+
             this.#gridModeInputFocused = true;
           }
         },
@@ -690,6 +717,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
             !related.matches(FOCUSABLE_EDITOR_SELECTOR)
           ) {
             this.#gridModeInputFocused = false;
+            // Clear cell snapshot when leaving edit mode normally (not via Escape)
+            this.#gridModeCellSnapshot = null;
           }
         },
         { signal },
@@ -707,9 +736,30 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
             if (this.config.onBeforeEditClose) {
               const shouldClose = this.config.onBeforeEditClose(e);
               if (shouldClose === false) {
-                return; // Let the overlay handle Escape
+                // An overlay (dropdown, autocomplete, datepicker, etc.) is open.
+                // Let the event proceed so the overlay's own handler closes it.
+                // Some overlay libraries call stopPropagation(), so the bubble-
+                // phase onKeyDown handler may never see this event. Schedule a
+                // deferred nav-mode transition that runs after the overlay is
+                // torn down.
+                queueMicrotask(() => {
+                  if (this.#gridModeInputFocused) {
+                    this.#revertGridModeCellEdit();
+                    const activeEl = document.activeElement as HTMLElement;
+                    if (activeEl && this.gridElement.contains(activeEl)) {
+                      activeEl.blur();
+                      this.gridElement.focus();
+                    }
+                    this.#gridModeInputFocused = false;
+                    this.#gridModeEditLocked = true;
+                  }
+                });
+                return;
               }
             }
+            // Revert cell value to pre-edit snapshot
+            this.#revertGridModeCellEdit();
+
             const activeEl = document.activeElement as HTMLElement;
             if (activeEl && this.gridElement.contains(activeEl)) {
               activeEl.blur();
@@ -757,6 +807,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#newRowIds.clear();
     this.#gridModeInputFocused = false;
     this.#gridModeEditLocked = false;
+    this.#gridModeCellSnapshot = null;
     this.#singleCellEdit = false;
     super.detach();
   }
@@ -822,20 +873,26 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Escape: cancel current edit (row mode) or exit edit mode (grid mode)
     if (event.key === 'Escape') {
-      // In grid mode: blur input to enable arrow key navigation
+      // In grid mode: revert cell, blur input, enter navigation mode.
+      // NOTE: No onBeforeEditClose check here — the capture-phase handler
+      // is the authoritative overlay guard. If the event reaches this
+      // bubble-phase handler, either:
+      //   a) the capture handler already bailed (overlay was open) and the
+      //      template handler (e.g. select.close()) addressed it, or
+      //   b) no overlay was open.
+      // In both cases we should transition to navigation mode.
       if (this.#isGridMode && this.#gridModeInputFocused) {
-        // Allow users to prevent Escape handling via callback (e.g., when overlay is open)
-        if (this.config.onBeforeEditClose) {
-          const shouldClose = this.config.onBeforeEditClose(event);
-          if (shouldClose === false) {
-            return true; // Handled: block grid navigation, let overlay handle Escape
-          }
-        }
+        // Revert cell value to pre-edit snapshot
+        this.#revertGridModeCellEdit();
+
         const activeEl = document.activeElement as HTMLElement;
         if (activeEl && this.gridElement.contains(activeEl)) {
           activeEl.blur();
+          // Move focus to the grid so arrow keys navigate cells, not the editor
+          this.gridElement.focus();
         }
         this.#gridModeInputFocused = false;
+        this.#gridModeEditLocked = true; // Lock until Enter/click re-enables editing
         // Update focus styling
         this.requestAfterRender();
         return true;
@@ -2008,6 +2065,43 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     this.#activeEditCol = colIndex;
     this.#injectEditor(rowData, rowIndex, column, colIndex, cellEl, false);
+  }
+
+  /**
+   * Revert the focused cell's value from the snapshot taken when the editor
+   * first received focus, then emit a `cell-cancel` event so framework
+   * adapters (e.g., GridFormArray) can revert their FormControls.
+   *
+   * Called by the grid-mode Escape handlers (both capture and bubble phase).
+   */
+  #revertGridModeCellEdit(): void {
+    const snapshot = this.#gridModeCellSnapshot;
+    if (!snapshot) return;
+
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const rowData = internalGrid._rows?.[snapshot.rowIndex];
+    if (rowData) {
+      (rowData as Record<string, unknown>)[snapshot.field] = snapshot.value;
+    }
+
+    // Push the reverted value to the editor's input element so that the
+    // subsequent blur-commit (triggered by activeEl.blur()) reads the
+    // reverted value instead of the user's typed text. This makes the
+    // blur-commit a no-op (oldValue === newValue) and prevents it from
+    // overwriting the revert.
+    const callbackKey = `${snapshot.rowIndex}:${snapshot.field}`;
+    const cb = this.#editorValueCallbacks.get(callbackKey);
+    if (cb) cb(snapshot.value);
+
+    // Notify framework adapters to revert FormControls
+    this.emit<CellCancelDetail>('cell-cancel', {
+      rowIndex: snapshot.rowIndex,
+      colIndex: snapshot.colIndex,
+      field: snapshot.field,
+      previousValue: snapshot.value,
+    });
+
+    this.#gridModeCellSnapshot = null;
   }
 
   /**

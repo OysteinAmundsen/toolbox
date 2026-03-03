@@ -158,6 +158,7 @@ export class GridFormArray implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private elementRef = inject(ElementRef<GridElement>);
   private cellCommitListener: ((e: Event) => void) | null = null;
+  private cellCancelListener: ((e: Event) => void) | null = null;
   private rowCommitListener: ((e: Event) => void) | null = null;
   private touchListener: ((e: Event) => void) | null = null;
   private valueChangesSubscription: Subscription | null = null;
@@ -228,6 +229,13 @@ export class GridFormArray implements OnInit, OnDestroy {
     };
     grid.addEventListener('cell-commit', this.cellCommitListener);
 
+    // Intercept cell-cancel events to revert FormControls (grid mode Escape)
+    this.cellCancelListener = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { rowIndex: number; field: string; previousValue: unknown };
+      this.#handleCellCancel(detail);
+    };
+    grid.addEventListener('cell-cancel', this.cellCancelListener);
+
     // Intercept row-commit events to prevent if FormGroup is invalid
     this.rowCommitListener = (e: Event) => {
       if (!this.syncValidation()) return;
@@ -264,6 +272,9 @@ export class GridFormArray implements OnInit, OnDestroy {
 
     if (this.cellCommitListener) {
       grid.removeEventListener('cell-commit', this.cellCommitListener);
+    }
+    if (this.cellCancelListener) {
+      grid.removeEventListener('cell-cancel', this.cellCancelListener);
     }
     if (this.rowCommitListener) {
       grid.removeEventListener('row-commit', this.rowCommitListener);
@@ -517,6 +528,23 @@ export class GridFormArray implements OnInit, OnDestroy {
     if (rowFormGroup && rowFormGroup.invalid) {
       // Prevent row commit if the FormGroup is invalid
       event.preventDefault();
+    }
+  }
+
+  /**
+   * Handles cell-cancel events (grid mode Escape) — reverts the FormControl
+   * to the value it had before the edit session began.
+   */
+  #handleCellCancel(detail: { rowIndex: number; field: string; previousValue: unknown }): void {
+    const { rowIndex, field, previousValue } = detail;
+    const rowFormGroup = this.#getRowFormGroup(rowIndex);
+
+    if (rowFormGroup) {
+      const control = rowFormGroup.get(field);
+      if (control) {
+        control.setValue(previousValue, { emitEvent: false });
+        control.markAsPristine();
+      }
     }
   }
 

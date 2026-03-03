@@ -215,7 +215,7 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
     }
   }
   // Skip refreshVirtualWindow when in edit mode to avoid wiping editors
-  const isEditing = grid._activeEditRows !== undefined && grid._activeEditRows !== -1;
+  const isEditing = (grid._activeEditRows !== undefined && grid._activeEditRows !== -1) || !!grid._isGridEditMode;
   if (!isEditing) {
     grid.refreshVirtualWindow(false);
   }

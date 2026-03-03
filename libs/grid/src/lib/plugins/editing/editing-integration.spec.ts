@@ -1450,6 +1450,39 @@ describe('EditingPlugin', () => {
       const internalGrid = grid as any;
       expect(internalGrid._isGridEditMode).toBe(true);
     });
+
+    it('Tab preserves editor focus instead of stealing it to the grid element', async () => {
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'email', header: 'Email', editable: true },
+        ],
+        plugins: [new EditingPlugin({ mode: 'grid' })],
+      };
+      grid.rows = [{ id: 1, name: 'Alice', email: 'alice@test.com' }];
+      await waitUpgrade(grid);
+
+      const internalGrid = grid as any;
+      internalGrid._focusRow = 0;
+      internalGrid._focusCol = 1; // Name column (first editable)
+
+      // Focus the Name input (enter edit mode in first editable cell)
+      const nameCell = grid.querySelector('.cell[data-col="1"].editing') as HTMLElement;
+      const nameInput = nameCell.querySelector('input') as HTMLInputElement;
+      nameInput.focus();
+      expect(document.activeElement).toBe(nameInput);
+
+      // Tab to the next editable cell (Email)
+      grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      await nextFrame();
+
+      // Focus should be on the Email cell's input, not the grid element
+      const emailCell = grid.querySelector('.cell[data-col="2"].editing') as HTMLElement;
+      const emailInput = emailCell.querySelector('input') as HTMLInputElement;
+      expect(document.activeElement).toBe(emailInput);
+      expect(document.activeElement).not.toBe(grid);
+    });
   });
 
   // #endregion

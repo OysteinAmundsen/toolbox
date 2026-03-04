@@ -24,26 +24,20 @@ import type {
   PluginQuery,
 } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
-import type {
-  ColumnConfig,
-  ColumnEditorSpec,
-  ColumnInternal,
-  InternalGrid,
-  RowElementInternal,
-} from '../../core/types';
+import type { ColumnConfig, InternalGrid, RowElementInternal } from '../../core/types';
 import styles from './editing.css?inline';
-import { defaultEditorFor, getInputValue } from './editors';
+import { getInputValue } from './editors';
+import { CellValidationManager } from './internal/cell-validation';
+import { type BaselinesCapturedDetail, type DirtyChangeDetail, type DirtyRowEntry } from './internal/dirty-tracking';
+import { DirtyTrackingManager } from './internal/dirty-tracking-manager';
+import { type EditorInjectionDeps, injectEditor as injectEditorImpl } from './internal/editor-injection';
 import {
-  captureBaselines,
-  getOriginalRow,
-  isCellDirty,
-  isRowDirty,
-  markPristine,
-  revertToBaseline,
-  type BaselinesCapturedDetail,
-  type DirtyChangeDetail,
-  type DirtyRowEntry,
-} from './internal/dirty-tracking';
+  clearEditingState,
+  hasRowChanged,
+  isSafePropertyKey,
+  noopUpdateRow,
+  shouldPreventEditClose,
+} from './internal/helpers';
 import type {
   BeforeEditCloseDetail,
   CellCancelDetail,
@@ -52,116 +46,8 @@ import type {
   EditCloseDetail,
   EditingConfig,
   EditOpenDetail,
-  EditorContext,
   RowCommitDetail,
 } from './types';
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Resolves the editor for a column using the priority chain:
- * 1. Column-level (`column.editor`)
- * 2. Light DOM template (`__editorTemplate` → returns 'template')
- * 3. Grid-level (`gridConfig.typeDefaults[column.type]`)
- * 4. App-level (framework adapter's `getTypeDefault`)
- * 5. Returns undefined (caller uses built-in defaultEditorFor)
- */
-function resolveEditor<TRow>(
-  grid: InternalGrid<TRow>,
-  col: ColumnInternal<TRow>,
-): ColumnEditorSpec<TRow, unknown> | 'template' | undefined {
-  // 1. Column-level editor (highest priority)
-  if (col.editor) return col.editor;
-
-  // 2. Light DOM template
-  const tplHolder = col.__editorTemplate;
-  if (tplHolder) return 'template';
-
-  // No type specified - no type defaults to check
-  if (!col.type) return undefined;
-
-  // 3. Grid-level typeDefaults (access via effectiveConfig)
-  const gridTypeDefaults = (grid as any).effectiveConfig?.typeDefaults;
-  if (gridTypeDefaults?.[col.type]?.editor) {
-    return gridTypeDefaults[col.type].editor as ColumnEditorSpec<TRow, unknown>;
-  }
-
-  // 4. App-level registry (via framework adapter)
-  const adapter = grid.__frameworkAdapter;
-  if (adapter?.getTypeDefault) {
-    const appDefault = adapter.getTypeDefault<TRow>(col.type);
-    if (appDefault?.editor) {
-      return appDefault.editor as ColumnEditorSpec<TRow, unknown>;
-    }
-  }
-
-  // 5. No custom editor - caller uses built-in defaultEditorFor
-  return undefined;
-}
-
-/**
- * Returns true if the given property key is safe to use on a plain object.
- */
-function isSafePropertyKey(key: unknown): key is string {
-  if (typeof key !== 'string') return false;
-  if (key === '__proto__' || key === 'constructor' || key === 'prototype') return false;
-  return true;
-}
-
-/**
- * Increment the editing cell count on a row element.
- */
-function incrementEditingCount(rowEl: RowElementInternal): void {
-  const count = (rowEl.__editingCellCount ?? 0) + 1;
-  rowEl.__editingCellCount = count;
-  rowEl.setAttribute('data-has-editing', '');
-}
-
-/**
- * Clear all editing state from a row element.
- */
-function clearEditingState(rowEl: RowElementInternal): void {
-  rowEl.__editingCellCount = 0;
-  rowEl.removeAttribute('data-has-editing');
-}
-
-/**
- * No-op updateRow function for rows without IDs.
- * Extracted to a named function to satisfy eslint no-empty-function.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function noopUpdateRow(_changes: unknown): void {
-  // Row has no ID - cannot update
-}
-
-/**
- * Auto-wire commit/cancel lifecycle for input elements in string-returned editors.
- */
-function wireEditorInputs(
-  editorHost: HTMLElement,
-  column: ColumnConfig<unknown>,
-  commit: (value: unknown) => void,
-  originalValue?: unknown,
-): void {
-  const input = editorHost.querySelector('input,textarea,select') as
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | HTMLSelectElement
-    | null;
-  if (!input) return;
-
-  input.addEventListener('blur', () => {
-    commit(getInputValue(input, column, originalValue));
-  });
-
-  if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-    input.addEventListener('change', () => commit(input.checked));
-  } else if (input instanceof HTMLSelectElement) {
-    input.addEventListener('change', () => commit(getInputValue(input, column, originalValue)));
-  }
-}
 
 // ============================================================================
 // EditingPlugin
@@ -329,9 +215,6 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Snapshots of row data before editing started */
   #rowEditSnapshots = new Map<number, T>();
 
-  /** Set of row IDs that have been modified (ID-based for stability) */
-  #changedRowIds = new Set<string>();
-
   /** Set of cells currently in edit mode: "rowIndex:colIndex" */
   #editingCells = new Set<string>();
 
@@ -349,10 +232,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   #pendingRowAnimation = -1;
 
   /**
-   * Invalid cell tracking: Map<rowId, Map<field, message>>
-   * Used for validation feedback without canceling edits.
+   * Cell validation manager — handles invalid-cell state tracking and DOM sync.
+   * Initialized lazily in `attach()` since the sync callback needs grid access.
    */
-  #invalidCells = new Map<string, Map<string, string>>();
+  #validation!: CellValidationManager;
 
   /**
    * In grid mode, tracks whether an input field is currently focused.
@@ -381,29 +264,15 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   #gridModeCellSnapshot: { rowIndex: number; colIndex: number; field: string; value: unknown } | null = null;
 
-  // --- Dirty Tracking State ---
+  // --- Dirty Tracking State (delegated to DirtyTrackingManager) ---
 
-  /**
-   * Baseline snapshots: rowId → deep-cloned original row data.
-   * Populated by processRows on first appearance (first-write-wins).
-   * Only used when `config.dirtyTracking === true`.
-   */
-  #baselines = new Map<string, T>();
-  /** Whether new baselines were captured during the current processRows cycle. */
-  #baselinesWereCaptured = false;
+  /** Manages all dirty tracking state: baselines, changed/new/committed sets. */
+  readonly #dirty = new DirtyTrackingManager<T>();
 
-  /**
-   * Set of row IDs inserted via `insertRow()` (no baseline available).
-   * These are always considered dirty with type 'new'.
-   */
-  #newRowIds = new Set<string>();
+  // --- Editor Injection Deps (cached for #injectEditor delegation) ---
 
-  /**
-   * Set of row IDs whose edit session was committed (not cancelled).
-   * Used to gate `tbw-row-dirty` — the class is only applied after
-   * row-commit, not during active editing.
-   */
-  #committedDirtyRowIds = new Set<string>();
+  /** Dependency bag created once in `attach()` and reused by every `#injectEditor` call. */
+  #editorDeps!: EditorInjectionDeps<T>;
 
   // #endregion
 
@@ -415,6 +284,23 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     const signal = this.disconnectSignal;
     const internalGrid = grid as unknown as InternalGrid<T>;
+
+    // Initialize cell validation manager with DOM sync callback
+    this.#validation = new CellValidationManager((rowId, field, invalid) => {
+      this.#syncInvalidCellAttribute(rowId, field, invalid);
+    });
+
+    // Initialize editor injection deps (cached for all #injectEditor calls)
+    this.#editorDeps = {
+      grid: internalGrid,
+      isGridMode: this.#isGridMode,
+      config: this.config,
+      editingCells: this.#editingCells,
+      editorValueCallbacks: this.#editorValueCallbacks,
+      isEditSessionActive: () => this.#activeEditRow !== -1,
+      commitCellValue: (ri, col, val, row) => this.#commitCellValue(ri, col, val, row),
+      exitRowEdit: (ri, revert) => this.#exitRowEdit(ri, revert),
+    };
 
     // Inject editing state and methods onto grid for backward compatibility
     internalGrid._activeEditRows = -1;
@@ -450,13 +336,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // In grid mode, Escape doesn't exit edit mode
         if (this.#isGridMode) return;
         if (e.key === 'Escape' && this.#activeEditRow !== -1) {
-          // Allow users to prevent edit close via callback (e.g., when overlay is open)
-          if (this.config.onBeforeEditClose) {
-            const shouldClose = this.config.onBeforeEditClose(e);
-            if (shouldClose === false) {
-              return;
-            }
-          }
+          if (shouldPreventEditClose(this.config, e)) return;
           this.#exitRowEdit(this.#activeEditRow, true);
         }
       },
@@ -487,13 +367,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           return;
         }
 
-        // Allow users to prevent edit close via callback (e.g., when click is inside an overlay)
-        if (this.config.onBeforeEditClose) {
-          const shouldClose = this.config.onBeforeEditClose(e);
-          if (shouldClose === false) {
-            return;
-          }
-        }
+        if (shouldPreventEditClose(this.config, e)) return;
 
         // Delay exit to allow pending change/commit events to fire
         queueMicrotask(() => {
@@ -564,11 +438,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         if (!row) return;
         const rowId = this.grid.getRowId(row);
         if (!rowId) return;
-        const dirty = isRowDirty(this.#baselines, rowId, row);
+        const dirty = this.#dirty.isRowDirty(rowId, row);
         this.emit<DirtyChangeDetail<T>>('dirty-change', {
           rowId,
           row,
-          original: getOriginalRow(this.#baselines, rowId),
+          original: this.#dirty.getOriginalRow(rowId),
           type: dirty ? 'modified' : 'pristine',
         });
       };
@@ -656,32 +530,23 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         'keydown',
         (e: KeyboardEvent) => {
           if (e.key === 'Escape' && this.#gridModeInputFocused) {
-            // Allow users to prevent Escape handling via callback (e.g., when overlay is open).
-            // In grid mode, Escape transitions from editing to navigation mode, so we check
-            // onBeforeEditClose to let overlays (dropdowns, autocompletes) close first.
-            if (this.config.onBeforeEditClose) {
-              const shouldClose = this.config.onBeforeEditClose(e);
-              if (shouldClose === false) {
-                // An overlay (dropdown, autocomplete, datepicker, etc.) is open.
-                // Let the event proceed so the overlay's own handler closes it.
-                // Some overlay libraries call stopPropagation(), so the bubble-
-                // phase onKeyDown handler may never see this event. Schedule a
-                // deferred nav-mode transition that runs after the overlay is
-                // torn down.
-                queueMicrotask(() => {
-                  if (this.#gridModeInputFocused) {
-                    this.#revertGridModeCellEdit();
-                    const activeEl = document.activeElement as HTMLElement;
-                    if (activeEl && this.gridElement.contains(activeEl)) {
-                      activeEl.blur();
-                      this.gridElement.focus();
-                    }
-                    this.#gridModeInputFocused = false;
-                    this.#gridModeEditLocked = true;
+            // Check onBeforeEditClose to let overlays close first.
+            if (shouldPreventEditClose(this.config, e)) {
+              // Overlay is open — schedule deferred nav-mode transition
+              // after the overlay tears down.
+              queueMicrotask(() => {
+                if (this.#gridModeInputFocused) {
+                  this.#revertGridModeCellEdit();
+                  const activeEl = document.activeElement as HTMLElement;
+                  if (activeEl && this.gridElement.contains(activeEl)) {
+                    activeEl.blur();
+                    this.gridElement.focus();
                   }
-                });
-                return;
-              }
+                  this.#gridModeInputFocused = false;
+                  this.#gridModeEditLocked = true;
+                }
+              });
+              return;
             }
             // Revert cell value to pre-edit snapshot
             this.#revertGridModeCellEdit();
@@ -725,12 +590,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     this.#activeEditRowRef = undefined;
     this.#activeEditCol = -1;
     this.#rowEditSnapshots.clear();
-    this.#changedRowIds.clear();
-    this.#committedDirtyRowIds.clear();
+    this.#dirty.clear();
     this.#editingCells.clear();
     this.#editorValueCallbacks.clear();
-    this.#baselines.clear();
-    this.#newRowIds.clear();
     this.#gridModeInputFocused = false;
     this.#gridModeEditLocked = false;
     this.#gridModeCellSnapshot = null;
@@ -826,13 +688,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
       // In row mode: cancel edit
       if (this.#activeEditRow !== -1 && !this.#isGridMode) {
-        // Allow users to prevent edit close via callback (e.g., when overlay is open)
-        if (this.config.onBeforeEditClose) {
-          const shouldClose = this.config.onBeforeEditClose(event);
-          if (shouldClose === false) {
-            return true; // Handled: block grid navigation, let event reach overlay
-          }
-        }
+        if (shouldPreventEditClose(this.config, event)) return true;
         this.#exitRowEdit(this.#activeEditRow, true);
         return true;
       }
@@ -856,13 +712,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Arrow Up/Down while editing: commit and exit edit mode, move to adjacent row (only in 'row' mode)
     if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && this.#activeEditRow !== -1 && !this.#isGridMode) {
-      // Allow users to prevent row navigation via callback (e.g., when dropdown is open)
-      if (this.config.onBeforeEditClose) {
-        const shouldClose = this.config.onBeforeEditClose(event);
-        if (shouldClose === false) {
-          return true; // Handled: block grid navigation, let event reach dropdown
-        }
-      }
+      if (shouldPreventEditClose(this.config, event)) return true;
 
       const maxRow = internalGrid._rows.length - 1;
       const currentRow = this.#activeEditRow;
@@ -938,14 +788,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       }
 
       if (this.#activeEditRow !== -1) {
-        // Allow users to prevent edit close via callback (e.g., when overlay is open)
-        // This lets Enter select an item in a dropdown instead of committing the row
-        if (this.config.onBeforeEditClose) {
-          const shouldClose = this.config.onBeforeEditClose(event);
-          if (shouldClose === false) {
-            return true; // Handled: block grid navigation, let event reach overlay
-          }
-        }
+        if (shouldPreventEditClose(this.config, event)) return true;
         // Already editing - let cell handlers deal with it
         return false;
       }
@@ -1100,18 +943,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // --- Dirty tracking: capture baselines (first-write-wins) ---
     if (this.config.dirtyTracking && internalGrid.getRowId) {
-      const sizeBefore = this.#baselines.size;
-      captureBaselines(this.#baselines, rows, (r) => {
+      this.#dirty.capture(rows, (r) => {
         try {
           return internalGrid.getRowId?.(r);
         } catch {
           return undefined;
         }
       });
-      // Track whether new baselines were captured so afterRender can emit the event
-      if (this.#baselines.size > sizeBefore) {
-        this.#baselinesWereCaptured = true;
-      }
     }
 
     // --- Editing stability: swap in the in-progress row ---
@@ -1199,10 +1037,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Emit baselines-captured event when new baselines were captured this cycle.
     // Emitted post-render so consumers can safely read grid.rows, query the DOM,
     // or call getOriginalRow() in their handler.
-    if (this.#baselinesWereCaptured) {
-      this.#baselinesWereCaptured = false;
+    const capturedCount = this.#dirty.drainCapturedFlag();
+    if (capturedCount != null) {
       this.emit<BaselinesCapturedDetail>('baselines-captured', {
-        count: this.#baselines.size,
+        count: capturedCount,
       });
     }
 
@@ -1273,12 +1111,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const rowId = internalGrid.getRowId?.(context.row);
     if (!rowId) return;
 
-    const isNew = this.#newRowIds.has(rowId);
-    // Row-dirty requires BOTH: row was committed AND data still differs from baseline.
-    // The data check handles undo: after CTRL+Z restores all cells, the row should
-    // no longer appear dirty even though it was previously committed.
-    const isCommittedDirty =
-      !isNew && this.#committedDirtyRowIds.has(rowId) && isRowDirty(this.#baselines, rowId, context.row);
+    const { isNew, isCommittedDirty, hasBaseline } = this.#dirty.getRowDirtyState(rowId, context.row as T);
 
     const el = context.rowElement;
 
@@ -1289,14 +1122,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Cell-level classes (tbw-cell-dirty on individual cells with changed values)
     // Only run the per-cell loop when the row has a baseline — avoids
     // querySelectorAll on the hot path for rows without dirty tracking state.
-    const hasBaseline = this.#baselines.has(rowId);
     if (hasBaseline) {
       const cells = el.querySelectorAll('.cell[data-field]');
       for (let i = 0; i < cells.length; i++) {
         const cell = cells[i] as HTMLElement;
         const field = cell.getAttribute('data-field');
         if (field) {
-          cell.classList.toggle('tbw-cell-dirty', isCellDirty(this.#baselines, rowId, context.row, field));
+          cell.classList.toggle('tbw-cell-dirty', this.#dirty.isCellDirty(rowId, context.row as T, field));
         }
       }
     } else {
@@ -1326,19 +1158,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Uses ID-based lookup for stability when rows are reordered.
    */
   get changedRows(): T[] {
-    const rows: T[] = [];
-    for (const id of this.#changedRowIds) {
-      const row = this.grid.getRow(id) as T | undefined;
-      if (row) rows.push(row);
-    }
-    return rows;
+    return this.#dirty.getChangedRows((id) => this.grid.getRow(id) as T | undefined);
   }
 
   /**
    * Get IDs of all modified rows.
    */
   get changedRowIds(): string[] {
-    return Array.from(this.#changedRowIds);
+    return this.#dirty.getChangedRowIds();
   }
 
   /**
@@ -1379,7 +1206,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!row) return false;
     try {
       const rowId = internalGrid.getRowId?.(row);
-      return rowId ? this.#changedRowIds.has(rowId) : false;
+      return rowId ? this.#dirty.isRowChanged(rowId) : false;
     } catch {
       return false;
     }
@@ -1390,73 +1217,43 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @param rowId - Row ID to check
    */
   isRowChangedById(rowId: string): boolean {
-    return this.#changedRowIds.has(rowId);
+    return this.#dirty.isRowChanged(rowId);
   }
 
-  // #region Dirty Tracking API
+  // #region Dirty Tracking API (delegated to DirtyTrackingManager)
 
-  /**
-   * Check if a specific row's current data differs from its baseline.
-   * Requires `dirtyTracking: true` in plugin config.
-   *
-   * @param rowId - Row ID (from `getRowId`)
-   * @returns `true` if the row has been modified or is a new row
-   */
+  /** Check if a row differs from its baseline. Requires `dirtyTracking: true`. */
   isDirty(rowId: string): boolean {
     if (!this.config.dirtyTracking) return false;
-    if (this.#newRowIds.has(rowId)) return true;
+    if (this.#dirty.newRowIds.has(rowId)) return true;
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return false;
-    return isRowDirty(this.#baselines, rowId, row);
+    return this.#dirty.isRowDirty(rowId, row);
   }
 
-  /**
-   * Check if a specific row matches its baseline (not dirty).
-   * Requires `dirtyTracking: true` in plugin config.
-   *
-   * @param rowId - Row ID (from `getRowId`)
-   */
+  /** Inverse of `isDirty`. */
   isPristine(rowId: string): boolean {
     return !this.isDirty(rowId);
   }
 
-  /**
-   * Whether any row in the grid is dirty.
-   * Requires `dirtyTracking: true` in plugin config.
-   */
+  /** Whether any row in the grid is dirty. */
   get dirty(): boolean {
     if (!this.config.dirtyTracking) return false;
-    if (this.#newRowIds.size > 0) return true;
     const internalGrid = this.grid as unknown as InternalGrid<T>;
-    for (const [rowId, baseline] of this.#baselines) {
-      const row = internalGrid._getRowEntry(rowId)?.row;
-      if (row && isRowDirty(this.#baselines, rowId, row)) return true;
-    }
-    return false;
+    return this.#dirty.hasAnyDirty((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
-  /**
-   * Whether all rows in the grid are pristine (not dirty).
-   * Requires `dirtyTracking: true` in plugin config.
-   */
+  /** Whether all rows are pristine. */
   get pristine(): boolean {
     return !this.dirty;
   }
 
-  /**
-   * Mark a row as pristine: re-snapshot baseline from current data.
-   * Call after a successful backend save to set the new "original."
-   *
-   * @param rowId - Row ID (from `getRowId`)
-   */
+  /** Re-snapshot baseline from current data (call after a successful save). */
   markAsPristine(rowId: string): void {
     if (!this.config.dirtyTracking) return;
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return;
-    markPristine(this.#baselines, rowId, row);
-    this.#newRowIds.delete(rowId);
-    this.#changedRowIds.delete(rowId);
-    this.#committedDirtyRowIds.delete(rowId);
+    this.#dirty.markPristine(rowId, row);
     this.emit<DirtyChangeDetail<T>>('dirty-change', {
       rowId,
       row,
@@ -1465,22 +1262,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     });
   }
 
-  /**
-   * Programmatically mark a row as new (e.g. after `grid.insertRow()`).
-   *
-   * Adds the row to the new-row set so it receives the `tbw-row-new` CSS
-   * class and is included in `getDirtyRows()` / `dirtyRowIds`.
-   *
-   * Called automatically when `grid.insertRow()` emits a `row-inserted`
-   * plugin event and `dirtyTracking` is enabled — consumers typically
-   * don't need to call this directly.
-   *
-   * @param rowId - Row ID (from `getRowId`)
-   */
+  /** Mark a row as new (auto-called by `insertRow()` when dirty tracking is on). */
   markAsNew(rowId: string): void {
     if (!this.config.dirtyTracking) return;
-    this.#newRowIds.add(rowId);
-    this.#committedDirtyRowIds.add(rowId);
+    this.#dirty.markNew(rowId);
     const row = this.grid.getRow(rowId) as T | undefined;
     this.emit<DirtyChangeDetail<T>>('dirty-change', {
       rowId,
@@ -1490,104 +1275,44 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     });
   }
 
-  /**
-   * Programmatically mark a row as dirty (e.g. after an external mutation
-   * that bypassed the editing pipeline).
-   *
-   * @param rowId - Row ID (from `getRowId`)
-   */
+  /** Mark a row as dirty after an external mutation that bypassed the editing pipeline. */
   markAsDirty(rowId: string): void {
     if (!this.config.dirtyTracking) return;
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return;
-    this.#changedRowIds.add(rowId);
-    this.#committedDirtyRowIds.add(rowId);
+    this.#dirty.markDirty(rowId);
     this.emit<DirtyChangeDetail<T>>('dirty-change', {
       rowId,
       row,
-      original: getOriginalRow(this.#baselines, rowId),
+      original: this.#dirty.getOriginalRow(rowId),
       type: 'modified',
     });
   }
 
-  /**
-   * Mark all tracked rows as pristine. Call after a successful batch save.
-   */
+  /** Mark all tracked rows as pristine (call after a batch save). */
   markAllPristine(): void {
     if (!this.config.dirtyTracking) return;
     const internalGrid = this.grid as unknown as InternalGrid<T>;
-    for (const [rowId] of this.#baselines) {
-      const row = internalGrid._getRowEntry(rowId)?.row;
-      if (row) {
-        markPristine(this.#baselines, rowId, row);
-      }
-    }
-    this.#newRowIds.clear();
-    this.#changedRowIds.clear();
-    this.#committedDirtyRowIds.clear();
+    this.#dirty.markAllPristine((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
-  /**
-   * Get the original (baseline) row data before any edits.
-   *
-   * Returns a **deep clone** of the row as it was when first seen by the grid.
-   * Cache the result if calling repeatedly for the same row — each call
-   * performs a full `structuredClone`.
-   *
-   * Returns `undefined` if no baseline exists (e.g. newly inserted row via
-   * `grid.insertRow()`).
-   *
-   * @param rowId - Row ID (from `getRowId`)
-   */
+  /** Get a deep clone of the original (baseline) row data. Returns `undefined` for new rows. */
   getOriginalRow(rowId: string): T | undefined {
     if (!this.config.dirtyTracking) return undefined;
-    return getOriginalRow<T>(this.#baselines, rowId);
+    return this.#dirty.getOriginalRow(rowId);
   }
 
-  /**
-   * Check whether a baseline snapshot exists for a row.
-   *
-   * Lightweight alternative to `getOriginalRow()` when you only need to know
-   * if the row has been tracked — no cloning is performed.
-   *
-   * Returns `false` when `dirtyTracking` is disabled.
-   *
-   * @param rowId - Row ID (from `getRowId`)
-   */
+  /** Lightweight check for whether a baseline exists (no cloning). */
   hasBaseline(rowId: string): boolean {
     if (!this.config.dirtyTracking) return false;
-    return this.#baselines.has(rowId);
+    return this.#dirty.hasBaseline(rowId);
   }
 
-  /**
-   * Get all dirty rows with their original and current data.
-   */
+  /** Get all dirty rows with their original and current data. */
   getDirtyRows(): DirtyRowEntry<T>[] {
     if (!this.config.dirtyTracking) return [];
-    const result: DirtyRowEntry<T>[] = [];
     const internalGrid = this.grid as unknown as InternalGrid<T>;
-    for (const [rowId, baseline] of this.#baselines) {
-      const entry = internalGrid._getRowEntry(rowId);
-      if (entry && isRowDirty(this.#baselines, rowId, entry.row as T)) {
-        result.push({
-          id: rowId,
-          original: structuredClone(baseline),
-          current: entry.row as T,
-        });
-      }
-    }
-    // Include new rows (no baseline)
-    for (const newId of this.#newRowIds) {
-      const entry = internalGrid._getRowEntry(newId);
-      if (entry) {
-        result.push({
-          id: newId,
-          original: undefined as unknown as T,
-          current: entry.row as T,
-        });
-      }
-    }
-    return result;
+    return this.#dirty.getDirtyRows((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
   /**
@@ -1595,18 +1320,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   get dirtyRowIds(): string[] {
     if (!this.config.dirtyTracking) return [];
-    const ids: string[] = [];
     const internalGrid = this.grid as unknown as InternalGrid<T>;
-    for (const [rowId] of this.#baselines) {
-      const entry = internalGrid._getRowEntry(rowId);
-      if (entry && isRowDirty(this.#baselines, rowId, entry.row as T)) {
-        ids.push(rowId);
-      }
-    }
-    for (const newId of this.#newRowIds) {
-      ids.push(newId);
-    }
-    return ids;
+    return this.#dirty.getDirtyRowIds((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
   /**
@@ -1619,14 +1334,11 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (!this.config.dirtyTracking) return;
     const row = this.grid.getRow(rowId) as T | undefined;
     if (!row) return;
-    const reverted = revertToBaseline(this.#baselines, rowId, row);
-    if (reverted) {
-      this.#changedRowIds.delete(rowId);
-      this.#committedDirtyRowIds.delete(rowId);
+    if (this.#dirty.revertRow(rowId, row)) {
       this.emit<DirtyChangeDetail<T>>('dirty-change', {
         rowId,
         row,
-        original: getOriginalRow(this.#baselines, rowId),
+        original: this.#dirty.getOriginalRow(rowId),
         type: 'reverted',
       });
       this.requestRender();
@@ -1639,20 +1351,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   revertAll(): void {
     if (!this.config.dirtyTracking) return;
     const internalGrid = this.grid as unknown as InternalGrid<T>;
-    for (const [rowId] of this.#baselines) {
-      const entry = internalGrid._getRowEntry(rowId);
-      if (entry) {
-        revertToBaseline(this.#baselines, rowId, entry.row as T);
-      }
-    }
-    this.#changedRowIds.clear();
-    this.#committedDirtyRowIds.clear();
+    this.#dirty.revertAll((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
     this.requestRender();
   }
 
   // #endregion
 
-  // #region Cell Validation
+  // #region Cell Validation (delegated to CellValidationManager)
 
   /**
    * Mark a cell as invalid with an optional validation message.
@@ -1676,133 +1381,42 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * ```
    */
   setInvalid(rowId: string, field: string, message = ''): void {
-    let rowInvalids = this.#invalidCells.get(rowId);
-    if (!rowInvalids) {
-      rowInvalids = new Map();
-      this.#invalidCells.set(rowId, rowInvalids);
-    }
-    rowInvalids.set(field, message);
-    this.#syncInvalidCellAttribute(rowId, field, true);
+    this.#validation.setInvalid(rowId, field, message);
   }
 
-  /**
-   * Clear the invalid state for a specific cell.
-   *
-   * @param rowId - The row ID (from getRowId)
-   * @param field - The field name
-   */
+  /** Clear the invalid state for a specific cell. */
   clearInvalid(rowId: string, field: string): void {
-    const rowInvalids = this.#invalidCells.get(rowId);
-    if (rowInvalids) {
-      rowInvalids.delete(field);
-      if (rowInvalids.size === 0) {
-        this.#invalidCells.delete(rowId);
-      }
-    }
-    this.#syncInvalidCellAttribute(rowId, field, false);
+    this.#validation.clearInvalid(rowId, field);
   }
 
-  /**
-   * Clear all invalid cells for a specific row.
-   *
-   * @param rowId - The row ID (from getRowId)
-   */
+  /** Clear all invalid cells for a specific row. */
   clearRowInvalid(rowId: string): void {
-    const rowInvalids = this.#invalidCells.get(rowId);
-    if (rowInvalids) {
-      const fields = Array.from(rowInvalids.keys());
-      this.#invalidCells.delete(rowId);
-      fields.forEach((field) => this.#syncInvalidCellAttribute(rowId, field, false));
-    }
+    this.#validation.clearRowInvalid(rowId);
   }
 
-  /**
-   * Clear all invalid cell states across all rows.
-   */
+  /** Clear all invalid cell states across all rows. */
   clearAllInvalid(): void {
-    const entries = Array.from(this.#invalidCells.entries());
-    this.#invalidCells.clear();
-    entries.forEach(([rowId, fields]) => {
-      fields.forEach((_, field) => this.#syncInvalidCellAttribute(rowId, field, false));
-    });
+    this.#validation.clearAllInvalid();
   }
 
-  /**
-   * Check if a specific cell is marked as invalid.
-   *
-   * @param rowId - The row ID (from getRowId)
-   * @param field - The field name
-   * @returns True if the cell is marked as invalid
-   */
+  /** Check if a specific cell is marked as invalid. */
   isCellInvalid(rowId: string, field: string): boolean {
-    return this.#invalidCells.get(rowId)?.has(field) ?? false;
+    return this.#validation.isCellInvalid(rowId, field);
   }
 
-  /**
-   * Get the validation message for an invalid cell.
-   *
-   * @param rowId - The row ID (from getRowId)
-   * @param field - The field name
-   * @returns The validation message, or undefined if cell is valid
-   */
+  /** Get the validation message for an invalid cell. */
   getInvalidMessage(rowId: string, field: string): string | undefined {
-    return this.#invalidCells.get(rowId)?.get(field);
+    return this.#validation.getInvalidMessage(rowId, field);
   }
 
-  /**
-   * Check if a row has any invalid cells.
-   *
-   * @param rowId - The row ID (from getRowId)
-   * @returns True if the row has at least one invalid cell
-   */
+  /** Check if a row has any invalid cells. */
   hasInvalidCells(rowId: string): boolean {
-    const rowInvalids = this.#invalidCells.get(rowId);
-    return rowInvalids ? rowInvalids.size > 0 : false;
+    return this.#validation.hasInvalidCells(rowId);
   }
 
-  /**
-   * Get all invalid fields for a row.
-   *
-   * @param rowId - The row ID (from getRowId)
-   * @returns Map of field names to validation messages
-   */
+  /** Get all invalid fields for a row. */
   getInvalidFields(rowId: string): Map<string, string> {
-    return new Map(this.#invalidCells.get(rowId) ?? []);
-  }
-
-  /**
-   * Sync the data-invalid attribute on a cell element.
-   */
-  #syncInvalidCellAttribute(rowId: string, field: string, invalid: boolean): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
-    const colIndex = internalGrid._visibleColumns?.findIndex((c) => c.field === field);
-    if (colIndex === -1 || colIndex === undefined) return;
-
-    // Find the row element by rowId
-    const rows = internalGrid._rows;
-    const rowIndex = rows?.findIndex((r) => {
-      try {
-        return internalGrid.getRowId?.(r) === rowId;
-      } catch {
-        return false;
-      }
-    });
-    if (rowIndex === -1 || rowIndex === undefined) return;
-
-    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
-    const cellEl = rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
-    if (!cellEl) return;
-
-    if (invalid) {
-      cellEl.setAttribute('data-invalid', 'true');
-      const message = this.#invalidCells.get(rowId)?.get(field);
-      if (message) {
-        cellEl.setAttribute('title', message);
-      }
-    } else {
-      cellEl.removeAttribute('data-invalid');
-      cellEl.removeAttribute('title');
-    }
+    return this.#validation.getInvalidFields(rowId);
   }
 
   // #endregion
@@ -1815,8 +1429,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   resetChangedRows(silent?: boolean): void {
     const rows = this.changedRows;
     const ids = this.changedRowIds;
-    this.#changedRowIds.clear();
-    this.#committedDirtyRowIds.clear();
+    this.#dirty.changedRowIds.clear();
+    this.#dirty.committedDirtyRowIds.clear();
     this.#syncGridEditState();
 
     if (!silent) {
@@ -1924,6 +1538,42 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   // #endregion
 
   // #region Internal Methods
+
+  /**
+   * Sync the data-invalid attribute on a cell element.
+   * Used as the DOM callback for CellValidationManager.
+   */
+  #syncInvalidCellAttribute(rowId: string, field: string, invalid: boolean): void {
+    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const colIndex = internalGrid._visibleColumns?.findIndex((c) => c.field === field);
+    if (colIndex === -1 || colIndex === undefined) return;
+
+    // Find the row element by rowId
+    const rows = internalGrid._rows;
+    const rowIndex = rows?.findIndex((r) => {
+      try {
+        return internalGrid.getRowId?.(r) === rowId;
+      } catch {
+        return false;
+      }
+    });
+    if (rowIndex === -1 || rowIndex === undefined) return;
+
+    const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
+    const cellEl = rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
+    if (!cellEl) return;
+
+    if (invalid) {
+      cellEl.setAttribute('data-invalid', 'true');
+      const message = this.#validation.getInvalidMessage(rowId, field);
+      if (message) {
+        cellEl.setAttribute('title', message);
+      }
+    } else {
+      cellEl.removeAttribute('data-invalid');
+      cellEl.removeAttribute('title');
+    }
+  }
 
   /**
    * Migrate all index-keyed editing state when the active edit row moves to
@@ -2239,17 +1889,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         (current as Record<string, unknown>)[k] = (snapshot as Record<string, unknown>)[k];
       });
       if (rowId) {
-        this.#changedRowIds.delete(rowId);
-        this.#committedDirtyRowIds.delete(rowId);
+        this.#dirty.changedRowIds.delete(rowId);
+        this.#dirty.committedDirtyRowIds.delete(rowId);
         this.clearRowInvalid(rowId);
       }
     } else if (!revert && current) {
       // Compare snapshot vs current to detect if changes were made during THIS edit session
-      const changedThisSession = this.#hasRowChanged(snapshot, current);
+      const changedThisSession = hasRowChanged(snapshot, current);
 
       // Check if this row has any cumulative changes (via ID tracking)
       // Fall back to session-based detection when no row ID is available
-      const changed = rowId ? this.#changedRowIds.has(rowId) : changedThisSession;
+      const changed = rowId ? this.#dirty.changedRowIds.has(rowId) : changedThisSession;
 
       // Emit cancelable row-commit event
       const cancelled = this.emitCancelable<RowCommitDetail<T>>('row-commit', {
@@ -2269,17 +1919,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           (current as Record<string, unknown>)[k] = (snapshot as Record<string, unknown>)[k];
         });
         if (rowId) {
-          this.#changedRowIds.delete(rowId);
-          this.#committedDirtyRowIds.delete(rowId);
+          this.#dirty.changedRowIds.delete(rowId);
+          this.#dirty.committedDirtyRowIds.delete(rowId);
           this.clearRowInvalid(rowId);
         }
       } else if (!cancelled) {
         // Mark row as committed-dirty if it has actual changes vs baseline
         if (rowId && this.config.dirtyTracking) {
-          if (isRowDirty(this.#baselines, rowId, current)) {
-            this.#committedDirtyRowIds.add(rowId);
+          if (this.#dirty.isRowDirty(rowId, current)) {
+            this.#dirty.committedDirtyRowIds.add(rowId);
           } else {
-            this.#committedDirtyRowIds.delete(rowId);
+            this.#dirty.committedDirtyRowIds.delete(rowId);
           }
         }
 
@@ -2373,7 +2023,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       // Row has no ID - will still work but won't be tracked in changedRowIds
     }
 
-    const firstTime = rowId ? !this.#changedRowIds.has(rowId) : true;
+    const firstTime = rowId ? !this.#dirty.changedRowIds.has(rowId) : true;
 
     // Create updateRow helper for cascade updates (noop if row has no ID)
     const updateRow: (changes: Partial<T>) => void = rowId
@@ -2418,17 +2068,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Apply the value and mark row as changed
     (rowData as Record<string, unknown>)[field] = newValue;
     if (rowId) {
-      this.#changedRowIds.add(rowId);
+      this.#dirty.changedRowIds.add(rowId);
     }
     this.#syncGridEditState();
 
     // Emit dirty-change event if dirty tracking is enabled
     if (this.config.dirtyTracking && rowId) {
-      const dirty = isRowDirty(this.#baselines, rowId, rowData);
+      const dirty = this.#dirty.isRowDirty(rowId, rowData);
       this.emit<DirtyChangeDetail<T>>('dirty-change', {
         rowId,
         row: rowData,
-        original: getOriginalRow(this.#baselines, rowId),
+        original: this.#dirty.getOriginalRow(rowId),
         type: dirty ? 'modified' : 'pristine',
       });
     }
@@ -2450,6 +2100,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /**
    * Inject an editor into a cell.
+   * Delegates to the extracted `editor-injection` module.
    */
   #injectEditor(
     rowData: T,
@@ -2459,375 +2110,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     cell: HTMLElement,
     skipFocus: boolean,
   ): void {
-    if (!column.editable) return;
-    if (cell.classList.contains('editing')) return;
-
-    // Get row ID for updateRow helper (may not exist)
-    let rowId: string | undefined;
-    try {
-      rowId = this.grid.getRowId(rowData);
-    } catch {
-      // Row has no ID
-    }
-
-    // Create updateRow helper for cascade updates (noop if row has no ID)
-    const updateRow: (changes: Partial<T>) => void = rowId
-      ? (changes) => this.grid.updateRow(rowId!, changes as Record<string, unknown>, 'cascade')
-      : noopUpdateRow;
-
-    const originalValue = isSafePropertyKey(column.field)
-      ? (rowData as Record<string, unknown>)[column.field]
-      : undefined;
-
-    cell.classList.add('editing');
-    this.#editingCells.add(`${rowIndex}:${colIndex}`);
-
-    const rowEl = cell.parentElement as RowElementInternal | null;
-    if (rowEl) incrementEditingCount(rowEl);
-
-    let editFinalized = false;
-    const commit = (newValue: unknown) => {
-      // In grid mode, always allow commits (we're always editing)
-      // In row mode, only allow commits if we're in an active edit session
-      if (editFinalized || (!this.#isGridMode && this.#activeEditRow === -1)) return;
-      // Resolve row and index fresh at commit time.
-      // With a row ID we use _getRowEntry for O(1) lookup — this is resilient
-      // against _rows being replaced (e.g. Angular directive effect).
-      // Without a row ID we fall back to the captured rowData reference.
-      // Using _rows[rowIndex] without an ID is unsafe: the index may be stale
-      // after _rows replacement, which would commit to the WRONG row.
-      const internalGrid = this.grid as unknown as InternalGrid<T>;
-      const entry = rowId ? internalGrid._getRowEntry(rowId) : undefined;
-      const currentRowData = (entry?.row ?? rowData) as T;
-      const currentIndex = entry?.index ?? rowIndex;
-      this.#commitCellValue(currentIndex, column, newValue, currentRowData);
-    };
-    const cancel = () => {
-      editFinalized = true;
-      if (isSafePropertyKey(column.field)) {
-        // Same ID-first / captured-rowData fallback as commit — see comment above.
-        const internalGrid = this.grid as unknown as InternalGrid<T>;
-        const entry = rowId ? internalGrid._getRowEntry(rowId) : undefined;
-        const currentRowData = (entry?.row ?? rowData) as T;
-        (currentRowData as Record<string, unknown>)[column.field] = originalValue;
-      }
-    };
-
-    const editorHost = document.createElement('div');
-    editorHost.className = 'tbw-editor-host';
-    cell.innerHTML = '';
-    cell.appendChild(editorHost);
-
-    // Keydown handler for Enter/Escape
-    editorHost.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        // In grid mode, Enter just commits without exiting
-        if (this.#isGridMode) {
-          e.stopPropagation();
-          e.preventDefault();
-          // Get current value and commit
-          const input = editorHost.querySelector('input,textarea,select') as
-            | HTMLInputElement
-            | HTMLTextAreaElement
-            | HTMLSelectElement
-            | null;
-          if (input) {
-            commit(getInputValue(input, column as ColumnConfig<unknown>, originalValue));
-          }
-          return;
-        }
-        // Allow users to prevent edit close via callback (e.g., when overlay is open)
-        if (this.config.onBeforeEditClose) {
-          const shouldClose = this.config.onBeforeEditClose(e);
-          if (shouldClose === false) {
-            return; // Let the event propagate to overlay
-          }
-        }
-        e.stopPropagation();
-        e.preventDefault();
-        editFinalized = true;
-        this.#exitRowEdit(rowIndex, false);
-      }
-      if (e.key === 'Escape') {
-        // In grid mode, Escape doesn't exit edit mode
-        if (this.#isGridMode) {
-          e.stopPropagation();
-          e.preventDefault();
-          return;
-        }
-        // Allow users to prevent edit close via callback (e.g., when overlay is open)
-        if (this.config.onBeforeEditClose) {
-          const shouldClose = this.config.onBeforeEditClose(e);
-          if (shouldClose === false) {
-            return; // Let the event propagate to overlay
-          }
-        }
-        e.stopPropagation();
-        e.preventDefault();
-        cancel();
-        this.#exitRowEdit(rowIndex, true);
-      }
-    });
-
-    const colInternal = column as ColumnInternal<T>;
-    const tplHolder = colInternal.__editorTemplate;
-    // Resolve editor using priority chain: column → template → typeDefaults → adapter → built-in
-    const editorSpec = resolveEditor(this.grid as unknown as InternalGrid<T>, colInternal) ?? defaultEditorFor(column);
-    const value = originalValue;
-
-    // Value-change callback registration.
-    // Editors call onValueChange(cb) to receive pushes when the underlying row
-    // is mutated externally (e.g., via updateRow from another cell's commit).
-    // Multiple callbacks can be registered (user + auto-wire).
-    const callbackKey = `${rowIndex}:${column.field}`;
-    const callbacks: Array<(newValue: unknown) => void> = [];
-    this.#editorValueCallbacks.set(callbackKey, (newVal) => {
-      for (const cb of callbacks) cb(newVal);
-    });
-    const onValueChange = (cb: (newValue: unknown) => void) => {
-      callbacks.push(cb);
-    };
-
-    if (editorSpec === 'template' && tplHolder) {
-      this.#renderTemplateEditor(editorHost, colInternal, rowData, originalValue, commit, cancel, skipFocus, rowIndex);
-      // Auto-update built-in template editors when value changes externally
-      onValueChange((newVal) => {
-        const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-          'input,textarea,select',
-        );
-        if (input) {
-          if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-            input.checked = !!newVal;
-          } else {
-            input.value = String(newVal ?? '');
-          }
-        }
-      });
-    } else if (typeof editorSpec === 'string') {
-      const el = document.createElement(editorSpec) as HTMLElement & { value?: unknown };
-      el.value = value;
-      el.addEventListener('change', () => commit(el.value));
-      // Auto-update custom element editors when value changes externally
-      onValueChange((newVal) => {
-        el.value = newVal;
-      });
-      editorHost.appendChild(el);
-      if (!skipFocus) {
-        queueMicrotask(() => {
-          const focusable = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-          focusable?.focus({ preventScroll: true });
-        });
-      }
-    } else if (typeof editorSpec === 'function') {
-      const ctx: EditorContext<T> = {
-        row: rowData,
-        rowId: rowId ?? '',
-        value,
-        field: column.field,
-        column,
-        commit,
-        cancel,
-        updateRow,
-        onValueChange,
-      };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const produced = (editorSpec as any)(ctx);
-      if (typeof produced === 'string') {
-        editorHost.innerHTML = produced;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        wireEditorInputs(editorHost, column as any, commit, originalValue);
-        // Auto-update wired inputs when value changes externally
-        onValueChange((newVal) => {
-          const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-            'input,textarea,select',
-          );
-          if (input) {
-            if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-              input.checked = !!newVal;
-            } else {
-              input.value = String(newVal ?? '');
-            }
-          }
-        });
-      } else if (produced instanceof Node) {
-        editorHost.appendChild(produced);
-        const isSimpleInput =
-          produced instanceof HTMLInputElement ||
-          produced instanceof HTMLSelectElement ||
-          produced instanceof HTMLTextAreaElement;
-        if (!isSimpleInput) {
-          cell.setAttribute('data-editor-managed', '');
-        } else {
-          // Auto-update simple inputs returned by factory functions
-          onValueChange((newVal) => {
-            if (produced instanceof HTMLInputElement && produced.type === 'checkbox') {
-              produced.checked = !!newVal;
-            } else {
-              (produced as HTMLInputElement).value = String(newVal ?? '');
-            }
-          });
-        }
-      } else if (!produced && editorHost.hasChildNodes()) {
-        // Factory returned void but mounted content into the editor host
-        // (e.g. Angular/React/Vue adapter component editor). Mark the cell
-        // as externally managed so the native commit loop in #exitRowEdit
-        // does not read raw input values from framework editor DOM.
-        cell.setAttribute('data-editor-managed', '');
-      }
-      if (!skipFocus) {
-        queueMicrotask(() => {
-          const focusable = editorHost.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
-          focusable?.focus({ preventScroll: true });
-        });
-      }
-    } else if (editorSpec && typeof editorSpec === 'object') {
-      const placeholder = document.createElement('div');
-      placeholder.setAttribute('data-external-editor', '');
-      placeholder.setAttribute('data-field', column.field);
-      editorHost.appendChild(placeholder);
-      cell.setAttribute('data-editor-managed', '');
-      const context: EditorContext<T> = {
-        row: rowData,
-        rowId: rowId ?? '',
-        value,
-        field: column.field,
-        column,
-        commit,
-        cancel,
-        updateRow,
-        onValueChange,
-      };
-      if (editorSpec.mount) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          editorSpec.mount({ placeholder, context: context as any, spec: editorSpec });
-        } catch (e) {
-          console.warn(`[tbw-grid] External editor mount error for column '${column.field}':`, e);
-        }
-      } else {
-        (this.grid as unknown as HTMLElement).dispatchEvent(
-          new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context } }),
-        );
-      }
-    }
-  }
-
-  /**
-   * Render a template-based editor.
-   */
-  #renderTemplateEditor(
-    editorHost: HTMLElement,
-    column: ColumnInternal<T>,
-    rowData: T,
-    originalValue: unknown,
-    commit: (value: unknown) => void,
-    cancel: () => void,
-    skipFocus: boolean,
-    rowIndex: number,
-  ): void {
-    const tplHolder = column.__editorTemplate;
-    if (!tplHolder) return;
-
-    const clone = tplHolder.cloneNode(true) as HTMLElement;
-    const compiledEditor = column.__compiledEditor;
-
-    if (compiledEditor) {
-      clone.innerHTML = compiledEditor({
-        row: rowData,
-        value: originalValue,
-        field: column.field,
-        column,
-        commit,
-        cancel,
-      });
-    } else {
-      clone.querySelectorAll<HTMLElement>('*').forEach((node) => {
-        if (node.childNodes.length === 1 && node.firstChild?.nodeType === Node.TEXT_NODE) {
-          node.textContent =
-            node.textContent
-              ?.replace(/{{\s*value\s*}}/g, originalValue == null ? '' : String(originalValue))
-              .replace(/{{\s*row\.([a-zA-Z0-9_]+)\s*}}/g, (_m, g: string) => {
-                if (!isSafePropertyKey(g)) return '';
-                const v = (rowData as Record<string, unknown>)[g];
-                return v == null ? '' : String(v);
-              }) || '';
-        }
-      });
-    }
-
-    const input = clone.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-      'input,textarea,select',
-    );
-    if (input) {
-      if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-        input.checked = !!originalValue;
-      } else {
-        input.value = String(originalValue ?? '');
-      }
-
-      let editFinalized = false;
-      input.addEventListener('blur', () => {
-        if (editFinalized) return;
-        commit(getInputValue(input, column, originalValue));
-      });
-      input.addEventListener('keydown', (evt) => {
-        const e = evt as KeyboardEvent;
-        if (e.key === 'Enter') {
-          // Allow users to prevent edit close via callback (e.g., when overlay is open)
-          if (this.config.onBeforeEditClose) {
-            const shouldClose = this.config.onBeforeEditClose(e);
-            if (shouldClose === false) {
-              return; // Let the event propagate to overlay
-            }
-          }
-          e.stopPropagation();
-          e.preventDefault();
-          editFinalized = true;
-          commit(getInputValue(input, column, originalValue));
-          this.#exitRowEdit(rowIndex, false);
-        }
-        if (e.key === 'Escape') {
-          // Allow users to prevent edit close via callback (e.g., when overlay is open)
-          if (this.config.onBeforeEditClose) {
-            const shouldClose = this.config.onBeforeEditClose(e);
-            if (shouldClose === false) {
-              return; // Let the event propagate to overlay
-            }
-          }
-          e.stopPropagation();
-          e.preventDefault();
-          cancel();
-          this.#exitRowEdit(rowIndex, true);
-        }
-      });
-      if (input instanceof HTMLInputElement && input.type === 'checkbox') {
-        input.addEventListener('change', () => commit(input.checked));
-      }
-      if (!skipFocus) {
-        setTimeout(() => input.focus({ preventScroll: true }), 0);
-      }
-    }
-    editorHost.appendChild(clone);
-  }
-
-  /**
-   * Compare snapshot vs current row to detect if any values changed during this edit session.
-   * Uses shallow comparison of all properties.
-   */
-  #hasRowChanged(snapshot: T | undefined, current: T): boolean {
-    if (!snapshot) return false;
-
-    const snapshotObj = snapshot as Record<string, unknown>;
-    const currentObj = current as Record<string, unknown>;
-
-    // Check all keys in both objects
-    const allKeys = new Set([...Object.keys(snapshotObj), ...Object.keys(currentObj)]);
-    for (const key of allKeys) {
-      if (snapshotObj[key] !== currentObj[key]) {
-        return true;
-      }
-    }
-    return false;
+    injectEditorImpl(this.#editorDeps, rowData, rowIndex, column, colIndex, cell, skipFocus);
   }
 
   /**

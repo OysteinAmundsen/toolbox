@@ -17,6 +17,20 @@ import type {
 import { getInputValue } from '../editors';
 import type { EditingConfig } from '../types';
 
+// #region Constants
+
+/**
+ * CSS selector for focusable editor elements inside a cell.
+ * Duplicated from core/internal/rows to avoid cross-boundary imports
+ * that Vite externalises to `@toolbox-web/grid` during plugin bundling.
+ *
+ * @internal
+ */
+export const FOCUSABLE_EDITOR_SELECTOR =
+  'input,select,textarea,[contenteditable="true"],[contenteditable=""],[tabindex]:not([tabindex="-1"])';
+
+// #endregion
+
 // #region Editor Resolution
 
 /**

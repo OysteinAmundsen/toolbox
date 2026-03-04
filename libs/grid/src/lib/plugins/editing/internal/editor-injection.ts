@@ -8,11 +8,11 @@
  * @internal
  */
 
-import { FOCUSABLE_EDITOR_SELECTOR } from '../../../core/internal/rows';
 import type { ColumnConfig, ColumnInternal, InternalGrid, RowElementInternal } from '../../../core/types';
 import { defaultEditorFor, getInputValue } from '../editors';
 import type { EditingConfig, EditorContext } from '../types';
 import {
+  FOCUSABLE_EDITOR_SELECTOR,
   incrementEditingCount,
   isSafePropertyKey,
   noopUpdateRow,

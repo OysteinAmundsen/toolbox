@@ -16,7 +16,6 @@
  */
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
-import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
 import type {
   AfterCellRenderContext,
   AfterRowRenderContext,
@@ -33,6 +32,7 @@ import { DirtyTrackingManager } from './internal/dirty-tracking-manager';
 import { type EditorInjectionDeps, injectEditor as injectEditorImpl } from './internal/editor-injection';
 import {
   clearEditingState,
+  FOCUSABLE_EDITOR_SELECTOR,
   hasRowChanged,
   isSafePropertyKey,
   noopUpdateRow,

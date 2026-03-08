@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.23.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.2...grid-1.23.3) (2026-03-08)
+
+
+### Bug Fixes
+
+* **grid:** column group header spans over interleaved utility columns ([49c5b59](https://github.com/OysteinAmundsen/toolbox/commit/49c5b592cf445338b8c96b6076e8266cab4bffc1))
+* **grid:** hidden columns CSS specificity in responsive card mode ([f759d32](https://github.com/OysteinAmundsen/toolbox/commit/f759d32cd93f12773d91241afef1a415e57a33fb))
+* **grid:** import FOCUSABLE_EDITOR_SELECTOR locally in editing plugin ([007cfc2](https://github.com/OysteinAmundsen/toolbox/commit/007cfc293d86eeeea228a3f1df61c3d136c26d29))
+
 ## [1.23.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.1...grid-1.23.2) (2026-03-03)
 
 

@@ -1,0 +1,56 @@
+---
+// FilteringTypeSpecificFiltersDemo.astro
+---
+<div class="grid-demo not-content" id="filtering-type-specific-filters-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const container = document.getElementById('filtering-type-specific-filters-demo');
+if (container) {
+  const typedData = [
+    { id: 1, name: 'Alice Johnson', salary: 95000, hireDate: '2020-03-15', rating: 4.5 },
+    { id: 2, name: 'Bob Smith', salary: 75000, hireDate: '2019-07-22', rating: 3.8 },
+    { id: 3, name: 'Carol Williams', salary: 105000, hireDate: '2018-11-10', rating: 4.9 },
+    { id: 4, name: 'Dan Brown', salary: 85000, hireDate: '2021-01-05', rating: 4.2 },
+    { id: 5, name: 'Eve Davis', salary: 72000, hireDate: '2022-06-18', rating: 3.5 },
+    { id: 6, name: 'Frank Miller', salary: 98000, hireDate: '2017-09-30', rating: 4.7 },
+    { id: 7, name: 'Grace Lee', salary: 82000, hireDate: '2020-12-01', rating: 4.0 },
+    { id: 8, name: 'Henry Wilson', salary: 68000, hireDate: '2023-02-14', rating: 3.2 },
+  ];
+
+  const grid = queryGrid('tbw-grid', container);
+
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID', type: 'number', filterable: false },
+          { field: 'name', header: 'Name' }, // Set filter (default)
+          {
+            field: 'salary',
+            header: 'Salary',
+            type: 'number', // Range slider filter
+            filterParams: { min: 50000, max: 150000, step: 5000 },
+          },
+          {
+            field: 'hireDate',
+            header: 'Hire Date',
+            type: 'date', // Date range picker filter
+            filterParams: { min: '2015-01-01', max: '2025-12-31' },
+          },
+          {
+            field: 'rating',
+            header: 'Rating',
+            type: 'number', // Range slider with smaller step
+            filterParams: { min: 1, max: 5, step: 0.1 },
+          },
+        ],
+        plugins: [new FilteringPlugin()],
+      };
+      grid.rows = typedData;
+}
+</script>

@@ -1,0 +1,82 @@
+---
+// ResponsiveCardModeDemo.astro
+---
+<div class="grid-demo not-content" id="responsive-card-mode-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+const container = document.getElementById('responsive-card-mode-demo');
+if (container) {
+  // Sample data
+  const sampleData = [
+    {
+      id: 1,
+      name: 'Alice Johnson',
+      department: 'Engineering',
+      salary: 95000,
+      email: 'alice@example.com',
+      startDate: '2020-03-15',
+    },
+    {
+      id: 2,
+      name: 'Bob Smith',
+      department: 'Marketing',
+      salary: 75000,
+      email: 'bob@example.com',
+      startDate: '2019-07-22',
+    },
+    {
+      id: 3,
+      name: 'Carol Williams',
+      department: 'Engineering',
+      salary: 105000,
+      email: 'carol@example.com',
+      startDate: '2018-11-01',
+    },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, email: 'dan@example.com', startDate: '2021-01-10' },
+    {
+      id: 5,
+      name: 'Eve Davis',
+      department: 'Marketing',
+      salary: 72000,
+      email: 'eve@example.com',
+      startDate: '2022-05-03',
+    },
+    {
+      id: 6,
+      name: 'Frank Miller',
+      department: 'Engineering',
+      salary: 98000,
+      email: 'frank@example.com',
+      startDate: '2020-08-20',
+    },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number', width: 60 },
+    { field: 'name', header: 'Name', width: 150 },
+    { field: 'department', header: 'Department', width: 120 },
+    { field: 'salary', header: 'Salary', type: 'number', width: 100 },
+    { field: 'email', header: 'Email', width: 200 },
+    { field: 'startDate', header: 'Start Date', width: 120 },
+  ];
+
+  const grid = queryGrid('tbw-grid', container);
+      
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name' },
+          { field: 'department', header: 'Department' },
+          { field: 'salary', header: 'Salary', type: 'number' as const },
+          { field: 'email', header: 'Email' },
+        ],
+        plugins: [new ResponsivePlugin({ breakpoint: 500 })],
+      };
+      grid.rows = sampleData;
+}
+</script>

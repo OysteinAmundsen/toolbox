@@ -30,7 +30,7 @@ The Chrome DevTools MCP server (pre-configured in `.vscode/mcp.json`) provides p
 1. **Start a dev server** (see `debug-browser` skill for server table):
 
    ```bash
-   bun nx serve docs          # Storybook on port 4400
+   bun nx serve docs     # Docs site on port 4400
    bun nx serve demo-angular   # Angular demo on port 4200
    ```
 
@@ -111,7 +111,7 @@ const page = await browser.newPage();
 
 // Start Chrome trace (same data as DevTools Performance tab)
 await page.tracing.start({ screenshots: true, categories: ['devtools.timeline'] });
-await page.goto('http://localhost:4400'); // Storybook or demo app
+await page.goto('http://localhost:4200'); // demo app
 // ... reproduce the performance issue ...
 await page.tracing.stop({ path: 'trace.json' });
 await browser.close();

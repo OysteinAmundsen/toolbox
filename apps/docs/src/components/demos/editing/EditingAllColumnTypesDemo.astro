@@ -1,0 +1,45 @@
+---
+// EditingAllColumnTypesDemo.astro
+---
+<div class="grid-demo not-content" id="editing-all-column-types-demo">
+  <tbw-grid style="display: block; height: 300px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const container = document.getElementById('editing-all-column-types-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+      
+  
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name (string)', editable: true },
+          { field: 'age', header: 'Age (number)', type: 'number', editable: true },
+          { field: 'active', header: 'Active (boolean)', type: 'boolean', editable: true },
+          { field: 'joined', header: 'Joined (date)', type: 'date', editable: true },
+          {
+            field: 'role',
+            header: 'Role (select)',
+            type: 'select',
+            editable: true,
+            options: [
+              { label: 'Admin', value: 'admin' },
+              { label: 'User', value: 'user' },
+            ],
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+  
+      grid.rows = [
+        { name: 'Alice', age: 28, active: true, joined: new Date('2023-01-15'), role: 'admin' },
+        { name: 'Bob', age: 34, active: false, joined: new Date('2023-06-20'), role: 'user' },
+        { name: 'Carol', age: 25, active: true, joined: new Date('2024-02-10'), role: 'user' },
+      ];
+}
+</script>

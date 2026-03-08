@@ -1,0 +1,221 @@
+---
+title: "Column Visibility Plugin"
+description: "Allow users to toggle column visibility via a panel."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import VisibilityDefaultDemo from '@components/demos/visibility/VisibilityDefaultDemo.astro';
+import VisibilityLockedColumnsDemo from '@components/demos/visibility/VisibilityLockedColumnsDemo.astro';
+import VisibilityInitiallyHiddenDemo from '@components/demos/visibility/VisibilityInitiallyHiddenDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+
+# Column Visibility Plugin
+
+The Visibility plugin gives users control over which columns are displayed. Hide less important columns by default, let users toggle them via a column chooser UI, or programmatically show/hide columns based on user preferences or screen size.
+
+> 💡 **Optional Enhancement:** When [ReorderPlugin](/grid/plugins/reorder/) is also loaded, columns in the visibility panel become draggable for reordering.
+
+## Installation
+
+```ts
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+```
+
+## Basic Usage
+
+Set `visible: false` on columns you want hidden by default. The plugin provides a UI and API for toggling column visibility at runtime.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'phone', header: 'Phone', visible: false }, // Hidden by default
+    { field: 'address', header: 'Address', visible: false },
+  ],
+  plugins: [new VisibilityPlugin()],
+};
+
+// Toggle visibility programmatically
+const plugin = grid.getPlugin(VisibilityPlugin);
+plugin.showColumn('phone');
+plugin.hideColumn('email');
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/visibility';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function ConfigurableGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'phone', header: 'Phone', visible: false },
+      ]}
+      visibility
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/visibility';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const data = [
+  { id: 1, name: 'Alice', email: 'alice@example.com', phone: '555-1234' },
+  { id: 2, name: 'Bob', email: 'bob@example.com', phone: '555-5678' },
+];
+</script>
+
+<template>
+  <TbwGrid :rows="data" visibility>
+    <TbwGridColumn field="id" header="ID" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="phone" header="Phone" :visible="false" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature import - enables the [visibility] input
+import '@toolbox-web/grid-angular/features/visibility';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-configurable-grid',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [visibility]="true"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class ConfigurableGridComponent {
+  rows = [];
+
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'phone', header: 'Phone', visible: false },
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+## Demos
+
+### Default Column Chooser
+
+<ShowSource file="demos/visibility/VisibilityDefaultDemo.astro">
+  <VisibilityDefaultDemo />
+</ShowSource>
+
+
+
+
+### Locked Columns
+
+<ShowSource file="demos/visibility/VisibilityLockedColumnsDemo.astro">
+  <VisibilityLockedColumnsDemo />
+</ShowSource>
+
+
+
+### Initially Hidden
+
+<ShowSource file="demos/visibility/VisibilityInitiallyHiddenDemo.astro">
+  <VisibilityInitiallyHiddenDemo />
+</ShowSource>
+
+
+
+## Configuration Options
+
+| Option         | Type      | Default | Description                           |
+| -------------- | --------- | ------- | ------------------------------------- |
+| `allowHideAll` | `boolean` | `false` | Allow hiding all columns (no minimum) |
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(VisibilityPlugin);
+
+plugin.hideColumn('email');
+plugin.showColumn('email');
+plugin.toggleColumn('email');
+plugin.showAllColumns();
+const hidden = plugin.getHiddenColumns();
+```
+
+## Styling
+
+The visibility panel supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-visibility-hover` | `var(--tbw-color-row-hover)` | Row hover background |
+| `--tbw-panel-padding` | `0.75em` | Panel content padding |
+| `--tbw-panel-gap` | `0.5em` | Gap between items |
+| `--tbw-menu-item-padding` | `0.375rem 0.25rem` | Row padding |
+| `--tbw-font-size-sm` | `0.9285em` | Label font size |
+| `--tbw-font-size-2xs` | `0.7142em` | Drag handle size |
+| `--tbw-color-fg-muted` | `#888` | Muted text (locked items) |
+| `--tbw-border-radius` | `0.25em` | Row border radius |
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom visibility panel styling */
+  --tbw-visibility-hover: #e8f4fd;
+  --tbw-panel-padding: 1rem;
+  --tbw-panel-gap: 0.75rem;
+}
+```
+
+### CSS Classes
+
+The visibility panel uses these class names for advanced customization:
+
+| Class | Element |
+| --- | --- |
+| `.tbw-visibility-content` | Panel container |
+| `.tbw-visibility-list` | Scrollable column list |
+| `.tbw-visibility-row` | Individual column row |
+| `.tbw-visibility-row.locked` | Non-toggleable column |
+| `.tbw-visibility-row.reorderable` | Can be dragged (with ReorderPlugin) |
+| `.tbw-visibility-row.dragging` | Currently being dragged |
+| `.tbw-visibility-handle` | Drag handle element |
+| `.tbw-visibility-label` | Checkbox + text wrapper |
+
+## See Also
+
+- **[Column Reorder](..//grid/plugins/column-reorder/)** — Drag-to-reorder columns
+- **[Pinned Columns](../?path=/grid/plugins/pinned-columns/)** — Sticky columns

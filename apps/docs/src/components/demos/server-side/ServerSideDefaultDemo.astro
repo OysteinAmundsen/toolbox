@@ -1,0 +1,84 @@
+---
+// ServerSideDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="server-side-default-demo">
+  <DemoControls controls={[
+    { section: 'SERVER', name: 'pageSize', label: 'Page size', type: 'number',
+      min: 10, max: 100, step: 10, default: 50, description: 'Rows fetched per request' },
+  ]} />
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+
+const container = document.getElementById('server-side-default-demo');
+if (container) {
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'department', header: 'Department', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    { field: 'email', header: 'Email' },
+  ];
+
+  function generateMockData(count: number) {
+    const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+    const data = [];
+    for (let i = 0; i < count; i++) {
+      data.push({
+        id: i + 1,
+        name: `Employee ${i + 1}`,
+        department: departments[i % departments.length],
+        salary: 50000 + Math.floor(Math.random() * 50000),
+        email: `employee${i + 1}@example.com`,
+      });
+    }
+    return data;
+  }
+
+  const grid = queryGrid('tbw-grid', container)!;
+  const allData = generateMockData(10000);
+
+  const createDataSource = () => ({
+    async getRows(params: any) {
+      await new Promise((r) => setTimeout(r, 200));
+      const data = [...allData];
+      if (params.sortModel?.length) {
+        const { field, direction } = params.sortModel[0];
+        data.sort((a: any, b: any) => {
+          const cmp = a[field] < b[field] ? -1 : a[field] > b[field] ? 1 : 0;
+          return direction === 'asc' ? cmp : -cmp;
+        });
+      }
+      return { rows: data.slice(params.startRow, params.endRow), totalRowCount: data.length };
+    },
+  });
+
+  function rebuild(pageSize = 50) {
+    const plugin = new ServerSidePlugin({ pageSize, cacheBlockSize: pageSize });
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        plugin,
+        new PinnedRowsPlugin({
+          position: 'bottom',
+          showRowCount: true,
+          customPanels: [{ id: 'scroll-info', position: 'right', render: () => '<em>Scroll to load more rows...</em>' }],
+        }),
+      ],
+    };
+    grid.ready().then(() => plugin.setDataSource(createDataSource() as any));
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    rebuild(e.detail.allValues.pageSize as number);
+  }) as EventListener);
+}
+</script>

@@ -1,0 +1,571 @@
+---
+title: "Filtering Plugin"
+description: "Add column-level filtering with built-in filter panel and custom filters."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import FilteringDefaultDemo from '@components/demos/filtering/FilteringDefaultDemo.astro';
+import FilteringCustomFilterPanelDemo from '@components/demos/filtering/FilteringCustomFilterPanelDemo.astro';
+import FilteringCaseSensitiveDemo from '@components/demos/filtering/FilteringCaseSensitiveDemo.astro';
+import FilteringTypeSpecificFiltersDemo from '@components/demos/filtering/FilteringTypeSpecificFiltersDemo.astro';
+import FilteringAsyncFilteringDemo from '@components/demos/filtering/FilteringAsyncFilteringDemo.astro';
+import FilteringFilterEventsDemo from '@components/demos/filtering/FilteringFilterEventsDemo.astro';
+import FilteringNoDebounceDemo from '@components/demos/filtering/FilteringNoDebounceDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+
+# Filtering Plugin
+
+The Filtering plugin adds column header filters with text search, dropdown options, and custom filter panels. It supports both local filtering for small datasets and async handlers for server-side filtering on large datasets.
+
+## Installation
+
+```ts
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+```
+
+## Basic Usage
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+
+```ts
+import '@toolbox-web/grid';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+    { field: 'email', header: 'Email', filterable: true },
+  ],
+  plugins: [new FilteringPlugin({ debounceMs: 300 })],
+};
+grid.rows = data;
+```
+
+  </TabItem>
+  <TabItem label="React">
+
+```tsx
+import '@toolbox-web/grid-react/features/filtering';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function MyGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'name', header: 'Name', filterable: true },
+        { field: 'status', header: 'Status', filterable: true },
+        { field: 'email', header: 'Email', filterable: true },
+      ]}
+      filtering={{ debounceMs: 300 }}
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+
+  </TabItem>
+  <TabItem label="Vue">
+
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/filtering';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const data = [
+  { name: 'Alice', status: 'active', email: 'alice@example.com' },
+  { name: 'Bob', status: 'inactive', email: 'bob@example.com' },
+];
+</script>
+
+<template>
+  <TbwGrid :rows="data" :filtering="{ debounceMs: 300 }" style="height: 400px">
+    <TbwGridColumn field="name" header="Name" filterable />
+    <TbwGridColumn field="status" header="Status" filterable />
+    <TbwGridColumn field="email" header="Email" filterable />
+  </TbwGrid>
+</template>
+```
+
+  </TabItem>
+  <TabItem label="Angular">
+
+```typescript
+// Feature import - enables the [filtering] input
+import '@toolbox-web/grid-angular/features/filtering';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [filtering]="{ debounceMs: 300 }"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  rows = [...];
+
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+    { field: 'email', header: 'Email', filterable: true },
+  ];
+}
+```
+
+  </TabItem>
+</Tabs>
+
+## Demos
+
+### Default Filtering
+
+<ShowSource file="demos/filtering/FilteringDefaultDemo.astro">
+  <FilteringDefaultDemo />
+</ShowSource>
+
+Type in column header filter inputs to filter rows. The plugin debounces input to avoid excessive re-filtering while typing.
+
+
+
+
+### Custom Filter Panel
+
+<ShowSource file="demos/filtering/FilteringCustomFilterPanelDemo.astro">
+  <FilteringCustomFilterPanelDemo />
+</ShowSource>
+
+The `filterPanelRenderer` option lets you replace the default filter panel with custom UI.
+When the renderer returns `undefined`, the default panel is used for that column.
+
+
+
+#### FilterPanelParams
+
+Your custom renderer receives a `params` object with:
+
+**Properties**
+
+| Property         | Type           | Description                            |
+| ---------------- | -------------- | -------------------------------------- |
+| `field`          | `string`       | The field being filtered               |
+| `column`         | `ColumnConfig` | Column configuration                   |
+| `uniqueValues`   | `unknown[]`    | All unique values for this field       |
+| `excludedValues` | `Set<unknown>` | Currently excluded values (set filter) |
+| `searchText`     | `string`       | Current search text                    |
+| `currentFilter`  | `FilterModel?` | Active filter model for this field (if any) — use to pre-populate custom UI |
+
+**Methods**
+
+| Method            | Signature                                                                           | Description                               |
+| ----------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- |
+| `applySetFilter`  | `(excluded: unknown[], valueTo?: unknown) => void`                                  | Apply a set filter; optional `valueTo` stores metadata alongside the filter |
+| `applyTextFilter` | `(op: FilterOperator, val: string \| number, valueTo?: string \| number) => void` | Apply a text/number/date filter with operator |
+| `clearFilter`     | `() => void`                                                                        | Clear the filter for this field           |
+| `closePanel`      | `() => void`                                                                        | Close the filter panel                    |
+
+#### Example: Radio-button Filter
+
+```ts
+const grid = document.querySelector('tbw-grid');
+
+grid.gridConfig = {
+  plugins: [
+    new FilteringPlugin({
+      filterPanelRenderer: (container, params) => {
+        // Custom panel only for 'status' column
+        if (params.field !== 'status') return undefined;
+
+        // Pre-select the current filter value (if any)
+        const activeValue = params.currentFilter?.value;
+
+        container.innerHTML = `
+          <div style="padding: 8px;">
+            <label><input type="radio" name="status" value="all" ${!activeValue ? 'checked' : ''}> All</label>
+            ${params.uniqueValues
+              .map((v) => `<label><input type="radio" name="status" value="${v}" ${v === activeValue ? 'checked' : ''}> ${v}</label>`)
+              .join('')}
+          </div>
+        `;
+
+        container.querySelectorAll('input').forEach((input) => {
+          input.addEventListener('change', () => {
+            if (input.value === 'all') {
+              params.clearFilter();
+            } else {
+              // Exclude all except the selected value
+              const excluded = params.uniqueValues.filter((v) => v !== input.value);
+              params.applySetFilter(excluded);
+            }
+            params.closePanel();
+          });
+        });
+      },
+    }),
+  ],
+};
+```
+
+### Case-Sensitive Filtering
+
+<ShowSource file="demos/filtering/FilteringCaseSensitiveDemo.astro">
+  <FilteringCaseSensitiveDemo />
+</ShowSource>
+
+When `caseSensitive: true`, text filters distinguish between uppercase and lowercase letters. Try filtering the **Name** or **Department** column—typing "alice" won't match "Alice".
+
+
+
+### Type-Specific Filter Panels
+
+<ShowSource file="demos/filtering/FilteringTypeSpecificFiltersDemo.astro">
+  <FilteringTypeSpecificFiltersDemo />
+</ShowSource>
+
+The Filtering plugin automatically displays appropriate filter UIs based on column type:
+
+| Column Type | Filter UI | Description |
+| --- | --- | --- |
+| `number` | **Range Slider** | Dual-thumb slider with min/max inputs. Includes a **"Blank" checkbox** to filter rows with no value. |
+| `date` | **Date Range Picker** | From/to date inputs with range selection. Includes a **"Show only blank" checkbox** for empty dates. |
+| (other) | **Checkbox Set** | Standard multi-select with search. Rows with `null`/`undefined`/empty values appear as a **(Blank)** entry. |
+
+Configure bounds and step via `filterParams` on the column:
+
+```ts
+const columns = [
+  {
+    field: 'salary',
+    header: 'Salary',
+    type: 'number',
+    filterParams: { min: 50000, max: 150000, step: 5000 },
+  },
+  {
+    field: 'hireDate',
+    header: 'Hire Date',
+    type: 'date',
+    filterParams: { min: '2015-01-01', max: '2025-12-31' },
+  },
+];
+```
+
+If `filterParams` is not provided, the plugin auto-detects min/max from the data.
+
+
+
+### Async Filtering (Server-Side)
+
+<ShowSource file="demos/filtering/FilteringAsyncFilteringDemo.astro">
+  <FilteringAsyncFilteringDemo />
+</ShowSource>
+
+For large or server-side datasets, the default local filtering may not be suitable:
+
+- **Not all unique values are available locally** for the filter panel
+- **Filtering should happen on the backend** rather than in the browser
+
+Use `valuesHandler` and `filterHandler` to customize this behavior:
+
+```ts
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new FilteringPlugin({
+      // Fetch unique values for a column from the server
+      valuesHandler: async (field, column) => {
+        const response = await fetch(`/api/distinct-values?field=${field}`);
+        return response.json(); // Returns: ['Engineering', 'Marketing', ...]
+      },
+
+      // Apply filters on the server
+      // FilterModel: { field, type, operator: 'notIn', value: excludedValues[] }
+      filterHandler: async (filters, currentRows) => {
+        const response = await fetch('/api/data', {
+          method: 'POST',
+          body: JSON.stringify({ filters }),
+        });
+        return response.json();
+      },
+    }),
+  ],
+};
+```
+
+**Handler signatures:**
+
+| Handler         | Signature                                                    | Returns                  |
+| --------------- | ------------------------------------------------------------ | ------------------------ |
+| `valuesHandler` | `(field: string, column: ColumnConfig) => Promise<T[]>`      | Unique values for filter |
+| `filterHandler` | `(filters: FilterModel[], rows: T[]) => T[] \| Promise<T[]>` | Filtered rows            |
+
+When `valuesHandler` is provided, the filter panel shows a loading indicator while fetching values.
+When `filterHandler` is provided, filter application bypasses the local `processRows` hook.
+
+### No Debounce (Instant Filtering)
+
+Set `debounceMs: 0` to filter immediately on every keystroke — useful when working with small datasets:
+
+<ShowSource file="demos/filtering/FilteringNoDebounceDemo.astro">
+  <FilteringNoDebounceDemo />
+</ShowSource>
+
+
+
+## Configuration Options
+
+### Grid-Level Toggle
+
+You can disable filtering grid-wide using `gridConfig.filterable`:
+
+```ts
+grid.gridConfig = {
+  filterable: false, // Disables ALL filtering, even on filterable columns
+  plugins: [new FilteringPlugin()],
+};
+```
+
+This is useful for toggling filtering on/off at runtime without removing the plugin.
+
+### Plugin Options
+
+| Option                | Type                  | Default | Description                                                       |
+| --------------------- | --------------------- | ------- | ----------------------------------------------------------------- |
+| `debounceMs`          | `number`              | `300`   | Debounce delay for filter input                                   |
+| `caseSensitive`       | `boolean`             | `false` | Case-sensitive string matching                                    |
+| `trimInput`           | `boolean`             | `true`  | Trim whitespace from filter input                                 |
+| `useWorker`           | `boolean`             | `true`  | Use Web Worker for datasets >1000 rows                            |
+| `trackColumnState`    | `boolean`             | `false` | Include filter state in column state persistence                  |
+| `filterPanelRenderer` | `FilterPanelRenderer` | -       | Custom filter panel renderer                                      |
+| `valuesHandler`       | `FilterValuesHandler` | -       | Async handler to fetch unique filter values                       |
+| `filterHandler`       | `FilterHandler<TRow>` | -       | Async handler to apply filters remotely                           |
+
+## Column Configuration
+
+```ts
+const columns = [
+  {
+    field: 'name',
+    filterable: true, // Enable filtering
+    filterType: 'text', // 'text' | 'select' | 'number' | 'date'
+  },
+  {
+    field: 'status',
+    filterable: true,
+    filterType: 'select',
+    filterOptions: ['Active', 'Inactive', 'Pending'],
+  },
+];
+```
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(FilteringPlugin);
+
+// Set filter value
+plugin.setFilter('name', 'Alice');
+
+// Get current filters
+const filters = plugin.getFilters();
+
+// Clear all filters
+plugin.clearFilters();
+
+// Clear specific filter
+plugin.clearFilter('name');
+
+// Silent mode: update filter state without triggering re-render
+// Useful for batching multiple filter changes
+plugin.setFilter('name', 'Alice', { silent: true });
+plugin.setFilter('dept', 'Engineering'); // last call applies all
+```
+
+## Column State Persistence
+
+By default, filter state is **not** included in column state and does not fire `column-state-change`.
+Enable `trackColumnState` to opt in:
+
+```ts
+new FilteringPlugin({ trackColumnState: true })
+```
+
+When enabled:
+- Filter state is included in `getColumnState()` / `columnState` snapshots
+- Filter changes fire the `column-state-change` event (debounced)
+- `applyColumnState()` / `columnState` restores filter state
+
+This is useful when you want to persist and restore the full grid state (including active filters)
+via `localStorage` or a server:
+
+```ts
+// Save full state including filters
+grid.addEventListener('column-state-change', (e) => {
+  localStorage.setItem('grid-state', JSON.stringify(e.detail));
+});
+
+// Restore state (filters are re-applied automatically)
+gridConfig: {
+  columnState: JSON.parse(localStorage.getItem('grid-state')),
+  plugins: [new FilteringPlugin({ trackColumnState: true })],
+}
+```
+
+## Events
+
+<ShowSource file="demos/filtering/FilteringFilterEventsDemo.astro">
+  <FilteringFilterEventsDemo />
+</ShowSource>
+
+The FilteringPlugin emits events when filter state changes. Open filter panels and
+apply filters to see the events:
+
+
+
+| Event | Description |
+| ----- | ----------- |
+| `filter-change` | Fired when filters are applied, changed, or cleared |
+
+### `filter-change` Detail
+
+```ts
+interface FilterChangeDetail {
+  filters: FilterModel[];  // Active filter configurations
+}
+```
+
+## Styling
+
+The filter panel and inputs support CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-filter-panel-bg` | `var(--tbw-color-panel-bg)` | Panel background |
+| `--tbw-filter-panel-fg` | `var(--tbw-color-fg)` | Panel text color |
+| `--tbw-filter-panel-border` | `var(--tbw-color-border)` | Panel border |
+| `--tbw-filter-panel-radius` | `var(--tbw-border-radius)` | Panel border radius |
+| `--tbw-filter-panel-shadow` | `var(--tbw-color-shadow)` | Panel shadow |
+| `--tbw-filter-input-bg` | `var(--tbw-color-bg)` | Input background |
+| `--tbw-filter-input-border` | `var(--tbw-color-border)` | Input border |
+| `--tbw-filter-input-focus` | `var(--tbw-color-accent)` | Input focus border |
+| `--tbw-filter-active-color` | `var(--tbw-color-accent)` | Active filter indicator |
+| `--tbw-filter-btn-padding` | `var(--tbw-button-padding)` | Filter button padding |
+| `--tbw-filter-btn-font-weight` | `500` | Filter button font weight |
+| `--tbw-filter-btn-min-height` | `auto` | Filter button min height |
+| `--tbw-filter-search-padding` | `var(--tbw-spacing-sm) var(--tbw-spacing-md)` | Search input padding |
+| `--tbw-filter-item-height` | `28px` | Filter value item height (for virtualization) |
+| `--tbw-filter-btn-display` | `inline-flex` | Filter button display (set to `none` to hide) |
+| `--tbw-filter-btn-visibility` | `visible` | Filter button visibility |
+| `--tbw-panel-padding` | `0.75em` | Panel padding |
+| `--tbw-panel-gap` | `0.5em` | Gap between elements |
+| `--tbw-animation-duration` | `200ms` | Panel open/close animation |
+
+### Theming Filter Panels
+
+The filter panel is rendered in `document.body` for proper z-index stacking. To apply theme CSS variables:
+
+1. **Add a theme class to the grid** (e.g., `tbw-grid.eds-theme`)
+2. **The class is automatically copied** to the filter panel
+
+```css
+/* Define theme on a CSS class */
+.eds-theme {
+  --tbw-filter-panel-bg: #f5f5f5;
+  --tbw-filter-btn-padding: 8px 16px;
+  --tbw-filter-btn-font-weight: 500;
+  --tbw-filter-btn-min-height: 48px;
+  --tbw-filter-item-height: 48px;
+}
+```
+
+```html
+<!-- Apply class to grid - it cascades to filter panel -->
+<tbw-grid class="eds-theme" ...></tbw-grid>
+```
+
+### Hiding Filter Buttons Until Hover
+
+To show filter buttons only when hovering over a column header:
+
+```css
+tbw-grid {
+  --tbw-filter-btn-visibility: hidden;
+}
+
+tbw-grid .header-row .cell:hover .tbw-filter-btn,
+tbw-grid .header-row .cell .tbw-filter-btn.active {
+  visibility: visible;
+}
+```
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom filter panel styling */
+  --tbw-filter-panel-bg: #1e1e1e;
+  --tbw-filter-panel-fg: #ffffff;
+  --tbw-filter-panel-border: #444444;
+  --tbw-filter-input-bg: #2d2d2d;
+  --tbw-filter-input-border: #555555;
+  --tbw-filter-active-color: #4fc3f7;
+}
+```
+
+### CSS Classes
+
+The filter panel uses these class names for advanced customization:
+
+| Class | Element |
+| --- | --- |
+| `.tbw-filter-panel` | Dropdown panel container |
+| `.tbw-filter-search` | Text search input |
+| `.tbw-filter-list` | Options list container |
+| `.tbw-filter-option` | Individual filter option |
+| `.tbw-filter-option.selected` | Selected option |
+| `.tbw-filter-buttons` | Action button group |
+| `.tbw-filter-clear` | Clear filter button |
+| `.tbw-filter-apply` | Apply filter button |
+
+## Row Insertion with Active Filters
+
+When filtering is active, assigning `rows` automatically re-filters the data — so a
+newly inserted row may be hidden if it doesn't match the current filter. If you want
+the row to appear exactly where you placed it (e.g., after a user clicks "Add Row"),
+use `insertRow()`:
+
+```ts
+grid.insertRow(3, newRow); // stays at visible index 3, auto-animates
+```
+
+The row is also added to source data, so the next full `grid.rows = freshData`
+assignment re-filters normally. See the
+[API Reference → Insert & Remove Rows](/grid/api/#insert--remove-rows)
+for full details.
+
+:::tip
+Do **not** use `insertRow()` for data refreshes (API responses,
+WebSocket updates). In those cases just set `grid.rows = newData` and let
+the filter re-apply.
+:::
+
+## See Also
+
+- **[Multi-Sort](../?path=/grid/plugins/multi-sort/)** — Multi-column sorting
+- **[Server-Side Data](..//grid/plugins/server-side-data/)** — Server-side filtering via `filterHandler`
+- **[Selection](../?path=/grid/plugins/selection/)** — Row and cell selection
+- **[Common Patterns](/grid/guides/common-patterns/)** — Full application recipes using filtering
+- **[Plugins Overview](/grid/plugins/)** — Plugin compatibility and combinations

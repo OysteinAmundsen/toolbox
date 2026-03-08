@@ -1,0 +1,843 @@
+---
+title: Common Patterns
+description: Practical recipes for combining plugins and grid features. Covers data browsing, editable grids, master-detail, grouping, export, and more.
+---
+
+import { LinkCard, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Real-world grids rarely use a single plugin in isolation. This guide shows **tested combinations** that solve everyday requirements.
+
+## Data Browsing & Selection
+
+**Goal:** Let users sort, filter, and select rows from a large dataset.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+const grid = queryGrid<Employee>('#grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true, filterable: true },
+    { field: 'department', header: 'Department', filterable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+  ],
+  plugins: [
+    new SelectionPlugin({ mode: 'row', multiSelect: true }),
+    new FilteringPlugin({ debounceMs: 200 }),
+    new MultiSortPlugin(),
+  ],
+};
+
+// React to selected rows
+grid.addEventListener('selection-change', () => {
+  const sel = grid.getPluginByName('selection');
+  const rows = sel?.getSelectedRows<Employee>() ?? [];
+  console.log('Selected:', rows);
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/filtering';
+import '@toolbox-web/grid-react/features/multi-sort';
+import { DataGrid, useGrid, useGridEvent } from '@toolbox-web/grid-react';
+import type { SelectionChangeDetail } from '@toolbox-web/grid';
+
+function EmployeeGrid({ employees }) {
+  const gridRef = useGrid<Employee>();
+
+  useGridEvent(gridRef, 'selection-change', () => {
+    const rows = gridRef.current?.getPluginByName('selection')?.getSelectedRows<Employee>() ?? [];
+    console.log('Selected:', rows);
+  });
+
+  return (
+    <DataGrid
+      ref={gridRef}
+      rows={employees}
+      selection={{ mode: 'row', multiSelect: true }}
+      filtering={{ debounceMs: 200 }}
+      multiSort
+    >
+      <GridColumn field="id" header="ID" type="number" sortable />
+      <GridColumn field="name" header="Name" sortable filterable />
+      <GridColumn field="department" header="Department" filterable />
+      <GridColumn field="salary" header="Salary" type="number" sortable />
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/filtering';
+import '@toolbox-web/grid-vue/features/multi-sort';
+import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
+
+const gridRef = useGrid<Employee>();
+
+function onSelectionChange() {
+  const rows = gridRef.value?.getPluginByName('selection')?.getSelectedRows<Employee>() ?? [];
+  console.log('Selected:', rows);
+}
+</script>
+
+<template>
+  <TbwGrid ref="gridRef" :rows="employees" selection="row" filtering multi-sort @selection-change="onSelectionChange">
+    <TbwGridColumn field="id" header="ID" type="number" sortable />
+    <TbwGridColumn field="name" header="Name" sortable filterable />
+    <TbwGridColumn field="department" header="Department" filterable />
+    <TbwGridColumn field="salary" header="Salary" type="number" sortable />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/filtering';
+import '@toolbox-web/grid-angular/features/multi-sort';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      [columns]="columns"
+      selection="row"
+      [filtering]="{ debounceMs: 200 }"
+      multiSort
+      (selection-change)="onSelectionChange()"
+    />
+  `,
+})
+export class EmployeeGridComponent {
+  columns = [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true, filterable: true },
+    { field: 'department', header: 'Department', filterable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+  ];
+
+  onSelectionChange() {
+    // Access via ViewChild or queryGrid
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+:::tip
+Use `getSelectedRows()` instead of `getSelectedRowIndices()` — row objects are stable identifiers even after sorting and filtering.
+:::
+
+## Editable Grid with Undo
+
+**Goal:** Inline cell editing with full undo/redo support.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'email', header: 'Email', editable: true },
+    { field: 'active', header: 'Active', type: 'boolean', editable: true },
+  ],
+  plugins: [
+    new EditingPlugin({ editOn: 'dblclick', dirtyTracking: true }),
+    new UndoRedoPlugin(),                    // Must come after EditingPlugin
+    new SelectionPlugin({ mode: 'cell' }),
+  ],
+  getRowId: (row) => row.id,                 // Required for dirty tracking
+};
+
+// Validate before committing
+grid.addEventListener('cell-commit', (e: CustomEvent) => {
+  const { field, value } = e.detail;
+  if (field === 'email' && !value.includes('@')) {
+    e.preventDefault(); // Reject invalid edit
+  }
+});
+
+// Track dirty state
+grid.addEventListener('dirty-change', () => {
+  const editing = grid.getPluginByName('editing');
+  const dirtyRows = editing?.getDirtyRows() ?? [];
+  saveButton.disabled = dirtyRows.length === 0;
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/editing';
+import '@toolbox-web/grid-react/features/undo-redo';
+import '@toolbox-web/grid-react/features/selection';
+import { DataGrid, GridColumn, useGrid } from '@toolbox-web/grid-react';
+import type { CellCommitDetail } from '@toolbox-web/grid';
+
+function EditableGrid({ employees }) {
+  const gridRef = useGrid<Employee>();
+
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
+    if (detail.field === 'email' && !detail.value.includes('@')) {
+      detail.preventDefault(); // Reject invalid edit
+    }
+  }, []);
+
+  const handleDirtyChange = useCallback(() => {
+    const editing = gridRef.current?.getPluginByName('editing');
+    const dirtyRows = editing?.getDirtyRows() ?? [];
+    setSaveDisabled(dirtyRows.length === 0);
+  }, []);
+
+  return (
+    <DataGrid
+      ref={gridRef}
+      rows={employees}
+      editing="dblclick"
+      dirtyTracking
+      undoRedo
+      selection="cell"
+      getRowId={(row) => row.id}
+      onCellCommit={handleCellCommit}
+      onDirtyChange={handleDirtyChange}
+    >
+      <GridColumn field="id" header="ID" type="number" />
+      <GridColumn field="name" header="Name" editable />
+      <GridColumn field="email" header="Email" editable />
+      <GridColumn field="active" header="Active" type="boolean" editable />
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/editing';
+import '@toolbox-web/grid-vue/features/undo-redo';
+import '@toolbox-web/grid-vue/features/selection';
+import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
+import type { CellCommitDetail } from '@toolbox-web/grid';
+
+const gridRef = useGrid<Employee>();
+const saveDisabled = ref(true);
+
+function onCellCommit(detail: CellCommitDetail) {
+  if (detail.field === 'email' && !detail.value.includes('@')) {
+    detail.preventDefault();
+  }
+}
+
+function onDirtyChange() {
+  const editing = gridRef.value?.getPluginByName('editing');
+  saveDisabled.value = (editing?.getDirtyRows() ?? []).length === 0;
+}
+</script>
+
+<template>
+  <TbwGrid
+    ref="gridRef"
+    :rows="employees"
+    editing="dblclick"
+    dirty-tracking
+    undo-redo
+    selection="cell"
+    :get-row-id="(row) => row.id"
+    @cell-commit="onCellCommit"
+    @dirty-change="onDirtyChange"
+  >
+    <TbwGridColumn field="id" header="ID" type="number" />
+    <TbwGridColumn field="name" header="Name" editable />
+    <TbwGridColumn field="email" header="Email" editable />
+    <TbwGridColumn field="active" header="Active" type="boolean" editable />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/editing';
+import '@toolbox-web/grid-angular/features/undo-redo';
+import '@toolbox-web/grid-angular/features/selection';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      [columns]="columns"
+      editing="dblclick"
+      dirtyTracking
+      undoRedo
+      selection="cell"
+      [getRowId]="getRowId"
+      (cell-commit)="onCellCommit($event)"
+      (dirty-change)="onDirtyChange()"
+    />
+  `,
+})
+export class EditableGridComponent {
+  columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'email', header: 'Email', editable: true },
+    { field: 'active', header: 'Active', type: 'boolean', editable: true },
+  ];
+  getRowId = (row: any) => row.id;
+
+  onCellCommit(event: CustomEvent) {
+    const { field, value } = event.detail;
+    if (field === 'email' && !value.includes('@')) {
+      event.preventDefault();
+    }
+  }
+
+  onDirtyChange() {
+    // Access editing plugin for dirty rows
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+:::danger
+`EditingPlugin` must be loaded **before** `UndoRedoPlugin`. Wrong order throws a runtime error.
+:::
+
+## Grouped Data with Aggregates
+
+**Goal:** Group rows by a field and show aggregated values (sum, average, count).
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const columns = [
+  { field: 'department', header: 'Department' },
+  { field: 'name', header: 'Name' },
+  {
+    field: 'salary',
+    header: 'Salary',
+    type: 'number',
+    aggregator: 'avg',
+    formatter: (ctx) => `$${ctx.value.toLocaleString()}`,
+  },
+  {
+    field: 'id',
+    header: 'Count',
+    type: 'number',
+    aggregator: 'count',
+  },
+];
+
+grid.gridConfig = {
+  columns,
+  plugins: [
+    new GroupingRowsPlugin({ groupOn: (row) => [row.department], defaultExpanded: true }),
+    new SelectionPlugin({ mode: 'row' }),
+  ],
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/grouping-rows';
+import '@toolbox-web/grid-react/features/selection';
+import { DataGrid, GridColumn } from '@toolbox-web/grid-react';
+
+function DepartmentGrid({ rows }) {
+  return (
+    <DataGrid
+      rows={rows}
+      groupingRows={{ groupOn: (row) => [row.department], defaultExpanded: true }}
+      selection={{ mode: 'row' }}
+    >
+      <GridColumn field="department" header="Department" />
+      <GridColumn field="name" header="Name" />
+      <GridColumn
+        field="salary"
+        header="Salary"
+        type="number"
+        aggregator="avg"
+        formatter={(ctx) => `$${ctx.value.toLocaleString()}`}
+      />
+      <GridColumn field="id" header="Count" type="number" aggregator="count" />
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/grouping-rows';
+import '@toolbox-web/grid-vue/features/selection';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const formatSalary = (ctx) => `$${ctx.value.toLocaleString()}`;
+</script>
+
+<template>
+  <TbwGrid
+    :rows="rows"
+    :grouping-rows="{ groupOn: (row) => [row.department], defaultExpanded: true }"
+    :selection="{ mode: 'row' }"
+  >
+    <TbwGridColumn field="department" header="Department" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn
+      field="salary"
+      header="Salary"
+      type="number"
+      aggregator="avg"
+      :formatter="formatSalary"
+    />
+    <TbwGridColumn field="id" header="Count" type="number" aggregator="count" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/grouping-rows';
+import '@toolbox-web/grid-angular/features/selection';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [groupingRows]="{ groupOn: groupByDept, defaultExpanded: true }"
+      [selection]="{ mode: 'row' }"
+    />
+  `,
+})
+export class DepartmentGridComponent {
+  groupByDept = (row: any) => [row.department];
+  columns = [
+    { field: 'department', header: 'Department' },
+    { field: 'name', header: 'Name' },
+    {
+      field: 'salary', header: 'Salary', type: 'number',
+      aggregator: 'avg',
+      formatter: (ctx) => `$${ctx.value.toLocaleString()}`,
+    },
+    { field: 'id', header: 'Count', type: 'number', aggregator: 'count' },
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+## Export Selected Rows
+
+**Goal:** Let users filter data, select a subset, and export it.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department', filterable: true },
+  ],
+  plugins: [
+    new SelectionPlugin({ mode: 'row', multiSelect: true }),
+    new FilteringPlugin(),
+    new ExportPlugin(),
+  ],
+};
+
+// Export button — exports only selected rows (or all if none selected)
+exportButton.addEventListener('click', () => {
+  const exp = grid.getPluginByName('export');
+  exp?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/export';
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/filtering';
+import { DataGrid, GridColumn, useGrid } from '@toolbox-web/grid-react';
+
+function ExportableGrid({ employees }) {
+  const gridRef = useGrid<Employee>();
+
+  const handleExport = () => {
+    const exp = gridRef.current?.getPluginByName('export');
+    exp?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+  };
+
+  return (
+    <>
+      <button onClick={handleExport}>Export CSV</button>
+      <DataGrid ref={gridRef} rows={employees} selection="row" filtering export>
+        <GridColumn field="name" header="Name" filterable />
+        <GridColumn field="email" header="Email" />
+        <GridColumn field="department" header="Department" filterable />
+      </DataGrid>
+    </>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/export';
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/filtering';
+import { TbwGrid, TbwGridColumn, useGrid } from '@toolbox-web/grid-vue';
+
+const gridRef = useGrid<Employee>();
+
+function handleExport() {
+  gridRef.value?.getPluginByName('export')?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+}
+</script>
+
+<template>
+  <button @click="handleExport">Export CSV</button>
+  <TbwGrid ref="gridRef" :rows="employees" selection="row" filtering export>
+    <TbwGridColumn field="name" header="Name" filterable />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="department" header="Department" filterable />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/export';
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/filtering';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, ViewChild, ElementRef } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <button (click)="handleExport()">Export CSV</button>
+    <tbw-grid #grid [rows]="employees" [columns]="columns" selection="row" filtering export />
+  `,
+})
+export class ExportableGridComponent {
+  @ViewChild('grid') gridEl!: ElementRef;
+  columns = [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department', filterable: true },
+  ];
+
+  handleExport() {
+    this.gridEl.nativeElement.getPluginByName('export')?.exportCsv({ selectedOnly: true, fileName: 'employees.csv' });
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+## Master-Detail
+
+**Goal:** Expand a row to show related detail records.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+import { MasterDetailPlugin } from '@toolbox-web/grid/plugins/master-detail';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'orderId', header: 'Order', type: 'number' },
+    { field: 'customer', header: 'Customer' },
+    { field: 'total', header: 'Total', type: 'number' },
+  ],
+  plugins: [
+    new MasterDetailPlugin({
+      detailRenderer: (ctx) => {
+        const container = document.createElement('div');
+        container.style.padding = '1rem';
+        container.innerHTML = `<strong>Order #${ctx.row.orderId}</strong>`;
+
+        // Nested grid for order items
+        const detail = document.createElement('tbw-grid') as any;
+        detail.style.height = '200px';
+        detail.style.display = 'block';
+        detail.columns = [
+          { field: 'item', header: 'Item' },
+          { field: 'qty', header: 'Qty', type: 'number' },
+          { field: 'price', header: 'Price', type: 'number' },
+        ];
+        detail.rows = ctx.row.items; // Nested data
+        container.appendChild(detail);
+        return container;
+      },
+    }),
+  ],
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/master-detail';
+import { DataGrid, GridColumn, GridDetailPanel } from '@toolbox-web/grid-react';
+import type { DetailPanelContext } from '@toolbox-web/grid-react';
+
+function OrderGrid({ orders }: { orders: Order[] }) {
+  return (
+    <DataGrid rows={orders}>
+      <GridColumn field="orderId" header="Order" type="number" />
+      <GridColumn field="customer" header="Customer" />
+      <GridColumn field="total" header="Total" type="number" />
+
+      <GridDetailPanel>
+        {(ctx: DetailPanelContext<Order>) => (
+          <div style={{ padding: '1rem' }}>
+            <strong>Order #{ctx.row.orderId}</strong>
+            <DataGrid rows={ctx.row.items} style={{ height: 200, display: 'block' }}>
+              <GridColumn field="item" header="Item" />
+              <GridColumn field="qty" header="Qty" type="number" />
+              <GridColumn field="price" header="Price" type="number" />
+            </DataGrid>
+          </div>
+        )}
+      </GridDetailPanel>
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/master-detail';
+import { TbwGrid, TbwGridColumn, TbwGridDetailPanel } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="orders">
+    <TbwGridColumn field="orderId" header="Order" type="number" />
+    <TbwGridColumn field="customer" header="Customer" />
+    <TbwGridColumn field="total" header="Total" type="number" />
+
+    <TbwGridDetailPanel>
+      <template #default="{ row }">
+        <div style="padding: 1rem">
+          <strong>Order #{{ row.orderId }}</strong>
+          <TbwGrid :rows="row.items" style="height: 200px; display: block">
+            <TbwGridColumn field="item" header="Item" />
+            <TbwGridColumn field="qty" header="Qty" type="number" />
+            <TbwGridColumn field="price" header="Price" type="number" />
+          </TbwGrid>
+        </div>
+      </template>
+    </TbwGridDetailPanel>
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/master-detail';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, GridDetailView } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid, GridDetailView],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [rows]="orders" [columns]="columns">
+      <tbw-grid-detail>
+        <ng-template let-row>
+          <div style="padding: 1rem">
+            <strong>Order #{{ row.orderId }}</strong>
+            <tbw-grid [rows]="row.items" [columns]="itemColumns"
+                      style="height: 200px; display: block">
+            </tbw-grid>
+          </div>
+        </ng-template>
+      </tbw-grid-detail>
+    </tbw-grid>
+  `,
+})
+export class OrderGridComponent {
+  columns = [
+    { field: 'orderId', header: 'Order', type: 'number' },
+    { field: 'customer', header: 'Customer' },
+    { field: 'total', header: 'Total', type: 'number' },
+  ];
+  itemColumns = [
+    { field: 'item', header: 'Item' },
+    { field: 'qty', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'number' },
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+## High-Volume Data
+
+**Goal:** Handle 10k+ rows with pinned identifier columns and column virtualization.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', type: 'number', pinned: 'left', width: 80 },
+    { field: 'name', header: 'Name', pinned: 'left', width: 180 },
+    // ... many more columns
+  ],
+  plugins: [
+    new PinnedColumnsPlugin(),
+    new ColumnVirtualizationPlugin(),
+    new MultiSortPlugin(),
+    new FilteringPlugin({ debounceMs: 300 }),
+  ],
+  fitMode: 'none', // Let columns use natural widths
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/pinned-columns';
+import '@toolbox-web/grid-react/features/column-virtualization';
+import '@toolbox-web/grid-react/features/multi-sort';
+import '@toolbox-web/grid-react/features/filtering';
+import { DataGrid, GridColumn } from '@toolbox-web/grid-react';
+
+function LargeDataGrid({ rows }) {
+  return (
+    <DataGrid
+      rows={rows}
+      pinnedColumns
+      columnVirtualization
+      multiSort
+      filtering={{ debounceMs: 300 }}
+      fitMode="none"
+    >
+      <GridColumn field="id" header="ID" type="number" pinned="left" width={80} />
+      <GridColumn field="name" header="Name" pinned="left" width={180} />
+      {/* ... many more columns */}
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import '@toolbox-web/grid-vue/features/pinned-columns';
+import '@toolbox-web/grid-vue/features/column-virtualization';
+import '@toolbox-web/grid-vue/features/multi-sort';
+import '@toolbox-web/grid-vue/features/filtering';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid
+    :rows="rows"
+    pinned-columns
+    column-virtualization
+    multi-sort
+    :filtering="{ debounceMs: 300 }"
+    fit-mode="none"
+  >
+    <TbwGridColumn field="id" header="ID" type="number" pinned="left" :width="80" />
+    <TbwGridColumn field="name" header="Name" pinned="left" :width="180" />
+    <!-- ... many more columns -->
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/pinned-columns';
+import '@toolbox-web/grid-angular/features/column-virtualization';
+import '@toolbox-web/grid-angular/features/multi-sort';
+import '@toolbox-web/grid-angular/features/filtering';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      pinnedColumns
+      columnVirtualization
+      multiSort
+      [filtering]="{ debounceMs: 300 }"
+      fitMode="none"
+    />
+  `,
+})
+export class LargeDataGridComponent {
+  columns = [
+    { field: 'id', header: 'ID', type: 'number', pinned: 'left', width: 80 },
+    { field: 'name', header: 'Name', pinned: 'left', width: 180 },
+    // ... many more columns
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+:::tip
+For datasets over 50k rows, consider `ServerSidePlugin` to paginate and filter on the server instead of loading all data upfront.
+:::
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="Plugins Overview" description="Browse all 22+ plugins" href="/grid/plugins/" />
+  <LinkCard title="Events Reference" description="Complete event catalog for all plugins" href="/grid/events/" />
+  <LinkCard title="Performance" description="Virtualization, benchmarks, and optimization tips" href="/grid/guides/performance/" />
+  <LinkCard title="API Reference" description="Full property and method reference" href="/grid/api-reference/" />
+</CardGrid>

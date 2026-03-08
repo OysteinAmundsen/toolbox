@@ -1,0 +1,71 @@
+---
+/**
+ * Demo: Core Grid Events — event log showing cell-click, row-click, cell-activate, sort-change, etc.
+ */
+---
+
+<div class="grid-demo">
+  <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center;">
+    <span style="font-size:0.85em; color:var(--sl-color-gray-4);">Click cells, sort columns, resize columns to see events.</span>
+    <button data-clear-log style="margin-left:auto; font-size:0.8em;">🗑️ Clear Log</button>
+  </div>
+  <tbw-grid data-demo-id="core-events" style="height: 220px; display: block;"></tbw-grid>
+  <div data-event-log style="max-height:160px; overflow:auto; font-size:0.78em; margin-top:8px; padding:8px; background:var(--sl-color-gray-6); border-radius:4px; font-family:monospace;"></div>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+  import type { ColumnConfig } from '@toolbox-web/grid';
+
+  const container = document.querySelector('[data-demo-id="core-events"]')?.closest('.grid-demo');
+  if (container) {
+    const grid = container.querySelector<HTMLElement & {
+      columns: ColumnConfig[];
+      rows: Record<string, unknown>[];
+      sortable: boolean;
+      resizable: boolean;
+    }>('tbw-grid')!;
+
+    const logEl = container.querySelector<HTMLElement>('[data-event-log]')!;
+    let count = 0;
+
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', width: 150 },
+      { field: 'role', header: 'Role', width: 130 },
+      { field: 'score', header: 'Score', type: 'number', width: 80 },
+    ];
+    grid.sortable = true;
+    grid.resizable = true;
+
+    grid.rows = [
+      { id: 1, name: 'Alice', role: 'Engineer', score: 92 },
+      { id: 2, name: 'Bob', role: 'Designer', score: 78 },
+      { id: 3, name: 'Carol', role: 'Manager', score: 85 },
+      { id: 4, name: 'Dan', role: 'Engineer', score: 64 },
+      { id: 5, name: 'Eve', role: 'Designer', score: 91 },
+    ];
+
+    function logEvent(name: string, detail: unknown) {
+      count++;
+      const entry = document.createElement('div');
+      entry.style.cssText = 'padding:2px 0;border-bottom:1px solid var(--sl-color-gray-5);';
+      const summary = typeof detail === 'object' && detail
+        ? JSON.stringify(detail).slice(0, 120)
+        : String(detail);
+      entry.innerHTML = `<span style="color:var(--sl-color-accent)">${count}.</span> <strong>${name}</strong> — ${summary}`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    const events = ['cell-click', 'row-click', 'cell-activate', 'sort-change', 'column-resize', 'column-state-change'];
+    for (const name of events) {
+      grid.addEventListener(name, ((e: CustomEvent) => logEvent(name, e.detail)) as EventListener);
+    }
+
+    container.querySelector('[data-clear-log]')!.addEventListener('click', () => {
+      logEl.innerHTML = '';
+      count = 0;
+    });
+  }
+</script>

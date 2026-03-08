@@ -105,16 +105,13 @@ e2e/
 ├── README.md                 # This file
 ├── reporters/
 │   └── clean-list-reporter.ts  # Custom local reporter
-├── scripts/
-│   └── fetch-story-index.ts   # Storybook story index fetcher
 ├── tests/
 │   ├── cross-framework-visual.spec.ts  # Cross-framework visual parity
 │   ├── custom-editors.spec.ts          # Custom editor tests
 │   ├── master-detail.spec.ts           # Master-detail panel tests
 │   ├── performance-regression.spec.ts  # Performance regression tests
 │   ├── virtualization-stability.spec.ts # Virtualization stability tests
-│   ├── utils.ts                        # Shared test utilities
-│   └── storybook/                      # Storybook-specific tests
+│   └── utils.ts                        # Shared test utilities
 └── test-results/             # Generated test artifacts (gitignored)
 ```
 

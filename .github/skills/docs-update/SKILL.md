@@ -10,36 +10,37 @@ After any code change, use this checklist to identify which documentation needs 
 
 ## Quick Decision Matrix
 
-| What Changed               | Update These Docs                                                        |
-| -------------------------- | ------------------------------------------------------------------------ |
-| New plugin                 | Plugin README, plugin `.mdx`, `llms.txt`, `llms-full.txt`, `Plugins.mdx` |
-| New public API             | `API.mdx`, `llms.txt`, `llms-full.txt`, regenerate TypeDoc               |
-| New CSS variable           | `Theming.mdx`, `llms-full.txt`, `grid.css` registry comment              |
-| New event                  | `API.mdx`, `llms-full.txt`, plugin `.mdx` if plugin-specific             |
-| Plugin config change       | Plugin `.mdx`, plugin README, `llms-full.txt`                            |
-| Breaking change            | CHANGELOG (migration guide), `llms.txt`, `llms-full.txt`                 |
-| New adapter feature        | Adapter README, adapter MDX docs, `llms-full.txt`                        |
-| Workflow/convention change | `.github/copilot-instructions.md`, `AGENTS.md`                           |
-| New skill or tooling       | `.github/skills/`, `AGENTS.md` if Nx-related                             |
+| What Changed               | Update These Docs                                                          |
+| -------------------------- | -------------------------------------------------------------------------- |
+| New plugin                 | Plugin README, plugin `.mdx`, `llms.txt`, `llms-full.txt`, `Plugins.mdx`   |
+| New public API             | `API.mdx`, `llms.txt`, `llms-full.txt`, regenerate TypeDoc                 |
+| New CSS variable           | `Theming.mdx`, `llms-full.txt`, `grid.css` registry comment                |
+| New event                  | `API.mdx`, `events.mdx`, `llms-full.txt`, plugin `.mdx` if plugin-specific |
+| Plugin config change       | Plugin `.mdx`, plugin README, `llms-full.txt`                              |
+| Breaking change            | CHANGELOG (migration guide), `llms.txt`, `llms-full.txt`                   |
+| New adapter feature        | Adapter README, adapter MDX docs, `llms-full.txt`                          |
+| Workflow/convention change | `.github/copilot-instructions.md`, `AGENTS.md`                             |
+| New skill or tooling       | `.github/skills/`, `AGENTS.md` if Nx-related                               |
 
 ## Documentation Inventory
 
 ### Hand-Written (update manually)
 
-| Category                 | Location                                   | When to Update                                         |
-| ------------------------ | ------------------------------------------ | ------------------------------------------------------ |
-| **Grid README**          | `libs/grid/README.md`                      | New features, API changes, install instructions        |
-| **Adapter READMEs**      | `libs/grid-{angular,react,vue}/README.md`  | Adapter feature changes                                |
-| **Plugin READMEs**       | `libs/grid/src/lib/plugins/*/README.md`    | Plugin feature changes                                 |
-| **Core MDX docs**        | `libs/grid/docs/*.mdx`                     | Core features, theming, architecture, getting started  |
-| **Plugin MDX docs**      | `libs/grid/src/lib/plugins/*/*.mdx`        | Plugin features, config options, examples              |
-| **Adapter MDX docs**     | `libs/grid-{angular,react,vue}/docs/*.mdx` | Framework-specific usage, examples                     |
-| **LLM index**            | `llms.txt`                                 | Public API, plugin list, events, CSS vars changed      |
-| **LLM full guide**       | `llms-full.txt`                            | Any user-facing change (code examples, config, events) |
-| **Copilot instructions** | `.github/copilot-instructions.md`          | Workflow, conventions, architecture changes            |
-| **Agent instructions**   | `AGENTS.md`                                | Nx or workspace convention changes                     |
-| **Contributing guide**   | `CONTRIBUTING.md`                          | Development workflow changes                           |
-| **Architecture doc**     | `libs/grid/ARCHITECTURE.md`                | Internal design changes                                |
+| Category                 | Location                                         | When to Update                                         |
+| ------------------------ | ------------------------------------------------ | ------------------------------------------------------ |
+| **Grid README**          | `libs/grid/README.md`                            | New features, API changes, install instructions        |
+| **Adapter READMEs**      | `libs/grid-{angular,react,vue}/README.md`        | Adapter feature changes                                |
+| **Plugin READMEs**       | `libs/grid/src/lib/plugins/*/README.md`          | Plugin feature changes                                 |
+| **Core MDX docs**        | `apps/docs/src/content/docs/grid/*.mdx`          | Core features, theming, architecture, getting started  |
+| **Plugin MDX docs**      | `apps/docs/src/content/docs/grid/plugins/*.mdx`  | Plugin features, config options, examples              |
+| **Adapter MDX docs**     | `apps/docs/src/content/docs/grid/adapters/*.mdx` | Framework-specific usage, examples                     |
+| **Demo components**      | `apps/docs/src/components/demos/**/*.astro`      | New demos, interactive feature showcases               |
+| **LLM index**            | `llms.txt`                                       | Public API, plugin list, events, CSS vars changed      |
+| **LLM full guide**       | `llms-full.txt`                                  | Any user-facing change (code examples, config, events) |
+| **Copilot instructions** | `.github/copilot-instructions.md`                | Workflow, conventions, architecture changes            |
+| **Agent instructions**   | `AGENTS.md`                                      | Nx or workspace convention changes                     |
+| **Contributing guide**   | `CONTRIBUTING.md`                                | Development workflow changes                           |
+| **Architecture doc**     | `libs/grid/ARCHITECTURE.md`                      | Internal design changes                                |
 
 ### Auto-Generated (regenerate, don't hand-edit)
 
@@ -53,17 +54,16 @@ After any code change, use this checklist to identify which documentation needs 
 
 ### Plugin MDX (`.mdx`)
 
-Plugin MDX appears in the Storybook sidebar. Structure:
+Plugin MDX pages live in `apps/docs/src/content/docs/grid/plugins/`. Structure:
 
 ```mdx
-import { Meta, Canvas, Controls } from '@storybook/addon-docs/blocks';
-import * as Stories from './<plugin-name>.stories';
+---
+title: Plugin Name
+description: One-line description.
+---
 
-<Meta of={Stories} />
-
-# Plugin Name
-
-One-line description.
+import PluginDefaultDemo from '@components/demos/plugin-name/PluginNameDefaultDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
 
 ## Installation
 
@@ -73,11 +73,11 @@ import { MyPlugin } from '@toolbox-web/grid/plugins/my-plugin';
 
 ## Basic Usage
 
-<Canvas of={Stories.Basic} />
+<ShowSource component="plugin-name/PluginNameDefaultDemo">
+  <PluginDefaultDemo />
+</ShowSource>
 
 ## Configuration
-
-<Controls of={Stories.Basic} />
 
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
@@ -94,7 +94,7 @@ Public methods and properties.
 
 ### Plugin README (`README.md`)
 
-Keep concise — links to Storybook for live examples:
+Keep concise — links to docs site for live examples:
 
 ```markdown
 # @toolbox-web/grid — Plugin Name
@@ -114,7 +114,7 @@ import { MyPlugin } from '@toolbox-web/grid/plugins/my-plugin';
 
 ## Documentation
 
-See the [Storybook docs](https://your-docs-url) for live examples.
+See the [docs site](https://toolboxjs.com/grid/plugins/my-plugin/) for live examples.
 ```
 
 ### LLM Files (`llms.txt` / `llms-full.txt`)
@@ -128,6 +128,13 @@ These are AI-consumable documentation. `llms.txt` is a concise index (~120 lines
 - New event (add to events list)
 - New CSS variable (add to theming section)
 
+**`events.mdx`** (`apps/docs/src/content/docs/grid/events.mdx`) — Update when:
+
+- New event added (core or plugin)
+- Event detail type changes
+- Event cancelability changes
+- New plugin that dispatches events
+
 **`llms-full.txt`** — Update when:
 
 - Any user-facing change (contains full code examples for all frameworks)
@@ -136,19 +143,22 @@ These are AI-consumable documentation. `llms.txt` is a concise index (~120 lines
 - New CSS custom properties
 - New adapter features
 
-### Core MDX Docs (`libs/grid/docs/`)
+### Core MDX Docs (`apps/docs/src/content/docs/grid/`)
 
 | File                  | Contents                                           |
 | --------------------- | -------------------------------------------------- |
-| `Introduction.mdx`    | Landing page, key features                         |
-| `GettingStarted.mdx`  | Installation, first grid setup                     |
-| `API.mdx`             | Public API reference (properties, methods, events) |
-| `Theming.mdx`         | CSS custom properties, theme files                 |
-| `Plugins.mdx`         | Plugin overview and list                           |
-| `CustomPlugins.mdx`   | How to write a plugin                              |
-| `Performance.mdx`     | Performance tips                                   |
-| `Accessibility.mdx`   | A11y features                                      |
-| `Troubleshooting.mdx` | Common issues and fixes                            |
+| `index.mdx`           | Landing page, key features                         |
+| `getting-started.mdx` | Installation, first grid setup                     |
+| `api-reference.mdx`   | Public API reference (properties, methods, events) |
+| `theming.mdx`         | CSS custom properties, theme files                 |
+| `core.mdx`            | Core features guide (columns, rows, etc.)          |
+| `custom-plugins.mdx`  | How to write a plugin                              |
+| `performance.mdx`     | Performance tips                                   |
+| `accessibility.mdx`   | A11y features                                      |
+| `troubleshooting.mdx` | Common issues and fixes                            |
+| `demos.mdx`           | Full-featured demo applications                    |
+| `comparison.mdx`      | Feature comparison table                           |
+| `architecture.mdx`    | Internal architecture documentation                |
 
 ## Regenerating API Docs
 
@@ -168,7 +178,7 @@ Output goes to `libs/*/docs/api/` (MDX pages) and `libs/*/docs/api-generated/api
 
 ## Writing Good JSDoc
 
-JSDoc comments feed into TypeDoc API docs AND Storybook autodocs:
+JSDoc comments feed into TypeDoc API docs:
 
 ````typescript
 /**
@@ -197,19 +207,19 @@ export interface GridConfig { ... }
 - `@deprecated` — Mark deprecated APIs with migration info
 - `@internal` — Exclude from public API docs
 - `@since` — Version when feature was added
-- `@category` — Routes exports to different Storybook sidebar sections (grid core only, see below)
+- `@category` — Routes exports to different TypeDoc sidebar sections (grid core only, see below)
 - `@group` — Organizes class members into subsection headings within a page (see below)
 - `@fires` — Documents events emitted by a method; collected into Events tables
 
 ## `@category` and `@group` — Controlling API Doc Output
 
-The `typedoc-to-mdx.ts` scripts convert TypeDoc JSON into Storybook MDX pages. Two JSDoc tags control **where** and **how** exports appear.
+The `typedoc-to-mdx.ts` scripts convert TypeDoc JSON into MDX pages. Two JSDoc tags control **where** and **how** exports appear.
 
 > `@category` and `@group` are only processed by the **grid core** script (`libs/grid/scripts/typedoc-to-mdx.ts`). Adapter scripts use hard-coded name lists instead (see below).
 
-### `@category` — Sidebar Routing (Grid Core)
+### `@category` — API Doc Routing (Grid Core)
 
-Add `@category` to **top-level exports** in `types.ts`, `constants.ts`, or `grid.ts` to control which Storybook sidebar section they land in. The routing logic lives in `processCoreModule()`:
+Add `@category` to **top-level exports** in `types.ts`, `constants.ts`, or `grid.ts` to control which API docs section they land in. The routing logic lives in `processCoreModule()`:
 
 - `@category Plugin Development` → `Grid/API/Plugin Development/{Kind}/{Name}`
 - `@category Framework Adapters` → `Grid/API/Framework Adapters/{Kind}/{Name}`
@@ -234,7 +244,7 @@ When adding a new member, use an existing `@group` value if it fits. If no group
 ### `@internal` Modifier — Visibility Control
 
 - `@internal` alone → excluded from all generated docs
-- `@internal Plugin API` → included only in the Plugin API document  
+- `@internal Plugin API` → included only in the Plugin API document
 - `_` prefix (without `@internal`) → same as `@internal Plugin API` by convention
 - `__` prefix → excluded from all docs (deeply internal)
 
@@ -249,12 +259,12 @@ Adapter scripts (`libs/grid-{angular,react,vue}/scripts/typedoc-to-mdx.ts`) do *
 After updating docs:
 
 ```bash
-# Verify Storybook builds cleanly
+# Verify docs site builds cleanly
 bun nx build docs
 
-# Check for broken links or missing stories
+# Check for broken links or missing pages
 bun nx serve docs
-# Navigate to updated pages in browser
+# Navigate to updated pages in browser (http://localhost:4401)
 ```
 
 ## Pre-Commit Documentation Review

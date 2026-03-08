@@ -1,0 +1,225 @@
+---
+title: Accessibility
+description: How @toolbox-web/grid implements WAI-ARIA grid patterns, keyboard navigation, screen reader support, and high contrast mode.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+# Accessibility
+
+`@toolbox-web/grid` follows the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) to provide an accessible data grid experience. This page documents the ARIA attributes, keyboard interactions, and best practices.
+
+## ARIA Roles & Attributes
+
+The grid applies the following ARIA roles and attributes automatically:
+
+### Grid Structure
+
+| Element | Role | Attributes |
+|---------|------|-----------|
+| `<tbw-grid>` | `grid` | `aria-rowcount`, `aria-colcount`, `aria-multiselectable` |
+| Header container | `rowgroup` | — |
+| Header row | `row` | `aria-rowindex="1"` |
+| Header cell | `columnheader` | `aria-sort`, `aria-colindex` |
+| Body container | `rowgroup` | — |
+| Data row | `row` | `aria-rowindex`, `aria-selected`, `aria-expanded` |
+| Data cell | `gridcell` | `aria-colindex`, `aria-selected`, `aria-readonly` |
+
+### Dynamic Attributes
+
+| Attribute | Applied When | Values |
+|-----------|-------------|--------|
+| `aria-sort` | Column is sorted | `ascending`, `descending`, `none` |
+| `aria-selected` | Row or cell is selected | `true`, `false` |
+| `aria-expanded` | Row grouping/tree is active | `true`, `false` |
+| `aria-multiselectable` | Selection plugin allows multi-select | `true` |
+| `aria-readonly` | Cell is not editable | `true` |
+| `aria-rowindex` | Always (1-based) | Row position in full dataset |
+| `aria-colindex` | Always (1-based) | Column position |
+
+## Keyboard Navigation
+
+The grid implements full keyboard navigation following the WAI-ARIA grid pattern:
+
+### Basic Navigation
+
+| Key | Action |
+|-----|--------|
+| **Arrow Up/Down** | Move focus between rows |
+| **Arrow Left/Right** | Move focus between cells |
+| **Home** | Move to first cell in row |
+| **End** | Move to last cell in row |
+| **Ctrl + Home** | Move to first cell in grid |
+| **Ctrl + End** | Move to last cell in grid |
+| **Page Up** | Scroll up one viewport |
+| **Page Down** | Scroll down one viewport |
+| **Tab** | Move to next cell (wraps to next row) |
+| **Shift + Tab** | Move to previous cell (wraps to previous row) |
+
+### Selection (with SelectionPlugin)
+
+| Key | Action |
+|-----|--------|
+| **Space** | Toggle row selection |
+| **Shift + Arrow** | Extend range selection |
+| **Ctrl + A** | Select all rows/cells |
+| **Escape** | Clear selection |
+| **Shift + Space** | Select entire row |
+| **Ctrl + Space** | Select entire column |
+
+### Editing (with EditingPlugin)
+
+| Key | Action |
+|-----|--------|
+| **Enter** | Start editing focused cell |
+| **F2** | Start editing (alternative) |
+| **Escape** | Cancel editing |
+| **Tab** | Commit and move to next cell |
+| **Shift + Tab** | Commit and move to previous cell |
+| **Enter** (while editing) | Commit value |
+
+### Row Grouping / Tree
+
+| Key | Action |
+|-----|--------|
+| **Arrow Right** | Expand group/tree node |
+| **Arrow Left** | Collapse group/tree node |
+
+### Context Menu (with ContextMenuPlugin)
+
+| Key | Action |
+|-----|--------|
+| **Shift + F10** | Open context menu |
+| **Arrow Up/Down** | Navigate menu items |
+| **Enter** | Activate menu item |
+| **Escape** | Close menu |
+
+## Focus Management
+
+### Focus Indicators
+
+The grid uses visible focus indicators that meet WCAG 2.1 Level AA requirements:
+
+```css
+tbw-grid {
+  /* Customize focus ring */
+  --tbw-color-focus-ring: #2563eb;
+}
+```
+
+The focus ring is 2px solid and uses `outline` (not `border`) so it doesn't affect layout.
+
+### Focus Trapping
+
+When editing a cell, focus is trapped within the editor until the user commits (Enter/Tab) or cancels (Escape). Overlay editors (date pickers, dropdowns) use `registerExternalFocusContainer()` to extend the focus trap.
+
+### Roving Tabindex
+
+The grid uses a roving tabindex pattern:
+- Only the currently focused cell has `tabindex="0"`
+- All other cells have `tabindex="-1"`
+- This means **Tab** moves focus out of the grid, and **Shift+Tab** moves focus back to the last focused cell
+
+## Screen Reader Support
+
+### Labels and Descriptions
+
+Provide accessible labels for screen readers:
+
+```html
+<tbw-grid aria-label="Employee directory">
+```
+
+Or reference a visible heading:
+
+```html
+<h2 id="grid-heading">Employees</h2>
+<tbw-grid aria-labelledby="grid-heading">
+```
+
+### Live Regions
+
+The grid uses `aria-live` regions to announce:
+- Sort changes ("Sorted by Name ascending")
+- Filter changes ("Filtered: 42 of 100 rows shown")
+- Selection changes ("3 rows selected")
+
+### Column Headers
+
+Column headers include:
+- Column name via text content
+- Sort direction via `aria-sort`
+- Filter state via `aria-description` ("Filtered")
+- Required state via `aria-required` (when editing)
+
+## High Contrast Mode
+
+### Using CSS Custom Properties
+
+The grid's CSS variable system makes high contrast easy:
+
+```css
+/* High contrast theme */
+tbw-grid.high-contrast {
+  --tbw-color-bg: #000;
+  --tbw-color-fg: #fff;
+  --tbw-color-border: #fff;
+  --tbw-color-header-bg: #1a1a1a;
+  --tbw-color-row-hover: #333;
+  --tbw-color-focus-ring: #ffff00;
+  --tbw-color-accent: #00ffff;
+}
+```
+
+### Pre-built Contrast Theme
+
+```typescript
+import '@toolbox-web/grid/themes/dg-theme-contrast.css';
+```
+
+### Windows High Contrast Mode
+
+The grid respects the `forced-colors` media query. When Windows High Contrast is active, the grid automatically adapts to the system colors.
+
+```css
+@media (forced-colors: active) {
+  tbw-grid {
+    /* Grid automatically adapts - CSS custom properties map to system colors */
+    forced-color-adjust: auto;
+  }
+}
+```
+
+## WCAG Compliance Checklist
+
+| Criterion | Level | Status | Notes |
+|-----------|-------|--------|-------|
+| 1.1.1 Non-text Content | A | ✅ | Icons have text alternatives |
+| 1.3.1 Info and Relationships | A | ✅ | ARIA roles convey structure |
+| 1.3.2 Meaningful Sequence | A | ✅ | DOM order matches visual order |
+| 1.4.1 Use of Color | A | ✅ | Status not conveyed by color alone |
+| 1.4.3 Contrast (Min) | AA | ✅ | Default theme meets 4.5:1 ratio |
+| 1.4.11 Non-text Contrast | AA | ✅ | Focus indicators visible at 3:1 |
+| 2.1.1 Keyboard | A | ✅ | All functions accessible via keyboard |
+| 2.1.2 No Keyboard Trap | A | ✅ | Tab exits the grid; Escape exits editors |
+| 2.4.3 Focus Order | A | ✅ | Logical focus order follows grid structure |
+| 2.4.7 Focus Visible | AA | ✅ | Clear focus indicators |
+| 4.1.2 Name, Role, Value | A | ✅ | ARIA attributes on all interactive elements |
+
+## Best Practices
+
+1. **Always provide `aria-label` or `aria-labelledby`** — Screen readers need a name for the grid
+2. **Include column headers** — Don't hide headers; they provide context for cell values
+3. **Use semantic `type`** — Set column `type` to `'number'`, `'date'`, etc. for proper screen reader announcement
+4. **Test with screen readers** — NVDA (Windows), VoiceOver (macOS), Orca (Linux)
+5. **Don't override keyboard handling** — The grid's keyboard navigation follows WAI-ARIA patterns
+6. **Use the contrast theme for accessibility requirements** — Import `dg-theme-contrast.css`
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="Selection Plugin" description="Cell, row, and range selection with full keyboard support" href="/grid/plugins/selection/" />
+  <LinkCard title="Editing Plugin" description="Inline cell editing with Tab/Enter/Escape navigation" href="/grid/plugins/editing/" />
+  <LinkCard title="Theming" description="CSS custom properties, high contrast mode, and visual customization" href="/grid/guides/theming/" />
+  <LinkCard title="WAI-ARIA Grid Pattern" description="The W3C specification this grid follows" href="https://www.w3.org/WAI/ARIA/apg/patterns/grid/" />
+</CardGrid>

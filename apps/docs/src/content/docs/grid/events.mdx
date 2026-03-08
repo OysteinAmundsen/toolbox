@@ -1,0 +1,278 @@
+---
+title: Events Reference
+description: Complete reference of all custom events dispatched by @toolbox-web/grid — core events, plugin events, cancelable events, and listening patterns.
+---
+
+import { LinkCard, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
+
+The grid dispatches standard `CustomEvent`s that bubble up the DOM. All events use `bubbles: true` and `composed: true`.
+
+## Listening to Events
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+import { queryGrid } from '@toolbox-web/grid';
+import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+
+const grid = queryGrid<Employee>('#my-grid');
+
+// Type-safe event listening
+grid.addEventListener('cell-click', (e: CustomEvent<CellClickDetail<Employee>>) => {
+  console.log(e.detail.row, e.detail.field);
+});
+
+// Cancelable events — call preventDefault() to reject the action
+grid.addEventListener('cell-commit', (e: CustomEvent<CellCommitDetail<Employee>>) => {
+  if (!isValid(e.detail.value)) {
+    e.preventDefault(); // Rejects the edit
+  }
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, useGrid, useGridEvent } from '@toolbox-web/grid-react';
+import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+
+function EmployeeGrid() {
+  const gridRef = useGrid<Employee>();
+
+  // Type-safe event hook
+  useGridEvent(gridRef, 'cell-click', (e) => {
+    console.log(e.detail.row, e.detail.field);
+  });
+
+  // Or use event handler props
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
+    if (!isValid(detail.value)) {
+      // Cancelable — return false or call e.preventDefault()
+    }
+  }, []);
+
+  return <DataGrid ref={gridRef} rows={employees} onCellCommit={handleCellCommit} />;
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
+
+function onCellClick(detail: CellClickDetail) {
+  console.log(detail.row, detail.field);
+}
+
+function onCellCommit(detail: CellCommitDetail) {
+  if (!isValid(detail.value)) {
+    // Cancelable — call detail.preventDefault()
+  }
+}
+</script>
+
+<template>
+  <TbwGrid :rows="employees" @cell-click="onCellClick" @cell-commit="onCellCommit" />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      (cell-click)="onCellClick($event)"
+      (cell-commit)="onCellCommit($event)"
+    />
+  `,
+})
+export class EmployeeGridComponent {
+  onCellClick(event: CustomEvent) {
+    console.log(event.detail.row, event.detail.field);
+  }
+
+  onCellCommit(event: CustomEvent) {
+    if (!isValid(event.detail.value)) {
+      event.preventDefault(); // Rejects the edit
+    }
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+## Cancelable Events
+
+Four events support `preventDefault()` to reject the action:
+
+| Event | Plugin | What Canceling Does |
+|-------|--------|-------------------|
+| `cell-commit` | Editing | Reverts the cell to its previous value |
+| `row-commit` | Editing | Reverts the entire row to pre-edit state |
+| `column-move` | Reorder | Rejects the column drag-and-drop |
+| `row-move` | Row Reorder | Rejects the row drag/keyboard move |
+
+## Core Events
+
+These events are always available — no plugins required.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `cell-click` | [`CellClickDetail<TRow>`](/grid/api/core/interfaces/cellclickdetail/) | User clicks a cell. Provides row data, cell position, and original mouse event. |
+| `cell-activate` | [`CellActivateDetail<TRow>`](/grid/api/core/interfaces/cellactivatedetail/) | Cell activated via keyboard (Enter) or pointer. Includes trigger type. |
+| `cell-change` | [`CellChangeDetail<TRow>`](/grid/api/core/interfaces/cellchangedetail/) | Data mutation on a cell. Includes old/new values, field name, and all changed rows. |
+| `row-click` | [`RowClickDetail<TRow>`](/grid/api/core/interfaces/rowclickdetail/) | User clicks a row. Provides row data, index, and original mouse event. |
+| `sort-change` | [`SortChangeDetail`](/grid/api/core/interfaces/sortchangedetail/) | Column sort order changes. Direction: `1` (asc), `-1` (desc), `0` (cleared). |
+| `column-resize` | [`ColumnResizeDetail`](/grid/api/core/interfaces/columnresizedetail/) | User finishes resizing a column. Provides field name and new width. |
+| `column-state-change` | [`GridColumnState`](/grid/api/core/interfaces/gridcolumnstate/) | Column visibility, width, or order changes. Complete state snapshot. |
+
+:::note
+`activate-cell` is deprecated — use `cell-activate` instead.
+:::
+
+## Plugin Events
+
+### Editing
+
+Requires `EditingPlugin`. Import from `@toolbox-web/grid/plugins/editing`.
+
+| Event | Detail Type | Cancelable | Description |
+|-------|------------|-----------|-------------|
+| `cell-commit` | [`CellCommitDetail<TRow>`](/grid/plugins/editing/api/interfaces/cellcommitdetail/) | ✅ | Cell value committed (Enter/blur). Cancel to reject. |
+| `row-commit` | [`RowCommitDetail<TRow>`](/grid/plugins/editing/api/interfaces/rowcommitdetail/) | ✅ | Focus leaves row in row-edit mode. Cancel to revert. |
+| `cell-cancel` | [`CellCancelDetail`](/grid/plugins/editing/api/interfaces/cellcanceldetail/) | — | User presses Escape; cell reverts to pre-edit value. |
+| `edit-open` | [`EditOpenDetail<TRow>`](/grid/plugins/editing/api/interfaces/editopendetail/) | — | Row editing begins (row-edit mode only). |
+| `before-edit-close` | [`BeforeEditCloseDetail<TRow>`](/grid/plugins/editing/api/interfaces/beforeeditclosedetail/) | — | Synchronous, just before editor DOM is destroyed. |
+| `edit-close` | [`EditCloseDetail<TRow>`](/grid/plugins/editing/api/interfaces/editclosedetail/) | — | Row editing ends. Includes `reverted` flag. |
+| `changed-rows-reset` | [`ChangedRowsResetDetail<TRow>`](/grid/plugins/editing/api/interfaces/changedrowsresetdetail/) | — | `resetChangedRows()` called programmatically. |
+| `dirty-change` | [`DirtyChangeDetail<TRow>`](/grid/plugins/editing/api/interfaces/dirtychangedetail/) | — | Dirty tracking state changes. Requires `dirtyTracking: true`. |
+| `baselines-captured` | [`BaselinesCapturedDetail`](/grid/plugins/editing/api/interfaces/baselinescaptureddetail/) | — | New baseline snapshots captured post-render. |
+
+### Selection
+
+Import from `@toolbox-web/grid/plugins/selection`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `selection-change` | [`SelectionChangeDetail`](/grid/plugins/selection/api/interfaces/selectionchangedetail/) | Selection changes in any mode (row, cell, range). |
+
+### Filtering
+
+Import from `@toolbox-web/grid/plugins/filtering`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `filter-change` | [`FilterChangeDetail`](/grid/plugins/filtering/api/interfaces/filterchangedetail/) | Filter criteria change. Respects `silent: true` batching. |
+
+### Column Reorder
+
+Import from `@toolbox-web/grid/plugins/reorder`.
+
+| Event | Detail Type | Cancelable | Description |
+|-------|------------|-----------|-------------|
+| `column-move` | [`ColumnMoveDetail`](/grid/plugins/reorder/api/interfaces/columnmovedetail/) | ✅ | Column reordered via drag-and-drop. Cancel to reject. |
+
+### Row Reorder
+
+Import from `@toolbox-web/grid/plugins/row-reorder`.
+
+| Event | Detail Type | Cancelable | Description |
+|-------|------------|-----------|-------------|
+| `row-move` | [`RowMoveDetail<TRow>`](/grid/plugins/row-reorder/api/interfaces/rowmovedetail/) | ✅ | Row reordered via drag or Shift+arrow. Cancel to reject. |
+
+### Clipboard
+
+Import from `@toolbox-web/grid/plugins/clipboard`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `copy` | [`CopyDetail`](/grid/plugins/clipboard/api/interfaces/copydetail/) | After copy. Provides copied text, row/column count. |
+| `paste` | [`PasteDetail`](/grid/plugins/clipboard/api/interfaces/pastedetail/) | After paste. Provides parsed rows, target cell, column fields. |
+
+### Context Menu
+
+Import from `@toolbox-web/grid/plugins/context-menu`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `context-menu-open` | `ContextMenuOpenDetail` | Menu opened. Contains params and menu items. |
+
+### Master-Detail
+
+Import from `@toolbox-web/grid/plugins/master-detail`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `detail-expand` | [`DetailExpandDetail<TRow>`](/grid/plugins/master-detail/api/interfaces/detailexpanddetail/) | Detail panel expanded/collapsed. |
+
+### Tree
+
+Import from `@toolbox-web/grid/plugins/tree`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `tree-expand` | [`TreeExpandDetail<TreeRow>`](/grid/plugins/tree/api/interfaces/treeexpanddetail/) | Tree node expanded/collapsed. Provides depth level. |
+
+### Grouping
+
+Import from `@toolbox-web/grid/plugins/grouping-rows`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `group-toggle` | [`GroupToggleDetail`](/grid/plugins/row-grouping/api/interfaces/grouptoggledetail/) | Row group expanded/collapsed. |
+
+### Responsive
+
+Import from `@toolbox-web/grid/plugins/responsive`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `responsive-change` | [`ResponsiveChangeDetail`](/grid/plugins/responsive/api/interfaces/responsivechangedetail/) | Grid crosses responsive breakpoint. |
+
+### Export
+
+Import from `@toolbox-web/grid/plugins/export`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `export-complete` | [`ExportCompleteDetail`](/grid/plugins/export/api/interfaces/exportcompletedetail/) | Export finishes. Provides format, filename, row/col count. |
+
+### Print
+
+Import from `@toolbox-web/grid/plugins/print`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `print-start` | [`PrintStartDetail`](/grid/plugins/print/api/interfaces/printstartdetail/) | Print begins. Provides row count and limit status. |
+| `print-complete` | [`PrintCompleteDetail`](/grid/plugins/print/api/interfaces/printcompletedetail/) | Print completes. |
+
+### Undo/Redo
+
+Import from `@toolbox-web/grid/plugins/undo-redo`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `undo` | [`UndoRedoDetail`](/grid/plugins/undo-redo/api/interfaces/undoredodetail/) | After undo (Ctrl+Z). Provides undone action. |
+| `redo` | [`UndoRedoDetail`](/grid/plugins/undo-redo/api/interfaces/undoredodetail/) | After redo (Ctrl+Y). Provides redone action. |
+
+### Multi-Sort
+
+Import from `@toolbox-web/grid/plugins/multi-sort`.
+
+| Event | Detail Type | Description |
+|-------|------------|-------------|
+| `sort-change` | [`SortChangeDetail`](/grid/api/core/interfaces/sortchangedetail/) | Augments core `sort-change` with full `sortModel` array. |
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="API Reference" description="Complete property, method, and CSS variable reference" href="/grid/api-reference/" />
+  <LinkCard title="Custom Plugins" description="Build your own plugins that dispatch events" href="/grid/guides/custom-plugins/" />
+  <LinkCard title="Getting Started" description="Install and configure the grid" href="/grid/getting-started/" />
+</CardGrid>

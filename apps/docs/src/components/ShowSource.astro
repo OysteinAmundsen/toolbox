@@ -1,0 +1,290 @@
+---
+/**
+ * ShowSource.astro — Wraps a live demo and adds a collapsible "Show source" panel.
+ *
+ * At BUILD TIME, reads the demo's `.astro` file, extracts the `<script>` content,
+ * cleans it into an idiomatic code example (removing DOM boilerplate), and renders
+ * it with Shiki syntax highlighting via Astro's `<Code>` component.
+ *
+ * Usage in MDX:
+ * ```mdx
+ * <ShowSource file="demos/filtering/FilteringDefaultDemo.astro">
+ *   <FilteringDefaultDemo />
+ * </ShowSource>
+ * ```
+ */
+import { Code } from 'astro:components';
+
+interface Props {
+  /** Path to the demo .astro file, relative to src/components/ */
+  file: string;
+  /** Syntax highlighting language (default: typescript) */
+  lang?: string;
+}
+
+const { file, lang = 'typescript' } = Astro.props;
+
+// ---------------------------------------------------------------------------
+// 1. Read demo file at build time
+// ---------------------------------------------------------------------------
+const demoFiles = import.meta.glob<string>('./demos/**/*.astro', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
+
+const rawContent = demoFiles[`./${file}`] ?? '';
+
+// ---------------------------------------------------------------------------
+// 2. Extract and clean the <script> content
+// ---------------------------------------------------------------------------
+function extractSource(content: string): string {
+  const scriptMatch = content.match(/<script(?:\s[^>]*)?>(\r?\n)?([\s\S]*?)<\/script>/);
+  if (!scriptMatch) return '';
+
+  const code = scriptMatch[2];
+  const lines = code.split('\n');
+  const imports: string[] = [];
+  const bodyLines: string[] = [];
+  let inIfBlock = false;
+  let ifIndent = -1;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Collect non-type imports
+    if (trimmed.startsWith('import ') && !trimmed.startsWith('import type')) {
+      imports.push(trimmed);
+      continue;
+    }
+    if (trimmed.startsWith('import type')) continue;
+
+    // Skip container / el variable declarations
+    if (/^const\s+(?:container|el)\s*=\s*document\.getElementById/.test(trimmed)) continue;
+
+    // Detect the `if (container) {` or `if (container && ...)` guard
+    if (
+      !inIfBlock &&
+      /^if\s*\(/.test(trimmed) &&
+      (trimmed.includes('container') || trimmed.includes('el'))
+    ) {
+      inIfBlock = true;
+      ifIndent = line.search(/\S/);
+      continue;
+    }
+
+    if (inIfBlock) {
+      const lineIndent = line.length === 0 ? Infinity : line.search(/\S/);
+
+      // Closing brace of the if block
+      if (trimmed === '}' && lineIndent !== Infinity && lineIndent <= ifIndent) {
+        inIfBlock = false;
+        continue;
+      }
+
+      // Un-indent by the if body's extra indentation
+      const stripCount = ifIndent + 2;
+      let processed = line.length > stripCount ? line.slice(stripCount) : line.trimStart() === '' ? '' : line.trimStart();
+
+      // container.querySelector → document.querySelector
+      processed = processed.replace(/container\.querySelector/g, 'document.querySelector');
+
+      // Strip TypeScript type assertions: as HTMLElement & { ... }
+      processed = processed.replace(/\s+as\s+HTMLElement\s*&\s*\{[^}]*\}/g, '');
+      processed = processed.replace(/\s+as\s+(?:HTMLElement|Element|GridElement|[A-Z]\w+)(?:<[^>]+>)?/g, '');
+
+      bodyLines.push(processed);
+    }
+  }
+
+  // If we never entered an if block, the script has no container guard — use raw lines
+  if (!inIfBlock && bodyLines.length === 0) {
+    const nonImportLines = lines.filter((l) => {
+      const t = l.trim();
+      return !t.startsWith('import ') && t.length > 0;
+    });
+    bodyLines.push(...nonImportLines);
+  }
+
+  const result = [...imports, '', ...bodyLines].join('\n');
+  return result.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+const source = extractSource(rawContent);
+---
+
+{source ? (
+  <div class="show-source-wrapper not-content">
+    <slot />
+    <div class="demo-source-panel">
+      <button class="demo-source-toggle" type="button" aria-expanded="false">
+        <svg class="demo-source-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <polyline
+            points="9 18 15 12 9 6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span>Show source</span>
+      </button>
+      <div class="demo-source-content" hidden>
+        <div class="demo-source-code-wrap">
+          <button
+            class="demo-source-copy"
+            type="button"
+            title="Copy to clipboard"
+            aria-label="Copy source code"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" fill="none" stroke="currentColor" stroke-width="2" />
+            </svg>
+            <span>Copy</span>
+          </button>
+          <Code code={source} lang={lang} />
+        </div>
+      </div>
+    </div>
+  </div>
+) : (
+  <slot />
+)}
+
+<script>
+  document.addEventListener('click', (e) => {
+    const toggle = (e.target as HTMLElement).closest('.demo-source-toggle');
+    if (toggle) {
+      const content = toggle.nextElementSibling as HTMLElement | null;
+      if (!content) return;
+      const expanded = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!expanded));
+      content.hidden = expanded;
+      const label = toggle.querySelector('span');
+      if (label) label.textContent = expanded ? 'Show source' : 'Hide source';
+      return;
+    }
+
+    const copyBtn = (e.target as HTMLElement).closest('.demo-source-copy');
+    if (copyBtn) {
+      const code = copyBtn.closest('.demo-source-code-wrap')?.querySelector('code');
+      if (!code) return;
+      navigator.clipboard.writeText(code.textContent || '').then(() => {
+        const label = copyBtn.querySelector('span');
+        if (label) {
+          const prev = label.textContent;
+          label.textContent = 'Copied!';
+          setTimeout(() => { label.textContent = prev; }, 1500);
+        }
+      });
+    }
+  });
+</script>
+
+<style>
+  /* --- Wrapper: connects demo and source panel visually --- */
+  .show-source-wrapper {
+    margin: 1.5rem 0;
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .show-source-wrapper > :global(.grid-demo),
+  .show-source-wrapper > :global(.grid-playground) {
+    margin: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  /* --- Source panel --- */
+  .demo-source-panel {
+    position: relative;
+    border-top: none;
+    background: var(--sl-color-gray-7);
+  }
+
+  .demo-source-content {
+    border: 1px solid var(--sl-color-gray-5);
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+  }
+
+  /* --- Toggle button --- */
+  .demo-source-toggle {
+    position: absolute;
+    top: -26px;
+    right: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 8px;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .demo-source-toggle:hover {
+    color: var(--sl-color-text);
+  }
+
+  .demo-source-chevron {
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .demo-source-toggle[aria-expanded='true'] .demo-source-chevron {
+    transform: rotate(90deg);
+  }
+
+  /* --- Code block --- */
+  .demo-source-code-wrap {
+    position: relative;
+  }
+
+  .demo-source-code-wrap :global(pre) {
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    max-height: 500px;
+    padding: .5rem;
+  }
+
+  /* --- Copy button --- */
+  .demo-source-copy {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.75rem;
+    font-family: inherit;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, background-color 0.15s;
+    z-index: 1;
+  }
+
+  .demo-source-code-wrap:hover .demo-source-copy {
+    opacity: 1;
+  }
+
+  .demo-source-copy:hover {
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+  }
+</style>

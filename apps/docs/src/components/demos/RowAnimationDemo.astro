@@ -1,0 +1,82 @@
+---
+/**
+ * Demo: Row Animation — highlight, insert, remove animations.
+ */
+---
+
+<div class="grid-demo">
+  <p class="grid-demo-description">
+    Built-in row animation API for highlighting changes, insertions, and removals.
+  </p>
+  <div class="grid-playground-controls">
+    <button data-anim-action="change" class="grid-demo-btn">Flash Change</button>
+    <button data-anim-action="insert" class="grid-demo-btn">Insert Row</button>
+    <button data-anim-action="remove" class="grid-demo-btn">Remove Last</button>
+  </div>
+  <tbw-grid data-demo-id="row-animation" style="height: 260px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+  interface Item { id: number; name: string; status: string; }
+
+  const container = document.querySelector('[data-demo-id="row-animation"]')?.closest('.grid-demo');
+  const grid = container?.querySelector<HTMLElement & {
+    columns: ColumnConfig<Item>[];
+    rows: Item[];
+    animateRow: (index: number, type: string) => void;
+    insertRow: (index: number, row: Item) => Promise<void>;
+    removeRow: (index: number) => Promise<void>;
+  }>('tbw-grid');
+
+  if (grid) {
+    let nextId = 6;
+    const data: Item[] = [
+      { id: 1, name: 'Alpha', status: 'active' },
+      { id: 2, name: 'Bravo', status: 'active' },
+      { id: 3, name: 'Charlie', status: 'pending' },
+      { id: 4, name: 'Delta', status: 'active' },
+      { id: 5, name: 'Echo', status: 'inactive' },
+    ];
+
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', width: 140 },
+      { field: 'status', header: 'Status', width: 120 },
+    ];
+    grid.rows = data;
+
+    container?.addEventListener('click', (e) => {
+      const action = (e.target as HTMLElement).dataset.animAction;
+      if (!action) return;
+
+      if (action === 'change') {
+        const idx = Math.floor(Math.random() * grid.rows.length);
+        grid.animateRow(idx, 'change');
+      } else if (action === 'insert') {
+        const id = nextId++;
+        const row = { id, name: `New-${id}`, status: 'new' };
+        grid.insertRow(grid.rows.length, row);
+      } else if (action === 'remove' && grid.rows.length > 1) {
+        grid.removeRow(grid.rows.length - 1);
+      }
+    });
+  }
+</script>
+
+<style>
+  .grid-demo-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-text);
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .grid-demo-btn:hover {
+    background: var(--sl-color-gray-5);
+  }
+</style>

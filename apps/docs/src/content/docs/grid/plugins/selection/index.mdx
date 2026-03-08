@@ -1,0 +1,303 @@
+---
+title: Selection Plugin
+description: Cell, row, and range selection with full keyboard support, conditional selection, and checkbox mode.
+---
+
+import SelectionPlaygroundDemo from '@components/demos/SelectionPlaygroundDemo.astro';
+import SelectionCheckboxDemo from '@components/demos/SelectionCheckboxDemo.astro';
+import ConditionalSelectionDemo from '@components/demos/selection/ConditionalSelectionDemo.astro';
+import SelectionEventsDemo from '@components/demos/selection/SelectionEventsDemo.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import ShowSource from '@components/ShowSource.astro';
+
+The Selection plugin adds cell, row, and range selection capabilities to the grid with full keyboard support. Whether you need simple cell highlighting or complex multi-range selections, this plugin has you covered.
+
+## Installation
+
+```ts
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+```
+
+## Basic Usage
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+  ```ts
+  import '@toolbox-web/grid';
+  import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+  const grid = document.querySelector('tbw-grid');
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [
+      new SelectionPlugin({ mode: 'row' }),
+    ],
+  };
+  grid.rows = data;
+  ```
+  </TabItem>
+  <TabItem label="React">
+  ```tsx
+  import '@toolbox-web/grid-react/features/selection';
+  import { DataGrid } from '@toolbox-web/grid-react';
+
+  function MyGrid({ data }) {
+    return (
+      <DataGrid
+        rows={data}
+        columns={[
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+        ]}
+        selection={{ mode: 'row' }}
+        style={{ height: '400px' }}
+      />
+    );
+  }
+  ```
+  </TabItem>
+  <TabItem label="Vue">
+  ```html
+  <script setup>
+  import '@toolbox-web/grid-vue/features/selection';
+  import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+  const data = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+  ];
+  </script>
+
+  <template>
+    <TbwGrid :rows="data" selection="row" style="height: 400px">
+      <TbwGridColumn field="id" header="ID" />
+      <TbwGridColumn field="name" header="Name" />
+      <TbwGridColumn field="email" header="Email" />
+    </TbwGrid>
+  </template>
+  ```
+  </TabItem>
+  <TabItem label="Angular">
+  ```typescript
+  import '@toolbox-web/grid-angular/features/selection';
+  import { Component } from '@angular/core';
+  import { Grid } from '@toolbox-web/grid-angular';
+  import type { ColumnConfig } from '@toolbox-web/grid';
+
+  @Component({
+    selector: 'app-my-grid',
+    imports: [Grid],
+    template: `
+      <tbw-grid
+        [rows]="rows"
+        [columns]="columns"
+        [selection]="'row'"
+        style="height: 400px; display: block;">
+      </tbw-grid>
+    `,
+  })
+  export class MyGridComponent {
+    rows = [
+      { id: 1, name: 'Alice', email: 'alice@example.com' },
+      { id: 2, name: 'Bob', email: 'bob@example.com' },
+    ];
+    columns: ColumnConfig[] = [
+      { field: 'id', header: 'ID' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ];
+  }
+  ```
+  </TabItem>
+</Tabs>
+
+## Interactive Demo
+
+Switch between selection modes to see how each one behaves. The state panel below the grid shows the current selection in real time.
+
+- **Cell mode:** Click cells to select them individually
+- **Row mode:** Click anywhere in a row to select the entire row. Ctrl+Click to toggle, Shift+Click for range
+- **Range mode:** Click and drag to select rectangular ranges. Ctrl+drag for multiple ranges
+
+<ShowSource file="demos/SelectionPlaygroundDemo.astro">
+  <SelectionPlaygroundDemo />
+</ShowSource>
+
+### Checkbox Selection
+
+Add `checkbox: true` to show a selection checkbox column with a "select all" header. Works exclusively in row mode.
+
+<ShowSource file="demos/SelectionCheckboxDemo.astro">
+  <SelectionCheckboxDemo />
+</ShowSource>
+
+```ts
+new SelectionPlugin({ mode: 'row', checkbox: true })
+```
+
+## Configuration Options
+
+### Grid-Level Toggle
+
+You can disable selection grid-wide using `gridConfig.selectable`:
+
+```ts
+grid.gridConfig = {
+  selectable: false, // Disables ALL selection
+  plugins: [new SelectionPlugin({ mode: 'range' })],
+};
+```
+
+### Plugin Options
+
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `mode` | `'cell' \| 'row' \| 'range'` | `'cell'` | Selection behavior mode |
+| `multiSelect` | `boolean` | `true` | Allow multiple items selected at once |
+| `enabled` | `boolean` | `true` | Plugin-level enable/disable |
+| `triggerOn` | `'click' \| 'dblclick'` | `'click'` | Selection trigger type |
+| `checkbox` | `boolean` | `false` | Show checkbox column (row mode only) |
+| `isSelectable` | `(row, rowIndex, column?, colIndex?) => boolean` | `undefined` | Callback to conditionally disable selection |
+
+### Double-Click Selection Trigger
+
+In data-entry grids, you may want single-click to only **focus** the row/cell for keyboard navigation, while **double-click** changes the selection state.
+
+:::note
+`triggerOn` only applies to `'cell'` and `'row'` modes. Range mode uses drag selection (mousedown → mousemove), which is unaffected.
+:::
+
+```ts
+new SelectionPlugin({
+  mode: 'row',
+  triggerOn: 'dblclick',  // Single-click focuses, double-click selects
+})
+```
+
+### Conditional Selection
+
+Use the `isSelectable` callback to prevent selection of specific rows or cells:
+
+```ts
+new SelectionPlugin({
+  mode: 'row',
+  isSelectable: (row) => row.status !== 'locked',
+})
+```
+
+**Behavior of non-selectable rows/cells:**
+
+| Aspect | Behavior |
+|--------|----------|
+| Click | Ignored (no selection change) |
+| Keyboard | Skipped with Shift+Arrow |
+| Select All | Excluded |
+| Visual | Muted via `[data-selectable="false"]` attribute |
+| Focus | Still navigable |
+
+<ShowSource file="demos/selection/ConditionalSelectionDemo.astro">
+  <ConditionalSelectionDemo />
+</ShowSource>
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| -------- | ------ |
+| `Arrow Keys` | Move focus |
+| `Shift + Arrow` | Extend selection (range mode) |
+| `Ctrl/⌘ + Click` | Toggle row/cell (multi-select) |
+| `Shift + Click` | Extend selection from anchor |
+| `Ctrl/⌘ + A` | Select all (row and range modes) |
+| `Escape` | Clear selection |
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(SelectionPlugin);
+
+// Query
+const selection = plugin.getSelection();
+plugin.isCellSelected(2, 1);
+
+// Row mode
+plugin.selectRows([0, 2, 4]);
+const rows = plugin.getSelectedRows<Employee>();
+
+// Range mode
+plugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: 5, col: 3 } }]);
+
+// Actions
+plugin.selectAll();
+plugin.clearSelection();
+```
+
+:::tip
+Use `getSelectedRows()` to retrieve actual row data objects rather than resolving indices manually. Row indices refer to positions in the grid's current (sorted/filtered) row array, which may differ from your original data array.
+:::
+
+## Events
+
+| Event | Description |
+| ----- | ----------- |
+| `selection-change` | Fired when the selection is modified |
+
+<ShowSource file="demos/selection/SelectionEventsDemo.astro">
+  <SelectionEventsDemo />
+</ShowSource>
+
+### `selection-change` Detail
+
+```ts
+interface SelectionChangeDetail {
+  mode: SelectionMode;  // 'cell' | 'row' | 'range'
+  ranges: CellRange[];
+}
+```
+
+## Styling
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-focus-background` | `rgba(accent, 12%)` | Focused row background |
+| `--tbw-range-selection-bg` | `rgba(accent, 12%)` | Range selection fill |
+| `--tbw-range-border-color` | `var(--tbw-color-accent)` | Range selection border |
+| `--tbw-color-accent` | `#3b82f6` | Primary accent color |
+
+```css
+tbw-grid {
+  --tbw-range-selection-bg: rgba(76, 175, 80, 0.15);
+  --tbw-range-border-color: #4caf50;
+  --tbw-focus-background: rgba(76, 175, 80, 0.1);
+}
+```
+
+### CSS Classes
+
+| Class | Element |
+| --- | --- |
+| `.selecting` | Grid during range drag |
+| `.row-focus` | Focused row (row mode) |
+| `.cell-focus` | Focused cell (cell mode) |
+| `.selected` | Selected cell in range |
+| `.selected.top` / `.bottom` / `.first` / `.last` | Range boundary edges |
+
+## Works Well With
+
+| Plugin | Integration |
+|--------|-------------|
+| [EditingPlugin](/grid/plugins/editing/) | Click-to-select + double-click-to-edit |
+| [ClipboardPlugin](/grid/plugins/clipboard/) | Copy/paste selected cells (requires SelectionPlugin) |
+| [FilteringPlugin](/grid/plugins/filtering/) | Filter data, then select from results |
+| [ContextMenuPlugin](/grid/plugins/context-menu/) | Right-click selected rows for actions |
+
+## See Also
+
+- [Common Patterns](/grid/guides/common-patterns/) — Full application recipes using selection
+- [Plugins Overview](/grid/plugins/) — All available plugins and compatibility
+- [Events Reference](/grid/events/) — `selection-change` event details

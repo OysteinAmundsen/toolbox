@@ -1,0 +1,76 @@
+---
+// GroupingColumnsDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="grouping-columns-default-demo">
+  <DemoControls controls={[
+    { section: 'OPTIONS', name: 'showGroupBorders', label: 'Show group borders', type: 'boolean',
+      default: true, description: 'Show borders between column groups' },
+  ]} />
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
+
+const container = document.getElementById('grouping-columns-default-demo');
+if (container) {
+  const firstNames = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack'];
+  const lastNames = ['Johnson', 'Smith', 'Williams', 'Brown', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Anderson'];
+  const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+  const titlesByDept = {
+    Engineering: ['Senior Engineer', 'Software Engineer', 'Lead Engineer', 'DevOps Engineer', 'QA Engineer'],
+    Marketing: ['Marketing Manager', 'Content Writer', 'Brand Manager', 'SEO Specialist'],
+    Sales: ['Sales Rep', 'Sales Manager', 'Account Executive'],
+    HR: ['HR Manager', 'Recruiter', 'Training Coordinator'],
+    Finance: ['Accountant', 'Financial Analyst', 'Controller'],
+  };
+  function generateData(count: number) {
+    return Array.from({ length: count }, (_, i) => {
+      const firstName = firstNames[i % firstNames.length];
+      const lastName = lastNames[i % lastNames.length];
+      const department = departments[i % departments.length];
+      const titles = titlesByDept[department];
+      const title = titles[i % titles.length];
+      return {
+        id: i + 1,
+        firstName,
+        lastName,
+        email: `${firstName.toLowerCase()}@example.com`,
+        department,
+        title,
+        salary: 50000 + Math.floor((i * 3456) % 70000),
+      };
+    });
+  }
+
+  const sampleData = generateData(20);
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'firstName', header: 'First Name', group: { id: 'personal', label: 'Personal Info' } },
+    { field: 'lastName', header: 'Last Name', group: { id: 'personal', label: 'Personal Info' } },
+    { field: 'email', header: 'Email', group: { id: 'personal', label: 'Personal Info' } },
+    { field: 'department', header: 'Department', group: { id: 'work', label: 'Work Info' } },
+    { field: 'title', header: 'Title', group: { id: 'work', label: 'Work Info' } },
+    { field: 'salary', header: 'Salary', type: 'number', group: { id: 'work', label: 'Work Info' } },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function rebuild(showGroupBorders = true) {
+    grid.gridConfig = {
+      columns,
+      plugins: [new GroupingColumnsPlugin({ showGroupBorders })],
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    rebuild(e.detail.allValues.showGroupBorders as boolean);
+  }) as EventListener);
+}
+</script>

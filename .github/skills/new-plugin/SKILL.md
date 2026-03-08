@@ -1,6 +1,6 @@
 ---
 name: new-plugin
-description: Create a new grid plugin for @toolbox-web/grid following the canonical plugin structure. Use when adding a new plugin with hooks, styles, tests, stories, and documentation.
+description: Create a new grid plugin for @toolbox-web/grid following the canonical plugin structure. Use when adding a new plugin with hooks, styles, tests, and documentation.
 argument-hint: <plugin-name> [description]
 ---
 
@@ -20,8 +20,6 @@ libs/grid/src/lib/plugins/<plugin-name>/
 ├── types.ts                    # Config and exported types
 ├── <plugin-name>.ts            # Pure helper functions (optional)
 ├── <plugin-name>.spec.ts       # Unit tests
-├── <plugin-name>.stories.ts    # Storybook demo
-├── <plugin-name>.mdx           # Documentation (required)
 └── README.md                   # Package-level docs (optional)
 ```
 
@@ -143,23 +141,23 @@ describe('<PluginName>Plugin', () => {
 
 Use `.dg-` prefixed class names for grid internals, or plugin-specific class names.
 
-## 8. Create Storybook Story (`<plugin-name>.stories.ts`)
+## 8. Create Demo Component (`<PluginName>DefaultDemo.astro`)
 
-Follow existing story patterns with Lit html templates. See the `storybook-story` skill for full templates.
+Create an interactive Astro demo in `apps/docs/src/components/demos/<plugin-name>/`. See the `astro-demo` skill for full templates.
 
 ## 9. Create Documentation (`<plugin-name>.mdx`)
 
-Required for Storybook sidebar. Use Canvas and Controls blocks. See the `docs-update` skill for templates.
+Create a plugin MDX page at `apps/docs/src/content/docs/grid/plugins/<plugin-name>.mdx`. Import the demo component and wrap it in `<ShowSource>`. See the `docs-update` skill for templates.
 
-## 10. Update Storybook Sidebar Sort Order
+## 10. Verify Documentation Build
 
-Storybook requires `storySort` to be defined inline (no imports). Run the helper script to regenerate the plugin sort array, then paste the output into `apps/docs/.storybook/preview.ts`:
+Build the docs site to verify the new plugin page renders correctly:
 
 ```bash
-bun apps/docs/.storybook/scripts/generate-plugin-sort.ts
+bun nx build docs
 ```
 
-Copy the printed array into the `storySort.order` config in `preview.ts`.
+Navigate to `http://localhost:4401/grid/plugins/<plugin-name>/` after running `bun nx serve docs`.
 
 ---
 

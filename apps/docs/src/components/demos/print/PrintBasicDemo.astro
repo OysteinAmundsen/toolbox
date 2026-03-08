@@ -1,0 +1,60 @@
+---
+// PrintBasicDemo.astro
+---
+<div class="grid-demo not-content" id="print-basic-demo">
+  <div style="margin-bottom: 12px;">
+    <button id="print-basic-btn" style="padding: 8px 16px; cursor: pointer;">🖨️ Print Grid</button>
+  </div>
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+
+const container = document.getElementById('print-basic-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  const btn = container.querySelector('#print-basic-btn');
+
+  const printPlugin = new PrintPlugin({
+    title: 'Employee Report',
+    includeTitle: true,
+    includeTimestamp: true,
+  });
+
+  const employeeData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 85000, status: 'Active', email: 'alice@company.com' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000, status: 'Active', email: 'bob@company.com' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 92000, status: 'Active', email: 'carol@company.com' },
+    { id: 4, name: 'David Brown', department: 'Sales', salary: 68000, status: 'On Leave', email: 'david@company.com' },
+    { id: 5, name: 'Emma Davis', department: 'HR', salary: 65000, status: 'Active', email: 'emma@company.com' },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 88000, status: 'Active', email: 'frank@company.com' },
+    { id: 7, name: 'Grace Wilson', department: 'Marketing', salary: 75000, status: 'Active', email: 'grace@company.com' },
+    { id: 8, name: 'Henry Taylor', department: 'Sales', salary: 70000, status: 'Active', email: 'henry@company.com' },
+    { id: 9, name: 'Ivy Anderson', department: 'Finance', salary: 82000, status: 'On Leave', email: 'ivy@company.com' },
+    { id: 10, name: 'Jack Thomas', department: 'Engineering', salary: 95000, status: 'Active', email: 'jack@company.com' },
+  ];
+
+  grid.gridConfig = {
+    fitMode: 'stretch',
+    columns: [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', minWidth: 150 },
+      { field: 'department', header: 'Department', width: 120 },
+      { field: 'email', header: 'Email', minWidth: 200 },
+      { field: 'salary', header: 'Salary', width: 100, align: 'right' },
+      { field: 'status', header: 'Status', width: 100 },
+    ],
+    plugins: [printPlugin],
+  };
+  grid.rows = employeeData;
+
+  btn?.addEventListener('click', () => {
+    const plugin = grid.getPlugin(PrintPlugin);
+    plugin?.print({ isolate: true });
+  });
+}
+</script>

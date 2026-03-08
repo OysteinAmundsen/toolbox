@@ -1,0 +1,1182 @@
+---
+title: Core Features
+description: Interactive playground, configuration, rendering, shell, loading states, variable row heights, events, methods, and more for @toolbox-web/grid.
+---
+
+import ColumnInferenceDemo from '@components/demos/ColumnInferenceDemo.astro';
+import LightDomColumnsDemo from '@components/demos/LightDomColumnsDemo.astro';
+import CustomRenderersDemo from '@components/demos/CustomRenderersDemo.astro';
+import RowCellStylingDemo from '@components/demos/RowCellStylingDemo.astro';
+import RowAnimationDemo from '@components/demos/RowAnimationDemo.astro';
+import RtlDemo from '@components/demos/RtlDemo.astro';
+import InteractivePlaygroundDemo from '@components/demos/InteractivePlaygroundDemo.astro';
+import HeaderRenderersDemo from '@components/demos/HeaderRenderersDemo.astro';
+import ColumnStatePersistenceDemo from '@components/demos/ColumnStatePersistenceDemo.astro';
+import ShellBasicDemo from '@components/demos/ShellBasicDemo.astro';
+import ShellLightDomDemo from '@components/demos/ShellLightDomDemo.astro';
+import ShellMultiPanelsDemo from '@components/demos/ShellMultiPanelsDemo.astro';
+import ShellToolbarButtonsDemo from '@components/demos/ShellToolbarButtonsDemo.astro';
+import LoadingStatesDemo from '@components/demos/LoadingStatesDemo.astro';
+import CoreEventsDemo from '@components/demos/CoreEventsDemo.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import CustomLoadingRendererDemo from '@components/demos/CustomLoadingRendererDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+# Core Features
+
+This page documents built-in grid features that don't require plugins — the interactive playground, column configuration, data formatting, styling, shell layout, loading states, events, methods, and more.
+
+:::tip
+For basic setup and installation, see the [Getting Started](/grid/getting-started/) guide. For plugin features (selection, filtering, grouping, etc.), see the [Plugins](/grid/plugins/) section.
+:::
+
+---
+
+## Basic Usage
+
+### Interactive Playground
+
+Experiment with the grid's core options in real time. Adjust the row count, toggle columns, change the fit mode, and enable or disable sortable/resizable columns.
+
+<ShowSource file="demos/InteractivePlaygroundDemo.astro">
+  <InteractivePlaygroundDemo />
+</ShowSource>
+
+### Keyboard Navigation
+
+The grid implements [ARIA grid keyboard patterns](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) out of the box — no configuration required:
+
+| Key | Action |
+|-----|--------|
+| Arrow keys | Move between cells |
+| Home / End | Jump to first/last cell in row |
+| Ctrl+Home / Ctrl+End | Jump to first/last cell in grid |
+| Page Up / Page Down | Scroll by viewport height |
+| Enter | Start editing (with EditingPlugin) |
+| Escape | Cancel editing |
+| Tab / Shift+Tab | Move to next/previous editable cell |
+
+For the full keyboard shortcut reference, see the [Accessibility guide](/grid/guides/accessibility).
+
+### RTL (Right-to-Left) Support
+
+The grid fully supports RTL languages like Hebrew, Arabic, and Persian. Set `dir="rtl"` on the grid or any ancestor element — keyboard navigation, column pinning, and layout all adapt automatically.
+
+```html
+<tbw-grid dir="rtl"></tbw-grid>
+```
+
+<ShowSource file="demos/RtlDemo.astro">
+  <RtlDemo />
+</ShowSource>
+
+**Logical column pinning:** Use `pinned: 'start'` and `pinned: 'end'` instead of `'left'`/`'right'` for direction-independent pinning. See the [Pinned Columns plugin](/grid/plugins/pinned-columns) for details.
+
+---
+
+## Configuration
+
+### Column Inference
+
+**Zero-config data display** — Just pass your data and the grid figures out the rest.
+
+When you provide `rows` without defining `columns`, the grid automatically:
+
+- Detects fields from the first row's property names
+- Infers data types (`string`, `number`, `boolean`, `date`) from actual values
+- Generates human-readable headers from field names (`firstName` → `First Name`)
+- Applies appropriate sorting and formatting for each type
+
+```typescript
+grid.rows = myData; // That's it!
+```
+
+<ShowSource file="demos/ColumnInferenceDemo.astro">
+  <ColumnInferenceDemo />
+</ShowSource>
+
+### Light DOM Columns
+
+**Declarative configuration** — Define columns in HTML instead of JavaScript.
+
+Use `<tbw-grid-column>` elements to declaratively define columns directly in your markup:
+
+```html
+<tbw-grid>
+  <tbw-grid-column field="id" header="ID" width="80"></tbw-grid-column>
+  <tbw-grid-column field="name" header="Full Name" sortable></tbw-grid-column>
+  <tbw-grid-column field="email" header="Email Address"></tbw-grid-column>
+</tbw-grid>
+```
+
+This approach is ideal for:
+
+- **Static layouts** where columns don't change at runtime
+- **Server-rendered pages** where HTML is generated on the server
+- **Template-driven frameworks** like Angular or Vue that prefer declarative syntax
+- **Quick prototyping** without writing JavaScript
+
+<ShowSource file="demos/LightDomColumnsDemo.astro">
+  <LightDomColumnsDemo />
+</ShowSource>
+
+### Configuration Reference
+
+The grid is configured through the `gridConfig` property (or individual shorthand properties). Here's a summary of the most common options:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `columns` | [`ColumnConfig[]`](/grid/api/core/interfaces/columnconfig/) | Column definitions |
+| `rows` | `any[]` | Row data array |
+| `fitMode` | `'stretch' \| 'fixed'` | How columns fill available width |
+| `sortable` | `boolean` | Enable sorting on all columns |
+| `resizable` | `boolean` | Enable resizing on all columns |
+| `rowHeight` | `number \| Function` | Fixed or variable row heights |
+| `plugins` | [`BaseGridPlugin[]`](/grid/api/plugin-development/classes/basegridplugin/) | Plugin instances |
+| `rowClass` | `Function` | Dynamic row CSS classes |
+| `typeDefaults` | `Record<string, …>` | Default format/renderer per column type |
+| `shell` | [`ShellConfig`](/grid/api/core/interfaces/shellconfig/) | Shell layout (header, tool panels) |
+| `loadingRenderer` | [`LoadingRenderer`](/grid/api/core/types/loadingrenderer/) | Custom loading indicator |
+| `getRowId` | `(row) => string` | Unique row identity function |
+
+**Precedence (low → high):**
+
+1. `gridConfig` prop (base)
+2. Light DOM elements (declarative)
+3. `columns` prop (direct array)
+4. Inferred columns (auto-detected from first row)
+5. Individual props (`fitMode`) — highest
+
+---
+
+## Presentation
+
+### Choosing: Formatter vs Renderer
+
+The grid offers two ways to customize how cell data is displayed:
+
+| | Formatter (`format`) | Renderer (`renderer`) |
+|---|---|---|
+| **Returns** | String | DOM element |
+| **Use for** | Currency, dates, percentages, text formatting | Checkboxes, badges, buttons, links, images |
+| **Performance** | Faster (text only) | Slower (DOM creation) |
+| **Interactivity** | None (display only) | Full (event listeners, components) |
+
+**Rule of thumb:** If you only need to change how a value *looks*, use a `format` function. If you need interactive elements or custom HTML structure, use a `renderer`.
+
+### Formatters
+
+**Transform how values are displayed** — Formatters convert raw data values into user-friendly text.
+
+A formatter is a function that takes a cell value and returns a formatted string:
+
+```typescript
+grid.columns = [
+  {
+    field: 'salary',
+    format: (value) => `$${value.toLocaleString()}`,
+  },
+  {
+    field: 'hireDate',
+    format: (value) =>
+      new Date(value).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+  },
+  {
+    field: 'progress',
+    format: (value) => `${(value * 100).toFixed(1)}%`,
+  },
+];
+```
+
+Common formatter patterns:
+
+| Pattern | Output |
+|---------|--------|
+| Currency | `$1,234.50` |
+| Date | `1/15/2024` |
+| Percentage | `15.6%` |
+| Prefix/suffix | `#42` |
+
+```typescript
+// Currency
+{ field: 'salary', format: (v) => `$${v.toLocaleString()}` }
+
+// Date
+{ field: 'startDate', format: (v) => new Date(v).toLocaleDateString() }
+
+// Percentage
+{ field: 'rate', format: (v) => `${(v * 100).toFixed(1)}%` }
+
+// Prefix/suffix
+{ field: 'id', format: (v) => `#${v}` }
+```
+
+### Row Styling
+
+**Style entire rows** based on data using the `rowClass` callback:
+
+```typescript
+grid.gridConfig = {
+  rowClass: (row) => (row.status === 'inactive' ? 'row-inactive' : ''),
+};
+
+// Register styles so they survive DOM rebuilds
+grid.registerStyles(
+  'row-styles',
+  `
+  .row-inactive { opacity: 0.5; }
+`
+);
+```
+
+### Cell Styling
+
+**Style individual cells** based on their value using `cellClass` on a column:
+
+```typescript
+grid.columns = [
+  {
+    field: 'score',
+    cellClass: (value) => {
+      if (value >= 90) return 'cell-success';
+      if (value < 50) return 'cell-danger';
+      return '';
+    },
+  },
+];
+```
+
+:::tip
+You can combine `rowClass` and `cellClass`. When styles conflict, cell styles win because cells are children of rows in the DOM hierarchy.
+:::
+
+<ShowSource file="demos/RowCellStylingDemo.astro">
+  <RowCellStylingDemo />
+</ShowSource>
+
+:::caution
+Do not place `<style>` elements as children of `<tbw-grid>` — the grid calls `replaceChildren()` during renders, which removes them. Use `registerStyles()` for runtime-injected styles. External stylesheets are unaffected.
+:::
+
+### Renderers
+
+**Full control over cell content** — Renderers let you create custom HTML elements for cells.
+
+While formatters return plain text, renderers return DOM elements. Use renderers when you need:
+
+- **Custom components**: Checkboxes, badges, progress bars, buttons
+- **Interactive elements**: Links, icons, action buttons
+- **Rich formatting**: Multiple elements, images, complex layouts
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+grid.columns = [
+  {
+    field: 'status',
+    header: 'Status',
+    renderer: (ctx) => {
+      const badge = document.createElement('span');
+      badge.className = `badge badge-${ctx.value}`;
+      badge.textContent = ctx.value;
+      return badge;
+    },
+  },
+  {
+    field: 'active',
+    header: 'Active',
+    renderer: (ctx) => {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !!ctx.value;
+      checkbox.disabled = true;
+      return checkbox;
+    },
+  },
+];
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, GridColumn } from '@toolbox-web/grid-react';
+
+function EmployeeGrid({ rows }) {
+  return (
+    <DataGrid rows={rows}>
+      <GridColumn
+        field="status"
+        header="Status"
+        renderer={({ value }) => (
+          <span className={`badge badge-${value}`}>{value}</span>
+        )}
+      />
+      <GridColumn
+        field="active"
+        header="Active"
+        renderer={({ value }) => (
+          <input type="checkbox" checked={!!value} disabled />
+        )}
+      />
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="rows">
+    <TbwGridColumn field="status" header="Status">
+      <template #cell="{ value }">
+        <span :class="`badge badge-${value}`">{{ value }}</span>
+      </template>
+    </TbwGridColumn>
+    <TbwGridColumn field="active" header="Active">
+      <template #cell="{ value }">
+        <input type="checkbox" :checked="!!value" disabled />
+      </template>
+    </TbwGridColumn>
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, TbwRenderer } from '@toolbox-web/grid-angular';
+
+@Component({
+  imports: [Grid, TbwRenderer],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [rows]="rows" style="height: 400px; display: block">
+      <tbw-grid-column field="status" header="Status">
+        <span *tbwRenderer="let value" [class]="'badge badge-' + value">
+          {{ value }}
+        </span>
+      </tbw-grid-column>
+      <tbw-grid-column field="active" header="Active">
+        <input *tbwRenderer="let value" type="checkbox" [checked]="!!value" disabled />
+      </tbw-grid-column>
+    </tbw-grid>
+  `,
+})
+export class EmployeeGridComponent {
+  rows = [/* ... */];
+}
+```
+  </TabItem>
+</Tabs>
+
+The renderer receives a `CellRenderContext` with `value`, `row`, `column`, and `field`. See the [CellRenderContext API](/grid/api/core/interfaces/cell-render-context) for details.
+
+<ShowSource file="demos/CustomRenderersDemo.astro">
+  <CustomRenderersDemo />
+</ShowSource>
+
+### Row Animation
+
+The grid provides a built-in row animation API for highlighting changes, insertions, and removals with visual feedback.
+
+| Method | Description | CSS Variable |
+|--------|-------------|--------------|
+| `animateRow(i, 'change')` | Flash highlight for data changes | `--tbw-row-change-duration` (500ms) |
+| `insertRow(i, row)` | Slide-in animation for new rows | `--tbw-row-insert-duration` (300ms) |
+| `removeRow(i)` | Fade-out animation for removed rows | `--tbw-row-remove-duration` (200ms) |
+
+```typescript
+// Highlight a row after updating
+grid.rows[5].status = 'updated';
+grid.animateRow(5, 'change');
+
+// Animate by row ID (stable when sorted/filtered)
+grid.animateRowById(data.id, 'change');
+
+// Animate multiple rows at once
+grid.animateRows([0, 2, 5], 'change');
+```
+
+**Customize appearance:**
+
+```css
+tbw-grid {
+  --tbw-row-change-duration: 750ms;
+  --tbw-row-change-color: rgba(34, 197, 94, 0.25);
+}
+```
+
+<ShowSource file="demos/RowAnimationDemo.astro">
+  <RowAnimationDemo />
+</ShowSource>
+
+:::note
+When using the **EditingPlugin**, rows are automatically animated with `'change'` after a successful edit commit.
+:::
+
+### Type-Level Defaults
+
+Define default formatters and renderers for all columns of a specific `type`:
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+grid.gridConfig = {
+  typeDefaults: {
+    currency: {
+      format: (value) =>
+        new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(value),
+    },
+    boolean: {
+      renderer: (ctx) => {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!ctx.value;
+        cb.disabled = true;
+        return cb;
+      },
+    },
+    status: {
+      renderer: (ctx) => {
+        const badge = document.createElement('span');
+        badge.className = `status-badge status-${ctx.value}`;
+        badge.textContent = ctx.value;
+        return badge;
+      },
+    },
+  },
+  columns: [
+    { field: 'salary', type: 'currency' },
+    { field: 'active', type: 'boolean' },
+    { field: 'status', type: 'status' },
+  ],
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { GridTypeProvider, DataGrid, GridColumn } from '@toolbox-web/grid-react';
+import type { TypeDefaultsMap } from '@toolbox-web/grid-react';
+
+const typeDefaults: TypeDefaultsMap = {
+  currency: {
+    format: (value) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value),
+  },
+  boolean: {
+    renderer: ({ value }) => <input type="checkbox" checked={!!value} disabled />,
+  },
+  status: {
+    renderer: ({ value }) => (
+      <span className={`status-badge status-${value}`}>{value}</span>
+    ),
+  },
+};
+
+function App() {
+  return (
+    <GridTypeProvider defaults={typeDefaults}>
+      <DataGrid rows={rows}>
+        <GridColumn field="salary" type="currency" />
+        <GridColumn field="active" type="boolean" />
+        <GridColumn field="status" type="status" />
+      </DataGrid>
+    </GridTypeProvider>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { h } from 'vue';
+import { GridTypeProvider, TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import CheckboxCell from './CheckboxCell.vue';
+import StatusBadge from './StatusBadge.vue';
+
+const typeDefaults = {
+  currency: {
+    format: (value) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value),
+  },
+  boolean: {
+    renderer: ({ value }) => h(CheckboxCell, { checked: !!value }),
+  },
+  status: {
+    renderer: ({ value }) => h(StatusBadge, { status: value }),
+  },
+};
+</script>
+
+<template>
+  <GridTypeProvider :defaults="typeDefaults">
+    <TbwGrid :rows="rows">
+      <TbwGridColumn field="salary" type="currency" />
+      <TbwGridColumn field="active" type="boolean" />
+      <TbwGridColumn field="status" type="status" />
+    </TbwGrid>
+  </GridTypeProvider>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid, provideGridTypeDefaults } from '@toolbox-web/grid-angular';
+import { CheckboxCellComponent } from './checkbox-cell.component';
+import { StatusBadgeComponent } from './status-badge.component';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  providers: [
+    provideGridTypeDefaults({
+      currency: {
+        format: (value) =>
+          new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value),
+      },
+      boolean: { renderer: CheckboxCellComponent },
+      status: { renderer: StatusBadgeComponent },
+    }),
+  ],
+  template: `
+    <tbw-grid [rows]="rows" [columns]="columns" />
+  `,
+})
+export class AppComponent {
+  columns = [
+    { field: 'salary', type: 'currency' },
+    { field: 'active', type: 'boolean' },
+    { field: 'status', type: 'status' },
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+Type defaults reduce repetition when many columns share the same presentation. Column-level `format` or `renderer` overrides type defaults when both are specified.
+
+### Custom Header Renderers
+
+Customize column header cells using `headerLabelRenderer` or `headerRenderer`.
+
+:::note
+Header renderers use vanilla DOM APIs across all frameworks. The framework adapters (React, Vue, Angular) do not intercept `headerLabelRenderer` or `headerRenderer` — the function always receives and returns DOM elements.
+:::
+
+**`headerLabelRenderer`** — Modify just the label portion of the header (sort icons and filter buttons are still managed by the grid):
+
+```typescript
+{
+  field: 'name',
+  header: 'Name',
+  headerLabelRenderer: ({ value }) => {
+    const span = document.createElement('span');
+    span.innerHTML = `${value} <span style="color:red">*</span>`;
+    return span;
+  },
+}
+```
+
+**`headerRenderer`** — Full control over the entire header cell. You are responsible for rendering sort icons using `ctx.renderSortIcon()`:
+
+```typescript
+{
+  field: 'email',
+  header: 'Email',
+  headerRenderer: (ctx) => {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%';
+
+    const icon = document.createElement('span');
+    icon.textContent = '📧';
+    wrapper.appendChild(icon);
+
+    const label = document.createElement('span');
+    label.textContent = ctx.value;
+    label.style.flex = '1';
+    wrapper.appendChild(label);
+
+    const sortIcon = ctx.renderSortIcon();
+    if (sortIcon) wrapper.appendChild(sortIcon);
+    return wrapper;
+  },
+}
+```
+
+The `HeaderCellContext` provides:
+
+| Property / Method | Description |
+|-------------------|-------------|
+| `value` | The header label text |
+| `column` | Full `ColumnConfig` object |
+| `renderSortIcon()` | Returns the sort-direction indicator element (or `null`) |
+| `renderFilterButton()` | Returns the filter button element (when FilteringPlugin is active) |
+
+<ShowSource file="demos/HeaderRenderersDemo.astro">
+  <HeaderRenderersDemo />
+</ShowSource>
+
+---
+
+## Column State Persistence
+
+The grid tracks column state — widths, sort direction, order, and visibility. You can save, load, and reset this state for user personalization.
+
+### What State Contains
+
+`getColumnState()` returns an array of `GridColumnState` objects, each containing:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `field` | `string` | Column field identifier |
+| `width` | `number` | Current pixel width |
+| `sort` | `'asc' \| 'desc' \| null` | Sort direction |
+| `sortIndex` | `number \| null` | Multi-sort priority |
+| `hidden` | `boolean` | Visibility state |
+
+### Listening for Changes
+
+The `column-state-change` event fires whenever the user resizes, reorders, sorts, or hides/shows columns:
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+grid.addEventListener('column-state-change', (e) => {
+  const state = e.detail; // GridColumnState[]
+  localStorage.setItem('my-grid-state', JSON.stringify(state));
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+<DataGrid
+  rows={rows}
+  onColumnStateChange={(e) => {
+    localStorage.setItem('my-grid-state', JSON.stringify(e.detail));
+  }}
+/>
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<template>
+  <TbwGrid :rows="rows" @column-state-change="onColumnStateChange" />
+</template>
+
+<script setup lang="ts">
+function onColumnStateChange(e: CustomEvent<GridColumnState[]>) {
+  localStorage.setItem('my-grid-state', JSON.stringify(e.detail));
+}
+</script>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```html
+<tbw-grid [rows]="rows" (column-state-change)="onColumnStateChange($event)" />
+```
+
+```typescript
+onColumnStateChange(e: CustomEvent<GridColumnState[]>) {
+  localStorage.setItem('my-grid-state', JSON.stringify(e.detail));
+}
+```
+  </TabItem>
+</Tabs>
+
+### Applying Saved State
+
+Restore a previously saved state using `applyColumnState()`:
+
+```typescript
+const saved = localStorage.getItem('my-grid-state');
+if (saved) {
+  grid.applyColumnState(JSON.parse(saved));
+}
+```
+
+### Resetting State
+
+Re-assign the original column definitions to reset to defaults:
+
+```typescript
+grid.columns = [...originalColumns];
+```
+
+<ShowSource file="demos/ColumnStatePersistenceDemo.astro">
+  <ColumnStatePersistenceDemo />
+</ShowSource>
+
+---
+
+## Shell Components
+
+The shell wraps the grid with an optional **header bar** (title + toolbar) and a collapsible **tool panel** sidebar.
+
+### Basic Shell
+
+Enable the shell by providing a `shell.header.title`. Plugins like `VisibilityPlugin` automatically register a tool panel when the shell is active.
+
+```typescript
+grid.gridConfig = {
+  shell: { header: { title: 'Employee Data' } },
+  plugins: [new VisibilityPlugin()],
+};
+```
+
+<ShowSource file="demos/ShellBasicDemo.astro">
+  <ShellBasicDemo />
+</ShowSource>
+
+### Light DOM Configuration
+
+Configure the shell declaratively using `<tbw-grid-header>` and `<tbw-grid-header-content>` elements:
+
+```html
+<tbw-grid>
+  <tbw-grid-header title="Employee Directory">
+    <tbw-grid-header-content>
+      <span id="row-count">0 employees</span>
+    </tbw-grid-header-content>
+  </tbw-grid-header>
+</tbw-grid>
+```
+
+<ShowSource file="demos/ShellLightDomDemo.astro">
+  <ShellLightDomDemo />
+</ShowSource>
+
+### Multiple Tool Panels
+
+Register multiple tool panels — each gets a tab in the sidebar. Panels can be registered via configuration or the runtime `registerToolPanel()` API.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+grid.registerToolPanel({
+  id: 'filter-panel',
+  title: 'Filters',
+  icon: '🔍',
+  render(container) {
+    container.innerHTML = '<p>Filter controls here</p>';
+  },
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, GridToolPanel } from '@toolbox-web/grid-react';
+
+function MyGrid({ rows }) {
+  return (
+    <DataGrid rows={rows} gridConfig={config}>
+      <GridToolPanel id="filter-panel" title="Filters" icon="🔍">
+        {({ grid }) => <p>Filter controls here</p>}
+      </GridToolPanel>
+    </DataGrid>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid, TbwGridToolPanel } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="rows" :grid-config="config">
+    <TbwGridToolPanel id="filter-panel" label="Filters" icon="🔍">
+      <template #default="{ grid }">
+        <p>Filter controls here</p>
+      </template>
+    </TbwGridToolPanel>
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```html
+<tbw-grid [rows]="rows" [gridConfig]="config">
+  <tbw-grid-tool-panel id="filter-panel" title="Filters" icon="🔍">
+    <ng-template>
+      <p>Filter controls here</p>
+    </ng-template>
+  </tbw-grid-tool-panel>
+</tbw-grid>
+```
+  </TabItem>
+</Tabs>
+
+<ShowSource file="demos/ShellMultiPanelsDemo.astro">
+  <ShellMultiPanelsDemo />
+</ShowSource>
+
+### Toolbar Buttons
+
+Add custom buttons to the shell toolbar using `<tbw-grid-tool-buttons>` in Light DOM or the `registerToolbarContent()` API:
+
+```html
+<tbw-grid>
+  <tbw-grid-tool-buttons>
+    <button onclick="exportData()">📥 Export</button>
+    <button onclick="printGrid()">🖨️ Print</button>
+  </tbw-grid-tool-buttons>
+</tbw-grid>
+```
+
+<ShowSource file="demos/ShellToolbarButtonsDemo.astro">
+  <ShellToolbarButtonsDemo />
+</ShowSource>
+
+**Shell Configuration Reference:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `shell.header.title` | `string` | — | Title text in the header bar |
+| `shell.toolPanel.position` | `'left' \| 'right'` | `'right'` | Sidebar position |
+| `shell.toolPanel.width` | `number` | `280` | Sidebar width in pixels |
+| `shell.toolPanel.defaultOpen` | `string` | — | Panel ID to open on load |
+| `shell.toolPanel.persistState` | `boolean` | `false` | Remember open/closed state |
+| `shell.toolPanel.closeOnClickOutside` | `boolean` | `false` | Close on outside click |
+
+---
+
+## Loading States
+
+The grid supports loading indicators at three levels: grid-wide, per-row, and per-cell.
+
+### API Reference
+
+**Grid-level** — Shows a full overlay spinner:
+
+```typescript
+grid.loading = true;
+// ... fetch data ...
+grid.loading = false;
+```
+
+The `loading` attribute also works in HTML: `<tbw-grid loading></tbw-grid>`.
+
+**Row-level** — Shows a spinner on a specific row (requires `getRowId`):
+
+```typescript
+grid.setRowLoading('row-42', true);
+// ... update row ...
+grid.setRowLoading('row-42', false);
+```
+
+**Cell-level** — Shows a spinner on a specific cell:
+
+```typescript
+grid.setCellLoading('row-42', 'status', true);
+// ... update cell ...
+grid.setCellLoading('row-42', 'status', false);
+```
+
+**Query and clear:**
+
+```typescript
+grid.isRowLoading('row-42');          // boolean
+grid.isCellLoading('row-42', 'name'); // boolean
+grid.clearAllLoading();               // remove all indicators
+```
+
+<ShowSource file="demos/LoadingStatesDemo.astro">
+  <LoadingStatesDemo />
+</ShowSource>
+
+### Custom Loading Renderer
+
+Replace the default spinner with a custom element using `loadingRenderer`:
+
+```typescript
+grid.gridConfig = {
+  loadingRenderer: (context) => {
+    const el = document.createElement('div');
+    el.className = 'my-spinner';
+    // context.size is 'large' (grid-level) or 'small' (row/cell)
+    el.style.width = context.size === 'large' ? '48px' : '16px';
+    el.style.height = el.style.width;
+    return el;
+  },
+};
+```
+
+:::note
+`loadingRenderer` uses vanilla DOM APIs across all frameworks. Pass the config via `gridConfig` in React (`<DataGrid gridConfig={config}>`), Vue (`:grid-config="config"`), and Angular (`[gridConfig]="config"`).
+:::
+
+The `LoadingContext` provides a `size` property: `'large'` for the grid-wide overlay (up to 48×48 px) and `'small'` for row/cell indicators (sized to the row height).
+
+<ShowSource file="demos/CustomLoadingRendererDemo.astro">
+  <CustomLoadingRendererDemo />
+</ShowSource>
+
+---
+
+## Variable Row Heights
+
+By default all rows share a fixed height (`--tbw-row-height`, default 28 px). You can configure per-row heights using a function.
+
+### Configuration
+
+```typescript
+// Fixed height for all rows
+grid.gridConfig = { rowHeight: 56 };
+
+// Per-row height function
+grid.gridConfig = {
+  rowHeight: (row, index) => (row.hasDetails ? 80 : 40),
+};
+```
+
+If your function returns `undefined` for a row, the grid **auto-measures** that row's actual DOM height after rendering.
+
+### How Auto-Measurement Works
+
+1. The grid renders rows with an estimated height.
+2. After paint, it reads `offsetHeight` for each rendered row.
+3. Measured heights are cached and the position cache is rebuilt.
+4. A `ResizeObserver` watches for late layout shifts (font loading, lazy images) and re-measures automatically.
+
+### Row Identity for Height Caching
+
+Measured heights are cached using:
+
+- **`getRowId`** / `rowId` — preferred, survives sort/filter changes
+- **Object reference** (WeakMap) — fallback when no ID is configured
+
+Provide `getRowId` for best results when rows are re-sorted, filtered, or grouped.
+
+### Plugin-Provided Heights
+
+Plugins can override row heights by implementing the `getRowHeight(row, index)` hook. The **MasterDetailPlugin** and **ResponsivePlugin** use this to provide expanded-row heights.
+
+### Performance Considerations
+
+- **Fixed heights** are fastest — the grid can calculate positions with pure math.
+- **Function-based heights** add a per-row function call during position-cache rebuilds.
+- **Auto-measured heights** require a DOM read pass after rendering — avoid for 10 k+ row grids unless combined with `getRowId` caching.
+- When mixing fixed and auto-measured rows, return a number for most rows and `undefined` only for rows that need measurement.
+
+---
+
+## Events
+
+### Core Grid Events
+
+The grid dispatches `CustomEvent`s for user interactions:
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```typescript
+grid.addEventListener('cell-click', ((e: CustomEvent<CellClickDetail>) => {
+  const { row, field, value } = e.detail;
+  console.log(`Clicked ${field}: ${value}`, row);
+}) as EventListener);
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import { DataGrid, useGridEvent } from '@toolbox-web/grid-react';
+import type { CellClickDetail } from '@toolbox-web/grid';
+
+function MyGrid({ rows }) {
+  const gridRef = useGrid();
+
+  useGridEvent<CellClickDetail>(gridRef, 'cell-click', (e) => {
+    const { row, field, value } = e.detail;
+    console.log(`Clicked ${field}: ${value}`, row);
+  });
+
+  // Or use the event handler prop directly:
+  return (
+    <DataGrid
+      ref={gridRef}
+      rows={rows}
+      onCellClick={(e) => console.log(e.detail)}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup lang="ts">
+import { TbwGrid } from '@toolbox-web/grid-vue';
+import type { CellClickDetail } from '@toolbox-web/grid';
+
+function onCellClick(e: CustomEvent<CellClickDetail>) {
+  const { row, field, value } = e.detail;
+  console.log(`Clicked ${field}: ${value}`, row);
+}
+</script>
+
+<template>
+  <TbwGrid :rows="rows" @cell-click="onCellClick" />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { CellClickDetail } from '@toolbox-web/grid';
+
+@Component({
+  imports: [Grid],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <tbw-grid [rows]="rows" (cell-click)="onCellClick($event)" />
+  `,
+})
+export class MyGridComponent {
+  onCellClick(e: CustomEvent<CellClickDetail>) {
+    const { row, field, value } = e.detail;
+    console.log(`Clicked ${field}: ${value}`, row);
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+| Event | Detail type | Description |
+|-------|-------------|-------------|
+| `cell-click` | [`CellClickDetail`](/grid/api/core/interfaces/cellclickdetail/) | A cell was clicked. Contains `row`, `rowIndex`, `column`, `field`, `value`, `event`. |
+| `row-click` | [`RowClickDetail`](/grid/api/core/interfaces/rowclickdetail/) | A row was clicked. Contains `row`, `rowIndex`, `event`. |
+| `cell-activate` | [`CellActivateDetail`](/grid/api/core/interfaces/cellactivatedetail/) | A cell was activated via keyboard (Enter). Contains `row`, `rowIndex`, `column`, `field`, `value`. |
+| `sort-change` | [`SortChangeDetail`](/grid/api/core/interfaces/sortchangedetail/) | Sort state changed. Contains `field`, `direction`, `multiSort`. |
+| `column-resize` | [`ColumnResizeDetail`](/grid/api/core/interfaces/columnresizedetail/) | A column was resized. Contains `field`, `width`, `previousWidth`. |
+| `column-state-change` | [`GridColumnState[]`](/grid/api/core/interfaces/gridcolumnstate/) | Column widths, order, sort, or visibility changed. |
+
+<ShowSource file="demos/CoreEventsDemo.astro">
+  <CoreEventsDemo />
+</ShowSource>
+
+:::tip
+Plugin-specific events (e.g., `selection-change`, `cell-commit`, `filter-change`) are documented on each plugin's page.
+:::
+
+---
+
+## Methods
+
+The `<tbw-grid>` element exposes public methods for programmatic control. Use `createGrid()` or `queryGrid()` for type-safe access.
+
+### Data & Configuration
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `ready()` | `→ Promise<void>` | Resolves when the grid has completed its first render |
+| `forceLayout()` | `→ Promise<void>` | Force a full re-render (columns + rows) |
+| `getConfig()` | `→ Promise<`[`GridConfig`](/grid/api/core/interfaces/gridconfig/)`>` | Returns a read-only snapshot of the effective config |
+| `insertRow()` | `(index, row, animate?) → Promise<void>` | Insert a row at the given index (animates by default) |
+| `removeRow()` | `(index, animate?) → Promise<T \| undefined>` | Remove a row (animates by default); returns the removed row |
+| `toggleGroup()` | `(key) → Promise<void>` | Expand/collapse a row group |
+
+### Focus & Navigation
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `focusCell()` | `(rowIndex, column) → void` | Focus a specific cell; `column` can be an index or field name |
+| `focusedCell` | `→ { rowIndex, colIndex, field } \| null` | Current focused cell (read-only) |
+| `scrollToRow()` | `(rowIndex, options?) → void` | Scroll a row into view |
+| `scrollToRowById()` | `(rowId, options?) → void` | Scroll a row into view by its ID |
+| `containsFocus()` | `(node?) → boolean` | Whether the grid (or a specific node) currently has focus |
+
+### Column State
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `getColumnState()` | `→ `[`GridColumnState[]`](/grid/api/core/interfaces/gridcolumnstate/) | Snapshot of current column widths, sort, order, visibility |
+| `applyColumnState()` | `(state) → void` | Restore a saved column state |
+
+### Custom Styles
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `registerStyles()` | `(id, css) → void` | Add CSS via `adoptedStyleSheets` (survives DOM rebuilds) |
+| `unregisterStyles()` | `(id) → void` | Remove previously registered styles |
+| `getRegisteredStyles()` | `→ string[]` | List registered style IDs |
+
+### Plugin System
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `getPlugin()` | `(PluginClass) → P \| undefined` | Get a plugin instance by class |
+| `getPluginByName()` | `(name) → Plugin \| undefined` | Get a plugin instance by name string |
+
+### Shell
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `registerToolPanel()` | `(def) → void` | Register a new tool panel section |
+| `unregisterToolPanel()` | `(panelId) → void` | Remove a tool panel |
+| `openToolPanel()` | `() → void` | Open the tool panel sidebar |
+| `closeToolPanel()` | `() → void` | Close the tool panel sidebar |
+| `toggleToolPanel()` | `() → void` | Toggle the sidebar open/closed |
+| `toggleToolPanelSection()` | `(sectionId) → void` | Switch to a specific panel section |
+| `refreshShellHeader()` | `() → void` | Re-render shell header content |
+| `registerToolbarContent()` | `(def) → void` | Add content to the toolbar |
+| `registerHeaderContent()` | `(def) → void` | Add content to the header |
+
+### Loading
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `loading` | `boolean` | Grid-level loading overlay (property) |
+| `setRowLoading()` | `(rowId, loading) → void` | Show/hide row loading spinner |
+| `setCellLoading()` | `(rowId, field, loading) → void` | Show/hide cell loading spinner |
+| `isRowLoading()` | `(rowId) → boolean` | Check row loading state |
+| `isCellLoading()` | `(rowId, field) → boolean` | Check cell loading state |
+| `clearAllLoading()` | `() → void` | Clear all loading indicators |
+
+### Focus Containers
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `registerExternalFocusContainer()` | `(el) → void` | Register an external element (overlay, dropdown) as part of the grid for focus tracking |
+| `unregisterExternalFocusContainer()` | `(el) → void` | Unregister an external focus container |
+
+### Row Animation
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `animateRow()` | `(index, type) → Promise<boolean>` | Animate a single row (`'change'`, `'insert'`, `'remove'`) |
+| `animateRowById()` | `(rowId, type) → Promise<boolean>` | Animate a row by its ID |
+| `animateRows()` | `(indices, type) → Promise<number>` | Animate multiple rows at once |
+
+### Factory Functions
+
+```typescript
+import { createGrid, queryGrid } from '@toolbox-web/grid';
+
+// Create a typed grid element
+const grid = createGrid<Employee>({ columns: [...], rows: data });
+document.body.appendChild(grid);
+
+// Query an existing grid in the DOM
+const existing = queryGrid<Employee>('#my-grid');
+```
+
+---
+
+## See Also
+
+- [Getting Started](/grid/getting-started) — Installation and setup
+- [Common Patterns](/grid/guides/common-patterns) — Full application recipes
+- [Plugins](/grid/plugins) — Extend with selection, filtering, editing, and more
+- [Theming](/grid/guides/theming) — CSS custom properties, dark mode, themes
+- [Architecture](/grid/guides/architecture) — Render scheduler, Light DOM, design decisions
+- [Plugin System](/grid/guides/custom-plugins) — Build your own plugins

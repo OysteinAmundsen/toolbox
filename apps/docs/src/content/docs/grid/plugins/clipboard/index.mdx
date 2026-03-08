@@ -1,0 +1,339 @@
+---
+title: "Clipboard Plugin"
+description: "Copy and paste grid data with Excel-compatible clipboard support."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import ClipboardDefaultDemo from '@components/demos/clipboard/ClipboardDefaultDemo.astro';
+import ClipboardWithHeadersDemo from '@components/demos/clipboard/ClipboardWithHeadersDemo.astro';
+import ClipboardQuotedStringsDemo from '@components/demos/clipboard/ClipboardQuotedStringsDemo.astro';
+import ClipboardCopyPasteDemo from '@components/demos/clipboard/ClipboardCopyPasteDemo.astro';
+import ClipboardCustomPasteHandlerDemo from '@components/demos/clipboard/ClipboardCustomPasteHandlerDemo.astro';
+import ClipboardSingleCellModeDemo from '@components/demos/clipboard/ClipboardSingleCellModeDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+
+# Clipboard Plugin
+
+The Clipboard plugin brings familiar copy/cut/paste functionality to your grid with full keyboard shortcut support (Ctrl+C, Ctrl+X, Ctrl+V). It handles single cells, multi-cell selections, and integrates seamlessly with Excel and other spreadsheet applications via tab-delimited output.
+
+> 💡 **Optional Dependency:** Works best with [SelectionPlugin](/grid/plugins/selection/) for copying/pasting selected cells. Without SelectionPlugin, copies the entire grid and pastes at row 0, column 0.
+
+## Installation
+
+```ts
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+```
+
+## Basic Usage
+
+Just add the plugin and you're ready to go—keyboard shortcuts work automatically. Configure options like `includeHeaders` for copying column headers or `delimiter` for custom CSV formats.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' }
+  ],
+  plugins: [
+    new ClipboardPlugin({
+      includeHeaders: true,
+      quoteStrings: true, // Wrap text in quotes for CSV compatibility
+    }),
+  ],
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/selection';
+import '@toolbox-web/grid-react/features/clipboard';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function MyGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' }
+      ]}
+      selection="range"
+      clipboard={{ includeHeaders: true, quoteStrings: true }}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/clipboard';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const data = [
+  { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
+  { name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
+];
+</script>
+
+<template>
+  <TbwGrid
+    :rows="data"
+    selection="range"
+    :clipboard="{ includeHeaders: true, quoteStrings: true }"
+  >
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="department" header="Department" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature imports - enable the [selection] and [clipboard] inputs
+import '@toolbox-web/grid-angular/features/selection';
+import '@toolbox-web/grid-angular/features/clipboard';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [selection]="'range'"
+      [clipboard]="{ includeHeaders: true, quoteStrings: true }"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  rows = [...];
+
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' }
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+## Demos
+
+### Default Clipboard
+
+<ShowSource file="demos/clipboard/ClipboardDefaultDemo.astro">
+  <ClipboardDefaultDemo />
+</ShowSource>
+
+Select cells and use Ctrl+C to copy, Ctrl+V to paste.
+
+
+
+
+### With Headers
+
+<ShowSource file="demos/clipboard/ClipboardWithHeadersDemo.astro">
+  <ClipboardWithHeadersDemo />
+</ShowSource>
+
+Include column headers when copying.
+
+
+
+### Quoted Strings
+
+<ShowSource file="demos/clipboard/ClipboardQuotedStringsDemo.astro">
+  <ClipboardQuotedStringsDemo />
+</ShowSource>
+
+Wrap text values in quotes for CSV compatibility.
+
+
+
+### Copy & Paste (Auto-Paste)
+
+<ShowSource file="demos/clipboard/ClipboardCopyPasteDemo.astro">
+  <ClipboardCopyPasteDemo />
+</ShowSource>
+
+By default, the ClipboardPlugin handles paste operations automatically—no event handling needed.
+Just add the plugin and paste works out of the box.
+
+
+
+### Custom Paste Handler
+
+<ShowSource file="demos/clipboard/ClipboardCustomPasteHandlerDemo.astro">
+  <ClipboardCustomPasteHandlerDemo />
+</ShowSource>
+
+For advanced use cases, provide a custom `pasteHandler` to validate, transform, or integrate with state management.
+
+
+
+### Single Cell Mode
+
+<ShowSource file="demos/clipboard/ClipboardSingleCellModeDemo.astro">
+  <ClipboardSingleCellModeDemo />
+</ShowSource>
+
+Without a SelectionPlugin, the clipboard operates on a single focused cell — press <kbd>Ctrl+C</kbd> to copy just that cell's value.
+
+
+
+## Configuration Options
+
+| Option           | Type                                  | Default              | Description                                                                                              |
+| ---------------- | ------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `includeHeaders` | `boolean`                             | `false`              | Include column headers in copied data                                                                    |
+| `delimiter`      | `string`                              | `'\t'`               | Column delimiter (tab for Excel compatibility)                                                           |
+| `newline`        | `string`                              | `'\n'`               | Row delimiter                                                                                            |
+| `quoteStrings`   | `boolean`                             | `false`              | Wrap string values in quotes                                                                             |
+| `processCell`    | `(value, field, row) => string`       | -                    | Custom cell value processor for copy operations                                                          |
+| `pasteHandler`   | `PasteHandler \| null`                | `defaultPasteHandler`| Custom paste handler. Set to `null` to disable auto-paste and handle the `paste` event manually         |
+
+## Paste Behavior
+
+The clipboard plugin respects both selection bounds and the `editable` column property when pasting:
+
+### Editable Columns
+
+**Paste only works on columns marked `editable: true`.** Non-editable columns are skipped during paste, preserving column alignment:
+
+```ts
+columns: [
+  { field: 'id', header: 'ID' },                    // NOT editable - paste skipped
+  { field: 'name', header: 'Name', editable: true }, // Paste allowed
+  { field: 'email', header: 'Email', editable: true }, // Paste allowed
+]
+```
+
+If you paste `"1\t2\t3"` into this grid, only the `name` and `email` columns receive values (`2` and `3`). The `id` column remains unchanged.
+
+> 💡 **Tip:** This works independently of the EditingPlugin. You can use `editable: true` to control paste behavior even without enabling inline editing.
+
+### Selection Bounds
+
+| Selection Type  | Paste Behavior                                                                 |
+| --------------- | ------------------------------------------------------------------------------ |
+| Single cell     | Paste expands freely from that cell, adding rows if needed                     |
+| Range selection | Paste is clipped to fit within the selected range                              |
+| Row selection   | Paste is clipped to the selected rows (all columns within those rows)          |
+| No selection    | Paste starts at row 0, column 0                                                |
+
+**Example:** If you have a 2×2 range selected and paste 3×3 data, only the 2×2 portion that fits will be applied.
+
+## Keyboard Shortcuts
+
+| Shortcut           | Action                    |
+| ------------------ | ------------------------- |
+| `Ctrl+C` / `Cmd+C` | Copy selected cells       |
+| `Ctrl+V` / `Cmd+V` | Paste into selected cells |
+| `Ctrl+X` / `Cmd+X` | Cut selected cells        |
+
+## Programmatic API
+
+The ClipboardPlugin exposes methods for programmatic copy operations with fine-grained control over which columns and rows to include. This is ideal for workflows where users select rows in the grid, then choose columns via a dialog before copying.
+
+### Basic Copy
+
+```ts
+const plugin = grid.getPlugin(ClipboardPlugin);
+
+// Copy current selection to clipboard
+await plugin.copy();
+
+// Copy with headers included
+await plugin.copy({ includeHeaders: true });
+```
+
+### Copy with Column/Row Control (`CopyOptions`)
+
+The `copy()` method accepts `CopyOptions` to precisely control what gets copied—independently of the current selection:
+
+```ts
+const plugin = grid.getPlugin(ClipboardPlugin);
+
+// Copy specific columns from specific rows
+await plugin.copy({
+  rowIndices: [0, 3, 7],         // Non-contiguous rows supported
+  columns: ['name', 'email'],    // Only these columns
+  includeHeaders: true,
+});
+
+// Copy specific rows with all visible columns
+await plugin.copyRows([0, 5]);
+
+// Copy specific rows with column filter
+await plugin.copyRows([0, 5], { columns: ['name', 'department'] });
+```
+
+### Preview Without Copying
+
+Use `getSelectionAsText()` to get the formatted text without writing to the clipboard—useful for preview dialogs:
+
+```ts
+const text = plugin.getSelectionAsText({
+  columns: ['name', 'email', 'department'],
+  includeHeaders: true,
+});
+// "Name\tEmail\tDepartment\nAlice\talice@example.com\tEngineering\n..."
+```
+
+### `CopyOptions` Reference
+
+| Option           | Type                            | Default       | Description                                        |
+| ---------------- | ------------------------------- | ------------- | -------------------------------------------------- |
+| `columns`        | `string[]`                      | -             | Specific column fields to include                  |
+| `rowIndices`     | `number[]`                      | -             | Specific row indices to copy (non-contiguous OK)   |
+| `includeHeaders` | `boolean`                       | config value  | Include column headers in copied text              |
+| `delimiter`      | `string`                        | config value  | Column delimiter override                          |
+| `newline`        | `string`                        | config value  | Row delimiter override                             |
+| `processCell`    | `(value, field, row) => string` | config value  | Custom cell value processor for this operation     |
+
+### Paste
+
+```ts
+// Paste from clipboard
+await plugin.paste();
+
+// Get last copied info
+const lastCopied = plugin.getLastCopied();
+// { text: '...', timestamp: 1234567890 }
+```
+
+## Excel Compatibility
+
+The default tab delimiter ensures copied data pastes correctly into Excel:
+
+```ts
+new ClipboardPlugin({
+  delimiter: '\t', // Tab for Excel
+  includeHeaders: true, // Include column names
+});
+```
+
+## Styling
+
+The clipboard plugin doesn't add visible UI elements. Selection styling is handled by the SelectionPlugin.
+
+## See Also
+
+- **[Selection](../?path=/grid/plugins/selection/)** — Cell and row selection
+- **[Editing](../?path=/grid/plugins/editing/)** — Inline cell editing
+- **[Export](../?path=/grid/plugins/export/)** — Export to CSV/JSON

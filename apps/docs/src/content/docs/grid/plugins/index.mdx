@@ -1,0 +1,310 @@
+---
+title: Plugins Overview
+description: Overview of all @toolbox-web/grid plugins — editing, selection, filtering, grouping, export, and more. Tree-shakeable, individually importable.
+---
+
+# Grid Plugins
+
+The `@toolbox-web/grid` plugin architecture allows you to extend the grid with powerful features while keeping the core bundle lightweight. Plugins are tree-shakeable — only import what you need.
+
+## Available Plugins
+
+### Editing & Data Entry
+
+| Plugin | Description |
+| ------ | ----------- |
+| [Editing](/grid/plugins/editing/) | Inline cell editing with built-in editors |
+| [Undo/Redo](/grid/plugins/undo-redo/) | Undo/redo for cell edits with history stack |
+
+:::note
+Editing is opt-in. To enable `editable` and `editor` column properties, you must register the `EditingPlugin`. This keeps the core bundle lightweight and provides runtime validation to catch misconfigurations early.
+:::
+
+### Selection & Interaction
+
+| Plugin | Description |
+| ------ | ----------- |
+| [Selection](/grid/plugins/selection/) | Cell, row, and range selection with keyboard support |
+| [Clipboard](/grid/plugins/clipboard/) | Copy/paste with Ctrl+C/V |
+| [Context Menu](/grid/plugins/context-menu/) | Right-click context menus with submenus |
+| [Reorder](/grid/plugins/reorder/) | Drag-and-drop column reordering |
+| [Row Reorder](/grid/plugins/row-reorder/) | Drag-and-drop row reordering with keyboard support |
+
+### Filtering & Sorting
+
+| Plugin | Description |
+| ------ | ----------- |
+| [Filtering](/grid/plugins/filtering/) | Column header filters with search and dropdown |
+| [Multi-Sort](/grid/plugins/multi-sort/) | Sort by multiple columns with priority indicators |
+
+### Grouping & Hierarchy
+
+| Plugin | Description |
+| ------ | ----------- |
+| [Row Grouping](/grid/plugins/grouping-rows/) | Group rows by field values with expand/collapse |
+| [Column Grouping](/grid/plugins/grouping-columns/) | Visual column grouping with nested headers |
+| [Tree](/grid/plugins/tree/) | Hierarchical tree data display |
+| [Master-Detail](/grid/plugins/master-detail/) | Expandable detail rows |
+| [Pivot](/grid/plugins/pivot/) | Pivot table transformation with aggregations |
+
+### Layout & Display
+
+| Plugin | Description |
+| ------ | ----------- |
+| [Pinned Columns](/grid/plugins/pinned-columns/) | Pin columns to left or right edge |
+| [Pinned Rows](/grid/plugins/pinned-rows/) | Status bar with aggregations and custom panels |
+| [Visibility](/grid/plugins/visibility/) | Show/hide columns dynamically |
+| [Column Virtualization](/grid/plugins/column-virtualization/) | Performance optimization for many columns |
+| [Responsive](/grid/plugins/responsive/) | Card layout for narrow containers and mobile |
+
+### Data & Export
+
+| Plugin | Description |
+| ------ | ----------- |
+| [Export](/grid/plugins/export/) | Export to CSV, Excel (XML), and JSON formats |
+| [Print](/grid/plugins/print/) | Print-optimized layout with styling |
+| [Server-Side](/grid/plugins/server-side/) | Lazy loading from remote data sources |
+
+## Plugin Dependencies
+
+Some plugins depend on other plugins to function. Dependencies can be **hard** (required) or **soft** (optional enhancement).
+
+### Dependency Types
+
+| Type | Behavior | Example |
+| ---- | -------- | ------- |
+| **Hard (Required)** | Plugin will throw an error if the dependency is missing | UndoRedoPlugin → EditingPlugin |
+| **Soft (Optional)** | Plugin works without it, but gains extra features when present | VisibilityPlugin → ReorderPlugin |
+
+### Current Plugin Dependencies
+
+| Plugin | Depends On | Type | Reason |
+| ------ | ---------- | ---- | ------ |
+| **UndoRedoPlugin** | EditingPlugin | Hard | Tracks cell edit history for undo/redo |
+| **ClipboardPlugin** | SelectionPlugin | Hard | Needs selection to determine what cells to copy |
+| **VisibilityPlugin** | ReorderPlugin | Soft | Enables drag-to-reorder columns in visibility panel |
+
+### Plugin Load Order
+
+Dependencies must be loaded **before** the dependent plugin:
+
+```typescript
+// ✅ Correct - EditingPlugin loaded before UndoRedoPlugin
+plugins: [
+  new EditingPlugin(),
+  new UndoRedoPlugin(),
+]
+
+// ❌ Wrong - throws error at runtime
+plugins: [
+  new UndoRedoPlugin(), // Error: EditingPlugin required
+  new EditingPlugin(),
+]
+```
+
+### Declaring Dependencies in Custom Plugins
+
+Custom plugins can declare their own dependencies using the static `dependencies` property:
+
+```typescript
+import { BaseGridPlugin, type PluginDependency } from '@toolbox-web/grid';
+
+class MyPlugin extends BaseGridPlugin<MyConfig> {
+  // Declare dependencies
+  static override readonly dependencies: PluginDependency[] = [
+    { name: 'selection', required: true, reason: 'MyPlugin needs selection state' },
+    { name: 'filtering', required: false, reason: 'Enables filtered export' },
+  ];
+
+  readonly name = 'myPlugin';
+  // ...
+}
+```
+
+The grid validates dependencies at attachment time and provides helpful error messages:
+
+```
+[tbw-grid] Plugin dependency error: MyPlugin needs selection state.
+  → Add the plugin to your gridConfig.plugins array:
+    import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+    plugins: [new SelectionPlugin(), new MyPlugin(), ...]
+```
+
+## Using Plugins
+
+### Import Paths
+
+The grid package provides multiple entry points for different use cases:
+
+| Entry Point | What It Includes | Tree-Shaking |
+| ----------- | ---------------- | ------------ |
+| `@toolbox-web/grid` | Core grid only (auto-registers `<tbw-grid>`) | N/A |
+| `@toolbox-web/grid/all` | Core + **all** plugins bundled | No |
+| `@toolbox-web/grid/plugins/*` | Individual plugin (e.g., `/plugins/selection`) | Yes |
+
+> **Important:** Do not import from both `@toolbox-web/grid` and `@toolbox-web/grid/all` in the same application. The `all` entry point already includes the core grid, so importing both will register the custom element twice.
+
+#### Recommended Patterns
+
+**For production apps (best tree-shaking):**
+```typescript
+// Import core grid
+import '@toolbox-web/grid';
+
+// Import only the plugins you need
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+```
+
+**For prototyping or when bundle size is not critical:**
+```typescript
+// Import everything at once (includes core grid + all plugins)
+import { SelectionPlugin, FilteringPlugin, EditingPlugin } from '@toolbox-web/grid/all';
+```
+
+### Registration
+
+Pass plugin instances to the `gridConfig.plugins` array:
+
+```typescript
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+    new FilteringPlugin({ debounceMs: 300 }),
+  ],
+};
+```
+
+### Accessing Plugin Instances
+
+Use `grid.getPluginByName()` to access a registered plugin — type-safe for all built-in plugins, no import needed:
+
+```typescript
+// Preferred — type-safe, no import needed
+const selection = grid.getPluginByName('selection');
+if (selection) {
+  selection.selectAll();
+  selection.clearSelection();
+  const ranges = selection.getSelectedRanges();
+}
+```
+
+## Plugin Configuration
+
+Each plugin accepts a configuration object:
+
+```typescript
+// Selection plugin options
+new SelectionPlugin({
+  mode: 'row',
+  multiSelect: true,
+  checkboxColumn: true,
+});
+
+// Filtering plugin options
+new FilteringPlugin({
+  debounceMs: 200,
+  caseSensitive: false,
+});
+
+// Export plugin options
+new ExportPlugin({
+  formats: ['csv', 'json'],
+  filename: 'grid-export',
+});
+```
+
+## Creating Custom Plugins
+
+The grid's plugin system lets you build fully custom functionality. Plugins extend [`BaseGridPlugin`](/grid/api/plugin-development/classes/basegridplugin/) and can hook into lifecycle events, process rows/columns, handle keyboard events, and inject CSS.
+
+For the full development guide including lifecycle hooks, plugin communication, the query system, and styling patterns, see [Writing Custom Plugins](/grid/guides/custom-plugins).
+
+## Known Incompatibilities
+
+Some plugin combinations conflict and should not be used together:
+
+| Plugin A | Plugin B | Reason |
+|----------|----------|--------|
+| PinnedColumnsPlugin | GroupingColumnsPlugin | Pinning reorders columns to edges, which breaks column group header layout |
+| ResponsivePlugin | GroupingRowsPlugin | Card layout doesn't support row grouping; variable row heights cause scroll issues |
+
+## Common Plugin Combinations
+
+These recipes cover the most common grid scenarios. Each shows only the plugins you need — everything else stays tree-shaken.
+
+### Data Browser (read-only, filterable, sortable)
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+plugins: [
+  new SelectionPlugin({ mode: 'row' }),
+  new FilteringPlugin({ debounceMs: 300 }),
+  new MultiSortPlugin(),
+  new VisibilityPlugin(),
+]
+```
+
+### Editable Grid (with undo/redo and clipboard)
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+
+// Load order matters: EditingPlugin before UndoRedoPlugin, SelectionPlugin before ClipboardPlugin
+plugins: [
+  new SelectionPlugin({ mode: 'cell', multiSelect: true }),
+  new EditingPlugin({ mode: 'cell', dirtyTracking: true }),
+  new UndoRedoPlugin(),
+  new ClipboardPlugin(),
+]
+```
+
+### Server-Side Data (large datasets)
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+
+plugins: [
+  new SelectionPlugin({ mode: 'row' }),
+  new FilteringPlugin({ filterHandler: async (model) => fetchFiltered(model) }),
+  new MultiSortPlugin(),
+  new ServerSidePlugin({ pageSize: 100 }),
+]
+```
+
+### Hierarchical / Grouped Data
+
+```typescript
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+plugins: [
+  new GroupingRowsPlugin({ groupOn: (row: any) => [row.department], defaultExpanded: true }),
+  new SelectionPlugin({ mode: 'row' }),
+  new FilteringPlugin(),
+]
+```
+
+## See Also
+
+- [Custom Plugin Development](/grid/guides/custom-plugins) — Build your own plugins
+- [Architecture](/grid/architecture) — How the plugin system fits into the grid's internals
+- [Performance Guide](/grid/guides/performance) — Bundle optimization with tree-shakeable plugins
+- [Common Patterns](/grid/guides/common-patterns) — Complete application recipes using plugins

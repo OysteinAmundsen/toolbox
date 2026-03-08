@@ -1,0 +1,337 @@
+---
+/**
+ * Custom Header — adds grid theme switcher and framework selector alongside Starlight defaults.
+ * Layout: [Logo (sidebar-width)] [ThemeSwitcher | Dark/Light | Search | Framework] [GitHub]
+ */
+import config from 'virtual:starlight/user-config';
+import Search from 'virtual:starlight/components/Search';
+import SiteTitle from 'virtual:starlight/components/SiteTitle';
+import SocialIcons from 'virtual:starlight/components/SocialIcons';
+import ThemeSelect from 'virtual:starlight/components/ThemeSelect';
+
+const shouldRenderSearch =
+  config.pagefind || config.components.Search !== '@astrojs/starlight/components/Search.astro';
+---
+
+<div class="header">
+  <div class="title-wrapper sl-flex">
+    <SiteTitle />
+  </div>
+  <div class="sl-flex center-group print:hidden">
+    <grid-theme-switcher class="sl-hidden md:sl-flex">
+      <label class="theme-select-label">
+        <span class="sr-only">Grid Theme</span>
+        <svg aria-hidden="true" class="theme-select-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+          <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+          <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+          <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+        </svg>
+        <select aria-label="Grid Theme" autocomplete="off">
+          <option value="">Default</option>
+          <option value="bootstrap">Bootstrap</option>
+          <option value="contrast">Contrast</option>
+          <option value="large">Large</option>
+          <option value="material">Material</option>
+          <option value="standard">Standard</option>
+          <option value="vibrant">Vibrant</option>
+        </select>
+        <svg aria-hidden="true" class="theme-select-caret" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m6 9 6 6 6-6"/></svg>
+      </label>
+    </grid-theme-switcher>
+    <div class="sl-hidden md:sl-flex">
+      <ThemeSelect />
+    </div>
+    {shouldRenderSearch && <Search />}
+    <fw-selector class="sl-hidden md:sl-flex">
+      <label class="fw-select-label">
+        <span class="sr-only">Framework</span>
+        <span aria-hidden="true" class="fw-select-icon"></span>
+        <select aria-label="Framework" autocomplete="off">
+          <option value="Vanilla JS">Vanilla JS</option>
+          <option value="React">React</option>
+          <option value="Vue">Vue</option>
+          <option value="Angular">Angular</option>
+        </select>
+        <svg aria-hidden="true" class="fw-select-caret" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m6 9 6 6 6-6"/></svg>
+      </label>
+    </fw-selector>
+  </div>
+  <div class="sl-hidden md:sl-flex print:hidden right-group">
+    <div class="sl-flex social-icons">
+      <SocialIcons />
+    </div>
+  </div>
+</div>
+
+<script>
+  import bootstrapCss from '@toolbox/themes/dg-theme-bootstrap.css?raw';
+import contrastCss from '@toolbox/themes/dg-theme-contrast.css?raw';
+import largeCss from '@toolbox/themes/dg-theme-large.css?raw';
+import materialCss from '@toolbox/themes/dg-theme-material.css?raw';
+import standardCss from '@toolbox/themes/dg-theme-standard.css?raw';
+import vibrantCss from '@toolbox/themes/dg-theme-vibrant.css?raw';
+
+  const THEMES: Record<string, string> = {
+    bootstrap: bootstrapCss,
+    contrast: contrastCss,
+    large: largeCss,
+    material: materialCss,
+    standard: standardCss,
+    vibrant: vibrantCss,
+  };
+
+  const STYLE_ID = 'tbw-active-theme';
+  const STORAGE_KEY = 'tbw-grid-theme';
+
+  function applyTheme(name: string) {
+    document.getElementById(STYLE_ID)?.remove();
+    if (!name || !THEMES[name]) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = THEMES[name];
+    document.head.appendChild(style);
+  }
+
+  // Apply the persisted theme immediately at module-evaluation time so grids
+  // that are already in the DOM render with the correct theme on first paint.
+  const savedTheme = localStorage.getItem(STORAGE_KEY) ?? '';
+  if (savedTheme) applyTheme(savedTheme);
+
+  class GridThemeSwitcher extends HTMLElement {
+    connectedCallback() {
+      const select = this.querySelector('select');
+      if (!select) return;
+
+      // Sync dropdown to persisted value
+      const saved = localStorage.getItem(STORAGE_KEY) ?? '';
+      if (saved) select.value = saved;
+
+      select.addEventListener('change', () => {
+        const theme = select.value;
+        localStorage.setItem(STORAGE_KEY, theme);
+        applyTheme(theme);
+      });
+    }
+  }
+
+  if (!customElements.get('grid-theme-switcher')) {
+    customElements.define('grid-theme-switcher', GridThemeSwitcher);
+  }
+</script>
+
+<script>
+  const FW_STORAGE_KEY = 'starlight-synced-tabs__framework';
+
+  const FW_ICONS: Record<string, string> = {
+    'Vanilla JS': '<svg viewBox="0 0 256 256" width="16" height="16"><path fill="#f0db4f" d="M0 0h256v256H0z"/><path d="M67.312 213.932l19.59-11.856c3.78 6.701 7.218 12.371 15.465 12.371 7.905 0 12.89-3.092 12.89-15.12v-81.798h24.057v82.138c0 24.917-14.606 36.26-35.916 36.26-19.245 0-30.416-9.967-36.087-21.996M152.381 211.354l19.588-11.341c5.157 8.421 11.859 14.607 23.715 14.607 9.969 0 16.325-4.984 16.325-11.858 0-8.248-6.53-11.17-17.528-15.98l-6.013-2.58c-17.357-7.387-28.87-16.667-28.87-36.257 0-18.044 13.747-31.792 35.228-31.792 15.294 0 26.292 5.328 34.196 19.247l-18.732 12.03c-4.125-7.389-8.591-10.31-15.465-10.31-7.046 0-11.514 4.468-11.514 10.31 0 7.217 4.468 10.14 14.778 14.608l6.014 2.577c20.45 8.765 31.963 17.7 31.963 37.804 0 21.654-17.012 33.51-39.867 33.51-22.339 0-36.774-10.654-43.819-24.574"/></svg>',
+    'React': '<svg viewBox="-11.5 -10.232 23 20.463" width="16" height="16" fill="#00d1f7"><circle r="2.05"/><g stroke="#00d1f7" fill="none" stroke-width="1"><ellipse rx="11" ry="4.2"/><ellipse rx="11" ry="4.2" transform="rotate(60)"/><ellipse rx="11" ry="4.2" transform="rotate(120)"/></g></svg>',
+    'Vue': '<svg viewBox="0 0 196.32 170.02" width="16" height="16"><path fill="#42b883" d="M120.83 0L98.16 39.26 75.49 0H0l98.16 170.02L196.32 0h-75.49z"/><path fill="#35495e" d="M120.83 0L98.16 39.26 75.49 0H39.26l58.9 102.01L157.06 0h-36.23z"/></svg>',
+    'Angular': '<svg viewBox="0 0 960 960" width="16" height="16" fill="#f41343"><polygon points="562.6,109.8 804.1,629.5 829.2,233.1"/><polygon points="624.9,655.9 334.3,655.9 297.2,745.8 479.6,849.8 662,745.8"/><polygon points="384.1,539.3 575.2,539.3 479.6,307"/><polygon points="396.6,109.8 130,233.1 155.1,629.5"/></svg>',
+  };
+
+  class FwSelector extends HTMLElement {
+    connectedCallback() {
+      const select = this.querySelector('select');
+      const iconEl = this.querySelector<HTMLElement>('.fw-select-icon');
+      if (!select) return;
+
+      const updateIcon = (label: string) => {
+        if (iconEl) iconEl.innerHTML = FW_ICONS[label] ?? '';
+      };
+
+      // Sync dropdown to persisted value
+      const saved = localStorage.getItem(FW_STORAGE_KEY) ?? '';
+      if (saved) select.value = saved;
+      updateIcon(select.value);
+
+      select.addEventListener('change', () => {
+        const label = select.value;
+        localStorage.setItem(FW_STORAGE_KEY, label);
+        updateIcon(label);
+        // Sync all framework tab groups on the current page
+        for (const tabs of document.querySelectorAll<HTMLElement>('starlight-tabs[data-sync-key="framework"]')) {
+          const tabLinks = [...tabs.querySelectorAll<HTMLAnchorElement>('[role="tab"]')];
+          const idx = tabLinks.findIndex((t) => t.textContent?.trim() === label);
+          if (idx !== -1) tabLinks[idx]?.click();
+        }
+      });
+    }
+  }
+
+  if (!customElements.get('fw-selector')) {
+    customElements.define('fw-selector', FwSelector);
+  }
+</script>
+
+<style>
+  @layer starlight.core {
+    .header {
+      display: flex;
+      gap: var(--sl-nav-gap);
+      justify-content: space-between;
+      align-items: center;
+      height: 100%;
+    }
+
+    .title-wrapper {
+      overflow: clip;
+      padding: 0.25rem;
+      margin: -0.25rem;
+      min-width: 0;
+    }
+
+    .center-group {
+      flex: 1;
+      align-items: center;
+      gap: 0.5rem;
+      justify-content: flex-start;
+    }
+
+    .right-group,
+    .social-icons {
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .social-icons::after {
+      content: '';
+      height: 2rem;
+      border-inline-end: 1px solid var(--sl-color-gray-5);
+    }
+
+    /* ----- Grid theme switcher select ----- */
+    .theme-select-label {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--sl-color-gray-1);
+      cursor: pointer;
+    }
+    .theme-select-label:hover {
+      color: var(--sl-color-gray-2);
+    }
+
+    .theme-select-icon,
+    .theme-select-caret {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .theme-select-icon {
+      font-size: 0.875rem;
+      inset-inline-start: 0;
+    }
+    .theme-select-caret {
+      font-size: 1.25rem;
+      inset-inline-end: 0;
+    }
+
+    .theme-select-label select {
+      border: 0;
+      padding-block: 0.625rem;
+      padding-inline: calc(0.875rem + 0.5rem + 0.25rem) calc(1.25rem + 0.5rem + 0.25rem);
+      margin-inline: -0.5rem;
+      width: calc(7em + 1rem);
+      background-color: transparent;
+      text-overflow: ellipsis;
+      color: inherit;
+      cursor: pointer;
+      appearance: none;
+    }
+    .theme-select-label option {
+      background-color: var(--sl-color-bg-nav);
+      color: var(--sl-color-gray-1);
+    }
+
+    /* ----- Framework selector ----- */
+    .fw-select-label {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--sl-color-gray-1);
+      cursor: pointer;
+    }
+    .fw-select-label:hover {
+      color: var(--sl-color-gray-2);
+    }
+
+    .fw-select-icon,
+    .fw-select-caret {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .fw-select-icon {
+      display: flex;
+      align-items: center;
+      inset-inline-start: 0;
+    }
+    .fw-select-icon :global(svg) {
+      width: 16px;
+      height: 16px;
+    }
+    .fw-select-caret {
+      font-size: 1.25rem;
+      inset-inline-end: 0;
+    }
+
+    .fw-select-label select {
+      border: 0;
+      padding-block: 0.625rem;
+      padding-inline: calc(0.875rem + 0.5rem + 0.25rem) calc(1.25rem + 0.5rem + 0.25rem);
+      margin-inline: -0.5rem;
+      width: calc(7em + 1rem);
+      background-color: transparent;
+      text-overflow: ellipsis;
+      color: inherit;
+      cursor: pointer;
+      appearance: none;
+    }
+    .fw-select-label option {
+      background-color: var(--sl-color-bg-nav);
+      color: var(--sl-color-gray-1);
+    }
+
+    @media (min-width: 50rem) {
+      .theme-select-label select,
+      .fw-select-label select {
+        font-size: var(--sl-text-sm);
+      }
+
+      :global(:root[data-has-sidebar]) {
+        --__sidebar-pad: calc(2 * var(--sl-nav-pad-x));
+      }
+      :global(:root:not([data-has-toc])) {
+        --__toc-width: 0rem;
+      }
+      .header {
+        --__sidebar-width: max(0rem, var(--sl-content-inline-start, 0rem) - var(--sl-nav-pad-x));
+        --__main-column-fr: calc(
+          (
+              100% + var(--__sidebar-pad, 0rem) - var(--__toc-width, var(--sl-sidebar-width)) -
+                (2 * var(--__toc-width, var(--sl-nav-pad-x))) - var(--sl-content-inline-start, 0rem) -
+                var(--sl-content-width)
+            ) / 2
+        );
+        display: grid;
+        grid-template-columns:
+          /* 1 (site title): aligns with sidebar */
+          minmax(
+            calc(var(--__sidebar-width) + max(0rem, var(--__main-column-fr) - var(--sl-nav-gap))),
+            auto
+          )
+          /* 2 (center: theme switcher + dark/light + search) */
+          1fr
+          /* 3 (right: social icons) */
+          auto;
+        align-content: center;
+      }
+    }
+  }
+</style>

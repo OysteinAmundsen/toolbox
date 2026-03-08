@@ -1,0 +1,254 @@
+---
+title: "Export Plugin"
+description: "Export grid data to CSV or other formats."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import ExportDefaultDemo from '@components/demos/export/ExportDefaultDemo.astro';
+import ExportExportSelectedDemo from '@components/demos/export/ExportExportSelectedDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+
+# Export Plugin
+
+The Export plugin lets users download grid data as CSV, JSON, or other formats with a single click or API call. Great for reporting, data backup, or letting users work with data in Excel.
+
+## Installation
+
+```ts
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+```
+
+## Basic Usage
+
+Add the plugin and call `exportCsv()` or `exportJson()` when you're ready to download. You can also combine it with the SelectionPlugin to export only selected rows.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' }
+  ],
+  plugins: [
+    new ExportPlugin({
+      filename: 'employees',
+      format: 'csv',
+      includeHeaders: true,
+    }),
+  ],
+};
+
+// Trigger export via button click
+document.getElementById('export-btn').addEventListener('click', () => {
+  const plugin = grid.getPlugin(ExportPlugin);
+  plugin.exportCsv();
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/export';
+import { DataGrid, useGrid } from '@toolbox-web/grid-react';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+
+function EmployeeGrid({ data }) {
+  const { gridRef, getPlugin } = useGrid();
+
+  const handleExport = () => {
+    getPlugin(ExportPlugin)?.exportCsv();
+  };
+
+  return (
+    <>
+      <button onClick={handleExport}>Export CSV</button>
+      <DataGrid
+        ref={gridRef}
+        rows={data}
+        columns={[
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email' },
+          { field: 'department', header: 'Department' },
+        ]}
+        export={{ filename: 'employees', format: 'csv', includeHeaders: true }}
+      />
+    </>
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import { ref, markRaw } from 'vue';
+
+const data = [
+  { name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
+  { name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
+];
+
+const gridRef = ref(null);
+
+const exportPlugin = markRaw(new ExportPlugin({
+  filename: 'employees',
+  format: 'csv',
+  includeHeaders: true,
+}));
+
+const handleExport = () => {
+  gridRef.value?.element?.getPlugin(ExportPlugin)?.exportCsv();
+};
+</script>
+
+<template>
+  <div>
+    <button @click="handleExport">Export CSV</button>
+    <TbwGrid ref="gridRef" :rows="data" :plugins="[exportPlugin]">
+      <TbwGridColumn field="name" header="Name" />
+      <TbwGridColumn field="email" header="Email" />
+      <TbwGridColumn field="department" header="Department" />
+    </TbwGrid>
+  </div>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature import - enables the [exportFeature] input
+import '@toolbox-web/grid-angular/features/export';
+
+import { Component, viewChild, ElementRef } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import type { ColumnConfig, GridElement } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-data-grid',
+  imports: [Grid],
+  template: `
+    <button (click)="handleExport()">Export CSV</button>
+    <tbw-grid
+      #grid
+      [rows]="rows"
+      [columns]="columns"
+      [exportFeature]="{ filename: 'employees', format: 'csv', includeHeaders: true }"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class DataGridComponent {
+  gridRef = viewChild<ElementRef<GridElement>>('grid');
+  rows = [];
+
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ];
+
+  handleExport() {
+    const plugin = this.gridRef()?.nativeElement.getPlugin(ExportPlugin);
+    plugin?.exportCsv();
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+## Demos
+
+### Default Export
+
+<ShowSource file="demos/export/ExportDefaultDemo.astro">
+  <ExportDefaultDemo />
+</ShowSource>
+
+Export all visible data to CSV.
+
+
+
+### Export Selected Rows
+
+<ShowSource file="demos/export/ExportExportSelectedDemo.astro">
+  <ExportExportSelectedDemo />
+</ShowSource>
+
+When combined with SelectionPlugin, export only selected rows.
+
+
+
+## Configuration Options
+
+| Option           | Type              | Default         | Description                       |
+| ---------------- | ----------------- | --------------- | --------------------------------- |
+| `filename`       | `string`          | `'grid-export'` | Base filename (without extension) |
+| `format`         | `'csv' \| 'json'` | `'csv'`         | Export format                     |
+| `includeHeaders` | `boolean`         | `true`          | Include column headers in export  |
+| `delimiter`      | `string`          | `','`           | CSV delimiter character           |
+
+## Programmatic API
+
+The ExportPlugin provides methods for exporting data with fine-grained control over which columns and rows to include. Like the ClipboardPlugin, it accepts `columns` and `rowIndices` parameters so you can export exactly the data you need.
+
+### Basic Export
+
+```ts
+const exportPlugin = grid.getPlugin(ExportPlugin);
+
+// Export all visible data to CSV
+exportPlugin.exportCsv();
+
+// Export to Excel XML
+exportPlugin.exportExcel();
+
+// Export to JSON
+exportPlugin.exportJson();
+```
+
+### Export with Column/Row Control (`ExportParams`)
+
+```ts
+const exportPlugin = grid.getPlugin(ExportPlugin);
+
+// Export specific columns
+exportPlugin.exportCsv({
+  columns: ['name', 'email', 'department'],
+  fileName: 'contacts',
+  includeHeaders: true,
+});
+
+// Export specific rows
+exportPlugin.exportCsv({
+  rowIndices: [0, 3, 7],
+  fileName: 'selected-employees',
+});
+
+// Export specific columns from specific rows
+exportPlugin.exportExcel({
+  columns: ['name', 'salary'],
+  rowIndices: [0, 1, 2],
+  fileName: 'salary-report',
+});
+```
+
+### `ExportParams` Reference
+
+| Option           | Type                            | Default       | Description                         |
+| ---------------- | ------------------------------- | ------------- | ----------------------------------- |
+| `fileName`       | `string`                        | config value  | File name (without extension)       |
+| `columns`        | `string[]`                      | -             | Specific column fields to export    |
+| `rowIndices`     | `number[]`                      | -             | Specific row indices to export      |
+| `includeHeaders` | `boolean`                       | config value  | Include column headers in export    |
+| `processCell`    | `(value, field, row) => any`    | -             | Custom cell value processor         |
+| `processHeader`  | `(header, field) => string`     | -             | Custom header processor             |
+
+## See Also
+
+- **[Clipboard](../?path=/grid/plugins/clipboard/)** — Copy cells to clipboard
+- **[Print](../?path=/grid/plugins/print/)** — Print the grid
+- **[Server-Side Data](..//grid/plugins/server-side-data/)** — Export with server data

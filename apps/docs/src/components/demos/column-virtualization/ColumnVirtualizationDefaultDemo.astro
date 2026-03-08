@@ -1,0 +1,66 @@
+---
+// ColumnVirtualizationDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="column-virtualization-default-demo">
+  <DemoControls controls={[
+    { section: 'DATA', name: 'columnCount', label: 'Column count', type: 'number',
+      min: 5, max: 200, step: 5, default: 50, description: 'Number of columns to generate' },
+    { section: 'VIRTUALIZATION', name: 'threshold', label: 'Threshold', type: 'number',
+      min: 5, max: 100, step: 5, default: 30, description: 'Min columns to enable virtualization' },
+    { section: 'VIRTUALIZATION', name: 'overscan', label: 'Overscan', type: 'number',
+      min: 1, max: 10, step: 1, default: 3, description: 'Extra columns rendered offscreen' },
+    { section: 'VIRTUALIZATION', name: 'autoEnable', label: 'Auto-enable', type: 'boolean',
+      default: true, description: 'Automatically enable when column count exceeds threshold' },
+  ]} />
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+
+const container = document.getElementById('column-virtualization-default-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function generateColumns(count: number) {
+    const columns = [{ field: 'id', header: 'ID', type: 'number' as const, width: 60 }];
+    for (let i = 1; i < count; i++) {
+      columns.push({ field: `col${i}`, header: `Column ${i}`, type: 'number' as const, width: 100 });
+    }
+    return columns;
+  }
+
+  function generateRows(rowCount: number, colCount: number) {
+    const rows = [];
+    for (let r = 0; r < rowCount; r++) {
+      const row: Record<string, number> = { id: r + 1 };
+      for (let c = 1; c < colCount; c++) {
+        row[`col${c}`] = Math.floor(Math.random() * 1000);
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function rebuild(columnCount = 50, threshold = 30, overscan = 3, autoEnable = true) {
+    const columns = generateColumns(columnCount);
+    const rows = generateRows(100, columnCount);
+    grid.gridConfig = {
+      columns,
+      fitMode: 'fixed',
+      plugins: [new ColumnVirtualizationPlugin({ autoEnable, threshold, overscan })],
+    };
+    grid.rows = rows;
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    const v = e.detail.allValues;
+    rebuild(v.columnCount as number, v.threshold as number, v.overscan as number, v.autoEnable as boolean);
+  }) as EventListener);
+}
+</script>

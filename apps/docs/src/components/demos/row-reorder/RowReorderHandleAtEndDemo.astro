@@ -1,0 +1,44 @@
+---
+// RowReorderHandleAtEndDemo.astro
+---
+<div class="grid-demo not-content" id="row-reorder-handle-at-end-demo">
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+
+const container = document.getElementById('row-reorder-handle-at-end-demo');
+if (container) {
+  // Sample data for row reorder demos
+  const sampleData = [
+    { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', priority: 1 },
+    { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', priority: 2 },
+    { id: 3, name: 'Carol', department: 'Engineering', email: 'carol@example.com', priority: 3 },
+    { id: 4, name: 'David', department: 'Sales', email: 'david@example.com', priority: 4 },
+    { id: 5, name: 'Eve', department: 'Engineering', email: 'eve@example.com', priority: 5 },
+  ];
+  const columns = [
+    { field: 'priority', header: '#', type: 'number', width: 50 },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'email', header: 'Email' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container);
+      
+  
+      grid.gridConfig = {
+        columns,
+        plugins: [
+          new RowReorderPlugin({
+            dragHandlePosition: 'right',
+          }),
+        ],
+      };
+      grid.rows = sampleData;
+}
+</script>

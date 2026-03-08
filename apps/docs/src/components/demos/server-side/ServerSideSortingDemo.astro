@@ -1,0 +1,68 @@
+---
+// ServerSideSortingDemo.astro
+---
+<div class="grid-demo not-content" id="server-side-sorting-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+const container = document.getElementById('server-side-sorting-demo');
+if (container) {
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'department', header: 'Department', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+    { field: 'email', header: 'Email' },
+  ];
+
+  function generateMockData(count: number) {
+    const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+    const data = [];
+    for (let i = 0; i < count; i++) {
+      data.push({
+        id: i + 1,
+        name: `Employee ${i + 1}`,
+        department: departments[i % departments.length],
+        salary: 50000 + Math.floor(Math.random() * 50000),
+        email: `employee${i + 1}@example.com`,
+      });
+    }
+    return data;
+  }
+
+  const grid = queryGrid('tbw-grid', container);
+
+      const serverData = generateMockData(1000);
+
+      grid.gridConfig = {
+        columns,
+        sortHandler: async (rows, sortState) => {
+          // Show loading indicator
+          grid.setAttribute('aria-busy', 'true');
+
+          try {
+            // Simulate server delay
+            await new Promise((r) => setTimeout(r, 300));
+
+            // Server-side sort simulation
+            const sorted = [...serverData].sort((a, b) => {
+              const aVal = (a as Record<string, unknown>)[sortState.field];
+              const bVal = (b as Record<string, unknown>)[sortState.field];
+              const cmp = aVal! < bVal! ? -1 : aVal! > bVal! ? 1 : 0;
+              return cmp * sortState.direction;
+            });
+
+            return sorted;
+          } finally {
+            grid.removeAttribute('aria-busy');
+          }
+        },
+      };
+
+      grid.rows = serverData;
+}
+</script>

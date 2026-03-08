@@ -37,7 +37,7 @@ What actually happened.
 
 - [ ] Minimal code snippet (inline below)
 - [ ] Link to reproduction repo
-- [ ] Storybook example demonstrating the issue
+- [ ] Live docs site example demonstrating the issue
 
 ```ts
 // Paste minimal reproduction code here

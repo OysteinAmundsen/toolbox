@@ -1,0 +1,77 @@
+---
+// ResponsiveDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="responsive-default-demo">
+  <DemoControls controls={[
+    { section: 'RESPONSIVE', name: 'breakpoint', label: 'Breakpoint (px)', type: 'number',
+      min: 200, max: 1000, step: 50, default: 500, description: 'Width threshold for card layout' },
+    { section: 'RESPONSIVE', name: 'hideHeader', label: 'Hide header', type: 'boolean',
+      default: true, description: 'Hide column headers in card layout' },
+    { section: 'RESPONSIVE', name: 'debounceMs', label: 'Debounce (ms)', type: 'number',
+      min: 0, max: 500, step: 50, default: 100, description: 'Resize debounce delay' },
+  ]} />
+  <div class="responsive-instruction" style="margin-bottom: 8px; padding: 0 8px; color: var(--sl-color-gray-3); font-size: 14px;">
+    ↔ Drag the right edge to resize the container
+  </div>
+  <div class="responsive-resize-wrap" style="resize: horizontal; overflow: auto; width: 700px; min-width: 250px; max-width: 100%; border: 2px dashed var(--sl-color-gray-5); padding: 8px;">
+    <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+    <div class="responsive-status" style="margin-top: 8px; font-size: 12px; color: var(--sl-color-gray-3);"></div>
+  </div>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+const container = document.getElementById('responsive-default-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, email: 'alice@example.com', startDate: '2020-03-15' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000, email: 'bob@example.com', startDate: '2019-07-22' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000, email: 'carol@example.com', startDate: '2018-11-01' },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, email: 'dan@example.com', startDate: '2021-01-10' },
+    { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 72000, email: 'eve@example.com', startDate: '2022-05-03' },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 98000, email: 'frank@example.com', startDate: '2020-08-20' },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number', width: 60 },
+    { field: 'name', header: 'Name', width: 150 },
+    { field: 'department', header: 'Department', width: 120 },
+    { field: 'salary', header: 'Salary', type: 'number', width: 100 },
+    { field: 'email', header: 'Email', width: 200 },
+    { field: 'startDate', header: 'Start Date', width: 120 },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+  const status = container.querySelector('.responsive-status')!;
+  let currentBreakpoint = 500;
+
+  function rebuild(breakpoint = 500, hideHeader = true, debounceMs = 100) {
+    currentBreakpoint = breakpoint;
+    grid.gridConfig = {
+      columns,
+      plugins: [new ResponsivePlugin({ breakpoint, hideHeader, debounceMs })],
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    const v = e.detail.allValues;
+    rebuild(v.breakpoint as number, v.hideHeader as boolean, v.debounceMs as number);
+  }) as EventListener);
+
+  grid.addEventListener('responsive-change', ((e: any) => {
+    const { isResponsive, width, breakpoint } = e.detail;
+    status.textContent = `Mode: ${isResponsive ? '📱 Card' : '📊 Table'} | Width: ${Math.round(width)}px | Breakpoint: ${breakpoint}px`;
+  }) as EventListener);
+
+  requestAnimationFrame(() => {
+    const width = grid.clientWidth;
+    status.textContent = `Mode: ${width < currentBreakpoint ? '📱 Card' : '📊 Table'} | Width: ${Math.round(width)}px | Breakpoint: ${currentBreakpoint}px`;
+  });
+}
+</script>

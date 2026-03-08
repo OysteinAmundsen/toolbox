@@ -1,0 +1,54 @@
+---
+// ResponsiveAnimatedTransitionsDemo.astro
+---
+<div class="grid-demo not-content" id="responsive-animated-transitions-demo">
+  <div style="margin-bottom: 8px; color: var(--sl-color-gray-3); font-size: 14px;">
+    ↔ Resize below 500px to see animated transition
+  </div>
+  <div style="resize: horizontal; overflow: auto; width: 600px; min-width: 300px; max-width: 100%; border: 2px dashed var(--sl-color-gray-5); padding: 8px; padding-bottom: 16px;">
+    <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+    <div class="responsive-status" style="margin-top: 8px; font-size: 12px; color: var(--sl-color-gray-3);"></div>
+  </div>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+const container = document.getElementById('responsive-animated-transitions-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  const status = container.querySelector('.responsive-status');
+  if (!grid) throw new Error('Grid not found');
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name', width: 150 },
+      { field: 'department', header: 'Department', width: 120 },
+      { field: 'salary', header: 'Salary', type: 'number', width: 100 },
+    ],
+    plugins: [
+      new ResponsivePlugin({
+        breakpoint: 500,
+        animate: true,
+        animationDuration: 300,
+      }),
+    ],
+  };
+
+  grid.rows = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000 },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000 },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000 },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000 },
+    { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 72000 },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 98000 },
+  ];
+
+  grid.addEventListener('responsive-change', ((e: CustomEvent) => {
+    if (status) status.textContent = e.detail.isResponsive ? '📱 Card mode - watch the fade-in animation!' : '📊 Table mode';
+  }) as EventListener);
+}
+</script>

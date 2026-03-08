@@ -1,0 +1,52 @@
+---
+// ConditionalSelectionDemo.astro — Shows isSelectable callback to disable selection on specific rows
+---
+<div class="grid-demo not-content">
+  <p class="grid-demo-description">Rows with status "locked" cannot be selected. Try clicking or using Shift+Click — locked rows are skipped.</p>
+  <tbw-grid style="display: block; height: 300px;" data-demo-id="conditional-selection"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+  const grid = document.querySelector<DataGridElement>('[data-demo-id="conditional-selection"]');
+  if (grid) {
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', type: 'number', width: 80 },
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+        { field: 'status', header: 'Status' },
+      ],
+      plugins: [
+        new SelectionPlugin({
+          mode: 'row',
+          isSelectable: (row: { status: string }) => row.status !== 'locked',
+        }),
+      ],
+    };
+
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', department: 'Engineering', status: 'active' },
+      { id: 2, name: 'Bob Smith', department: 'Marketing', status: 'locked' },
+      { id: 3, name: 'Carol Davis', department: 'Engineering', status: 'active' },
+      { id: 4, name: 'Dan Wilson', department: 'Sales', status: 'locked' },
+      { id: 5, name: 'Eve Brown', department: 'HR', status: 'active' },
+      { id: 6, name: 'Frank Miller', department: 'Engineering', status: 'active' },
+      { id: 7, name: 'Grace Lee', department: 'Finance', status: 'locked' },
+      { id: 8, name: 'Hank Taylor', department: 'Sales', status: 'active' },
+    ];
+  }
+</script>
+
+<style>
+  .grid-demo-description {
+    padding: 0.75rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-2);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+</style>

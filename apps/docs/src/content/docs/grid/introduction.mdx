@@ -1,0 +1,244 @@
+---
+title: Introduction
+description: A high-performance, framework-agnostic data grid web component for JavaScript, React, Angular, and Vue. Zero dependencies, 100k+ rows, virtualized rendering.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import IntroBasicDemo from '@components/demos/IntroBasicDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+# <img src="/grid_logo.png" alt="" style="height: 1.2em; vertical-align: middle; margin-right: 0.3em;" /> @toolbox-web/grid
+
+A **high-performance, framework-agnostic data grid** web component built with pure TypeScript. No runtime dependencies—just drop it into any project and start rendering data.
+
+## Why Choose @toolbox-web/grid?
+
+We built this grid because we needed something that works everywhere without framework lock-in or expensive licensing. Whether you're building a vanilla JavaScript prototype, a React dashboard, or an Angular enterprise application, you get the same powerful grid with a single codebase.
+
+| Feature                    | Description                                                         |
+| -------------------------- | ------------------------------------------------------------------- |
+| 🚀 **Enterprise Performance** | Virtualized rendering handles 100k+ rows at 60fps                |
+| 🔧 **True Framework Agnostic** | Single codebase works in vanilla JS, React, Vue, Angular, Svelte |
+| 📦 **Lightweight & Self-Contained** | ~45KB gzipped with zero runtime dependencies           |
+| 🧩 **Best-in-Class Plugin System** | 19+ hooks, dependency validation, type-safe config extension |
+| ⌨️ **Full Keyboard Support** | Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down            |
+| 🎨 **Themeable**           | CSS custom properties for complete visual customization             |
+| 💡 **Developer-Friendly Errors** | Actionable error messages with import hints and fix suggestions |
+| 🆓 **Free & Open Source**  | MIT licensed—no enterprise tiers or feature gates                   |
+
+:::tip[Looking for an AG Grid alternative?]
+Many features that require AG Grid Enterprise (paid) are **free** in Toolbox Grid: range selection, clipboard, Excel export, row grouping, pivot tables, tree data, master-detail, server-side data, and more.
+
+See our [full feature comparison](/grid/comparison).
+:::
+
+:::note[Built to Last]
+This grid is built entirely on **stable web standards**—Custom Elements, CSS Custom Properties, and standard DOM APIs. No framework abstractions, no compile-time magic, no dependencies that can break.
+
+What does that mean for you? **It will never stop working.** Even if development ceased tomorrow, your grid would continue to function in every browser, forever.
+:::
+
+## Quick Start
+
+### Installation
+
+```bash
+npm install @toolbox-web/grid
+```
+
+Also available via yarn, pnpm, bun, or CDN. See the [Getting Started guide](/grid/getting-started#installation) for all options.
+
+### Basic Usage
+
+The grid is a standard web component—use it just like any HTML element:
+
+```html
+<tbw-grid style="height: 300px;"></tbw-grid>
+
+<script type="module">
+  import '@toolbox-web/grid';
+  import { queryGrid } from '@toolbox-web/grid';
+
+  const grid = queryGrid('tbw-grid');
+
+  grid.columns = [
+    { field: 'id', header: 'ID', type: 'number', sortable: true },
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'email', header: 'Email' },
+  ];
+
+  grid.rows = [
+    { id: 1, name: 'Alice', email: 'alice@example.com' },
+    { id: 2, name: 'Bob', email: 'bob@example.com' },
+    { id: 3, name: 'Carol', email: 'carol@example.com' },
+  ];
+</script>
+```
+
+That's it—no build step required for basic usage. The grid auto-registers the `<tbw-grid>` custom element when you import it.
+
+### Live Demo
+
+<ShowSource file="demos/IntroBasicDemo.astro">
+  <IntroBasicDemo />
+</ShowSource>
+
+## Architecture Highlights
+
+Under the hood, the grid employs patterns typically found in enterprise-grade solutions:
+
+| Pattern | What It Does |
+| ------- | ------------ |
+| **Centralized Render Scheduler** | Batches all updates into a single `requestAnimationFrame` per frame—no layout thrashing |
+| **Phase-Based Execution** | Prioritizes work (config → rows → columns → render) for predictable updates |
+| **DOM Recycling** | Reuses row elements via a pool with epoch-based invalidation—minimal GC pressure |
+| **Template Cloning** | Pre-created templates cloned via `cloneNode(true)`—3-4x faster than `createElement` |
+| **Event Delegation** | Single listener per event type on the container—scales to any dataset size |
+| **Faux Scrollbar** | Separates scroll container from content—no reflow during scroll |
+
+## Features Overview
+
+### Virtualization
+
+The grid uses row virtualization by default, rendering only visible rows plus a configurable overscan buffer. Small datasets (under ~24 rows) bypass virtualization entirely for maximum simplicity. Throw a million rows at it and you'll still get smooth 60fps scrolling.
+
+### Column Configuration
+
+Columns support extensive configuration options:
+
+```typescript
+const columns = [
+  {
+    field: 'name',           // Data field key (required)
+    header: 'Full Name',     // Display header
+    type: 'string',          // 'string' | 'number' | 'boolean' | 'date' | 'select'
+    sortable: true,          // Enable sorting
+    resizable: true,         // Enable column resize
+    editable: true,          // Enable inline editing (requires EditingPlugin)
+    width: 200,              // Initial width in pixels
+    minWidth: 100,           // Minimum width when resizing
+    format: (val) => val.toUpperCase(),  // Custom formatter
+  },
+];
+```
+
+Check out the [API Reference](/grid/api/core/interfaces/grid-config) for the complete list of column options.
+
+### Sorting
+
+Click column headers to sort. The grid supports:
+
+- **Single-column sorting** (default) — click a header to sort, click again to reverse
+- **Multi-column sorting** — hold Shift and click multiple headers, or use the MultiSort plugin
+- **Custom sort comparators** — define your own comparison logic per column
+
+### Inline Editing
+
+Enable editing with the `EditingPlugin` and set `editable: true` on columns:
+
+```typescript
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+grid.gridConfig = {
+  columns: [
+    { field: 'name', editable: true },
+  ],
+  plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+};
+```
+
+The grid provides:
+
+- **Click** or **double-click** to edit (configurable via `EditingPlugin({ editOn })`)
+- Built-in editors for text, number, boolean (checkbox), date, and select
+- **Enter** to confirm, **Escape** to cancel
+- **Tab/Shift+Tab** navigation between editable cells
+- Change tracking with commit/reset lifecycle
+
+:::note
+Editing is opt-in via the `EditingPlugin`. Using `editable: true` without the plugin will throw a helpful error with import instructions.
+:::
+
+### Events
+
+The grid emits standard DOM `CustomEvent`s that you can listen to:
+
+| Event           | Description                         |
+| --------------- | ----------------------------------- |
+| `cell-commit`   | Cell value was edited and committed |
+| `row-commit`    | Bulk row edit session completed     |
+| `sort-change`   | Sort state changed                  |
+| `column-resize` | Column was resized                  |
+| `activate-cell` | Cell received focus/activation      |
+
+```typescript
+grid.addEventListener('cell-commit', (e) => {
+  const { row, field, value, oldValue } = e.detail;
+  console.log(`${field} changed from "${oldValue}" to "${value}"`);
+});
+```
+
+## Plugin Architecture
+
+The core grid is intentionally minimal (~45KB gzipped). Advanced features are delivered through plugins that you can import as needed—pay only for what you use:
+
+- **SelectionPlugin** — Cell, row, or range selection with Shift/Ctrl modifiers
+- **FilteringPlugin** — Column header filters with custom filter panels
+- **GroupingRowsPlugin** — Hierarchical row grouping with footer aggregations
+- **TreePlugin** — Expandable tree data with lazy loading support
+- **MasterDetailPlugin** — Expandable detail rows with custom content
+- **PinnedColumnsPlugin** — Sticky columns on left/right edges
+- **ExportPlugin** — Export to CSV, Excel, or JSON
+- **ClipboardPlugin** — Copy/paste with Excel-compatible formatting
+- **UndoRedoPlugin** — Ctrl+Z/Ctrl+Y for edit history
+- **ContextMenuPlugin** — Right-click menus with custom actions
+- ...and many more
+
+### Why the Plugin System Stands Out
+
+- **19+ extension hooks** — From data transforms to cell rendering to keyboard handling
+- **Dependency validation** — Plugins declare dependencies; missing ones throw helpful errors
+- **Type-safe config extension** — Plugins can add properties to [`ColumnConfig`](/grid/api/core/interfaces/columnconfig/) via module augmentation
+- **Auto-cleanup** — Plugins receive an `AbortSignal` for automatic listener cleanup on detach
+- **Third-party friendly** — Build and distribute your own plugins with full type support
+
+Plugins are tree-shakeable—only what you import ends up in your bundle.
+
+```typescript
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+grid.gridConfig = {
+  columns: [...],
+  plugins: [
+    new SelectionPlugin({ mode: 'row' }),
+    new FilteringPlugin({ debounceMs: 300 }),
+  ],
+};
+```
+
+## AI-Assisted Development
+
+Using an AI coding assistant like GitHub Copilot, Cursor, or ChatGPT? We provide `llms.txt` files following the [llms.txt standard](https://llmstxt.org/) to help AI tools understand our codebase:
+
+- **[llms.txt](https://raw.githubusercontent.com/OysteinAmundsen/toolbox/main/llms.txt)** — Concise overview with links to all documentation
+- **[llms-full.txt](https://raw.githubusercontent.com/OysteinAmundsen/toolbox/main/llms-full.txt)** — Comprehensive implementation guide with code examples, CSS variables, and plugin patterns
+
+Point your AI assistant to these files for better code suggestions and answers about the grid.
+
+## Next Steps
+
+Ready to dive in?
+
+<CardGrid>
+  <LinkCard title="Getting Started" description="Detailed setup for Vanilla JS, React, Vue, and Angular" href="/grid/getting-started/" />
+  <LinkCard title="Core Features" description="Sorting, rendering, keyboard navigation, and interactive playground" href="/grid/core/" />
+  <LinkCard title="Plugins" description="Extend with selection, filtering, grouping, and 20+ more" href="/grid/plugins/" />
+  <LinkCard title="API Reference" description="Complete property, method, and event reference" href="/grid/api-reference/" />
+</CardGrid>
+
+---
+
+:::tip[Enjoying @toolbox-web/grid?]
+If you find this project useful, I'd really appreciate a star on [GitHub](https://github.com/OysteinAmundsen/toolbox)!
+:::

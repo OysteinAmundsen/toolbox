@@ -1,0 +1,601 @@
+---
+// PerformanceStressTestDemo.astro — Full benchmark suite ported from performance.stories.ts
+// Runs in an embedded panel: row/column sliders + "Run Full Benchmark" with live results
+---
+<div class="stress-test-wrapper not-content">
+  <div class="stress-bar">
+    <div class="stress-bar-left">
+      <button id="stress-run" class="stress-btn">Run Full Benchmark</button>
+      <span id="stress-status">Ready</span>
+    </div>
+    <div class="stress-bar-right">
+      <label>Rows: <input type="range" id="stress-rows" min="1000" max="100000" step="1000" value="10000" /><span id="stress-rows-val">10,000</span></label>
+      <label>Columns: <input type="range" id="stress-cols" min="5" max="50" step="5" value="10" /><span id="stress-cols-val">10</span></label>
+    </div>
+  </div>
+  <div class="stress-grid-container">
+    <tbw-grid data-demo-id="perf-stress"></tbw-grid>
+  </div>
+  <div id="stress-results" class="stress-results">
+    <p>Click <strong>Run Full Benchmark</strong> to test all grid operations.</p>
+    <p style="opacity:0.7;font-size:12px;">Tests: Initial render, scroll performance, sort, filter, data update, selection, memory usage</p>
+  </div>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+  // #region Types & Helpers
+  type ExtendedColumnConfig = ColumnConfig & { sticky?: 'left' | 'right'; filterable?: boolean };
+
+  interface BenchmarkResult {
+    name: string;
+    category: 'render' | 'scroll' | 'operation' | 'memory';
+    time: number;
+    unit: string;
+    target: number;
+    passed: boolean;
+    note?: string;
+  }
+
+  function generateColumns(count: number, options?: { sortable?: boolean; filterable?: boolean }): ExtendedColumnConfig[] {
+    const columns: ExtendedColumnConfig[] = [
+      { field: 'id', header: 'ID', type: 'number', width: 60, sortable: options?.sortable },
+    ];
+    for (let i = 1; i < count; i++) {
+      columns.push({
+        field: `col${i}`,
+        header: `Column ${i}`,
+        type: 'string',
+        width: 100,
+        sortable: options?.sortable,
+        filterable: options?.filterable,
+      });
+    }
+    return columns;
+  }
+
+  function generateRows(rowCount: number, columnCount: number): Record<string, unknown>[] {
+    const rows: Record<string, unknown>[] = [];
+    for (let i = 0; i < rowCount; i++) {
+      const row: Record<string, unknown> = { id: i + 1 };
+      for (let j = 1; j < columnCount; j++) {
+        row[`col${j}`] = `R${i + 1}C${j}`;
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  function formatTime(ms: number): string {
+    if (ms < 1) return `${(ms * 1000).toFixed(0)}µs`;
+    if (ms < 1000) return `${ms.toFixed(2)}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
+  }
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+  // #endregion
+
+  // #region Results Rendering
+  function renderResultsTable(results: BenchmarkResult[], isComplete = false): string {
+    const categories = ['render', 'scroll', 'operation', 'memory'] as const;
+    const categoryLabels: Record<string, string> = {
+      render: '🎨 Initial Render',
+      scroll: '📜 Scroll Performance',
+      operation: '⚡ Operations',
+      memory: '💾 Memory',
+    };
+
+    let html = `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">`;
+
+    for (const cat of categories) {
+      const catResults = results.filter((r) => r.category === cat);
+      if (catResults.length === 0) continue;
+
+      html += `
+        <div style="background:var(--sl-color-gray-6,#1e1e1e);border-radius:6px;padding:12px;min-width:0;">
+          <h4 style="margin:0 0 10px 0;color:var(--sl-color-white,#e5e5e5);font-size:13px;font-weight:600;">${categoryLabels[cat]}</h4>
+          <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:4px 12px;font-size:12px;align-items:center;">
+            ${catResults.map((r) => `
+              <div style="color:var(--sl-color-white,#e5e5e5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
+              <div style="color:${r.passed ? '#4ade80' : '#f87171'};font-family:monospace;text-align:right;">
+                ${r.unit === 'info' ? '—' : r.unit === 'bytes' ? formatBytes(r.time) : r.unit === 'bool' ? (r.time ? 'Yes' : 'No') : r.unit === 'count' ? r.time.toLocaleString() : formatTime(r.time)}
+              </div>
+              <div style="color:#888;font-family:monospace;text-align:right;font-size:11px;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${r.note || ''}">
+                ${r.note ? r.note : (r.unit === 'bool' || r.unit === 'info' || r.unit === 'count') ? '' : r.target === Infinity ? '(info)' : '&lt;' + (r.unit === 'bytes' ? formatBytes(r.target) : formatTime(r.target))}
+              </div>
+              <div style="text-align:center;">${r.target === Infinity ? 'ℹ️' : r.passed ? '✅' : '❌'}</div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    html += `</div>`;
+
+    if (isComplete) {
+      const passed = results.filter((r) => r.passed).length;
+      const total = results.length;
+      const allPassed = passed === total;
+      html += `
+        <div style="margin-top:16px;padding:12px;background:${allPassed ? '#166534' : '#991b1b'};border-radius:4px;text-align:center;">
+          <strong style="color:#fff;font-size:14px;">${allPassed ? '✅ All benchmarks passed!' : `⚠️ ${passed}/${total} benchmarks passed`}</strong>
+        </div>
+      `;
+    } else {
+      html += `<div style="margin-top:16px;padding:8px;opacity:0.6;text-align:center;font-size:12px;">Running... ${results.length} tests completed</div>`;
+    }
+
+    return html;
+  }
+  // #endregion
+
+  // #region DOM References
+  const grid = document.querySelector<HTMLElement & { columns: unknown[]; rows: unknown[]; gridConfig: unknown; getPlugin?: (cls: unknown) => unknown; querySelector: (s: string) => HTMLElement | null }>(
+    '[data-demo-id="perf-stress"]'
+  )!;
+  const rowsSlider = document.getElementById('stress-rows') as HTMLInputElement;
+  const colsSlider = document.getElementById('stress-cols') as HTMLInputElement;
+  const rowsVal = document.getElementById('stress-rows-val')!;
+  const colsVal = document.getElementById('stress-cols-val')!;
+  const runBtn = document.getElementById('stress-run') as HTMLButtonElement;
+  const statusEl = document.getElementById('stress-status')!;
+  const resultsEl = document.getElementById('stress-results')!;
+  // #endregion
+
+  // #region Slider Handlers
+  function getRowCount() { return parseInt(rowsSlider.value, 10); }
+  function getColCount() { return parseInt(colsSlider.value, 10); }
+
+  rowsSlider.addEventListener('input', () => {
+    rowsVal.textContent = getRowCount().toLocaleString();
+    updateStatus();
+  });
+  colsSlider.addEventListener('input', () => {
+    colsVal.textContent = String(getColCount());
+    updateStatus();
+  });
+
+  function updateStatus() {
+    statusEl.textContent = `Ready - ${getRowCount().toLocaleString()} rows × ${getColCount()} columns`;
+  }
+
+  function applyInitialData() {
+    const rowCount = getRowCount();
+    const colCount = getColCount();
+    statusEl.textContent = `Ready - ${rowCount.toLocaleString()} rows × ${colCount} columns`;
+    grid.gridConfig = {
+      columns: generateColumns(colCount, { sortable: true, filterable: true }),
+      fitMode: 'fixed',
+      plugins: [
+        new SelectionPlugin({ mode: 'range' }),
+        new PinnedColumnsPlugin(),
+        new MultiSortPlugin({ maxSortColumns: 3 }),
+        new FilteringPlugin({ debounceMs: 0 }),
+        ...(colCount >= 20 ? [new ColumnVirtualizationPlugin({ threshold: 20, overscan: 3 })] : []),
+      ],
+    };
+    grid.rows = generateRows(rowCount, colCount);
+  }
+
+  // Show initial status without generating data
+  updateStatus();
+  // #endregion
+
+  // #region Benchmark Runner
+  runBtn.addEventListener('click', async () => {
+    runBtn.disabled = true;
+    const allResults: BenchmarkResult[] = [];
+    const rowCount = getRowCount();
+    const colCount = getColCount();
+
+    const updateResults = () => { resultsEl.innerHTML = renderResultsTable(allResults); };
+
+    const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+    const measure = async (fn: () => void | Promise<void>): Promise<number> => {
+      await nextFrame();
+      const start = performance.now();
+      await fn();
+      await nextFrame();
+      return performance.now() - start;
+    };
+
+    // Scaling
+    const baselineRows = 10_000;
+    const baselineCols = 10;
+    const rowScale = Math.max(1, Math.sqrt(rowCount / baselineRows));
+    const colScale = Math.max(1, Math.sqrt(colCount / baselineCols));
+    const cellScale = rowScale * colScale;
+    const scaledByRows = (base: number) => Math.round(base * rowScale);
+    const scaledByCells = (base: number) => Math.round(base * cellScale);
+
+    const baseColumns = generateColumns(colCount, { sortable: true, filterable: true });
+    const baseRows = generateRows(rowCount, colCount);
+
+    // 🎨 INITIAL RENDER
+    statusEl.textContent = 'Testing: Initial render (baseline)...';
+    grid.gridConfig = { columns: [], plugins: [] };
+    grid.rows = [];
+    await new Promise((r) => setTimeout(r, 50));
+
+    const renderTime = await measure(() => {
+      grid.columns = baseColumns;
+      grid.rows = [...baseRows];
+    });
+    allResults.push({ name: 'Baseline render', category: 'render', time: renderTime, unit: 'ms', target: scaledByCells(100), passed: renderTime < scaledByCells(100) });
+    updateResults();
+
+    // Render with plugins
+    statusEl.textContent = 'Testing: Initial render (with plugins)...';
+    grid.gridConfig = { columns: [], plugins: [] };
+    grid.rows = [];
+    await new Promise((r) => setTimeout(r, 50));
+
+    const pluginColumns = baseColumns.map((col, i) => ({ ...col, sticky: i === 0 ? ('left' as const) : undefined }));
+    const pluginRenderTime = await measure(() => {
+      grid.gridConfig = {
+        columns: pluginColumns as ColumnConfig[],
+        fitMode: 'fixed',
+        plugins: [
+          new SelectionPlugin({ mode: 'range' }),
+          new PinnedColumnsPlugin(),
+          new MultiSortPlugin({ maxSortColumns: 3 }),
+          new FilteringPlugin({ debounceMs: 0 }),
+          new ColumnVirtualizationPlugin({ threshold: 20, overscan: 3 }),
+        ],
+      };
+      grid.rows = [...baseRows];
+    });
+    allResults.push({ name: 'Render with 5 plugins', category: 'render', time: pluginRenderTime, unit: 'ms', target: scaledByCells(150), passed: pluginRenderTime < scaledByCells(150) });
+    updateResults();
+
+    // Warm render
+    statusEl.textContent = 'Testing: Warm render (second render)...';
+    const warmRows = generateRows(rowCount, colCount);
+    const warmRenderTime = await measure(() => { grid.rows = warmRows; });
+    allResults.push({ name: 'Warm render (data swap)', category: 'render', time: warmRenderTime, unit: 'ms', target: scaledByRows(50), passed: warmRenderTime < scaledByRows(50), note: warmRenderTime < pluginRenderTime ? 'Faster than cold ✓' : 'Slower than cold ⚠' });
+    updateResults();
+
+    // Time to interactive
+    statusEl.textContent = 'Testing: Time to interactive...';
+    grid.gridConfig = { columns: [], plugins: [] };
+    grid.rows = [];
+    await new Promise((r) => setTimeout(r, 50));
+    const ttiStart = performance.now();
+    grid.gridConfig = {
+      columns: pluginColumns as ColumnConfig[],
+      fitMode: 'fixed',
+      plugins: [
+        new SelectionPlugin({ mode: 'range' }),
+        new PinnedColumnsPlugin(),
+        new MultiSortPlugin({ maxSortColumns: 3 }),
+        new FilteringPlugin({ debounceMs: 0 }),
+        new ColumnVirtualizationPlugin({ threshold: 20, overscan: 3 }),
+      ],
+    };
+    grid.rows = [...baseRows];
+    await nextFrame();
+    const headerCell = grid.querySelector('[role="columnheader"]') as HTMLElement | null;
+    if (headerCell) { headerCell.click(); await nextFrame(); }
+    const ttiTime = performance.now() - ttiStart;
+    allResults.push({ name: 'Time to interactive', category: 'render', time: ttiTime, unit: 'ms', target: scaledByCells(200), passed: ttiTime < scaledByCells(200) });
+    updateResults();
+
+    // 📜 SCROLL PERFORMANCE
+    statusEl.textContent = 'Testing: Scroll performance...';
+    await new Promise((r) => setTimeout(r, 100));
+    const scrollContainer = grid.querySelector('.faux-vscroll');
+    if (scrollContainer) {
+      const totalHeight = scrollContainer.scrollHeight;
+      const viewportHeight = scrollContainer.clientHeight;
+      const steps = 30;
+      const stepSize = (totalHeight - viewportHeight) / steps;
+
+      if (stepSize > 0) {
+        // Warm-up
+        for (let i = 0; i <= steps; i++) { scrollContainer.scrollTop = i * stepSize; await nextFrame(); }
+        scrollContainer.scrollTop = 0;
+        await new Promise((r) => setTimeout(r, 50));
+
+        // Measure
+        const frameTimes: number[] = [];
+        for (let i = 0; i <= steps; i++) {
+          const start = performance.now();
+          scrollContainer.scrollTop = i * stepSize;
+          await nextFrame();
+          frameTimes.push(performance.now() - start);
+        }
+
+        const avgScroll = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+        const p95Scroll = [...frameTimes].sort((a, b) => a - b)[Math.floor(frameTimes.length * 0.95)];
+        const p99Scroll = [...frameTimes].sort((a, b) => a - b)[Math.floor(frameTimes.length * 0.99)];
+        const scrollTarget = Math.min(33.33, 17 * (1 + (colCount - 10) / 40));
+
+        allResults.push({ name: 'Scroll avg frame', category: 'scroll', time: avgScroll, unit: 'ms', target: scrollTarget, passed: avgScroll < scrollTarget });
+        allResults.push({ name: 'Scroll P95 frame', category: 'scroll', time: p95Scroll, unit: 'ms', target: 33.33, passed: p95Scroll < 33.33 });
+        allResults.push({ name: 'Scroll P99 frame', category: 'scroll', time: p99Scroll, unit: 'ms', target: 50, passed: p99Scroll < 50 });
+        updateResults();
+
+        // Stress scroll
+        statusEl.textContent = 'Testing: Stress scroll (random jumps)...';
+        scrollContainer.scrollTop = 0;
+        await new Promise((r) => setTimeout(r, 50));
+        const stressJumps = 20;
+        const stressFrameTimes: number[] = [];
+        for (let i = 0; i < stressJumps; i++) {
+          const randomPos = Math.random() * (totalHeight - viewportHeight);
+          const start = performance.now();
+          scrollContainer.scrollTop = randomPos;
+          await nextFrame();
+          stressFrameTimes.push(performance.now() - start);
+        }
+        const avgStressScroll = stressFrameTimes.reduce((a, b) => a + b, 0) / stressFrameTimes.length;
+        const maxStressScroll = Math.max(...stressFrameTimes);
+        allResults.push({ name: 'Stress scroll avg', category: 'scroll', time: avgStressScroll, unit: 'ms', target: 50, passed: avgStressScroll < 50 });
+        allResults.push({ name: 'Stress scroll max', category: 'scroll', time: maxStressScroll, unit: 'ms', target: 100, passed: maxStressScroll < 100 });
+        updateResults();
+        scrollContainer.scrollTop = 0;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    }
+
+    // Horizontal scroll
+    statusEl.textContent = 'Testing: Horizontal scroll performance...';
+    await new Promise((r) => setTimeout(r, 100));
+    const hScrollContainer = grid.querySelector('.tbw-scroll-area');
+    const colVirtPlugin = (grid as any).getPlugin?.(ColumnVirtualizationPlugin);
+    if (hScrollContainer && colCount >= 20) {
+      const totalWidth = hScrollContainer.scrollWidth;
+      const viewportWidth = hScrollContainer.clientWidth;
+      const hSteps = 30;
+      const hStepSize = (totalWidth - viewportWidth) / hSteps;
+      if (hStepSize > 0) {
+        for (let i = 0; i <= hSteps; i++) { hScrollContainer.scrollLeft = i * hStepSize; await nextFrame(); }
+        hScrollContainer.scrollLeft = 0;
+        await new Promise((r) => setTimeout(r, 50));
+        const hFrameTimes: number[] = [];
+        for (let i = 0; i <= hSteps; i++) {
+          const start = performance.now();
+          hScrollContainer.scrollLeft = i * hStepSize;
+          await nextFrame();
+          hFrameTimes.push(performance.now() - start);
+        }
+        const avgHScroll = hFrameTimes.reduce((a, b) => a + b, 0) / hFrameTimes.length;
+        const p95HScroll = [...hFrameTimes].sort((a, b) => a - b)[Math.floor(hFrameTimes.length * 0.95)];
+        allResults.push({ name: 'H-Scroll avg frame', category: 'scroll', time: avgHScroll, unit: 'ms', target: 50, passed: avgHScroll < 50 });
+        allResults.push({ name: 'H-Scroll P95 frame', category: 'scroll', time: p95HScroll, unit: 'ms', target: 66.67, passed: p95HScroll < 66.67 });
+        if (colVirtPlugin) {
+          const isVirt = colVirtPlugin.getIsVirtualized();
+          const range = colVirtPlugin.getVisibleColumnRange();
+          allResults.push({ name: `Col virtualization (${range.end - range.start + 1}/${colCount} visible)`, category: 'scroll', time: isVirt ? 1 : 0, unit: 'bool', target: 1, passed: isVirt });
+        }
+        updateResults();
+      }
+    }
+
+    // ⚡ OPERATIONS
+    // Sort
+    statusEl.textContent = 'Testing: Sort operation...';
+    if (scrollContainer) scrollContainer.scrollTop = 0;
+    await new Promise((r) => setTimeout(r, 50));
+    const sortPlugin = (grid as any).getPlugin?.(MultiSortPlugin) as { setSortModel: (m: unknown[]) => void; clearSort: () => void } | undefined;
+    if (sortPlugin) {
+      const sortTarget = Math.round(150 * (Math.log2(rowCount) / Math.log2(10000)));
+      const sortTime = await measure(() => { sortPlugin.setSortModel([{ field: 'id', direction: 'asc' }]); });
+      allResults.push({ name: 'Sort (ascending)', category: 'operation', time: sortTime, unit: 'ms', target: sortTarget, passed: sortTime < sortTarget });
+      updateResults();
+
+      grid.rows = generateRows(rowCount, colCount);
+      await nextFrame();
+      await new Promise((r) => setTimeout(r, 50));
+      const reverseSortTime = await measure(() => { sortPlugin.setSortModel([{ field: 'id', direction: 'desc' }]); });
+      allResults.push({ name: 'Sort (descending)', category: 'operation', time: reverseSortTime, unit: 'ms', target: sortTarget, passed: reverseSortTime < sortTarget });
+      updateResults();
+      sortPlugin.clearSort();
+      await nextFrame();
+    }
+
+    // Filter
+    statusEl.textContent = 'Testing: Filter operation...';
+    const filterPlugin = (grid as any).getPlugin?.(FilteringPlugin) as { setFilter: (f: string, v: unknown) => void } | undefined;
+    if (filterPlugin) {
+      const filterTime = await measure(() => { filterPlugin.setFilter('col1', { type: 'text', operator: 'contains', value: 'R1' }); });
+      allResults.push({ name: 'Filter (to ~10%)', category: 'operation', time: filterTime, unit: 'ms', target: scaledByRows(50), passed: filterTime < scaledByRows(50) });
+      updateResults();
+      const clearFilterTime = await measure(() => { filterPlugin.setFilter('col1', null); });
+      allResults.push({ name: 'Clear filter', category: 'operation', time: clearFilterTime, unit: 'ms', target: scaledByRows(50), passed: clearFilterTime < scaledByRows(50) });
+      updateResults();
+    }
+
+    // Data replacement
+    statusEl.textContent = 'Testing: Data replacement...';
+    const newRows = generateRows(rowCount, colCount);
+    const replaceTime = await measure(() => { grid.rows = newRows; });
+    allResults.push({ name: 'Full data replace', category: 'operation', time: replaceTime, unit: 'ms', target: scaledByRows(50), passed: replaceTime < scaledByRows(50) });
+    updateResults();
+
+    // Selection
+    statusEl.textContent = 'Testing: Selection...';
+    const selectionPlugin = (grid as any).getPlugin?.(SelectionPlugin) as { setRanges: (r: unknown[]) => void; clearSelection: () => void } | undefined;
+    if (selectionPlugin) {
+      const selectAllTime = await measure(() => {
+        selectionPlugin.setRanges([{ from: { row: 0, col: 0 }, to: { row: rowCount - 1, col: colCount - 1 } }]);
+      });
+      allResults.push({ name: 'Select all cells', category: 'operation', time: selectAllTime, unit: 'ms', target: 50, passed: selectAllTime < 50 });
+      updateResults();
+      const clearSelectionTime = await measure(() => { selectionPlugin.clearSelection(); });
+      allResults.push({ name: 'Clear selection', category: 'operation', time: clearSelectionTime, unit: 'ms', target: 50, passed: clearSelectionTime < 50 });
+      updateResults();
+    }
+
+    // Rapid data updates
+    statusEl.textContent = 'Testing: Rapid data updates...';
+    const updateCount = 10;
+    const updateTimes: number[] = [];
+    for (let i = 0; i < updateCount; i++) {
+      const modifiedRows = [...grid.rows] as Record<string, unknown>[];
+      const updateSize = Math.max(1, Math.floor(rowCount * 0.01));
+      for (let j = 0; j < updateSize; j++) {
+        const idx = (i * updateSize + j) % rowCount;
+        modifiedRows[idx] = { ...modifiedRows[idx], col1: `Updated-${i}-${j}` };
+      }
+      const t = await measure(() => { grid.rows = modifiedRows; });
+      updateTimes.push(t);
+    }
+    const avgUpdateTime = updateTimes.reduce((a, b) => a + b, 0) / updateTimes.length;
+    allResults.push({ name: `Rapid update (${updateCount}× 1%)`, category: 'operation', time: avgUpdateTime, unit: 'ms', target: scaledByRows(30), passed: avgUpdateTime < scaledByRows(30) });
+    updateResults();
+
+    // Column config change
+    statusEl.textContent = 'Testing: Column config change...';
+    const configChangeTime = await measure(() => {
+      const newColumns = baseColumns.map((col, i) => ({ ...col, width: i === 1 ? 200 : col.width }));
+      grid.columns = newColumns;
+    });
+    allResults.push({ name: 'Column config change', category: 'operation', time: configChangeTime, unit: 'ms', target: scaledByCells(50), passed: configChangeTime < scaledByCells(50) });
+    updateResults();
+
+    // Column resize
+    statusEl.textContent = 'Testing: Column resize performance...';
+    const resizeFrameTimes: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      const width = 80 + (i % 2 === 0 ? 40 : -20);
+      const start = performance.now();
+      grid.columns = baseColumns.map((col, idx) => ({ ...col, width: idx === 1 ? width : col.width }));
+      await nextFrame();
+      resizeFrameTimes.push(performance.now() - start);
+    }
+    const avgResize = resizeFrameTimes.reduce((a, b) => a + b, 0) / resizeFrameTimes.length;
+    const p95Resize = [...resizeFrameTimes].sort((a, b) => a - b)[Math.floor(resizeFrameTimes.length * 0.95)];
+    allResults.push({ name: 'Resize avg frame', category: 'operation', time: avgResize, unit: 'ms', target: 33.33, passed: avgResize < 33.33 });
+    allResults.push({ name: 'Resize P95 frame', category: 'operation', time: p95Resize, unit: 'ms', target: 50, passed: p95Resize < 50 });
+    updateResults();
+
+    // 💾 MEMORY
+    statusEl.textContent = 'Calculating: Memory & DOM metrics...';
+    const estimatedBytesPerRow = 40 + colCount * 52;
+    const estimatedDataSize = rowCount * estimatedBytesPerRow;
+    allResults.push({ name: 'Est. data size', category: 'memory', time: estimatedDataSize, unit: 'bytes', target: 500 * 1024 * 1024, passed: estimatedDataSize < 500 * 1024 * 1024 });
+    allResults.push({ name: 'Est. bytes/row', category: 'memory', time: estimatedBytesPerRow, unit: 'bytes', target: 5000, passed: estimatedBytesPerRow < 5000 });
+
+    const rowElements = grid.querySelectorAll('.data-grid-row');
+    const renderedRowCount = rowElements?.length ?? 0;
+    const maxExpectedRows = Math.min(rowCount, 100);
+    allResults.push({ name: `DOM rows (${renderedRowCount}/${rowCount.toLocaleString()})`, category: 'memory', time: renderedRowCount, unit: 'count', target: maxExpectedRows, passed: renderedRowCount <= maxExpectedRows, note: renderedRowCount <= maxExpectedRows ? 'Virtualization active' : 'Too many DOM nodes!' });
+
+    const cellElements = grid.querySelectorAll('.cell');
+    const renderedCellCount = cellElements?.length ?? 0;
+    const expectedCellsPerRow = colCount <= 20 ? colCount : Math.min(colCount, 30);
+    const maxExpectedCells = maxExpectedRows * expectedCellsPerRow;
+    allResults.push({ name: 'DOM cells rendered', category: 'memory', time: renderedCellCount, unit: 'count', target: maxExpectedCells, passed: renderedCellCount <= maxExpectedCells, note: `${renderedCellCount.toLocaleString()} cells in DOM` });
+    updateResults();
+
+    // COMPLETE
+    statusEl.textContent = 'Benchmark complete!';
+    runBtn.disabled = false;
+    resultsEl.innerHTML = renderResultsTable(allResults, true);
+
+    console.table(allResults.map((r) => ({
+      Benchmark: r.name,
+      Result: r.unit === 'bytes' ? formatBytes(r.time) : r.unit === 'count' ? r.time.toLocaleString() : r.unit === 'bool' ? (r.time ? 'Yes' : 'No') : r.unit === 'info' ? (r.note || '—') : formatTime(r.time),
+      Target: r.unit === 'bytes' ? '< ' + formatBytes(r.target) : r.unit === 'count' || r.unit === 'bool' || r.unit === 'info' ? (r.note || '—') : '< ' + formatTime(r.target),
+      Status: r.passed ? '✅ PASS' : '❌ FAIL',
+    })));
+  });
+  // #endregion
+</script>
+
+<style is:global>
+  .stress-test-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 80vh;
+    min-height: 600px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .stress-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--sl-color-gray-6);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    font-size: 13px;
+  }
+
+  .stress-bar label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stress-bar-left,
+  .stress-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .stress-bar input[type="range"] {
+    width: 120px;
+  }
+
+  .stress-btn {
+    background: var(--sl-color-accent);
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .stress-btn:hover { opacity: 0.9; }
+  .stress-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  #stress-status {
+    font-size: 13px;
+    color: var(--sl-color-gray-2);
+  }
+
+  .stress-grid-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+  }
+
+  .stress-grid-container > tbw-grid {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .stress-results {
+    border-top: 1px solid var(--sl-color-gray-5);
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .stress-results p {
+    margin: 0 0 8px 0;
+  }
+</style>

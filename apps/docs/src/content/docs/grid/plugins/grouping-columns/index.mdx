@@ -1,0 +1,302 @@
+---
+title: "Column Grouping Plugin"
+description: "Group columns visually under shared parent headers."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import GroupingColumnsDefaultDemo from '@components/demos/grouping-columns/GroupingColumnsDefaultDemo.astro';
+import GroupingColumnsNoBordersDemo from '@components/demos/grouping-columns/GroupingColumnsNoBordersDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+
+# Column Grouping Plugin
+
+The Column Grouping plugin enables visual grouping of columns under shared headers.
+
+## Installation
+
+```ts
+import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
+```
+
+## Basic Usage
+
+There are two ways to define column groups:
+
+### Option 1: Declarative `columnGroups` (Recommended)
+
+Define groups once at the grid level, referencing columns by field name:
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+import '@toolbox-web/grid';
+import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
+
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columnGroups: [
+    { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+    { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+  ],
+  columns: [
+    { field: 'firstName', header: 'First Name' },
+    { field: 'lastName', header: 'Last Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+    { field: 'title', header: 'Title' },
+    { field: 'salary', header: 'Salary' },
+  ],
+  plugins: [new GroupingColumnsPlugin()],
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/grouping-columns';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function MyGrid({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'firstName', header: 'First Name' },
+        { field: 'lastName', header: 'Last Name' },
+        { field: 'email', header: 'Email' },
+        { field: 'department', header: 'Department' },
+        { field: 'title', header: 'Title' },
+        { field: 'salary', header: 'Salary' },
+      ]}
+      gridConfig={{
+        columnGroups: [
+          { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+          { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+        ],
+      }}
+      groupingColumns
+      style={{ height: '400px' }}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/grouping-columns';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const data = [
+  { firstName: 'Alice', lastName: 'Johnson', email: 'alice@example.com', department: 'Engineering', title: 'Developer', salary: 95000 },
+  { firstName: 'Bob', lastName: 'Smith', email: 'bob@example.com', department: 'Marketing', title: 'Manager', salary: 85000 },
+];
+
+const columnGroups = [
+  { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+  { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+];
+</script>
+
+<template>
+  <TbwGrid :rows="data" :column-groups="columnGroups" grouping-columns style="height: 400px">
+    <TbwGridColumn field="firstName" header="First Name" />
+    <TbwGridColumn field="lastName" header="Last Name" />
+    <TbwGridColumn field="email" header="Email" />
+    <TbwGridColumn field="department" header="Department" />
+    <TbwGridColumn field="title" header="Title" />
+    <TbwGridColumn field="salary" header="Salary" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature import - enables the [groupingColumns] input
+import '@toolbox-web/grid-angular/features/grouping-columns';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig, ColumnGroup } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-my-grid',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [groupingColumns]="{ columnGroups: columnGroups }"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class MyGridComponent {
+  rows = [...];
+
+  columnGroups: ColumnGroup[] = [
+    { id: 'personal', header: 'Personal Info', children: ['firstName', 'lastName', 'email'] },
+    { id: 'work', header: 'Work Info', children: ['department', 'title', 'salary'] },
+  ];
+
+  columns: ColumnConfig[] = [
+    { field: 'firstName', header: 'First Name' },
+    { field: 'lastName', header: 'Last Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+    { field: 'title', header: 'Title' },
+    { field: 'salary', header: 'Salary' },
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+### Option 2: Inline `group` Property
+
+Add group information directly to each column:
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'firstName', header: 'First Name', group: { id: 'personal', label: 'Personal Info' } },
+    { field: 'lastName', header: 'Last Name', group: { id: 'personal', label: 'Personal Info' } },
+    { field: 'department', header: 'Department', group: { id: 'work', label: 'Work Info' } },
+  ],
+  plugins: [new GroupingColumnsPlugin()],
+};
+```
+
+You can also use a simple string for the group (the string becomes both the id and label):
+
+```ts
+{ field: 'firstName', header: 'First Name', group: 'Personal' }
+```
+
+## Demos
+
+### Default Column Groups
+
+<ShowSource file="demos/grouping-columns/GroupingColumnsDefaultDemo.astro">
+  <GroupingColumnsDefaultDemo />
+</ShowSource>
+
+
+
+
+### Without Borders
+
+<ShowSource file="demos/grouping-columns/GroupingColumnsNoBordersDemo.astro">
+  <GroupingColumnsNoBordersDemo />
+</ShowSource>
+
+
+
+## Configuration Options
+
+### Plugin Options
+
+| Option                | Type       | Default | Description                              |
+| --------------------- | ---------- | ------- | ---------------------------------------- |
+| `showGroupBorders`    | `boolean`  | `true`  | Show borders between groups              |
+| `groupHeaderRenderer` | `function` | —       | Custom renderer for group header content |
+
+### Grid Config: `columnGroups`
+
+| Property   | Type       | Description                                |
+| ---------- | ---------- | ------------------------------------------ |
+| `id`       | `string`   | Unique group identifier                    |
+| `header`   | `string`   | Display label for the group header         |
+| `children` | `string[]` | Array of column field names in this group  |
+
+### Column Config: `group`
+
+| Type                              | Description                                         |
+| --------------------------------- | --------------------------------------------------- |
+| `string`                          | Simple group ID (used as both id and label)         |
+| `{ id: string; label?: string }`  | Group object with explicit id and optional label    |
+
+## Programmatic API
+
+The plugin provides these methods on the plugin instance:
+
+```ts
+const plugin = grid.getPlugin(GroupingColumnsPlugin);
+
+// Check if grouping is active
+plugin.isGroupingActive(); // boolean
+
+// Get all computed groups
+plugin.getGroups(); // ColumnGroup[]
+
+// Get columns in a specific group
+plugin.getGroupColumns('personal'); // ColumnConfig[]
+
+// Force refresh of column groups
+plugin.refresh();
+```
+## Usage with Column Reordering
+
+When using `GroupingColumnsPlugin` together with `ReorderPlugin`, be aware that **column reordering does not enforce group boundaries**. Users can drag columns out of their groups, which will cause the groups to be recomputed based on the new column order.
+
+The `column-move` event is **cancelable**, so you can prevent moves that break group boundaries:
+
+```ts
+grid.addEventListener('column-move', (e) => {
+  const { field, fromIndex, toIndex, columnOrder } = e.detail;
+
+  // Example: prevent moves that break group boundaries
+  if (!isValidMoveWithinGroup(field, fromIndex, toIndex)) {
+    e.preventDefault(); // Column snaps back to original position
+    return;
+  }
+
+  // Persist the new order
+  saveColumnOrder(columnOrder);
+});
+```
+
+The `column-move` event includes the complete `columnOrder` array, making it easy to persist user preferences.
+
+## Styling
+
+The column grouping plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-grouping-columns-header-bg` | `var(--tbw-color-header-bg)` | Group header row background |
+| `--tbw-grouping-columns-border` | `var(--tbw-color-border)` | Group borders |
+| `--tbw-grouping-columns-separator` | `var(--tbw-color-border-strong)` | Separator between groups |
+| `--tbw-button-padding-sm` | `0.25rem 0.5rem` | Group header cell padding |
+| `--tbw-font-size-sm` | `0.9285em` | Group header font size |
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom column grouping styling */
+  --tbw-grouping-columns-header-bg: #e3f2fd;
+  --tbw-grouping-columns-border: #90caf9;
+  --tbw-grouping-columns-separator: #1976d2;
+}
+```
+
+### CSS Classes
+
+The column grouping plugin uses these class names:
+
+| Class | Element |
+| --- | --- |
+| `.header-group-row` | Group header row container |
+| `.header-group-row.no-borders` | Borderless mode |
+| `.header-group-cell` | Individual group header cell |
+| `.header-row .cell.grouped` | Column under a group |
+| `.header-row .cell.group-end` | Last column in a group |
+
+## See Also
+
+- **[Row Grouping](..//grid/plugins/row-grouping/)** — Group rows by field values
+- **[Pinned Columns](../?path=/grid/plugins/pinned-columns/)** — Sticky columns

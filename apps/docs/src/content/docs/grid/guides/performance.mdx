@@ -1,0 +1,221 @@
+---
+title: Performance
+description: Optimize @toolbox-web/grid for large datasets — virtualization tuning, bundle optimization, rendering best practices, and benchmarks.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import PerformanceStressTestDemo from '@components/demos/PerformanceStressTestDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+# Performance Guide
+
+`@toolbox-web/grid` is engineered for high performance out of the box. This guide helps you understand the performance characteristics and tune the grid for your specific workload.
+
+## Key Performance Features
+
+### Row Virtualization
+
+The grid only renders rows visible in the viewport plus a configurable overscan buffer. This means rendering 100,000 rows is as fast as rendering 50 rows.
+
+```typescript
+grid.gridConfig = {
+  columns: [...],
+  rowHeight: 28,   // Fixed row height in pixels (default: auto-measured)
+};
+```
+
+- **Default row height:** Auto-measured from first row (respects `--tbw-row-height` CSS variable)
+- **Variable row heights:** Supported via `rowHeight: (row, index) => number | undefined`
+
+### Column Virtualization
+
+For grids with many columns (50+), enable the `ColumnVirtualizationPlugin`:
+
+```typescript
+import { ColumnVirtualizationPlugin } from '@toolbox-web/grid/plugins/column-virtualization';
+
+grid.gridConfig = {
+  columns: manyColumns,
+  plugins: [new ColumnVirtualizationPlugin()],
+};
+```
+
+### Render Scheduler
+
+All rendering is batched through a centralized `RenderScheduler` that coalesces multiple update requests into a single `requestAnimationFrame` callback.
+
+**Render phases (lowest → highest priority):**
+
+| Phase | Priority | What It Does |
+|-------|----------|-------------|
+| STYLE | 1 | CSS custom property updates |
+| VIRTUALIZATION | 2 | Scroll position + visible window recalc |
+| HEADER | 3 | Header row re-render |
+| ROWS | 4 | Data row re-render |
+| COLUMNS | 5 | Column structure rebuild |
+| FULL | 6 | Complete re-render |
+
+When multiple phases are requested in the same frame, only the highest-priority phase executes (it inherently covers lower phases).
+
+## Bundle Size Optimization
+
+### Tree-Shaking Plugins
+
+The most important optimization: **only import the plugins you use**.
+
+```typescript
+// ✅ Optimal: ~45 KB core + only plugins you need
+import '@toolbox-web/grid';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+// ❌ Heavy: imports ALL plugins even if you use two
+import { SelectionPlugin, EditingPlugin } from '@toolbox-web/grid/all';
+```
+
+### Budget Reference
+
+| Bundle | Raw | Gzipped |
+|--------|-----|---------|
+| Core (`index.js`) | ≤ 170 KB | ≤ 45 KB |
+| Individual plugin | 2–15 KB | 1–5 KB |
+| All plugins (`all.js`) | ~300 KB | ~80 KB |
+
+## Tuning for Large Datasets
+
+### Fixed Row Heights
+
+Variable row heights (`rowHeight: (row) => number`) require measuring each row, which is slower than fixed heights. For datasets over 10,000 rows, prefer fixed heights:
+
+```typescript
+grid.gridConfig = {
+  rowHeight: 32,
+};
+```
+
+### Disable Animations
+
+Row animations add visual polish but cost CPU cycles. Disable them for very large datasets:
+
+```typescript
+grid.gridConfig = {
+  animation: false,
+};
+```
+
+### Batch Data Updates
+
+When updating many rows, assign the entire array at once rather than using `insertRow()` / `removeRow()` in a loop:
+
+```typescript
+// ✅ Single assignment — triggers one sort/filter/render cycle
+grid.rows = updatedData;
+
+// ❌ Loop — triggers N animations and N re-renders
+for (const newRow of newRows) {
+  await grid.insertRow(0, newRow);
+}
+```
+
+### Debounce Filtering
+
+When using `FilteringPlugin` with a large dataset, increase the debounce to reduce re-filtering:
+
+```typescript
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+new FilteringPlugin({ debounceMs: 300 }); // Default: 200
+```
+
+### Custom Sort Comparators
+
+For fields with expensive comparisons, provide a pre-computed sort key:
+
+```typescript
+{
+  field: 'name',
+  sortable: true,
+  comparator: (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' }),
+}
+```
+
+## Rendering Best Practices
+
+### Avoid Direct DOM Manipulation
+
+Let the grid manage its DOM. Direct manipulation can conflict with the render scheduler and virtualization:
+
+```typescript
+// ❌ Don't do this
+document.querySelector('.data-grid-row')!.style.background = 'red';
+
+// ✅ Use CSS custom properties or renderers
+grid.gridConfig = {
+  columns: [{
+    field: 'status',
+    renderer: (value) => `<span class="status-${value}">${value}</span>`,
+  }],
+};
+```
+
+### Use `registerStyles()` for Dynamic CSS
+
+Instead of creating `<style>` elements (which get wiped by `replaceChildren()`), use the adopted stylesheets API:
+
+```typescript
+grid.registerStyles('my-highlights', `
+  .highlight-row { background: yellow; }
+`);
+
+// Clean up when done
+grid.unregisterStyles('my-highlights');
+```
+
+### Lightweight Renderers
+
+Cell renderers execute for every visible cell on every render. Keep them fast:
+
+```typescript
+// ✅ Fast — simple string return
+renderer: (value) => `$${value.toFixed(2)}`
+
+// ❌ Slow — creating DOM elements in renderer
+renderer: (value) => {
+  const div = document.createElement('div');
+  div.innerHTML = `<span class="complex">${value}</span>`;
+  return div;
+}
+```
+
+## Profiling
+
+### Browser DevTools
+
+1. Open Chrome DevTools → Performance tab
+2. Record while scrolling or sorting
+3. Look for long tasks (> 50ms) in the flame chart
+4. Check for layout thrashing (forced reflows)
+
+### Key Metrics to Watch
+
+| Metric | Target | How to Measure |
+|--------|--------|---------------|
+| **Scroll FPS** | 60fps | Performance tab → Frames |
+| **Sort time (10K rows)** | < 50ms | `console.time()` around `grid.rows = sorted` |
+| **Filter time (10K rows)** | < 30ms | Measure in `filter-change` event handler |
+| **Initial render** | < 100ms | Performance tab → First Paint |
+| **Memory (100K rows)** | < 100 MB | Memory tab → Heap snapshot |
+
+## Stress Test
+
+Try the interactive stress test below — adjust row and column counts to see how the grid performs with large datasets:
+
+<PerformanceStressTestDemo />
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="Architecture" description="How the render scheduler and virtualization work internally" href="/grid/architecture/" />
+  <LinkCard title="Column Virtualization" description="Render only visible columns for wide grids (50+ columns)" href="/grid/plugins/column-virtualization/" />
+  <LinkCard title="Plugins Overview" description="All available plugins with import paths and descriptions" href="/grid/plugins/" />
+</CardGrid>

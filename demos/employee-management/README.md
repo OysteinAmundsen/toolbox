@@ -40,8 +40,7 @@ employee-management/
 │   │   │   └── tool-panels/             # Tool panel components
 │   │   └── App.vue                      # Main application
 │   └── README.md                        # Vue-specific docs
-├── employee-management.css              # Shared styles for Storybook
-└── employee-management.stories.ts       # Storybook stories
+└── employee-management.css              # Shared styles
 ```
 
 ### Shared Code (`shared/`)
@@ -253,17 +252,10 @@ All demos share styles in [employee-management.css](./employee-management.css) u
 
 Custom styles are injected into the grid via `customStyles` (React), `[customStyles]` (Angular), or `registerStyles()` (Vanilla).
 
-## 🔗 View in Storybook
+## � Learn More
 
-- [Live Demo](https://oysteinamundsen.github.io/toolbox/?path=/docs/grid-demos--docs)
-- [All Features Story](https://oysteinamundsen.github.io/toolbox/?path=/story/demos-employee-management--all-features)
-- [Grouped By Department](https://oysteinamundsen.github.io/toolbox/?path=/story/demos-employee-management--grouped-by-department)
-
-## 📖 Learn More
-
-- [Getting Started](../../libs/grid/docs/GettingStarted.mdx) – Set up your first grid
-- [React Integration](../../libs/grid/docs/React.mdx) – React-specific patterns
-- [Angular Integration](../../libs/grid/docs/Angular.mdx) – Angular-specific patterns
-- [Plugins Overview](../../libs/grid/docs/Plugins.mdx) – Learn about individual plugins
-- [Theming](../../libs/grid/docs/Theming.mdx) – Customize the visual appearance
-- [API Reference](../../libs/grid/docs/API.mdx) – Full API documentation
+- [Documentation](https://toolboxjs.com) – Full documentation site
+- [Getting Started](https://toolboxjs.com/grid/guides/getting-started/) – Set up your first grid
+- [Plugins Overview](https://toolboxjs.com/grid/plugins/) – Learn about individual plugins
+- [Theming](https://toolboxjs.com/grid/guides/theming/) – Customize the visual appearance
+- [API Reference](https://toolboxjs.com/grid/api-reference/) – Full API documentation

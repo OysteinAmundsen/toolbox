@@ -1,0 +1,141 @@
+---
+/**
+ * Demo: Loading States — grid, row, and cell-level loading indicators.
+ */
+import DemoControls from '@components/DemoControls.astro';
+---
+
+<div class="grid-playground not-content" id="loading-states-container">
+  <DemoControls controls={[
+    { name: 'mode', label: 'Mode', type: 'radio', options: ['grid', 'row', 'cell'], default: 'grid' },
+    { name: 'autoReset', label: 'Auto-reset (1 s)', type: 'boolean', default: true },
+  ]} />
+
+  <div style="display:flex;align-items:center;gap:0.75rem;margin:0.5rem 0;">
+    <button data-loading="simulate" class="grid-demo-btn">▶ Simulate</button>
+    <p class="loading-hint" style="margin:0;font-size:0.8125rem;color:var(--sl-color-gray-3);">
+      Click <strong>▶ Simulate</strong> to show the grid loading overlay.
+    </p>
+  </div>
+
+  <tbw-grid data-demo-id="loading-states" style="height: 300px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
+
+  interface Employee { id: string; name: string; email: string; department: string; }
+
+  const container = document.getElementById('loading-states-container');
+  const grid = container?.querySelector<HTMLElement & {
+    columns: ColumnConfig<Employee>[];
+    rows: Employee[];
+    gridConfig: GridConfig<Employee>;
+    loading: boolean;
+    setRowLoading: (rowId: string, loading: boolean) => void;
+    isRowLoading: (rowId: string) => boolean;
+    setCellLoading: (rowId: string, field: string, loading: boolean) => void;
+    isCellLoading: (rowId: string, field: string) => boolean;
+    clearAllLoading: () => void;
+  }>('tbw-grid');
+
+  if (container && grid) {
+    const names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
+    const departments = ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance'];
+    const employees: Employee[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `emp-${i + 1}`,
+      name: `${names[i % names.length]} ${i + 1}`,
+      email: `${names[i % names.length].toLowerCase()}${i + 1}@example.com`,
+      department: departments[i % departments.length],
+    }));
+
+    grid.gridConfig = { getRowId: (row) => row.id };
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 80 },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+    ];
+    grid.rows = employees;
+
+    const hints: Record<string, string> = {
+      grid: 'Click <strong>▶ Simulate</strong> to show full-grid loading overlay.',
+      row: 'Click any <strong>row</strong> to trigger row loading.',
+      cell: 'Click any <strong>cell</strong> to trigger cell loading.',
+    };
+    const hintEl = container.querySelector('.loading-hint');
+
+    let currentMode: 'grid' | 'row' | 'cell' = 'grid';
+    let currentAutoReset = true;
+
+    container.addEventListener('control-change', ((e: CustomEvent) => {
+      const v = e.detail.allValues as { mode: string; autoReset: boolean };
+      currentMode = v.mode as 'grid' | 'row' | 'cell';
+      currentAutoReset = v.autoReset;
+      if (hintEl) hintEl.innerHTML = hints[currentMode] ?? '';
+    }) as EventListener);
+
+    // Row click → row loading
+    grid.addEventListener('row-click', (e: Event) => {
+      if (currentMode !== 'row') return;
+      const { row } = (e as CustomEvent).detail;
+      const timeout = currentAutoReset ? 1000 : null;
+      if (timeout) {
+        grid.setRowLoading(row.id, true);
+        setTimeout(() => grid.setRowLoading(row.id, false), timeout);
+      } else {
+        grid.setRowLoading(row.id, !grid.isRowLoading(row.id));
+      }
+    });
+
+    // Cell click → cell loading
+    grid.addEventListener('cell-click', (e: Event) => {
+      if (currentMode !== 'cell') return;
+      const { row, column } = (e as CustomEvent).detail;
+      const timeout = currentAutoReset ? 1000 : null;
+      if (timeout) {
+        grid.setCellLoading(row.id, column.field, true);
+        setTimeout(() => grid.setCellLoading(row.id, column.field, false), timeout);
+      } else {
+        grid.setCellLoading(row.id, column.field, !grid.isCellLoading(row.id, column.field));
+      }
+    });
+
+    // Simulate button
+    container.querySelector('[data-loading="simulate"]')?.addEventListener('click', async () => {
+      grid.clearAllLoading();
+      const timeout = currentAutoReset ? 1000 : null;
+
+      if (currentMode === 'grid') {
+        grid.loading = true;
+        if (timeout) setTimeout(() => { grid.loading = false; }, timeout);
+      } else if (currentMode === 'row') {
+        for (const emp of employees) {
+          grid.setRowLoading(emp.id, true);
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        if (timeout) setTimeout(() => grid.clearAllLoading(), timeout);
+      } else if (currentMode === 'cell') {
+        for (const emp of employees) {
+          grid.setCellLoading(emp.id, 'email', true);
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        if (timeout) setTimeout(() => grid.clearAllLoading(), timeout);
+      }
+    });
+  }
+</script>
+
+<style>
+  .grid-demo-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-text);
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+  .grid-demo-btn:hover { background: var(--sl-color-gray-5); }
+</style>

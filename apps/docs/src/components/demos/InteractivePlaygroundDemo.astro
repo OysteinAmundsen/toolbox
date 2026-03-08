@@ -1,0 +1,130 @@
+---
+/**
+ * Demo: Interactive Playground — configurable grid with controls for row count,
+ * visible columns, fit mode, sorting, and resizing.
+ */
+import DemoControls from '@components/DemoControls.astro';
+---
+
+<div class="grid-playground" id="interactive-playground-demo">
+  <DemoControls controls={[
+    { section: 'DATA', name: 'rowCount', label: 'Row count', type: 'number',
+      min: 10, max: 10000, step: 10, default: 100, description: 'Number of rows to generate' },
+    { section: 'DATA', name: 'columns', label: 'Columns', type: 'check-group',
+      options: ['id', 'name', 'active', 'score', 'created', 'role'],
+      default: ['id', 'name', 'active', 'score', 'created', 'role'], description: 'Visible columns' },
+    { section: 'LAYOUT', name: 'fitMode', label: 'Fit mode', type: 'radio',
+      options: ['stretch', 'fixed'], default: 'stretch', description: 'Column sizing strategy' },
+    { section: 'FEATURES', name: 'sortable', label: 'Sortable', type: 'boolean',
+      default: true, description: 'Enable column sorting' },
+    { section: 'FEATURES', name: 'resizable', label: 'Resizable', type: 'boolean',
+      default: true, description: 'Enable column resizing' },
+  ]} />
+  <tbw-grid data-demo-id="interactive-playground" style="height: 420px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { ColumnConfig, FitMode } from '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+  type ColumnKey = 'id' | 'name' | 'active' | 'score' | 'created' | 'role';
+
+  const container = document.getElementById('interactive-playground-demo');
+  const grid = container?.querySelector<HTMLElement & {
+    columns: ColumnConfig[];
+    rows: unknown[];
+    fitMode: FitMode;
+    gridConfig: Record<string, unknown>;
+  }>('tbw-grid');
+
+  if (container && grid) {
+    const allColumnDefs: Record<ColumnKey, ColumnConfig> = {
+      id: { field: 'id', header: 'ID', type: 'number', sortable: true, resizable: true },
+      name: { field: 'name', header: 'Name', sortable: true, resizable: true },
+      active: { field: 'active', header: 'Active', type: 'boolean', sortable: true },
+      score: { field: 'score', header: 'Score', type: 'number', sortable: true, resizable: true },
+      created: {
+        field: 'created', header: 'Created', type: 'date', sortable: true, resizable: true,
+      },
+      role: {
+        field: 'role', header: 'Role', type: 'select', sortable: true,
+        options: [
+          { label: 'Admin', value: 'admin' },
+          { label: 'User', value: 'user' },
+          { label: 'Guest', value: 'guest' },
+        ],
+      },
+    };
+
+    function generateRows(count: number) {
+      const roles = ['admin', 'user', 'guest'];
+      const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
+      const rows: Record<string, unknown>[] = [];
+      for (let i = 0; i < count; i++) {
+        rows.push({
+          id: i + 1,
+          name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
+          active: i % 3 !== 0,
+          score: Math.floor(Math.random() * 100),
+          created: new Date(Date.now() - i * 86400000),
+          role: roles[i % roles.length],
+        });
+      }
+      return rows;
+    }
+
+    let state = {
+      rowCount: 100,
+      columns: ['id', 'name', 'active', 'score', 'created', 'role'] as ColumnKey[],
+      fitMode: 'stretch' as FitMode,
+      sortable: true,
+      resizable: true,
+    };
+
+    function rebuild() {
+      const columns = state.columns.map((key) => ({
+        ...allColumnDefs[key],
+        sortable: state.sortable,
+        resizable: state.resizable,
+      }));
+
+      grid.fitMode = state.fitMode;
+      grid.gridConfig = {
+        columns,
+        sortable: state.sortable,
+        resizable: state.resizable,
+        typeDefaults: {
+          date: {
+            format: (val: Date) =>
+              val.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          },
+        },
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+      grid.rows = generateRows(state.rowCount);
+    }
+
+    // Initial render
+    rebuild();
+
+    // Re-render on control change
+    container.addEventListener('control-change', ((e: CustomEvent) => {
+      const { allValues } = e.detail;
+      state = {
+        rowCount: allValues.rowCount as number,
+        columns: (allValues.columns as ColumnKey[]) ?? state.columns,
+        fitMode: (allValues.fitMode as FitMode) ?? state.fitMode,
+        sortable: allValues.sortable as boolean,
+        resizable: allValues.resizable as boolean,
+      };
+      rebuild();
+    }) as EventListener);
+  }
+</script>
+
+<style>
+  .grid-playground {
+    margin-bottom: 1rem;
+  }
+</style>

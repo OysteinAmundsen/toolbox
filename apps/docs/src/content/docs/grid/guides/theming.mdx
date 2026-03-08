@@ -1,0 +1,172 @@
+---
+title: Theming
+description: Customize @toolbox-web/grid with CSS custom properties — colors, spacing, typography, dark mode, pre-built themes, and cascade layers.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import ThemeBuilder from '../../../../components/ThemeBuilder.astro';
+import CSSVariableReference from '../../../../components/CSSVariableReference.astro';
+
+# Theming
+
+The `@toolbox-web/grid` component is fully themeable via CSS custom properties. Customize colors, spacing, typography, and more without modifying source code.
+
+## Quick Start
+
+Override CSS custom properties on the grid element:
+
+```css
+tbw-grid {
+  --tbw-color-bg: #1a1a2e;
+  --tbw-color-fg: #eaeaea;
+  --tbw-color-border: #16213e;
+  --tbw-color-header-bg: #0f3460;
+  --tbw-color-row-hover: #1a1a4e;
+}
+```
+
+## Scaling with Font Size
+
+All sizing uses `em` units, so the grid scales proportionally with `font-size`:
+
+```css
+tbw-grid { font-size: 1.25em; }           /* 25% larger */
+tbw-grid.compact { font-size: 0.875em; }  /* Compact */
+```
+
+## Pre-built Themes
+
+Import a pre-built theme CSS file:
+
+```typescript
+import '@toolbox-web/grid/themes/dg-theme-material.css';
+```
+
+| Theme | Description |
+| --- | --- |
+| **Standard** | Polished, balanced look |
+| **Material** | Material Design 3 inspired |
+| **Bootstrap** | Bootstrap 5 styling |
+| **Vibrant** | Bold purple accents |
+| **Contrast** | High contrast for accessibility |
+| **Large** | Larger fonts and spacing |
+
+## Dark Mode Support
+
+The grid uses `light-dark()` for automatic theme support:
+
+```css
+tbw-grid { color-scheme: light dark; }  /* Auto-adapt */
+tbw-grid { color-scheme: dark; }        /* Force dark */
+```
+
+All built-in color variables use `light-dark()` internally, so they automatically provide appropriate colors for both modes.
+
+## CSS Cascade Layers
+
+The grid organizes its styles into CSS cascade layers:
+
+```css
+@layer tbw-base, tbw-plugins, tbw-theme;
+```
+
+Your unlayered CSS always wins — no `!important` needed. This makes theming predictable:
+
+- `tbw-base` — Core grid styles (structure, layout)
+- `tbw-plugins` — Plugin-contributed styles (selection highlighting, filter icons, etc.)
+- `tbw-theme` — Theme overrides (pre-built themes go here)
+- *(unlayered)* — Your custom CSS — always highest priority
+
+## Interactive Theme Builder
+
+Use the theme builder below to customize every CSS variable in real-time. The preview grid updates instantly as you tweak values. Export your theme as a `.css` file when you're done.
+
+<ThemeBuilder />
+
+## CSS Variable Reference
+
+The tables below show every CSS custom property with its **live computed value** in this page. Toggle between light and dark mode to see how values change.
+
+<CSSVariableReference />
+
+## Building a Custom Theme
+
+Create a CSS file with your overrides:
+
+```css
+/* my-theme.css */
+@layer tbw-theme {
+  tbw-grid {
+    --tbw-color-bg: #fafafa;
+    --tbw-color-fg: #333;
+    --tbw-color-border: #e0e0e0;
+    --tbw-color-header-bg: #f5f5f5;
+    --tbw-color-header-fg: #555;
+    --tbw-color-row-hover: #e3f2fd;
+    --tbw-color-accent: #1976d2;
+    --tbw-color-focus-ring: #1976d2;
+    --tbw-cell-padding: 0.4em 0.75em;
+    --tbw-font-family: 'Inter', sans-serif;
+  }
+}
+```
+
+Import it **after** the grid:
+
+```typescript
+import '@toolbox-web/grid';
+import './my-theme.css';
+```
+
+## Programmatic Styles
+
+For dynamic styling that needs to survive DOM rebuilds, use the adopted stylesheets API:
+
+```typescript
+// Register a named stylesheet - survives replaceChildren()
+grid.registerStyles('my-highlights', `
+  .row-warning { background: #fff3e0; }
+  .row-error { background: #fce4ec; }
+`);
+
+// Update or remove later
+grid.unregisterStyles('my-highlights');
+```
+
+:::caution
+Do not place `<style>` elements as children of `<tbw-grid>` — the grid calls `replaceChildren()` during renders, which removes them. Use `registerStyles()` for runtime-injected styles. External stylesheets (theme CSS files, `<link>` tags, `<style>` in `<head>`) are unaffected.
+:::
+
+## Plugin Styles
+
+Plugins inject their own CSS via `adoptedStyleSheets` in the `tbw-plugins` cascade layer. You can override any plugin class in your theme:
+
+| Plugin | Key CSS Classes | What They Style |
+|--------|----------------|----------------|
+| **Selection** | `.tbw-cell-selected`, `.tbw-row-selected` | Selected cells and rows highlight |
+| **Editing** | `.tbw-cell-editing`, `.tbw-row-dirty`, `.tbw-row-new` | Active editor and dirty tracking indicators |
+| **Filtering** | `.tbw-filter-active` | Filter icon active state |
+| **Grouping** | `.tbw-group-row`, `.tbw-group-toggle` | Group header rows and expand/collapse icons |
+| **Responsive** | `.tbw-card-view`, `.tbw-card-row` | Card layout mode styling |
+
+Override in your theme:
+
+```css
+@layer tbw-theme {
+  tbw-grid .tbw-cell-selected {
+    background: rgba(25, 118, 210, 0.15);
+  }
+  tbw-grid .tbw-row-dirty {
+    border-left: 3px solid orange;
+  }
+}
+```
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="Core Features" description="Column inference, renderers, row/cell styling, and animation" href="/grid/core/" />
+  <LinkCard title="Accessibility" description="High contrast mode and color requirements" href="/grid/guides/accessibility/" />
+  <LinkCard title="Architecture" description="CSS cascade layers and Light DOM design" href="/grid/architecture/" />
+  <LinkCard title="Responsive Plugin" description="Card layout mode with mobile-friendly responsive styling" href="/grid/plugins/responsive/" />
+</CardGrid>

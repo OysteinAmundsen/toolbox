@@ -2,80 +2,29 @@
   "name": "docs",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "sourceRoot": "apps/docs",
-  "prefix": "toolbox",
+  "sourceRoot": "apps/docs/src",
   "tags": ["type:app", "scope:docs"],
   "targets": {
-    "build": {
-      "executor": "nx:run-commands",
-      "outputs": ["{workspaceRoot}/dist/docs"],
-      "options": {
-        "commands": [
-          "nx run docs:_build-storybook",
-          "bun apps/docs/scripts/generate-sitemap.ts",
-          "bun apps/docs/scripts/generate-search-index.ts"
-        ],
-        "parallel": false
-      },
-      "configurations": {
-        "ci": {
-          "commands": [
-            "nx run docs:_build-storybook:ci",
-            "bun apps/docs/scripts/generate-sitemap.ts",
-            "bun apps/docs/scripts/generate-search-index.ts"
-          ]
-        }
-      }
-    },
     "serve": {
-      "executor": "@nx/storybook:storybook",
+      "command": "astro dev --port 4400",
       "dependsOn": ["grid:typedoc", "grid-angular:typedoc", "grid-react:typedoc", "grid-vue:typedoc"],
       "options": {
-        "port": 4400,
-        "configDir": "apps/docs/.storybook"
-      },
-      "configurations": {
-        "ci": {
-          "quiet": true
-        }
+        "cwd": "apps/docs"
       }
     },
-    "_build-storybook": {
-      "executor": "@nx/storybook:build",
-      "dependsOn": ["grid:typedoc", "grid-angular:typedoc", "grid-react:typedoc", "grid-vue:typedoc"],
-      "outputs": ["{options.outputDir}"],
+    "build": {
+      "command": "astro build",
+      "dependsOn": ["grid:build", "grid:typedoc", "grid-angular:typedoc", "grid-react:typedoc", "grid-vue:typedoc"],
       "options": {
-        "outputDir": "dist/docs",
-        "configDir": "apps/docs/.storybook"
+        "cwd": "apps/docs"
       },
-      "configurations": {
-        "ci": {
-          "quiet": true
-        }
-      }
+      "outputs": ["{projectRoot}/dist"]
     },
     "preview": {
-      "executor": "@nx/web:file-server",
+      "command": "astro preview --port 4400",
       "dependsOn": ["build"],
       "options": {
-        "staticFilePath": "dist/docs",
-        "spa": true,
-        "watch": false
-      }
-    },
-    "test": {
-      "executor": "@nx/vitest:test",
-      "outputs": ["{options.reportsDirectory}"],
-      "options": {
-        "passWithNoTests": true,
-        "reportsDirectory": "../../coverage/apps/docs"
-      }
-    },
-    "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
-      "options": {
-        "lintFilePatterns": ["apps/docs/**/*.{ts,tsx,js,jsx}"]
+        "cwd": "apps/docs"
       }
     }
   }

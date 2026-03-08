@@ -1,0 +1,103 @@
+---
+// CustomLoadingRendererDemo.astro — Custom loading renderer with linear progress bar
+---
+<div class="grid-demo not-content">
+  <p class="grid-demo-description">Replace the default spinner with a custom <strong>linear progress bar</strong>. Click Toggle to switch loading state.</p>
+  <div class="loading-bar">
+    <button data-toggle="loading">Toggle Loading</button>
+  </div>
+  <tbw-grid style="display: block; height: 300px;" data-demo-id="custom-loading-renderer"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+
+  const grid = document.querySelector<DataGridElement>('[data-demo-id="custom-loading-renderer"]');
+  const toggleBtn = document.querySelector<HTMLButtonElement>('[data-toggle="loading"]');
+
+  if (grid) {
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 80 },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+      { field: 'department', header: 'Department' },
+    ];
+
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', email: 'alice@example.com', department: 'Engineering' },
+      { id: 2, name: 'Bob Smith', email: 'bob@example.com', department: 'Marketing' },
+      { id: 3, name: 'Carol Davis', email: 'carol@example.com', department: 'Engineering' },
+      { id: 4, name: 'Dan Wilson', email: 'dan@example.com', department: 'Sales' },
+      { id: 5, name: 'Eve Brown', email: 'eve@example.com', department: 'HR' },
+    ];
+
+    grid.gridConfig = {
+      getRowId: (row: { id: number }) => row.id,
+      loadingRenderer: () => {
+        const container = document.createElement('div');
+        container.className = 'progress-bar-container';
+        const bar = document.createElement('div');
+        bar.className = 'progress-bar';
+        container.appendChild(bar);
+        return container;
+      },
+    };
+
+    toggleBtn?.addEventListener('click', () => {
+      grid.loading = !grid.loading;
+    });
+  }
+</script>
+
+<style>
+  .grid-demo-description {
+    padding: 0.75rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-2);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  .loading-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--sl-color-gray-6);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    font-size: 13px;
+  }
+  .loading-bar button {
+    padding: 4px 14px;
+    border: 1px solid var(--sl-color-gray-4);
+    border-radius: 4px;
+    background: var(--sl-color-accent);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .loading-bar button:hover {
+    opacity: 0.9;
+  }
+  .progress-bar-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: light-dark(rgba(0,0,0,0.08), rgba(255,255,255,0.08));
+    overflow: hidden;
+    z-index: 1000;
+  }
+  .progress-bar {
+    height: 100%;
+    background: light-dark(#1976d2, #64b5f6);
+    width: 30%;
+    animation: progress-indeterminate 2s cubic-bezier(0.4,0,0.2,1) infinite;
+    transform-origin: left;
+  }
+  @keyframes progress-indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+</style>

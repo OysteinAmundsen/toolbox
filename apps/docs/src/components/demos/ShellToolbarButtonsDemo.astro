@@ -1,0 +1,56 @@
+---
+/**
+ * Demo: Toolbar Buttons — custom buttons via <tbw-grid-tool-buttons> light DOM container.
+ */
+---
+
+<div class="grid-demo">
+  <p class="grid-demo-description">
+    Custom toolbar buttons via light DOM. The grid provides the container — you provide the HTML.
+  </p>
+  <div data-demo-id="shell-toolbar-wrap">
+    <tbw-grid style="height: 380px; display: block;">
+      <tbw-grid-header title="Toolbar Demo"></tbw-grid-header>
+      <tbw-grid-tool-buttons>
+        <button class="tbw-toolbar-btn" title="Export" aria-label="Export">📥</button>
+        <button class="tbw-toolbar-btn" title="Print" aria-label="Print">🖨️</button>
+      </tbw-grid-tool-buttons>
+    </tbw-grid>
+  </div>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+  import type { ColumnConfig } from '@toolbox-web/grid';
+
+  const wrap = document.querySelector('[data-demo-id="shell-toolbar-wrap"]');
+  const grid = wrap?.querySelector<HTMLElement & {
+    columns: ColumnConfig[];
+    rows: Record<string, unknown>[];
+  }>('tbw-grid');
+
+  if (grid && wrap) {
+    const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
+    const depts = ['Engineering', 'Sales', 'Marketing', 'Support'];
+
+    grid.columns = [
+      { field: 'id', header: 'ID', type: 'number', width: 80 },
+      { field: 'name', header: 'Name', minWidth: 150 },
+      { field: 'department', header: 'Department', width: 150 },
+      { field: 'salary', header: 'Salary', type: 'number', width: 120 },
+    ];
+
+    grid.rows = Array.from({ length: 15 }, (_, i) => ({
+      id: i + 1,
+      name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
+      department: depts[i % depts.length],
+      salary: 50000 + Math.floor(Math.random() * 50000),
+    }));
+
+    const exportBtn = wrap.querySelector('[title="Export"]');
+    exportBtn?.addEventListener('click', () => alert('Export clicked!'));
+
+    const printBtn = wrap.querySelector('[title="Print"]');
+    printBtn?.addEventListener('click', () => alert('Print clicked!'));
+  }
+</script>

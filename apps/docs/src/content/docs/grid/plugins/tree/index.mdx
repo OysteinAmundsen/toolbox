@@ -1,0 +1,261 @@
+---
+title: "Tree Plugin"
+description: "Display hierarchical data as an expandable tree."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import TreeDefaultDemo from '@components/demos/tree/TreeDefaultDemo.astro';
+import TreeExpandedByDefaultDemo from '@components/demos/tree/TreeExpandedByDefaultDemo.astro';
+import TreeWideIndentationDemo from '@components/demos/tree/TreeWideIndentationDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+
+# Tree Plugin
+
+The Tree plugin transforms your flat grid into a hierarchical tree view with expandable parent-child relationships. Great for file explorers, organizational charts, nested categories, or any data with a natural hierarchy.
+
+## Installation
+
+```ts
+import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
+```
+
+## Basic Usage
+
+Just point the plugin at the field containing child items (defaults to `children`) and the grid handles all the expand/collapse behavior, indentation, and icons automatically.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'type', header: 'Type' },
+    { field: 'size', header: 'Size' }
+  ],
+  plugins: [
+    new TreePlugin({
+      childrenField: 'children',
+      indentWidth: 24,
+    }),
+  ],
+};
+
+grid.rows = [
+  {
+    id: 1,
+    name: 'Documents',
+    type: 'folder',
+    children: [
+      { id: 2, name: 'Work', type: 'folder', children: [
+        { id: 3, name: 'Report.docx', type: 'file', size: '24 KB' }
+      ]},
+      { id: 4, name: 'Personal', type: 'folder', children: [] }
+    ]
+  },
+];
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/tree';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function FileExplorer({ files }) {
+  return (
+    <DataGrid
+      rows={files}
+      columns={[
+        { field: 'name', header: 'Name' },
+        { field: 'type', header: 'Type' },
+        { field: 'size', header: 'Size' }
+      ]}
+      tree={{ childrenField: 'children', indentWidth: 24 }}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/tree';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const files = [
+  {
+    id: 1,
+    name: 'Documents',
+    type: 'folder',
+    children: [
+      { id: 2, name: 'Work', type: 'folder', children: [{ id: 3, name: 'Report.docx', type: 'file', size: '24 KB' }] },
+      { id: 4, name: 'Personal', type: 'folder', children: [] },
+    ],
+  },
+];
+</script>
+
+<template>
+  <TbwGrid :rows="files" :tree="{ childrenField: 'children', indentWidth: 24 }">
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="type" header="Type" />
+    <TbwGridColumn field="size" header="Size" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature import - enables the [tree] input
+import '@toolbox-web/grid-angular/features/tree';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-file-explorer',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="files"
+      [columns]="columns"
+      [tree]="{ childrenField: 'children', indentWidth: 24 }"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class FileExplorerComponent {
+  files = [/* hierarchical data */];
+
+  columns: ColumnConfig[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'type', header: 'Type' },
+    { field: 'size', header: 'Size' }
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+## Demos
+
+### Default Tree View
+
+<ShowSource file="demos/tree/TreeDefaultDemo.astro">
+  <TreeDefaultDemo />
+</ShowSource>
+
+
+
+
+### Expanded by Default
+
+<ShowSource file="demos/tree/TreeExpandedByDefaultDemo.astro">
+  <TreeExpandedByDefaultDemo />
+</ShowSource>
+
+
+
+### Wide Indentation
+
+<ShowSource file="demos/tree/TreeWideIndentationDemo.astro">
+  <TreeWideIndentationDemo />
+</ShowSource>
+
+
+
+## Configuration Options
+
+| Option            | Type                         | Default      | Description                              |
+| ----------------- | ---------------------------- | ------------ | ---------------------------------------- |
+| `childrenField`   | `string`                     | `'children'` | Field containing child array             |
+| `autoDetect`      | `boolean`                    | `true`       | Auto-detect tree structure               |
+| `defaultExpanded` | `boolean`                    | `false`      | Expand all initially                     |
+| `indentWidth`     | `number`                     | `20`         | Indent per level in pixels               |
+| `showExpandIcons` | `boolean`                    | `true`       | Show expand/collapse icons               |
+| `animation`       | `false \| 'slide' \| 'fade'` | `'slide'`    | Animation style for expanding/collapsing |
+
+### Animation Options
+
+The `animation` option controls how child nodes appear/disappear:
+
+```ts
+// Slide animation (default)
+new TreePlugin({ animation: 'slide', ... });
+
+// Fade animation
+new TreePlugin({ animation: 'fade', ... });
+
+// No animation
+new TreePlugin({ animation: false, ... });
+```
+
+:::note
+Animation respects the grid-level `animation.mode` setting.
+:::
+
+## Programmatic API
+
+```ts
+const plugin = grid.getPlugin(TreePlugin);
+
+plugin.expand(nodeId);
+plugin.collapse(nodeId);
+plugin.toggle(nodeId);
+plugin.expandAll();
+plugin.collapseAll();
+const expanded = plugin.getExpandedNodes();
+```
+
+## Styling
+
+The tree plugin supports CSS custom properties for theming. Override these on `tbw-grid` or a parent container:
+
+### CSS Custom Properties
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-tree-toggle-size` | `1.25em` (~20px) | Toggle icon and spacer width |
+| `--tbw-tree-indent-width` | `var(--tbw-tree-toggle-size)` | Indentation per level (must be ≥ toggle size) |
+| `--tbw-tree-accent` | `var(--tbw-color-accent)` | Toggle icon hover color |
+| `--tbw-animation-duration` | `200ms` | Expand/collapse animation |
+| `--tbw-animation-easing` | `ease-out` | Animation curve |
+
+:::note
+`--tbw-tree-indent-width` defaults to `--tbw-tree-toggle-size` to ensure leaf nodes align with parent nodes. If you override indent width, ensure it's at least as wide as the toggle icon.
+:::
+
+### Example
+
+```css
+tbw-grid {
+  /* Custom tree styling */
+  --tbw-tree-toggle-size: 1.5em; /* Larger toggle icons */
+  --tbw-tree-indent-width: 1.75em; /* Slightly wider indent */
+  --tbw-tree-accent: #10b981;
+  --tbw-animation-duration: 150ms;
+}
+```
+
+### CSS Classes
+
+The tree plugin uses these class names:
+
+| Class | Element |
+| --- | --- |
+| `.tree-cell-wrapper` | Cell content wrapper with indentation |
+| `.tree-expander` | Expander cell container |
+| `.tree-toggle` | Expand/collapse icon |
+| `.tree-spacer` | Indent spacer element |
+| `.tbw-tree-slide-in` | Child row slide animation |
+| `.tbw-tree-fade-in` | Child row fade animation |
+
+## See Also
+
+- **[Row Grouping](..//grid/plugins/row-grouping/)** — Group rows by field values
+- **[Master-Detail](../?path=/grid/plugins/master-detail/)** — Expandable detail panels
+- **[Pivot](../?path=/grid/plugins/pivot/)** — Pivot table with row grouping

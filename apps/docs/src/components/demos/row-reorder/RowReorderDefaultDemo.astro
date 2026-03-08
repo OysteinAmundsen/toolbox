@@ -1,0 +1,55 @@
+---
+// RowReorderDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="row-reorder-default-demo">
+  <DemoControls controls={[
+    { section: 'ROW REORDER', name: 'dragHandlePosition', label: 'Handle position', type: 'select',
+      options: ['left', 'right'], default: 'left', description: 'Position of drag handle column' },
+    { section: 'ROW REORDER', name: 'enableKeyboard', label: 'Keyboard enabled', type: 'boolean',
+      default: true, description: 'Allow reorder with keyboard shortcuts' },
+    { section: 'ROW REORDER', name: 'animation', label: 'Animation', type: 'select',
+      options: ['flip', 'slide', 'fade', 'none'], default: 'flip', description: 'Reorder animation style' },
+  ]} />
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+
+const container = document.getElementById('row-reorder-default-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', priority: 1 },
+    { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', priority: 2 },
+    { id: 3, name: 'Carol', department: 'Engineering', email: 'carol@example.com', priority: 3 },
+    { id: 4, name: 'David', department: 'Sales', email: 'david@example.com', priority: 4 },
+    { id: 5, name: 'Eve', department: 'Engineering', email: 'eve@example.com', priority: 5 },
+  ];
+  const columns = [
+    { field: 'priority', header: '#', type: 'number', width: 50 },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'email', header: 'Email' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function rebuild(dragHandlePosition = 'left', enableKeyboard = true, animation = 'flip') {
+    grid.gridConfig = {
+      columns,
+      plugins: [new RowReorderPlugin({ dragHandlePosition, enableKeyboard, animation } as any)],
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    const v = e.detail.allValues;
+    rebuild(v.dragHandlePosition as string, v.enableKeyboard as boolean, v.animation as string);
+  }) as EventListener);
+}
+</script>

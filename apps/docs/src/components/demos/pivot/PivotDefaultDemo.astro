@@ -1,0 +1,73 @@
+---
+// PivotDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="pivot-default-demo">
+  <DemoControls controls={[
+    { section: 'PIVOT', name: 'showTotals', label: 'Show totals', type: 'boolean',
+      default: true, description: 'Show row group totals' },
+    { section: 'PIVOT', name: 'showGrandTotal', label: 'Show grand total', type: 'boolean',
+      default: true, description: 'Show grand total row' },
+    { section: 'PIVOT', name: 'showToolPanel', label: 'Show tool panel', type: 'boolean',
+      default: true, description: 'Show drag-and-drop tool panel' },
+    { section: 'PIVOT', name: 'animation', label: 'Animation', type: 'select',
+      options: ['slide', 'expand', 'fade', 'none'], default: 'slide', description: 'Expand/collapse animation' },
+  ]} />
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+
+const container = document.getElementById('pivot-default-demo');
+if (container) {
+  const salesData = [
+    { region: 'North', product: 'Widget A', quarter: 'Q1', sales: 1200 },
+    { region: 'North', product: 'Widget B', quarter: 'Q1', sales: 800 },
+    { region: 'North', product: 'Widget A', quarter: 'Q2', sales: 1500 },
+    { region: 'North', product: 'Widget B', quarter: 'Q2', sales: 950 },
+    { region: 'South', product: 'Widget A', quarter: 'Q1', sales: 900 },
+    { region: 'South', product: 'Widget B', quarter: 'Q1', sales: 1100 },
+    { region: 'South', product: 'Widget A', quarter: 'Q2', sales: 1300 },
+    { region: 'South', product: 'Widget B', quarter: 'Q2', sales: 1400 },
+    { region: 'East', product: 'Widget A', quarter: 'Q1', sales: 750 },
+    { region: 'East', product: 'Widget B', quarter: 'Q1', sales: 650 },
+    { region: 'East', product: 'Widget A', quarter: 'Q2', sales: 880 },
+    { region: 'East', product: 'Widget B', quarter: 'Q2', sales: 720 },
+  ];
+  const columns = [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function rebuild(opts: Record<string, unknown>) {
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new PivotPlugin({
+          animation: (opts.animation as string) ?? 'slide',
+          rowGroupFields: ['region', 'product'],
+          columnGroupFields: ['quarter'],
+          valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total Sales' }],
+          showTotals: opts.showTotals as boolean ?? true,
+          showGrandTotal: opts.showGrandTotal as boolean ?? true,
+          showToolPanel: opts.showToolPanel as boolean ?? true,
+        } as any),
+      ],
+    };
+    grid.rows = salesData;
+  }
+
+  rebuild({ showTotals: true, showGrandTotal: true, showToolPanel: true, animation: 'slide' });
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    rebuild(e.detail.allValues);
+  }) as EventListener);
+}
+</script>

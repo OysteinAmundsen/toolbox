@@ -1,0 +1,30 @@
+---
+/**
+ * Demo: Column Inference — zero-config data display.
+ * The grid automatically detects fields, types, and generates headers.
+ */
+---
+
+<p class="grid-demo-description">
+  Pass data without defining columns — the grid infers everything automatically.
+</p>
+<div class="grid-demo">
+  <tbw-grid data-demo-id="column-inference" style="height: 260px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+
+  const grid = document.querySelector<HTMLElement & { rows: unknown[] }>(
+    '[data-demo-id="column-inference"]'
+  );
+  if (grid) {
+    grid.rows = [
+      { id: 1, firstName: 'Alice', lastName: 'Johnson', age: 32, active: true, startDate: '2022-03-15' },
+      { id: 2, firstName: 'Bob', lastName: 'Smith', age: 28, active: false, startDate: '2023-01-10' },
+      { id: 3, firstName: 'Carol', lastName: 'Williams', age: 45, active: true, startDate: '2021-07-22' },
+      { id: 4, firstName: 'David', lastName: 'Brown', age: 36, active: true, startDate: '2020-11-05' },
+      { id: 5, firstName: 'Eve', lastName: 'Davis', age: 29, active: false, startDate: '2024-02-18' },
+    ];
+  }
+</script>

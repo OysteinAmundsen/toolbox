@@ -35,7 +35,7 @@ The MCP server launches its own Chromium instance. This is **separate** from any
 Before navigating, ensure a dev server is running. Use one of:
 
 ```bash
-# Storybook (all stories, port 4400)
+# Docs site (port 4400)
 bun nx serve docs
 
 # Vanilla demo (port 4000)
@@ -47,7 +47,7 @@ bun nx serve demo-angular
 # React demo (port 4300)
 bun nx serve demo-react
 
-# Vue demo (port 4173)
+# Vue demo (port 4100)
 bun nx serve demo-vue
 
 # All demos at once
@@ -58,7 +58,7 @@ bun run demo
 
 | App          | Port | Command                     |
 | ------------ | ---- | --------------------------- |
-| Storybook    | 4400 | `bun nx serve docs`         |
+| Docs Site    | 4400 | `bun nx serve docs`         |
 | Demo Vanilla | 4000 | `bun nx serve demo-vanilla` |
 | Demo Angular | 4200 | `bun nx serve demo-angular` |
 | Demo React   | 4300 | `bun nx serve demo-react`   |
@@ -72,16 +72,14 @@ bun run demo
 navigate_page → url: http://localhost:4200/
 ```
 
-### Navigate to a specific Storybook story
+### Navigate to a specific docs page
 
-Stories are served at path `iframe.html?id=<story-id>`. Use the Storybook sidebar structure to construct the ID:
+The docs site runs at `http://localhost:4400`. Navigate to specific pages by path:
 
 ```
-navigate_page → url: http://localhost:4400/iframe.html?id=plugins-editing--basic
-navigate_page → url: http://localhost:4400/iframe.html?id=features-columns--column-types
+navigate_page → url: http://localhost:4400/grid/plugins/editing/
+navigate_page → url: http://localhost:4400/grid/guides/getting-started/
 ```
-
-Pattern: `category-subcategory--story-name` (lowercase, hyphens).
 
 ### Reload a page (after code changes with HMR)
 
@@ -369,9 +367,9 @@ For operations that need to wait for render cycles:
    ```
 3. `take_snapshot` with selector for the specific element's DOM
 
-### "Storybook story fails to render"
+### "Docs page fails to render"
 
-1. `navigate_page` to `http://localhost:4400/iframe.html?id=<story-id>`
+1. `navigate_page` to `http://localhost:4400/grid/plugins/<plugin>/`
 2. `list_console_messages` to catch any errors
 3. `take_screenshot` for visual state
 4. `take_snapshot` to see what DOM was actually rendered

@@ -1,0 +1,63 @@
+---
+// EmployeeManagementAllFeaturesDemo.astro — Full-featured employee management grid demo
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="employee-all-features-container">
+  <DemoControls controls={[
+    { name: 'rowCount', label: 'Row count', type: 'number', default: 200, min: 50, max: 1000, step: 50 },
+    { name: 'enableSelection', label: 'Selection', type: 'boolean', default: true },
+    { name: 'enableFiltering', label: 'Filtering', type: 'boolean', default: true },
+    { name: 'enableSorting', label: 'Sorting', type: 'boolean', default: true },
+    { name: 'enableEditing', label: 'Editing', type: 'boolean', default: true },
+    { name: 'enableMasterDetail', label: 'Master / Detail', type: 'boolean', default: true },
+    { name: 'enableRowGrouping', label: 'Row grouping', type: 'boolean', default: false },
+  ]} />
+  <div data-demo-id="employee-all-features" style="display: block; height: 600px;"></div>
+</div>
+
+<script>
+  import { createEmployeeGrid } from '@demo/vanilla';
+
+  const container = document.getElementById('employee-all-features-container');
+  const host = document.querySelector<HTMLElement>('[data-demo-id="employee-all-features"]');
+
+  if (container && host) {
+    interface AllFeaturesValues {
+      rowCount: number;
+      enableSelection: boolean;
+      enableFiltering: boolean;
+      enableSorting: boolean;
+      enableEditing: boolean;
+      enableMasterDetail: boolean;
+      enableRowGrouping: boolean;
+    }
+
+    function rebuild(v: AllFeaturesValues) {
+      host.innerHTML = '';
+      const grid = createEmployeeGrid({
+        rowCount: v.rowCount,
+        enableSelection: v.enableSelection,
+        enableFiltering: v.enableFiltering,
+        enableSorting: v.enableSorting,
+        enableEditing: v.enableEditing,
+        enableMasterDetail: v.enableMasterDetail,
+        enableRowGrouping: v.enableRowGrouping,
+      });
+      host.appendChild(grid);
+    }
+
+    rebuild({
+      rowCount: 200,
+      enableSelection: true,
+      enableFiltering: true,
+      enableSorting: true,
+      enableEditing: true,
+      enableMasterDetail: true,
+      enableRowGrouping: false,
+    });
+
+    container.addEventListener('control-change', ((e: CustomEvent) => {
+      rebuild(e.detail.allValues as AllFeaturesValues);
+    }) as EventListener);
+  }
+</script>

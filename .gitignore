@@ -34,6 +34,12 @@ migrations.json
 /typings
 **/.angular
 
+# Astro generated types/cache
+.astro/
+
+# Wrangler local state
+.wrangler/
+
 # System Files
 .DS_Store
 Thumbs.db

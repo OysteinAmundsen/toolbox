@@ -95,8 +95,12 @@ export function applyGroupedHeaderCellClasses(
 ): void {
   if (!groups.length || !headerRowEl) return;
 
+  const embedded = findEmbeddedImplicitGroups(groups, columns);
+
   const fieldToGroup = new Map<string, string>();
   for (const g of groups) {
+    // Skip embedded implicit groups — their columns inherit the enclosing explicit group
+    if (String(g.id).startsWith('__implicit__') && embedded.has(String(g.id))) continue;
     for (const c of g.columns) {
       if (c.field) {
         fieldToGroup.set(c.field, g.id);
@@ -116,12 +120,56 @@ export function applyGroupedHeaderCellClasses(
     }
   });
 
-  // Mark group end cells for styling
+  // Mark group end cells for styling (skip embedded implicit groups)
   for (const g of groups) {
+    if (String(g.id).startsWith('__implicit__') && embedded.has(String(g.id))) continue;
     const last = g.columns[g.columns.length - 1];
     const cell = headerCells.find((c) => c.getAttribute('data-field') === last.field);
     if (cell) cell.classList.add('group-end');
   }
+}
+
+/**
+ * Compute the grid range [start, end] for a group based on its first and last
+ * column positions in the final columns array.
+ */
+function computeGroupGridRange(group: ColumnGroup, columns: ColumnConfig[]): [number, number] | null {
+  const first = group.columns[0];
+  const last = group.columns[group.columns.length - 1];
+  const start = first ? columns.findIndex((c) => c.field === first.field) : -1;
+  const end = last ? columns.findIndex((c) => c.field === last.field) : -1;
+  return start !== -1 && end !== -1 ? [start, end] : null;
+}
+
+/**
+ * Find implicit groups whose column range falls entirely within an explicit
+ * group's range (e.g. a utility column inserted between members of the same group).
+ *
+ * @returns Set of implicit group IDs that are visually embedded.
+ */
+export function findEmbeddedImplicitGroups(groups: ColumnGroup[], columns: ColumnConfig[]): Set<string> {
+  const embedded = new Set<string>();
+
+  // Collect ranges for explicit groups
+  const explicitRanges: [number, number][] = [];
+  for (const g of groups) {
+    if (String(g.id).startsWith('__implicit__')) continue;
+    const range = computeGroupGridRange(g, columns);
+    if (range) explicitRanges.push(range);
+  }
+
+  // Check each implicit group
+  for (const g of groups) {
+    if (!String(g.id).startsWith('__implicit__')) continue;
+    const range = computeGroupGridRange(g, columns);
+    if (!range) continue;
+    const [iStart, iEnd] = range;
+    if (explicitRanges.some(([eStart, eEnd]) => iStart >= eStart && iEnd <= eEnd)) {
+      embedded.add(String(g.id));
+    }
+  }
+
+  return embedded;
 }
 
 /**
@@ -138,22 +186,29 @@ export function buildGroupHeaderRow(groups: ColumnGroup[], columns: ColumnConfig
   groupRow.className = 'header-group-row';
   groupRow.setAttribute('role', 'row');
 
-  for (const g of groups) {
-    // Always compute start index from the current columns array, not stored firstIndex.
-    // This accounts for plugin-added columns (e.g., expander) that weren't present
-    // when the groups were initially computed during processColumns.
-    const firstGroupCol = g.columns[0];
-    const startIndex = firstGroupCol ? columns.findIndex((c) => c.field === firstGroupCol.field) : -1;
-    if (startIndex === -1) continue; // Group columns not in final column list
+  const embedded = findEmbeddedImplicitGroups(groups, columns);
 
-    const isImplicit = String(g.id).startsWith('__implicit__');
+  for (const g of groups) {
+    const gid = String(g.id);
+    const isImplicit = gid.startsWith('__implicit__');
+
+    // Skip implicit groups that are visually embedded within an explicit group
+    if (isImplicit && embedded.has(gid)) continue;
+
+    // Compute actual range from first to last member in the final columns array.
+    // This correctly spans over any interleaved utility columns (e.g. checkbox).
+    const range = computeGroupGridRange(g, columns);
+    if (!range) continue;
+    const [startIndex, endIndex] = range;
+    const span = endIndex - startIndex + 1;
+
     const label = isImplicit ? '' : g.label || g.id;
 
     const cell = document.createElement('div');
     cell.className = 'cell header-group-cell';
     if (isImplicit) cell.classList.add('implicit-group');
-    cell.setAttribute('data-group', String(g.id));
-    cell.style.gridColumn = `${startIndex + 1} / span ${g.columns.length}`;
+    cell.setAttribute('data-group', gid);
+    cell.style.gridColumn = `${startIndex + 1} / span ${span}`;
     cell.textContent = label;
     groupRow.appendChild(cell);
   }

@@ -14,6 +14,7 @@ import {
   applyGroupedHeaderCellClasses,
   buildGroupHeaderRow,
   computeColumnGroups,
+  findEmbeddedImplicitGroups,
   hasColumnGroups,
 } from './grouping-columns';
 import styles from './grouping-columns.css?inline';
@@ -448,8 +449,11 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
 
     // Keep #groupEndFields in sync for afterCellRender (covers scheduler-driven renders)
     this.#groupEndFields.clear();
+    const embedded = findEmbeddedImplicitGroups(groups, finalColumns);
     for (let gi = 0; gi < groups.length; gi++) {
       const g = groups[gi];
+      // Skip embedded implicit groups (e.g. checkbox column within a pinned group)
+      if (String(g.id).startsWith('__implicit__') && embedded.has(String(g.id))) continue;
       const lastCol = g.columns[g.columns.length - 1];
       // Don't mark the last group — no adjacent group follows it
       if (lastCol?.field && gi < groups.length - 1) {

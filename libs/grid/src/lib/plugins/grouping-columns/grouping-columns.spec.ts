@@ -8,6 +8,7 @@ import {
   applyGroupedHeaderCellClasses,
   buildGroupHeaderRow,
   computeColumnGroups,
+  findEmbeddedImplicitGroups,
   getColumnGroupId,
   hasColumnGroups,
 } from './grouping-columns';
@@ -137,6 +138,86 @@ describe('buildGroupHeaderRow', () => {
     expect((row!.children[0] as HTMLElement).style.gridColumn).toBe('1 / span 2');
     expect((row!.children[1] as HTMLElement).style.gridColumn).toBe('3 / span 1');
   });
+
+  it('spans over interleaved utility columns when group members are non-contiguous', () => {
+    // Simulates: pinned ticker (group=G1) at 0, checkbox (no group) at 1,
+    // company (group=G1) at 2, sector (group=G1) at 3
+    const ticker = { field: 'ticker', header: 'Ticker', group: { id: 'G1', label: 'Security' } };
+    const checkbox = { field: '__tbw_checkbox', header: '' };
+    const company = { field: 'company', header: 'Company', group: { id: 'G1', label: 'Security' } };
+    const sector = { field: 'sector', header: 'Sector', group: { id: 'G1', label: 'Security' } };
+    const price = { field: 'price', header: 'Price', group: { id: 'G2', label: 'Trading' } };
+
+    const columns = [ticker, checkbox, company, sector, price];
+    const groups = computeColumnGroups(columns);
+
+    // computeColumnGroups creates: G1 (ticker, company, sector), __implicit__1 (checkbox), G2 (price)
+    expect(groups.length).toBe(3);
+    expect(groups[0].id).toBe('G1');
+    expect(groups[1].id).toBe('__implicit__1');
+    expect(groups[2].id).toBe('G2');
+
+    const row = buildGroupHeaderRow(groups, columns);
+    expect(row).not.toBe(null);
+
+    // Embedded implicit group should be skipped
+    expect(row!.children.length).toBe(2);
+
+    // G1 should span from ticker (0) to sector (3) = 4 columns
+    expect((row!.children[0] as HTMLElement).style.gridColumn).toBe('1 / span 4');
+    expect(row!.children[0].textContent).toBe('Security');
+
+    // G2 should be at position 5
+    expect((row!.children[1] as HTMLElement).style.gridColumn).toBe('5 / span 1');
+    expect(row!.children[1].textContent).toBe('Trading');
+  });
+
+  it('does not skip implicit groups that are NOT embedded in an explicit group', () => {
+    // Ungrouped columns between two different explicit groups
+    const a = { field: 'a', header: 'A', group: 'G1' };
+    const b = { field: 'b', header: 'B' };
+    const c = { field: 'c', header: 'C', group: 'G2' };
+
+    const columns = [a, b, c];
+    const groups = computeColumnGroups(columns);
+
+    // G1 (a), implicit (b), G2 (c)
+    expect(groups.length).toBe(3);
+
+    const row = buildGroupHeaderRow(groups, columns);
+    // All three groups should render (implicit is not embedded)
+    expect(row!.children.length).toBe(3);
+  });
+});
+
+describe('findEmbeddedImplicitGroups', () => {
+  it('returns empty set when no implicit groups are embedded', () => {
+    const cols = [
+      { field: 'a', header: 'A', group: 'G1' },
+      { field: 'b', header: 'B' },
+      { field: 'c', header: 'C', group: 'G2' },
+    ];
+    const groups = computeColumnGroups(cols);
+    const embedded = findEmbeddedImplicitGroups(groups, cols);
+    expect(embedded.size).toBe(0);
+  });
+
+  it('detects implicit groups embedded within explicit group range', () => {
+    const ticker = { field: 'ticker', header: 'Ticker', group: 'Security' };
+    const checkbox = { field: '__checkbox', header: '' };
+    const company = { field: 'company', header: 'Company', group: 'Security' };
+
+    const columns = [ticker, checkbox, company];
+    const groups = computeColumnGroups(columns);
+
+    const embedded = findEmbeddedImplicitGroups(groups, columns);
+    expect(embedded.size).toBe(1);
+    expect(embedded.has('__implicit__1')).toBe(true);
+  });
+
+  it('returns empty set when no groups exist', () => {
+    expect(findEmbeddedImplicitGroups([], []).size).toBe(0);
+  });
 });
 
 describe('applyGroupedHeaderCellClasses', () => {
@@ -207,6 +288,34 @@ describe('applyGroupedHeaderCellClasses', () => {
 
     const cellA = headerRow.querySelector('[data-field="a"]');
     expect(cellA!.getAttribute('data-group')).toBe('TestGroup');
+  });
+
+  it('does not apply group-end to embedded implicit group cells', () => {
+    // Simulate: ticker (G1), checkbox (no group), company (G1)
+    container.innerHTML = `
+      <div class="header-row">
+        <div class="cell" data-field="ticker"></div>
+        <div class="cell" data-field="__checkbox"></div>
+        <div class="cell" data-field="company"></div>
+      </div>
+    `;
+
+    const ticker = { field: 'ticker', header: 'Ticker', group: { id: 'G1', label: 'Security' } };
+    const checkbox = { field: '__checkbox', header: '' };
+    const company = { field: 'company', header: 'Company', group: { id: 'G1', label: 'Security' } };
+    const columns = [ticker, checkbox, company];
+    const groups = computeColumnGroups(columns);
+
+    const headerRow = container.querySelector('.header-row') as HTMLElement;
+    applyGroupedHeaderCellClasses(headerRow, groups, columns);
+
+    const checkboxCell = headerRow.querySelector('[data-field="__checkbox"]');
+    // Checkbox should NOT have group-end since its implicit group is embedded
+    expect(checkboxCell!.classList.contains('group-end')).toBe(false);
+
+    // Company (last in G1) should have group-end
+    const companyCell = headerRow.querySelector('[data-field="company"]');
+    expect(companyCell!.classList.contains('group-end')).toBe(true);
   });
 });
 

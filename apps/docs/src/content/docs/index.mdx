@@ -1,0 +1,66 @@
+---
+title: ToolboxJS
+description: High-performance, framework-agnostic web components for data-intensive applications.
+template: splash
+hero:
+  tagline: High-performance, framework-agnostic web components for data-intensive applications. Built on web standards — works everywhere.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Get Started
+      link: /grid/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/OysteinAmundsen/toolbox
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+import IntroShowcaseDemo from '../../components/demos/IntroShowcaseDemo.astro';
+
+<div class="hero-demo hero-demo--wide">
+  <IntroShowcaseDemo />
+</div>
+
+## The Grid
+
+A **single `<tbw-grid>` element** that handles sorting, filtering, grouping, editing, virtualization, and more — out of the box. No framework wrappers required.
+
+<CardGrid>
+  <Card title="Framework Agnostic" icon="puzzle">
+    Pure TypeScript web component. Works natively in vanilla JS, React, Angular, Vue, Svelte, and any other framework.
+  </Card>
+  <Card title="High Performance" icon="rocket">
+    Row virtualization, batched DOM updates, and a render scheduler keep scrolling smooth even with 100k+ rows.
+  </Card>
+  <Card title="Plugin Architecture" icon="setting">
+    22+ built-in plugins for selection, editing, filtering, grouping, column reordering, export, and more. Tree-shakeable — only pay for what you use.
+  </Card>
+  <Card title="Tiny Footprint" icon="seti:zip">
+    Core bundle under 45 kB gzipped. Each plugin is a separate entry point — no bloat from unused features.
+  </Card>
+</CardGrid>
+
+## Framework Adapters
+
+Optional adapters provide enhanced DX for your framework of choice — template-driven renderers, type-safe props, and idiomatic patterns.
+
+<CardGrid>
+  <Card title="Angular" icon="seti:angular">
+    Directives for template-driven column renderers and editors, reactive forms integration, and `ControlValueAccessor` support.
+
+    [Angular docs →](/grid/angular/getting-started/)
+  </Card>
+  <Card title="React" icon="seti:react">
+    `<DataGrid>` component with JSX renderers, `useGrid` / `useGridEvent` hooks, and React Query integration patterns.
+
+    [React docs →](/grid/react/getting-started/)
+  </Card>
+  <Card title="Vue" icon="seti:vue">
+    `<DataGrid>` component with slot-based renderers, `useGrid` / `useGridEvent` composables, and `markRaw` patterns.
+
+    [Vue docs →](/grid/vue/getting-started/)
+  </Card>
+</CardGrid>

@@ -1,0 +1,114 @@
+---
+// ClipboardCustomPasteHandlerDemo.astro
+---
+<div class="grid-demo not-content" id="clipboard-custom-paste-handler-demo">
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+
+const container = document.getElementById('clipboard-custom-paste-handler-demo');
+if (container) {
+  // Sample data for clipboard demos
+  const sampleData = [
+    { id: 1, name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
+    { id: 2, name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
+    { id: 3, name: 'Carol', email: 'carol@example.com', department: 'Engineering' },
+    { id: 4, name: 'Dan', email: 'dan@example.com', department: 'Sales' },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ];
+
+  // Sample data to copy
+      const sampleDataBox = document.createElement('div');
+      sampleDataBox.style.cssText = `
+        padding: 12px;
+        background: var(--demo-sample-bg);
+        border-bottom: 1px solid var(--demo-sample-border);
+        font-family: monospace;
+        font-size: 13px;
+        white-space: pre;
+        user-select: all;
+        cursor: text;
+      `;
+      sampleDataBox.textContent = `hello\tworld
+  foo\tbar`;
+      sampleDataBox.title = 'Paste this into the grid - values will be uppercased!';
+      
+  
+      // Instructions banner
+      const banner = document.createElement('div');
+      banner.style.cssText = `
+        padding: 12px;
+        background: var(--demo-info-bg);
+        border-bottom: 1px solid var(--demo-info-border);
+        font-size: 14px;
+        color: var(--demo-info-fg);
+      `;
+      banner.innerHTML = `
+        <strong>Custom Handler:</strong> Pasted values are automatically UPPERCASED.
+        <br>This demo also prevents adding new rows when pasting beyond the grid.
+      `;
+      
+  
+      // Grid
+      const grid = queryGrid('tbw-grid', container);
+      grid.style.cssText = 'flex: 1;';
+  
+      // Custom paste handler that uppercases values and prevents adding rows
+      const customPasteHandler = (detail, gridEl) => {
+        if (!detail.target) return;
+  
+        const { rows: pastedRows, target, fields } = detail;
+        const columns = gridEl.effectiveConfig.columns ?? [];
+        const allFields = columns.map((c) => c.field);
+        const currentRows = [...(gridEl.rows as Record<string, string>[])];
+  
+        pastedRows.forEach((rowData, rowOffset) => {
+          const targetRowIndex = target.row + rowOffset;
+  
+          // This handler allows adding rows (unlike the code sample which doesn't)
+          while (targetRowIndex >= currentRows.length) {
+            const emptyRow = {};
+            allFields.forEach((f) => (emptyRow[f] = ''));
+            currentRows.push(emptyRow);
+          }
+  
+          currentRows[targetRowIndex] = { ...currentRows[targetRowIndex] };
+          rowData.forEach((value, colOffset) => {
+            const field = fields[colOffset];
+            if (field) {
+              // Transform: uppercase all values
+              currentRows[targetRowIndex][field] = value.toUpperCase();
+            }
+          });
+        });
+  
+        gridEl.rows = currentRows;
+      };
+  
+      grid.gridConfig = {
+        columns: [
+          { field: 'col1', header: 'Column 1' },
+          { field: 'col2', header: 'Column 2' },
+          { field: 'col3', header: 'Column 3' },
+        ],
+        plugins: [new SelectionPlugin({ mode: 'range' }), new ClipboardPlugin({ pasteHandler: customPasteHandler })],
+      };
+  
+      grid.rows = [
+        { col1: 'A1', col2: 'B1', col3: 'C1' },
+        { col1: 'A2', col2: 'B2', col3: 'C2' },
+        { col1: 'A3', col2: 'B3', col3: 'C3' },
+      ];
+}
+</script>

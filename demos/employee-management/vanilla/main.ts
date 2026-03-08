@@ -31,7 +31,7 @@ import { createGridConfig, type GridConfigOptions } from './grid-config';
 // Import tool panel registration
 import { injectToolPanelStyles, registerAnalyticsPanel, registerQuickFiltersPanel } from './tool-panels';
 
-// Re-export for Storybook and external use
+// Re-export for external use
 export { createGridConfig, type GridConfigOptions } from './grid-config';
 
 // =============================================================================
@@ -48,7 +48,7 @@ export interface EmployeeGridOptions extends GridConfigOptions {
 
 /**
  * Creates a fully configured employee management grid.
- * This is the main entry point for both the vanilla demo and Storybook stories.
+ * This is the main entry point for the vanilla demo.
  *
  * @param options - Configuration options for the grid
  * @returns The configured grid element

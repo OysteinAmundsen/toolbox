@@ -1,0 +1,55 @@
+---
+// PivotNoTotalsDemo.astro
+---
+<div class="grid-demo not-content" id="pivot-no-totals-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { PivotPlugin } from '@toolbox-web/grid/plugins/pivot';
+
+const container = document.getElementById('pivot-no-totals-demo');
+if (container) {
+  // Sample sales data for pivot demos
+  const salesData = [
+    { region: 'North', product: 'Widget A', quarter: 'Q1', sales: 1200 },
+    { region: 'North', product: 'Widget B', quarter: 'Q1', sales: 800 },
+    { region: 'North', product: 'Widget A', quarter: 'Q2', sales: 1500 },
+    { region: 'North', product: 'Widget B', quarter: 'Q2', sales: 950 },
+    { region: 'South', product: 'Widget A', quarter: 'Q1', sales: 900 },
+    { region: 'South', product: 'Widget B', quarter: 'Q1', sales: 1100 },
+    { region: 'South', product: 'Widget A', quarter: 'Q2', sales: 1300 },
+    { region: 'South', product: 'Widget B', quarter: 'Q2', sales: 1400 },
+    { region: 'East', product: 'Widget A', quarter: 'Q1', sales: 750 },
+    { region: 'East', product: 'Widget B', quarter: 'Q1', sales: 650 },
+    { region: 'East', product: 'Widget A', quarter: 'Q2', sales: 880 },
+    { region: 'East', product: 'Widget B', quarter: 'Q2', sales: 720 },
+  ];
+  const columns = [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container);
+      
+      grid.gridConfig = {
+        columns,
+        plugins: [
+          new PivotPlugin({
+            rowGroupFields: ['region', 'product'],
+            columnGroupFields: ['quarter'],
+            valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Total Sales' }],
+            showTotals: false,
+            showGrandTotal: false,
+            showToolPanel: true,
+          }),
+        ],
+      };
+      grid.rows = salesData;
+}
+</script>

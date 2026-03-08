@@ -1,0 +1,56 @@
+---
+// ClipboardDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="clipboard-default-demo">
+  <DemoControls controls={[
+    { section: 'CLIPBOARD', name: 'includeHeaders', label: 'Include headers', type: 'boolean',
+      default: false, description: 'Include column headers when copying' },
+    { section: 'CLIPBOARD', name: 'quoteStrings', label: 'Quote strings', type: 'boolean',
+      default: false, description: 'Wrap string values in quotes' },
+  ]} />
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const container = document.getElementById('clipboard-default-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice', email: 'alice@example.com', department: 'Engineering' },
+    { id: 2, name: 'Bob', email: 'bob@example.com', department: 'Marketing' },
+    { id: 3, name: 'Carol', email: 'carol@example.com', department: 'Engineering' },
+    { id: 4, name: 'Dan', email: 'dan@example.com', department: 'Sales' },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'department', header: 'Department' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function rebuild(includeHeaders = false, quoteStrings = false) {
+    grid.gridConfig = {
+      columns,
+      plugins: [
+        new SelectionPlugin({ mode: 'range' }),
+        new ClipboardPlugin({ includeHeaders, quoteStrings }),
+      ],
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    const v = e.detail.allValues;
+    rebuild(v.includeHeaders as boolean, v.quoteStrings as boolean);
+  }) as EventListener);
+}
+</script>

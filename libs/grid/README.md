@@ -46,7 +46,7 @@ const existing = queryGrid<Employee>('#my-grid');
 ```
 
 > [!TIP]
-> For complete examples, see the [Storybook documentation](https://toolboxjs.com/).
+> For complete examples, see the [documentation](https://toolboxjs.com/).
 
 ---
 
@@ -410,7 +410,7 @@ Some column properties are added via [TypeScript module augmentation](#typescrip
 | `filterType`  | `filtering`       | Filter type              |
 | `reorderable` | `reorder`         | Enable column reordering |
 
-See [Storybook](https://oysteinamundsen.github.io/toolbox/) for complete configuration examples.
+See the [documentation](https://toolboxjs.com/) for complete configuration examples.
 
 ---
 

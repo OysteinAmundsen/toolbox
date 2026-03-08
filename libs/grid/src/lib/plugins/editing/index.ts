@@ -6,7 +6,7 @@
  */
 export { EditingPlugin } from './EditingPlugin';
 export { defaultEditorFor } from './editors';
-export type { DirtyChangeDetail, DirtyRowEntry } from './internal/dirty-tracking';
+export type { BaselinesCapturedDetail, DirtyChangeDetail, DirtyRowEntry } from './internal/dirty-tracking';
 export type {
   // Event detail types
   BeforeEditCloseDetail,

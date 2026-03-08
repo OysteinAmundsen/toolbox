@@ -1,0 +1,97 @@
+---
+// FilteringAsyncFilteringDemo.astro
+---
+<div class="grid-demo not-content" id="filtering-async-filtering-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const container = document.getElementById('filtering-async-filtering-demo');
+if (container) {
+  // Sample data for filtering demos
+  const sampleData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, status: 'Active' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000, status: 'Active' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000, status: 'On Leave' },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, status: 'Active' },
+    { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 72000, status: 'Inactive' },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 98000, status: 'Active' },
+    { id: 7, name: 'Grace Lee', department: 'Sales', salary: 82000, status: 'Active' },
+    { id: 8, name: 'Henry Wilson', department: 'HR', salary: 68000, status: 'Active' },
+    { id: 9, name: 'Ivy Chen', department: 'Engineering', salary: 112000, status: 'Active' },
+    { id: 10, name: 'Jack Taylor', department: 'Marketing', salary: 78000, status: 'On Leave' },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number', filterable: false },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+    { field: 'status', header: 'Status' },
+  ];
+
+  function generateMockData(count: number) {
+    const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+    const statuses = ['Active', 'Inactive', 'On Leave'];
+    const data = [];
+    for (let i = 0; i < count; i++) {
+      data.push({
+        id: i + 1,
+        name: `Employee ${i + 1}`,
+        department: departments[i % departments.length],
+        salary: 50000 + Math.floor(Math.random() * 50000),
+        status: statuses[i % statuses.length],
+      });
+    }
+    return data;
+  }
+
+  const grid = queryGrid('tbw-grid', container);
+
+      const serverData = generateMockData(1000);
+
+      // Simulate server-side unique value extraction
+      const getUniqueValues = async (field: string): Promise<unknown[]> => {
+        await new Promise((r) => setTimeout(r, 200));
+        const values = [...new Set(serverData.map((row) => (row as Record<string, unknown>)[field]))];
+        return values.sort();
+      };
+
+      // Simulate server-side filtering
+      // FilterModel uses { field, operator: 'notIn', value: excludedValues[] }
+      const applyServerFilters = async (
+        filters: { field: string; operator: string; value: unknown[] }[],
+      ): Promise<typeof serverData> => {
+        await new Promise((r) => setTimeout(r, 300));
+
+        if (filters.length === 0) return serverData;
+
+        return serverData.filter((row) => {
+          return filters.every((filter) => {
+            const excludedValues = filter.value;
+            if (!excludedValues || excludedValues.length === 0) return true;
+
+            const val = (row as Record<string, unknown>)[filter.field];
+            // 'notIn' means exclude these values, so row passes if value is NOT in excluded list
+            return !excludedValues.includes(val);
+          });
+        });
+      };
+
+      grid.gridConfig = {
+        columns,
+        plugins: [
+          new FilteringPlugin({
+            valuesHandler: getUniqueValues,
+            filterHandler: applyServerFilters,
+          }),
+        ],
+      };
+
+      grid.rows = serverData;
+}
+</script>

@@ -1,0 +1,85 @@
+---
+// PinnedColumnsDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="pinned-columns-default-demo">
+  <DemoControls controls={[
+    { section: 'PIN COLUMNS', name: 'pinId', label: 'ID', type: 'select', options: ['none', 'left', 'right'], default: 'left' },
+    { section: 'PIN COLUMNS', name: 'pinName', label: 'Name', type: 'select', options: ['none', 'left', 'right'], default: 'left' },
+    { section: 'PIN COLUMNS', name: 'pinEmail', label: 'Email', type: 'select', options: ['none', 'left', 'right'], default: 'none' },
+    { section: 'PIN COLUMNS', name: 'pinDepartment', label: 'Department', type: 'select', options: ['none', 'left', 'right'], default: 'none' },
+    { section: 'PIN COLUMNS', name: 'pinPhone', label: 'Phone', type: 'select', options: ['none', 'left', 'right'], default: 'none' },
+    { section: 'PIN COLUMNS', name: 'pinAddress', label: 'Address', type: 'select', options: ['none', 'left', 'right'], default: 'none' },
+    { section: 'PIN COLUMNS', name: 'pinCity', label: 'City', type: 'select', options: ['none', 'left', 'right'], default: 'none' },
+    { section: 'PIN COLUMNS', name: 'pinCountry', label: 'Country', type: 'select', options: ['none', 'left', 'right'], default: 'none' },
+    { section: 'PIN COLUMNS', name: 'pinActions', label: 'Actions', type: 'select', options: ['none', 'left', 'right'], default: 'right' },
+  ]} />
+  <tbw-grid style="display: block; height: 500px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+
+const container = document.getElementById('pinned-columns-default-demo');
+if (container) {
+  const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry', 'Ivy', 'Jack'];
+  const LAST_NAMES = ['Johnson', 'Smith', 'Williams', 'Brown', 'Jones', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor'];
+  const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Legal', 'Support', 'Design'];
+  const CITIES = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'Dallas'];
+  const COUNTRIES = ['USA', 'Canada', 'UK', 'Germany', 'France', 'Australia', 'Japan', 'Brazil'];
+
+  function generateRows(count: number) {
+    const rows = [];
+    for (let i = 0; i < count; i++) {
+      const first = FIRST_NAMES[i % FIRST_NAMES.length];
+      const last = LAST_NAMES[Math.floor(i / FIRST_NAMES.length) % LAST_NAMES.length];
+      rows.push({
+        id: i + 1,
+        name: `${first} ${last}`,
+        email: `${first.toLowerCase()}.${last.toLowerCase()}@example.com`,
+        department: DEPARTMENTS[i % DEPARTMENTS.length],
+        phone: `+1-555-${String(i).padStart(4, '0')}`,
+        address: `${100 + i} ${['Main', 'Oak', 'Pine', 'Elm', 'Maple'][i % 5]} St`,
+        city: CITIES[i % CITIES.length],
+        country: COUNTRIES[i % COUNTRIES.length],
+        actions: '...',
+      });
+    }
+    return rows;
+  }
+
+  function toPinned(value: string) {
+    return value === 'none' ? undefined : value;
+  }
+
+  const sampleData = generateRows(1000);
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function rebuild(pins: Record<string, string>) {
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', type: 'number', width: 60, pinned: toPinned(pins.pinId ?? 'left') },
+        { field: 'name', header: 'Name', width: 150, pinned: toPinned(pins.pinName ?? 'left') },
+        { field: 'email', header: 'Email', width: 220, pinned: toPinned(pins.pinEmail ?? 'none') },
+        { field: 'department', header: 'Department', width: 150, pinned: toPinned(pins.pinDepartment ?? 'none') },
+        { field: 'phone', header: 'Phone', width: 150, pinned: toPinned(pins.pinPhone ?? 'none') },
+        { field: 'address', header: 'Address', width: 250, pinned: toPinned(pins.pinAddress ?? 'none') },
+        { field: 'city', header: 'City', width: 120, pinned: toPinned(pins.pinCity ?? 'none') },
+        { field: 'country', header: 'Country', width: 120, pinned: toPinned(pins.pinCountry ?? 'none') },
+        { field: 'actions', header: 'Actions', width: 100, pinned: toPinned(pins.pinActions ?? 'right') },
+      ],
+      fitMode: 'fixed',
+      plugins: [new PinnedColumnsPlugin()],
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild({});
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    rebuild(e.detail.allValues as Record<string, string>);
+  }) as EventListener);
+}
+</script>

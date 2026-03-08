@@ -128,4 +128,4 @@ When `dirtyTracking: true`, the plugin applies CSS classes to rows:
 
 ## Documentation
 
-See the [Storybook docs](https://toolboxjs.com/?path=/docs/grid-plugins-editing--docs) for live examples.
+See the [Editing docs](https://toolboxjs.com/grid/plugins/editing/) for live examples.

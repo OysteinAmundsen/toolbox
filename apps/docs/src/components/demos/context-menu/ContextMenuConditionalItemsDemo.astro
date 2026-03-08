@@ -1,0 +1,57 @@
+---
+// ContextMenuConditionalItemsDemo.astro
+---
+<div class="grid-demo not-content" id="context-menu-conditional-items-demo">
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+
+const container = document.getElementById('context-menu-conditional-items-demo');
+if (container) {
+  // Sample data for context menu demos
+  const sampleData = [
+    { id: 1, name: 'Alice', email: 'alice@example.com', status: 'active' },
+    { id: 2, name: 'Bob', email: 'bob@example.com', status: 'pending' },
+    { id: 3, name: 'Carol', email: 'carol@example.com', status: 'active' },
+    { id: 4, name: 'Dan', email: 'dan@example.com', status: 'inactive' },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+    { field: 'status', header: 'Status' },
+  ];
+  const grid = queryGrid('tbw-grid', container);
+
+
+      const menuItems = [
+        {
+          id: 'activate',
+          name: 'Activate',
+          icon: '✅',
+          disabled: (params) => (params.row as { status?: string })?.status === 'active',
+          action: (p) => console.log('Activate', p.row),
+        },
+        {
+          id: 'deactivate',
+          name: 'Deactivate',
+          icon: '⏸️',
+          disabled: (params) => (params.row as { status?: string })?.status !== 'active',
+          action: (p) => console.log('Deactivate', p.row),
+        },
+        { id: 'sep1', name: '', separator: true },
+        { id: 'delete', name: 'Delete', icon: '🗑️', cssClass: 'danger', action: (p) => console.log('Delete', p.row) },
+      ];
+
+      grid.gridConfig = {
+        columns,
+        plugins: [new ContextMenuPlugin({ items: menuItems })],
+      };
+      grid.rows = sampleData;
+}
+</script>

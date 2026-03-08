@@ -1,0 +1,72 @@
+---
+// PrintHiddenColumnsDemo.astro — Columns with printHidden are excluded from print output
+---
+<div class="grid-demo not-content" id="print-hidden-columns-demo">
+  <div style="margin-bottom: 12px;">
+    <button id="print-hidden-btn" style="padding: 8px 16px; cursor: pointer;">🖨️ Print Grid</button>
+    <span style="margin-left: 12px; font-size: 0.85rem; color: var(--sl-color-gray-3);">
+      The "Actions" column has <code>printHidden: true</code> and will not appear in the printout.
+    </span>
+  </div>
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+
+const container = document.getElementById('print-hidden-columns-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  const btn = container.querySelector('#print-hidden-btn');
+
+  const printPlugin = new PrintPlugin({
+    title: 'Employee Report (Filtered)',
+    includeTitle: true,
+    includeTimestamp: true,
+  });
+
+  const employeeData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 85000, email: 'alice@company.com' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000, email: 'bob@company.com' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 92000, email: 'carol@company.com' },
+    { id: 4, name: 'David Brown', department: 'Sales', salary: 68000, email: 'david@company.com' },
+    { id: 5, name: 'Emma Davis', department: 'HR', salary: 65000, email: 'emma@company.com' },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 88000, email: 'frank@company.com' },
+    { id: 7, name: 'Grace Wilson', department: 'Marketing', salary: 75000, email: 'grace@company.com' },
+    { id: 8, name: 'Henry Taylor', department: 'Sales', salary: 70000, email: 'henry@company.com' },
+  ];
+
+  grid.gridConfig = {
+    fitMode: 'stretch',
+    columns: [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', minWidth: 150 },
+      { field: 'department', header: 'Department', width: 120 },
+      { field: 'email', header: 'Email', minWidth: 200 },
+      { field: 'salary', header: 'Salary', width: 100, align: 'right' },
+      {
+        field: 'actions',
+        header: 'Actions',
+        width: 100,
+        printHidden: true,
+        renderer: () => {
+          const btn = document.createElement('button');
+          btn.textContent = 'Edit';
+          btn.style.cssText = 'padding: 4px 8px; cursor: pointer;';
+          return btn;
+        },
+      },
+    ],
+    plugins: [printPlugin],
+  };
+  grid.rows = employeeData;
+
+  btn?.addEventListener('click', () => {
+    const plugin = grid.getPlugin(PrintPlugin);
+    plugin?.print({ isolate: true });
+  });
+}
+</script>

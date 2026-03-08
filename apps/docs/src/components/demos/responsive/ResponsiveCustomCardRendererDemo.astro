@@ -1,0 +1,140 @@
+---
+// ResponsiveCustomCardRendererDemo.astro
+---
+<div class="grid-demo not-content" id="responsive-custom-card-renderer-demo">
+  <div style="margin-bottom: 8px; color: var(--sl-color-gray-3); font-size: 14px;">
+    ↔ Resize to see custom card layout
+  </div>
+  <div style="resize: horizontal; overflow: auto; width: 400px; min-width: 300px; max-width: 100%; border: 2px dashed var(--sl-color-gray-5); padding: 8px; padding-bottom: 16px;">
+    <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+    <div class="responsive-status" style="margin-top: 8px; font-size: 12px; color: var(--sl-color-gray-3);"></div>
+  </div>
+</div>
+
+<style is:global>
+  #responsive-custom-card-renderer-demo .employee-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+  }
+  #responsive-custom-card-renderer-demo .employee-card .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--tbw-color-accent, #4a90d9);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+  #responsive-custom-card-renderer-demo .employee-card .info {
+    flex: 1;
+    min-width: 0;
+  }
+  #responsive-custom-card-renderer-demo .employee-card .name {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--tbw-color-fg);
+  }
+  #responsive-custom-card-renderer-demo .employee-card .meta {
+    font-size: 13px;
+    color: var(--tbw-color-fg-muted, #666);
+    margin-top: 2px;
+  }
+  #responsive-custom-card-renderer-demo .employee-card .email {
+    font-size: 12px;
+    color: var(--tbw-color-accent, #4a90d9);
+    margin-top: 4px;
+  }
+  #responsive-custom-card-renderer-demo .employee-card .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 8px;
+  }
+  #responsive-custom-card-renderer-demo .employee-card .badge.engineering { background: #e3f2fd; color: #1565c0; }
+  #responsive-custom-card-renderer-demo .employee-card .badge.marketing { background: #f3e5f5; color: #7b1fa2; }
+  #responsive-custom-card-renderer-demo .employee-card .badge.sales { background: #e8f5e9; color: #2e7d32; }
+</style>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+const container = document.getElementById('responsive-custom-card-renderer-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  const status = container.querySelector('.responsive-status');
+  if (!grid) throw new Error('Grid not found');
+
+  interface Employee {
+    id: number;
+    name: string;
+    department: string;
+    salary: number;
+    email: string;
+    startDate: string;
+  }
+
+  const responsivePlugin = new ResponsivePlugin<Employee>({
+    breakpoint: 600,
+    cardRenderer: (row) => {
+      const card = document.createElement('div');
+      card.className = 'employee-card';
+      const deptClass = row.department.toLowerCase().replace(/\s+/g, '-');
+      card.innerHTML = `
+        <div class="avatar">${row.name[0]}</div>
+        <div class="info">
+          <div class="name">
+            ${row.name}
+            <span class="badge ${deptClass}">${row.department}</span>
+          </div>
+          <div class="meta">$${row.salary.toLocaleString()} · Started ${row.startDate}</div>
+          <div class="email">${row.email}</div>
+        </div>
+      `;
+      return card;
+    },
+  });
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name', width: 150 },
+      { field: 'department', header: 'Department', width: 120 },
+      { field: 'salary', header: 'Salary', type: 'number', width: 100 },
+      { field: 'email', header: 'Email', width: 200 },
+      { field: 'startDate', header: 'Start Date', width: 120 },
+    ],
+    plugins: [responsivePlugin],
+  };
+
+  grid.rows = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, email: 'alice@example.com', startDate: '2020-03-15' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000, email: 'bob@example.com', startDate: '2019-07-22' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000, email: 'carol@example.com', startDate: '2018-11-01' },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, email: 'dan@example.com', startDate: '2021-01-10' },
+    { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 72000, email: 'eve@example.com', startDate: '2022-05-03' },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 98000, email: 'frank@example.com', startDate: '2020-08-20' },
+  ];
+
+  grid.addEventListener('responsive-change', ((e: CustomEvent) => {
+    if (!status) return;
+    const { isResponsive, width } = e.detail;
+    status.textContent = `Mode: ${isResponsive ? '📱 Custom Cards' : '📊 Table'} | Width: ${Math.round(width)}px`;
+  }) as EventListener);
+
+  requestAnimationFrame(() => {
+    if (!status) return;
+    const width = grid.clientWidth;
+    status.textContent = `Mode: ${width < 600 ? '📱 Custom Cards' : '📊 Table'} | Width: ${Math.round(width)}px`;
+  });
+}
+</script>

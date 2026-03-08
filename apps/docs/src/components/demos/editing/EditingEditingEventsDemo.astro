@@ -1,0 +1,115 @@
+---
+// EditingEditingEventsDemo.astro
+---
+<div class="grid-demo not-content" id="editing-editing-events-demo">
+  <tbw-grid style="display: block; height: 300px;"></tbw-grid>
+  <div class="log-panel">
+    <div class="log-header">
+      <strong>Event Log:</strong>
+      <button id="clear-editing-log">Clear</button>
+    </div>
+    <div class="event-log" id="editing-event-log"></div>
+  </div>
+</div>
+
+<style>
+  #editing-editing-events-demo .log-panel {
+    border: 1px solid var(--sl-color-gray-5);
+    padding: 12px;
+    border-radius: 4px;
+    background: var(--sl-color-gray-6);
+    overflow-y: auto;
+    max-height: 300px;
+    margin-top: 8px;
+  }
+  #editing-editing-events-demo .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  #editing-editing-events-demo .log-header button {
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #editing-editing-events-demo .event-log {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--sl-color-gray-2);
+  }
+  #editing-editing-events-demo .event-log > div {
+    padding: 2px 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  #editing-editing-events-demo .event-log .event-type {
+    color: var(--sl-color-accent);
+  }
+</style>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const container = document.getElementById('editing-editing-events-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'department', header: 'Department', editable: true },
+      { field: 'salary', header: 'Salary', type: 'number', editable: true },
+    ],
+    plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+  };
+
+  grid.rows = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 85000 },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000 },
+    { id: 3, name: 'Carol White', department: 'Sales', salary: 68000 },
+  ];
+
+  const log = container.querySelector('#editing-event-log');
+  const clearBtn = container.querySelector('#clear-editing-log');
+
+  function addLog(type: string, detail: string) {
+    if (!log) return;
+    const msg = document.createElement('div');
+    msg.innerHTML = `<span class="event-type">[${type}]</span> ${detail}`;
+    log.insertBefore(msg, log.firstChild);
+    while (log.children.length > 15) {
+      log.lastChild?.remove();
+    }
+  }
+
+  clearBtn?.addEventListener('click', () => {
+    if (log) log.innerHTML = '';
+  });
+
+  grid.addEventListener('edit-open', (e) => {
+    const d = e.detail;
+    addLog('edit-open', `row ${d.rowIndex} (${d.rowId})`);
+  });
+
+  grid.addEventListener('edit-close', (e) => {
+    const d = e.detail;
+    addLog('edit-close', `row ${d.rowIndex} (${d.rowId}), reverted: ${d.reverted}`);
+  });
+
+  grid.addEventListener('cell-commit', (e) => {
+    const d = e.detail;
+    addLog('cell-commit', `field="${d.field}", "${d.oldValue}" → "${d.value}"`);
+  });
+
+  grid.addEventListener('row-commit', (e) => {
+    const d = e.detail;
+    addLog('row-commit', `row ${d.rowIndex} (${d.rowId}), changed: ${d.changed}`);
+  });
+
+  grid.addEventListener('changed-rows-reset', (e) => {
+    addLog('changed-rows-reset', `${e.detail.rows?.length || 0} rows cleared`);
+  });
+}
+</script>

@@ -1,0 +1,32 @@
+---
+// GridDemo.astro — Renders a live, interactive <tbw-grid> demo.
+// The grid is a web component that hydrates entirely client-side.
+interface Props {
+  /** Unique ID for this demo instance */
+  id: string;
+  /** Grid height (CSS value) */
+  height?: string;
+  /** Optional description shown above the grid */
+  description?: string;
+}
+
+const { id, height = '400px', description } = Astro.props;
+---
+
+<div class="grid-demo not-content" id={`demo-${id}`}>
+  {description && <p class="grid-demo-description">{description}</p>}
+  <slot name="controls" />
+  <tbw-grid style={`display: block; height: ${height};`} data-demo-id={id}></tbw-grid>
+  <slot name="output" />
+</div>
+<slot />
+
+<style>
+  .grid-demo-description {
+    padding: 0.75rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-2);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+</style>

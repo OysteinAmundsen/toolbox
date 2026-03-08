@@ -1,0 +1,136 @@
+---
+/**
+ * Demo: Basic Shell — title, header content, visibility plugin, toolbar button.
+ */
+import DemoControls from '@components/DemoControls.astro';
+---
+
+<div class="grid-demo not-content" id="shell-basic-demo-container">
+  <DemoControls controls={[
+    { section: 'HEADER', name: 'showTitle', label: 'Show title', type: 'boolean', default: true, description: 'Show title in shell header' },
+    { section: 'HEADER', name: 'showHeaderContent', label: 'Show header content', type: 'boolean', default: true, description: 'Show custom header content (row count)' },
+    { section: 'HEADER', name: 'showToolbarButton', label: 'Show toolbar button', type: 'boolean', default: true, description: 'Show custom toolbar button' },
+    { section: 'PLUGINS', name: 'showVisibilityPlugin', label: 'Visibility plugin', type: 'boolean', default: true, description: 'Include VisibilityPlugin (column chooser)' },
+    { section: 'PANELS', name: 'showCustomPanel', label: 'Custom tool panel', type: 'boolean', default: false, description: 'Show custom tool panel via API' },
+    { section: 'PANELS', name: 'panelPosition', label: 'Panel position', type: 'radio', options: ['left', 'right'], default: 'right', description: 'Tool panel position' },
+  ]} />
+  <tbw-grid data-demo-id="shell-basic" style="height: 420px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { ColumnConfig, GridConfig, HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from '@toolbox-web/grid';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+  const container = document.getElementById('shell-basic-demo-container');
+  const grid = document.querySelector<HTMLElement & {
+    columns: ColumnConfig[];
+    rows: Record<string, unknown>[];
+    gridConfig: GridConfig;
+    registerHeaderContent: (def: HeaderContentDefinition) => void;
+    registerToolPanel: (panel: ToolPanelDefinition) => void;
+    openToolPanel: (id: string) => void;
+    closeToolPanel: () => void;
+  }>('[data-demo-id="shell-basic"]');
+
+  if (container && grid) {
+    const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];
+    const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
+    function generateRows(count: number) {
+      return Array.from({ length: count }, (_, i) => ({
+        id: i + 1,
+        name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
+        department: departments[i % departments.length],
+        salary: 50000 + Math.floor(Math.random() * 50000),
+        active: i % 3 !== 0,
+      }));
+    }
+
+    const shellColumns: ColumnConfig[] = [
+      { field: 'id', header: 'ID', type: 'number', width: 80 },
+      { field: 'name', header: 'Name', minWidth: 150 },
+      { field: 'department', header: 'Department', width: 150 },
+      { field: 'salary', header: 'Salary', type: 'number', width: 120 },
+      { field: 'active', header: 'Active', type: 'boolean', width: 80 },
+    ];
+    const sampleData = generateRows(20);
+
+    interface ShellValues {
+      showTitle: boolean;
+      showHeaderContent: boolean;
+      showToolbarButton: boolean;
+      showVisibilityPlugin: boolean;
+      showCustomPanel: boolean;
+      panelPosition: string;
+    }
+
+    function rebuild(v: ShellValues) {
+      const shellConfig: ShellConfig = {
+        header: v.showTitle ? { title: 'Employee Data' } : {},
+        toolPanel: { position: v.panelPosition as 'left' | 'right' },
+      };
+      const plugins: any[] = [];
+      if (v.showVisibilityPlugin) plugins.push(new VisibilityPlugin());
+
+      grid.gridConfig = {
+        shell: shellConfig,
+        columns: shellColumns,
+        plugins,
+      };
+      grid.rows = sampleData;
+
+      if (v.showHeaderContent) {
+        grid.registerHeaderContent({
+          id: 'row-count',
+          order: 10,
+          render: (el) => {
+            const span = document.createElement('span');
+            span.style.cssText = 'font-size:13px;color:var(--sl-color-gray-3);padding:4px 8px;background:var(--sl-color-gray-6);border-radius:4px;';
+            span.textContent = `${grid.rows.length} rows`;
+            el.appendChild(span);
+            return () => span.remove();
+          },
+        });
+      }
+
+      if (v.showCustomPanel) {
+        grid.registerToolPanel({
+          id: 'custom-info',
+          icon: 'ℹ',
+          tooltip: 'Info Panel',
+          render: (el) => {
+            el.innerHTML = '<div style="padding:16px;"><h4 style="margin:0 0 8px;">Custom Panel</h4><p style="margin:0;font-size:13px;">This panel was added via registerToolPanel().</p></div>';
+            return () => { el.innerHTML = ''; };
+          },
+        });
+      }
+
+      // Toolbar button via light DOM
+      grid.querySelectorAll('tbw-grid-tool-buttons').forEach(el => el.remove());
+      if (v.showToolbarButton) {
+        const toolButtons = document.createElement('tbw-grid-tool-buttons');
+        const refreshBtn = document.createElement('button');
+        refreshBtn.className = 'tbw-toolbar-btn';
+        refreshBtn.title = 'Refresh Data';
+        refreshBtn.setAttribute('aria-label', 'Refresh Data');
+        refreshBtn.textContent = '↻';
+        refreshBtn.addEventListener('click', () => { grid.rows = generateRows(20); });
+        toolButtons.appendChild(refreshBtn);
+        grid.appendChild(toolButtons);
+      }
+    }
+
+    rebuild({
+      showTitle: true,
+      showHeaderContent: true,
+      showToolbarButton: true,
+      showVisibilityPlugin: true,
+      showCustomPanel: false,
+      panelPosition: 'right',
+    });
+
+    container.addEventListener('control-change', ((e: CustomEvent) => {
+      rebuild(e.detail.allValues as ShellValues);
+    }) as EventListener);
+  }
+</script>

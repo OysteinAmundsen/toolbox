@@ -1,0 +1,101 @@
+---
+/**
+ * Demo: Column State Persistence — save, load, clear, and reset column state.
+ */
+---
+
+<div class="grid-demo">
+  <div data-controls style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+    <button data-save>💾 Save State</button>
+    <button data-load>📂 Load State</button>
+    <button data-clear>🗑️ Clear Saved</button>
+    <button data-reset>↩️ Reset Grid</button>
+    <span data-status style="color:var(--sl-color-gray-4); font-size:0.85em; align-self:center;"></span>
+  </div>
+  <tbw-grid data-demo-id="column-state" style="height: 280px; display: block;"></tbw-grid>
+  <pre data-log style="max-height:120px;overflow:auto;font-size:0.78em;margin-top:8px;padding:8px;background:var(--sl-color-gray-6);border-radius:4px;white-space:pre-wrap;"></pre>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+  import type { ColumnConfig, GridColumnState } from '@toolbox-web/grid';
+
+  const STORAGE_KEY = 'tbw-demo-column-state';
+
+  const container = document.querySelector('[data-demo-id="column-state"]')?.closest('.grid-demo');
+  if (container) {
+    const grid = container.querySelector<HTMLElement & {
+      columns: ColumnConfig[];
+      rows: Record<string, unknown>[];
+      sortable: boolean;
+      resizable: boolean;
+      getColumnState(): GridColumnState[];
+      applyColumnState(state: GridColumnState[]): void;
+    }>('tbw-grid')!;
+
+    const status = container.querySelector<HTMLElement>('[data-status]')!;
+    const log = container.querySelector<HTMLElement>('[data-log]')!;
+
+    const defaultColumns: ColumnConfig[] = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', width: 160 },
+      { field: 'department', header: 'Department', width: 140 },
+      { field: 'salary', header: 'Salary', type: 'number', width: 100 },
+      { field: 'location', header: 'Location', width: 130 },
+    ];
+
+    grid.columns = defaultColumns;
+    grid.sortable = true;
+    grid.resizable = true;
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, location: 'New York' },
+      { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000, location: 'London' },
+      { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 108000, location: 'Berlin' },
+      { id: 4, name: 'Dan Brown', department: 'Sales', salary: 67000, location: 'Tokyo' },
+      { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 81000, location: 'New York' },
+      { id: 6, name: 'Frank Miller', department: 'Sales', salary: 73000, location: 'London' },
+    ];
+
+    function showStatus(msg: string) {
+      status.textContent = msg;
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    }
+
+    function appendLog(msg: string) {
+      log.textContent += msg + '\n';
+      log.scrollTop = log.scrollHeight;
+    }
+
+    grid.addEventListener('column-state-change', ((e: CustomEvent) => {
+      appendLog(`State changed: ${JSON.stringify(e.detail).slice(0, 120)}…`);
+    }) as EventListener);
+
+    container.querySelector('[data-save]')!.addEventListener('click', () => {
+      const state = grid.getColumnState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      showStatus('State saved!');
+      appendLog('Saved: ' + JSON.stringify(state, null, 2));
+    });
+
+    container.querySelector('[data-load]')!.addEventListener('click', () => {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) { showStatus('No saved state found.'); return; }
+      const state: GridColumnState[] = JSON.parse(raw);
+      grid.applyColumnState(state);
+      showStatus('State loaded!');
+      appendLog('Loaded: ' + JSON.stringify(state, null, 2));
+    });
+
+    container.querySelector('[data-clear]')!.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      showStatus('Saved state cleared.');
+      appendLog('Cleared localStorage.');
+    });
+
+    container.querySelector('[data-reset]')!.addEventListener('click', () => {
+      grid.columns = [...defaultColumns];
+      showStatus('Grid reset to defaults.');
+      appendLog('Reset to default columns.');
+    });
+  }
+</script>

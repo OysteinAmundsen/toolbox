@@ -1,0 +1,39 @@
+---
+/**
+ * Demo: RTL (Right-to-Left) layout support
+ */
+import DemoControls from '@components/DemoControls.astro';
+---
+
+<div class="grid-demo not-content" id="rtl-demo-container">
+  <DemoControls controls={[
+    { section: 'LAYOUT', name: 'rtl', label: 'RTL', type: 'boolean',
+      default: true, description: 'Enable right-to-left layout' },
+  ]} />
+  <tbw-grid data-demo-id="rtl-demo" dir="rtl" style="height: 220px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+
+  const container = document.getElementById('rtl-demo-container');
+  const grid = document.querySelector<HTMLElement & { columns: any[]; rows: any[] }>('[data-demo-id="rtl-demo"]');
+  if (container && grid) {
+    grid.columns = [
+      { field: 'name', header: 'الاسم', width: 150 },
+      { field: 'department', header: 'القسم', width: 130 },
+      { field: 'salary', header: 'الراتب', width: 120, formatter: (v: number) => `${v.toLocaleString('ar-EG')} ر.س` },
+    ];
+    grid.rows = [
+      { name: 'أحمد', department: 'الهندسة', salary: 42000 },
+      { name: 'فاطمة', department: 'التصميم', salary: 38000 },
+      { name: 'خالد', department: 'المبيعات', salary: 35000 },
+      { name: 'سارة', department: 'الهندسة', salary: 44000 },
+      { name: 'محمد', department: 'الدعم', salary: 31000 },
+    ];
+
+    container.addEventListener('control-change', ((e: CustomEvent) => {
+      grid.dir = e.detail.allValues.rtl ? 'rtl' : 'ltr';
+    }) as EventListener);
+  }
+</script>

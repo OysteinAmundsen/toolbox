@@ -1,0 +1,114 @@
+---
+// SelectionEventsDemo.astro — Shows selection events with a live log panel
+---
+<div class="grid-demo not-content" id="selection-events-demo">
+  <div class="selection-events-layout">
+    <tbw-grid style="display: block; height: 300px;"></tbw-grid>
+    <div class="event-log-panel">
+      <div class="event-log-header">
+        <strong>Event Log</strong>
+        <button id="selection-events-clear-btn">Clear</button>
+      </div>
+      <div id="selection-events-log" class="event-log-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const container = document.getElementById('selection-events-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  const logEl = container.querySelector('#selection-events-log')!;
+  const clearBtn = container.querySelector('#selection-events-clear-btn');
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'number', align: 'right' },
+    ],
+    plugins: [new SelectionPlugin({ mode: 'range' })],
+  };
+
+  grid.rows = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 85000 },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 72000 },
+    { id: 3, name: 'Carol White', department: 'Sales', salary: 68000 },
+    { id: 4, name: 'David Brown', department: 'Engineering', salary: 92000 },
+    { id: 5, name: 'Eve Davis', department: 'HR', salary: 65000 },
+  ];
+
+  function addLog(msg: string) {
+    const entry = document.createElement('div');
+    entry.className = 'event-log-entry';
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logEl.prepend(entry);
+  }
+
+  grid.addEventListener('selection-change', (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    addLog(`selection-change — ${detail.selectedCount ?? 0} cell(s) selected`);
+  });
+
+  grid.addEventListener('row-select', (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    addLog(`row-select — row ${detail.rowIndex}`);
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    logEl.innerHTML = '';
+  });
+}
+</script>
+
+<style>
+  .selection-events-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 12px;
+  }
+  .event-log-panel {
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+  }
+  .event-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    font-size: 0.85rem;
+  }
+  .event-log-header button {
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .event-log-body {
+    overflow-y: auto;
+    padding: 8px;
+    flex: 1;
+    font-family: monospace;
+    font-size: 0.75rem;
+  }
+  .event-log-entry {
+    padding: 2px 0;
+    border-bottom: 1px solid var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+  }
+
+  @media (max-width: 640px) {
+    .selection-events-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

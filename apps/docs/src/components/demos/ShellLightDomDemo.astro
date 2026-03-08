@@ -1,0 +1,51 @@
+---
+/**
+ * Demo: Shell Light DOM Config — declarative <tbw-grid-header> configuration.
+ */
+---
+
+<div class="grid-demo">
+  <p class="grid-demo-description">
+    Shell configured via <code>&lt;tbw-grid-header&gt;</code> light DOM elements — no JavaScript shell config needed.
+  </p>
+  <div data-demo-id="shell-lightdom-wrap">
+    <tbw-grid style="height: 420px; display: block;">
+      <tbw-grid-header title="Employee Directory">
+        <tbw-grid-header-content>
+          <span style="color: var(--sl-color-gray-3); font-size: 13px; padding: 4px 8px; background: var(--sl-color-gray-6); border-radius: 4px;">20 employees</span>
+        </tbw-grid-header-content>
+      </tbw-grid-header>
+    </tbw-grid>
+  </div>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+  import type { ColumnConfig } from '@toolbox-web/grid';
+
+  const grid = document.querySelector<HTMLElement & {
+    columns: ColumnConfig[];
+    rows: Record<string, unknown>[];
+  }>('[data-demo-id="shell-lightdom-wrap"] tbw-grid');
+
+  if (grid) {
+    const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];
+    const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
+
+    grid.columns = [
+      { field: 'id', header: 'ID', type: 'number', width: 80 },
+      { field: 'name', header: 'Name', minWidth: 150 },
+      { field: 'department', header: 'Department', width: 150 },
+      { field: 'salary', header: 'Salary', type: 'number', width: 120 },
+      { field: 'active', header: 'Active', type: 'boolean', width: 80 },
+    ];
+
+    grid.rows = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
+      department: departments[i % departments.length],
+      salary: 50000 + Math.floor(Math.random() * 50000),
+      active: i % 3 !== 0,
+    }));
+  }
+</script>

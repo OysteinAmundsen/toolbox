@@ -1,0 +1,48 @@
+---
+// GroupingRowsDefaultExpandedByKeyDemo.astro — Only 'Engineering' group expanded by default
+---
+<div class="grid-demo not-content" id="grouping-expanded-by-key-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { GroupingRowsPlugin } from '@toolbox-web/grid/plugins/grouping-rows';
+
+const container = document.getElementById('grouping-expanded-by-key-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+
+  const sampleData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000 },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000 },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000 },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000 },
+    { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 72000 },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 98000 },
+    { id: 7, name: 'Grace Lee', department: 'Sales', salary: 82000 },
+    { id: 8, name: 'Henry Wilson', department: 'HR', salary: 68000 },
+    { id: 9, name: 'Ivy Chen', department: 'Engineering', salary: 112000 },
+    { id: 10, name: 'Jack Taylor', department: 'Marketing', salary: 78000 },
+  ];
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'number', align: 'right' },
+    ],
+    plugins: [
+      new GroupingRowsPlugin({
+        groupOn: (row: { department: string }) => row.department,
+        defaultExpanded: 'Engineering',
+        showRowCount: true,
+      }),
+    ],
+  };
+  grid.rows = sampleData;
+}
+</script>

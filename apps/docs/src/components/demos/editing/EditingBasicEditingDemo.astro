@@ -1,0 +1,49 @@
+---
+// EditingBasicEditingDemo.astro
+---
+<div class="grid-demo not-content" id="editing-basic-editing-demo">
+  <tbw-grid style="display: block; height: 300px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const container = document.getElementById('editing-basic-editing-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+      
+  
+      grid.gridConfig = {
+        columns: [
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'score', header: 'Score', type: 'number', editable: true },
+          {
+            field: 'role',
+            header: 'Role',
+            type: 'select',
+            editable: true,
+            options: [
+              { label: 'Admin', value: 'admin' },
+              { label: 'User', value: 'user' },
+              { label: 'Guest', value: 'guest' },
+            ],
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+  
+      grid.rows = [
+        { name: 'Alice', score: 95, role: 'admin' },
+        { name: 'Bob', score: 82, role: 'user' },
+        { name: 'Carol', score: 91, role: 'guest' },
+      ];
+  
+      grid.addEventListener('cell-commit', (e) => {
+        const detail = (e).detail;
+        console.log('Edited:', detail.field, '→', detail.newValue);
+      });
+}
+</script>

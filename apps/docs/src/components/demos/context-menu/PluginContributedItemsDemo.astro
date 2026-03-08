@@ -1,0 +1,76 @@
+---
+// PluginContributedItemsDemo.astro — Shows context menu items contributed by other plugins
+---
+<div class="grid-demo not-content">
+  <p class="grid-demo-description">Right-click any cell to see the context menu. Items from FilteringPlugin, VisibilityPlugin, and PinnedColumnsPlugin are automatically contributed alongside custom items.</p>
+  <tbw-grid style="display: block; height: 350px;" data-demo-id="context-menu-plugin-items"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+import { ContextMenuPlugin } from '@toolbox-web/grid/plugins/context-menu';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+  const grid = document.querySelector<DataGridElement>('[data-demo-id="context-menu-plugin-items"]');
+  if (grid) {
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', type: 'number', width: 80 },
+        { field: 'name', header: 'Name', sortable: true },
+        { field: 'email', header: 'Email', sortable: true },
+        { field: 'status', header: 'Status', sortable: true },
+      ],
+      plugins: [
+        new FilteringPlugin(),
+        new VisibilityPlugin(),
+        new PinnedColumnsPlugin(),
+        new ContextMenuPlugin({
+          items: [
+            {
+              id: 'copy-row',
+              name: 'Copy Row',
+              icon: '📋',
+              action: (params) => {
+                console.log('Copy row:', params.row);
+              },
+            },
+            {
+              id: 'highlight',
+              name: 'Highlight Row',
+              icon: '🔆',
+              action: (params) => {
+                const rowEl = params.rowElement;
+                if (rowEl) {
+                  rowEl.style.background = 'light-dark(#fff3cd, #4a3f00)';
+                  setTimeout(() => { rowEl.style.background = ''; }, 2000);
+                }
+              },
+            },
+          ],
+        }),
+      ],
+    };
+
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', email: 'alice@example.com', status: 'active' },
+      { id: 2, name: 'Bob Smith', email: 'bob@example.com', status: 'pending' },
+      { id: 3, name: 'Carol Davis', email: 'carol@example.com', status: 'active' },
+      { id: 4, name: 'Dan Wilson', email: 'dan@example.com', status: 'inactive' },
+      { id: 5, name: 'Eve Brown', email: 'eve@example.com', status: 'active' },
+      { id: 6, name: 'Frank Miller', email: 'frank@example.com', status: 'pending' },
+    ];
+  }
+</script>
+
+<style>
+  .grid-demo-description {
+    padding: 0.75rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-2);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+</style>

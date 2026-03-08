@@ -1,0 +1,91 @@
+---
+// ResponsiveFixedCardHeightDemo.astro
+---
+<div class="grid-demo not-content" id="responsive-fixed-card-height-demo">
+  <div style="font-size: 12px; color: var(--sl-color-gray-3); margin-bottom: 8px;">
+    Each card has a fixed 60px height
+  </div>
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<style is:global>
+  #responsive-fixed-card-height-demo .simple-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 100%;
+  }
+  #responsive-fixed-card-height-demo .simple-card .initial {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: var(--tbw-color-accent, #4a90d9);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+  }
+  #responsive-fixed-card-height-demo .simple-card .details {
+    flex: 1;
+  }
+  #responsive-fixed-card-height-demo .simple-card .name { font-weight: 600; }
+  #responsive-fixed-card-height-demo .simple-card .dept { font-size: 13px; color: var(--tbw-color-fg-muted, #666); }
+</style>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ResponsivePlugin } from '@toolbox-web/grid/plugins/responsive';
+
+const container = document.getElementById('responsive-fixed-card-height-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  if (!grid) throw new Error('Grid not found');
+
+  interface Employee {
+    id: number;
+    name: string;
+    department: string;
+    salary: number;
+    email: string;
+    startDate: string;
+  }
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name', width: 150 },
+      { field: 'department', header: 'Department', width: 120 },
+      { field: 'salary', header: 'Salary', type: 'number', width: 100 },
+    ],
+    plugins: [
+      new ResponsivePlugin<Employee>({
+        breakpoint: 500,
+        cardRowHeight: 60,
+        cardRenderer: (row) => {
+          const card = document.createElement('div');
+          card.className = 'simple-card';
+          card.innerHTML = `
+            <div class="initial">${row.name[0]}</div>
+            <div class="details">
+              <div class="name">${row.name}</div>
+              <div class="dept">${row.department}</div>
+            </div>
+          `;
+          return card;
+        },
+      }),
+    ],
+  };
+
+  grid.rows = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, email: 'alice@example.com', startDate: '2020-03-15' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000, email: 'bob@example.com', startDate: '2019-07-22' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000, email: 'carol@example.com', startDate: '2018-11-01' },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, email: 'dan@example.com', startDate: '2021-01-10' },
+    { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 72000, email: 'eve@example.com', startDate: '2022-05-03' },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 98000, email: 'frank@example.com', startDate: '2020-08-20' },
+  ];
+}
+</script>

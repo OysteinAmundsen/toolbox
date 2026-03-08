@@ -1,0 +1,82 @@
+---
+// EditingAddRemoveRowsDemo.astro
+---
+<div class="grid-demo not-content" id="editing-add-remove-rows-demo">
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+  <div class="grid-playground-controls" data-controls-id="editing-add-remove-rows-demo"></div>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+const container = document.getElementById('editing-add-remove-rows-demo');
+if (container) {
+  // Toolbar with Add Row button
+      const toolbar = container.querySelector('[data-controls-id="editing-add-remove-rows-demo"]');
+      toolbar.style.cssText = 'padding: 8px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 8px;';
+  
+      const addBtn = document.createElement('button');
+      addBtn.textContent = '+ Add Row';
+      addBtn.style.cssText = `
+        padding: 6px 12px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      `;
+      toolbar.appendChild(addBtn);
+      
+  
+      // Grid
+      const grid = queryGrid('tbw-grid', container);
+      grid.style.cssText = 'flex: 1;';
+  
+      let idCounter = 4;
+  
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID' },
+          { field: 'name', header: 'Name', editable: true },
+          { field: 'email', header: 'Email', editable: true },
+          {
+            field: 'actions',
+            header: 'Actions',
+            renderer: (ctx) => {
+              const btn = document.createElement('button');
+              btn.textContent = 'Delete';
+              btn.style.cssText = `
+                padding: 4px 8px;
+                background: #ef4444;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 12px;
+              `;
+              btn.onclick = () => {
+                const idx = grid.rows.findIndex((r) => r.id !== undefined && r.id === ctx.row.id);
+                if (idx >= 0) grid.removeRow(idx);
+              };
+              return btn;
+            },
+          },
+        ],
+        plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+      };
+  
+      grid.rows = [
+        { id: 1, name: 'Alice', email: 'alice@example.com' },
+        { id: 2, name: 'Bob', email: 'bob@example.com' },
+        { id: 3, name: 'Carol', email: 'carol@example.com' },
+      ];
+  
+      addBtn.addEventListener('click', () => {
+        grid.insertRow(grid.rows.length, { id: idCounter++, name: '', email: '' });
+      });
+}
+</script>

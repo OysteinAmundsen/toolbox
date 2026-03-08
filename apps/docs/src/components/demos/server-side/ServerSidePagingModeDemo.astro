@@ -1,0 +1,84 @@
+---
+// ServerSidePagingModeDemo.astro
+---
+<div class="grid-demo not-content" id="server-side-paging-mode-demo">
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ServerSidePlugin } from '@toolbox-web/grid/plugins/server-side';
+
+const container = document.getElementById('server-side-paging-mode-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  if (!grid) throw new Error('Grid element not found');
+
+  const pageSize = 50;
+  let currentPage = 0;
+  let totalPages = 1;
+
+  // Build pager UI and insert it after the grid
+  const pager = document.createElement('div');
+  pager.style.cssText = 'padding: 8px; display: flex; gap: 8px; align-items: center; justify-content: center;';
+  pager.innerHTML = `
+    <button class="prev" style="padding: 4px 8px;">← Prev</button>
+    <span class="page-info">Page 1</span>
+    <button class="next" style="padding: 4px 8px;">Next →</button>
+  `;
+  grid.after(pager);
+
+  const prevBtn = pager.querySelector('.prev') as HTMLButtonElement | null;
+  const nextBtn = pager.querySelector('.next') as HTMLButtonElement | null;
+  const pageInfo = pager.querySelector('.page-info') as HTMLSpanElement | null;
+
+  function generateMockData(count: number) {
+    const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+    return Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      name: `Employee ${i + 1}`,
+      department: departments[i % departments.length],
+      salary: 50000 + Math.floor(Math.random() * 50000),
+      email: `employee${i + 1}@example.com`,
+    }));
+  }
+
+  const allData = generateMockData(500);
+
+  function updatePager() {
+    if (pageInfo) pageInfo.textContent = `Page ${currentPage + 1} of ${totalPages}`;
+    if (prevBtn) prevBtn.disabled = currentPage === 0;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages - 1;
+  }
+
+  // Use ServerSidePlugin with a data source that returns one page at a time
+  const plugin = new ServerSidePlugin({ pageSize });
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', sortable: true },
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'department', header: 'Department', sortable: true },
+      { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+      { field: 'email', header: 'Email' },
+    ],
+    plugins: [plugin],
+  };
+
+  function loadPage(page: number) {
+    currentPage = page;
+    const start = page * pageSize;
+    totalPages = Math.ceil(allData.length / pageSize);
+
+    // Simulate a server response by slicing data for the requested page
+    grid.rows = allData.slice(start, start + pageSize);
+    updatePager();
+  }
+
+  prevBtn?.addEventListener('click', () => loadPage(currentPage - 1));
+  nextBtn?.addEventListener('click', () => loadPage(currentPage + 1));
+
+  loadPage(0);
+}
+</script>

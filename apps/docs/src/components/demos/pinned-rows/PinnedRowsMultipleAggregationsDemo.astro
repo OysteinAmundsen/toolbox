@@ -1,0 +1,77 @@
+---
+// PinnedRowsMultipleAggregationsDemo.astro
+---
+<div class="grid-demo not-content" id="pinned-rows-multiple-aggregations-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+
+const container = document.getElementById('pinned-rows-multiple-aggregations-demo');
+if (container) {
+  // Generate sample data
+  const generateData = (count: number) => {
+    const names = ['Widget', 'Gadget', 'Gizmo', 'Doohickey', 'Thingamabob'];
+    return Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      name: names[i % names.length],
+      quantity: Math.floor(Math.random() * 100) + 10,
+      price: Math.round((Math.random() * 50 + 5) * 100) / 100,
+    }));
+  };
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'quantity', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'number' },
+  ];
+  // Currency formatter for price columns
+  const formatCurrency = (value: unknown) => `$${(value as number).toFixed(2)}`;
+
+  const grid = queryGrid('tbw-grid', container);
+      
+      grid.gridConfig = {
+        columns,
+        plugins: [
+          new PinnedRowsPlugin({
+            position: "bottom",
+            showRowCount: true,
+            aggregationRows: [
+              {
+                id: 'sum',
+                position: 'bottom',
+                aggregators: {
+                  quantity: 'sum',
+                  price: { aggFunc: 'sum', formatter: formatCurrency },
+                },
+                cells: { id: 'Sum:', name: '' },
+              },
+              {
+                id: 'avg',
+                position: 'bottom',
+                aggregators: {
+                  quantity: { aggFunc: 'avg', formatter: (v) => (v).toFixed(1) },
+                  price: { aggFunc: 'avg', formatter: formatCurrency },
+                },
+                cells: { id: 'Avg:', name: '' },
+              },
+              {
+                id: 'minmax',
+                position: 'bottom',
+                aggregators: {
+                  quantity: 'min',
+                  price: { aggFunc: 'max', formatter: formatCurrency },
+                },
+                cells: { id: 'Min/Max:', name: '' },
+              },
+            ],
+          }),
+        ],
+      };
+      grid.rows = generateData(50);
+}
+</script>

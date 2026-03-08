@@ -39,7 +39,8 @@ import {
 } from '../../../tools/typedoc-mdx-shared';
 
 const API_GENERATED_DIR = join(import.meta.dirname, '../docs/api-generated');
-const OUTPUT_DIR = join(import.meta.dirname, '../docs/api');
+const OUTPUT_DIR = join(import.meta.dirname, '../../../apps/docs/src/content/docs/grid/api');
+const PLUGINS_OUTPUT_DIR = join(import.meta.dirname, '../../../apps/docs/src/content/docs/grid/plugins');
 const JSON_PATH = join(API_GENERATED_DIR, 'api.json');
 
 // Grid-specific mdxHeader with default regenerate command
@@ -648,7 +649,7 @@ const CORE_INTERNAL_EVENTS: { event: string; description: string }[] = [
 
 function genDataGridSplit(node: TypeDocNode, outDir: string): void {
   // Public API
-  let publicMdx = mdxHeader('Grid/API/Core/Classes/DataGridElement');
+  let publicMdx = mdxHeader('DataGridElement');
   publicMdx += `# Class: DataGridElement
 
 High-performance data grid web component (\`<tbw-grid>\`).
@@ -687,16 +688,16 @@ const grid = document.createElement('tbw-grid');
     node.comment,
     CORE_INTERNAL_EVENTS,
   );
-  writeMdx(outDir, 'API/Core/Classes/DataGridElement.mdx', publicMdx, 'public');
+  writeMdx(outDir, 'core/classes/DataGridElement.mdx', publicMdx, 'public');
 
   // Plugin API - also uses @group tags for organization
-  let pluginMdx = mdxHeader('Grid/API/Plugin Development/Classes/DataGridElement');
+  let pluginMdx = mdxHeader('DataGridElement (Plugin API)');
   pluginMdx += `# Class: DataGridElement (Plugin API)
 
 Internal API for plugin developers. Members marked with \`@internal Plugin API\`
 or using the \`_underscore\` prefix convention.
 
-See the [public API documentation](?path=/docs/grid-api-core-classes-datagridelement--docs) for consumer-facing members.
+See the [public API documentation](/grid/api/core/classes/datagridelement/) for consumer-facing members.
 
 | Prefix | Meaning |
 | ------ | ------- |
@@ -706,23 +707,23 @@ See the [public API documentation](?path=/docs/grid-api-core-classes-datagridele
 
 `;
   pluginMdx += genMembersSectionByGroup((node.children ?? []).filter(isPluginMember));
-  writeMdx(outDir, 'API/Plugin Development/Classes/DataGridElement-PluginAPI.mdx', pluginMdx, 'plugin');
+  writeMdx(outDir, 'plugin-development/classes/DataGridElement-PluginAPI.mdx', pluginMdx, 'plugin');
 
   // Framework Adapters
   const adapterMembers = (node.children ?? []).filter(isFrameworkAdapterMember);
   if (adapterMembers.length) {
-    let adapterMdx = mdxHeader('Grid/API/Framework Adapters/Classes/DataGridElement');
+    let adapterMdx = mdxHeader('DataGridElement (Framework Adapters)');
     adapterMdx += `# Class: DataGridElement (Framework Adapters)
 
 API for framework adapter developers (React, Angular, Vue, etc.).
 These methods are used by framework integration libraries to register adapters
 and manage column/renderer lifecycles.
 
-See the [public API documentation](?path=/docs/grid-api-core-classes-datagridelement--docs) for consumer-facing members.
+See the [public API documentation](/grid/api/core/classes/datagridelement/) for consumer-facing members.
 
 `;
     adapterMdx += genMembersSection(adapterMembers);
-    writeMdx(outDir, 'API/Framework Adapters/Classes/DataGridElement-Adapters.mdx', adapterMdx, 'adapters');
+    writeMdx(outDir, 'framework-adapters/classes/DataGridElement-Adapters.mdx', adapterMdx, 'adapters');
   }
 }
 
@@ -755,11 +756,11 @@ function isFrameworkAdapters(node: TypeDocNode): boolean {
 }
 
 // ============================================================================
-// Type Registry - maps type names to their Storybook URLs
+// Type Registry - maps type names to their documentation URLs
 // ============================================================================
 
 /**
- * Registry mapping type names to their Storybook documentation URLs.
+ * Registry mapping type names to their Starlight documentation URLs.
  * Built during the first pass through TypeDoc JSON, used when resolving {@link} references.
  */
 const typeRegistry = new Map<string, string>();
@@ -779,13 +780,13 @@ function buildTypeRegistry(json: TypeDocNode): void {
       if (!kindFolder) continue;
 
       // Determine the section (Core, Plugin Development, or Framework Adapters)
-      let section = 'Core';
-      if (isPluginDevelopment(node)) section = 'Plugin Development';
-      else if (isFrameworkAdapters(node)) section = 'Framework Adapters';
+      let section = 'core';
+      if (isPluginDevelopment(node)) section = 'plugin-development';
+      else if (isFrameworkAdapters(node)) section = 'framework-adapters';
 
-      // Build the Storybook URL path
-      const urlPath = `grid-api-${section.toLowerCase().replace(/\s+/g, '-')}-${kindFolder.toLowerCase()}-${node.name.toLowerCase()}--docs`;
-      typeRegistry.set(node.name, `/docs/${urlPath}`);
+      // Build the Starlight URL path
+      const urlPath = `/grid/api/${section}/${kindFolder.toLowerCase()}/${node.name.toLowerCase()}/`;
+      typeRegistry.set(node.name, urlPath);
     }
   }
 
@@ -794,21 +795,21 @@ function buildTypeRegistry(json: TypeDocNode): void {
     if (plugin.kind !== KIND.Module) continue;
 
     const rawName = plugin.name.replace(/^Plugins\//, '');
-    const title = getPluginTitle(rawName);
+    const folderName = rawName.toLowerCase().replace(/\s+/g, '-');
 
     for (const node of plugin.children ?? []) {
       const kindFolder = KIND_FOLDER_MAP[node.kind];
       if (!kindFolder) continue;
 
-      // Build the Storybook URL path for plugin types
-      const urlPath = `grid-plugins-${title.toLowerCase()}-${kindFolder.toLowerCase()}-${node.name.toLowerCase()}--docs`;
-      typeRegistry.set(node.name, `/docs/${urlPath}`);
+      // Build the Starlight URL path for plugin types
+      const urlPath = `/grid/plugins/${folderName}/api/${kindFolder.toLowerCase()}/${node.name.toLowerCase()}/`;
+      typeRegistry.set(node.name, urlPath);
     }
   }
 }
 
 /**
- * Resolve a type name to its Storybook documentation URL.
+ * Resolve a type name to its documentation URL.
  * Handles both simple type names and member references (e.g., "GridConfig.sortHandler").
  * Returns the URL if found, or null if the type is not in the registry.
  */
@@ -819,7 +820,6 @@ function resolveTypeLink(typeName: string): string | null {
     const [, parentType, memberName] = memberMatch;
     const baseUrl = typeRegistry.get(parentType);
     if (baseUrl) {
-      // Storybook generates lowercase anchor IDs from headings
       return `${baseUrl}#${memberName.toLowerCase()}`;
     }
     return null;
@@ -868,24 +868,24 @@ function processCoreModule(module: TypeDocNode, outDir: string): void {
   // Write Core items to Grid/API/Core/{kindFolder}
   console.log('  Core API:');
   for (const { node, kindFolder, gen } of coreNodes) {
-    const title = `Grid/API/Core/${kindFolder}/${node.name}`;
+    const title = node.name;
     const mdx = gen(node, title);
-    const outPath = join(outDir, 'API', 'Core', kindFolder, `${node.name}.mdx`);
-    mkdirSync(join(outDir, 'API', 'Core', kindFolder), { recursive: true });
+    const outPath = join(outDir, 'core', kindFolder, `${node.name}.mdx`);
+    mkdirSync(join(outDir, 'core', kindFolder), { recursive: true });
     writeFileSync(outPath, mdx);
-    console.log(`    ✓ API/Core/${kindFolder}/${node.name}.mdx`);
+    console.log(`    ✓ core/${kindFolder}/${node.name}.mdx`);
   }
 
   // Write Plugin Development items to Grid/API/Plugin Development/{kindFolder}
   if (pluginDevNodes.length) {
     console.log('  Plugin Development:');
     for (const { node, kindFolder, gen } of pluginDevNodes) {
-      const title = `Grid/API/Plugin Development/${kindFolder}/${node.name}`;
+      const title = node.name;
       const mdx = gen(node, title);
-      const outPath = join(outDir, 'API', 'Plugin Development', kindFolder, `${node.name}.mdx`);
-      mkdirSync(join(outDir, 'API', 'Plugin Development', kindFolder), { recursive: true });
+      const outPath = join(outDir, 'plugin-development', kindFolder, `${node.name}.mdx`);
+      mkdirSync(join(outDir, 'plugin-development', kindFolder), { recursive: true });
       writeFileSync(outPath, mdx);
-      console.log(`    ✓ API/Plugin Development/${kindFolder}/${node.name}.mdx`);
+      console.log(`    ✓ plugin-development/${kindFolder}/${node.name}.mdx`);
     }
   }
 
@@ -893,24 +893,25 @@ function processCoreModule(module: TypeDocNode, outDir: string): void {
   if (adapterNodes.length) {
     console.log('  Framework Adapters:');
     for (const { node, kindFolder, gen } of adapterNodes) {
-      const title = `Grid/API/Framework Adapters/${kindFolder}/${node.name}`;
+      const title = node.name;
       const mdx = gen(node, title);
-      const outPath = join(outDir, 'API', 'Framework Adapters', kindFolder, `${node.name}.mdx`);
-      mkdirSync(join(outDir, 'API', 'Framework Adapters', kindFolder), { recursive: true });
+      const outPath = join(outDir, 'framework-adapters', kindFolder, `${node.name}.mdx`);
+      mkdirSync(join(outDir, 'framework-adapters', kindFolder), { recursive: true });
       writeFileSync(outPath, mdx);
-      console.log(`    ✓ API/Framework Adapters/${kindFolder}/${node.name}.mdx`);
+      console.log(`    ✓ framework-adapters/${kindFolder}/${node.name}.mdx`);
     }
   }
 }
 
-function processPluginModules(pluginModules: TypeDocNode[], outDir: string): void {
+function processPluginModules(pluginModules: TypeDocNode[], _outDir: string): void {
   for (const plugin of pluginModules) {
     if (plugin.kind !== KIND.Module) continue;
 
     // Extract plugin name from "Plugins/Clipboard" -> "Clipboard"
     const rawName = plugin.name.replace(/^Plugins\//, '');
     const title = getPluginTitle(rawName);
-    const subDir = `Plugins-${rawName.replace(/\s+/g, '-')}`;
+    const pluginFolder = rawName.toLowerCase().replace(/\s+/g, '-');
+    const pluginApiDir = join(PLUGINS_OUTPUT_DIR, pluginFolder, 'api');
 
     console.log(`  ${title}:`);
     for (const node of plugin.children ?? []) {
@@ -919,11 +920,11 @@ function processPluginModules(pluginModules: TypeDocNode[], outDir: string): voi
       const gen = node.kind === KIND.Class ? genPluginClass : GENERATORS[node.kind];
       if (!kindFolder || !gen) continue;
 
-      const mdx = gen(node, `Grid/Plugins/${title}/${kindFolder}/${node.name}`);
-      const outPath = join(outDir, subDir, kindFolder, `${node.name}.mdx`);
-      mkdirSync(join(outDir, subDir, kindFolder), { recursive: true });
+      const mdx = gen(node, node.name);
+      const outPath = join(pluginApiDir, kindFolder, `${node.name}.mdx`);
+      mkdirSync(join(pluginApiDir, kindFolder), { recursive: true });
       writeFileSync(outPath, mdx);
-      console.log(`    ✓ ${subDir}/${kindFolder}/${node.name}.mdx`);
+      console.log(`    ✓ plugins/${pluginFolder}/api/${kindFolder}/${node.name}.mdx`);
     }
   }
 }
@@ -933,7 +934,7 @@ function processPluginModules(pluginModules: TypeDocNode[], outDir: string): voi
 // ============================================================================
 
 async function main(): Promise<void> {
-  console.log('Generating Storybook MDX from TypeDoc JSON...\n');
+  console.log('Generating MDX from TypeDoc JSON...\n');
 
   if (!existsSync(JSON_PATH)) {
     console.error(`Error: TypeDoc JSON not found at ${JSON_PATH}`);
@@ -967,7 +968,7 @@ async function main(): Promise<void> {
   // Touch Storybook main.ts to trigger reindex
   touchStorybookMain();
 
-  console.log('\n✅ Done! MDX files written to libs/grid/docs/api/');
+  console.log('\n✅ Done! MDX files written to apps/docs/src/content/docs/grid/api/');
 }
 
 main().catch(console.error);

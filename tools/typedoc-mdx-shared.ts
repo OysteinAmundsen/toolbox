@@ -4,7 +4,7 @@
  * Used by all library-specific typedoc-to-mdx.ts scripts.
  */
 
-import { existsSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 // ============================================================================
@@ -75,21 +75,15 @@ export const KIND_FOLDER_MAP: Record<number, string> = {
 };
 
 // ============================================================================
-// Storybook Integration
+// Legacy Storybook Integration (no-op)
 // ============================================================================
 
-/** Path to Storybook main.ts for cache invalidation */
-const STORYBOOK_MAIN = join(import.meta.dirname, '../apps/docs/.storybook/main.ts');
-
 /**
- * Touch Storybook main.ts to trigger reindex.
- * Works around Storybook's MDX cache not detecting new/changed files.
+ * No-op. Previously touched Storybook main.ts for cache invalidation.
+ * Kept for backward compatibility — callers don't need to update.
  */
 export function touchStorybookMain(): void {
-  if (existsSync(STORYBOOK_MAIN)) {
-    const now = new Date();
-    utimesSync(STORYBOOK_MAIN, now, now);
-  }
+  // No-op: docs uses Astro/Starlight, no Storybook reindex needed.
 }
 
 // ============================================================================
@@ -97,16 +91,16 @@ export function touchStorybookMain(): void {
 // ============================================================================
 
 /**
- * Generate MDX header with Meta component.
- * @param title - Storybook hierarchy title (e.g., "Grid/React/Components/DataGrid")
+ * Generate MDX header with Starlight frontmatter.
+ * @param title - Page title (e.g., "DataGrid")
  * @param regenerateCommand - Command to regenerate (e.g., "bun nx typedoc grid-react")
  */
 export const mdxHeader = (title: string, regenerateCommand = 'bun nx typedoc') =>
-  `{/* Auto-generated from JSDoc - do not edit manually */}
+  `---
+title: "${title}"
+---
+{/* Auto-generated from JSDoc - do not edit manually */}
 {/* Regenerate with: ${regenerateCommand} */}
-import { Meta } from '@storybook/addon-docs/blocks';
-
-<Meta title="${title}" />
 
 `;
 
@@ -491,7 +485,7 @@ export function genTypeAlias(node: TypeDocNode, title: string, options: Generato
 
   // Show deprecation warning if present
   if (deprecated) {
-    // Convert inline code references to Storybook links
+    // Resolve inline code references in deprecation notes
     const linkedNote = deprecationNote ? linkifyDeprecationNote(deprecationNote.trim(), title) : '';
     out += `> ⚠️ **Deprecated**${linkedNote ? `: ${linkedNote}` : ''}\n\n`;
   }
@@ -508,25 +502,13 @@ export function genTypeAlias(node: TypeDocNode, title: string, options: Generato
 }
 
 /**
- * Convert inline code references in deprecation notes to Storybook links.
- * E.g., "Use `CellEditor` instead" becomes "Use [`CellEditor`](?path=/docs/grid-angular-types-celleditor--docs) instead"
- *
- * @param note - The deprecation note text
- * @param title - Current Storybook title (e.g., "Grid/Angular/Types/AngularCellEditor")
+ * Process inline code references in deprecation notes.
+ * Currently a passthrough — deprecation notes render fine with inline code.
  */
-function linkifyDeprecationNote(note: string, title: string): string {
-  // Extract the base path from title (e.g., "Grid/Angular/Types" from "Grid/Angular/Types/AngularCellEditor")
-  const parts = title.split('/');
-  const basePath = parts.slice(0, -1).join('/');
-
-  // Replace inline code references with links
-  // Match `TypeName` patterns (PascalCase identifiers)
-  return note.replace(/`([A-Z][a-zA-Z0-9]*)`/g, (match, typeName) => {
-    // Build Storybook path: "Grid/Angular/Types/CellEditor" -> "grid-angular-types-celleditor--docs"
-    const fullPath = `${basePath}/${typeName}`;
-    const storybookPath = fullPath.toLowerCase().replace(/\//g, '-');
-    return `[\`${typeName}\`](?path=/docs/${storybookPath}--docs)`;
-  });
+function linkifyDeprecationNote(note: string, _title: string): string {
+  // Return the note as-is — type links are resolved by the type registry,
+  // and deprecation notes typically use inline code which renders fine.
+  return note;
 }
 
 /** Generate MDX for an enum */

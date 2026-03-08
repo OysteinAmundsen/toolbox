@@ -20,7 +20,7 @@ cd toolbox
 # Install dependencies
 bun install
 
-# Start Storybook for development
+# Start docs site for development
 bun start
 
 # Run tests
@@ -44,7 +44,7 @@ demos/
     react/               # React 19 demo
     vue/                 # Vue 3 demo
 apps/
-  docs/           # Storybook documentation site
+  docs/           # Astro/Starlight documentation site
 ```
 
 ## Commit Convention

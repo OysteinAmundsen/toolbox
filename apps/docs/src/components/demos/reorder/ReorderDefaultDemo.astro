@@ -1,0 +1,52 @@
+---
+// ReorderDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="reorder-default-demo">
+  <DemoControls controls={[
+    { section: 'REORDER', name: 'animation', label: 'Animation', type: 'select',
+      options: ['flip', 'slide', 'fade', 'none'], default: 'flip', description: 'Reorder animation style' },
+    { section: 'REORDER', name: 'animationDuration', label: 'Duration (ms)', type: 'number',
+      min: 0, max: 500, step: 50, default: 200, description: 'Animation duration in ms' },
+  ]} />
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+
+const container = document.getElementById('reorder-default-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice', department: 'Engineering', email: 'alice@example.com', salary: 95000 },
+    { id: 2, name: 'Bob', department: 'Marketing', email: 'bob@example.com', salary: 75000 },
+    { id: 3, name: 'Carol', department: 'Engineering', email: 'carol@example.com', salary: 105000 },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'email', header: 'Email' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function rebuild(animation = 'flip', animationDuration = 200) {
+    grid.gridConfig = {
+      columns,
+      plugins: [new ReorderPlugin({ animation, animationDuration } as any)],
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    const v = e.detail.allValues;
+    rebuild(v.animation as string, v.animationDuration as number);
+  }) as EventListener);
+}
+</script>

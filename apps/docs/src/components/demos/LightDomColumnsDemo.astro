@@ -1,0 +1,34 @@
+---
+/**
+ * Demo: Light DOM Columns — declarative column configuration via HTML.
+ */
+---
+
+<div class="grid-demo">
+  <p class="grid-demo-description">
+    Define columns declaratively in HTML using <code>&lt;tbw-grid-column&gt;</code> elements.
+  </p>
+  <tbw-grid data-demo-id="light-dom-columns" style="height: 260px; display: block;">
+    <tbw-grid-column field="id" header="ID" width="80"></tbw-grid-column>
+    <tbw-grid-column field="name" header="Full Name" sortable></tbw-grid-column>
+    <tbw-grid-column field="email" header="Email Address"></tbw-grid-column>
+    <tbw-grid-column field="department" header="Department" width="140"></tbw-grid-column>
+  </tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+
+  const grid = document.querySelector<HTMLElement & { rows: unknown[] }>(
+    '[data-demo-id="light-dom-columns"]'
+  );
+  if (grid) {
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', email: 'alice@example.com', department: 'Engineering' },
+      { id: 2, name: 'Bob Smith', email: 'bob@example.com', department: 'Sales' },
+      { id: 3, name: 'Carol Williams', email: 'carol@example.com', department: 'Marketing' },
+      { id: 4, name: 'David Brown', email: 'david@example.com', department: 'Engineering' },
+      { id: 5, name: 'Eve Davis', email: 'eve@example.com', department: 'HR' },
+    ];
+  }
+</script>

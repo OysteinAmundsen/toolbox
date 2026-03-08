@@ -22,7 +22,7 @@ import {
 } from '../../../tools/typedoc-mdx-shared';
 
 const API_GENERATED_DIR = join(import.meta.dirname, '../docs/api-generated');
-const OUTPUT_DIR = join(import.meta.dirname, '../docs/api');
+const OUTPUT_DIR = join(import.meta.dirname, '../../../apps/docs/src/content/docs/grid/react/api');
 const JSON_PATH = join(API_GENERATED_DIR, 'api.json');
 
 const REGENERATE_CMD = 'bun nx typedoc grid-react';
@@ -97,9 +97,9 @@ function processModule(module: TypeDocNode, outDir: string): void {
     for (const node of components) {
       const gen = GENERATORS[node.kind];
       if (!gen) continue;
-      const title = `Grid/React/Components/${node.name}`;
+      const title = node.name;
       const mdx = gen(node, title, genOpts);
-      writeMdx(outDir, `Components/${node.name}.mdx`, mdx, `Components/${node.name}.mdx`);
+      writeMdx(outDir, `components/${node.name}.mdx`, mdx, `components/${node.name}.mdx`);
     }
   }
 
@@ -107,9 +107,9 @@ function processModule(module: TypeDocNode, outDir: string): void {
   if (hooks.length) {
     console.log('  Hooks:');
     for (const node of hooks) {
-      const title = `Grid/React/Hooks/${node.name}`;
+      const title = node.name;
       const mdx = genFunction(node, title, genOpts);
-      writeMdx(outDir, `Hooks/${node.name}.mdx`, mdx, `Hooks/${node.name}.mdx`);
+      writeMdx(outDir, `hooks/${node.name}.mdx`, mdx, `hooks/${node.name}.mdx`);
     }
   }
 
@@ -117,9 +117,9 @@ function processModule(module: TypeDocNode, outDir: string): void {
   if (adapters.length) {
     console.log('  Adapters:');
     for (const node of adapters) {
-      const title = `Grid/React/Adapters/${node.name}`;
+      const title = node.name;
       const mdx = genClass(node, title, genOpts);
-      writeMdx(outDir, `Adapters/${node.name}.mdx`, mdx, `Adapters/${node.name}.mdx`);
+      writeMdx(outDir, `adapters/${node.name}.mdx`, mdx, `adapters/${node.name}.mdx`);
     }
   }
 
@@ -129,9 +129,9 @@ function processModule(module: TypeDocNode, outDir: string): void {
     for (const node of types) {
       const gen = GENERATORS[node.kind];
       if (!gen) continue;
-      const title = `Grid/React/Types/${node.name}`;
+      const title = node.name;
       const mdx = gen(node, title, genOpts);
-      writeMdx(outDir, `Types/${node.name}.mdx`, mdx, `Types/${node.name}.mdx`);
+      writeMdx(outDir, `types/${node.name}.mdx`, mdx, `types/${node.name}.mdx`);
     }
   }
 
@@ -141,9 +141,9 @@ function processModule(module: TypeDocNode, outDir: string): void {
     for (const node of other) {
       const gen = GENERATORS[node.kind];
       if (!gen) continue;
-      const title = `Grid/React/Utilities/${node.name}`;
+      const title = node.name;
       const mdx = gen(node, title, genOpts);
-      writeMdx(outDir, `Utilities/${node.name}.mdx`, mdx, `Utilities/${node.name}.mdx`);
+      writeMdx(outDir, `utilities/${node.name}.mdx`, mdx, `utilities/${node.name}.mdx`);
     }
   }
 }
@@ -153,7 +153,7 @@ function processModule(module: TypeDocNode, outDir: string): void {
 // ============================================================================
 
 async function main(): Promise<void> {
-  console.log('Generating Storybook MDX from TypeDoc JSON for grid-react...\n');
+  console.log('Generating MDX from TypeDoc JSON for grid-react...\n');
 
   if (!existsSync(JSON_PATH)) {
     console.error(`Error: TypeDoc JSON not found at ${JSON_PATH}`);
@@ -174,7 +174,7 @@ async function main(): Promise<void> {
   // Touch Storybook main.ts to trigger reindex
   touchStorybookMain();
 
-  console.log('\n✅ Done! MDX files written to libs/grid-react/docs/api/');
+  console.log('\n✅ Done! MDX files written to apps/docs/src/content/docs/grid/react/api/');
 }
 
 main().catch(console.error);

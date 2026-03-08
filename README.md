@@ -21,7 +21,7 @@ A monorepo for **framework-agnostic web component libraries** built with pure Ty
 # Install dependencies
 bun install
 
-# Start Storybook (development)
+# Start docs site (development)
 bun start
 
 # Build all libraries
@@ -50,14 +50,14 @@ demos/
     react/               # React 19 demo
     vue/                 # Vue 3 demo
 apps/
-  docs/           # Storybook documentation site
+  docs/           # Astro/Starlight documentation site
 ```
 
 ### Commands
 
 ```bash
 # Development
-bun start                    # Start Storybook
+bun start                    # Start docs site
 bun nx build <lib>           # Build a library
 bun nx test <lib>            # Run tests for a library
 
@@ -88,14 +88,14 @@ This project includes [`llms.txt`](llms.txt) and [`llms-full.txt`](llms-full.txt
 1. Create library: `bun nx g @nx/js:lib libs/<name> --publishable --importPath=@toolbox/<name>`
 2. Add Vite config following `libs/grid/vite.config.ts` pattern
 3. Add path mappings to `tsconfig.base.json`
-4. Create stories in `libs/<name>/stories/`
+4. Create stories in `apps/docs/src/components/demos/`
 
 ## Tech Stack
 
 - **Bun** - Package manager and runtime
 - **Vite** - Build tool
 - **Vitest** - Test runner
-- **Storybook** - Component development
+- **Astro/Starlight** - Documentation site
 - **Nx** - Monorepo orchestration
 - **TypeScript** - Type safety
 

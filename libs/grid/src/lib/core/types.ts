@@ -1724,7 +1724,7 @@ export type InputLikeElement = HTMLInputElement | HTMLTextAreaElement | HTMLSele
  * import { GroupingRowsPlugin } from '@toolbox-web/grid/all';
  *
  * new GroupingRowsPlugin({
- *   groupBy: ['department', 'team'],
+ *   groupOn: (row) => [row.department, row.team],
  *   render: {
  *     // Group row spans all columns
  *     fullWidth: true,

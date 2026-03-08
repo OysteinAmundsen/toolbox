@@ -1,0 +1,99 @@
+---
+/**
+ * Demo: Multiple Tool Panels — VisibilityPlugin + custom filter & settings panels.
+ */
+---
+
+<div class="grid-demo">
+  <p class="grid-demo-description">
+    Multiple tool panels (Columns, Filter, Settings). Click toolbar icons to toggle each.
+  </p>
+  <tbw-grid data-demo-id="shell-multi-panels" style="height: 420px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+  import type { ColumnConfig, GridConfig, ToolPanelDefinition } from '@toolbox-web/grid';
+  import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+  const grid = document.querySelector<HTMLElement & {
+    columns: ColumnConfig[];
+    rows: Record<string, unknown>[];
+    gridConfig: GridConfig;
+    registerToolPanel: (panel: ToolPanelDefinition) => void;
+  }>('[data-demo-id="shell-multi-panels"]');
+
+  if (grid) {
+    const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];
+    const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
+
+    grid.gridConfig = {
+      shell: { header: { title: 'Multi-Panel Demo' } },
+      columns: [
+        { field: 'id', header: 'ID', type: 'number', width: 80 },
+        { field: 'name', header: 'Name', minWidth: 150 },
+        { field: 'department', header: 'Department', width: 150 },
+        { field: 'salary', header: 'Salary', type: 'number', width: 120 },
+        { field: 'active', header: 'Active', type: 'boolean', width: 80 },
+      ],
+      plugins: [new VisibilityPlugin()],
+    };
+
+    grid.rows = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      name: names[i % names.length] + ' ' + (Math.floor(i / names.length) + 1),
+      department: departments[i % departments.length],
+      salary: 50000 + Math.floor(Math.random() * 50000),
+      active: i % 3 !== 0,
+    }));
+
+    // Custom filter panel
+    grid.registerToolPanel({
+      id: 'filter',
+      title: 'Filter',
+      icon: '🔍',
+      tooltip: 'Filter data',
+      order: 20,
+      render: (el) => {
+        el.innerHTML = `
+          <div style="padding:0.75rem;">
+            <div style="margin-bottom:16px;">
+              <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--sl-color-gray-3);">Name contains</label>
+              <input type="text" placeholder="Search..." style="width:100%;padding:6px 8px;border:1px solid var(--sl-color-gray-5);border-radius:4px;box-sizing:border-box;background:var(--sl-color-gray-6);color:var(--sl-color-text);" />
+            </div>
+            <div style="margin-bottom:16px;">
+              <label style="display:block;margin-bottom:4px;font-size:12px;color:var(--sl-color-gray-3);">Department</label>
+              <select style="width:100%;padding:6px 8px;border:1px solid var(--sl-color-gray-5);border-radius:4px;box-sizing:border-box;background:var(--sl-color-gray-6);color:var(--sl-color-text);">
+                <option value="">All</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Sales">Sales</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Support">Support</option>
+              </select>
+            </div>
+          </div>
+        `;
+        return () => { el.innerHTML = ''; };
+      },
+    });
+
+    // Custom settings panel
+    grid.registerToolPanel({
+      id: 'settings',
+      title: 'Settings',
+      icon: '⚙',
+      tooltip: 'Grid settings',
+      order: 50,
+      render: (el) => {
+        el.innerHTML = `
+          <div style="padding:0.75rem;">
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" checked /><span>Row hover effect</span></label>
+            <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><input type="checkbox" checked /><span>Alternating row colors</span></label>
+            <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" /><span>Compact mode</span></label>
+          </div>
+        `;
+        return () => { el.innerHTML = ''; };
+      },
+    });
+  }
+</script>

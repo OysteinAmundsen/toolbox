@@ -1,0 +1,272 @@
+---
+title: "Row Reorder Plugin"
+description: "Allow users to reorder rows by drag and drop."
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import RowReorderDefaultDemo from '@components/demos/row-reorder/RowReorderDefaultDemo.astro';
+import RowReorderHandleAtEndDemo from '@components/demos/row-reorder/RowReorderHandleAtEndDemo.astro';
+import RowReorderCancelableEventDemo from '@components/demos/row-reorder/RowReorderCancelableEventDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+
+# Row Reorder Plugin
+
+The Row Reorder plugin lets users rearrange rows by dragging a grip handle or using keyboard shortcuts. Ideal for priority lists, task ordering, or any data where sequence matters.
+
+## Installation
+
+```ts
+import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+```
+
+## Basic Usage
+
+Add the plugin and a drag handle column appears automatically. Users can drag rows to new positions or use Ctrl+Up/Down to move the focused row.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'priority', header: '#', type: 'number', width: 50 },
+    { field: 'task', header: 'Task' },
+    { field: 'status', header: 'Status' },
+  ],
+  plugins: [
+    new RowReorderPlugin({
+      dragHandlePosition: 'left',
+      enableKeyboard: true,
+      animation: 'flip',
+    }),
+  ],
+};
+
+// Listen for row moves
+grid.addEventListener('row-move', (e) => {
+  console.log(`Moved row from ${e.detail.fromIndex} to ${e.detail.toIndex}`);
+  // Optionally persist the new order to your backend
+});
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/row-reorder';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function ReorderableTaskList({ tasks }) {
+  return (
+    <DataGrid
+      rows={tasks}
+      columns={[
+        { field: 'priority', header: '#', type: 'number', width: 50 },
+        { field: 'task', header: 'Task' },
+        { field: 'status', header: 'Status' },
+      ]}
+      rowReorder
+      onRowMove={(e) => console.log('Row moved:', e.detail)}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/row-reorder';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const tasks = [
+  { priority: 1, task: 'Review PR', status: 'Pending' },
+  { priority: 2, task: 'Deploy staging', status: 'In Progress' },
+];
+
+const onRowMove = (e) => {
+  console.log('Row moved:', e.detail);
+};
+</script>
+
+<template>
+  <TbwGrid :rows="tasks" row-reorder @row-move="onRowMove">
+    <TbwGridColumn field="priority" header="#" type="number" :width="50" />
+    <TbwGridColumn field="task" header="Task" />
+    <TbwGridColumn field="status" header="Status" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+// Feature import - enables the [rowReorder] input
+import '@toolbox-web/grid-angular/features/row-reorder';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-task-list',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [rowReorder]="true"
+      (row-move)="onRowMove($event)"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class TaskListComponent {
+  rows = [
+    { priority: 1, task: 'Review PR', status: 'Pending' },
+    { priority: 2, task: 'Deploy staging', status: 'In Progress' },
+  ];
+
+  columns: ColumnConfig[] = [
+    { field: 'priority', header: '#', type: 'number', width: 50 },
+    { field: 'task', header: 'Task' },
+    { field: 'status', header: 'Status' },
+  ];
+
+  onRowMove(e: CustomEvent) {
+    console.log('Row moved:', e.detail);
+  }
+}
+```
+  </TabItem>
+</Tabs>
+
+## Demos
+
+### Default Row Reorder
+
+<ShowSource file="demos/row-reorder/RowReorderDefaultDemo.astro">
+  <RowReorderDefaultDemo />
+</ShowSource>
+
+Drag the grip handle (☰) to reorder rows. Use Ctrl+Up/Down to move the focused row with the keyboard.
+
+
+
+
+### Handle at End
+
+<ShowSource file="demos/row-reorder/RowReorderHandleAtEndDemo.astro">
+  <RowReorderHandleAtEndDemo />
+</ShowSource>
+
+The drag handle can be placed at the end (right side) of each row instead of the left.
+
+
+
+### Cancelable Events
+
+<ShowSource file="demos/row-reorder/RowReorderCancelableEventDemo.astro">
+  <RowReorderCancelableEventDemo />
+</ShowSource>
+
+Cancel row moves by calling `event.preventDefault()` in the `row-move` handler.
+
+
+
+## Configuration Options
+
+| Option              | Type                                                              | Default   | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- | --------- | ----------------------------------------------------------------- |
+| `showDragHandle`    | `boolean`                                                         | `true`    | Show drag handle column for drag-and-drop reordering              |
+| `dragHandlePosition`| `'left' \| 'right'`                                               | `'left'`  | Position of the drag handle column                                |
+| `dragHandleWidth`   | `number`                                                          | `40`      | Width of the drag handle column in pixels                         |
+| `enableKeyboard`    | `boolean`                                                         | `true`    | Enable Ctrl+Up/Down keyboard shortcuts                            |
+| `canMove`           | `(row, fromIndex, toIndex, direction) => boolean`                 | -         | Validation callback to allow/prevent moves                        |
+| `debounceMs`        | `number`                                                          | `150`     | Debounce time for rapid keyboard moves                            |
+| `animation`         | `false \| 'flip'`                                                 | `'flip'`  | Animation type: `false` (instant), `'flip'` (FLIP animation)      |
+
+## TypeScript Interfaces
+
+```ts
+import { RowReorderPlugin, RowReorderConfig, RowMoveDetail } from '@toolbox-web/grid/plugins/row-reorder';
+
+/**
+ * Configuration options for the RowReorderPlugin.
+ */
+interface RowReorderConfig {
+  enableKeyboard?: boolean;       // Enable Ctrl+Up/Down shortcuts (default: true)
+  showDragHandle?: boolean;       // Show drag handle column (default: true)
+  dragHandlePosition?: 'left' | 'right';  // Drag handle column position (default: 'left')
+  dragHandleWidth?: number;       // Drag handle column width in px (default: 40)
+  canMove?: <T>(row: T, fromIndex: number, toIndex: number, direction: 'up' | 'down') => boolean;
+  debounceMs?: number;            // Debounce time for keyboard moves (default: 150)
+  animation?: false | 'flip';     // Animation type (default: 'flip')
+}
+
+/**
+ * Event detail emitted when a row is moved.
+ */
+interface RowMoveDetail<T = unknown> {
+  row: T;           // The row that was moved
+  fromIndex: number; // The original index of the row
+  toIndex: number;   // The new index of the row
+  rows: T[];         // The full rows array in new order
+  source: 'keyboard' | 'drag';  // How the move was initiated
+}
+```
+
+## Events
+
+| Event      | Detail           | Cancelable | Description                                                  |
+| ---------- | ---------------- | ---------- | ------------------------------------------------------------ |
+| `row-move` | `RowMoveDetail`  | Yes        | Fired when a row move is attempted. Call `preventDefault()` to block. |
+
+### Event Detail Properties
+
+| Property    | Type                   | Description                                      |
+| ----------- | ---------------------- | ------------------------------------------------ |
+| `row`       | `T`                    | The row object being moved                       |
+| `fromIndex` | `number`               | Original index in the rows array                 |
+| `toIndex`   | `number`               | Target index after the move                      |
+| `rows`      | `T[]`                  | Complete rows array after reordering             |
+| `source`    | `'keyboard' \| 'drag'` | How the move was initiated                       |
+
+## Keyboard Shortcuts
+
+| Key          | Action                    |
+| ------------ | ------------------------- |
+| `Ctrl + ↑`   | Move focused row up       |
+| `Ctrl + ↓`   | Move focused row down     |
+
+## Styling
+
+The plugin adds these CSS classes you can customize:
+
+| Class                          | Description                                        |
+| ------------------------------ | -------------------------------------------------- |
+| `.dg-row-drag-handle`          | The drag handle cell                               |
+| `.dg-row-drag-handle:hover`    | Handle hover state                                 |
+| `.dg-row.dragging`             | Row currently being dragged                        |
+| `.dg-row.drop-target`          | Row being hovered as drop target                   |
+| `.dg-row.drop-before`          | Drop indicator showing insertion above             |
+| `.dg-row.drop-after`           | Drop indicator showing insertion below             |
+
+### Custom Handle Icon
+
+Override the default grip icon via CSS:
+
+```css
+.dg-row-drag-handle::before {
+  content: '⋮⋮'; /* Double vertical ellipsis */
+}
+```
+
+## Notes
+
+- **Row Identification**: Uses `getRowId()` from `GridConfig` if defined, otherwise falls back to array index.
+- **Data Mutation**: The plugin reorders `grid.rows` in place. The `row-move` event provides the updated array.
+- **Virtualization**: Works with virtualized grids - only visible rows are rendered but logical indices are preserved.
+- **Keyboard Debounce**: Rapid keyboard moves are debounced (150ms) to prevent excessive rerenders.
+
+## See Also
+
+- **[Column Reorder](..//grid/plugins/column-reorder/)** — Drag-to-reorder columns
+- **[Selection](../?path=/grid/plugins/selection/)** — Row and cell selection

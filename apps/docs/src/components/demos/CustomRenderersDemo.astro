@@ -1,0 +1,88 @@
+---
+/**
+ * Demo: Custom Renderers — badges, checkboxes, and formatted output.
+ */
+---
+
+<div class="grid-demo">
+  <p class="grid-demo-description">
+    Renderers give full control over cell content — create badges, checkboxes, progress bars, and more.
+  </p>
+  <tbw-grid data-demo-id="custom-renderers" style="height: 280px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+  import type { ColumnConfig } from '@toolbox-web/grid';
+
+  interface Employee {
+    id: number;
+    name: string;
+    status: string;
+    active: boolean;
+    rating: number;
+    salary: number;
+  }
+
+  const grid = document.querySelector<HTMLElement & { columns: ColumnConfig<Employee>[]; rows: Employee[] }>(
+    '[data-demo-id="custom-renderers"]'
+  );
+  if (grid) {
+    grid.columns = [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', width: 140 },
+      {
+        field: 'status',
+        header: 'Status',
+        width: 110,
+        renderer: ({ value, cellEl }) => {
+          const colors: Record<string, string> = {
+            active: '#16a34a', inactive: '#dc2626', 'on-leave': '#d97706',
+          };
+          const badge = document.createElement('span');
+          badge.style.cssText = `
+            display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;
+            background: ${colors[value as string] || '#888'}22; color: ${colors[value as string] || '#888'};
+            font-weight: 600;
+          `;
+          badge.textContent = (value as string).charAt(0).toUpperCase() + (value as string).slice(1);
+          return badge;
+        },
+      },
+      {
+        field: 'active',
+        header: 'Active',
+        width: 80,
+        align: 'center',
+        renderer: ({ value }) => {
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = !!value;
+          checkbox.disabled = true;
+          return checkbox;
+        },
+      },
+      {
+        field: 'rating',
+        header: 'Rating',
+        width: 100,
+        align: 'center',
+        renderer: ({ value }) => '★'.repeat(value as number) + '☆'.repeat(5 - (value as number)),
+      },
+      {
+        field: 'salary',
+        header: 'Salary',
+        width: 120,
+        align: 'right',
+        format: (value) => `$${(value as number).toLocaleString()}`,
+      },
+    ];
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', status: 'active', active: true, rating: 5, salary: 95000 },
+      { id: 2, name: 'Bob Smith', status: 'inactive', active: false, rating: 3, salary: 72000 },
+      { id: 3, name: 'Carol Williams', status: 'on-leave', active: true, rating: 4, salary: 88000 },
+      { id: 4, name: 'David Brown', status: 'active', active: true, rating: 5, salary: 105000 },
+      { id: 5, name: 'Eve Davis', status: 'active', active: false, rating: 2, salary: 65000 },
+    ];
+  }
+</script>

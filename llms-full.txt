@@ -167,7 +167,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `pinnedColumns` | `features/pinned-columns` | `true` |
 | `pinnedRows` | `features/pinned-rows` | `true`, `{ bottom: [...] }` |
 | `groupingColumns` | `features/grouping-columns` | `true`, `{ columnGroups: [...] }` |
-| `groupingRows` | `features/grouping-rows` | `{ groupBy: ['department'] }` |
+| `groupingRows` | `features/grouping-rows` | `{ groupOn: (row) => [row.department] }` |
 | `tree` | `features/tree` | `{ childrenField: 'children' }` |
 | `columnVirtualization` | `features/column-virtualization` | `true` |
 | `masterDetail` | `features/master-detail` | `{ renderer: (row) => ... }` |
@@ -328,7 +328,7 @@ const grid = createGrid({
   ],
   plugins: [
     new SelectionPlugin({ mode: 'row' }),
-    new EditingPlugin({ trigger: 'dblclick' }),
+    new EditingPlugin({ editOn: 'dblclick' }),
     new FilteringPlugin(),
     new MultiSortPlugin(),
   ],
@@ -491,7 +491,7 @@ const data = [
 
 gridConfig: {
   columns: [{ field: 'name', header: 'Name' }, { field: 'type', header: 'Type' }],
-  plugins: [new TreePlugin({ childrenField: 'children', expandedByDefault: true })],
+  plugins: [new TreePlugin({ childrenField: 'children', defaultExpanded: true })],
 }
 ```
 
@@ -561,11 +561,11 @@ gridConfig: {
     { field: 'name', header: 'Name' },
     { field: 'salary', header: 'Salary', type: 'number', aggregator: 'sum' },
   ],
-  plugins: [new GroupingRowsPlugin({ groupBy: ['department'], expanded: true })],
+  plugins: [new GroupingRowsPlugin({ groupOn: (row) => [row.department], defaultExpanded: true })],
 }
 ```
 
-React: `<DataGrid groupingRows={{ groupBy: ['department'] }} />`
+React: `<DataGrid groupingRows={{ groupOn: (row) => [row.department] }} />`
 
 ### Recipe 8: Pivot Table
 
@@ -840,12 +840,10 @@ new SelectionPlugin({
 ```typescript
 new EditingPlugin({
   mode?: 'cell' | 'row',                         // Edit scope (default: 'cell')
-  trigger?: 'click' | 'dblclick' | 'enter' | 'manual', // (default: 'dblclick')
-  commitOnBlur?: boolean,                          // (default: true)
-  commitOnEnter?: boolean,                         // (default: true)
-  cancelOnEscape?: boolean,                        // (default: true)
+  editOn?: 'click' | 'dblclick' | 'manual' | false, // Edit trigger (default: 'dblclick')
   focusTrap?: boolean,                             // (default: false) — reclaim focus when it leaves during edit
   dirtyTracking?: boolean,                         // (default: false) — track row baselines for dirty/pristine state
+  onBeforeEditClose?: (params) => boolean | void,  // Intercept edit close (return false to prevent)
 })
 // Keyboard: Enter = row edit, F2 = single-cell edit, Escape = cancel, Tab = next cell
 // Focus Management: grid.registerExternalFocusContainer(el) / unregisterExternalFocusContainer(el)
@@ -893,9 +891,11 @@ new FilteringPlugin({
 ```typescript
 new TreePlugin({
   childrenField?: string,       // Children array field (default: 'children')
-  expandedByDefault?: boolean,  // Start expanded (default: false)
-  indentSize?: number,          // Indent per level in px (default: 20)
-  loadChildren?: (row) => Promise<row[]>, // Lazy load children
+  autoDetect?: boolean,         // Auto-detect tree structure (default: true)
+  defaultExpanded?: boolean,    // Start expanded (default: false)
+  indentWidth?: number,         // Indent per level in px (default: 20)
+  showExpandIcons?: boolean,    // Show expand/collapse icons (default: true)
+  animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
 })
 ```
 
@@ -903,10 +903,12 @@ new TreePlugin({
 
 ```typescript
 new MasterDetailPlugin({
-  renderer: (row, container) => void | (() => void), // Detail renderer (required)
+  detailRenderer: (row, rowIndex) => HTMLElement | string, // Detail renderer (required)
+  detailHeight?: number | 'auto', // Detail panel height (default: 'auto')
   expandOnRowClick?: boolean,   // Expand on row click (default: false)
-  singleExpand?: boolean,       // Only one expanded at a time
-  height?: number | 'auto',     // Detail panel height
+  collapseOnClickOutside?: boolean, // Collapse when clicking outside (default: false)
+  showExpandColumn?: boolean,   // Show expand column (default: true)
+  animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
 })
 ```
 
@@ -914,10 +916,15 @@ new MasterDetailPlugin({
 
 ```typescript
 new GroupingRowsPlugin({
-  groupBy: string[],            // Fields to group by (required)
-  expandedByDefault?: boolean,   // Start expanded (default: true)
-  showGroupFooter?: boolean,     // Show group footer with aggregations
-  groupRenderer?: (group) => HTMLElement | string, // Custom group row
+  groupOn?: (row) => any[] | any | null | false, // Group path callback (required)
+  defaultExpanded?: boolean | number | string | string[], // Start expanded (default: false)
+  groupRowRenderer?: (params) => HTMLElement | string | void, // Custom group row
+  showRowCount?: boolean,       // Show row count in headers (default: true)
+  indentWidth?: number,         // Indent per level in px (default: 20)
+  aggregators?: AggregatorMap,  // Aggregators for group cells by field
+  fullWidth?: boolean,          // Full-width group rows (default: true)
+  animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
+  accordion?: boolean,          // Only one group expanded at a time (default: false)
 })
 ```
 
@@ -2016,7 +2023,7 @@ gridConfig: {
 
 ## Resources
 
-- [Storybook Documentation](https://toolboxjs.com/): Interactive examples
+- [Documentation](https://toolboxjs.com/): Interactive examples
 - [GitHub Repository](https://github.com/OysteinAmundsen/toolbox): Source code
 - [npm Package](https://www.npmjs.com/package/@toolbox-web/grid): Installation
 - [Changelog](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/CHANGELOG.md): Version history

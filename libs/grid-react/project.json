@@ -55,7 +55,7 @@
         "{projectRoot}/typedoc.json",
         "{projectRoot}/scripts/typedoc-to-mdx.ts"
       ],
-      "outputs": ["{projectRoot}/docs/api-generated", "{projectRoot}/docs/api"]
+      "outputs": ["{projectRoot}/docs/api-generated", "{workspaceRoot}/apps/docs/src/content/docs/grid/react/api"]
     }
   }
 }

@@ -74,4 +74,4 @@ responsive.setCardRenderer((row) => { ... });
 
 ## Documentation
 
-See the [Storybook docs](https://toolboxjs.com/?path=/docs/grid-plugins-responsive--docs) for live examples.
+See the [Responsive docs](https://toolboxjs.com/grid/plugins/responsive/) for live examples.

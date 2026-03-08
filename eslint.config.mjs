@@ -1,6 +1,4 @@
-// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
 import reactHooks from 'eslint-plugin-react-hooks';
-import storybook from 'eslint-plugin-storybook';
 
 import nx from '@nx/eslint-plugin';
 
@@ -52,15 +50,6 @@ export default [
     },
   },
   {
-    // Disable module boundary checks for story files (development-only, not part of distributed build)
-    files: ['**/*.stories.ts', '**/*.stories.tsx', '**/*.stories.js', '**/*.stories.jsx'],
-    rules: {
-      '@nx/enforce-module-boundaries': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'off',
-    },
-  },
-  {
     // Relax strict type rules for test files (flexibility needed for mocks, assertions, etc.)
     files: ['**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
@@ -90,5 +79,4 @@ export default [
       '@nx/enforce-module-boundaries': 'off',
     },
   },
-  ...storybook.configs['flat/recommended'],
 ];

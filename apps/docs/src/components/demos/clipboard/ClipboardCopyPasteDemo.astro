@@ -1,0 +1,45 @@
+---
+// ClipboardCopyPasteDemo.astro
+---
+<div class="grid-demo not-content" id="clipboard-copy-paste-demo">
+  <div class="sample-data-box" title="Select this text and Ctrl+C to copy, then paste into the grid below" style="padding: 12px; background: var(--sl-color-gray-6); border-bottom: 1px solid var(--sl-color-gray-5); font-family: monospace; font-size: 13px; white-space: pre; user-select: all; cursor: text;">X1&#9;Y1&#9;Z1
+X2&#9;Y2&#9;Z2</div>
+  <div style="padding: 12px; background: var(--sl-color-gray-6); border-bottom: 1px solid var(--sl-color-gray-5); font-size: 14px; color: var(--sl-color-gray-2);">
+    <strong>Try it:</strong> Select the sample data above → Ctrl+C → Click a cell in the grid → Ctrl+V to paste.
+    <br>Or paste tab/comma-separated data from Excel or Sheets!
+    <br>Also try to select an area to paste in. Pasting will be restricted to that area only.
+  </div>
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { ClipboardPlugin } from '@toolbox-web/grid/plugins/clipboard';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const container = document.getElementById('clipboard-copy-paste-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'col1', header: 'Column 1', editable: true },
+      { field: 'col2', header: 'Column 2', editable: true },
+      { field: 'col3', header: 'Column 3', editable: true },
+    ],
+    plugins: [
+      new SelectionPlugin({ mode: 'range' }),
+      new ClipboardPlugin(),
+    ],
+  };
+
+  grid.rows = [
+    { col1: 'A1', col2: 'B1', col3: 'C1' },
+    { col1: 'A2', col2: 'B2', col3: 'C2' },
+    { col1: 'A3', col2: 'B3', col3: 'C3' },
+    { col1: 'A4', col2: 'B4', col3: 'C4' },
+  ];
+}
+</script>

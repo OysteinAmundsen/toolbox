@@ -73,4 +73,4 @@ printer.isPrinting();
 
 ## Documentation
 
-See the [Storybook docs](https://toolboxjs.com/?path=/docs/grid-plugins-print--docs) for live examples.
+See the [Print docs](https://toolboxjs.com/grid/plugins/print/) for live examples.

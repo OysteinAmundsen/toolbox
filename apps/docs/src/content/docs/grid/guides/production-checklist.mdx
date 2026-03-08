@@ -1,0 +1,228 @@
+---
+title: Production Checklist
+description: Prepare your @toolbox-web/grid deployment for production — security, performance, accessibility, error handling, and testing guidance.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+# Production Checklist
+
+Before deploying your grid to production, walk through each section below.
+
+## Security
+
+### HTML Rendering
+
+Cell renderers return DOM elements, which is inherently safe. However, be careful with:
+
+- **`innerHTML`** — Never set `innerHTML` from user input. Use `textContent` or `createElement` instead.
+- **Template strings** — The grid's built-in template evaluation sanitizes expressions, but custom renderers are your responsibility.
+
+```typescript
+// ✅ Safe — textContent escapes HTML
+renderer: (ctx) => {
+  const span = document.createElement('span');
+  span.textContent = ctx.value; // Safe even with <script> tags
+  return span;
+};
+
+// ❌ Dangerous — user input as HTML
+renderer: (ctx) => {
+  const div = document.createElement('div');
+  div.innerHTML = ctx.value; // XSS vulnerability!
+  return div;
+};
+```
+
+### Content Security Policy (CSP)
+
+The grid uses `adoptedStyleSheets` to inject styles, which requires:
+
+```
+style-src 'self';
+```
+
+If your CSP blocks `adoptedStyleSheets`, custom plugin styles and `registerStyles()` calls will fail silently. Check the browser console for CSP violations.
+
+### Data Sanitization
+
+Always sanitize data from external sources before feeding it to the grid:
+
+- Validate data types match column configurations
+- Sanitize HTML entities if using custom HTML renderers
+- Validate row IDs are unique when using `getRowId`
+
+## Performance
+
+### Bundle Size
+
+Import only the plugins you need for optimal bundle size:
+
+```typescript
+// ✅ Tree-shakeable individual imports
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+// ❌ Imports everything — no tree-shaking
+import { SelectionPlugin, FilteringPlugin } from '@toolbox-web/grid/all';
+```
+
+Target bundle sizes:
+- **Core**: ≤170 kB (≤45 kB gzipped)
+- **With plugins**: Depends on selection — each plugin adds 2–15 kB
+
+### Virtualization Settings
+
+The grid virtualizes rows by default. Tune these settings for your dataset:
+
+```typescript
+grid.gridConfig = {
+  rowHeight: 36,           // Fixed height for best scroll performance
+  overscan: 8,             // Rendered rows above/below viewport (default: 8)
+};
+```
+
+- **Large datasets (10K+ rows)**: Default settings work well. Consider `ColumnVirtualizationPlugin` if you have 50+ columns.
+- **Variable row heights**: Auto-measurement uses ResizeObserver, which adds overhead. Prefer fixed heights when possible.
+- **Scroll performance**: Simplify cell renderers — each one runs on every scroll frame for visible cells.
+
+### Plugin Selection
+
+Only register plugins you actually use. Each plugin adds processing to the render pipeline:
+
+- `processColumns()` and `processRows()` run on every data update
+- `afterCellRender()` runs for every visible cell on every scroll
+- `afterRender()` runs after every render cycle
+
+See the [Performance Guide](/grid/guides/performance/) for profiling techniques and hot path analysis.
+
+## Error Handling
+
+### Data Fetch Failures
+
+Handle errors gracefully when loading data:
+
+```typescript
+try {
+  grid.loading = true;
+  const data = await fetchEmployees();
+  grid.rows = data;
+} catch (error) {
+  grid.rows = [];
+  grid.loading = false;
+  showNotification('Failed to load data');
+}
+```
+
+### Plugin Configuration Errors
+
+The grid validates plugin configurations at runtime and throws helpful errors. In production, consider wrapping grid setup in try/catch:
+
+```typescript
+try {
+  grid.gridConfig = { plugins: [...], columns: [...] };
+} catch (error) {
+  console.error('Grid configuration error:', error.message);
+  // Error messages include fix suggestions, e.g.:
+  // "Column(s) [name] use the "editable" property, but EditingPlugin is not loaded."
+}
+```
+
+### Missing Plugins
+
+If you use column properties that require a plugin (e.g., `editable` without `EditingPlugin`), the grid throws an error with an import hint. Catch these during development, not production.
+
+## Accessibility
+
+The grid includes built-in accessibility features:
+
+- **Keyboard navigation** — Arrow keys, Enter, Escape, Tab
+- **ARIA attributes** — `role="grid"`, `aria-rowcount`, `aria-colcount`, `aria-sort`
+- **Focus management** — Visible focus indicators, focus trap during editing
+- **Screen reader support** — Column headers announced, sort state communicated
+
+### Verify in Production
+
+1. **Tab to the grid** — Focus should land on the first data cell
+2. **Navigate with arrow keys** — All cells reachable
+3. **Sort with keyboard** — Enter on column header toggles sort
+4. **Edit with keyboard** — Enter opens editor, Escape cancels
+5. **Screen reader** — Test with NVDA (Windows) or VoiceOver (macOS)
+
+See the [Accessibility Guide](/grid/guides/accessibility/) for details.
+
+## Testing
+
+### Unit Test Patterns
+
+Use Vitest with happy-dom for unit testing grid interactions:
+
+```typescript
+import { describe, it, expect, afterEach } from 'vitest';
+import '@toolbox-web/grid';
+
+describe('Employee Grid', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''; // Clean up DOM
+  });
+
+  it('should render rows', async () => {
+    const grid = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+    grid.rows = [{ name: 'Alice' }, { name: 'Bob' }];
+
+    // Wait for custom element upgrade + render
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const rows = grid.querySelectorAll('[data-row-index]');
+    expect(rows.length).toBe(2);
+  });
+});
+```
+
+### E2E Testing
+
+For end-to-end tests with Playwright or Cypress:
+
+- **Wait for grid readiness** — The grid renders asynchronously. Wait for `[data-row-index]` elements to appear.
+- **Virtual scrolling** — Only visible rows exist in the DOM. Scroll to reach off-screen rows.
+- **Editing** — Double-click a cell, wait for the input to appear, type, then press Enter.
+
+## Monitoring
+
+### What to Log
+
+- **Data load times** — Track how long `grid.rows = data` takes to render
+- **Error events** — Listen for console errors from plugin validation
+- **User interactions** — Track sort, filter, and selection events for analytics
+
+```typescript
+grid.addEventListener('sort-change', (e) => {
+  analytics.track('grid_sort', { column: e.detail.column });
+});
+
+grid.addEventListener('filter-change', (e) => {
+  analytics.track('grid_filter', { model: e.detail.filterModel });
+});
+```
+
+## Deployment Checklist
+
+- [ ] Import only needed plugins (check bundle size)
+- [ ] Sanitize external data before setting `grid.rows`
+- [ ] No `innerHTML` from user input in custom renderers
+- [ ] CSP headers allow `style-src 'self'`
+- [ ] Error handling for data fetch failures
+- [ ] Keyboard navigation tested
+- [ ] Screen reader tested
+- [ ] Row height optimized (fixed preferred)
+- [ ] Virtualization settings tuned for dataset size
+
+## See Also
+
+<CardGrid>
+  <LinkCard title="Performance Guide" description="Profiling, virtualization tuning, and bundle optimization" href="/grid/guides/performance/" />
+  <LinkCard title="Accessibility" description="ARIA attributes, keyboard navigation, and screen readers" href="/grid/guides/accessibility/" />
+  <LinkCard title="Troubleshooting" description="Common issues and solutions" href="/grid/guides/troubleshooting/" />
+  <LinkCard title="Theming" description="CSS variables and cascade layers for brand consistency" href="/grid/guides/theming/" />
+</CardGrid>

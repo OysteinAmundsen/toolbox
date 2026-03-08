@@ -1,0 +1,90 @@
+---
+// GridPlayground.astro — Interactive grid demo with configurable controls.
+interface Control {
+  /** Name of the config property this controls */
+  name: string;
+  /** Display label */
+  label: string;
+  /** Control type */
+  type: 'radio' | 'checkbox' | 'select' | 'number';
+  /** Available options for radio/select */
+  options?: string[];
+  /** Default value */
+  default?: string | number | boolean;
+}
+
+interface Props {
+  /** Unique ID for this playground */
+  id: string;
+  /** Grid height */
+  height?: string;
+  /** Control definitions — serialized as JSON data attribute */
+  controls: Control[];
+}
+
+const { id, height = '400px', controls } = Astro.props;
+---
+
+<div class="grid-demo not-content" id={`playground-${id}`}>
+  <div class="grid-playground-controls" data-controls={JSON.stringify(controls)}>
+    {controls.map((ctrl) => (
+      <div class="grid-playground-control">
+        {ctrl.type === 'radio' && (
+          <fieldset>
+            <legend>{ctrl.label}</legend>
+            {ctrl.options?.map((opt) => (
+              <label>
+                <input
+                  type="radio"
+                  name={`${id}-${ctrl.name}`}
+                  value={opt}
+                  checked={opt === ctrl.default}
+                  data-ctrl-name={ctrl.name}
+                />
+                {opt}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {ctrl.type === 'select' && (
+          <label for={`${id}-${ctrl.name}`}>
+            <span>{ctrl.label}:</span>
+            <select id={`${id}-${ctrl.name}`} data-ctrl-name={ctrl.name}>
+              {ctrl.options?.map((opt) => (
+                <option value={opt} selected={opt === ctrl.default}>{opt}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        {ctrl.type === 'checkbox' && (
+          <label for={`${id}-${ctrl.name}`}>
+            <span>{ctrl.label}:</span>
+            <input
+              id={`${id}-${ctrl.name}`}
+              type="checkbox"
+              data-ctrl-name={ctrl.name}
+              checked={ctrl.default === true}
+            />
+          </label>
+        )}
+        {ctrl.type === 'number' && (
+          <label for={`${id}-${ctrl.name}`}>
+            <span>{ctrl.label}:</span>
+            <input
+              id={`${id}-${ctrl.name}`}
+              type="number"
+              data-ctrl-name={ctrl.name}
+              value={String(ctrl.default ?? 0)}
+              style="width: 5rem;"
+            />
+          </label>
+        )}
+      </div>
+    ))}
+  </div>
+  <tbw-grid style={`display: block; height: ${height};`} data-playground-id={id}></tbw-grid>
+  <div class="grid-demo-output" data-output-id={id}>
+    <span style="color: var(--sl-color-gray-3);">Interact with the grid to see state updates...</span>
+  </div>
+</div>
+<slot />

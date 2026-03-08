@@ -1,0 +1,55 @@
+---
+// PrintRowLimitDemo.astro
+---
+<div class="grid-demo not-content" id="print-row-limit-demo">
+  <div style="padding: 12px; background: var(--sl-color-orange-low); border: 1px solid var(--sl-color-orange); border-radius: 4px; margin-bottom: 12px;">
+    ⚠️ This grid has <strong>1,000 rows</strong>. The plugin uses <code>warnThreshold: 500</code> (shows
+    confirmation dialog) and <code>maxRows: 100</code> (hard limit). Check the print preview to see only 100 rows.
+  </div>
+  <div style="margin-bottom: 12px;">
+    <button id="print-limit-btn" style="padding: 8px 16px; cursor: pointer;">🖨️ Print Grid (max 100 rows)</button>
+  </div>
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+
+const container = document.getElementById('print-row-limit-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  const btn = container.querySelector('#print-limit-btn');
+
+  const largeDataset = Array.from({ length: 1000 }, (_, i) => ({
+    id: i + 1,
+    name: `Employee ${i + 1}`,
+    department: ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'][i % 5],
+    salary: 50000 + Math.floor(Math.random() * 50000),
+  }));
+
+  const printPlugin = new PrintPlugin({
+    warnThreshold: 500,
+    maxRows: 100,
+    title: 'Large Dataset Print Test',
+  });
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', width: 60 },
+      { field: 'name', header: 'Name', width: 180 },
+      { field: 'department', header: 'Department', width: 120 },
+      { field: 'salary', header: 'Salary', width: 100, align: 'right' },
+    ],
+    plugins: [printPlugin],
+  };
+  grid.rows = largeDataset;
+
+  btn?.addEventListener('click', () => {
+    const plugin = grid.getPlugin(PrintPlugin);
+    plugin?.print({ isolate: true });
+  });
+}
+</script>

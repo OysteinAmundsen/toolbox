@@ -1,0 +1,39 @@
+---
+// IntroBasicDemo.astro — Self-contained basic grid demo.
+---
+<div class="grid-demo not-content">
+  <p class="grid-demo-description">A basic grid with sortable columns. Click column headers to sort.</p>
+  <tbw-grid style="display: block; height: 250px;" data-demo-id="intro-basic"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+
+  const grid = document.querySelector<HTMLElement & { columns: unknown[]; rows: unknown[] }>(
+    '[data-demo-id="intro-basic"]'
+  );
+  if (grid) {
+    grid.columns = [
+      { field: 'id', header: 'ID', type: 'number', sortable: true },
+      { field: 'name', header: 'Name', sortable: true },
+      { field: 'email', header: 'Email' },
+    ];
+    grid.rows = [
+      { id: 1, name: 'Alice', email: 'alice@example.com' },
+      { id: 2, name: 'Bob', email: 'bob@example.com' },
+      { id: 3, name: 'Carol', email: 'carol@example.com' },
+      { id: 4, name: 'Dan', email: 'dan@example.com' },
+      { id: 5, name: 'Eve', email: 'eve@example.com' },
+    ];
+  }
+</script>
+
+<style>
+  .grid-demo-description {
+    padding: 0.75rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-2);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+</style>

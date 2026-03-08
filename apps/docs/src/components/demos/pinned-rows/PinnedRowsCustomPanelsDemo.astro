@@ -1,0 +1,64 @@
+---
+// PinnedRowsCustomPanelsDemo.astro
+---
+<div class="grid-demo not-content" id="pinned-rows-custom-panels-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+
+const container = document.getElementById('pinned-rows-custom-panels-demo');
+if (container) {
+  // Generate sample data
+  const generateData = (count: number) => {
+    const names = ['Widget', 'Gadget', 'Gizmo', 'Doohickey', 'Thingamabob'];
+    return Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      name: names[i % names.length],
+      quantity: Math.floor(Math.random() * 100) + 10,
+      price: Math.round((Math.random() * 50 + 5) * 100) / 100,
+    }));
+  };
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'quantity', header: 'Qty', type: 'number' },
+    { field: 'price', header: 'Price', type: 'number' },
+  ];
+  // Currency formatter for price columns
+  const formatCurrency = (value: unknown) => `$${(value as number).toFixed(2)}`;
+
+  const grid = queryGrid('tbw-grid', container);
+      
+      grid.gridConfig = {
+        columns,
+        plugins: [
+          new PinnedRowsPlugin({
+            position: "bottom",
+            showRowCount: true,
+            customPanels: [
+              {
+                id: 'timestamp',
+                position: 'center',
+                render: () => `Last updated: ${new Date().toLocaleTimeString()}`,
+              },
+              {
+                id: 'total-value',
+                position: 'right',
+                render: (ctx) => {
+                  const rows = (ctx.grid).rows as Array<{ quantity: number; price: number }>;
+                  const total = rows.reduce((sum, row) => sum + (row.quantity || 0) * (row.price || 0), 0);
+                  return `<strong>Value: $${total.toFixed(2)}</strong>`;
+                },
+              },
+            ],
+          }),
+        ],
+      };
+      grid.rows = generateData(50);
+}
+</script>

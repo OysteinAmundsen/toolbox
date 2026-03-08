@@ -1,0 +1,172 @@
+---
+// IntroShowcaseDemo.astro — Rich, feature-packed hero grid demo for the landing page.
+// Showcases: selection, filtering, editing, sorting, custom renderers, pinned columns,
+// column groups, footer aggregations — all in one impressive demo.
+---
+<div class="grid-demo not-content">
+  <tbw-grid style="display: block; height: 430px; font-size: 13px;" data-demo-id="intro-showcase"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+import { GroupingColumnsPlugin } from '@toolbox-web/grid/plugins/grouping-columns';
+import { MultiSortPlugin } from '@toolbox-web/grid/plugins/multi-sort';
+import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
+import { PinnedRowsPlugin } from '@toolbox-web/grid/plugins/pinned-rows';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+  // #region Data
+  interface Ticker {
+    ticker: string;
+    company: string;
+    sector: string;
+    price: number;
+    change: number;
+    changePct: number;
+    volume: number;
+    marketCap: number;
+    pe: number;
+    high52w: number;
+    low52w: number;
+    avgVolume: number;
+    rating: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
+  }
+
+  const tickers: Ticker[] = [
+    { ticker: 'AAPL', company: 'Apple Inc.', sector: 'Technology', price: 227.63, change: 3.42, changePct: 1.53, volume: 54_320_100, marketCap: 3_480_000, pe: 37.2, high52w: 260.10, low52w: 164.08, avgVolume: 48_500_000, rating: 'Strong Buy' },
+    { ticker: 'MSFT', company: 'Microsoft Corp.', sector: 'Technology', price: 415.80, change: -2.15, changePct: -0.51, volume: 22_104_500, marketCap: 3_090_000, pe: 35.8, high52w: 468.35, low52w: 362.90, avgVolume: 20_800_000, rating: 'Strong Buy' },
+    { ticker: 'GOOGL', company: 'Alphabet Inc.', sector: 'Technology', price: 174.52, change: 1.87, changePct: 1.08, volume: 28_765_300, marketCap: 2_140_000, pe: 24.1, high52w: 201.42, low52w: 148.72, avgVolume: 25_300_000, rating: 'Buy' },
+    { ticker: 'AMZN', company: 'Amazon.com Inc.', sector: 'Consumer Cyclical', price: 205.74, change: 4.21, changePct: 2.09, volume: 45_890_200, marketCap: 2_160_000, pe: 42.5, high52w: 242.52, low52w: 166.21, avgVolume: 41_200_000, rating: 'Strong Buy' },
+    { ticker: 'NVDA', company: 'NVIDIA Corp.', sector: 'Technology', price: 131.28, change: 5.67, changePct: 4.51, volume: 312_450_000, marketCap: 3_230_000, pe: 58.3, high52w: 153.13, low52w: 75.61, avgVolume: 280_100_000, rating: 'Strong Buy' },
+    { ticker: 'META', company: 'Meta Platforms', sector: 'Technology', price: 585.25, change: -8.30, changePct: -1.40, volume: 18_920_400, marketCap: 1_480_000, pe: 26.7, high52w: 638.40, low52w: 414.50, avgVolume: 16_500_000, rating: 'Buy' },
+    { ticker: 'TSLA', company: 'Tesla Inc.', sector: 'Consumer Cyclical', price: 342.15, change: 12.40, changePct: 3.76, volume: 95_800_300, marketCap: 1_100_000, pe: 95.1, high52w: 488.54, low52w: 138.80, avgVolume: 88_400_000, rating: 'Hold' },
+    { ticker: 'BRK.B', company: 'Berkshire Hathaway', sector: 'Financial', price: 478.92, change: 0.84, changePct: 0.18, volume: 3_245_600, marketCap: 1_030_000, pe: 11.4, high52w: 498.72, low52w: 398.20, avgVolume: 3_100_000, rating: 'Buy' },
+    { ticker: 'JPM', company: 'JPMorgan Chase', sector: 'Financial', price: 243.67, change: 1.52, changePct: 0.63, volume: 8_456_200, marketCap: 692_000, pe: 12.8, high52w: 280.25, low52w: 182.64, avgVolume: 7_800_000, rating: 'Buy' },
+    { ticker: 'V', company: 'Visa Inc.', sector: 'Financial', price: 318.40, change: -1.25, changePct: -0.39, volume: 6_752_100, marketCap: 621_000, pe: 31.2, high52w: 328.72, low52w: 260.81, avgVolume: 6_200_000, rating: 'Strong Buy' },
+    { ticker: 'JNJ', company: 'Johnson & Johnson', sector: 'Healthcare', price: 156.73, change: 0.42, changePct: 0.27, volume: 7_123_400, marketCap: 378_000, pe: 15.9, high52w: 168.85, low52w: 140.68, avgVolume: 6_800_000, rating: 'Hold' },
+    { ticker: 'UNH', company: 'UnitedHealth Group', sector: 'Healthcare', price: 512.30, change: -5.80, changePct: -1.12, volume: 4_567_800, marketCap: 468_000, pe: 20.3, high52w: 630.73, low52w: 436.38, avgVolume: 4_200_000, rating: 'Buy' },
+    { ticker: 'XOM', company: 'Exxon Mobil', sector: 'Energy', price: 108.45, change: 2.10, changePct: 1.98, volume: 15_234_500, marketCap: 462_000, pe: 14.2, high52w: 126.34, low52w: 95.77, avgVolume: 14_000_000, rating: 'Buy' },
+    { ticker: 'PG', company: 'Procter & Gamble', sector: 'Consumer Defensive', price: 171.24, change: 0.15, changePct: 0.09, volume: 5_890_200, marketCap: 404_000, pe: 27.6, high52w: 180.43, low52w: 150.82, avgVolume: 5_500_000, rating: 'Hold' },
+    { ticker: 'HD', company: 'Home Depot', sector: 'Consumer Cyclical', price: 387.50, change: -3.80, changePct: -0.97, volume: 4_123_700, marketCap: 386_000, pe: 25.4, high52w: 437.97, low52w: 323.77, avgVolume: 3_800_000, rating: 'Buy' },
+    { ticker: 'MA', company: 'Mastercard Inc.', sector: 'Financial', price: 523.18, change: 2.94, changePct: 0.57, volume: 3_456_100, marketCap: 484_000, pe: 36.4, high52w: 545.23, low52w: 422.30, avgVolume: 3_200_000, rating: 'Strong Buy' },
+    { ticker: 'CVX', company: 'Chevron Corp.', sector: 'Energy', price: 155.82, change: 1.45, changePct: 0.94, volume: 7_890_300, marketCap: 284_000, pe: 15.1, high52w: 171.70, low52w: 135.37, avgVolume: 7_400_000, rating: 'Hold' },
+    { ticker: 'LLY', company: 'Eli Lilly & Co.', sector: 'Healthcare', price: 815.60, change: 15.20, changePct: 1.90, volume: 5_678_900, marketCap: 774_000, pe: 82.4, high52w: 972.53, low52w: 688.50, avgVolume: 5_100_000, rating: 'Strong Buy' },
+    { ticker: 'ABBV', company: 'AbbVie Inc.', sector: 'Healthcare', price: 182.45, change: -0.68, changePct: -0.37, volume: 6_234_500, marketCap: 322_000, pe: 18.9, high52w: 208.37, low52w: 152.53, avgVolume: 5_800_000, rating: 'Buy' },
+    { ticker: 'PEP', company: 'PepsiCo Inc.', sector: 'Consumer Defensive', price: 148.30, change: 0.92, changePct: 0.62, volume: 5_456_700, marketCap: 203_000, pe: 23.5, high52w: 183.41, low52w: 141.51, avgVolume: 5_100_000, rating: 'Hold' },
+    { ticker: 'COST', company: 'Costco Wholesale', sector: 'Consumer Defensive', price: 912.45, change: 8.30, changePct: 0.92, volume: 2_345_600, marketCap: 404_000, pe: 52.3, high52w: 1020.72, low52w: 706.30, avgVolume: 2_100_000, rating: 'Buy' },
+    { ticker: 'AVGO', company: 'Broadcom Inc.', sector: 'Technology', price: 186.24, change: 6.82, changePct: 3.80, volume: 38_900_100, marketCap: 872_000, pe: 64.8, high52w: 251.88, low52w: 124.92, avgVolume: 34_200_000, rating: 'Strong Buy' },
+    { ticker: 'WMT', company: 'Walmart Inc.', sector: 'Consumer Defensive', price: 91.25, change: 0.38, changePct: 0.42, volume: 12_345_600, marketCap: 735_000, pe: 35.6, high52w: 105.30, low52w: 73.69, avgVolume: 11_200_000, rating: 'Buy' },
+    { ticker: 'MRK', company: 'Merck & Co.', sector: 'Healthcare', price: 101.58, change: -1.24, changePct: -1.21, volume: 9_876_500, marketCap: 257_000, pe: 13.8, high52w: 134.63, low52w: 94.27, avgVolume: 9_200_000, rating: 'Hold' },
+    { ticker: 'CRM', company: 'Salesforce Inc.', sector: 'Technology', price: 278.40, change: 3.15, changePct: 1.14, volume: 6_543_200, marketCap: 270_000, pe: 45.2, high52w: 348.86, low52w: 218.01, avgVolume: 6_000_000, rating: 'Buy' },
+    { ticker: 'ORCL', company: 'Oracle Corp.', sector: 'Technology', price: 172.85, change: 2.40, changePct: 1.41, volume: 8_765_400, marketCap: 476_000, pe: 38.7, high52w: 198.31, low52w: 117.06, avgVolume: 8_100_000, rating: 'Buy' },
+    { ticker: 'AMD', company: 'Advanced Micro Devices', sector: 'Technology', price: 118.52, change: 4.30, changePct: 3.76, volume: 52_340_100, marketCap: 192_000, pe: 45.6, high52w: 227.30, low52w: 102.85, avgVolume: 48_700_000, rating: 'Buy' },
+    { ticker: 'NFLX', company: 'Netflix Inc.', sector: 'Communication', price: 925.18, change: -12.50, changePct: -1.33, volume: 4_567_800, marketCap: 397_000, pe: 48.2, high52w: 1064.50, low52w: 639.00, avgVolume: 4_100_000, rating: 'Hold' },
+    { ticker: 'INTC', company: 'Intel Corp.', sector: 'Technology', price: 24.18, change: -0.52, changePct: -2.11, volume: 42_890_300, marketCap: 104_000, pe: -8.3, high52w: 37.16, low52w: 18.51, avgVolume: 40_100_000, rating: 'Sell' },
+    { ticker: 'DIS', company: 'Walt Disney Co.', sector: 'Communication', price: 112.40, change: 1.85, changePct: 1.67, volume: 11_234_500, marketCap: 204_000, pe: 38.9, high52w: 123.74, low52w: 83.91, avgVolume: 10_400_000, rating: 'Hold' },
+  ];
+  // #endregion
+
+  // #region Renderers
+  const changeRenderer = ({ value, row }: { value: number; row: Ticker }) => {
+    const color = value >= 0 ? 'var(--tbw-color-success)' : 'var(--tbw-color-error)';
+    const arrow = value >= 0 ? '▲' : '▼';
+    return `<span style="color:${color};font-weight:600">${arrow} ${Math.abs(value).toFixed(2)}</span>`;
+  };
+
+  const changePctRenderer = ({ value }: { value: number }) => {
+    const color = value >= 0 ? 'var(--tbw-color-success)' : 'var(--tbw-color-error)';
+    const sign = value >= 0 ? '+' : '';
+    return `<span style="color:${color};font-weight:600">${sign}${value.toFixed(2)}%</span>`;
+  };
+
+
+
+  const range52wRenderer = ({ row }: { row: Ticker }) => {
+    const range = row.high52w - row.low52w;
+    const pct = range > 0 ? ((row.price - row.low52w) / range) * 100 : 50;
+    return `<div style="display:flex;align-items:center;gap:6px;width:100%">` +
+      `<span style="font-size:0.8em;color:var(--tbw-color-fg-muted);min-width:42px">${row.low52w.toFixed(0)}</span>` +
+      `<div style="flex:1;height:6px;background:var(--tbw-color-border);border-radius:3px;position:relative;min-width:40px">` +
+      `<div style="position:absolute;left:0;top:0;height:100%;width:${pct}%;background:var(--tbw-color-accent);border-radius:3px"></div>` +
+      `<div style="position:absolute;top:-3px;left:calc(${pct}% - 4px);width:8px;height:12px;background:var(--tbw-color-accent);border-radius:2px"></div>` +
+      `</div>` +
+      `<span style="font-size:0.8em;color:var(--tbw-color-fg-muted);min-width:42px;text-align:right">${row.high52w.toFixed(0)}</span>` +
+      `</div>`;
+  };
+  // #endregion
+
+  // #region Grid setup
+  const grid = document.querySelector<HTMLElement & { gridConfig: unknown; rows: unknown[] }>(
+    '[data-demo-id="intro-showcase"]'
+  );
+
+  if (grid) {
+    grid.gridConfig = {
+      columns: [
+        { field: 'ticker', header: 'Ticker', width: 75, sortable: true, pinned: 'left',
+          renderer: ({ value }: { value: string }) => `<strong>${value}</strong>` },
+        { field: 'company', header: 'Company', minWidth: 140, sortable: true },
+        { field: 'sector', header: 'Sector', width: 130, sortable: true },
+        { field: 'price', header: 'Price', type: 'number' as const, width: 90, sortable: true,
+          format: (v: number) => `$${v.toFixed(2)}`, editable: true },
+        { field: 'change', header: 'Chg', type: 'number' as const, width: 85, sortable: true,
+          renderer: changeRenderer },
+        { field: 'changePct', header: '% Chg', type: 'number' as const, width: 80, sortable: true,
+          renderer: changePctRenderer },
+        { field: 'volume', header: 'Volume', type: 'number' as const, width: 90, sortable: true,
+          format: (v: number) => (v / 1_000_000).toFixed(1) + 'M' },
+        { field: 'marketCap', header: 'Mkt Cap', type: 'number' as const, width: 85, sortable: true,
+          format: (v: number) => v >= 1_000 ? `$${(v / 1_000).toFixed(1)}T` : `$${v}B` },
+        { field: 'pe', header: 'P/E', type: 'number' as const, width: 60, sortable: true,
+          format: (v: number) => v.toFixed(1) },
+        { field: '_52wRange', header: '52w Range', width: 180, sortable: false,
+          renderer: range52wRenderer },
+      ],
+      columnGroups: [
+        { id: 'identity', header: 'Security', children: ['ticker', 'company', 'sector'] },
+        { id: 'trading', header: 'Trading', children: ['price', 'change', 'changePct'] },
+        { id: 'fundamentals', header: 'Fundamentals', children: ['volume', 'marketCap', 'pe'] },
+      ],
+      sortable: true,
+      filterable: true,
+      plugins: [
+        new SelectionPlugin({ mode: 'row', checkbox: true }),
+        new FilteringPlugin({ debounceMs: 200 }),
+        new EditingPlugin({ editOn: 'dblclick' }),
+        new MultiSortPlugin({ showSortIndex: true }),
+        new PinnedColumnsPlugin(),
+        new GroupingColumnsPlugin(),
+        new ExportPlugin(),
+        new PinnedRowsPlugin({
+          position: 'bottom',
+          showRowCount: true,
+          showFilteredCount: true,
+          aggregationRows: [{
+            id: 'summary',
+            position: 'bottom',
+            cells: {
+              ticker: 'Summary',
+              volume: (rows: Ticker[]) => {
+                const total = rows.reduce((s, r) => s + r.volume, 0);
+                return (total / 1_000_000_000).toFixed(1) + 'B';
+              },
+              marketCap: (rows: Ticker[]) => {
+                const total = rows.reduce((s, r) => s + r.marketCap, 0);
+                return `$${(total / 1_000_000).toFixed(1)}T`;
+              },
+              pe: (rows: Ticker[]) => {
+                const vals = rows.filter(r => r.pe > 0);
+                return vals.length ? 'Avg: ' + (vals.reduce((s, r) => s + r.pe, 0) / vals.length).toFixed(1) : '';
+              },
+            },
+          }],
+        }),
+      ],
+    };
+    grid.rows = tickers;
+  }
+  // #endregion
+</script>

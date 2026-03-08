@@ -1,0 +1,42 @@
+---
+// UndoRedoLimitedHistoryDemo.astro
+---
+<div class="grid-demo not-content" id="undo-redo-limited-history-demo">
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
+
+const container = document.getElementById('undo-redo-limited-history-demo');
+if (container) {
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name', editable: true },
+    { field: 'quantity', header: 'Quantity', type: 'number', editable: true },
+    { field: 'price', header: 'Price', type: 'number', editable: true },
+  ];
+  const sampleData = [
+    { id: 1, name: 'Widget A', quantity: 10, price: 25.99 },
+    { id: 2, name: 'Widget B', quantity: 5, price: 49.99 },
+    { id: 3, name: 'Widget C', quantity: 20, price: 15.0 },
+  ];
+
+  const grid = queryGrid('tbw-grid', container);
+      
+      grid.gridConfig = {
+        columns,
+        plugins: [
+          new EditingPlugin(),
+          new UndoRedoPlugin({
+            maxHistorySize: 20,
+          }),
+        ],
+      };
+      grid.rows = [...sampleData];
+}
+</script>

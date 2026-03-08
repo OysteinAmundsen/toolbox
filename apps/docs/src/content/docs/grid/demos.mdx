@@ -1,0 +1,140 @@
+---
+title: Demos
+description: Full-featured demo applications showcasing @toolbox-web/grid with 15+ plugins, custom editors, master-detail, and more.
+---
+
+import EmployeeManagementAllFeaturesDemo from '@components/demos/EmployeeManagementAllFeaturesDemo.astro';
+import EmployeeManagementGroupedDemo from '@components/demos/EmployeeManagementGroupedDemo.astro';
+
+## Employee Management Demo
+
+A comprehensive demo application that demonstrates the full power of `@toolbox-web/grid`. This demo uses realistic employee data with 15+ columns, custom editors, renderers, master-detail expansion, filtering, sorting, selection, export, and more.
+
+<EmployeeManagementAllFeaturesDemo />
+
+### What This Demo Showcases
+
+#### Data Complexity
+
+| Feature              | Details                                                    |
+| -------------------- | ---------------------------------------------------------- |
+| **200 employees**    | Realistic generated data with names, emails, departments   |
+| **15+ columns**      | Text, number, date, select, boolean, and custom types      |
+| **Nested data**      | Department, manager references, address objects             |
+| **Computed values**  | Performance scores, tenure calculations                     |
+
+#### Visual Features
+
+| Feature              | Details                                                    |
+| -------------------- | ---------------------------------------------------------- |
+| **Custom renderers** | Status badges, star ratings, color-coded performance       |
+| **Row styling**      | Dynamic CSS classes based on row data                      |
+| **Shell header**     | Title bar with export buttons                              |
+| **Tool panels**      | Quick filters and analytics sidebar panels                 |
+
+#### Interaction Features
+
+| Feature              | Details                                                    |
+| -------------------- | ---------------------------------------------------------- |
+| **Row selection**    | Checkbox column with multi-select (Shift/Ctrl+Click)       |
+| **Column sorting**   | Click headers to sort, multi-sort with Shift+Click         |
+| **Column filtering** | Per-column filter dropdowns with text/number/date filters  |
+| **Column resizing**  | Drag column borders to resize                              |
+| **Master-detail**    | Expand rows to see nested detail panels                    |
+
+#### Editing Features
+
+| Feature              | Details                                                    |
+| -------------------- | ---------------------------------------------------------- |
+| **Inline editing**   | Double-click cells to edit in place                        |
+| **Custom editors**   | Star rating picker, bonus slider, status dropdown, date picker |
+| **Validation**       | Cell-level validation with error highlighting              |
+| **Undo/Redo**        | Ctrl+Z / Ctrl+Y to undo and redo edits                    |
+
+#### Advanced Features
+
+| Feature              | Details                                                    |
+| -------------------- | ---------------------------------------------------------- |
+| **CSV/Excel export** | Export visible or selected data                            |
+| **Column visibility**| Show/hide columns via tool panel                           |
+| **Column reorder**   | Drag-and-drop column headers                               |
+| **Keyboard nav**     | Full keyboard navigation (arrows, Enter, Escape, Tab)      |
+| **Clipboard**        | Copy cells and ranges to clipboard                         |
+| **Context menu**     | Right-click for context-sensitive actions                   |
+
+### Try These Interactions
+
+1. **Sort** — Click the "Name" column header. Click again to reverse. Hold Shift and click "Department" for multi-sort.
+2. **Filter** — Hover over a column header and click the filter icon. Try filtering "Department" to "Engineering".
+3. **Edit** — Double-click any cell in the "Name" or "Email" column. Press Enter to commit, Escape to cancel.
+4. **Select** — Click the checkbox column to select rows. Use Shift+Click for range selection.
+5. **Resize** — Drag the border between any two column headers to resize.
+6. **Expand** — Click the expand arrow on any row to see the master-detail panel.
+7. **Export** — Click the 📄 or 📊 buttons in the header toolbar to export CSV or Excel.
+8. **Undo** — After editing a cell, press Ctrl+Z to undo the change.
+
+---
+
+## Grouped by Department
+
+The same employee data, but with row grouping enabled. Rows are grouped by department with expand/collapse and aggregate summaries.
+
+<EmployeeManagementGroupedDemo />
+
+---
+
+## Code Architecture
+
+The employee management demo is built as a **reusable factory function** that can be called from any context (standalone HTML page, documentation site, or your own app).
+
+### Plugins Used
+
+| Plugin              | Purpose                                       |
+| ------------------- | --------------------------------------------- |
+| SelectionPlugin     | Row selection with checkbox column             |
+| FilteringPlugin     | Per-column filtering with debounce             |
+| EditingPlugin       | Inline cell editing with dirty tracking        |
+| ClipboardPlugin     | Copy/paste support                             |
+| ExportPlugin        | CSV and Excel export                           |
+| VisibilityPlugin    | Column show/hide panel                         |
+| ReorderPlugin       | Drag-and-drop column reorder                   |
+| RowReorderPlugin    | Drag-and-drop row reorder                      |
+| MultiSortPlugin     | Multi-column sorting                           |
+| ContextMenuPlugin   | Right-click context menus                       |
+| MasterDetailPlugin  | Expandable detail panels                       |
+| GroupingRowsPlugin  | Row grouping with aggregation (grouped variant)|
+| PinnedColumnsPlugin | Pin columns to left/right edges                |
+| UndoRedoPlugin      | Undo/redo editing history                      |
+| ResponsivePlugin    | Mobile-friendly card layout at small widths    |
+
+### Performance Notes
+
+- **200 rows** load instantly with the default configuration
+- Scale to **10,000+ rows** with row virtualization (only visible rows are rendered)
+- Column virtualization available via `ColumnVirtualizationPlugin` for wide datasets
+- Master-detail panels are lazily rendered on expand
+- Filtering uses debounced input (200ms default) to avoid excess re-renders
+
+---
+
+## Demo Implementations
+
+The employee management demo is implemented in four frameworks to showcase the grid's cross-framework compatibility:
+
+| Framework | Adapter Package             | Source Code                                                                                                          |
+| --------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Vanilla   | (none — native web component) | [demos/employee-management/vanilla/](https://github.com/nicoss54/toolbox-web/tree/main/demos/employee-management/vanilla) |
+| Angular   | `@toolbox-web/grid-angular` | [demos/employee-management/angular/](https://github.com/nicoss54/toolbox-web/tree/main/demos/employee-management/angular) |
+| React     | `@toolbox-web/grid-react`   | [demos/employee-management/react/](https://github.com/nicoss54/toolbox-web/tree/main/demos/employee-management/react)     |
+| Vue       | `@toolbox-web/grid-vue`     | [demos/employee-management/vue/](https://github.com/nicoss54/toolbox-web/tree/main/demos/employee-management/vue)         |
+
+Each demo uses the same shared data generators and types from `demos/employee-management/shared/`, ensuring consistent behavior across all implementations. The vanilla demo acts as the reference implementation, and its `createEmployeeGrid()` factory function is reused in these documentation pages.
+
+---
+
+## Related
+
+- [Getting Started](/grid/getting-started/) — Installation and basic setup
+- [Core Features](/grid/core/) — Column configuration, renderers, formatters
+- [API Reference](/grid/api-reference/) — Properties, methods, events, and CSS variables
+- [Plugins](/grid/plugins/selection/) — Individual plugin documentation

@@ -1,0 +1,67 @@
+---
+// ExportDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="export-default-demo">
+  <DemoControls controls={[
+    { section: 'EXPORT', name: 'includeHeaders', label: 'Include headers', type: 'boolean',
+      default: true, description: 'Include column headers in export' },
+    { section: 'EXPORT', name: 'onlyVisible', label: 'Visible only', type: 'boolean',
+      default: true, description: 'Export only visible columns' },
+    { section: 'EXPORT', name: 'onlySelected', label: 'Selected only', type: 'boolean',
+      default: false, description: 'Export only selected rows' },
+  ]} />
+  <div class="export-buttons" style="padding: 8px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--sl-color-gray-5);">
+    <button class="export-csv" style="padding: 6px 12px; cursor: pointer;">Export CSV</button>
+    <button class="export-excel" style="padding: 6px 12px; cursor: pointer;">Export Excel</button>
+    <button class="export-json" style="padding: 6px 12px; cursor: pointer;">Export JSON</button>
+  </div>
+  <tbw-grid style="display: block; height: 350px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
+import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection';
+
+const container = document.getElementById('export-default-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, startDate: '2023-01-15' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000, startDate: '2022-06-20' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000, startDate: '2021-03-10' },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, startDate: '2023-08-05' },
+  ];
+  const columns = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'number' },
+    { field: 'startDate', header: 'Start Date' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+  let plugin: InstanceType<typeof ExportPlugin>;
+
+  function rebuild(includeHeaders = true, onlyVisible = true, onlySelected = false) {
+    plugin = new ExportPlugin({ includeHeaders, onlyVisible, onlySelected, fileName: 'grid-export' });
+    grid.gridConfig = {
+      columns,
+      plugins: [new SelectionPlugin({ mode: 'range' }), plugin],
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild();
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    const v = e.detail.allValues;
+    rebuild(v.includeHeaders as boolean, v.onlyVisible as boolean, v.onlySelected as boolean);
+  }) as EventListener);
+
+  container.querySelector('.export-csv')?.addEventListener('click', () => plugin?.exportCsv());
+  container.querySelector('.export-excel')?.addEventListener('click', () => plugin?.exportExcel());
+  container.querySelector('.export-json')?.addEventListener('click', () => plugin?.exportJson());
+}
+</script>

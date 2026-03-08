@@ -4,7 +4,7 @@
 
 This is an **Nx monorepo** for building a **suite of framework-agnostic component libraries** using **pure TypeScript web components**. The architecture prioritizes cross-framework compatibility - components work natively in vanilla JS, React, Vue, Angular, etc. without wrappers (though framework-specific adapters may be built separately for enhanced DX).
 
-Currently houses `@toolbox-web/grid` as the flagship component (`<tbw-grid>`), with more libraries planned. The repo uses **Bun** as package manager/runtime, **Vitest** for testing, **Vite** for building, and **Storybook** for component development.
+Currently houses `@toolbox-web/grid` as the flagship component (`<tbw-grid>`), with more libraries planned. The repo uses **Bun** as package manager/runtime, **Vitest** for testing, **Vite** for building, and **Astro/Starlight** for documentation.
 
 ## Skills Reference
 
@@ -12,12 +12,12 @@ Task-specific workflows are documented in dedicated skill files (loaded on deman
 
 | Skill                 | Description                                    | When to use                                           |
 | --------------------- | ---------------------------------------------- | ----------------------------------------------------- |
-| `new-plugin`          | Create a new grid plugin                       | Adding a plugin with hooks, styles, tests, stories    |
+| `new-plugin`          | Create a new grid plugin                       | Adding a plugin with hooks, styles, tests, demos      |
 | `bundle-check`        | Verify bundle size budget                      | After code changes that may affect bundle size        |
 | `test-coverage`       | Analyze and improve test coverage              | Writing tests, improving coverage for a file          |
 | `new-adapter-feature` | Add features across Angular/React/Vue adapters | Ensuring feature parity across framework adapters     |
 | `release-prep`        | Pre-release checklist                          | Preparing a library version for release               |
-| `storybook-story`     | Create Storybook stories and MDX docs          | Adding demos or documentation for features            |
+| `astro-demo`          | Create Astro demo components and MDX docs      | Adding demos or documentation for features            |
 | `debug-perf`          | Performance investigation                      | Profiling, hot path analysis, render scheduler issues |
 | `debug-browser`       | Live browser debugging via Chrome DevTools MCP | DOM inspection, screenshots, console, script eval     |
 | `docs-update`         | Documentation update checklist                 | After any feature, fix, or refactor                   |
@@ -72,7 +72,7 @@ All libraries in this suite are built as **standard web components** (custom ele
 - **Zero framework lock-in**: Components work in any JavaScript environment (vanilla, React, Vue, Angular, Svelte, etc.)
 - **Native browser APIs**: Leverage custom elements, CSS nesting, CSSStyleSheet adoption, and web standards
 - **Optional framework adapters**: Future work may include React/Vue/Angular wrappers for improved TypeScript types and framework-specific ergonomics, but core components remain framework-free
-- **Shared conventions**: All libraries follow consistent patterns for configuration, theming, testing, and Storybook integration
+- **Shared conventions**: All libraries follow consistent patterns for configuration, theming, testing, and documentation
 - **Component prefix**: All web components use `tbw-` prefix (toolbox-web), e.g., `<tbw-grid>`
 
 ### API Stability & Breaking Changes
@@ -152,7 +152,8 @@ type(scope): short description
 - **`libs/grid-react/`** - React adapter library (`@toolbox-web/grid-react`) with DataGrid component, hooks, and JSX renderer/editor support
 - **`libs/grid-vue/`** - Vue adapter library (`@toolbox-web/grid-vue`) with DataGrid component, composables, and slot-based renderers
 - **`libs/*/`** - Additional component libraries will follow same pure TypeScript + web standards pattern
-- **`apps/docs/`** - Storybook documentation site with live HMR via Vite
+- **`apps/docs/`** - Astro/Starlight documentation site (https://toolboxjs.com)
+
 - **`libs/themes/`** - Shared CSS theme system (currently Grid themes; will expand for suite-wide theming)
 - **`demos/employee-management/`** - Full-featured demo applications showcasing the grid:
   - `vanilla/` - Pure TypeScript/Vite demo (`demo-vanilla` project)
@@ -223,9 +224,17 @@ See `ARCHITECTURE.md` for detailed diagrams and `config-precedence.spec.ts` for 
 
 Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Integration tests live in `src/__tests__/integration/`. Use `waitUpgrade(grid)` and `nextFrame()` helpers. Run via `bun nx test grid`. See the `test-coverage` skill for detailed patterns, mock grid templates, and library-specific guidance.
 
-### Storybook & Documentation
+### Documentation Site (Astro/Starlight)
 
-Stories are co-located with plugins and core features. MDX docs live alongside stories and in `libs/grid/docs/`. Run Storybook: `bun nx serve docs` (port 4400). See the `storybook-story` skill for templates and the `docs-update` skill for the full documentation inventory.
+Documentation lives in `apps/docs/` using Astro + Starlight. MDX content pages are in `src/content/docs/grid/`. Interactive demo components are in `src/components/demos/`. Run the docs site: `bun nx serve docs` (port 4401). See the `astro-demo` skill for demo component templates and the `docs-update` skill for the full documentation inventory.
+
+**Key components:**
+
+- `DemoControls.astro` — Reusable Storybook-like interactive controls panel (number/boolean/radio/select/check-group)
+- `ShowSource.astro` — Source code viewer wrapper for demos
+- `FrameworkTabs.astro` — Framework code tab switcher (Vanilla/React/Vue/Angular)
+- `ThemeBuilder.astro` — Interactive CSS variable editor
+- `CSSVariableReference.astro` — CSS variable reference table
 
 ## Critical Workflows
 
@@ -234,10 +243,10 @@ Stories are co-located with plugins and core features. MDX docs live alongside s
 > **Important**: Always run tasks through **Nx**, never invoke Vitest, Vite, or ESLint directly. Direct invocations (e.g. `npx vitest run …`) will fail or behave unexpectedly because the workspace relies on Nx-configured project paths, environment variables, and plugin resolution.
 
 ```bash
-# Start Storybook with live reload
+# Start docs site with live reload
 bun nx serve docs
 
-# Build Storybook (documentation site)
+# Build docs site (Astro/Starlight)
 bun nx build docs
 
 # Build grid library (Vite compilation)
@@ -280,7 +289,7 @@ bun nx serve demo-angular
 2. **Add Vite config**: Copy pattern from `libs/grid/vite.config.ts`
 3. **Structure**: Follow Grid's pattern with `src/public.ts` barrel export, `components/` dir, and `internal/` modules
 4. **Update path mappings**: Add to `tsconfig.base.json` paths (e.g., `@toolbox/[library-name]`)
-5. **Storybook integration**: Add stories to `libs/[library-name]/stories/`; Storybook auto-discovers via glob
+5. **Documentation**: Add demo components to `apps/docs/src/components/demos/` and MDX pages to `apps/docs/src/content/docs/`
 6. **Testing**: Set up Vitest config following `libs/grid/project.json` test target pattern
 7. **Theming**: Extend `libs/themes/` with component-specific theme files using suite-wide CSS variables
 
@@ -290,7 +299,7 @@ bun nx serve demo-angular
 2. **Implement logic** in appropriate `internal/*.ts` module (keep pure functions testable)
 3. **Add unit tests** co-located with source file (e.g., `feature.ts` → `feature.spec.ts`)
 4. **Add integration test** in `src/__tests__/integration/` if it requires full component lifecycle
-5. **Create story** in `stories/*.stories.ts` demonstrating the feature
+5. **Create demo** in `apps/docs/src/components/demos/` demonstrating the feature
 6. **Export public API** in `src/public.ts` if exposing new types/functions
 
 ### Web Component Patterns
@@ -378,13 +387,13 @@ When adding colors to CSS, follow these rules:
 
 1. **Check existing color registries first:**
    - **Grid component code** (`libs/grid/src/lib/core/grid.css`): Check if a suitable `--tbw-*` variable exists (e.g., `--tbw-color-accent`, `--tbw-color-border`, `--tbw-color-fg-muted`)
-   - **Storybook/docs** (`apps/docs/.storybook/storybook-styles.css`): Check for `--sb-*`, `--sbdocs-*`, `--prism-*`, `--demo-*` variables
+   - **Docs site** (`apps/docs/src/styles/`): Check for any existing CSS variables in the docs site styles
 
 2. **Reuse existing variables** when the semantic meaning matches. Don't create duplicates.
 
 3. **If no suitable variable exists**, consider whether the color should be added to a registry:
    - Grid theming colors → add to `grid.css` with `--tbw-` prefix
-   - Storybook/documentation colors → add to `storybook-styles.css` with appropriate prefix
+   - Documentation site colors → add to docs site styles with appropriate prefix
 
 4. **Always use `light-dark()` function** for new color definitions to support both light and dark modes:
 
@@ -535,8 +544,9 @@ The grid validates plugin-owned properties at runtime. See the `new-plugin` skil
 - **Vite**: v7.3.x - Build tool and dev server
 - **Vitest**: v4.x - Fast unit test runner
 - **Bun**: Package manager + test runtime (faster than npm/yarn)
-- **Storybook**: v10.1.11 - Component development environment
-- **Lit**: Used for story rendering (web components framework)
+- **Astro**: v5.18.x - Documentation site framework
+- **Starlight**: v0.37.x - Astro docs theme
+- **Lit**: Used for legacy story rendering (web components framework)
 - **happy-dom**: DOM environment for testing
 - **Prettier**: v3.7.4 - Code formatting (uses defaults)
 
@@ -561,6 +571,13 @@ The grid validates plugin-owned properties at runtime. See the `new-plugin` skil
 - **`libs/grid-angular/src/lib/base-filter-panel.ts`** - BaseFilterPanel (custom filter panel base class)
 - **`libs/grid-react/src/index.ts`** - React adapter exports (DataGrid, GridColumn, hooks)
 - **`libs/grid-vue/src/index.ts`** - Vue adapter exports (DataGrid, GridColumn, composables)
+- **`apps/docs/src/content/docs/grid/`** - Astro MDX documentation pages
+- **`apps/docs/src/components/demos/`** - Interactive demo components (.astro)
+- **`apps/docs/src/components/DemoControls.astro`** - Reusable interactive controls panel
+- **`apps/docs/src/components/ShowSource.astro`** - Source code viewer wrapper
+- **`apps/docs/src/components/FrameworkTabs.astro`** - Framework code tab switcher
+- **`apps/docs/src/components/ThemeBuilder.astro`** - Interactive CSS variable editor
+- **`apps/docs/src/components/CSSVariableReference.astro`** - CSS variable reference table
 - **`demos/employee-management/shared/`** - Shared demo types, data, and utilities
 - **`demos/employee-management/vanilla/`** - Vanilla TypeScript demo application
 - **`demos/employee-management/angular/`** - Angular demo application

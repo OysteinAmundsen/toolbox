@@ -1,0 +1,35 @@
+---
+// VisibilityInitiallyHiddenDemo.astro
+---
+<div class="grid-demo not-content" id="visibility-initially-hidden-demo">
+  <tbw-grid style="display: block; height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
+
+const container = document.getElementById('visibility-initially-hidden-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+      
+      grid.gridConfig = {
+        columns: [
+          { field: 'id', header: 'ID', type: 'number' },
+          { field: 'name', header: 'Name' },
+          { field: 'email', header: 'Email', hidden: true },
+          { field: 'phone', header: 'Phone', hidden: true },
+          { field: 'department', header: 'Department' },
+        ],
+        plugins: [new VisibilityPlugin()],
+      };
+  
+      grid.rows = [
+        { id: 1, name: 'Alice', email: 'alice@example.com', phone: '555-0101', department: 'Engineering' },
+        { id: 2, name: 'Bob', email: 'bob@example.com', phone: '555-0102', department: 'Marketing' },
+        { id: 3, name: 'Carol', email: 'carol@example.com', phone: '555-0103', department: 'Engineering' },
+      ];
+}
+</script>

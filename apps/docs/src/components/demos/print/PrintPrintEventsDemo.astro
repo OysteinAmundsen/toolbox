@@ -1,0 +1,70 @@
+---
+// PrintPrintEventsDemo.astro
+---
+<div class="grid-demo not-content" id="print-events-demo">
+  <div style="margin-bottom: 12px;">
+    <button id="print-events-btn" style="padding: 8px 16px; cursor: pointer;">🖨️ Print Grid</button>
+  </div>
+  <div style="display: grid; grid-template-columns: 1fr 300px; gap: 16px;">
+    <tbw-grid style="display: block; height: 300px;"></tbw-grid>
+    <div style="border: 1px solid var(--sl-color-gray-5); padding: 12px; border-radius: 4px;">
+      <strong>Event Log:</strong>
+      <div id="print-event-log" style="font-family: monospace; font-size: 12px; margin-top: 8px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
+
+const container = document.getElementById('print-events-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+  const btn = container.querySelector('#print-events-btn');
+  const log = container.querySelector('#print-event-log');
+
+  const employeeData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering' },
+    { id: 4, name: 'David Brown', department: 'Sales' },
+    { id: 5, name: 'Emma Davis', department: 'HR' },
+  ];
+
+  const printPlugin = new PrintPlugin({
+    title: 'Event Demo',
+    warnThreshold: 0,
+  });
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+    ],
+    plugins: [printPlugin],
+  };
+  grid.rows = employeeData;
+
+  grid.addEventListener('print-start', ((e: CustomEvent) => {
+    if (!log) return;
+    const msg = document.createElement('div');
+    msg.textContent = `[print-start] Preparing ${e.detail.rowCount} rows...`;
+    log.appendChild(msg);
+  }) as EventListener);
+
+  grid.addEventListener('print-complete', ((e: CustomEvent) => {
+    if (!log) return;
+    const msg = document.createElement('div');
+    msg.textContent = `[print-complete] Dialog closed after ${e.detail.duration}ms`;
+    log.appendChild(msg);
+  }) as EventListener);
+
+  btn?.addEventListener('click', () => {
+    const plugin = grid.getPlugin(PrintPlugin);
+    plugin?.print({ isolate: true });
+  });
+}
+</script>

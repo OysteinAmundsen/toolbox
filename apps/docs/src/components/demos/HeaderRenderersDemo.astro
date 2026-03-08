@@ -1,0 +1,69 @@
+---
+/**
+ * Demo: Custom Header Renderers — headerLabelRenderer vs headerRenderer.
+ */
+---
+
+<div class="grid-demo">
+  <p class="grid-demo-description">
+    <strong>Name</strong> uses <code>headerLabelRenderer</code> (adds a red asterisk).
+    <strong>Email</strong> uses <code>headerRenderer</code> (full control with custom icon + sort icon).
+  </p>
+  <tbw-grid data-demo-id="header-renderers" style="height: 260px; display: block;"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+  import type { ColumnConfig } from '@toolbox-web/grid';
+
+  const grid = document.querySelector<HTMLElement & {
+    columns: ColumnConfig[];
+    rows: Record<string, unknown>[];
+  }>('[data-demo-id="header-renderers"]');
+
+  if (grid) {
+    grid.columns = [
+      { field: 'id', header: 'ID', sortable: true, width: 60 },
+      {
+        field: 'name',
+        header: 'Name',
+        sortable: true,
+        resizable: true,
+        headerLabelRenderer: ({ value }) => {
+          const span = document.createElement('span');
+          span.innerHTML = `${value} <span style="color:red;font-weight:bold;">*</span>`;
+          return span;
+        },
+      },
+      {
+        field: 'email',
+        header: 'Email',
+        sortable: true,
+        resizable: true,
+        headerRenderer: (ctx) => {
+          const wrapper = document.createElement('div');
+          wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%;';
+          const icon = document.createElement('span');
+          icon.textContent = '📧';
+          wrapper.appendChild(icon);
+          const label = document.createElement('span');
+          label.textContent = ctx.value;
+          label.style.flex = '1';
+          wrapper.appendChild(label);
+          const sortIcon = ctx.renderSortIcon();
+          if (sortIcon) wrapper.appendChild(sortIcon);
+          return wrapper;
+        },
+      },
+      { field: 'score', header: 'Score', sortable: true, type: 'number', width: 80 },
+    ];
+
+    grid.rows = [
+      { id: 1, name: 'Alice', email: 'alice@example.com', score: 85 },
+      { id: 2, name: 'Bob', email: 'bob@example.com', score: 72 },
+      { id: 3, name: 'Carol', email: 'carol@example.com', score: 91 },
+      { id: 4, name: 'Dan', email: 'dan@example.com', score: 68 },
+      { id: 5, name: 'Eve', email: 'eve@example.com', score: 95 },
+    ];
+  }
+</script>

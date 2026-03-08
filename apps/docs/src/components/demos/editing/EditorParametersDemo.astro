@@ -1,0 +1,69 @@
+---
+// EditorParametersDemo.astro — Shows per-editor type configuration via editorParams
+---
+<div class="grid-demo not-content">
+  <p class="grid-demo-description">Double-click cells to edit. Each column uses <code>editorParams</code> to customize the editor — min/max for numbers, maxLength/pattern for text, date ranges, and select placeholders.</p>
+  <tbw-grid style="display: block; height: 250px;" data-demo-id="editor-parameters"></tbw-grid>
+</div>
+
+<script>
+  import '@toolbox-web/grid';
+import type { DataGridElement } from '@toolbox-web/grid';
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+  const grid = document.querySelector<DataGridElement>('[data-demo-id="editor-parameters"]');
+  if (grid) {
+    grid.gridConfig = {
+      columns: [
+        {
+          field: 'price',
+          header: 'Price',
+          type: 'number',
+          editable: true,
+          editorParams: { min: 0, max: 1000, step: 0.01, placeholder: '0.00' },
+        },
+        {
+          field: 'code',
+          header: 'Product Code',
+          editable: true,
+          editorParams: { maxLength: 10, pattern: '[A-Z0-9]+', placeholder: 'ABC123' },
+        },
+        {
+          field: 'expiry',
+          header: 'Expiry Date',
+          type: 'date',
+          editable: true,
+          editorParams: { min: '2024-01-01', max: '2030-12-31' },
+        },
+        {
+          field: 'status',
+          header: 'Status',
+          type: 'select',
+          editable: true,
+          options: [
+            { label: 'Active', value: 'active' },
+            { label: 'Inactive', value: 'inactive' },
+          ],
+          editorParams: { includeEmpty: true, emptyLabel: '-- Select --' },
+        },
+      ],
+      plugins: [new EditingPlugin({ editOn: 'dblclick' })],
+    };
+
+    grid.rows = [
+      { price: 29.99, code: 'PROD001', expiry: new Date('2025-06-15'), status: 'active' },
+      { price: 149.5, code: 'PROD002', expiry: new Date('2026-01-01'), status: 'inactive' },
+      { price: null, code: '', expiry: null, status: '' },
+    ];
+  }
+</script>
+
+<style>
+  .grid-demo-description {
+    padding: 0.75rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--sl-color-gray-2);
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+</style>

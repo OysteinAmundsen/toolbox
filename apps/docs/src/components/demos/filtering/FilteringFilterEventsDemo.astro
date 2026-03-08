@@ -1,0 +1,107 @@
+---
+// FilteringFilterEventsDemo.astro
+---
+<div class="grid-demo not-content" id="filtering-filter-events-demo">
+  <tbw-grid style="display: block; height: 300px;"></tbw-grid>
+  <div class="log-panel">
+    <div class="log-header">
+      <strong>Event Log:</strong>
+      <button id="clear-filter-log">Clear</button>
+    </div>
+    <div class="event-log" id="filter-event-log"></div>
+  </div>
+</div>
+
+<style>
+  #filtering-filter-events-demo .log-panel {
+    border: 1px solid var(--sl-color-gray-5);
+    padding: 12px;
+    border-radius: 4px;
+    background: var(--sl-color-gray-6);
+    overflow-y: auto;
+    max-height: 300px;
+    margin-top: 8px;
+  }
+  #filtering-filter-events-demo .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  #filtering-filter-events-demo .log-header button {
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #filtering-filter-events-demo .event-log {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--sl-color-gray-2);
+  }
+  #filtering-filter-events-demo .event-log > div {
+    padding: 2px 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  #filtering-filter-events-demo .event-log .event-type {
+    color: var(--sl-color-accent);
+  }
+</style>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
+
+const container = document.getElementById('filtering-filter-events-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice Johnson', department: 'Engineering', salary: 95000, status: 'Active' },
+    { id: 2, name: 'Bob Smith', department: 'Marketing', salary: 75000, status: 'Active' },
+    { id: 3, name: 'Carol Williams', department: 'Engineering', salary: 105000, status: 'On Leave' },
+    { id: 4, name: 'Dan Brown', department: 'Sales', salary: 85000, status: 'Active' },
+    { id: 5, name: 'Eve Davis', department: 'Marketing', salary: 72000, status: 'Inactive' },
+    { id: 6, name: 'Frank Miller', department: 'Engineering', salary: 98000, status: 'Active' },
+    { id: 7, name: 'Grace Lee', department: 'Sales', salary: 82000, status: 'Active' },
+    { id: 8, name: 'Henry Wilson', department: 'HR', salary: 68000, status: 'Active' },
+    { id: 9, name: 'Ivy Chen', department: 'Engineering', salary: 112000, status: 'Active' },
+    { id: 10, name: 'Jack Taylor', department: 'Marketing', salary: 78000, status: 'On Leave' },
+  ];
+
+  const grid = queryGrid('tbw-grid', container);
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+      { field: 'status', header: 'Status' },
+    ],
+    plugins: [new FilteringPlugin({ debounceMs: 300 })],
+  };
+
+  grid.rows = sampleData;
+
+  const log = container.querySelector('#filter-event-log');
+  const clearBtn = container.querySelector('#clear-filter-log');
+
+  function addLog(type: string, detail: string) {
+    if (!log) return;
+    const msg = document.createElement('div');
+    msg.innerHTML = `<span class="event-type">[${type}]</span> ${detail}`;
+    log.insertBefore(msg, log.firstChild);
+    while (log.children.length > 15) {
+      log.lastChild?.remove();
+    }
+  }
+
+  clearBtn?.addEventListener('click', () => {
+    if (log) log.innerHTML = '';
+  });
+
+  grid.addEventListener('filter-change', (e) => {
+    const d = e.detail;
+    const filterCount = d.filters?.length || 0;
+    const fields = d.filters?.map((f: { field: string }) => f.field).join(', ') || 'none';
+    addLog('filter-change', `${filterCount} filter(s) on: ${fields}`);
+  });
+}
+</script>

@@ -48,9 +48,6 @@
   margin-top: 0;
 }
 
-.expressive-code .ec-line .code {
-}
-
 /* When a demo is inside a ShowSource wrapper, remove its bottom rounding
    so the source panel visually connects to it. */
 .show-source-wrapper > .grid-demo,
@@ -215,6 +212,28 @@
   @media (min-width: 53rem) {
     margin-top: -6rem;
   }
+}
+
+/* ── Collapse double padding between adjacent inline <code> elements ──
+   Covers four sibling combinations: code+code, code+a>code, a+code, a+a.
+   Uses :where() inside :not() to keep specificity low so overrides stay easy. */
+
+/* — Trailing side: remove right padding + radius from the first in a pair — */
+.sl-markdown-content code:not(:where(.not-content *)):has(+ code, + a > code),
+.sl-markdown-content a:has(> code:not(:where(.not-content *))):has(+ code, + a > code) > code {
+  padding-inline-end: 0;
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+/* — Leading side: remove left padding + radius from the second in a pair — */
+.sl-markdown-content code:not(:where(.not-content *)) + code:not(:where(.not-content *)),
+.sl-markdown-content code:not(:where(.not-content *)) + a > code:not(:where(.not-content *)),
+.sl-markdown-content a:has(> code) + code:not(:where(.not-content *)),
+.sl-markdown-content a:has(> code) + a > code:not(:where(.not-content *)) {
+  padding-inline-start: 0;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
 }
 
 /* Sidebar framework icons (injected by Head.astro script) */

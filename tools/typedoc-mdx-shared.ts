@@ -133,11 +133,10 @@ export const escape = (text: string): string => {
 
 /**
  * Escape special characters in inline code within MDX.
- * - Pipes `|` break table cell boundaries
- * - Angle brackets `<>` are interpreted as JSX when inline code starts a line
+ * Only pipes `|` need escaping — they break table cell boundaries.
+ * Angle brackets are safe inside backtick code spans (MDX treats them as literal text).
  */
-export const escapeCode = (text: string): string =>
-  text.replace(/\|/g, '\\|').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export const escapeCode = (text: string): string => text.replace(/\|/g, '\\|');
 
 // ============================================================================
 // Comment Extraction
@@ -361,11 +360,13 @@ export function writeMdx(outDir: string, relativePath: string, content: string, 
 export interface GeneratorOptions {
   /** Command shown in regenerate comment */
   regenerateCommand?: string;
+  /** Type registry for cross-linking type names to their documentation URLs */
+  typeRegistry?: Map<string, string>;
 }
 
 /** Generate MDX for an interface */
 export function genInterface(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
-  const { regenerateCommand } = options;
+  const { regenerateCommand, typeRegistry } = options;
   let out = mdxHeader(title, regenerateCommand);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
@@ -377,11 +378,13 @@ export function genInterface(node: TypeDocNode, title: string, options: Generato
   if (props.length) {
     out += `## Properties\n\n| Property | Type | Description |\n| -------- | ---- | ----------- |\n`;
     for (const p of props) {
-      const type = formatType(p.type);
+      const typeStr = typeRegistry
+        ? formatTypeWithLinks(p.type, typeRegistry)
+        : `\`${escapeCode(formatType(p.type))}\``;
       const propDesc = getText(p.comment).split('\n')[0];
       const opt = p.flags?.isOptional ? '?' : '';
       const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
-      out += `| \`${p.name}${opt}\` | \`${escapeCode(type)}\` | ${dep}${escape(propDesc)} |\n`;
+      out += `| \`${p.name}${opt}\` | ${typeStr} | ${dep}${escape(propDesc)} |\n`;
     }
     out += '\n';
   }
@@ -391,7 +394,7 @@ export function genInterface(node: TypeDocNode, title: string, options: Generato
 
 /** Generate MDX for a class */
 export function genClass(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
-  const { regenerateCommand } = options;
+  const { regenerateCommand, typeRegistry } = options;
   let out = mdxHeader(title, regenerateCommand);
   const desc = getText(node.comment);
   if (desc) out += `${escape(desc)}\n\n`;
@@ -407,10 +410,12 @@ export function genClass(node: TypeDocNode, title: string, options: GeneratorOpt
   if (props.length) {
     out += `## Properties\n\n| Property | Type | Description |\n| -------- | ---- | ----------- |\n`;
     for (const p of props) {
-      const type = formatType(p.type);
+      const typeStr = typeRegistry
+        ? formatTypeWithLinks(p.type, typeRegistry)
+        : `\`${escapeCode(formatType(p.type))}\``;
       const propDesc = getText(p.comment).split('\n')[0];
       const opt = p.flags?.isOptional ? '?' : '';
-      out += `| \`${p.name}${opt}\` | \`${escapeCode(type)}\` | ${escape(propDesc)} |\n`;
+      out += `| \`${p.name}${opt}\` | ${typeStr} | ${escape(propDesc)} |\n`;
     }
     out += '\n';
   }
@@ -431,7 +436,10 @@ export function genClass(node: TypeDocNode, title: string, options: GeneratorOpt
       if (sig.parameters?.length) {
         out += `#### Parameters\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n`;
         for (const p of sig.parameters) {
-          out += `| \`${p.name}\` | \`${escapeCode(formatType(p.type))}\` | ${escape(getText(p.comment))} |\n`;
+          const typeStr = typeRegistry
+            ? formatTypeWithLinks(p.type, typeRegistry)
+            : `\`${escapeCode(formatType(p.type))}\``;
+          out += `| \`${p.name}\` | ${typeStr} | ${escape(getText(p.comment))} |\n`;
         }
         out += '\n';
       }
@@ -446,7 +454,7 @@ export function genClass(node: TypeDocNode, title: string, options: GeneratorOpt
 
 /** Generate MDX for a function */
 export function genFunction(node: TypeDocNode, title: string, options: GeneratorOptions = {}): string {
-  const { regenerateCommand } = options;
+  const { regenerateCommand, typeRegistry } = options;
   const sig = node.signatures?.[0];
   if (!sig) return '';
 
@@ -461,7 +469,10 @@ export function genFunction(node: TypeDocNode, title: string, options: Generator
   if (sig.parameters?.length) {
     out += `## Parameters\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n`;
     for (const p of sig.parameters) {
-      out += `| \`${p.name}\` | \`${escapeCode(formatType(p.type))}\` | ${escape(getText(p.comment))} |\n`;
+      const typeStr = typeRegistry
+        ? formatTypeWithLinks(p.type, typeRegistry)
+        : `\`${escapeCode(formatType(p.type))}\``;
+      out += `| \`${p.name}\` | ${typeStr} | ${escape(getText(p.comment))} |\n`;
     }
     out += '\n';
   }
@@ -540,3 +551,30 @@ export const GENERATORS: Record<number, (n: TypeDocNode, t: string, o?: Generato
   [KIND.Function]: genFunction,
   [KIND.Enum]: genEnum,
 };
+
+// ============================================================================
+// Type Registry Helpers
+// ============================================================================
+
+/**
+ * Build a type registry from a TypeDoc JSON module by scanning all exported nodes.
+ * Maps type names to Starlight documentation URLs.
+ *
+ * @param nodes - TypeDoc nodes to register
+ * @param urlBuilder - Function that maps a node to its documentation URL path
+ * @param registry - Optional existing registry to merge into (for cross-lib references)
+ * @returns The populated type registry
+ */
+export function buildTypeRegistryFromNodes(
+  nodes: TypeDocNode[],
+  urlBuilder: (node: TypeDocNode, kindFolder: string) => string | undefined,
+  registry = new Map<string, string>(),
+): Map<string, string> {
+  for (const node of nodes) {
+    const kindFolder = KIND_FOLDER_MAP[node.kind];
+    if (!kindFolder) continue;
+    const url = urlBuilder(node, kindFolder);
+    if (url) registry.set(node.name, url);
+  }
+  return registry;
+}

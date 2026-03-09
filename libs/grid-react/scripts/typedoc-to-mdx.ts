@@ -11,13 +11,16 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  buildTypeRegistryFromNodes,
   genClass,
   GENERATORS,
   genFunction,
   isInternal,
   KIND,
+  KIND_FOLDER_MAP,
   touchStorybookMain,
   writeMdx,
+  type GeneratorOptions,
   type TypeDocNode,
 } from '../../../tools/typedoc-mdx-shared';
 
@@ -26,7 +29,7 @@ const OUTPUT_DIR = join(import.meta.dirname, '../../../apps/docs/src/content/doc
 const JSON_PATH = join(API_GENERATED_DIR, 'api.json');
 
 const REGENERATE_CMD = 'bun nx typedoc grid-react';
-const genOpts = { regenerateCommand: REGENERATE_CMD };
+let genOpts: GeneratorOptions = { regenerateCommand: REGENERATE_CMD };
 
 // ============================================================================
 // Categorization
@@ -58,6 +61,30 @@ function isAdapter(node: TypeDocNode): boolean {
 /** Check if node is a type (interface or type alias) */
 function isType(node: TypeDocNode): boolean {
   return node.kind === KIND.TypeAlias || node.kind === KIND.Interface;
+}
+
+// ============================================================================
+// Type Registry
+// ============================================================================
+
+/** Base URL prefix for the core grid docs (for cross-linking re-exported types) */
+const GRID_CORE_BASE = '/grid/api/core';
+
+/**
+ * Build a type registry for cross-linking.
+ * Maps local adapter types AND re-exported grid core types to their doc URLs.
+ */
+function buildAdapterTypeRegistry(json: TypeDocNode): Map<string, string> {
+  const nodes = (json.children ?? []).filter((n) => !isInternal(n.comment));
+  return buildTypeRegistryFromNodes(nodes, (node, kindFolder) => {
+    if (isComponent(node)) return `/grid/react/api/components/${node.name.toLowerCase()}/`;
+    if (isHook(node)) return `/grid/react/api/hooks/${node.name.toLowerCase()}/`;
+    if (isAdapter(node)) return `/grid/react/api/adapters/${node.name.toLowerCase()}/`;
+    if (isType(node)) return `/grid/react/api/types/${node.name.toLowerCase()}/`;
+    if (GENERATORS[node.kind]) return `/grid/react/api/utilities/${node.name.toLowerCase()}/`;
+    if (KIND_FOLDER_MAP[node.kind]) return `${GRID_CORE_BASE}/${kindFolder.toLowerCase()}/${node.name.toLowerCase()}/`;
+    return undefined;
+  });
 }
 
 // ============================================================================
@@ -162,6 +189,10 @@ async function main(): Promise<void> {
   }
 
   const json: TypeDocNode = JSON.parse(readFileSync(JSON_PATH, 'utf-8'));
+
+  // Build type registry for cross-linking
+  const typeRegistry = buildAdapterTypeRegistry(json);
+  genOpts = { ...genOpts, typeRegistry };
 
   // Clean output
   if (existsSync(OUTPUT_DIR)) rmSync(OUTPUT_DIR, { recursive: true });

@@ -4,7 +4,7 @@
  * Used by all library-specific typedoc-to-mdx.ts scripts.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 // ============================================================================
@@ -577,4 +577,121 @@ export function buildTypeRegistryFromNodes(
     if (url) registry.set(node.name, url);
   }
   return registry;
+}
+
+// ============================================================================
+// Adapter Docs Generator
+// ============================================================================
+
+/** A category bin for classifying adapter nodes */
+export interface AdapterCategory {
+  /** Display name for console output (e.g., "Components") */
+  name: string;
+  /** Output subfolder (e.g., "components") */
+  folder: string;
+  /** Classify a node into this category. Checked in array order; first match wins. */
+  match: (node: TypeDocNode) => boolean;
+}
+
+/** Configuration for generating adapter documentation */
+export interface AdapterConfig {
+  /** Framework identifier for logging (e.g., "grid-angular") */
+  name: string;
+  /** Base URL for this adapter's docs (e.g., "/grid/angular/api") */
+  urlBase: string;
+  /** Path to TypeDoc JSON file */
+  jsonPath: string;
+  /** Output directory for MDX files */
+  outputDir: string;
+  /** Regenerate command (e.g., "bun nx typedoc grid-angular") */
+  regenerateCommand: string;
+  /** Node categories, checked in order. Uncategorized GENERATORS-compatible nodes go to "utilities". */
+  categories: AdapterCategory[];
+}
+
+/** Base URL prefix for the core grid docs (for cross-linking re-exported types) */
+const GRID_CORE_BASE = '/grid/api/core';
+
+/**
+ * Generate adapter documentation from TypeDoc JSON.
+ *
+ * Reads the JSON, builds a type registry, categorizes nodes, and writes MDX files.
+ * This is the single entry point for adapter scripts (Angular, React, Vue).
+ */
+export function generateAdapterDocs(config: AdapterConfig): void {
+  const { name, urlBase, jsonPath, outputDir, regenerateCommand, categories } = config;
+
+  console.log(`Generating MDX from TypeDoc JSON for ${name}...\n`);
+
+  if (!existsSync(jsonPath)) {
+    console.error(`Error: TypeDoc JSON not found at ${jsonPath}`);
+    console.error('Run `bunx typedoc --options typedoc.json` first to generate the JSON.');
+    process.exit(1);
+  }
+
+  const json: TypeDocNode = JSON.parse(readFileSync(jsonPath, 'utf-8'));
+  const nodes = (json.children ?? []).filter((n) => !isInternal(n.comment));
+
+  // Build type registry for cross-linking
+  const typeRegistry = buildTypeRegistryFromNodes(nodes, (node, kindFolder) => {
+    for (const cat of categories) {
+      if (cat.match(node)) return `${urlBase}/${cat.folder}/${node.name.toLowerCase()}/`;
+    }
+    // Fallback: utilities for known generators, core grid for re-exported types
+    if (GENERATORS[node.kind]) return `${urlBase}/utilities/${node.name.toLowerCase()}/`;
+    if (KIND_FOLDER_MAP[node.kind]) return `${GRID_CORE_BASE}/${kindFolder.toLowerCase()}/${node.name.toLowerCase()}/`;
+    return undefined;
+  });
+
+  const genOpts: GeneratorOptions = { regenerateCommand, typeRegistry };
+
+  // Clean output
+  if (existsSync(outputDir)) rmSync(outputDir, { recursive: true });
+  mkdirSync(outputDir, { recursive: true });
+
+  // Categorize nodes into bins
+  const bins = new Map<AdapterCategory, TypeDocNode[]>();
+  for (const cat of categories) bins.set(cat, []);
+  const utilities: TypeDocNode[] = [];
+
+  for (const node of nodes) {
+    let matched = false;
+    for (const cat of categories) {
+      if (cat.match(node)) {
+        bins.get(cat)!.push(node);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched && GENERATORS[node.kind]) {
+      utilities.push(node);
+    }
+  }
+
+  // Write categorized nodes
+  console.log(`Processing ${name} module...`);
+  for (const [cat, catNodes] of bins) {
+    if (!catNodes.length) continue;
+    console.log(`  ${cat.name}:`);
+    for (const node of catNodes) {
+      const gen = GENERATORS[node.kind];
+      if (!gen) continue;
+      const mdx = gen(node, node.name, genOpts);
+      writeMdx(outputDir, `${cat.folder}/${node.name}.mdx`, mdx, `${cat.folder}/${node.name}.mdx`);
+    }
+  }
+
+  // Write uncategorized items as utilities
+  if (utilities.length) {
+    console.log('  Utilities:');
+    for (const node of utilities) {
+      const gen = GENERATORS[node.kind];
+      if (!gen) continue;
+      const mdx = gen(node, node.name, genOpts);
+      writeMdx(outputDir, `utilities/${node.name}.mdx`, mdx, `utilities/${node.name}.mdx`);
+    }
+  }
+
+  touchStorybookMain();
+  console.log(`\n✅ Done! MDX files written to ${outputDir.replace(/.*apps/, 'apps')}`);
 }

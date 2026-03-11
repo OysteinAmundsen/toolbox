@@ -342,27 +342,200 @@ export interface FilterModel {
   valueTo?: unknown;
 }
 
-/** Parameters passed to custom filter panel renderer */
+/**
+ * Parameters passed to a custom {@link FilterPanelRenderer} when the filter panel
+ * opens for a column. Provides all the state and action callbacks needed to build
+ * a fully custom filter UI.
+ *
+ * The object is created fresh each time the panel opens and captures the current
+ * filter state for the column. Use the action methods (`applySetFilter`,
+ * `applyTextFilter`, `clearFilter`, `closePanel`) to drive filtering — they
+ * handle state updates, re-rendering, and panel lifecycle automatically.
+ *
+ * **Resolution priority** for filter panel renderers:
+ * 1. Plugin-level `filterPanelRenderer` (in `FilterConfig`)
+ * 2. Type-level `filterPanelRenderer` (in `typeDefaults`)
+ * 3. Built-in default panel (checkbox set filter, number range, or date range)
+ *
+ * Returning `undefined` from a plugin-level renderer falls through to the next
+ * level, so you can override only specific columns/fields while keeping defaults
+ * for the rest.
+ *
+ * **Framework adapters** wrap this for idiomatic usage:
+ * - **Angular**: Extend `BaseFilterPanel` — params are available as a signal input.
+ * - **React**: Use a single-argument `(params) => ReactNode` signature.
+ * - **Vue**: Use a single-argument `(params) => VNode` signature.
+ *
+ * @example
+ * ```typescript
+ * // Vanilla: radio-button filter for a "status" column, default for everything else
+ * new FilteringPlugin({
+ *   filterPanelRenderer: (container, params) => {
+ *     if (params.field !== 'status') return undefined; // fall through to default
+ *
+ *     const options = ['All', ...params.uniqueValues.map(String)];
+ *     options.forEach(opt => {
+ *       const label = document.createElement('label');
+ *       label.style.display = 'block';
+ *       const radio = document.createElement('input');
+ *       radio.type = 'radio';
+ *       radio.name = 'status';
+ *       radio.checked = opt === 'All' && params.excludedValues.size === 0;
+ *       radio.addEventListener('change', () => {
+ *         if (opt === 'All') params.clearFilter();
+ *         else params.applySetFilter(
+ *           params.uniqueValues.filter(v => String(v) !== opt) as unknown[]
+ *         );
+ *       });
+ *       label.append(radio, ` ${opt}`);
+ *       container.appendChild(label);
+ *     });
+ *   },
+ * });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // React: custom slider filter via single-argument signature
+ * <DataGrid
+ *   filtering={{
+ *     filterPanelRenderer: (params) => (
+ *       <MySliderFilter
+ *         min={0} max={100}
+ *         currentFilter={params.currentFilter}
+ *         onApply={(min, max) => params.applyTextFilter('between', min, max)}
+ *         onClear={() => params.clearFilter()}
+ *       />
+ *     ),
+ *   }}
+ * />
+ * ```
+ */
 export interface FilterPanelParams {
-  /** The field being filtered */
+  /**
+   * The field name (column key) being filtered.
+   * Matches {@link ColumnConfig.field} — use it to conditionally render
+   * different UIs for different columns in a shared renderer.
+   */
   field: string;
-  /** The column configuration */
+
+  /**
+   * The full column configuration for the filtered column.
+   * Useful for reading `column.type`, `column.filterParams`, `column.header`,
+   * or any other column metadata to tailor the filter panel UI.
+   */
   column: ColumnConfig;
-  /** All unique values for this field */
+
+  /**
+   * All unique values present in the current dataset for this field,
+   * sorted and de-duplicated. For columns with a `filterValue` extractor,
+   * these are the extracted/flattened values (not the raw cell values).
+   *
+   * When a `valuesHandler` is provided in the plugin config, this array
+   * contains the values returned by the handler instead of locally-extracted ones.
+   *
+   * Typical use: render checkboxes, radio buttons, or a searchable list.
+   */
   uniqueValues: unknown[];
-  /** Currently excluded values (for set filter) */
+
+  /**
+   * Currently excluded values for set-type (`notIn`) filters.
+   * An empty `Set` means no values are excluded (i.e., all values are shown).
+   *
+   * Use this to restore checkbox/toggle states when the panel re-opens.
+   * A value present in this set should appear **unchecked** in a set filter UI.
+   */
   excludedValues: Set<unknown>;
-  /** Current search text */
+
+  /**
+   * The current search text the user has typed into the filter panel's
+   * search input (if any). Persisted across panel open/close cycles for
+   * the same field. Defaults to `''` when no search has been performed.
+   *
+   * Use this to pre-populate a search box if your custom panel includes one.
+   */
   searchText: string;
-  /** Current active filter model for this field, if any */
+
+  /**
+   * The currently active {@link FilterModel} for this field, or `undefined`
+   * if no filter is applied. Inspect this to reflect the active filter state
+   * in your UI (e.g., highlight the active operator, show the current value).
+   *
+   * @example
+   * ```typescript
+   * if (params.currentFilter?.operator === 'between') {
+   *   minInput.value = String(params.currentFilter.value);
+   *   maxInput.value = String(params.currentFilter.valueTo);
+   * }
+   * ```
+   */
   currentFilter?: FilterModel;
-  /** Apply a set filter (exclude these values). Pass optional `valueTo` metadata (e.g. a selected range) to store alongside the filter. */
+
+  /**
+   * Apply a **set filter** (`notIn` operator) that excludes the given values.
+   * Rows whose field value is in `excludedValues` will be hidden.
+   *
+   * Calling this automatically closes the panel and triggers a filter-change event.
+   *
+   * Pass an empty array to clear the set filter (show all values).
+   *
+   * @param excludedValues - Array of values to exclude.
+   * @param valueTo - Optional metadata stored alongside the filter
+   *   (e.g., a label, date range, or selected category). Accessible later
+   *   via `FilterModel.valueTo` in the `filter-change` event or `currentFilter`.
+   *
+   * @example
+   * ```typescript
+   * // Exclude "Inactive" and "Archived" statuses
+   * params.applySetFilter(['Inactive', 'Archived']);
+   *
+   * // Exclude everything except the selected value
+   * const excluded = params.uniqueValues.filter(v => v !== selectedValue);
+   * params.applySetFilter(excluded as unknown[]);
+   * ```
+   */
   applySetFilter: (excludedValues: unknown[], valueTo?: unknown) => void;
-  /** Apply a text/number/date filter */
+
+  /**
+   * Apply a **text, number, or date filter** with the given operator and value(s).
+   *
+   * Calling this automatically closes the panel and triggers a filter-change event.
+   *
+   * @param operator - The filter operator to apply (e.g., `'contains'`,
+   *   `'greaterThan'`, `'between'`). See {@link FilterOperator} for all options.
+   * @param value - The primary filter value.
+   * @param valueTo - Secondary value required by the `'between'` operator
+   *   (defines the upper bound of the range).
+   *
+   * @example
+   * ```typescript
+   * // Text: contains search
+   * params.applyTextFilter('contains', searchInput.value);
+   *
+   * // Number: range between 10 and 100
+   * params.applyTextFilter('between', 10, 100);
+   *
+   * // Date: after a specific date
+   * params.applyTextFilter('greaterThan', '2025-01-01');
+   * ```
+   */
   applyTextFilter: (operator: FilterOperator, value: string | number, valueTo?: string | number) => void;
-  /** Clear the filter for this field */
+
+  /**
+   * Clear the active filter for this field entirely and close the panel.
+   * After calling, the column will show all rows (as if no filter was ever applied).
+   *
+   * Equivalent to removing the field's entry from the filter model.
+   */
   clearFilter: () => void;
-  /** Close the filter panel */
+
+  /**
+   * Close the filter panel **without** applying or clearing any filter.
+   * Use this for a "Cancel" / dismiss action where the user abandons changes.
+   *
+   * Note: `applySetFilter`, `applyTextFilter`, and `clearFilter` already close
+   * the panel automatically — you only need `closePanel` for explicit dismiss.
+   */
   closePanel: () => void;
 }
 

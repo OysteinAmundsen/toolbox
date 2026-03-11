@@ -25,8 +25,8 @@ export interface TypeDocNode {
 }
 
 export interface TypeDocComment {
-  summary?: Array<{ kind: string; text: string }>;
-  blockTags?: Array<{ tag: string; name?: string; content: Array<{ kind: string; text: string }> }>;
+  summary?: Array<{ kind: string; text: string; tag?: string }>;
+  blockTags?: Array<{ tag: string; name?: string; content: Array<{ kind: string; text: string; tag?: string }> }>;
   modifierTags?: string[];
 }
 
@@ -122,6 +122,22 @@ export const escapeCode = (text: string): string => text.replace(/\|/g, '\\|');
 
 /** Get summary text from a comment */
 export const getText = (comment?: TypeDocComment): string => comment?.summary?.map((s) => s.text).join('') ?? '';
+
+/**
+ * Get the first paragraph of a summary, collapsing newlines to spaces.
+ * A "paragraph" is text up to a blank line (double newline). Falls back
+ * to the entire summary if there's no blank-line break.
+ */
+export const getFirstParagraph = (comment?: TypeDocComment): string => {
+  const full = getText(comment);
+  const paraBreak = full.search(/\r?\n\s*\r?\n/);
+  const first = paraBreak > 0 ? full.slice(0, paraBreak) : full;
+  return first.replace(/\r?\n/g, ' ').trim();
+};
+
+/** Check whether a property comment has rich details (remarks, examples, default, see) worth rendering below the table */
+export const hasPropertyDetails = (comment?: TypeDocComment): boolean =>
+  !!comment?.blockTags?.some((b) => ['@remarks', '@example', '@default', '@see'].includes(b.tag));
 
 /** Get a specific block tag value */
 export const getTag = (comment: TypeDocComment | undefined, tag: string): string =>
@@ -335,6 +351,109 @@ export function writeMdx(outDir: string, relativePath: string, content: string, 
 
 // #endregion
 
+// #region Property Details
+
+/**
+ * Generate expanded detail sections for properties that have rich JSDoc
+ * (remarks, examples, default values, or see-also links).
+ *
+ * Renders a "### propertyName" subsection for each qualifying property
+ * below the summary table, giving readers the full documentation.
+ *
+ * @param props - Property nodes to check for rich documentation
+ * @param resolveSeeLink - Optional function to resolve `{@link TypeName}` references
+ *   to markdown links. When omitted, inline-tag references render as inline code.
+ */
+export function genPropertyDetailsSections(
+  props: TypeDocNode[],
+  resolveSeeLink?: (text: string) => string,
+): string {
+  const richProps = props.filter((p) => hasPropertyDetails(p.comment));
+  if (richProps.length === 0) return '';
+
+  let out = `### Property Details\n\n`;
+
+  for (const p of richProps) {
+    const comment = p.comment;
+    out += `#### ${p.name}\n\n`;
+
+    // Full summary (beyond the first paragraph already shown in the table)
+    const fullText = getText(comment);
+    const paraBreak = fullText.search(/\r?\n\s*\r?\n/);
+    if (paraBreak > 0) {
+      // There's content beyond the first paragraph — render it all
+      out += `${escape(fullText)}\n\n`;
+    }
+
+    // @default
+    const defaultVal = getTag(comment, '@default');
+    if (defaultVal) {
+      const trimmed = defaultVal.trim();
+      // Default values from TypeDoc come wrapped in code fences
+      if (trimmed.startsWith('```')) {
+        out += `**Default:** ${trimmed.replace(/```\w*\n?/, '`').replace(/\n?```/, '`')}\n\n`;
+      } else {
+        out += `**Default:** \`${trimmed}\`\n\n`;
+      }
+    }
+
+    // @remarks
+    const remarks = getTag(comment, '@remarks');
+    if (remarks) {
+      out += `${escape(remarks.trim())}\n\n`;
+    }
+
+    // @example blocks
+    const examples = comment?.blockTags?.filter((b) => b.tag === '@example') ?? [];
+    for (const ex of examples) {
+      const code = ex.content
+        .map((c) => c.text)
+        .join('')
+        .trim();
+      if (code) {
+        if (code.startsWith('```')) {
+          out += `${code}\n\n`;
+        } else {
+          out += `\`\`\`ts\n${code}\n\`\`\`\n\n`;
+        }
+      }
+    }
+
+    // @see links — handle inline-tag ({@link}) items properly
+    const seeBlocks = comment?.blockTags?.filter((b) => b.tag === '@see') ?? [];
+    if (seeBlocks.length) {
+      const rendered = seeBlocks
+        .map((b) => {
+          return b.content
+            .map((c) => {
+              if (c.kind === 'inline-tag' && c.tag === '@link') {
+                const name = c.text?.trim() ?? '';
+                if (resolveSeeLink) return resolveSeeLink(name);
+                return `\`${name}\``;
+              }
+              return c.text ?? '';
+            })
+            .join('');
+        })
+        .flatMap((line) =>
+          line
+            .split('\n')
+            .map((l) => l.trim().replace(/^-\s*/, ''))
+            .filter((l) => l.length > 0),
+        );
+      if (rendered.length) {
+        out += `**See also:** ${rendered.map((l) => `${l}`).join(' · ')}\n\n`;
+      }
+    }
+
+    out += `---\n\n`;
+  }
+
+  return out;
+}
+
+// #endregion
+
 // #region MDX Generators
 
 export interface GeneratorOptions {
@@ -358,12 +477,13 @@ export function genInterface(node: TypeDocNode, title: string, options: Generato
   if (props.length) {
     out += `## Properties\n\n| Property | Type | Description |\n| -------- | ---- | ----------- |\n`;
     for (const p of props) {
-      const propDesc = getText(p.comment).split('\n')[0];
+      const propDesc = getFirstParagraph(p.comment);
       const opt = p.flags?.isOptional ? '?' : '';
       const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
       out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${dep}${escape(propDesc)} |\n`;
     }
     out += '\n';
+    out += genPropertyDetailsSections(props);
   }
 
   return out;
@@ -387,11 +507,12 @@ export function genClass(node: TypeDocNode, title: string, options: GeneratorOpt
   if (props.length) {
     out += `## Properties\n\n| Property | Type | Description |\n| -------- | ---- | ----------- |\n`;
     for (const p of props) {
-      const propDesc = getText(p.comment).split('\n')[0];
+      const propDesc = getFirstParagraph(p.comment);
       const opt = p.flags?.isOptional ? '?' : '';
       out += `| \`${p.name}${opt}\` | ${fmtType(p.type, typeRegistry)} | ${escape(propDesc)} |\n`;
     }
     out += '\n';
+    out += genPropertyDetailsSections(props);
   }
 
   // Methods

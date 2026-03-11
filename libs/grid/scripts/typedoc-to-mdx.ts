@@ -21,7 +21,9 @@ import {
   formatFires,
   formatType,
   formatTypeWithLinks as formatTypeWithLinksBase,
+  genPropertyDetailsSections,
   getAllFires,
+  getFirstParagraph,
   getTag,
   getText,
   isDeprecated,
@@ -146,17 +148,26 @@ const getMemberGroup = (m: TypeDocNode): string | undefined => {
 // MDX Generators
 // ============================================================================
 
+// Resolve a {@link TypeName} reference to a markdown link
+const resolveSeeLink = (name: string): string => {
+  const url = resolveTypeLink(name);
+  if (url) return `[\`${name}\`](${url})`;
+  return `\`${name}\``;
+};
+
 function genPropertiesTable(props: TypeDocNode[]): string {
   if (!props.length) return '';
   let out = `## Properties\n\n| Property | Type | Description |\n| -------- | ---- | ----------- |\n`;
   for (const p of props) {
     const type = formatTypeWithLinks(p.type);
-    const desc = getText(p.comment).split('\n')[0];
+    const desc = getFirstParagraph(p.comment);
     const opt = p.flags?.isOptional ? '?' : '';
     const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
     out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)} |\n`;
   }
-  return out + '\n';
+  out += '\n';
+  out += genPropertyDetailsSections(props, resolveSeeLink);
+  return out;
 }
 
 function genAccessor(node: TypeDocNode): string {

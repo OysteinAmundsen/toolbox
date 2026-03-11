@@ -586,17 +586,167 @@ export type FilterValuesHandler = (field: string, column: ColumnConfig) => Promi
  */
 export type FilterHandler<TRow = unknown> = (filters: FilterModel[], currentRows: TRow[]) => TRow[] | Promise<TRow[]>;
 
-/** Configuration options for the filtering plugin */
+/**
+ * Configuration options for the {@link FilteringPlugin}.
+ *
+ * Pass this object to the `FilteringPlugin` constructor to customize filtering
+ * behavior, panel rendering, server-side integration, and state persistence.
+ *
+ * @typeParam TRow - The row data type. Inferred when using a typed `filterHandler`.
+ *
+ * @example
+ * ```typescript
+ * // Basic usage with defaults
+ * new FilteringPlugin()
+ *
+ * // Customized local filtering
+ * new FilteringPlugin({
+ *   debounceMs: 200,
+ *   caseSensitive: true,
+ *   trackColumnState: true,
+ * })
+ *
+ * // Server-side filtering with custom values
+ * new FilteringPlugin<Employee>({
+ *   valuesHandler: async (field) => {
+ *     const res = await fetch(`/api/employees/distinct/${field}`);
+ *     return res.json();
+ *   },
+ *   filterHandler: async (filters) => {
+ *     const params = new URLSearchParams();
+ *     filters.forEach(f => params.append(f.field, `${f.operator}:${f.value}`));
+ *     const res = await fetch(`/api/employees?${params}`);
+ *     return res.json();
+ *   },
+ * })
+ * ```
+ */
 export interface FilterConfig<TRow = unknown> {
-  /** Debounce delay in ms for filter input (default: 300) */
+  /**
+   * Debounce delay in milliseconds for the search input inside the default
+   * filter panel. Controls how long the panel waits after the user stops
+   * typing before re-filtering the unique values list.
+   *
+   * Lower values feel more responsive but cause more DOM updates.
+   * Higher values reduce work for columns with many unique values.
+   *
+   * @default 300
+   *
+   * @example
+   * ```typescript
+   * // Faster response for small datasets
+   * new FilteringPlugin({ debounceMs: 100 })
+   *
+   * // Slower debounce for columns with thousands of unique values
+   * new FilteringPlugin({ debounceMs: 500 })
+   * ```
+   */
   debounceMs?: number;
-  /** Whether text filtering is case sensitive (default: false) */
+
+  /**
+   * Whether text-based filtering comparisons are case-sensitive.
+   *
+   * When `false` (default), `"alice"` matches `"Alice"`, `"ALICE"`, etc.
+   * When `true`, only exact case matches pass the filter.
+   *
+   * Affects both:
+   * - The core `filterRows()` logic (text operators like `contains`, `equals`, etc.)
+   * - The search input inside the default filter panel (value list filtering)
+   *
+   * @default false
+   *
+   * @example
+   * ```typescript
+   * // Enable case-sensitive filtering
+   * new FilteringPlugin({ caseSensitive: true })
+   * ```
+   */
   caseSensitive?: boolean;
-  /** Whether to trim whitespace from filter input (default: true) */
+
+  /**
+   * Whether to trim leading/trailing whitespace from filter input values
+   * before applying them.
+   *
+   * @default true
+   *
+   * @remarks
+   * **Reserved for future use.** This option is accepted in configuration
+   * but not yet applied in the current filtering implementation.
+   */
   trimInput?: boolean;
-  /** Use Web Worker for filtering large datasets >1000 rows (default: true) */
+
+  /**
+   * Whether to offload filtering to a Web Worker for large datasets.
+   *
+   * @default true
+   *
+   * @remarks
+   * **Reserved for future use.** This option is accepted in configuration
+   * but not yet implemented. Filtering currently runs synchronously on
+   * the main thread for all dataset sizes. Performance is excellent for
+   * most use cases — the grid handles 10,000+ rows without noticeable delay
+   * thanks to result caching and debounced input.
+   *
+   * When implemented, this will automatically offload `filterRows()` to a
+   * Web Worker when the row count exceeds an internal threshold, keeping
+   * the main thread responsive during heavy filtering operations.
+   */
   useWorker?: boolean;
-  /** Custom filter panel renderer (replaces default panel content) */
+
+  /**
+   * Custom filter panel renderer that replaces the built-in panel content
+   * for **all** columns (unless you return `undefined` for specific columns
+   * to fall through to the next level).
+   *
+   * **Resolution priority** (first non-empty result wins):
+   * 1. This plugin-level `filterPanelRenderer`
+   * 2. Type-level `filterPanelRenderer` (in `gridConfig.typeDefaults[type]`)
+   * 3. Built-in panel (checkbox set filter, number range slider, or date picker)
+   *
+   * The renderer receives the panel container element and a {@link FilterPanelParams}
+   * object with state and action callbacks. Append your UI to the container.
+   *
+   * **Return `undefined`** (or leave the container empty) to fall through to
+   * the next resolution level. This lets you override only specific fields.
+   *
+   * @example
+   * ```typescript
+   * // Override only the "status" column, use defaults for everything else
+   * new FilteringPlugin({
+   *   filterPanelRenderer: (container, params) => {
+   *     if (params.field !== 'status') return undefined; // fall through
+   *
+   *     params.uniqueValues.forEach(val => {
+   *       const btn = document.createElement('button');
+   *       btn.textContent = String(val);
+   *       btn.onclick = () => {
+   *         const excluded = params.uniqueValues.filter(v => v !== val);
+   *         params.applySetFilter(excluded as unknown[]);
+   *       };
+   *       container.appendChild(btn);
+   *     });
+   *   },
+   * })
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Replace ALL filter panels with a custom component
+   * new FilteringPlugin({
+   *   filterPanelRenderer: (container, params) => {
+   *     const myFilter = new MyCustomFilterElement();
+   *     myFilter.field = params.field;
+   *     myFilter.values = params.uniqueValues;
+   *     myFilter.onApply = (excluded) => params.applySetFilter(excluded);
+   *     myFilter.onClear = () => params.clearFilter();
+   *     container.appendChild(myFilter);
+   *   },
+   * })
+   * ```
+   *
+   * @see {@link FilterPanelParams} for all available state and action callbacks.
+   * @see {@link FilterPanelRenderer} for the function signature.
+   */
   filterPanelRenderer?: FilterPanelRenderer;
 
   /**
@@ -605,30 +755,121 @@ export interface FilterConfig<TRow = unknown> {
    * When `true`:
    * - `getColumnState()` includes filter data for each column
    * - Filter changes fire the `column-state-change` event (debounced)
-   * - `applyColumnState()` restores filter state
+   * - `applyColumnState()` restores filter state from a saved snapshot
    *
    * When `false` (default):
    * - Filters are excluded from column state entirely
-   * - Filter changes do not fire `column-state-change`
+   * - Filter changes do **not** fire `column-state-change`
+   *
+   * Enable this when you persist column state (e.g., to localStorage or a server)
+   * and want filter selections to survive page reloads.
    *
    * @default false
+   *
+   * @example
+   * ```typescript
+   * // Persist filters alongside column order, widths, and sort state
+   * new FilteringPlugin({ trackColumnState: true })
+   *
+   * // Save/restore cycle:
+   * const state = grid.getColumnState();   // includes filter data
+   * localStorage.setItem('grid-state', JSON.stringify(state));
+   * // ... later ...
+   * grid.applyColumnState(JSON.parse(localStorage.getItem('grid-state')!));
+   * ```
    */
   trackColumnState?: boolean;
 
   /**
-   * Async handler for fetching unique values from a server.
-   * When provided, this is called instead of extracting values from local rows.
-   * Useful for server-side datasets where not all data is loaded.
+   * Async handler for fetching unique filter values from a server.
+   *
+   * When provided, this handler is called **each time a filter panel opens**
+   * instead of extracting unique values from the locally-loaded rows. The panel
+   * shows a loading indicator while the handler resolves.
+   *
+   * Use this for server-side or paginated datasets where the client only holds
+   * a subset of the data and the local unique values would be incomplete.
+   *
+   * The returned values populate `FilterPanelParams.uniqueValues` and appear
+   * in the checkbox list (or are passed to your custom `filterPanelRenderer`).
+   *
+   * @example
+   * ```typescript
+   * new FilteringPlugin({
+   *   valuesHandler: async (field, column) => {
+   *     const res = await fetch(`/api/data/distinct/${field}`);
+   *     return res.json(); // ['Engineering', 'Marketing', 'Sales', ...]
+   *   },
+   * })
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Combine with filterHandler for full server-side filtering
+   * new FilteringPlugin<Employee>({
+   *   valuesHandler: async (field) => {
+   *     const res = await fetch(`/api/employees/distinct/${field}`);
+   *     return res.json();
+   *   },
+   *   filterHandler: async (filters) => {
+   *     const body = JSON.stringify(filters);
+   *     const res = await fetch('/api/employees/filter', { method: 'POST', body });
+   *     return res.json();
+   *   },
+   * })
+   * ```
+   *
+   * @see {@link FilterValuesHandler} for the full type signature.
    */
   valuesHandler?: FilterValuesHandler;
 
   /**
-   * Async handler for applying filters on a server.
-   * When provided, filtering is delegated to the server instead of local filtering.
-   * Should return the filtered rows from the server.
+   * Async handler for delegating filtering to a server.
    *
-   * Note: When using filterHandler, processRows() becomes a passthrough
-   * and the returned rows replace the grid's data.
+   * When provided, the plugin's `processRows()` hook becomes a **passthrough**
+   * (returns rows unfiltered) and instead calls this handler whenever the
+   * active filters change. The handler should return the filtered rows, which
+   * replace the grid's current data.
+   *
+   * This enables full server-side filtering for large datasets that can't be
+   * loaded into the browser. The handler receives the complete list of active
+   * {@link FilterModel} objects and the current row array (useful for optimistic
+   * updates or reference).
+   *
+   * The handler may return rows synchronously (plain array) or asynchronously
+   * (Promise). While an async handler is pending, the grid retains its current
+   * rows until the new data arrives.
+   *
+   * @example
+   * ```typescript
+   * // Server-side filtering with query params
+   * new FilteringPlugin<Employee>({
+   *   filterHandler: async (filters, currentRows) => {
+   *     const params = new URLSearchParams();
+   *     filters.forEach(f => params.append(f.field, `${f.operator}:${f.value}`));
+   *     const res = await fetch(`/api/employees?${params}`);
+   *     return res.json();
+   *   },
+   * })
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // POST-based filtering with full filter models
+   * new FilteringPlugin<Product>({
+   *   filterHandler: async (filters) => {
+   *     const res = await fetch('/api/products/filter', {
+   *       method: 'POST',
+   *       headers: { 'Content-Type': 'application/json' },
+   *       body: JSON.stringify({ filters }),
+   *     });
+   *     return res.json();
+   *   },
+   * })
+   * ```
+   *
+   * @see {@link FilterHandler} for the full type signature.
+   * @see {@link FilterChangeDetail} for the event emitted after filter changes.
    */
   filterHandler?: FilterHandler<TRow>;
 }

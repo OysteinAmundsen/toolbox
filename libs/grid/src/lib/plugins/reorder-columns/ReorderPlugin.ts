@@ -25,7 +25,7 @@ import type { ColumnMoveDetail, ReorderConfig } from './types';
  * ## Installation
  *
  * ```ts
- * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+ * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder-columns';
  * ```
  *
  * ## Configuration Options
@@ -51,7 +51,7 @@ import type { ColumnMoveDetail, ReorderConfig } from './types';
  * @example Basic Drag-and-Drop Reordering
  * ```ts
  * import '@toolbox-web/grid';
- * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+ * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder-columns';
  *
  * const grid = document.querySelector('tbw-grid');
  * grid.gridConfig = {
@@ -86,7 +86,9 @@ import type { ColumnMoveDetail, ReorderConfig } from './types';
  */
 export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   /** @internal */
-  readonly name = 'reorder';
+  readonly name = 'reorderColumns';
+  /** @internal */
+  override readonly aliases = ['reorder'] as const;
   /** @internal */
   override readonly styles = styles;
 

@@ -1,24 +1,5 @@
 /**
- * Row Reorder feature for @toolbox-web/grid-react
- *
- * Import this module to enable the `rowReorder` prop on DataGrid.
- *
- * @example
- * ```tsx
- * import '@toolbox-web/grid-react/features/row-reorder';
- *
- * <DataGrid rowReorder />
- * ```
- *
- * @packageDocumentation
+ * @deprecated Import from `@toolbox-web/grid-react/features/reorder-rows` instead.
+ * This re-export will be removed in v2.0.
  */
-
-import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
-import { registerFeature } from '../lib/feature-registry';
-
-registerFeature('rowReorder', (config) => {
-  if (config === true) {
-    return new RowReorderPlugin();
-  }
-  return new RowReorderPlugin(config ?? undefined);
-});
+export {} from './reorder-rows';

@@ -63,8 +63,8 @@ Some plugins depend on others. Load dependencies FIRST:
 | `MasterDetailPlugin` | `@toolbox-web/grid/plugins/master-detail` |
 | `PinnedColumnsPlugin` | `@toolbox-web/grid/plugins/pinned-columns` |
 | `PinnedRowsPlugin` | `@toolbox-web/grid/plugins/pinned-rows` |
-| `ReorderPlugin` | `@toolbox-web/grid/plugins/reorder` |
-| `RowReorderPlugin` | `@toolbox-web/grid/plugins/row-reorder` |
+| `ReorderPlugin` | `@toolbox-web/grid/plugins/reorder-columns` |
+| `RowReorderPlugin` | `@toolbox-web/grid/plugins/reorder-rows` |
 | `VisibilityPlugin` | `@toolbox-web/grid/plugins/visibility` |
 | `ColumnVirtualizationPlugin` | `@toolbox-web/grid/plugins/column-virtualization` |
 | `ResponsivePlugin` | `@toolbox-web/grid/plugins/responsive` |

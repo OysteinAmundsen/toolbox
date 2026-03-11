@@ -790,7 +790,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * - Extra for groups: groupCount * (groupHeight - baseHeight)
    * - Extra for cards: cardCount * (cardHeight - baseHeight)
    *
-   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v2.0.
    */
   override getExtraHeight(): number {
     // Only applies when in responsive mode with cardRenderer
@@ -823,7 +823,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    *
    * Like getExtraHeight, this accounts for both group and card row heights.
    *
-   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v2.0.
    */
   override getExtraHeightBefore(beforeRowIndex: number): number {
     // Only applies when in responsive mode with cardRenderer

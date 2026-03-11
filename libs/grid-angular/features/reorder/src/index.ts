@@ -1,24 +1,5 @@
 /**
- * Column reorder feature for @toolbox-web/grid-angular
- *
- * Import this module to enable the `reorder` input on Grid directive.
- *
- * @example
- * ```typescript
- * import '@toolbox-web/grid-angular/features/reorder';
- *
- * <tbw-grid [reorder]="true" />
- * ```
- *
- * @packageDocumentation
+ * @deprecated Import from `@toolbox-web/grid-angular/features/reorder-columns` instead.
+ * This re-export will be removed in v2.0.
  */
-
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
-import { registerFeature } from '@toolbox-web/grid-angular';
-
-registerFeature('reorder', (config) => {
-  if (config === true) {
-    return new ReorderPlugin();
-  }
-  return new ReorderPlugin(config ?? undefined);
-});
+import '@toolbox-web/grid-angular/features/reorder-columns';

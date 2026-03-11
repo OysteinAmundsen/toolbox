@@ -90,6 +90,11 @@ export interface PendingMove {
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface PluginNameMap {
+    /** Primary name for the row reorder plugin */
+    reorderRows: import('./RowReorderPlugin').RowReorderPlugin;
+    /**
+     * @deprecated Use `'reorderRows'` instead. Will be removed in v2.0.
+     */
     rowReorder: import('./RowReorderPlugin').RowReorderPlugin;
   }
 }

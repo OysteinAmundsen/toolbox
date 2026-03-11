@@ -1,28 +1,5 @@
 /**
- * Column reorder feature for @toolbox-web/grid-vue
- *
- * Import this module to enable the `reorder` prop on TbwGrid.
- *
- * @example
- * ```vue
- * <script setup>
- * import '@toolbox-web/grid-vue/features/reorder';
- * </script>
- *
- * <template>
- *   <TbwGrid reorder />
- * </template>
- * ```
- *
- * @packageDocumentation
+ * @deprecated Import from `@toolbox-web/grid-vue/features/reorder-columns` instead.
+ * This re-export will be removed in v2.0.
  */
-
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
-import { registerFeature } from '../lib/feature-registry';
-
-registerFeature('reorder', (config) => {
-  if (config === true) {
-    return new ReorderPlugin();
-  }
-  return new ReorderPlugin(config ?? undefined);
-});
+export {} from './reorder-columns';

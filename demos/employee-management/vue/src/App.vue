@@ -33,7 +33,7 @@ import '@toolbox-web/grid-vue/features/master-detail';
 import '@toolbox-web/grid-vue/features/multi-sort';
 import '@toolbox-web/grid-vue/features/pinned-columns';
 import '@toolbox-web/grid-vue/features/pinned-rows';
-import '@toolbox-web/grid-vue/features/reorder';
+import '@toolbox-web/grid-vue/features/reorder-columns';
 import '@toolbox-web/grid-vue/features/responsive';
 import '@toolbox-web/grid-vue/features/selection';
 import '@toolbox-web/grid-vue/features/undo-redo';

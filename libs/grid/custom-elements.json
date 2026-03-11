@@ -12843,7 +12843,7 @@
           },
           "default": "{ /** Ask if a column can be moved. Context: ColumnConfig. Response: boolean | undefined */ CAN_MOVE_COLUMN: 'canMoveColumn', /** Get context menu items. Context: ContextMenuParams. Response: ContextMenuItem[] */ GET_CONTEXT_MENU_ITEMS: 'getContextMenuItems', }",
           "description": "Well-known plugin query types.\r\nPlugins can define additional query types beyond these.",
-          "deprecated": "Use string literals with `grid.query()` instead. Query types should\r\nbe declared in the responding plugin's `manifest.queries` for automatic routing.\r\nThis constant will be removed in a future major version."
+          "deprecated": "Use string literals with `grid.query()` instead. Query types should\r\nbe declared in the responding plugin's `manifest.queries` for automatic routing.\r\nThis constant will be removed in v2.0."
         }
       ],
       "exports": [

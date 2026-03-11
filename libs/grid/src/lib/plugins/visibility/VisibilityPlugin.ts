@@ -116,7 +116,7 @@ function canMoveColumn(column: ColumnConfig): boolean {
  * @example With Drag-to-Reorder
  * ```ts
  * import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
- * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+ * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder-columns';
  *
  * grid.gridConfig = {
  *   plugins: [

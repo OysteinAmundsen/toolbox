@@ -37,7 +37,7 @@ describe('RowReorderPlugin', () => {
   describe('constructor', () => {
     it('should create plugin with default config', () => {
       const plugin = new RowReorderPlugin();
-      expect(plugin.name).toBe('rowReorder');
+      expect(plugin.name).toBe('reorderRows');
     });
 
     it('should accept custom config', () => {
@@ -46,7 +46,7 @@ describe('RowReorderPlugin', () => {
         showDragHandle: false,
         debounceMs: 500,
       });
-      expect(plugin.name).toBe('rowReorder');
+      expect(plugin.name).toBe('reorderRows');
     });
   });
 

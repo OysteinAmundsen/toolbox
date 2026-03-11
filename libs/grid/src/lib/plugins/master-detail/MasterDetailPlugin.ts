@@ -623,7 +623,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * Return total extra height from all expanded detail rows.
    * Used by grid virtualization to adjust scrollbar height.
    *
-   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v2.0.
    */
   override getExtraHeight(): number {
     let totalHeight = 0;
@@ -637,7 +637,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * Return extra height that appears before a given row index.
    * This is the sum of heights of all expanded details whose parent row is before the given index.
    *
-   * @deprecated Use getRowHeight() instead. This hook will be removed in v3.0.
+   * @deprecated Use getRowHeight() instead. This hook will be removed in v2.0.
    */
   override getExtraHeightBefore(beforeRowIndex: number): number {
     let totalHeight = 0;

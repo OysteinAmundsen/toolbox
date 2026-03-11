@@ -190,12 +190,17 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable column drag-to-reorder.
    *
-   * @requires `import '@toolbox-web/grid-vue/features/reorder';`
+   * @requires `import '@toolbox-web/grid-vue/features/reorder-columns';`
    *
    * @example
    * ```vue
-   * <TbwGrid reorder />
+   * <TbwGrid reorder-columns />
    * ```
+   */
+  reorderColumns?: boolean | ReorderConfig;
+
+  /**
+   * @deprecated Use `reorderColumns` instead. Will be removed in v2.0.
    */
   reorder?: boolean | ReorderConfig;
 
@@ -263,12 +268,17 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable row drag-to-reorder.
    *
-   * @requires `import '@toolbox-web/grid-vue/features/row-reorder';`
+   * @requires `import '@toolbox-web/grid-vue/features/reorder-rows';`
    *
    * @example
    * ```vue
-   * <TbwGrid rowReorder />
+   * <TbwGrid reorder-rows />
    * ```
+   */
+  reorderRows?: boolean | RowReorderConfig;
+
+  /**
+   * @deprecated Use `reorderRows` instead. Will be removed in v2.0.
    */
   rowReorder?: boolean | RowReorderConfig;
 

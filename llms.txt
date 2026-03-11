@@ -65,8 +65,8 @@ Key TypeScript interfaces for configuration and events:
 - [Pinned Columns Plugin](https://toolboxjs.com/grid/plugins/pinned-columns/): Sticky/frozen/locked columns on left or right edge
 - [Pinned Rows Plugin](https://toolboxjs.com/grid/plugins/pinned-rows/): Sticky/frozen/locked rows at top or bottom, summary rows, totals row
 - [Responsive Plugin](https://toolboxjs.com/grid/plugins/responsive/): Responsive/mobile-friendly card layout, breakpoints, auto-switch grid to cards on narrow viewports
-- [Reorder Plugin](https://toolboxjs.com/grid/plugins/reorder/): Drag-and-drop column reordering
-- [Row Reorder Plugin](https://toolboxjs.com/grid/plugins/row-reorder/): Drag-and-drop row reordering with drag handles
+- [Reorder Plugin](https://toolboxjs.com/grid/plugins/reorder-columns/): Drag-and-drop column reordering
+- [Row Reorder Plugin](https://toolboxjs.com/grid/plugins/reorder-rows/): Drag-and-drop row reordering with drag handles
 - [Visibility Plugin](https://toolboxjs.com/grid/plugins/visibility/): Column visibility panel
 - [Column Virtualization Plugin](https://toolboxjs.com/grid/plugins/column-virtualization/): Horizontal virtualization for many columns, render only visible columns, wide table support
 - [Export Plugin](https://toolboxjs.com/grid/plugins/export/): Export to CSV, JSON, Excel XML (XLSX-compatible), download file, custom filename, programmatic API with column/row selection (`exportCsv({ columns, rowIndices })`)

@@ -27,12 +27,14 @@ export type FeatureName =
   | 'multiSort'
   | 'sorting' // @deprecated - use 'multiSort' instead
   | 'filtering'
-  | 'reorder'
+  | 'reorderColumns'
+  | 'reorder' // @deprecated - use 'reorderColumns' instead
   | 'visibility'
   | 'pinnedColumns'
   | 'groupingColumns'
   | 'columnVirtualization'
-  | 'rowReorder'
+  | 'reorderRows'
+  | 'rowReorder' // @deprecated - use 'reorderRows' instead
   | 'groupingRows'
   | 'pinnedRows'
   | 'tree'

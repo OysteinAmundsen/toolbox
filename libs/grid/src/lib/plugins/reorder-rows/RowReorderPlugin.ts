@@ -23,7 +23,7 @@ export const ROW_DRAG_HANDLE_FIELD = '__tbw_row_drag';
  * ## Installation
  *
  * ```ts
- * import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+ * import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';
  * ```
  *
  * ## Configuration Options
@@ -54,7 +54,7 @@ export const ROW_DRAG_HANDLE_FIELD = '__tbw_row_drag';
  * @example Basic Row Reordering
  * ```ts
  * import '@toolbox-web/grid';
- * import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+ * import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';
  *
  * const grid = document.querySelector('tbw-grid');
  * grid.gridConfig = {
@@ -85,7 +85,9 @@ export const ROW_DRAG_HANDLE_FIELD = '__tbw_row_drag';
  */
 export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
   /** @internal */
-  readonly name = 'rowReorder';
+  readonly name = 'reorderRows';
+  /** @internal */
+  override readonly aliases = ['rowReorder'] as const;
   /** @internal */
   override readonly styles = styles;
 

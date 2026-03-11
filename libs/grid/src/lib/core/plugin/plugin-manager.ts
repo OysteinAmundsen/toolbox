@@ -182,7 +182,7 @@ export class PluginManager {
       PluginManager.deprecationWarned.add(PluginClass);
       console.warn(
         `[tbw-grid] Deprecation warning: "${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
-          `which are deprecated and will be removed in v3.0.\n` +
+          `which are deprecated and will be removed in v2.0.\n` +
           `  → Migrate to getRowHeight(row, index) for better variable row height support.\n` +
           `  → See: https://toolbox-web.dev/docs/grid/plugins/migration#row-height-hooks`,
       );
@@ -244,7 +244,7 @@ export class PluginManager {
    * Get a plugin instance by its name.
    */
   getPluginByName(name: string): BaseGridPlugin | undefined {
-    return this.plugins.find((p) => p.name === name);
+    return this.plugins.find((p) => p.name === name || p.aliases?.includes(name));
   }
 
   /**

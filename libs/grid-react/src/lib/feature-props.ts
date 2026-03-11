@@ -187,12 +187,17 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable column drag-to-reorder.
    *
-   * @requires `import '@toolbox-web/grid-react/features/reorder';`
+   * @requires `import '@toolbox-web/grid-react/features/reorder-columns';`
    *
    * @example
    * ```tsx
-   * <DataGrid reorder />
+   * <DataGrid reorderColumns />
    * ```
+   */
+  reorderColumns?: boolean | ReorderConfig;
+
+  /**
+   * @deprecated Use `reorderColumns` instead. Will be removed in v2.0.
    */
   reorder?: boolean | ReorderConfig;
 
@@ -260,12 +265,17 @@ export interface FeatureProps<TRow = unknown> {
   /**
    * Enable row drag-to-reorder.
    *
-   * @requires `import '@toolbox-web/grid-react/features/row-reorder';`
+   * @requires `import '@toolbox-web/grid-react/features/reorder-rows';`
    *
    * @example
    * ```tsx
-   * <DataGrid rowReorder />
+   * <DataGrid reorderRows />
    * ```
+   */
+  reorderRows?: boolean | RowReorderConfig;
+
+  /**
+   * @deprecated Use `reorderRows` instead. Will be removed in v2.0.
    */
   rowReorder?: boolean | RowReorderConfig;
 

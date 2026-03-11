@@ -5,13 +5,13 @@ Drag-and-drop column reordering.
 ## Installation
 
 ```typescript
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder-columns';
 ```
 
 ## Usage
 
 ```typescript
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder-columns';
 
 grid.gridConfig = {
   plugins: [new ReorderPlugin()],

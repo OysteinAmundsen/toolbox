@@ -619,13 +619,18 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    *
    * **Requires feature import:**
    * ```typescript
-   * import '@toolbox-web/grid-angular/features/reorder';
+   * import '@toolbox-web/grid-angular/features/reorder-columns';
    * ```
    *
    * @example
    * ```html
-   * <tbw-grid [reorder]="true" />
+   * <tbw-grid [reorderColumns]="true" />
    * ```
+   */
+  reorderColumns = input<boolean | ReorderConfig>();
+
+  /**
+   * @deprecated Use `reorderColumns` instead. Will be removed in v2.0.
    */
   reorder = input<boolean | ReorderConfig>();
 
@@ -699,13 +704,18 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    *
    * **Requires feature import:**
    * ```typescript
-   * import '@toolbox-web/grid-angular/features/row-reorder';
+   * import '@toolbox-web/grid-angular/features/reorder-rows';
    * ```
    *
    * @example
    * ```html
-   * <tbw-grid [rowReorder]="true" />
+   * <tbw-grid [reorderRows]="true" />
    * ```
+   */
+  reorderRows = input<boolean | RowReorderConfig>();
+
+  /**
+   * @deprecated Use `reorderRows` instead. Will be removed in v2.0.
    */
   rowReorder = input<boolean | RowReorderConfig>();
 
@@ -1261,12 +1271,12 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     // multiSort is the primary input; sorting is a deprecated alias
     addPlugin('multiSort', this.multiSort() ?? this.sorting());
     addPlugin('filtering', this.filtering());
-    addPlugin('reorder', this.reorder());
+    addPlugin('reorderColumns', this.reorderColumns() ?? this.reorder());
     addPlugin('visibility', this.visibility());
     addPlugin('pinnedColumns', this.pinnedColumns());
     addPlugin('groupingColumns', this.groupingColumns());
     addPlugin('columnVirtualization', this.columnVirtualization());
-    addPlugin('rowReorder', this.rowReorder());
+    addPlugin('reorderRows', this.reorderRows() ?? this.rowReorder());
     addPlugin('groupingRows', this.groupingRows());
     addPlugin('pinnedRows', this.pinnedRows());
     addPlugin('tree', this.tree());

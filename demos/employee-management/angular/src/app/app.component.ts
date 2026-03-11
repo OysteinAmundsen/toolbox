@@ -5,7 +5,7 @@ import '@toolbox-web/grid-angular/features/column-virtualization';
 import '@toolbox-web/grid-angular/features/context-menu';
 import '@toolbox-web/grid-angular/features/export';
 import '@toolbox-web/grid-angular/features/pinned-columns';
-import '@toolbox-web/grid-angular/features/reorder';
+import '@toolbox-web/grid-angular/features/reorder-columns';
 import '@toolbox-web/grid-angular/features/visibility';
 // Dynamic features (toggled via checkboxes) use plugin-based pattern in grid-config.ts:
 // selection, filtering, sorting, editing, master-detail, undo-redo, pinned-rows

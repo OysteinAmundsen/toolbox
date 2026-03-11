@@ -429,6 +429,13 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   abstract readonly name: string;
 
   /**
+   * Alternative names for backward compatibility.
+   * `getPluginByName()` matches against both `name` and `aliases`.
+   * @internal
+   */
+  readonly aliases?: readonly string[];
+
+  /**
    * Plugin version - defaults to grid version for built-in plugins.
    * Third-party plugins can override with their own semver.
    */
@@ -1043,7 +1050,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    *
    * @returns Total extra height in pixels
    *
-   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v3.0.
+   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v2.0.
    * The new `getRowHeight(row, index)` hook provides per-row height information which
    * enables better position caching and variable row height support.
    *
@@ -1073,7 +1080,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * @param beforeRowIndex - The row index to calculate extra height before
    * @returns Extra height in pixels that appears before this row
    *
-   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v3.0.
+   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v2.0.
    * The new `getRowHeight(row, index)` hook provides per-row height information which
    * enables better position caching and variable row height support.
    *

@@ -16,7 +16,7 @@ The Row Reorder plugin lets users rearrange rows by dragging a grip handle or us
 ## Installation
 
 ```ts
-import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';
 ```
 
 ## Basic Usage
@@ -51,7 +51,7 @@ grid.addEventListener('row-move', (e) => {
   </TabItem>
   <TabItem label="React">
 ```tsx
-import '@toolbox-web/grid-react/features/row-reorder';
+import '@toolbox-web/grid-react/features/reorder-rows';
 import { DataGrid } from '@toolbox-web/grid-react';
 
 function ReorderableTaskList({ tasks }) {
@@ -63,7 +63,7 @@ function ReorderableTaskList({ tasks }) {
         { field: 'task', header: 'Task' },
         { field: 'status', header: 'Status' },
       ]}
-      rowReorder
+      reorderRows
       onRowMove={(e) => console.log('Row moved:', e.detail)}
     />
   );
@@ -73,7 +73,7 @@ function ReorderableTaskList({ tasks }) {
   <TabItem label="Vue">
 ```html
 <script setup>
-import '@toolbox-web/grid-vue/features/row-reorder';
+import '@toolbox-web/grid-vue/features/reorder-rows';
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
 const tasks = [
@@ -87,7 +87,7 @@ const onRowMove = (e) => {
 </script>
 
 <template>
-  <TbwGrid :rows="tasks" row-reorder @row-move="onRowMove">
+  <TbwGrid :rows="tasks" reorder-rows @row-move="onRowMove">
     <TbwGridColumn field="priority" header="#" type="number" :width="50" />
     <TbwGridColumn field="task" header="Task" />
     <TbwGridColumn field="status" header="Status" />
@@ -98,7 +98,7 @@ const onRowMove = (e) => {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [rowReorder] input
-import '@toolbox-web/grid-angular/features/row-reorder';
+import '@toolbox-web/grid-angular/features/reorder-rows';
 
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
@@ -111,7 +111,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
     <tbw-grid
       [rows]="rows"
       [columns]="columns"
-      [rowReorder]="true"
+      [reorderRows]="true"
       (row-move)="onRowMove($event)"
       style="height: 400px; display: block;">
     </tbw-grid>
@@ -185,7 +185,7 @@ Cancel row moves by calling `event.preventDefault()` in the `row-move` handler.
 ## TypeScript Interfaces
 
 ```ts
-import { RowReorderPlugin, RowReorderConfig, RowMoveDetail } from '@toolbox-web/grid/plugins/row-reorder';
+import { RowReorderPlugin, RowReorderConfig, RowMoveDetail } from '@toolbox-web/grid/plugins/reorder-rows';
 
 /**
  * Configuration options for the RowReorderPlugin.

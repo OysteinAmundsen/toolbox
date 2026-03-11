@@ -114,6 +114,11 @@ const props = defineProps({
     default: undefined,
   },
   /** Enable column drag-to-reorder */
+  reorderColumns: {
+    type: [Boolean, Object] as PropType<boolean | ReorderConfig>,
+    default: undefined,
+  },
+  /** @deprecated Use `reorderColumns` instead */
   reorder: {
     type: [Boolean, Object] as PropType<boolean | ReorderConfig>,
     default: undefined,
@@ -139,6 +144,11 @@ const props = defineProps({
     default: undefined,
   },
   /** Enable row drag-to-reorder */
+  reorderRows: {
+    type: [Boolean, Object] as PropType<boolean | RowReorderConfig>,
+    default: undefined,
+  },
+  /** @deprecated Use `reorderRows` instead */
   rowReorder: {
     type: [Boolean, Object] as PropType<boolean | RowReorderConfig>,
     default: undefined,
@@ -236,12 +246,14 @@ const FEATURE_PROPS: FeatureName[] = [
   'multiSort',
   'sorting',
   'filtering',
-  'reorder',
+  'reorderColumns',
+  'reorder', // deprecated alias for reorderColumns
   'visibility',
   'pinnedColumns',
   'groupingColumns',
   'columnVirtualization',
-  'rowReorder',
+  'reorderRows',
+  'rowReorder', // deprecated alias for reorderRows
   'groupingRows',
   'pinnedRows',
   'tree',

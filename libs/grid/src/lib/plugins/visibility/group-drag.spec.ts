@@ -13,7 +13,7 @@ import type { ColumnGroupInfo } from '../grouping-columns/types';
 
 describe('VisibilityPlugin group drag-and-drop', async () => {
   const { VisibilityPlugin } = await import('./VisibilityPlugin');
-  const { ReorderPlugin } = await import('../reorder/ReorderPlugin');
+  const { ReorderPlugin } = await import('../reorder-columns/ReorderPlugin');
 
   // Columns with two groups + one ungrouped
   const groupedColumns: ColumnConfig[] = [

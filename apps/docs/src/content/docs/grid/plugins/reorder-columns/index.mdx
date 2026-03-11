@@ -14,7 +14,7 @@ The Reorder plugin lets users rearrange columns by dragging and dropping column 
 ## Installation
 
 ```ts
-import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder';
+import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder-columns';
 ```
 
 ## Basic Usage
@@ -48,7 +48,7 @@ grid.addEventListener('column-move', (e) => {
   </TabItem>
   <TabItem label="React">
 ```tsx
-import '@toolbox-web/grid-react/features/reorder';
+import '@toolbox-web/grid-react/features/reorder-columns';
 import { DataGrid } from '@toolbox-web/grid-react';
 
 function MyGrid({ data }) {
@@ -61,7 +61,7 @@ function MyGrid({ data }) {
         { field: 'email', header: 'Email' },
         { field: 'department', header: 'Department' },
       ]}
-      reorder={{ animation: 'flip' }}
+      reorderColumns={{ animation: 'flip' }}
       onColumnMove={(e) => console.log(`Moved ${e.detail.field} from ${e.detail.fromIndex} to ${e.detail.toIndex}`)}
     />
   );
@@ -71,7 +71,7 @@ function MyGrid({ data }) {
   <TabItem label="Vue">
 ```html
 <script setup>
-import '@toolbox-web/grid-vue/features/reorder';
+import '@toolbox-web/grid-vue/features/reorder-columns';
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 
 const data = [
@@ -85,7 +85,7 @@ const onColumnMove = (e) => {
 </script>
 
 <template>
-  <TbwGrid :rows="data" :reorder="{ animation: 'flip' }" @column-move="onColumnMove">
+  <TbwGrid :rows="data" :reorder-columns="{ animation: 'flip' }" @column-move="onColumnMove">
     <TbwGridColumn field="id" header="ID" />
     <TbwGridColumn field="name" header="Name" />
     <TbwGridColumn field="email" header="Email" />
@@ -97,7 +97,7 @@ const onColumnMove = (e) => {
   <TabItem label="Angular">
 ```typescript
 // Feature import - enables the [reorder] input
-import '@toolbox-web/grid-angular/features/reorder';
+import '@toolbox-web/grid-angular/features/reorder-columns';
 
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
@@ -110,7 +110,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
     <tbw-grid
       [rows]="rows"
       [columns]="columns"
-      [reorder]="{ animation: 'flip' }"
+      [reorderColumns]="{ animation: 'flip' }"
       (column-move)="onColumnMove($event)"
       style="height: 400px; display: block;">
     </tbw-grid>

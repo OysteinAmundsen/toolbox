@@ -30,7 +30,7 @@
 export type PinnedPosition = 'left' | 'right' | 'start' | 'end';
 
 /**
- * @deprecated Use {@link PinnedPosition} instead. Will be removed in a future major version.
+ * @deprecated Use {@link PinnedPosition} instead. Will be removed in  v2.0.
  */
 export type StickyPosition = PinnedPosition;
 
@@ -41,7 +41,7 @@ export type StickyPosition = PinnedPosition;
 export type ResolvedPinnedPosition = 'left' | 'right';
 
 /**
- * @deprecated Use {@link ResolvedPinnedPosition} instead. Will be removed in a future major version.
+ * @deprecated Use {@link ResolvedPinnedPosition} instead. Will be removed in  v2.0.
  */
 export type ResolvedStickyPosition = ResolvedPinnedPosition;
 
@@ -71,7 +71,7 @@ declare module '../../core/types' {
     pinned?: PinnedPosition;
 
     /**
-     * @deprecated Use `pinned` instead. Will be removed in a future major version.
+     * @deprecated Use `pinned` instead. Will be removed in v2.0.
      */
     sticky?: PinnedPosition;
   }

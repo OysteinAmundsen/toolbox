@@ -475,8 +475,10 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     'sorting', // deprecated alias for multiSort
     'clipboard',
     'contextMenu',
-    'reorder',
-    'rowReorder',
+    'reorderColumns',
+    'reorder', // deprecated alias for reorderColumns
+    'rowReorder', // deprecated alias for reorderRows
+    'reorderRows',
     'visibility',
     'undoRedo',
     'tree',

@@ -5,7 +5,7 @@ Enables row reordering via keyboard shortcuts and drag-and-drop.
 ## Installation
 
 ```ts
-import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';
 
 // Or from the all-in-one bundle
 import { RowReorderPlugin } from '@toolbox-web/grid/all';
@@ -15,7 +15,7 @@ import { RowReorderPlugin } from '@toolbox-web/grid/all';
 
 ```ts
 import '@toolbox-web/grid';
-import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';
 
 const grid = document.querySelector('tbw-grid');
 grid.gridConfig = {

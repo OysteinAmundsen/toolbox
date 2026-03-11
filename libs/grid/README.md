@@ -629,8 +629,8 @@ The grid uses a plugin architecture for optional features. Each plugin has its o
 | Master-Detail         | Expandable detail rows         | [README](./src/lib/plugins/master-detail/README.md)         |
 | Pinned Columns        | Sticky columns                 | [README](./src/lib/plugins/pinned-columns/README.md)        |
 | Pinned Rows           | Footer aggregations            | [README](./src/lib/plugins/pinned-rows/README.md)           |
-| Reorder               | Column drag reordering         | [README](./src/lib/plugins/reorder/README.md)               |
-| Row Reorder           | Row drag reordering            | [README](./src/lib/plugins/row-reorder/README.md)           |
+| Reorder Columns       | Column drag reordering         | [README](./src/lib/plugins/reorder-columns/README.md)       |
+| Reorder Rows          | Row drag reordering            | [README](./src/lib/plugins/reorder-rows/README.md)          |
 | Visibility            | Column visibility UI           | [README](./src/lib/plugins/visibility/README.md)            |
 | Responsive            | Card layout for mobile         | [README](./src/lib/plugins/responsive/README.md)            |
 | Clipboard             | Copy/paste                     | [README](./src/lib/plugins/clipboard/README.md)             |

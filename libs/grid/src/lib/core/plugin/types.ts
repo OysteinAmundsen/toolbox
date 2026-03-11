@@ -223,7 +223,7 @@ export interface PluginQuery<T = unknown> {
  *
  * @deprecated Use string literals with `grid.query()` instead. Query types should
  * be declared in the responding plugin's `manifest.queries` for automatic routing.
- * This constant will be removed in a future major version.
+ * This constant will be removed in  v2.0.
  *
  * @example
  * // Before (deprecated):

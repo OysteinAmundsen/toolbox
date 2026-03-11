@@ -29,7 +29,7 @@ import '@toolbox-web/grid-react/features/grouping-columns';
 import '@toolbox-web/grid-react/features/master-detail';
 import '@toolbox-web/grid-react/features/pinned-columns';
 import '@toolbox-web/grid-react/features/pinned-rows';
-import '@toolbox-web/grid-react/features/reorder';
+import '@toolbox-web/grid-react/features/reorder-columns';
 import '@toolbox-web/grid-react/features/responsive';
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/sorting';

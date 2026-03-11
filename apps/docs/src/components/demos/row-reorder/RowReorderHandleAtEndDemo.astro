@@ -9,7 +9,7 @@
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
-import { RowReorderPlugin } from '@toolbox-web/grid/plugins/row-reorder';
+import { RowReorderPlugin } from '@toolbox-web/grid/plugins/reorder-rows';
 
 const container = document.getElementById('row-reorder-handle-at-end-demo');
 if (container) {
@@ -29,8 +29,8 @@ if (container) {
   ];
 
   const grid = queryGrid('tbw-grid', container);
-      
-  
+
+
       grid.gridConfig = {
         columns,
         plugins: [

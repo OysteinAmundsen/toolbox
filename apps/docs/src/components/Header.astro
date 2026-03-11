@@ -186,6 +186,10 @@ import vibrantCss from '@toolbox/themes/dg-theme-vibrant.css?raw';
       min-width: 0;
     }
 
+    :global(:root:not([data-has-sidebar]) .title-wrapper .site-title) {
+      display: none !important;
+    }
+
     .center-group {
       flex: 1;
       align-items: center;
@@ -313,15 +317,31 @@ import vibrantCss from '@toolbox/themes/dg-theme-vibrant.css?raw';
         --__toc-width: 0rem;
       }
       .header {
+        --__gutter: calc(
+          (
+            100% + var(--__sidebar-pad, 0rem) -
+            var(--sl-content-inline-start, 0rem) -
+            var(--sl-content-width) -
+            var(--__toc-width, var(--sl-sidebar-width))
+          ) / 2
+        );
         display: grid;
         grid-template-columns:
-          /* 1 (site title): aligns with sidebar */
-          var(--sl-content-inline-start, 0rem)
-          /* 2 (center: theme switcher + dark/light + search) */
+          /* 1 (site title): left sidebar + gutter (can grow for long titles) */
+          minmax(
+            calc(
+              max(0rem, var(--sl-content-inline-start, 0rem) - var(--sl-nav-pad-x)) +
+              max(0rem, var(--__gutter))
+            ),
+            auto
+          )
+          /* 2 (center): above main content */
           1fr
-          /* 3 (right: social icons) */
-          var(--sl-sidebar-width);
-          align-content: center;
+          /* 3 (right: social icons): tracks right sidebar width */
+          max(0rem, calc(
+            var(--__toc-width, var(--sl-sidebar-width)) - var(--sl-nav-pad-x) + var(--__gutter)
+          ));
+        align-content: center;
       }
     }
   }

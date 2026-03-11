@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.23.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.3...grid-1.23.4) (2026-03-11)
+
+
+### Bug Fixes
+
+* **docs:** remove duplicate h1 headers from all pages ([ae24f73](https://github.com/OysteinAmundsen/toolbox/commit/ae24f73a2399551f2812ee8b6d65ba3dcf943357))
+* **grid-angular:** use getPluginByName in adapter features ([acfb512](https://github.com/OysteinAmundsen/toolbox/commit/acfb5128d324ef9abed16902d609d25da99df0cb))
+* **grid-react:** use getPluginByName in adapter features ([69d00bf](https://github.com/OysteinAmundsen/toolbox/commit/69d00bf7399e0b30f6fc5c54986482d9bc2ab52f))
+* **grid-vue:** use getPluginByName in adapter features and composable ([f51808b](https://github.com/OysteinAmundsen/toolbox/commit/f51808bc9aa8b021cb30c07b675c7475c3e714f5))
+* **grid:** recommend getPluginByName over getPlugin in docs and examples ([042b58b](https://github.com/OysteinAmundsen/toolbox/commit/042b58b2e429dc9cb7f4f278cbdd206d72b30ca3))
+
 ## [1.23.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.2...grid-1.23.3) (2026-03-08)
 
 

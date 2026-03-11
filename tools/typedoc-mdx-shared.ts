@@ -43,6 +43,10 @@ export interface TypeDocType {
   types?: TypeDocType[];
   elementType?: TypeDocType;
   typeArguments?: TypeDocType[];
+  declaration?: {
+    signatures?: TypeDocSignature[];
+    children?: TypeDocNode[];
+  };
 }
 
 // #endregion
@@ -191,8 +195,15 @@ export function formatType(t?: TypeDocType): string {
       return typeof t.value === 'string' ? `"${t.value}"` : String(t.value);
     case 'tuple':
       return `[${t.types?.map(formatType).join(', ') ?? ''}]`;
-    case 'reflection':
+    case 'reflection': {
+      const sig = t.declaration?.signatures?.[0];
+      if (sig) {
+        const params = sig.parameters?.map((p) => `${p.name}: ${formatType(p.type)}`).join(', ') ?? '';
+        const ret = formatType(sig.type);
+        return `(${params}) => ${ret}`;
+      }
       return 'object';
+    }
     default:
       return t.name ?? 'unknown';
   }
@@ -233,8 +244,15 @@ export function formatTypeWithLinks(type: TypeDocType | undefined, typeRegistry:
       return type.types?.map((t) => formatTypeWithLinks(t, typeRegistry)).join(' \\| ') ?? '`unknown`';
     case 'intersection':
       return type.types?.map((t) => formatTypeWithLinks(t, typeRegistry)).join(' & ') ?? '`unknown`';
-    case 'reflection':
+    case 'reflection': {
+      const sig = type.declaration?.signatures?.[0];
+      if (sig) {
+        const params = sig.parameters?.map((p) => `${p.name}: ${formatTypeWithLinks(p.type, typeRegistry)}`).join(', ') ?? '';
+        const ret = formatTypeWithLinks(sig.type, typeRegistry);
+        return `(${params}) => ${ret}`;
+      }
       return '`object`';
+    }
     default:
       return type.name ? linkify(type.name) : '`unknown`';
   }

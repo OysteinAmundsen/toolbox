@@ -63,8 +63,13 @@ playwright-report/
 # Generated API documentation (regenerate with `nx typedoc grid`)
 # Raw TypeDoc markdown output - always regenerated
 **/api-generated/
+# Generated TypeDoc MDX pages (core API + plugin doc folders + adapter APIs)
 **/api/
-# Note: libs/grid/docs/api/ is NOT ignored - Storybook needs to index it
+**/Classes/
+**/Interfaces/
+**/Functions/
+**/Types/
+**/Enums/
 
 # RFC and analysis documents (local only)
 **/RFC/*

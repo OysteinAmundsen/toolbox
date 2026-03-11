@@ -144,15 +144,15 @@ Requires `EditingPlugin`. Import from `@toolbox-web/grid/plugins/editing`.
 
 | Event | Detail Type | Cancelable | Description |
 |-------|------------|-----------|-------------|
-| `cell-commit` | [`CellCommitDetail<TRow>`](/grid/plugins/editing/api/interfaces/cellcommitdetail/) | ✅ | Cell value committed (Enter/blur). Cancel to reject. |
-| `row-commit` | [`RowCommitDetail<TRow>`](/grid/plugins/editing/api/interfaces/rowcommitdetail/) | ✅ | Focus leaves row in row-edit mode. Cancel to revert. |
-| `cell-cancel` | [`CellCancelDetail`](/grid/plugins/editing/api/interfaces/cellcanceldetail/) | — | User presses Escape; cell reverts to pre-edit value. |
-| `edit-open` | [`EditOpenDetail<TRow>`](/grid/plugins/editing/api/interfaces/editopendetail/) | — | Row editing begins (row-edit mode only). |
-| `before-edit-close` | [`BeforeEditCloseDetail<TRow>`](/grid/plugins/editing/api/interfaces/beforeeditclosedetail/) | — | Synchronous, just before editor DOM is destroyed. |
-| `edit-close` | [`EditCloseDetail<TRow>`](/grid/plugins/editing/api/interfaces/editclosedetail/) | — | Row editing ends. Includes `reverted` flag. |
-| `changed-rows-reset` | [`ChangedRowsResetDetail<TRow>`](/grid/plugins/editing/api/interfaces/changedrowsresetdetail/) | — | `resetChangedRows()` called programmatically. |
-| `dirty-change` | [`DirtyChangeDetail<TRow>`](/grid/plugins/editing/api/interfaces/dirtychangedetail/) | — | Dirty tracking state changes. Requires `dirtyTracking: true`. |
-| `baselines-captured` | [`BaselinesCapturedDetail`](/grid/plugins/editing/api/interfaces/baselinescaptureddetail/) | — | New baseline snapshots captured post-render. |
+| `cell-commit` | [`CellCommitDetail<TRow>`](/grid/plugins/editing/interfaces/cellcommitdetail/) | ✅ | Cell value committed (Enter/blur). Cancel to reject. |
+| `row-commit` | [`RowCommitDetail<TRow>`](/grid/plugins/editing/interfaces/rowcommitdetail/) | ✅ | Focus leaves row in row-edit mode. Cancel to revert. |
+| `cell-cancel` | [`CellCancelDetail`](/grid/plugins/editing/interfaces/cellcanceldetail/) | — | User presses Escape; cell reverts to pre-edit value. |
+| `edit-open` | [`EditOpenDetail<TRow>`](/grid/plugins/editing/interfaces/editopendetail/) | — | Row editing begins (row-edit mode only). |
+| `before-edit-close` | [`BeforeEditCloseDetail<TRow>`](/grid/plugins/editing/interfaces/beforeeditclosedetail/) | — | Synchronous, just before editor DOM is destroyed. |
+| `edit-close` | [`EditCloseDetail<TRow>`](/grid/plugins/editing/interfaces/editclosedetail/) | — | Row editing ends. Includes `reverted` flag. |
+| `changed-rows-reset` | [`ChangedRowsResetDetail<TRow>`](/grid/plugins/editing/interfaces/changedrowsresetdetail/) | — | `resetChangedRows()` called programmatically. |
+| `dirty-change` | [`DirtyChangeDetail<TRow>`](/grid/plugins/editing/interfaces/dirtychangedetail/) | — | Dirty tracking state changes. Requires `dirtyTracking: true`. |
+| `baselines-captured` | [`BaselinesCapturedDetail`](/grid/plugins/editing/interfaces/baselinescaptureddetail/) | — | New baseline snapshots captured post-render. |
 
 ### Selection
 
@@ -160,7 +160,7 @@ Import from `@toolbox-web/grid/plugins/selection`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `selection-change` | [`SelectionChangeDetail`](/grid/plugins/selection/api/interfaces/selectionchangedetail/) | Selection changes in any mode (row, cell, range). |
+| `selection-change` | [`SelectionChangeDetail`](/grid/plugins/selection/interfaces/selectionchangedetail/) | Selection changes in any mode (row, cell, range). |
 
 ### Filtering
 
@@ -168,7 +168,7 @@ Import from `@toolbox-web/grid/plugins/filtering`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `filter-change` | [`FilterChangeDetail`](/grid/plugins/filtering/api/interfaces/filterchangedetail/) | Filter criteria change. Respects `silent: true` batching. |
+| `filter-change` | [`FilterChangeDetail`](/grid/plugins/filtering/interfaces/filterchangedetail/) | Filter criteria change. Respects `silent: true` batching. |
 
 ### Column Reorder
 
@@ -176,7 +176,7 @@ Import from `@toolbox-web/grid/plugins/reorder-columns`.
 
 | Event | Detail Type | Cancelable | Description |
 |-------|------------|-----------|-------------|
-| `column-move` | [`ColumnMoveDetail`](/grid/plugins/reorder-columns/api/interfaces/columnmovedetail/) | ✅ | Column reordered via drag-and-drop. Cancel to reject. |
+| `column-move` | [`ColumnMoveDetail`](/grid/plugins/reorder-columns/interfaces/columnmovedetail/) | ✅ | Column reordered via drag-and-drop. Cancel to reject. |
 
 ### Row Reorder
 
@@ -184,7 +184,7 @@ Import from `@toolbox-web/grid/plugins/reorder-rows`.
 
 | Event | Detail Type | Cancelable | Description |
 |-------|------------|-----------|-------------|
-| `row-move` | [`RowMoveDetail<TRow>`](/grid/plugins/reorder-rows/api/interfaces/rowmovedetail/) | ✅ | Row reordered via drag or Shift+arrow. Cancel to reject. |
+| `row-move` | [`RowMoveDetail<TRow>`](/grid/plugins/reorder-rows/interfaces/rowmovedetail/) | ✅ | Row reordered via drag or Shift+arrow. Cancel to reject. |
 
 ### Clipboard
 
@@ -192,8 +192,8 @@ Import from `@toolbox-web/grid/plugins/clipboard`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `copy` | [`CopyDetail`](/grid/plugins/clipboard/api/interfaces/copydetail/) | After copy. Provides copied text, row/column count. |
-| `paste` | [`PasteDetail`](/grid/plugins/clipboard/api/interfaces/pastedetail/) | After paste. Provides parsed rows, target cell, column fields. |
+| `copy` | [`CopyDetail`](/grid/plugins/clipboard/interfaces/copydetail/) | After copy. Provides copied text, row/column count. |
+| `paste` | [`PasteDetail`](/grid/plugins/clipboard/interfaces/pastedetail/) | After paste. Provides parsed rows, target cell, column fields. |
 
 ### Context Menu
 
@@ -209,7 +209,7 @@ Import from `@toolbox-web/grid/plugins/master-detail`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `detail-expand` | [`DetailExpandDetail<TRow>`](/grid/plugins/master-detail/api/interfaces/detailexpanddetail/) | Detail panel expanded/collapsed. |
+| `detail-expand` | [`DetailExpandDetail<TRow>`](/grid/plugins/master-detail/interfaces/detailexpanddetail/) | Detail panel expanded/collapsed. |
 
 ### Tree
 
@@ -217,7 +217,7 @@ Import from `@toolbox-web/grid/plugins/tree`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `tree-expand` | [`TreeExpandDetail<TreeRow>`](/grid/plugins/tree/api/interfaces/treeexpanddetail/) | Tree node expanded/collapsed. Provides depth level. |
+| `tree-expand` | [`TreeExpandDetail<TreeRow>`](/grid/plugins/tree/interfaces/treeexpanddetail/) | Tree node expanded/collapsed. Provides depth level. |
 
 ### Grouping
 
@@ -225,7 +225,7 @@ Import from `@toolbox-web/grid/plugins/grouping-rows`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `group-toggle` | [`GroupToggleDetail`](/grid/plugins/grouping-rows/api/interfaces/grouptoggledetail/) | Row group expanded/collapsed. |
+| `group-toggle` | [`GroupToggleDetail`](/grid/plugins/grouping-rows/interfaces/grouptoggledetail/) | Row group expanded/collapsed. |
 
 ### Responsive
 
@@ -233,7 +233,7 @@ Import from `@toolbox-web/grid/plugins/responsive`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `responsive-change` | [`ResponsiveChangeDetail`](/grid/plugins/responsive/api/interfaces/responsivechangedetail/) | Grid crosses responsive breakpoint. |
+| `responsive-change` | [`ResponsiveChangeDetail`](/grid/plugins/responsive/interfaces/responsivechangedetail/) | Grid crosses responsive breakpoint. |
 
 ### Export
 
@@ -241,7 +241,7 @@ Import from `@toolbox-web/grid/plugins/export`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `export-complete` | [`ExportCompleteDetail`](/grid/plugins/export/api/interfaces/exportcompletedetail/) | Export finishes. Provides format, filename, row/col count. |
+| `export-complete` | [`ExportCompleteDetail`](/grid/plugins/export/interfaces/exportcompletedetail/) | Export finishes. Provides format, filename, row/col count. |
 
 ### Print
 
@@ -249,8 +249,8 @@ Import from `@toolbox-web/grid/plugins/print`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `print-start` | [`PrintStartDetail`](/grid/plugins/print/api/interfaces/printstartdetail/) | Print begins. Provides row count and limit status. |
-| `print-complete` | [`PrintCompleteDetail`](/grid/plugins/print/api/interfaces/printcompletedetail/) | Print completes. |
+| `print-start` | [`PrintStartDetail`](/grid/plugins/print/interfaces/printstartdetail/) | Print begins. Provides row count and limit status. |
+| `print-complete` | [`PrintCompleteDetail`](/grid/plugins/print/interfaces/printcompletedetail/) | Print completes. |
 
 ### Undo/Redo
 
@@ -258,8 +258,8 @@ Import from `@toolbox-web/grid/plugins/undo-redo`.
 
 | Event | Detail Type | Description |
 |-------|------------|-------------|
-| `undo` | [`UndoRedoDetail`](/grid/plugins/undo-redo/api/interfaces/undoredodetail/) | After undo (Ctrl+Z). Provides undone action. |
-| `redo` | [`UndoRedoDetail`](/grid/plugins/undo-redo/api/interfaces/undoredodetail/) | After redo (Ctrl+Y). Provides redone action. |
+| `undo` | [`UndoRedoDetail`](/grid/plugins/undo-redo/interfaces/undoredodetail/) | After undo (Ctrl+Z). Provides undone action. |
+| `redo` | [`UndoRedoDetail`](/grid/plugins/undo-redo/interfaces/undoredodetail/) | After redo (Ctrl+Y). Provides redone action. |
 
 ### Multi-Sort
 

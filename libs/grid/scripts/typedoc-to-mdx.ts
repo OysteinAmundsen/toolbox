@@ -696,7 +696,7 @@ const grid = document.createElement('tbw-grid');
     node.comment,
     CORE_INTERNAL_EVENTS,
   );
-  writeMdx(outDir, 'core/classes/DataGridElement.mdx', publicMdx, 'public');
+  writeMdx(outDir, 'core/Classes/DataGridElement.mdx', publicMdx, 'public');
 
   // Plugin API - also uses @group tags for organization
   let pluginMdx = mdxHeader('DataGridElement (Plugin API)');
@@ -704,7 +704,7 @@ const grid = document.createElement('tbw-grid');
 Internal API for plugin developers. Members marked with \`@internal Plugin API\`
 or using the \`_underscore\` prefix convention.
 
-See the [public API documentation](/grid/api/core/classes/datagridelement/) for consumer-facing members.
+See the [public API documentation](/grid/api/core/Classes/datagridelement/) for consumer-facing members.
 
 | Prefix | Meaning |
 | ------ | ------- |
@@ -714,7 +714,7 @@ See the [public API documentation](/grid/api/core/classes/datagridelement/) for 
 
 `;
   pluginMdx += genMembersSectionByGroup((node.children ?? []).filter(isPluginMember));
-  writeMdx(outDir, 'plugin-development/classes/DataGridElement-PluginAPI.mdx', pluginMdx, 'plugin');
+  writeMdx(outDir, 'plugin-development/Classes/DataGridElement-PluginAPI.mdx', pluginMdx, 'plugin');
 
   // Framework Adapters
   const adapterMembers = (node.children ?? []).filter(isFrameworkAdapterMember);
@@ -725,11 +725,11 @@ API for framework adapter developers (React, Angular, Vue, etc.).
 These methods are used by framework integration libraries to register adapters
 and manage column/renderer lifecycles.
 
-See the [public API documentation](/grid/api/core/classes/datagridelement/) for consumer-facing members.
+See the [public API documentation](/grid/api/core/Classes/datagridelement/) for consumer-facing members.
 
 `;
     adapterMdx += genMembersSection(adapterMembers);
-    writeMdx(outDir, 'framework-adapters/classes/DataGridElement-Adapters.mdx', adapterMdx, 'adapters');
+    writeMdx(outDir, 'framework-adapters/Classes/DataGridElement-Adapters.mdx', adapterMdx, 'adapters');
   }
 }
 
@@ -808,7 +808,7 @@ function buildTypeRegistry(json: TypeDocNode): void {
       if (!kindFolder) continue;
 
       // Build the Starlight URL path for plugin types
-      const urlPath = `/grid/plugins/${folderName}/api/${kindFolder.toLowerCase()}/${node.name.toLowerCase()}/`;
+      const urlPath = `/grid/plugins/${folderName}/${kindFolder.toLowerCase()}/${node.name.toLowerCase()}/`;
       typeRegistry.set(node.name, urlPath);
     }
   }
@@ -917,7 +917,7 @@ function processPluginModules(pluginModules: TypeDocNode[], _outDir: string): vo
     const rawName = plugin.name.replace(/^Plugins\//, '');
     const title = getPluginTitle(rawName);
     const pluginFolder = rawName.toLowerCase().replace(/\s+/g, '-');
-    const pluginApiDir = join(PLUGINS_OUTPUT_DIR, pluginFolder, 'api');
+    const pluginApiDir = join(PLUGINS_OUTPUT_DIR, pluginFolder);
 
     console.log(`  ${title}:`);
     for (const node of plugin.children ?? []) {
@@ -930,7 +930,7 @@ function processPluginModules(pluginModules: TypeDocNode[], _outDir: string): vo
       const outPath = join(pluginApiDir, kindFolder, `${node.name}.mdx`);
       mkdirSync(join(pluginApiDir, kindFolder), { recursive: true });
       writeFileSync(outPath, mdx);
-      console.log(`    ✓ plugins/${pluginFolder}/api/${kindFolder}/${node.name}.mdx`);
+      console.log(`    ✓ plugins/${pluginFolder}/${kindFolder}/${node.name}.mdx`);
     }
   }
 }

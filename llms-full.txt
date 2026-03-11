@@ -161,8 +161,8 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `clipboard` | `features/clipboard` | `true` (requires selection) |
 | `undoRedo` | `features/undo-redo` | `true` (requires editing) |
 | `contextMenu` | `features/context-menu` | `true`, `{ items: [...] }` |
-| `reorder` | `features/reorder` | `true` |
-| `rowReorder` | `features/row-reorder` | `true` |
+| `reorderColumns` | `features/reorder-columns` | `true` |
+| `reorderRows` | `features/reorder-rows` | `true` |
 | `visibility` | `features/visibility` | `true` |
 | `pinnedColumns` | `features/pinned-columns` | `true` |
 | `pinnedRows` | `features/pinned-rows` | `true`, `{ bottom: [...] }` |
@@ -1107,7 +1107,7 @@ new ReorderPlugin({
 })
 // Events: 'column-move' (cancelable) → { field, fromIndex, toIndex, columnOrder }
 // Programmatic API:
-const reorder = grid.getPluginByName('reorder');
+const reorder = grid.getPluginByName('reorderColumns');
 reorder.getColumnOrder();            // Get current column order (string[])
 reorder.moveColumn(field, toIndex);  // Move column to new position
 reorder.setColumnOrder(order);       // Set explicit column order
@@ -1128,7 +1128,7 @@ new RowReorderPlugin({
 })
 // Events: 'row-move' (cancelable) → { row, fromIndex, toIndex, rows, source }
 // Programmatic API:
-const rowReorder = grid.getPluginByName('rowReorder');
+const rowReorder = grid.getPluginByName('reorderRows');
 rowReorder.moveRow(fromIndex, toIndex); // Move a row programmatically
 rowReorder.canMoveRow(fromIndex, toIndex); // Check if move is allowed
 ```

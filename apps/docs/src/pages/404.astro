@@ -1,0 +1,57 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+---
+
+<StarlightPage
+  frontmatter={{ title: '404 — Page Not Found', template: 'splash' }}
+  hasSidebar={false}
+>
+  <div class="not-found">
+    <p class="code">404</p>
+    <p>The page you're looking for doesn't exist or has been moved.</p>
+    <nav class="links">
+      <a href="/">Home</a>
+      <a href="/grid/introduction/">Grid Docs</a>
+      <a href="/grid/plugins/">Plugins</a>
+      <a href="/grid/api-reference/">API Reference</a>
+    </nav>
+  </div>
+</StarlightPage>
+
+<style>
+  .not-found {
+    text-align: center;
+    padding: 4rem 1rem;
+  }
+  .not-found .code {
+    font-size: 6rem;
+    font-weight: 700;
+    line-height: 1;
+    margin: 0;
+    color: var(--sl-color-accent);
+  }
+  .not-found p {
+    font-size: 1.2rem;
+    color: var(--sl-color-gray-2);
+    margin: 1rem 0 2rem;
+  }
+  .not-found .links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .not-found .links a {
+    display: inline-block;
+    padding: 0.5rem 1.25rem;
+    border-radius: 0.5rem;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-white);
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.15s;
+  }
+  .not-found .links a:hover {
+    opacity: 0.85;
+  }
+</style>

@@ -130,6 +130,12 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
   // #region Lifecycle
 
   /** @internal */
+  override attach(grid: import('../../core/plugin/base-plugin').GridElement): void {
+    super.attach(grid);
+    this.setupDelegatedDragListeners();
+  }
+
+  /** @internal */
   override detach(): void {
     this.clearDebounceTimer();
     this.isDragging = false;
@@ -184,34 +190,7 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
 
   /** @internal */
   override afterRender(): void {
-    if (!this.config.showDragHandle) return;
-
-    const gridEl = this.gridElement;
-    if (!gridEl) return;
-
-    // Set up drag start/end listeners on drag handles
-    const handles = gridEl.querySelectorAll('.dg-row-drag-handle');
-    handles.forEach((handle) => {
-      const handleEl = handle as HTMLElement;
-      if (handleEl.getAttribute('data-drag-bound')) return;
-      handleEl.setAttribute('data-drag-bound', 'true');
-
-      const rowEl = handleEl.closest('.data-grid-row') as HTMLElement;
-      if (!rowEl) return;
-
-      // Set up dragstart/dragend on the handle
-      this.setupHandleDragListeners(handleEl, rowEl);
-    });
-
-    // Set up drop target listeners on ALL rows (not just the handle's row)
-    const rows = gridEl.querySelectorAll('.data-grid-row');
-    rows.forEach((row) => {
-      const rowEl = row as HTMLElement;
-      if (rowEl.getAttribute('data-drop-bound')) return;
-      rowEl.setAttribute('data-drop-bound', 'true');
-
-      this.setupRowDropListeners(rowEl);
-    });
+    // No-op: drag listeners are set up via event delegation in attach()
   }
 
   /**
@@ -311,84 +290,121 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
   // #region Private Methods
 
   /**
-   * Set up drag start/end listeners on the drag handle element.
+   * Set up delegated drag-and-drop listeners on the grid element.
+   * Uses event delegation so recycled/virtualized rows work without rebinding.
    */
-  private setupHandleDragListeners(handleEl: HTMLElement, rowEl: HTMLElement): void {
-    handleEl.addEventListener('dragstart', (e: DragEvent) => {
-      const rowIndex = this.getRowIndex(rowEl);
-      if (rowIndex < 0) return;
+  private setupDelegatedDragListeners(): void {
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
+    const signal = this.disconnectSignal;
 
-      this.isDragging = true;
-      this.draggedRowIndex = rowIndex;
+    // dragstart — only from .dg-row-drag-handle
+    gridEl.addEventListener(
+      'dragstart',
+      (e: Event) => {
+        const de = e as DragEvent;
+        const handle = (de.target as HTMLElement).closest('.dg-row-drag-handle') as HTMLElement | null;
+        if (!handle) return;
+        const rowEl = handle.closest('.data-grid-row') as HTMLElement;
+        if (!rowEl) return;
 
-      if (e.dataTransfer) {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(rowIndex));
-      }
+        const rowIndex = this.getRowIndex(rowEl);
+        if (rowIndex < 0) return;
 
-      rowEl.classList.add('dragging');
-    });
+        this.isDragging = true;
+        this.draggedRowIndex = rowIndex;
 
-    handleEl.addEventListener('dragend', () => {
-      this.isDragging = false;
-      this.draggedRowIndex = null;
-      this.dropRowIndex = null;
-      this.clearDragClasses();
-    });
-  }
-
-  /**
-   * Set up drop target listeners on a row element.
-   * All rows are valid drop targets during drag operations.
-   */
-  private setupRowDropListeners(rowEl: HTMLElement): void {
-    rowEl.addEventListener('dragover', (e: DragEvent) => {
-      e.preventDefault();
-      if (!this.isDragging || this.draggedRowIndex === null) return;
-
-      const targetIndex = this.getRowIndex(rowEl);
-      if (targetIndex < 0 || targetIndex === this.draggedRowIndex) return;
-
-      const rect = rowEl.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      const isBefore = e.clientY < midY;
-
-      this.dropRowIndex = isBefore ? targetIndex : targetIndex + 1;
-
-      rowEl.classList.add('drop-target');
-      rowEl.classList.toggle('drop-before', isBefore);
-      rowEl.classList.toggle('drop-after', !isBefore);
-    });
-
-    rowEl.addEventListener('dragleave', () => {
-      rowEl.classList.remove('drop-target', 'drop-before', 'drop-after');
-    });
-
-    rowEl.addEventListener('drop', (e: DragEvent) => {
-      e.preventDefault();
-      const fromIndex = this.draggedRowIndex;
-      let toIndex = this.dropRowIndex;
-
-      if (!this.isDragging || fromIndex === null || toIndex === null) {
-        return;
-      }
-
-      // Adjust toIndex if dropping after the dragged row
-      if (toIndex > fromIndex) {
-        toIndex--;
-      }
-
-      if (fromIndex !== toIndex) {
-        const rows = this.sourceRows;
-        const row = rows[fromIndex];
-        const direction = toIndex < fromIndex ? 'up' : 'down';
-
-        // Validate move
-        if (!this.config.canMove || this.config.canMove(row, fromIndex, toIndex, direction)) {
-          this.executeMove(row, fromIndex, toIndex, 'drag');
+        if (de.dataTransfer) {
+          de.dataTransfer.effectAllowed = 'move';
+          de.dataTransfer.setData('text/plain', String(rowIndex));
         }
-      }
-    });
+
+        rowEl.classList.add('dragging');
+      },
+      { signal },
+    );
+
+    // dragend — clean up
+    gridEl.addEventListener(
+      'dragend',
+      () => {
+        this.isDragging = false;
+        this.draggedRowIndex = null;
+        this.dropRowIndex = null;
+        this.clearDragClasses();
+      },
+      { signal },
+    );
+
+    // dragover — highlight drop target
+    gridEl.addEventListener(
+      'dragover',
+      (e: Event) => {
+        const de = e as DragEvent;
+        if (!this.isDragging || this.draggedRowIndex === null) return;
+
+        const rowEl = (de.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
+        if (!rowEl) return;
+
+        de.preventDefault();
+
+        const targetIndex = this.getRowIndex(rowEl);
+        if (targetIndex < 0 || targetIndex === this.draggedRowIndex) return;
+
+        const rect = rowEl.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const isBefore = de.clientY < midY;
+
+        this.dropRowIndex = isBefore ? targetIndex : targetIndex + 1;
+
+        rowEl.classList.add('drop-target');
+        rowEl.classList.toggle('drop-before', isBefore);
+        rowEl.classList.toggle('drop-after', !isBefore);
+      },
+      { signal },
+    );
+
+    // dragleave — remove highlight
+    gridEl.addEventListener(
+      'dragleave',
+      (e: Event) => {
+        const rowEl = (e.target as HTMLElement).closest('.data-grid-row') as HTMLElement | null;
+        if (rowEl) {
+          rowEl.classList.remove('drop-target', 'drop-before', 'drop-after');
+        }
+      },
+      { signal },
+    );
+
+    // drop — execute the row move
+    gridEl.addEventListener(
+      'drop',
+      (e: Event) => {
+        const de = e as DragEvent;
+        de.preventDefault();
+
+        const fromIndex = this.draggedRowIndex;
+        let toIndex = this.dropRowIndex;
+
+        if (!this.isDragging || fromIndex === null || toIndex === null) return;
+
+        // Adjust toIndex if dropping after the dragged row
+        if (toIndex > fromIndex) {
+          toIndex--;
+        }
+
+        if (fromIndex !== toIndex) {
+          const rows = this.sourceRows;
+          const row = rows[fromIndex];
+          const direction = toIndex < fromIndex ? 'up' : 'down';
+
+          if (!this.config.canMove || this.config.canMove(row, fromIndex, toIndex, direction)) {
+            this.executeMove(row, fromIndex, toIndex, 'drag');
+          }
+        }
+      },
+      { signal },
+    );
   }
 
   /**

@@ -141,6 +141,33 @@ describe('event-delegation', () => {
       expect(grid._focusRow).toBe(5);
       expect(grid._focusCol).toBe(5);
     });
+
+    it('should not call preventDefault on mousedown for draggable elements', () => {
+      setupCellEventDelegation(grid, bodyEl, abortController.signal);
+
+      const cell = bodyEl.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+      const handle = document.createElement('div');
+      handle.className = 'dg-row-drag-handle';
+      handle.draggable = true;
+      cell.appendChild(handle);
+
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      handle.dispatchEvent(event);
+
+      // preventDefault should NOT be called — native drag-and-drop needs it
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('should call preventDefault on mousedown for non-draggable cells', () => {
+      setupCellEventDelegation(grid, bodyEl, abortController.signal);
+
+      const cell = bodyEl.querySelector('.cell[data-row="0"][data-col="0"]') as HTMLElement;
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      cell.dispatchEvent(event);
+
+      // preventDefault SHOULD be called for normal cells
+      expect(event.defaultPrevented).toBe(true);
+    });
   });
 
   describe('event delegation efficiency', () => {

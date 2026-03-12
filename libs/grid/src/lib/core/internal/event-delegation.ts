@@ -204,11 +204,19 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
       // Skip if clicking inside an editing cell (let the editor handle it)
       if (cell.classList.contains('editing')) return;
 
+      // Skip preventDefault when clicking a draggable element (or its children).
+      // Native HTML5 drag-and-drop requires mousedown to NOT be prevented;
+      // otherwise the browser never fires dragstart.
+      const target = e.target as HTMLElement;
+      const isDraggable = target.draggable || target.closest('[draggable="true"]');
+
       // Prevent the browser from managing focus for grid cells.
       // Without this, the browser can steal focus (e.g., shift+click extends
       // a native text selection, moving activeElement to document.body).
       // We manage focus explicitly via handleCellMousedown → gridEl.focus().
-      e.preventDefault();
+      if (!isDraggable) {
+        e.preventDefault();
+      }
 
       handleCellMousedown(grid, cell);
     },

@@ -1044,37 +1044,46 @@ test.describe('Performance Regression: Resize', () => {
     await page.goto(DEMOS.vanilla);
     await waitForGridReady(page);
 
-    // Find a resize handle and simulate drag
-    const resizeHandle = page.locator('.resize-handle').first();
-    if (!(await resizeHandle.isVisible())) return;
+    // Measure resize performance entirely inside the browser to avoid
+    // Playwright CDP protocol overhead inflating frame times.
+    const avg = await page.evaluate(`
+      (async () => {
+        const handle = document.querySelector('.resize-handle');
+        if (!handle) return 0;
 
-    const handleBox = await resizeHandle.boundingBox();
-    if (!handleBox) return;
+        const rect = handle.getBoundingClientRect();
+        const startX = rect.x + rect.width / 2;
+        const startY = rect.y + rect.height / 2;
 
-    const startX = handleBox.x + handleBox.width / 2;
-    const startY = handleBox.y + handleBox.height / 2;
+        // Start drag
+        handle.dispatchEvent(new MouseEvent('mousedown', {
+          clientX: startX, clientY: startY, bubbles: true
+        }));
 
-    // Start drag
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
+        // Measure frame times during drag (synthetic mousemove events)
+        const frameTimes = [];
+        const steps = 15;
+        for (let i = 0; i < steps; i++) {
+          const x = startX + (i + 1) * 10;
+          const start = performance.now();
+          window.dispatchEvent(new MouseEvent('mousemove', {
+            clientX: x, clientY: startY, bubbles: true
+          }));
+          await new Promise(r => requestAnimationFrame(() => r()));
+          frameTimes.push(performance.now() - start);
+        }
 
-    // Measure frame times during drag
-    const dragFrameTimes: number[] = [];
-    const dragSteps = 15;
-    for (let i = 0; i < dragSteps; i++) {
-      const x = startX + (i + 1) * 10; // Move 10px per step
-      const before = Date.now();
-      await page.mouse.move(x, startY);
-      await page.waitForTimeout(16); // ~60fps target
-      dragFrameTimes.push(Date.now() - before);
-    }
+        // End drag
+        window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
 
-    await page.mouse.up();
+        return frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+      })()
+    `);
 
-    // Average frame time should stay under 65ms (~15fps minimum during resize)
-    // CI environments have higher variance, so we use a generous threshold
-    const avg = dragFrameTimes.reduce((a, b) => a + b, 0) / dragFrameTimes.length;
-    expect(avg).toBeLessThan(65);
+    if (avg === 0) return; // No resize handle found
+
+    // Average frame time should stay under 50ms (20fps minimum during resize)
+    expect(avg).toBeLessThan(50);
   });
 
   test('vanilla: container resize does not cause layout thrashing', async ({ page }) => {

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.15.1...grid-react-0.16.0) (2026-03-12)
+
+
+### Features
+
+* **grid:** add declarative features API for plugin configuration ([94fa3b4](https://github.com/OysteinAmundsen/toolbox/commit/94fa3b4fcfafb80f562d3458f369bfe9c5763b17))
+
+
+### Bug Fixes
+
+* **grid:** resolve adapter test aliases to source instead of dist ([deefc10](https://github.com/OysteinAmundsen/toolbox/commit/deefc1064d7f14364fc71b87682668fec047b236))
+
 ## [0.15.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.15.0...grid-react-0.15.1) (2026-03-11)
 
 

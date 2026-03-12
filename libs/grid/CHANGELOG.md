@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.24.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.4...grid-1.24.0) (2026-03-12)
+
+
+### Features
+
+* **grid:** add declarative features API for plugin configuration ([94fa3b4](https://github.com/OysteinAmundsen/toolbox/commit/94fa3b4fcfafb80f562d3458f369bfe9c5763b17))
+
 ## [1.23.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.3...grid-1.23.4) (2026-03-11)
 
 

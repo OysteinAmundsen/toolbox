@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.7.1...grid-vue-0.8.0) (2026-03-12)
+
+
+### Features
+
+* **grid:** add declarative features API for plugin configuration ([94fa3b4](https://github.com/OysteinAmundsen/toolbox/commit/94fa3b4fcfafb80f562d3458f369bfe9c5763b17))
+
+
+### Bug Fixes
+
+* **grid:** resolve adapter test aliases to source instead of dist ([deefc10](https://github.com/OysteinAmundsen/toolbox/commit/deefc1064d7f14364fc71b87682668fec047b236))
+
 ## [0.7.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.7.0...grid-vue-0.7.1) (2026-03-11)
 
 

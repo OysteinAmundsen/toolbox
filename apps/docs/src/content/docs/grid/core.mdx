@@ -665,6 +665,7 @@ export class RequiredLabelComponent {
   <TabItem label="React">
 ```tsx
 // In GridConfig or ColumnConfig
+// Use ctx.sortState to render your own sort indicator in JSX
 {
   field: 'email',
   header: 'Email',
@@ -672,29 +673,20 @@ export class RequiredLabelComponent {
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
       <span>📧</span>
       <span style={{ flex: 1 }}>{ctx.value}</span>
+      {ctx.sortState && (
+        <span className="sort-icon">
+          {ctx.sortState === 'asc' ? '▲' : '▼'}
+        </span>
+      )}
     </div>
   ),
-}
-
-// Note: ctx.renderSortIcon() returns a DOM element.
-// To include it in React JSX, use a ref or dangerouslySetInnerHTML,
-// or return the full DOM element from the renderer instead:
-{
-  field: 'email',
-  headerRenderer: (ctx) => {
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%';
-    wrapper.append('📧 ', ctx.value);
-    const sortIcon = ctx.renderSortIcon();
-    if (sortIcon) wrapper.appendChild(sortIcon);
-    return wrapper; // Returning DOM elements also works in React config
-  },
 }
 ```
   </TabItem>
   <TabItem label="Vue">
 ```ts
 // In GridConfig or ColumnConfig
+// Use ctx.sortState to render your own sort indicator
 {
   field: 'email',
   header: 'Email',
@@ -702,21 +694,11 @@ export class RequiredLabelComponent {
     h('div', { style: 'display:flex;align-items:center;gap:6px;width:100%' }, [
       h('span', '📧'),
       h('span', { style: 'flex:1' }, ctx.value),
+      ctx.sortState
+        ? h('span', { class: 'sort-icon' },
+            ctx.sortState === 'asc' ? '▲' : '▼')
+        : null,
     ]),
-}
-
-// Note: ctx.renderSortIcon() returns a DOM element.
-// For sort icon support, use a vanilla DOM renderer instead:
-{
-  field: 'email',
-  headerRenderer: (ctx) => {
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;align-items:center;gap:6px;width:100%';
-    wrapper.append('📧 ', ctx.value);
-    const sortIcon = ctx.renderSortIcon();
-    if (sortIcon) wrapper.appendChild(sortIcon);
-    return wrapper; // Returning DOM elements also works in Vue config
-  },
 }
 ```
   </TabItem>
@@ -757,7 +739,9 @@ The `HeaderCellContext` provides:
 |-------------------|-------------|
 | `value` | The header label text |
 | `column` | Full `ColumnConfig` object |
-| `renderSortIcon()` | Returns the sort-direction indicator element (or `null`) |
+| `sortState` | Current sort direction: `'asc'`, `'desc'`, or `null` — use for custom JSX sort indicators |
+| `filterActive` | Whether this column has an active filter |
+| `renderSortIcon()` | Returns the built-in sort indicator DOM element (or `null`) |
 | `renderFilterButton()` | Returns the filter button element (when FilteringPlugin is active) |
 
 <ShowSource file="demos/HeaderRenderersDemo.astro">

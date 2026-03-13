@@ -5,6 +5,7 @@ import type {
   ColumnEditorContext,
   HeaderCellContext,
   HeaderLabelContext,
+  LoadingContext,
 } from '@toolbox-web/grid';
 import type { Component, VNode } from 'vue';
 
@@ -170,10 +171,7 @@ export interface GridConfig<TRow = unknown> extends Omit<BaseGridConfig<TRow>, '
    * - A Vue component with a `size` prop
    * - A Vue render function `(ctx: LoadingContext) => VNode`
    */
-  loadingRenderer?:
-    | BaseGridConfig<TRow>['loadingRenderer']
-    | ((ctx: import('@toolbox-web/grid').LoadingContext) => VNode)
-    | Component;
+  loadingRenderer?: BaseGridConfig<TRow>['loadingRenderer'] | ((ctx: LoadingContext) => VNode) | Component;
 }
 
 /**

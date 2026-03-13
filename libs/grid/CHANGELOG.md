@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.24.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.0...grid-1.24.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* **docs:** fix responsive manual control demo — get plugin lazily in click handlers ([1038d67](https://github.com/OysteinAmundsen/toolbox/commit/1038d6782e2a840d1b4fb23b7b3e9b890b4dc26f))
+* **grid:** fix row reorder drag handles blocked by mousedown preventDefault ([177c075](https://github.com/OysteinAmundsen/toolbox/commit/177c0750ee9c3822caa0a9a0bd3fdd552398996c))
+* **grid:** prevent row height oscillation from mixed-height content ([24ac596](https://github.com/OysteinAmundsen/toolbox/commit/24ac596f870a64c546cf7915d563229d97ca2fe4))
+
 ## [1.24.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.23.4...grid-1.24.0) (2026-03-12)
 
 

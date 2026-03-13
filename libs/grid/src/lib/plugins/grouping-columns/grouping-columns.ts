@@ -7,7 +7,7 @@
 // Import types to enable module augmentation
 import type { ColumnConfig } from '../../core/types';
 import './types';
-import type { ColumnGroup, ColumnGroupInternal } from './types';
+import type { ColumnGroup, ColumnGroupInternal, GroupHeaderRenderParams, GroupingColumnsConfig } from './types';
 
 /**
  * Compute column groups from column configuration.
@@ -179,7 +179,11 @@ export function findEmbeddedImplicitGroups(groups: ColumnGroup[], columns: Colum
  * @param columns - The column configurations (final array including any plugin-added columns)
  * @returns The group header row element, or null if no groups
  */
-export function buildGroupHeaderRow(groups: ColumnGroup[], columns: ColumnConfig[]): HTMLElement | null {
+export function buildGroupHeaderRow(
+  groups: ColumnGroup[],
+  columns: ColumnConfig[],
+  renderer?: GroupingColumnsConfig['groupHeaderRenderer'],
+): HTMLElement | null {
   if (groups.length === 0) return null;
 
   const groupRow = document.createElement('div');
@@ -209,7 +213,28 @@ export function buildGroupHeaderRow(groups: ColumnGroup[], columns: ColumnConfig
     if (isImplicit) cell.classList.add('implicit-group');
     cell.setAttribute('data-group', gid);
     cell.style.gridColumn = `${startIndex + 1} / span ${span}`;
-    cell.textContent = label;
+
+    // Apply custom renderer for explicit groups, fall back to plain text
+    if (renderer && !isImplicit) {
+      const params: GroupHeaderRenderParams = {
+        id: gid,
+        label: String(label),
+        columns: g.columns as ColumnConfig[],
+        firstIndex: startIndex,
+        isImplicit: false,
+      };
+      const result = renderer(params);
+      if (result instanceof HTMLElement) {
+        cell.appendChild(result);
+      } else if (typeof result === 'string') {
+        cell.innerHTML = result;
+      } else {
+        cell.textContent = label;
+      }
+    } else {
+      cell.textContent = label;
+    }
+
     groupRow.appendChild(cell);
   }
 

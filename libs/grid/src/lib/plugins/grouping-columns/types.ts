@@ -68,17 +68,44 @@ export interface GroupingColumnsConfig {
   lockGroupOrder?: boolean;
 }
 
-/** Parameters passed to custom group header renderer */
+/**
+ * Parameters passed to the {@link GroupingColumnsConfig.groupHeaderRenderer | groupHeaderRenderer} callback.
+ *
+ * @example Return an HTML string with the group label and column count:
+ * ```ts
+ * groupHeaderRenderer: (params) => {
+ *   return `<strong>${params.label}</strong> (${params.columns.length} cols)`;
+ * }
+ * ```
+ *
+ * @example Return an HTMLElement for full control:
+ * ```ts
+ * groupHeaderRenderer: (params) => {
+ *   const el = document.createElement('span');
+ *   el.style.cssText = 'display: flex; align-items: center; gap: 0.4em;';
+ *   el.textContent = `${params.label} — ${params.columns.length} columns`;
+ *   return el;
+ * }
+ * ```
+ *
+ * @example Return void to keep the default label:
+ * ```ts
+ * groupHeaderRenderer: (params) => {
+ *   if (params.isImplicit) return; // keep default for implicit groups
+ *   return `<em>${params.label}</em>`;
+ * }
+ * ```
+ */
 export interface GroupHeaderRenderParams {
-  /** The group ID */
+  /** The group ID (e.g. `'personal'`, `'work'`). */
   id: string;
-  /** The group label (or id if no label) */
+  /** The group display label. Falls back to {@link id} if no label was provided. */
   label: string;
-  /** Columns in this group */
+  /** The column configurations belonging to this group. */
   columns: CoreColumnConfig[];
-  /** Starting column index */
+  /** Zero-based index of the first column in this group within the visible columns array. */
   firstIndex: number;
-  /** Whether this is an implicit (unnamed) group */
+  /** `true` for auto-generated groups that cover ungrouped columns. Always `false` when called from the renderer (implicit groups are skipped). */
   isImplicit: boolean;
 }
 

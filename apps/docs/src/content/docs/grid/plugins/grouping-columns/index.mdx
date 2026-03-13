@@ -5,7 +5,7 @@ description: "Group columns visually under shared parent headers."
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import GroupingColumnsDefaultDemo from '@components/demos/grouping-columns/GroupingColumnsDefaultDemo.astro';
-import GroupingColumnsNoBordersDemo from '@components/demos/grouping-columns/GroupingColumnsNoBordersDemo.astro';
+import GroupingColumnsCustomRendererDemo from '@components/demos/grouping-columns/GroupingColumnsCustomRendererDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -184,10 +184,12 @@ You can also use a simple string for the group (the string becomes both the id a
 
 
 
-### Without Borders
+### Custom Group Header Renderer
 
-<ShowSource file="demos/grouping-columns/GroupingColumnsNoBordersDemo.astro">
-  <GroupingColumnsNoBordersDemo />
+Use `groupHeaderRenderer` to customize the content of group header cells. The renderer receives a `GroupHeaderRenderParams` object and can return an `HTMLElement`, an HTML string, or `void` to keep the default label.
+
+<ShowSource file="demos/grouping-columns/GroupingColumnsCustomRendererDemo.astro">
+  <GroupingColumnsCustomRendererDemo />
 </ShowSource>
 
 
@@ -199,7 +201,18 @@ You can also use a simple string for the group (the string becomes both the id a
 | Option                | Type       | Default | Description                              |
 | --------------------- | ---------- | ------- | ---------------------------------------- |
 | `showGroupBorders`    | `boolean`  | `true`  | Show borders between groups              |
-| `groupHeaderRenderer` | `function` | —       | Custom renderer for group header content |
+| `groupHeaderRenderer` | `(params: GroupHeaderRenderParams) => HTMLElement \| string \| void` | —       | Custom renderer for group header content |
+| `lockGroupOrder`      | `boolean`  | `false` | Prevent columns from being reordered outside their group. Works with both header drag-and-drop and visibility panel drag-and-drop. |
+
+#### `GroupHeaderRenderParams`
+
+| Property     | Type             | Description                                  |
+| ------------ | ---------------- | -------------------------------------------- |
+| `id`         | `string`         | The group ID                                 |
+| `label`      | `string`         | The group label (or id if no label)          |
+| `columns`    | `ColumnConfig[]` | Columns in this group                        |
+| `firstIndex` | `number`         | Starting column index                        |
+| `isImplicit` | `boolean`        | Whether this is an implicit (unnamed) group  |
 
 ### Grid Config: `columnGroups`
 
@@ -237,9 +250,25 @@ plugin.refresh();
 ```
 ## Usage with Column Reordering
 
-When using `GroupingColumnsPlugin` together with `ReorderPlugin`, be aware that **column reordering does not enforce group boundaries**. Users can drag columns out of their groups, which will cause the groups to be recomputed based on the new column order.
+When using `GroupingColumnsPlugin` together with the [Reorder Columns](../reorder-columns/) plugin, column reordering does not enforce group boundaries by default. Users can drag columns out of their groups, which will cause the groups to be recomputed based on the new column order.
 
-The `column-move` event is **cancelable**, so you can prevent moves that break group boundaries:
+### Built-in: `lockGroupOrder`
+
+Set `lockGroupOrder: true` to automatically prevent columns from being moved outside their group:
+
+```ts
+grid.gridConfig = {
+  features: {
+    groupingColumns: { lockGroupOrder: true },
+  },
+};
+```
+
+This blocks moves that would break group contiguity in both header drag-and-drop and the visibility panel.
+
+### Manual: `column-move` Event
+
+For more control, the `column-move` event is **cancelable**, so you can implement custom validation:
 
 ```ts
 grid.addEventListener('column-move', (e) => {
@@ -297,5 +326,6 @@ The column grouping plugin uses these class names:
 
 ## See Also
 
-- **[Row Grouping](..//grid/plugins/grouping-rows/)** — Group rows by field values
-- **[Pinned Columns](../?path=/grid/plugins/pinned-columns/)** — Sticky columns
+- **[Row Grouping](../grouping-rows/)** — Group rows by field values
+- **[Pinned Columns](../pinned-columns/)** — Sticky columns
+- **[Reorder Columns](../reorder-columns/)** — Drag-and-drop column reordering

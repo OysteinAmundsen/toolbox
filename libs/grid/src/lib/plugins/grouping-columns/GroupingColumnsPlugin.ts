@@ -462,7 +462,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     }
 
     // Build and insert group header row
-    const groupRow = buildGroupHeaderRow(groups, finalColumns);
+    const groupRow = buildGroupHeaderRow(groups, finalColumns, this.config.groupHeaderRenderer);
     if (groupRow) {
       // Toggle border visibility class
       groupRow.classList.toggle('no-borders', !this.config.showGroupBorders);

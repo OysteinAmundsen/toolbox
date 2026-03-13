@@ -76,3 +76,128 @@ describe('GroupingColumnsPlugin with gridConfig.columnGroups', () => {
     expect(GroupingColumnsPlugin.detect([], config)).toBe(false);
   });
 });
+
+describe('GroupingColumnsPlugin groupHeaderRenderer', () => {
+  let grid: GridElement;
+
+  beforeEach(() => {
+    grid = document.createElement('tbw-grid') as GridElement;
+    document.body.appendChild(grid);
+  });
+
+  afterEach(() => {
+    grid.remove();
+  });
+
+  it('applies string renderer to group header cells', async () => {
+    grid.gridConfig = {
+      columns: [
+        { field: 'a', header: 'A', group: 'G1' },
+        { field: 'b', header: 'B', group: 'G1' },
+        { field: 'c', header: 'C', group: 'G2' },
+      ],
+      plugins: [
+        new GroupingColumnsPlugin({
+          groupHeaderRenderer: (params) => `<strong>${params.label}</strong> (${params.columns.length})`,
+        }),
+      ],
+    };
+    grid.rows = [{ a: 1, b: 2, c: 3 }];
+
+    await customElements.whenDefined('tbw-grid');
+    await grid.ready?.();
+    await nextFrame();
+
+    const cells = grid.querySelectorAll('.header-group-cell:not(.implicit-group)');
+    expect(cells.length).toBe(2);
+    expect(cells[0].innerHTML).toBe('<strong>G1</strong> (2)');
+    expect(cells[1].innerHTML).toBe('<strong>G2</strong> (1)');
+  });
+
+  it('applies HTMLElement renderer to group header cells', async () => {
+    grid.gridConfig = {
+      columns: [
+        { field: 'a', header: 'A', group: { id: 'grp', label: 'My Group' } },
+        { field: 'b', header: 'B', group: { id: 'grp', label: 'My Group' } },
+      ],
+      plugins: [
+        new GroupingColumnsPlugin({
+          groupHeaderRenderer: (params) => {
+            const el = document.createElement('span');
+            el.className = 'custom-header';
+            el.textContent = `${params.label} [${params.id}]`;
+            return el;
+          },
+        }),
+      ],
+    };
+    grid.rows = [{ a: 1, b: 2 }];
+
+    await customElements.whenDefined('tbw-grid');
+    await grid.ready?.();
+    await nextFrame();
+
+    const cell = grid.querySelector('.header-group-cell:not(.implicit-group)');
+    expect(cell).toBeDefined();
+    const span = cell!.querySelector('.custom-header');
+    expect(span).toBeDefined();
+    expect(span!.textContent).toBe('My Group [grp]');
+  });
+
+  it('keeps default label when renderer returns void', async () => {
+    grid.gridConfig = {
+      columns: [
+        { field: 'a', header: 'A', group: 'Keep' },
+        { field: 'b', header: 'B', group: 'Keep' },
+      ],
+      plugins: [
+        new GroupingColumnsPlugin({
+          groupHeaderRenderer: () => {
+            // void — keep default
+          },
+        }),
+      ],
+    };
+    grid.rows = [{ a: 1, b: 2 }];
+
+    await customElements.whenDefined('tbw-grid');
+    await grid.ready?.();
+    await nextFrame();
+
+    const cell = grid.querySelector('.header-group-cell:not(.implicit-group)');
+    expect(cell).toBeDefined();
+    expect(cell!.textContent).toBe('Keep');
+  });
+
+  it('provides correct params to the renderer', async () => {
+    const receivedParams: Array<Record<string, unknown>> = [];
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'x', header: 'X', group: { id: 'info', label: 'Info' } },
+        { field: 'y', header: 'Y', group: { id: 'info', label: 'Info' } },
+        { field: 'z', header: 'Z' },
+      ],
+      plugins: [
+        new GroupingColumnsPlugin({
+          groupHeaderRenderer: (params) => {
+            receivedParams.push({ ...params, columns: params.columns.length });
+          },
+        }),
+      ],
+    };
+    grid.rows = [{ x: 1, y: 2, z: 3 }];
+
+    await customElements.whenDefined('tbw-grid');
+    await grid.ready?.();
+    await nextFrame();
+
+    // Should only be called for explicit groups, not implicit ones
+    expect(receivedParams.length).toBe(1);
+    expect(receivedParams[0].id).toBe('info');
+    expect(receivedParams[0].label).toBe('Info');
+    expect(receivedParams[0].columns).toBe(2);
+    expect(receivedParams[0].isImplicit).toBe(false);
+    expect(typeof receivedParams[0].firstIndex).toBe('number');
+  });
+});

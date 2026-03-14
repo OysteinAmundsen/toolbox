@@ -11,9 +11,16 @@
   <tbw-grid data-demo-id="row-cell-styling" style="height: 280px; display: block;"></tbw-grid>
 </div>
 
+<style is:global>
+  .row-inactive { opacity: 0.5; }
+  .cell-success { background: #16a34a22; color: #16a34a; font-weight: 600; }
+  .cell-danger { background: #dc262622; color: #dc2626; font-weight: 600; }
+  .cell-warning { background: #d9770622; color: #d97706; font-weight: 600; }
+</style>
+
 <script>
   import '@toolbox-web/grid';
-import type { GridConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
   interface Employee {
     id: number;
@@ -23,21 +30,8 @@ import type { GridConfig } from '@toolbox-web/grid';
     department: string;
   }
 
-  const grid = document.querySelector<HTMLElement & { gridConfig: GridConfig<Employee>; rows: Employee[] }>(
-    '[data-demo-id="row-cell-styling"]'
-  );
+  const grid = queryGrid<Employee>('[data-demo-id="row-cell-styling"]');
   if (grid) {
-    // Register custom styles for the demo
-    const gridEl = grid as HTMLElement & { registerStyles: (id: string, css: string) => void };
-    gridEl.on('grid-connected', () => {
-      gridEl.registerStyles('styling-demo', `
-        .row-inactive { opacity: 0.5; }
-        .cell-success { background: #16a34a22; color: #16a34a; font-weight: 600; }
-        .cell-danger { background: #dc262622; color: #dc2626; font-weight: 600; }
-        .cell-warning { background: #d9770622; color: #d97706; font-weight: 600; }
-      `);
-    });
-
     grid.gridConfig = {
       rowClass: (row) => row.status === 'inactive' ? 'row-inactive' : '',
       columns: [

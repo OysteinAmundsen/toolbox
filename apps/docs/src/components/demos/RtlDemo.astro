@@ -15,9 +15,10 @@ import DemoControls from '@components/DemoControls.astro';
 
 <script>
   import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
   const container = document.getElementById('rtl-demo-container');
-  const grid = document.querySelector<HTMLElement & { columns: any[]; rows: any[] }>('[data-demo-id="rtl-demo"]');
+  const grid = queryGrid('[data-demo-id="rtl-demo"]');
   if (container && grid) {
     grid.columns = [
       { field: 'name', header: 'الاسم', width: 150 },

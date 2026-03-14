@@ -8,13 +8,13 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { DataGridElement } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/context-menu';
 import '@toolbox-web/grid/features/filtering';
 import '@toolbox-web/grid/features/pinned-columns';
 import '@toolbox-web/grid/features/visibility';
 
-  const grid = document.querySelector<DataGridElement>('[data-demo-id="context-menu-plugin-items"]');
+  const grid = queryGrid('[data-demo-id="context-menu-plugin-items"]');
   if (grid) {
     grid.gridConfig = {
       columns: [

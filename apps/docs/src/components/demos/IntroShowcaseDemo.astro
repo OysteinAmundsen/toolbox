@@ -9,6 +9,7 @@
 
 <script>
   import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/editing';
 import '@toolbox-web/grid/features/export';
 import '@toolbox-web/grid/features/filtering';
@@ -99,9 +100,7 @@ import '@toolbox-web/grid/features/selection';
   // #endregion
 
   // #region Grid setup
-  const grid = document.querySelector<HTMLElement & { gridConfig: unknown; rows: unknown[] }>(
-    '[data-demo-id="intro-showcase"]'
-  );
+  const grid = queryGrid('[data-demo-id="intro-showcase"]');
 
   if (grid) {
     grid.gridConfig = {

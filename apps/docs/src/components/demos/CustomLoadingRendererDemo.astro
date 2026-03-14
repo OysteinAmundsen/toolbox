@@ -11,9 +11,9 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { DataGridElement } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = document.querySelector<DataGridElement>('[data-demo-id="custom-loading-renderer"]');
+  const grid = queryGrid('[data-demo-id="custom-loading-renderer"]');
   const toggleBtn = document.querySelector<HTMLButtonElement>('[data-toggle="loading"]');
 
   if (grid) {

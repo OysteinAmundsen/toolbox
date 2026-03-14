@@ -53,7 +53,7 @@ function extractSource(content: string): string {
   // so we can recognize the `if (varName) {` guard block generically.
   let guardVar: string | null = null;
   for (const l of lines) {
-    const m = l.trim().match(/^const\s+(\w+)\s*=\s*document\.(?:getElementById|querySelector)/);
+    const m = l.trim().match(/^const\s+(\w+)\s*=\s*(?:document\.(?:getElementById|querySelector)|queryGrid)\b/);
     if (m) { guardVar = m[1]; break; }
   }
 
@@ -68,7 +68,7 @@ function extractSource(content: string): string {
     if (trimmed.startsWith('import type')) continue;
 
     // Skip container variable declaration (detected above)
-    if (guardVar && new RegExp(`^const\\s+${guardVar}\\s*=\\s*document\\.`).test(trimmed)) continue;
+    if (guardVar && new RegExp(`^const\\s+${guardVar}\\s*=\\s*(?:document\\.|queryGrid)`).test(trimmed)) continue;
 
     // Detect the `if (guardVar) {` or `if (guardVar && ...)` guard
     if (

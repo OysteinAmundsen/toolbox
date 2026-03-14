@@ -8,10 +8,10 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { DataGridElement } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/editing';
 
-  const grid = document.querySelector<DataGridElement>('[data-demo-id="editor-parameters"]');
+  const grid = queryGrid('[data-demo-id="editor-parameters"]');
   if (grid) {
     grid.gridConfig = {
       columns: [

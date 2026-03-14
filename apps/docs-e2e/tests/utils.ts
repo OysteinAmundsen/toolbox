@@ -9,7 +9,11 @@ export async function openDemo(page: Page, demoSlug: string) {
 /** Wait for tbw-grid to render rows. */
 export async function waitForGrid(page: Page, timeout = 15_000) {
   await page.waitForSelector('tbw-grid', { state: 'attached', timeout });
-  await page.waitForSelector('tbw-grid [role="row"]', { state: 'visible', timeout });
+  // Wait for either data rows or card-mode content to appear
+  await page
+    .locator('tbw-grid [role="rowgroup"]:last-of-type [role="row"], tbw-grid .card-view')
+    .first()
+    .waitFor({ state: 'visible', timeout });
   // Let the render scheduler finish
   await page.waitForTimeout(300);
 }

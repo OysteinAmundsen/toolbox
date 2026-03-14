@@ -20,6 +20,9 @@
     },
     {
       "path": "./demos/employee-management/vue"
+    },
+    {
+      "path": "./apps/docs-e2e"
     }
   ],
   "ts-node": {

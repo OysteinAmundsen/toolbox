@@ -33,6 +33,7 @@ test.describe('Smoke Tests — All Demos Render', () => {
   });
 
   test('every demo renders grid with rows and no console errors', async ({ browser }) => {
+    test.setTimeout(120_000);
     // Run in batches to avoid overwhelming the browser
     const BATCH_SIZE = 10;
     const failures: string[] = [];

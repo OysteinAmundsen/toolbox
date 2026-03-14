@@ -209,7 +209,7 @@ jobs:
           bunx wait-on http://localhost:4000 http://localhost:4300 http://localhost:4200 http://localhost:4100 --timeout 120000
 
       - name: Run E2E tests
-        run: bun nx run e2e:e2e --skip-nx-cache
+        run: bun run e2e
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v5

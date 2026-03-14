@@ -2074,6 +2074,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const hadShell = !!this.#renderRoot.querySelector('.has-shell');
     const hadToolPanel = !!this.#renderRoot.querySelector('.tbw-tool-panel');
     const accordionSectionsBefore = this.#renderRoot.querySelectorAll('.tbw-accordion-section').length;
+    const prevPosition =
+      (this.#renderRoot.querySelector('.tbw-tool-panel') as HTMLElement)?.dataset.position ?? 'right';
 
     this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
     this.#configManager.merge();
@@ -2087,12 +2089,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const nowNeedsShell = shouldRenderShellHeader(this.#effectiveConfig?.shell);
     const nowHasToolPanels = (this.#effectiveConfig?.shell?.toolPanels?.length ?? 0) > 0;
     const toolPanelCount = this.#effectiveConfig?.shell?.toolPanels?.length ?? 0;
+    const newPosition = this.#effectiveConfig?.shell?.toolPanel?.position ?? 'right';
 
-    // Full re-render needed if shell state or panel count changed
+    // Full re-render needed if shell state, panel count, or panel position changed
     const needsFullRerender =
       hadShell !== nowNeedsShell ||
       (!hadToolPanel && nowHasToolPanels) ||
-      (hadToolPanel && toolPanelCount !== accordionSectionsBefore);
+      (hadToolPanel && toolPanelCount !== accordionSectionsBefore) ||
+      (hadToolPanel && prevPosition !== newPosition);
 
     if (needsFullRerender) {
       // Prepare shell state for re-render (moves toolbar buttons back to original container)

@@ -1159,6 +1159,48 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(grid.isToolPanelOpen).toBe(true);
     expect(grid.expandedToolPanelSections).toContain('columns');
   });
+
+  it('re-renders tool panel when position changes from right to left', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'test-panel',
+      title: 'Test',
+      icon: '⚙',
+      render: () => {
+        /* noop */
+      },
+    });
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Panel should be on the right (default: panel after grid content in DOM)
+    let panel = grid.querySelector('.tbw-tool-panel');
+    expect(panel).not.toBeNull();
+    expect(panel.dataset.position).toBe('right');
+
+    // Change position to left
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } },
+    };
+    await nextFrame();
+    await nextFrame();
+
+    // Panel should now be on the left
+    panel = grid.querySelector('.tbw-tool-panel');
+    expect(panel).not.toBeNull();
+    expect(panel.dataset.position).toBe('left');
+
+    // Verify DOM order: panel should come before grid content
+    const shellBody = grid.querySelector('.tbw-shell-body');
+    const children = Array.from(shellBody.children) as HTMLElement[];
+    const panelIndex = children.findIndex((el: HTMLElement) => el.classList.contains('tbw-tool-panel'));
+    const contentIndex = children.findIndex((el: HTMLElement) => el.classList.contains('tbw-grid-content'));
+    expect(panelIndex).toBeLessThan(contentIndex);
+  });
 });
 
 describe('tbw-grid integration: selection plugin', () => {

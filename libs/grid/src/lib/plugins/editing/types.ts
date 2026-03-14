@@ -347,21 +347,21 @@ declare module '../../core/types' {
   }
 
   interface DataGridEventMap<TRow = unknown> {
-    /** Fired when a cell value is committed (cancelable). */
+    /** Fired when a cell value is committed (cancelable). @group Editing Events */
     'cell-commit': CellCommitDetail<TRow>;
-    /** Fired when a row editing session ends. */
+    /** Fired when a row editing session ends. @group Editing Events */
     'row-commit': RowCommitDetail<TRow>;
-    /** Fired when changed rows tracking is reset. */
+    /** Fired when changed rows tracking is reset. @group Editing Events */
     'changed-rows-reset': ChangedRowsResetDetail<TRow>;
-    /** Fired when a row enters edit mode (row mode only, not grid mode). */
+    /** Fired when a row enters edit mode (row mode only, not grid mode). @group Editing Events */
     'edit-open': EditOpenDetail<TRow>;
-    /** Fired synchronously before editing state is cleared. Commit callbacks are still active. */
+    /** Fired synchronously before editing state is cleared. Commit callbacks are still active. @group Editing Events */
     'before-edit-close': BeforeEditCloseDetail<TRow>;
-    /** Fired when a row leaves edit mode, whether committed or reverted (row mode only). */
+    /** Fired when a row leaves edit mode, whether committed or reverted (row mode only). @group Editing Events */
     'edit-close': EditCloseDetail<TRow>;
-    /** Fired when a row's dirty state changes (requires `dirtyTracking: true`). */
+    /** Fired when a row's dirty state changes (requires `dirtyTracking: true`). @group Editing Events */
     'dirty-change': DirtyChangeDetail<TRow>;
-    /** Fired after the render pipeline completes when new baselines were captured (requires `dirtyTracking: true`). */
+    /** Fired after the render pipeline completes when new baselines were captured (requires `dirtyTracking: true`). @group Editing Events */
     'baselines-captured': BaselinesCapturedDetail;
   }
 

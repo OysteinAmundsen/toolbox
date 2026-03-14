@@ -413,12 +413,77 @@ function genInterface(node: TypeDocNode, title: string): string {
   const example = getTag(node.comment, '@example');
   if (example) out += formatExample(example);
 
-  out += genPropertiesTable(node.children?.filter((m) => m.kind === KIND.Property) ?? []);
+  const props = node.children?.filter((m) => m.kind === KIND.Property) ?? [];
+
+  // Check if any properties have @group tags — if so, render grouped sections
+  const hasGroups = props.some((p) => getMemberGroup(p));
+  if (hasGroups) {
+    out += genGroupedPropertiesSections(props);
+  } else {
+    out += genPropertiesTable(props);
+  }
 
   // Add @see links at the end
   out += formatSeeLinks(node.comment);
 
   return out;
+}
+
+/**
+ * Render interface properties grouped by @group tag.
+ * Each group gets its own heading, table, and property details section.
+ * Ungrouped properties are placed at the end under "Other".
+ */
+function genGroupedPropertiesSections(props: TypeDocNode[]): string {
+  let out = '';
+
+  // Partition into groups
+  const grouped = new Map<string, TypeDocNode[]>();
+  const ungrouped: TypeDocNode[] = [];
+
+  for (const p of props) {
+    const group = getMemberGroup(p);
+    if (group) {
+      if (!grouped.has(group)) grouped.set(group, []);
+      grouped.get(group)!.push(p);
+    } else {
+      ungrouped.push(p);
+    }
+  }
+
+  // Render each group: heading → table → details
+  for (const [groupName, groupProps] of grouped) {
+    out += `## ${groupName}\n\n`;
+    out += genPropertiesTableInner(groupProps);
+    out += genPropertyDetailsSections(groupProps, resolveSeeLink);
+  }
+
+  // Render ungrouped properties
+  if (ungrouped.length) {
+    if (grouped.size > 0) {
+      out += `## Other Properties\n\n`;
+    } else {
+      out += `## Properties\n\n`;
+    }
+    out += genPropertiesTableInner(ungrouped);
+    out += genPropertyDetailsSections(ungrouped, resolveSeeLink);
+  }
+
+  return out;
+}
+
+/** Render just the markdown table rows for properties (no ## heading). */
+function genPropertiesTableInner(props: TypeDocNode[]): string {
+  if (!props.length) return '';
+  let out = `| Property | Type | Description |\n| -------- | ---- | ----------- |\n`;
+  for (const p of props) {
+    const type = formatTypeWithLinks(p.type);
+    const desc = getFirstParagraph(p.comment);
+    const opt = p.flags?.isOptional ? '?' : '';
+    const dep = isDeprecated(p.comment) ? '⚠️ ' : '';
+    out += `| \`${p.name}${opt}\` | ${type} | ${dep}${escape(desc)} |\n`;
+  }
+  return out + '\n';
 }
 
 function genTypeAlias(node: TypeDocNode, title: string): string {

@@ -3455,6 +3455,7 @@ export interface DataGridEventMap<TRow = unknown> {
    * ```
    *
    * @see {@link CellClickDetail}
+   * @group Core Events
    */
   'cell-click': CellClickDetail<TRow>;
 
@@ -3474,6 +3475,7 @@ export interface DataGridEventMap<TRow = unknown> {
    * ```
    *
    * @see {@link RowClickDetail}
+   * @group Core Events
    */
   'row-click': RowClickDetail<TRow>;
 
@@ -3501,6 +3503,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @see {@link CellActivateDetail}
    * @see {@link CellActivateTrigger}
+   * @group Core Events
    */
   'cell-activate': CellActivateDetail<TRow>;
 
@@ -3526,6 +3529,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @see {@link CellChangeDetail}
    * @see {@link UpdateSource}
+   * @group Core Events
    */
   'cell-change': CellChangeDetail<TRow>;
 
@@ -3543,6 +3547,7 @@ export interface DataGridEventMap<TRow = unknown> {
    * ```
    *
    * @see {@link DataChangeDetail}
+   * @group Core Events
    */
   'data-change': DataChangeDetail;
 
@@ -3564,6 +3569,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @see {@link ExternalMountViewDetail}
    * @see {@link FrameworkAdapter}
+   * @group Framework Adapter Events
    */
   'mount-external-view': ExternalMountViewDetail<TRow>;
 
@@ -3587,6 +3593,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @see {@link ExternalMountEditorDetail}
    * @see {@link FrameworkAdapter}
+   * @group Framework Adapter Events
    */
   'mount-external-editor': ExternalMountEditorDetail<TRow>;
 
@@ -3611,6 +3618,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @see {@link SortChangeDetail}
    * @see {@link SortHandler}
+   * @group Core Events
    */
   'sort-change': SortChangeDetail;
 
@@ -3632,12 +3640,14 @@ export interface DataGridEventMap<TRow = unknown> {
    * ```
    *
    * @see {@link ColumnResizeDetail}
+   * @group Core Events
    */
   'column-resize': ColumnResizeDetail;
 
   /**
    * @deprecated Use `cell-activate` instead. Will be removed in the next major version.
    * @see {@link ActivateCellDetail}
+   * @group Core Events
    */
   'activate-cell': ActivateCellDetail;
 
@@ -3661,6 +3671,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @see {@link GridColumnState}
    * @see {@link ColumnState}
+   * @group Core Events
    */
   'column-state-change': GridColumnState;
 

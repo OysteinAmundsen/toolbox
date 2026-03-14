@@ -127,16 +127,18 @@ Four events support `preventDefault()` to reject the action:
 ## Core Events
 
 These events are always available — no plugins required.
+See the [`DataGridEventMap`](/grid/api/core/interfaces/datagrideventmap/) reference for full descriptions, payload types, and code examples for each core event.
 
-| Event | Detail Type | Description |
-|-------|------------|-------------|
-| `cell-click` | [`CellClickDetail<TRow>`](/grid/api/core/interfaces/cellclickdetail/) | User clicks a cell. Provides row data, cell position, and original mouse event. |
-| `cell-activate` | [`CellActivateDetail<TRow>`](/grid/api/core/interfaces/cellactivatedetail/) | Cell activated via keyboard (Enter) or pointer. Includes trigger type. |
-| `cell-change` | [`CellChangeDetail<TRow>`](/grid/api/core/interfaces/cellchangedetail/) | Data mutation on a cell. Includes old/new values, field name, and all changed rows. |
-| `row-click` | [`RowClickDetail<TRow>`](/grid/api/core/interfaces/rowclickdetail/) | User clicks a row. Provides row data, index, and original mouse event. |
-| `sort-change` | [`SortChangeDetail`](/grid/api/core/interfaces/sortchangedetail/) | Column sort order changes. Direction: `1` (asc), `-1` (desc), `0` (cleared). |
-| `column-resize` | [`ColumnResizeDetail`](/grid/api/core/interfaces/columnresizedetail/) | User finishes resizing a column. Provides field name and new width. |
-| `column-state-change` | [`GridColumnState`](/grid/api/core/interfaces/gridcolumnstate/) | Column visibility, width, or order changes. Complete state snapshot. |
+| Event | Detail Type |
+|-------|------------|
+| `cell-click` | [`CellClickDetail<TRow>`](/grid/api/core/interfaces/cellclickdetail/) |
+| `cell-activate` | [`CellActivateDetail<TRow>`](/grid/api/core/interfaces/cellactivatedetail/) |
+| `cell-change` | [`CellChangeDetail<TRow>`](/grid/api/core/interfaces/cellchangedetail/) |
+| `data-change` | [`DataChangeDetail`](/grid/api/core/interfaces/datachangedetail/) |
+| `row-click` | [`RowClickDetail<TRow>`](/grid/api/core/interfaces/rowclickdetail/) |
+| `sort-change` | [`SortChangeDetail`](/grid/api/core/interfaces/sortchangedetail/) |
+| `column-resize` | [`ColumnResizeDetail`](/grid/api/core/interfaces/columnresizedetail/) |
+| `column-state-change` | [`GridColumnState`](/grid/api/core/interfaces/gridcolumnstate/) |
 
 :::note
 `activate-cell` is deprecated — use `cell-activate` instead.

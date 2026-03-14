@@ -18,6 +18,7 @@
     "@deprecated",
     "@example",
     "@fires",
+    "@group",
     "@internal",
     "@param",
     "@remarks",

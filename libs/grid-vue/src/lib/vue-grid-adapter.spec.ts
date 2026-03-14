@@ -4,6 +4,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defineComponent, h, type VNode } from 'vue';
 
+import { detailRegistry } from './detail-panel-registry';
+import { cardRegistry } from './responsive-card-registry';
 import {
   clearFieldRegistries,
   getColumnEditor,
@@ -562,6 +564,508 @@ describe('VueGridAdapter', () => {
 
       const result = adapter.parseResponsiveCardElement(cardElement);
       expect(result).toBeUndefined();
+    });
+  });
+
+  // #endregion
+
+  // #region createRenderer / createEditor
+
+  describe('createRenderer', () => {
+    beforeEach(() => {
+      clearFieldRegistries();
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should return undefined-ish when no renderer is registered', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'noRenderer');
+
+      const renderer = adapter.createRenderer(element);
+      // No renderer registered, returns undefined cast
+      expect(renderer).toBeFalsy();
+    });
+
+    it('should return a function when renderer is registered', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'hasRenderer');
+
+      registerColumnRenderer(element, () => h('span', 'hello'));
+
+      const renderer = adapter.createRenderer(element);
+      expect(typeof renderer).toBe('function');
+    });
+
+    it('should render Vue content into a container element', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'rendered');
+
+      registerColumnRenderer(element, (ctx: any) => h('span', String(ctx.value)));
+
+      const renderer = adapter.createRenderer(element);
+      const ctx = { value: 'test-value', row: {}, column: { field: 'rendered' } };
+      const container = (renderer as Function)(ctx);
+
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-cell-renderer');
+    });
+
+    it('should use cell caching when cellEl is provided', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'cached');
+
+      registerColumnRenderer(element, (ctx: any) => h('span', String(ctx.value)));
+
+      const renderer = adapter.createRenderer(element);
+      const cellEl = document.createElement('div');
+      const ctx1 = { value: 'first', row: {}, column: { field: 'cached' }, cellEl };
+      const container1 = (renderer as Function)(ctx1);
+
+      // Second call with same cellEl should return cached container
+      const ctx2 = { value: 'second', row: {}, column: { field: 'cached' }, cellEl };
+      const container2 = (renderer as Function)(ctx2);
+
+      expect(container2).toBe(container1);
+    });
+  });
+
+  describe('createEditor', () => {
+    beforeEach(() => {
+      clearFieldRegistries();
+    });
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should return undefined-ish when no editor is registered', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'noEditor');
+
+      const editor = adapter.createEditor(element);
+      expect(editor).toBeFalsy();
+    });
+
+    it('should return a function when editor is registered', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'hasEditor');
+
+      registerColumnEditor(element, () => h('input'));
+
+      const editor = adapter.createEditor(element);
+      expect(typeof editor).toBe('function');
+    });
+
+    it('should render Vue editor into a container element', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'editField');
+
+      registerColumnEditor(element, () => h('input', { type: 'text' }));
+
+      const editor = adapter.createEditor(element);
+      const ctx = { value: 'edit-me', row: {}, column: { field: 'editField' } };
+      const container = (editor as Function)(ctx);
+
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-cell-editor');
+    });
+  });
+
+  // #endregion
+
+  // #region cleanup / unmount / releaseCell
+
+  describe('cleanup with mounted views', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should unmount all mounted renderer views', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'cleanupTest');
+
+      registerColumnRenderer(element, () => h('span', 'rendered'));
+
+      const renderer = adapter.createRenderer(element);
+      // Create a view without cellEl so it goes into mountedViews
+      const ctx = { value: 'val', row: {}, column: { field: 'cleanupTest' } };
+      (renderer as Function)(ctx);
+
+      // Cleanup should not throw and should clear internal state
+      expect(() => adapter.cleanup()).not.toThrow();
+
+      // Call again to verify it's safe after cleanup
+      expect(() => adapter.cleanup()).not.toThrow();
+    });
+
+    it('should unmount all editor views', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'cleanupEditor');
+
+      registerColumnEditor(element, () => h('input'));
+
+      const editor = adapter.createEditor(element);
+      const ctx = { value: 'val', row: {}, column: { field: 'cleanupEditor' } };
+      (editor as Function)(ctx);
+
+      expect(() => adapter.cleanup()).not.toThrow();
+    });
+  });
+
+  describe('unmount', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should unmount a specific container', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'unmountTest');
+
+      registerColumnRenderer(element, () => h('span', 'content'));
+
+      const renderer = adapter.createRenderer(element);
+      const ctx = { value: 'val', row: {}, column: { field: 'unmountTest' } };
+      const container = (renderer as Function)(ctx);
+
+      // Should not throw
+      expect(() => adapter.unmount(container)).not.toThrow();
+    });
+
+    it('should not throw for unknown container', () => {
+      const adapter = new GridAdapter();
+      const unknownContainer = document.createElement('div');
+
+      expect(() => adapter.unmount(unknownContainer)).not.toThrow();
+    });
+  });
+
+  describe('releaseCell', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should release editor views inside a cell element', () => {
+      const adapter = new GridAdapter();
+      const element = document.createElement('tbw-grid-column');
+      element.setAttribute('field', 'releaseTest');
+
+      registerColumnEditor(element, () => h('input'));
+
+      const editor = adapter.createEditor(element);
+      const ctx = { value: 'val', row: {}, column: { field: 'releaseTest' } };
+      const editorContainer = (editor as Function)(ctx);
+
+      // Simulate cell containing the editor
+      const cellEl = document.createElement('div');
+      cellEl.appendChild(editorContainer);
+
+      expect(() => adapter.releaseCell(cellEl)).not.toThrow();
+    });
+
+    it('should not throw for cell with no editors', () => {
+      const adapter = new GridAdapter();
+      const cellEl = document.createElement('div');
+
+      expect(() => adapter.releaseCell(cellEl)).not.toThrow();
+    });
+  });
+
+  // #endregion
+
+  // #region processGridConfig (header/loading renderers)
+
+  describe('processGridConfig - headerRenderer', () => {
+    it('should wrap Vue component headerRenderer', () => {
+      const adapter = new GridAdapter();
+      const HeaderComp = defineComponent({
+        setup() {
+          return () => h('div', 'header');
+        },
+      });
+      const config = {
+        columns: [{ field: 'name', headerRenderer: HeaderComp }],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].headerRenderer).toBeDefined();
+      expect(result.columns![0].headerRenderer).not.toBe(HeaderComp);
+    });
+
+    it('should wrap VNode-returning headerRenderer function', () => {
+      const adapter = new GridAdapter();
+      const headerFn = (_ctx: any) => h('div', 'header');
+      const config = {
+        columns: [{ field: 'name', headerRenderer: headerFn }],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].headerRenderer).toBeDefined();
+      expect(result.columns![0].headerRenderer).not.toBe(headerFn);
+    });
+
+    it('should wrap Vue component headerLabelRenderer', () => {
+      const adapter = new GridAdapter();
+      const LabelComp = defineComponent({
+        setup() {
+          return () => h('span', 'label');
+        },
+      });
+      const config = {
+        columns: [{ field: 'name', headerLabelRenderer: LabelComp }],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].headerLabelRenderer).toBeDefined();
+      expect(result.columns![0].headerLabelRenderer).not.toBe(LabelComp);
+    });
+
+    it('should wrap VNode-returning headerLabelRenderer function', () => {
+      const adapter = new GridAdapter();
+      const labelFn = (_ctx: any) => h('span', 'label');
+      const config = {
+        columns: [{ field: 'name', headerLabelRenderer: labelFn }],
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.columns![0].headerLabelRenderer).toBeDefined();
+      expect(result.columns![0].headerLabelRenderer).not.toBe(labelFn);
+    });
+  });
+
+  describe('processGridConfig - loadingRenderer', () => {
+    it('should wrap Vue component loadingRenderer', () => {
+      const adapter = new GridAdapter();
+      const LoadingComp = defineComponent({
+        setup() {
+          return () => h('div', 'loading...');
+        },
+      });
+      const config = {
+        columns: [{ field: 'name' }],
+        loadingRenderer: LoadingComp,
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.loadingRenderer).toBeDefined();
+      expect(result.loadingRenderer).not.toBe(LoadingComp);
+    });
+
+    it('should wrap VNode-returning loadingRenderer function', () => {
+      const adapter = new GridAdapter();
+      const loadingFn = (_ctx: any) => h('div', 'loading...');
+      const config = {
+        columns: [{ field: 'name' }],
+        loadingRenderer: loadingFn,
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.loadingRenderer).toBeDefined();
+      expect(result.loadingRenderer).not.toBe(loadingFn);
+    });
+  });
+
+  // #endregion
+
+  // #region getTypeDefault with execution
+
+  describe('getTypeDefault - renderer/editor invocation', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should return type default with working renderer function', () => {
+      const adapter = new GridAdapter();
+      adapter.setTypeDefaults({
+        country: { renderer: (ctx: any) => h('span', `Flag: ${ctx.value}`) },
+      });
+
+      const result = adapter.getTypeDefault('country');
+      expect(result).toBeDefined();
+      expect(result?.renderer).toBeDefined();
+
+      // Actually invoke the renderer
+      const ctx = { value: 'US', row: {}, column: { field: 'country' } };
+      const container = (result!.renderer as Function)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+    });
+
+    it('should return type default with working editor function', () => {
+      const adapter = new GridAdapter();
+      adapter.setTypeDefaults({
+        status: { editor: (_ctx: any) => h('select', [h('option', 'Active'), h('option', 'Inactive')]) },
+      });
+
+      const result = adapter.getTypeDefault('status');
+      expect(result).toBeDefined();
+      expect(result?.editor).toBeDefined();
+
+      // Actually invoke the editor
+      const ctx = { value: 'Active', row: {}, column: { field: 'status' } };
+      const container = (result!.editor as Function)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+    });
+
+    it('should return type default with filterPanelRenderer', () => {
+      const adapter = new GridAdapter();
+      adapter.setTypeDefaults({
+        custom: { filterPanelRenderer: (_params: any) => h('div', 'filter panel') },
+      });
+
+      const result = adapter.getTypeDefault('custom');
+      expect(result).toBeDefined();
+      expect(result?.filterPanelRenderer).toBeDefined();
+
+      // Actually invoke the filter panel renderer
+      const container = document.createElement('div');
+      const params = { column: { field: 'custom' }, currentFilter: null };
+      (result!.filterPanelRenderer as Function)(container, params);
+      expect(container.children.length).toBeGreaterThan(0);
+    });
+  });
+
+  // #endregion
+
+  // #region processGridConfig - typeDefaults processing
+
+  describe('processGridConfig - typeDefaults', () => {
+    it('should process typeDefaults with Vue component editor', () => {
+      const adapter = new GridAdapter();
+      const EditorComp = defineComponent({
+        setup() {
+          return () => h('input');
+        },
+      });
+      const config = {
+        columns: [{ field: 'name' }],
+        typeDefaults: {
+          custom: { editor: EditorComp },
+        },
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.typeDefaults).toBeDefined();
+      expect(result.typeDefaults!['custom'].editor).toBeDefined();
+    });
+
+    it('should process typeDefaults with filterPanelRenderer', () => {
+      const adapter = new GridAdapter();
+      const filterFn = (_params: any) => h('div', 'filter');
+      const config = {
+        columns: [{ field: 'name' }],
+        typeDefaults: {
+          custom: { filterPanelRenderer: filterFn },
+        },
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.typeDefaults).toBeDefined();
+      expect(result.typeDefaults!['custom'].filterPanelRenderer).toBeDefined();
+    });
+
+    it('should preserve editorParams in typeDefaults', () => {
+      const adapter = new GridAdapter();
+      const config = {
+        columns: [{ field: 'name' }],
+        typeDefaults: {
+          custom: { editorParams: { options: ['A', 'B'] } },
+        },
+      };
+      const result = adapter.processGridConfig(config);
+      expect(result.typeDefaults!['custom'].editorParams).toEqual({ options: ['A', 'B'] });
+    });
+  });
+
+  // #endregion
+
+  // #region parseDetailElement / parseResponsiveCardElement with registered renderers
+
+  describe('parseDetailElement with registered renderer', () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return renderer function when detail renderer is registered', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const detailElement = document.createElement('tbw-grid-detail');
+      gridElement.appendChild(detailElement);
+      container.appendChild(gridElement);
+
+      // Register a detail renderer
+      detailRegistry.set(detailElement, (ctx: any) => [h('div', `Row: ${ctx.rowIndex}`)]);
+
+      const result = adapter.parseDetailElement(detailElement);
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('function');
+    });
+
+    it('should produce a container with rendered content', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const detailElement = document.createElement('tbw-grid-detail');
+      gridElement.appendChild(detailElement);
+      container.appendChild(gridElement);
+
+      detailRegistry.set(detailElement, (_ctx: any) => [h('div', 'detail content')]);
+
+      const renderFn = adapter.parseDetailElement(detailElement)!;
+      const result = renderFn({ id: 1 }, 0);
+      expect(result).toBeInstanceOf(HTMLElement);
+      expect(result.className).toBe('vue-detail-panel');
+    });
+  });
+
+  describe('parseResponsiveCardElement with registered renderer', () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return renderer function when card renderer is registered', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const cardElement = document.createElement('tbw-grid-responsive-card');
+      gridElement.appendChild(cardElement);
+      container.appendChild(gridElement);
+
+      cardRegistry.set(cardElement, (_ctx: any) => [h('div', 'card')]);
+
+      const result = adapter.parseResponsiveCardElement(cardElement);
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('function');
+    });
+
+    it('should produce a container with card content', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const cardElement = document.createElement('tbw-grid-responsive-card');
+      gridElement.appendChild(cardElement);
+      container.appendChild(gridElement);
+
+      cardRegistry.set(cardElement, (_ctx: any) => [h('div', 'card content')]);
+
+      const renderFn = adapter.parseResponsiveCardElement(cardElement)!;
+      const result = renderFn({ id: 1 }, 0);
+      expect(result).toBeInstanceOf(HTMLElement);
+      expect(result.className).toBe('vue-responsive-card');
     });
   });
 

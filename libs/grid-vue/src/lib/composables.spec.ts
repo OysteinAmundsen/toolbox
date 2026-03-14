@@ -7,8 +7,11 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
+import { createApp, defineComponent, h, provide, ref, type Ref } from 'vue';
 import { GRID_ELEMENT_KEY, useGrid } from './use-grid';
 import { useGridEvent } from './use-grid-event';
+
+type MockGrid = Record<string, unknown>;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USE GRID TESTS
@@ -79,6 +82,97 @@ describe('use-grid', () => {
       expect(typeof GRID_ELEMENT_KEY).toBe('symbol');
     });
   });
+
+  describe('useGrid delegation with mock grid', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    function mountWithGrid(mockGrid: Record<string, unknown>) {
+      let result!: ReturnType<typeof useGrid>;
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const app = createApp(
+        defineComponent({
+          setup() {
+            provide(GRID_ELEMENT_KEY, ref(mockGrid));
+            const Child = defineComponent({
+              setup() {
+                result = useGrid();
+                return () => h('div');
+              },
+            });
+            return () => h(Child);
+          },
+        }),
+      );
+      app.mount(container);
+      return { result, app, container };
+    }
+
+    it('should delegate forceLayout to grid element', async () => {
+      const forceLayout = vi.fn().mockResolvedValue(undefined);
+      const { result, app, container } = mountWithGrid({ forceLayout });
+
+      await result.forceLayout();
+      expect(forceLayout).toHaveBeenCalled();
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should delegate getConfig to grid element', () => {
+      const mockConfig = { columns: [{ field: 'a' }] };
+      const getConfig = vi.fn().mockReturnValue(mockConfig);
+      const { result, app, container } = mountWithGrid({ getConfig });
+
+      const config = result.getConfig();
+      expect(getConfig).toHaveBeenCalled();
+      expect(config).toBe(mockConfig);
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should delegate ready to grid element', async () => {
+      const ready = vi.fn().mockResolvedValue(undefined);
+      const { result, app, container } = mountWithGrid({ ready });
+
+      await result.ready();
+      expect(ready).toHaveBeenCalled();
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should delegate getPlugin to grid element', () => {
+      class FakePlugin {}
+      const instance = new FakePlugin();
+      const getPlugin = vi.fn().mockReturnValue(instance);
+      const { result, app, container } = mountWithGrid({ getPlugin });
+
+      const plugin = result.getPlugin(FakePlugin);
+      expect(getPlugin).toHaveBeenCalledWith(FakePlugin);
+      expect(plugin).toBe(instance);
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should delegate getPluginByName to grid element', () => {
+      const mockPlugin = { name: 'selection' };
+      const getPluginByName = vi.fn().mockReturnValue(mockPlugin);
+      const { result, app, container } = mountWithGrid({ getPluginByName });
+
+      const plugin = result.getPluginByName('selection' as any);
+      expect(getPluginByName).toHaveBeenCalledWith('selection');
+      expect(plugin).toBe(mockPlugin);
+
+      app.unmount();
+      container.remove();
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -129,6 +223,72 @@ describe('use-grid-event', () => {
       expect(() => {
         useGridEvent('cell-click', handler);
       }).not.toThrow();
+    });
+  });
+
+  describe('useGridEvent lifecycle', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should subscribe to grid event on mount and cleanup on unmount', () => {
+      const handler = vi.fn();
+      const cleanup = vi.fn();
+      const mockOn = vi.fn().mockReturnValue(cleanup);
+      const mockGrid = { on: mockOn };
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const app = createApp(
+        defineComponent({
+          setup() {
+            provide(GRID_ELEMENT_KEY, ref(mockGrid));
+            const Child = defineComponent({
+              setup() {
+                useGridEvent('cell-click', handler);
+                return () => h('div');
+              },
+            });
+            return () => h(Child);
+          },
+        }),
+      );
+
+      app.mount(container);
+      // After mount, on() should have been called
+      expect(mockOn).toHaveBeenCalledWith('cell-click', expect.any(Function));
+
+      // Unmount triggers cleanup
+      app.unmount();
+      expect(cleanup).toHaveBeenCalled();
+
+      container.remove();
+    });
+
+    it('should use provided gridElement ref when given', () => {
+      const handler = vi.fn();
+      const cleanup = vi.fn();
+      const mockOn = vi.fn().mockReturnValue(cleanup);
+      const gridRef = ref({ on: mockOn }) as Ref<any>;
+
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const app = createApp(
+        defineComponent({
+          setup() {
+            useGridEvent('selection-change', handler, gridRef);
+            return () => h('div');
+          },
+        }),
+      );
+
+      app.mount(container);
+      expect(mockOn).toHaveBeenCalledWith('selection-change', expect.any(Function));
+
+      app.unmount();
+      container.remove();
     });
   });
 });

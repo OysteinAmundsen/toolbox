@@ -1,5 +1,7 @@
 /**
- * Tests for ReactGridAdapter registration and lookup
+ * Tests for ReactGridAdapter registration and lookup.
+ *
+ * @vitest-environment happy-dom
  */
 import type { CellRenderContext, ColumnEditorContext } from '@toolbox-web/grid';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +11,7 @@ import {
   getColumnEditor,
   getColumnRenderer,
   getRegisteredFields,
+  GridAdapter,
   ReactGridAdapter,
   registerColumnEditor,
   registerColumnRenderer,
@@ -350,5 +353,141 @@ describe('ReactGridAdapter', () => {
         expect(() => adapter.unmount(unknownContainer)).not.toThrow();
       });
     });
+
+    // #region setTypeDefaults / getTypeDefault
+
+    describe('setTypeDefaults / getTypeDefault', () => {
+      it('should return undefined when no type defaults are set', () => {
+        expect(adapter.getTypeDefault('country')).toBeUndefined();
+      });
+
+      it('should return undefined for unknown type', () => {
+        adapter.setTypeDefaults({ country: { renderer: () => null } });
+        expect(adapter.getTypeDefault('nonexistent')).toBeUndefined();
+      });
+
+      it('should return editorParams from type default', () => {
+        adapter.setTypeDefaults({
+          status: { editorParams: { options: ['active', 'inactive'] } },
+        });
+
+        const td = adapter.getTypeDefault('status');
+        expect(td).toBeDefined();
+        expect(td!.editorParams).toEqual({ options: ['active', 'inactive'] });
+      });
+
+      it('should wrap renderer into DOM-returning function', () => {
+        adapter.setTypeDefaults({
+          country: { renderer: (ctx) => `Flag: ${ctx.value}` as any },
+        });
+
+        const td = adapter.getTypeDefault('country');
+        expect(td!.renderer).toBeDefined();
+
+        const result = td!.renderer!({
+          value: 'US',
+          row: {},
+          column: {} as any,
+          field: 'country',
+        } as any);
+
+        // Should return an HTMLElement container
+        expect(result).toBeInstanceOf(HTMLElement);
+      });
+
+      it('should wrap editor into DOM-returning function', () => {
+        adapter.setTypeDefaults({
+          status: {
+            editor: (ctx) => `Edit: ${ctx.value}` as any,
+          },
+        });
+
+        const td = adapter.getTypeDefault('status');
+        expect(td!.editor).toBeDefined();
+
+        const result = (td!.editor as Function)({
+          value: 'active',
+          row: {},
+          column: {} as any,
+          field: 'status',
+          commit: () => {},
+          cancel: () => {},
+        });
+
+        expect(result).toBeInstanceOf(HTMLElement);
+      });
+
+      it('should wrap filterPanelRenderer when provided', () => {
+        adapter.setTypeDefaults({
+          date: {
+            filterPanelRenderer: (params) => `Filter: ${params.field}` as any,
+          },
+        });
+
+        const td = adapter.getTypeDefault('date');
+        expect(td!.filterPanelRenderer).toBeDefined();
+
+        // Call the filter panel renderer
+        const container = document.createElement('div');
+        td!.filterPanelRenderer!(container, { field: 'date' } as any);
+
+        expect(container.children.length).toBe(1);
+      });
+
+      it('should reset type defaults with null', () => {
+        adapter.setTypeDefaults({ country: { renderer: () => null as any } });
+        expect(adapter.getTypeDefault('country')).toBeDefined();
+
+        adapter.setTypeDefaults(null);
+        expect(adapter.getTypeDefault('country')).toBeUndefined();
+      });
+    });
+
+    // #endregion
+
+    // #region releaseCell
+
+    describe('releaseCell', () => {
+      it('should unmount editor roots inside the cell', () => {
+        const element = document.createElement('tbw-grid-column');
+        element.setAttribute('field', 'releaseCellTest');
+
+        registerColumnEditor(element, () => 'editor content');
+
+        const editorFn = adapter.createEditor(element);
+        const editorContainer = editorFn({
+          value: 'test',
+          row: {},
+          column: {} as any,
+          field: 'releaseCellTest',
+          commit: () => {},
+          cancel: () => {},
+        } as any);
+
+        // Simulate cell containing the editor
+        const cellEl = document.createElement('td');
+        cellEl.appendChild(editorContainer);
+
+        // Should not throw
+        expect(() => adapter.releaseCell(cellEl)).not.toThrow();
+      });
+
+      it('should not throw when cell has no tracked editors', () => {
+        const cellEl = document.createElement('td');
+        expect(() => adapter.releaseCell(cellEl)).not.toThrow();
+      });
+    });
+
+    // #endregion
+
+    // #region ReactGridAdapter alias
+
+    describe('ReactGridAdapter alias', () => {
+      it('should be the same as GridAdapter', () => {
+        expect(ReactGridAdapter).toBe(GridAdapter);
+      });
+    });
+
+    // #endregion
   });
 });

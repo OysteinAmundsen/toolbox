@@ -1110,8 +1110,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Similarly clear plugin-contributed header contents
-    // Header contents don't have a light DOM tracking set, so clear all and re-collect
+    // Preserve API-registered header contents (tracked in apiHeaderContentIds).
     for (const contentId of this.#shellState.headerContents.keys()) {
+      if (this.#shellState.apiHeaderContentIds.has(contentId)) continue;
       const cleanup = this.#shellState.headerContentCleanups.get(contentId);
       if (cleanup) {
         cleanup();
@@ -3938,6 +3939,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   registerHeaderContent(content: HeaderContentDefinition): void {
+    this.#shellState.apiHeaderContentIds.add(content.id);
     this.#shellController.registerHeaderContent(content);
   }
 
@@ -3953,6 +3955,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   unregisterHeaderContent(contentId: string): void {
+    this.#shellState.apiHeaderContentIds.delete(contentId);
     this.#shellController.unregisterHeaderContent(contentId);
   }
 

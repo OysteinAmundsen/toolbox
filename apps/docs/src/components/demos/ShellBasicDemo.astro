@@ -19,19 +19,12 @@ import DemoControls from '@components/DemoControls.astro';
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig, GridConfig, HeaderContentDefinition, ShellConfig, ToolPanelDefinition } from '@toolbox-web/grid';
+import type { ColumnConfig, ShellConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/visibility';
 
   const container = document.getElementById('shell-basic-demo-container');
-  const grid = document.querySelector<HTMLElement & {
-    columns: ColumnConfig[];
-    rows: Record<string, unknown>[];
-    gridConfig: GridConfig;
-    registerHeaderContent: (def: HeaderContentDefinition) => void;
-    registerToolPanel: (panel: ToolPanelDefinition) => void;
-    openToolPanel: (id: string) => void;
-    closeToolPanel: () => void;
-  }>('[data-demo-id="shell-basic"]');
+  const grid = queryGrid('[data-demo-id="shell-basic"]');
 
   if (container && grid) {
     const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];
@@ -64,8 +57,6 @@ import '@toolbox-web/grid/features/visibility';
       panelPosition: string;
     }
 
-    // Create toolbar button container once (reused across rebuilds)
-    let toolButtons: HTMLElement | null = null;
 
     function rebuild(v: ShellValues) {
       const shellConfig: ShellConfig = {
@@ -88,11 +79,13 @@ import '@toolbox-web/grid/features/visibility';
           render: (el) => {
             const span = document.createElement('span');
             span.style.cssText = 'font-size:13px;color:var(--sl-color-gray-3);padding:4px 8px;background:var(--sl-color-gray-6);border-radius:4px;';
-            span.textContent = `${grid.rows.length} rows`;
+            span.textContent = `${grid.sourceRows.length} rows`;
             el.appendChild(span);
             return () => span.remove();
           },
         });
+      } else {
+        grid.unregisterHeaderContent('row-count');
       }
 
       if (v.showCustomPanel) {
@@ -105,19 +98,26 @@ import '@toolbox-web/grid/features/visibility';
             return () => { el.innerHTML = ''; };
           },
         });
+      } else {
+        grid.unregisterToolPanel('custom-info');
       }
 
-      // Toolbar button via light DOM — create once and toggle visibility
-      if (v.showToolbarButton && !toolButtons) {
-        toolButtons = document.createElement('tbw-grid-tool-buttons');
-        const refreshBtn = document.createElement('button');
-        refreshBtn.className = 'tbw-toolbar-btn';
-        refreshBtn.title = 'Refresh Data';
-        refreshBtn.setAttribute('aria-label', 'Refresh Data');
-        refreshBtn.textContent = '↻';
-        refreshBtn.addEventListener('click', () => { grid.rows = generateRows(20); });
-        toolButtons.appendChild(refreshBtn);
-        grid.appendChild(toolButtons);
+      if (v.showToolbarButton) {
+        grid.registerToolbarContent({
+          id: 'refresh-btn',
+          render: (el) => {
+            const btn = document.createElement('button');
+            btn.className = 'tbw-toolbar-btn';
+            btn.title = 'Refresh Data';
+            btn.setAttribute('aria-label', 'Refresh Data');
+            btn.textContent = '↻';
+            btn.addEventListener('click', () => { grid.rows = generateRows(20); });
+            el.appendChild(btn);
+            return () => btn.remove();
+          },
+        });
+      } else {
+        grid.unregisterToolbarContent('refresh-btn');
       }
     }
 

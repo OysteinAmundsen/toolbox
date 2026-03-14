@@ -54,6 +54,8 @@ export interface ShellState {
   lightDomToolbarContentIds: Set<string>;
   /** IDs of tool panels registered via registerToolPanel API */
   apiToolPanelIds: Set<string>;
+  /** IDs of header content registered via registerHeaderContent API */
+  apiHeaderContentIds: Set<string>;
   /** Whether the tool panel sidebar is open */
   isPanelOpen: boolean;
   /** Which accordion sections are expanded (by panel ID) */
@@ -123,6 +125,7 @@ export function createShellState(): ShellState {
     lightDomToolPanelIds: new Set(),
     lightDomToolbarContentIds: new Set(),
     apiToolPanelIds: new Set(),
+    apiHeaderContentIds: new Set(),
     isPanelOpen: false,
     expandedSections: new Set(),
     headerContentCleanups: new Map(),

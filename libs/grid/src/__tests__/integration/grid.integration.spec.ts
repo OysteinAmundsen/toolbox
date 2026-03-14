@@ -1090,6 +1090,48 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(shadow.querySelector('.status-text')?.textContent).toBe('Ready');
   });
 
+  it('renders header content registered after grid is already in DOM', async () => {
+    // Reproduce the Astro demo pattern: grid already upgraded, THEN set config + register content
+    grid = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Now set config and register header content (like ShellBasicDemo.rebuild)
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' } },
+      columns: [{ field: 'id' }],
+    };
+    grid.rows = [{ id: 1 }];
+    grid.registerHeaderContent({
+      id: 'row-count',
+      order: 10,
+      render: (container: HTMLElement) => {
+        const span = document.createElement('span');
+        span.className = 'row-count-text';
+        span.textContent = 'Row count badge';
+        container.appendChild(span);
+        return () => span.remove();
+      },
+    });
+    await nextFrame();
+
+    expect(grid.querySelector('.tbw-shell-header')).not.toBeNull();
+    expect(grid.querySelector('.tbw-shell-content')).not.toBeNull();
+    expect(grid.querySelector('.row-count-text')?.textContent).toBe('Row count badge');
+
+    // Now simulate a rebuild: set gridConfig again (triggers re-render)
+    grid.gridConfig = {
+      shell: { header: { title: 'Updated' } },
+      columns: [{ field: 'id' }],
+    };
+    grid.rows = [{ id: 1 }, { id: 2 }];
+    await nextFrame();
+
+    // Header content should still be visible after gridConfig change
+    expect(grid.querySelector('.tbw-shell-header')).not.toBeNull();
+    expect(grid.querySelector('.row-count-text')?.textContent).toBe('Row count badge');
+  });
+
   it('registers and unregisters toolbar content dynamically via render function', async () => {
     grid = document.createElement('tbw-grid');
     grid.gridConfig = { shell: { header: { title: 'Test' } } };

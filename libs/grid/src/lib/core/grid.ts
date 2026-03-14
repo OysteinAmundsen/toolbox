@@ -28,11 +28,14 @@ import {
   prepareForRerender,
   renderCustomToolbarContents,
   renderHeaderContent,
+  renderPanelContent,
   renderShellHeader,
   setupClickOutsideDismiss,
   setupShellEventListeners,
   setupToolPanelResize,
   shouldRenderShellHeader,
+  updatePanelState,
+  updateToolbarActiveStates,
   type ShellController,
   type ShellState,
   type ToolPanelRendererFactory,
@@ -1412,6 +1415,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       if (defaultOpen && this.#shellState.toolPanels.has(defaultOpen)) {
         this.openToolPanel();
         this.#shellState.expandedSections.add(defaultOpen);
+      }
+      // Restore panel content if panel was already open (e.g., after position change re-render)
+      if (this.#shellState.isPanelOpen) {
+        updatePanelState(this.#renderRoot, this.#shellState);
+        renderPanelContent(this.#renderRoot, this.#shellState, {
+          expand: this.#effectiveConfig?.icons?.expand,
+          collapse: this.#effectiveConfig?.icons?.collapse,
+        });
+        updateToolbarActiveStates(this.#renderRoot, this.#shellState);
       }
     }
 

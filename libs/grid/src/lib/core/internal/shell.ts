@@ -866,8 +866,8 @@ export function updatePanelState(renderRoot: Element, state: ShellState): void {
 
 /**
  * Prepare shell state for a full re-render.
- * Runs cleanup functions so content (like toolbar buttons) can be restored
- * to their original containers and moved to new slots after re-render.
+ * Runs cleanup functions so content (toolbar buttons, panels, headers)
+ * can be restored to their original containers and re-rendered into new DOM.
  */
 export function prepareForRerender(state: ShellState): void {
   // Run cleanups for toolbar contents (moves elements back to original containers)
@@ -875,6 +875,21 @@ export function prepareForRerender(state: ShellState): void {
     cleanup();
   }
   state.toolbarContentCleanups.clear();
+
+  // Run cleanups for panel contents (old DOM will be destroyed)
+  for (const cleanup of state.panelCleanups.values()) {
+    cleanup();
+  }
+  state.panelCleanups.clear();
+
+  // Run cleanups for header contents (old DOM will be destroyed)
+  for (const cleanup of state.headerContentCleanups.values()) {
+    cleanup();
+  }
+  state.headerContentCleanups.clear();
+
+  // Allow light DOM content to be re-moved into new DOM
+  state.lightDomContentMoved = false;
 }
 
 /**

@@ -64,6 +64,9 @@ import '@toolbox-web/grid/features/visibility';
       panelPosition: string;
     }
 
+    // Create toolbar button container once (reused across rebuilds)
+    let toolButtons: HTMLElement | null = null;
+
     function rebuild(v: ShellValues) {
       const shellConfig: ShellConfig = {
         header: v.showTitle ? { title: 'Employee Data' } : {},
@@ -104,10 +107,9 @@ import '@toolbox-web/grid/features/visibility';
         });
       }
 
-      // Toolbar button via light DOM
-      grid.querySelectorAll('tbw-grid-tool-buttons').forEach(el => el.remove());
-      if (v.showToolbarButton) {
-        const toolButtons = document.createElement('tbw-grid-tool-buttons');
+      // Toolbar button via light DOM — create once and toggle visibility
+      if (v.showToolbarButton && !toolButtons) {
+        toolButtons = document.createElement('tbw-grid-tool-buttons');
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'tbw-toolbar-btn';
         refreshBtn.title = 'Refresh Data';

@@ -1201,6 +1201,59 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     const contentIndex = children.findIndex((el: HTMLElement) => el.classList.contains('tbw-grid-content'));
     expect(panelIndex).toBeLessThan(contentIndex);
   });
+
+  it('preserves open panel content when position changes', async () => {
+    grid = document.createElement('tbw-grid');
+    grid.registerToolPanel({
+      id: 'test-panel',
+      title: 'Test',
+      icon: '⚙',
+      render: (container: HTMLElement) => {
+        container.innerHTML = '<span class="panel-content">Panel Content</span>';
+        return () => {
+          container.innerHTML = '';
+        };
+      },
+    });
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+    };
+    grid.rows = [{ id: 1 }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Open the panel
+    grid.openToolPanel();
+    await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.querySelector('.panel-content')).not.toBeNull();
+
+    // Change position while panel is open
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } },
+    };
+    await nextFrame();
+    await nextFrame();
+
+    // Panel should still be open with content
+    expect(grid.isToolPanelOpen).toBe(true);
+    const panel = grid.querySelector('.tbw-tool-panel');
+    expect(panel).not.toBeNull();
+    expect(panel.dataset.position).toBe('left');
+    expect(panel.classList.contains('open')).toBe(true);
+    expect(grid.querySelector('.panel-content')?.textContent).toBe('Panel Content');
+
+    // Switch back to right
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+    };
+    await nextFrame();
+    await nextFrame();
+
+    // Content should still be there
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.querySelector('.panel-content')?.textContent).toBe('Panel Content');
+  });
 });
 
 describe('tbw-grid integration: selection plugin', () => {

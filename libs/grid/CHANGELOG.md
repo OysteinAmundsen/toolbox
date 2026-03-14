@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.24.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.1...grid-1.24.2) (2026-03-14)
+
+
+### Bug Fixes
+
+* **grid:** close context menu on scroll and ensure cross-grid exclusivity ([135e20c](https://github.com/OysteinAmundsen/toolbox/commit/135e20c74799e6ba404b640b5a08ff055aeb98dd))
+* **grid:** fix column reorder FLIP animation with async row rendering ([f106993](https://github.com/OysteinAmundsen/toolbox/commit/f1069939138af08bdb2377d0091fdc52e87a2150))
+* **grid:** implement groupHeaderRenderer config (was dead API surface) ([0fa419c](https://github.com/OysteinAmundsen/toolbox/commit/0fa419c9b2d14909386d0bdd10fae7c33ae7b2e7))
+
 ## [1.24.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.0...grid-1.24.1) (2026-03-13)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.17.0...grid-angular-0.18.0) (2026-03-14)
+
+
+### Features
+
+* **grid-angular,grid-react,grid-vue:** bridge all custom renderer callbacks ([4c01a08](https://github.com/OysteinAmundsen/toolbox/commit/4c01a0877a55a0fe26ae48a7b9c433ff728a82bb))
+
 ## [0.17.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.16.2...grid-angular-0.17.0) (2026-03-12)
 
 

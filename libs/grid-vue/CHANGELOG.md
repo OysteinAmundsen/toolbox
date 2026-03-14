@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.8.0...grid-vue-0.9.0) (2026-03-14)
+
+
+### Features
+
+* **grid-angular,grid-react,grid-vue:** bridge all custom renderer callbacks ([4c01a08](https://github.com/OysteinAmundsen/toolbox/commit/4c01a0877a55a0fe26ae48a7b9c433ff728a82bb))
+
+
+### Bug Fixes
+
+* **grid-vue:** replace inline import() with static type import ([4ff1ee8](https://github.com/OysteinAmundsen/toolbox/commit/4ff1ee8868b600af05511a7d3a692bbd8cb44a80))
+
 ## [0.8.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.7.1...grid-vue-0.8.0) (2026-03-12)
 
 

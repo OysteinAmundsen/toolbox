@@ -32,6 +32,30 @@ import type { DataGridElement } from '@toolbox-web/grid';
       { id: 5, name: 'Eve Brown', email: 'eve@example.com', department: 'HR' },
     ];
 
+    grid.registerStyles('custom-loading', `
+      .progress-bar-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: light-dark(rgba(0,0,0,0.08), rgba(255,255,255,0.08));
+        overflow: hidden;
+        z-index: 1000;
+      }
+      .progress-bar {
+        height: 100%;
+        background: light-dark(#1976d2, #64b5f6);
+        width: 30%;
+        animation: progress-indeterminate 2s cubic-bezier(0.4,0,0.2,1) infinite;
+        transform-origin: left;
+      }
+      @keyframes progress-indeterminate {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(400%); }
+      }
+    `);
+
     grid.gridConfig = {
       getRowId: (row: { id: number }) => row.id,
       loadingRenderer: () => {
@@ -78,26 +102,5 @@ import type { DataGridElement } from '@toolbox-web/grid';
   }
   .loading-bar button:hover {
     opacity: 0.9;
-  }
-  .progress-bar-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: light-dark(rgba(0,0,0,0.08), rgba(255,255,255,0.08));
-    overflow: hidden;
-    z-index: 1000;
-  }
-  .progress-bar {
-    height: 100%;
-    background: light-dark(#1976d2, #64b5f6);
-    width: 30%;
-    animation: progress-indeterminate 2s cubic-bezier(0.4,0,0.2,1) infinite;
-    transform-origin: left;
-  }
-  @keyframes progress-indeterminate {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(400%); }
   }
 </style>

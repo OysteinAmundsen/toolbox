@@ -1101,7 +1101,15 @@ describe('contextMenu', () => {
       document.body.appendChild(existingMenu);
 
       const plugin = new ContextMenuPlugin({
-        items: [{ id: 'test', name: 'Test', action: () => { /* noop */ } }],
+        items: [
+          {
+            id: 'test',
+            name: 'Test',
+            action: () => {
+              /* noop */
+            },
+          },
+        ],
       });
       const grid = document.createElement('div');
       grid.className = 'tbw-grid';
@@ -1147,7 +1155,15 @@ describe('contextMenu', () => {
 
     it('should close menu when a scroll event fires', () => {
       const plugin = new ContextMenuPlugin({
-        items: [{ id: 'test', name: 'Test', action: () => { /* noop */ } }],
+        items: [
+          {
+            id: 'test',
+            name: 'Test',
+            action: () => {
+              /* noop */
+            },
+          },
+        ],
       });
       const grid = document.createElement('div');
       grid.className = 'tbw-grid';

@@ -18,6 +18,8 @@ const QUERY_GET_CONTEXT_MENU_ITEMS = 'getContextMenuItems';
 let globalClickHandler: ((e: Event) => void) | null = null;
 /** Global keydown handler reference for cleanup */
 let globalKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+/** Global scroll handler reference for cleanup */
+let globalScrollHandler: (() => void) | null = null;
 /** Global stylesheet for context menu (injected once) */
 let globalStyleSheet: HTMLStyleElement | null = null;
 /** Reference count for instances using global handlers */
@@ -316,6 +318,15 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       };
       document.addEventListener('keydown', globalKeydownHandler);
     }
+
+    // Close on scroll (any scrollable ancestor)
+    if (!globalScrollHandler) {
+      globalScrollHandler = () => {
+        const menus = document.querySelectorAll('.tbw-context-menu');
+        menus.forEach((menu) => menu.remove());
+      };
+      document.addEventListener('scroll', globalScrollHandler, true);
+    }
   }
 
   /**
@@ -334,6 +345,10 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     if (globalKeydownHandler) {
       document.removeEventListener('keydown', globalKeydownHandler);
       globalKeydownHandler = null;
+    }
+    if (globalScrollHandler) {
+      document.removeEventListener('scroll', globalScrollHandler, true);
+      globalScrollHandler = null;
     }
     if (globalStyleSheet) {
       globalStyleSheet.remove();
@@ -506,9 +521,9 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
 
       if (!items.length) return;
 
-      if (this.menuElement) {
-        this.menuElement.remove();
-      }
+      // Close any open context menu (including from other grids)
+      document.querySelectorAll('.tbw-context-menu').forEach((m) => m.remove());
+      this.menuElement = null;
 
       this.menuElement = createMenuElement(
         items,
@@ -570,9 +585,9 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
     // Collapse consecutive/leading/trailing separators
     items = collapseSeparators(items);
 
-    if (this.menuElement) {
-      this.menuElement.remove();
-    }
+    // Close any open context menu (including from other grids)
+    document.querySelectorAll('.tbw-context-menu').forEach((m) => m.remove());
+    this.menuElement = null;
 
     this.menuElement = createMenuElement(
       items,

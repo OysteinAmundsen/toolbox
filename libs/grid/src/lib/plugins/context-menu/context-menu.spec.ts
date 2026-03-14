@@ -1088,4 +1088,101 @@ describe('contextMenu', () => {
       expect(result[0].separator).toBe(true);
     });
   });
+
+  describe('cross-grid menu exclusivity', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should close menu from other grids when opening a new one', () => {
+      // Simulate an existing menu in the DOM (from another grid instance)
+      const existingMenu = document.createElement('div');
+      existingMenu.className = 'tbw-context-menu';
+      document.body.appendChild(existingMenu);
+
+      const plugin = new ContextMenuPlugin({
+        items: [{ id: 'test', name: 'Test', action: () => {} }],
+      });
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+      const container = document.createElement('div');
+      container.className = 'tbw-grid-root';
+      grid.appendChild(container);
+      Object.assign(grid, {
+        rows: [{ id: 1 }],
+        columns: [{ field: 'id' }],
+        gridConfig: {},
+        effectiveConfig: {},
+        focusRow: 0,
+        focusCol: 0,
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        query: vi.fn(() => []),
+        queryPlugins: vi.fn().mockReturnValue([]),
+      });
+      grid.dispatchEvent = vi.fn();
+      document.body.appendChild(grid);
+
+      plugin.attach(grid as never);
+      plugin.showMenu(100, 100, { rowIndex: 0, field: 'id', value: '1' });
+
+      // The old menu from another grid should be removed
+      expect(document.body.contains(existingMenu)).toBe(false);
+      // Only the new menu should exist
+      const menus = document.querySelectorAll('.tbw-context-menu');
+      expect(menus).toHaveLength(1);
+
+      plugin.detach();
+    });
+  });
+
+  describe('scroll closes menu', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should close menu when a scroll event fires', () => {
+      const plugin = new ContextMenuPlugin({
+        items: [{ id: 'test', name: 'Test', action: () => {} }],
+      });
+      const grid = document.createElement('div');
+      grid.className = 'tbw-grid';
+      const container = document.createElement('div');
+      container.className = 'tbw-grid-root';
+      grid.appendChild(container);
+      Object.assign(grid, {
+        rows: [{ id: 1 }],
+        columns: [{ field: 'id' }],
+        gridConfig: {},
+        effectiveConfig: {},
+        focusRow: 0,
+        focusCol: 0,
+        disconnectSignal: new AbortController().signal,
+        requestRender: vi.fn(),
+        requestAfterRender: vi.fn(),
+        forceLayout: vi.fn().mockResolvedValue(undefined),
+        getPlugin: vi.fn(),
+        getPluginByName: vi.fn(),
+        query: vi.fn(() => []),
+        queryPlugins: vi.fn().mockReturnValue([]),
+      });
+      grid.dispatchEvent = vi.fn();
+      document.body.appendChild(grid);
+
+      plugin.attach(grid as never);
+      plugin.showMenu(100, 100, { rowIndex: 0, field: 'id', value: '1' });
+      expect(document.querySelectorAll('.tbw-context-menu')).toHaveLength(1);
+
+      // Simulate a scroll event (uses capture, so dispatch on document)
+      document.dispatchEvent(new Event('scroll'));
+
+      expect(document.querySelectorAll('.tbw-context-menu')).toHaveLength(0);
+
+      plugin.detach();
+    });
+  });
 });

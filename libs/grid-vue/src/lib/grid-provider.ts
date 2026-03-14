@@ -55,12 +55,14 @@ export const GridProvider = defineComponent({
 
       // Wrap with type provider if typeDefaults is provided
       if (props.typeDefaults) {
-        content = h(GridTypeProvider, { defaults: props.typeDefaults }, () => content);
+        const inner = content;
+        content = h(GridTypeProvider, { defaults: props.typeDefaults }, () => inner);
       }
 
       // Wrap with icon provider if icons is provided
       if (props.icons) {
-        content = h(GridIconProvider, { icons: props.icons }, () => content);
+        const inner = content;
+        content = h(GridIconProvider, { icons: props.icons }, () => inner);
       }
 
       return content;

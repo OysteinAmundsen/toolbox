@@ -63,7 +63,9 @@ export { VueGridAdapter } from './lib/vue-grid-adapter';
 export { GRID_ELEMENT_KEY, useGrid } from './lib/use-grid';
 export type { UseGridReturn } from './lib/use-grid';
 
+/** @deprecated Use `@event` handlers directly on `<TbwGrid>` instead. Will be removed in v2. */
 export { useGridEvent } from './lib/use-grid-event';
+/** @deprecated Use `@event` handlers directly on `<TbwGrid>` instead. Will be removed in v2. */
 export type { GridEventMap } from './lib/use-grid-event';
 
 // Configuration types - use unified names (GridConfig, ColumnConfig, CellRenderer, etc.)

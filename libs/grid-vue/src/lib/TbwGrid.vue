@@ -2,25 +2,49 @@
 import type { BaseGridPlugin, ColumnConfig, DataGridElement, FitMode, GridConfig } from '@toolbox-web/grid';
 import { DataGridElement as GridElement } from '@toolbox-web/grid';
 import type {
+  CellActivateDetail,
+  CellChangeDetail,
+  CellClickDetail,
+  CellCommitDetail,
   ClipboardConfig,
+  ColumnMoveDetail,
+  ColumnResizeDetail,
   ColumnVirtualizationConfig,
+  ColumnVisibilityDetail,
   ContextMenuConfig,
+  CopyDetail,
+  DetailExpandDetail,
+  ExportCompleteDetail,
   ExportConfig,
+  FilterChangeDetail,
   FilterConfig,
+  GridColumnState,
   GroupingColumnsConfig,
   GroupingRowsConfig,
+  GroupToggleDetail,
   MasterDetailConfig,
   MultiSortConfig,
+  PasteDetail,
   PinnedRowsConfig,
   PivotConfig,
+  PrintCompleteDetail,
   PrintConfig,
+  PrintStartDetail,
   ReorderConfig,
+  ResponsiveChangeDetail,
   ResponsivePluginConfig,
+  RowClickDetail,
+  RowCommitDetail,
+  RowMoveDetail,
   RowReorderConfig,
+  SelectionChangeDetail,
   SelectionConfig,
   ServerSideConfig,
+  SortChangeDetail,
   TreeConfig,
+  TreeExpandDetail,
   UndoRedoConfig,
+  UndoRedoDetail,
   VisibilityConfig,
 } from '@toolbox-web/grid/all';
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch, type PropType } from 'vue';
@@ -206,25 +230,64 @@ const props = defineProps({
 });
 
 /**
- * Emits for TbwGrid
+ * Event name → CustomEvent detail type map.
+ * Used internally to wire up event listeners.
+ */
+const EVENT_MAP = {
+  'cell-click': '' as unknown as CellClickDetail,
+  'row-click': '' as unknown as RowClickDetail,
+  'cell-activate': '' as unknown as CellActivateDetail,
+  'cell-change': '' as unknown as CellChangeDetail,
+  'cell-commit': '' as unknown as CellCommitDetail,
+  'row-commit': '' as unknown as RowCommitDetail,
+  'sort-change': '' as unknown as SortChangeDetail,
+  'filter-change': '' as unknown as FilterChangeDetail,
+  'column-resize': '' as unknown as ColumnResizeDetail,
+  'column-move': '' as unknown as ColumnMoveDetail,
+  'column-visibility': '' as unknown as ColumnVisibilityDetail,
+  'column-state-change': '' as unknown as GridColumnState,
+  'selection-change': '' as unknown as SelectionChangeDetail,
+  'row-move': '' as unknown as RowMoveDetail,
+  'group-toggle': '' as unknown as GroupToggleDetail,
+  'tree-expand': '' as unknown as TreeExpandDetail,
+  'detail-expand': '' as unknown as DetailExpandDetail,
+  'responsive-change': '' as unknown as ResponsiveChangeDetail,
+  copy: '' as unknown as CopyDetail,
+  paste: '' as unknown as PasteDetail,
+  'undo-redo': '' as unknown as UndoRedoDetail,
+  'export-complete': '' as unknown as ExportCompleteDetail,
+  'print-start': '' as unknown as PrintStartDetail,
+  'print-complete': '' as unknown as PrintCompleteDetail,
+} as const;
+
+/**
+ * Emits for TbwGrid — all grid events forwarded as Vue emits.
  */
 const emit = defineEmits<{
-  /** Emitted when a cell value is committed */
-  (e: 'cell-commit', event: CustomEvent): void;
-  /** Emitted when a row's values are committed */
-  (e: 'row-commit', event: CustomEvent): void;
-  /** Emitted when a cell is clicked */
-  (e: 'cell-click', event: CustomEvent): void;
-  /** Emitted when a cell is double-clicked */
-  (e: 'cell-dblclick', event: CustomEvent): void;
-  /** Emitted when selection changes */
-  (e: 'selection-change', event: CustomEvent): void;
-  /** Emitted when a row is expanded/collapsed */
-  (e: 'row-toggle', event: CustomEvent): void;
-  /** Emitted when sorting changes */
-  (e: 'sort-change', event: CustomEvent): void;
-  /** Emitted when the grid is ready */
-  (e: 'ready', event: CustomEvent): void;
+  (e: 'cell-click', event: CustomEvent<CellClickDetail<TRow>>): void;
+  (e: 'row-click', event: CustomEvent<RowClickDetail<TRow>>): void;
+  (e: 'cell-activate', event: CustomEvent<CellActivateDetail<TRow>>): void;
+  (e: 'cell-change', event: CustomEvent<CellChangeDetail<TRow>>): void;
+  (e: 'cell-commit', event: CustomEvent<CellCommitDetail<TRow>>): void;
+  (e: 'row-commit', event: CustomEvent<RowCommitDetail<TRow>>): void;
+  (e: 'sort-change', event: CustomEvent<SortChangeDetail>): void;
+  (e: 'filter-change', event: CustomEvent<FilterChangeDetail>): void;
+  (e: 'column-resize', event: CustomEvent<ColumnResizeDetail>): void;
+  (e: 'column-move', event: CustomEvent<ColumnMoveDetail>): void;
+  (e: 'column-visibility', event: CustomEvent<ColumnVisibilityDetail>): void;
+  (e: 'column-state-change', event: CustomEvent<GridColumnState>): void;
+  (e: 'selection-change', event: CustomEvent<SelectionChangeDetail>): void;
+  (e: 'row-move', event: CustomEvent<RowMoveDetail<TRow>>): void;
+  (e: 'group-toggle', event: CustomEvent<GroupToggleDetail>): void;
+  (e: 'tree-expand', event: CustomEvent<TreeExpandDetail<TRow>>): void;
+  (e: 'detail-expand', event: CustomEvent<DetailExpandDetail>): void;
+  (e: 'responsive-change', event: CustomEvent<ResponsiveChangeDetail>): void;
+  (e: 'copy', event: CustomEvent<CopyDetail>): void;
+  (e: 'paste', event: CustomEvent<PasteDetail>): void;
+  (e: 'undo-redo', event: CustomEvent<UndoRedoDetail>): void;
+  (e: 'export-complete', event: CustomEvent<ExportCompleteDetail>): void;
+  (e: 'print-start', event: CustomEvent<PrintStartDetail>): void;
+  (e: 'print-complete', event: CustomEvent<PrintCompleteDetail>): void;
 }>();
 
 // Template ref for the grid element
@@ -374,16 +437,10 @@ onMounted(() => {
   interceptElementGridConfig(grid, adapter);
 
   // Subscribe to grid events and store unsubscribe functions
-  eventCleanups.push(
-    grid.on('cell-commit', (_d, e) => emit('cell-commit', e)),
-    grid.on('row-commit', (_d, e) => emit('row-commit', e)),
-    grid.on('cell-click', (_d, e) => emit('cell-click', e)),
-    grid.on('cell-dblclick', (_d, e) => emit('cell-dblclick', e)),
-    grid.on('selection-change', (_d, e) => emit('selection-change', e)),
-    grid.on('row-toggle', (_d, e) => emit('row-toggle', e)),
-    grid.on('sort-change', (_d, e) => emit('sort-change', e)),
-    grid.on('ready', (_d, e) => emit('ready', e)),
-  );
+  // Subscribe to all grid events and forward as Vue emits
+  for (const eventName of Object.keys(EVENT_MAP)) {
+    eventCleanups.push(grid.on(eventName as string, (_d: unknown, e: CustomEvent) => emit(eventName as any, e)));
+  }
 
   // Set initial data
   if (props.rows.length > 0) {

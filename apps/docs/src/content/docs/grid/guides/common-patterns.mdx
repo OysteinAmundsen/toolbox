@@ -49,16 +49,10 @@ grid.on('selection-change', () => {
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/filtering';
 import '@toolbox-web/grid-react/features/multi-sort';
-import { DataGrid, useGrid, useGridEvent } from '@toolbox-web/grid-react';
-import type { SelectionChangeDetail } from '@toolbox-web/grid';
+import { DataGrid, GridColumn, useGrid } from '@toolbox-web/grid-react';
 
 function EmployeeGrid({ employees }) {
   const gridRef = useGrid<Employee>();
-
-  useGridEvent(gridRef, 'selection-change', () => {
-    const rows = gridRef.current?.getPluginByName('selection')?.getSelectedRows<Employee>() ?? [];
-    console.log('Selected:', rows);
-  });
 
   return (
     <DataGrid
@@ -67,6 +61,10 @@ function EmployeeGrid({ employees }) {
       selection={{ mode: 'row', multiSelect: true }}
       filtering={{ debounceMs: 200 }}
       multiSort
+      onSelectionChange={() => {
+        const rows = gridRef.current?.getPluginByName('selection')?.getSelectedRows<Employee>() ?? [];
+        console.log('Selected:', rows);
+      }}
     >
       <GridColumn field="id" header="ID" type="number" sortable />
       <GridColumn field="name" header="Name" sortable filterable />
@@ -198,9 +196,9 @@ import type { CellCommitDetail } from '@toolbox-web/grid';
 function EditableGrid({ employees }) {
   const gridRef = useGrid<Employee>();
 
-  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>, event?: CustomEvent) => {
     if (detail.field === 'email' && !detail.value.includes('@')) {
-      detail.preventDefault(); // Reject invalid edit
+      event?.preventDefault(); // Reject invalid edit
     }
   }, []);
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.25.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.2...grid-1.25.0) (2026-03-14)
+
+
+### Features
+
+* **grid:** add keyboard navigation to context menu plugin ([a0a089a](https://github.com/OysteinAmundsen/toolbox/commit/a0a089a92ecab980a219ba2284cd7ada34be6060))
+* **grid:** implement missing ARIA accessibility features ([2de584e](https://github.com/OysteinAmundsen/toolbox/commit/2de584eb425bf9138b951d9a1cc4b08ebdb0398c))
+
+
+### Bug Fixes
+
+* **grid:** normalize string returns in rowClass/cellClass callbacks ([1057db8](https://github.com/OysteinAmundsen/toolbox/commit/1057db8fe467db3c74b17c517899a1cf51e033aa))
+* **grid:** preserve API-registered header content across config rebuilds ([754dc7b](https://github.com/OysteinAmundsen/toolbox/commit/754dc7b42dacf6c533aea57e49287e16047c1431))
+* **grid:** preserve open panel content across full shell re-renders ([bbdec39](https://github.com/OysteinAmundsen/toolbox/commit/bbdec39015414a7c52aedd61d72626c3525129e4))
+* **grid:** re-render shell when tool panel position changes ([bb47b62](https://github.com/OysteinAmundsen/toolbox/commit/bb47b629789d03629aaf571150a235f26deec8c0))
+
+
+### Enhancements
+
+* **grid:** add data-change event for row data notifications ([b94c4bc](https://github.com/OysteinAmundsen/toolbox/commit/b94c4bc971097fa66e5dfd7902a9d6842ddee413))
+
 ## [1.24.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.1...grid-1.24.2) (2026-03-14)
 
 

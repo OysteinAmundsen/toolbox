@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.9.0...grid-vue-0.10.0) (2026-03-14)
+
+
+### Features
+
+* **grid-vue:** expand event emits to 24 events, deprecate useGridEvent ([34bdc1b](https://github.com/OysteinAmundsen/toolbox/commit/34bdc1ba3de395549c8760b6dd0f39ba5b891b15))
+
 ## [0.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.8.0...grid-vue-0.9.0) (2026-03-14)
 
 

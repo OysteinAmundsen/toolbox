@@ -961,6 +961,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const allRows = gridEl.querySelectorAll('.data-grid-row');
     allRows.forEach((row) => {
       row.classList.remove('selected', 'row-focus');
+      row.setAttribute('aria-selected', 'false');
       // Clear selectable attribute - will be re-applied below
       if (hasSelectableCallback) {
         row.removeAttribute('data-selectable');
@@ -982,6 +983,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
           }
           if (this.selected.has(rowIndex)) {
             row.classList.add('selected', 'row-focus');
+            row.setAttribute('aria-selected', 'true');
           }
         }
       });
@@ -1039,6 +1041,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
 
           if (isInSelection(rowIndex, colIndex)) {
             cell.classList.add('selected');
+            cell.setAttribute('aria-selected', 'true');
 
             // Edge detection: add border class where neighbor is not selected
             // This handles single ranges, multi-range, and irregular selections correctly

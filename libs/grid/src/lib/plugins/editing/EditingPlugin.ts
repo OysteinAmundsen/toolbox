@@ -1075,10 +1075,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal
    */
   override afterCellRender(context: AfterCellRenderContext): void {
+    const { row, rowIndex, column, colIndex, cellElement } = context;
+
+    // Set aria-readonly on non-editable cells so screen readers can distinguish
+    if (!column.editable) {
+      cellElement.setAttribute('aria-readonly', 'true');
+    } else {
+      cellElement.removeAttribute('aria-readonly');
+    }
+
     // Only inject editors in grid mode
     if (!this.#isGridMode) return;
-
-    const { row, rowIndex, column, colIndex, cellElement } = context;
 
     // Skip non-editable columns
     if (!column.editable) return;

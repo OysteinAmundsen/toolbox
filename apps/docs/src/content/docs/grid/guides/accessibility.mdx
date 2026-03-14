@@ -135,10 +135,9 @@ Or reference a visible heading:
 
 ### Live Regions
 
-The grid uses `aria-live` regions to announce:
-- Sort changes ("Sorted by Name ascending")
-- Filter changes ("Filtered: 42 of 100 rows shown")
-- Selection changes ("3 rows selected")
+The grid uses `aria-live` regions to announce dynamic changes to screen readers:
+- Sort changes ("Sorted by Name, ascending")
+- Filter changes ("Filter applied on Name", "All filters cleared")
 
 ### Column Headers
 
@@ -146,7 +145,6 @@ Column headers include:
 - Column name via text content
 - Sort direction via `aria-sort`
 - Filter state via `aria-description` ("Filtered")
-- Required state via `aria-required` (when editing)
 
 ## High Contrast Mode
 
@@ -175,16 +173,7 @@ import '@toolbox-web/grid/themes/dg-theme-contrast.css';
 
 ### Windows High Contrast Mode
 
-The grid respects the `forced-colors` media query. When Windows High Contrast is active, the grid automatically adapts to the system colors.
-
-```css
-@media (forced-colors: active) {
-  tbw-grid {
-    /* Grid automatically adapts - CSS custom properties map to system colors */
-    forced-color-adjust: auto;
-  }
-}
-```
+The grid ships with a built-in `@media (forced-colors: active)` block that remaps all theming variables to Windows system colors (`CanvasText`, `Canvas`, `Highlight`, `HighlightText`). Focus rings and selected rows are also overridden to use `Highlight`. No extra configuration needed — it works automatically.
 
 ## WCAG Compliance Checklist
 
@@ -202,14 +191,27 @@ The grid respects the `forced-colors` media query. When Windows High Contrast is
 | 2.4.7 Focus Visible | AA | ✅ | Clear focus indicators |
 | 4.1.2 Name, Role, Value | A | ✅ | ARIA attributes on all interactive elements |
 
-## Best Practices
+## What's Automatic
 
-1. **Always provide `aria-label` or `aria-labelledby`** — Screen readers need a name for the grid
-2. **Include column headers** — Don't hide headers; they provide context for cell values
-3. **Use semantic `type`** — Set column `type` to `'number'`, `'date'`, etc. for proper screen reader announcement
-4. **Test with screen readers** — NVDA (Windows), VoiceOver (macOS), Orca (Linux)
-5. **Don't override keyboard handling** — The grid's keyboard navigation follows WAI-ARIA patterns
-6. **Use the contrast theme for accessibility requirements** — Import `dg-theme-contrast.css`
+The grid handles most accessibility concerns out of the box:
+
+- **ARIA roles & attributes** — `role="grid"`, `role="row"`, `role="gridcell"`, `aria-rowcount`, `aria-colcount`, `aria-rowindex`, `aria-colindex` are always set
+- **Keyboard navigation** — Arrow keys, Tab, Enter, Home/End, PgUp/PgDn all work by default (core feature, not a plugin)
+- **Column headers** — Always rendered with `role="columnheader"`; cannot be hidden
+- **Column type inference** — Types (`number`, `date`, `boolean`) are auto-detected from the first data row
+- **Grid label** — Auto-derived from the shell title (`<tbw-grid-header title="...">` or `shell.header.title` config)
+- **Windows High Contrast** — `forced-colors` media query is built into core CSS
+- **Live announcements** — Sort and filter changes are announced via `aria-live` regions
+- **Plugin ARIA** — Selection, editing, filtering, tree, and grouping plugins manage their own ARIA attributes (`aria-selected`, `aria-readonly`, `aria-expanded`, `aria-multiselectable`, `aria-description`)
+
+## Developer Responsibilities
+
+These require explicit action:
+
+1. **Provide a grid label when not using a shell** — Without `<tbw-grid-header title="...">`, set `gridAriaLabel` in config or add `aria-label` on the element
+2. **Test with screen readers** — NVDA (Windows), VoiceOver (macOS), Orca (Linux)
+3. **Don't override keyboard handling** — The grid follows WAI-ARIA patterns; custom key listeners may conflict
+4. **Use the contrast theme for additional a11y** — Import `dg-theme-contrast.css` for higher contrast beyond the built-in forced-colors support
 
 ## See Also
 

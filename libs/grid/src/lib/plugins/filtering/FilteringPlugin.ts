@@ -6,6 +6,7 @@
  * Includes UI with filter buttons in headers and dropdown filter panels.
  */
 
+import { announce } from '../../core/internal/aria';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
@@ -459,6 +460,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         const wasActive = filterBtn.classList.contains('active');
         filterBtn.classList.toggle('active', hasFilter);
         (cell as HTMLElement).classList.toggle('filtered', hasFilter);
+        // Update aria-description for screen readers
+        if (hasFilter) {
+          (cell as HTMLElement).setAttribute('aria-description', 'Filtered');
+        } else {
+          (cell as HTMLElement).removeAttribute('aria-description');
+        }
         // Update icon if active state changed
         if (wasActive !== hasFilter) {
           const iconName = hasFilter ? 'filterActive' : 'filter';
@@ -479,6 +486,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       if (hasFilter) {
         filterBtn.classList.add('active');
         (cell as HTMLElement).classList.add('filtered');
+        (cell as HTMLElement).setAttribute('aria-description', 'Filtered');
       }
 
       filterBtn.addEventListener('click', (e) => {
@@ -527,6 +535,8 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       if (this.config.trackColumnState) {
         this.grid.requestStateChange?.();
       }
+      const header = this.grid.effectiveConfig?.columns?.find((c) => c.field === field)?.header ?? field;
+      announce(this.gridElement!, filter === null ? `Filter cleared from ${header}` : `Filter applied on ${header}`);
     }
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
@@ -594,6 +604,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.searchText.clear();
 
     this.applyFiltersInternal(options?.silent);
+    if (!options?.silent) announce(this.gridElement!, 'All filters cleared');
   }
 
   /**
@@ -606,6 +617,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.searchText.delete(field);
 
     this.applyFiltersInternal(options?.silent);
+    if (!options?.silent) {
+      const header = this.grid.effectiveConfig?.columns?.find((c) => c.field === field)?.header ?? field;
+      announce(this.gridElement!, `Filter cleared from ${header}`);
+    }
   }
 
   /**

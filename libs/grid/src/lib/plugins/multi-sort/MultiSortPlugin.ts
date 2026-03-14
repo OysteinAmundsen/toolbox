@@ -5,6 +5,7 @@
  * Supports shift+click for adding secondary sort columns.
  */
 
+import { announce } from '../../core/internal/aria';
 import { BaseGridPlugin, HeaderClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnState } from '../../core/types';
 import { applySorts, getSortDirection, getSortIndex, toggleSort } from './multi-sort';
@@ -177,6 +178,17 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     this.requestRender();
     this.grid?.requestStateChange?.();
 
+    // Announce for screen readers
+    if (this.sortModel.length > 0) {
+      const labels = this.sortModel.map((s) => {
+        const col = this.columns.find((c) => c.field === s.field);
+        return `${col?.header ?? s.field} ${s.direction === 'asc' ? 'ascending' : 'descending'}`;
+      });
+      announce(this.gridElement!, `Sorted by ${labels.join(', then ')}`);
+    } else {
+      announce(this.gridElement!, 'Sort cleared');
+    }
+
     return true;
   }
 
@@ -267,6 +279,13 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     this.emit('sort-change', { sortModel: [...model] });
     this.requestRender();
     this.grid?.requestStateChange?.();
+    if (model.length > 0) {
+      const labels = model.map((s) => {
+        const col = this.columns.find((c) => c.field === s.field);
+        return `${col?.header ?? s.field} ${s.direction === 'asc' ? 'ascending' : 'descending'}`;
+      });
+      announce(this.gridElement!, `Sorted by ${labels.join(', then ')}`);
+    }
   }
 
   /**
@@ -278,6 +297,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     this.emit('sort-change', { sortModel: [] });
     this.requestRender();
     this.grid?.requestStateChange?.();
+    announce(this.gridElement!, 'Sort cleared');
   }
 
   /**

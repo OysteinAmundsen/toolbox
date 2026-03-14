@@ -138,6 +138,7 @@ gridContentTemplate.innerHTML = `
   <div class="faux-vscroll">
     <div class="faux-vscroll-spacer"></div>
   </div>
+  <div class="tbw-sr-only" aria-live="polite" aria-atomic="true"></div>
 `;
 
 /**

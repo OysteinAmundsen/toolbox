@@ -458,19 +458,24 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
 
   /** @internal */
   override afterRender(): void {
-    const style = this.animationStyle;
-    if (style === false || this.keysToAnimate.size === 0) return;
-
     const body = this.gridElement?.querySelector('.rows');
     if (!body) return;
 
+    const style = this.animationStyle;
+    const shouldAnimate = style !== false && this.keysToAnimate.size > 0;
     const animClass = style === 'fade' ? 'tbw-tree-fade-in' : 'tbw-tree-slide-in';
+
     for (const rowEl of body.querySelectorAll('.data-grid-row')) {
       const cell = rowEl.querySelector('.cell[data-row]');
       const idx = cell ? parseInt(cell.getAttribute('data-row') ?? '-1', 10) : -1;
-      const key = this.flattenedRows[idx]?.key;
+      const treeRow = this.flattenedRows[idx];
 
-      if (key && this.keysToAnimate.has(key)) {
+      // Set aria-expanded on parent rows for screen readers
+      if (treeRow?.hasChildren) {
+        rowEl.setAttribute('aria-expanded', String(treeRow.isExpanded));
+      }
+
+      if (shouldAnimate && treeRow?.key && this.keysToAnimate.has(treeRow.key)) {
         rowEl.classList.add(animClass);
         rowEl.addEventListener('animationend', () => rowEl.classList.remove(animClass), { once: true });
       }

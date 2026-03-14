@@ -1315,6 +1315,7 @@ export const GRID_CONTENT_HTML = `
   <div class="faux-vscroll">
     <div class="faux-vscroll-spacer"></div>
   </div>
+  <div class="tbw-sr-only" aria-live="polite" aria-atomic="true"></div>
 `;
 // #endregion
 

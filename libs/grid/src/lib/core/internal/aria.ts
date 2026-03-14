@@ -160,3 +160,24 @@ export function updateAriaLabels<T>(
 }
 
 // #endregion
+
+// #region Live Announcements
+
+/**
+ * Announce a message to screen readers via the grid's aria-live region.
+ * Clears then sets text to ensure repeated messages are re-announced.
+ *
+ * @param gridEl - The grid host element (or any ancestor containing `.tbw-sr-only`)
+ * @param message - The message to announce
+ */
+export function announce(gridEl: HTMLElement, message: string): void {
+  const el = gridEl.querySelector?.('.tbw-sr-only');
+  if (!el) return;
+  // Clear first so identical consecutive messages are still announced
+  el.textContent = '';
+  requestAnimationFrame(() => {
+    el.textContent = message;
+  });
+}
+
+// #endregion

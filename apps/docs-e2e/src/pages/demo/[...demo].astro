@@ -1,0 +1,55 @@
+---
+/**
+ * Dynamic catch-all route that serves any demo component in isolation.
+ *
+ * URL pattern: /demo/<path>
+ *   e.g. /demo/CoreEventsDemo
+ *        /demo/editing/EditingBasicEditingDemo
+ *        /demo/filtering/FilteringDefaultDemo
+ *
+ * Uses Astro's glob import to discover all .astro demos from the docs site,
+ * then renders the requested one inside a bare HTML shell.
+ */
+import Bare from '../../layouts/Bare.astro';
+
+// Glob all demo .astro files from the docs project.
+const demoModules: Record<string, () => Promise<{ default: any }>> = import.meta.glob(
+  '../../../../docs/src/components/demos/**/*.astro'
+);
+
+export function getStaticPaths() {
+  // Re-use the module-scope glob (Astro inlines import.meta.glob at build time)
+  const modules: Record<string, () => Promise<{ default: any }>> = import.meta.glob(
+    '../../../../docs/src/components/demos/**/*.astro'
+  );
+  const paths: { params: { demo: string } }[] = [];
+  for (const path of Object.keys(modules)) {
+    const match = path.match(/\/demos\/(.+)\.astro$/);
+    if (match) {
+      paths.push({ params: { demo: match[1] } });
+    }
+  }
+  return paths;
+}
+
+const { demo } = Astro.params;
+
+// Find the matching loader
+let loader: (() => Promise<{ default: any }>) | undefined;
+for (const [path, fn] of Object.entries(demoModules)) {
+  const match = path.match(/\/demos\/(.+)\.astro$/);
+  if (match && match[1] === demo) {
+    loader = fn;
+    break;
+  }
+}
+
+if (!loader) {
+  return Astro.redirect('/404');
+}
+
+const DemoComponent = (await loader()).default;
+---
+<Bare>
+  <DemoComponent />
+</Bare>

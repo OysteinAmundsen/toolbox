@@ -49,6 +49,14 @@ function extractSource(content: string): string {
   let inIfBlock = false;
   let ifIndent = -1;
 
+  // Detect the DOM container variable name (e.g. container, el, grid, gridEl)
+  // so we can recognize the `if (varName) {` guard block generically.
+  let guardVar: string | null = null;
+  for (const l of lines) {
+    const m = l.trim().match(/^const\s+(\w+)\s*=\s*document\.(?:getElementById|querySelector)/);
+    if (m) { guardVar = m[1]; break; }
+  }
+
   for (const line of lines) {
     const trimmed = line.trim();
 
@@ -59,14 +67,15 @@ function extractSource(content: string): string {
     }
     if (trimmed.startsWith('import type')) continue;
 
-    // Skip container / el variable declarations
-    if (/^const\s+(?:container|el)\s*=\s*document\.getElementById/.test(trimmed)) continue;
+    // Skip container variable declaration (detected above)
+    if (guardVar && new RegExp(`^const\\s+${guardVar}\\s*=\\s*document\\.`).test(trimmed)) continue;
 
-    // Detect the `if (container) {` or `if (container && ...)` guard
+    // Detect the `if (guardVar) {` or `if (guardVar && ...)` guard
     if (
       !inIfBlock &&
       /^if\s*\(/.test(trimmed) &&
-      (trimmed.includes('container') || trimmed.includes('el'))
+      guardVar &&
+      new RegExp(`\\b${guardVar}\\b`).test(trimmed)
     ) {
       inIfBlock = true;
       ifIndent = line.search(/\S/);
@@ -86,8 +95,10 @@ function extractSource(content: string): string {
       const stripCount = ifIndent + 2;
       let processed = line.length > stripCount ? line.slice(stripCount) : line.trimStart() === '' ? '' : line.trimStart();
 
-      // container.querySelector → document.querySelector
-      processed = processed.replace(/container\.querySelector/g, 'document.querySelector');
+      // guardVar.querySelector → document.querySelector
+      if (guardVar) {
+        processed = processed.replace(new RegExp(`${guardVar}\\.querySelector`, 'g'), 'document.querySelector');
+      }
 
       // Strip TypeScript type assertions: as HTMLElement & { ... }
       processed = processed.replace(/\s+as\s+HTMLElement\s*&\s*\{[^}]*\}/g, '');

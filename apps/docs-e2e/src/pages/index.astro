@@ -1,0 +1,27 @@
+---
+/**
+ * Index page listing all available demos.
+ * Useful for manual testing and debugging.
+ */
+import Bare from '../layouts/Bare.astro';
+
+const demoModules = import.meta.glob(
+  '../../../docs/src/components/demos/**/*.astro'
+);
+
+const demos: string[] = [];
+for (const path of Object.keys(demoModules)) {
+  const match = path.match(/\/demos\/(.+)\.astro$/);
+  if (match) demos.push(match[1]);
+}
+demos.sort();
+---
+<Bare>
+  <h1>Demo E2E Test Harness</h1>
+  <p>{demos.length} demos available</p>
+  <ul>
+    {demos.map((d) => (
+      <li><a href={`/demo/${d}`}>{d}</a></li>
+    ))}
+  </ul>
+</Bare>

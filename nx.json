@@ -43,7 +43,7 @@
         "watchDepsTargetName": "watch-deps"
       }
     },
-    { "plugin": "@nx/playwright/plugin", "options": { "targetName": "e2e" } },
+    { "plugin": "@nx/playwright/plugin", "options": { "targetName": "e2e" }, "exclude": ["apps/docs-e2e/**"] },
     { "plugin": "@nx/vitest", "options": { "testTargetName": "test" } }
   ],
   "targetDefaults": {

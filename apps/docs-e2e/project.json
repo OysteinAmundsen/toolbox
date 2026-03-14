@@ -1,0 +1,31 @@
+{
+  "name": "docs-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/docs-e2e",
+  "tags": ["type:e2e", "scope:docs"],
+  "implicitDependencies": ["grid"],
+  "targets": {
+    "serve": {
+      "command": "astro dev --port 4450",
+      "options": {
+        "cwd": "apps/docs-e2e"
+      }
+    },
+    "e2e": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/apps/docs-e2e/playwright-report", "{workspaceRoot}/apps/docs-e2e/test-results"],
+      "options": {
+        "commands": ["bunx playwright test --config=apps/docs-e2e/playwright.config.ts"],
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "e2e:ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx playwright test --ui --config=apps/docs-e2e/playwright.config.ts",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

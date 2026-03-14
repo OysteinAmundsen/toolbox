@@ -398,7 +398,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     const gridEl = this.gridElement;
     if (!gridEl || oldPositions.size === 0) return;
 
-    // Compute deltas from header cells (stable reference points)
+    // Compute deltas from header cells (one per column, stable reference).
+    // All cells in the same column share the same horizontal offset.
     const deltas = new Map<string, number>();
     gridEl.querySelectorAll('.header-row > .cell[data-field]').forEach((cell) => {
       const field = cell.getAttribute('data-field');
@@ -411,7 +412,9 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     if (deltas.size === 0) return;
 
-    // Set initial transform (First → Last position offset)
+    // Apply transforms to ALL cells (headers + body).
+    // After forceLayout(), body cells are fully rebuilt in new DOM order
+    // with correct data-field attributes, so header-derived deltas apply correctly.
     const cells: HTMLElement[] = [];
     gridEl.querySelectorAll('.cell[data-field]').forEach((cell) => {
       const deltaX = deltas.get(cell.getAttribute('data-field') ?? '');
@@ -425,7 +428,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (cells.length === 0) return;
 
     // Force reflow then animate to final position via CSS transition
-    void this.gridElement.offsetHeight;
+    void gridEl.offsetHeight;
 
     const duration = this.animationDuration;
 
@@ -506,12 +509,21 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (animation === 'flip' && this.gridElement) {
       const oldPositions = this.captureHeaderPositions();
       this.grid.setColumnOrder(newOrder);
-      // Wait for the scheduler to process the virtual window update (RAF)
-      // before running FLIP animation on the new cells
-      requestAnimationFrame(() => {
-        void this.gridElement.offsetHeight;
-        this.animateFLIP(oldPositions);
-      });
+      // Force a full render cycle so body cells are rebuilt in new column order.
+      // setColumnOrder rebuilds headers synchronously but body cells are async
+      // (VIRTUALIZATION phase only patches content in place via fastPatchRow).
+      // forceLayout triggers processColumns which bumps the row render epoch,
+      // ensuring body cells are fully rebuilt with correct DOM order.
+      if (typeof this.grid.forceLayout === 'function') {
+        this.grid.forceLayout().then(() => {
+          this.animateFLIP(oldPositions);
+        });
+      } else {
+        // Fallback: animate headers only (body cells may not be rebuilt yet)
+        requestAnimationFrame(() => {
+          this.animateFLIP(oldPositions);
+        });
+      }
     } else if (animation === 'fade') {
       this.animateFade(() => this.grid.setColumnOrder(newOrder));
     } else {

@@ -2486,8 +2486,8 @@ export type LoadingRenderer = (context: LoadingContext) => HTMLElement | string;
  *
  * @example
  * ```typescript
- * grid.addEventListener('data-change', (e: CustomEvent<DataChangeDetail>) => {
- *   console.log(`${e.detail.rowCount} rows visible of ${e.detail.sourceRowCount} total`);
+ * grid.on('data-change', ({ rowCount, sourceRowCount }) => {
+ *   console.log(`${rowCount} rows visible of ${sourceRowCount} total`);
  * });
  * ```
  *
@@ -2547,9 +2547,7 @@ export type UpdateSource = 'user' | 'cascade' | 'api';
  *
  * @example
  * ```typescript
- * grid.addEventListener('cell-change', (e: CustomEvent<CellChangeDetail>) => {
- *   const { row, rowId, field, oldValue, newValue, source } = e.detail;
- *
+ * grid.on('cell-change', ({ row, rowId, field, oldValue, newValue, source }) => {
  *   console.log(`${field} changed from ${oldValue} to ${newValue}`);
  *   console.log(`Change source: ${source}`);
  *
@@ -3161,9 +3159,9 @@ export interface GridColumnState {
  *
  * @example
  * ```typescript
- * grid.addEventListener('cell-click', (e: CustomEvent<CellClickDetail>) => {
- *   const { row, field, value, rowIndex, colIndex } = e.detail;
- *   console.log(`Clicked ${field} = ${value} in row ${rowIndex}`);\n *
+ * grid.on('cell-click', ({ row, field, value, rowIndex, colIndex }) => {
+ *   console.log(`Clicked ${field} = ${value} in row ${rowIndex}`);
+ *
  *   // Access the full row data
  *   if (row.status === 'pending') {
  *     showApprovalDialog(row);
@@ -3198,8 +3196,7 @@ export interface CellClickDetail<TRow = unknown> {
  *
  * @example
  * ```typescript
- * grid.addEventListener('row-click', (e: CustomEvent<RowClickDetail>) => {
- *   const { row, rowIndex, rowEl } = e.detail;
+ * grid.on('row-click', ({ row, rowIndex, rowEl }) => {
  *   console.log(`Clicked row ${rowIndex}: ${row.name}`);
  *
  *   // Highlight the row
@@ -3228,9 +3225,7 @@ export interface RowClickDetail<TRow = unknown> {
  *
  * @example
  * ```typescript
- * grid.addEventListener('sort-change', (e: CustomEvent<SortChangeDetail>) => {
- *   const { field, direction } = e.detail;
- *
+ * grid.on('sort-change', ({ field, direction }) => {
  *   if (direction === 0) {
  *     console.log(`Sort cleared on ${field}`);
  *   } else {
@@ -3259,8 +3254,7 @@ export interface SortChangeDetail {
  *
  * @example
  * ```typescript
- * grid.addEventListener('column-resize', (e: CustomEvent<ColumnResizeDetail>) => {
- *   const { field, width } = e.detail;
+ * grid.on('column-resize', ({ field, width }) => {
  *   console.log(`Column ${field} resized to ${width}px`);
  *
  *   // Persist to user preferences
@@ -3295,9 +3289,7 @@ export type CellActivateTrigger = 'keyboard' | 'pointer';
  *
  * @example
  * ```typescript
- * grid.addEventListener('cell-activate', (e: CustomEvent<CellActivateDetail>) => {
- *   const { row, field, value, trigger, cellEl } = e.detail;
- *
+ * grid.on('cell-activate', ({ row, field, value, trigger, cellEl }, event) => {
  *   if (trigger === 'keyboard') {
  *     console.log('Activated via Enter key');
  *   } else {
@@ -3306,8 +3298,8 @@ export type CellActivateTrigger = 'keyboard' | 'pointer';
  *
  *   // Start custom editing for specific columns
  *   if (field === 'notes') {
+ *     event.preventDefault(); // Prevent default editing
  *     openNotesEditor(row, cellEl);
- *     e.preventDefault(); // Prevent default editing
  *   }
  * });
  * ```
@@ -3357,8 +3349,7 @@ export interface ActivateCellDetail {
  * @example
  * ```typescript
  * // Framework adapter listens for this event
- * grid.addEventListener('mount-external-view', (e: CustomEvent<ExternalMountViewDetail>) => {
- *   const { placeholder, spec, context } = e.detail;
+ * grid.on('mount-external-view', ({ placeholder, spec, context }) => {
  *   // Mount framework component into placeholder
  *   mountComponent(spec.component, placeholder, context);
  * });
@@ -3383,8 +3374,7 @@ export interface ExternalMountViewDetail<TRow = unknown> {
  * @example
  * ```typescript
  * // Framework adapter listens for this event
- * grid.addEventListener('mount-external-editor', (e: CustomEvent<ExternalMountEditorDetail>) => {
- *   const { placeholder, spec, context } = e.detail;
+ * grid.on('mount-external-editor', ({ placeholder, spec, context }) => {
  *   // Mount framework editor with commit/cancel wired
  *   mountEditor(spec.component, placeholder, {
  *     value: context.value,
@@ -3414,24 +3404,24 @@ export interface ExternalMountEditorDetail<TRow = unknown> {
 /**
  * Maps event names to their detail payload types.
  *
- * Use this interface for strongly typed event handling.
+ * Used by {@link DataGridElement.on | grid.on()} and `addEventListener()` for
+ * fully typed event handling. Plugins extend this map via module augmentation.
  *
  * @example
  * ```typescript
- * // Type-safe event listener
- * function handleEvent<K extends keyof DataGridEventMap>(
- *   grid: DataGridElement,
- *   event: K,
- *   handler: (detail: DataGridEventMap[K]) => void,
- * ): void {
- *   grid.addEventListener(event, (e: CustomEvent) => handler(e.detail));
- * }
- *
- * handleEvent(grid, 'cell-click', (detail) => {
- *   console.log(detail.field); // Type-safe access
+ * // Recommended: grid.on() auto-unwraps the detail
+ * const off = grid.on('cell-click', ({ field, value, row }) => {
+ *   console.log(`Clicked ${field} = ${value}`);
  * });
+ * off(); // unsubscribe
+ *
+ * // addEventListener works too (useful for { once, signal, capture })
+ * grid.addEventListener('cell-click', (e) => {
+ *   console.log(e.detail.field);
+ * }, { once: true });
  * ```
  *
+ * @see {@link DataGridElement.on} for the recommended subscription API
  * @see {@link DataGridCustomEvent} for typed CustomEvent wrapper
  * @see {@link DGEvents} for event name constants
  * @category Events
@@ -3443,8 +3433,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @example
    * ```typescript
-   * grid.addEventListener('cell-click', (e) => {
-   *   const { row, field, value, cellEl } = e.detail;
+   * grid.on('cell-click', ({ row, field, value, cellEl }) => {
    *   console.log(`Clicked ${field} = ${value}`);
    *
    *   // Open a detail dialog for a specific column
@@ -3465,8 +3454,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @example
    * ```typescript
-   * grid.addEventListener('row-click', (e) => {
-   *   const { row, rowIndex, rowEl } = e.detail;
+   * grid.on('row-click', ({ row, rowIndex }) => {
    *   console.log(`Row ${rowIndex}: ${row.name}`);
    *
    *   // Navigate to detail page
@@ -3484,16 +3472,14 @@ export interface DataGridEventMap<TRow = unknown> {
    * Unified event for both keyboard and pointer activation — use this
    * instead of the deprecated `activate-cell`.
    *
-   * Call `e.preventDefault()` to suppress default behavior (e.g., inline editing).
+   * Call `event.preventDefault()` to suppress default behavior (e.g., inline editing).
    *
    * @example
    * ```typescript
-   * grid.addEventListener('cell-activate', (e) => {
-   *   const { row, field, trigger, cellEl } = e.detail;
-   *
+   * grid.on('cell-activate', ({ row, field, trigger, cellEl }, event) => {
    *   // Custom editing for a specific column
    *   if (field === 'notes') {
-   *     e.preventDefault();
+   *     event.preventDefault();
    *     openRichTextEditor(row, cellEl);
    *   }
    *
@@ -3514,15 +3500,12 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @example
    * ```typescript
-   * grid.addEventListener('cell-change', (e) => {
-   *   const { row, field, oldValue, newValue, source } = e.detail;
+   * grid.on('cell-change', ({ row, rowId, field, oldValue, newValue, source }) => {
    *   console.log(`${field}: ${oldValue} → ${newValue} (${source})`);
    *
    *   // Cascade: recalculate total when quantity changes
    *   if (source === 'user' && field === 'quantity') {
-   *     grid.updateRow(e.detail.rowId, {
-   *       total: newValue * row.price,
-   *     });
+   *     grid.updateRow(rowId, { total: newValue * row.price });
    *   }
    * });
    * ```
@@ -3540,8 +3523,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @example
    * ```typescript
-   * grid.addEventListener('data-change', (e) => {
-   *   const { rowCount, sourceRowCount } = e.detail;
+   * grid.on('data-change', ({ rowCount, sourceRowCount }) => {
    *   statusBar.textContent = `${rowCount} of ${sourceRowCount} rows`;
    * });
    * ```
@@ -3558,8 +3540,7 @@ export interface DataGridEventMap<TRow = unknown> {
    * @example
    * ```typescript
    * // Custom framework adapter
-   * grid.addEventListener('mount-external-view', (e) => {
-   *   const { placeholder, spec, context } = e.detail;
+   * grid.on('mount-external-view', ({ placeholder, spec, context }) => {
    *   myFramework.render(spec.component, placeholder, {
    *     row: context.row,
    *     value: context.value,
@@ -3581,8 +3562,7 @@ export interface DataGridEventMap<TRow = unknown> {
    * @example
    * ```typescript
    * // Custom framework adapter
-   * grid.addEventListener('mount-external-editor', (e) => {
-   *   const { placeholder, spec, context } = e.detail;
+   * grid.on('mount-external-editor', ({ placeholder, spec, context }) => {
    *   myFramework.render(spec.component, placeholder, {
    *     value: context.value,
    *     onSave: context.commit,
@@ -3603,8 +3583,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @example
    * ```typescript
-   * grid.addEventListener('sort-change', (e) => {
-   *   const { field, direction } = e.detail;
+   * grid.on('sort-change', ({ field, direction }) => {
    *   if (direction === 0) {
    *     console.log('Sort cleared');
    *   } else {
@@ -3628,8 +3607,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @example
    * ```typescript
-   * grid.addEventListener('column-resize', (e) => {
-   *   const { field, width } = e.detail;
+   * grid.on('column-resize', ({ field, width }) => {
    *   console.log(`Column "${field}" resized to ${width}px`);
    *
    *   // Persist to localStorage
@@ -3658,8 +3636,7 @@ export interface DataGridEventMap<TRow = unknown> {
    *
    * @example
    * ```typescript
-   * grid.addEventListener('column-state-change', (e) => {
-   *   const state: GridColumnState = e.detail;
+   * grid.on('column-state-change', (state) => {
    *   localStorage.setItem('grid-state', JSON.stringify(state));
    *   console.log(`${state.columns.length} columns in state`);
    * });
@@ -3707,19 +3684,26 @@ export type DataGridEventDetail<K extends keyof DataGridEventMap<unknown>, TRow 
 /**
  * Custom event type for DataGrid events with typed detail payload.
  *
- * Use this type when you need to cast or declare event handler parameters.
+ * Primarily useful when you need to declare handler parameters with
+ * `addEventListener`. For most use cases, prefer {@link DataGridElement.on | grid.on()}
+ * which handles typing automatically.
  *
  * @example
  * ```typescript
- * // Strongly typed event handler
+ * // Typed handler for addEventListener
  * function onCellClick(e: DataGridCustomEvent<'cell-click', Employee>): void {
  *   const { row, field, value } = e.detail;
  *   console.log(`Clicked ${field} = ${value} on ${row.name}`);
  * }
- *
  * grid.addEventListener('cell-click', onCellClick);
+ *
+ * // With grid.on() you don't need this type — it's inferred:
+ * grid.on('cell-click', ({ row, field, value }) => {
+ *   console.log(`Clicked ${field} = ${value} on ${row.name}`);
+ * });
  * ```
  *
+ * @see {@link DataGridElement.on} for the recommended subscription API
  * @see {@link DataGridEventMap} for all event types
  * @see {@link DataGridEventDetail} for extracting detail type only
  * @category Events

@@ -1830,17 +1830,30 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * This override provides type-safe event handling for DataGrid-specific events.
    * The event detail is automatically typed based on the event name.
    *
+   * **Prefer {@link on | grid.on()}** for most use cases — it auto-unwraps the
+   * detail payload and returns an unsubscribe function for easy cleanup.
+   *
+   * Use `addEventListener` when you need standard DOM options like `once`,
+   * `capture`, `passive`, or `signal` (AbortController).
+   *
    * @example
    * ```typescript
-   * // Type-safe: detail is CellClickDetail<Employee>
-   * grid.addEventListener('cell-click', (e) => {
-   *   console.log(e.detail.field, e.detail.value);
+   * // Recommended: use grid.on() instead
+   * const off = grid.on('cell-click', (detail) => {
+   *   console.log(detail.field, detail.value);
    * });
    *
-   * // Works with editing events when EditingPlugin is imported
-   * grid.addEventListener('cell-commit', (e) => {
-   *   console.log(e.detail.oldValue, '→', e.detail.value);
-   * });
+   * // addEventListener is useful when you need DOM listener options
+   * grid.addEventListener('cell-click', (e) => {
+   *   console.log(e.detail.field, e.detail.value);
+   * }, { once: true });
+   *
+   * // Or with AbortController for batch cleanup
+   * const controller = new AbortController();
+   * grid.addEventListener('sort-change', (e) => {
+   *   fetchData({ sortBy: e.detail.field });
+   * }, { signal: controller.signal });
+   * controller.abort(); // removes all listeners tied to this signal
    * ```
    *
    * @category Events
@@ -1887,21 +1900,61 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   /**
-   * Subscribe to a typed grid event with automatic detail unwrapping.
-   * Returns an unsubscribe function for easy cleanup.
+   * Subscribe to a typed grid event. **Recommended** over `addEventListener`.
    *
-   * The listener receives the event detail as the first argument and the
-   * raw `CustomEvent` as the second (useful for `preventDefault()`,
-   * `stopPropagation()`, etc.).
+   * Returns an unsubscribe function — call it to remove the listener.
+   * The listener receives the event **detail** as its first argument
+   * (no need to dig into `e.detail`), and the raw `CustomEvent` as
+   * the second argument when you need `preventDefault()` or `stopPropagation()`.
+   *
+   * @remarks
+   * Advantages over `addEventListener`:
+   * - Auto-unwraps `event.detail` — your callback receives the payload directly
+   * - Returns an unsubscribe function — no need to keep a reference to the handler
+   * - Fully typed — event name → detail type is inferred automatically
+   *
+   * Use `addEventListener` instead when you need DOM listener options
+   * like `once`, `capture`, `passive`, or `signal` (AbortController).
    *
    * @example
    * ```typescript
-   * const off = grid.on('cell-click', (detail) => {
-   *   console.log(detail.row, detail.field);
+   * // Basic usage — detail is auto-unwrapped
+   * const off = grid.on('cell-click', ({ row, field, value }) => {
+   *   console.log(`Clicked ${field} = ${value}`);
    * });
    *
-   * // Later: clean up
+   * // Clean up when done
    * off();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Access the raw event for preventDefault/stopPropagation
+   * grid.on('cell-activate', (detail, event) => {
+   *   if (detail.field === 'notes') {
+   *     event.preventDefault(); // suppress default editing
+   *     openRichTextEditor(detail.row, detail.cellEl);
+   *   }
+   * });
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Multiple subscriptions with easy teardown
+   * const unsubs = [
+   *   grid.on('sort-change', ({ field, direction }) => {
+   *     console.log(`Sorted by ${field} ${direction === 1 ? 'ASC' : 'DESC'}`);
+   *   }),
+   *   grid.on('column-resize', ({ field, width }) => {
+   *     saveColumnWidth(field, width);
+   *   }),
+   *   grid.on('data-change', ({ rowCount }) => {
+   *     statusBar.textContent = `${rowCount} rows`;
+   *   }),
+   * ];
+   *
+   * // Teardown all at once
+   * unsubs.forEach((off) => off());
    * ```
    *
    * @category Events

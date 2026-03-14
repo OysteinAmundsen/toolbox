@@ -74,6 +74,11 @@ export interface TreeExpandDetail<T = TreeRow> {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired when a tree node is expanded or collapsed. Provides the node key, row data, and depth level. @group Tree Events */
+    'tree-expand': TreeExpandDetail;
+  }
+
   interface PluginNameMap {
     tree: import('./TreePlugin').TreePlugin;
   }

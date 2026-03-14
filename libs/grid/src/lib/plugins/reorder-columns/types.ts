@@ -65,6 +65,11 @@ export interface ColumnMoveDetail {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired when a column is reordered via drag-and-drop (cancelable). Call `preventDefault()` to reject the move. @group Column Reorder Events */
+    'column-move': ColumnMoveDetail;
+  }
+
   interface PluginNameMap {
     /** Primary name for the column reorder plugin */
     reorderColumns: import('./ReorderPlugin').ReorderPlugin;

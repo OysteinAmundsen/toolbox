@@ -347,6 +347,8 @@ declare module '../../core/types' {
   }
 
   interface DataGridEventMap<TRow = unknown> {
+    /** Fired when a cell edit is canceled (Escape key). The cell reverts to its previous value. @group Editing Events */
+    'cell-cancel': CellCancelDetail;
     /** Fired when a cell value is committed (cancelable). @group Editing Events */
     'cell-commit': CellCommitDetail<TRow>;
     /** Fired when a row editing session ends. @group Editing Events */

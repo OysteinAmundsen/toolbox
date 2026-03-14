@@ -60,6 +60,12 @@ export interface MultiSortState {
   sortModel: SortModel[];
 }
 
+/** Event detail emitted by multi-sort's `sort-change` event. Replaces the core `SortChangeDetail` with the full sort model. */
+export interface MultiSortChangeDetail {
+  /** The complete sort model — ordered list of sort columns by precedence. */
+  sortModel: SortModel[];
+}
+
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
   interface PluginNameMap {

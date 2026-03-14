@@ -155,6 +155,11 @@ export interface ResponsiveChangeDetail {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired when the grid crosses a responsive breakpoint. @group Responsive Events */
+    'responsive-change': ResponsiveChangeDetail;
+  }
+
   interface PluginNameMap {
     responsive: import('./ResponsivePlugin').ResponsivePlugin;
   }

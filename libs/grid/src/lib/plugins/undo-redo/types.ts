@@ -64,6 +64,13 @@ export interface UndoRedoDetail {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired after an undo operation (Ctrl+Z). Provides the undone action. @group Undo/Redo Events */
+    'undo': UndoRedoDetail;
+    /** Fired after a redo operation (Ctrl+Y). Provides the redone action. @group Undo/Redo Events */
+    'redo': UndoRedoDetail;
+  }
+
   interface PluginNameMap {
     undoRedo: import('./UndoRedoPlugin').UndoRedoPlugin;
   }

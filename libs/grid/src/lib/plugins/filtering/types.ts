@@ -125,6 +125,11 @@ declare module '../../core/types' {
     filterable?: boolean;
   }
 
+  interface DataGridEventMap {
+    /** Fired when filter criteria change. Respects `silent: true` batching — only the final non-silent call emits. @group Filtering Events */
+    'filter-change': FilterChangeDetail;
+  }
+
   interface PluginNameMap {
     filtering: import('./FilteringPlugin').FilteringPlugin;
   }

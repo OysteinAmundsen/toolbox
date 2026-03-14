@@ -195,6 +195,11 @@ export interface GroupToggleDetail {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired when a row group is expanded or collapsed. @group Grouping Events */
+    'group-toggle': GroupToggleDetail;
+  }
+
   interface PluginNameMap {
     groupingRows: import('./GroupingRowsPlugin').GroupingRowsPlugin;
   }

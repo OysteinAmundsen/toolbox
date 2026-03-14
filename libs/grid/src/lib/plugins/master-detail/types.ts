@@ -49,6 +49,11 @@ export interface DetailExpandDetail {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired when a detail panel is expanded or collapsed. @group Master-Detail Events */
+    'detail-expand': DetailExpandDetail;
+  }
+
   interface PluginNameMap {
     masterDetail: import('./MasterDetailPlugin').MasterDetailPlugin;
   }

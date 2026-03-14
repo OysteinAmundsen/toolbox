@@ -67,6 +67,11 @@ export interface ExportCompleteDetail {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired when an export operation completes. Provides the format, filename, and row/column counts. @group Export Events */
+    'export-complete': ExportCompleteDetail;
+  }
+
   interface PluginNameMap {
     export: import('./ExportPlugin').ExportPlugin;
   }

@@ -89,6 +89,11 @@ export interface PendingMove {
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap<TRow = unknown> {
+    /** Fired when a row is reordered via drag or Shift+arrow (cancelable). Call `preventDefault()` to reject the move. @group Row Reorder Events */
+    'row-move': RowMoveDetail<TRow>;
+  }
+
   interface PluginNameMap {
     /** Primary name for the row reorder plugin */
     reorderRows: import('./RowReorderPlugin').RowReorderPlugin;

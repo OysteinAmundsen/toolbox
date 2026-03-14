@@ -130,8 +130,21 @@ export interface ContextMenuState {
   menuElement: HTMLElement | null;
 }
 
+/** Event detail for the `context-menu-open` event. */
+export interface ContextMenuOpenDetail {
+  /** Context about what element triggered the menu */
+  params: ContextMenuParams;
+  /** The resolved menu items being displayed */
+  items: ContextMenuItem[];
+}
+
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired when the context menu opens. Provides the trigger context and resolved menu items. @group Context Menu Events */
+    'context-menu-open': ContextMenuOpenDetail;
+  }
+
   interface PluginNameMap {
     contextMenu: import('./ContextMenuPlugin').ContextMenuPlugin;
   }

@@ -31,6 +31,13 @@ declare module '../../core/types' {
     printHidden?: boolean;
   }
 
+  interface DataGridEventMap {
+    /** Fired when printing begins. Provides row count and whether a limit was applied. @group Print Events */
+    'print-start': PrintStartDetail;
+    /** Fired when printing completes. Provides success status, row count, and duration. @group Print Events */
+    'print-complete': PrintCompleteDetail;
+  }
+
   interface PluginNameMap {
     print: import('./PrintPlugin').PrintPlugin;
   }

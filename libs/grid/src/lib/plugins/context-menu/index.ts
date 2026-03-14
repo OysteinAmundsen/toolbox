@@ -5,4 +5,5 @@
  * @module Plugins/Context Menu
  */
 export { ContextMenuPlugin } from './ContextMenuPlugin';
-export type { ContextMenuConfig, ContextMenuItem, ContextMenuParams, HeaderContextMenuItem } from './types';
+export type { ContextMenuConfig, ContextMenuItem, ContextMenuOpenDetail, ContextMenuParams, HeaderContextMenuItem } from './types';
+

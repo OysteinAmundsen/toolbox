@@ -35,6 +35,11 @@ declare module '../../core/types' {
     selectable?: boolean;
   }
 
+  interface DataGridEventMap {
+    /** Fired when the selection changes — row click, range drag, Ctrl+click, or programmatic update. @group Selection Events */
+    'selection-change': SelectionChangeDetail;
+  }
+
   interface PluginNameMap {
     selection: import('./SelectionPlugin').SelectionPlugin;
   }

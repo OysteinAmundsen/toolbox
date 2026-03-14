@@ -212,6 +212,13 @@ export function defaultPasteHandler(detail: PasteDetail, grid: GridElement): voi
 
 // Module Augmentation - Register plugin name for type-safe getPluginByName()
 declare module '../../core/types' {
+  interface DataGridEventMap {
+    /** Fired after a successful copy operation. Provides the copied text, row count, and column count. @group Clipboard Events */
+    'copy': CopyDetail;
+    /** Fired after a paste operation. Provides parsed rows, target cell, and column fields. @group Clipboard Events */
+    'paste': PasteDetail;
+  }
+
   interface PluginNameMap {
     clipboard: import('./ClipboardPlugin').ClipboardPlugin;
   }

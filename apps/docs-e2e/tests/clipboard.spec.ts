@@ -2,11 +2,17 @@ import { expect, test } from '@playwright/test';
 import { clickCell, dataRows, grid, openDemo } from './utils';
 
 test.describe('Clipboard Demos', () => {
-  test('ClipboardDefaultDemo — renders with clipboard feature', async ({ page }) => {
+  test('ClipboardDefaultDemo — renders with clipboard feature and controls', async ({ page }) => {
     await openDemo(page, 'clipboard/ClipboardDefaultDemo');
     await expect(grid(page)).toBeVisible();
     const rows = await dataRows(page).count();
     expect(rows).toBeGreaterThan(0);
+
+    // Verify includeHeaders and quoteStrings controls exist (covers former WithHeaders / QuotedStrings demos)
+    const includeHeaders = page.locator('[data-control="includeHeaders"]');
+    const quoteStrings = page.locator('[data-control="quoteStrings"]');
+    await expect(includeHeaders).toBeVisible();
+    await expect(quoteStrings).toBeVisible();
   });
 
   test('ClipboardCopyPasteDemo — copy and paste interaction', async ({ page }) => {
@@ -33,18 +39,8 @@ test.describe('Clipboard Demos', () => {
     }
   });
 
-  test('ClipboardWithHeadersDemo — renders with header copy option', async ({ page }) => {
-    await openDemo(page, 'clipboard/ClipboardWithHeadersDemo');
-    await expect(grid(page)).toBeVisible();
-  });
-
   test('ClipboardSingleCellModeDemo — single cell copy works', async ({ page }) => {
     await openDemo(page, 'clipboard/ClipboardSingleCellModeDemo');
-    await expect(grid(page)).toBeVisible();
-  });
-
-  test('ClipboardQuotedStringsDemo — renders with quoting enabled', async ({ page }) => {
-    await openDemo(page, 'clipboard/ClipboardQuotedStringsDemo');
     await expect(grid(page)).toBeVisible();
   });
 

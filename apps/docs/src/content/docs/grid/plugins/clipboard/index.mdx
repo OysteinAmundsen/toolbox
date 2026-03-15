@@ -5,8 +5,7 @@ description: "Copy and paste grid data with Excel-compatible clipboard support."
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 import ClipboardDefaultDemo from '@components/demos/clipboard/ClipboardDefaultDemo.astro';
-import ClipboardWithHeadersDemo from '@components/demos/clipboard/ClipboardWithHeadersDemo.astro';
-import ClipboardQuotedStringsDemo from '@components/demos/clipboard/ClipboardQuotedStringsDemo.astro';
+
 import ClipboardCopyPasteDemo from '@components/demos/clipboard/ClipboardCopyPasteDemo.astro';
 import ClipboardCustomPasteHandlerDemo from '@components/demos/clipboard/ClipboardCustomPasteHandlerDemo.astro';
 import ClipboardSingleCellModeDemo from '@components/demos/clipboard/ClipboardSingleCellModeDemo.astro';
@@ -144,26 +143,6 @@ export class MyGridComponent {
 
 Select cells and use Ctrl+C to copy, Ctrl+V to paste.
 
-
-
-
-### With Headers
-
-<ShowSource file="demos/clipboard/ClipboardWithHeadersDemo.astro">
-  <ClipboardWithHeadersDemo />
-</ShowSource>
-
-Include column headers when copying.
-
-
-
-### Quoted Strings
-
-<ShowSource file="demos/clipboard/ClipboardQuotedStringsDemo.astro">
-  <ClipboardQuotedStringsDemo />
-</ShowSource>
-
-Wrap text values in quotes for CSV compatibility.
 
 
 

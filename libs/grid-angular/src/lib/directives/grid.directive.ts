@@ -1329,11 +1329,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     }
 
     // Check if <tbw-grid-detail> is present in light DOM
-    const detailElement = (grid as unknown as Element).querySelector('tbw-grid-detail');
+    const detailElement = grid.querySelector('tbw-grid-detail');
     if (!detailElement) return;
 
     // Create detail renderer from Angular template
-    const detailRenderer = this.adapter.createDetailRenderer(grid as unknown as HTMLElement);
+    const detailRenderer = this.adapter.createDetailRenderer(grid);
     if (!detailRenderer) return;
 
     // Parse configuration from attributes
@@ -1374,11 +1374,11 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     if (!this.adapter) return;
 
     // Check if <tbw-grid-responsive-card> is present in light DOM
-    const cardElement = (grid as unknown as Element).querySelector('tbw-grid-responsive-card');
+    const cardElement = grid.querySelector('tbw-grid-responsive-card');
     if (!cardElement) return;
 
     // Create card renderer from Angular template
-    const cardRenderer = this.adapter.createResponsiveCardRenderer(grid as unknown as HTMLElement);
+    const cardRenderer = this.adapter.createResponsiveCardRenderer(grid);
     if (!cardRenderer) return;
 
     // Find existing plugin by name to avoid importing the class

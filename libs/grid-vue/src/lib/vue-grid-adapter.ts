@@ -293,7 +293,7 @@ export class GridAdapter implements FrameworkAdapter {
 
     // Process columns
     if (vueConfig.columns) {
-      result.columns = vueConfig.columns.map((col) => this.processColumn(col));
+      (result as BaseGridConfig<TRow>).columns = vueConfig.columns.map((col) => this.processColumn(col));
     }
 
     // Process typeDefaults
@@ -821,11 +821,11 @@ export class GridAdapter implements FrameworkAdapter {
    * Creates a view renderer function that renders a Vue component
    * and returns its container DOM element.
    */
-  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> {
+  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> | undefined {
     const renderFn = getColumnRenderer(element);
 
     if (!renderFn) {
-      return undefined as unknown as ColumnViewRenderer<TRow, TValue>;
+      return undefined;
     }
 
     // Cell cache for this field - maps cell element to its Vue app
@@ -895,11 +895,11 @@ export class GridAdapter implements FrameworkAdapter {
    * Creates an editor spec that renders a Vue component for cell editing.
    * Returns a function that creates the editor DOM element.
    */
-  createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> {
+  createEditor<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnEditorSpec<TRow, TValue> | undefined {
     const editorFn = getColumnEditor(element);
 
     if (!editorFn) {
-      return undefined as unknown as ColumnEditorSpec<TRow, TValue>;
+      return undefined;
     }
 
     // Return a function that creates the editor element

@@ -196,7 +196,7 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
     }
 
     // Get viewport width from grid element
-    const viewportWidth = (this.grid as unknown as HTMLElement).clientWidth || 800;
+    const viewportWidth = this.grid?.clientWidth || 800;
     const viewport = getVisibleColumnRange(
       this.scrollLeft,
       viewportWidth,
@@ -288,9 +288,9 @@ export class ColumnVirtualizationPlugin extends BaseGridPlugin<ColumnVirtualizat
    */
   scrollToColumn(columnIndex: number): void {
     const offset = this.columnOffsets[columnIndex] ?? 0;
-    const gridEl = this.grid as unknown as HTMLElement;
+    const gridEl = this.gridElement;
     // Scroll the grid element itself (it's the scroll container)
-    gridEl.scrollLeft = offset;
+    if (gridEl) gridEl.scrollLeft = offset;
   }
 
   /**

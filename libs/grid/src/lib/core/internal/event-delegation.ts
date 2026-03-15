@@ -14,7 +14,7 @@
  */
 
 import type { CellMouseEvent } from '../plugin/types';
-import type { InternalGrid } from '../types';
+import type { GridHost, InternalGrid } from '../types';
 import { handleGridKeyDown } from './keyboard';
 import { handleRowClick } from './rows';
 import { clearCellFocus, getColIndexFromCell, getRowIndexFromCell } from './utils';
@@ -193,7 +193,7 @@ function handleMouseUp(grid: InternalGrid, renderRoot: HTMLElement, e: MouseEven
  * @param bodyEl - The .rows element containing all data rows
  * @param signal - AbortSignal for cleanup
  */
-export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement, signal: AbortSignal): void {
+export function setupCellEventDelegation(grid: GridHost, bodyEl: HTMLElement, signal: AbortSignal): void {
   // Mousedown - update focus on any cell (not just editable)
   bodyEl.addEventListener(
     'mousedown',
@@ -271,7 +271,7 @@ export function setupCellEventDelegation(grid: InternalGrid, bodyEl: HTMLElement
  * @param signal - AbortSignal for cleanup
  */
 export function setupRootEventDelegation(
-  grid: InternalGrid,
+  grid: GridHost,
   gridElement: HTMLElement,
   renderRoot: HTMLElement,
   signal: AbortSignal,

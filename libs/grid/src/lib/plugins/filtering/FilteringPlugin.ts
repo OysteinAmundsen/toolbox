@@ -1031,18 +1031,17 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
 
     // If using async filterHandler, delegate to server
     if (this.config.filterHandler) {
-      const gridEl = this.grid as unknown as Element;
-      gridEl.setAttribute('aria-busy', 'true');
+      this.gridElement.setAttribute('aria-busy', 'true');
 
       const result = this.config.filterHandler(filterList, this.sourceRows as unknown[]);
 
       // Handle async or sync result
       const handleResult = (rows: unknown[]) => {
-        gridEl.removeAttribute('aria-busy');
+        this.gridElement.removeAttribute('aria-busy');
         this.cachedResult = rows;
 
         // Update grid rows directly for async filtering
-        (this.grid as unknown as { rows: unknown[] }).rows = rows;
+        this.grid.rows = rows;
 
         if (!silent) {
           this.emit<FilterChangeDetail>('filter-change', {

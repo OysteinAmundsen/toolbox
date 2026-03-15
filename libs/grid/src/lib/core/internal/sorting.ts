@@ -4,7 +4,7 @@
  * Handles column sorting state transitions and row ordering.
  */
 
-import type { ColumnConfig, InternalGrid, SortHandler, SortState } from '../types';
+import type { ColumnConfig, GridHost, InternalGrid, SortHandler, SortState } from '../types';
 import { announce } from './aria';
 import { renderHeader } from './header';
 
@@ -37,7 +37,7 @@ export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnC
  * Apply sort result to grid and update UI.
  * Called after sync or async sort completes.
  */
-function finalizeSortResult<T>(grid: InternalGrid<T>, sortedRows: T[], col: ColumnConfig<T>, dir: 1 | -1): void {
+function finalizeSortResult<T>(grid: GridHost<T>, sortedRows: T[], col: ColumnConfig<T>, dir: 1 | -1): void {
   grid._rows = sortedRows;
   // Bump epoch so renderVisibleRows triggers full inline rebuild
   grid.__rowRenderEpoch++;
@@ -45,11 +45,8 @@ function finalizeSortResult<T>(grid: InternalGrid<T>, sortedRows: T[], col: Colu
   grid._rowPool.forEach((r) => (r.__epoch = -1));
   renderHeader(grid);
   grid.refreshVirtualWindow(true);
-  const gridEl = grid as unknown as HTMLElement;
-  gridEl.dispatchEvent(
-    new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }),
-  );
-  announce(gridEl, `Sorted by ${col.header ?? col.field}, ${dir === 1 ? 'ascending' : 'descending'}`);
+  grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }));
+  announce(grid, `Sorted by ${col.header ?? col.field}, ${dir === 1 ? 'ascending' : 'descending'}`);
   // Trigger state change after sort applied
   grid.requestStateChange?.();
 }
@@ -58,7 +55,7 @@ function finalizeSortResult<T>(grid: InternalGrid<T>, sortedRows: T[], col: Colu
  * Cycle sort state for a column: none -> ascending -> descending -> none.
  * Restores original row order when clearing sort.
  */
-export function toggleSort(grid: InternalGrid, col: ColumnConfig<any>): void {
+export function toggleSort(grid: GridHost, col: ColumnConfig<any>): void {
   if (!grid._sortState || grid._sortState.field !== col.field) {
     if (!grid._sortState) grid.__originalOrder = grid._rows.slice();
     applySort(grid, col, 1);
@@ -82,11 +79,8 @@ export function toggleSort(grid: InternalGrid, col: ColumnConfig<any>): void {
       }
     });
     grid.refreshVirtualWindow(true);
-    const gridEl = grid as unknown as HTMLElement;
-    gridEl.dispatchEvent(
-      new CustomEvent('sort-change', { detail: { field: col.field, direction: 0 } }),
-    );
-    announce(gridEl, 'Sort cleared');
+    grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: 0 } }));
+    announce(grid, 'Sort cleared');
     // Trigger state change after sort is cleared
     grid.requestStateChange?.();
   }
@@ -112,7 +106,7 @@ export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
  * Uses custom sortHandler from gridConfig if provided, otherwise uses built-in sorting.
  * Supports both sync and async handlers (for server-side sorting).
  */
-export function applySort(grid: InternalGrid, col: ColumnConfig<any>, dir: 1 | -1): void {
+export function applySort(grid: GridHost, col: ColumnConfig<any>, dir: 1 | -1): void {
   grid._sortState = { field: col.field, direction: dir };
 
   const sortState: SortState = { field: col.field, direction: dir };

@@ -196,7 +196,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       return;
     }
 
-    const host = this.grid as unknown as HTMLElement;
+    const host = this.gridElement;
     const columns = [...this.columns];
 
     if (!hasStickyColumns(columns)) {
@@ -304,7 +304,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     const currentIndex = currentColumns.findIndex((col) => col.field === field);
     if (currentIndex === -1) return;
 
-    const gridEl = this.grid as unknown as HTMLElement & { columns?: ColumnConfig[] };
+    const gridEl = this.gridElement as HTMLElement & { columns?: ColumnConfig[] };
 
     if (position) {
       // PINNING: snapshot original column order if this is the first context-menu pin.
@@ -368,7 +368,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    */
   refreshStickyOffsets(): void {
     const columns = [...this.columns];
-    applyStickyOffsets(this.grid as unknown as HTMLElement, columns);
+    applyStickyOffsets(this.gridElement, columns);
   }
 
   /**
@@ -376,7 +376,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    */
   getLeftPinnedColumns(): ColumnConfig[] {
     const columns = [...this.columns];
-    const direction = getDirection(this.grid as unknown as HTMLElement);
+    const direction = getDirection(this.gridElement);
     return getLeftStickyColumns(columns, direction);
   }
 
@@ -385,7 +385,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    */
   getRightPinnedColumns(): ColumnConfig[] {
     const columns = [...this.columns];
-    const direction = getDirection(this.grid as unknown as HTMLElement);
+    const direction = getDirection(this.gridElement);
     return getRightStickyColumns(columns, direction);
   }
 
@@ -393,7 +393,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    * Clear all sticky positioning.
    */
   clearStickyPositions(): void {
-    clearStickyOffsets(this.grid as unknown as HTMLElement);
+    clearStickyOffsets(this.gridElement);
   }
 
   /**
@@ -424,7 +424,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       });
     } else {
       // Fall back to header row if no row element provided
-      const host = this.grid as unknown as HTMLElement;
+      const host = this.gridElement;
       const headerCells = host.querySelectorAll('.header-row .cell');
       headerCells.forEach((cell) => {
         if (cell.classList.contains('sticky-left')) {

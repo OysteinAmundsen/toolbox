@@ -8,7 +8,7 @@
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, CellClickEvent, GridElement, RowClickEvent } from '../../core/plugin/base-plugin';
 import { createExpanderColumnConfig, findExpanderColumn, isExpanderColumn } from '../../core/plugin/expander-column';
-import type { ColumnConfig } from '../../core/types';
+import type { ColumnConfig, GridHost } from '../../core/types';
 import {
   collapseDetailRow,
   createDetailElement,
@@ -111,6 +111,11 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
   /** @internal */
   override readonly styles = styles;
 
+  /** Typed internal grid accessor. */
+  get #internalGrid(): GridHost {
+    return this.grid as unknown as GridHost;
+  }
+
   /** @internal */
   protected override get defaultConfig(): Partial<MasterDetailConfig> {
     return {
@@ -159,21 +164,17 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    * - `height`: number (pixels) or 'auto' (default: 'auto')
    */
   private parseLightDomDetail(): void {
-    const gridEl = this.grid as unknown as Element;
-    if (!gridEl || typeof gridEl.querySelector !== 'function') return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     const detailEl = gridEl.querySelector('tbw-grid-detail');
     if (!detailEl) return;
 
     // Check if a framework adapter wants to handle this element
     // (e.g., Angular adapter intercepts for ng-template rendering)
-    const gridWithAdapter = gridEl as unknown as {
-      __frameworkAdapter?: {
-        parseDetailElement?: (el: Element) => ((row: any, rowIndex: number) => HTMLElement | string) | undefined;
-      };
-    };
-    if (gridWithAdapter.__frameworkAdapter?.parseDetailElement) {
-      const adapterRenderer = gridWithAdapter.__frameworkAdapter.parseDetailElement(detailEl);
+    const adapter = this.#internalGrid.__frameworkAdapter;
+    if (adapter?.parseDetailElement) {
+      const adapterRenderer = adapter.parseDetailElement(detailEl);
       if (adapterRenderer) {
         this.config = { ...this.config, detailRenderer: adapterRenderer };
         return;
@@ -561,8 +562,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       if (!isStillExpanded || !isRowVisible) {
         // Clean up framework adapter resources (React root, Vue app, Angular view)
         // before removing to prevent memory leaks.
-        const adapter = (this.grid as unknown as { __frameworkAdapter?: { unmount?(c: HTMLElement): void } })
-          .__frameworkAdapter;
+        const adapter = this.#internalGrid.__frameworkAdapter;
         if (adapter?.unmount) {
           const detailCell = detailEl.querySelector('.master-detail-cell');
           const container = detailCell?.firstElementChild as HTMLElement | null;
@@ -854,7 +854,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
     // Must use refreshColumns() (COLUMNS phase) not requestRender() (ROWS phase)
     // because processColumns only runs at COLUMNS phase or higher.
     if (this.config.detailRenderer) {
-      const grid = this.grid as unknown as { refreshColumns?: () => void };
+      const grid = this.#internalGrid;
       if (typeof grid.refreshColumns === 'function') {
         grid.refreshColumns();
       } else {

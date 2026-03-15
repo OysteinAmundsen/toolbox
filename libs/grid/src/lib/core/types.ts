@@ -475,6 +475,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   effectiveConfig?: GridConfig<T>;
   findHeaderRow?: () => HTMLElement;
   refreshVirtualWindow: (full: boolean, skipAfterRender?: boolean) => boolean;
+  /** @internal Trigger a COLUMNS-phase re-render. */
+  refreshColumns?: () => void;
   updateTemplate?: () => void;
   findRenderedRowElement?: (rowIndex: number) => HTMLElement | null;
   /** Get a row by its ID. Implemented in grid.ts */
@@ -500,7 +502,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   /** Dispatch row click to plugin system, returns true if handled */
   _dispatchRowClick?: (event: MouseEvent, rowIndex: number, row: any, rowEl: HTMLElement) => boolean;
   /** Dispatch header click to plugin system, returns true if handled */
-  _dispatchHeaderClick?: (event: MouseEvent, col: ColumnConfig, headerEl: HTMLElement) => boolean;
+  _dispatchHeaderClick?: (event: MouseEvent | KeyboardEvent, col: ColumnConfig, headerEl: HTMLElement) => boolean;
   /** Dispatch keydown to plugin system, returns true if handled */
   _dispatchKeyDown?: (event: KeyboardEvent) => boolean;
   /** Dispatch cell mouse events for drag operations. Returns true if any plugin started a drag. */
@@ -1440,8 +1442,10 @@ export interface FrameworkAdapter {
   /**
    * Creates a view renderer function from a light DOM element.
    * The renderer receives cell context and returns DOM or string.
+   * Returns undefined if no renderer template is registered, allowing the grid
+   * to use its default rendering.
    */
-  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue>;
+  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> | undefined;
 
   /**
    * Creates an editor spec from a light DOM element.
@@ -1503,6 +1507,22 @@ export interface FrameworkAdapter {
    * @param container - The container element returned by a create* method
    */
   unmount?(container: HTMLElement): void;
+
+  /**
+   * Parse a `<tbw-grid-detail>` element and return a detail renderer function.
+   * Used by MasterDetailPlugin to support framework-specific detail templates.
+   */
+  parseDetailElement?<TRow = unknown>(
+    element: Element,
+  ): ((row: TRow, rowIndex: number) => HTMLElement | string) | undefined;
+
+  /**
+   * Parse a `<tbw-grid-responsive-card>` element and return a card renderer function.
+   * Used by ResponsivePlugin to support framework-specific card templates.
+   */
+  parseResponsiveCardElement?<TRow = unknown>(
+    element: Element,
+  ): ((row: TRow, rowIndex: number) => HTMLElement) | undefined;
 }
 // #endregion
 

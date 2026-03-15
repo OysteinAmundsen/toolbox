@@ -23,7 +23,7 @@ import type {
   PluginQuery,
 } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, type CellClickEvent, type GridElement } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, InternalGrid, RowElementInternal } from '../../core/types';
+import type { ColumnConfig, GridHost, InternalGrid, RowElementInternal } from '../../core/types';
 import styles from './editing.css?inline';
 import { getInputValue } from './editors';
 import { CellValidationManager } from './internal/cell-validation';
@@ -273,6 +273,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Dependency bag created once in `attach()` and reused by every `#injectEditor` call. */
   #editorDeps!: EditorInjectionDeps<T>;
 
+  /**
+   * Typed accessor for `InternalGrid` — avoids repeating `as unknown as` at every call site.
+   * Safe because `DataGridElement` implements `InternalGrid` at runtime.
+   */
+  get #internalGrid(): GridHost<T> {
+    return this.grid as unknown as GridHost<T>;
+  }
+
   // #endregion
 
   // #region Lifecycle
@@ -282,7 +290,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     super.attach(grid);
 
     const signal = this.disconnectSignal;
-    const internalGrid = grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
 
     // Initialize cell validation manager with DOM sync callback
     this.#validation = new CellValidationManager((rowId, field, invalid) => {
@@ -587,7 +595,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
   /** @internal */
   override detach(): void {
-    const internalGrid = this.gridElement as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     internalGrid._isGridEditMode = false;
     this.gridElement.classList.remove('tbw-grid-mode');
     this.#activeEditRow = -1;
@@ -631,7 +639,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // In grid mode, all cells are already editable - no need to trigger row edit
     if (this.#isGridMode) return false;
 
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
 
     // Check if editing is disabled
@@ -662,7 +670,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal
    */
   override onKeyDown(event: KeyboardEvent): boolean | void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
 
     // Escape: cancel current edit (row mode) or exit edit mode (grid mode)
     if (event.key === 'Escape') {
@@ -890,7 +898,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal
    */
   override processColumns(columns: ColumnConfig<T>[]): ColumnConfig<T>[] {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const typeDefaults = (internalGrid as any).effectiveConfig?.typeDefaults;
     const adapter = internalGrid.__frameworkAdapter;
 
@@ -944,7 +952,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal Plugin API — part of the render pipeline
    */
   override processRows(rows: readonly T[]): T[] {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
 
     // --- Dirty tracking: capture baselines (first-write-wins) ---
     if (this.config.dirtyTracking && internalGrid.getRowId) {
@@ -1007,7 +1015,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @internal
    */
   override afterRender(): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
 
     // --- Editing stability: verify active edit row index ---
     // After processRows, subsequent plugins (filtering, grouping) may have
@@ -1119,8 +1127,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   override afterRowRender(context: AfterRowRenderContext): void {
     if (!this.config.dirtyTracking) return;
 
-    const internalGrid = this.gridElement as unknown as InternalGrid;
-    const rowId = internalGrid.getRowId?.(context.row);
+    const internalGrid = this.#internalGrid;
+    const rowId = internalGrid.getRowId?.(context.row as T);
     if (!rowId) return;
 
     const { isNew, isCommittedDirty, hasBaseline } = this.#dirty.getRowDirtyState(rowId, context.row as T);
@@ -1213,7 +1221,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @param rowIndex - Row index to check (will be converted to ID internally)
    */
   isRowChanged(rowIndex: number): boolean {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const row = internalGrid._rows[rowIndex];
     if (!row) return false;
     try {
@@ -1251,7 +1259,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Whether any row in the grid is dirty. */
   get dirty(): boolean {
     if (!this.config.dirtyTracking) return false;
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     return this.#dirty.hasAnyDirty((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
@@ -1304,7 +1312,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Mark all tracked rows as pristine (call after a batch save). */
   markAllPristine(): void {
     if (!this.config.dirtyTracking) return;
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     this.#dirty.markAllPristine((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
@@ -1323,7 +1331,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   /** Get all dirty rows with their original and current data. */
   getDirtyRows(): DirtyRowEntry<T>[] {
     if (!this.config.dirtyTracking) return [];
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     return this.#dirty.getDirtyRows((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
@@ -1332,7 +1340,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   get dirtyRowIds(): string[] {
     if (!this.config.dirtyTracking) return [];
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     return this.#dirty.getDirtyRowIds((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
   }
 
@@ -1362,7 +1370,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   revertAll(): void {
     if (!this.config.dirtyTracking) return;
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     this.#dirty.revertAll((rowId) => internalGrid._getRowEntry(rowId)?.row as T | undefined);
     this.requestRender();
   }
@@ -1450,7 +1458,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     }
 
     // Clear visual indicators
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     internalGrid._rowPool?.forEach((r) => r.classList.remove('changed'));
   }
 
@@ -1461,7 +1469,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @fires cell-commit - Emitted when the cell value is committed (on blur or Enter)
    */
   beginCellEdit(rowIndex: number, field: string): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const colIndex = internalGrid._visibleColumns.findIndex((c) => c.field === field);
     if (colIndex === -1) return;
 
@@ -1483,7 +1491,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * @fires row-commit - Emitted when focus leaves the row
    */
   beginBulkEdit(rowIndex: number): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
     if (editOn === false) return;
 
@@ -1556,7 +1564,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Used as the DOM callback for CellValidationManager.
    */
   #syncInvalidCellAttribute(rowId: string, field: string, invalid: boolean): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const colIndex = internalGrid._visibleColumns?.findIndex((c) => c.field === field);
     if (colIndex === -1 || colIndex === undefined) return;
 
@@ -1639,7 +1647,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Begin editing a single cell.
    */
   #beginCellEdit(rowIndex: number, colIndex: number, cellEl: HTMLElement): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const rowData = internalGrid._rows[rowIndex];
     const column = internalGrid._visibleColumns[colIndex];
 
@@ -1666,7 +1674,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const snapshot = this.#gridModeCellSnapshot;
     if (!snapshot) return;
 
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const rowData = internalGrid._rows?.[snapshot.rowIndex];
     if (rowData) {
       (rowData as Record<string, unknown>)[snapshot.field] = snapshot.value;
@@ -1697,7 +1705,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Used when pressing Enter to enter edit mode from navigation mode.
    */
   #focusCurrentCellEditor(): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const focusRow = internalGrid._focusRow;
     const focusCol = internalGrid._focusCol;
 
@@ -1726,7 +1734,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Wraps to next/previous row when reaching row boundaries.
    */
   #handleTabNavigation(forward: boolean): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const rows = internalGrid._rows;
     // In grid mode, use focusRow since there's no active edit row
     const currentRow = this.#isGridMode ? internalGrid._focusRow : this.#activeEditRow;
@@ -1785,7 +1793,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    * Sync the internal grid state with the plugin's editing state.
    */
   #syncGridEditState(): void {
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     internalGrid._activeEditRows = this.#activeEditRow;
     internalGrid._rowEditSnapshots = this.#rowEditSnapshots;
   }
@@ -1804,7 +1812,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       this.#activeEditRowRef = rowData;
 
       // Store stable row ID for resilience against _rows replacement during editing
-      const internalGrid = this.grid as unknown as InternalGrid<T>;
+      const internalGrid = this.#internalGrid;
       try {
         this.#activeEditRowId = internalGrid.getRowId?.(rowData) ?? undefined;
       } catch {
@@ -1830,7 +1838,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   #exitRowEdit(rowIndex: number, revert: boolean): void {
     if (this.#activeEditRow !== rowIndex) return;
 
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
     const snapshot = this.#rowEditSnapshots.get(rowIndex);
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
 
@@ -2025,7 +2033,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const oldValue = (rowData as Record<string, unknown>)[field];
     if (oldValue === newValue) return;
 
-    const internalGrid = this.grid as unknown as InternalGrid<T>;
+    const internalGrid = this.#internalGrid;
 
     // Get row ID for change tracking (may not exist if getRowId not configured)
     let rowId: string | undefined;

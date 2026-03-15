@@ -10,7 +10,7 @@
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, InternalGrid } from '../../core/types';
+import type { ColumnConfig, GridHost } from '../../core/types';
 import { canMoveColumn, moveColumn } from './column-drag';
 import styles from './reorder.css?inline';
 import type { ColumnMoveDetail, ReorderConfig } from './types';
@@ -131,6 +131,11 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
 
+  /** Typed internal grid accessor. */
+  get #internalGrid(): GridHost {
+    return this.grid as unknown as GridHost;
+  }
+
   /**
    * Check if a column can be moved, considering both column config and plugin queries.
    */
@@ -159,7 +164,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     // Listen for reorder requests from other plugins (e.g., VisibilityPlugin)
     // Uses disconnectSignal for automatic cleanup - no need for manual removeEventListener
-    (grid as unknown as HTMLElement).addEventListener(
+    this.gridElement.addEventListener(
       'column-reorder-request',
       (e: Event) => {
         const detail = (e as CustomEvent).detail;
@@ -289,7 +294,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
       return;
     }
 
-    const grid = this.grid as unknown as { _focusCol: number; _visibleColumns: ColumnConfig[] };
+    const grid = this.#internalGrid;
     const focusCol = grid._focusCol;
     const columns = grid._visibleColumns;
 
@@ -315,7 +320,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
     // Update focus to follow the moved column and refresh visual focus state
     grid._focusCol = toIndex;
-    ensureCellVisible(this.grid as unknown as InternalGrid);
+    ensureCellVisible(this.#internalGrid);
 
     event.preventDefault();
     event.stopPropagation();

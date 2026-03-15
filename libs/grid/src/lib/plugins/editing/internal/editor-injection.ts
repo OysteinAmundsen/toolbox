@@ -9,7 +9,7 @@
  */
 
 import { gridPrefix } from '../../../core/internal/utils';
-import type { ColumnConfig, ColumnInternal, InternalGrid, RowElementInternal } from '../../../core/types';
+import type { ColumnConfig, ColumnInternal, GridHost, RowElementInternal } from '../../../core/types';
 import { defaultEditorFor, getInputValue } from '../editors';
 import type { EditingConfig, EditorContext } from '../types';
 import {
@@ -29,8 +29,8 @@ import {
  * can call back into plugin-owned state and methods.
  */
 export interface EditorInjectionDeps<T> {
-  /** Internal grid reference (also usable as HTMLElement via cast). */
-  grid: InternalGrid<T>;
+  /** Internal grid reference (also serves as HTMLElement). */
+  grid: GridHost<T>;
   /** Whether the grid is in always-editing "grid" mode. */
   isGridMode: boolean;
   /** Plugin configuration. */
@@ -302,7 +302,7 @@ export function injectEditor<T>(
         console.warn(`${gridPrefix(deps.grid.id)} External editor mount error for column '${column.field}':`, e);
       }
     } else {
-      (grid as unknown as HTMLElement).dispatchEvent(
+      grid.dispatchEvent(
         new CustomEvent('mount-external-editor', { detail: { placeholder, spec: editorSpec, context } }),
       );
     }

@@ -219,7 +219,7 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
       if (limitApplied) {
         this.#savedRows = this.sourceRows;
         // Set limited rows on the grid
-        (this.grid as unknown as { rows: unknown[] }).rows = this.sourceRows.slice(0, rowCount);
+        this.grid.rows = this.sourceRows.slice(0, rowCount);
         // Wait for grid to process new rows
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
@@ -442,7 +442,7 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
 
     // Restore original rows if they were limited
     if (this.#savedRows !== null) {
-      (this.grid as unknown as { rows: unknown[] }).rows = this.#savedRows;
+      this.grid.rows = this.#savedRows;
       this.#savedRows = null;
     }
   }

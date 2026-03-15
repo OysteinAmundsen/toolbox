@@ -1,6 +1,6 @@
 import { Directive, ElementRef, inject, input, OnDestroy, OnInit, output } from '@angular/core';
 import { AbstractControl, FormGroup } from '@angular/forms';
-import type { BaseGridPlugin, DataGridElement as GridElement } from '@toolbox-web/grid';
+import type { DataGridElement as GridElement } from '@toolbox-web/grid';
 import type { FormArrayContext } from './grid-form-array.directive';
 
 /**
@@ -194,9 +194,12 @@ export class GridLazyForm<TRow = unknown> implements OnInit, OnDestroy {
     this.#storeFormContext(grid);
 
     // Listen for cell-commit to update FormControl and sync validation
-    this.cellCommitUnsub = grid.on('cell-commit', (detail: { rowIndex: number; field: string; value: unknown; oldValue: unknown; rowId: string }) => {
-      this.#handleCellCommit(detail);
-    });
+    this.cellCommitUnsub = grid.on(
+      'cell-commit',
+      (detail: { rowIndex: number; field: string; value: unknown; oldValue: unknown; rowId: string }) => {
+        this.#handleCellCommit(detail);
+      },
+    );
 
     // Listen for row-commit to sync FormGroup values back to row and cleanup
     this.rowCommitUnsub = grid.on('row-commit', (detail: { rowIndex: number; rowId?: string }, event: CustomEvent) => {
@@ -456,9 +459,7 @@ export class GridLazyForm<TRow = unknown> implements OnInit, OnDestroy {
 
       // Clear any validation state in the grid
       if (rowId) {
-        const editingPlugin = (
-          grid as unknown as { getPluginByName?: (name: string) => BaseGridPlugin }
-        ).getPluginByName?.('editing') as EditingPluginValidation | undefined;
+        const editingPlugin = grid.getPluginByName?.('editing') as EditingPluginValidation | undefined;
         editingPlugin?.clearRowInvalid(rowId);
       }
     }
@@ -475,9 +476,7 @@ export class GridLazyForm<TRow = unknown> implements OnInit, OnDestroy {
     const grid = this.elementRef.nativeElement;
     if (!grid) return;
 
-    const editingPlugin = (grid as unknown as { getPluginByName?: (name: string) => BaseGridPlugin }).getPluginByName?.(
-      'editing',
-    ) as EditingPluginValidation | undefined;
+    const editingPlugin = grid.getPluginByName?.('editing') as EditingPluginValidation | undefined;
 
     if (!editingPlugin) return;
 

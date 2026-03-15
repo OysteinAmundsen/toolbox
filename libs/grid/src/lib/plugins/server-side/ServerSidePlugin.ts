@@ -5,6 +5,7 @@
  */
 
 import { BaseGridPlugin, ScrollEvent } from '../../core/plugin/base-plugin';
+import type { GridHost } from '../../core/types';
 import { getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
 import type { ServerSideConfig, ServerSideDataSource } from './types';
 
@@ -126,7 +127,7 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     if (!this.dataSource) return;
 
     // Get fresh viewport from grid's virtualization state
-    const gridRef = this.grid as unknown as { _virtualization: { start: number; end: number } };
+    const gridRef = this.grid as unknown as GridHost;
     const blockSize = this.config.cacheBlockSize ?? 100;
     const viewport = { startRow: gridRef._virtualization.start, endRow: gridRef._virtualization.end };
 

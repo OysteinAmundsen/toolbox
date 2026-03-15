@@ -1,6 +1,6 @@
-import type { InternalGrid, ResizeController } from '../types';
+import type { GridHost, ResizeController } from '../types';
 
-export function createResizeController(grid: InternalGrid): ResizeController {
+export function createResizeController(grid: GridHost): ResizeController {
   let resizeState: { startX: number; colIndex: number; startWidth: number } | null = null;
   let pendingRaf: number | null = null;
   let prevCursor: string | null = null;
@@ -19,9 +19,7 @@ export function createResizeController(grid: InternalGrid): ResizeController {
         grid.updateTemplate?.();
       });
     }
-    (grid as unknown as HTMLElement).dispatchEvent(
-      new CustomEvent('column-resize', { detail: { field: col.field, width } }),
-    );
+    grid.dispatchEvent(new CustomEvent('column-resize', { detail: { field: col.field, width } }));
   };
   let justFinishedResize = false;
   const onUp = () => {
@@ -81,9 +79,7 @@ export function createResizeController(grid: InternalGrid): ResizeController {
 
       grid.updateTemplate?.();
       grid.requestStateChange?.();
-      (grid as unknown as HTMLElement).dispatchEvent(
-        new CustomEvent('column-resize-reset', { detail: { field: col.field, width: col.width } }),
-      );
+      grid.dispatchEvent(new CustomEvent('column-resize-reset', { detail: { field: col.field, width: col.width } }));
     },
     dispose() {
       onUp();

@@ -322,13 +322,13 @@ export class GridAdapter implements FrameworkAdapter {
    * Returns undefined if no template is registered for this element,
    * allowing the grid to use its default rendering.
    */
-  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> {
+  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> | undefined {
     const template = getAnyViewTemplate(element) as TemplateRef<GridCellContext<TValue, TRow>> | undefined;
 
     if (!template) {
       // Return undefined so the grid uses default rendering
       // This is important when only an editor template is provided (no view template)
-      return undefined as unknown as ColumnViewRenderer<TRow, TValue>;
+      return undefined;
     }
 
     // Cell cache for this column - maps cell element to its view ref and container.

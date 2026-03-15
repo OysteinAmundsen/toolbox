@@ -132,7 +132,7 @@ function initializeDemo() {
   if (!container) return;
 
   let grid = createEmployeeGrid(getControlValues());
-  container.appendChild(grid as unknown as HTMLElement);
+  container.appendChild(grid);
 
   // Wire up row count slider
   rowCountSlider.addEventListener('input', () => {
@@ -147,9 +147,9 @@ function initializeDemo() {
   ['enable-selection', 'enable-filtering', 'enable-sorting', 'enable-editing', 'enable-detail'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', () => {
       // Remove old grid and create new one
-      (grid as unknown as HTMLElement).remove();
+      grid.remove();
       grid = createEmployeeGrid(getControlValues());
-      container.appendChild(grid as unknown as HTMLElement);
+      container.appendChild(grid);
     });
   });
 }

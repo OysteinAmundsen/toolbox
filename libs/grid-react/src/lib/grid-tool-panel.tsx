@@ -1,3 +1,4 @@
+import type { DataGridElement } from '@toolbox-web/grid';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, type ReactElement } from 'react';
 import '../jsx.d.ts';
@@ -7,7 +8,7 @@ import '../jsx.d.ts';
  */
 export interface ToolPanelContext {
   /** Reference to the grid element */
-  grid: HTMLElement;
+  grid: DataGridElement;
 }
 
 /**

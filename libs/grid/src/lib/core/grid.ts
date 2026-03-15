@@ -85,6 +85,7 @@ import type {
   PluginNameMap,
   ResizeController,
   RowAnimationType,
+  RowElementInternal,
   ScrollToRowOptions,
   ToolbarContentDefinition,
   ToolPanelDefinition,
@@ -358,7 +359,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // DOM references
   _headerRowEl!: HTMLElement;
   _bodyEl!: HTMLElement;
-  _rowPool: HTMLElement[] = [];
+  _rowPool: RowElementInternal[] = [];
   _resizeController!: ResizeController;
 
   // Virtualization — delegated to VirtualizationManager, exposed via getter for plugin access
@@ -767,24 +768,24 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#readyPromise = new Promise((res) => (this.#readyResolve = res));
 
     // Initialize virtualization manager (tightly coupled — reads grid state directly)
-    this.#virtManager = new VirtualizationManager<T>(this as unknown as InternalGrid<T>);
+    this.#virtManager = new VirtualizationManager<T>(this);
 
     // Initialize focus manager (tightly coupled — reads grid state directly)
-    this.#focusManager = new FocusManager<T>(this as unknown as InternalGrid<T> & HTMLElement);
+    this.#focusManager = new FocusManager<T>(this);
 
     // Initialize row manager (tightly coupled — reads grid state directly)
-    this.#rowManager = new RowManager<T>(this as unknown as InternalGrid<T> & HTMLElement);
+    this.#rowManager = new RowManager<T>(this);
 
     // Initialize render scheduler (tightly coupled — calls grid pipeline methods directly)
-    this.#scheduler = new RenderScheduler(this as unknown as InternalGrid);
+    this.#scheduler = new RenderScheduler(this);
     // Connect ready promise to scheduler
     this.#scheduler.setInitialReadyResolver(() => this.#readyResolve?.());
 
     // Initialize shell controller (reads directly from grid internals)
-    this.#shellController = createShellController(this.#shellState, this as unknown as InternalGrid<T>);
+    this.#shellController = createShellController(this.#shellState, this);
 
     // Initialize config manager (reads directly from grid internals)
-    this.#configManager = new ConfigManager<T>(this as unknown as InternalGrid<T>);
+    this.#configManager = new ConfigManager<T>(this);
   }
 
   /**
@@ -1138,7 +1139,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Parse light DOM shell elements BEFORE merging config
     this.#parseLightDom();
     // Parse light DOM columns (must be before merge to pick up templates)
-    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+    this.#configManager.parseLightDomColumns(this);
 
     // Merge all config sources into effectiveConfig (including columns and shell)
     this.#configManager.merge();
@@ -1325,7 +1326,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#connected = true;
 
     // Create resize controller BEFORE setup - renderHeader() needs it for resize handle mousedown events
-    this._resizeController = createResizeController(this as unknown as InternalGrid<T>);
+    this._resizeController = createResizeController(this);
 
     // Run setup
     this.#setup();
@@ -1347,7 +1348,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Set up all root-level and document-level event listeners
     // Consolidates keydown, mousedown, mousemove, mouseup in one place (event-delegation.ts)
-    setupRootEventDelegation(this as unknown as InternalGrid<T>, this, this.#renderRoot, signal);
+    setupRootEventDelegation(this, this, this.#renderRoot, signal);
 
     // Note: click/dblclick handlers are set up via setupCellEventDelegation in #setupScrollListeners
     // This consolidates all body-level delegated event handlers in one place (event-delegation.ts)
@@ -1637,7 +1638,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This replaces per-cell event listeners with a single set of delegated handlers
     // Dramatically reduces memory usage: 4 listeners total vs. 30,000+ for large grids
     if (this._bodyEl) {
-      setupCellEventDelegation(this as unknown as InternalGrid<T>, this._bodyEl, scrollSignal);
+      setupCellEventDelegation(this, this._bodyEl, scrollSignal);
     }
 
     // Disconnect existing resize observer before creating new one
@@ -2014,7 +2015,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const prevPosition =
       (this.#renderRoot.querySelector('.tbw-tool-panel') as HTMLElement)?.dataset.position ?? 'right';
 
-    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+    this.#configManager.parseLightDomColumns(this);
     this.#configManager.merge();
     this.#updatePluginConfigs();
 
@@ -2258,7 +2259,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         return this.#pluginManager?.renderRow(row, rowEl, rowIndex) ?? false;
       };
     }
-    renderVisibleRows(this as unknown as InternalGrid<T>, start, end, epoch, this.#renderRowHook);
+    renderVisibleRows(this, start, end, epoch, this.#renderRowHook);
 
     // Re-apply loading state for rows that are currently loading.
     // renderInlineRow clears innerHTML (destroying overlay DOM) and removes the loading class,
@@ -2319,7 +2320,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /** @internal Merge effective config (FULL/COLUMNS phase). */
   _schedulerMergeConfig(): void {
-    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+    this.#configManager.parseLightDomColumns(this);
     this.#configManager.merge();
     this.#updatePluginConfigs();
     validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.getPlugins() ?? [], this.id);
@@ -2523,7 +2524,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Read light DOM column configuration (synchronous DOM read)
-    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+    this.#configManager.parseLightDomColumns(this);
 
     // Apply initial column state synchronously if present
     // (needs to happen before scheduler to avoid flash of unstyled content)
@@ -2724,7 +2725,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Dispatch a header click event to the plugin system.
    * Returns true if any plugin handled the event.
    */
-  _dispatchHeaderClick(event: MouseEvent, col: ColumnConfig, headerEl: HTMLElement): boolean {
+  _dispatchHeaderClick(event: MouseEvent | KeyboardEvent, col: ColumnConfig, headerEl: HTMLElement): boolean {
     if (!col) return false;
 
     const headerClickEvent: HeaderClickEvent = {
@@ -3060,7 +3061,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   animateRow(rowIndex: number, type: RowAnimationType): Promise<boolean> {
-    return animateRow(this as unknown as InternalGrid, rowIndex, type);
+    return animateRow(this, rowIndex, type);
   }
 
   /**
@@ -3081,7 +3082,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   animateRows(rowIndices: number[], type: RowAnimationType): Promise<number> {
-    return animateRows(this as unknown as InternalGrid, rowIndices, type);
+    return animateRows(this, rowIndices, type);
   }
 
   /**
@@ -3104,7 +3105,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   animateRowById(rowId: string, type: RowAnimationType): Promise<boolean> {
-    return animateRowById(this as unknown as InternalGrid, rowId, type);
+    return animateRowById(this, rowId, type);
   }
 
   /**
@@ -3985,7 +3986,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     }
 
     // Re-create resize controller (DOM elements changed)
-    this._resizeController = createResizeController(this as unknown as InternalGrid<T>);
+    this._resizeController = createResizeController(this);
 
     // Re-setup scroll listeners (DOM elements changed)
     this.#setupScrollListeners(gridRoot);
@@ -4220,7 +4221,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#configManager.registerLightDomHandler('tbw-grid-detail', handleColumnChange);
 
     // Start observing
-    this.#configManager.observeLightDOM(this as unknown as HTMLElement);
+    this.#configManager.observeLightDOM(this);
   }
 
   /**
@@ -4240,7 +4241,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Re-parse light DOM columns SYNCHRONOUSLY to pick up newly registered framework renderers
     // This must happen before the scheduler runs processColumns
-    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+    this.#configManager.parseLightDomColumns(this);
 
     // Re-parse light DOM shell elements (may have been rendered asynchronously by frameworks)
     const hadTitle = this.#shellState.lightDomTitle;
@@ -4359,10 +4360,11 @@ if (!customElements.get(DataGridElement.tagName)) {
 }
 
 // Make DataGridElement accessible globally for framework adapters
-(globalThis as unknown as { DataGridElement: typeof DataGridElement }).DataGridElement = DataGridElement;
+globalThis.DataGridElement = DataGridElement;
 
-// Type augmentation for querySelector/createElement
+// Type augmentation for querySelector/createElement and globalThis
 declare global {
+  var DataGridElement: typeof import('./grid').DataGridElement;
   interface HTMLElementTagNameMap {
     'tbw-grid': DataGridElement;
   }

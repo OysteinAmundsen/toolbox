@@ -1090,6 +1090,9 @@ describe('masterDetail', () => {
       // We need a real DOM element for querySelector to work
       const gridEl = document.createElement('div');
 
+      // Add _hostElement so this.gridElement resolves
+      Object.defineProperty(gridEl, '_hostElement', { value: gridEl, writable: true });
+
       // Add mock grid properties as a plain object that we'll mix in
       Object.defineProperty(gridEl, 'rows', { value: [], writable: true });
       Object.defineProperty(gridEl, 'columns', { value: [{ field: 'name' }], writable: true });

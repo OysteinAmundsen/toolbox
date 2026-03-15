@@ -50,8 +50,8 @@ export interface ContextMenuParams {
   value: unknown;
   /** Whether the context menu was triggered on a header */
   isHeader: boolean;
-  /** The original mouse event */
-  event: MouseEvent;
+  /** The original mouse or keyboard event */
+  event: MouseEvent | KeyboardEvent;
   /**
    * The currently selected row indices (sorted ascending).
    * Populated when the SelectionPlugin is active in row mode.

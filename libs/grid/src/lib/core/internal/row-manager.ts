@@ -10,7 +10,7 @@
  * Takes the grid reference directly (tightly coupled — this manager
  * can never live outside the grid).
  */
-import type { CellChangeDetail, GridHost, RowAnimationType, UpdateSource } from '../types';
+import type { CellChangeDetail, GridHost, UpdateSource } from '../types';
 import { RenderPhase } from './render-scheduler';
 import { animateRow } from './row-animation';
 import { invalidateCellCache } from './rows';
@@ -215,7 +215,7 @@ export class RowManager<T = any> {
     invalidateCellCache(grid);
     grid._rebuildRowIdMap();
     grid.__rowRenderEpoch++;
-    for (const r of grid._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
+    for (const r of grid._rowPool) r.__epoch = -1;
     grid.refreshVirtualWindow(true);
 
     // Notify plugins about the inserted row (e.g., editing dirty tracking)
@@ -269,7 +269,7 @@ export class RowManager<T = any> {
     invalidateCellCache(grid);
     grid._rebuildRowIdMap();
     grid.__rowRenderEpoch++;
-    for (const r of grid._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
+    for (const r of grid._rowPool) r.__epoch = -1;
     grid.refreshVirtualWindow(true);
 
     grid._emitDataChange();

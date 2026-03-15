@@ -200,7 +200,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     // Listen for column-move events (emitted by ReorderPlugin after any reorder,
     // including header drag-drop and visibility panel drag-drop) to keep the
     // panel list in sync with the grid's column order.
-    (grid as unknown as HTMLElement).addEventListener(
+    this.gridElement.addEventListener(
       'column-move',
       () => {
         if (this.columnListElement) {
@@ -638,7 +638,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     row.setAttribute('data-index', String(index));
 
     // Add drag handle if reorder is enabled
-    if (reorderEnabled && canMoveColumn(col as unknown as ColumnConfig)) {
+    if (reorderEnabled && canMoveColumn(col)) {
       row.draggable = true;
       row.classList.add('reorderable');
       this.setupDragListeners(row, col.field, index, columnList);
@@ -664,7 +664,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     labelWrapper.appendChild(text);
 
     // Add drag handle icon if reorderable
-    if (reorderEnabled && canMoveColumn(col as unknown as ColumnConfig)) {
+    if (reorderEnabled && canMoveColumn(col)) {
       const handle = document.createElement('span');
       handle.className = 'tbw-visibility-handle';
       this.setIcon(handle, this.resolveIcon('dragHandle'));

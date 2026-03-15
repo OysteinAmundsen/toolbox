@@ -28,6 +28,7 @@ describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
     const abortController = new AbortController();
     const defaultOrder = groupedColumns.map((c) => c.field);
     const mockGrid = Object.assign(el, {
+      _hostElement: el,
       effectiveConfig: { columns: groupedColumns },
       gridConfig: {},
       getAllColumns: () => groupedColumns.map((c) => ({ ...c, visible: true })),
@@ -98,6 +99,7 @@ describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
     const el = document.createElement('div');
     const abortController = new AbortController();
     const mockGrid = Object.assign(el, {
+      _hostElement: el,
       effectiveConfig: { columns: [] },
       gridConfig: {},
       getAllColumns: () => [],
@@ -146,6 +148,7 @@ describe('GroupingColumnsPlugin.lockGroupOrder', async () => {
       const abortController = new AbortController();
       const reorderedOrder = ['email', 'name', 'title', 'dept', 'notes'];
       const mockGrid = Object.assign(el, {
+        _hostElement: el,
         effectiveConfig: { columns: groupedColumns },
         gridConfig: {
           columnGroups: [

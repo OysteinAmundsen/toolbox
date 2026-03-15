@@ -184,7 +184,7 @@ export class DirtyTrackingManager<T> {
     for (const newId of this.newRowIds) {
       const row = resolveRow(newId);
       if (row) {
-        result.push({ id: newId, original: undefined as unknown as T, current: row });
+        result.push({ id: newId, original: undefined, current: row });
       }
     }
     return result;

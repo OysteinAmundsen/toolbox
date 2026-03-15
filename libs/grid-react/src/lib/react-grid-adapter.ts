@@ -4,6 +4,7 @@ import type {
   ColumnEditorSpec,
   ColumnViewRenderer,
   GridConfig as CoreGridConfig,
+  DataGridElement,
   FrameworkAdapter,
   TypeDefault,
 } from '@toolbox-web/grid';
@@ -231,13 +232,13 @@ export class GridAdapter implements FrameworkAdapter {
    * Returns undefined if no renderer is registered for this element,
    * allowing the grid to use its default rendering.
    */
-  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> {
+  createRenderer<TRow = unknown, TValue = unknown>(element: HTMLElement): ColumnViewRenderer<TRow, TValue> | undefined {
     const renderFn = getColumnRenderer(element);
 
     if (!renderFn) {
       // Return undefined so the grid uses default rendering
       // This is important when GridColumn only has an editor (no children)
-      return undefined as unknown as ColumnViewRenderer<TRow, TValue>;
+      return undefined;
     }
 
     // Cell cache for this field - maps cell element to its React root
@@ -404,11 +405,11 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    const gridElement = element.closest('tbw-grid') as HTMLElement | null;
+    const gridElement = element.closest('tbw-grid') as DataGridElement | null;
 
     return (container: HTMLElement) => {
       const ctx: ToolPanelContext = {
-        grid: gridElement ?? container,
+        grid: gridElement ?? (container as DataGridElement),
       };
 
       const root = createRoot(container);

@@ -393,21 +393,13 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
 
   describe('processColumns', () => {
     it('reorders pinned-left columns to the start', () => {
-      const columns = [
-        { field: 'a' },
-        { field: 'b', pinned: 'left' },
-        { field: 'c' },
-      ];
+      const columns = [{ field: 'a' }, { field: 'b', pinned: 'left' }, { field: 'c' }];
       const result = plugin.processColumns(columns as any);
       expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
     });
 
     it('reorders pinned-right columns to the end', () => {
-      const columns = [
-        { field: 'a', pinned: 'right' },
-        { field: 'b' },
-        { field: 'c' },
-      ];
+      const columns = [{ field: 'a', pinned: 'right' }, { field: 'b' }, { field: 'c' }];
       const result = plugin.processColumns(columns as any);
       expect(result.map((c: any) => c.field)).toEqual(['b', 'c', 'a']);
     });
@@ -462,6 +454,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
       ];
 
       // Attach plugin to mock grid
+      mockGrid._hostElement = mockGrid;
       (plugin as any).grid = mockGrid;
     });
 
@@ -514,6 +507,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
       `;
       document.body.appendChild(mockGrid);
 
+      mockGrid._hostElement = mockGrid;
       (plugin as any).grid = mockGrid;
       (plugin as any).isApplied = true;
     });
@@ -582,22 +576,13 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
 
 describe('reorderColumnsForPinning', () => {
   it('moves left-pinned columns to the front', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b', pinned: 'left' },
-      { field: 'c' },
-      { field: 'd', pinned: 'left' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b', pinned: 'left' }, { field: 'c' }, { field: 'd', pinned: 'left' }];
     const result = reorderColumnsForPinning(cols);
     expect(result.map((c: any) => c.field)).toEqual(['b', 'd', 'a', 'c']);
   });
 
   it('moves right-pinned columns to the end', () => {
-    const cols = [
-      { field: 'a', pinned: 'right' },
-      { field: 'b' },
-      { field: 'c', pinned: 'right' },
-    ];
+    const cols = [{ field: 'a', pinned: 'right' }, { field: 'b' }, { field: 'c', pinned: 'right' }];
     const result = reorderColumnsForPinning(cols);
     expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
   });
@@ -624,9 +609,7 @@ describe('reorderColumnsForPinning', () => {
       { field: 'right2', pinned: 'right' },
     ];
     const result = reorderColumnsForPinning(cols);
-    expect(result.map((c: any) => c.field)).toEqual([
-      'left2', 'left1', 'mid1', 'mid2', 'right1', 'right2',
-    ]);
+    expect(result.map((c: any) => c.field)).toEqual(['left2', 'left1', 'mid1', 'mid2', 'right1', 'right2']);
   });
 
   it('returns same order when no columns are pinned', () => {
@@ -636,21 +619,13 @@ describe('reorderColumnsForPinning', () => {
   });
 
   it('handles sticky (deprecated) property', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b', sticky: 'left' },
-      { field: 'c', sticky: 'right' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b', sticky: 'left' }, { field: 'c', sticky: 'right' }];
     const result = reorderColumnsForPinning(cols);
     expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
   });
 
   it('handles logical positions in RTL', () => {
-    const cols = [
-      { field: 'a', pinned: 'start' },
-      { field: 'b' },
-      { field: 'c', pinned: 'end' },
-    ];
+    const cols = [{ field: 'a', pinned: 'start' }, { field: 'b' }, { field: 'c', pinned: 'end' }];
     // In RTL: start → right, end → left
     const result = reorderColumnsForPinning(cols, 'rtl');
     expect(result.map((c: any) => c.field)).toEqual(['c', 'b', 'a']);
@@ -702,12 +677,7 @@ describe('setPinPosition with reordering', () => {
   }
 
   it('pinning moves column and processColumns reorders to edge', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b' },
-      { field: 'c' },
-      { field: 'd' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c' }, { field: 'd' }];
     const grid = attachWithColumns(cols);
 
     plugin.setPinPosition('c', 'left');
@@ -718,12 +688,7 @@ describe('setPinPosition with reordering', () => {
   });
 
   it('unpinning restores column to original position', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b' },
-      { field: 'c' },
-      { field: 'd' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c' }, { field: 'd' }];
     const grid = attachWithColumns(cols);
 
     // Pin column c to the left
@@ -736,13 +701,7 @@ describe('setPinPosition with reordering', () => {
   });
 
   it('unpinning restores correctly when multiple columns pinned and unpinned', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b' },
-      { field: 'c' },
-      { field: 'd' },
-      { field: 'e' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c' }, { field: 'd' }, { field: 'e' }];
     const grid = attachWithColumns(cols);
 
     // Pin c left, then d left
@@ -760,11 +719,7 @@ describe('setPinPosition with reordering', () => {
   });
 
   it('pin right moves column to the end', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b' },
-      { field: 'c' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
     const grid = attachWithColumns(cols);
 
     plugin.setPinPosition('a', 'right');
@@ -775,11 +730,7 @@ describe('setPinPosition with reordering', () => {
   });
 
   it('unpin right restores column to original position', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b' },
-      { field: 'c' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c' }];
     const grid = attachWithColumns(cols);
 
     plugin.setPinPosition('a', 'right');
@@ -790,10 +741,7 @@ describe('setPinPosition with reordering', () => {
   });
 
   it('clears original column order snapshot when all columns unpinned', () => {
-    const cols = [
-      { field: 'a' },
-      { field: 'b', pinned: 'left' },
-    ];
+    const cols = [{ field: 'a' }, { field: 'b', pinned: 'left' }];
     const grid = attachWithColumns(cols);
 
     // Pin a to the left (b is already pinned)

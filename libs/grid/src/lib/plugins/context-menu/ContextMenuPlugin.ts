@@ -8,7 +8,14 @@
 import type { PluginManifest } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import contextMenuStyles from './context-menu.css?inline';
-import { buildMenuItems, collapseSeparators, createMenuElement, focusFirstMenuItem, positionMenu, setupMenuKeyboard } from './menu';
+import {
+  buildMenuItems,
+  collapseSeparators,
+  createMenuElement,
+  focusFirstMenuItem,
+  positionMenu,
+  setupMenuKeyboard,
+} from './menu';
 import type { ContextMenuConfig, ContextMenuItem, ContextMenuParams, HeaderContextMenuItem } from './types';
 
 /** Query type for collecting context menu items from plugins */
@@ -611,7 +618,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
       field: column?.field ?? '',
       value: row?.[column?.field as keyof typeof row] ?? null,
       isHeader: false,
-      event: event as unknown as MouseEvent,
+      event: event,
       selectedRows,
     };
 

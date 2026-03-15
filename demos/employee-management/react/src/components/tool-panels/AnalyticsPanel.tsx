@@ -17,16 +17,14 @@ export function AnalyticsPanel({ grid }: AnalyticsPanelProps) {
 
   useEffect(() => {
     // Get rows from grid
-    const gridEl = grid as { rows?: Employee[] };
-    if (gridEl.rows) {
-      setRows([...gridEl.rows]);
+    if (grid.rows) {
+      setRows([...grid.rows] as Employee[]);
     }
 
     // Listen for data changes
     const handleDataChange = () => {
-      const gridElement = grid as { rows?: Employee[] };
-      if (gridElement.rows) {
-        setRows([...gridElement.rows]);
+      if (grid.rows) {
+        setRows([...grid.rows] as Employee[]);
       }
     };
 

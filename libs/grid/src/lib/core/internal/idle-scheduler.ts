@@ -38,7 +38,7 @@ export function scheduleIdle(callback: (deadline: IdleDeadlineLike) => void, opt
       didTimeout: false,
       timeRemaining: () => Math.max(0, 50 - (Date.now() - start)),
     });
-  }, 1) as unknown as number;
+  }, 1);
 }
 
 /**

@@ -11,15 +11,11 @@ import {
   type PluginManifest,
   type PluginQuery,
 } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, ColumnViewRenderer } from '../../core/types';
+import type { ColumnConfig, ColumnViewRenderer, GridHost } from '../../core/types';
 import { collapseAll, expandAll, expandToKey, toggleExpand } from './tree-data';
 import { detectTreeStructure, inferChildrenField } from './tree-detect';
 import styles from './tree.css?inline';
 import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandDetail, TreeRow } from './types';
-
-interface GridWithSortState {
-  _sortState?: { field: string; direction: 1 | -1 } | null;
-}
 
 /**
  * Tree Data Plugin for tbw-grid
@@ -446,7 +442,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     }
 
     // Sync grid sort indicator
-    const gridEl = this.grid as unknown as GridWithSortState;
+    const gridEl = this.grid as unknown as GridHost;
     if (gridEl._sortState !== undefined) {
       gridEl._sortState = this.sortState ? { ...this.sortState } : null;
     }

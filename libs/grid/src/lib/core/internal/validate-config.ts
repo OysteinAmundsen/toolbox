@@ -139,8 +139,6 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-
-
 /**
  * Check if a plugin with the given name is present in the plugins array.
  */
@@ -157,7 +155,11 @@ function hasPlugin(plugins: readonly BaseGridPlugin[], pluginName: string): bool
  * @param plugins - The array of loaded plugins
  * @throws Error if a plugin-owned property is used without the plugin
  */
-export function validatePluginProperties<T>(config: GridConfig<T>, plugins: readonly BaseGridPlugin[], gridId?: string): void {
+export function validatePluginProperties<T>(
+  config: GridConfig<T>,
+  plugins: readonly BaseGridPlugin[],
+  gridId?: string,
+): void {
   // Use static registries of known plugin-owned properties
   const columnProps = KNOWN_COLUMN_PROPERTIES;
   const configProps = KNOWN_CONFIG_PROPERTIES;

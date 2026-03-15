@@ -1,4 +1,4 @@
-import type { ColumnInternal, ColumnViewRenderer, InternalGrid, RowElementInternal } from '../types';
+import type { ColumnInternal, ColumnViewRenderer, GridHost, InternalGrid, RowElementInternal } from '../types';
 import { ensureCellVisible } from './keyboard';
 import { evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
 import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell, gridPrefix } from './utils';
@@ -157,7 +157,7 @@ export function invalidateCellCache(grid: InternalGrid): void {
  *                        If it returns true, default rendering is skipped for that row.
  */
 export function renderVisibleRows(
-  grid: InternalGrid,
+  grid: GridHost,
   start: number,
   end: number,
   epoch?: number,
@@ -378,7 +378,7 @@ export function renderVisibleRows(
  *
  * Optimized for scroll performance - avoids querySelectorAll in favor of children access.
  */
-function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
+function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
   const children = rowEl.children;
   const columns = grid._visibleColumns;
   const colsLen = columns.length;
@@ -687,7 +687,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
  * Full reconstruction of a row's set of cells including templated, external view, and formatted content.
  * Attaches event handlers for editing and accessibility per cell.
  */
-export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
+export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex: number): void {
   // Clear loading state before rebuild — grid will re-apply after render for actually-loading rows.
   // This prevents stale tbw-row-loading class from persisting when pool elements are recycled.
   rowEl.classList.remove('tbw-row-loading');
@@ -712,7 +712,6 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
   const colsLen = columns.length;
   const focusRow = grid._focusRow;
   const focusCol = grid._focusCol;
-  const gridEl = grid as unknown as HTMLElement;
 
   // Check if any plugin wants cell-level hooks (avoid overhead when not needed)
   const hasCellHook = grid._hasAfterCellRenderHook?.() ?? false;
@@ -793,7 +792,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
       } else {
         queueMicrotask(() => {
           try {
-            gridEl.dispatchEvent(
+            grid.dispatchEvent(
               new CustomEvent('mount-external-view', {
                 bubbles: true,
                 composed: true,
@@ -919,7 +918,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
  * Handle click / double click interaction to focus cells.
  * Edit triggering is handled by EditingPlugin via onCellClick hook.
  */
-export function handleRowClick(grid: InternalGrid, e: MouseEvent, rowEl: HTMLElement): void {
+export function handleRowClick(grid: GridHost, e: MouseEvent, rowEl: HTMLElement): void {
   if ((e.target as HTMLElement)?.closest('.resize-handle')) return;
   const firstCell = rowEl.querySelector('.cell[data-row]') as HTMLElement | null;
   const rowIndex = getRowIndexFromCell(firstCell);

@@ -1099,7 +1099,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     this.#syncSelectionToFocus(mode);
 
     // Set data attribute on host for CSS variable scoping
-    (this.grid as unknown as Element).setAttribute('data-selection-mode', mode);
+    this.gridElement.setAttribute('data-selection-mode', mode);
 
     // Toggle .selecting class during drag to prevent text selection
     if (container) {

@@ -1,14 +1,14 @@
-import type { ColumnConfig, ColumnInternal, ElementWithPart, InternalGrid, PrimitiveColumnType } from '../types';
+import type { ColumnConfig, ColumnInternal, ElementWithPart, GridHost, PrimitiveColumnType } from '../types';
 import { FitModeEnum } from '../types';
 
 // #region Light DOM Parsing
 /** Global DataGridElement class (may or may not be registered) */
 interface DataGridElementClass {
-  getAdapters?: () => Array<{
+  getAdapters?: () => readonly {
     canHandle: (el: HTMLElement) => boolean;
     createRenderer: (el: HTMLElement) => ((ctx: unknown) => Node | string | void) | undefined;
     createEditor: (el: HTMLElement) => ((ctx: unknown) => HTMLElement | string) | undefined;
-  }>;
+  }[];
 }
 
 /**
@@ -207,12 +207,12 @@ export function addPart(el: HTMLElement, token: string): void {
  * Measure rendered header + visible cell content to assign initial pixel widths
  * to columns when in `content` fit mode. Runs only once unless fit mode changes.
  */
-export function autoSizeColumns(grid: InternalGrid): void {
+export function autoSizeColumns(grid: GridHost): void {
   const mode = grid.effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
   // Run for both stretch (to derive baseline pixel widths before fr distribution) and fixed.
   if (mode !== FitModeEnum.STRETCH && mode !== FitModeEnum.FIXED) return;
   if (grid.__didInitialAutoSize) return;
-  if (!(grid as unknown as HTMLElement).isConnected) return;
+  if (!grid.isConnected) return;
   const headerCells = Array.from(grid._headerRowEl?.children || []) as HTMLElement[];
   if (!headerCells.length) return;
   let changed = false;
@@ -246,18 +246,21 @@ export function autoSizeColumns(grid: InternalGrid): void {
  */
 // Valid CSS grid track size patterns: numbers with units (px, %, fr, em, rem, etc.),
 // calc(), min-content, max-content, minmax(), fit-content(), auto
-const VALID_CSS_WIDTH = /^(?:\d+(?:\.\d+)?(?:px|%|fr|em|rem|ch|vw|vh|vmin|vmax)|calc\(.+\)|min-content|max-content|minmax\(.+\)|fit-content\(.+\)|auto)$/i;
+const VALID_CSS_WIDTH =
+  /^(?:\d+(?:\.\d+)?(?:px|%|fr|em|rem|ch|vw|vh|vmin|vmax)|calc\(.+\)|min-content|max-content|minmax\(.+\)|fit-content\(.+\)|auto)$/i;
 
 /** Resolve a column width to a CSS grid track value. Numbers get `px` appended; strings pass through with a dev-mode validity check. */
 function resolveWidth(width: string | number, field?: string): string {
   if (typeof width === 'number') return `${width}px`;
   if (!VALID_CSS_WIDTH.test(width)) {
-    console.warn(`[tbw-grid] Column '${field ?? '?'}' has an invalid CSS width value: '${width}'. Expected a number (px) or a valid CSS unit string (e.g. '30%', '2fr', 'calc(...)').`);
+    console.warn(
+      `[tbw-grid] Column '${field ?? '?'}' has an invalid CSS width value: '${width}'. Expected a number (px) or a valid CSS unit string (e.g. '30%', '2fr', 'calc(...)').`,
+    );
   }
   return width;
 }
 
-export function updateTemplate(grid: InternalGrid): void {
+export function updateTemplate(grid: GridHost): void {
   // Modes:
   //  - 'stretch': columns with explicit width use that width; columns without width are flexible
   //               Uses minmax(minWidth, maxWidth) when both min/max specified (bounded flex)
@@ -285,6 +288,6 @@ export function updateTemplate(grid: InternalGrid): void {
       })
       .join(' ');
   }
-  (grid as unknown as HTMLElement).style.setProperty('--tbw-column-template', grid._gridTemplate);
+  grid.style.setProperty('--tbw-column-template', grid._gridTemplate);
 }
 // #endregion

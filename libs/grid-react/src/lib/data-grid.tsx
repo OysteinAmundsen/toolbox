@@ -682,8 +682,8 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
 
     // Refresh plugin renderers to pick up React templates from child components
     // Plugin creation is handled by feature props (see auto-detection in featureProps memo)
-    refreshMasterDetailRenderer(grid as unknown as Element);
-    refreshResponsiveCardRenderer(grid as unknown as Element, adapter);
+    refreshMasterDetailRenderer(grid);
+    refreshResponsiveCardRenderer(grid, adapter);
 
     // Use a single RAF for column/shell refresh
     // React 18+ batches updates, so one frame is usually enough

@@ -148,7 +148,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     super.attach(grid);
 
     // Listen for cancelable column-move events to enforce group contiguity
-    (grid as unknown as HTMLElement).addEventListener('column-move', this.#onColumnMove, {
+    this.gridElement.addEventListener('column-move', this.#onColumnMove, {
       signal: this.disconnectSignal,
     });
   }

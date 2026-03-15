@@ -165,7 +165,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     const context = buildContext(
       this.sourceRows as unknown[],
       this.columns as unknown[],
-      this.grid as unknown as HTMLElement,
+      this.gridElement,
       selectionState,
       filterState,
     );
@@ -329,7 +329,7 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     return buildContext(
       this.rows as unknown[],
       this.columns as unknown[],
-      this.grid as unknown as HTMLElement,
+      this.gridElement,
       selectionState,
       filterState,
     );

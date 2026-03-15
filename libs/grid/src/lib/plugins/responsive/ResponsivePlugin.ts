@@ -28,7 +28,7 @@
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
-import type { InternalGrid } from '../../core/types';
+import type { GridHost } from '../../core/types';
 import styles from './responsive.css?inline';
 import type { BreakpointConfig, HiddenColumnConfig, ResponsiveChangeDetail, ResponsivePluginConfig } from './types';
 
@@ -117,6 +117,11 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
   #activeBreakpoint: BreakpointConfig | null = null;
   /** Sorted breakpoints from largest to smallest */
   #sortedBreakpoints: BreakpointConfig[] = [];
+
+  /** Typed internal grid accessor — centralizes the single required cast. */
+  get #internalGrid(): GridHost {
+    return this.grid as unknown as GridHost;
+  }
 
   /**
    * Check if currently in responsive mode.
@@ -237,21 +242,17 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * - `debounce-ms`: number - Resize debounce delay (default: 100)
    */
   #parseLightDomCard(): void {
-    const gridEl = this.grid as unknown as Element;
-    if (!gridEl || typeof gridEl.querySelector !== 'function') return;
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
 
     const cardEl = gridEl.querySelector('tbw-grid-responsive-card');
     if (!cardEl) return;
 
     // Check if a framework adapter wants to handle this element
     // (e.g., React adapter intercepts for JSX rendering)
-    const gridWithAdapter = gridEl as unknown as {
-      __frameworkAdapter?: {
-        parseResponsiveCardElement?: (el: Element) => ((row: T, rowIndex: number) => HTMLElement) | undefined;
-      };
-    };
-    if (gridWithAdapter.__frameworkAdapter?.parseResponsiveCardElement) {
-      const adapterRenderer = gridWithAdapter.__frameworkAdapter.parseResponsiveCardElement(cardEl);
+    const adapter = this.#internalGrid.__frameworkAdapter;
+    if (adapter?.parseResponsiveCardElement) {
+      const adapterRenderer = adapter.parseResponsiveCardElement(cardEl);
       if (adapterRenderer) {
         this.config = { ...this.config, cardRenderer: adapterRenderer };
         // Continue to parse attributes even if adapter provides renderer
@@ -299,7 +300,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
 
     // Get template content from innerHTML (only if no renderer already set)
     const templateHTML = cardEl.innerHTML.trim();
-    if (templateHTML && !this.config.cardRenderer && !gridWithAdapter.__frameworkAdapter?.parseResponsiveCardElement) {
+    if (templateHTML && !this.config.cardRenderer && !adapter?.parseResponsiveCardElement) {
       // Create a template-based renderer using the inner HTML
       configUpdates.cardRenderer = (row: T): HTMLElement => {
         // Evaluate template expressions like {{ row.field }}
@@ -519,7 +520,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
 
     // Cast to internal type for virtualization access
-    const internalGrid = this.grid as unknown as InternalGrid;
+    const internalGrid = this.#internalGrid;
 
     if (this.#isResponsive) {
       // Store original row height before responsive mode changes it
@@ -653,7 +654,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         if (this.grid._focusCol < maxCol) {
           this.grid._focusCol += 1;
           e.preventDefault();
-          ensureCellVisible(this.grid as unknown as InternalGrid);
+          ensureCellVisible(this.#internalGrid);
           return true;
         }
         // At bottom of card - optionally move to next card's first field
@@ -661,7 +662,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
           this.grid._focusRow += 1;
           this.grid._focusCol = 0;
           e.preventDefault();
-          ensureCellVisible(this.grid as unknown as InternalGrid);
+          ensureCellVisible(this.#internalGrid);
           return true;
         }
         break;
@@ -671,7 +672,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         if (this.grid._focusCol > 0) {
           this.grid._focusCol -= 1;
           e.preventDefault();
-          ensureCellVisible(this.grid as unknown as InternalGrid);
+          ensureCellVisible(this.#internalGrid);
           return true;
         }
         // At top of card - optionally move to previous card's last field
@@ -679,7 +680,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
           this.grid._focusRow -= 1;
           this.grid._focusCol = maxCol;
           e.preventDefault();
-          ensureCellVisible(this.grid as unknown as InternalGrid);
+          ensureCellVisible(this.#internalGrid);
           return true;
         }
         break;
@@ -689,7 +690,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         if (this.grid._focusRow < maxRow) {
           this.grid._focusRow += 1;
           e.preventDefault();
-          ensureCellVisible(this.grid as unknown as InternalGrid);
+          ensureCellVisible(this.#internalGrid);
           return true;
         }
         break;
@@ -699,7 +700,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         if (this.grid._focusRow > 0) {
           this.grid._focusRow -= 1;
           e.preventDefault();
-          ensureCellVisible(this.grid as unknown as InternalGrid);
+          ensureCellVisible(this.#internalGrid);
           return true;
         }
         break;
@@ -922,7 +923,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     }
 
     let needsRefresh = false;
-    const internalGrid = this.grid as unknown as InternalGrid;
+    const internalGrid = this.#internalGrid;
     const hasGroups = this.#hasGroupRows();
 
     // Check if card row count changed (e.g., group expanded/collapsed)
@@ -971,7 +972,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
         if (this.grid && this.#isResponsive) {
           // Request virtualization phase through grid's public API
           // This goes through the scheduler which batches and handles afterRender properly
-          (this.grid as unknown as InternalGrid).refreshVirtualWindow?.(true, true);
+          this.#internalGrid.refreshVirtualWindow?.(true, true);
         }
       });
     }

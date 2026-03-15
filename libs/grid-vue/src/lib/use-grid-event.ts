@@ -121,7 +121,7 @@ export function useGridEvent<K extends keyof GridEventMap>(
   let cleanup: (() => void) | null = null;
 
   onMounted(() => {
-    const element = grid.value as unknown as DataGridElement | null;
+    const element = grid.value;
     if (!element) return;
 
     cleanup = element.on(eventName as string, (_detail: unknown, event: CustomEvent) =>

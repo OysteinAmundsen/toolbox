@@ -7,7 +7,7 @@
 
 import { announce } from '../../core/internal/aria';
 import { BaseGridPlugin, HeaderClickEvent } from '../../core/plugin/base-plugin';
-import type { ColumnState } from '../../core/types';
+import type { ColumnState, GridHost } from '../../core/types';
 import { applySorts, getSortDirection, getSortIndex, toggleSort } from './multi-sort';
 import styles from './multi-sort.css?inline';
 import type { MultiSortConfig, SortModel } from './types';
@@ -113,6 +113,11 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
    *  mutations are still visible because the array holds shared object refs. */
   private cachedSortResult: unknown[] | null = null;
 
+  /** Typed internal grid accessor. */
+  get #internalGrid(): GridHost {
+    return this.grid as unknown as GridHost;
+  }
+
   /**
    * Clear the core `_sortState` so that only this plugin's `processRows`
    * sorting applies.  `ConfigManager.applyState()` always sets the core sort
@@ -121,8 +126,7 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
    * `reapplyCoreSort()` after the plugin clears its own model.
    */
   private clearCoreSortState(): void {
-    const el = this.gridElement as unknown as { _sortState: unknown };
-    if (el) el._sortState = null;
+    this.#internalGrid._sortState = null;
   }
   // #endregion
 
@@ -151,8 +155,8 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     // re-injects editors into the re-sorted cells.
     // We return the cached previous sort result (same object references, so
     // in-place value mutations are already visible) instead of unsorted input.
-    const el = this.gridElement as unknown as Record<string, unknown> | undefined;
-    if (el && !el._isGridEditMode && typeof el._activeEditRows === 'number' && el._activeEditRows !== -1) {
+    const grid = this.#internalGrid;
+    if (!grid._isGridEditMode && typeof grid._activeEditRows === 'number' && grid._activeEditRows !== -1) {
       if (this.cachedSortResult && this.cachedSortResult.length === rows.length) {
         return [...this.cachedSortResult];
       }

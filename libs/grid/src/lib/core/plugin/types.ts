@@ -58,7 +58,7 @@ export interface HeaderClickEvent {
   field: string;
   column: ColumnConfig;
   headerEl: HTMLElement;
-  originalEvent: MouseEvent;
+  originalEvent: MouseEvent | KeyboardEvent;
 }
 
 /**

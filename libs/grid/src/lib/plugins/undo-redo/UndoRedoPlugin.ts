@@ -7,7 +7,7 @@
 
 import { FOCUSABLE_EDITOR_SELECTOR } from '../../core/internal/rows';
 import { BaseGridPlugin, type GridElement, type PluginDependency } from '../../core/plugin/base-plugin';
-import type { InternalGrid } from '../../core/types';
+import type { GridHost } from '../../core/types';
 import {
   canRedo,
   canUndo,
@@ -153,7 +153,7 @@ export class UndoRedoPlugin extends BaseGridPlugin<UndoRedoConfig> {
    * the editor input is focused so the user can continue editing.
    */
   #focusActionCell(action: EditAction): void {
-    const internalGrid = this.grid as unknown as InternalGrid;
+    const internalGrid: GridHost = this.grid as unknown as GridHost;
 
     // Map field name → visible column index
     const colIdx = internalGrid._visibleColumns?.findIndex((c) => c.field === action.field) ?? -1;

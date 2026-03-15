@@ -1,7 +1,7 @@
 import { DestroyRef, Directive, effect, ElementRef, inject, input, OnDestroy, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormArray, FormGroup } from '@angular/forms';
-import type { BaseGridPlugin, DataGridElement as GridElement } from '@toolbox-web/grid';
+import type { DataGridElement as GridElement } from '@toolbox-web/grid';
 import { Subscription } from 'rxjs';
 import { debounceTime, startWith } from 'rxjs/operators';
 
@@ -225,20 +225,29 @@ export class GridFormArray implements OnInit, OnDestroy {
     this.#storeFormContext(grid);
 
     // Intercept cell-commit events to update the FormArray
-    this.cellCommitUnsub = grid.on('cell-commit', (detail: { rowIndex: number; field: string; value: unknown; oldValue: unknown; rowId: string }) => {
-      this.#handleCellCommit(detail);
-    });
+    this.cellCommitUnsub = grid.on(
+      'cell-commit',
+      (detail: { rowIndex: number; field: string; value: unknown; oldValue: unknown; rowId: string }) => {
+        this.#handleCellCommit(detail);
+      },
+    );
 
     // Intercept cell-cancel events to revert FormControls (grid mode Escape)
-    this.cellCancelUnsub = grid.on('cell-cancel', (detail: { rowIndex: number; field: string; previousValue: unknown }) => {
-      this.#handleCellCancel(detail);
-    });
+    this.cellCancelUnsub = grid.on(
+      'cell-cancel',
+      (detail: { rowIndex: number; field: string; previousValue: unknown }) => {
+        this.#handleCellCancel(detail);
+      },
+    );
 
     // Intercept row-commit events to prevent if FormGroup is invalid
-    this.rowCommitUnsub = grid.on('row-commit', (detail: { rowIndex: number; rowId?: string; changed: boolean }, event: CustomEvent) => {
-      if (!this.syncValidation()) return;
-      this.#handleRowCommit(event, detail);
-    });
+    this.rowCommitUnsub = grid.on(
+      'row-commit',
+      (detail: { rowIndex: number; rowId?: string; changed: boolean }, event: CustomEvent) => {
+        if (!this.syncValidation()) return;
+        this.#handleRowCommit(event, detail);
+      },
+    );
 
     // Mark FormArray as touched on first interaction
     this.touchListener = () => {
@@ -289,9 +298,9 @@ export class GridFormArray implements OnInit, OnDestroy {
     const grid = this.elementRef.nativeElement;
     if (!grid) return false;
 
-    const editingPlugin = (grid as unknown as { getPluginByName?: (name: string) => BaseGridPlugin }).getPluginByName?.(
-      'editing',
-    ) as (EditingPluginValidation & EditingPluginConfig) | undefined;
+    const editingPlugin = grid.getPluginByName?.('editing') as
+      | (EditingPluginValidation & EditingPluginConfig)
+      | undefined;
 
     return editingPlugin?.config?.mode === 'grid';
   }
@@ -378,7 +387,7 @@ export class GridFormArray implements OnInit, OnDestroy {
       const rows = grid.rows;
       const row = rows?.[rowIndex];
       if (!row) return undefined;
-      return (grid as unknown as { getRowId?: (row: unknown) => string }).getRowId?.(row);
+      return grid.getRowId?.(row);
     } catch {
       return undefined;
     }
@@ -546,9 +555,7 @@ export class GridFormArray implements OnInit, OnDestroy {
     if (!grid) return;
 
     // Get EditingPlugin via getPluginByName
-    const editingPlugin = (grid as unknown as { getPluginByName?: (name: string) => BaseGridPlugin }).getPluginByName?.(
-      'editing',
-    ) as EditingPluginValidation | undefined;
+    const editingPlugin = grid.getPluginByName?.('editing') as EditingPluginValidation | undefined;
 
     if (!editingPlugin) return;
 

@@ -6,7 +6,7 @@
  * `headerLabelRenderer` (label only) column properties.
  */
 
-import type { ColumnInternal, HeaderCellContext, IconValue, InternalGrid } from '../types';
+import type { ColumnInternal, GridHost, HeaderCellContext, IconValue, InternalGrid } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 import { addPart } from './columns';
 import { sanitizeHTML } from './sanitize';
@@ -84,7 +84,7 @@ function createResizeHandle(grid: InternalGrid, colIndex: number, cell: HTMLElem
 /**
  * Setup sorting click/keyboard handlers for a header cell.
  */
-function setupSortHandlers(grid: InternalGrid, col: ColumnInternal, colIndex: number, cell: HTMLElement): void {
+function setupSortHandlers(grid: GridHost, col: ColumnInternal, colIndex: number, cell: HTMLElement): void {
   cell.classList.add('sortable');
   cell.tabIndex = 0;
   const active = grid._sortState?.field === col.field ? grid._sortState.direction : 0;
@@ -98,7 +98,7 @@ function setupSortHandlers(grid: InternalGrid, col: ColumnInternal, colIndex: nu
   cell.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (grid._dispatchHeaderClick?.(e as unknown as MouseEvent, col, cell)) return;
+      if (grid._dispatchHeaderClick?.(e, col, cell)) return;
       toggleSort(grid, col);
     }
   });
@@ -136,7 +136,7 @@ function appendRendererOutput(cell: HTMLElement, output: Node | string | void | 
  * 4. `header` property - Plain text header
  * 5. `field` - Fallback to field name
  */
-export function renderHeader(grid: InternalGrid): void {
+export function renderHeader(grid: GridHost): void {
   grid._headerRowEl = grid.findHeaderRow!();
   const headerRow = grid._headerRowEl as HTMLElement;
 

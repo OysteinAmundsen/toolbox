@@ -2,12 +2,12 @@
  * Central keyboard handler attached to the host element. Manages navigation, paging,
  * and edit lifecycle triggers while respecting active form field interactions.
  */
-import type { InternalGrid } from '../types';
+import type { GridHost } from '../types';
 import { FOCUSABLE_EDITOR_SELECTOR } from './rows';
 import { clearCellFocus, isRTL } from './utils';
 
 // #region Keyboard Handler
-export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
+export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
   // Dispatch to plugin system first - if any plugin handles it, stop here
   if (grid._dispatchKeyDown?.(e)) {
     return;
@@ -73,7 +73,7 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       break;
     case 'ArrowRight': {
       // In RTL mode, ArrowRight moves toward the start (lower column index)
-      const rtl = isRTL(grid as unknown as HTMLElement);
+      const rtl = isRTL(grid);
       if (rtl) {
         grid._focusCol = Math.max(0, grid._focusCol - 1);
       } else {
@@ -84,7 +84,7 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
     }
     case 'ArrowLeft': {
       // In RTL mode, ArrowLeft moves toward the end (higher column index)
-      const rtl = isRTL(grid as unknown as HTMLElement);
+      const rtl = isRTL(grid);
       if (rtl) {
         grid._focusCol = Math.min(maxCol, grid._focusCol + 1);
       } else {
@@ -136,9 +136,7 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
       const row = grid._rows[rowIndex];
       const field = column?.field ?? '';
       const value = field && row ? (row as Record<string, unknown>)[field] : undefined;
-      const cellEl = (grid as unknown as HTMLElement).querySelector(
-        `[data-row="${rowIndex}"][data-col="${colIndex}"]`,
-      ) as HTMLElement | undefined;
+      const cellEl = grid.querySelector(`[data-row="${rowIndex}"][data-col="${colIndex}"]`) as HTMLElement | undefined;
 
       const detail = {
         rowIndex,
@@ -157,14 +155,14 @@ export function handleGridKeyDown(grid: InternalGrid, e: KeyboardEvent): void {
         cancelable: true,
         detail,
       });
-      (grid as unknown as HTMLElement).dispatchEvent(activateEvent);
+      grid.dispatchEvent(activateEvent);
 
       // Also emit deprecated activate-cell for backwards compatibility
       const legacyEvent = new CustomEvent('activate-cell', {
         cancelable: true,
         detail: { row: rowIndex, col: colIndex },
       });
-      (grid as unknown as HTMLElement).dispatchEvent(legacyEvent);
+      grid.dispatchEvent(legacyEvent);
 
       // If either event was prevented, block further keyboard processing
       if (activateEvent.defaultPrevented || legacyEvent.defaultPrevented) {
@@ -198,7 +196,7 @@ interface EnsureCellVisibleOptions {
  * Scroll the viewport (virtualized or static) so the focused cell's row is visible
  * and apply visual focus styling / tabindex management.
  */
-export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibleOptions): void {
+export function ensureCellVisible(grid: GridHost, options?: EnsureCellVisibleOptions): void {
   if (grid._virtualization?.enabled) {
     const { rowHeight, container, viewportEl } = grid._virtualization;
     // container is the faux scrollbar element that handles actual scrolling
@@ -302,9 +300,8 @@ export function ensureCellVisible(grid: InternalGrid, options?: EnsureCellVisibl
         // → RAF → row recycling). A detached focused cell causes activeElement
         // to revert to <body>, breaking keyboard navigation.
         // Visual focus is managed by the .cell-focus CSS class + data-has-focus.
-        const gridEl = grid as unknown as HTMLElement;
-        if (document.activeElement !== gridEl) {
-          gridEl.focus({ preventScroll: true });
+        if (document.activeElement !== grid) {
+          grid.focus({ preventScroll: true });
         }
       }
     }

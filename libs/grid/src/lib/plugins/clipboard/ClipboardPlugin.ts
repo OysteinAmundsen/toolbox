@@ -151,8 +151,7 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
     // Listen for native paste events to get clipboard data synchronously
     // This is more reliable than the async Clipboard API in iframe contexts
-    const el = grid as unknown as HTMLElement;
-    el.addEventListener('paste', (e: Event) => this.#handleNativePaste(e as ClipboardEvent), {
+    grid.addEventListener('paste', (e) => this.#handleNativePaste(e), {
       signal: this.disconnectSignal,
     });
   }

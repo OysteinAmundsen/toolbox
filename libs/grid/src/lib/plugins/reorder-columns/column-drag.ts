@@ -17,7 +17,7 @@ import type { ColumnConfig } from '../../core/types';
  * @param column - The column configuration to check
  * @returns True if the column can be moved based on its metadata
  */
-export function canMoveColumn<TRow = unknown>(column: ColumnConfig<TRow>): boolean {
+export function canMoveColumn(column: { meta?: Record<string, unknown> }): boolean {
   // Check for lockPosition or suppressMovable properties in the column config
   const meta = column.meta ?? {};
   return meta.lockPosition !== true && meta.suppressMovable !== true;

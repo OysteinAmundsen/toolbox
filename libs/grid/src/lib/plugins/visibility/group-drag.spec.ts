@@ -72,6 +72,7 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
     });
 
     const mockGrid = Object.assign(el, {
+      _hostElement: el,
       effectiveConfig: { columns: groupedColumns, plugins: [reorderPlugin, visPlugin] },
       gridConfig: {},
       getAllColumns: () => makeColumns(currentOrder),

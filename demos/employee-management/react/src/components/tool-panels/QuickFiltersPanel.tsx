@@ -1,6 +1,5 @@
 import { DEPARTMENTS } from '@demo/shared';
 import type { ToolPanelContext } from '@toolbox-web/grid-react';
-import { FilteringPlugin } from '@toolbox-web/grid/plugins/filtering';
 import { useCallback, useState } from 'react';
 
 interface QuickFiltersPanelProps {
@@ -26,8 +25,7 @@ export function QuickFiltersPanel({ grid }: QuickFiltersPanelProps) {
   }, []);
 
   const applyFilters = useCallback(() => {
-    const gridEl = grid as unknown as { getPlugin?: (type: unknown) => FilteringPlugin | undefined };
-    const filterPlugin = gridEl.getPlugin?.(FilteringPlugin);
+    const filterPlugin = grid.getPluginByName('filtering');
     if (!filterPlugin) {
       console.warn('FilteringPlugin not found');
       return;
@@ -65,8 +63,7 @@ export function QuickFiltersPanel({ grid }: QuickFiltersPanelProps) {
     setMinRating(0);
     setTopPerformersOnly(false);
 
-    const gridEl = grid as unknown as { getPlugin?: (type: unknown) => FilteringPlugin | undefined };
-    const filterPlugin = gridEl.getPlugin?.(FilteringPlugin);
+    const filterPlugin = grid.getPluginByName('filtering');
     if (filterPlugin) {
       filterPlugin.clearAllFilters();
     }

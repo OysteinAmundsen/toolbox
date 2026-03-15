@@ -7,7 +7,7 @@
 
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
-import type { ColumnConfig, InternalGrid } from '../../core/types';
+import type { ColumnConfig, GridHost } from '../../core/types';
 import styles from './row-reorder.css?inline';
 import type { PendingMove, RowMoveDetail, RowReorderConfig } from './types';
 
@@ -125,6 +125,11 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   /** Column index to use when flushing pending move */
   private lastFocusCol = 0;
+
+  /** Typed internal grid accessor. */
+  get #internalGrid(): GridHost {
+    return this.grid as unknown as GridHost;
+  }
   // #endregion
 
   // #region Lifecycle
@@ -203,7 +208,7 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
       return;
     }
 
-    const grid = this.grid as unknown as InternalGrid;
+    const grid = this.#internalGrid;
     const focusRow = grid._focusRow;
     // Use _rows (current visual state) for keyboard moves, not sourceRows
     // This ensures rapid moves work correctly since we update _rows directly
@@ -436,7 +441,7 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
     // Move rows immediately for visual feedback
     // Use _rows (current visual state) for rapid moves, not sourceRows
     // Fallback to sourceRows for compatibility with tests
-    const grid = this.grid as unknown as InternalGrid;
+    const grid = this.#internalGrid;
     const rows = [...(grid._rows ?? this.sourceRows)];
     const [movedRow] = rows.splice(fromIndex, 1);
     rows.splice(toIndex, 0, movedRow);
@@ -492,7 +497,7 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
       const [row] = rows.splice(currentIndex, 1);
       rows.splice(originalIndex, 0, row);
 
-      const grid = this.grid as unknown as InternalGrid;
+      const grid = this.#internalGrid;
       grid._rows = rows;
       grid._focusRow = originalIndex;
       grid._focusCol = this.lastFocusCol;

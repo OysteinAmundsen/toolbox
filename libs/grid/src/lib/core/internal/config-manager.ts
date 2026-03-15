@@ -21,7 +21,7 @@ import type {
   FitMode,
   GridColumnState,
   GridConfig,
-  InternalGrid,
+  GridHost,
 } from '../types';
 import { mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
 import { renderHeader } from './header';
@@ -74,12 +74,12 @@ export class ConfigManager<T = unknown> {
   #lightDomObserver?: MutationObserver;
   #stateChangeTimeoutId?: ReturnType<typeof setTimeout>;
   #initialColumnState?: GridColumnState;
-  #grid: InternalGrid<T>;
+  #grid: GridHost<T>;
 
   // Shell state (Light DOM title)
   #lightDomTitle?: string;
 
-  constructor(grid: InternalGrid<T>) {
+  constructor(grid: GridHost<T>) {
     this.#grid = grid;
   }
   // #endregion

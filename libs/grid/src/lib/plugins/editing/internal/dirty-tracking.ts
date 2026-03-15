@@ -35,7 +35,8 @@ export interface DirtyChangeDetail<T = unknown> {
  */
 export interface DirtyRowEntry<T = unknown> {
   id: string;
-  original: T;
+  /** The original (baseline) row data, or `undefined` for newly inserted rows. */
+  original: T | undefined;
   current: T;
 }
 

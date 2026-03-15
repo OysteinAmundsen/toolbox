@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.9.0...grid-vue-0.10.0) (2026-03-15)
+
+
+### Features
+
+* **grid-vue:** expand event emits to 24 events, deprecate useGridEvent ([34bdc1b](https://github.com/OysteinAmundsen/toolbox/commit/34bdc1ba3de395549c8760b6dd0f39ba5b891b15))
+
+
+### Enhancements
+
+* **grid-angular:** migrate addEventListener to .on() API ([0592112](https://github.com/OysteinAmundsen/toolbox/commit/059211291721f450ba51c4a9bd8699297cc0866b))
+* **grid-react:** migrate addEventListener to .on() API ([24ff2b2](https://github.com/OysteinAmundsen/toolbox/commit/24ff2b21dad39cc03f648e8365be5c4634190b6e))
+
 ## [0.9.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.8.0...grid-vue-0.9.0) (2026-03-14)
 
 

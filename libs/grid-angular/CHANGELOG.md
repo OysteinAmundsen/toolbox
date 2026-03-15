@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.18.0...grid-angular-0.18.1) (2026-03-15)
+
+
+### Enhancements
+
+* **grid-angular:** migrate addEventListener to .on() API ([0592112](https://github.com/OysteinAmundsen/toolbox/commit/059211291721f450ba51c4a9bd8699297cc0866b))
+* **grid-react:** migrate addEventListener to .on() API ([24ff2b2](https://github.com/OysteinAmundsen/toolbox/commit/24ff2b21dad39cc03f648e8365be5c4634190b6e))
+
 ## [0.18.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.17.0...grid-angular-0.18.0) (2026-03-14)
 
 

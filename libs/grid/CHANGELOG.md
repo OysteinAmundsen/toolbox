@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.25.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.2...grid-1.25.0) (2026-03-15)
+
+
+### Features
+
+* **grid:** add async overloads to queryGrid for safe post-upgrade access ([ad1de81](https://github.com/OysteinAmundsen/toolbox/commit/ad1de8126d794afd51b352e398ba502d85e1bac8))
+* **grid:** add keyboard navigation to context menu plugin ([a0a089a](https://github.com/OysteinAmundsen/toolbox/commit/a0a089a92ecab980a219ba2284cd7ada34be6060))
+* **grid:** implement missing ARIA accessibility features ([2de584e](https://github.com/OysteinAmundsen/toolbox/commit/2de584eb425bf9138b951d9a1cc4b08ebdb0398c))
+* **grid:** include grid element ID in validation error messages ([4491460](https://github.com/OysteinAmundsen/toolbox/commit/4491460614278e69d1fd50e445efa89714fe6df2))
+
+
+### Bug Fixes
+
+* **grid:** bundle core/internal utils into plugins instead of externalizing ([2800011](https://github.com/OysteinAmundsen/toolbox/commit/2800011976aeaa6330c927892d4aa63d8912731d))
+* **grid:** fix touch scroll + responsive card height alignment ([b39b035](https://github.com/OysteinAmundsen/toolbox/commit/b39b035b74df0647c749dd953e374eba53172501))
+* **grid:** narrow externalizeCore exclusion to core/internal/utils only ([c57d52e](https://github.com/OysteinAmundsen/toolbox/commit/c57d52e7d186b3ccb3e815456e77c5a82a3c0080))
+* **grid:** normalize string returns in rowClass/cellClass callbacks ([1057db8](https://github.com/OysteinAmundsen/toolbox/commit/1057db8fe467db3c74b17c517899a1cf51e033aa))
+* **grid:** preserve API-registered header content across config rebuilds ([754dc7b](https://github.com/OysteinAmundsen/toolbox/commit/754dc7b42dacf6c533aea57e49287e16047c1431))
+* **grid:** preserve open panel content across full shell re-renders ([bbdec39](https://github.com/OysteinAmundsen/toolbox/commit/bbdec39015414a7c52aedd61d72626c3525129e4))
+* **grid:** prevent browser from hijacking touch scroll gestures on mobile ([6db4262](https://github.com/OysteinAmundsen/toolbox/commit/6db42621fecbae1d89303e224722cd09eccfb6a7))
+* **grid:** re-render shell when tool panel position changes ([bb47b62](https://github.com/OysteinAmundsen/toolbox/commit/bb47b629789d03629aaf571150a235f26deec8c0))
+* **grid:** restore tool panel content after shell refresh and fix z-index stacking ([2d9bdc7](https://github.com/OysteinAmundsen/toolbox/commit/2d9bdc74102c0265119472ac7e1ace9dc00fa19b))
+* **grid:** use single chevron icon with CSS rotation for accordion animation ([1713217](https://github.com/OysteinAmundsen/toolbox/commit/1713217b182e7ad765ade47dabd95a5b1f960afe))
+
+
+### Enhancements
+
+* **grid-angular:** migrate addEventListener to .on() API ([0592112](https://github.com/OysteinAmundsen/toolbox/commit/059211291721f450ba51c4a9bd8699297cc0866b))
+* **grid-react:** migrate addEventListener to .on() API ([24ff2b2](https://github.com/OysteinAmundsen/toolbox/commit/24ff2b21dad39cc03f648e8365be5c4634190b6e))
+* **grid:** add data-change event for row data notifications ([b94c4bc](https://github.com/OysteinAmundsen/toolbox/commit/b94c4bc971097fa66e5dfd7902a9d6842ddee413))
+
 ## [1.24.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.1...grid-1.24.2) (2026-03-14)
 
 

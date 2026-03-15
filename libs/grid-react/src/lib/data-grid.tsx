@@ -54,8 +54,8 @@ ensureAdapterRegistered();
 
 // Re-export from standalone module so feature entry points can import
 // the context without pulling in the entire DataGrid module graph.
-export { GridElementContext } from './grid-element-context';
 import { GridElementContext } from './grid-element-context';
+export { GridElementContext };
 
 /**
  * Refreshes the MasterDetailPlugin renderer after React renders GridDetailPanel.

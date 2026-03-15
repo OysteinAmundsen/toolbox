@@ -24,8 +24,9 @@ import type {
   InternalGrid,
 } from '../types';
 import { mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
-import { inferColumns } from './inference';
 import { renderHeader } from './header';
+import { inferColumns } from './inference';
+import { RenderPhase } from './render-scheduler';
 import { compileTemplate } from './sanitize';
 
 /** Debounce timeout for state change events */
@@ -810,7 +811,7 @@ export class ConfigManager<T = unknown> {
 
     renderHeader(this.#grid);
     updateTemplate(this.#grid);
-    this.#grid._requestSchedulerPhase(2 /* VIRTUALIZATION */, 'configManager');
+    this.#grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'configManager');
   }
   // #endregion
 

@@ -13,7 +13,7 @@
     <button data-anim-action="insert" class="grid-demo-btn">Insert Row</button>
     <button data-anim-action="remove" class="grid-demo-btn">Remove Last</button>
   </div>
-  <tbw-grid id="row-animation" style="height: 260px;"></tbw-grid>
+  <tbw-grid id="demo-row-animation" style="height: 260px;"></tbw-grid>
 </div>
 
 <script>
@@ -22,7 +22,7 @@ import { queryGrid } from '@toolbox-web/grid';
 
   interface Item { id: number; name: string; status: string; }
 
-  const grid = queryGrid<Item>('#row-animation');
+  const grid = queryGrid<Item>('#demo-row-animation');
 
   if (grid) {
     const container = document.querySelector('.grid-demo');

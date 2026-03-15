@@ -3,7 +3,7 @@
 ---
 <p class="grid-demo-description">Rows with status "locked" cannot be selected. Try clicking or using Shift+Click — locked rows are skipped.</p>
 <div class="grid-demo not-content">
-  <tbw-grid style="height: 300px;" id="conditional-selection"></tbw-grid>
+  <tbw-grid style="height: 300px;" id="demo-conditional-selection"></tbw-grid>
 </div>
 
 <script>
@@ -11,7 +11,7 @@
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/selection';
 
-  const grid = queryGrid('#conditional-selection');
+  const grid = queryGrid('#demo-conditional-selection');
   if (grid) {
     grid.gridConfig = {
       columns: [

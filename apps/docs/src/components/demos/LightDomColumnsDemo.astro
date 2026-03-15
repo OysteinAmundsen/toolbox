@@ -8,7 +8,7 @@
   Define columns declaratively in HTML using <code>&lt;tbw-grid-column&gt;</code> elements.
 </p>
 <div class="grid-demo">
-  <tbw-grid id="light-dom-columns" style="height: 260px;">
+  <tbw-grid id="demo-light-dom-columns" style="height: 260px;">
     <tbw-grid-column field="id" header="ID" width="80"></tbw-grid-column>
     <tbw-grid-column field="name" header="Full Name" sortable></tbw-grid-column>
     <tbw-grid-column field="email" header="Email Address"></tbw-grid-column>
@@ -20,7 +20,7 @@
   import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = queryGrid('#light-dom-columns');
+  const grid = queryGrid('#demo-light-dom-columns');
   if (grid) {
     grid.rows = [
       { id: 1, name: 'Alice Johnson', email: 'alice@example.com', department: 'Engineering' },

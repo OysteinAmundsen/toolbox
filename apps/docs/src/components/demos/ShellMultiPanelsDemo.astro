@@ -8,7 +8,7 @@
   Multiple tool panels (Columns, Filter, Settings). Click toolbar icons to toggle each.
 </p>
 <div class="grid-demo">
-  <tbw-grid id="shell-multi-panels" style="height: 420px;"></tbw-grid>
+  <tbw-grid id="demo-shell-multi-panels" style="height: 420px;"></tbw-grid>
 </div>
 
 <script>
@@ -21,7 +21,7 @@ import '@toolbox-web/grid/features/visibility';
     rows: Record<string, unknown>[];
     gridConfig: GridConfig;
     registerToolPanel: (panel: ToolPanelDefinition) => void;
-  }>('#shell-multi-panels');
+  }>('#demo-shell-multi-panels');
 
   if (grid) {
     const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];

@@ -6,13 +6,13 @@
   <div class="loading-bar">
     <button data-toggle="loading">Toggle Loading</button>
   </div>
-  <tbw-grid style="height: 300px;" id="custom-loading-renderer"></tbw-grid>
+  <tbw-grid style="height: 300px;" id="demo-custom-loading-renderer"></tbw-grid>
 </div>
 
 <script>
   import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = await queryGrid('#custom-loading-renderer', true);
+  const grid = await queryGrid('#demo-custom-loading-renderer', true);
   const toggleBtn = document.querySelector<HTMLButtonElement>('[data-toggle="loading"]');
 
   if (grid) {

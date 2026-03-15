@@ -10,7 +10,7 @@ import DemoControls from '@components/DemoControls.astro';
     { section: 'LAYOUT', name: 'rtl', label: 'RTL', type: 'boolean',
       default: true, description: 'Enable right-to-left layout' },
   ]} />
-  <tbw-grid id="rtl-demo" dir="rtl" style="height: 220px;"></tbw-grid>
+  <tbw-grid id="demo-rtl" dir="rtl" style="height: 220px;"></tbw-grid>
 </div>
 
 <script>
@@ -18,7 +18,7 @@ import DemoControls from '@components/DemoControls.astro';
 import { queryGrid } from '@toolbox-web/grid';
 
   const container = document.getElementById('rtl-demo-container');
-  const grid = queryGrid('#rtl-demo');
+  const grid = queryGrid('#demo-rtl');
   if (container && grid) {
     grid.columns = [
       { field: 'name', header: 'الاسم', width: 150 },

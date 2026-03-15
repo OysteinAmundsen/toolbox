@@ -3,7 +3,7 @@
 ---
 <p class="grid-demo-description">Right-click any cell to see the context menu. Items from FilteringPlugin, VisibilityPlugin, and PinnedColumnsPlugin are automatically contributed alongside custom items.</p>
 <div class="grid-demo not-content">
-  <tbw-grid style="height: 350px;" id="context-menu-plugin-items"></tbw-grid>
+  <tbw-grid style="height: 350px;" id="demo-context-menu-plugin-items"></tbw-grid>
 </div>
 
 <script>
@@ -14,7 +14,7 @@ import '@toolbox-web/grid/features/filtering';
 import '@toolbox-web/grid/features/pinned-columns';
 import '@toolbox-web/grid/features/visibility';
 
-  const grid = queryGrid('#context-menu-plugin-items');
+  const grid = queryGrid('#demo-context-menu-plugin-items');
   if (grid) {
     grid.gridConfig = {
       columns: [

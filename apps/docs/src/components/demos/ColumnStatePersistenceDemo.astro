@@ -12,7 +12,7 @@
     <button data-reset>↩️ Reset Grid</button>
     <span data-status style="color:var(--sl-color-gray-4); font-size:0.85em; align-self:center;"></span>
   </div>
-  <tbw-grid id="column-state" style="height: 280px;"></tbw-grid>
+  <tbw-grid id="demo-column-state" style="height: 280px;"></tbw-grid>
   <pre data-log style="max-height:120px;overflow:auto;font-size:0.78em;margin-top:8px;padding:8px;background:var(--sl-color-gray-6);border-radius:4px;white-space:pre-wrap;"></pre>
 </div>
 
@@ -22,7 +22,7 @@ import type { ColumnConfig, GridColumnState } from '@toolbox-web/grid';
 
   const STORAGE_KEY = 'tbw-demo-column-state';
 
-  const container = document.getElementById('column-state')?.closest('.grid-demo');
+  const container = document.getElementById('demo-column-state')?.closest('.grid-demo');
   if (container) {
     const grid = container.querySelector<HTMLElement & {
       columns: ColumnConfig[];

@@ -9,14 +9,14 @@
   Pass data without defining columns — the grid infers everything automatically.
 </p>
 <div class="grid-demo">
-  <tbw-grid id="column-inference" style="height: 260px;"></tbw-grid>
+  <tbw-grid id="demo-column-inference" style="height: 260px;"></tbw-grid>
 </div>
 
 <script>
   import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = queryGrid('#column-inference');
+  const grid = queryGrid('#demo-column-inference');
   if (grid) {
     grid.rows = [
       { id: 1, firstName: 'Alice', lastName: 'Johnson', age: 32, active: true, startDate: '2022-03-15' },

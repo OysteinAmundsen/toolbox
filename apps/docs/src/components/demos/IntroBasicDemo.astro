@@ -3,14 +3,14 @@
 ---
 <p class="grid-demo-description">A basic grid with sortable columns. Click column headers to sort.</p>
 <div class="grid-demo not-content">
-  <tbw-grid style="height: 250px;" id="intro-basic"></tbw-grid>
+  <tbw-grid style="height: 250px;" id="demo-intro-basic"></tbw-grid>
 </div>
 
 <script>
   import '@toolbox-web/grid';
 
   const grid = document.querySelector<HTMLElement & { columns: unknown[]; rows: unknown[] }>(
-    '#intro-basic'
+    '#demo-intro-basic'
   );
   if (grid) {
     grid.columns = [

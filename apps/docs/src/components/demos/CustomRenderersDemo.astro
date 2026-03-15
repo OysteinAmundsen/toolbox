@@ -8,7 +8,7 @@
   Renderers give full control over cell content — create badges, checkboxes, progress bars, and more.
 </p>
 <div class="grid-demo">
-  <tbw-grid id="custom-renderers" style="height: 280px;"></tbw-grid>
+  <tbw-grid id="demo-custom-renderers" style="height: 280px;"></tbw-grid>
 </div>
 
 <script>
@@ -25,7 +25,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
   }
 
   const grid = document.querySelector<HTMLElement & { columns: ColumnConfig<Employee>[]; rows: Employee[] }>(
-    '#custom-renderers'
+    '#demo-custom-renderers'
   );
   if (grid) {
     grid.columns = [

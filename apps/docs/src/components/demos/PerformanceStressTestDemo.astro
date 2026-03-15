@@ -14,7 +14,7 @@
     </div>
   </div>
   <div class="stress-grid-container">
-    <tbw-grid id="perf-stress"></tbw-grid>
+    <tbw-grid id="demo-perf-stress"></tbw-grid>
   </div>
   <div id="stress-results" class="stress-results">
     <p>Click <strong>Run Full Benchmark</strong> to test all grid operations.</p>
@@ -142,7 +142,7 @@ import '@toolbox-web/grid/features/selection';
   // #endregion
 
   // #region DOM References
-  const grid = queryGrid('#perf-stress')!;
+  const grid = queryGrid('#demo-perf-stress')!;
   const rowsSlider = document.getElementById('stress-rows') as HTMLInputElement;
   const colsSlider = document.getElementById('stress-cols') as HTMLInputElement;
   const rowsVal = document.getElementById('stress-rows-val')!;

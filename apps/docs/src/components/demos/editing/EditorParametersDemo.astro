@@ -3,7 +3,7 @@
 ---
 <p class="grid-demo-description">Double-click cells to edit. Each column uses <code>editorParams</code> to customize the editor — min/max for numbers, maxLength/pattern for text, date ranges, and select placeholders.</p>
 <div class="grid-demo not-content">
-  <tbw-grid style="height: 250px;" id="editor-parameters"></tbw-grid>
+  <tbw-grid style="height: 250px;" id="demo-editor-parameters"></tbw-grid>
 </div>
 
 <script>
@@ -11,7 +11,7 @@
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/editing';
 
-  const grid = queryGrid('#editor-parameters');
+  const grid = queryGrid('#demo-editor-parameters');
   if (grid) {
     grid.gridConfig = {
       columns: [

@@ -8,7 +8,7 @@
   Use <code>rowClass</code> and <code>cellClass</code> to apply conditional styles based on data.
 </p>
 <div class="grid-demo">
-  <tbw-grid id="row-cell-styling" style="height: 280px;"></tbw-grid>
+  <tbw-grid id="demo-row-cell-styling" style="height: 280px;"></tbw-grid>
 </div>
 
 <style is:global>
@@ -30,7 +30,7 @@ import { queryGrid } from '@toolbox-web/grid';
     department: string;
   }
 
-  const grid = queryGrid<Employee>('#row-cell-styling');
+  const grid = queryGrid<Employee>('#demo-row-cell-styling');
   if (grid) {
     grid.gridConfig = {
       rowClass: (row) => row.status === 'inactive' ? 'row-inactive' : '',

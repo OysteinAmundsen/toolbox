@@ -9,7 +9,7 @@
   <strong>Email</strong> uses <code>headerRenderer</code> (full control with custom icon + sort icon).
 </p>
 <div class="grid-demo">
-  <tbw-grid id="header-renderers" style="height: 260px;"></tbw-grid>
+  <tbw-grid id="demo-header-renderers" style="height: 260px;"></tbw-grid>
 </div>
 
 <script>
@@ -19,7 +19,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
   const grid = document.querySelector<HTMLElement & {
     columns: ColumnConfig[];
     rows: Record<string, unknown>[];
-  }>('#header-renderers');
+  }>('#demo-header-renderers');
 
   if (grid) {
     grid.columns = [

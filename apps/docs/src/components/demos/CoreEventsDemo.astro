@@ -9,7 +9,7 @@
     <span style="font-size:0.85em; color:var(--sl-color-gray-4);">Click cells, sort columns, resize columns to see events.</span>
     <button data-clear-log style="margin-left:auto; font-size:0.8em;">🗑️ Clear Log</button>
   </div>
-  <tbw-grid id="core-events" style="height: 220px;"></tbw-grid>
+  <tbw-grid id="demo-core-events" style="height: 220px;"></tbw-grid>
   <div data-event-log style="max-height:160px; overflow:auto; font-size:0.78em; margin-top:8px; padding:8px; background:var(--sl-color-gray-6); border-radius:4px; font-family:monospace;"></div>
 </div>
 
@@ -17,7 +17,7 @@
   import '@toolbox-web/grid';
 import type { ColumnConfig } from '@toolbox-web/grid';
 
-  const container = document.getElementById('core-events')?.closest('.grid-demo');
+  const container = document.getElementById('demo-core-events')?.closest('.grid-demo');
   if (container) {
     const grid = container.querySelector<HTMLElement & {
       columns: ColumnConfig[];

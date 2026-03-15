@@ -1,3 +1,4 @@
+import type { ShellState } from './internal/shell';
 import type { RowPosition } from './internal/virtualization';
 import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
@@ -540,6 +541,22 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   /** @internal */ _schedulerUpdateTemplate(): void;
   /** @internal */ _schedulerAfterRender(): void;
   /** @internal */ readonly _schedulerIsConnected: boolean;
+
+  // Shell controller & config manager support
+  /** @internal The render root element for DOM queries. */
+  readonly _renderRoot: Element;
+  /** @internal Emit a custom event from the grid. */
+  _emit(eventName: string, detail: unknown): void;
+  /** @internal Get accordion expand/collapse icons from effective config. */
+  readonly _accordionIcons: { expand: IconValue; collapse: IconValue };
+  /** @internal Shell state for config manager shell merging. */
+  readonly _shellState: ShellState;
+  /** @internal Clear the row pool and body element. */
+  _clearRowPool(): void;
+  /** @internal Run grid setup (DOM rebuild). */
+  _setup(): void;
+  /** @internal Apply animation configuration to host element. */
+  _applyAnimationConfig(config: GridConfig): void;
 }
 
 /**

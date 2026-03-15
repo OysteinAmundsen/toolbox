@@ -1,35 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BaseGridPlugin } from '../plugin';
-import type { ColumnInternal, GridColumnState, GridConfig } from '../types';
-import { ConfigManager, type ConfigManagerCallbacks } from './config-manager';
+import type { ColumnInternal, GridColumnState, GridConfig, InternalGrid } from '../types';
+import { ConfigManager } from './config-manager';
 
 describe('ConfigManager', () => {
   let configManager: ConfigManager<{ id: number; name: string }>;
-  let mockCallbacks: ConfigManagerCallbacks<{ id: number; name: string }>;
+  let mockGrid: Partial<InternalGrid<{ id: number; name: string }>>;
 
   beforeEach(() => {
-    mockCallbacks = {
-      getRows: vi.fn(() => []),
-      getSortState: vi.fn(() => null),
-      setSortState: vi.fn(),
-      onConfigChange: vi.fn(),
-      emit: vi.fn(),
-      clearRowPool: vi.fn(),
-      setup: vi.fn(),
-      renderHeader: vi.fn(),
-      updateTemplate: vi.fn(),
-      refreshVirtualWindow: vi.fn(),
-      getVirtualization: vi.fn(() => ({ rowHeight: 28 })),
-      setRowHeight: vi.fn(),
-      applyAnimationConfig: vi.fn(),
-      getShellLightDomTitle: vi.fn(() => null),
-      getShellToolPanels: vi.fn(() => new Map()),
-      getShellHeaderContents: vi.fn(() => new Map()),
-      getShellToolbarContents: vi.fn(() => new Map()),
-      getShellLightDomHeaderContent: vi.fn(() => []),
-      getShellHasToolButtonsContainer: vi.fn(() => false),
+    mockGrid = {
+      sourceRows: [],
+      _sortState: null,
+      _virtualization: { rowHeight: 28 } as InternalGrid['_virtualization'],
+      _shellState: {
+        lightDomTitle: null,
+        toolPanels: new Map(),
+        headerContents: new Map(),
+        toolbarContents: new Map(),
+        lightDomHeaderContent: [],
+        hasToolButtonsContainer: false,
+      } as any,
+      _emit: vi.fn(),
+      _clearRowPool: vi.fn(),
+      _setup: vi.fn(),
+      _applyAnimationConfig: vi.fn(),
+      _requestSchedulerPhase: vi.fn(),
+      // Needed by renderHeader() and updateTemplate() called from setColumnOrder
+      findHeaderRow: vi.fn(() => document.createElement('div')),
+      _headerRowEl: document.createElement('div'),
+      _visibleColumns: [],
+      _gridTemplate: '',
+      _resizeController: { onColumnResizeStart: vi.fn() } as any,
+      effectiveConfig: {},
+      style: { setProperty: vi.fn() } as any,
     };
-    configManager = new ConfigManager(mockCallbacks);
+    configManager = new ConfigManager(mockGrid as InternalGrid<{ id: number; name: string }>);
   });
 
   describe('Source Management', () => {
@@ -89,7 +94,7 @@ describe('ConfigManager', () => {
     });
 
     it('should infer columns from rows if none provided', () => {
-      (mockCallbacks.getRows as ReturnType<typeof vi.fn>).mockReturnValue([{ id: 1, name: 'Test' }]);
+      mockGrid.sourceRows = [{ id: 1, name: 'Test' }];
       configManager.merge();
 
       expect(configManager.effective.columns).toBeDefined();
@@ -157,7 +162,7 @@ describe('ConfigManager', () => {
 
     it('should emit visibility event', () => {
       configManager.setColumnVisible('id', false);
-      expect(mockCallbacks.emit).toHaveBeenCalledWith(
+      expect(mockGrid._emit).toHaveBeenCalledWith(
         'column-visibility',
         expect.objectContaining({
           field: 'id',
@@ -199,11 +204,9 @@ describe('ConfigManager', () => {
       expect(order).toEqual(['email', 'id', 'name']);
     });
 
-    it('should call render callbacks after reorder', () => {
+    it('should call render functions after reorder', () => {
       configManager.setColumnOrder(['email', 'id', 'name']);
-      expect(mockCallbacks.renderHeader).toHaveBeenCalled();
-      expect(mockCallbacks.updateTemplate).toHaveBeenCalled();
-      expect(mockCallbacks.refreshVirtualWindow).toHaveBeenCalled();
+      expect(mockGrid._requestSchedulerPhase).toHaveBeenCalled();
     });
   });
 
@@ -273,8 +276,8 @@ describe('ConfigManager', () => {
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Should only emit once due to debounce
-      expect(mockCallbacks.emit).toHaveBeenCalledTimes(1);
-      expect(mockCallbacks.emit).toHaveBeenCalledWith('column-state-change', expect.any(Object));
+      expect(mockGrid._emit).toHaveBeenCalledTimes(1);
+      expect(mockGrid._emit).toHaveBeenCalledWith('column-state-change', expect.any(Object));
     });
   });
 

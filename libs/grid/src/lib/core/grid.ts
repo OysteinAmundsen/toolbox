@@ -80,6 +80,7 @@ import type {
   GridColumnState,
   GridConfig,
   HeaderContentDefinition,
+  IconValue,
   InternalGrid,
   PluginNameMap,
   ResizeController,
@@ -774,51 +775,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Connect ready promise to scheduler
     this.#scheduler.setInitialReadyResolver(() => this.#readyResolve?.());
 
-    // Initialize shell controller with callbacks
-    this.#shellController = createShellController(this.#shellState, {
-      getShadow: () => this.#renderRoot,
-      getGridId: () => this.id,
-      getShellConfig: () => this.#effectiveConfig?.shell,
-      getAccordionIcons: () => ({
-        expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
-        collapse: this.#effectiveConfig?.icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
-      }),
-      emit: (eventName, detail) => this.#emit(eventName, detail),
-      refreshShellHeader: () => this.refreshShellHeader(),
-    });
+    // Initialize shell controller (reads directly from grid internals)
+    this.#shellController = createShellController(this.#shellState, this as unknown as InternalGrid<T>);
 
-    // Initialize config manager with callbacks
-    this.#configManager = new ConfigManager<T>({
-      getRows: () => this.#rows,
-      getSortState: () => this._sortState,
-      setSortState: (state) => {
-        this._sortState = state;
-      },
-      onConfigChange: () => {
-        this.#scheduler.requestPhase(RenderPhase.FULL, 'configChange');
-      },
-      emit: (eventName, detail) => this.#emit(eventName, detail),
-      clearRowPool: () => {
-        this._rowPool.length = 0;
-        if (this._bodyEl) this._bodyEl.innerHTML = '';
-        this.__rowRenderEpoch++;
-      },
-      setup: () => this.#setup(),
-      renderHeader: () => renderHeader(this),
-      updateTemplate: () => updateTemplate(this),
-      refreshVirtualWindow: () => this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'configManager'),
-      getVirtualization: () => this._virtualization,
-      setRowHeight: (height) => {
-        this._virtualization.rowHeight = height;
-      },
-      applyAnimationConfig: (config) => this.#applyAnimationConfig(config),
-      getShellLightDomTitle: () => this.#shellState.lightDomTitle,
-      getShellToolPanels: () => this.#shellState.toolPanels,
-      getShellHeaderContents: () => this.#shellState.headerContents,
-      getShellToolbarContents: () => this.#shellState.toolbarContents,
-      getShellLightDomHeaderContent: () => this.#shellState.lightDomHeaderContent,
-      getShellHasToolButtonsContainer: () => this.#shellState.hasToolButtonsContainer,
-    });
+    // Initialize config manager (reads directly from grid internals)
+    this.#configManager = new ConfigManager<T>(this as unknown as InternalGrid<T>);
   }
 
   /**
@@ -2430,6 +2391,47 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   /** @internal Whether the grid is fully connected (scheduler guard). */
   get _schedulerIsConnected(): boolean {
     return this.isConnected && this.#connected;
+  }
+
+  // Shell controller & config manager support (replaces callback closures)
+  /** @internal The grid's render root element for DOM queries. */
+  get _renderRoot(): HTMLElement {
+    return this.#renderRoot;
+  }
+
+  /** @internal Emit a custom event from the grid. */
+  _emit(eventName: string, detail: unknown): void {
+    this.#emit(eventName, detail);
+  }
+
+  /** @internal Get accordion expand/collapse icons from effective config. */
+  get _accordionIcons(): { expand: IconValue; collapse: IconValue } {
+    return {
+      expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
+      collapse: this.#effectiveConfig?.icons?.collapse ?? DEFAULT_GRID_ICONS.collapse,
+    };
+  }
+
+  /** @internal Shell state for config manager shell merging. */
+  get _shellState(): ShellState {
+    return this.#shellState;
+  }
+
+  /** @internal Clear the row pool and body element. */
+  _clearRowPool(): void {
+    this._rowPool.length = 0;
+    if (this._bodyEl) this._bodyEl.innerHTML = '';
+    this.__rowRenderEpoch++;
+  }
+
+  /** @internal Run grid setup (DOM rebuild). */
+  _setup(): void {
+    this.#setup();
+  }
+
+  /** @internal Apply animation configuration to host element. */
+  _applyAnimationConfig(config: GridConfig<T>): void {
+    this.#applyAnimationConfig(config);
   }
 
   /** Updates ARIA label and describedby attributes. Delegates to aria.ts module. */

@@ -23,16 +23,8 @@
  *
  * @example
  * ```typescript
- * const scheduler = new RenderScheduler({
- *   mergeConfig: () => this.#mergeEffectiveConfig(),
- *   processColumns: () => this.#processColumns(),
- *   processRows: () => this.#rebuildRowModel(),
- *   renderHeader: () => renderHeader(this),
- *   updateTemplate: () => updateTemplate(this),
- *   renderVirtualWindow: () => this.refreshVirtualWindow(true),
- *   afterRender: () => this.#pluginManager?.afterRender(),
- *   isConnected: () => this.isConnected && this.#connected,
- * });
+ * // The scheduler takes the grid (InternalGrid) directly:
+ * const scheduler = new RenderScheduler(this as unknown as InternalGrid);
  *
  * // Request a full render
  * scheduler.requestPhase(RenderPhase.FULL, 'initial-setup');
@@ -41,6 +33,8 @@
  * await scheduler.whenReady();
  * ```
  */
+
+import type { InternalGrid } from '../types';
 
 // #region Types & Enums
 /**
@@ -65,28 +59,8 @@ export enum RenderPhase {
 }
 
 /**
-/**
- * Callbacks that the scheduler invokes during flush.
- * Each callback corresponds to work done in a specific phase.
+ * @internal Scheduler now takes InternalGrid directly — no callback interface needed.
  */
-export interface RenderCallbacks {
-  /** Merge effective config (FULL phase) */
-  mergeConfig: () => void;
-  /** Process columns through plugins (COLUMNS phase) */
-  processColumns: () => void;
-  /** Rebuild row model through plugins (ROWS phase) */
-  processRows: () => void;
-  /** Render header DOM (HEADER phase) */
-  renderHeader: () => void;
-  /** Update CSS grid template (ROWS phase) */
-  updateTemplate: () => void;
-  /** Recalculate virtual window (VIRTUALIZATION phase) */
-  renderVirtualWindow: () => void;
-  /** Run plugin afterRender hooks (STYLE phase) */
-  afterRender: () => void;
-  /** Check if grid is still connected to DOM */
-  isConnected: () => boolean;
-}
 // #endregion
 
 // #region RenderScheduler
@@ -94,7 +68,7 @@ export interface RenderCallbacks {
  * Centralized render scheduler that batches all grid rendering into single RAF.
  */
 export class RenderScheduler {
-  readonly #callbacks: RenderCallbacks;
+  readonly #grid: InternalGrid;
 
   /** Current pending phase (0 = none pending) */
   #pendingPhase: RenderPhase | 0 = 0;
@@ -110,8 +84,8 @@ export class RenderScheduler {
   #initialReadyResolver: (() => void) | null = null;
   #initialReadyFired = false;
 
-  constructor(callbacks: RenderCallbacks) {
-    this.#callbacks = callbacks;
+  constructor(grid: InternalGrid) {
+    this.#grid = grid;
   }
 
   /**
@@ -206,7 +180,7 @@ export class RenderScheduler {
     this.#rafHandle = 0;
 
     // Bail if component disconnected
-    if (!this.#callbacks.isConnected()) {
+    if (!this.#grid._schedulerIsConnected) {
       this.#pendingPhase = 0;
       if (this.#readyResolve) {
         this.#readyResolve();
@@ -228,35 +202,35 @@ export class RenderScheduler {
     // column configuration, and framework adapters (React/Angular) may register renderers
     // asynchronously after the initial gridConfig is set.
     if (phase >= RenderPhase.COLUMNS) {
-      this.#callbacks.mergeConfig();
+      this.#grid._schedulerMergeConfig();
     }
 
     // Phase 4 (ROWS): Rebuild row model
     // NOTE: processRows MUST run before processColumns because tree plugin's
     // processColumns depends on flattenedRows populated by processRows
     if (phase >= RenderPhase.ROWS) {
-      this.#callbacks.processRows();
+      this.#grid._schedulerProcessRows();
     }
 
     // Phase 5 (COLUMNS): Process columns + update template
     if (phase >= RenderPhase.COLUMNS) {
-      this.#callbacks.processColumns();
-      this.#callbacks.updateTemplate();
+      this.#grid._schedulerProcessColumns();
+      this.#grid._schedulerUpdateTemplate();
     }
 
     // Phase 3 (HEADER): Render header
     if (phase >= RenderPhase.HEADER) {
-      this.#callbacks.renderHeader();
+      this.#grid._schedulerRenderHeader();
     }
 
     // Phase 2 (VIRTUALIZATION): Recalculate virtual window
     if (phase >= RenderPhase.VIRTUALIZATION) {
-      this.#callbacks.renderVirtualWindow();
+      this.#grid.refreshVirtualWindow(true, true);
     }
 
     // Phase 1 (STYLE): Run afterRender hooks (always runs)
     if (phase >= RenderPhase.STYLE) {
-      this.#callbacks.afterRender();
+      this.#grid._schedulerAfterRender();
     }
 
     // Fire initial ready resolver once

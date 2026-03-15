@@ -3,7 +3,6 @@ import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { resolveFeatures } from './internal/feature-hook';
-import type { FocusManagerHost } from './internal/focus-manager';
 import { FocusManager } from './internal/focus-manager';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
@@ -18,7 +17,6 @@ import {
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
-import type { RowManagerHost } from './internal/row-manager';
 import { resolveRowIdOrThrow, RowManager, tryResolveRowId } from './internal/row-manager';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
@@ -59,7 +57,6 @@ import {
   validatePluginProperties,
 } from './internal/validate-config';
 import { getRowIndexAtOffset } from './internal/virtualization';
-import type { VirtualizationHost } from './internal/virtualization-manager';
 import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type {
@@ -478,6 +475,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#rows;
   }
 
+  /** @internal Used by RowManager for insertRow/removeRow mutations. */
+  set sourceRows(rows: T[]) {
+    this.#rows = rows;
+  }
+
   /**
    * Get or set the column configurations.
    *
@@ -758,97 +760,17 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     void this.#injectStyles(); // Fire and forget - styles load asynchronously
     this.#readyPromise = new Promise((res) => (this.#readyResolve = res));
 
-    // Initialize virtualization manager with host adapter
-    this.#virtManager = new VirtualizationManager<T>(this.#createVirtHost());
+    // Initialize virtualization manager (tightly coupled — reads grid state directly)
+    this.#virtManager = new VirtualizationManager<T>(this as unknown as InternalGrid<T>);
 
-    // Initialize focus manager with host adapter
-    this.#focusManager = new FocusManager<T>(this.#createFocusHost());
+    // Initialize focus manager (tightly coupled — reads grid state directly)
+    this.#focusManager = new FocusManager<T>(this as unknown as InternalGrid<T> & HTMLElement);
 
-    // Initialize row manager with host adapter
-    this.#rowManager = new RowManager<T>(this.#createRowHost());
+    // Initialize row manager (tightly coupled — reads grid state directly)
+    this.#rowManager = new RowManager<T>(this as unknown as InternalGrid<T> & HTMLElement);
 
-    // Initialize render scheduler with callbacks
-    this.#scheduler = new RenderScheduler({
-      mergeConfig: () => {
-        // Re-parse light DOM columns to pick up framework adapter renderers
-        // This is essential for React/Angular where renderers register asynchronously
-        this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
-        this.#configManager.merge();
-        this.#updatePluginConfigs(); // Sync plugin configs (including auto-detection) before processing
-        // Validate that plugin-specific column properties have their required plugins loaded
-        // This runs after plugins are loaded and config is merged
-        validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.getPlugins() ?? [], this.id);
-        // Validate plugin configRules (errors/warnings for invalid config combinations)
-        validatePluginConfigRules(this.#pluginManager?.getPlugins() ?? [], this.id);
-        // Validate plugin incompatibilities (warnings for conflicting plugin combinations)
-        validatePluginIncompatibilities(this.#pluginManager?.getPlugins() ?? [], this.id);
-        // Update ARIA labels (explicit config or derived from shell title)
-        this.#updateAriaLabels();
-        // Store base columns before plugin transformation
-        this.#baseColumns = [...this._columns];
-      },
-      processColumns: () => this.#processColumns(),
-      processRows: () => this.#rebuildRowModel(),
-      renderHeader: () => renderHeader(this),
-      updateTemplate: () => updateTemplate(this),
-      renderVirtualWindow: () => this.refreshVirtualWindow(true, true),
-      afterRender: () => {
-        this.#pluginManager?.afterRender();
-
-        // Recalculate spacer height after plugins modify the DOM in afterRender.
-        // Plugins like MasterDetailPlugin create/remove detail elements in afterRender,
-        // which changes the total content height. Since refreshVirtualWindow was called
-        // with skipAfterRender=true (scheduler calls afterRender separately), the
-        // microtask that normally handles this recalculation was skipped.
-        // Use forceRead=false (cached geometry) since the scheduler's renderVirtualWindow
-        // already read fresh geometry and updated caches before calling afterRender.
-        // Plugins modify content inside containers, not container geometry itself.
-        // Any container geometry changes are caught asynchronously by ResizeObserver.
-        if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
-          queueMicrotask(() => {
-            if (!this._virtualization.totalHeightEl) return;
-            const newTotalHeight = this.#virtManager.calculateTotalSpacerHeight(this._rows.length);
-            this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
-          });
-        }
-
-        // Auto-size columns on first render if fitMode is 'fixed'
-        const mode = this.#effectiveConfig.fitMode;
-        if (mode === 'fixed' && !this.__didInitialAutoSize) {
-          this.__didInitialAutoSize = true;
-          autoSizeColumns(this);
-        }
-        // Restore focus styling if requested by a plugin
-        if (this._restoreFocusAfterRender) {
-          this._restoreFocusAfterRender = false;
-          ensureCellVisible(this);
-        }
-        // Set up row height observer after first render (rows are now in DOM)
-        if (this._virtualization.enabled && !this.#rowHeightObserverSetup) {
-          this.#setupRowHeightObserver();
-        }
-        // Measure base row height for plugin-based variable heights on first render
-        // Uses RAF to ensure browser has computed layout before measuring
-        if (this.#needsRowHeightMeasurement) {
-          this.#needsRowHeightMeasurement = false;
-          // Double RAF ensures layout is fully computed (first RAF schedules after paint,
-          // second RAF runs after that frame's layout)
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              this.#measureRowHeightForPlugins();
-            });
-          });
-        }
-
-        // Show loading overlay if loading was set before the grid root was created.
-        // The setter calls #updateLoadingOverlay which requires .tbw-grid-root,
-        // but that element doesn't exist until this first render completes.
-        if (this.#loading) {
-          this.#updateLoadingOverlay();
-        }
-      },
-      isConnected: () => this.isConnected && this.#connected,
-    });
+    // Initialize render scheduler (tightly coupled — calls grid pipeline methods directly)
+    this.#scheduler = new RenderScheduler(this as unknown as InternalGrid);
     // Connect ready promise to scheduler
     this.#scheduler.setInitialReadyResolver(() => this.#readyResolve?.());
 
@@ -1982,7 +1904,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
   }
 
-  #emitDataChange(): void {
+  _emitDataChange(): void {
     this.#emit<DataChangeDetail>('data-change', {
       rowCount: this._rows.length,
       sourceRowCount: this.#rows.length,
@@ -2070,7 +1992,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #applyRowsUpdate(): void {
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
     // Rebuild row ID map for O(1) lookups
-    this.#rebuildRowIdMap();
+    this._rebuildRowIdMap();
     // Request a ROWS phase render through the scheduler.
     // This batches with any other pending work (e.g., React adapter's refreshColumns).
     this.#scheduler.requestPhase(RenderPhase.ROWS, 'applyRowsUpdate');
@@ -2080,7 +2002,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * Rebuild the row ID map for O(1) lookups.
    * Called when rows array changes.
    */
-  #rebuildRowIdMap(): void {
+  _rebuildRowIdMap(): void {
     this.#rowIdMap.clear();
     const getRowId = this.#effectiveConfig.getRowId;
 
@@ -2153,7 +2075,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#render();
       this.#injectAllPluginStyles();
       this.#afterConnect();
-      this.#rebuildRowIdMap();
+      this._rebuildRowIdMap();
       return;
     }
 
@@ -2161,7 +2083,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.#updateShellHeaderInPlace();
     }
 
-    this.#rebuildRowIdMap();
+    this._rebuildRowIdMap();
     this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'applyGridConfigUpdate');
   }
 
@@ -2320,14 +2242,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Rebuild row ID map to keep indices in sync with the (possibly sorted) _rows.
     // Without this, #rowIdMap has stale indices from the unsorted copy set in #applyRowsUpdate.
-    this.#rebuildRowIdMap();
+    this._rebuildRowIdMap();
 
     // Rebuild position cache for variable heights (rows may have changed)
     if (this._virtualization.variableHeights) {
       this.#virtManager.initializePositionCache();
     }
 
-    this.#emitDataChange();
+    this._emitDataChange();
   }
 
   /**
@@ -2363,7 +2285,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // #endregion
 
   // #region Internal Helpers
-  #renderVisibleRows(start: number, end: number, epoch = this.__rowRenderEpoch): void {
+  _renderVisibleRows(start: number, end: number, epoch = this.__rowRenderEpoch): void {
     // Use cached hook to avoid creating closures on every render (hot path optimization)
     if (!this.#renderRowHook) {
       this.#renderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number): boolean => {
@@ -2386,8 +2308,128 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #ariaState: AriaState = createAriaState();
 
   /** Updates ARIA row/col counts. Delegates to aria.ts module. */
-  #updateAriaCounts(rowCount: number, colCount: number): void {
+  _updateAriaCounts(rowCount: number, colCount: number): void {
     updateAriaCounts(this.#ariaState, this.__rowsBodyEl, this._bodyEl, rowCount, colCount);
+  }
+
+  // --- Methods exposed for extracted managers ---
+
+  /** @internal Request a render at the given phase through the scheduler. */
+  _requestSchedulerPhase(phase: number, source: string): void {
+    this.#scheduler.requestPhase(phase, source);
+  }
+
+  /** @internal Plugin extra height for spacer calculation. */
+  _getPluginExtraHeight(): number {
+    return this.#pluginManager?.getExtraHeight() ?? 0;
+  }
+
+  /** @internal Plugin-specific row height override. */
+  _getPluginRowHeight(row: T, index: number): number | undefined {
+    return this.#pluginManager?.getRowHeight?.(row, index);
+  }
+
+  /** @internal Plugin extra height before a given row index. */
+  _getPluginExtraHeightBefore(start: number): number {
+    return this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
+  }
+
+  /** @internal Let plugins adjust the virtual start index backwards. */
+  _adjustPluginVirtualStart(start: number, scrollTop: number, rowHeight: number): number | undefined {
+    return this.#pluginManager?.adjustVirtualStart(start, scrollTop, rowHeight);
+  }
+
+  /** @internal Run plugin afterRender hooks. */
+  _afterPluginRender(): void {
+    this.#pluginManager?.afterRender();
+  }
+
+  /** @internal Emit a plugin event through the plugin manager. */
+  _emitPluginEvent(event: string, detail: unknown): void {
+    this.#pluginManager?.emitPluginEvent(event, detail);
+  }
+
+  // --- Scheduler pipeline methods ---
+
+  /** @internal Merge effective config (FULL/COLUMNS phase). */
+  _schedulerMergeConfig(): void {
+    this.#configManager.parseLightDomColumns(this as unknown as HTMLElement);
+    this.#configManager.merge();
+    this.#updatePluginConfigs();
+    validatePluginProperties(this.#effectiveConfig, this.#pluginManager?.getPlugins() ?? [], this.id);
+    validatePluginConfigRules(this.#pluginManager?.getPlugins() ?? [], this.id);
+    validatePluginIncompatibilities(this.#pluginManager?.getPlugins() ?? [], this.id);
+    this.#updateAriaLabels();
+    this.#baseColumns = [...this._columns];
+  }
+
+  /** @internal Process columns through plugins (COLUMNS phase). */
+  _schedulerProcessColumns(): void {
+    this.#processColumns();
+  }
+
+  /** @internal Rebuild row model through plugins (ROWS phase). */
+  _schedulerProcessRows(): void {
+    this.#rebuildRowModel();
+  }
+
+  /** @internal Render header DOM (HEADER phase). */
+  _schedulerRenderHeader(): void {
+    renderHeader(this);
+  }
+
+  /** @internal Update CSS grid template (COLUMNS phase). */
+  _schedulerUpdateTemplate(): void {
+    updateTemplate(this);
+  }
+
+  /** @internal Run afterRender hooks and post-render bookkeeping (STYLE phase). */
+  _schedulerAfterRender(): void {
+    this.#pluginManager?.afterRender();
+
+    // Recalculate spacer height after plugins modify the DOM in afterRender.
+    if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
+      queueMicrotask(() => {
+        if (!this._virtualization.totalHeightEl) return;
+        const newTotalHeight = this.#virtManager.calculateTotalSpacerHeight(this._rows.length);
+        this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
+      });
+    }
+
+    // Auto-size columns on first render if fitMode is 'fixed'
+    const mode = this.#effectiveConfig.fitMode;
+    if (mode === 'fixed' && !this.__didInitialAutoSize) {
+      this.__didInitialAutoSize = true;
+      autoSizeColumns(this);
+    }
+    // Restore focus styling if requested by a plugin
+    if (this._restoreFocusAfterRender) {
+      this._restoreFocusAfterRender = false;
+      ensureCellVisible(this);
+    }
+    // Set up row height observer after first render (rows are now in DOM)
+    if (this._virtualization.enabled && !this.#rowHeightObserverSetup) {
+      this.#setupRowHeightObserver();
+    }
+    // Measure base row height for plugin-based variable heights on first render
+    if (this.#needsRowHeightMeasurement) {
+      this.#needsRowHeightMeasurement = false;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          this.#measureRowHeightForPlugins();
+        });
+      });
+    }
+
+    // Show loading overlay if loading was set before the grid root was created.
+    if (this.#loading) {
+      this.#updateLoadingOverlay();
+    }
+  }
+
+  /** @internal Whether the grid is fully connected (scheduler guard). */
+  get _schedulerIsConnected(): boolean {
+    return this.isConnected && this.#connected;
   }
 
   /** Updates ARIA label and describedby attributes. Delegates to aria.ts module. */
@@ -2929,7 +2971,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal
    */
   _getRowEntry(id: string): { row: T; index: number } | undefined {
-    return this.#rowManager.getRowEntry(id);
+    return this.#rowIdMap.get(id);
   }
 
   /**
@@ -4212,154 +4254,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   // #endregion
 
-  // #region Focus (delegated to FocusManager)
-
-  /**
-   * Create the host adapter that the FocusManager uses to read grid state.
-   */
-  #createFocusHost(): FocusManagerHost<T> {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const grid = this;
-    return {
-      get rows() {
-        return grid._rows;
-      },
-      get visibleColumns() {
-        return grid._visibleColumns;
-      },
-      get focusRow() {
-        return grid._focusRow;
-      },
-      set focusRow(v: number) {
-        grid._focusRow = v;
-      },
-      get focusCol() {
-        return grid._focusCol;
-      },
-      set focusCol(v: number) {
-        grid._focusCol = v;
-      },
-      get virtualization() {
-        return grid._virtualization;
-      },
-      getRowEntry: (id: string) => this.#rowIdMap.get(id),
-      get gridElement() {
-        return grid as unknown as HTMLElement;
-      },
-      ensureCellVisible: () => ensureCellVisible(this as unknown as InternalGrid),
-    };
-  }
-
-  // #endregion
-
-  // #region Row Operations (delegated to RowManager)
-
-  /**
-   * Create the host adapter that the RowManager uses to read/write grid state.
-   */
-  #createRowHost(): RowManagerHost<T> {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const grid = this;
-    return {
-      get rows() {
-        return grid._rows;
-      },
-      get sourceRows() {
-        return grid.#rows;
-      },
-      get gridId() {
-        return grid.id;
-      },
-      get getRowIdFn() {
-        return grid.#effectiveConfig.getRowId;
-      },
-      getRowEntry: (id: string) => this.#rowIdMap.get(id),
-      get sortState() {
-        return grid._sortState;
-      },
-      get originalOrder() {
-        return grid.__originalOrder;
-      },
-      setRows: (rows: T[]) => {
-        this._rows = rows;
-      },
-      setSourceRows: (rows: T[]) => {
-        this.#rows = rows;
-      },
-      setOriginalOrder: (rows: T[]) => {
-        this.__originalOrder = rows;
-      },
-      bumpRenderEpoch: () => {
-        this.__rowRenderEpoch++;
-        for (const r of this._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
-      },
-      invalidateCellCache: () => invalidateCellCache(this as unknown as InternalGrid),
-      rebuildRowIdMap: () => this.#rebuildRowIdMap(),
-      refreshVirtualWindow: (full: boolean) => this.refreshVirtualWindow(full),
-      emit: (event: string, detail: unknown) => this.#emit(event, detail),
-      emitDataChange: () => this.#emitDataChange(),
-      emitPluginEvent: (event: string, detail: unknown) => this.#pluginManager?.emitPluginEvent(event, detail),
-      requestRender: (phase, source) => this.#scheduler.requestPhase(phase, source),
-      animateRow: (rowIndex, type) => animateRow(this as unknown as InternalGrid, rowIndex, type),
-      cleanupAnimatingRows: () => {
-        requestAnimationFrame(() => {
-          this.querySelectorAll('[data-animating="remove"]').forEach((el) => {
-            el.removeAttribute('data-animating');
-          });
-        });
-      },
-    };
-  }
-
-  // #endregion
-
   // #region Virtualization (delegated to VirtualizationManager)
-
-  /**
-   * Create the host adapter that the VirtualizationManager uses to communicate
-   * with the grid. All closures capture `this` so the manager never needs a
-   * direct grid reference.
-   */
-  #createVirtHost(): VirtualizationHost<T> {
-    // Capture grid reference for use in closures (object literal getters don't have access to class `this`)
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const grid = this;
-    return {
-      get rows() {
-        return grid._rows;
-      },
-      get visibleColumnCount() {
-        return grid._visibleColumns.length;
-      },
-      get rowRenderEpoch() {
-        return grid.__rowRenderEpoch;
-      },
-      get rowHeightFn() {
-        return grid.effectiveConfig?.rowHeight as ((row: T, index: number) => number | undefined) | undefined;
-      },
-      get getRowId() {
-        return grid.effectiveConfig?.getRowId;
-      },
-      get bodyEl() {
-        return grid._bodyEl;
-      },
-      renderVisibleRows: (start: number, end: number, epoch?: number) => {
-        this.#renderVisibleRows(start, end, epoch);
-      },
-      updateAriaCounts: (totalRows: number, totalCols: number) => {
-        this.#updateAriaCounts(totalRows, totalCols);
-      },
-      requestSchedulerPhase: (phase: number, source: string) => {
-        this.#scheduler.requestPhase(phase, source);
-      },
-      getPluginExtraHeight: () => this.#pluginManager?.getExtraHeight() ?? 0,
-      getPluginRowHeight: (row: T, index: number) => this.#pluginManager?.getRowHeight?.(row, index),
-      getPluginExtraHeightBefore: (start: number) => this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0,
-      adjustPluginVirtualStart: (start: number, scrollTop: number, rowHeight: number) =>
-        this.#pluginManager?.adjustVirtualStart(start, scrollTop, rowHeight),
-      afterPluginRender: () => this.#pluginManager?.afterRender(),
-    };
-  }
 
   /**
    * Update cached viewport and faux scrollbar geometry.

@@ -7,52 +7,24 @@
  * - Focus cell navigation (focusCell, focusedCell getter)
  * - Scroll-to-row logic (scrollToRow, scrollToRowById)
  *
- * Communicates with the grid through a narrow FocusManagerHost interface.
+ * Takes the grid reference directly (tightly coupled — this manager
+ * can never live outside the grid).
  */
-import type { ColumnInternal, ScrollToRowOptions, VirtualState } from '../types';
-
-// #region Host Interface
-
-/**
- * Narrow contract a grid must satisfy so the FocusManager can
- * read data, focus state, and scroll geometry without knowing the full grid API.
- */
-export interface FocusManagerHost<T = any> {
-  // --- Data (getters) ---
-  readonly rows: T[];
-  readonly visibleColumns: ColumnInternal[];
-
-  // --- Focus state (read/write) ---
-  focusRow: number;
-  focusCol: number;
-
-  // --- Virtualization state (for scrollToRow) ---
-  readonly virtualization: VirtualState;
-
-  // --- Row ID lookup (for scrollToRowById) ---
-  getRowEntry(id: string): { row: T; index: number } | undefined;
-
-  // --- DOM ---
-  readonly gridElement: HTMLElement;
-
-  // --- Render callback ---
-  ensureCellVisible(): void;
-}
-
-// #endregion
+import type { GridHost, ScrollToRowOptions } from '../types';
+import { ensureCellVisible } from './keyboard';
 
 // #region FocusManager
 
 export class FocusManager<T = any> {
-  readonly #host: FocusManagerHost<T>;
+  readonly #grid: GridHost<T>;
 
   // External focus containers — overlay panels (datepickers, dropdowns)
   // that render at <body> level but should be treated as "inside" the grid.
   #externalFocusContainers = new Set<Element>();
   #externalFocusCleanups = new Map<Element, () => void>();
 
-  constructor(host: FocusManagerHost<T>) {
-    this.#host = host;
+  constructor(grid: GridHost<T>) {
+    this.#grid = grid;
   }
 
   // #region Focus & Navigation
@@ -62,36 +34,36 @@ export class FocusManager<T = any> {
    * Accepts a column index or field name.
    */
   focusCell(rowIndex: number, column: number | string): void {
-    const host = this.#host;
-    const maxRow = host.rows.length - 1;
+    const grid = this.#grid;
+    const maxRow = grid._rows.length - 1;
     if (maxRow < 0) return;
 
     let colIdx: number;
     if (typeof column === 'string') {
-      colIdx = host.visibleColumns.findIndex((c) => c.field === column);
+      colIdx = grid._visibleColumns.findIndex((c) => c.field === column);
       if (colIdx < 0) return;
     } else {
       colIdx = column;
     }
 
-    const maxCol = host.visibleColumns.length - 1;
+    const maxCol = grid._visibleColumns.length - 1;
     if (maxCol < 0) return;
 
-    host.focusRow = Math.max(0, Math.min(rowIndex, maxRow));
-    host.focusCol = Math.max(0, Math.min(colIdx, maxCol));
-    host.ensureCellVisible();
+    grid._focusRow = Math.max(0, Math.min(rowIndex, maxRow));
+    grid._focusCol = Math.max(0, Math.min(colIdx, maxCol));
+    ensureCellVisible(grid);
   }
 
   /**
    * The currently focused cell position, or `null` if no rows are loaded.
    */
   get focusedCell(): { rowIndex: number; colIndex: number; field: string } | null {
-    const host = this.#host;
-    if (host.rows.length === 0 || host.visibleColumns.length === 0) return null;
-    const col = host.visibleColumns[host.focusCol];
+    const grid = this.#grid;
+    if (grid._rows.length === 0 || grid._visibleColumns.length === 0) return null;
+    const col = grid._visibleColumns[grid._focusCol];
     return {
-      rowIndex: host.focusRow,
-      colIndex: host.focusCol,
+      rowIndex: grid._focusRow,
+      colIndex: grid._focusCol,
       field: col?.field ?? '',
     };
   }
@@ -100,13 +72,13 @@ export class FocusManager<T = any> {
    * Scroll the viewport so a row is visible.
    */
   scrollToRow(rowIndex: number, options?: ScrollToRowOptions): void {
-    const virt = this.#host.virtualization;
+    const virt = this.#grid._virtualization;
     if (!virt.enabled) return;
 
     const scrollEl = virt.container as HTMLElement | undefined;
     if (!scrollEl) return;
 
-    const totalRows = this.#host.rows.length;
+    const totalRows = this.#grid._rows.length;
     if (totalRows === 0) return;
 
     const idx = Math.max(0, Math.min(rowIndex, totalRows - 1));
@@ -165,7 +137,7 @@ export class FocusManager<T = any> {
    * Scroll the viewport so a row is visible, identified by its unique ID.
    */
   scrollToRowById(rowId: string, options?: ScrollToRowOptions): void {
-    const entry = this.#host.getRowEntry(rowId);
+    const entry = this.#grid._getRowEntry(rowId);
     if (!entry) return;
     this.scrollToRow(entry.index, options);
   }
@@ -184,7 +156,7 @@ export class FocusManager<T = any> {
 
     const ac = new AbortController();
     const signal = ac.signal;
-    const gridEl = this.#host.gridElement;
+    const gridEl = this.#grid;
 
     el.addEventListener(
       'focusin',
@@ -227,7 +199,7 @@ export class FocusManager<T = any> {
   containsFocus(node?: Node | null): boolean {
     const target = node ?? document.activeElement;
     if (!target) return false;
-    if (this.#host.gridElement.contains(target)) return true;
+    if (this.#grid.contains(target)) return true;
     return this.isInExternalFocusContainer(target);
   }
 

@@ -3,10 +3,10 @@
  * that was previously inline in the DataGridElement class.
  *
  * Owns the VirtualState, position/height caches, and the core
- * refreshVirtualWindow algorithm. Communicates with the grid through a
- * narrow VirtualizationHost interface to keep coupling minimal.
+ * refreshVirtualWindow algorithm. Takes the grid reference directly
+ * (tightly coupled — this manager can never live outside the grid).
  */
-import type { VirtualState } from '../types';
+import type { InternalGrid, VirtualState } from '../types';
 import { RenderPhase } from './render-scheduler';
 import {
   computeAverageExcludingPluginRows,
@@ -17,51 +17,17 @@ import {
   updateRowHeight,
 } from './virtualization';
 
-// #region Host Interface
-
-/**
- * Narrow contract a grid must satisfy so the VirtualizationManager can
- * read data, render rows, and query plugins without knowing the full grid API.
- */
-export interface VirtualizationHost<T = any> {
-  // --- Data (getters, no copying) ---
-  readonly rows: T[];
-  readonly visibleColumnCount: number;
-  readonly rowRenderEpoch: number;
-
-  // --- Config ---
-  readonly rowHeightFn: ((row: T, index: number) => number | undefined) | undefined;
-  readonly getRowId: ((row: T) => string | number) | undefined;
-
-  // --- DOM ---
-  readonly bodyEl: HTMLElement | null;
-
-  // --- Render callbacks ---
-  renderVisibleRows(start: number, end: number, epoch?: number): void;
-  updateAriaCounts(totalRows: number, totalCols: number): void;
-  requestSchedulerPhase(phase: number, source: string): void;
-
-  // --- Plugin manager proxy ---
-  getPluginExtraHeight(): number;
-  getPluginRowHeight(row: T, index: number): number | undefined;
-  getPluginExtraHeightBefore(start: number): number;
-  adjustPluginVirtualStart(start: number, scrollTop: number, rowHeight: number): number | undefined;
-  afterPluginRender(): void;
-}
-
-// #endregion
-
 // #region VirtualizationManager
 
 export class VirtualizationManager<T = any> {
-  readonly #host: VirtualizationHost<T>;
+  readonly #grid: InternalGrid<T>;
 
   // The full virtualization state — still a plain object so plugins can read
   // fields directly via `grid._virtualization` (they access the same reference).
   readonly state: VirtualState;
 
-  constructor(host: VirtualizationHost<T>, initialState?: Partial<VirtualState>) {
-    this.#host = host;
+  constructor(grid: InternalGrid<T>, initialState?: Partial<VirtualState>) {
+    this.#grid = grid;
     this.state = {
       enabled: true,
       rowHeight: 28,
@@ -129,7 +95,7 @@ export class VirtualizationManager<T = any> {
     let scrollAreaHeight: number;
 
     if (forceRead) {
-      const fauxScrollbar = s.container ?? (this.#host.bodyEl?.closest('tbw-grid') as HTMLElement) ?? null;
+      const fauxScrollbar = s.container ?? (this.#grid._bodyEl?.closest('tbw-grid') as HTMLElement) ?? null;
       const viewportEl = s.viewportEl ?? fauxScrollbar;
       const scrollAreaEl = s.scrollAreaEl;
 
@@ -156,7 +122,7 @@ export class VirtualizationManager<T = any> {
       rowContentHeight = getTotalHeight(s.positionCache);
     } else {
       rowContentHeight = totalRows * s.rowHeight;
-      pluginExtraHeight = this.#host.getPluginExtraHeight();
+      pluginExtraHeight = this.#grid._getPluginExtraHeight();
     }
 
     return rowContentHeight + viewportHeightDiff + pluginExtraHeight + hScrollbarPadding;
@@ -174,14 +140,17 @@ export class VirtualizationManager<T = any> {
     const s = this.state;
     if (!s.variableHeights) return;
 
-    const rows = this.#host.rows;
+    const grid = this.#grid;
+    const rows = grid._rows;
     const estimatedHeight = s.rowHeight || 28;
-    const rowHeightFn = this.#host.rowHeightFn;
-    const getRowId = this.#host.getRowId;
+    const rowHeightFn = grid.effectiveConfig?.rowHeight as
+      | ((row: T, index: number) => number | undefined)
+      | undefined;
+    const getRowId = grid.effectiveConfig?.getRowId;
     const rowIdFn = getRowId ? (row: T) => getRowId(row) : undefined;
 
     s.positionCache = rebuildPositionCache(rows, s.heightCache, estimatedHeight, { rowId: rowIdFn }, (row, index) => {
-      const pluginHeight = this.#host.getPluginRowHeight(row, index);
+      const pluginHeight = grid._getPluginRowHeight(row, index);
       if (pluginHeight !== undefined) return pluginHeight;
       if (rowHeightFn) {
         const height = rowHeightFn(row, index);
@@ -191,7 +160,7 @@ export class VirtualizationManager<T = any> {
     });
 
     const stats = computeAverageExcludingPluginRows(s.positionCache, rows, estimatedHeight, (row, index) =>
-      this.#host.getPluginRowHeight(row, index),
+      grid._getPluginRowHeight(row, index),
     );
     s.measuredCount = stats.measuredCount;
     if (stats.measuredCount > 0) {
@@ -212,14 +181,14 @@ export class VirtualizationManager<T = any> {
     if (!s.variableHeights) return;
     if (!s.positionCache) return;
 
-    const rows = this.#host.rows;
+    const rows = this.#grid._rows;
     if (rowIndex < 0 || rowIndex >= rows.length) return;
 
     const row = rows[rowIndex];
 
     let height = newHeight;
     if (height === undefined) {
-      height = this.#host.getPluginRowHeight(row, rowIndex);
+      height = this.#grid._getPluginRowHeight(row, rowIndex);
     }
     if (height === undefined) {
       height = s.rowHeight;
@@ -252,12 +221,13 @@ export class VirtualizationManager<T = any> {
     if (!s.variableHeights) return;
     if (!s.positionCache) return;
 
-    const bodyEl = this.#host.bodyEl;
+    const grid = this.#grid;
+    const bodyEl = grid._bodyEl;
     if (!bodyEl) return;
 
     const rowElements = bodyEl.querySelectorAll('.data-grid-row');
-    const getRowId = this.#host.getRowId;
-    const rows = this.#host.rows;
+    const getRowId = grid.effectiveConfig?.getRowId;
+    const rows = grid._rows;
 
     const result = measureRenderedRowHeights(
       {
@@ -267,7 +237,7 @@ export class VirtualizationManager<T = any> {
         defaultHeight: s.rowHeight,
         start,
         end,
-        getPluginHeight: (row, index) => this.#host.getPluginRowHeight(row, index),
+        getPluginHeight: (row, index) => grid._getPluginRowHeight(row, index),
         getRowId: getRowId ? (row: T) => getRowId(row) : undefined,
       },
       rowElements,
@@ -297,16 +267,16 @@ export class VirtualizationManager<T = any> {
    */
   refreshVirtualWindow(force = false, skipAfterRender = false): boolean {
     const s = this.state;
-    const host = this.#host;
-    const bodyEl = host.bodyEl;
+    const grid = this.#grid;
+    const bodyEl = grid._bodyEl;
     if (!bodyEl) return false;
 
-    const totalRows = host.rows.length;
+    const totalRows = grid._rows.length;
 
     if (!s.enabled) {
-      host.renderVisibleRows(0, totalRows);
+      grid._renderVisibleRows(0, totalRows);
       if (!skipAfterRender) {
-        host.afterPluginRender();
+        grid._afterPluginRender();
       }
       return true;
     }
@@ -317,13 +287,13 @@ export class VirtualizationManager<T = any> {
       if (force) {
         bodyEl.style.transform = 'translateY(0px)';
       }
-      host.renderVisibleRows(0, totalRows, host.rowRenderEpoch);
+      grid._renderVisibleRows(0, totalRows, grid.__rowRenderEpoch);
       if (force && s.totalHeightEl) {
         s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(totalRows, true)}px`;
       }
-      host.updateAriaCounts(totalRows, host.visibleColumnCount);
+      grid._updateAriaCounts(totalRows, grid._visibleColumns.length);
       if (!skipAfterRender) {
-        host.afterPluginRender();
+        grid._afterPluginRender();
       }
       return true;
     }
@@ -358,7 +328,7 @@ export class VirtualizationManager<T = any> {
       let iterations = 0;
       const maxIterations = 10;
       while (iterations < maxIterations) {
-        const extraHeightBefore = host.getPluginExtraHeightBefore(start);
+        const extraHeightBefore = grid._getPluginExtraHeightBefore(start);
         const adjustedStart = Math.floor((scrollTop - extraHeightBefore) / rowHeight);
         if (adjustedStart >= start || adjustedStart < 0) break;
         start = adjustedStart;
@@ -371,7 +341,7 @@ export class VirtualizationManager<T = any> {
     if (start < 0) start = 0;
 
     // Allow plugins to extend the start index backwards
-    const pluginAdjustedStart = host.adjustPluginVirtualStart(start, scrollTop, rowHeight);
+    const pluginAdjustedStart = grid._adjustPluginVirtualStart(start, scrollTop, rowHeight);
     if (pluginAdjustedStart !== undefined && pluginAdjustedStart < start) {
       start = pluginAdjustedStart;
       start = start - (start % 2);
@@ -426,7 +396,7 @@ export class VirtualizationManager<T = any> {
 
     // Guard: stale DOM references
     if (fauxScrollHeight === 0 && viewportHeight > 0) {
-      host.requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'stale-refs-retry');
+      grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'stale-refs-retry');
       return false;
     }
 
@@ -441,25 +411,25 @@ export class VirtualizationManager<T = any> {
     if (s.variableHeights && positionCache && positionCache[start]) {
       startRowOffset = positionCache[start].offset;
     } else {
-      const extraHeightBeforeStart = host.getPluginExtraHeightBefore(start);
+      const extraHeightBeforeStart = grid._getPluginExtraHeightBefore(start);
       startRowOffset = start * rowHeight + extraHeightBeforeStart;
     }
 
     const subPixelOffset = -(scrollTop - startRowOffset);
     bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
 
-    host.renderVisibleRows(start, end, host.rowRenderEpoch);
+    grid._renderVisibleRows(start, end, grid.__rowRenderEpoch);
 
     // Measure rendered row heights on force refresh
     if (force && s.variableHeights) {
       this.measureRenderedRowHeights(start, end);
     }
 
-    host.updateAriaCounts(totalRows, host.visibleColumnCount);
+    grid._updateAriaCounts(totalRows, grid._visibleColumns.length);
 
     // Run plugin afterRender hooks on force refresh
     if (force && !skipAfterRender) {
-      host.afterPluginRender();
+      grid._afterPluginRender();
 
       // Recalculate spacer height in microtask to catch plugin DOM changes
       queueMicrotask(() => {

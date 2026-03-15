@@ -518,7 +518,36 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   queryPlugins?: <T>(query: PluginQuery) => T[];
   /** Request emission of column-state-change event (debounced) */
   requestStateChange?: () => void;
+
+  // Methods exposed for extracted managers (VirtualizationManager, FocusManager, RowManager, RenderScheduler)
+  /** @internal */ _renderVisibleRows(start: number, end: number, epoch?: number): void;
+  /** @internal */ _updateAriaCounts(totalRows: number, totalCols: number): void;
+  /** @internal */ _requestSchedulerPhase(phase: number, source: string): void;
+  /** @internal */ _rebuildRowIdMap(): void;
+  /** @internal */ _emitDataChange(): void;
+  /** @internal */ _getPluginExtraHeight(): number;
+  /** @internal */ _getPluginRowHeight(row: T, index: number): number | undefined;
+  /** @internal */ _getPluginExtraHeightBefore(start: number): number;
+  /** @internal */ _adjustPluginVirtualStart(start: number, scrollTop: number, rowHeight: number): number | undefined;
+  /** @internal */ _afterPluginRender(): void;
+  /** @internal */ _emitPluginEvent(event: string, detail: unknown): void;
+
+  // Scheduler pipeline callbacks
+  /** @internal */ _schedulerMergeConfig(): void;
+  /** @internal */ _schedulerProcessColumns(): void;
+  /** @internal */ _schedulerProcessRows(): void;
+  /** @internal */ _schedulerRenderHeader(): void;
+  /** @internal */ _schedulerUpdateTemplate(): void;
+  /** @internal */ _schedulerAfterRender(): void;
+  /** @internal */ readonly _schedulerIsConnected: boolean;
 }
+
+/**
+ * Grid reference type combining InternalGrid with HTMLElement.
+ * Used by extracted managers that need both internal grid state and DOM APIs.
+ * @internal
+ */
+export type GridHost<T = any> = InternalGrid<T> & HTMLElement;
 // #endregion
 
 // #region Column Types

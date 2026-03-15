@@ -7,10 +7,13 @@
  * - Row lookup (getRow, getRowEntry)
  * - Row mutation (updateRow, updateRows, insertRow, removeRow)
  *
- * Communicates with the grid through a narrow RowManagerHost interface.
+ * Takes the grid reference directly (tightly coupled — this manager
+ * can never live outside the grid).
  */
-import type { CellChangeDetail, RowAnimationType, UpdateSource } from '../types';
+import type { CellChangeDetail, GridHost, RowAnimationType, UpdateSource } from '../types';
 import { RenderPhase } from './render-scheduler';
+import { animateRow } from './row-animation';
+import { invalidateCellCache } from './rows';
 import { gridPrefix } from './utils';
 
 // #region Standalone Row ID Helpers
@@ -52,91 +55,39 @@ export function resolveRowIdOrThrow<T>(row: T, gridId: string, getRowId?: (row: 
 
 // #endregion
 
-// #region Host Interface
-
-/**
- * Narrow contract a grid must satisfy so the RowManager can
- * read data, mutate rows, and trigger rendering without knowing the full grid API.
- */
-export interface RowManagerHost<T = any> {
-  // --- Data access (getters) ---
-  readonly rows: T[];
-  readonly sourceRows: T[];
-
-  // --- Configuration ---
-  readonly gridId: string;
-  readonly getRowIdFn: ((row: T) => string) | undefined;
-
-  // --- Row ID map ---
-  getRowEntry(id: string): { row: T; index: number } | undefined;
-
-  // --- Sort state ---
-  readonly sortState: { field: string; direction: 1 | -1 } | null;
-  readonly originalOrder: T[];
-
-  // --- State mutation ---
-  setRows(rows: T[]): void;
-  setSourceRows(rows: T[]): void;
-  setOriginalOrder(rows: T[]): void;
-
-  // --- Render epoch/pool ---
-  bumpRenderEpoch(): void;
-
-  // --- Operations ---
-  invalidateCellCache(): void;
-  rebuildRowIdMap(): void;
-  refreshVirtualWindow(full: boolean): boolean;
-
-  // --- Events ---
-  emit(event: string, detail: unknown): void;
-  emitDataChange(): void;
-  emitPluginEvent(event: string, detail: unknown): void;
-
-  // --- Scheduler ---
-  requestRender(phase: RenderPhase, source: string): void;
-
-  // --- Animation ---
-  animateRow(rowIndex: number, type: RowAnimationType): Promise<boolean>;
-
-  // --- DOM cleanup ---
-  cleanupAnimatingRows(): void;
-}
-
-// #endregion
-
 // #region RowManager
 
 export class RowManager<T = any> {
-  readonly #host: RowManagerHost<T>;
+  readonly #grid: GridHost<T>;
 
-  constructor(host: RowManagerHost<T>) {
-    this.#host = host;
+  constructor(grid: GridHost<T>) {
+    this.#grid = grid;
   }
 
   // --- Row ID resolution ---
 
   resolveRowId(row: T): string {
-    return resolveRowIdOrThrow(row, this.#host.gridId, this.#host.getRowIdFn);
+    return resolveRowIdOrThrow(row, this.#grid.id, this.#grid.effectiveConfig?.getRowId);
   }
 
   // --- Row lookup ---
 
   getRow(id: string): T | undefined {
-    return this.#host.getRowEntry(id)?.row;
+    return this.#grid._getRowEntry(id)?.row;
   }
 
   getRowEntry(id: string): { row: T; index: number } | undefined {
-    return this.#host.getRowEntry(id);
+    return this.#grid._getRowEntry(id);
   }
 
   // --- Row updates ---
 
   updateRow(id: string, changes: Partial<T>, source: UpdateSource = 'api'): void {
-    const host = this.#host;
-    const entry = host.getRowEntry(id);
+    const grid = this.#grid;
+    const entry = grid._getRowEntry(id);
     if (!entry) {
       throw new Error(
-        `${gridPrefix(host.gridId)} Row with ID "${id}" not found. ` +
+        `${gridPrefix(grid.id)} Row with ID "${id}" not found. ` +
           `Ensure the row exists and getRowId is correctly configured.`,
       );
     }
@@ -155,16 +106,22 @@ export class RowManager<T = any> {
 
     // Emit cell-change for each changed field
     for (const { field, oldValue, newValue } of changedFields) {
-      host.emit('cell-change', {
-        row,
-        rowId: id,
-        rowIndex: index,
-        field,
-        oldValue,
-        newValue,
-        changes,
-        source,
-      } as CellChangeDetail<T>);
+      grid.dispatchEvent(
+        new CustomEvent('cell-change', {
+          detail: {
+            row,
+            rowId: id,
+            rowIndex: index,
+            field,
+            oldValue,
+            newValue,
+            changes,
+            source,
+          } as CellChangeDetail<T>,
+          bubbles: true,
+          composed: true,
+        }),
+      );
     }
 
     // Schedule re-render if anything changed.
@@ -175,21 +132,21 @@ export class RowManager<T = any> {
     // Since data was already mutated in-place, fastPatchRow will pick up
     // the new values from the row object directly.
     if (changedFields.length > 0) {
-      host.invalidateCellCache();
-      host.requestRender(RenderPhase.VIRTUALIZATION, 'updateRow');
-      host.emitDataChange();
+      invalidateCellCache(grid);
+      grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'updateRow');
+      grid._emitDataChange();
     }
   }
 
   updateRows(updates: Array<{ id: string; changes: Partial<T> }>, source: UpdateSource = 'api'): void {
-    const host = this.#host;
+    const grid = this.#grid;
     let anyChanged = false;
 
     for (const { id, changes } of updates) {
-      const entry = host.getRowEntry(id);
+      const entry = grid._getRowEntry(id);
       if (!entry) {
         throw new Error(
-          `${gridPrefix(host.gridId)} Row with ID "${id}" not found. ` +
+          `${gridPrefix(grid.id)} Row with ID "${id}" not found. ` +
             `Ensure the row exists and getRowId is correctly configured.`,
         );
       }
@@ -204,16 +161,22 @@ export class RowManager<T = any> {
           (row as Record<string, unknown>)[field] = newValue;
 
           // Emit cell-change for each changed field
-          host.emit('cell-change', {
-            row,
-            rowId: id,
-            rowIndex: index,
-            field,
-            oldValue,
-            newValue,
-            changes,
-            source,
-          } as CellChangeDetail<T>);
+          grid.dispatchEvent(
+            new CustomEvent('cell-change', {
+              detail: {
+                row,
+                rowId: id,
+                rowIndex: index,
+                field,
+                oldValue,
+                newValue,
+                changes,
+                source,
+              } as CellChangeDetail<T>,
+              bubbles: true,
+              composed: true,
+            }),
+          );
         }
       }
     }
@@ -221,97 +184,103 @@ export class RowManager<T = any> {
     // Schedule single re-render for all changes.
     // Use VIRTUALIZATION (not ROWS) — see updateRow for rationale.
     if (anyChanged) {
-      host.invalidateCellCache();
-      host.requestRender(RenderPhase.VIRTUALIZATION, 'updateRows');
-      host.emitDataChange();
+      invalidateCellCache(grid);
+      grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'updateRows');
+      grid._emitDataChange();
     }
   }
 
   // --- Row mutation ---
 
   async insertRow(index: number, row: T, animate = true): Promise<void> {
-    const host = this.#host;
+    const grid = this.#grid;
 
     // Clamp index to valid range
-    const idx = Math.max(0, Math.min(index, host.rows.length));
+    const idx = Math.max(0, Math.min(index, grid._rows.length));
 
     // Add to source data (position irrelevant — pipeline will re-sort later)
-    host.setSourceRows([...host.sourceRows, row]);
+    grid.sourceRows = [...grid.sourceRows, row];
 
     // Insert into processed view at the exact visible position
-    const newRows = [...host.rows];
+    const newRows = [...grid._rows];
     newRows.splice(idx, 0, row);
-    host.setRows(newRows);
+    grid._rows = newRows;
 
     // Keep __originalOrder in sync so "clear sort" includes the new row
-    if (host.sortState) {
-      host.setOriginalOrder([...host.originalOrder, row]);
+    if (grid._sortState) {
+      grid.__originalOrder = [...grid.__originalOrder, row];
     }
 
     // Refresh caches and trigger immediate re-render
-    host.invalidateCellCache();
-    host.rebuildRowIdMap();
-    host.bumpRenderEpoch();
-    host.refreshVirtualWindow(true);
+    invalidateCellCache(grid);
+    grid._rebuildRowIdMap();
+    grid.__rowRenderEpoch++;
+    for (const r of grid._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
+    grid.refreshVirtualWindow(true);
 
     // Notify plugins about the inserted row (e.g., editing dirty tracking)
-    host.emitPluginEvent('row-inserted', { row, index: idx });
+    grid._emitPluginEvent('row-inserted', { row, index: idx });
 
-    host.emitDataChange();
+    grid._emitDataChange();
 
     if (animate) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      await host.animateRow(idx, 'insert');
+      await animateRow(grid, idx, 'insert');
     }
   }
 
   async removeRow(index: number, animate = true): Promise<T | undefined> {
-    const host = this.#host;
-    const row = host.rows[index];
+    const grid = this.#grid;
+    const row = grid._rows[index];
     if (!row) return undefined;
 
     if (animate) {
-      await host.animateRow(index, 'remove');
+      await animateRow(grid, index, 'remove');
     }
 
     // Find current position by reference (may have shifted during animation)
-    const currentIdx = host.rows.indexOf(row);
+    const currentIdx = grid._rows.indexOf(row);
     if (currentIdx < 0) return row; // Already removed by something else
 
     // Remove from processed view
-    const newRows = [...host.rows];
+    const newRows = [...grid._rows];
     newRows.splice(currentIdx, 1);
-    host.setRows(newRows);
+    grid._rows = newRows;
 
     // Remove from source data
-    const srcIdx = host.sourceRows.indexOf(row);
+    const srcIdx = grid.sourceRows.indexOf(row);
     if (srcIdx >= 0) {
-      const newSource = [...host.sourceRows];
+      const newSource = [...grid.sourceRows];
       newSource.splice(srcIdx, 1);
-      host.setSourceRows(newSource);
+      grid.sourceRows = newSource;
     }
 
     // Keep __originalOrder in sync
-    if (host.sortState) {
-      const origIdx = host.originalOrder.indexOf(row);
+    if (grid._sortState) {
+      const origIdx = grid.__originalOrder.indexOf(row);
       if (origIdx >= 0) {
-        const newOrig = [...host.originalOrder];
+        const newOrig = [...grid.__originalOrder];
         newOrig.splice(origIdx, 1);
-        host.setOriginalOrder(newOrig);
+        grid.__originalOrder = newOrig;
       }
     }
 
     // Refresh caches and trigger immediate re-render
-    host.invalidateCellCache();
-    host.rebuildRowIdMap();
-    host.bumpRenderEpoch();
-    host.refreshVirtualWindow(true);
+    invalidateCellCache(grid);
+    grid._rebuildRowIdMap();
+    grid.__rowRenderEpoch++;
+    for (const r of grid._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
+    grid.refreshVirtualWindow(true);
 
-    host.emitDataChange();
+    grid._emitDataChange();
 
     // Clean up stale remove animation attributes after re-render
     if (animate) {
-      host.cleanupAnimatingRows();
+      requestAnimationFrame(() => {
+        grid.querySelectorAll('[data-animating="remove"]').forEach((el) => {
+          el.removeAttribute('data-animating');
+        });
+      });
     }
 
     return row;

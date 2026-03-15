@@ -3,6 +3,7 @@ import type {
   ColumnEditorContext,
   ColumnEditorSpec,
   ColumnViewRenderer,
+  GridConfig as CoreGridConfig,
   FrameworkAdapter,
   TypeDefault,
 } from '@toolbox-web/grid';
@@ -14,7 +15,7 @@ import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel'
 import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
 import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
-import { cleanupConfigRootsIn } from './react-column-config';
+import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
 
 /**
  * Registry mapping grid elements to their React render functions.
@@ -184,6 +185,15 @@ export class GridAdapter implements FrameworkAdapter {
    */
   setTypeDefaults(defaults: TypeDefaultsMap | null): void {
     this.typeDefaults = defaults;
+  }
+
+  /**
+   * FrameworkAdapter.processConfig implementation.
+   * Called automatically by the grid's `set gridConfig` setter.
+   * Converts React renderer/editor functions to DOM-returning functions.
+   */
+  processConfig<TRow = unknown>(config: CoreGridConfig<TRow>): CoreGridConfig<TRow> {
+    return (processGridConfig(config as any) ?? config) as CoreGridConfig<TRow>;
   }
 
   /**

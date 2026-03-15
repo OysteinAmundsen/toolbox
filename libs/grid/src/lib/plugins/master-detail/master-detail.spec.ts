@@ -261,6 +261,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
+        _hostElement: document.createElement('div'),
       }) as any;
 
     it('should return 0 when no rows are expanded', () => {
@@ -357,6 +358,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
+        _hostElement: document.createElement('div'),
       }) as any;
 
     it('should return 0 when no rows are expanded', () => {
@@ -434,6 +436,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
+        _hostElement: document.createElement('div'),
       }) as any;
 
     it('should return same start when no rows are expanded', () => {
@@ -535,6 +538,7 @@ describe('masterDetail', () => {
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
         icons: { expand: '▶', collapse: '▼' },
+        _hostElement: document.createElement('div'),
       }) as any;
 
     it('should return columns unchanged when no detailRenderer configured', () => {
@@ -721,6 +725,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
+        _hostElement: document.createElement('div'),
       }) as any;
 
     it('should not toggle when expandOnRowClick is false', () => {
@@ -829,6 +834,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
+        _hostElement: document.createElement('div'),
       }) as any;
 
     describe('expand', () => {
@@ -1057,6 +1063,7 @@ describe('masterDetail', () => {
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
         dispatchEvent: vi.fn(),
+        _hostElement: document.createElement('div'),
       } as any;
     };
 
@@ -1332,6 +1339,7 @@ describe('masterDetail', () => {
         _rowPool: { value: rowPool, writable: true },
         _virtualization: { value: { start: 0, end: rows.length }, writable: true },
         __frameworkAdapter: { value: { unmount: unmountSpy }, writable: true, configurable: true },
+        _hostElement: { value: gridEl },
       });
 
       return { gridEl: gridEl as any, rowsContainer, rowPool, unmountSpy };

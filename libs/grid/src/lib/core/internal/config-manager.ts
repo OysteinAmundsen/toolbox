@@ -21,60 +21,16 @@ import type {
   FitMode,
   GridColumnState,
   GridConfig,
-  HeaderContentDefinition,
-  ToolbarContentDefinition,
-  ToolPanelDefinition,
+  InternalGrid,
 } from '../types';
-import { mergeColumns, parseLightDomColumns } from './columns';
+import { mergeColumns, parseLightDomColumns, updateTemplate } from './columns';
+import { renderHeader } from './header';
 import { inferColumns } from './inference';
+import { RenderPhase } from './render-scheduler';
 import { compileTemplate } from './sanitize';
 
 /** Debounce timeout for state change events */
 const STATE_CHANGE_DEBOUNCE_MS = 100;
-
-/**
- * Callbacks for ConfigManager to notify the grid of changes.
- */
-export interface ConfigManagerCallbacks<T> {
-  /** Get current rows for column inference */
-  getRows: () => T[];
-  /** Get current sort state */
-  getSortState: () => { field: string; direction: 1 | -1 } | null;
-  /** Set sort state */
-  setSortState: (state: { field: string; direction: 1 | -1 } | null) => void;
-  /** Notify that config changed and re-render is needed */
-  onConfigChange: () => void;
-  /** Emit a custom event */
-  emit: (eventName: string, detail: unknown) => void;
-  /** Clear row pool for visibility changes */
-  clearRowPool: () => void;
-  /** Run setup after state changes */
-  setup: () => void;
-  /** Render header */
-  renderHeader: () => void;
-  /** Update column template */
-  updateTemplate: () => void;
-  /** Refresh virtual window */
-  refreshVirtualWindow: () => void;
-  /** Get virtualization state for row height application */
-  getVirtualization: () => { rowHeight: number };
-  /** Set row height on virtualization state */
-  setRowHeight: (height: number) => void;
-  /** Apply animation config to host element */
-  applyAnimationConfig: (config: GridConfig<T>) => void;
-  /** Get light DOM title from shell state (synced from parseLightDomShell) */
-  getShellLightDomTitle: () => string | null;
-  /** Get registered tool panels from shell state */
-  getShellToolPanels: () => Map<string, ToolPanelDefinition>;
-  /** Get registered header contents from shell state */
-  getShellHeaderContents: () => Map<string, HeaderContentDefinition>;
-  /** Get registered toolbar contents from shell state */
-  getShellToolbarContents: () => Map<string, ToolbarContentDefinition>;
-  /** Get light DOM header content elements */
-  getShellLightDomHeaderContent: () => HTMLElement[];
-  /** Get whether a tool buttons container was found in light DOM */
-  getShellHasToolButtonsContainer: () => boolean;
-}
 
 /**
  * ConfigManager handles all configuration lifecycle for the grid.
@@ -118,13 +74,13 @@ export class ConfigManager<T = unknown> {
   #lightDomObserver?: MutationObserver;
   #stateChangeTimeoutId?: ReturnType<typeof setTimeout>;
   #initialColumnState?: GridColumnState;
-  #callbacks: ConfigManagerCallbacks<T>;
+  #grid: InternalGrid<T>;
 
   // Shell state (Light DOM title)
   #lightDomTitle?: string;
 
-  constructor(callbacks: ConfigManagerCallbacks<T>) {
-    this.#callbacks = callbacks;
+  constructor(grid: InternalGrid<T>) {
+    this.#grid = grid;
   }
   // #endregion
 
@@ -332,7 +288,7 @@ export class ConfigManager<T = unknown> {
     // Apply rowHeight from config if specified (only for numeric values)
     // Function-based rowHeight is handled by variable height virtualization
     if (typeof config.rowHeight === 'number' && config.rowHeight > 0) {
-      this.#callbacks.setRowHeight(config.rowHeight);
+      this.#grid._virtualization.rowHeight = config.rowHeight;
     }
 
     // If fixed mode and width not specified: assign default 80px
@@ -344,7 +300,7 @@ export class ConfigManager<T = unknown> {
     }
 
     // Apply animation configuration to host element
-    this.#callbacks.applyAnimationConfig(config);
+    this.#grid._applyAnimationConfig(config);
   }
 
   /**
@@ -432,7 +388,7 @@ export class ConfigManager<T = unknown> {
     }
 
     // Inference if still empty
-    const rows = this.#callbacks.getRows();
+    const rows = this.#grid.sourceRows;
     if (columns.length === 0 && rows.length) {
       const result = inferColumns(rows as Record<string, unknown>[]);
       columns = result.columns as ColumnInternal<T>[];
@@ -493,7 +449,7 @@ export class ConfigManager<T = unknown> {
     base.shell.header = base.shell.header ? { ...base.shell.header } : {};
 
     // Sync light DOM title
-    const shellLightDomTitle = this.#callbacks.getShellLightDomTitle();
+    const shellLightDomTitle = this.#grid._shellState.lightDomTitle;
     if (shellLightDomTitle) {
       this.#lightDomTitle = shellLightDomTitle;
     }
@@ -502,18 +458,18 @@ export class ConfigManager<T = unknown> {
     }
 
     // Sync light DOM header content elements
-    const lightDomHeaderContent = this.#callbacks.getShellLightDomHeaderContent();
+    const lightDomHeaderContent = this.#grid._shellState.lightDomHeaderContent;
     if (lightDomHeaderContent?.length > 0) {
       base.shell.header.lightDomContent = lightDomHeaderContent;
     }
 
     // Sync hasToolButtonsContainer from shell state
-    if (this.#callbacks.getShellHasToolButtonsContainer()) {
+    if (this.#grid._shellState.hasToolButtonsContainer) {
       base.shell.header.hasToolButtonsContainer = true;
     }
 
     // Sync tool panels (from plugins + API + Light DOM)
-    const toolPanelsMap = this.#callbacks.getShellToolPanels();
+    const toolPanelsMap = this.#grid._shellState.toolPanels;
     if (toolPanelsMap.size > 0) {
       const panels = Array.from(toolPanelsMap.values());
       // Sort by order (lower = first, default 100)
@@ -522,7 +478,7 @@ export class ConfigManager<T = unknown> {
     }
 
     // Sync header contents (from plugins + API)
-    const headerContentsMap = this.#callbacks.getShellHeaderContents();
+    const headerContentsMap = this.#grid._shellState.headerContents;
     if (headerContentsMap.size > 0) {
       const contents = Array.from(headerContentsMap.values());
       // Sort by order
@@ -533,7 +489,7 @@ export class ConfigManager<T = unknown> {
     // Sync toolbar contents (from API - config contents are already in base.shell.header.toolbarContents)
     // We need to merge config contents (from gridConfig) with API contents (from registerToolbarContent)
     // API contents can be added/removed dynamically, so we need to rebuild from current state each time
-    const toolbarContentsMap = this.#callbacks.getShellToolbarContents();
+    const toolbarContentsMap = this.#grid._shellState.toolbarContents;
     const apiContents = Array.from(toolbarContentsMap.values());
 
     // Get ORIGINAL config contents (from gridConfig, not from previous merges)
@@ -646,13 +602,13 @@ export class ConfigManager<T = unknown> {
     if (sortedByPriority.length > 0) {
       const primarySort = sortedByPriority[0];
       if (primarySort.sort) {
-        this.#callbacks.setSortState({
+        this.#grid._sortState = {
           field: primarySort.field,
           direction: primarySort.sort.direction === 'asc' ? 1 : -1,
-        });
+        };
       }
     } else {
-      this.#callbacks.setSortState(null);
+      this.#grid._sortState = null;
     }
 
     // Let plugins apply their state
@@ -677,7 +633,7 @@ export class ConfigManager<T = unknown> {
     this.#initialColumnState = undefined;
 
     // Reset sort state
-    this.#callbacks.setSortState(null);
+    this.#grid._sortState = null;
 
     // Clone original config back to effective (discards all runtime changes)
     this.#effectiveConfig = this.#cloneConfig(this.#originalConfig);
@@ -707,7 +663,7 @@ export class ConfigManager<T = unknown> {
    */
   #getSortState(): Map<string, ColumnSortState> {
     const sortMap = new Map<string, ColumnSortState>();
-    const sortState = this.#callbacks.getSortState();
+    const sortState = this.#grid._sortState;
 
     if (sortState) {
       sortMap.set(sortState.field, {
@@ -730,7 +686,7 @@ export class ConfigManager<T = unknown> {
     this.#stateChangeTimeoutId = setTimeout(() => {
       this.#stateChangeTimeoutId = undefined;
       const state = this.collectState(plugins);
-      this.#callbacks.emit('column-state-change', state);
+      this.#grid._emit('column-state-change', state);
     }, STATE_CHANGE_DEBOUNCE_MS);
   }
   // #endregion
@@ -758,14 +714,14 @@ export class ConfigManager<T = unknown> {
 
     col.hidden = !visible;
 
-    this.#callbacks.emit('column-visibility', {
+    this.#grid._emit('column-visibility', {
       field,
       visible,
       visibleColumns: allCols.filter((c) => !c.hidden).map((c) => c.field),
     });
 
-    this.#callbacks.clearRowPool();
-    this.#callbacks.setup();
+    this.#grid._clearRowPool();
+    this.#grid._setup();
 
     return true;
   }
@@ -795,12 +751,12 @@ export class ConfigManager<T = unknown> {
 
     allCols.forEach((c) => (c.hidden = false));
 
-    this.#callbacks.emit('column-visibility', {
+    this.#grid._emit('column-visibility', {
       visibleColumns: allCols.map((c) => c.field),
     });
 
-    this.#callbacks.clearRowPool();
-    this.#callbacks.setup();
+    this.#grid._clearRowPool();
+    this.#grid._setup();
   }
 
   /**
@@ -853,9 +809,9 @@ export class ConfigManager<T = unknown> {
 
     this.columns = reordered;
 
-    this.#callbacks.renderHeader();
-    this.#callbacks.updateTemplate();
-    this.#callbacks.refreshVirtualWindow();
+    renderHeader(this.#grid);
+    updateTemplate(this.#grid);
+    this.#grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'configManager');
   }
   // #endregion
 

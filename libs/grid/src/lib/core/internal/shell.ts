@@ -10,6 +10,7 @@
 import type {
   HeaderContentDefinition,
   IconValue,
+  InternalGrid,
   ShellConfig,
   ToolbarContentDefinition,
   ToolPanelDefinition,
@@ -946,25 +947,6 @@ export function cleanupShellState(state: ShellState): void {
 
 // #region ShellController
 /**
- * Callbacks for ShellController to communicate with the grid.
- * This interface decouples the controller from grid internals.
- */
-export interface ShellControllerCallbacks {
-  /** Get the render root for DOM queries (the grid element) */
-  getShadow: () => Element;
-  /** Get the grid element's id attribute */
-  getGridId: () => string;
-  /** Get the current shell config */
-  getShellConfig: () => ShellConfig | undefined;
-  /** Get accordion expand/collapse icons */
-  getAccordionIcons: () => { expand: IconValue; collapse: IconValue };
-  /** Emit an event from the grid */
-  emit: (eventName: string, detail: unknown) => void;
-  /** Refresh the shell header (re-parse light DOM and re-render) */
-  refreshShellHeader: () => void;
-}
-
-/**
  * Controller interface for managing shell/tool panel behavior.
  */
 export interface ShellController {
@@ -1010,7 +992,7 @@ export interface ShellController {
  * Create a ShellController instance.
  * The controller encapsulates all tool panel orchestration logic.
  */
-export function createShellController(state: ShellState, callbacks: ShellControllerCallbacks): ShellController {
+export function createShellController(state: ShellState, grid: InternalGrid): ShellController {
   let initialized = false;
 
   const controller: ShellController = {
@@ -1056,15 +1038,15 @@ export function createShellController(state: ShellState, callbacks: ShellControl
       }
 
       // Update UI
-      const shadow = callbacks.getShadow();
+      const shadow = grid._renderRoot;
       updateToolbarActiveStates(shadow, state);
       updatePanelState(shadow, state);
 
       // Render accordion sections
-      renderPanelContent(shadow, state, callbacks.getAccordionIcons());
+      renderPanelContent(shadow, state, grid._accordionIcons);
 
       // Emit event
-      callbacks.emit('tool-panel-open', { sections: controller.expandedSections });
+      grid._emit('tool-panel-open', { sections: controller.expandedSections });
     },
 
     closeToolPanel() {
@@ -1084,12 +1066,12 @@ export function createShellController(state: ShellState, callbacks: ShellControl
       state.isPanelOpen = false;
 
       // Update UI
-      const shadow = callbacks.getShadow();
+      const shadow = grid._renderRoot;
       updateToolbarActiveStates(shadow, state);
       updatePanelState(shadow, state);
 
       // Emit event
-      callbacks.emit('tool-panel-close', {});
+      grid._emit('tool-panel-close', {});
     },
 
     toggleToolPanel() {
@@ -1103,7 +1085,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
     toggleToolPanelSection(sectionId: string) {
       const panel = state.toolPanels.get(sectionId);
       if (!panel) {
-        console.warn(`${gridPrefix(callbacks.getGridId())} Tool panel section "${sectionId}" not found`);
+        console.warn(`${gridPrefix(grid.id)} Tool panel section "${sectionId}" not found`);
         return;
       }
 
@@ -1112,7 +1094,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
         return;
       }
 
-      const shadow = callbacks.getShadow();
+      const shadow = grid._renderRoot;
       const isExpanded = state.expandedSections.has(sectionId);
 
       if (isExpanded) {
@@ -1149,7 +1131,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
       }
 
       // Emit event
-      callbacks.emit('tool-panel-section-toggle', { id: sectionId, expanded: !isExpanded });
+      grid._emit('tool-panel-section-toggle', { id: sectionId, expanded: !isExpanded });
     },
 
     getToolPanels() {
@@ -1158,13 +1140,13 @@ export function createShellController(state: ShellState, callbacks: ShellControl
 
     registerToolPanel(panel: ToolPanelDefinition) {
       if (state.toolPanels.has(panel.id)) {
-        console.warn(`${gridPrefix(callbacks.getGridId())} Tool panel "${panel.id}" already registered`);
+        console.warn(`${gridPrefix(grid.id)} Tool panel "${panel.id}" already registered`);
         return;
       }
       state.toolPanels.set(panel.id, panel);
 
       if (initialized) {
-        callbacks.refreshShellHeader();
+        grid.refreshShellHeader?.();
       }
     },
 
@@ -1182,7 +1164,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
       state.toolPanels.delete(panelId);
 
       if (initialized) {
-        callbacks.refreshShellHeader();
+        grid.refreshShellHeader?.();
       }
     },
 
@@ -1192,13 +1174,13 @@ export function createShellController(state: ShellState, callbacks: ShellControl
 
     registerHeaderContent(content: HeaderContentDefinition) {
       if (state.headerContents.has(content.id)) {
-        console.warn(`${gridPrefix(callbacks.getGridId())} Header content "${content.id}" already registered`);
+        console.warn(`${gridPrefix(grid.id)} Header content "${content.id}" already registered`);
         return;
       }
       state.headerContents.set(content.id, content);
 
       if (initialized) {
-        renderHeaderContent(callbacks.getShadow(), state);
+        renderHeaderContent(grid._renderRoot, state);
       }
     },
 
@@ -1217,7 +1199,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
       state.headerContents.delete(contentId);
 
       // Remove DOM element
-      const el = callbacks.getShadow().querySelector(`[data-header-content="${contentId}"]`);
+      const el = grid._renderRoot.querySelector(`[data-header-content="${contentId}"]`);
       el?.remove();
     },
 
@@ -1227,13 +1209,13 @@ export function createShellController(state: ShellState, callbacks: ShellControl
 
     registerToolbarContent(content: ToolbarContentDefinition) {
       if (state.toolbarContents.has(content.id)) {
-        console.warn(`${gridPrefix(callbacks.getGridId())} Toolbar content "${content.id}" already registered`);
+        console.warn(`${gridPrefix(grid.id)} Toolbar content "${content.id}" already registered`);
         return;
       }
       state.toolbarContents.set(content.id, content);
 
       if (initialized) {
-        callbacks.refreshShellHeader();
+        grid.refreshShellHeader?.();
       }
     },
 
@@ -1254,7 +1236,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
       state.toolbarContents.delete(contentId);
 
       if (initialized) {
-        callbacks.refreshShellHeader();
+        grid.refreshShellHeader?.();
       }
     },
   };

@@ -115,6 +115,11 @@ export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 
 export type ReactGridConfig<TRow = unknown> = GridConfig<TRow>;
 // #endregion
 
+// Symbol used to mark configs that have already been processed by processGridConfig.
+// This prevents double-wrapping when the grid's `set gridConfig` setter calls
+// adapter.processConfig on an already-processed config.
+const REACT_PROCESSED = Symbol('reactProcessed');
+
 // Track mounted roots for cleanup (stores root + container for targeted cleanup)
 const mountedRoots: { root: Root; container: HTMLElement }[] = [];
 
@@ -290,6 +295,9 @@ export function wrapReactLoadingRenderer(
 export function processGridConfig<TRow>(config: GridConfig<TRow> | undefined): BaseGridConfig<TRow> | undefined {
   if (!config) return undefined;
 
+  // Already processed — return as-is to prevent double-wrapping
+  if ((config as any)[REACT_PROCESSED]) return config as BaseGridConfig<TRow>;
+
   // Process loadingRenderer at grid config level
   if (config.loadingRenderer && typeof config.loadingRenderer === 'function') {
     const originalRenderer = config.loadingRenderer as (ctx: LoadingContext) => ReactNode;
@@ -299,7 +307,11 @@ export function processGridConfig<TRow>(config: GridConfig<TRow> | undefined): B
     };
   }
 
-  if (!config.columns) return config as BaseGridConfig<TRow>;
+  if (!config.columns) {
+    const result = config as BaseGridConfig<TRow>;
+    (result as any)[REACT_PROCESSED] = true;
+    return result;
+  }
 
   const processedColumns = config.columns.map((col) => {
     const { renderer, editor, headerRenderer, headerLabelRenderer, ...rest } = col as ColumnConfig<TRow>;
@@ -328,10 +340,16 @@ export function processGridConfig<TRow>(config: GridConfig<TRow> | undefined): B
     return processed;
   });
 
-  return {
+  const result = {
     ...config,
     columns: processedColumns,
   } as BaseGridConfig<TRow>;
+
+  // Mark as processed so subsequent calls (e.g. from the grid setter's
+  // adapter.processConfig) skip re-wrapping.
+  (result as any)[REACT_PROCESSED] = true;
+
+  return result;
 }
 
 /**

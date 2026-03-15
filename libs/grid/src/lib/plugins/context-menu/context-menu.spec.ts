@@ -767,6 +767,7 @@ describe('contextMenu', () => {
         getPluginByName: vi.fn(),
         query: vi.fn(queryFn),
         queryPlugins: vi.fn().mockReturnValue([]),
+        _hostElement: grid,
       });
 
       grid.dispatchEvent = vi.fn();
@@ -871,6 +872,7 @@ describe('contextMenu', () => {
         getPluginByName: vi.fn(),
         query: vi.fn(queryFn),
         queryPlugins: vi.fn().mockReturnValue([]),
+        _hostElement: grid,
       });
       grid.dispatchEvent = vi.fn();
       return grid;
@@ -1139,6 +1141,7 @@ describe('contextMenu', () => {
         getPluginByName: vi.fn(),
         query: vi.fn(() => []),
         queryPlugins: vi.fn().mockReturnValue([]),
+        _hostElement: grid,
       });
       grid.dispatchEvent = vi.fn();
       document.body.appendChild(grid);
@@ -1193,6 +1196,7 @@ describe('contextMenu', () => {
         getPluginByName: vi.fn(),
         query: vi.fn(() => []),
         queryPlugins: vi.fn().mockReturnValue([]),
+        _hostElement: grid,
       });
       grid.dispatchEvent = vi.fn();
       document.body.appendChild(grid);
@@ -1411,6 +1415,7 @@ describe('contextMenu', () => {
       getPluginByName: vi.fn(),
       query: vi.fn(() => []),
       queryPlugins: vi.fn().mockReturnValue([]),
+      _hostElement: grid,
     });
     grid.dispatchEvent = vi.fn();
     document.body.appendChild(grid);

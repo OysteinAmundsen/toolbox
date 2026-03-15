@@ -317,6 +317,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       configurable: true,
     });
 
+    // Inject raw Set for O(1) lookup in the render hot path
+    Object.defineProperty(grid, '_changedRowIdSet', {
+      get: () => this.#dirty.changedRowIds,
+      configurable: true,
+    });
+
     // Inject resetChangedRows method
     (grid as any).resetChangedRows = (silent?: boolean) => this.resetChangedRows(silent);
 

@@ -1,3 +1,4 @@
+import type { ShellState } from './internal/shell';
 import type { RowPosition } from './internal/virtualization';
 import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
@@ -418,6 +419,11 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   // Element methods available because DataGridElement extends HTMLElement
   /** The element's `id` attribute. Available because DataGridElement extends HTMLElement. */
   id: string;
+  /**
+   * The grid's host HTMLElement (`this`). Use instead of casting `grid as unknown as HTMLElement`.
+   * @internal
+   */
+  readonly _hostElement: HTMLElement;
   querySelector<K extends keyof HTMLElementTagNameMap>(selectors: K): HTMLElementTagNameMap[K] | null;
   querySelector<E extends Element = Element>(selectors: string): E | null;
   querySelectorAll<K extends keyof HTMLElementTagNameMap>(selectors: K): NodeListOf<HTMLElementTagNameMap[K]>;
@@ -464,6 +470,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   changedRows?: T[];
   /** Get IDs of all changed rows. Injected by EditingPlugin. */
   changedRowIds?: string[];
+  /** Internal Set for O(1) lookup in the render hot path. Injected by EditingPlugin. @internal */
+  _changedRowIdSet?: ReadonlySet<string>;
   effectiveConfig?: GridConfig<T>;
   findHeaderRow?: () => HTMLElement;
   refreshVirtualWindow: (full: boolean, skipAfterRender?: boolean) => boolean;
@@ -518,7 +526,52 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   queryPlugins?: <T>(query: PluginQuery) => T[];
   /** Request emission of column-state-change event (debounced) */
   requestStateChange?: () => void;
+
+  // Methods exposed for extracted managers (VirtualizationManager, FocusManager, RowManager, RenderScheduler)
+  /** @internal */ _renderVisibleRows(start: number, end: number, epoch?: number): void;
+  /** @internal */ _updateAriaCounts(totalRows: number, totalCols: number): void;
+  /** @internal */ _requestSchedulerPhase(phase: number, source: string): void;
+  /** @internal */ _rebuildRowIdMap(): void;
+  /** @internal */ _emitDataChange(): void;
+  /** @internal */ _getPluginExtraHeight(): number;
+  /** @internal */ _getPluginRowHeight(row: T, index: number): number | undefined;
+  /** @internal */ _getPluginExtraHeightBefore(start: number): number;
+  /** @internal */ _adjustPluginVirtualStart(start: number, scrollTop: number, rowHeight: number): number | undefined;
+  /** @internal */ _afterPluginRender(): void;
+  /** @internal */ _emitPluginEvent(event: string, detail: unknown): void;
+
+  // Scheduler pipeline callbacks
+  /** @internal */ _schedulerMergeConfig(): void;
+  /** @internal */ _schedulerProcessColumns(): void;
+  /** @internal */ _schedulerProcessRows(): void;
+  /** @internal */ _schedulerRenderHeader(): void;
+  /** @internal */ _schedulerUpdateTemplate(): void;
+  /** @internal */ _schedulerAfterRender(): void;
+  /** @internal */ readonly _schedulerIsConnected: boolean;
+
+  // Shell controller & config manager support
+  /** @internal The render root element for DOM queries. */
+  readonly _renderRoot: Element;
+  /** @internal Emit a custom event from the grid. */
+  _emit(eventName: string, detail: unknown): void;
+  /** @internal Get accordion expand/collapse icons from effective config. */
+  readonly _accordionIcons: { expand: IconValue; collapse: IconValue };
+  /** @internal Shell state for config manager shell merging. */
+  readonly _shellState: ShellState;
+  /** @internal Clear the row pool and body element. */
+  _clearRowPool(): void;
+  /** @internal Run grid setup (DOM rebuild). */
+  _setup(): void;
+  /** @internal Apply animation configuration to host element. */
+  _applyAnimationConfig(config: GridConfig): void;
 }
+
+/**
+ * Grid reference type combining InternalGrid with HTMLElement.
+ * Used by extracted managers that need both internal grid state and DOM APIs.
+ * @internal
+ */
+export type GridHost<T = any> = InternalGrid<T> & HTMLElement;
 // #endregion
 
 // #region Column Types
@@ -1412,6 +1465,21 @@ export interface FrameworkAdapter {
    * @returns Type defaults for renderer/editor, or undefined if not registered
    */
   getTypeDefault?<TRow = unknown>(type: string): TypeDefault<TRow> | undefined;
+
+  /**
+   * Pre-process a grid config before the grid core applies it.
+   * Framework adapters use this to convert framework-specific component references
+   * (Angular classes, Vue components, React elements) to DOM-returning functions.
+   *
+   * Called automatically by the grid's `set gridConfig` setter when a
+   * `__frameworkAdapter` is present on the grid instance.
+   *
+   * Must be **idempotent** — already-processed configs must pass through safely.
+   *
+   * @param config - The raw grid config (may contain framework-specific values)
+   * @returns Processed config with DOM-returning functions
+   */
+  processConfig?<TRow = unknown>(config: GridConfig<TRow>): GridConfig<TRow>;
 
   /**
    * Called when a cell's content is about to be wiped (e.g., when exiting edit mode,

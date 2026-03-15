@@ -205,26 +205,37 @@ export class GridAdapter implements FrameworkAdapter {
    * @returns Processed GridConfig with actual renderer/editor functions
    */
   processGridConfig<TRow = unknown>(config: GridConfig<TRow>): BaseGridConfig<TRow> {
-    const result = { ...config } as BaseGridConfig<TRow>;
+    return this.processConfig(config as BaseGridConfig<TRow>);
+  }
+
+  /**
+   * FrameworkAdapter.processConfig implementation.
+   * Called automatically by the grid's `set gridConfig` setter.
+   */
+  processConfig<TRow = unknown>(config: BaseGridConfig<TRow>): BaseGridConfig<TRow> {
+    // Cast to Angular's extended GridConfig since the config may contain
+    // Angular component classes as renderers/editors at runtime
+    const angularConfig = config as unknown as GridConfig<TRow>;
+    const result = { ...angularConfig };
 
     // Process columns
-    if (config.columns) {
-      result.columns = config.columns.map((col) => this.processColumn(col));
+    if (angularConfig.columns) {
+      result.columns = angularConfig.columns.map((col) => this.processColumn(col));
     }
 
     // Process typeDefaults - convert Angular component classes to renderer/editor functions
-    if (config.typeDefaults) {
-      result.typeDefaults = this.processTypeDefaults(config.typeDefaults);
+    if (angularConfig.typeDefaults) {
+      result.typeDefaults = this.processTypeDefaults(angularConfig.typeDefaults) as typeof angularConfig.typeDefaults;
     }
 
     // Process loadingRenderer - convert Angular component class to function
-    if (config.loadingRenderer && isComponentClass(config.loadingRenderer)) {
+    if (angularConfig.loadingRenderer && isComponentClass(angularConfig.loadingRenderer)) {
       (result as BaseGridConfig<TRow>).loadingRenderer = this.createComponentLoadingRenderer(
-        config.loadingRenderer,
+        angularConfig.loadingRenderer,
       ) as unknown as BaseGridConfig<TRow>['loadingRenderer'];
     }
 
-    return result;
+    return result as BaseGridConfig<TRow>;
   }
 
   /**

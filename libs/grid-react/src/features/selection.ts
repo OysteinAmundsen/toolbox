@@ -30,7 +30,7 @@
 import type { DataGridElement } from '@toolbox-web/grid';
 import { type SelectionPlugin, type CellRange, type SelectionResult } from '@toolbox-web/grid/plugins/selection';
 import { useCallback, useContext } from 'react';
-import { GridElementContext } from '../lib/data-grid';
+import { GridElementContext } from '../lib/grid-element-context';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/selection';

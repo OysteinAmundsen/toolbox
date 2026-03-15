@@ -607,6 +607,7 @@ describe('PivotPlugin lifecycle and API', () => {
       requestRender: () => renderCount++,
       getAllColumns: () => columns,
       getRenderCount: () => renderCount,
+      _hostElement: grid,
     });
 
     // Define getters for tool panel state

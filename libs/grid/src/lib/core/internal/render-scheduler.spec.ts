@@ -1,24 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RenderPhase, RenderScheduler, type RenderCallbacks } from './render-scheduler';
+import type { InternalGrid } from '../types';
+import { RenderPhase, RenderScheduler } from './render-scheduler';
 
 describe('RenderScheduler', () => {
-  let callbacks: RenderCallbacks;
+  let grid: InternalGrid;
   let callOrder: string[];
   let scheduler: RenderScheduler;
 
   beforeEach(() => {
     callOrder = [];
-    callbacks = {
-      mergeConfig: vi.fn(() => callOrder.push('mergeConfig')),
-      processColumns: vi.fn(() => callOrder.push('processColumns')),
-      processRows: vi.fn(() => callOrder.push('processRows')),
-      renderHeader: vi.fn(() => callOrder.push('renderHeader')),
-      updateTemplate: vi.fn(() => callOrder.push('updateTemplate')),
-      renderVirtualWindow: vi.fn(() => callOrder.push('renderVirtualWindow')),
-      afterRender: vi.fn(() => callOrder.push('afterRender')),
-      isConnected: vi.fn(() => true),
-    };
-    scheduler = new RenderScheduler(callbacks);
+    grid = {
+      _schedulerMergeConfig: vi.fn(() => callOrder.push('mergeConfig')),
+      _schedulerProcessColumns: vi.fn(() => callOrder.push('processColumns')),
+      _schedulerProcessRows: vi.fn(() => callOrder.push('processRows')),
+      _schedulerRenderHeader: vi.fn(() => callOrder.push('renderHeader')),
+      _schedulerUpdateTemplate: vi.fn(() => callOrder.push('updateTemplate')),
+      refreshVirtualWindow: vi.fn(() => {
+        callOrder.push('renderVirtualWindow');
+        return true;
+      }),
+      _schedulerAfterRender: vi.fn(() => callOrder.push('afterRender')),
+      _schedulerIsConnected: true,
+    } as unknown as InternalGrid;
+    scheduler = new RenderScheduler(grid);
   });
 
   afterEach(() => {
@@ -43,7 +47,7 @@ describe('RenderScheduler', () => {
       expect(scheduler.pendingPhase).toBe(RenderPhase.ROWS);
 
       await scheduler.whenReady();
-      expect(callbacks.processRows).toHaveBeenCalled();
+      expect(grid._schedulerProcessRows).toHaveBeenCalled();
     });
 
     it('should not downgrade pending phase', async () => {
@@ -185,7 +189,7 @@ describe('RenderScheduler', () => {
 
       // Wait a frame to ensure RAF doesn't fire
       await new Promise((r) => requestAnimationFrame(r));
-      expect(callbacks.mergeConfig).not.toHaveBeenCalled();
+      expect(grid._schedulerMergeConfig).not.toHaveBeenCalled();
     });
 
     it('should resolve pending ready promise on cancel', async () => {
@@ -201,14 +205,14 @@ describe('RenderScheduler', () => {
 
   describe('disconnected handling', () => {
     it('should bail early if component disconnected', async () => {
-      (callbacks.isConnected as ReturnType<typeof vi.fn>).mockReturnValue(false);
+      (grid as any)._schedulerIsConnected = false;
 
       scheduler.requestPhase(RenderPhase.FULL, 'test');
       await scheduler.whenReady();
 
       // No callbacks should be invoked
-      expect(callbacks.mergeConfig).not.toHaveBeenCalled();
-      expect(callbacks.afterRender).not.toHaveBeenCalled();
+      expect(grid._schedulerMergeConfig).not.toHaveBeenCalled();
+      expect(grid._schedulerAfterRender).not.toHaveBeenCalled();
     });
   });
 
@@ -234,7 +238,7 @@ describe('RenderScheduler', () => {
 
       await scheduler.whenReady();
 
-      expect(callbacks.afterRender).toHaveBeenCalledTimes(1);
+      expect(grid._schedulerAfterRender).toHaveBeenCalledTimes(1);
     });
   });
 });

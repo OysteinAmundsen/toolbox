@@ -998,6 +998,7 @@ describe('FilteringPlugin class', () => {
       tagName: 'TBW-GRID',
       closest: () => null,
       style: gridEl.style,
+      _hostElement: gridEl,
       // Clean up when done
       _cleanup: () => gridEl.remove(),
     };

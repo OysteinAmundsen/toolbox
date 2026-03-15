@@ -42,7 +42,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useContext } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { GridElementContext } from '../lib/data-grid';
+import { GridElementContext } from '../lib/grid-element-context';
 import { registerFeature } from '../lib/feature-registry';
 
 registerFeature('filtering', (rawConfig) => {

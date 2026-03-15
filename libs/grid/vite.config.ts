@@ -19,9 +19,9 @@ const pluginNames = readdirSync(pluginsDir, { withFileTypes: true })
   .filter((d) => d.isDirectory() && d.name !== 'all' && d.name !== 'shared')
   .map((d) => d.name);
 
-/** Auto-discover feature module names from filesystem (all .ts files except registry) */
+/** Auto-discover feature module names from filesystem (all .ts files except registry and specs) */
 const featureNames = readdirSync(featuresDir)
-  .filter((f) => f.endsWith('.ts') && f !== 'registry.ts')
+  .filter((f) => f.endsWith('.ts') && !f.includes('.spec.') && f !== 'registry.ts')
   .map((f) => f.replace('.ts', ''));
 
 /** Convert plugin name to UMD global: "pinned-rows" -> "TbwGridPlugin_pinnedRows" */

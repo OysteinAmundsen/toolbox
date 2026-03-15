@@ -329,6 +329,13 @@ export interface GridElementRef {
   /** Remove an attribute from the grid element. */
   removeAttribute(name: string): void;
 
+  /**
+   * The grid's host HTMLElement.
+   * Use this instead of casting the grid to HTMLElement.
+   * @internal Plugin API
+   */
+  readonly _hostElement: HTMLElement;
+
   // =========================================================================
   // Grid Data & Configuration
   // =========================================================================

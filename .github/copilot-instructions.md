@@ -334,6 +334,29 @@ TypeScript paths defined in `tsconfig.base.json` for all libraries:
 - **ESLint config**: Flat config in `eslint.config.mjs` using `@nx/eslint-plugin`
 - **Formatting**: Prettier v3.7.4 (no explicit config file; uses defaults)
 
+#### No `as unknown as` Casts
+
+**Never use `as unknown as T` anywhere in the codebase.** This is a type-safety escape hatch that hides real type problems. When you encounter existing `as unknown as` casts, refactor them to use proper typing instead.
+
+**Common patterns and their fixes:**
+
+| Bad pattern | Proper fix |
+|---|---|
+| `grid as unknown as HTMLElement` | Use `grid._hostElement` (typed property on `InternalGrid`) |
+| `this.grid as unknown as HTMLElement` | Use `this.gridElement` (typed getter on `BaseGridPlugin`) |
+| `value as unknown as TargetType` | Add a properly typed property/method, or narrow with type guards |
+| `config as unknown as ExtendedConfig` | Use generic parameters or add properly typed overloads |
+
+**Why this matters:**
+
+- `as unknown as` silences **all** type checking — the compiler can't catch real bugs
+- It hides structural mismatches that should be fixed at the type level
+- It makes refactoring dangerous (rename a property and the cast still compiles)
+
+**When you see `as unknown as` in existing code:** Refactor it immediately if the fix is small and localized. For larger refactors, note it as tech debt but don't leave new instances.
+
+**Acceptable casts:** `as T` (direct assertion) is fine when TypeScript's inference is genuinely too narrow (e.g., after a type guard, or when the DOM API returns a broader type). The key distinction: `as T` requires structural compatibility; `as unknown as T` bypasses it entirely.
+
 #### Code Organization with Region Markers
 
 Use `// #region Name` and `// #endregion` markers to organize code into collapsible sections in VS Code. This improves navigation and maintainability in large files.

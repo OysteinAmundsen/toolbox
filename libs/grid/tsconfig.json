@@ -8,7 +8,7 @@
     "strict": true,
     "noPropertyAccessFromIndexSignature": false,
     "declaration": true,
-    "declarationMap": true,
+    "declarationMap": false,
     "sourceMap": true,
     "experimentalDecorators": false,
     "useDefineForClassFields": true

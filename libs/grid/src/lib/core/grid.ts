@@ -54,14 +54,9 @@ import {
   validatePluginIncompatibilities,
   validatePluginProperties,
 } from './internal/validate-config';
-import {
-  computeAverageExcludingPluginRows,
-  getRowIndexAtOffset,
-  getTotalHeight,
-  measureRenderedRowHeights,
-  rebuildPositionCache,
-  updateRowHeight,
-} from './internal/virtualization';
+import { getRowIndexAtOffset } from './internal/virtualization';
+import type { VirtualizationHost } from './internal/virtualization-manager';
+import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
 import type {
   BaseGridPlugin,
@@ -288,6 +283,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #lastPluginsArray?: BaseGridPlugin[]; // Track last attached plugins to avoid unnecessary re-initialization
   #lastFeaturesConfig?: Record<string, unknown>; // Track last features config for change detection
 
+  // Virtualization manager — owns VirtualState + all virtualization methods
+  #virtManager!: VirtualizationManager<T>;
+
   /**
    * Exposes plugin manager for event bus operations (subscribe/unsubscribe/emit).
    * Plugins access this via `this.grid._pluginManager` in `BaseGridPlugin.on/off/emitPluginEvent`.
@@ -356,30 +354,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   _rowPool: HTMLElement[] = [];
   _resizeController!: ResizeController;
 
-  // Virtualization & scroll state
-  _virtualization: VirtualState = {
-    enabled: true,
-    rowHeight: 28,
-    bypassThreshold: 24,
-    start: 0,
-    end: 0,
-    container: null,
-    viewportEl: null,
-    totalHeightEl: null,
-    // Variable row height support
-    positionCache: null,
-    heightCache: {
-      byKey: new Map<string, number>(),
-      byRef: new WeakMap<object, number>(),
-    },
-    averageHeight: 28,
-    measuredCount: 0,
-    variableHeights: false,
-    cachedViewportHeight: 0,
-    cachedFauxHeight: 0,
-    cachedScrollAreaHeight: 0,
-    scrollAreaEl: null,
-  };
+  // Virtualization — delegated to VirtualizationManager, exposed via getter for plugin access
+  get _virtualization(): VirtualState {
+    return this.#virtManager.state;
+  }
+  set _virtualization(value: VirtualState) {
+    // Support test mocking — merge incoming partial state into the live state object
+    Object.assign(this.#virtManager.state, value);
+  }
 
   // Focus & navigation
   _focusRow = 0;
@@ -767,6 +749,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     void this.#injectStyles(); // Fire and forget - styles load asynchronously
     this.#readyPromise = new Promise((res) => (this.#readyResolve = res));
 
+    // Initialize virtualization manager with host adapter
+    this.#virtManager = new VirtualizationManager<T>(this.#createVirtHost());
+
     // Initialize render scheduler with callbacks
     this.#scheduler = new RenderScheduler({
       mergeConfig: () => {
@@ -807,7 +792,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         if (this._virtualization.enabled && this._virtualization.totalHeightEl) {
           queueMicrotask(() => {
             if (!this._virtualization.totalHeightEl) return;
-            const newTotalHeight = this.#calculateTotalSpacerHeight(this._rows.length);
+            const newTotalHeight = this.#virtManager.calculateTotalSpacerHeight(this._rows.length);
             this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
           });
         }
@@ -1495,7 +1480,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         this._virtualization.variableHeights = true;
         this._virtualization.rowHeight =
           typeof userRowHeight === 'number' && userRowHeight > 0 ? userRowHeight : this._virtualization.rowHeight || 28;
-        this.#initializePositionCache();
+        this.#virtManager.initializePositionCache();
         if (typeof userRowHeight !== 'function') {
           this.#needsRowHeightMeasurement = true;
         }
@@ -1586,11 +1571,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // ALWAYS rebuild position cache when this method is called (first render with plugins)
       // The position cache may have been built with the wrong estimated height (e.g., 28px)
       // even if rowHeight was later updated by ResizeObserver (e.g., to 33px)
-      this.#initializePositionCache();
+      this.#virtManager.initializePositionCache();
 
       // Update spacer height with the correct total
       if (this._virtualization.totalHeightEl) {
-        const newHeight = this.#calculateTotalSpacerHeight(this._rows.length);
+        const newHeight = this.#virtManager.calculateTotalSpacerHeight(this._rows.length);
         this._virtualization.totalHeightEl.style.height = `${newHeight}px`;
       }
     }
@@ -1967,10 +1952,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     listener: (detail: DataGridEventMap<T>[K], event: CustomEvent<DataGridEventMap<T>[K]>) => void,
   ): () => void;
   on(type: string, listener: (detail: unknown, event: CustomEvent) => void): () => void;
-  on(
-    type: string,
-    listener: (detail: unknown, event: CustomEvent) => void,
-  ): () => void {
+  on(type: string, listener: (detail: unknown, event: CustomEvent) => void): () => void {
     const handler = ((e: CustomEvent) => {
       listener(e.detail, e);
     }) as EventListener;
@@ -2357,7 +2339,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Rebuild position cache for variable heights (rows may have changed)
     if (this._virtualization.variableHeights) {
-      this.#initializePositionCache();
+      this.#virtManager.initializePositionCache();
     }
 
     this.#emitDataChange();
@@ -2564,7 +2546,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       // Measure after scroll settles (100ms debounce)
       this.#scrollMeasureTimeout = window.setTimeout(() => {
         this.#scrollMeasureTimeout = 0;
-        this.#measureRenderedRowHeights(this._virtualization.start, this._virtualization.end);
+        this.#virtManager.measureRenderedRowHeights(this._virtualization.start, this._virtualization.end);
       }, 100);
     }
 
@@ -2988,7 +2970,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const entry = this.#rowIdMap.get(id);
     if (!entry) {
       throw new Error(
-        `${gridPrefix(this.id)} Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+        `${gridPrefix(this.id)} Row with ID "${id}" not found. ` +
+          `Ensure the row exists and getRowId is correctly configured.`,
       );
     }
 
@@ -3058,7 +3041,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       const entry = this.#rowIdMap.get(id);
       if (!entry) {
         throw new Error(
-          `${gridPrefix(this.id)} Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+          `${gridPrefix(this.id)} Row with ID "${id}" not found. ` +
+            `Ensure the row exists and getRowId is correctly configured.`,
         );
       }
 
@@ -4223,6 +4207,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // which includes processColumns (for column groups), processRows, and renderHeader
     this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'shellRefresh');
   }
+  // #endregion
 
   // #region Custom Styles API
   /** Map of registered custom stylesheets by ID - uses adoptedStyleSheets which survive DOM rebuilds */
@@ -4552,7 +4537,53 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   // #endregion
 
-  // #region Virtualization
+  // #region Virtualization (delegated to VirtualizationManager)
+
+  /**
+   * Create the host adapter that the VirtualizationManager uses to communicate
+   * with the grid. All closures capture `this` so the manager never needs a
+   * direct grid reference.
+   */
+  #createVirtHost(): VirtualizationHost<T> {
+    // Capture grid reference for use in closures (object literal getters don't have access to class `this`)
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const grid = this;
+    return {
+      get rows() {
+        return grid._rows;
+      },
+      get visibleColumnCount() {
+        return grid._visibleColumns.length;
+      },
+      get rowRenderEpoch() {
+        return grid.__rowRenderEpoch;
+      },
+      get rowHeightFn() {
+        return grid.effectiveConfig?.rowHeight as ((row: T, index: number) => number | undefined) | undefined;
+      },
+      get getRowId() {
+        return grid.effectiveConfig?.getRowId;
+      },
+      get bodyEl() {
+        return grid._bodyEl;
+      },
+      renderVisibleRows: (start: number, end: number, epoch?: number) => {
+        this.#renderVisibleRows(start, end, epoch);
+      },
+      updateAriaCounts: (totalRows: number, totalCols: number) => {
+        this.#updateAriaCounts(totalRows, totalCols);
+      },
+      requestSchedulerPhase: (phase: number, source: string) => {
+        this.#scheduler.requestPhase(phase, source);
+      },
+      getPluginExtraHeight: () => this.#pluginManager?.getExtraHeight() ?? 0,
+      getPluginRowHeight: (row: T, index: number) => this.#pluginManager?.getRowHeight?.(row, index),
+      getPluginExtraHeightBefore: (start: number) => this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0,
+      adjustPluginVirtualStart: (start: number, scrollTop: number, rowHeight: number) =>
+        this.#pluginManager?.adjustVirtualStart(start, scrollTop, rowHeight),
+      afterPluginRender: () => this.#pluginManager?.afterRender(),
+    };
+  }
 
   /**
    * Update cached viewport and faux scrollbar geometry.
@@ -4560,458 +4591,30 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal
    */
   #updateCachedGeometry(): void {
-    const fauxScrollbar = this._virtualization.container;
-    const viewportEl = this._virtualization.viewportEl ?? fauxScrollbar;
-    if (viewportEl) {
-      this._virtualization.cachedViewportHeight = viewportEl.clientHeight;
-    }
-    if (fauxScrollbar) {
-      this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight;
-    }
-    const scrollAreaEl = this._virtualization.scrollAreaEl;
-    if (scrollAreaEl) {
-      this._virtualization.cachedScrollAreaHeight = scrollAreaEl.clientHeight;
-    }
+    this.#virtManager.updateCachedGeometry();
   }
 
   /**
-   * Calculate total height for the faux scrollbar spacer element.
-   * Used by both bypass and virtualized rendering paths to ensure consistent scroll behavior.
-   *
-   * @param totalRows - Total number of rows to calculate height for
-   * @param forceRead - When true, reads fresh geometry from DOM (used after structural changes).
-   *   When false, uses cached values from ResizeObserver to avoid forced synchronous layout.
-   */
-  #calculateTotalSpacerHeight(totalRows: number, forceRead = false): number {
-    const virt = this._virtualization;
-
-    // Use cached geometry to avoid forced synchronous layout reads.
-    // Caches are kept current by ResizeObserver (#updateCachedGeometry) and force-refresh paths.
-    // Only read fresh values when forceRead is explicitly requested (structural DOM changes).
-    let fauxScrollHeight: number;
-    let viewportHeight: number;
-    let scrollAreaHeight: number;
-
-    if (forceRead) {
-      const fauxScrollbar = virt.container ?? this;
-      const viewportEl = virt.viewportEl ?? fauxScrollbar;
-      const scrollAreaEl = virt.scrollAreaEl;
-
-      fauxScrollHeight = fauxScrollbar.clientHeight;
-      viewportHeight = viewportEl.clientHeight;
-      scrollAreaHeight = scrollAreaEl ? scrollAreaEl.clientHeight : fauxScrollHeight;
-
-      // Update caches while we have fresh values
-      virt.cachedFauxHeight = fauxScrollHeight;
-      virt.cachedViewportHeight = viewportHeight;
-      virt.cachedScrollAreaHeight = scrollAreaHeight;
-    } else {
-      fauxScrollHeight = virt.cachedFauxHeight;
-      viewportHeight = virt.cachedViewportHeight;
-      scrollAreaHeight = virt.cachedScrollAreaHeight || fauxScrollHeight;
-    }
-
-    // Use scroll-area height as reference since it contains the actual content
-    const viewportHeightDiff = scrollAreaHeight - viewportHeight;
-
-    // Horizontal scrollbar compensation: When a horizontal scrollbar appears inside scroll-area,
-    // the faux scrollbar (sibling) is taller than scroll-area. Add the difference as padding.
-    const hScrollbarPadding = Math.max(0, fauxScrollHeight - scrollAreaHeight);
-
-    // Calculate row content height - use position cache for variable heights, simple multiplication otherwise
-    let rowContentHeight: number;
-    let pluginExtraHeight = 0;
-
-    if (virt.variableHeights && virt.positionCache) {
-      // Variable heights mode: position cache includes heights from getRowHeight() plugin hooks
-      // Do NOT add pluginExtraHeight here - it would double-count since getRowHeight() already
-      // reports expanded detail heights via the position cache
-      rowContentHeight = getTotalHeight(virt.positionCache);
-    } else {
-      // Fixed heights mode: use simple multiplication and add plugin extra heights
-      // (for plugins using deprecated getExtraHeight() that don't implement getRowHeight())
-      rowContentHeight = totalRows * virt.rowHeight;
-      pluginExtraHeight = this.#pluginManager?.getExtraHeight() ?? 0;
-    }
-
-    const total = rowContentHeight + viewportHeightDiff + pluginExtraHeight + hScrollbarPadding;
-    return total;
-  }
-
-  /**
-   * Initialize or rebuild the position cache for variable row heights.
-   * Called when rows change or variable heights mode is enabled.
-   * @internal
-   */
-  #initializePositionCache(): void {
-    if (!this._virtualization.variableHeights) return;
-
-    const rows = this._rows;
-    const estimatedHeight = this._virtualization.rowHeight || 28;
-    const rowHeightFn = this.#effectiveConfig.rowHeight as ((row: T, index: number) => number | undefined) | undefined;
-    const getRowId = this.#effectiveConfig.getRowId;
-    const rowIdFn = getRowId ? (row: T) => getRowId(row) : undefined;
-
-    // Build position cache with priority: plugin height > rowHeight function > cached > estimated
-    this._virtualization.positionCache = rebuildPositionCache(
-      rows,
-      this._virtualization.heightCache,
-      estimatedHeight,
-      { rowId: rowIdFn },
-      (row, index) => {
-        const pluginHeight = this.#pluginManager?.getRowHeight?.(row, index);
-        if (pluginHeight !== undefined) return pluginHeight;
-        if (rowHeightFn) {
-          const height = rowHeightFn(row, index);
-          if (height !== undefined && height > 0) return height;
-        }
-        return undefined;
-      },
-    );
-
-    // Compute stats excluding plugin-managed rows
-    const stats = computeAverageExcludingPluginRows(
-      this._virtualization.positionCache,
-      rows,
-      estimatedHeight,
-      (row, index) => this.#pluginManager?.getRowHeight?.(row, index),
-    );
-    this._virtualization.measuredCount = stats.measuredCount;
-    if (stats.measuredCount > 0) {
-      this._virtualization.averageHeight = stats.averageHeight;
-    }
-  }
-
-  /**
-   * Invalidate a row's height in the position cache.
-   * Call this when a plugin changes a row's height (e.g., expanding/collapsing a detail panel).
-   * Updates the position cache incrementally O(1) + offset recalc O(k) without a full rebuild.
-   *
-   * @param rowIndex - Index of the row whose height changed
-   * @param newHeight - Optional new height. If not provided, queries plugins for height.
-   */
-  invalidateRowHeight(rowIndex: number, newHeight?: number): void {
-    if (!this._virtualization.variableHeights) return;
-    if (!this._virtualization.positionCache) return;
-    if (rowIndex < 0 || rowIndex >= this._rows.length) return;
-
-    const positionCache = this._virtualization.positionCache;
-    const row = this._rows[rowIndex];
-
-    // Determine the new height
-    let height = newHeight;
-    if (height === undefined) {
-      // Query plugin for height
-      height = this.#pluginManager?.getRowHeight?.(row, rowIndex);
-    }
-    if (height === undefined) {
-      // Fall back to base row height
-      height = this._virtualization.rowHeight;
-    }
-
-    const currentEntry = positionCache[rowIndex];
-    if (!currentEntry || Math.abs(currentEntry.height - height) < 1) {
-      // No significant change
-      return;
-    }
-
-    // Update position cache incrementally (updates this row + all subsequent offsets)
-    updateRowHeight(positionCache, rowIndex, height);
-
-    // Update spacer height
-    if (this._virtualization.totalHeightEl) {
-      const newTotalHeight = this.#calculateTotalSpacerHeight(this._rows.length);
-      this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
-    }
-  }
-
-  /**
-   * Measure rendered row heights and update position cache.
-   * Called after rows are rendered to capture actual DOM heights.
-   * Only runs when variable heights mode is enabled.
-   * @internal
-   */
-  #measureRenderedRowHeights(start: number, end: number): void {
-    if (!this._virtualization.variableHeights) return;
-    if (!this._virtualization.positionCache) return;
-    if (!this._bodyEl) return;
-
-    const rowElements = this._bodyEl.querySelectorAll('.data-grid-row');
-    const getRowId = this.#effectiveConfig.getRowId;
-
-    const result = measureRenderedRowHeights(
-      {
-        positionCache: this._virtualization.positionCache,
-        heightCache: this._virtualization.heightCache,
-        rows: this._rows,
-        defaultHeight: this._virtualization.rowHeight,
-        start,
-        end,
-        getPluginHeight: (row, index) => this.#pluginManager?.getRowHeight?.(row, index),
-        getRowId: getRowId ? (row: T) => getRowId(row) : undefined,
-      },
-      rowElements,
-    );
-
-    if (result.hasChanges) {
-      this._virtualization.measuredCount = result.measuredCount;
-      this._virtualization.averageHeight = result.averageHeight;
-
-      // Update total height spacer
-      if (this._virtualization.totalHeightEl) {
-        const newTotalHeight = this.#calculateTotalSpacerHeight(this._rows.length);
-        this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
-      }
-    }
-  }
-
-  /**
-   * Core virtualization routine. Chooses between bypass (small datasets), grouped window rendering,
-   * or standard row window rendering.
+   * Core virtualization routine. Delegates to VirtualizationManager.
    * @param force - Whether to force a full refresh (not just scroll update)
    * @param skipAfterRender - When true, skip calling afterRender (used by scheduler which calls it separately)
    * @returns Whether the visible row window changed (start/end differ from previous)
    * @internal Plugin API
    */
   refreshVirtualWindow(force = false, skipAfterRender = false): boolean {
-    if (!this._bodyEl) return false;
-
-    const totalRows = this._rows.length;
-
-    if (!this._virtualization.enabled) {
-      this.#renderVisibleRows(0, totalRows);
-      if (!skipAfterRender) {
-        this.#pluginManager?.afterRender();
-      }
-      return true;
-    }
-
-    if (this._rows.length <= this._virtualization.bypassThreshold) {
-      this._virtualization.start = 0;
-      this._virtualization.end = totalRows;
-      // Only reset transform on force refresh (initial render, data change)
-      // Don't reset on scroll-triggered updates - the scroll handler manages transforms
-      if (force) {
-        this._bodyEl.style.transform = 'translateY(0px)';
-      }
-      this.#renderVisibleRows(0, totalRows, this.__rowRenderEpoch);
-      // Only recalculate height on force refresh (structural changes)
-      // Skip on scroll-only updates to prevent scrollbar jumpiness
-      if (force && this._virtualization.totalHeightEl) {
-        this._virtualization.totalHeightEl.style.height = `${this.#calculateTotalSpacerHeight(totalRows, true)}px`;
-      }
-      // Update ARIA counts on the grid container
-      this.#updateAriaCounts(totalRows, this._visibleColumns.length);
-      if (!skipAfterRender) {
-        this.#pluginManager?.afterRender();
-      }
-      return true;
-    }
-
-    // --- Normal virtualization path with faux scrollbar pattern ---
-    // Faux scrollbar provides scrollTop, viewport provides visible height
-    const fauxScrollbar = this._virtualization.container ?? this;
-    const viewportEl = this._virtualization.viewportEl ?? fauxScrollbar;
-    // On force-refresh (structural changes), read fresh geometry and update cache.
-    // On scroll-triggered updates, use cached height to avoid forced synchronous layout.
-    // The cache is kept current by ResizeObserver + force-refresh calls.
-    const viewportHeight = force
-      ? (this._virtualization.cachedViewportHeight = viewportEl.clientHeight)
-      : this._virtualization.cachedViewportHeight ||
-        (this._virtualization.cachedViewportHeight = viewportEl.clientHeight);
-    const rowHeight = this._virtualization.rowHeight;
-    const scrollTop = fauxScrollbar.scrollTop;
-
-    // On force refresh with variable heights, rebuild the position cache
-    // to pick up any height changes from plugins (e.g., ResponsivePlugin
-    // measuring actual card heights from DOM after first render).
-    // This must happen before the cache is read for start/offset calculations.
-    if (force && this._virtualization.variableHeights) {
-      this.#initializePositionCache();
-    }
-
-    let start: number;
-    const positionCache = this._virtualization.positionCache;
-
-    // Variable row heights: use binary search on position cache
-    if (this._virtualization.variableHeights && positionCache && positionCache.length > 0) {
-      start = getRowIndexAtOffset(positionCache, scrollTop);
-      if (start === -1) start = 0;
-    } else {
-      // Uniform row heights: simple division
-      // When plugins add extra height (e.g., expanded details), the scroll position
-      // includes that extra height. We need to find the actual row at scrollTop
-      // by iteratively accounting for cumulative extra heights.
-      // This prevents jumping when scrolling past expanded content.
-      start = Math.floor(scrollTop / rowHeight);
-
-      // Iteratively refine: the initial guess may be too high because scrollTop
-      // includes extra heights from expanded rows before it. Adjust downward.
-      let iterations = 0;
-      const maxIterations = 10; // Prevent infinite loop
-      while (iterations < maxIterations) {
-        const extraHeightBefore = this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
-        const adjustedStart = Math.floor((scrollTop - extraHeightBefore) / rowHeight);
-        if (adjustedStart >= start || adjustedStart < 0) break;
-        start = adjustedStart;
-        iterations++;
-      }
-    }
-
-    // Faux scrollbar pattern: calculate effective position for this start
-    // With translateY(0), the first rendered row appears at viewport top
-    // Round down to even number so DOM nth-child(even) always matches data row parity
-    // This prevents zebra stripe flickering during scroll since rows shift in pairs
-    start = start - (start % 2);
-    if (start < 0) start = 0;
-
-    // Allow plugins to extend the start index backwards
-    // (e.g., to keep expanded detail rows visible as they scroll out)
-    const pluginAdjustedStart = this.#pluginManager?.adjustVirtualStart(start, scrollTop, rowHeight);
-    if (pluginAdjustedStart !== undefined && pluginAdjustedStart < start) {
-      start = pluginAdjustedStart;
-      // Re-apply even alignment after plugin adjustment
-      start = start - (start % 2);
-      if (start < 0) start = 0;
-    }
-
-    // Faux pattern buffer: render enough rows to fill viewport + overscan
-    // For variable heights, calculate based on actual heights from position cache
-    // This ensures expanded detail rows don't cause blank space at bottom
-    let end: number;
-
-    if (this._virtualization.variableHeights && positionCache && positionCache.length > 0) {
-      // Variable heights: walk forward from start, summing actual heights
-      // until we've covered the viewport height plus some overscan
-      const targetHeight = viewportHeight + rowHeight * 3; // 3 rows overscan
-      let accumulatedHeight = 0;
-      end = start;
-
-      while (end < totalRows && accumulatedHeight < targetHeight) {
-        accumulatedHeight += positionCache[end].height;
-        end++;
-      }
-
-      // Ensure we always have at least a few rows for edge cases
-      const minRows = Math.ceil(viewportHeight / rowHeight) + 3;
-      if (end - start < minRows) {
-        end = Math.min(start + minRows, totalRows);
-      }
-    } else {
-      // Fixed heights: simple calculation
-      const visibleCount = Math.ceil(viewportHeight / rowHeight) + 3;
-      end = start + visibleCount;
-    }
-
-    if (end > totalRows) end = totalRows;
-
-    // Early-exit: if the visible window hasn't changed and this isn't a force refresh,
-    // skip re-rendering rows entirely. The sync scroll handler already updated the transform.
-    // This is the key perf optimization - row rendering is the most expensive part.
-    const prevStart = this._virtualization.start;
-    const prevEnd = this._virtualization.end;
-    if (!force && start === prevStart && end === prevEnd) {
-      // Transform was already applied by the sync scroll handler.
-      // Just update it here for consistency (the sync handler may have used a slightly
-      // different sub-pixel offset due to timing, but it's close enough to skip re-render).
-      return false;
-    }
-
-    this._virtualization.start = start;
-    this._virtualization.end = end;
-
-    // Height spacer for scrollbar
-    // The faux-vscroll is a sibling of .tbw-scroll-area, so it doesn't shrink when
-    // elements inside scroll-area (header, column groups, footer, hScrollbar) take vertical space.
-    // viewportHeightDiff captures ALL these differences - no extra buffer needed.
-    // Use cached geometry on scroll path; read fresh on force-refresh.
-    const fauxScrollHeight = force
-      ? (this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight)
-      : this._virtualization.cachedFauxHeight || (this._virtualization.cachedFauxHeight = fauxScrollbar.clientHeight);
-
-    // Also update scroll-area height cache on force-refresh
-    if (force) {
-      const scrollAreaEl = this._virtualization.scrollAreaEl;
-      if (scrollAreaEl) {
-        this._virtualization.cachedScrollAreaHeight = scrollAreaEl.clientHeight;
-      }
-    }
-
-    // Guard: Skip height calculation if faux scrollbar has no height but viewport does
-    // This indicates stale DOM references during recreation (e.g., shell toggle)
-    // When both are 0 (test environment or not in DOM), proceed normally
-    if (fauxScrollHeight === 0 && viewportHeight > 0) {
-      // Stale refs detected, schedule retry through the scheduler
-      // Using scheduler ensures this batches with other pending work
-      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'stale-refs-retry');
-      return false;
-    }
-
-    // Only recalculate height on force refresh (structural changes like data/plugin changes)
-    // Skip on scroll-only updates to prevent scrollbar jumpiness from repeated DOM reads
-    if (force && this._virtualization.totalHeightEl) {
-      const totalHeight = this.#calculateTotalSpacerHeight(totalRows);
-      this._virtualization.totalHeightEl.style.height = `${totalHeight}px`;
-    }
-
-    // Smooth scroll: apply offset for fluid motion
-    // Since start is even-aligned, offset is distance from that aligned position
-    // This creates smooth sliding while preserving zebra stripe parity
-    //
-    // Get actual offset for the start row:
-    // - Variable heights mode: use position cache offset (already includes heights from getRowHeight())
-    // - Fixed heights mode: use simple multiplication + extraHeightBefore for deprecated hooks
-    let startRowOffset: number;
-    if (this._virtualization.variableHeights && positionCache && positionCache[start]) {
-      // Position cache offset already accounts for variable heights via getRowHeight()
-      // Do NOT add extraHeightBefore - it would double-count
-      startRowOffset = positionCache[start].offset;
-    } else {
-      // Fixed heights mode: add extra heights from deprecated hooks
-      const extraHeightBeforeStart = this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
-      startRowOffset = start * rowHeight + extraHeightBeforeStart;
-    }
-
-    const subPixelOffset = -(scrollTop - startRowOffset);
-    this._bodyEl.style.transform = `translateY(${subPixelOffset}px)`;
-
-    this.#renderVisibleRows(start, end, this.__rowRenderEpoch);
-
-    // Measure rendered row heights for variable height mode
-    // Only on force refresh to avoid hot path overhead during scroll
-    if (force && this._virtualization.variableHeights) {
-      this.#measureRenderedRowHeights(start, end);
-    }
-
-    // Update ARIA counts on the grid container
-    this.#updateAriaCounts(totalRows, this._visibleColumns.length);
-
-    // Only run plugin afterRender hooks on force refresh (structural changes)
-    // Skip on scroll-triggered renders for maximum performance
-    if (force && !skipAfterRender) {
-      this.#pluginManager?.afterRender();
-
-      // After plugins modify the DOM (e.g., add footer, column groups),
-      // heights may have changed. Recalculate spacer height in a microtask
-      // to catch these changes before the next paint.
-      // Use forceRead=false (cached geometry) since the force path above
-      // already read fresh geometry and updated all caches. Plugins modify
-      // content inside containers, not container geometry itself.
-      queueMicrotask(() => {
-        if (!this._virtualization.totalHeightEl) return;
-
-        // Use cached geometry - avoids forced synchronous layout
-        const newTotalHeight = this.#calculateTotalSpacerHeight(totalRows);
-
-        // Guard: skip if stale refs detected (0 faux height with positive viewport)
-        if (this._virtualization.cachedFauxHeight === 0 && this._virtualization.cachedViewportHeight > 0) return;
-
-        this._virtualization.totalHeightEl.style.height = `${newTotalHeight}px`;
-      });
-    }
-
-    return true;
+    return this.#virtManager.refreshVirtualWindow(force, skipAfterRender);
   }
+
+  /**
+   * Invalidate a row's height in the position cache.
+   * Call this when a plugin changes a row's height (e.g., expanding/collapsing a detail panel).
+   * @param rowIndex - Index of the row whose height changed
+   * @param newHeight - Optional new height. If not provided, queries plugins for height.
+   */
+  invalidateRowHeight(rowIndex: number, newHeight?: number): void {
+    this.#virtManager.invalidateRowHeight(rowIndex, newHeight);
+  }
+
   // #endregion
 
   // #region Render

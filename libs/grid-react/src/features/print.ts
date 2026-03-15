@@ -32,7 +32,7 @@
 import type { DataGridElement } from '@toolbox-web/grid';
 import { type PrintPlugin, type PrintParams } from '@toolbox-web/grid/plugins/print';
 import { useCallback, useContext } from 'react';
-import { GridElementContext } from '../lib/data-grid';
+import { GridElementContext } from '../lib/grid-element-context';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/print';

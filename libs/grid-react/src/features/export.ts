@@ -32,7 +32,7 @@
 import type { DataGridElement } from '@toolbox-web/grid';
 import { type ExportPlugin, type ExportFormat, type ExportParams } from '@toolbox-web/grid/plugins/export';
 import { useCallback, useContext } from 'react';
-import { GridElementContext } from '../lib/data-grid';
+import { GridElementContext } from '../lib/grid-element-context';
 
 // Delegate to core feature registration
 import '@toolbox-web/grid/features/export';

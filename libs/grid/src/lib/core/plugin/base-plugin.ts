@@ -750,7 +750,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * ```
    */
   protected get gridElement(): HTMLElement {
-    return this.grid as unknown as HTMLElement;
+    return this.grid?._hostElement;
   }
 
   /**

@@ -40,6 +40,7 @@ describe('SelectionPlugin', () => {
       setAttribute: vi.fn(),
       query: vi.fn().mockReturnValue([]),
       queryPlugins: vi.fn().mockReturnValue([]),
+      _hostElement: grid,
     });
 
     // Override dispatchEvent to track calls

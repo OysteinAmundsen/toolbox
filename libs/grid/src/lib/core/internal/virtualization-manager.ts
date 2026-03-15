@@ -95,7 +95,7 @@ export class VirtualizationManager<T = any> {
     let scrollAreaHeight: number;
 
     if (forceRead) {
-      const fauxScrollbar = s.container ?? (this.#grid._bodyEl?.closest('tbw-grid') as HTMLElement) ?? null;
+      const fauxScrollbar = s.container ?? this.#grid._hostElement;
       const viewportEl = s.viewportEl ?? fauxScrollbar;
       const scrollAreaEl = s.scrollAreaEl;
 

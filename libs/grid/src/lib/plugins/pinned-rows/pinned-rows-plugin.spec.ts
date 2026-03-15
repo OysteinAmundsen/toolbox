@@ -55,6 +55,7 @@ describe('PinnedRowsPlugin', () => {
       },
       configurable: true,
     });
+    Object.defineProperty(grid, '_hostElement', { get: () => grid, configurable: true });
 
     return grid;
   }

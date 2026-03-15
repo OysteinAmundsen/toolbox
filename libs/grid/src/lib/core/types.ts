@@ -419,6 +419,11 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   // Element methods available because DataGridElement extends HTMLElement
   /** The element's `id` attribute. Available because DataGridElement extends HTMLElement. */
   id: string;
+  /**
+   * The grid's host HTMLElement (`this`). Use instead of casting `grid as unknown as HTMLElement`.
+   * @internal
+   */
+  readonly _hostElement: HTMLElement;
   querySelector<K extends keyof HTMLElementTagNameMap>(selectors: K): HTMLElementTagNameMap[K] | null;
   querySelector<E extends Element = Element>(selectors: string): E | null;
   querySelectorAll<K extends keyof HTMLElementTagNameMap>(selectors: K): NodeListOf<HTMLElementTagNameMap[K]>;

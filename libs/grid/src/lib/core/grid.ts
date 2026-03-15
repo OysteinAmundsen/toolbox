@@ -2399,6 +2399,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
 
   // Shell controller & config manager support (replaces callback closures)
+  /** @internal The grid's host HTMLElement. Use instead of casting `grid as unknown as HTMLElement`. */
+  get _hostElement(): HTMLElement {
+    return this;
+  }
+
   /** @internal The grid's render root element for DOM queries. */
   get _renderRoot(): HTMLElement {
     return this.#renderRoot;

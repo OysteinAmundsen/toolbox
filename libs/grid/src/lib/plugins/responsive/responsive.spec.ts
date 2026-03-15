@@ -68,6 +68,7 @@ describe('ResponsivePlugin', () => {
       requestAfterRender: vi.fn(),
       getPlugin: vi.fn(),
       getPluginByName: vi.fn(),
+      _hostElement: grid,
     });
 
     grid.dispatchEvent = vi.fn();
@@ -351,6 +352,7 @@ describe('ResponsivePlugin', () => {
         _activeEditRows: -1,
         _virtualization: { enabled: false, start: 0, end: 3 },
         refreshVirtualWindow: vi.fn(),
+        _hostElement: mockGrid,
       });
       return mockGrid as typeof mockGrid & {
         _focusRow: number;
@@ -1207,6 +1209,7 @@ describe('ResponsivePlugin', () => {
         requestAfterRender: vi.fn(),
         getPlugin: vi.fn(),
         getPluginByName: vi.fn(),
+        _hostElement: grid,
       });
 
       grid.dispatchEvent = vi.fn();
@@ -1384,6 +1387,7 @@ function createMockGridWithMultipleCells() {
     requestAfterRender: vi.fn(),
     getPlugin: vi.fn(),
     getPluginByName: vi.fn(),
+    _hostElement: grid,
   });
 
   grid.dispatchEvent = vi.fn();

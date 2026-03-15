@@ -333,6 +333,7 @@ describe('ReorderPlugin', () => {
         _virtualization: { enabled: false, start: 0, end: 0 },
         _activeEditRows: undefined,
         _rows: [],
+        _hostElement: grid,
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {
           currentOrder = order;
@@ -515,6 +516,7 @@ describe('ReorderPlugin', () => {
         _rows: [],
         columns,
         effectiveConfig: { animation: { mode: 'off' } },
+        _hostElement: grid,
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {
           currentOrder = order;
@@ -677,6 +679,7 @@ describe('ReorderPlugin', () => {
         _rows: [],
         columns,
         effectiveConfig: { animation: { mode: 'off' } },
+        _hostElement: document.createElement('div'),
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {
           currentOrder = order;
@@ -724,6 +727,7 @@ describe('ReorderPlugin', () => {
         _rows: [],
         columns: [{ field: 'a' }, { field: 'b' }],
         effectiveConfig: { animation: { mode: 'off' } },
+        _hostElement: grid,
         getColumnOrder: () => ['a', 'b'],
         setColumnOrder: () => {
           /* noop */
@@ -798,6 +802,7 @@ describe('ReorderPlugin', () => {
           /* noop */
         },
         headerCells,
+        _hostElement: grid,
       });
 
       return grid as any;
@@ -957,6 +962,7 @@ describe('ReorderPlugin', () => {
         _rows: [],
         columns,
         effectiveConfig: { animation: { mode } },
+        _hostElement: grid,
         getColumnOrder: () => currentOrder,
         setColumnOrder: (order: string[]) => {
           currentOrder = order;

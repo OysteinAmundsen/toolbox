@@ -416,6 +416,8 @@ export interface PublicGrid<T = any> {
  */
 export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   // Element methods available because DataGridElement extends HTMLElement
+  /** The element's `id` attribute. Available because DataGridElement extends HTMLElement. */
+  id: string;
   querySelector<K extends keyof HTMLElementTagNameMap>(selectors: K): HTMLElementTagNameMap[K] | null;
   querySelector<E extends Element = Element>(selectors: string): E | null;
   querySelectorAll<K extends keyof HTMLElementTagNameMap>(selectors: K): NodeListOf<HTMLElementTagNameMap[K]>;

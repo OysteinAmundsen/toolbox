@@ -8,6 +8,7 @@
  * @internal
  */
 
+import { gridPrefix } from '../../../core/internal/utils';
 import type { ColumnConfig, ColumnInternal, InternalGrid, RowElementInternal } from '../../../core/types';
 import { defaultEditorFor, getInputValue } from '../editors';
 import type { EditingConfig, EditorContext } from '../types';
@@ -298,7 +299,7 @@ export function injectEditor<T>(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         editorSpec.mount({ placeholder, context: context as any, spec: editorSpec });
       } catch (e) {
-        console.warn(`[tbw-grid] External editor mount error for column '${column.field}':`, e);
+        console.warn(`${gridPrefix(deps.grid.id)} External editor mount error for column '${column.field}':`, e);
       }
     } else {
       (grid as unknown as HTMLElement).dispatchEvent(

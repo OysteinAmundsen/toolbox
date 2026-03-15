@@ -48,6 +48,7 @@ import {
   setupTouchScrollListeners,
   type TouchScrollState,
 } from './internal/touch-scroll';
+import { gridPrefix } from './internal/utils';
 import {
   validatePluginConfigRules,
   validatePluginIncompatibilities,
@@ -854,6 +855,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Initialize shell controller with callbacks
     this.#shellController = createShellController(this.#shellState, {
       getShadow: () => this.#renderRoot,
+      getGridId: () => this.id,
       getShellConfig: () => this.#effectiveConfig?.shell,
       getAccordionIcons: () => ({
         expand: this.#effectiveConfig?.icons?.expand ?? DEFAULT_GRID_ICONS.expand,
@@ -1384,7 +1386,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         else if (name === 'columns') this.columns = parsed;
         else if (name === 'grid-config') this.gridConfig = parsed;
       } catch {
-        console.warn(`[tbw-grid] Invalid JSON for '${name}' attribute:`, newValue);
+        console.warn(`${gridPrefix(this.id)} Invalid JSON for '${name}' attribute:`, newValue);
       }
     } else if (name === 'fit-mode') {
       this.fitMode = newValue as FitMode;
@@ -2117,7 +2119,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const id = this.#tryResolveRowId(row, getRowId);
     if (id === undefined) {
       throw new Error(
-        '[tbw-grid] Cannot determine row ID. ' +
+        `${gridPrefix(this.id)} Cannot determine row ID. ` +
           'Configure getRowId in gridConfig or ensure rows have an "id" property.',
       );
     }
@@ -2986,7 +2988,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const entry = this.#rowIdMap.get(id);
     if (!entry) {
       throw new Error(
-        `[tbw-grid] Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+        `${gridPrefix(this.id)} Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
       );
     }
 
@@ -3056,7 +3058,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       const entry = this.#rowIdMap.get(id);
       if (!entry) {
         throw new Error(
-          `[tbw-grid] Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+          `${gridPrefix(this.id)} Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
         );
       }
 

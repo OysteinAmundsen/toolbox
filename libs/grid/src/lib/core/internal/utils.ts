@@ -20,6 +20,19 @@ export function isDevelopment(): boolean {
   return false;
 }
 
+/**
+ * Build the `[tbw-grid]` or `[tbw-grid#my-id]` log prefix.
+ * Pass `pluginName` for a scoped prefix like `[tbw-grid:SelectionPlugin]`.
+ *
+ * @param gridId - The grid element's `id` attribute (optional)
+ * @param pluginName - Plugin display name to include (optional)
+ */
+export function gridPrefix(gridId?: string, pluginName?: string): string {
+  const id = gridId ? `#${gridId}` : '';
+  const plugin = pluginName ? `:${pluginName}` : '';
+  return `[tbw-grid${id}${plugin}]`;
+}
+
 // #endregion
 
 // #region Cell Rendering Helpers

@@ -5,6 +5,7 @@
  * and uses CSS to hide everything else on the page during printing.
  */
 
+import { gridPrefix } from '../../core/internal/utils';
 import type { PrintOrientation } from './types';
 
 export interface PrintIsolatedOptions {
@@ -124,7 +125,7 @@ export async function printGridIsolated(gridElement: HTMLElement, options: Print
   const elementsWithId = document.querySelectorAll(`#${CSS.escape(gridId)}`);
   if (elementsWithId.length > 1) {
     console.warn(
-      `[tbw-grid:print] Multiple elements found with id="${gridId}". ` +
+      `${gridPrefix(gridId, 'print')} Multiple elements found with id="${gridId}". ` +
         `Print isolation may not work correctly. Ensure each grid has a unique ID.`,
     );
   }

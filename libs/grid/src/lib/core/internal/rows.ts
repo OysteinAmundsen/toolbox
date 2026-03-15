@@ -1,7 +1,7 @@
 import type { ColumnInternal, ColumnViewRenderer, InternalGrid, RowElementInternal } from '../types';
 import { ensureCellVisible } from './keyboard';
 import { evalTemplateString, finalCellScrub, sanitizeHTML } from './sanitize';
-import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell } from './utils';
+import { booleanCellHTML, clearCellFocus, formatDateValue, getRowIndexFromCell, gridPrefix } from './utils';
 
 /** Callback type for plugin row rendering hook */
 export type RenderRowHook = (row: any, rowEl: HTMLElement, rowIndex: number) => boolean;
@@ -352,7 +352,7 @@ export function renderVisibleRows(
           rowEl.removeAttribute('data-dynamic-classes');
         }
       } catch (e) {
-        console.warn(`[tbw-grid] rowClass callback error:`, e);
+        console.warn(`${gridPrefix(grid.id)} rowClass callback error:`, e);
         rowEl.removeAttribute('data-dynamic-classes');
       }
     }
@@ -527,7 +527,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
           cell.removeAttribute('data-dynamic-classes');
         }
       } catch (e) {
-        console.warn(`[tbw-grid] cellClass callback error for column '${col.field}':`, e);
+        console.warn(`${gridPrefix(grid.id)} cellClass callback error for column '${col.field}':`, e);
         cell.removeAttribute('data-dynamic-classes');
       }
     }
@@ -651,7 +651,7 @@ function fastPatchRow(grid: InternalGrid, rowEl: HTMLElement, rowData: any, rowI
         displayStr = formatted == null ? '' : String(formatted);
       } catch (e) {
         // Log format errors as warnings (user configuration issue)
-        console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);
+        console.warn(`${gridPrefix(grid.id)} Format error in column '${col.field}':`, e);
         displayStr = value == null ? '' : String(value);
       }
       cell.textContent = displayStr;
@@ -742,7 +742,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
         value = formatFn(value, rowData);
       } catch (e) {
         // Log format errors as warnings (user configuration issue)
-        console.warn(`[tbw-grid] Format error in column '${col.field}':`, e);
+        console.warn(`${gridPrefix(grid.id)} Format error in column '${col.field}':`, e);
       }
     }
 
@@ -788,7 +788,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
           spec.mount({ placeholder, context, spec });
         } catch (e) {
           // Log mount errors as warnings (user configuration issue)
-          console.warn(`[tbw-grid] External view mount error for column '${col.field}':`, e);
+          console.warn(`${gridPrefix(grid.id)} External view mount error for column '${col.field}':`, e);
         }
       } else {
         queueMicrotask(() => {
@@ -802,7 +802,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
             );
           } catch (e) {
             // Log dispatch errors as warnings
-            console.warn(`[tbw-grid] External view event dispatch error for column '${col.field}':`, e);
+            console.warn(`${gridPrefix(grid.id)} External view event dispatch error for column '${col.field}':`, e);
           }
         });
       }
@@ -889,7 +889,7 @@ export function renderInlineRow(grid: InternalGrid, rowEl: HTMLElement, rowData:
           cell.setAttribute('data-dynamic-classes', validClasses.join(' '));
         }
       } catch (e) {
-        console.warn(`[tbw-grid] cellClass callback error for column '${col.field}':`, e);
+        console.warn(`${gridPrefix(grid.id)} cellClass callback error for column '${col.field}':`, e);
       }
     }
 

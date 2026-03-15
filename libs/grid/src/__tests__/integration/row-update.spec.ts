@@ -60,7 +60,7 @@ describe('Row Update API', () => {
       const rows = [{ name: 'NoId' }];
       const grid = await createGrid(rows);
 
-      expect(() => grid.getRowId(rows[0])).toThrow('[tbw-grid] Cannot determine row ID');
+      expect(() => grid.getRowId(rows[0])).toThrow('Cannot determine row ID');
     });
   });
 
@@ -144,7 +144,7 @@ describe('Row Update API', () => {
       const rows: TestRow[] = [{ id: 'r1', name: 'Alice', status: 'active', count: 10 }];
       const grid = await createGrid(rows);
 
-      expect(() => grid.updateRow('unknown', { status: 'x' })).toThrow('[tbw-grid] Row with ID "unknown" not found');
+      expect(() => grid.updateRow('unknown', { status: 'x' })).toThrow('Row with ID "unknown" not found');
     });
 
     it('respects source parameter', async () => {
@@ -218,7 +218,7 @@ describe('Row Update API', () => {
           { id: 'r1', changes: { status: 'ok' } },
           { id: 'unknown', changes: { status: 'bad' } },
         ]),
-      ).toThrow('[tbw-grid] Row with ID "unknown" not found');
+      ).toThrow('Row with ID "unknown" not found');
     });
   });
 

@@ -10,7 +10,7 @@
  * add FilteringPlugin before GroupingRowsPlugin in the array.
  */
 
-import { isDevelopment } from '../internal/utils';
+import { gridPrefix, isDevelopment } from '../internal/utils';
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
 import type {
@@ -84,6 +84,11 @@ export class PluginManager {
 
   // #region Lifecycle
   constructor(private grid: GridElement) {}
+
+  /** Build log prefix: `[tbw-grid]` or `[tbw-grid#my-id]` */
+  private get logPrefix(): string {
+    return gridPrefix(this.grid.getAttribute('id') ?? undefined);
+  }
 
   /**
    * Attach all plugins from the config.
@@ -181,7 +186,7 @@ export class PluginManager {
     if (hasOldHooks && !hasNewHook) {
       PluginManager.deprecationWarned.add(PluginClass);
       console.warn(
-        `[tbw-grid] Deprecation warning: "${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
+        `${this.logPrefix} Deprecation warning: "${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
           `which are deprecated and will be removed in v2.0.\n` +
           `  → Migrate to getRowHeight(row, index) for better variable row height support.\n` +
           `  → See: https://toolbox-web.dev/docs/grid/plugins/migration#row-height-hooks`,
@@ -602,7 +607,7 @@ export class PluginManager {
         try {
           callback(detail);
         } catch (error) {
-          console.error(`[tbw-grid] Error in plugin event handler for "${eventType}":`, error);
+          console.error(`${this.logPrefix} Error in plugin event handler for "${eventType}":`, error);
         }
       }
     }

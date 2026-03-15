@@ -16,6 +16,7 @@ import type {
 } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
 import { escapeHtml } from './sanitize';
+import { gridPrefix } from './utils';
 
 // #region Types & State
 /**
@@ -957,6 +958,8 @@ export function cleanupShellState(state: ShellState): void {
 export interface ShellControllerCallbacks {
   /** Get the render root for DOM queries (the grid element) */
   getShadow: () => Element;
+  /** Get the grid element's id attribute */
+  getGridId: () => string;
   /** Get the current shell config */
   getShellConfig: () => ShellConfig | undefined;
   /** Get accordion expand/collapse icons */
@@ -1106,7 +1109,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
     toggleToolPanelSection(sectionId: string) {
       const panel = state.toolPanels.get(sectionId);
       if (!panel) {
-        console.warn(`[tbw-grid] Tool panel section "${sectionId}" not found`);
+        console.warn(`${gridPrefix(callbacks.getGridId())} Tool panel section "${sectionId}" not found`);
         return;
       }
 
@@ -1161,7 +1164,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
 
     registerToolPanel(panel: ToolPanelDefinition) {
       if (state.toolPanels.has(panel.id)) {
-        console.warn(`[tbw-grid] Tool panel "${panel.id}" already registered`);
+        console.warn(`${gridPrefix(callbacks.getGridId())} Tool panel "${panel.id}" already registered`);
         return;
       }
       state.toolPanels.set(panel.id, panel);
@@ -1195,7 +1198,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
 
     registerHeaderContent(content: HeaderContentDefinition) {
       if (state.headerContents.has(content.id)) {
-        console.warn(`[tbw-grid] Header content "${content.id}" already registered`);
+        console.warn(`${gridPrefix(callbacks.getGridId())} Header content "${content.id}" already registered`);
         return;
       }
       state.headerContents.set(content.id, content);
@@ -1230,7 +1233,7 @@ export function createShellController(state: ShellState, callbacks: ShellControl
 
     registerToolbarContent(content: ToolbarContentDefinition) {
       if (state.toolbarContents.has(content.id)) {
-        console.warn(`[tbw-grid] Toolbar content "${content.id}" already registered`);
+        console.warn(`${gridPrefix(callbacks.getGridId())} Toolbar content "${content.id}" already registered`);
         return;
       }
       state.toolbarContents.set(content.id, content);

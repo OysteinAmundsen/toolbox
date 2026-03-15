@@ -12,7 +12,7 @@
 
 import type { BaseGridPlugin, PluginManifest, PluginPropertyDefinition } from '../plugin';
 import type { ColumnConfig, GridConfig } from '../types';
-import { isDevelopment } from './utils';
+import { gridPrefix, isDevelopment } from './utils';
 
 /**
  * Internal property definition with plugin name attached.
@@ -139,15 +139,7 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/**
- * Build the `[tbw-grid]` or `[tbw-grid#my-id]` log prefix.
- * Pass `pluginName` for a scoped prefix like `[tbw-grid:SelectionPlugin]`.
- */
-function gridPrefix(gridId?: string, pluginName?: string): string {
-  const id = gridId ? `#${gridId}` : '';
-  const plugin = pluginName ? `:${pluginName}` : '';
-  return `[tbw-grid${id}${plugin}]`;
-}
+
 
 /**
  * Check if a plugin with the given name is present in the plugins array.

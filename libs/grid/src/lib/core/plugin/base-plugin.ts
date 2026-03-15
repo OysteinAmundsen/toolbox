@@ -8,6 +8,7 @@
 // Injected by Vite at build time from package.json (same as grid.ts)
 declare const __GRID_VERSION__: string;
 
+import { gridPrefix } from '../internal/utils';
 import type {
   ColumnConfig,
   ColumnState,
@@ -38,7 +39,7 @@ export type {
   PluginCellRenderContext,
   PluginQuery,
   RowClickEvent,
-  ScrollEvent,
+  ScrollEvent
 } from './types';
 
 import type {
@@ -882,7 +883,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Log a warning message.
    */
   protected warn(message: string): void {
-    console.warn(`[tbw-grid:${this.name}] ${message}`);
+    console.warn(`${gridPrefix(this.gridElement.id, this.name)} ${message}`);
   }
 
   // #region Lifecycle Hooks

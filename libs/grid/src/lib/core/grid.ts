@@ -3,6 +3,8 @@ import { autoSizeColumns, updateTemplate } from './internal/columns';
 import { ConfigManager } from './internal/config-manager';
 import { setupCellEventDelegation, setupRootEventDelegation } from './internal/event-delegation';
 import { resolveFeatures } from './internal/feature-hook';
+import type { FocusManagerHost } from './internal/focus-manager';
+import { FocusManager } from './internal/focus-manager';
 import { renderHeader } from './internal/header';
 import { cancelIdle, scheduleIdle } from './internal/idle-scheduler';
 import { ensureCellVisible } from './internal/keyboard';
@@ -16,6 +18,8 @@ import {
 import { RenderPhase, RenderScheduler } from './internal/render-scheduler';
 import { createResizeController } from './internal/resize';
 import { animateRow, animateRowById, animateRows } from './internal/row-animation';
+import type { RowManagerHost } from './internal/row-manager';
+import { resolveRowIdOrThrow, RowManager, tryResolveRowId } from './internal/row-manager';
 import { invalidateCellCache, renderVisibleRows } from './internal/rows';
 import {
   buildGridDOMIntoElement,
@@ -69,7 +73,6 @@ import { PluginManager } from './plugin/plugin-manager';
 import styles from './styles';
 import type {
   AnimationConfig,
-  CellChangeDetail,
   ColumnConfig,
   ColumnConfigMap,
   ColumnInternal,
@@ -285,6 +288,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // Virtualization manager — owns VirtualState + all virtualization methods
   #virtManager!: VirtualizationManager<T>;
+
+  // Focus manager — owns focus/navigation state and external focus containers
+  #focusManager!: FocusManager<T>;
+
+  // Row manager — owns row CRUD operations (updateRow, insertRow, removeRow, etc.)
+  #rowManager!: RowManager<T>;
 
   /**
    * Exposes plugin manager for event bus operations (subscribe/unsubscribe/emit).
@@ -751,6 +760,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Initialize virtualization manager with host adapter
     this.#virtManager = new VirtualizationManager<T>(this.#createVirtHost());
+
+    // Initialize focus manager with host adapter
+    this.#focusManager = new FocusManager<T>(this.#createFocusHost());
+
+    // Initialize row manager with host adapter
+    this.#rowManager = new RowManager<T>(this.#createRowHost());
 
     // Initialize render scheduler with callbacks
     this.#scheduler = new RenderScheduler({
@@ -1773,7 +1788,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         // Only remove if focus is leaving the grid entirely
         // relatedTarget is null when focus leaves the document, or the new focus target
         const newFocus = (e as FocusEvent).relatedTarget as Node | null;
-        if (!newFocus || (!this.#renderRoot.contains(newFocus) && !this.#isInExternalFocusContainer(newFocus))) {
+        if (
+          !newFocus ||
+          (!this.#renderRoot.contains(newFocus) && !this.#focusManager.isInExternalFocusContainer(newFocus))
+        ) {
           delete this.dataset.hasFocus;
         }
       },
@@ -2067,45 +2085,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     const getRowId = this.#effectiveConfig.getRowId;
 
     this._rows.forEach((row, index) => {
-      const id = this.#tryResolveRowId(row, getRowId);
+      const id = tryResolveRowId(row, getRowId);
       if (id !== undefined) {
         this.#rowIdMap.set(id, { row, index });
       }
       // Rows without IDs are skipped - they won't be accessible via getRow/updateRow
     });
-  }
-
-  /**
-   * Try to resolve the ID for a row using configured getRowId or fallback.
-   * Returns undefined if no ID can be determined (non-throwing).
-   * Used internally by #rebuildRowIdMap.
-   */
-  #tryResolveRowId(row: T, getRowId?: (row: T) => string): string | undefined {
-    if (getRowId) {
-      return getRowId(row);
-    }
-
-    // Fallback: common ID fields
-    const r = row as Record<string, unknown>;
-    if ('id' in r && r.id != null) return String(r.id);
-    if ('_id' in r && r._id != null) return String(r._id);
-
-    return undefined;
-  }
-
-  /**
-   * Resolve the ID for a row, throwing if not found.
-   * Used by public getRowId() method.
-   */
-  #resolveRowIdOrThrow(row: T, getRowId?: (row: T) => string): string {
-    const id = this.#tryResolveRowId(row, getRowId);
-    if (id === undefined) {
-      throw new Error(
-        `${gridPrefix(this.id)} Cannot determine row ID. ` +
-          'Configure getRowId in gridConfig or ensure rows have an "id" property.',
-      );
-    }
-    return id;
   }
 
   #applyColumnsUpdate(): void {
@@ -2897,7 +2882,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   // #endregion
 
-  // #region Row API
+  // #region Row API (delegated to RowManager)
   /**
    * Get the unique ID for a row.
    * Uses the configured `getRowId` function or falls back to `row.id` / `row._id`.
@@ -2914,7 +2899,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   getRowId(row: T): string {
-    return this.#resolveRowIdOrThrow(row, this.#effectiveConfig.getRowId);
+    return resolveRowIdOrThrow(row, this.id, this.#effectiveConfig.getRowId);
   }
 
   /**
@@ -2934,7 +2919,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   getRow(id: string): T | undefined {
-    return this.#rowIdMap.get(id)?.row;
+    return this.#rowManager.getRow(id);
   }
 
   /**
@@ -2944,7 +2929,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @internal
    */
   _getRowEntry(id: string): { row: T; index: number } | undefined {
-    return this.#rowIdMap.get(id);
+    return this.#rowManager.getRowEntry(id);
   }
 
   /**
@@ -2967,52 +2952,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   updateRow(id: string, changes: Partial<T>, source: UpdateSource = 'api'): void {
-    const entry = this.#rowIdMap.get(id);
-    if (!entry) {
-      throw new Error(
-        `${gridPrefix(this.id)} Row with ID "${id}" not found. ` +
-          `Ensure the row exists and getRowId is correctly configured.`,
-      );
-    }
-
-    const { row, index } = entry;
-    const changedFields: Array<{ field: string; oldValue: unknown; newValue: unknown }> = [];
-
-    // Compute changes and apply in-place
-    for (const [field, newValue] of Object.entries(changes)) {
-      const oldValue = (row as Record<string, unknown>)[field];
-      if (oldValue !== newValue) {
-        changedFields.push({ field, oldValue, newValue });
-        (row as Record<string, unknown>)[field] = newValue;
-      }
-    }
-
-    // Emit cell-change for each changed field
-    for (const { field, oldValue, newValue } of changedFields) {
-      this.#emit('cell-change', {
-        row,
-        rowId: id,
-        rowIndex: index,
-        field,
-        oldValue,
-        newValue,
-        changes,
-        source,
-      } as CellChangeDetail<T>);
-    }
-
-    // Schedule re-render if anything changed.
-    // Use VIRTUALIZATION (not ROWS) so the visible cells are re-rendered
-    // without rebuilding the row model. A ROWS-phase rebuild re-applies
-    // sort/filter from #rows, which moves rows inserted via insertRow()
-    // to their sorted position — appearing as "ghost" duplicates.
-    // Since data was already mutated in-place, fastPatchRow will pick up
-    // the new values from the row object directly.
-    if (changedFields.length > 0) {
-      invalidateCellCache(this);
-      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'updateRow');
-      this.#emitDataChange();
-    }
+    this.#rowManager.updateRow(id, changes, source);
   }
 
   /**
@@ -3035,48 +2975,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   updateRows(updates: Array<{ id: string; changes: Partial<T> }>, source: UpdateSource = 'api'): void {
-    let anyChanged = false;
-
-    for (const { id, changes } of updates) {
-      const entry = this.#rowIdMap.get(id);
-      if (!entry) {
-        throw new Error(
-          `${gridPrefix(this.id)} Row with ID "${id}" not found. ` +
-            `Ensure the row exists and getRowId is correctly configured.`,
-        );
-      }
-
-      const { row, index } = entry;
-
-      // Compute changes and apply in-place
-      for (const [field, newValue] of Object.entries(changes)) {
-        const oldValue = (row as Record<string, unknown>)[field];
-        if (oldValue !== newValue) {
-          anyChanged = true;
-          (row as Record<string, unknown>)[field] = newValue;
-
-          // Emit cell-change for each changed field
-          this.#emit('cell-change', {
-            row,
-            rowId: id,
-            rowIndex: index,
-            field,
-            oldValue,
-            newValue,
-            changes,
-            source,
-          } as CellChangeDetail<T>);
-        }
-      }
-    }
-
-    // Schedule single re-render for all changes.
-    // Use VIRTUALIZATION (not ROWS) — see updateRow for rationale.
-    if (anyChanged) {
-      invalidateCellCache(this);
-      this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'updateRows');
-      this.#emitDataChange();
-    }
+    this.#rowManager.updateRows(updates, source);
   }
 
   /**
@@ -3184,38 +3083,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   async insertRow(index: number, row: T, animate = true): Promise<void> {
-    // Clamp index to valid range
-    const idx = Math.max(0, Math.min(index, this._rows.length));
-
-    // Add to source data (position irrelevant — pipeline will re-sort later)
-    this.#rows = [...this.#rows, row];
-
-    // Insert into processed view at the exact visible position
-    const newRows = [...this._rows];
-    newRows.splice(idx, 0, row);
-    this._rows = newRows;
-
-    // Keep __originalOrder in sync so "clear sort" includes the new row
-    if (this._sortState) {
-      this.__originalOrder = [...this.__originalOrder, row];
-    }
-
-    // Refresh caches and trigger immediate re-render
-    invalidateCellCache(this);
-    this.#rebuildRowIdMap();
-    this.__rowRenderEpoch++;
-    for (const r of this._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
-    this.refreshVirtualWindow(true);
-
-    // Notify plugins about the inserted row (e.g., editing dirty tracking)
-    this.#pluginManager?.emitPluginEvent('row-inserted', { row, index: idx });
-
-    this.#emitDataChange();
-
-    if (animate) {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      await this.animateRow(idx, 'insert');
-    }
+    return this.#rowManager.insertRow(index, row, animate);
   }
 
   /**
@@ -3244,59 +3112,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   async removeRow(index: number, animate = true): Promise<T | undefined> {
-    const row = this._rows[index];
-    if (!row) return undefined;
-
-    if (animate) {
-      await this.animateRow(index, 'remove');
-    }
-
-    // Find current position by reference (may have shifted during animation)
-    const currentIdx = this._rows.indexOf(row);
-    if (currentIdx < 0) return row; // Already removed by something else
-
-    // Remove from processed view
-    const newRows = [...this._rows];
-    newRows.splice(currentIdx, 1);
-    this._rows = newRows;
-
-    // Remove from source data
-    const srcIdx = this.#rows.indexOf(row);
-    if (srcIdx >= 0) {
-      const newSource = [...this.#rows];
-      newSource.splice(srcIdx, 1);
-      this.#rows = newSource;
-    }
-
-    // Keep __originalOrder in sync
-    if (this._sortState) {
-      const origIdx = this.__originalOrder.indexOf(row);
-      if (origIdx >= 0) {
-        const newOrig = [...this.__originalOrder];
-        newOrig.splice(origIdx, 1);
-        this.__originalOrder = newOrig;
-      }
-    }
-
-    // Refresh caches and trigger immediate re-render
-    invalidateCellCache(this);
-    this.#rebuildRowIdMap();
-    this.__rowRenderEpoch++;
-    for (const r of this._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
-    this.refreshVirtualWindow(true);
-
-    this.#emitDataChange();
-
-    // Clean up stale remove animation attributes after re-render
-    if (animate) {
-      requestAnimationFrame(() => {
-        this.querySelectorAll('[data-animating="remove"]').forEach((el) => {
-          el.removeAttribute('data-animating');
-        });
-      });
-    }
-
-    return row;
+    return this.#rowManager.removeRow(index, animate);
   }
 
   /**
@@ -3313,7 +3129,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   // #endregion
 
-  // #region Focus & Navigation API
+  // #region Focus & Navigation API (delegated to FocusManager)
   /**
    * Move focus to a specific cell.
    *
@@ -3334,23 +3150,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   focusCell(rowIndex: number, column: number | string): void {
-    const maxRow = this._rows.length - 1;
-    if (maxRow < 0) return;
-
-    let colIdx: number;
-    if (typeof column === 'string') {
-      colIdx = this._visibleColumns.findIndex((c) => c.field === column);
-      if (colIdx < 0) return; // Field not found in visible columns
-    } else {
-      colIdx = column;
-    }
-
-    const maxCol = this._visibleColumns.length - 1;
-    if (maxCol < 0) return;
-
-    this._focusRow = Math.max(0, Math.min(rowIndex, maxRow));
-    this._focusCol = Math.max(0, Math.min(colIdx, maxCol));
-    ensureCellVisible(this as unknown as InternalGrid);
+    this.#focusManager.focusCell(rowIndex, column);
   }
 
   /**
@@ -3370,13 +3170,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   get focusedCell(): { rowIndex: number; colIndex: number; field: string } | null {
-    if (this._rows.length === 0 || this._visibleColumns.length === 0) return null;
-    const col = this._visibleColumns[this._focusCol];
-    return {
-      rowIndex: this._focusRow,
-      colIndex: this._focusCol,
-      field: col?.field ?? '',
-    };
+    return this.#focusManager.focusedCell;
   }
 
   /**
@@ -3400,65 +3194,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   scrollToRow(rowIndex: number, options?: ScrollToRowOptions): void {
-    const virt = this._virtualization;
-    if (!virt.enabled) return;
-
-    const scrollEl = virt.container as HTMLElement | undefined;
-    if (!scrollEl) return;
-
-    const totalRows = this._rows.length;
-    if (totalRows === 0) return;
-
-    const idx = Math.max(0, Math.min(rowIndex, totalRows - 1));
-    const align = options?.align ?? 'nearest';
-    const behavior = options?.behavior ?? 'instant';
-
-    // Calculate row offset and height, accounting for variable row heights
-    let rowTop: number;
-    let rowH: number;
-    const pc = virt.positionCache;
-    if (virt.variableHeights && pc && pc.length > idx) {
-      rowTop = pc[idx].offset;
-      rowH = pc[idx].height;
-    } else {
-      rowTop = idx * virt.rowHeight;
-      rowH = virt.rowHeight;
-    }
-
-    const viewportH = virt.viewportEl?.clientHeight ?? scrollEl.clientHeight ?? 0;
-    if (viewportH <= 0) return;
-
-    const currentTop = scrollEl.scrollTop;
-    const rowBottom = rowTop + rowH;
-    const viewBottom = currentTop + viewportH;
-
-    let target: number;
-    switch (align) {
-      case 'start':
-        target = rowTop;
-        break;
-      case 'center':
-        target = rowTop - viewportH / 2 + rowH / 2;
-        break;
-      case 'end':
-        target = rowBottom - viewportH;
-        break;
-      case 'nearest':
-      default:
-        // Already fully visible — no scroll needed
-        if (rowTop >= currentTop && rowBottom <= viewBottom) return;
-        // Scroll up or down to bring row into view (minimum movement)
-        target = rowTop < currentTop ? rowTop : rowBottom - viewportH;
-        break;
-    }
-
-    target = Math.max(0, target);
-
-    if (behavior === 'smooth') {
-      scrollEl.scrollTo({ top: target, behavior: 'smooth' });
-    } else {
-      scrollEl.scrollTop = target;
-    }
+    this.#focusManager.scrollToRow(rowIndex, options);
   }
 
   /**
@@ -3479,9 +3215,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   scrollToRowById(rowId: string, options?: ScrollToRowOptions): void {
-    const entry = this.#rowIdMap.get(rowId);
-    if (!entry) return;
-    this.scrollToRow(entry.index, options);
+    this.#focusManager.scrollToRowById(rowId, options);
   }
   // #endregion
 
@@ -4289,21 +4023,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   // #endregion
 
-  // #region External Focus Containers
-  /**
-   * Set of DOM elements that are logically "part of" this grid for focus
-   * tracking purposes. Overlay panels (datepickers, dropdowns) that render
-   * at `<body>` level should be registered here so that:
-   *
-   * 1. `data-has-focus` persists while an overlay has focus.
-   * 2. EditingPlugin's click-outside handler doesn't commit the row.
-   * 3. The optional focus trap doesn't reclaim focus.
-   */
-  #externalFocusContainers = new Set<Element>();
-
-  /** Cleanup functions for focusout listeners on external containers */
-  #externalFocusCleanups = new Map<Element, () => void>();
-
+  // #region External Focus Containers (delegated to FocusManager)
   /**
    * Register an external DOM element as a logical focus container of this grid.
    *
@@ -4330,34 +4050,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   registerExternalFocusContainer(el: Element): void {
-    if (this.#externalFocusContainers.has(el)) return;
-    this.#externalFocusContainers.add(el);
-
-    // Listen for focus events on the external container to keep
-    // data-has-focus in sync and detect when focus leaves entirely.
-    const ac = new AbortController();
-    const signal = ac.signal;
-
-    el.addEventListener(
-      'focusin',
-      () => {
-        this.dataset.hasFocus = '';
-      },
-      { signal },
-    );
-
-    el.addEventListener(
-      'focusout',
-      (e) => {
-        const newFocus = (e as FocusEvent).relatedTarget as Node | null;
-        if (!newFocus || !this.containsFocus(newFocus)) {
-          delete this.dataset.hasFocus;
-        }
-      },
-      { signal },
-    );
-
-    this.#externalFocusCleanups.set(el, () => ac.abort());
+    this.#focusManager.registerExternalFocusContainer(el);
   }
 
   /**
@@ -4367,12 +4060,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @param el - The element to unregister
    */
   unregisterExternalFocusContainer(el: Element): void {
-    this.#externalFocusContainers.delete(el);
-    const cleanup = this.#externalFocusCleanups.get(el);
-    if (cleanup) {
-      cleanup();
-      this.#externalFocusCleanups.delete(el);
-    }
+    this.#focusManager.unregisterExternalFocusContainer(el);
   }
 
   /**
@@ -4393,20 +4081,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   containsFocus(node?: Node | null): boolean {
-    const target = node ?? document.activeElement;
-    if (!target) return false;
-    if (this.contains(target)) return true;
-    return this.#isInExternalFocusContainer(target);
-  }
-
-  /**
-   * Check whether a node is inside any registered external focus container.
-   */
-  #isInExternalFocusContainer(node: Node): boolean {
-    for (const container of this.#externalFocusContainers) {
-      if (container.contains(node)) return true;
-    }
-    return false;
+    return this.#focusManager.containsFocus(node);
   }
   // #endregion
 
@@ -4535,6 +4210,107 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // This batches with any other pending work (e.g., afterConnect)
     this.#scheduler.requestPhase(RenderPhase.COLUMNS, 'refreshColumns');
   }
+  // #endregion
+
+  // #region Focus (delegated to FocusManager)
+
+  /**
+   * Create the host adapter that the FocusManager uses to read grid state.
+   */
+  #createFocusHost(): FocusManagerHost<T> {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const grid = this;
+    return {
+      get rows() {
+        return grid._rows;
+      },
+      get visibleColumns() {
+        return grid._visibleColumns;
+      },
+      get focusRow() {
+        return grid._focusRow;
+      },
+      set focusRow(v: number) {
+        grid._focusRow = v;
+      },
+      get focusCol() {
+        return grid._focusCol;
+      },
+      set focusCol(v: number) {
+        grid._focusCol = v;
+      },
+      get virtualization() {
+        return grid._virtualization;
+      },
+      getRowEntry: (id: string) => this.#rowIdMap.get(id),
+      get gridElement() {
+        return grid as unknown as HTMLElement;
+      },
+      ensureCellVisible: () => ensureCellVisible(this as unknown as InternalGrid),
+    };
+  }
+
+  // #endregion
+
+  // #region Row Operations (delegated to RowManager)
+
+  /**
+   * Create the host adapter that the RowManager uses to read/write grid state.
+   */
+  #createRowHost(): RowManagerHost<T> {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const grid = this;
+    return {
+      get rows() {
+        return grid._rows;
+      },
+      get sourceRows() {
+        return grid.#rows;
+      },
+      get gridId() {
+        return grid.id;
+      },
+      get getRowIdFn() {
+        return grid.#effectiveConfig.getRowId;
+      },
+      getRowEntry: (id: string) => this.#rowIdMap.get(id),
+      get sortState() {
+        return grid._sortState;
+      },
+      get originalOrder() {
+        return grid.__originalOrder;
+      },
+      setRows: (rows: T[]) => {
+        this._rows = rows;
+      },
+      setSourceRows: (rows: T[]) => {
+        this.#rows = rows;
+      },
+      setOriginalOrder: (rows: T[]) => {
+        this.__originalOrder = rows;
+      },
+      bumpRenderEpoch: () => {
+        this.__rowRenderEpoch++;
+        for (const r of this._rowPool) (r as unknown as { __epoch: number }).__epoch = -1;
+      },
+      invalidateCellCache: () => invalidateCellCache(this as unknown as InternalGrid),
+      rebuildRowIdMap: () => this.#rebuildRowIdMap(),
+      refreshVirtualWindow: (full: boolean) => this.refreshVirtualWindow(full),
+      emit: (event: string, detail: unknown) => this.#emit(event, detail),
+      emitDataChange: () => this.#emitDataChange(),
+      emitPluginEvent: (event: string, detail: unknown) => this.#pluginManager?.emitPluginEvent(event, detail),
+      requestRender: (phase, source) => this.#scheduler.requestPhase(phase, source),
+      animateRow: (rowIndex, type) => animateRow(this as unknown as InternalGrid, rowIndex, type),
+      cleanupAnimatingRows: () => {
+        requestAnimationFrame(() => {
+          this.querySelectorAll('[data-animating="remove"]').forEach((el) => {
+            el.removeAttribute('data-animating');
+          });
+        });
+      },
+    };
+  }
+
   // #endregion
 
   // #region Virtualization (delegated to VirtualizationManager)

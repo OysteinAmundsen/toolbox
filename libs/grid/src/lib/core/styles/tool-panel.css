@@ -21,7 +21,7 @@
       transition: width var(--tbw-tool-panel-transition);
       display: flex;
       flex-direction: column;
-      z-index: 30;
+      z-index: var(--tbw-z-layer-toolpanel, 31);
       box-shadow: -2px 0 8px var(--tbw-color-shadow);
 
       &[data-position='left'] {

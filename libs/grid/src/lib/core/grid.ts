@@ -4200,6 +4200,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         this.openToolPanel();
         this.#shellState.expandedSections.add(defaultOpen);
       }
+
+      // Restore panel content if panel was already open (e.g., after plugin re-init triggers refreshShellHeader)
+      if (this.#shellState.isPanelOpen) {
+        updatePanelState(this.#renderRoot, this.#shellState);
+        renderPanelContent(this.#renderRoot, this.#shellState, {
+          expand: this.#effectiveConfig?.icons?.expand,
+          collapse: this.#effectiveConfig?.icons?.collapse,
+        });
+        updateToolbarActiveStates(this.#renderRoot, this.#shellState);
+      }
     }
 
     // Re-create resize controller (DOM elements changed)

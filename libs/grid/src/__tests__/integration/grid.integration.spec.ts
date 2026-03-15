@@ -1296,6 +1296,55 @@ describe('tbw-grid integration: shell header & tool panels', () => {
     expect(grid.isToolPanelOpen).toBe(true);
     expect(grid.querySelector('.panel-content')?.textContent).toBe('Panel Content');
   });
+
+  it('preserves panel content when features + position change together', async () => {
+    grid = document.createElement('tbw-grid');
+    // Use features API (like the demo does) — triggers plugin re-init on each gridConfig set
+    await import('../../lib/features/visibility');
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+      columns: [{ field: 'id' }, { field: 'name' }],
+      features: { visibility: true },
+    };
+    grid.rows = [{ id: 1, name: 'Alice' }];
+    document.body.appendChild(grid);
+    await waitUpgrade(grid);
+
+    // Open the panel
+    grid.openToolPanel();
+    await nextFrame();
+    expect(grid.isToolPanelOpen).toBe(true);
+    // Visibility plugin renders toggle checkboxes
+    expect(grid.querySelector('.tbw-visibility-content')).not.toBeNull();
+
+    // Change position (with features in same config — triggers plugin re-init + refreshShellHeader microtask)
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'left' } },
+      columns: [{ field: 'id' }, { field: 'name' }],
+      features: { visibility: true },
+    };
+    await nextFrame();
+    await nextFrame();
+
+    // Panel should still be open with content after microtask fires
+    expect(grid.isToolPanelOpen).toBe(true);
+    const panel = grid.querySelector('.tbw-tool-panel');
+    expect(panel?.dataset.position).toBe('left');
+    expect(panel?.classList.contains('open')).toBe(true);
+    expect(grid.querySelector('.tbw-visibility-content')).not.toBeNull();
+
+    // Switch back to right
+    grid.gridConfig = {
+      shell: { header: { title: 'Test' }, toolPanel: { position: 'right' } },
+      columns: [{ field: 'id' }, { field: 'name' }],
+      features: { visibility: true },
+    };
+    await nextFrame();
+    await nextFrame();
+
+    expect(grid.isToolPanelOpen).toBe(true);
+    expect(grid.querySelector('.tbw-visibility-content')).not.toBeNull();
+  });
 });
 
 describe('tbw-grid integration: selection plugin', () => {

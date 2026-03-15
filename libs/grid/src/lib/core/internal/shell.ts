@@ -253,7 +253,6 @@ export function renderShellBody(
   const hasPanel = state.toolPanels.size > 0;
   const isOpen = state.isPanelOpen;
   const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
-  const collapseIcon = iconToString(icons?.collapse ?? DEFAULT_GRID_ICONS.collapse);
 
   // Sort panels by order for accordion sections
   const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
@@ -265,9 +264,10 @@ export function renderShellBody(
     const isExpanded = state.expandedSections.has(panel.id);
     const iconHtml = panel.icon ? `<span class="tbw-accordion-icon">${panel.icon}</span>` : '';
     // Hide chevron for single panel (no toggling needed)
+    // Always use expandIcon (▶) — CSS rotation handles the expanded state
     const chevronHtml = isSinglePanel
       ? ''
-      : `<span class="tbw-accordion-chevron">${isExpanded ? collapseIcon : expandIcon}</span>`;
+      : `<span class="tbw-accordion-chevron">${expandIcon}</span>`;
     // Disable accordion toggle for single panel
     const sectionClasses = `tbw-accordion-section${isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}`;
     accordionHtml += `
@@ -799,9 +799,6 @@ export function renderPanelContent(
 ): void {
   if (!state.isPanelOpen) return;
 
-  const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
-  const collapseIcon = iconToString(icons?.collapse ?? DEFAULT_GRID_ICONS.collapse);
-
   for (const [panelId, panel] of state.toolPanels) {
     const isExpanded = state.expandedSections.has(panelId);
     const section = renderRoot.querySelector(`[data-section="${panelId}"]`);
@@ -815,10 +812,7 @@ export function renderPanelContent(
     if (header) {
       header.setAttribute('aria-expanded', String(isExpanded));
     }
-    const chevron = section.querySelector('.tbw-accordion-chevron');
-    if (chevron) {
-      chevron.innerHTML = isExpanded ? collapseIcon : expandIcon;
-    }
+    // Don't swap chevron icon — CSS rotation handles expanded/collapsed state
 
     if (isExpanded) {
       // Check if content is already rendered

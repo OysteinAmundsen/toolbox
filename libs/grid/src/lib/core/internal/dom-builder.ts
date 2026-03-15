@@ -354,10 +354,10 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
       titleSpan.textContent = panel.title;
       headerBtn.appendChild(titleSpan);
 
-      // Chevron (hidden for single panel)
+      // Chevron (hidden for single panel) — always use expandIcon, CSS rotation handles state
       if (!isSinglePanel) {
         const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron' });
-        chevronSpan.innerHTML = panel.isExpanded ? options.collapseIcon : options.expandIcon;
+        chevronSpan.innerHTML = options.expandIcon;
         headerBtn.appendChild(chevronSpan);
       }
 

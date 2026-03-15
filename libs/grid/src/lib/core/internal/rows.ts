@@ -317,12 +317,12 @@ export function renderVisibleRows(
 
     // Changed class toggle - check if row ID is in changedRowIds Set (EditingPlugin)
     let isChanged = false;
-    const changedRowIds = grid.changedRowIds;
-    if (changedRowIds && changedRowIds.length > 0) {
+    const changedRowIdSet = grid._changedRowIdSet;
+    if (changedRowIdSet && changedRowIdSet.size > 0) {
       try {
         const rowId = grid.getRowId?.(rowData);
         if (rowId) {
-          isChanged = changedRowIds.includes(rowId);
+          isChanged = changedRowIdSet.has(rowId);
         }
       } catch {
         // Row has no ID - not tracked as changed

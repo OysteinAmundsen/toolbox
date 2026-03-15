@@ -465,6 +465,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   changedRows?: T[];
   /** Get IDs of all changed rows. Injected by EditingPlugin. */
   changedRowIds?: string[];
+  /** Internal Set for O(1) lookup in the render hot path. Injected by EditingPlugin. @internal */
+  _changedRowIdSet?: ReadonlySet<string>;
   effectiveConfig?: GridConfig<T>;
   findHeaderRow?: () => HTMLElement;
   refreshVirtualWindow: (full: boolean, skipAfterRender?: boolean) => boolean;

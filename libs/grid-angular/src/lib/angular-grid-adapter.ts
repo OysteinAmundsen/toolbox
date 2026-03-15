@@ -205,7 +205,15 @@ export class GridAdapter implements FrameworkAdapter {
    * @returns Processed GridConfig with actual renderer/editor functions
    */
   processGridConfig<TRow = unknown>(config: GridConfig<TRow>): BaseGridConfig<TRow> {
-    const result = { ...config } as BaseGridConfig<TRow>;
+    return this.processConfig(config) as BaseGridConfig<TRow>;
+  }
+
+  /**
+   * FrameworkAdapter.processConfig implementation.
+   * Called automatically by the grid's `set gridConfig` setter.
+   */
+  processConfig<TRow = unknown>(config: GridConfig<TRow>): GridConfig<TRow> {
+    const result = { ...config } as GridConfig<TRow>;
 
     // Process columns
     if (config.columns) {

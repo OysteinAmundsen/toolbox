@@ -1462,6 +1462,21 @@ export interface FrameworkAdapter {
   getTypeDefault?<TRow = unknown>(type: string): TypeDefault<TRow> | undefined;
 
   /**
+   * Pre-process a grid config before the grid core applies it.
+   * Framework adapters use this to convert framework-specific component references
+   * (Angular classes, Vue components, React elements) to DOM-returning functions.
+   *
+   * Called automatically by the grid's `set gridConfig` setter when a
+   * `__frameworkAdapter` is present on the grid instance.
+   *
+   * Must be **idempotent** — already-processed configs must pass through safely.
+   *
+   * @param config - The raw grid config (may contain framework-specific values)
+   * @returns Processed config with DOM-returning functions
+   */
+  processConfig?<TRow = unknown>(config: GridConfig<TRow>): GridConfig<TRow>;
+
+  /**
    * Called when a cell's content is about to be wiped (e.g., when exiting edit mode,
    * scroll-recycling a row, or rebuilding a row).
    *

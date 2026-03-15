@@ -554,6 +554,11 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     return this.#effectiveConfig;
   }
   set gridConfig(value: GridConfig<T> | undefined) {
+    // Let the framework adapter pre-process the config (convert component
+    // classes / VNodes / JSX to DOM-returning functions) before the grid sees it.
+    if (value && this.__frameworkAdapter?.processConfig) {
+      value = this.__frameworkAdapter.processConfig(value);
+    }
     const oldValue = this.#configManager?.getGridConfig();
     this.#configManager?.setGridConfig(value);
     if (oldValue !== value) {

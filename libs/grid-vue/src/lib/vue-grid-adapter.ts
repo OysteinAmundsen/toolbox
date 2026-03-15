@@ -278,43 +278,46 @@ export class GridAdapter implements FrameworkAdapter {
    * @returns Processed config with DOM-returning functions
    */
   processGridConfig<TRow = unknown>(config: GridConfig<TRow>): BaseGridConfig<TRow> {
-    return this.processConfig(config) as BaseGridConfig<TRow>;
+    return this.processConfig(config as BaseGridConfig<TRow>);
   }
 
   /**
    * FrameworkAdapter.processConfig implementation.
    * Called automatically by the grid's `set gridConfig` setter.
    */
-  processConfig<TRow = unknown>(config: GridConfig<TRow>): GridConfig<TRow> {
-    const result = { ...config } as GridConfig<TRow>;
+  processConfig<TRow = unknown>(config: BaseGridConfig<TRow>): BaseGridConfig<TRow> {
+    // Cast to Vue's extended GridConfig since the config may contain
+    // Vue component classes or VNode-returning functions at runtime
+    const vueConfig = config as unknown as GridConfig<TRow>;
+    const result = { ...vueConfig };
 
     // Process columns
-    if (config.columns) {
-      result.columns = config.columns.map((col) => this.processColumn(col));
+    if (vueConfig.columns) {
+      result.columns = vueConfig.columns.map((col) => this.processColumn(col));
     }
 
     // Process typeDefaults
-    if (config.typeDefaults) {
-      result.typeDefaults = this.processTypeDefaults(config.typeDefaults as Record<string, TypeDefault>) as Record<
+    if (vueConfig.typeDefaults) {
+      result.typeDefaults = this.processTypeDefaults(vueConfig.typeDefaults as Record<string, TypeDefault>) as Record<
         string,
         BaseTypeDefault<TRow>
       >;
     }
 
     // Process loadingRenderer - convert Vue component/VNode to DOM-returning function
-    if (config.loadingRenderer) {
-      if (isVueComponent(config.loadingRenderer)) {
+    if (vueConfig.loadingRenderer) {
+      if (isVueComponent(vueConfig.loadingRenderer)) {
         (result as BaseGridConfig<TRow>).loadingRenderer = this.createComponentLoadingRenderer(
-          config.loadingRenderer as unknown as Component,
+          vueConfig.loadingRenderer as unknown as Component,
         ) as unknown as BaseGridConfig<TRow>['loadingRenderer'];
-      } else if (isVNodeRenderFunction(config.loadingRenderer)) {
+      } else if (isVNodeRenderFunction(vueConfig.loadingRenderer)) {
         (result as BaseGridConfig<TRow>).loadingRenderer = this.createVNodeLoadingRenderer(
-          config.loadingRenderer as unknown as (ctx: LoadingContext) => VNode,
+          vueConfig.loadingRenderer as unknown as (ctx: LoadingContext) => VNode,
         ) as unknown as BaseGridConfig<TRow>['loadingRenderer'];
       }
     }
 
-    return result;
+    return result as BaseGridConfig<TRow>;
   }
 
   /**

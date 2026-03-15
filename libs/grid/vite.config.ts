@@ -57,6 +57,8 @@ function externalizeCore(): Plugin {
     resolveId(source, importer) {
       const norm = importer?.replace(/\\/g, '/');
       if (!norm?.includes('/plugins/')) return null;
+      // Don't externalize core/internal/* — those are small utilities that should be bundled
+      if (source.includes('core/internal/')) return null;
       if (source.startsWith('../../components/') || source.startsWith('../../../')) {
         return { id: '@toolbox-web/grid', external: true };
       }

@@ -8,15 +8,17 @@
 
 These rules apply to ALL frameworks. Violating them produces broken code.
 
-### 1. Required Side-Effect Import
+### 1. Required Side-Effect Import (Vanilla JS)
 
-The grid is a Web Component. You MUST register the custom element:
+The grid is a Web Component. When using **vanilla JS** (no framework adapter), you MUST register the custom element:
 
 ```typescript
-import '@toolbox-web/grid'; // ALWAYS required — registers <tbw-grid>
+import '@toolbox-web/grid'; // Required in vanilla JS — registers <tbw-grid>
 ```
 
 Without this import, `<tbw-grid>` renders as an unknown HTML element.
+
+> **Note:** Framework adapters (`@toolbox-web/grid-react`, `@toolbox-web/grid-angular`, `@toolbox-web/grid-vue`) auto-import the grid, so this is only needed in vanilla JS or when using `<tbw-grid>` directly without an adapter.
 
 ### 2. Height and Display Are Required
 
@@ -88,7 +90,7 @@ All-in-one import (larger bundle): `import { SelectionPlugin, EditingPlugin, ...
 // For consumer code (referencing the grid element):
 import type { DataGridElement } from '@toolbox-web/grid';
 
-// ❌ WRONG — GridElement is an internal type for plugin authors
+// ⚠️ Deprecated alias — use DataGridElement instead
 import type { GridElement } from '@toolbox-web/grid';
 ```
 
@@ -409,7 +411,7 @@ import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
     <tbw-grid [rows]="employees" [columns]="columns" [editing]="'dblclick'" style="height: 400px; display: block;">
       <tbw-grid-column field="status" header="Status" [editable]="true">
         <span *tbwRenderer="let value" [class]="'badge badge-' + value">{{ value }}</span>
-        <select *tbwEditor="let value" (change)="$event.target.value">
+        <select *tbwEditor="let value; onCommit as onCommit" (change)="onCommit($event.target.value)">
           <option value="active" [selected]="value === 'active'">Active</option>
           <option value="inactive" [selected]="value === 'inactive'">Inactive</option>
         </select>
@@ -628,22 +630,22 @@ interface ColumnConfig<TRow = unknown> {
   type?: 'string' | 'number' | 'date' | 'boolean' | 'select'; // Column data type
   width?: number | string;    // Pixels (number), '1fr', or percentage string
   minWidth?: number;          // Minimum width in pixels
-  maxWidth?: number;          // Maximum width in pixels
   sortable?: boolean;         // Enable sorting (default: true)
   resizable?: boolean;        // Enable resize (default: true)
   editable?: boolean;         // Enable editing (requires EditingPlugin)
   filterable?: boolean;       // Enable filtering (requires FilteringPlugin)
   hidden?: boolean;           // Initially hidden
   lockVisible?: boolean;      // Prevent hiding via UI
-  sticky?: 'left' | 'right'; // Pin column (requires PinnedColumnsPlugin)
+  pinned?: 'left' | 'right' | 'start' | 'end'; // Pin column (requires PinnedColumnsPlugin)
   group?: string | { id: string; label?: string }; // Column group (requires GroupingColumnsPlugin)
   format?: (value: any, row: TRow) => string;  // Display formatter
   renderer?: (ctx: CellRenderContext) => HTMLElement | string;  // Custom cell render
   editor?: (ctx: ColumnEditorContext) => HTMLElement;  // Custom cell editor
   editorParams?: {            // Built-in editor configuration
-    options?: { value: string; label: string }[];  // For type: 'select'
-    min?: number; max?: number; step?: number;      // For type: 'number' or 'date'
+    min?: number; max?: number; step?: number;      // For type: 'number'
     maxLength?: number; placeholder?: string;       // For type: 'string'
+    // For type: 'date': min/max are ISO date strings ('YYYY-MM-DD')
+    // For type: 'select': use column-level `options` prop, not editorParams
   };
   headerRenderer?: (ctx: HeaderCellContext) => HTMLElement | string;  // Full header control
   headerLabelRenderer?: (ctx: HeaderCellContext) => HTMLElement | string; // Label-only (sort icons auto-added)
@@ -704,10 +706,8 @@ The grid merges configuration from multiple sources (lowest → highest priority
 interface CellRenderContext<TRow, TValue> {
   value: TValue;           // Cell value
   row: TRow;               // Full row data
-  rowIndex: number;        // Row index
-  column: ColumnConfig;    // Column configuration
   field: string;           // Field name
-  cellEl: HTMLElement;     // Cell DOM element
+  column: ColumnConfig;    // Column configuration
 }
 ```
 
@@ -717,12 +717,12 @@ interface CellRenderContext<TRow, TValue> {
 interface ColumnEditorContext<TRow, TValue> {
   value: TValue;           // Current cell value
   row: TRow;               // Full row data
-  rowIndex: number;        // Row index
-  column: ColumnConfig;    // Column configuration
+  rowId: string;           // Row identifier (from getRowId or auto-generated)
   field: string;           // Field name
-  cellEl: HTMLElement;     // Cell DOM element
+  column: ColumnConfig;    // Column configuration
   commit: (newValue: TValue) => void;  // Commit the edit
   cancel: () => void;                   // Cancel the edit
+  updateRow: (changes: Partial<TRow>) => void;  // Update other fields in the same row
   onValueChange?: (callback: (newValue: TValue) => void) => void;
     // Register to receive pushed values when the cell is updated externally
     // (e.g., via updateRow from another cell's commit). Built-in editors
@@ -737,6 +737,7 @@ interface HeaderCellContext<TRow> {
   column: ColumnConfig;                         // Column configuration
   value: string;                                // Header text
   sortState: 'asc' | 'desc' | null;            // Current sort state
+  filterActive: boolean;                        // Whether column has an active filter
   cellEl: HTMLElement;                          // Header cell element
   renderSortIcon: () => HTMLElement | null;     // Get sort indicator element
   renderFilterButton: () => HTMLElement | null; // Get filter button (requires FilteringPlugin)
@@ -754,7 +755,7 @@ import { DGEvents } from '@toolbox-web/grid';
 
 grid.addEventListener(DGEvents.CELL_COMMIT, (e) => {
   console.log('Cell edited:', e.detail);
-  // { field, value, oldValue, row, rowIndex }
+  // { field, value, oldValue, row, rowId, rowIndex, changedRows, updateRow, setInvalid }
 });
 
 grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
@@ -773,26 +774,27 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `sort-change` | `field`, `direction` (0=none, 1=asc, -1=desc) |
 | `column-resize` | `field`, `width` |
 | `column-state-change` | `columns` array with field, order, width, visible, sort |
+| `data-change` | `rowCount`, `sourceRowCount` — fires when rows are set or modified |
 
 **Editing Events (require EditingPlugin):**
 
 | Event | Detail Properties |
 |-------|-------------------|
-| `cell-commit` | `row`, `rowIndex`, `field`, `value`, `oldValue` (cancelable) |
-| `row-commit` | `row`, `rowIndex`, `changes` (cancelable) |
-| `edit-open` | `row`, `rowIndex` |
+| `cell-commit` | `row`, `rowId`, `rowIndex`, `field`, `value`, `oldValue`, `changedRows`, `updateRow`, `setInvalid` (cancelable) |
+| `row-commit` | `row`, `rowIndex`, `rowId`, `oldValue`, `newValue`, `changed`, `changedRows`, `changedRowIds` (cancelable) |
+| `edit-open` | `row`, `rowIndex`, `rowId` |
 | `before-edit-close` | `row`, `rowIndex`, `rowId` — fires before state cleared on commit (row mode); lets managed editors flush values |
-| `edit-close` | `row`, `rowIndex` |
-| `changed-rows-reset` | — |
-| `group-toggle` | `key`, `expanded` |
-| `dirty-change` | `rowId`, `row`, `original`, `type` (requires `dirtyTracking: true`) |
+| `edit-close` | `row`, `rowIndex`, `rowId`, `reverted` |
+| `changed-rows-reset` | `rows`, `ids` |
+| `group-toggle` | `key`, `expanded`, `value`, `depth` |
+| `dirty-change` | `rowId`, `row`, `original`, `type` (`'modified'`\|`'new'`\|`'reverted'`\|`'pristine'`) (requires `dirtyTracking: true`) |
 
 **Plugin Events (via `PluginEvents` constant):**
 
 | Event | Plugin | Detail Properties |
 |-------|--------|-------------------|
 | `selection-change` | Selection | `SelectionChangeDetail` |
-| `filter-change` | Filtering | `FilterModel` |
+| `filter-change` | Filtering | `FilterChangeDetail` (`filters[]`, `filteredRowCount`, `selected?`) |
 | `sort-model-change` | MultiSort | `SortModel[]` |
 | `tree-expand` | Tree | `TreeExpandDetail` |
 | `detail-expand` | MasterDetail | `DetailExpandDetail` |
@@ -862,7 +864,7 @@ new EditingPlugin({
 //   getDirtyRows() → [{ id, original, current }]
 //   markAsPristine(rowId), markAllPristine(), markAsDirty(rowId)
 //   revertRow(rowId), getOriginalRow(rowId)
-//   Event: 'dirty-change' → { rowId, row, original, type: 'modified'|'pristine'|'reverted' }
+//   Event: 'dirty-change' → { rowId, row, original, type: 'modified'|'new'|'reverted'|'pristine' }
 //   CSS classes: .tbw-row-dirty, .tbw-row-new (auto-applied to rows)
 // Editing Stability: active edit session survives sort/filter/group pipeline changes
 ```
@@ -1490,8 +1492,7 @@ tbw-grid .data-grid-row.priority-high { color: #d32f2f; }
 ### Import Structure
 
 ```tsx
-import '@toolbox-web/grid';                             // Register web component (REQUIRED)
-import { DataGrid, type GridConfig } from '@toolbox-web/grid-react'; // React wrapper
+import { DataGrid, type GridConfig } from '@toolbox-web/grid-react'; // React wrapper (auto-imports grid)
 import '@toolbox-web/grid-react/features/selection';    // Feature side-effect imports
 ```
 
@@ -1555,7 +1556,7 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 ### Import Structure
 
 ```typescript
-import '@toolbox-web/grid';                              // Register web component (REQUIRED)
+// Note: @toolbox-web/grid-angular auto-imports the grid — no separate import needed
 import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
 import '@toolbox-web/grid-angular/features/selection';   // Feature side-effect imports
 ```
@@ -1582,11 +1583,11 @@ The `Grid` directive's selector is `'tbw-grid'`, so Angular recognizes the eleme
 Pass Angular component classes directly in `gridConfig` for reusable renderers:
 
 ```typescript
-import { AngularGridAdapter, type GridConfig } from '@toolbox-web/grid-angular';
+import { GridAdapter, type GridConfig } from '@toolbox-web/grid-angular';
 
 @Component({ /* ... */ })
 export class GridComponent {
-  private adapter = inject(AngularGridAdapter);
+  private adapter = inject(GridAdapter);
 
   private config: GridConfig<Employee> = {
     columns: [
@@ -1760,7 +1761,7 @@ Use in column config: `{ field: 'name', filterable: true, filterPanel: TextFilte
 ### Import Structure
 
 ```typescript
-import '@toolbox-web/grid';                            // Register web component (REQUIRED)
+// Note: @toolbox-web/grid-vue auto-imports the grid — no separate import needed
 import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
 import '@toolbox-web/grid-vue/features/selection';     // Feature side-effect imports
 ```

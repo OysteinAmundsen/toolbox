@@ -106,12 +106,13 @@ When the same property is set via multiple sources, higher precedence wins:
 
 | Priority    | Source                | Example                                      |
 | ----------- | --------------------- | -------------------------------------------- |
-| 1 (lowest)  | HTML attributes       | `<tbw-grid rows='[...]' fit-mode="stretch">` |
-| 2           | `gridConfig` property | `grid.gridConfig = { fitMode: 'stretch' }`   |
-| 3           | Light DOM elements    | `<tbw-grid-column field="name">`             |
-| 4           | `columns` property    | `grid.columns = [{ field: 'name' }]`         |
-| 5           | Inferred columns      | (auto-detected from first row)               |
-| 6 (highest) | Individual props      | `grid.fitMode = 'fixed'`                     |
+| 1 (lowest)  | `gridConfig` property | `grid.gridConfig = { fitMode: 'stretch' }`   |
+| 2           | Light DOM elements    | `<tbw-grid-column field="name">`             |
+| 3           | `columns` property    | `grid.columns = [{ field: 'name' }]`         |
+| 4           | Inferred columns      | (auto-detected from first row)               |
+| 5 (highest) | Individual props      | `grid.fitMode = 'fixed'`                     |
+
+> **Note:** HTML attributes (`rows`, `columns`, `grid-config`, `fit-mode`) invoke the corresponding property setters via `attributeChangedCallback` — they are not a separate precedence layer.
 
 ### HTML Attribute Configuration
 
@@ -441,23 +442,406 @@ static override readonly manifest = {
 
 The grid validates at runtime that properties like `editable: true` are only used when the owning plugin is loaded, and provides helpful error messages with import hints.
 
----
-
-## Runtime Configuration Validation
-
-The grid validates plugin-owned properties at runtime and throws helpful errors if required plugins are missing.
-
 ### Validated Properties
 
 | Property       | Required Plugin         | Level  |
 | -------------- | ----------------------- | ------ |
 | `editable`     | `EditingPlugin`         | Column |
 | `editor`       | `EditingPlugin`         | Column |
+| `editorParams` | `EditingPlugin`         | Column |
 | `group`        | `GroupingColumnsPlugin` | Column |
-| `sticky`       | `PinnedColumnsPlugin`   | Column |
+| `pinned`       | `PinnedColumnsPlugin`   | Column |
 | `columnGroups` | `GroupingColumnsPlugin` | Config |
 
 Validation runs in the `RenderScheduler.mergeConfig` callback, **after** plugins are initialized. Error messages clearly state which plugin is missing and how to import it.
+
+---
+
+## Feature Registry
+
+The **features API** is the recommended way to enable grid capabilities. It wraps the plugin system with declarative configuration and tree-shakeable side-effect imports.
+
+### Why Features?
+
+| Aspect | Features (recommended) | Plugins (advanced) |
+|--------|----------------------|--------------------|
+| API | `features: { selection: 'row' }` | `plugins: [new SelectionPlugin({ mode: 'row' })]` |
+| Import | `import '@toolbox-web/grid/features/selection'` | `import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection'` |
+| Dependencies | Auto-resolved | Manual ordering |
+| Tree-shaking | Zero cost if unused | Must avoid importing unused plugins |
+
+### How It Works
+
+Each feature module is a side-effect import that registers a factory function:
+
+```mermaid
+flowchart LR
+    subgraph imports["SIDE-EFFECT IMPORTS"]
+        A["import '.../features/selection'"]
+        B["import '.../features/editing'"]
+    end
+
+    A -->|"module executes"| C["registerFeature('selection', factory)"]
+    B -->|"module executes"| D["registerFeature('editing', factory)"]
+
+    C --> E["featureRegistry<br/><i>Map&lt;string, factory&gt;</i>"]
+    D --> E
+
+    F["gridConfig.features"] --> G["createPluginsFromFeatures()"]
+    E --> G
+    G --> H["Plugin instances<br/>(ordered by dependencies)"]
+```
+
+### Registration
+
+When a feature module is imported, it runs immediately at load time:
+
+```typescript
+// libs/grid/src/lib/features/selection.ts
+import { SelectionPlugin } from '../plugins/selection';
+import { registerFeature } from './registry';
+
+registerFeature('selection', (config) => {
+  // Shorthand strings → full config
+  if (config === 'cell' || config === 'row' || config === 'range') {
+    return new SelectionPlugin({ mode: config });
+  }
+  return new SelectionPlugin(config ?? undefined);
+});
+```
+
+Each factory handles **shorthand values** (e.g., `'row'` → `{ mode: 'row' }`), so users get a simpler API.
+
+### Lazy Hook Design
+
+The grid core never references the feature registry directly. Instead, a **hook function** bridges them:
+
+```typescript
+// feature-hook.ts — imported by grid core
+export let resolveFeatures: FeatureResolverFn | undefined;  // Starts undefined!
+
+// registry.ts — imported only when a feature is imported
+setFeatureResolver(createPluginsFromFeatures);  // Sets the hook
+```
+
+If no feature modules are imported, `resolveFeatures` stays `undefined` — the entire registry module is tree-shaken away by the bundler. This is why features are zero-cost when unused.
+
+### Resolution Flow
+
+During plugin initialization:
+
+```typescript
+// grid.ts — #initializePlugins()
+const features = this.#effectiveConfig?.features;
+if (features && resolveFeatures) {
+  featurePlugins = resolveFeatures(features);
+}
+// Feature plugins ordered first, then explicit plugins
+const allPlugins = [...featurePlugins, ...explicitPlugins];
+```
+
+Dependencies are auto-ordered: `selection` and `editing` always instantiate first, since other plugins (like `clipboard` or `undoRedo`) depend on them.
+
+### Tree-Shaking
+
+Feature modules are marked as side-effects in `package.json`:
+
+```json
+{ "sideEffects": ["./lib/features/*.js"] }
+```
+
+This tells bundlers: "these imports have side effects (registration), don't optimize them away." But un-imported features are never loaded, so only the features you use add to bundle size (~200–300 bytes each).
+
+---
+
+## Framework Adapter System
+
+Framework adapters let React, Angular, and Vue intercept grid rendering to support JSX components, Angular templates, and Vue slots as cell renderers and editors.
+
+### Architecture
+
+```mermaid
+flowchart TB
+    subgraph adapters["REGISTERED ADAPTERS"]
+        A["ReactGridAdapter"]
+        B["AngularGridAdapter"]
+        C["VueGridAdapter"]
+    end
+
+    D["DataGridElement.registerAdapter()"]
+    A --> D
+    B --> D
+    C --> D
+    D --> E["Static adapter array<br/><i>(shared across all grids)</i>"]
+
+    subgraph rendering["RENDERING PIPELINE"]
+        F["Parse &lt;tbw-grid-column&gt;"]
+        G["Cell render cycle"]
+        H["Cell cleanup"]
+    end
+
+    E --> F
+    E --> G
+    E --> H
+```
+
+### FrameworkAdapter Interface
+
+Adapters implement these methods:
+
+| Method | Required | Purpose |
+|--------|----------|---------|
+| `canHandle(element)` | Yes | Check if this adapter can process the element |
+| `createRenderer(element)` | Yes | Return a cell renderer function, or `undefined` to pass |
+| `createEditor(element)` | Yes | Return a cell editor function, or `undefined` to pass |
+| `processConfig(config)` | No | Transform framework-specific config (e.g., component classes → render functions) |
+| `getTypeDefault(type)` | No | Provide app-wide type defaults from framework's DI/registry |
+| `releaseCell(cellEl)` | No | Cleanup when cell DOM is recycled (unmount React roots, destroy Angular views) |
+| `createToolPanelRenderer(element)` | No | Support framework components in tool panel sidebar |
+
+### Registration
+
+Adapters register statically on `DataGridElement` — typically at module load time:
+
+```typescript
+// React: registers immediately on import
+const globalAdapter = new GridAdapter();
+DataGridElement.registerAdapter(globalAdapter);
+
+// Angular: registers via Grid directive
+DataGridElement.registerAdapter(this.adapter);
+
+// Vue: registers in DataGrid component onMounted()
+```
+
+This is why importing `@toolbox-web/grid-react` (or any adapter package) auto-registers the adapter — no separate setup needed.
+
+### Adapter Invocation Points
+
+Adapters are called at four points in the grid lifecycle:
+
+**1. Light DOM Column Parsing** — When `<tbw-grid-column>` elements are parsed, each adapter is tried until one handles the renderer/editor:
+
+```typescript
+const viewAdapter = adapters.find((a) => a.canHandle(viewTarget));
+if (viewAdapter) {
+  config.viewRenderer = viewAdapter.createRenderer(viewTarget);
+}
+```
+
+**2. Config Processing** — When `gridConfig` is set, the adapter can transform component classes to render functions:
+
+```typescript
+set gridConfig(value) {
+  if (value && this.__frameworkAdapter?.processConfig) {
+    value = this.__frameworkAdapter.processConfig(value);
+  }
+}
+```
+
+**3. Cell Rendering** — Type defaults are resolved through the adapter:
+
+```typescript
+const appDefault = adapter.getTypeDefault(col.type);
+if (appDefault?.renderer) return appDefault.renderer;
+```
+
+**4. Cell Cleanup** — When virtualization recycles a row, adapters unmount framework components:
+
+```typescript
+grid.__frameworkAdapter?.releaseCell?.(cell);
+// React: unmounts React root
+// Angular: destroys component view
+// Vue: unmounts app instance
+```
+
+---
+
+## Shell System
+
+The **shell** is an optional wrapper that adds a header bar, toolbar buttons, and a collapsible tool panel sidebar to the grid.
+
+### Structure
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ SHELL HEADER                                             │
+│ ┌──────────┬──────────────────┬────────────────────────┐ │
+│ │  Title   │  Header Content  │  Toolbar  │ ☰ Toggle  │ │
+│ └──────────┴──────────────────┴────────────────────────┘ │
+├───────────┬──────────────────────────────────────────────┤
+│ TOOL      │                                              │
+│ PANEL     │              GRID CONTENT                    │
+│ (sidebar) │                                              │
+│ ┌───────┐ │   ┌─────────────────────────────────────┐    │
+│ │Section│ │   │  Header Row                         │    │
+│ │  ▼    │ │   ├─────────────────────────────────────┤    │
+│ │Content│ │   │  Data Rows (virtualized)            │    │
+│ │       │ │   │                                     │    │
+│ ├───────┤ │   └─────────────────────────────────────┘    │
+│ │Section│ │                                              │
+│ │  ▶   │ │                                              │
+│ └───────┘ │                                              │
+└───────────┴──────────────────────────────────────────────┘
+```
+
+### Configuration
+
+The shell is configured via `gridConfig.shell` or Light DOM elements:
+
+```typescript
+gridConfig: {
+  shell: {
+    header: { title: 'My Grid' },
+    toolPanel: {
+      position: 'left' | 'right',  // Sidebar position
+      width: '17.5em',             // Panel width (CSS value)
+      defaultOpen: 'filters',      // Auto-open section ID
+      closeOnClickOutside: false,
+    },
+  },
+}
+```
+
+Or declaratively:
+
+```html
+<tbw-grid>
+  <tbw-grid-header title="My Grid">
+    <tbw-grid-header-content>
+      <span>Custom center content</span>
+    </tbw-grid-header-content>
+    <tbw-grid-tool-button label="Export" icon="📥"></tbw-grid-tool-button>
+  </tbw-grid-header>
+</tbw-grid>
+```
+
+### Content Types
+
+Plugins and application code can register three types of content:
+
+| Type | Location | Example |
+|------|----------|---------|
+| **ToolPanel** | Accordion sections in sidebar | Filter panel, visibility panel, pivot config |
+| **HeaderContent** | Center of header bar | Search box, breadcrumbs |
+| **ToolbarContent** | Right side of header (before toggle) | Export button, view switcher |
+
+Each content type uses a render function pattern:
+
+```typescript
+grid.registerToolPanel({
+  id: 'filters',
+  title: 'Filters',
+  icon: '🔍',
+  render: (container) => {
+    container.innerHTML = '<div>Filter UI here</div>';
+    return () => { /* cleanup */ };
+  },
+});
+```
+
+### Shell State
+
+The shell maintains runtime state for:
+
+- **Panel open/close** — `isPanelOpen`, toggled via `openToolPanel()` / `closeToolPanel()`
+- **Expanded sections** — `expandedSections: Set<string>`, accordion state
+- **Content registrations** — `toolPanels`, `headerContents`, `toolbarContents` Maps
+- **Cleanup functions** — Each rendered content can return a cleanup callback, tracked for disposal
+
+### Lazy Rendering
+
+Tool panel section content is rendered **lazily** — the `render()` function only executes when the user expands that accordion section for the first time. This avoids expensive initialization for panels the user never opens.
+
+---
+
+## Animation System
+
+The grid supports CSS-driven animations for row insert, remove, and update operations.
+
+### Animation Types
+
+| Type | Trigger | Default Duration | CSS Variable |
+|------|---------|-----------------|--------------|
+| `'insert'` | `insertRow()`, bulk add | 300ms | `--tbw-row-insert-duration` |
+| `'remove'` | `removeRow()`, bulk delete | 200ms | `--tbw-row-remove-duration` |
+| `'change'` | `animateRow()`, data update highlight | 500ms | `--tbw-row-change-duration` |
+
+### How It Works
+
+Animations use a **CSS attribute hook** pattern:
+
+1. Grid sets `data-animating="insert"` on the row element
+2. CSS transitions/keyframes in `grid.css` target `[data-animating="insert"]`
+3. After the duration, a `setTimeout` removes the attribute (or the row for `'remove'`)
+4. A `Promise` resolves when the animation completes
+
+```typescript
+// Core mechanism (row-animation.ts)
+rowEl.setAttribute('data-animating', animationType);
+const duration = getAnimationDuration(rowEl, animationType);
+setTimeout(() => {
+  if (animationType !== 'remove') {
+    rowEl.removeAttribute('data-animating');
+  }
+  onComplete?.();
+}, duration);
+```
+
+### Animation Configuration
+
+```typescript
+gridConfig: {
+  animation: {
+    mode: 'reduced-motion',  // Default: respects prefers-reduced-motion
+    duration: 200,           // Sets --tbw-animation-duration
+    easing: 'ease-out',      // Sets --tbw-animation-easing
+  },
+}
+```
+
+**`mode` options:**
+
+| Value | Behavior |
+|-------|----------|
+| `true` / `'on'` | Always animate |
+| `false` / `'off'` | Never animate |
+| `'reduced-motion'` | Respect `prefers-reduced-motion` media query (default) |
+
+### Public API
+
+```typescript
+// Highlight a row after data update
+await grid.animateRow(5, 'change');
+
+// Highlight by row ID
+await grid.animateRowById('emp-123', 'change');
+
+// Animate multiple rows
+const count = await grid.animateRows([0, 2, 5], 'change');
+
+// Insert with auto-animation (default)
+await grid.insertRow(0, newRow);         // Animates
+await grid.insertRow(0, newRow, false);  // No animation
+
+// Remove with auto-animation (default)
+const removed = await grid.removeRow(5);         // Animates fade-out
+const removed = await grid.removeRow(5, false);  // Immediate
+```
+
+All methods return `Promise`s — `await` ensures the animation completes before proceeding.
+
+### CSS Customization
+
+Override animation timing per-type via CSS custom properties:
+
+```css
+tbw-grid {
+  --tbw-row-change-duration: 800ms;   /* Longer highlight */
+  --tbw-row-insert-duration: 0ms;     /* Disable insert animation */
+  --tbw-row-remove-duration: 150ms;   /* Faster fade-out */
+  --tbw-row-change-color: #fff3cd;    /* Yellow highlight */
+}
 
 ---
 
@@ -491,7 +875,7 @@ Validation runs in the `RenderScheduler.mergeConfig` callback, **after** plugins
 
 ### CSS Custom Properties
 
-All styling uses CSS custom properties for theming:
+All styling uses CSS custom properties for theming. Override defaults to customize:
 
 ```css
 tbw-grid {
@@ -499,10 +883,10 @@ tbw-grid {
   --tbw-color-fg: #1a1a1a;
   --tbw-color-border: #e5e5e5;
   --tbw-color-header-bg: #f5f5f5;
-  --tbw-row-height: 28px;
-  --tbw-header-height: 32px;
+  --tbw-row-height: 1.75em;    /* ~28px at 16px font */
+  --tbw-header-height: 1.875em; /* ~30px at 16px font */
   --tbw-font-family: system-ui, sans-serif;
-  --tbw-font-size: 13px;
+  --tbw-font-size: 1em;
 }
 ```
 
@@ -592,31 +976,43 @@ libs/grid/src/
 ├─ all.ts                  # All-in-one bundle with all plugins
 └─ lib/
    ├─ core/
-   │  ├─ grid.ts             # Main component class
+   │  ├─ grid.ts             # Main component class (~4500 lines)
    │  ├─ grid.css            # Core styles
    │  ├─ types.ts            # Public type definitions
    │  ├─ constants.ts        # DOM class/attribute constants
    │  ├─ internal/           # Pure helper functions
    │  │  ├─ columns.ts        # Column resolution, sizing
-   │  │  ├─ config-manager.ts # Config lifecycle & column state
+   │  │  ├─ config-manager.ts # Two-layer config (original + effective)
    │  │  ├─ dom-builder.ts    # Direct DOM construction
    │  │  ├─ render-scheduler.ts # RAF-based render batching
-   │  │  ├─ rows.ts           # Row rendering
+   │  │  ├─ rows.ts           # Row rendering + cell patching
+   │  │  ├─ row-animation.ts  # CSS-driven row animations
+   │  │  ├─ shell.ts          # Shell header, toolbar, tool panels
    │  │  ├─ virtualization.ts # Virtual scroll math
+   │  │  ├─ feature-hook.ts   # Lazy bridge to feature registry
    │  │  └─ ...              # More internal helpers
-   │  └─ plugin/             # Plugin infrastructure
-   │     ├─ base-plugin.ts    # Abstract base class
-   │     └─ plugin-manager.ts # Plugin lifecycle
+   │  ├─ plugin/             # Plugin infrastructure
+   │  │  ├─ base-plugin.ts    # Abstract base class
+   │  │  └─ plugin-manager.ts # Plugin lifecycle
+   │  └─ styles/             # Core CSS (variables, layers)
+   │     └─ variables.css     # CSS custom property defaults
+   ├─ features/              # Feature registry (declarative plugin API)
+   │  ├─ registry.ts          # registerFeature(), createPluginsFromFeatures()
+   │  ├─ selection.ts         # Side-effect: registers selection feature
+   │  ├─ editing.ts           # Side-effect: registers editing feature
+   │  └─ ...                 # 22 feature modules total
    └─ plugins/               # Built-in plugins
       ├─ editing/             # Inline cell editing
       ├─ filtering/           # Column filters
       ├─ selection/           # Row/cell/range selection
       ├─ multi-sort/          # Multi-column sorting
-      └─ ...                 # 20+ more plugins
+      └─ ...                 # 22 plugins total
 ```
 
 ## See Also
 
-- [Custom Plugins](/grid/guides/custom-plugins/) — Build your own plugins
-- [Performance Guide](/grid/guides/performance/) — Render scheduler tuning
+- [Custom Plugins](/grid/guides/custom-plugins/) — Build your own plugins with hooks, events, and queries
+- [Performance Guide](/grid/guides/performance/) — Render scheduler tuning, virtualization, idle scheduling
 - [Plugins Overview](/grid/plugins/) — Available plugins and their hooks
+- [Theming Guide](/grid/guides/theming/) — CSS custom properties, themes, cascade layers
+- [API Reference](/grid/api-reference/) — Properties, methods, events, and types

@@ -56,6 +56,10 @@ export class PluginManager {
 
   /** Cell editors registered by plugins */
   private cellEditors: Map<string, CellEditor> = new Map();
+
+  /** Cached hook presence flags — invalidated on plugin attach/detach */
+  private _hasAfterCellRender = false;
+  private _hasAfterRowRender = false;
   // #endregion
 
   // #region Event Bus State
@@ -137,6 +141,9 @@ export class PluginManager {
 
     // Call attach lifecycle method
     plugin.attach(this.grid);
+
+    // Invalidate hook caches
+    this.#invalidateHookCaches();
 
     // Notify existing plugins of the new attachment
     for (const existingPlugin of this.plugins) {
@@ -234,6 +241,8 @@ export class PluginManager {
     this.cellEditors.clear();
     this.eventListeners.clear();
     this.queryHandlers.clear();
+    this._hasAfterCellRender = false;
+    this._hasAfterRowRender = false;
   }
   // #endregion
 
@@ -365,10 +374,10 @@ export class PluginManager {
 
   /**
    * Check if any plugin has the afterCellRender hook implemented.
-   * Used to skip the hook call overhead when no plugins need it.
+   * Cached — invalidated on plugin attach/detach.
    */
   hasAfterCellRenderHook(): boolean {
-    return this.plugins.some((p) => typeof p.afterCellRender === 'function');
+    return this._hasAfterCellRender;
   }
 
   /**
@@ -385,10 +394,16 @@ export class PluginManager {
 
   /**
    * Check if any plugin has the afterRowRender hook implemented.
-   * Used to skip the hook call overhead when no plugins need it.
+   * Cached — invalidated on plugin attach/detach.
    */
   hasAfterRowRenderHook(): boolean {
-    return this.plugins.some((p) => typeof p.afterRowRender === 'function');
+    return this._hasAfterRowRender;
+  }
+
+  /** Recompute cached hook presence flags. */
+  #invalidateHookCaches(): void {
+    this._hasAfterCellRender = this.plugins.some((p) => typeof p.afterCellRender === 'function');
+    this._hasAfterRowRender = this.plugins.some((p) => typeof p.afterRowRender === 'function');
   }
 
   /**

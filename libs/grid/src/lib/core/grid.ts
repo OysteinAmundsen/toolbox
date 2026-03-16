@@ -346,12 +346,15 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   }
   set _columns(value: ColumnInternal<T>[]) {
     this.#effectiveConfig.columns = value as ColumnConfig<T>[];
+    this.#visibleColumnsCache = undefined;
   }
 
   // visibleColumns returns only visible columns for rendering
   // This is what header/row rendering should use
+  // Cached — invalidated when _columns is set
+  #visibleColumnsCache?: ColumnInternal<T>[];
   get _visibleColumns(): ColumnInternal<T>[] {
-    return this._columns.filter((c) => !c.hidden);
+    return (this.#visibleColumnsCache ??= this._columns.filter((c) => !c.hidden));
   }
   // #endregion
 
@@ -2624,12 +2627,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @param rowIndex - The data row index (not the DOM position)
    */
   findRenderedRowElement(rowIndex: number): HTMLElement | null {
-    return (
-      (Array.from(this._bodyEl.querySelectorAll('.data-grid-row')) as HTMLElement[]).find((r) => {
-        const cell = r.querySelector('.cell[data-row]');
-        return cell && Number(cell.getAttribute('data-row')) === rowIndex;
-      }) || null
-    );
+    const s = this._virtualization;
+    const poolIndex = rowIndex - s.start;
+    if (poolIndex >= 0 && poolIndex < this._rowPool.length && poolIndex < s.end - s.start) {
+      return this._rowPool[poolIndex];
+    }
+    return null;
   }
 
   /**

@@ -345,9 +345,14 @@ export function renderVisibleRows(
         const result = rowClassFn(rowData);
         const newClasses = typeof result === 'string' ? result.split(/\s+/) : result;
         if (newClasses && newClasses.length > 0) {
-          const validClasses = newClasses.filter((c) => c && typeof c === 'string');
-          validClasses.forEach((cls) => rowEl.classList.add(cls));
-          rowEl.setAttribute('data-dynamic-classes', validClasses.join(' '));
+          let dynamicClassStr = '';
+          for (const c of newClasses) {
+            if (c && typeof c === 'string') {
+              rowEl.classList.add(c);
+              dynamicClassStr += (dynamicClassStr ? ' ' : '') + c;
+            }
+          }
+          rowEl.setAttribute('data-dynamic-classes', dynamicClassStr);
         } else {
           rowEl.removeAttribute('data-dynamic-classes');
         }
@@ -883,9 +888,14 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
         const result = cellClassFn(cellValue, rowData, col);
         const cellClasses = typeof result === 'string' ? result.split(/\s+/) : result;
         if (cellClasses && cellClasses.length > 0) {
-          const validClasses = cellClasses.filter((c) => c && typeof c === 'string');
-          validClasses.forEach((cls) => cell.classList.add(cls));
-          cell.setAttribute('data-dynamic-classes', validClasses.join(' '));
+          let dynamicClassStr = '';
+          for (const c of cellClasses) {
+            if (c && typeof c === 'string') {
+              cell.classList.add(c);
+              dynamicClassStr += (dynamicClassStr ? ' ' : '') + c;
+            }
+          }
+          cell.setAttribute('data-dynamic-classes', dynamicClassStr);
         }
       } catch (e) {
         console.warn(`${gridPrefix(grid.id)} cellClass callback error for column '${col.field}':`, e);

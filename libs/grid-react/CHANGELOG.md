@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.1...grid-react-0.17.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* **grid-react:** allow ReactNode in groupingColumns groupHeaderRenderer prop ([e10231f](https://github.com/OysteinAmundsen/toolbox/commit/e10231f980f349079199a9747857d280a96172b1))
+
 ## [0.17.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.0...grid-react-0.17.1) (2026-03-15)
 
 

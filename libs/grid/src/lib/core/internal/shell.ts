@@ -16,8 +16,8 @@ import type {
   ToolPanelDefinition,
 } from '../types';
 import { DEFAULT_GRID_ICONS } from '../types';
+import { Diagnostic, warnDiagnostic } from './diagnostics';
 import { escapeHtml } from './sanitize';
-import { gridPrefix } from './utils';
 
 // #region Types & State
 /**
@@ -266,9 +266,7 @@ export function renderShellBody(
     const iconHtml = panel.icon ? `<span class="tbw-accordion-icon">${panel.icon}</span>` : '';
     // Hide chevron for single panel (no toggling needed)
     // Always use expandIcon (▶) — CSS rotation handles the expanded state
-    const chevronHtml = isSinglePanel
-      ? ''
-      : `<span class="tbw-accordion-chevron">${expandIcon}</span>`;
+    const chevronHtml = isSinglePanel ? '' : `<span class="tbw-accordion-chevron">${expandIcon}</span>`;
     // Disable accordion toggle for single panel
     const sectionClasses = `tbw-accordion-section${isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}`;
     accordionHtml += `
@@ -467,8 +465,9 @@ export function parseLightDomToolPanels(
 
     // Skip if required attributes are missing
     if (!id || !title) {
-      console.warn(
-        `[parseLightDomToolPanels] Tool panel missing required id or title attribute: id="${id ?? ''}", title="${title ?? ''}"`,
+      warnDiagnostic(
+        Diagnostic.TOOL_PANEL_MISSING_ATTR,
+        `Tool panel missing required id or title attribute: id="${id ?? ''}", title="${title ?? ''}"`,
       );
       return;
     }
@@ -1022,7 +1021,7 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
     openToolPanel() {
       if (state.isPanelOpen) return;
       if (state.toolPanels.size === 0) {
-        console.warn('[tbw-grid] No tool panels registered');
+        warnDiagnostic(Diagnostic.NO_TOOL_PANELS, 'No tool panels registered', grid.id);
         return;
       }
 
@@ -1085,7 +1084,7 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
     toggleToolPanelSection(sectionId: string) {
       const panel = state.toolPanels.get(sectionId);
       if (!panel) {
-        console.warn(`${gridPrefix(grid.id)} Tool panel section "${sectionId}" not found`);
+        warnDiagnostic(Diagnostic.TOOL_PANEL_NOT_FOUND, `Tool panel section "${sectionId}" not found`, grid.id);
         return;
       }
 
@@ -1140,7 +1139,7 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
     registerToolPanel(panel: ToolPanelDefinition) {
       if (state.toolPanels.has(panel.id)) {
-        console.warn(`${gridPrefix(grid.id)} Tool panel "${panel.id}" already registered`);
+        warnDiagnostic(Diagnostic.TOOL_PANEL_DUPLICATE, `Tool panel "${panel.id}" already registered`, grid.id);
         return;
       }
       state.toolPanels.set(panel.id, panel);
@@ -1174,7 +1173,11 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
     registerHeaderContent(content: HeaderContentDefinition) {
       if (state.headerContents.has(content.id)) {
-        console.warn(`${gridPrefix(grid.id)} Header content "${content.id}" already registered`);
+        warnDiagnostic(
+          Diagnostic.HEADER_CONTENT_DUPLICATE,
+          `Header content "${content.id}" already registered`,
+          grid.id,
+        );
         return;
       }
       state.headerContents.set(content.id, content);
@@ -1209,7 +1212,11 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
     registerToolbarContent(content: ToolbarContentDefinition) {
       if (state.toolbarContents.has(content.id)) {
-        console.warn(`${gridPrefix(grid.id)} Toolbar content "${content.id}" already registered`);
+        warnDiagnostic(
+          Diagnostic.TOOLBAR_CONTENT_DUPLICATE,
+          `Toolbar content "${content.id}" already registered`,
+          grid.id,
+        );
         return;
       }
       state.toolbarContents.set(content.id, content);

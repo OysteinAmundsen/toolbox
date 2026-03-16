@@ -8,6 +8,7 @@
 // Injected by Vite at build time from package.json (same as grid.ts)
 declare const __GRID_VERSION__: string;
 
+import { type DiagnosticCode, formatDiagnostic } from '../internal/diagnostics';
 import { gridPrefix } from '../internal/utils';
 import type {
   ColumnConfig,
@@ -39,7 +40,7 @@ export type {
   PluginCellRenderContext,
   PluginQuery,
   RowClickEvent,
-  ScrollEvent
+  ScrollEvent,
 } from './types';
 
 import type {
@@ -880,10 +881,35 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
-   * Log a warning message.
+   * Log a warning with an optional diagnostic code.
+   *
+   * When a diagnostic code is provided, the message is formatted with the code
+   * and a link to the troubleshooting docs.
+   *
+   * @example
+   * ```ts
+   * this.warn('Something went wrong');                          // plain
+   * this.warn(Diagnostic.MISSING_BREAKPOINT, 'Set a breakpoint'); // with code + docs link
+   * ```
    */
-  protected warn(message: string): void {
-    console.warn(`${gridPrefix(this.gridElement.id, this.name)} ${message}`);
+  protected warn(message: string): void;
+  protected warn(code: DiagnosticCode, message: string): void;
+  protected warn(codeOrMessage: DiagnosticCode | string, message?: string): void {
+    if (message !== undefined) {
+      // Called with (code, message)
+      console.warn(formatDiagnostic(codeOrMessage as DiagnosticCode, message, this.gridElement.id, this.name));
+    } else {
+      // Called with (message) — plain warning, no diagnostic code
+      console.warn(`${gridPrefix(this.gridElement.id, this.name)} ${codeOrMessage}`);
+    }
+  }
+
+  /**
+   * Throw an error with a diagnostic code and docs link.
+   * Use for configuration errors and API misuse that should halt execution.
+   */
+  protected throwDiagnostic(code: DiagnosticCode, message: string): never {
+    throw new Error(formatDiagnostic(code, message, this.gridElement.id, this.name));
   }
 
   // #region Lifecycle Hooks

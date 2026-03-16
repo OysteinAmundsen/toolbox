@@ -5,6 +5,7 @@
  */
 
 // Import types to enable module augmentation
+import { Diagnostic, throwDiagnostic } from '../../core/internal/diagnostics';
 import type { ColumnConfig } from '../../core/types';
 import './types';
 import type {
@@ -37,7 +38,10 @@ export function resolveColumnGroupDefs(defs: ColumnGroupDefinition[]): (ColumnGr
   return defs.map((def) => {
     if (def.id) return def as ColumnGroupDefinition & { id: string };
     if (!def.header) {
-      throw new Error('[tbw-grid] ColumnGroupDefinition requires either an "id" or a "header" to generate an id from.');
+      throwDiagnostic(
+        Diagnostic.COLUMN_GROUP_NO_ID,
+        'ColumnGroupDefinition requires either an "id" or a "header" to generate an id from.',
+      );
     }
     return { ...def, id: slugifyHeader(def.header) };
   });

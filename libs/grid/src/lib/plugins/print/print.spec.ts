@@ -116,7 +116,7 @@ describe('PrintPlugin', () => {
       // Try second print immediately (should warn)
       await plugin.print();
 
-      expect(warnSpy).toHaveBeenCalledWith('[PrintPlugin] Print already in progress');
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Print already in progress'));
 
       await print1;
 

@@ -7,6 +7,8 @@
  * @module internal/style-injector
  */
 
+import { Diagnostic, warnDiagnostic } from './diagnostics';
+
 // #region State
 /** ID for the consolidated grid stylesheet in document.head */
 const STYLE_ELEMENT_ID = 'tbw-grid-styles';
@@ -94,7 +96,7 @@ export function extractGridCssFromDocument(): string | null {
       }
     }
   } catch (err) {
-    console.warn('[tbw-grid] Failed to extract grid.css from document stylesheets:', err);
+    warnDiagnostic(Diagnostic.STYLE_EXTRACT_FAILED, `Failed to extract grid.css from document stylesheets: ${err}`);
   }
 
   return null;
@@ -132,10 +134,12 @@ export async function injectStyles(inlineStyles: string): Promise<void> {
     updateStyleElement();
   } else if (typeof process === 'undefined' || process.env?.['NODE_ENV'] !== 'test') {
     // Only warn in non-test environments - test environments (happy-dom, jsdom) don't load stylesheets
-    console.warn(
-      '[tbw-grid] Could not find grid.css in document.styleSheets. Grid styling will not work.',
-      'Available stylesheets:',
-      Array.from(document.styleSheets).map((s) => s.href || '(inline)'),
+    warnDiagnostic(
+      Diagnostic.STYLE_NOT_FOUND,
+      'Could not find grid.css in document.styleSheets. Grid styling will not work. ' +
+        `Available stylesheets: ${Array.from(document.styleSheets)
+          .map((s) => s.href || '(inline)')
+          .join(', ')}`,
     );
   }
 }

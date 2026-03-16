@@ -11,10 +11,10 @@
  * can never live outside the grid).
  */
 import type { CellChangeDetail, GridHost, UpdateSource } from '../types';
+import { Diagnostic, throwDiagnostic } from './diagnostics';
 import { RenderPhase } from './render-scheduler';
 import { animateRow } from './row-animation';
 import { invalidateCellCache } from './rows';
-import { gridPrefix } from './utils';
 
 // #region Standalone Row ID Helpers
 
@@ -45,9 +45,10 @@ export function tryResolveRowId<T>(row: T, getRowId?: (row: T) => string): strin
 export function resolveRowIdOrThrow<T>(row: T, gridId: string, getRowId?: (row: T) => string): string {
   const id = tryResolveRowId(row, getRowId);
   if (id === undefined) {
-    throw new Error(
-      `${gridPrefix(gridId)} Cannot determine row ID. ` +
-        'Configure getRowId in gridConfig or ensure rows have an "id" property.',
+    throwDiagnostic(
+      Diagnostic.MISSING_ROW_ID,
+      'Cannot determine row ID. ' + 'Configure getRowId in gridConfig or ensure rows have an "id" property.',
+      gridId,
     );
   }
   return id;
@@ -86,9 +87,10 @@ export class RowManager<T = any> {
     const grid = this.#grid;
     const entry = grid._getRowEntry(id);
     if (!entry) {
-      throw new Error(
-        `${gridPrefix(grid.id)} Row with ID "${id}" not found. ` +
-          `Ensure the row exists and getRowId is correctly configured.`,
+      throwDiagnostic(
+        Diagnostic.ROW_NOT_FOUND,
+        `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+        grid.id,
       );
     }
 
@@ -145,9 +147,10 @@ export class RowManager<T = any> {
     for (const { id, changes } of updates) {
       const entry = grid._getRowEntry(id);
       if (!entry) {
-        throw new Error(
-          `${gridPrefix(grid.id)} Row with ID "${id}" not found. ` +
-            `Ensure the row exists and getRowId is correctly configured.`,
+        throwDiagnostic(
+          Diagnostic.ROW_NOT_FOUND,
+          `Row with ID "${id}" not found. ` + `Ensure the row exists and getRowId is correctly configured.`,
+          grid.id,
         );
       }
 

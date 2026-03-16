@@ -8,7 +8,7 @@
  * @internal
  */
 
-import { gridPrefix } from '../../../core/internal/utils';
+import { Diagnostic, warnDiagnostic } from '../../../core/internal/diagnostics';
 import type { ColumnConfig, ColumnInternal, GridHost, RowElementInternal } from '../../../core/types';
 import { defaultEditorFor, getInputValue } from '../editors';
 import type { EditingConfig, EditorContext } from '../types';
@@ -299,7 +299,11 @@ export function injectEditor<T>(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         editorSpec.mount({ placeholder, context: context as any, spec: editorSpec });
       } catch (e) {
-        console.warn(`${gridPrefix(deps.grid.id)} External editor mount error for column '${column.field}':`, e);
+        warnDiagnostic(
+          Diagnostic.EDITOR_MOUNT_ERROR,
+          `External editor mount error for column '${column.field}': ${e}`,
+          deps.grid.id,
+        );
       }
     } else {
       grid.dispatchEvent(

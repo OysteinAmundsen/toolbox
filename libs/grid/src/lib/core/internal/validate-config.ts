@@ -12,7 +12,8 @@
 
 import type { BaseGridPlugin, PluginManifest, PluginPropertyDefinition } from '../plugin';
 import type { ColumnConfig, GridConfig } from '../types';
-import { gridPrefix, isDevelopment } from './utils';
+import { Diagnostic, infoDiagnostic, throwDiagnostic, warnDiagnostic } from './diagnostics';
+import { isDevelopment } from './utils';
 
 /**
  * Internal property definition with plugin name attached.
@@ -239,10 +240,16 @@ export function validatePluginProperties<T>(
       }
     }
 
-    throw new Error(
-      `${gridPrefix(gridId)} Configuration error:\n\n${errors.join('\n\n')}\n\n` +
+    // Use MISSING_PLUGIN for column-level errors, MISSING_PLUGIN_CONFIG for config-level
+    const code = [...missingPlugins.values()].some((e) => e.isConfigProperty)
+      ? Diagnostic.MISSING_PLUGIN_CONFIG
+      : Diagnostic.MISSING_PLUGIN;
+    throwDiagnostic(
+      code,
+      `Configuration error:\n\n${errors.join('\n\n')}\n\n` +
         `This validation helps catch misconfigurations early. ` +
         `The properties listed above require their respective plugins to function.`,
+      gridId,
     );
   }
 }
@@ -261,7 +268,6 @@ export function validatePluginProperties<T>(
 export function validatePluginConfigRules(plugins: readonly BaseGridPlugin[], gridId?: string): void {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const prefix = gridPrefix(gridId);
 
   for (const plugin of plugins) {
     const PluginClass = plugin.constructor as typeof BaseGridPlugin;
@@ -273,8 +279,7 @@ export function validatePluginConfigRules(plugins: readonly BaseGridPlugin[], gr
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pluginConfig = (plugin as any).config;
       if (rule.check(pluginConfig)) {
-        const rulePrefix = gridPrefix(gridId, `${capitalize(plugin.name)}Plugin`);
-        const formatted = `${rulePrefix} Configuration warning: ${rule.message}`;
+        const formatted = `[${capitalize(plugin.name)}Plugin] Configuration warning: ${rule.message}`;
         if (rule.severity === 'error') {
           errors.push(formatted);
         } else {
@@ -287,13 +292,13 @@ export function validatePluginConfigRules(plugins: readonly BaseGridPlugin[], gr
   // Log warnings only in development (don't pollute production logs)
   if (warnings.length > 0 && isDevelopment()) {
     for (const warning of warnings) {
-      console.warn(warning);
+      warnDiagnostic(Diagnostic.CONFIG_RULE_WARN, warning, gridId);
     }
   }
 
   // Throw consolidated error if any (always, regardless of environment)
   if (errors.length > 0) {
-    throw new Error(`${prefix} Configuration error:\n\n${errors.join('\n\n')}`);
+    throwDiagnostic(Diagnostic.CONFIG_RULE_ERROR, `Configuration error:\n\n${errors.join('\n\n')}`, gridId);
   }
 }
 // #endregion
@@ -319,7 +324,6 @@ export function validatePluginDependencies(
 ): void {
   const pluginName = plugin.name;
   const PluginClass = plugin.constructor as typeof BaseGridPlugin;
-  const prefix = gridPrefix(gridId);
 
   // Get dependencies from plugin's static property
   const dependencies = PluginClass.dependencies ?? [];
@@ -336,18 +340,22 @@ export function validatePluginDependencies(
       const importHint = getImportHint(requiredPlugin);
 
       if (required) {
-        throw new Error(
-          `${prefix} Plugin dependency error:\n\n` +
+        throwDiagnostic(
+          Diagnostic.MISSING_DEPENDENCY,
+          `Plugin dependency error:\n\n` +
             `${reasonText}.\n\n` +
             `  → Add the plugin to your gridConfig.plugins array BEFORE ${capitalize(pluginName)}Plugin:\n` +
             `    ${importHint}\n` +
             `    plugins: [new ${capitalize(requiredPlugin)}Plugin(), new ${capitalize(pluginName)}Plugin()]`,
+          gridId,
         );
       } else {
         // Soft dependency - log info message but continue
-        console.info(
-          `${prefix} ${capitalize(pluginName)}Plugin: Optional "${requiredPlugin}" plugin not found. ` +
+        infoDiagnostic(
+          Diagnostic.OPTIONAL_DEPENDENCY,
+          `${capitalize(pluginName)}Plugin: Optional "${requiredPlugin}" plugin not found. ` +
             `Some features may be unavailable.`,
+          gridId,
         );
       }
     }
@@ -371,7 +379,6 @@ export function validatePluginIncompatibilities(plugins: readonly BaseGridPlugin
 
   const pluginNames = new Set(plugins.map((p) => p.name));
   const warned = new Set<string>(); // Avoid duplicate warnings for symmetric conflicts
-  const prefix = gridPrefix(gridId);
 
   for (const plugin of plugins) {
     const PluginClass = plugin.constructor as typeof BaseGridPlugin;
@@ -385,12 +392,13 @@ export function validatePluginIncompatibilities(plugins: readonly BaseGridPlugin
         if (warned.has(key)) continue;
         warned.add(key);
 
-        console.warn(
-          `${prefix} Plugin incompatibility warning:\n\n` +
-            `${capitalize(plugin.name)}Plugin and ${capitalize(incompatibility.name)}Plugin are both loaded, ` +
+        warnDiagnostic(
+          Diagnostic.INCOMPATIBLE_PLUGINS,
+          `${capitalize(plugin.name)}Plugin and ${capitalize(incompatibility.name)}Plugin are both loaded, ` +
             `but they are currently incompatible.\n\n` +
             `  → ${incompatibility.reason}\n\n` +
             `  Consider removing one of these plugins to avoid unexpected behavior.`,
+          gridId,
         );
       }
     }

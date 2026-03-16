@@ -24,8 +24,9 @@
  * @module Features
  */
 
-import type { FeatureConfig, GridPlugin } from '../core/types';
+import { Diagnostic, warnDiagnostic } from '../core/internal/diagnostics';
 import { setFeatureResolver } from '../core/internal/feature-hook';
+import type { FeatureConfig, GridPlugin } from '../core/types';
 
 // #region Types
 
@@ -67,7 +68,10 @@ export function registerFeature<K extends FeatureName>(name: K, factory: PluginF
 export function registerFeature(name: string, factory: PluginFactory): void;
 export function registerFeature(name: string, factory: PluginFactory): void {
   if (isDev() && featureRegistry.has(name)) {
-    console.warn(`[tbw-grid] Feature "${name}" was re-registered. Previous registration overwritten.`);
+    warnDiagnostic(
+      Diagnostic.FEATURE_REREGISTERED,
+      `Feature "${name}" was re-registered. Previous registration overwritten.`,
+    );
   }
   featureRegistry.set(name, { factory, name });
 }
@@ -127,8 +131,9 @@ export function createPluginFromFeature(name: string, config: unknown): GridPlug
     if (isDev() && !warnedFeatures.has(name)) {
       warnedFeatures.add(name);
       const kebab = name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-      console.warn(
-        `[tbw-grid] Feature "${name}" is configured but not registered.\n` +
+      warnDiagnostic(
+        Diagnostic.FEATURE_NOT_IMPORTED,
+        `Feature "${name}" is configured but not registered.\n` +
           `Add this import to enable it:\n\n` +
           `  import '@toolbox-web/grid/features/${kebab}';\n`,
       );
@@ -152,9 +157,9 @@ function validateDependencies(featureNames: string[]): void {
     for (const dep of deps) {
       if (!featureSet.has(dep)) {
         if (isDev()) {
-          console.warn(
-            `[tbw-grid] Feature "${feature}" requires "${dep}" to be enabled. ` +
-              `Add "${dep}" to your features configuration.`,
+          warnDiagnostic(
+            Diagnostic.FEATURE_MISSING_DEP,
+            `Feature "${feature}" requires "${dep}" to be enabled. ` + `Add "${dep}" to your features configuration.`,
           );
         }
       }

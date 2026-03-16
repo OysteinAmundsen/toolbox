@@ -61,7 +61,7 @@ describe('validatePluginProperties', () => {
 
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\] Configuration error/);
+      }).toThrow(/\[tbw-grid\].*Configuration error/);
     });
 
     it('does not throw when editable is false', () => {
@@ -103,7 +103,7 @@ describe('validatePluginProperties', () => {
 
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\] Configuration error/);
+      }).toThrow(/\[tbw-grid\].*Configuration error/);
     });
   });
 
@@ -184,7 +184,7 @@ describe('validatePluginProperties', () => {
 
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\] Configuration error/);
+      }).toThrow(/\[tbw-grid\].*Configuration error/);
       expect(() => {
         validatePluginProperties(config, []);
       }).toThrow(/GroupingColumnsPlugin/);
@@ -197,7 +197,7 @@ describe('validatePluginProperties', () => {
 
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\] Configuration error/);
+      }).toThrow(/\[tbw-grid\].*Configuration error/);
     });
   });
 
@@ -221,7 +221,7 @@ describe('validatePluginProperties', () => {
 
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\] Configuration error/);
+      }).toThrow(/\[tbw-grid\].*Configuration error/);
       expect(() => {
         validatePluginProperties(config, []);
       }).toThrow(/columnGroups.*config property/);
@@ -267,7 +267,7 @@ describe('validatePluginProperties', () => {
 
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\] Configuration error/);
+      }).toThrow(/\[tbw-grid\].*Configuration error/);
       expect(() => {
         validatePluginProperties(config, []);
       }).toThrow(/PinnedColumnsPlugin/);
@@ -280,7 +280,7 @@ describe('validatePluginProperties', () => {
 
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\] Configuration error/);
+      }).toThrow(/\[tbw-grid\].*Configuration error/);
     });
 
     it('does not throw when sticky is undefined', () => {
@@ -567,7 +567,7 @@ describe('validatePluginConfigRules', () => {
       validatePluginConfigRules([plugin]);
 
       expect(warnSpy).toHaveBeenCalledOnce();
-      expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid:TestPlugin]');
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('[TestPlugin]');
       expect(warnSpy.mock.calls[0]?.[0]).toContain('optionA should not be true');
 
       warnSpy.mockRestore();
@@ -733,7 +733,7 @@ describe('validatePluginIncompatibilities', () => {
     validatePluginIncompatibilities([responsive, groupingRows]);
 
     expect(warnSpy).toHaveBeenCalledOnce();
-    expect(warnSpy.mock.calls[0]?.[0]).toContain('incompatibility');
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('incompatib');
     expect(warnSpy.mock.calls[0]?.[0]).toContain('ResponsivePlugin');
     expect(warnSpy.mock.calls[0]?.[0]).toContain('GroupingRowsPlugin');
     expect(warnSpy.mock.calls[0]?.[0]).toContain('does not support row grouping');
@@ -782,13 +782,13 @@ describe('gridId parameter', () => {
 
     expect(() => {
       validatePluginProperties(config, [], 'my-grid');
-    }).toThrow(/\[tbw-grid#my-grid\] Configuration error/);
+    }).toThrow(/\[tbw-grid#my-grid\].*Configuration error/);
   });
 
   it('includes grid ID in validatePluginDependencies error', () => {
     expect(() => {
       validatePluginDependencies(mockUndoRedoPlugin, [], 'employee-grid');
-    }).toThrow(/\[tbw-grid#employee-grid\] Plugin dependency error/);
+    }).toThrow(/\[tbw-grid#employee-grid\].*Plugin dependency error/);
   });
 
   it('includes grid ID in validatePluginConfigRules warning', () => {
@@ -820,7 +820,8 @@ describe('gridId parameter', () => {
 
     validatePluginConfigRules([new RulePlugin() as unknown as BaseGridPlugin], 'settings-grid');
 
-    expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid#settings-grid:TestPlugin]');
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid#settings-grid]');
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('TestPlugin');
     warnSpy.mockRestore();
   });
 
@@ -854,10 +855,7 @@ describe('gridId parameter', () => {
       },
     } as unknown as BaseGridPlugin;
 
-    validatePluginIncompatibilities(
-      [new ResponsivePlugin() as unknown as BaseGridPlugin, groupingRows],
-      'demo-grid',
-    );
+    validatePluginIncompatibilities([new ResponsivePlugin() as unknown as BaseGridPlugin, groupingRows], 'demo-grid');
 
     expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid#demo-grid]');
     warnSpy.mockRestore();

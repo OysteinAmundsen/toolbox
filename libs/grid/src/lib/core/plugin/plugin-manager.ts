@@ -10,6 +10,7 @@
  * add FilteringPlugin before GroupingRowsPlugin in the array.
  */
 
+import { Diagnostic, errorDiagnostic, warnDiagnostic } from '../internal/diagnostics';
 import { gridPrefix, isDevelopment } from '../internal/utils';
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
@@ -192,11 +193,12 @@ export class PluginManager {
     // Warn if using old hooks without new hook
     if (hasOldHooks && !hasNewHook) {
       PluginManager.deprecationWarned.add(PluginClass);
-      console.warn(
-        `${this.logPrefix} Deprecation warning: "${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
+      warnDiagnostic(
+        Diagnostic.DEPRECATED_HOOK,
+        `"${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
           `which are deprecated and will be removed in v2.0.\n` +
-          `  → Migrate to getRowHeight(row, index) for better variable row height support.\n` +
-          `  → See: https://toolbox-web.dev/docs/grid/plugins/migration#row-height-hooks`,
+          `  → Migrate to getRowHeight(row, index) for better variable row height support.`,
+        this.grid.getAttribute('id') ?? undefined,
       );
     }
   }
@@ -622,7 +624,11 @@ export class PluginManager {
         try {
           callback(detail);
         } catch (error) {
-          console.error(`${this.logPrefix} Error in plugin event handler for "${eventType}":`, error);
+          errorDiagnostic(
+            Diagnostic.PLUGIN_EVENT_ERROR,
+            `Error in plugin event handler for "${eventType}": ${error}`,
+            this.grid.getAttribute('id') ?? undefined,
+          );
         }
       }
     }

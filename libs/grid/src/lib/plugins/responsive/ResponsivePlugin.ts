@@ -25,6 +25,7 @@
  * @see [Responsive Demo](?path=/story/grid-plugins-responsive--default)
  */
 
+import { Diagnostic } from '../../core/internal/diagnostics';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import { evalTemplateString, sanitizeHTML } from '../../core/internal/sanitize';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
@@ -432,8 +433,9 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
     // Warn once if breakpoint not configured (0 means never responsive)
     if (breakpoint === 0 && !this.#warnedAboutMissingBreakpoint) {
       this.#warnedAboutMissingBreakpoint = true;
-      console.warn(
-        "[tbw-grid:ResponsivePlugin] No breakpoint configured. Responsive mode is disabled. Set a breakpoint based on your grid's column count.",
+      this.warn(
+        Diagnostic.MISSING_BREAKPOINT,
+        "No breakpoint configured. Responsive mode is disabled. Set a breakpoint based on your grid's column count.",
       );
     }
 

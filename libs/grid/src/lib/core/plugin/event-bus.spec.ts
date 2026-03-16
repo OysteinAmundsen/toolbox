@@ -292,10 +292,7 @@ describe('Event Bus', () => {
         emitter.testEmitPluginEvent('error-event', {});
       }).not.toThrow();
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Error in plugin event handler'),
-        expect.any(Error),
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Error in plugin event handler'));
 
       consoleSpy.mockRestore();
     });

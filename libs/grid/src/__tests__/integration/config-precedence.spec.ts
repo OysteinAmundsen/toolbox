@@ -159,7 +159,7 @@ describe('HTML attribute configuration', () => {
     await customElements.whenDefined('tbw-grid');
     await waitForUpgraded(grid);
 
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid JSON'), expect.anything());
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid JSON'));
     expect(grid.rows).toEqual([]);
     warnSpy.mockRestore();
   }, 20000);

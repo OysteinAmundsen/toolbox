@@ -460,7 +460,7 @@ describe('SelectionPlugin', () => {
       validatePluginConfigRules([plugin]);
 
       expect(warnSpy).toHaveBeenCalledOnce();
-      expect(warnSpy.mock.calls[0]?.[0]).toContain('[tbw-grid:SelectionPlugin]');
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('[SelectionPlugin]');
       expect(warnSpy.mock.calls[0]?.[0]).toContain('triggerOn');
       expect(warnSpy.mock.calls[0]?.[0]).toContain('range');
 

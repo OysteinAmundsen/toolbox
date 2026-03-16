@@ -6,6 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { Diagnostic } from '../../core/internal/diagnostics';
 import type { AfterCellRenderContext, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
@@ -397,8 +398,9 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     if (pluginColumnGroups && Array.isArray(pluginColumnGroups) && pluginColumnGroups.length > 0) {
       // Warn if both sources are defined
       if (gridColumnGroups && Array.isArray(gridColumnGroups) && gridColumnGroups.length > 0) {
-        console.warn(
-          '[tbw-grid] columnGroups defined in both gridConfig and groupingColumns feature config. ' +
+        this.warn(
+          Diagnostic.COLUMN_GROUPS_CONFLICT,
+          'columnGroups defined in both gridConfig and groupingColumns feature config. ' +
             'Using feature config (higher precedence).',
         );
       }

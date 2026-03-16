@@ -4,6 +4,7 @@
  * Pure functions for copying grid data to clipboard.
  */
 
+import { Diagnostic, warnDiagnostic } from '../../core/internal/diagnostics';
 import type { ColumnConfig } from '../../core/types';
 import type { ClipboardConfig } from './types';
 
@@ -116,7 +117,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     await navigator.clipboard.writeText(text);
     return true;
   } catch (err) {
-    console.warn('[copyToClipboard] Clipboard API failed:', err);
+    warnDiagnostic(Diagnostic.CLIPBOARD_FAILED, `Clipboard API failed: ${err}`);
     // Fallback for older browsers or when Clipboard API is not available
     const textarea = document.createElement('textarea');
     textarea.value = text;

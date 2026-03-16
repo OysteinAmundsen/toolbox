@@ -405,7 +405,7 @@ describe('rowClass callback', () => {
       },
     };
     renderVisibleRows(g, 0, 1, 1);
-    expect(warnSpy).toHaveBeenCalledWith('[tbw-grid] rowClass callback error:', expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('rowClass callback error'));
     warnSpy.mockRestore();
   });
 });
@@ -447,7 +447,7 @@ describe('cellClass callback', () => {
       throw new Error('Test error');
     };
     renderVisibleRows(g, 0, 1, 1);
-    expect(warnSpy).toHaveBeenCalledWith("[tbw-grid] cellClass callback error for column 'id':", expect.any(Error));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("cellClass callback error for column 'id'"));
     warnSpy.mockRestore();
   });
 

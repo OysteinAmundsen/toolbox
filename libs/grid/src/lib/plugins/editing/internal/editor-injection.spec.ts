@@ -372,7 +372,9 @@ describe('editor-injection', () => {
     it('should warn if mount callback throws', () => {
       const deps = createDeps();
       const { cell } = createCellInRow();
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
       const column = col('name') as ColumnInternal<any>;
       column.editor = {
         mount: () => {
@@ -382,7 +384,7 @@ describe('editor-injection', () => {
 
       injectEditor(deps, { id: '1', name: 'Alice' }, 0, column, 0, cell, true);
 
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('External editor mount error'), expect.any(Error));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('External editor mount error'));
       warnSpy.mockRestore();
     });
   });

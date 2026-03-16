@@ -1,0 +1,534 @@
+---
+title: Error & Warning Reference
+description: Complete reference for all diagnostic codes emitted by @toolbox-web/grid. Each code links to an explanation and resolution steps.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Every warning and error in `@toolbox-web/grid` includes a **diagnostic code** (e.g. `TBW001`) and a link back to this page. Find your code below for an explanation and fix.
+
+---
+
+## Configuration Validation
+
+<div id="tbw001" />
+
+### TBW001 — Missing Plugin (Column Property)
+
+A column uses a property (like `editable`, `editor`, `pinned`, or `group`) that requires a plugin, but that plugin isn't loaded.
+
+**Fix:** Import and add the required plugin:
+
+```ts
+// For editing
+import '@toolbox-web/grid/features/editing';
+
+grid.gridConfig = {
+  features: { editing: true },
+  columns: [{ field: 'name', editable: true }],
+};
+```
+
+Or with the plugin API directly:
+
+```ts
+import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
+
+grid.gridConfig = {
+  plugins: [new EditingPlugin()],
+  columns: [{ field: 'name', editable: true }],
+};
+```
+
+<CardGrid>
+  <LinkCard title="Editing Plugin" href="/grid/plugins/editing/" />
+  <LinkCard title="Pinned Columns Plugin" href="/grid/plugins/pinned-columns/" />
+  <LinkCard title="Grouping Columns Plugin" href="/grid/plugins/grouping-columns/" />
+  <LinkCard title="Getting Started" href="/grid/getting-started/" />
+</CardGrid>
+
+<div id="tbw002" />
+
+### TBW002 — Missing Plugin (Config Property)
+
+A grid config property (like `columnGroups`) requires a plugin that isn't loaded.
+
+**Fix:** Same as TBW001 — import the required feature or plugin.
+
+<LinkCard title="Plugins Overview" href="/grid/plugins/" />
+
+<div id="tbw003" />
+
+### TBW003 — Config Rule Error
+
+A plugin's configuration rule detected an invalid combination. The error message describes the specific rule that was violated.
+
+**Fix:** Check the error message for the specific plugin and configuration that triggered the rule. Adjust the plugin config to avoid the invalid combination.
+
+<div id="tbw004" />
+
+### TBW004 — Config Rule Warning
+
+A plugin detected a potentially problematic configuration. This is a development-only warning — the grid will still work, but behavior may be unexpected.
+
+**Fix:** Read the warning message and adjust your config accordingly.
+
+<LinkCard title="Plugins Overview" href="/grid/plugins/" />
+
+---
+
+## Plugin Lifecycle
+
+<div id="tbw020" />
+
+### TBW020 — Missing Plugin Dependency
+
+A plugin requires another plugin to be loaded first. For example, `UndoRedoPlugin` requires `EditingPlugin`.
+
+**Fix:** Add the dependency plugin **before** the dependent one:
+
+```ts
+import '@toolbox-web/grid/features/editing';
+import '@toolbox-web/grid/features/undoRedo';
+
+grid.gridConfig = {
+  features: {
+    editing: true,
+    undoRedo: true,
+  },
+};
+```
+
+<CardGrid>
+  <LinkCard title="Plugins Overview" href="/grid/plugins/" />
+  <LinkCard title="Custom Plugins Guide" href="/grid/guides/custom-plugins/" />
+</CardGrid>
+
+<div id="tbw021" />
+
+### TBW021 — Optional Dependency Missing
+
+A plugin has an optional dependency that isn't loaded. The plugin will still work, but some features may be unavailable.
+
+**Fix:** If you need the full feature set, add the optional dependency. Otherwise, this message is informational and can be ignored.
+
+<div id="tbw022" />
+
+### TBW022 — Incompatible Plugins
+
+Two plugins that are known to conflict are both loaded. Development-only warning.
+
+**Fix:** Remove one of the conflicting plugins. The warning message names both plugins and explains the conflict.
+
+<div id="tbw023" />
+
+### TBW023 — Deprecated Hook
+
+A plugin uses a deprecated API that will be removed in a future major version.
+
+**Fix:** Migrate to the recommended replacement described in the warning message.
+
+<div id="tbw024" />
+
+### TBW024 — Plugin Event Handler Error
+
+An error was thrown inside a plugin event handler. This doesn't crash the grid — the error is caught and logged — but it indicates a bug in plugin code.
+
+**Fix:** Check the stack trace to find and fix the error in the plugin's event handler.
+
+<LinkCard title="Custom Plugins Guide" href="/grid/guides/custom-plugins/" />
+
+---
+
+## Feature Registry
+
+<div id="tbw030" />
+
+### TBW030 — Feature Re-registered
+
+A feature was registered more than once. The previous registration was overwritten. This typically happens when two different versions of the same feature module are loaded.
+
+**Fix:** Check your bundle for duplicate imports. Each feature should be imported exactly once.
+
+<div id="tbw031" />
+
+### TBW031 — Feature Not Imported
+
+A feature is configured in `gridConfig.features` but its module was never imported. Features require a side-effect import to register themselves.
+
+**Fix:** Add the import shown in the warning:
+
+```ts
+import '@toolbox-web/grid/features/selection';
+
+grid.gridConfig = {
+  features: { selection: 'row' },
+};
+```
+
+Framework adapters handle this automatically — if you're using Angular, React, or Vue adapters, import from the adapter package instead.
+
+<LinkCard title="Getting Started" href="/grid/getting-started/" />
+
+<div id="tbw032" />
+
+### TBW032 — Feature Missing Dependency
+
+A feature requires another feature to be enabled. For example, `clipboard` requires `selection`.
+
+**Fix:** Add the required feature to your config:
+
+```ts
+grid.gridConfig = {
+  features: {
+    selection: 'range',
+    clipboard: true,
+  },
+};
+```
+
+<LinkCard title="Getting Started" href="/grid/getting-started/" />
+
+---
+
+## Row Operations
+
+<div id="tbw040" />
+
+### TBW040 — Missing Row ID
+
+The grid needs to identify a row but couldn't determine its ID. This happens when:
+
+- Rows don't have an `id` or `_id` property
+- No `getRowId` function is configured
+
+**Fix:** Either add an `id` field to your data, or configure `getRowId`:
+
+```ts
+grid.gridConfig = {
+  getRowId: (row) => row.employeeNumber,
+};
+```
+
+<LinkCard title="Core Features" href="/grid/core/" />
+
+<div id="tbw041" />
+
+### TBW041 — Row Not Found
+
+A row update or delete operation referenced a row ID that doesn't exist in the grid.
+
+**Fix:** Verify the row ID is correct and the row hasn't been removed. Use `grid.getRow(id)` to check if a row exists before updating.
+
+<LinkCard title="Core Features" href="/grid/core/" />
+
+---
+
+## Column Operations
+
+<div id="tbw050" />
+
+### TBW050 — Invalid Column Width
+
+A column's `width` value is not a valid CSS grid track size. Development-only warning.
+
+**Fix:** Use a number (interpreted as pixels) or a valid CSS string:
+
+```ts
+{ field: 'name', width: 200 }       // 200px
+{ field: 'name', width: '30%' }     // 30%
+{ field: 'name', width: '2fr' }     // 2 fractional units
+{ field: 'name', width: 'auto' }    // auto
+```
+
+<LinkCard title="Core Features — Columns" href="/grid/core/" />
+
+---
+
+## Rendering Callbacks
+
+<div id="tbw060" />
+
+### TBW060 — rowClass Callback Error
+
+The `rowClass` function threw an error during rendering. The row will render without dynamic classes.
+
+**Fix:** Check your `rowClass` function for null/undefined access or type errors.
+
+<div id="tbw061" />
+
+### TBW061 — cellClass Callback Error
+
+A column's `cellClass` function threw an error. The cell will render without dynamic classes.
+
+**Fix:** Check the `cellClass` function on the column named in the warning.
+
+<div id="tbw062" />
+
+### TBW062 — Format Error
+
+A column's `format` function threw an error. The raw value will be displayed instead.
+
+**Fix:** Check the `format` function on the named column. Ensure it handles null/undefined values gracefully.
+
+<div id="tbw063" />
+
+### TBW063 — External View Mount Error
+
+An `externalView.mount()` callback threw during cell rendering.
+
+**Fix:** Debug the `mount` function in your external view configuration for the named column.
+
+<div id="tbw064" />
+
+### TBW064 — External View Dispatch Error
+
+The `mount-external-view` event dispatch failed for a cell.
+
+**Fix:** Check event listeners attached to the `mount-external-view` event on the grid.
+
+<LinkCard title="Core Features — Rendering" href="/grid/core/" />
+
+---
+
+## Shell
+
+<div id="tbw070" />
+
+### TBW070 — Tool Panel Missing Attributes
+
+A `<tbw-grid-tool-panel>` light DOM element is missing required `id` or `title` attributes.
+
+**Fix:** Add both attributes:
+
+```html
+<tbw-grid-tool-panel id="my-panel" title="My Panel">
+  Panel content here
+</tbw-grid-tool-panel>
+```
+
+<div id="tbw071" />
+
+### TBW071 — No Tool Panels
+
+`openToolPanel()` was called but no tool panels are registered.
+
+**Fix:** Register at least one tool panel before attempting to open the panel.
+
+<div id="tbw072" />
+
+### TBW072 — Tool Panel Not Found
+
+`toggleToolPanelSection()` was called with a section ID that doesn't match any registered panel.
+
+**Fix:** Verify the section ID matches a registered tool panel's `id`.
+
+<div id="tbw073" />
+
+### TBW073 — Duplicate Tool Panel
+
+A tool panel with the same `id` was registered twice. The duplicate was ignored.
+
+**Fix:** Ensure each tool panel has a unique `id`.
+
+<div id="tbw074" />
+
+### TBW074 — Duplicate Header Content
+
+Header content with the same `id` was registered twice.
+
+**Fix:** Use unique IDs for header content registrations.
+
+<div id="tbw075" />
+
+### TBW075 — Duplicate Toolbar Content
+
+Toolbar content with the same `id` was registered twice.
+
+**Fix:** Use unique IDs for toolbar content registrations.
+
+<LinkCard title="Architecture — Shell" href="/grid/architecture/" />
+
+---
+
+## Editing
+
+<div id="tbw080" />
+
+### TBW080 — Editor Mount Error
+
+An external editor's `mount()` function threw during edit activation.
+
+**Fix:** Debug the editor's `mount` function. Ensure it handles the editor context correctly.
+
+<LinkCard title="Editing Plugin" href="/grid/plugins/editing/" />
+
+---
+
+## Print
+
+<div id="tbw090" />
+
+### TBW090 — Print In Progress
+
+`print()` was called while a print operation is already running.
+
+**Fix:** Wait for the current print to complete before starting another. Listen for the `print-complete` event.
+
+<div id="tbw091" />
+
+### TBW091 — Grid Not Available
+
+`print()` was called but the grid element is not available (likely disconnected from the DOM).
+
+**Fix:** Ensure the grid is mounted before calling `print()`.
+
+<div id="tbw092" />
+
+### TBW092 — Print Failed
+
+The print operation encountered an error. The `print-complete` event will fire with `success: false`.
+
+**Fix:** Check the error details in the console. Common causes include the grid being too large or the user canceling the print dialog.
+
+<div id="tbw093" />
+
+### TBW093 — Duplicate Grid ID (Print)
+
+Multiple elements on the page share the same `id` as the grid. This interferes with print isolation.
+
+**Fix:** Assign a unique `id` to each grid element on the page.
+
+<LinkCard title="Print Plugin" href="/grid/plugins/print/" />
+
+---
+
+## Clipboard
+
+<div id="tbw100" />
+
+### TBW100 — Clipboard API Failed
+
+The browser's `navigator.clipboard.writeText()` failed. The grid falls back to `document.execCommand('copy')`.
+
+**Fix:** This usually happens when the page isn't focused or lacks the clipboard permission. The fallback typically succeeds, so this warning is informational.
+
+<LinkCard title="Clipboard Plugin" href="/grid/plugins/clipboard/" />
+
+---
+
+## Plugin-Specific
+
+<div id="tbw110" />
+
+### TBW110 — Missing Breakpoint (Responsive)
+
+`ResponsivePlugin` is loaded but no `breakpoint` is configured. The plugin will not activate.
+
+**Fix:** Set a breakpoint based on your container width:
+
+```ts
+grid.gridConfig = {
+  features: {
+    responsive: { breakpoint: 600 },
+  },
+};
+```
+
+<LinkCard title="Responsive Plugin" href="/grid/plugins/responsive/" />
+
+<div id="tbw111" />
+
+### TBW111 — Transaction In Progress (Undo/Redo)
+
+`beginTransaction()` was called while a transaction is already open.
+
+**Fix:** Call `endTransaction()` before starting a new transaction.
+
+<div id="tbw112" />
+
+### TBW112 — No Transaction (Undo/Redo)
+
+`endTransaction()` was called without a matching `beginTransaction()`.
+
+**Fix:** Ensure every `endTransaction()` has a preceding `beginTransaction()`.
+
+<LinkCard title="Undo/Redo Plugin" href="/grid/plugins/undo-redo/" />
+
+<div id="tbw113" />
+
+### TBW113 — Column Group Missing ID
+
+A `ColumnGroupDefinition` has neither `id` nor `header`. The grid cannot generate an identifier.
+
+**Fix:** Add either an `id` or `header` to every column group definition:
+
+```ts
+columnGroups: [
+  { id: 'personal', header: 'Personal Info', children: ['name', 'age'] },
+]
+```
+
+<div id="tbw114" />
+
+### TBW114 — Conflicting Column Groups
+
+`columnGroups` are defined in both `gridConfig` and the `groupingColumns` feature config. The feature config takes precedence.
+
+**Fix:** Define column groups in only one place — preferably in the feature config.
+
+<LinkCard title="Grouping Columns Plugin" href="/grid/plugins/grouping-columns/" />
+
+---
+
+## Style Injection
+
+<div id="tbw120" />
+
+### TBW120 — Style Extraction Failed
+
+The grid couldn't extract its CSS from `document.styleSheets` due to a CORS or access error.
+
+**Fix:** Ensure the grid's CSS file is served from the same origin, or add CORS headers to the stylesheet response.
+
+<div id="tbw121" />
+
+### TBW121 — Stylesheet Not Found
+
+The grid's CSS was not found in `document.styleSheets`. The grid will render without styling.
+
+**Fix:** Ensure you're importing the grid's CSS. For most setups:
+
+```ts
+import '@toolbox-web/grid/style.css';
+```
+
+Or link it in your HTML:
+
+```html
+<link rel="stylesheet" href="node_modules/@toolbox-web/grid/style.css" />
+```
+
+<CardGrid>
+  <LinkCard title="Getting Started — Installation" href="/grid/getting-started/" />
+  <LinkCard title="Theming Guide" href="/grid/guides/theming/" />
+</CardGrid>
+
+---
+
+## Attribute Parsing
+
+<div id="tbw130" />
+
+### TBW130 — Invalid Attribute JSON
+
+An HTML attribute (`rows`, `columns`, or `grid-config`) contains invalid JSON.
+
+**Fix:** Verify the attribute value is valid JSON. For complex config, use JavaScript properties instead of HTML attributes:
+
+```ts
+const grid = document.querySelector('tbw-grid');
+grid.gridConfig = { columns: [...], ... };
+```
+
+<LinkCard title="Getting Started" href="/grid/getting-started/" />

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.18.1...grid-angular-0.18.2) (2026-03-16)
+
+
+### Enhancements
+
+* **grid,grid-react,grid-vue,grid-angular:** allow columnGroups and per-group renderer in plugin config ([91960a9](https://github.com/OysteinAmundsen/toolbox/commit/91960a9ae1c5920abcc5ceed30f3c5f94a19ca3e))
+
 ## [0.18.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.18.0...grid-angular-0.18.1) (2026-03-15)
 
 

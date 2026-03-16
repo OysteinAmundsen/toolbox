@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.25.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.25.0...grid-1.25.1) (2026-03-16)
+
+
+### Bug Fixes
+
+* lint error ([7afaf44](https://github.com/OysteinAmundsen/toolbox/commit/7afaf4407d40a092df865bc8fa3d5be17ecada05))
+
+
+### Enhancements
+
+* **grid,grid-react,grid-vue,grid-angular:** allow columnGroups and per-group renderer in plugin config ([91960a9](https://github.com/OysteinAmundsen/toolbox/commit/91960a9ae1c5920abcc5ceed30f3c5f94a19ca3e))
+
 ## [1.25.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.24.2...grid-1.25.0) (2026-03-15)
 
 

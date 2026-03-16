@@ -250,7 +250,7 @@ describe('GroupingColumnsPlugin with plugin config columnGroups', () => {
   });
 
   it('plugin config columnGroups takes precedence over gridConfig.columnGroups', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
 
     grid.gridConfig = {
       columnGroups: [{ id: 'grid-level', header: 'Grid Level', children: ['firstName', 'lastName'] }],

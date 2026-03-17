@@ -632,7 +632,7 @@ interface ColumnConfig<TRow = unknown> {
   minWidth?: number;          // Minimum width in pixels
   sortable?: boolean;         // Enable sorting (default: true)
   resizable?: boolean;        // Enable resize (default: true)
-  editable?: boolean;         // Enable editing (requires EditingPlugin)
+  editable?: boolean | ((row: TRow) => boolean); // Enable editing — static or per-row (requires EditingPlugin)
   filterable?: boolean;       // Enable filtering (requires FilteringPlugin)
   hidden?: boolean;           // Initially hidden
   lockVisible?: boolean;      // Prevent hiding via UI
@@ -853,6 +853,10 @@ new EditingPlugin({
   dirtyTracking?: boolean,                         // (default: false) — track row baselines for dirty/pristine state
   onBeforeEditClose?: (params) => boolean | void,  // Intercept edit close (return false to prevent)
 })
+// Conditional Editing:
+//   Column level: { field: 'price', editable: (row) => row.status === 'draft' }
+//   Row level:    gridConfig.rowEditable = (row) => !row.archived
+//   Resolution:   rowEditable(row) && column.editable(row) — both must pass
 // Keyboard: Enter = row edit, F2 = single-cell edit, Escape = cancel, Tab = next cell
 // Focus Management: grid.registerExternalFocusContainer(el) / unregisterExternalFocusContainer(el)
 //   → overlays appended to <body> (datepickers, dropdowns) are treated as "inside" the grid

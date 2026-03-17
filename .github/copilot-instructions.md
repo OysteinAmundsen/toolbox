@@ -105,6 +105,17 @@ All libraries in this suite are built as **standard web components** (custom ele
 3. Consider deprecation period with console warnings before removal
 4. Bump major version
 
+### Delivery Checklist
+
+Every feature, fix, or refactor must complete **all four steps** before it is considered done:
+
+1. **Implement the code** — Write the feature or fix following the project's architecture and conventions
+2. **Write/update tests** — Add unit tests (co-located) and integration tests as needed; ensure all existing tests still pass
+3. **Verify the build** — Run `bun nx build grid` (check bundle budget), `bun nx test grid`, and `bun nx lint grid`; fix any failures
+4. **Update documentation** — Use the `docs-update` skill for the full checklist (MDX pages, READMEs, llms.txt, llms-full.txt, copilot-instructions, TypeDoc regeneration)
+
+Do **not** consider work complete until all four steps are finished. Skipping documentation is not acceptable — it is a required delivery step, not an afterthought.
+
 ### Commit Hygiene
 
 Prompt the user to commit at logical stopping points during work sessions. Small, focused commits are preferred over large omnibus commits.
@@ -594,7 +605,7 @@ See the `new-plugin` skill for the complete plugin development guide including:
 8. **Plugin container access** - Use `this.gridElement.children[0]`, not hardcoded selectors like `.data-grid-container`
 9. **Don't call RAF directly for rendering** - Use `this.#scheduler.requestPhase()` to batch work; exception: scroll hot path
 10. **Don't append `<style>` inside `<tbw-grid>`** - Child nodes are removed by `replaceChildren()` during renders. Standard CSS (global stylesheet, `<style>` in `<head>`) works fine. For runtime-injected styles use `registerStyles()` which uses `adoptedStyleSheets`
-11. **Editing is opt-in** - Using `editable: true` or `editor` requires the editing feature (`features: { editing: true }`) or `EditingPlugin`; the grid validates and throws helpful errors
+11. **Editing is opt-in** - Using `editable: true` (or a function `editable: (row) => boolean`) or `editor` requires the editing feature (`features: { editing: true }`) or `EditingPlugin`; the grid validates and throws helpful errors. Use `gridConfig.rowEditable: (row) => boolean` as a row-level gate before column checks
 12. **Prefer row objects over indices** - When exposing selection or row references to consumers, provide actual row data objects (e.g., `getSelectedRows()`) rather than forcing users to resolve indices manually. Row indices refer to positions in the grid's _current_ (sorted/filtered/grouped) row array, which may differ from the user's original data source. Indices are still useful as positional coordinates (e.g., `CellRange`), but always offer a row-object alternative for data access.
 13. **Use `insertRow()`/`removeRow()` for manual row mutations** - When inserting or deleting rows by hand, use `grid.insertRow(index, row)` or `grid.removeRow(index)` instead of splicing an array and reassigning `grid.rows`. These methods operate directly on the current sorted/filtered view without re-running the pipeline, and auto-animate by default (pass `false` as the last argument to skip animation). Both return `Promise`s — `await grid.removeRow(idx)` ensures the fade-out animation completes before removal. The source data is updated automatically, so the next full `grid.rows = freshData` assignment re-sorts/re-filters normally. Do **not** use them for data refreshes (API responses, WebSocket updates) — let sort/filter re-apply by assigning `grid.rows` directly.
 14. **Register external focus containers for overlays** - Custom editors that append elements to `<body>` (datepickers, dropdowns, color pickers) must call `grid.registerExternalFocusContainer(panel)` so the grid treats focus inside those elements as "still in the grid." Without registration, the grid will close the editor when focus moves to the overlay. Call `grid.unregisterExternalFocusContainer(panel)` when the overlay is destroyed. Angular's `BaseOverlayEditor` does this automatically.

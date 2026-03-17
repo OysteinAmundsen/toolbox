@@ -69,7 +69,7 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     pluginName: 'editing',
     level: 'column',
     description: 'the "editable" column property',
-    isUsed: (v) => v === true,
+    isUsed: (v) => v === true || typeof v === 'function',
   },
   {
     property: 'editor',
@@ -111,6 +111,14 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
  * Static registry of known plugin-owned grid config properties.
  */
 const KNOWN_CONFIG_PROPERTIES: InternalPropertyDefinition[] = [
+  // EditingPlugin
+  {
+    property: 'rowEditable',
+    pluginName: 'editing',
+    level: 'config',
+    description: 'the "rowEditable" config property',
+    isUsed: (v) => typeof v === 'function',
+  },
   // GroupingColumnsPlugin
   {
     property: 'columnGroups',

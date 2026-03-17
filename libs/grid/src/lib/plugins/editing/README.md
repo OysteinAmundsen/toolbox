@@ -50,11 +50,31 @@ All editable cells always show editors (spreadsheet-like).
 
 ## Column Configuration
 
-| Property       | Type               | Description                                   |
-| -------------- | ------------------ | --------------------------------------------- |
-| `editable`     | `boolean`          | Whether the column is editable                |
-| `editor`       | `ColumnEditorSpec` | Built-in editor type or custom editor factory |
-| `editorParams` | `EditorParams`     | Configuration for built-in editors            |
+| Property       | Type                                  | Description                                        |
+| -------------- | ------------------------------------- | -------------------------------------------------- |
+| `editable`     | `boolean \| ((row: TRow) => boolean)` | Whether the column is editable (static or per-row) |
+| `editor`       | `ColumnEditorSpec`                    | Built-in editor type or custom editor factory      |
+| `editorParams` | `EditorParams`                        | Configuration for built-in editors                 |
+
+### Conditional Editing
+
+Use a function for `editable` to control editability per row:
+
+```typescript
+columns: [
+  { field: 'name', editable: true }, // always editable
+  { field: 'price', editable: (row) => row.status === 'draft' }, // conditional
+];
+```
+
+Use `rowEditable` on `gridConfig` to block editing for entire rows:
+
+```typescript
+gridConfig = {
+  rowEditable: (row) => !row.archived,
+  columns: [{ field: 'name', editable: true }],
+};
+```
 
 ### Built-in Editors
 

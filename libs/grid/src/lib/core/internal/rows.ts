@@ -876,7 +876,8 @@ export function renderInlineRow(grid: GridHost, rowEl: HTMLElement, rowData: any
     }
     // Mark editable cells with tabindex for keyboard navigation
     // Event handlers are set up via delegation in setupCellEventDelegation()
-    if (col.editable) {
+    const isEditable = typeof col.editable === 'function' ? col.editable(rowData) : col.editable;
+    if (isEditable) {
       cell.tabIndex = 0;
     } else if (col.type === 'boolean') {
       // Non-editable boolean cells should NOT toggle on space key

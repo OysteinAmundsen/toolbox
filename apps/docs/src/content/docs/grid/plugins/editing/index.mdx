@@ -9,6 +9,7 @@ import EditingAllColumnTypesDemo from '@components/demos/editing/EditingAllColum
 import EditingBasicEditingDemo from '@components/demos/editing/EditingBasicEditingDemo.astro';
 import EditingCellValidationDemo from '@components/demos/editing/EditingCellValidationDemo.astro';
 import EditingClickToEditDemo from '@components/demos/editing/EditingClickToEditDemo.astro';
+import EditingConditionalDemo from '@components/demos/editing/EditingConditionalDemo.astro';
 import EditingCustomEditorDemo from '@components/demos/editing/EditingCustomEditorDemo.astro';
 import EditingEditingEventsDemo from '@components/demos/editing/EditingEditingEventsDemo.astro';
 import EditingGridModeDemo from '@components/demos/editing/EditingGridModeDemo.astro';
@@ -190,6 +191,84 @@ The `cell-change` event fires for programmatic updates via `updateRow()`/`update
 :::
 
 See the [API Reference](/grid/api-reference/#row-update-api) for full documentation.
+
+## Conditional Editing
+
+By default, `editable: true` makes a column editable for **every** row. For more fine-grained control, use a **function** to decide per-row whether a cell can be edited.
+
+### Try It
+
+<ShowSource file="demos/editing/EditingConditionalDemo.astro">
+  <EditingConditionalDemo />
+</ShowSource>
+
+In this demo, **Price** is only editable on "draft" rows, and the archived row (Thingamajig) is locked entirely via `rowEditable`.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+const columns = [
+  { field: 'name', editable: true }, // always editable
+  { field: 'price', editable: (row) => row.status === 'draft' }, // only draft rows
+];
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+const columns = [
+  { field: 'name', editable: true },
+  { field: 'price', editable: (row) => row.status === 'draft' },
+];
+
+<DataGrid rows={data} columns={columns} editing="dblclick" />
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+const columns = [
+  { field: 'name', editable: true },
+  { field: 'price', editable: (row) => row.status === 'draft' },
+];
+</script>
+
+<template>
+  <TbwGrid :rows="data" :columns="columns" editing="dblclick" />
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+columns: ColumnConfig[] = [
+  { field: 'name', editable: true },
+  { field: 'price', editable: (row: any) => row.status === 'draft' },
+];
+```
+  </TabItem>
+</Tabs>
+
+### Row-Level Editability (`rowEditable`)
+
+To block editing for an **entire row** regardless of column config, set `rowEditable` on `gridConfig`. This acts as a gate before any column-level `editable` check:
+
+```ts
+grid.gridConfig = {
+  rowEditable: (row) => !row.archived,
+  columns: [
+    { field: 'name', editable: true },
+    { field: 'price', editable: (row) => row.status === 'draft' },
+  ],
+  features: { editing: 'dblclick' },
+};
+```
+
+**Resolution order** — a cell is editable when **both** pass:
+1. `gridConfig.rowEditable(row)` returns `true` (or is omitted)
+2. Column `editable` is `true` or `editable(row)` returns `true`
+
+:::tip
+Keep `editable` and `rowEditable` callbacks fast — they are called on every editability check (click, keyboard, grid-mode render, tab navigation).
+:::
 
 ## Edit Triggers
 

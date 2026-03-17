@@ -3241,5 +3241,217 @@ describe('EditingPlugin', () => {
   });
   // #endregion
 
+  // #region Conditional Editing
+  describe('conditional editing', () => {
+    describe('column-level editable function', () => {
+      it('enters edit mode when editable function returns true', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: (row: any) => row.status === 'draft' },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, name: 'Alpha', status: 'draft' }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+        nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = nameCell.querySelector('input');
+        expect(input).toBeTruthy();
+      });
+
+      it('does NOT enter edit mode when editable function returns false', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: (row: any) => row.status === 'draft' },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, name: 'Alpha', status: 'locked' }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+        nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        const input = nameCell.querySelector('input');
+        expect(input).toBeFalsy();
+      });
+
+      it('allows mixed static and function editable across columns', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: true },
+            { field: 'price', header: 'Price', editable: (row: any) => row.status === 'draft' },
+          ],
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ id: 1, name: 'Alpha', price: 100, status: 'locked' }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameCell = row.querySelector('.cell[data-col="1"]') as HTMLElement;
+        const priceCell = row.querySelector('.cell[data-col="2"]') as HTMLElement;
+
+        // Click on the row to enter edit mode
+        nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        // Static editable: true should have an editor
+        expect(nameCell.querySelector('input')).toBeTruthy();
+        // Function editable returning false should NOT have an editor
+        expect(priceCell.querySelector('input')).toBeFalsy();
+      });
+
+      it('sets aria-readonly correctly for function-based editable', async () => {
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: (row: any) => row.status === 'draft' }],
+          plugins: [new EditingPlugin({ editOn: 'click', mode: 'grid' })],
+        };
+        grid.rows = [
+          { name: 'Alpha', status: 'draft' },
+          { name: 'Beta', status: 'locked' },
+        ];
+        await waitUpgrade(grid);
+
+        const rows = grid.querySelectorAll('.data-grid-row');
+        const cell0 = rows[0]?.querySelector('.cell[data-col="0"]') as HTMLElement;
+        const cell1 = rows[1]?.querySelector('.cell[data-col="0"]') as HTMLElement;
+
+        // Draft row should be editable (no aria-readonly)
+        expect(cell0?.getAttribute('aria-readonly')).toBeNull();
+        // Locked row should have aria-readonly
+        expect(cell1?.getAttribute('aria-readonly')).toBe('true');
+      });
+
+      it('manifest isUsed detects function values', () => {
+        const manifest = EditingPlugin.manifest;
+        const editableProp = manifest?.ownedProperties?.find((p: any) => p.property === 'editable');
+        expect(editableProp!.isUsed!(true)).toBe(true);
+        expect(editableProp!.isUsed!(() => true)).toBe(true);
+        expect(editableProp!.isUsed!(false)).toBe(false);
+        expect(editableProp!.isUsed!(undefined)).toBe(false);
+      });
+    });
+
+    describe('gridConfig.rowEditable', () => {
+      it('blocks editing for entire row when rowEditable returns false', async () => {
+        grid.gridConfig = {
+          columns: [
+            { field: 'id', header: 'ID' },
+            { field: 'name', header: 'Name', editable: true },
+          ],
+          rowEditable: (row: any) => !row.archived,
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [
+          { id: 1, name: 'Alpha', archived: false },
+          { id: 2, name: 'Beta', archived: true },
+        ];
+        await waitUpgrade(grid);
+
+        // First row (not archived) should be editable
+        const rows = grid.querySelectorAll('.data-grid-row');
+        const nameCell0 = rows[0]?.querySelector('.cell[data-col="1"]') as HTMLElement;
+
+        nameCell0.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+        expect(nameCell0.querySelector('input')).toBeTruthy();
+
+        // Exit editing
+        nameCell0.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        // Second row (archived) should NOT be editable
+        const nameCell1 = rows[1]?.querySelector('.cell[data-col="1"]') as HTMLElement;
+        nameCell1?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+        expect(nameCell1?.querySelector('input')).toBeFalsy();
+      });
+
+      it('rowEditable takes precedence over column editable: true', async () => {
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: true }],
+          rowEditable: () => false,
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ name: 'Alpha' }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameCell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
+
+        nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        // rowEditable returns false → no editing
+        expect(nameCell.querySelector('input')).toBeFalsy();
+      });
+
+      it('combines rowEditable with column-level function editable', async () => {
+        const editableSpy = vi.fn((row: any) => row.status === 'draft');
+        grid.gridConfig = {
+          columns: [{ field: 'name', header: 'Name', editable: editableSpy }],
+          rowEditable: (row: any) => !row.archived,
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ name: 'Alpha', status: 'draft', archived: true }];
+        await waitUpgrade(grid);
+
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const nameCell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
+
+        nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        await nextFrame();
+        await nextFrame();
+
+        // rowEditable returns false (archived), so column function should not be reached for edit injection
+        expect(nameCell.querySelector('input')).toBeFalsy();
+      });
+
+      it('does not block boolean space toggle when rowEditable returns false', async () => {
+        // Boolean toggle via Space still respects rowEditable
+        grid.gridConfig = {
+          columns: [{ field: 'active', header: 'Active', type: 'boolean', editable: true }],
+          rowEditable: () => false,
+          plugins: [new EditingPlugin({ editOn: 'click' })],
+        };
+        grid.rows = [{ active: true }];
+        await waitUpgrade(grid);
+
+        // Focus the cell
+        const row = grid.querySelector('.data-grid-row') as HTMLElement;
+        const cell = row.querySelector('.cell[data-col="0"]') as HTMLElement;
+
+        // Simulate focus
+        grid.focusCell(0, 0);
+        await nextFrame();
+
+        // Press space - should NOT toggle because rowEditable is false
+        cell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+        await nextFrame();
+
+        expect(grid.rows[0].active).toBe(true); // Unchanged
+      });
+    });
+  });
+  // #endregion
+
   // #endregion
 });

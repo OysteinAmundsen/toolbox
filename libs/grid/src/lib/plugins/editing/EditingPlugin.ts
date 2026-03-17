@@ -144,7 +144,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         property: 'editable',
         level: 'column',
         description: 'the "editable" column property',
-        isUsed: (v) => v === true,
+        isUsed: (v) => v === true || typeof v === 'function',
       },
       {
         property: 'editor',
@@ -194,6 +194,35 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
    */
   get #isGridMode(): boolean {
     return this.config.mode === 'grid';
+  }
+
+  /**
+   * Resolve whether a given cell is editable.
+   *
+   * Resolution order:
+   * 1. `gridConfig.rowEditable(row)` — row-level gate (if provided). Returns `false` → not editable.
+   * 2. `column.editable` — `true`, `false`, or `(row) => boolean`.
+   *
+   * @returns `true` when the cell should be editable, `false` otherwise.
+   */
+  #isCellEditable(column: ColumnConfig<T>, row: T): boolean {
+    // Row-level gate
+    const rowEditable = this.#internalGrid.effectiveConfig?.rowEditable;
+    if (rowEditable && !rowEditable(row as any)) return false;
+
+    // Column-level check
+    const { editable } = column;
+    if (typeof editable === 'function') return editable(row);
+    return editable === true;
+  }
+
+  /**
+   * Check whether a column has ANY editability configured (static `true` or a
+   * function). This is used for quick checks where no specific row is available
+   * (e.g. "does this row have any potentially-editable columns?").
+   */
+  #hasEditableConfig(column: ColumnConfig<T>): boolean {
+    return column.editable === true || typeof column.editable === 'function';
   }
 
   // #region Editing State (fully owned by plugin)
@@ -655,9 +684,14 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     const { rowIndex } = event;
 
-    // Check if any column in the row is editable
-    const hasEditableColumn = internalGrid._columns?.some((col) => col.editable);
+    // Check if any column in the row is potentially editable
+    const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
     if (!hasEditableColumn) return false;
+
+    // Row-level gate
+    const rowData = internalGrid._rows[rowIndex];
+    const rowEditable = internalGrid.effectiveConfig?.rowEditable;
+    if (rowData && rowEditable && !rowEditable(rowData as any)) return false;
 
     // Start row-based editing (all editable cells get editors)
     event.originalEvent.stopPropagation();
@@ -775,7 +809,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       if (focusRow >= 0 && focusCol >= 0) {
         const column = internalGrid._visibleColumns[focusCol];
         const rowData = internalGrid._rows[focusRow];
-        if (column?.editable && column.type === 'boolean' && rowData) {
+        if (
+          column &&
+          rowData &&
+          this.#isCellEditable(column as ColumnConfig<T>, rowData as T) &&
+          column.type === 'boolean'
+        ) {
           const field = column.field;
           if (isSafePropertyKey(field)) {
             const currentValue = (rowData as Record<string, unknown>)[field];
@@ -813,9 +852,13 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       const focusRow = internalGrid._focusRow;
       const focusCol = internalGrid._focusCol;
       if (focusRow >= 0) {
-        // Check if ANY column in the row is editable
-        const hasEditableColumn = internalGrid._columns?.some((col) => col.editable);
-        if (hasEditableColumn) {
+        // Check if ANY column in the row is potentially editable
+        const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
+        // Row-level gate
+        const rowData = internalGrid._rows[focusRow];
+        const rowEditable = internalGrid.effectiveConfig?.rowEditable;
+        const rowBlocked = rowData && rowEditable && !rowEditable(rowData as any);
+        if (hasEditableColumn && !rowBlocked) {
           // Emit cell-activate event BEFORE starting edit
           // This ensures consumers always get the activation event
           const column = internalGrid._visibleColumns[focusCol];
@@ -875,7 +918,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       const focusCol = internalGrid._focusCol;
       if (focusRow >= 0 && focusCol >= 0) {
         const column = internalGrid._visibleColumns[focusCol];
-        if (column?.editable && column.field) {
+        const rowData = internalGrid._rows[focusRow];
+        if (column && rowData && this.#isCellEditable(column as ColumnConfig<T>, rowData as T) && column.field) {
           event.preventDefault();
           this.beginCellEdit(focusRow, column.field);
           return true;
@@ -1091,8 +1135,10 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
   override afterCellRender(context: AfterCellRenderContext): void {
     const { row, rowIndex, column, colIndex, cellElement } = context;
 
+    const editable = this.#isCellEditable(column as ColumnConfig<T>, row as T);
+
     // Set aria-readonly on non-editable cells so screen readers can distinguish
-    if (!column.editable) {
+    if (!editable) {
       cellElement.setAttribute('aria-readonly', 'true');
     } else {
       cellElement.removeAttribute('aria-readonly');
@@ -1101,8 +1147,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Only inject editors in grid mode
     if (!this.#isGridMode) return;
 
-    // Skip non-editable columns
-    if (!column.editable) return;
+    // Skip non-editable cells
+    if (!editable) return;
 
     // Skip if already has editor
     if (cellElement.classList.contains('editing')) return;
@@ -1474,7 +1520,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     if (colIndex === -1) return;
 
     const column = internalGrid._visibleColumns[colIndex];
-    if (!column?.editable) return;
+    const rowData = internalGrid._rows[rowIndex];
+    if (!column || !rowData || !this.#isCellEditable(column as ColumnConfig<T>, rowData as T)) return;
 
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
     const cellEl = rowEl?.querySelector(`.cell[data-col="${colIndex}"]`) as HTMLElement | null;
@@ -1495,23 +1542,27 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const editOn = this.config.editOn ?? internalGrid.effectiveConfig?.editOn;
     if (editOn === false) return;
 
-    const hasEditableColumn = internalGrid._columns?.some((col) => col.editable);
+    const hasEditableColumn = internalGrid._columns?.some((col) => this.#hasEditableConfig(col as ColumnConfig<T>));
     if (!hasEditableColumn) return;
 
     const rowEl = internalGrid.findRenderedRowElement?.(rowIndex);
     if (!rowEl) return;
 
+    // Row-level gate
+    const rowData = internalGrid._rows[rowIndex];
+    const rowEditable = internalGrid.effectiveConfig?.rowEditable;
+    if (rowData && rowEditable && !rowEditable(rowData as any)) return;
+
     // Bulk edit clears single-cell mode
     this.#singleCellEdit = false;
 
     // Start row edit
-    const rowData = internalGrid._rows[rowIndex];
     this.#startRowEdit(rowIndex, rowData);
 
     // Enter edit mode on all editable cells
     Array.from(rowEl.children).forEach((cell, i) => {
       const col = internalGrid._visibleColumns[i];
-      if (col?.editable) {
+      if (col && this.#isCellEditable(col as ColumnConfig<T>, rowData as T)) {
         const cellEl = cell as HTMLElement;
         if (!cellEl.classList.contains('editing')) {
           this.#injectEditor(rowData, rowIndex, col, i, cellEl, true);
@@ -1651,7 +1702,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const rowData = internalGrid._rows[rowIndex];
     const column = internalGrid._visibleColumns[colIndex];
 
-    if (!rowData || !column?.editable) return;
+    if (!rowData || !column || !this.#isCellEditable(column as ColumnConfig<T>, rowData as T)) return;
     if (cellEl.classList.contains('editing')) return;
 
     // Start row edit if not already
@@ -1738,9 +1789,12 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     const rows = internalGrid._rows;
     // In grid mode, use focusRow since there's no active edit row
     const currentRow = this.#isGridMode ? internalGrid._focusRow : this.#activeEditRow;
+    const currentRowData = rows[currentRow] as T;
 
-    // Get editable column indices
-    const editableCols = internalGrid._visibleColumns.map((c, i) => (c.editable ? i : -1)).filter((i) => i >= 0);
+    // Get editable column indices for the CURRENT row
+    const editableCols = internalGrid._visibleColumns
+      .map((c, i) => (currentRowData && this.#isCellEditable(c as ColumnConfig<T>, currentRowData) ? i : -1))
+      .filter((i) => i >= 0);
     if (editableCols.length === 0) return;
 
     const currentIdx = editableCols.indexOf(internalGrid._focusCol);
@@ -1762,10 +1816,17 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Can move to adjacent row?
     const nextRow = currentRow + (forward ? 1 : -1);
     if (nextRow >= 0 && nextRow < rows.length) {
+      const nextRowData = rows[nextRow] as T;
+      // Compute editable columns for the next row
+      const nextEditableCols = internalGrid._visibleColumns
+        .map((c, i) => (nextRowData && this.#isCellEditable(c as ColumnConfig<T>, nextRowData) ? i : -1))
+        .filter((i) => i >= 0);
+      if (nextEditableCols.length === 0) return; // Next row has no editable cells
+
       // In grid mode, just move focus (all rows are always editable)
       if (this.#isGridMode) {
         internalGrid._focusRow = nextRow;
-        internalGrid._focusCol = forward ? editableCols[0] : editableCols[editableCols.length - 1];
+        internalGrid._focusCol = forward ? nextEditableCols[0] : nextEditableCols[nextEditableCols.length - 1];
         ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
         // Focus the editor in the new cell after render
         this.requestAfterRender();
@@ -1781,7 +1842,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         // In row mode, commit current row and enter next row
         this.#exitRowEdit(currentRow, false);
         internalGrid._focusRow = nextRow;
-        internalGrid._focusCol = forward ? editableCols[0] : editableCols[editableCols.length - 1];
+        internalGrid._focusCol = forward ? nextEditableCols[0] : nextEditableCols[nextEditableCols.length - 1];
         this.beginBulkEdit(nextRow);
         ensureCellVisible(internalGrid, { forceHorizontalScroll: true });
       }

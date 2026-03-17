@@ -58,7 +58,7 @@ Key TypeScript interfaces for configuration and events:
 
 ## Plugins
 
-- [Editing Plugin](https://toolboxjs.com/grid/plugins/editing/): Inline cell editing and full row editing mode with built-in editors (text, number, date, boolean/checkbox, select/dropdown), custom editors, validation support, dirty tracking (`dirtyTracking: true` — baseline snapshots, isDirty/isPristine, revert, `dirty-change` event, `tbw-row-dirty`/`tbw-row-new` CSS classes)
+- [Editing Plugin](https://toolboxjs.com/grid/plugins/editing/): Inline cell editing and full row editing mode with built-in editors (text, number, date, boolean/checkbox, select/dropdown), custom editors, conditional editing (`editable: boolean | (row) => boolean` per column, `rowEditable: (row) => boolean` on gridConfig), validation support, dirty tracking (`dirtyTracking: true` — baseline snapshots, isDirty/isPristine, revert, `dirty-change` event, `tbw-row-dirty`/`tbw-row-new` CSS classes)
 - [Selection Plugin](https://toolboxjs.com/grid/plugins/selection/): Cell selection, row selection, range selection (Excel-like), checkbox column, Shift/Ctrl multi-select, select all
 - [Filtering Plugin](https://toolboxjs.com/grid/plugins/filtering/): Column filters with text, number, date, set (multi-select), boolean types; custom filter functions, filter row, quick filter, silent mode (`{ silent: true }` option on `setFilter`/`setFilterModel`/`clearAllFilters` for batch updates)
 - [Multi-Sort Plugin](https://toolboxjs.com/grid/plugins/multi-sort/): Sort by multiple columns with priority

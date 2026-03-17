@@ -1,0 +1,55 @@
+---
+// EditingConditionalDemo.astro — Demonstrates per-row and row-level conditional editing
+---
+<div class="grid-demo not-content" id="editing-conditional-demo">
+  <tbw-grid style="height: 300px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+
+import '@toolbox-web/grid/features/editing';
+
+const container = document.getElementById('editing-conditional-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container);
+
+  grid.gridConfig = {
+    // Row-level gate: archived rows cannot be edited at all
+    rowEditable: (row) => !row.archived,
+    columns: [
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'price', header: 'Price', type: 'number', editable: (row) => row.status === 'draft' },
+      {
+        field: 'status',
+        header: 'Status',
+        type: 'select',
+        editable: true,
+        options: [
+          { label: 'Draft', value: 'draft' },
+          { label: 'Published', value: 'published' },
+        ],
+      },
+      {
+        field: 'archived',
+        header: 'Archived',
+        type: 'boolean',
+        renderer: (ctx) => {
+          const span = document.createElement('span');
+          span.textContent = ctx.value ? '🔒 Yes' : 'No';
+          return span;
+        },
+      },
+    ],
+    features: { editing: 'dblclick' },
+  };
+
+  grid.rows = [
+    { name: 'Widget', price: 9.99, status: 'draft', archived: false },
+    { name: 'Gadget', price: 19.99, status: 'published', archived: false },
+    { name: 'Doohickey', price: 4.99, status: 'draft', archived: false },
+    { name: 'Thingamajig', price: 29.99, status: 'published', archived: true },
+  ];
+}
+</script>

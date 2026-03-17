@@ -218,8 +218,28 @@ export interface EditCloseDetail<TRow = unknown> {
  */
 declare module '../../core/types' {
   interface BaseColumnConfig<TRow, TValue> {
-    /** Whether the field is editable (enables editors). Requires EditingPlugin. */
-    editable?: boolean;
+    /**
+     * Whether the field is editable (enables editors). Requires EditingPlugin.
+     *
+     * - `true` — editable for all rows
+     * - `false` / omitted — not editable
+     * - `(row: TRow) => boolean` — conditionally editable per row
+     *
+     * When a function is provided it is evaluated each time the grid needs to
+     * determine if a specific cell can enter edit mode (click, keyboard, grid
+     * mode render, tab navigation, etc.). Keep the function fast — it runs on
+     * hot render paths.
+     *
+     * @example
+     * ```typescript
+     * // Always editable
+     * { field: 'name', editable: true }
+     *
+     * // Conditionally editable
+     * { field: 'price', editable: (row) => row.status !== 'locked' }
+     * ```
+     */
+    editable?: boolean | ((row: TRow) => boolean);
     /** Optional custom editor factory or element tag name. Requires EditingPlugin. */
     editor?: ColumnEditorSpec<TRow, TValue>;
     /**
@@ -331,7 +351,7 @@ declare module '../../core/types' {
     editorParams?: Record<string, unknown>;
   }
 
-  interface GridConfig {
+  interface GridConfig<TRow = any> {
     /**
      * Edit trigger mode. Requires `EditingPlugin` to be loaded.
      *
@@ -344,6 +364,33 @@ declare module '../../core/types' {
      * - `false`: Disable editing entirely
      */
     editOn?: 'click' | 'dblclick' | 'manual' | false;
+
+    /**
+     * Row-level editability gate. Requires `EditingPlugin` to be loaded.
+     *
+     * When provided, this function is called **before** the column-level
+     * `editable` check. If it returns `false` for a given row, **no cell** in
+     * that row can be edited regardless of the column configuration.
+     *
+     * Omitting this property (or returning `true`) defers to per-column
+     * `editable` settings.
+     *
+     * Keep the callback fast — it is invoked on every editability check
+     * (click, keyboard, grid-mode render, tab navigation).
+     *
+     * @example
+     * ```typescript
+     * // Block editing for archived rows
+     * gridConfig = {
+     *   rowEditable: (row) => !row.archived,
+     *   columns: [
+     *     { field: 'name', editable: true },
+     *     { field: 'price', editable: (row) => row.status === 'draft' },
+     *   ],
+     * };
+     * ```
+     */
+    rowEditable?: (row: TRow) => boolean;
   }
 
   interface DataGridEventMap<TRow = unknown> {

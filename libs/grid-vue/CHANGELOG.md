@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.10.1...grid-vue-0.10.2) (2026-03-17)
+
+
+### Bug Fixes
+
+* **grid,grid-react,grid-vue:** plug memory leaks in adapters, cache, and global handlers ([c69c86d](https://github.com/OysteinAmundsen/toolbox/commit/c69c86d1a93d2653a45832c28021a40e5b1563c8))
+
 ## [0.10.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.10.0...grid-vue-0.10.1) (2026-03-16)
 
 

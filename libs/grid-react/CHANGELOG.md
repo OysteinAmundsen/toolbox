@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.3...grid-react-0.17.4) (2026-03-17)
+
+
+### Bug Fixes
+
+* **grid,grid-react,grid-vue:** plug memory leaks in adapters, cache, and global handlers ([c69c86d](https://github.com/OysteinAmundsen/toolbox/commit/c69c86d1a93d2653a45832c28021a40e5b1563c8))
+
 ## [0.17.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.2...grid-react-0.17.3) (2026-03-16)
 
 

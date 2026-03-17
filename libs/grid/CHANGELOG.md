@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.25.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.25.1...grid-1.25.2) (2026-03-17)
+
+
+### Bug Fixes
+
+* **grid,grid-react,grid-vue:** plug memory leaks in adapters, cache, and global handlers ([c69c86d](https://github.com/OysteinAmundsen/toolbox/commit/c69c86d1a93d2653a45832c28021a40e5b1563c8))
+* **grid:** inline diagnostics into plugin bundles and add doc cross-links to errors.mdx ([348ecd5](https://github.com/OysteinAmundsen/toolbox/commit/348ecd5cd5a12458828008188ec19dd5fcb4f277))
+
+
+### Performance Improvements
+
+* **grid:** cache hook checks, eliminate allocations in hot paths, O(1) row lookup ([7b3e2d8](https://github.com/OysteinAmundsen/toolbox/commit/7b3e2d896db68d0a45779bfd0b2b5b3090b3410d))
+
 ## [1.25.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.25.0...grid-1.25.1) (2026-03-16)
 
 

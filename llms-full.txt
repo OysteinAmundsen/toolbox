@@ -1418,10 +1418,10 @@ gridConfig: {
     <tbw-grid-header-content>
       <span>20 employees</span>
     </tbw-grid-header-content>
-    <tbw-grid-tool-buttons>
-      <button class="tbw-toolbar-btn">Export</button>
-    </tbw-grid-tool-buttons>
   </tbw-grid-header>
+  <tbw-grid-tool-buttons>
+    <button class="tbw-toolbar-btn">Export</button>
+  </tbw-grid-tool-buttons>
 </tbw-grid>
 ```
 

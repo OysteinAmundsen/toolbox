@@ -94,10 +94,10 @@ function canMoveColumn(column: ColumnConfig): boolean {
  *
  * @example Columns Hidden by Default
  * ```ts
- * import '@toolbox-web/grid';
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { VisibilityPlugin } from '@toolbox-web/grid/plugins/visibility';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * grid.gridConfig = {
  *   columns: [
  *     { field: 'id', header: 'ID' },

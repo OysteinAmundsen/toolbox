@@ -29,10 +29,10 @@ Define everything in one place — groups, renderers, and plugin behavior:
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/grouping-columns';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'firstName', header: 'First Name' },

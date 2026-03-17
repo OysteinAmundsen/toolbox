@@ -3,9 +3,9 @@ title: "Pinned Rows (Status Bar) Plugin"
 description: "Pin summary or custom rows to the top or bottom of the grid."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-import PinnedRowsDefaultDemo from '@components/demos/pinned-rows/PinnedRowsDefaultDemo.astro';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import PinnedRowsCustomPanelsDemo from '@components/demos/pinned-rows/PinnedRowsCustomPanelsDemo.astro';
+import PinnedRowsDefaultDemo from '@components/demos/pinned-rows/PinnedRowsDefaultDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -25,7 +25,9 @@ Configure aggregation rows with built-in functions (`sum`, `avg`, `count`, `min`
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'product', header: 'Product' },

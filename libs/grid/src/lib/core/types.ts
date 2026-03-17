@@ -23,8 +23,9 @@ export type RowPositionEntry = RowPosition;
  *
  * @example
  * ```typescript
- * // Query existing grid
- * const grid = document.querySelector('tbw-grid') as DataGridElement<Employee>;
+ * // Query existing grid with type safety
+ * import { queryGrid } from '@toolbox-web/grid';
+ * const grid = queryGrid<Employee>('tbw-grid');
  * grid.rows = employees;
  * grid.on('cell-click', (detail) => console.log(detail));
  *

@@ -58,10 +58,10 @@ const QUERY_CAN_MOVE_COLUMN = 'canMoveColumn';
  *
  * @example Pin ID Left and Actions Right
  * ```ts
- * import '@toolbox-web/grid';
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { PinnedColumnsPlugin } from '@toolbox-web/grid/plugins/pinned-columns';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * grid.gridConfig = {
  *   columns: [
  *     { field: 'id', header: 'ID', pinned: 'left', width: 80 },

@@ -3,7 +3,7 @@ title: Introduction
 description: A high-performance, framework-agnostic data grid web component for JavaScript, React, Angular, and Vue. Zero dependencies, 100k+ rows, virtualized rendering.
 ---
 
-import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 import IntroBasicDemo from '@components/demos/IntroBasicDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -19,7 +19,7 @@ We built this grid because we needed something that works everywhere without fra
 | 🚀 **Enterprise Performance** | Virtualized rendering handles 100k+ rows at 60fps                |
 | 🔧 **True Framework Agnostic** | Single codebase works in vanilla JS, React, Vue, Angular, Svelte |
 | 📦 **Lightweight & Self-Contained** | ~45KB gzipped with zero runtime dependencies           |
-| 🧩 **Best-in-Class Plugin System** | 19+ hooks, dependency validation, type-safe config extension |
+| 🧩 **Extensible Plugin System** | Lifecycle hooks, dependency validation, type-safe config extension |
 | ⌨️ **Full Keyboard Support** | Arrow keys, Tab, Enter, Escape, Home/End, Page Up/Down            |
 | 🎨 **Themeable**           | CSS custom properties for complete visual customization             |
 | 💡 **Developer-Friendly Errors** | Actionable error messages with import hints and fix suggestions |
@@ -89,7 +89,7 @@ Read the full [Architecture deep-dive](/grid/architecture/) for implementation d
 
 ## Plugin System
 
-The core grid is intentionally minimal (~45KB gzipped). Advanced features are delivered through tree-shakeable plugins—import only what you need:
+The core grid is intentionally minimal. Advanced features are delivered through tree-shakeable plugins — import only what you need:
 
 - **SelectionPlugin** — Cell, row, or range selection
 - **FilteringPlugin** — Column header filters with custom panels

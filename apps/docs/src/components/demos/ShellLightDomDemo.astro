@@ -21,14 +21,11 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = document.querySelector<HTMLElement & {
-    columns: ColumnConfig[];
-    rows: Record<string, unknown>[];
-  }>('#shell-lightdom-wrap tbw-grid');
-
-  if (grid) {
+  const container = document.getElementById('shell-lightdom-wrap');
+  if (container) {
+    const grid = queryGrid('tbw-grid', container)!;
     const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];
     const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];
 

@@ -3,7 +3,7 @@ title: Performance
 description: Optimize @toolbox-web/grid for large datasets — virtualization tuning, bundle optimization, rendering best practices, and benchmarks.
 ---
 
-import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 import PerformanceStressTestDemo from '@components/demos/PerformanceStressTestDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -147,21 +147,18 @@ For fields with expensive comparisons, provide a pre-computed sort key:
 Let the grid manage its DOM. Direct manipulation can conflict with the render scheduler and virtualization:
 
 ```typescript
-// ❌ Don't do this
+// ❌ Don't do this — bypasses the grid's render cycle
 document.querySelector('.data-grid-row')!.style.background = 'red';
 
-// ✅ Use CSS custom properties or renderers
+// ✅ Use rowClass/cellClass or a renderer instead
 grid.gridConfig = {
-  columns: [{
-    field: 'status',
-    renderer: (value) => `<span class="status-${value}">${value}</span>`,
-  }],
+  rowClass: (row) => row.status === 'error' ? 'row-error' : '',
 };
 ```
 
-### Use `registerStyles()` for Dynamic CSS
+### Use `registerStyles()` for Dynamic Runtime CSS
 
-Instead of creating `<style>` elements (which get wiped by `replaceChildren()`), use the adopted stylesheets API:
+Standard CSS (stylesheets, `<style>` in `<head>`) works fine for static styles. For styles you need to inject or toggle **from JavaScript at runtime**, use `registerStyles()` instead of appending `<style>` elements inside the grid (which get removed by `replaceChildren()`):
 
 ```typescript
 grid.registerStyles('my-highlights', `
@@ -172,20 +169,21 @@ grid.registerStyles('my-highlights', `
 grid.unregisterStyles('my-highlights');
 ```
 
-### Lightweight Renderers
+### Prefer Formatters Over Renderers
 
-Cell renderers execute for every visible cell on every render. Keep them fast:
+Formatters return a plain string — significantly faster than creating DOM elements via a renderer. Use a renderer only when you need interactive elements or custom HTML structure:
 
 ```typescript
-// ✅ Fast — simple string return
-renderer: (value) => `$${value.toFixed(2)}`
+// ✅ Fast — formatter returns a string (no DOM creation)
+{ field: 'salary', format: (v) => `$${v.toFixed(2)}` }
 
-// ❌ Slow — creating DOM elements in renderer
-renderer: (value) => {
-  const div = document.createElement('div');
-  div.innerHTML = `<span class="complex">${value}</span>`;
-  return div;
-}
+// ⚠️ Slower — renderer creates DOM elements (use only when needed)
+{ field: 'status', renderer: (ctx) => {
+  const badge = document.createElement('span');
+  badge.className = `badge-${ctx.value}`;
+  badge.textContent = String(ctx.value);
+  return badge;
+}}
 ```
 
 ## Profiling

@@ -3,7 +3,7 @@ title: Getting Started
 description: Install @toolbox-web/grid and render your first grid in under a minute. Covers npm, CDN, ES modules, declarative HTML, and full framework integration for Vanilla JS, React, Vue, and Angular.
 ---
 
-import { Tabs, TabItem, Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
 
 **Using a framework?** Jump directly to [Angular](/grid/angular/getting-started/), [React](/grid/react/getting-started/), or [Vue](/grid/vue/getting-started/).
 
@@ -42,17 +42,11 @@ import { Tabs, TabItem, Steps, LinkCard, CardGrid } from '@astrojs/starlight/com
      </TabItem>
    </Tabs>
 
-2. **Import the component**
+2. **Import and use**
 
    ```typescript
-   // Import the component (registers <tbw-grid> custom element)
-   import '@toolbox-web/grid';
-
-   // Import factory functions for typed grid creation
-   import { createGrid, queryGrid } from '@toolbox-web/grid';
-
-   // TypeScript users: import types
-   import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
+   import '@toolbox-web/grid';                       // registers <tbw-grid>
+   import { queryGrid } from '@toolbox-web/grid';     // typed DOM helper
    ```
 
 3. **Add the grid to your HTML**
@@ -62,60 +56,41 @@ import { Tabs, TabItem, Steps, LinkCard, CardGrid } from '@astrojs/starlight/com
    ```
 </Steps>
 
-:::caution
-For virtualization to work, the grid needs a fixed height. Either set `height` via CSS/style or use `height: auto` for non-virtualized mode.
+:::caution[The grid needs a height]
+Set a height via CSS or inline style (e.g., `height: 400px`). Without it, the grid collapses to zero height and nothing will render. Use `height: auto` if you don't want virtual scrolling.
 :::
 
-### Configuration via HTML Attributes
+### Declarative Columns (No JavaScript)
 
-For simple use cases (without editing), configure the grid entirely via HTML attributes with JSON values:
-
-```html
-<tbw-grid
-  style="height: 400px;"
-  fit-mode="stretch"
-  columns='[{"field":"id","header":"ID","type":"number"},{"field":"name","header":"Name"}]'
-  rows='[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"},{"id":3,"name":"Carol"}]'>
-</tbw-grid>
-```
-
-For inline editing, use JavaScript configuration to register the `EditingPlugin` — see the framework examples below.
-
-### Declarative Configuration (Light DOM)
-
-You can also configure columns declaratively:
+Define columns directly in HTML — great for static layouts and quick prototyping:
 
 ```html
-<tbw-grid>
+<tbw-grid style="height: 400px;">
   <tbw-grid-column field="id" header="ID" type="number" sortable></tbw-grid-column>
-  <tbw-grid-column field="name" header="Name" editable></tbw-grid-column>
+  <tbw-grid-column field="name" header="Name"></tbw-grid-column>
   <tbw-grid-column field="email" header="Email"></tbw-grid-column>
 </tbw-grid>
 ```
 
+Set `rows` from JavaScript or via the `rows` HTML attribute (JSON). See [Light DOM Columns](/grid/core/#light-dom-columns) for the full attribute reference.
+
 ### Auto-Inferred Columns
 
-If no columns are configured, the grid will automatically infer column configuration from the first row:
+Skip column configuration entirely — the grid creates columns from your data:
 
 ```typescript
+import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 
 const grid = queryGrid('#my-grid');
-
-// Columns are auto-generated from object keys
 grid.rows = [
   { id: 1, name: 'Alice Johnson', email: 'alice@example.com', active: true },
   { id: 2, name: 'Bob Smith', email: 'bob@example.com', active: false },
 ];
+// → Creates ID, Name, Email, and Active columns automatically
 ```
 
-The grid will:
-- Create a column for each property in the first row
-- Infer column types from values (`number`, `boolean`, `date`, `string`)
-- Use the property name as the header (with basic formatting)
-- Apply appropriate built-in renderers for each type
-
-You can also set `grid.columns` directly as a shorthand for `gridConfig.columns`, but using `gridConfig` is more versatile as it includes columns, plugins, and behavioral settings in one place.
+The grid detects types (`number`, `boolean`, `date`, `string`) from values and formats headers from field names (`firstName` → `First Name`). See [Column Inference](/grid/core/#column-inference) for details.
 
 ## Framework Integration
 
@@ -124,76 +99,74 @@ The grid is a standard web component that works in any JavaScript environment �
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 
+Add a grid element to your HTML, then configure it from JavaScript:
+
+```html title="index.html"
+<tbw-grid style="height: 400px;"></tbw-grid>
+```
+
 ```typescript title="main.ts"
 import '@toolbox-web/grid';
-import { createGrid, queryGrid } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
-// Import features you need (side-effect imports for tree-shaking)
+const grid = queryGrid('tbw-grid');
+
+grid.columns = [
+  { field: 'id', header: 'ID', type: 'number' },
+  { field: 'name', header: 'Name' },
+  { field: 'email', header: 'Email' },
+];
+
+grid.rows = [
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+  { id: 3, name: 'Carol White', email: 'carol@example.com' },
+];
+```
+
+That's a working grid. From here, add features as you need them — sorting, editing, selection, and more are each a one-line import:
+
+```typescript title="main.ts (with features)"
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/editing';
 import '@toolbox-web/grid/features/selection';
 import '@toolbox-web/grid/features/filtering';
 
-interface Employee {
-  id: number;
-  name: string;
-  status: 'active' | 'inactive';
-}
+const grid = queryGrid('tbw-grid');
 
-// Option 1: Create a new grid programmatically (typed!)
-const grid = createGrid<Employee>({
+grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID', type: 'number' },
     { field: 'name', header: 'Name', editable: true },
-    {
-      field: 'status',
-      header: 'Status',
-      // Custom renderer function
-      renderer: (ctx) => {
-        const badge = document.createElement('span');
-        badge.className = `status-badge status-${ctx.value}`;
-        badge.textContent = ctx.value as string;
-        return badge;
-      },
-      // Custom editor function
-      editor: (ctx) => {
-        const select = document.createElement('select');
-        select.innerHTML = `
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        `;
-        select.value = ctx.value as string;
-        select.onchange = () => ctx.commit(select.value);
-        select.onkeydown = (e) => e.key === 'Escape' && ctx.cancel();
-        return select;
-      },
-    },
+    { field: 'email', header: 'Email', editable: true },
   ],
   features: {
-    editing: 'dblclick', // Required for editable columns
+    editing: 'dblclick',
     selection: 'row',
-    filtering: { debounceMs: 200 },
+    filtering: true,
   },
-  fitMode: 'stretch',
-});
+};
 
-document.getElementById('grid-container')!.appendChild(grid);
 grid.rows = [
-  { id: 1, name: 'Alice Johnson', status: 'active' },
-  { id: 2, name: 'Bob Smith', status: 'inactive' },
-  { id: 3, name: 'Carol White', status: 'active' },
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+  { id: 3, name: 'Carol White', email: 'carol@example.com' },
 ];
 
-// Option 2: Query an existing grid from DOM (typed!)
-const existingGrid = queryGrid<Employee>('#my-grid');
-if (existingGrid) {
-  existingGrid.rows = [{ id: 4, name: 'Dave Brown', status: 'active' }];
-}
-
-// Listen for cell edits
-grid.on('cell-commit', (detail) => {
-  console.log('Edited:', detail);
-});
+grid.on('cell-commit', (detail) => console.log('Edited:', detail));
 ```
+
+See [Core Features](/grid/core/) for renderers, formatters, and custom editors.
+
+:::note[Prefer creating grids programmatically?]
+Use `createGrid()` to create a `<tbw-grid>` element without writing HTML:
+```typescript
+import { createGrid } from '@toolbox-web/grid';
+const grid = createGrid({ columns: [...], features: { ... } });
+document.body.appendChild(grid);
+```
+:::
 
   </TabItem>
   <TabItem label="React">
@@ -206,22 +179,42 @@ npm install @toolbox-web/grid @toolbox-web/grid-react
 ```
 
 ```tsx title="EmployeeGrid.tsx"
+import { DataGrid } from '@toolbox-web/grid-react';
+
+const employees = [
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+  { id: 3, name: 'Carol White', email: 'carol@example.com' },
+];
+
+function EmployeeGrid() {
+  return (
+    <DataGrid
+      rows={employees}
+      columns={[
+        { field: 'id', header: 'ID', type: 'number' },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email' },
+      ]}
+      style={{ height: 400, display: 'block' }}
+    />
+  );
+}
+```
+
+That's a working grid. From here, add features as you need them — each is a one-line import plus a prop:
+
+```tsx title="EmployeeGrid.tsx (with features)"
 import '@toolbox-web/grid-react/features/editing';
 import '@toolbox-web/grid-react/features/selection';
 import '@toolbox-web/grid-react/features/filtering';
 
 import { DataGrid } from '@toolbox-web/grid-react';
 
-interface Employee {
-  id: number;
-  name: string;
-  status: 'active' | 'inactive';
-}
-
-const employees: Employee[] = [
-  { id: 1, name: 'Alice Johnson', status: 'active' },
-  { id: 2, name: 'Bob Smith', status: 'inactive' },
-  { id: 3, name: 'Carol White', status: 'active' },
+const employees = [
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+  { id: 3, name: 'Carol White', email: 'carol@example.com' },
 ];
 
 function EmployeeGrid() {
@@ -231,31 +224,11 @@ function EmployeeGrid() {
       columns={[
         { field: 'id', header: 'ID', type: 'number' },
         { field: 'name', header: 'Name', editable: true },
-        {
-          field: 'status',
-          header: 'Status',
-          // Inline React renderer
-          renderer: (ctx) => (
-            <span className={`status-badge status-${ctx.value}`}>{ctx.value}</span>
-          ),
-          // Inline React editor
-          editor: (ctx) => (
-            <select
-              defaultValue={ctx.value}
-              onChange={(e) => ctx.commit(e.target.value)}
-              onKeyDown={(e) => e.key === 'Escape' && ctx.cancel()}
-              autoFocus
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          ),
-        },
+        { field: 'email', header: 'Email', editable: true },
       ]}
       editing="dblclick"
       selection="row"
-      filtering={{ debounceMs: 200 }}
-      fitMode="stretch"
+      filtering
       onCellCommit={(e) => console.log('Edited:', e.detail)}
       style={{ height: 400, display: 'block' }}
     />
@@ -263,14 +236,9 @@ function EmployeeGrid() {
 }
 ```
 
-The `DataGrid` component provides:
-- **`ReactGridConfig`** — Extends [`GridConfig`](/grid/api/core/interfaces/gridconfig/) with `renderer` and `editor` accepting React components
-- **`GridColumn`** — Declarative column components with render props
-- **`GridDetailPanel`** — Master-detail panels with React content
-- **`GridToolPanel`** — Custom sidebar panels
-- **`useGrid` / `useGridEvent`** — Hooks for programmatic access and event handling
+The adapter adds JSX renderers/editors, hooks (`useGrid`, `useGridEvent`), and declarative `GridColumn` components.
 
-See the [React adapter docs](/grid/react/getting-started/) for the complete API reference.
+See the [React adapter docs](/grid/react/getting-started/) for custom renderers, editors, and the complete API reference.
 
   </TabItem>
   <TabItem label="Vue">
@@ -284,60 +252,65 @@ npm install @toolbox-web/grid @toolbox-web/grid-vue
 
 ```html title="EmployeeGrid.vue"
 <script setup>
-import '@toolbox-web/grid-vue/features/editing';
-import '@toolbox-web/grid-vue/features/selection';
-import '@toolbox-web/grid-vue/features/filtering';
-import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+import { TbwGrid } from '@toolbox-web/grid-vue';
 
 const employees = [
-  { id: 1, name: 'Alice Johnson', status: 'active' },
-  { id: 2, name: 'Bob Smith', status: 'inactive' },
-  { id: 3, name: 'Carol White', status: 'active' },
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+  { id: 3, name: 'Carol White', email: 'carol@example.com' },
 ];
-
-const onCellCommit = (e) => {
-  console.log('Edited:', e.detail);
-};
 </script>
 
 <template>
   <TbwGrid
     :rows="employees"
-    editing="dblclick"
-    selection="row"
-    :filtering="{ debounceMs: 200 }"
-    fit-mode="stretch"
-    @cell-commit="onCellCommit"
+    :columns="[
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ]"
     style="height: 400px; display: block;"
-  >
-    <TbwGridColumn field="id" header="ID" type="number" />
-    <TbwGridColumn field="name" header="Name" editable />
-    <TbwGridColumn field="status" header="Status">
-      <template #cell="{ value }">
-        <span :class="'status-badge status-' + value">{{ value }}</span>
-      </template>
-      <template #editor="{ value, commit, cancel }">
-        <select
-          :value="value"
-          @change="commit($event.target.value)"
-          @keydown.escape="cancel()"
-        >
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </template>
-    </TbwGridColumn>
-  </TbwGrid>
+  />
 </template>
 ```
 
-The `TbwGrid` component provides:
-- **`TbwGridColumn`** — Declarative column components with `#cell` and `#editor` slots
-- **`TbwGridDetailPanel`** — Master-detail panels with Vue content
-- **`TbwGridToolPanel`** — Custom sidebar panels
-- **Feature props** — `editing`, `selection`, `filtering`, etc. via feature imports
+That's a working grid. From here, add features as you need them — each is a one-line import plus a prop:
 
-See the [Vue adapter docs](/grid/vue/getting-started/) for the complete API reference.
+```html title="EmployeeGrid.vue (with features)"
+<script setup>
+import '@toolbox-web/grid-vue/features/editing';
+import '@toolbox-web/grid-vue/features/selection';
+import '@toolbox-web/grid-vue/features/filtering';
+
+import { TbwGrid } from '@toolbox-web/grid-vue';
+
+const employees = [
+  { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+  { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+  { id: 3, name: 'Carol White', email: 'carol@example.com' },
+];
+</script>
+
+<template>
+  <TbwGrid
+    :rows="employees"
+    :columns="[
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'email', header: 'Email', editable: true },
+    ]"
+    editing="dblclick"
+    selection="row"
+    filtering
+    @cell-commit="(e) => console.log('Edited:', e.detail)"
+    style="height: 400px; display: block;"
+  />
+</template>
+```
+
+The adapter adds slot-based renderers/editors (`#cell`, `#editor`), composables (`useGrid`, `useGridEvent`), and declarative `TbwGridColumn` components.
+
+See the [Vue adapter docs](/grid/vue/getting-started/) for custom renderers, editors, and the complete API reference.
 
   </TabItem>
   <TabItem label="Angular">
@@ -350,64 +323,75 @@ npm install @toolbox-web/grid @toolbox-web/grid-angular
 ```
 
 ```typescript title="grid.component.ts"
-// Feature imports — enable the feature inputs
+import '@toolbox-web/grid';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { ColumnConfig } from '@toolbox-web/grid';
+
+@Component({
+  selector: 'app-employee-grid',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="employees"
+      [columns]="columns"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class EmployeeGridComponent {
+  employees = [
+    { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+    { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+    { id: 3, name: 'Carol White', email: 'carol@example.com' },
+  ];
+
+  columns: ColumnConfig[] = [
+    { field: 'id', header: 'ID', type: 'number' },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email' },
+  ];
+}
+```
+
+That's a working grid. From here, add features as you need them — each is a one-line import plus an input binding:
+
+```typescript title="grid.component.ts (with features)"
 import '@toolbox-web/grid-angular/features/editing';
 import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/filtering';
 
 import '@toolbox-web/grid';
 import { Component } from '@angular/core';
-import { Grid, TbwRenderer, TbwEditor } from '@toolbox-web/grid-angular';
+import { Grid } from '@toolbox-web/grid-angular';
 import type { ColumnConfig, CellCommitDetail } from '@toolbox-web/grid';
-
-interface Employee {
-  id: number;
-  name: string;
-  status: 'active' | 'inactive';
-}
 
 @Component({
   selector: 'app-employee-grid',
-  imports: [Grid, TbwRenderer, TbwEditor],
+  imports: [Grid],
   template: `
     <tbw-grid
       [rows]="employees"
       [columns]="columns"
-      [editing]="true"
+      [editing]="'dblclick'"
       [selection]="'row'"
-      [filtering]="{ debounceMs: 200 }"
-      fitMode="stretch"
+      [filtering]="true"
       (cellCommit)="onCellCommit($event)"
       style="height: 400px; display: block;">
-
-      <!-- Inline renderer/editor using structural directives -->
-      <tbw-grid-column field="status">
-        <span *tbwRenderer="let value" [class]="'status-badge status-' + value">
-          {{ value }}
-        </span>
-        <select
-          *tbwEditor="let value; commit as commit; cancel as cancel"
-          [value]="value"
-          (change)="commit($any($event.target).value)"
-          (keydown.escape)="cancel()">
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </tbw-grid-column>
     </tbw-grid>
-  `
+  `,
 })
 export class EmployeeGridComponent {
-  employees: Employee[] = [
-    { id: 1, name: 'Alice Johnson', status: 'active' },
-    { id: 2, name: 'Bob Smith', status: 'inactive' },
-    { id: 3, name: 'Carol White', status: 'active' },
+  employees = [
+    { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+    { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+    { id: 3, name: 'Carol White', email: 'carol@example.com' },
   ];
 
-  columns: ColumnConfig<Employee>[] = [
+  columns: ColumnConfig[] = [
     { field: 'id', header: 'ID', type: 'number' },
     { field: 'name', header: 'Name', editable: true },
-    { field: 'status', header: 'Status' }, // renderer/editor from template
+    { field: 'email', header: 'Email', editable: true },
   ];
 
   onCellCommit(event: CustomEvent<CellCommitDetail>) {
@@ -416,42 +400,40 @@ export class EmployeeGridComponent {
 }
 ```
 
-The `Grid` directive automatically registers the Angular adapter, enabling:
-- **Structural directives** — `*tbwRenderer` and `*tbwEditor` for clean syntax
-- **Auto-wiring** — Editor components just emit `commit`/`cancel` events
-- **Template-driven** — Full Angular component support inside templates
-- **Grid-level events** — `(cellCommit)`, `(rowCommit)` outputs
+The adapter adds structural directives (`*tbwRenderer`, `*tbwEditor`), template-driven renderers/editors, and grid-level event outputs.
 
-See the [Angular adapter docs](/grid/angular/getting-started/) for the complete API reference.
+See the [Angular adapter docs](/grid/angular/getting-started/) for custom renderers, editors, and the complete API reference.
 
   </TabItem>
 </Tabs>
 
 ## TypeScript Support
 
-The package includes full TypeScript definitions. Import types for better IDE support:
+The package ships with full type definitions. Use generics on `queryGrid` to get typed row data throughout your code:
 
 ```typescript
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
-import '@toolbox-web/grid/features/editing';
-import type { ColumnConfig, GridConfig, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
+import type { ColumnConfig } from '@toolbox-web/grid';
 
-// Type-safe column configuration (editable requires editing feature)
-const columns: ColumnConfig[] = [
+interface Employee {
+  id: number;
+  name: string;
+  email: string;
+}
+
+const grid = queryGrid<Employee>('tbw-grid');
+
+// Column config is type-checked against Employee
+const columns: ColumnConfig<Employee>[] = [
   { field: 'id', header: 'ID', type: 'number' },
-  { field: 'name', header: 'Name', editable: true },
+  { field: 'name', header: 'Name' },
+  // { field: 'typo' } ← TypeScript error!
 ];
 
-const grid = queryGrid('tbw-grid');
-grid.gridConfig = {
-  columns,
-  features: { editing: true }, // Required for editable: true
-};
-
-// Type-safe event handling
-grid.on('cell-commit', ({ row, field, value, oldValue }) => {
-  console.log(`Changed ${field} from ${oldValue} to ${value}`);
+// Event payloads are typed too
+grid.on('cell-commit', ({ row, field, value }) => {
+  console.log(row.name, field, value); // row is Employee
 });
 ```
 

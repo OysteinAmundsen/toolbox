@@ -340,12 +340,12 @@ TypeScript paths defined in `tsconfig.base.json` for all libraries:
 
 **Common patterns and their fixes:**
 
-| Bad pattern | Proper fix |
-|---|---|
-| `grid as unknown as HTMLElement` | Use `grid._hostElement` (typed property on `InternalGrid`) |
-| `this.grid as unknown as HTMLElement` | Use `this.gridElement` (typed getter on `BaseGridPlugin`) |
-| `value as unknown as TargetType` | Add a properly typed property/method, or narrow with type guards |
-| `config as unknown as ExtendedConfig` | Use generic parameters or add properly typed overloads |
+| Bad pattern                           | Proper fix                                                       |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| `grid as unknown as HTMLElement`      | Use `grid._hostElement` (typed property on `InternalGrid`)       |
+| `this.grid as unknown as HTMLElement` | Use `this.gridElement` (typed getter on `BaseGridPlugin`)        |
+| `value as unknown as TargetType`      | Add a properly typed property/method, or narrow with type guards |
+| `config as unknown as ExtendedConfig` | Use generic parameters or add properly typed overloads           |
 
 **Why this matters:**
 
@@ -464,15 +464,16 @@ All grid rendering is orchestrated through a **single RenderScheduler** (`intern
 
 ### Custom Styles API (adoptedStyleSheets)
 
-Custom styles use browser's `adoptedStyleSheets` for efficiency:
+The grid uses light DOM — standard CSS (global stylesheets, `<style>` in `<head>`, external CSS files) works normally for styling grid content.
+
+For **programmatic runtime styles**, use `registerStyles()` which injects CSS via `adoptedStyleSheets`:
 
 ```typescript
-// Efficient - survives DOM rebuilds
 grid.registerStyles('my-id', '.my-class { color: blue; }');
 grid.unregisterStyles('my-id');
 ```
 
-**Do NOT** create `<style>` elements manually - they get wiped by `replaceChildren()`.
+**Do NOT** create `<style>` elements as **children of `<tbw-grid>`** — they get removed by `replaceChildren()` during renders. This only affects styles placed _inside_ the grid element; external CSS is unaffected.
 
 ### Virtualization & Performance
 
@@ -516,9 +517,9 @@ import '@toolbox-web/grid/features/editing';
 grid.gridConfig = {
   columns: [{ field: 'name' }, { field: 'age' }],
   features: {
-    selection: 'row',                       // shorthand or full config
-    filtering: { debounceMs: 200 },         // full config object
-    editing: 'dblclick',                    // shorthand
+    selection: 'row', // shorthand or full config
+    filtering: { debounceMs: 200 }, // full config object
+    editing: 'dblclick', // shorthand
   },
 };
 
@@ -547,12 +548,12 @@ There are **22 features** available — one for each plugin. Each feature module
 
 ### Features vs Plugins
 
-| Aspect | Features (recommended) | Plugins (advanced) |
-|--------|----------------------|--------------------|
-| API | `features: { selection: 'row' }` | `plugins: [new SelectionPlugin({ mode: 'row' })]` |
-| Import | `import '@toolbox-web/grid/features/selection'` | `import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection'` |
-| Dependencies | Auto-resolved | Manual ordering |
-| Use when | Configuring grid capabilities | Building custom plugins, extending BaseGridPlugin |
+| Aspect       | Features (recommended)                          | Plugins (advanced)                                                      |
+| ------------ | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| API          | `features: { selection: 'row' }`                | `plugins: [new SelectionPlugin({ mode: 'row' })]`                       |
+| Import       | `import '@toolbox-web/grid/features/selection'` | `import { SelectionPlugin } from '@toolbox-web/grid/plugins/selection'` |
+| Dependencies | Auto-resolved                                   | Manual ordering                                                         |
+| Use when     | Configuring grid capabilities                   | Building custom plugins, extending BaseGridPlugin                       |
 
 ### Plugin API (Advanced)
 
@@ -592,7 +593,7 @@ See the `new-plugin` skill for the complete plugin development guide including:
 7. **Plugin DOM access** - Use `this.gridElement` for DOM queries; the grid uses light DOM (no Shadow DOM)
 8. **Plugin container access** - Use `this.gridElement.children[0]`, not hardcoded selectors like `.data-grid-container`
 9. **Don't call RAF directly for rendering** - Use `this.#scheduler.requestPhase()` to batch work; exception: scroll hot path
-10. **Don't create `<style>` elements** - Use `registerStyles()` which uses `adoptedStyleSheets` (survives DOM rebuilds)
+10. **Don't append `<style>` inside `<tbw-grid>`** - Child nodes are removed by `replaceChildren()` during renders. Standard CSS (global stylesheet, `<style>` in `<head>`) works fine. For runtime-injected styles use `registerStyles()` which uses `adoptedStyleSheets`
 11. **Editing is opt-in** - Using `editable: true` or `editor` requires the editing feature (`features: { editing: true }`) or `EditingPlugin`; the grid validates and throws helpful errors
 12. **Prefer row objects over indices** - When exposing selection or row references to consumers, provide actual row data objects (e.g., `getSelectedRows()`) rather than forcing users to resolve indices manually. Row indices refer to positions in the grid's _current_ (sorted/filtered/grouped) row array, which may differ from the user's original data source. Indices are still useful as positional coordinates (e.g., `CellRange`), but always offer a row-object alternative for data access.
 13. **Use `insertRow()`/`removeRow()` for manual row mutations** - When inserting or deleting rows by hand, use `grid.insertRow(index, row)` or `grid.removeRow(index)` instead of splicing an array and reassigning `grid.rows`. These methods operate directly on the current sorted/filtered view without re-running the pipeline, and auto-animate by default (pass `false` as the last argument to skip animation). Both return `Promise`s — `await grid.removeRow(idx)` ensures the fade-out animation completes before removal. The source data is updated automatically, so the next full `grid.rows = freshData` assignment re-sorts/re-filters normally. Do **not** use them for data refreshes (API responses, WebSocket updates) — let sort/filter re-apply by assigning `grid.rows` directly.

@@ -3,9 +3,9 @@ title: Theming
 description: Customize @toolbox-web/grid with CSS custom properties — colors, spacing, typography, dark mode, pre-built themes, and cascade layers.
 ---
 
-import { LinkCard, CardGrid } from '@astrojs/starlight/components';
-import ThemeBuilder from '../../../../components/ThemeBuilder.astro';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 import CSSVariableReference from '../../../../components/CSSVariableReference.astro';
+import ThemeBuilder from '../../../../components/ThemeBuilder.astro';
 
 
 The `@toolbox-web/grid` component is fully themeable via CSS custom properties. Customize colors, spacing, typography, and more without modifying source code.
@@ -119,21 +119,23 @@ import './my-theme.css';
 
 ## Programmatic Styles
 
-For dynamic styling that needs to survive DOM rebuilds, use the adopted stylesheets API:
+Since the grid uses **light DOM**, standard CSS works — global stylesheets, `<style>` in `<head>`, or external CSS files can all target elements inside `<tbw-grid>`.
+
+For styles you need to inject or update **from JavaScript at runtime**, use the `registerStyles()` API:
 
 ```typescript
-// Register a named stylesheet - survives replaceChildren()
+// Inject styles programmatically
 grid.registerStyles('my-highlights', `
   .row-warning { background: #fff3e0; }
   .row-error { background: #fce4ec; }
 `);
 
-// Update or remove later
+// Remove when no longer needed
 grid.unregisterStyles('my-highlights');
 ```
 
 :::caution
-Do not place `<style>` elements as children of `<tbw-grid>` — the grid calls `replaceChildren()` during renders, which removes them. Use `registerStyles()` for runtime-injected styles. External stylesheets (theme CSS files, `<link>` tags, `<style>` in `<head>`) are unaffected.
+Do not place `<style>` elements as **children of `<tbw-grid>`** — the grid calls `replaceChildren()` during renders, which removes child nodes. This only applies to styles placed *inside* the grid element itself; external CSS is unaffected.
 :::
 
 ## Plugin Styles

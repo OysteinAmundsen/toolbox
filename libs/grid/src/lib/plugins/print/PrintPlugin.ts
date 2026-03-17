@@ -76,9 +76,10 @@ const DEFAULT_CONFIG: Required<PrintConfig> = {
  *
  * @example Basic Print
  * ```ts
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { PrintPlugin } from '@toolbox-web/grid/plugins/print';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * grid.gridConfig = {
  *   plugins: [new PrintPlugin()],
  * };

@@ -3,12 +3,12 @@ title: "Filtering Plugin"
 description: "Add column-level filtering with built-in filter panel and custom filters."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-import FilteringDefaultDemo from '@components/demos/filtering/FilteringDefaultDemo.astro';
-import FilteringCustomFilterPanelDemo from '@components/demos/filtering/FilteringCustomFilterPanelDemo.astro';
-import FilteringTypeSpecificFiltersDemo from '@components/demos/filtering/FilteringTypeSpecificFiltersDemo.astro';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import FilteringAsyncFilteringDemo from '@components/demos/filtering/FilteringAsyncFilteringDemo.astro';
+import FilteringCustomFilterPanelDemo from '@components/demos/filtering/FilteringCustomFilterPanelDemo.astro';
+import FilteringDefaultDemo from '@components/demos/filtering/FilteringDefaultDemo.astro';
 import FilteringFilterEventsDemo from '@components/demos/filtering/FilteringFilterEventsDemo.astro';
+import FilteringTypeSpecificFiltersDemo from '@components/demos/filtering/FilteringTypeSpecificFiltersDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -27,10 +27,10 @@ import '@toolbox-web/grid/features/filtering';
   <TabItem label="Vanilla JS">
 
 ```ts
-import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/filtering';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name', filterable: true },
@@ -178,7 +178,9 @@ Your custom renderer receives a `params` object with:
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 
 grid.gridConfig = {
   features: {

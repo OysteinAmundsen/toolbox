@@ -3,14 +3,14 @@ title: "Clipboard Plugin"
 description: "Copy and paste grid data with Excel-compatible clipboard support."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import ClipboardDefaultDemo from '@components/demos/clipboard/ClipboardDefaultDemo.astro';
 
 import ClipboardCopyPasteDemo from '@components/demos/clipboard/ClipboardCopyPasteDemo.astro';
 import ClipboardCustomPasteHandlerDemo from '@components/demos/clipboard/ClipboardCustomPasteHandlerDemo.astro';
+import ClipboardEventsDemo from '@components/demos/clipboard/ClipboardEventsDemo.astro';
 import ClipboardSingleCellModeDemo from '@components/demos/clipboard/ClipboardSingleCellModeDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
-import ClipboardEventsDemo from '@components/demos/clipboard/ClipboardEventsDemo.astro';
 
 
 
@@ -33,7 +33,9 @@ Just enable the feature and you're ready to go—keyboard shortcuts work automat
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name' },

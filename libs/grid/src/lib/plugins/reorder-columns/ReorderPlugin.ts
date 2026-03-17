@@ -50,10 +50,10 @@ import type { ColumnMoveDetail, ReorderConfig } from './types';
  *
  * @example Basic Drag-and-Drop Reordering
  * ```ts
- * import '@toolbox-web/grid';
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { ReorderPlugin } from '@toolbox-web/grid/plugins/reorder-columns';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * grid.gridConfig = {
  *   columns: [
  *     { field: 'id', header: 'ID' },

@@ -3,13 +3,13 @@ title: "Context Menu Plugin"
 description: "Add right-click context menus to the grid with customizable items."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-import ContextMenuDefaultDemo from '@components/demos/context-menu/ContextMenuDefaultDemo.astro';
-import ContextMenuWithSubmenusDemo from '@components/demos/context-menu/ContextMenuWithSubmenusDemo.astro';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import ContextMenuConditionalItemsDemo from '@components/demos/context-menu/ContextMenuConditionalItemsDemo.astro';
+import ContextMenuDefaultDemo from '@components/demos/context-menu/ContextMenuDefaultDemo.astro';
+import ContextMenuEventsDemo from '@components/demos/context-menu/ContextMenuEventsDemo.astro';
+import ContextMenuWithSubmenusDemo from '@components/demos/context-menu/ContextMenuWithSubmenusDemo.astro';
 import PluginContributedItemsDemo from '@components/demos/context-menu/PluginContributedItemsDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
-import ContextMenuEventsDemo from '@components/demos/context-menu/ContextMenuEventsDemo.astro';
 
 
 
@@ -28,7 +28,9 @@ Define your menu items as an array—each item has an `id`, `label`, and `action
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'name', header: 'Name' },

@@ -66,11 +66,11 @@ import type { EditAction, UndoRedoAction, UndoRedoConfig, UndoRedoDetail } from 
  *
  * @example Basic Usage with EditingPlugin
  * ```ts
- * import '@toolbox-web/grid';
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { EditingPlugin } from '@toolbox-web/grid/plugins/editing';
  * import { UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * grid.gridConfig = {
  *   columns: [
  *     { field: 'name', header: 'Name', editable: true },

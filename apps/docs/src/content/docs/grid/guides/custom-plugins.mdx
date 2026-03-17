@@ -3,7 +3,7 @@ title: Custom Plugins
 description: Build custom plugins for @toolbox-web/grid — lifecycle hooks, communication, queries, manifests, testing, and complete examples.
 ---
 
-import { Tabs, TabItem, FileTree, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, FileTree, LinkCard, TabItem, Tabs } from '@astrojs/starlight/components';
 
 
 Learn how to extend `@toolbox-web/grid` with your own plugins. Plugins can add new features, modify data, inject styles, and respond to user interactions.
@@ -363,7 +363,7 @@ export class MyPlugin extends BaseGridPlugin {
 </Tabs>
 
 :::caution
-Do not append `<style>` elements as children of `<tbw-grid>` — the grid calls `replaceChildren()` during renders, which removes them. Always use the `styles` property (shown above) or `this.gridElement.registerStyles(id, css)` for runtime-injected styles.
+Do not append `<style>` elements as **children of `<tbw-grid>`** — the grid calls `replaceChildren()` during renders, which removes child nodes. For plugin styles, use the `styles` property (shown above) or `this.gridElement.registerStyles(id, css)`. Note: external CSS (stylesheets, `<style>` in `<head>`) is unaffected and works normally since the grid uses light DOM.
 :::
 
 ## Accessing Grid State

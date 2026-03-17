@@ -3,15 +3,15 @@ title: "Editing Plugin"
 description: "Enable inline cell editing with built-in and custom editors."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-import EditingBasicEditingDemo from '@components/demos/editing/EditingBasicEditingDemo.astro';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import EditingAddRemoveRowsDemo from '@components/demos/editing/EditingAddRemoveRowsDemo.astro';
-import EditingGridModeDemo from '@components/demos/editing/EditingGridModeDemo.astro';
 import EditingAllColumnTypesDemo from '@components/demos/editing/EditingAllColumnTypesDemo.astro';
-import EditingCustomEditorDemo from '@components/demos/editing/EditingCustomEditorDemo.astro';
-import EditingEditingEventsDemo from '@components/demos/editing/EditingEditingEventsDemo.astro';
+import EditingBasicEditingDemo from '@components/demos/editing/EditingBasicEditingDemo.astro';
 import EditingCellValidationDemo from '@components/demos/editing/EditingCellValidationDemo.astro';
 import EditingClickToEditDemo from '@components/demos/editing/EditingClickToEditDemo.astro';
+import EditingCustomEditorDemo from '@components/demos/editing/EditingCustomEditorDemo.astro';
+import EditingEditingEventsDemo from '@components/demos/editing/EditingEditingEventsDemo.astro';
+import EditingGridModeDemo from '@components/demos/editing/EditingGridModeDemo.astro';
 import EditorParametersDemo from '@components/demos/editing/EditorParametersDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -40,10 +40,10 @@ Enable the editing feature to use `editable` and `editor` column properties:
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/editing';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID' },
@@ -433,10 +433,10 @@ Define type defaults in your grid configuration:
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/editing';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 
 // Define custom renderers/editors for types
 grid.gridConfig = {

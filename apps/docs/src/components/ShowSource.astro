@@ -100,6 +100,15 @@ function extractSource(content: string): string {
         processed = processed.replace(new RegExp(`${guardVar}\\.querySelector`, 'g'), 'document.querySelector');
       }
 
+      // queryGrid('selector', guardVar) → queryGrid('selector')
+      // queryGrid('selector', guardVar, true) → queryGrid('selector')
+      if (guardVar) {
+        processed = processed.replace(
+          new RegExp(`(queryGrid\\('[^']+')\\s*,\\s*${guardVar}(?:\\s*,\\s*true)?\\)`, 'g'),
+          '$1)',
+        );
+      }
+
       // Strip TypeScript type assertions: as HTMLElement & { ... }
       processed = processed.replace(/\s+as\s+HTMLElement\s*&\s*\{[^}]*\}/g, '');
       processed = processed.replace(/\s+as\s+(?:HTMLElement|Element|GridElement|[A-Z]\w+)(?:<[^>]+>)?/g, '');
@@ -121,7 +130,68 @@ function extractSource(content: string): string {
   return result.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// ---------------------------------------------------------------------------
+// 3. Extract meaningful HTML from the demo file
+// ---------------------------------------------------------------------------
+function extractHtml(content: string): string {
+  // Strip frontmatter (between first and second ---) then get HTML before <script>
+  const withoutFrontmatter = content.replace(/^---[\s\S]*?---\s*\n/, '');
+  const htmlSection = withoutFrontmatter.match(/^([\s\S]*?)<script/);
+  if (!htmlSection) return '';
+
+  const html = htmlSection[1].trim();
+  if (!html) return '';
+
+  // Only show HTML if there's a <tbw-grid element
+  if (!html.includes('<tbw-grid')) return '';
+
+  // Remove multi-line Astro component blocks (e.g. <DemoControls ... />)
+  const withoutComponents = html.replace(/<[A-Z]\w+[\s\S]*?\/>/g, '');
+
+  // Remove description paragraphs (may span multiple lines)
+  const withoutDesc = withoutComponents.replace(/<p\s+class="grid-demo-description"[\s\S]*?<\/p>/g, '');
+
+  const lines = withoutDesc.split('\n');
+  const cleaned: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Skip description paragraphs
+    if (trimmed.startsWith('<p class="grid-demo-description')) continue;
+    // Skip Astro component tags (DemoControls, etc.)
+    if (trimmed.startsWith('<DemoControls')) continue;
+    // Skip playground control containers
+    if (trimmed.includes('data-controls-id=')) continue;
+    // Skip demo wrapper open/close: <div class="grid-demo ...">
+    if (/^<div\s+class="grid-demo/.test(trimmed)) continue;
+    // Skip the closing </div> for the wrapper (last line)
+    if (trimmed === '</div>' && line === lines[lines.length - 1]) continue;
+
+    cleaned.push(line);
+  }
+
+  // Re-indent: find minimum indent and strip it
+  const nonEmpty = cleaned.filter((l) => l.trim().length > 0);
+  if (nonEmpty.length === 0) return '';
+  const minIndent = Math.min(...nonEmpty.map((l) => l.search(/\S/)));
+  const result = cleaned
+    .map((l) => (l.trim() ? l.slice(minIndent) : ''))
+    .join('\n')
+    .trim();
+
+  // Strip demo-specific IDs (id="demo-xxx" or id="editing-xxx-demo")
+  return result.replace(/\s+id="[^"]*"/g, '');
+}
+
 const source = extractSource(rawContent);
+const htmlSource = extractHtml(rawContent);
+
+// Determine if the HTML is "simple" (a single self-closing <tbw-grid> tag, ≤2 lines)
+// Simple HTML gets shown as a small stacked block above the JS; complex HTML gets its own tab.
+const htmlLineCount = htmlSource ? htmlSource.split('\n').length : 0;
+const isSimpleHtml = htmlSource && htmlLineCount <= 2 && !htmlSource.includes('<tbw-grid-column');
+const complexHtml = htmlSource && !isSimpleHtml ? htmlSource : '';
+const inlineHtml = isSimpleHtml ? htmlSource : '';
 ---
 
 {source ? (
@@ -142,9 +212,35 @@ const source = extractSource(rawContent);
         <span>Show source</span>
       </button>
       <div class="demo-source-content" hidden>
-        <div class="demo-source-code-wrap">
-          <Code code={source} lang={lang} />
-        </div>
+        {complexHtml ? (
+          <div class="demo-source-tabs">
+            <div class="demo-source-tab-bar" role="tablist">
+              <button class="demo-source-tab active" role="tab" aria-selected="true" data-tab="js" type="button">JavaScript</button>
+              <button class="demo-source-tab" role="tab" aria-selected="false" data-tab="html" type="button">HTML</button>
+            </div>
+            <div class="demo-source-tab-panel" data-panel="js">
+              <div class="demo-source-code-wrap">
+                <Code code={source} lang={lang} />
+              </div>
+            </div>
+            <div class="demo-source-tab-panel" data-panel="html" hidden>
+              <div class="demo-source-code-wrap">
+                <Code code={complexHtml} lang="html" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div class="demo-source-stacked">
+            {inlineHtml && (
+              <div class="demo-source-code-wrap demo-source-html-inline">
+                <Code code={inlineHtml} lang="html" title="HTML" />
+              </div>
+            )}
+            <div class="demo-source-code-wrap">
+              <Code code={source} lang={lang} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   </div>
@@ -166,6 +262,25 @@ const source = extractSource(rawContent);
       return;
     }
 
+    // Tab switching for HTML/JS tabs
+    const tab = (e.target as HTMLElement).closest('.demo-source-tab') as HTMLElement | null;
+    if (tab) {
+      const tabBar = tab.parentElement;
+      if (!tabBar) return;
+      const tabs = tabBar.querySelectorAll('.demo-source-tab');
+      const wrapper = tabBar.closest('.demo-source-tabs');
+      if (!wrapper) return;
+      const panels = wrapper.querySelectorAll('.demo-source-tab-panel');
+      const targetKey = tab.dataset.tab;
+
+      tabs.forEach((t) => {
+        t.classList.toggle('active', t === tab);
+        t.setAttribute('aria-selected', String(t === tab));
+      });
+      panels.forEach((p: Element) => {
+        (p as HTMLElement).hidden = (p as HTMLElement).dataset.panel !== targetKey;
+      });
+    }
   });
 </script>
 
@@ -242,6 +357,49 @@ const source = extractSource(rawContent);
     border: none !important;
     max-height: 500px;
     padding: .5rem;
+  }
+
+  /* --- Stacked HTML + JS blocks --- */
+  .demo-source-stacked {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .demo-source-html-inline {
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+
+  .demo-source-html-inline :global(.expressive-code) {
+    margin: 0 !important;
+  }
+
+  /* --- Tab bar for HTML/JS --- */
+  .demo-source-tab-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+    background: var(--sl-color-gray-6);
+  }
+
+  .demo-source-tab {
+    padding: 0.4rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--sl-color-gray-3);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .demo-source-tab:hover {
+    color: var(--sl-color-text);
+  }
+
+  .demo-source-tab.active {
+    color: var(--sl-color-text);
+    border-bottom-color: var(--sl-color-text-accent);
   }
 
 

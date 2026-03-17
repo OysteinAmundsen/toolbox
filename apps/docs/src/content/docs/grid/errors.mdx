@@ -527,7 +527,9 @@ An HTML attribute (`rows`, `columns`, or `grid-config`) contains invalid JSON.
 **Fix:** Verify the attribute value is valid JSON. For complex config, use JavaScript properties instead of HTML attributes:
 
 ```ts
-const grid = document.querySelector('tbw-grid');
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = { columns: [...], ... };
 ```
 

@@ -3,7 +3,7 @@ title: "Server-Side Plugin"
 description: "Connect the grid to server-side data sources with virtual scrolling."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import ServerSideDefaultDemo from '@components/demos/server-side/ServerSideDefaultDemo.astro';
 import ServerSidePagingModeDemo from '@components/demos/server-side/ServerSidePagingModeDemo.astro';
 import ServerSideSortingDemo from '@components/demos/server-side/ServerSideSortingDemo.astro';
@@ -45,7 +45,7 @@ The feature requires a **data source** that implements the `getRows` method. Set
 <Tabs syncKey="framework">
   <TabItem label="Vanilla JS">
 ```ts
-import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/server-side';
 
 const dataSource = {
@@ -60,7 +60,7 @@ const dataSource = {
   },
 };
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID' },

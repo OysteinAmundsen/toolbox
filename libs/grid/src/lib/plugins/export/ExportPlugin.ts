@@ -60,10 +60,10 @@ interface SelectionPluginState {
  *
  * @example Basic Export with Button
  * ```ts
- * import '@toolbox-web/grid';
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { ExportPlugin } from '@toolbox-web/grid/plugins/export';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * grid.gridConfig = {
  *   columns: [
  *     { field: 'name', header: 'Name' },

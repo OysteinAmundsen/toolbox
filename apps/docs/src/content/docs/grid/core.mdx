@@ -3,22 +3,22 @@ title: Core Features
 description: Interactive playground, configuration, rendering, shell, loading states, variable row heights, events, methods, and more for @toolbox-web/grid.
 ---
 
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 import ColumnInferenceDemo from '@components/demos/ColumnInferenceDemo.astro';
-import LightDomColumnsDemo from '@components/demos/LightDomColumnsDemo.astro';
-import CustomRenderersDemo from '@components/demos/CustomRenderersDemo.astro';
-import RowCellStylingDemo from '@components/demos/RowCellStylingDemo.astro';
-import RowAnimationDemo from '@components/demos/RowAnimationDemo.astro';
-import RtlDemo from '@components/demos/RtlDemo.astro';
-import InteractivePlaygroundDemo from '@components/demos/InteractivePlaygroundDemo.astro';
-import HeaderRenderersDemo from '@components/demos/HeaderRenderersDemo.astro';
 import ColumnStatePersistenceDemo from '@components/demos/ColumnStatePersistenceDemo.astro';
+import CustomLoadingRendererDemo from '@components/demos/CustomLoadingRendererDemo.astro';
+import CustomRenderersDemo from '@components/demos/CustomRenderersDemo.astro';
+import HeaderRenderersDemo from '@components/demos/HeaderRenderersDemo.astro';
+import InteractivePlaygroundDemo from '@components/demos/InteractivePlaygroundDemo.astro';
+import LightDomColumnsDemo from '@components/demos/LightDomColumnsDemo.astro';
+import LoadingStatesDemo from '@components/demos/LoadingStatesDemo.astro';
+import RowAnimationDemo from '@components/demos/RowAnimationDemo.astro';
+import RowCellStylingDemo from '@components/demos/RowCellStylingDemo.astro';
+import RtlDemo from '@components/demos/RtlDemo.astro';
 import ShellBasicDemo from '@components/demos/ShellBasicDemo.astro';
 import ShellLightDomDemo from '@components/demos/ShellLightDomDemo.astro';
 import ShellMultiPanelsDemo from '@components/demos/ShellMultiPanelsDemo.astro';
 import ShellToolbarButtonsDemo from '@components/demos/ShellToolbarButtonsDemo.astro';
-import LoadingStatesDemo from '@components/demos/LoadingStatesDemo.astro';
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-import CustomLoadingRendererDemo from '@components/demos/CustomLoadingRendererDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -205,51 +205,22 @@ The grid offers two ways to customize how cell data is displayed:
 
 **Transform how values are displayed** — Formatters convert raw data values into user-friendly text.
 
-A formatter is a function that takes a cell value and returns a formatted string:
+A formatter is a function that receives the cell value and returns a display string:
 
 ```typescript
 grid.columns = [
-  {
-    field: 'salary',
-    format: (value) => `$${value.toLocaleString()}`,
-  },
-  {
-    field: 'hireDate',
-    format: (value) =>
-      new Date(value).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }),
-  },
-  {
-    field: 'progress',
-    format: (value) => `${(value * 100).toFixed(1)}%`,
-  },
+  // Currency
+  { field: 'salary', format: (v) => `$${v.toLocaleString()}` },
+
+  // Date
+  { field: 'hireDate', format: (v) => new Date(v).toLocaleDateString() },
+
+  // Percentage
+  { field: 'progress', format: (v) => `${(v * 100).toFixed(1)}%` },
+
+  // Prefix
+  { field: 'id', format: (v) => `#${v}` },
 ];
-```
-
-Common formatter patterns:
-
-| Pattern | Output |
-|---------|--------|
-| Currency | `$1,234.50` |
-| Date | `1/15/2024` |
-| Percentage | `15.6%` |
-| Prefix/suffix | `#42` |
-
-```typescript
-// Currency
-{ field: 'salary', format: (v) => `$${v.toLocaleString()}` }
-
-// Date
-{ field: 'startDate', format: (v) => new Date(v).toLocaleDateString() }
-
-// Percentage
-{ field: 'rate', format: (v) => `${(v * 100).toFixed(1)}%` }
-
-// Prefix/suffix
-{ field: 'id', format: (v) => `#${v}` }
 ```
 
 ### Row Styling
@@ -260,14 +231,12 @@ Common formatter patterns:
 grid.gridConfig = {
   rowClass: (row) => (row.status === 'inactive' ? 'row-inactive' : ''),
 };
+```
 
-// Register styles so they survive DOM rebuilds
-grid.registerStyles(
-  'row-styles',
-  `
-  .row-inactive { opacity: 0.5; }
-`
-);
+Then define the CSS class in your stylesheet:
+
+```css
+.row-inactive { opacity: 0.5; }
 ```
 
 ### Cell Styling

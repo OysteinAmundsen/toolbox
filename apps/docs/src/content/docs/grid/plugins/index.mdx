@@ -3,11 +3,18 @@ title: Plugins Overview
 description: Overview of all @toolbox-web/grid plugins — editing, selection, filtering, grouping, export, and more. Tree-shakeable, individually importable.
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
 
 The `@toolbox-web/grid` plugin architecture allows you to extend the grid with powerful features while keeping the core bundle lightweight. Plugins are tree-shakeable — only import what you need.
 
-The **recommended** way to enable grid capabilities is the **features API** — a declarative, dependency-resolving layer on top of plugins. See [Using Features](#using-features-recommended) below.
+:::tip[Features or Plugins? They do the same thing.]
+**Features** and **plugins** are two APIs for enabling the same capabilities. The end result is identical — features are simply a simpler, declarative wrapper around plugins.
+
+- **Features** (recommended) — Declare _what_ you want: `features: { selection: 'row' }`. Dependencies are auto-resolved, ordering is handled for you.
+- **Plugins** (advanced) — Instantiate classes yourself: `plugins: [new SelectionPlugin({ mode: 'row' })]`. Useful when building custom plugins or extending `BaseGridPlugin`.
+
+**If you're getting started, use features.** You can always switch to the plugin API later if you need more control — they're fully interchangeable.
+:::
 
 ## Available Plugins
 
@@ -224,7 +231,7 @@ if (selection) {
 
 ## Using Plugins (Advanced)
 
-For building custom plugins or when you need direct control over plugin instantiation, use the plugin API directly.
+For building custom plugins or when you need to instantiate plugin classes yourself (e.g., to pass constructor-only options or extend `BaseGridPlugin`), use the plugin API directly. The result is identical to using features — this is just a different way to configure the same capabilities.
 
 ### Import Paths
 

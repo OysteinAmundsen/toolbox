@@ -3,16 +3,16 @@ title: "Responsive Plugin"
 description: "Automatically adapt the grid layout for different screen sizes."
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
-import ResponsiveDefaultDemo from '@components/demos/responsive/ResponsiveDefaultDemo.astro';
-import ResponsiveManualControlDemo from '@components/demos/responsive/ResponsiveManualControlDemo.astro';
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+import ResponsiveAnimatedTransitionsDemo from '@components/demos/responsive/ResponsiveAnimatedTransitionsDemo.astro';
 import ResponsiveCustomCardRendererDemo from '@components/demos/responsive/ResponsiveCustomCardRendererDemo.astro';
+import ResponsiveDefaultDemo from '@components/demos/responsive/ResponsiveDefaultDemo.astro';
+import ResponsiveEventsDemo from '@components/demos/responsive/ResponsiveEventsDemo.astro';
 import ResponsiveFixedCardHeightDemo from '@components/demos/responsive/ResponsiveFixedCardHeightDemo.astro';
+import ResponsiveManualControlDemo from '@components/demos/responsive/ResponsiveManualControlDemo.astro';
 import ResponsiveProgressiveDegradationDemo from '@components/demos/responsive/ResponsiveProgressiveDegradationDemo.astro';
 import ResponsiveValueOnlyColumnsDemo from '@components/demos/responsive/ResponsiveValueOnlyColumnsDemo.astro';
-import ResponsiveAnimatedTransitionsDemo from '@components/demos/responsive/ResponsiveAnimatedTransitionsDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
-import ResponsiveEventsDemo from '@components/demos/responsive/ResponsiveEventsDemo.astro';
 
 
 
@@ -30,10 +30,10 @@ import '@toolbox-web/grid/features/responsive';
   <TabItem label="Vanilla JS">
 
 ```ts
-import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/responsive';
 
-const grid = document.querySelector('tbw-grid');
+const grid = queryGrid('tbw-grid');
 grid.gridConfig = {
   columns: [
     { field: 'id', header: 'ID' },

@@ -64,10 +64,10 @@ import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandD
  *
  * @example Basic Tree with Nested Children
  * ```ts
- * import '@toolbox-web/grid';
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { TreePlugin } from '@toolbox-web/grid/plugins/tree';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * grid.gridConfig = {
  *   columns: [
  *     { field: 'name', header: 'Name' },

@@ -3,7 +3,7 @@ title: Production Checklist
 description: Prepare your @toolbox-web/grid deployment for production — security, performance, accessibility, error handling, and testing guidance.
 ---
 
-import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 
 This checklist is for **application developers** shipping `<tbw-grid>` to end users. Plugin authors and framework adapter developers have additional concerns covered [at the bottom](#for-plugin--adapter-developers).
@@ -233,18 +233,21 @@ Every plugin hook runs in the grid's hot path. Be aware of the cost:
 
 ### Style Injection
 
-Plugins must use `adoptedStyleSheets` — not `<style>` elements:
+Plugins must not append `<style>` elements as children of `<tbw-grid>` (they get removed by `replaceChildren()`). Standard CSS and the plugin `styles` property both work:
 
 ```typescript
-// ✅ Use the styles property
+// ✅ Use the styles property (recommended for plugins)
 override readonly styles = `
   .my-class { color: blue; }
 `;
 
-// ✅ Or registerStyles for runtime CSS
+// ✅ Or registerStyles for runtime-injected CSS
 this.gridElement.registerStyles('my-id', '.my-class { color: blue; }');
 
-// ❌ Never do this — removed on next render
+// ✅ Standard CSS also works (global stylesheet, <style> in <head>)
+//    .my-class { color: blue; }
+
+// ❌ Don't do this — child nodes are removed on render
 const style = document.createElement('style');
 this.gridElement.appendChild(style);
 ```

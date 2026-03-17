@@ -110,9 +110,10 @@ function createIsolationStylesheet(gridId: string, orientation: PrintOrientation
  *
  * @example
  * ```typescript
+ * import { queryGrid } from '@toolbox-web/grid';
  * import { printGridIsolated } from '@toolbox-web/grid/plugins/print';
  *
- * const grid = document.querySelector('tbw-grid');
+ * const grid = queryGrid('tbw-grid');
  * await printGridIsolated(grid, { orientation: 'landscape' });
  * ```
  */

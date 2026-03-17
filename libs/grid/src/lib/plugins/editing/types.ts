@@ -410,7 +410,9 @@ export interface EditingConfig {
    *
    * @example
    * ```typescript
-   * const grid = document.querySelector('tbw-grid');
+   * import { queryGrid } from '@toolbox-web/grid';
+   *
+   * const grid = queryGrid('tbw-grid');
    * grid.gridConfig = {
    *   getRowId: (r) => r.id,
    *   columns: [...],

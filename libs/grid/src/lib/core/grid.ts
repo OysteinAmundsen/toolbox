@@ -645,6 +645,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * @param rowId - The row's unique identifier (from getRowId)
    * @param loading - Whether the row is loading
+   *
+   * @example
+   * ```typescript
+   * // Show loading while saving row data
+   * grid.setRowLoading('row-123', true);
+   * await saveRow(rowData);
+   * grid.setRowLoading('row-123', false);
+   * ```
    */
   setRowLoading(rowId: string, loading: boolean): void {
     const wasLoading = this.#loadingRows.has(rowId);
@@ -667,6 +675,14 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @param rowId - The row's unique identifier
    * @param field - The column field
    * @param loading - Whether the cell is loading
+   *
+   * @example
+   * ```typescript
+   * // Show loading while validating a single field
+   * grid.setCellLoading('row-123', 'email', true);
+   * const valid = await validateEmail(newValue);
+   * grid.setCellLoading('row-123', 'email', false);
+   * ```
    */
   setCellLoading(rowId: string, field: string, loading: boolean): void {
     let cellFields = this.#loadingCells.get(rowId);
@@ -2890,7 +2906,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    *
    * @example
    * ```typescript
-   * const grid = document.querySelector('tbw-grid');
+   * const grid = queryGrid('tbw-grid');
    * await grid.ready();
    * console.log('Grid is ready, rows:', grid.rows.length);
    * ```
@@ -3470,7 +3486,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * @example
    * ```typescript
    * // Restore saved state on page load
-   * const grid = document.querySelector('tbw-grid');
+   * const grid = queryGrid('tbw-grid');
    * const saved = localStorage.getItem('myGridState');
    * if (saved) {
    *   grid.columnState = JSON.parse(saved);

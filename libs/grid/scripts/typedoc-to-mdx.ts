@@ -503,23 +503,50 @@ function genTypeAlias(node: TypeDocNode, title: string): string {
 }
 
 function genFunction(node: TypeDocNode, title: string): string {
-  const sig = node.signatures?.[0];
-  if (!sig) return '';
+  const sigs = node.signatures ?? [];
+  if (!sigs.length) return '';
+
+  // Use the first signature for description/examples, or the implementation sig if it has the JSDoc
+  const primarySig = sigs[0];
 
   let out = mdxHeader(title);
-  const desc = getText(sig.comment);
+  const desc = getText(primarySig.comment);
   if (desc) out += `${escape(desc)}\n\n`;
 
-  const params = sig.parameters?.map((p) => `${p.name}: ${formatType(p.type)}`).join(', ') ?? '';
-  out += `\`\`\`ts\nfunction ${node.name}(${params}): ${formatType(sig.type)}\n\`\`\`\n\n`;
+  // Render all overload signatures (or single signature)
+  if (sigs.length > 1) {
+    out += `\`\`\`ts\n`;
+    for (const sig of sigs) {
+      const params =
+        sig.parameters?.map((p) => `${p.name}${p.flags?.isOptional ? '?' : ''}: ${formatType(p.type)}`).join(', ') ??
+        '';
+      out += `function ${node.name}(${params}): ${formatType(sig.type)}\n`;
+    }
+    out += `\`\`\`\n\n`;
+  } else {
+    const params = primarySig.parameters?.map((p) => `${p.name}: ${formatType(p.type)}`).join(', ') ?? '';
+    out += `\`\`\`ts\nfunction ${node.name}(${params}): ${formatType(primarySig.type)}\n\`\`\`\n\n`;
+  }
 
-  if (sig.parameters?.length) {
+  // Use the signature with the most parameters for the parameter table
+  const richestSig = sigs.reduce(
+    (best, s) => ((s.parameters?.length ?? 0) > (best.parameters?.length ?? 0) ? s : best),
+    primarySig,
+  );
+  if (richestSig.parameters?.length) {
     out += `## Parameters\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n`;
-    for (const p of sig.parameters) {
+    for (const p of richestSig.parameters) {
       out += `| \`${p.name}\` | ${formatTypeWithLinks(p.type)} | ${escape(getText(p.comment))} |\n`;
     }
     out += '\n';
   }
+
+  // Add @example blocks if present
+  out += formatAllExamples(primarySig.comment);
+
+  // Add @see links if present
+  out += formatSeeLinks(primarySig.comment);
+
   return out;
 }
 
@@ -924,6 +951,9 @@ function processCoreModule(module: TypeDocNode, outDir: string): void {
     const kindFolder = KIND_FOLDER_MAP[node.kind];
     const gen = GENERATORS[node.kind];
     if (!kindFolder || !gen) continue;
+
+    // Skip @internal items entirely (e.g. setFeatureResolver)
+    if (isNodeInternal(node)) continue;
 
     const item: ProcessedNode = { node, kindFolder, gen };
 

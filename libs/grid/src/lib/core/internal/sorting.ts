@@ -9,8 +9,32 @@ import { announce } from './aria';
 import { renderHeader } from './header';
 
 /**
- * Default comparator for sorting values.
- * Handles nulls (pushed to end), numbers, and string fallback.
+ * Default comparator used when no column-level `sortComparator` is configured.
+ * Pushes `null`/`undefined` to the end and compares remaining values via `>` / `<`
+ * operators, which works correctly for numbers and falls back to lexicographic
+ * comparison for strings.
+ *
+ * Use this as a fallback inside a custom `sortComparator` when you only need
+ * special handling for certain values:
+ *
+ * @example
+ * ```typescript
+ * import { defaultComparator } from '@toolbox-web/grid';
+ *
+ * const column = {
+ *   field: 'priority',
+ *   sortComparator: (a, b, rowA, rowB) => {
+ *     // Pin "urgent" to the top, then fall back to default ordering
+ *     if (a === 'urgent') return -1;
+ *     if (b === 'urgent') return 1;
+ *     return defaultComparator(a, b);
+ *   },
+ * };
+ * ```
+ *
+ * @see {@link BaseColumnConfig.sortComparator} for column-level comparators
+ * @see {@link builtInSort} for the full sort handler that uses this comparator
+ * @category Factory Functions
  */
 export function defaultComparator(a: unknown, b: unknown): number {
   if (a == null && b == null) return 0;
@@ -20,8 +44,33 @@ export function defaultComparator(a: unknown, b: unknown): number {
 }
 
 /**
- * Built-in sort implementation using column comparator or default.
- * This is the default sortHandler when none is configured.
+ * The default `sortHandler` used when none is provided in {@link GridConfig.sortHandler}.
+ * Reads each column's `sortComparator` (falling back to {@link defaultComparator})
+ * and returns a sorted copy of the rows array.
+ *
+ * Use this as a fallback inside a custom `sortHandler` when you only need to
+ * intercept sorting for specific columns or add pre/post-processing:
+ *
+ * @example
+ * ```typescript
+ * import { builtInSort } from '@toolbox-web/grid';
+ * import type { SortHandler } from '@toolbox-web/grid';
+ *
+ * const customSort: SortHandler<Employee> = (rows, state, columns) => {
+ *   // Server-side sort for the "salary" column, client-side for everything else
+ *   if (state.field === 'salary') {
+ *     return fetch(`/api/employees?sort=${state.field}&dir=${state.direction}`)
+ *       .then(res => res.json());
+ *   }
+ *   return builtInSort(rows, state, columns);
+ * };
+ *
+ * grid.gridConfig = { sortHandler: customSort };
+ * ```
+ *
+ * @see {@link GridConfig.sortHandler} for configuring the handler
+ * @see {@link defaultComparator} for the comparator used per column
+ * @category Factory Functions
  */
 export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnConfig<T>[]): T[] {
   const col = columns.find((c) => c.field === sortState.field);

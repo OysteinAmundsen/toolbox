@@ -21,13 +21,10 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
   const wrap = document.getElementById('shell-toolbar-wrap');
-  const grid = wrap?.querySelector<HTMLElement & {
-    columns: ColumnConfig[];
-    rows: Record<string, unknown>[];
-  }>('tbw-grid');
+  const grid = queryGrid('tbw-grid', wrap!);
 
   if (grid && wrap) {
     const names = ['Alice', 'Bob', 'Carol', 'Dan', 'Eve', 'Frank', 'Grace', 'Henry'];

@@ -26,17 +26,13 @@ import DemoControls from '@components/DemoControls.astro';
 <script>
   import '@toolbox-web/grid';
 import type { ColumnConfig, FitMode } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/editing';
 
   type ColumnKey = 'id' | 'name' | 'active' | 'score' | 'created' | 'role';
 
   const container = document.getElementById('interactive-playground-demo');
-  const grid = container?.querySelector<HTMLElement & {
-    columns: ColumnConfig[];
-    rows: unknown[];
-    fitMode: FitMode;
-    gridConfig: Record<string, unknown>;
-  }>('tbw-grid');
+  const grid = queryGrid('tbw-grid', container!);
 
   if (container && grid) {
     const allColumnDefs: Record<ColumnKey, ColumnConfig> = {

@@ -13,15 +13,10 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig, GridConfig, ToolPanelDefinition } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/visibility';
 
-  const grid = document.querySelector<HTMLElement & {
-    columns: ColumnConfig[];
-    rows: Record<string, unknown>[];
-    gridConfig: GridConfig;
-    registerToolPanel: (panel: ToolPanelDefinition) => void;
-  }>('#demo-shell-multi-panels');
+  const grid = queryGrid('#demo-shell-multi-panels');
 
   if (grid) {
     const departments = ['Engineering', 'Sales', 'Marketing', 'Support'];

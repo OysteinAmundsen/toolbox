@@ -49,12 +49,44 @@ function extractSource(content: string): string {
   let inIfBlock = false;
   let ifIndent = -1;
 
-  // Detect the DOM container variable name (e.g. container, el, grid, gridEl)
-  // so we can recognize the `if (varName) {` guard block generically.
-  let guardVar: string | null = null;
+  // Pre-scan lines BEFORE the first `if (` guard to detect:
+  //   - gridVar: the queryGrid variable (the actual grid element)
+  //   - querySelector vars: any document.getElementById/querySelector variables
+  //   - ifGuardVar: the variable tested in the `if (xxx)` condition
+  // Then derive containerVar only if the if-guard references a querySelector var
+  // (not the grid). This prevents arbitrary querySelector calls like
+  // `const toggleBtn = document.querySelector(...)` from being misidentified.
+  let gridVar: string | null = null;
+  let ifGuardVar: string | null = null;
+  const querySelectorVars: string[] = [];
   for (const l of lines) {
-    const m = l.trim().match(/^const\s+(\w+)\s*=\s*(?:document\.(?:getElementById|querySelector)|queryGrid)\b/);
-    if (m) { guardVar = m[1]; break; }
+    const trimmed = l.trim();
+    // At the first if-guard, extract the tested variable and stop scanning
+    const guardMatch = trimmed.match(/^if\s*\(\s*(\w+)/);
+    if (guardMatch) {
+      ifGuardVar = guardMatch[1];
+      break;
+    }
+    const cm = trimmed.match(/^const\s+(\w+)\s*=\s*document\.(?:getElementById|querySelector)\b/);
+    if (cm) querySelectorVars.push(cm[1]);
+    if (!gridVar) {
+      const gm = trimmed.match(/^const\s+(\w+)\s*=\s*(?:await\s+)?queryGrid\b/);
+      if (gm) gridVar = gm[1];
+    }
+  }
+
+  // containerVar is the guard variable ONLY if it's a querySelector var (not the grid)
+  const containerVar = ifGuardVar && ifGuardVar !== gridVar && querySelectorVars.includes(ifGuardVar) ? ifGuardVar : null;
+  // The guard variable is the container if one exists, otherwise the grid
+  const guardVar = containerVar ?? gridVar;
+
+  // Track multi-line container.addEventListener blocks to skip
+  let skipParenDepth = 0;
+
+  /** Sanitize a queryGrid declaration into a clean one-liner for the reader */
+  function sanitizeGridDecl(processed: string): string {
+    const hasAwait = /\bawait\b/.test(processed);
+    return `const ${gridVar} = ${hasAwait ? 'await ' : ''}queryGrid('tbw-grid');`;
   }
 
   for (const line of lines) {
@@ -67,8 +99,14 @@ function extractSource(content: string): string {
     }
     if (trimmed.startsWith('import type')) continue;
 
-    // Skip container variable declaration (detected above)
-    if (guardVar && new RegExp(`^const\\s+${guardVar}\\s*=\\s*(?:document\\.|queryGrid)`).test(trimmed)) continue;
+    // Skip container variable declaration (demo wrapper, not user code)
+    if (containerVar && new RegExp(`^const\\s+${containerVar}\\s*=\\s*document\\.`).test(trimmed)) continue;
+
+    // Grid variable declaration OUTSIDE the if-block: keep with sanitized selector
+    if (gridVar && !inIfBlock && new RegExp(`^const\\s+${gridVar}\\s*=\\s*(?:await\\s+)?queryGrid\\b`).test(trimmed)) {
+      bodyLines.push(sanitizeGridDecl(trimmed));
+      continue;
+    }
 
     // Detect the `if (guardVar) {` or `if (guardVar && ...)` guard
     if (
@@ -94,6 +132,33 @@ function extractSource(content: string): string {
       // Un-indent by the if body's extra indentation
       const stripCount = ifIndent + 2;
       let processed = line.length > stripCount ? line.slice(stripCount) : line.trimStart() === '' ? '' : line.trimStart();
+
+      // Skip container.addEventListener('control-change', ...) blocks — DemoControls wiring
+      if (containerVar) {
+        if (skipParenDepth > 0) {
+          for (const ch of trimmed) {
+            if (ch === '(') skipParenDepth++;
+            if (ch === ')') skipParenDepth--;
+          }
+          if (skipParenDepth <= 0) skipParenDepth = 0;
+          continue;
+        }
+        if (new RegExp(`\\b${containerVar}\\.addEventListener\\(\\s*'control-change'`).test(processed)) {
+          skipParenDepth = 0;
+          for (const ch of trimmed) {
+            if (ch === '(') skipParenDepth++;
+            if (ch === ')') skipParenDepth--;
+          }
+          if (skipParenDepth <= 0) skipParenDepth = 0;
+          continue;
+        }
+      }
+
+      // Grid variable declaration INSIDE the if-block: keep with sanitized selector
+      if (gridVar && new RegExp(`^const\\s+${gridVar}\\s*=\\s*(?:await\\s+)?queryGrid\\b`).test(processed.trim())) {
+        bodyLines.push(sanitizeGridDecl(processed));
+        continue;
+      }
 
       // guardVar.querySelector → document.querySelector
       if (guardVar) {

@@ -15,16 +15,11 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
   const container = document.getElementById('demo-core-events')?.closest('.grid-demo');
   if (container) {
-    const grid = container.querySelector<HTMLElement & {
-      columns: ColumnConfig[];
-      rows: Record<string, unknown>[];
-      sortable: boolean;
-      resizable: boolean;
-    }>('tbw-grid')!;
+    const grid = queryGrid('tbw-grid', container)!;
 
     const logEl = container.querySelector<HTMLElement>('[data-event-log]')!;
     let count = 0;

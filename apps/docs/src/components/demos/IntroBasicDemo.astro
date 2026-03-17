@@ -8,10 +8,9 @@
 
 <script>
   import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = document.querySelector<HTMLElement & { columns: unknown[]; rows: unknown[] }>(
-    '#demo-intro-basic'
-  );
+  const grid = queryGrid('#demo-intro-basic');
   if (grid) {
     grid.columns = [
       { field: 'id', header: 'ID', type: 'number', sortable: true },

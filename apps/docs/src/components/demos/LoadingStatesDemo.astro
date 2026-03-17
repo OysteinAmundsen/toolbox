@@ -23,22 +23,12 @@ import DemoControls from '@components/DemoControls.astro';
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig, GridConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
   interface Employee { id: string; name: string; email: string; department: string; }
 
   const container = document.getElementById('loading-states-container');
-  const grid = container?.querySelector<HTMLElement & {
-    columns: ColumnConfig<Employee>[];
-    rows: Employee[];
-    gridConfig: GridConfig<Employee>;
-    loading: boolean;
-    setRowLoading: (rowId: string, loading: boolean) => void;
-    isRowLoading: (rowId: string) => boolean;
-    setCellLoading: (rowId: string, field: string, loading: boolean) => void;
-    isCellLoading: (rowId: string, field: string) => boolean;
-    clearAllLoading: () => void;
-  }>('tbw-grid');
+  const grid = queryGrid<Employee>('tbw-grid', container!);
 
   if (container && grid) {
     const names = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];

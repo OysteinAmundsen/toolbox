@@ -13,7 +13,7 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
   interface Employee {
     id: number;
@@ -24,9 +24,7 @@ import type { ColumnConfig } from '@toolbox-web/grid';
     salary: number;
   }
 
-  const grid = document.querySelector<HTMLElement & { columns: ColumnConfig<Employee>[]; rows: Employee[] }>(
-    '#demo-custom-renderers'
-  );
+  const grid = queryGrid<Employee>('#demo-custom-renderers');
   if (grid) {
     grid.columns = [
       { field: 'id', header: 'ID', width: 60 },

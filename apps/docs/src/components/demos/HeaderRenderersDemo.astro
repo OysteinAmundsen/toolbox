@@ -14,12 +14,9 @@
 
 <script>
   import '@toolbox-web/grid';
-import type { ColumnConfig } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
-  const grid = document.querySelector<HTMLElement & {
-    columns: ColumnConfig[];
-    rows: Record<string, unknown>[];
-  }>('#demo-header-renderers');
+  const grid = queryGrid('#demo-header-renderers');
 
   if (grid) {
     grid.columns = [

@@ -19,19 +19,13 @@
 <script>
   import '@toolbox-web/grid';
 import type { ColumnConfig, GridColumnState } from '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
 
   const STORAGE_KEY = 'tbw-demo-column-state';
 
   const container = document.getElementById('demo-column-state')?.closest('.grid-demo');
   if (container) {
-    const grid = container.querySelector<HTMLElement & {
-      columns: ColumnConfig[];
-      rows: Record<string, unknown>[];
-      sortable: boolean;
-      resizable: boolean;
-      getColumnState(): GridColumnState[];
-      applyColumnState(state: GridColumnState[]): void;
-    }>('tbw-grid')!;
+    const grid = queryGrid('tbw-grid', container)!;
 
     const status = container.querySelector<HTMLElement>('[data-status]')!;
     const log = container.querySelector<HTMLElement>('[data-log]')!;

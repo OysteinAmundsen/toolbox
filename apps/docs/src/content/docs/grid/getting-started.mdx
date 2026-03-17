@@ -407,6 +407,71 @@ See the [Angular adapter docs](/grid/angular/getting-started/) for custom render
   </TabItem>
 </Tabs>
 
+## Plain JavaScript (No Build Step)
+
+Don't use TypeScript or a bundler? The grid works with a single `<script>` tag using the UMD bundle.
+Everything is available on the global `TbwGrid` object:
+
+```html title="index.html"
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://unpkg.com/@toolbox-web/grid/umd/grid.umd.js"></script>
+</head>
+<body>
+  <tbw-grid id="my-grid" style="height: 400px;"></tbw-grid>
+  <script>
+    var grid = TbwGrid.queryGrid('#my-grid');
+
+    grid.columns = [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name' },
+      { field: 'email', header: 'Email' },
+    ];
+
+    grid.rows = [
+      { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+      { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+      { id: 3, name: 'Carol White', email: 'carol@example.com' },
+    ];
+  </script>
+</body>
+</html>
+```
+
+To add plugins, use the all-in-one bundle and configure via `gridConfig`:
+
+```html title="index.html (with plugins)"
+<script src="https://unpkg.com/@toolbox-web/grid/umd/grid.all.umd.js"></script>
+<script>
+  var grid = TbwGrid.queryGrid('#my-grid');
+
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number' },
+      { field: 'name', header: 'Name', editable: true },
+      { field: 'email', header: 'Email', editable: true },
+    ],
+    plugins: [
+      new TbwGrid.EditingPlugin({ trigger: 'dblclick' }),
+      new TbwGrid.SelectionPlugin({ mode: 'row' }),
+      new TbwGrid.FilteringPlugin(),
+    ],
+  };
+
+  grid.rows = [
+    { id: 1, name: 'Alice Johnson', email: 'alice@example.com' },
+    { id: 2, name: 'Bob Smith', email: 'bob@example.com' },
+    { id: 3, name: 'Carol White', email: 'carol@example.com' },
+  ];
+</script>
+```
+
+:::tip
+`grid.umd.js` includes core only (~142 kB). `grid.all.umd.js` bundles core + all plugins (~393 kB).
+You can also load individual plugin UMD files (e.g. `selection.umd.js`) for finer control over bundle size.
+:::
+
 ## TypeScript Support
 
 The package ships with full type definitions. Use generics on `queryGrid` to get typed row data throughout your code:

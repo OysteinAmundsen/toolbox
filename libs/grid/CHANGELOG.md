@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.26.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.25.2...grid-1.26.0) (2026-03-17)
+
+
+### Features
+
+* **grid:** add conditional editing via editable function and rowEditable ([a5c814e](https://github.com/OysteinAmundsen/toolbox/commit/a5c814e7e86d6470fc0829028521135c7fe4dd70))
+
+
+### Bug Fixes
+
+* **grid:** support Shift+keyboard selection in row mode ([44f2da4](https://github.com/OysteinAmundsen/toolbox/commit/44f2da421cc406d2e54793e6db73d2f68b052b3d))
+
 ## [1.25.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.25.1...grid-1.25.2) (2026-03-17)
 
 

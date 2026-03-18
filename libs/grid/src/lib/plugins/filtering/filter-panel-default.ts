@@ -243,6 +243,16 @@ export function renderDefaultFilterPanel(
       return !filterText || compareValue.includes(compareFilter);
     });
 
+    // Sort selected (checked) items first, then alphabetically within each group
+    filteredValues.sort((a, b) => {
+      const keyA = a == null ? '__null__' : String(a);
+      const keyB = b == null ? '__null__' : String(b);
+      const checkedA = checkState.get(keyA) ?? true;
+      const checkedB = checkState.get(keyB) ?? true;
+      if (checkedA !== checkedB) return checkedA ? -1 : 1;
+      return formatValue(a).localeCompare(formatValue(b));
+    });
+
     if (filteredValues.length === 0) {
       spacer.style.height = '0px';
       contentContainer.innerHTML = '';

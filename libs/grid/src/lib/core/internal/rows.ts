@@ -980,8 +980,15 @@ export function handleRowClick(grid: GridHost, e: MouseEvent, rowEl: HTMLElement
           clearCellFocus(grid._bodyEl ?? grid);
           cellEl.classList.add('cell-focus');
         }
-        // Focus the editor in the cell
-        const editor = cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null;
+        // Prefer the actual click target when it's a focusable element inside the
+        // cell. This preserves user intent — e.g., clicking an <input> inside a
+        // mat-chip-grid should focus that input, not the first chip row (which
+        // also matches FOCUSABLE_EDITOR_SELECTOR via [tabindex]).
+        const target = e.target as HTMLElement;
+        const editor =
+          cellEl.contains(target) && target.matches(FOCUSABLE_EDITOR_SELECTOR)
+            ? target
+            : (cellEl.querySelector(FOCUSABLE_EDITOR_SELECTOR) as HTMLElement | null);
         try {
           editor?.focus({ preventScroll: true });
         } catch {

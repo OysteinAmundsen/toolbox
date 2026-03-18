@@ -190,8 +190,11 @@ export function injectEditor<T>(
 
   if (editorSpec === 'template' && tplHolder) {
     renderTemplateEditor(deps, editorHost, colInternal, rowData, originalValue, commit, cancel, skipFocus, rowIndex);
-    // Auto-update built-in template editors when value changes externally
+    // Auto-update built-in template editors when value changes externally.
+    // Skip non-primitive values (arrays, objects) — framework adapters manage
+    // those via the cell-cancel event. String() on arrays produces comma-separated junk.
     onValueChange((newVal) => {
+      if (newVal != null && typeof newVal === 'object') return;
       const input = editorHost.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
         'input,textarea,select',
       );

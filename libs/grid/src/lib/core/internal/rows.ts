@@ -206,6 +206,12 @@ export function renderVisibleRows(
   // Check if any plugin wants row-level hooks (avoid overhead when not needed)
   const hasRowHook = grid._hasAfterRowRenderHook?.() ?? false;
 
+  // Cache variable-height function for per-row CSS variable override
+  const varHeightFn =
+    grid._virtualization?.variableHeights && typeof grid.effectiveConfig?.rowHeight === 'function'
+      ? (grid.effectiveConfig.rowHeight as (row: unknown, index: number) => number | undefined)
+      : null;
+
   for (let i = 0; i < needed; i++) {
     const rowIndex = start + i;
     const rowData = grid._rows[rowIndex];
@@ -372,6 +378,20 @@ export function renderVisibleRows(
       } catch (e) {
         warnDiagnostic(ROW_CLASS_ERROR, `rowClass callback error: ${e}`, grid.id);
         rowEl.removeAttribute('data-dynamic-classes');
+      }
+    }
+
+    // Apply per-row variable height via CSS custom property override.
+    // When the user's rowHeight function returns a specific height, set
+    // --tbw-row-height on the row element so cells respect the taller height.
+    // We read from the function (stable) rather than the position cache
+    // (which drifts with padding/border measurements) to avoid oscillation.
+    if (varHeightFn) {
+      const h = varHeightFn(rowData, rowIndex);
+      if (h !== undefined && h > 0) {
+        rowEl.style.setProperty('--tbw-row-height', `${h}px`);
+      } else if (rowEl.style.length) {
+        rowEl.style.removeProperty('--tbw-row-height');
       }
     }
 

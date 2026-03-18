@@ -1617,6 +1617,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
         gridContentEl.addEventListener(
           'wheel',
           (e: WheelEvent) => {
+            // Don't intercept wheel events when a native <select> picker is open.
+            // The picker (base-select) renders in the top layer but wheel events
+            // still target the grid content — intercepting them would scroll the
+            // grid and cause the browser to close the picker popup.
+            try {
+              if (gridContentEl.querySelector('select:open')) return;
+            } catch {
+              /* :open pseudo-class not supported — ignore */
+            }
+
             // SHIFT+wheel or trackpad deltaX = horizontal scroll
             const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
 

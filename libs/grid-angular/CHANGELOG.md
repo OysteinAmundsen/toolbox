@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.18.2...grid-angular-0.18.3) (2026-03-19)
+
+
+### Bug Fixes
+
+* **grid-angular:** use stable container wrapper for template editors ([a511f24](https://github.com/OysteinAmundsen/toolbox/commit/a511f246b0409427f78432481e2d169ce5b5a159))
+* **grid:** rectify variable row height and editor non-primitive handling ([66b780d](https://github.com/OysteinAmundsen/toolbox/commit/66b780d4c48e041f389d5171c7ba840ebfeccf2c))
+
 ## [0.18.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.18.1...grid-angular-0.18.2) (2026-03-16)
 
 

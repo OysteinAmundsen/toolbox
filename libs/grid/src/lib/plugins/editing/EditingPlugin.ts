@@ -1756,23 +1756,35 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
       previousValue: snapshot.value,
     });
 
-    // After reverting, clean up dirty tracking if the row is no longer dirty.
-    // Without this, changedRowIds retains the row even though data matches baseline.
-    if (this.config.dirtyTracking && rowData) {
+    // After reverting, clean up changedRowIds so the built-in `.changed` class
+    // toggle in rows.ts doesn't fight with consumer's rowClass callback.
+    // changedRowIds.add() is unconditional during commit, so cleanup must also
+    // be unconditional — otherwise the Set retains stale IDs when dirtyTracking
+    // is disabled and the built-in toggle re-adds `.changed` on every render.
+    if (rowData) {
       let rowId: string | undefined;
       try {
         rowId = this.grid.getRowId(rowData);
       } catch {
         // Row has no ID
       }
-      if (rowId && !this.#dirty.isRowDirty(rowId, rowData as T)) {
-        this.#dirty.changedRowIds.delete(rowId);
-        this.emit<DirtyChangeDetail<T>>('dirty-change', {
-          rowId,
-          row: rowData as T,
-          original: this.#dirty.getOriginalRow(rowId),
-          type: 'reverted',
-        });
+      if (rowId) {
+        if (this.config.dirtyTracking) {
+          // With dirty tracking, only remove if the row has no other dirty cells
+          if (!this.#dirty.isRowDirty(rowId, rowData as T)) {
+            this.#dirty.changedRowIds.delete(rowId);
+            this.emit<DirtyChangeDetail<T>>('dirty-change', {
+              rowId,
+              row: rowData as T,
+              original: this.#dirty.getOriginalRow(rowId),
+              type: 'reverted',
+            });
+          }
+        } else {
+          // Without dirty tracking there's no baseline to compare, so always
+          // remove — the consumer manages their own change state via rowClass.
+          this.#dirty.changedRowIds.delete(rowId);
+        }
       }
     }
 

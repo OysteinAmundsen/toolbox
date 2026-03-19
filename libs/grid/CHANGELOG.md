@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.26.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.26.0...grid-1.26.1) (2026-03-19)
+
+
+### Bug Fixes
+
+* **grid:** apply per-row --tbw-row-height override for variable-height mode ([4e595da](https://github.com/OysteinAmundsen/toolbox/commit/4e595da1176dc87846d2120fe0f73e109ac7aae0))
+* **grid:** clean up changedRowIds on revert when dirtyTracking is disabled ([2ff51b3](https://github.com/OysteinAmundsen/toolbox/commit/2ff51b30e56f4e1884df2c702d84cfda88162943))
+* **grid:** prefer click target when focusing in editor ([3c956a0](https://github.com/OysteinAmundsen/toolbox/commit/3c956a06cec8861c95915092068ca6e2a5bd932a))
+* **grid:** re-evaluate per-cell editability on row recycle in grid edit mode ([5c55ddd](https://github.com/OysteinAmundsen/toolbox/commit/5c55dddaddb9b3e75408b2c662f9d1ffc4669526))
+* **grid:** rectify variable row height and editor non-primitive handling ([66b780d](https://github.com/OysteinAmundsen/toolbox/commit/66b780d4c48e041f389d5171c7ba840ebfeccf2c))
+* **grid:** skip non-primitive values in template editor auto-update ([f8d6d5d](https://github.com/OysteinAmundsen/toolbox/commit/f8d6d5df1ca62fda68792ac3a24ba3caabbe4511))
+* **grid:** skip wheel intercept when native select picker is open ([1d35f3a](https://github.com/OysteinAmundsen/toolbox/commit/1d35f3ab419a9a03524f812bedded1c8cb10dd86))
+
+
+### Enhancements
+
+* **grid:** sort filter panel items with selected first ([933c746](https://github.com/OysteinAmundsen/toolbox/commit/933c746741d7aacd471cae98c4a9abe3d156d41e))
+
 ## [1.26.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.25.2...grid-1.26.0) (2026-03-17)
 
 

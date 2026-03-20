@@ -32,9 +32,9 @@
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "21.2.3",
-    "@astrojs/cloudflare": "12.6.13",
-    "@astrojs/mdx": "4.3.14",
-    "@astrojs/starlight": "0.38.1",
+    "@astrojs/cloudflare": "12.6.12",
+    "@astrojs/mdx": "4.3.13",
+    "@astrojs/starlight": "0.37.7",
     "@custom-elements-manifest/analyzer": "0.11.0",
     "@eslint/js": "9.39.4",
     "@estruyf/github-actions-reporter": "1.11.0",

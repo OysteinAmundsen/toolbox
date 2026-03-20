@@ -3,12 +3,19 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/grid-angular/src",
   "projectType": "library",
-  "tags": ["type:lib", "scope:grid"],
+  "tags": [
+    "type:lib",
+    "scope:grid"
+  ],
   "targets": {
     "build": {
       "executor": "@nx/angular:package",
-      "outputs": ["{workspaceRoot}/dist/libs/grid-angular"],
-      "dependsOn": ["link-grid-dist"],
+      "outputs": [
+        "{workspaceRoot}/dist/libs/grid-angular"
+      ],
+      "dependsOn": [
+        "link-grid-dist"
+      ],
       "options": {
         "project": "libs/grid-angular/ng-package.json"
       },
@@ -26,7 +33,9 @@
       "executor": "nx:run-commands",
       "dependsOn": [
         {
-          "projects": ["grid"],
+          "projects": [
+            "grid"
+          ],
           "target": "build"
         }
       ],
@@ -36,26 +45,38 @@
     },
     "test": {
       "executor": "@nx/vitest:test",
-      "outputs": ["{options.reportsDirectory}"],
+      "outputs": [
+        "{options.reportsDirectory}"
+      ],
       "options": {
         "passWithNoTests": true,
-        "reportsDirectory": "../../coverage/libs/grid-angular"
+        "reportsDirectory": "{projectRoot}/../../coverage/libs/grid-angular"
       }
     },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
+      "outputs": [
+        "{options.outputFile}"
+      ],
       "options": {
-        "lintFilePatterns": ["libs/grid-angular/**/*.ts"]
+        "lintFilePatterns": [
+          "libs/grid-angular/**/*.ts"
+        ]
       }
     },
     "typedoc": {
       "command": "bunx typedoc --options typedoc.json && bun run scripts/typedoc-to-mdx.ts",
-      "dependsOn": ["grid:build"],
+      "dependsOn": [
+        "grid:build"
+      ],
       "options": {
         "cwd": "libs/grid-angular"
       },
-      "inputs": ["{projectRoot}/src/**/*.ts", "{projectRoot}/typedoc.json", "{projectRoot}/scripts/typedoc-to-mdx.ts"],
+      "inputs": [
+        "{projectRoot}/src/**/*.ts",
+        "{projectRoot}/typedoc.json",
+        "{projectRoot}/scripts/typedoc-to-mdx.ts"
+      ],
       "outputs": [
         "{projectRoot}/docs/api-generated",
         "{workspaceRoot}/apps/docs/src/content/docs/grid/angular/api"

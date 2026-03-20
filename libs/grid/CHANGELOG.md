@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.26.1...grid-1.26.2) (2026-03-20)
+
+
+### Bug Fixes
+
+* **grid:** recalculate scroll height when entering CSS-only responsive card mode ([8d9f9b2](https://github.com/OysteinAmundsen/toolbox/commit/8d9f9b2161b51313228fdb4b97bcffb0cc5109e5))
+
 ## [1.26.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.26.0...grid-1.26.1) (2026-03-19)
 
 

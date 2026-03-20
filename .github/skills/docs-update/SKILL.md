@@ -48,7 +48,7 @@ After any code change, use this checklist to identify which documentation needs 
 | ---------------------------- | ------------------------------------ | -------------------------- |
 | **TypeDoc API pages**        | `typedoc-to-mdx.ts` scripts          | `bun nx typedoc <project>` |
 | **CHANGELOGs**               | `release-please`                     | Automatic on release PR    |
-| **Custom elements manifest** | `@custom-elements-manifest/analyzer` | `bun nx analyze grid`      |
+| **Custom elements manifest** | `@custom-elements-manifest/analyzer` | `bun run cem`              |
 
 ## How to Write Each Doc Type
 

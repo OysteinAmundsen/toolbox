@@ -920,7 +920,7 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
    * The refresh is deferred via microtask to avoid nested render cycles.
    */
   #measureCardHeightFromDOM(): void {
-    if (!this.#isResponsive || !this.config.cardRenderer) {
+    if (!this.#isResponsive) {
       return;
     }
 
@@ -947,8 +947,13 @@ export class ResponsivePlugin<T = unknown> extends BaseGridPlugin<ResponsivePlug
       }
     }
 
-    // Measure actual card height from DOM
-    const cardRow = this.gridElement.querySelector('.data-grid-row.responsive-card') as HTMLElement | null;
+    // Measure actual card height from DOM.
+    // With cardRenderer, rows have the `.responsive-card` class.
+    // Without cardRenderer (CSS-only card mode), rows are plain `.data-grid-row`
+    // elements whose CSS height is `auto` — we need to measure their actual
+    // rendered height so the faux scrollbar spacer is sized correctly.
+    const cardSelector = this.config.cardRenderer ? '.data-grid-row.responsive-card' : '.data-grid-row:not(.group-row)';
+    const cardRow = this.gridElement.querySelector(cardSelector) as HTMLElement | null;
     if (cardRow) {
       const height = cardRow.getBoundingClientRect().height;
       if (height > 0 && height !== this.#measuredCardHeight) {

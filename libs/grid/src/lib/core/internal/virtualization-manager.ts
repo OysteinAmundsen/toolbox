@@ -288,6 +288,9 @@ export class VirtualizationManager<T = any> {
         bodyEl.style.transform = 'translateY(0px)';
       }
       grid._renderVisibleRows(0, totalRows, grid.__rowRenderEpoch);
+      if (force && s.variableHeights) {
+        this.initializePositionCache();
+      }
       if (force && s.totalHeightEl) {
         s.totalHeightEl.style.height = `${this.calculateTotalSpacerHeight(totalRows, true)}px`;
       }

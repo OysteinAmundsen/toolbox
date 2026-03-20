@@ -221,6 +221,58 @@ container.addEventListener('control-change', ((e: CustomEvent) => {
   - Variant: `filtering-custom-panel-demo`
 - Demo directories match plugin names: `demos/filtering/`, `demos/selection/`, etc.
 
+## E2E Test for the Demo
+
+Every demo **must** have a corresponding e2e test in `apps/docs-e2e/tests/`. The test should verify the demo renders and that the feature it advertises actually works.
+
+### Where to add the test
+
+- If a test file for the feature already exists (e.g., `selection.spec.ts`), add tests there
+- If not, create a new file: `apps/docs-e2e/tests/<feature>.spec.ts`
+
+### What to test
+
+Go beyond "it renders". Test the **behavior the demo demonstrates**:
+
+1. **Rendering** — grid is visible, correct number of rows/headers
+2. **Core interaction** — simulate the user action the demo advertises (click, drag, type, sort, filter)
+3. **Outcome** — verify the visible result (selected cells, sorted order, filtered rows, edited values)
+4. **Events** — if the demo shows event output (`[data-event-log]`, `[data-output-id]`), verify it updates
+5. **Controls** — if the demo has `DemoControls`, test switching options and verify the grid responds
+
+### Template
+
+```typescript
+import { expect, test } from '@playwright/test';
+import { openDemo, clickCell, dataRows, cellText, grid } from './utils';
+
+test.describe('Feature Demos', () => {
+  test('MyFeatureDemo — describes what is being verified', async ({ page }) => {
+    await openDemo(page, 'MyFeatureDemo');
+
+    // Verify rendering
+    await expect(grid(page)).toBeVisible();
+    expect(await dataRows(page).count()).toBeGreaterThan(0);
+
+    // Simulate the feature interaction
+    await clickCell(page, 0, 1);
+    await page.waitForTimeout(200);
+
+    // Assert the expected outcome
+    const result = await cellText(page, 0, 1);
+    expect(result).toBe('expected value');
+  });
+});
+```
+
+### Run the e2e tests
+
+```bash
+bun nx e2e docs-e2e
+```
+
+> See the `e2e-testing` instruction file (auto-applied when editing `e2e/` or `apps/docs-e2e/` files) for the full utility reference, selector conventions, and wait strategies.
+
 ## Verifying
 
 ```bash
@@ -230,4 +282,7 @@ bun nx build docs
 # Start dev server to visually verify
 bun nx serve docs
 # Navigate to http://localhost:4401/grid/plugins/<plugin-name>/
+
+# Run e2e tests for the demo
+bun nx e2e docs-e2e
 ```

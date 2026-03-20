@@ -6,7 +6,9 @@ argument-hint: <file-or-project-path>
 
 # Improve Test Coverage
 
-Analyze test coverage for the specified file or project and write tests to improve it.
+Analyze test coverage for the specified file or project and write **unit/integration tests** to improve it.
+
+> **E2E tests** are covered separately by the `e2e-testing` instruction file (auto-applied when editing `e2e/` or `apps/docs-e2e/` files). This skill focuses on Vitest-based unit and integration tests only.
 
 ## Step 1: Run Coverage Analysis
 

@@ -103,7 +103,7 @@
           /* Clip resize handle on last column to prevent horizontal overflow */
           .resize-handle {
             right: 0;
-            width: calc(var(--tbw-resize-handle-width) / 2);
+            width: calc(var(--tbw-resize-hit-area, 18px) / 2);
           }
         }
 
@@ -133,16 +133,29 @@
     .resize-handle {
       position: absolute;
       top: 0;
-      right: calc(var(--tbw-resize-handle-width) / -2);
-      width: var(--tbw-resize-handle-width);
+      /* Wide transparent hit area for easy grabbing */
+      right: calc(var(--tbw-resize-hit-area, 18px) / -2);
+      width: var(--tbw-resize-hit-area, 18px);
       height: 100%;
       cursor: e-resize;
       user-select: none;
       touch-action: none;
       z-index: 20;
-      background: var(--tbw-resize-handle-color);
-      transition: background 120ms ease;
-      border-radius: var(--tbw-resize-handle-border-radius);
+      background: transparent;
+
+      /* Visible handle bar rendered at --tbw-resize-handle-width */
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: var(--tbw-resize-handle-width);
+        height: 100%;
+        background: var(--tbw-resize-handle-color);
+        border-radius: var(--tbw-resize-handle-border-radius);
+        transition: background 120ms ease;
+      }
 
       /* Vertical line indicator extending through all rows on hover */
       &::after {
@@ -151,7 +164,7 @@
         top: 100%;
         left: 50%;
         transform: translateX(-50%);
-        width: var(--tbw-resize-indicator-width, 2px);
+        width: var(--tbw-resize-handle-width);
         height: 0;
         background: var(--tbw-resize-indicator-color, var(--tbw-color-accent));
         opacity: 0;
@@ -163,7 +176,9 @@
       }
 
       &:hover {
-        background: var(--tbw-resize-handle-color-hover);
+        &::before {
+          background: var(--tbw-resize-handle-color-hover);
+        }
 
         &::after {
           /* Extend to full grid height - uses viewport height as approximation */

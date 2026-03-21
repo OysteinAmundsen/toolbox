@@ -99,7 +99,7 @@
     --tbw-range-selection-bg: rgba(from var(--tbw-range-border-color) r g b / 12%);
 
     /* ========== Resize Handle ========== */
-    --tbw-resize-handle-width: var(--tbw-spacing-sm);
+    --tbw-resize-handle-width: 2px;
     --tbw-resize-handle-color: transparent;
     --tbw-resize-handle-color-hover: var(--tbw-color-accent);
     --tbw-resize-handle-border-radius: 0;

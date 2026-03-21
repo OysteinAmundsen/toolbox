@@ -47,12 +47,41 @@ export function createResizeController(grid: GridHost): ResizeController {
       grid.requestStateChange();
     }
   };
+
+  /**
+   * Freeze all flexible (non-explicitly-sized) columns to their current rendered
+   * pixel widths. This prevents CSS Grid `fr` redistribution from shifting
+   * neighboring columns while the user drags a resize handle.
+   */
+  function freezeFlexibleColumns(colIndex: number, headerRow: HTMLElement): void {
+    const cells = headerRow.querySelectorAll<HTMLElement>('.cell');
+    for (let i = 0; i < grid._visibleColumns.length; i++) {
+      if (i === colIndex) continue;
+      const col = grid._visibleColumns[i];
+      // Only freeze columns that are currently flexible (no explicit width)
+      if (col.width == null && !col.__userResized) {
+        const cellEl = cells[i];
+        const rendered = cellEl?.getBoundingClientRect().width;
+        if (rendered) {
+          col.width = Math.round(rendered);
+          col.__userResized = true;
+          col.__renderedWidth = col.width;
+        }
+      }
+    }
+  }
+
   return {
     get isResizing() {
       return resizeState !== null || justFinishedResize;
     },
     start(e, colIndex, cell) {
       e.preventDefault();
+
+      // Freeze flexible columns before resizing so they hold their current width
+      const headerRow = grid._headerRowEl ?? grid.findHeaderRow?.();
+      if (headerRow) freezeFlexibleColumns(colIndex, headerRow);
+
       // Use the column's configured/rendered width, not the cell's bounding rect.
       // The bounding rect can be incorrect if CSS grid-column spanning is in effect
       // (e.g., when previous columns are display:none and this cell spans multiple tracks).

@@ -17,10 +17,10 @@
     --tbw-color-border: light-dark(#e7e0ec, #49454f);
     --tbw-color-border-strong: light-dark(#79747e, #938f99);
     --tbw-color-border-cell: transparent;
-    --tbw-color-border-header: light-dark(#e7e0ec, #49454f);
+    --tbw-color-border-header: var(--tbw-color-border);
 
     /* Row divider - subtle horizontal line */
-    --tbw-row-divider: 1px solid light-dark(#e7e0ec, #49454f);
+    --tbw-row-divider: 1px solid var(--tbw-color-border);
 
     /* M3 Primary - Purple/Violet */
     --tbw-color-accent: light-dark(#6750a4, #d0bcff);
@@ -68,7 +68,7 @@
 
     /* ========== Focus & Selection ========== */
     --tbw-focus-outline: 2px solid var(--tbw-color-accent);
-    --tbw-focus-outline-offset: 2px;
+    --tbw-focus-outline-offset: -2px;
     --tbw-focus-background: rgba(from var(--tbw-color-accent) r g b / 12%);
 
     --tbw-range-border-color: var(--tbw-color-accent);
@@ -84,7 +84,7 @@
     --tbw-sort-indicator-active-color: var(--tbw-color-accent);
 
     /* ========== Borders ========== */
-    --tbw-border-header: 1px solid light-dark(#e7e0ec, #49454f);
+    --tbw-border-header: 1px solid var(--tbw-color-border);
     --tbw-border-input: 1px solid light-dark(#79747e, #938f99);
     --tbw-editing-border: 2px solid var(--tbw-color-accent);
 
@@ -111,6 +111,18 @@
       > * {
         width: 1em;
         height: 1em;
+      }
+    }
+
+    .header-row .cell {
+      &::after {
+        content: '';
+        position: absolute;
+        top: 30%;
+        right: 0;
+        width: 1px;
+        height: 40%;
+        background: var(--tbw-color-border);
       }
     }
 

@@ -260,8 +260,16 @@ The tree plugin uses these class names:
 | `.tbw-tree-slide-in` | Child row slide animation |
 | `.tbw-tree-fade-in` | Child row fade animation |
 
-## See Also
+## Plugin Compatibility
 
-- **[Row Grouping](../grouping-rows/)** — Group rows by field values
-- **[Master-Detail](/grid/plugins/master-detail/)** — Expandable detail panels
-- **[Pivot](/grid/plugins/pivot/)** — Pivot table with row grouping
+:::caution[Incompatible Plugins]
+The Tree plugin **cannot** be used with the following plugins:
+
+- **[Row Grouping](/grid/plugins/grouping-rows/)** — Both plugins transform the entire row model. Tree flattens nested hierarchies while Row Grouping groups flat rows with synthetic headers. Use one approach per grid.
+- **[Pivot](/grid/plugins/pivot/)** — Pivot replaces the entire row and column structure with aggregated pivot data. Tree hierarchy cannot coexist with pivot aggregation.
+- **[Server-Side](/grid/plugins/server-side/)** — Tree requires the full hierarchy to flatten and manage expansion state. Server-side lazy loading provides rows in blocks and cannot deliver nested children on demand.
+:::
+
+A development-mode warning is shown if incompatible plugins are loaded together.
+
+## See Also

@@ -6,7 +6,7 @@
  * Includes a tool panel for interactive pivot configuration.
  */
 
-import { BaseGridPlugin } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, type PluginManifest } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import { buildPivot, flattenPivotRows, getAllGroupKeys, type PivotDataRow } from './pivot-engine';
 import { createValueKey, validatePivotConfig } from './pivot-model';
@@ -97,6 +97,33 @@ import styles from './pivot.css?inline';
  * @internal Extends BaseGridPlugin
  */
 export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
+  /**
+   * Plugin manifest declaring incompatibilities with other plugins.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    incompatibleWith: [
+      {
+        name: 'groupingRows',
+        reason:
+          'PivotPlugin creates its own aggregated row and column structure. ' +
+          'Row grouping cannot be applied on top of pivot-generated rows.',
+      },
+      {
+        name: 'tree',
+        reason:
+          'PivotPlugin replaces the entire row and column structure with aggregated pivot data. ' +
+          'Tree hierarchy cannot coexist with pivot aggregation.',
+      },
+      {
+        name: 'serverSide',
+        reason:
+          'PivotPlugin requires the full dataset to compute aggregations. ' +
+          'ServerSidePlugin lazy-loads rows in blocks, so pivot aggregation cannot be performed client-side.',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'pivot';
   /** @internal */

@@ -81,6 +81,8 @@ Key TypeScript interfaces for configuration and events:
 - [Server-Side Plugin](https://toolboxjs.com/grid/plugins/server-side/): Server-side row model (SSRM-style), infinite scrolling, lazy loading from remote APIs, block-based caching, server-side sorting/filtering/pagination, async data fetching, large dataset support
 - [Pivot Plugin](https://toolboxjs.com/grid/plugins/pivot/): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max), dynamic pivot columns
 
+**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with GroupingRows/Tree/Pivot (they require the full dataset; server-side loads lazily). Responsive is incompatible with GroupingRows. A dev-mode warning is shown when conflicts are detected.
+
 ## Core Features (Built-in, No Plugin Required)
 
 - **Row Virtualization**: Renders only visible rows plus configurable overscan buffer, handles 100k+ rows at 60fps

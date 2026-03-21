@@ -334,6 +334,14 @@ The ServerSidePlugin works well with:
 
 **Note:** `RowGroupingPlugin` and `TreePlugin` are not recommended with server-side data as they require all data to be present for grouping calculations.
 
+:::caution[Incompatible Plugins]
+The Server-Side plugin **cannot** be used with the following plugins:
+
+- **[Row Grouping](/grid/plugins/grouping-rows/)** — Requires the full dataset to compute group boundaries. Would need hierarchical loading (group headers first, then rows on expand).
+- **[Tree](/grid/plugins/tree/)** — Requires the full hierarchy to flatten and manage expansion. Would need lazy child loading as nodes expand.
+- **[Pivot](/grid/plugins/pivot/)** — Requires the full dataset to compute aggregations. No general way to pivot lazily since data can be grouped in unbounded ways.
+:::
+
 ## See Also
 
 - **[Filtering](/grid/plugins/filtering/)** — Client-side filtering

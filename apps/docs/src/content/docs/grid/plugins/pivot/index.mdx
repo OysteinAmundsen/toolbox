@@ -248,8 +248,16 @@ The pivot plugin uses these class names:
 | `.tbw-pivot-slide-in` | Row slide animation |
 | `.tbw-pivot-fade-in` | Row fade animation |
 
-## See Also
+## Plugin Compatibility
 
-- **[Row Grouping](../grouping-rows/)** — Simple row grouping
-- **[Multi-Sort](/grid/plugins/multi-sort/)** — Multi-column sorting
-- **[Tree](/grid/plugins/tree/)** — Hierarchical tree data
+:::caution[Incompatible Plugins]
+The Pivot plugin **cannot** be used with the following plugins:
+
+- **[Row Grouping](/grid/plugins/grouping-rows/)** — Pivot creates its own aggregated row and column structure. Row grouping cannot be applied on top of pivot-generated rows.
+- **[Tree](/grid/plugins/tree/)** — Pivot replaces the entire row and column structure with aggregated data. Tree hierarchy cannot coexist with pivot aggregation.
+- **[Server-Side](/grid/plugins/server-side/)** — Pivot requires the full dataset to compute aggregations. Server-side lazy loading provides rows in blocks, so pivot aggregation cannot be performed client-side.
+:::
+
+A development-mode warning is shown if incompatible plugins are loaded together.
+
+## See Also

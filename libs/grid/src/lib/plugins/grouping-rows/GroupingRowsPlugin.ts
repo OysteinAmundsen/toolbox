@@ -127,6 +127,26 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    * @internal
    */
   static override readonly manifest: PluginManifest<GroupingRowsConfig> = {
+    incompatibleWith: [
+      {
+        name: 'tree',
+        reason:
+          'Both plugins transform the entire row model. TreePlugin flattens nested hierarchies while ' +
+          'GroupingRowsPlugin groups flat rows with synthetic headers. Use one approach per grid.',
+      },
+      {
+        name: 'pivot',
+        reason:
+          'PivotPlugin creates its own aggregated row and column structure. ' +
+          'Row grouping cannot be applied on top of pivot-generated rows.',
+      },
+      {
+        name: 'serverSide',
+        reason:
+          'Row grouping requires the full dataset to compute group boundaries. ' +
+          'ServerSidePlugin lazy-loads rows in blocks, so groups cannot be built client-side.',
+      },
+    ],
     events: [
       {
         type: 'grouping-state-change',

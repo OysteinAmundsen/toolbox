@@ -104,6 +104,26 @@ import type { ExpandCollapseAnimation, FlattenedTreeRow, TreeConfig, TreeExpandD
  */
 export class TreePlugin extends BaseGridPlugin<TreeConfig> {
   static override readonly manifest: PluginManifest = {
+    incompatibleWith: [
+      {
+        name: 'groupingRows',
+        reason:
+          'Both plugins transform the entire row model. TreePlugin flattens nested hierarchies while ' +
+          'GroupingRowsPlugin groups flat rows with synthetic headers. Use one approach per grid.',
+      },
+      {
+        name: 'pivot',
+        reason:
+          'PivotPlugin replaces the entire row and column structure with aggregated pivot data. ' +
+          'Tree hierarchy cannot coexist with pivot aggregation.',
+      },
+      {
+        name: 'serverSide',
+        reason:
+          'TreePlugin requires the full hierarchy to flatten and manage expansion state. ' +
+          'ServerSidePlugin lazy-loads rows in blocks and cannot provide nested children on demand.',
+      },
+    ],
     events: [
       {
         type: 'tree-state-change',

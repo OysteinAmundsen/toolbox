@@ -55,7 +55,21 @@ Some plugins depend on others. Load dependencies FIRST:
 | `ClipboardPlugin` | `SelectionPlugin` |
 | `UndoRedoPlugin` | `EditingPlugin` |
 
-### 5. Correct Plugin Class Names
+### 5. Incompatible Plugin Combinations
+
+These plugins **cannot** be used together. A development-mode warning is shown when conflicts are detected:
+
+| Plugin A | Plugin B | Reason |
+|----------|----------|--------|
+| `GroupingRowsPlugin` | `TreePlugin` | Both transform the entire row model in different ways |
+| `GroupingRowsPlugin` | `PivotPlugin` | Pivot creates its own aggregated row/column structure |
+| `TreePlugin` | `PivotPlugin` | Pivot replaces the data structure; tree hierarchy cannot coexist |
+| `ServerSidePlugin` | `GroupingRowsPlugin` | Grouping needs the full dataset; server-side loads blocks lazily |
+| `ServerSidePlugin` | `TreePlugin` | Tree needs the full hierarchy; server-side cannot provide children on demand |
+| `ServerSidePlugin` | `PivotPlugin` | Pivot needs the full dataset for aggregation |
+| `ResponsivePlugin` | `GroupingRowsPlugin` | Card layout does not support row grouping |
+
+### 6. Correct Plugin Class Names
 
 | Class Name | Import Path |
 |------------|-------------|
@@ -84,7 +98,7 @@ Some plugins depend on others. Load dependencies FIRST:
 
 All-in-one import (larger bundle): `import { SelectionPlugin, EditingPlugin, ... } from '@toolbox-web/grid/all';`
 
-### 6. Type Imports
+### 7. Type Imports
 
 ```typescript
 // For consumer code (referencing the grid element):
@@ -94,11 +108,11 @@ import type { DataGridElement } from '@toolbox-web/grid';
 import type { GridElement } from '@toolbox-web/grid';
 ```
 
-### 7. Light DOM — No Shadow DOM
+### 8. Light DOM — No Shadow DOM
 
 The grid uses light DOM. CSS cascade works normally. No `::part()` or `::slotted()` needed.
 
-### 8. Em-Based Sizing
+### 9. Em-Based Sizing
 
 All grid dimensions use `em` units. To scale the entire grid, change `font-size`:
 

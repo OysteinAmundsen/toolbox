@@ -367,6 +367,18 @@ The row grouping plugin uses these class names:
 | -------------- | ---------------------------------------------- | ---------------------------------- |
 | `group-toggle` | `{ key, expanded, value, depth }`              | Fired when a group is expanded/collapsed |
 
+## Plugin Compatibility
+
+:::caution[Incompatible Plugins]
+The Row Grouping plugin **cannot** be used with the following plugins:
+
+- **[Tree](/grid/plugins/tree/)** — Both plugins transform the entire row model. Tree flattens nested hierarchies while Row Grouping groups flat rows with synthetic headers. Use one approach per grid.
+- **[Pivot](/grid/plugins/pivot/)** — Pivot creates its own aggregated row and column structure. Row grouping cannot be applied on top of pivot-generated rows.
+- **[Server-Side](/grid/plugins/server-side/)** — Row grouping requires the full dataset to compute group boundaries. Server-side lazy loading provides rows in blocks, so groups cannot be built client-side.
+:::
+
+A development-mode warning is shown if incompatible plugins are loaded together.
+
 ## See Also
 
 - **[Column Groups](../grouping-columns/)** — Group column headers

@@ -4,7 +4,7 @@
  * Provides server-side data loading with caching and lazy loading.
  */
 
-import { BaseGridPlugin, ScrollEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, ScrollEvent, type PluginManifest } from '../../core/plugin/base-plugin';
 import type { GridHost } from '../../core/types';
 import { getBlockNumber, getRequiredBlocks, getRowFromCache, loadBlock } from './datasource';
 import type { ServerSideConfig, ServerSideDataSource } from './types';
@@ -78,6 +78,35 @@ const SCROLL_DEBOUNCE_MS = 100;
  * @internal Extends BaseGridPlugin
  */
 export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
+  /**
+   * Plugin manifest declaring incompatibilities with other plugins.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    incompatibleWith: [
+      {
+        name: 'groupingRows',
+        reason:
+          'Row grouping requires the full dataset to compute group boundaries. ' +
+          'ServerSidePlugin lazy-loads rows in blocks, so groups cannot be built client-side. ' +
+          'Server-side grouping would require hierarchical loading (group headers first, then rows on expand).',
+      },
+      {
+        name: 'tree',
+        reason:
+          'TreePlugin requires the full hierarchy to flatten and manage expansion state. ' +
+          'ServerSidePlugin lazy-loads rows in blocks and cannot provide nested children on demand. ' +
+          'Server-side tree would require lazy child loading as nodes expand.',
+      },
+      {
+        name: 'pivot',
+        reason:
+          'PivotPlugin requires the full dataset to compute aggregations. ' +
+          'ServerSidePlugin lazy-loads rows in blocks, so pivot aggregation cannot be performed client-side.',
+      },
+    ],
+  };
+
   /** @internal */
   readonly name = 'serverSide';
 

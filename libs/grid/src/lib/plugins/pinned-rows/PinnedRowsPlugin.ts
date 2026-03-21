@@ -139,7 +139,9 @@ export class PinnedRowsPlugin extends BaseGridPlugin<PinnedRowsConfig> {
     // Use .tbw-scroll-area so footer is inside the horizontal scroll area,
     // otherwise fall back to .tbw-grid-content or root container
     const container =
-      gridEl.querySelector('.tbw-scroll-area') ?? gridEl.querySelector('.tbw-grid-content') ?? gridEl.children[0];
+      gridEl.querySelector('.tbw-scroll-area') ??
+      gridEl.querySelector('.tbw-grid-content') ??
+      gridEl.querySelector('.tbw-grid-root');
     if (!container) return;
 
     // Clear orphaned element references if they were removed from the DOM

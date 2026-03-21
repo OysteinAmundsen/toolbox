@@ -412,7 +412,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Find the scroll container to append the footer
     const container =
-      gridEl.querySelector('.tbw-scroll-area') ?? gridEl.querySelector('.tbw-grid-content') ?? gridEl.children[0];
+      gridEl.querySelector('.tbw-scroll-area') ??
+      gridEl.querySelector('.tbw-grid-content') ??
+      gridEl.querySelector('.tbw-grid-root');
     if (!container) return;
 
     // Create footer if it doesn't exist

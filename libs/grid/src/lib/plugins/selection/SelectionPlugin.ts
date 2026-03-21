@@ -1055,7 +1055,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
     const gridEl = this.gridElement;
     if (!gridEl) return;
 
-    const container = gridEl.children[0];
+    const container = gridEl.querySelector('.tbw-grid-root');
     const { mode } = this.config;
 
     // Process pending row keyboard navigation update (row mode)

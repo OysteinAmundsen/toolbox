@@ -231,8 +231,8 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
           {
             id: 'totals',
             position: 'bottom',
+            label: 'Summary:',
             cells: {
-              id: 'Summary:',
               salary: (rows: unknown[]) =>
                 (rows as Employee[])
                   .reduce((acc, r) => acc + (r.salary || 0), 0)

@@ -80,17 +80,24 @@ export interface AggregationRowConfig {
   /** If true, row rendered as single spanning cell with label */
   fullWidth?: boolean;
   /**
-   * Label for fullWidth mode. Can be a static string or a function that receives
+   * Row label. Can be a static string or a function that receives
    * the current rows and columns for dynamic content.
+   *
+   * In **full-width mode** (`fullWidth: true`), the label is displayed inline before
+   * the aggregated values.
+   *
+   * In **per-column mode** (`fullWidth: false`, the default), the label renders as an
+   * overlay positioned at the left edge of the row, independent of column alignment.
+   * It does not truncate with column width.
    *
    * @example Static label
    * ```ts
-   * { fullWidth: true, label: 'Totals' }
+   * { label: 'Totals', aggregators: { price: 'sum' } }
    * ```
    *
    * @example Dynamic label
    * ```ts
-   * { fullWidth: true, label: (rows) => `Total: ${rows.length} rows` }
+   * { label: (rows) => `Total: ${rows.length} rows` }
    * ```
    */
   label?: string | ((rows: unknown[], columns: ColumnConfig[]) => string);

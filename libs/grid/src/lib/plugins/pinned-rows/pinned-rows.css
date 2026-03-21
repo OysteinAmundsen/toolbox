@@ -57,6 +57,20 @@
     grid-template-columns: var(--tbw-column-template);
     font-size: var(--tbw-aggregation-font-size, 0.8em);
     font-weight: var(--tbw-aggregation-font-weight, 600);
+    position: relative;
+  }
+  /* Overlay label in per-column mode: sits at the left edge independent of column layout */
+  .tbw-aggregation-row > .tbw-aggregation-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    padding: var(--tbw-cell-padding, 0.125rem 0.5rem);
+    background: inherit;
+    z-index: 1;
+    pointer-events: none;
   }
   .tbw-aggregation-cell {
     padding: var(--tbw-cell-padding, 0.125rem 0.5rem);

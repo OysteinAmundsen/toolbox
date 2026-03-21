@@ -1101,6 +1101,9 @@ new PinnedRowsPlugin({
   customPanels?: PinnedRowsPanel[],            // Custom info bar panels
   aggregationRows?: AggregationRowConfig[],    // Footer/header aggregation rows
   fullWidth?: boolean,                         // Default fullWidth for all aggregation rows (default: false)
+  // AggregationRowConfig.label works in both modes:
+  //   fullWidth: true  → inline before aggregated values
+  //   fullWidth: false → overlay at left edge, independent of column width
 })
 // Programmatic API:
 const rows = grid.getPluginByName('pinnedRows');

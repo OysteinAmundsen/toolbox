@@ -59,7 +59,7 @@ Configure computed footer/header rows:
   id: 'totals',
   position: 'bottom',  // 'top' or 'bottom'
   fullWidth: false,    // Render as single spanning cell
-  label: 'Totals',     // Label when fullWidth is true
+  label: 'Totals',     // Label (overlay in per-column mode, inline in fullWidth mode)
   aggregators: {
     // Simple string aggregator
     quantity: 'sum',

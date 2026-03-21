@@ -401,6 +401,61 @@ describe('pinnedRows', () => {
       expect(label?.textContent).toBe('2 columns');
     });
 
+    it('should render overlay label in per-column mode', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'name' }, { field: 'value' }];
+      const dataRows = [{ name: 'A', value: 100 }];
+      const rows: AggregationRowConfig[] = [
+        {
+          label: 'Summary:',
+          cells: { value: 100 },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      // Per-column cells should still render
+      const cells = container.querySelectorAll('.tbw-aggregation-cell');
+      expect(cells.length).toBe(2);
+
+      // Overlay label should be a direct child of the row, not inside a cell
+      const row = container.querySelector('.tbw-aggregation-row');
+      const label = row?.querySelector(':scope > .tbw-aggregation-label');
+      expect(label).not.toBeNull();
+      expect(label?.textContent).toBe('Summary:');
+    });
+
+    it('should render overlay label with dynamic function in per-column mode', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'amount' }];
+      const dataRows = [{ amount: 10 }, { amount: 20 }];
+      const rows: AggregationRowConfig[] = [
+        {
+          label: (r) => `Total: ${r.length} items`,
+          aggregators: { amount: 'sum' },
+        },
+      ];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const row = container.querySelector('.tbw-aggregation-row');
+      const label = row?.querySelector(':scope > .tbw-aggregation-label');
+      expect(label?.textContent).toBe('Total: 2 items');
+    });
+
+    it('should not render overlay label when label is not provided in per-column mode', () => {
+      const container = document.createElement('div');
+      const columns = [{ field: 'value' }];
+      const dataRows: unknown[] = [];
+      const rows: AggregationRowConfig[] = [{ cells: { value: 42 } }];
+
+      renderAggregationRows(container, rows, columns, dataRows);
+
+      const row = container.querySelector('.tbw-aggregation-row');
+      const label = row?.querySelector(':scope > .tbw-aggregation-label');
+      expect(label).toBeNull();
+    });
+
     it('should render per-column cells with static values', () => {
       const container = document.createElement('div');
       const columns = [{ field: 'name' }, { field: 'value' }];

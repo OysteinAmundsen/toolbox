@@ -203,6 +203,15 @@ function renderPerColumnAggregationRow(
     }
     rowEl.appendChild(cell);
   }
+
+  // Overlay label: positioned at the left edge, independent of column alignment
+  const labelValue = typeof rowConfig.label === 'function' ? rowConfig.label(dataRows, columns) : rowConfig.label;
+  if (labelValue) {
+    const labelEl = document.createElement('span');
+    labelEl.className = 'tbw-aggregation-label';
+    labelEl.textContent = labelValue;
+    rowEl.appendChild(labelEl);
+  }
 }
 
 /**

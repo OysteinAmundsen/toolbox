@@ -236,6 +236,8 @@ features: {
 
 When `fullWidth` is `true`, aggregation rows render as a single spanning cell with the label and aggregated values displayed inline—similar to the row grouping plugin's full-width mode. When `false` (the default), each column gets its own cell aligned to the grid template.
 
+The `label` property works in both modes. In per-column mode it renders as an overlay at the left edge of the row, independent of column width—so the text won't truncate even if the first column is narrow.
+
 Set `fullWidth` globally on the plugin config or per-row on `AggregationRowConfig`. Per-row settings override the global default:
 
 ```ts

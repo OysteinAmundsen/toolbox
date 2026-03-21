@@ -185,8 +185,8 @@ export const PINNED_ROWS_CONFIG = {
     {
       id: 'totals',
       position: 'bottom' as const,
+      label: 'Summary:',
       cells: {
-        id: 'Summary:',
         salary: (rows: unknown[]) =>
           (rows as Employee[])
             .reduce((acc, r) => acc + (r.salary || 0), 0)

@@ -190,11 +190,12 @@ to scroll.
 
 ## Known Limitations
 
-- **Incompatible with Column Groups**: Pinned columns cannot be used together with the
-  [Column Groups plugin](../grouping-columns/). Pinning reorders
-  columns to the grid edges, but moving a column out of its column group is not supported.
-  When both plugins are loaded, a development-mode warning is shown and the pin/unpin
-  context menu items are hidden.
+- **Partial Column Groups support**: Pinned columns work with the
+  [Column Groups plugin](../grouping-columns/) when pinning affects whole groups or
+  columns in implicit (unlabelled) groups. When a pinned column belongs to an implicit
+  group, the group header is automatically split so the pinned portion stays sticky while
+  the rest scrolls normally. However, pinning only _some_ columns within an explicit
+  (named) column group is not supported—either pin all columns in the group or none.
 
 - **Header-only sticky in virtualized grids**: Due to the row virtualization architecture
   (`will-change: transform` on the rows container), `position: sticky` only works on

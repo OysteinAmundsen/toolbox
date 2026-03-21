@@ -5,7 +5,7 @@
  */
 
 import { getDirection } from '../../core/internal/utils';
-import type { PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
+import type { AfterCellRenderContext, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin } from '../../core/plugin/base-plugin';
 import type { ColumnConfig } from '../../core/types';
 import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/types';
@@ -17,6 +17,7 @@ import {
   getRightStickyColumns,
   hasStickyColumns,
   reorderColumnsForPinning,
+  type GroupEndAdjustments,
 } from './pinned-columns';
 import type { PinnedColumnsConfig, PinnedPosition } from './types';
 
@@ -139,6 +140,8 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
   private isApplied = false;
   private leftOffsets = new Map<string, number>();
   private rightOffsets = new Map<string, number>();
+  /** Group-end adjustments for pin boundaries within implicit groups. */
+  #groupEndAdjustments: GroupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
   /**
    * Snapshot of the column field order before the first context-menu pin.
    * Used to restore original positions when unpinning.
@@ -153,6 +156,7 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
     this.leftOffsets.clear();
     this.rightOffsets.clear();
     this.isApplied = false;
+    this.#groupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
     this.#originalColumnOrder = [];
   }
   // #endregion
@@ -199,8 +203,24 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
     // Apply sticky offsets after a microtask to ensure DOM is ready
     queueMicrotask(() => {
-      applyStickyOffsets(host, columns);
+      this.#groupEndAdjustments = applyStickyOffsets(host, columns);
     });
+  }
+
+  /**
+   * Maintain group-end adjustments on cells rendered during scroll.
+   * Runs after GroupingColumnsPlugin.afterCellRender (which sets group-end
+   * based on group boundaries), overriding it at pin boundaries.
+   * @internal
+   */
+  override afterCellRender(context: AfterCellRenderContext): void {
+    if (!this.isApplied) return;
+    const field = context.column.field;
+    if (this.#groupEndAdjustments.addGroupEnd.has(field)) {
+      context.cellElement.classList.add('group-end');
+    } else if (this.#groupEndAdjustments.removeGroupEnd.has(field)) {
+      context.cellElement.classList.remove('group-end');
+    }
   }
 
   /**

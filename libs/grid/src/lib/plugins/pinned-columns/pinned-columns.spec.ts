@@ -247,7 +247,7 @@ describe('sticky-columns', () => {
         expect(groupCell.style.left).toBe('0px');
       });
 
-      it('does not pin group header when only some columns are pinned', () => {
+      it('does not pin explicit group header when only some columns are pinned', () => {
         const cols = [{ field: 'a', pinned: 'left' }, { field: 'b' }, { field: 'c' }, { field: 'd' }];
         applyStickyOffsets(groupHost, cols);
 
@@ -279,6 +279,138 @@ describe('sticky-columns', () => {
         const cols = [{ field: 'a', pinned: 'left' }, { field: 'b' }, { field: 'c' }];
         // Should not throw (uses the host from the parent beforeEach which has no group row)
         expect(() => applyStickyOffsets(host, cols)).not.toThrow();
+      });
+    });
+
+    describe('implicit group split on mixed pinning', () => {
+      let splitHost: HTMLElement;
+
+      beforeEach(() => {
+        // Simulates: [id (pinned left), __tbw_expander (no pin), firstName (group: employee), lastName (group: employee)]
+        splitHost = document.createElement('div');
+        // group-end on __tbw_expander simulates GroupingColumnsPlugin output
+        // (it marks the last column of the implicit group as group-end)
+        splitHost.innerHTML = `
+          <div class="header-group-row">
+            <div class="cell header-group-cell implicit-group" data-group="__implicit__0" style="grid-column: 1 / span 2"></div>
+            <div class="cell header-group-cell" data-group="employee" style="grid-column: 3 / span 2">Employee</div>
+          </div>
+          <div class="header-row">
+            <div class="cell" data-field="id">ID</div>
+            <div class="cell group-end" data-field="__tbw_expander"></div>
+            <div class="cell" data-field="firstName">First</div>
+            <div class="cell" data-field="lastName">Last</div>
+          </div>
+          <div class="data-grid-row">
+            <div class="cell" data-field="id">1001</div>
+            <div class="cell group-end" data-field="__tbw_expander">▶</div>
+            <div class="cell" data-field="firstName">Olga</div>
+            <div class="cell" data-field="lastName">Johnson</div>
+          </div>
+        `;
+        document.body.appendChild(splitHost);
+      });
+
+      afterEach(() => {
+        document.body.removeChild(splitHost);
+      });
+
+      it('splits implicit group when first column is left-pinned', () => {
+        const cols = [
+          { field: 'id', pinned: 'left' },
+          { field: '__tbw_expander' },
+          { field: 'firstName', group: 'employee' },
+          { field: 'lastName', group: 'employee' },
+        ];
+        const adjustments = applyStickyOffsets(splitHost, cols);
+
+        // Original implicit group cell should be replaced by two cells
+        const implicitCells = splitHost.querySelectorAll('.header-group-cell.implicit-group');
+        expect(implicitCells.length).toBe(2);
+
+        // First fragment: pinned ID
+        const pinnedFragment = implicitCells[0] as HTMLElement;
+        expect(pinnedFragment.classList.contains('sticky-left')).toBe(true);
+        expect(pinnedFragment.style.position).toBe('sticky');
+        expect(pinnedFragment.style.left).toBe('0px');
+        expect(pinnedFragment.style.gridColumn).toBe('1 / span 1');
+
+        // Second fragment: non-pinned utility expander — border suppressed
+        const scrollFragment = implicitCells[1] as HTMLElement;
+        expect(scrollFragment.classList.contains('sticky-left')).toBe(false);
+        expect(scrollFragment.style.gridColumn).toBe('2 / span 1');
+        expect(scrollFragment.style.borderRightStyle).toBe('none');
+
+        // Group-end adjustments: ID gains group-end, expander loses it
+        expect(adjustments.addGroupEnd.has('id')).toBe(true);
+        expect(adjustments.removeGroupEnd.has('__tbw_expander')).toBe(true);
+
+        // Header cells: ID should have group-end, expander should not
+        const idHeader = splitHost.querySelector('.header-row .cell[data-field="id"]') as HTMLElement;
+        expect(idHeader.classList.contains('group-end')).toBe(true);
+        const expanderHeader = splitHost.querySelector('.header-row .cell[data-field="__tbw_expander"]') as HTMLElement;
+        expect(expanderHeader.classList.contains('group-end')).toBe(false);
+
+        // Body cells: same adjustment
+        const idBody = splitHost.querySelector('.data-grid-row .cell[data-field="id"]') as HTMLElement;
+        expect(idBody.classList.contains('group-end')).toBe(true);
+        const expanderBody = splitHost.querySelector(
+          '.data-grid-row .cell[data-field="__tbw_expander"]',
+        ) as HTMLElement;
+        expect(expanderBody.classList.contains('group-end')).toBe(false);
+      });
+
+      it('does not split implicit group when no columns are pinned', () => {
+        const cols = [
+          { field: 'id' },
+          { field: '__tbw_expander' },
+          { field: 'firstName', group: 'employee' },
+          { field: 'lastName', group: 'employee' },
+        ];
+        const adjustments = applyStickyOffsets(splitHost, cols);
+
+        // Should remain a single implicit group cell
+        const implicitCells = splitHost.querySelectorAll('.header-group-cell.implicit-group');
+        expect(implicitCells.length).toBe(1);
+
+        // No group-end adjustments
+        expect(adjustments.addGroupEnd.size).toBe(0);
+        expect(adjustments.removeGroupEnd.size).toBe(0);
+      });
+
+      it('does not split implicit group when all columns are pinned', () => {
+        const cols = [
+          { field: 'id', pinned: 'left' },
+          { field: '__tbw_expander', pinned: 'left' },
+          { field: 'firstName', group: 'employee' },
+          { field: 'lastName', group: 'employee' },
+        ];
+        const adjustments = applyStickyOffsets(splitHost, cols);
+
+        // Should remain a single implicit group cell (now fully pinned)
+        const implicitCells = splitHost.querySelectorAll('.header-group-cell.implicit-group');
+        expect(implicitCells.length).toBe(1);
+        expect((implicitCells[0] as HTMLElement).classList.contains('sticky-left')).toBe(true);
+
+        // No group-end adjustments (all in same direction)
+        expect(adjustments.addGroupEnd.size).toBe(0);
+        expect(adjustments.removeGroupEnd.size).toBe(0);
+      });
+
+      it('preserves explicit group cell after splitting implicit group', () => {
+        const cols = [
+          { field: 'id', pinned: 'left' },
+          { field: '__tbw_expander' },
+          { field: 'firstName', group: 'employee' },
+          { field: 'lastName', group: 'employee' },
+        ];
+        applyStickyOffsets(splitHost, cols);
+
+        // Explicit employee group cell should still be present and unmodified
+        const employeeCell = splitHost.querySelector('.header-group-cell[data-group="employee"]') as HTMLElement;
+        expect(employeeCell).not.toBeNull();
+        expect(employeeCell.textContent).toBe('Employee');
+        expect(employeeCell.style.gridColumn).toBe('3 / span 2');
       });
     });
   });

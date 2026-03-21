@@ -18,6 +18,10 @@ Every feature, fix, or refactor must complete **all five steps** before it is co
 
 Do **not** consider work complete until all five steps are finished. Skipping steps is not acceptable. When in doubt about whether tests or docs are needed, **default to including them**.
 
+### Enforcement
+
+**At the start of every task**, create a todo list with all five delivery steps before writing any code. Mark each step in-progress/completed as you go. Do **not** suggest a commit or report completion until every step shows completed. This is non-negotiable — the todo list is the mechanism that prevents steps from being forgotten.
+
 ## Commit Hygiene
 
 Prompt the user to commit at logical stopping points. Small, focused commits are preferred.

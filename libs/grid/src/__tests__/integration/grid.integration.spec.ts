@@ -2517,3 +2517,155 @@ describe('ResponsivePlugin + GroupingRowsPlugin integration', () => {
     expect(hasDataRow).toBe(true);
   });
 });
+
+describe('MasterDetailPlugin + GroupingRowsPlugin integration', () => {
+  let grid: any;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    grid = document.createElement('tbw-grid');
+    document.body.appendChild(grid);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('renders expander toggle on data rows within expanded groups', async () => {
+    const { MasterDetailPlugin } = await import('../../lib/plugins/master-detail');
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'dept', header: 'Dept' },
+        { field: 'name', header: 'Name' },
+      ],
+      plugins: [
+        new GroupingRowsPlugin({ groupOn: (r: any) => r.dept, defaultExpanded: true }),
+        new MasterDetailPlugin({
+          detailRenderer: (row: any) => `<div class="test-detail">Detail: ${row.name}</div>`,
+          showExpandColumn: true,
+        }),
+      ],
+    };
+    grid.rows = [
+      { dept: 'Eng', name: 'Alice' },
+      { dept: 'Eng', name: 'Bob' },
+      { dept: 'Sales', name: 'Carol' },
+    ];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Group rows should NOT have master-detail toggle
+    const groupRows = grid.querySelectorAll('.group-row');
+    expect(groupRows.length).toBe(2);
+    for (const groupRow of groupRows) {
+      expect(groupRow.querySelector('.master-detail-toggle')).toBeNull();
+    }
+
+    // Data rows SHOULD have master-detail toggle
+    const dataRows = grid.querySelectorAll('.data-grid-row:not(.group-row)');
+    expect(dataRows.length).toBe(3);
+    for (const dataRow of dataRows) {
+      expect(dataRow.querySelector('.master-detail-toggle')).not.toBeNull();
+    }
+  });
+
+  it('expands detail for data rows within groups', async () => {
+    const { MasterDetailPlugin } = await import('../../lib/plugins/master-detail');
+
+    const masterDetail = new MasterDetailPlugin({
+      detailRenderer: (row: any) => `<div class="test-detail">Detail: ${row.name}</div>`,
+      showExpandColumn: true,
+    });
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'dept', header: 'Dept' },
+        { field: 'name', header: 'Name' },
+      ],
+      plugins: [new GroupingRowsPlugin({ groupOn: (r: any) => r.dept, defaultExpanded: true }), masterDetail],
+    };
+    grid.rows = [
+      { dept: 'Eng', name: 'Alice' },
+      { dept: 'Eng', name: 'Bob' },
+    ];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Click the first data row's toggle to expand detail
+    const dataRows = grid.querySelectorAll('.data-grid-row:not(.group-row)');
+    expect(dataRows.length).toBe(2);
+    const toggle = dataRows[0].querySelector('.master-detail-toggle') as HTMLElement;
+    expect(toggle).not.toBeNull();
+    toggle.click();
+    await nextFrame();
+    await nextFrame();
+
+    // Should show detail row
+    const detailRows = grid.querySelectorAll('.master-detail-row');
+    expect(detailRows.length).toBe(1);
+    expect(detailRows[0].textContent).toContain('Detail: Alice');
+  });
+
+  it('expandAll skips group header rows', async () => {
+    const { MasterDetailPlugin } = await import('../../lib/plugins/master-detail');
+
+    const masterDetail = new MasterDetailPlugin({
+      detailRenderer: (row: any) => `<div class="test-detail">Detail: ${row.name}</div>`,
+      showExpandColumn: true,
+    });
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'dept', header: 'Dept' },
+        { field: 'name', header: 'Name' },
+      ],
+      plugins: [new GroupingRowsPlugin({ groupOn: (r: any) => r.dept, defaultExpanded: true }), masterDetail],
+    };
+    grid.rows = [
+      { dept: 'Eng', name: 'Alice' },
+      { dept: 'Sales', name: 'Bob' },
+    ];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Expand all should only expand data rows, not group rows
+    masterDetail.expandAll();
+    await nextFrame();
+    await nextFrame();
+
+    const expandedIndices = masterDetail.getExpandedRows();
+    // Should have 2 expanded rows (data rows), not 4 (which would include group headers)
+    expect(expandedIndices.length).toBe(2);
+  });
+
+  it('toggleAndEmit ignores clicks on group row expander', async () => {
+    const { MasterDetailPlugin } = await import('../../lib/plugins/master-detail');
+
+    const masterDetail = new MasterDetailPlugin({
+      detailRenderer: (row: any) => `<div class="test-detail">Detail: ${row.name}</div>`,
+      expandOnRowClick: true,
+    });
+
+    grid.gridConfig = {
+      columns: [
+        { field: 'dept', header: 'Dept' },
+        { field: 'name', header: 'Name' },
+      ],
+      plugins: [new GroupingRowsPlugin({ groupOn: (r: any) => r.dept, defaultExpanded: true }), masterDetail],
+    };
+    grid.rows = [{ dept: 'Eng', name: 'Alice' }];
+    await waitUpgrade(grid);
+    await nextFrame();
+
+    // Even with expandOnRowClick, clicking a group row should not create a detail
+    const groupRow = grid.querySelector('.group-row') as HTMLElement;
+    expect(groupRow).not.toBeNull();
+    groupRow.click();
+    await nextFrame();
+    await nextFrame();
+
+    const detailRows = grid.querySelectorAll('.master-detail-row');
+    expect(detailRows.length).toBe(0);
+  });
+});

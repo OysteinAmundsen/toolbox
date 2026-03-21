@@ -13,6 +13,13 @@
     /* Prevent text selection when any selection exists */
     &:has(.selection) {
       user-select: none;
+      /* Disable cell-focus outline in row mode - row is the focus unit.
+       Also disable row-focus outline - selection plugin uses ::after borders instead. */
+      &[data-selection-mode='row'] .cell-focus,
+      &[data-selection-mode='row'] .row-focus,
+      &[data-selection-mode='range'] .cell-focus {
+        outline: none;
+      }
     }
 
     /* Row selection - use accent color for row focus (only when grid is focused) */
@@ -42,14 +49,6 @@
       &:has(+ .data-grid-row.row-focus)::after {
         border-bottom-width: 0;
       }
-    }
-
-    /* Disable cell-focus outline in row mode - row is the focus unit.
-       Also disable row-focus outline - selection plugin uses ::after borders instead. */
-    &[data-selection-mode='row'] .cell-focus,
-    &[data-selection-mode='row'] .row-focus,
-    &[data-selection-mode='range'] .cell-focus {
-      outline: none;
     }
 
     /* Selection cell styles - for range mode */

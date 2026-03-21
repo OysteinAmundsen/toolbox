@@ -258,7 +258,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
         cardRowHeight: 80,
         hiddenColumns: ['id', 'email', 'team', 'level', 'bonus', 'hireDate', 'isTopPerformer', 'location'],
       },
-      // Row grouping (mutually exclusive with master-detail)
+      // Row grouping (works alongside master-detail)
       ...(enableRowGrouping
         ? {
             groupingRows: {
@@ -275,8 +275,8 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
             },
           }
         : {}),
-      // Master-detail (mutually exclusive with row grouping)
-      ...(!enableRowGrouping && enableMasterDetail
+      // Master-detail (works alongside row grouping — details appear on data rows within groups)
+      ...(enableMasterDetail
         ? {
             masterDetail: {
               detailRenderer: (row: unknown) => createDetailRenderer(row as Employee),

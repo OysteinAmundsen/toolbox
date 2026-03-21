@@ -356,8 +356,12 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /**
    * Toggle a row's detail and emit event.
+   * Skips synthetic rows (e.g., group headers from GroupingRowsPlugin).
    */
   private toggleAndEmit(row: any, rowIndex: number): void {
+    // Synthetic rows (e.g., group headers) don't have detail content
+    if (row?.__isGroupRow) return;
+
     this.expandedRows = toggleDetailRow(this.expandedRows, row as object);
     const expanded = this.expandedRows.has(row as object);
     if (expanded) {
@@ -766,7 +770,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   expand(rowIndex: number): void {
     const row = this.rows[rowIndex];
-    if (row) {
+    if (row && !row.__isGroupRow) {
       this.rowsToAnimate.add(row);
       this.expandedRows = expandDetailRow(this.expandedRows, row);
       this.requestRender();
@@ -791,7 +795,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
    */
   toggle(rowIndex: number): void {
     const row = this.rows[rowIndex];
-    if (row) {
+    if (row && !row.__isGroupRow) {
       this.expandedRows = toggleDetailRow(this.expandedRows, row);
       if (this.expandedRows.has(row)) {
         this.rowsToAnimate.add(row);
@@ -812,9 +816,11 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
 
   /**
    * Expand all detail rows.
+   * Skips synthetic rows (e.g., group headers from GroupingRowsPlugin).
    */
   expandAll(): void {
     for (const row of this.rows) {
+      if (row?.__isGroupRow) continue;
       this.rowsToAnimate.add(row);
       this.expandedRows.add(row);
     }

@@ -379,6 +379,10 @@ The Row Grouping plugin **cannot** be used with the following plugins:
 
 A development-mode warning is shown if incompatible plugins are loaded together.
 
+:::tip[Works with Master-Detail]
+Row Grouping works seamlessly with the [Master-Detail](../master-detail/) plugin. When both are enabled, data rows within expanded groups show the master-detail toggle, while group header rows (which are synthetic) do not. Use `expandOnRowClick: true` on master-detail safely — group header clicks are ignored.
+:::
+
 ## See Also
 
 - **[Column Groups](../grouping-columns/)** — Group column headers

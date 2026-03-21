@@ -45,6 +45,9 @@ grid.columns = [
 
 When columns are reordered across group boundaries (with `lockGroupOrder: false`, the default), groups **fragment** instead of blocking the move. Each contiguous run of columns belonging to the same group gets its own header cell. If the fragments are later brought back together, the group header merges automatically.
 
+Fragmented groups are reflected in both the grid header and the visibility panel (if active). Each
+fragment's group header is independently draggable when `ReorderPlugin` is present.
+
 ## Custom Group Header
 
 ```typescript

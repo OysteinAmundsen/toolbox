@@ -130,6 +130,8 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   private draggedField: string | null = null;
   private draggedIndex: number | null = null;
   private dropIndex: number | null = null;
+  /** When dragging a group header, holds the field names in that fragment. */
+  private draggedGroupFields: string[] = [];
 
   /** Typed internal grid accessor. */
   get #internalGrid(): GridHost {
@@ -147,10 +149,10 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
   }
 
   /**
-   * Clear all drag-related classes from header cells.
+   * Clear all drag-related classes from header cells and group header cells.
    */
   private clearDragClasses(): void {
-    this.gridElement?.querySelectorAll('.header-row > .cell').forEach((h) => {
+    this.gridElement?.querySelectorAll('.header-row > .cell, .header-group-row > .cell').forEach((h) => {
       h.classList.remove('dragging', 'drop-target', 'drop-before', 'drop-after');
     });
   }
@@ -182,6 +184,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     this.draggedField = null;
     this.draggedIndex = null;
     this.dropIndex = null;
+    this.draggedGroupFields = [];
   }
   // #endregion
 
@@ -217,6 +220,7 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         this.isDragging = true;
         this.draggedField = field;
         this.draggedIndex = orderIndex;
+        this.draggedGroupFields = []; // Clear any stale group state
 
         if (e.dataTransfer) {
           e.dataTransfer.effectAllowed = 'move';
@@ -231,12 +235,17 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         this.draggedField = null;
         this.draggedIndex = null;
         this.dropIndex = null;
+        this.draggedGroupFields = [];
         this.clearDragClasses();
       });
 
       headerEl.addEventListener('dragover', (e: DragEvent) => {
         e.preventDefault();
-        if (!this.isDragging || this.draggedField === field) return;
+        if (!this.isDragging) return;
+        // Skip if dragging this same individual column
+        if (this.draggedField === field && this.draggedGroupFields.length === 0) return;
+        // Skip if this column is part of the dragged group fragment
+        if (this.draggedGroupFields.includes(field)) return;
 
         const rect = headerEl.getBoundingClientRect();
         const midX = rect.left + rect.width / 2;
@@ -245,6 +254,17 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         const orderIndex = currentOrder.indexOf(field);
         this.dropIndex = e.clientX < midX ? orderIndex : orderIndex + 1;
 
+        this.clearDragClasses();
+        // Re-mark dragged elements
+        if (this.draggedGroupFields.length > 0) {
+          for (const f of this.draggedGroupFields) {
+            this.gridElement?.querySelector(`.header-row > .cell[data-field="${f}"]`)?.classList.add('dragging');
+          }
+        } else if (this.draggedField) {
+          this.gridElement
+            ?.querySelector(`.header-row > .cell[data-field="${this.draggedField}"]`)
+            ?.classList.add('dragging');
+        }
         headerEl.classList.add('drop-target');
         headerEl.classList.toggle('drop-before', e.clientX < midX);
         headerEl.classList.toggle('drop-after', e.clientX >= midX);
@@ -256,6 +276,18 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
 
       headerEl.addEventListener('drop', (e: DragEvent) => {
         e.preventDefault();
+        if (!this.isDragging) return;
+
+        // Group fragment drop onto individual column header
+        if (this.draggedGroupFields.length > 0) {
+          if (this.draggedGroupFields.includes(field)) return;
+          const rect = headerEl.getBoundingClientRect();
+          const before = e.clientX < rect.left + rect.width / 2;
+          this.executeGroupBlockMove(this.draggedGroupFields, [field], before);
+          return;
+        }
+
+        // Individual column drop
         const draggedField = this.draggedField;
         const draggedIndex = this.draggedIndex;
         const dropIndex = this.dropIndex;
@@ -283,6 +315,181 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
         }
       });
     });
+
+    // Set up drag listeners for group header cells (if column grouping is active).
+    // Deferred to a microtask because GroupingColumnsPlugin.afterRender() creates the
+    // .header-group-row DOM, and it may run after this plugin in hook order.
+    queueMicrotask(() => this.setupGroupHeaderDrag(gridEl));
+  }
+
+  /**
+   * Set up drag-and-drop listeners on group header cells (.header-group-row > .cell).
+   * Dragging a group header moves all columns in that fragment as a block.
+   * Implicit groups (ungrouped column spans) are not draggable.
+   */
+  private setupGroupHeaderDrag(gridEl: HTMLElement): void {
+    const groupHeaders = gridEl.querySelectorAll('.header-group-row > .cell[data-group]');
+
+    groupHeaders.forEach((gh) => {
+      const groupHeaderEl = gh as HTMLElement;
+      const groupId = groupHeaderEl.getAttribute('data-group');
+      if (!groupId || groupId.startsWith('__implicit__')) return;
+
+      // Already bound?
+      if (groupHeaderEl.getAttribute('data-group-drag-bound')) return;
+      groupHeaderEl.setAttribute('data-group-drag-bound', 'true');
+
+      // Determine which columns are in this fragment by reading the grid-column style
+      const fragmentFields = this.getGroupFragmentFields(groupHeaderEl, groupId);
+      if (fragmentFields.length === 0) return;
+
+      // Check if all columns in the fragment can be moved
+      const allMovable = fragmentFields.every((f) => {
+        const col = this.columns.find((c) => c.field === f);
+        return this.canMoveColumnWithPlugins(col);
+      });
+      if (!allMovable) return;
+
+      groupHeaderEl.draggable = true;
+      groupHeaderEl.style.cursor = 'grab';
+
+      groupHeaderEl.addEventListener('dragstart', (e: DragEvent) => {
+        this.isDragging = true;
+        this.draggedField = null;
+        this.draggedIndex = null;
+        this.draggedGroupFields = [...fragmentFields];
+
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', `group:${groupId}`);
+        }
+
+        groupHeaderEl.classList.add('dragging');
+        // Also mark the individual column headers as dragging
+        for (const f of fragmentFields) {
+          gridEl.querySelector(`.header-row > .cell[data-field="${f}"]`)?.classList.add('dragging');
+        }
+      });
+
+      groupHeaderEl.addEventListener('dragend', () => {
+        this.isDragging = false;
+        this.draggedField = null;
+        this.draggedIndex = null;
+        this.dropIndex = null;
+        this.draggedGroupFields = [];
+        this.clearDragClasses();
+      });
+
+      // Group header is also a drop target for other groups / individual columns
+      groupHeaderEl.addEventListener('dragover', (e: DragEvent) => {
+        e.preventDefault();
+        if (!this.isDragging) return;
+        // If dragging the same fragment, ignore
+        if (
+          this.draggedGroupFields.length > 0 &&
+          this.draggedGroupFields.length === fragmentFields.length &&
+          this.draggedGroupFields.every((f) => fragmentFields.includes(f))
+        )
+          return;
+
+        const rect = groupHeaderEl.getBoundingClientRect();
+        const midX = rect.left + rect.width / 2;
+        const before = e.clientX < midX;
+
+        this.clearDragClasses();
+        groupHeaderEl.classList.add('drop-target');
+        groupHeaderEl.classList.toggle('drop-before', before);
+        groupHeaderEl.classList.toggle('drop-after', !before);
+      });
+
+      groupHeaderEl.addEventListener('dragleave', () => {
+        groupHeaderEl.classList.remove('drop-target', 'drop-before', 'drop-after');
+      });
+
+      groupHeaderEl.addEventListener('drop', (e: DragEvent) => {
+        e.preventDefault();
+        if (!this.isDragging) return;
+
+        const rect = groupHeaderEl.getBoundingClientRect();
+        const before = e.clientX < rect.left + rect.width / 2;
+
+        if (this.draggedGroupFields.length > 0) {
+          // Group-to-group drop: move dragged fragment as block relative to this fragment
+          if (
+            this.draggedGroupFields.length === fragmentFields.length &&
+            this.draggedGroupFields.every((f) => fragmentFields.includes(f))
+          )
+            return;
+          this.executeGroupBlockMove(this.draggedGroupFields, fragmentFields, before);
+        } else if (this.draggedField) {
+          // Individual column dropped onto group header
+          const currentOrder = this.getColumnOrder();
+          const anchorField = before ? fragmentFields[0] : fragmentFields[fragmentFields.length - 1];
+          const fromIndex = currentOrder.indexOf(this.draggedField);
+          const toIndex = before ? currentOrder.indexOf(anchorField) : currentOrder.indexOf(anchorField) + 1;
+          if (fromIndex === -1 || toIndex === -1) return;
+          const effectiveToIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+          const newOrder = moveColumn(currentOrder, fromIndex, effectiveToIndex);
+          const cancelled = this.emitCancelable<ColumnMoveDetail>('column-move', {
+            field: this.draggedField,
+            fromIndex,
+            toIndex: effectiveToIndex,
+            columnOrder: newOrder,
+          });
+          if (!cancelled) this.updateColumnOrder(newOrder);
+        }
+      });
+    });
+  }
+
+  /**
+   * Get the column field names that belong to a group header fragment.
+   * Reads the grid-column CSS style of the header cell to determine the column range.
+   */
+  private getGroupFragmentFields(groupHeaderEl: HTMLElement, _groupId: string): string[] {
+    // Parse grid-column (e.g., "2 / span 3") to get start index and span
+    const gridColumn = groupHeaderEl.style.gridColumn;
+    const match = /(\d+)\s*\/\s*span\s+(\d+)/.exec(gridColumn);
+    if (!match) return [];
+
+    const startCol = parseInt(match[1], 10); // 1-based CSS grid column
+    const span = parseInt(match[2], 10);
+
+    // Map CSS grid columns to visible column fields
+    const visibleColumns = this.visibleColumns;
+    const fields: string[] = [];
+    for (let i = startCol - 1; i < startCol - 1 + span && i < visibleColumns.length; i++) {
+      const col = visibleColumns[i];
+      if (col) fields.push(col.field);
+    }
+    return fields;
+  }
+
+  /**
+   * Move a group of columns as a block to a new position relative to target fields.
+   */
+  private executeGroupBlockMove(draggedFields: string[], targetFields: string[], before: boolean): void {
+    const currentOrder = this.getColumnOrder();
+    const remaining = currentOrder.filter((f) => !draggedFields.includes(f));
+
+    const anchorField = before ? targetFields[0] : targetFields[targetFields.length - 1];
+    const insertAt = remaining.indexOf(anchorField);
+    if (insertAt === -1) return;
+
+    const insertIndex = before ? insertAt : insertAt + 1;
+    const draggedInOrder = currentOrder.filter((f) => draggedFields.includes(f));
+    remaining.splice(insertIndex, 0, ...draggedInOrder);
+
+    // Emit cancelable column-move for the first field so lockGroupOrder guard can check
+    const cancelled = this.emitCancelable<ColumnMoveDetail>('column-move', {
+      field: draggedFields[0],
+      fromIndex: currentOrder.indexOf(draggedFields[0]),
+      toIndex: insertIndex,
+      columnOrder: remaining,
+    });
+    if (!cancelled) {
+      this.updateColumnOrder(remaining);
+    }
   }
 
   /**

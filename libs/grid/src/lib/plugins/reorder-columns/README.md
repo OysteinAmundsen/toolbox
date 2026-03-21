@@ -84,6 +84,7 @@ grid.gridConfig = {
 ### `column-move`
 
 Fired when columns are reordered. This event is **cancelable** - call `preventDefault()` to block the move.
+Also fires for group header drags (the `field` is the first column in the dragged fragment).
 
 ```typescript
 grid.addEventListener('column-move', (e) => {
@@ -98,6 +99,14 @@ grid.addEventListener('column-move', (e) => {
   }
 });
 ```
+
+## Column Group Drag
+
+When the `GroupingColumnsPlugin` is also active, group header cells in the grid become draggable.
+Dragging a group header moves all columns in that fragment as a block. If a group is fragmented
+(split across non-contiguous positions), each fragment can be dragged independently.
+
+Implicit groups (auto-generated for ungrouped column spans) are not draggable.
 
 ## API Methods
 

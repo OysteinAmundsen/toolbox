@@ -555,6 +555,8 @@ When using `GroupingColumnsPlugin` together with the [Reorder Columns](../reorde
 
 This means groups never "break" — they split into fragments that remain visually connected to their group identity. Utility columns (like selection checkboxes or row numbers) that land between two fragments of the same group are visually absorbed into the surrounding group header.
 
+Group header cells are also draggable — dragging a group header moves all columns in that fragment as a block. If a group is fragmented, each fragment can be dragged independently. The [Visibility Panel](../visibility/) also reflects fragmented groups, showing each fragment as a separate section in the column list.
+
 ### Built-in: `lockGroupOrder`
 
 Set `lockGroupOrder: true` to automatically prevent columns from being moved outside their group:

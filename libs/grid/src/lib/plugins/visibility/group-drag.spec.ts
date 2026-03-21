@@ -125,30 +125,6 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
     return panelContainer.querySelector(`.tbw-visibility-group-header[data-group-id="${groupId}"]`);
   }
 
-  /**
-   * Simulate a drag-and-drop sequence on a group header onto another group header.
-   */
-  function simulateGroupDrag(source: HTMLElement, target: HTMLElement, before: boolean): void {
-    // Fire dragstart on source
-    const dragStartEvent = new Event('dragstart', { bubbles: true }) as any;
-    dragStartEvent.dataTransfer = { effectAllowed: '', setData: vi.fn() };
-    source.dispatchEvent(dragStartEvent);
-
-    // Fire dragover on target
-    const targetRect = target.getBoundingClientRect();
-    const dragOverEvent = new Event('dragover', { bubbles: true, cancelable: true }) as any;
-    // Position above or below midpoint
-    dragOverEvent.clientY = before ? targetRect.top + 1 : targetRect.top + targetRect.height - 1;
-    dragOverEvent.preventDefault = vi.fn();
-    target.dispatchEvent(dragOverEvent);
-
-    // Fire drop on target
-    const dropEvent = new Event('drop', { bubbles: true, cancelable: true }) as any;
-    dropEvent.clientY = dragOverEvent.clientY;
-    dropEvent.preventDefault = vi.fn();
-    target.dispatchEvent(dropEvent);
-  }
-
   it('renders group headers as draggable when ReorderPlugin is present', () => {
     const { panelContainer } = createPlugin();
     const personal = getGroupHeader(panelContainer, 'personal');
@@ -264,7 +240,7 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
   });
 
   it('does not allow individual column drag onto group header', () => {
-    const { panelContainer, setColumnOrderSpy } = createPlugin();
+    const { panelContainer } = createPlugin();
     const work = getGroupHeader(panelContainer, 'work')!;
 
     // Start dragging an ungrouped individual column
@@ -344,4 +320,99 @@ describe('VisibilityPlugin group drag-and-drop', async () => {
     // Should not call setColumnOrder because anchor field not found
     expect(setColumnOrderSpy).not.toHaveBeenCalled();
   });
+
+  // #region Fragmented Groups
+
+  describe('fragmented group rendering', () => {
+    it('renders separate group sections for fragmented groups', () => {
+      const { visPlugin, panelContainer } = createPlugin();
+      const columnList = getColumnList(panelContainer);
+
+      // Fragment the "personal" group by moving email after dept
+      currentOrder = ['name', 'dept', 'title', 'email', 'notes'];
+      (visPlugin as any).rebuildToggles(columnList);
+
+      // Should have two "personal" group headers (one for name, one for email)
+      const personalHeaders = panelContainer.querySelectorAll('.tbw-visibility-group-header[data-group-id="personal"]');
+      expect(personalHeaders.length).toBe(2);
+
+      // Work group should still have one header
+      const workHeaders = panelContainer.querySelectorAll('.tbw-visibility-group-header[data-group-id="work"]');
+      expect(workHeaders.length).toBe(1);
+    });
+
+    it('renders contiguous groups as single sections', () => {
+      const { panelContainer } = createPlugin();
+
+      // Default contiguous order: [name, email, dept, title, notes]
+      const personalHeaders = panelContainer.querySelectorAll('.tbw-visibility-group-header[data-group-id="personal"]');
+      expect(personalHeaders.length).toBe(1);
+
+      const workHeaders = panelContainer.querySelectorAll('.tbw-visibility-group-header[data-group-id="work"]');
+      expect(workHeaders.length).toBe(1);
+    });
+
+    it('renders panel items in actual display order', () => {
+      const { visPlugin, panelContainer } = createPlugin();
+      const columnList = getColumnList(panelContainer);
+
+      // Fragment: name(P), dept(W), title(W), email(P), notes
+      currentOrder = ['name', 'dept', 'title', 'email', 'notes'];
+      (visPlugin as any).rebuildToggles(columnList);
+
+      // Check the order of all rows and headers
+      const items = Array.from(columnList.children);
+      const itemTypes = items.map((el) => {
+        if (el.classList.contains('tbw-visibility-group-header')) {
+          return `group:${el.getAttribute('data-group-id')}`;
+        }
+        return `col:${el.getAttribute('data-field')}`;
+      });
+
+      expect(itemTypes).toEqual([
+        'group:personal', // First personal fragment (name)
+        'col:name',
+        'group:work', // Work group (dept, title)
+        'col:dept',
+        'col:title',
+        'group:personal', // Second personal fragment (email)
+        'col:email',
+        'col:notes', // Ungrouped
+      ]);
+    });
+
+    it('drags only fragment fields when group is fragmented', () => {
+      const { visPlugin, panelContainer, setColumnOrderSpy } = createPlugin();
+      const columnList = getColumnList(panelContainer);
+
+      // Fragment: name(P), dept(W), title(W), email(P), notes
+      currentOrder = ['name', 'dept', 'title', 'email', 'notes'];
+      (visPlugin as any).rebuildToggles(columnList);
+
+      // Drag the second personal fragment (email) before work group
+      (visPlugin as any).executeGroupDrop(['email'], ['dept', 'title'], true, columnList);
+
+      expect(setColumnOrderSpy).toHaveBeenCalledTimes(1);
+      // Only email should move; name stays in its original position
+      expect(setColumnOrderSpy).toHaveBeenCalledWith(['name', 'email', 'dept', 'title', 'notes']);
+    });
+
+    it('allows dropping fragment onto another fragment of the same group', () => {
+      const { visPlugin, panelContainer, setColumnOrderSpy } = createPlugin();
+      const columnList = getColumnList(panelContainer);
+
+      // Fragment: name(P), dept(W), title(W), email(P), notes
+      currentOrder = ['name', 'dept', 'title', 'email', 'notes'];
+      (visPlugin as any).rebuildToggles(columnList);
+
+      // Drag the second personal fragment (email) before the first fragment (name)
+      (visPlugin as any).executeGroupDrop(['email'], ['name'], true, columnList);
+
+      expect(setColumnOrderSpy).toHaveBeenCalledTimes(1);
+      // email moves before name, re-consolidating the group
+      expect(setColumnOrderSpy).toHaveBeenCalledWith(['email', 'name', 'dept', 'title', 'notes']);
+    });
+  });
+
+  // #endregion
 });

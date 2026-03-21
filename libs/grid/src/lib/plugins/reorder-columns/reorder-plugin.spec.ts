@@ -381,4 +381,161 @@ describe('ReorderPlugin (class)', () => {
       expect(grid.forceLayout).not.toHaveBeenCalled();
     });
   });
+
+  // #region Group Header Drag
+  describe('group header drag', () => {
+    function createGroupedGridMock() {
+      const columns = [
+        { field: 'id', header: 'ID' },
+        { field: 'firstName', header: 'First', meta: { group: 'personal' } },
+        { field: 'lastName', header: 'Last', meta: { group: 'personal' } },
+        { field: 'dept', header: 'Dept', meta: { group: 'org' } },
+        { field: 'title', header: 'Title', meta: { group: 'org' } },
+      ];
+
+      const grid = createGridMock(columns);
+
+      // Add a .header-group-row with group header cells
+      const groupRow = document.createElement('div');
+      groupRow.className = 'header-group-row';
+
+      // Implicit group for 'id' (column 1)
+      const implicitCell = document.createElement('div');
+      implicitCell.className = 'cell header-group-cell implicit-group';
+      implicitCell.setAttribute('data-group', '__implicit__0');
+      implicitCell.style.gridColumn = '1 / span 1';
+      groupRow.appendChild(implicitCell);
+
+      // Personal group (columns 2-3)
+      const personalCell = document.createElement('div');
+      personalCell.className = 'cell header-group-cell';
+      personalCell.setAttribute('data-group', 'personal');
+      personalCell.textContent = 'Personal';
+      personalCell.style.gridColumn = '2 / span 2';
+      groupRow.appendChild(personalCell);
+
+      // Org group (columns 4-5)
+      const orgCell = document.createElement('div');
+      orgCell.className = 'cell header-group-cell';
+      orgCell.setAttribute('data-group', 'org');
+      orgCell.textContent = 'Organization';
+      orgCell.style.gridColumn = '4 / span 2';
+      groupRow.appendChild(orgCell);
+
+      // Insert group row before header row
+      const headerRow = grid._hostElement.querySelector('.header-row')!;
+      grid._hostElement.insertBefore(groupRow, headerRow);
+
+      return { grid, columns };
+    }
+
+    it('should make non-implicit group headers draggable after microtask', async () => {
+      const { grid } = createGroupedGridMock();
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      // setupGroupHeaderDrag is deferred via queueMicrotask
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+      const personalHeader = grid._hostElement.querySelector('.cell[data-group="personal"]') as HTMLElement;
+      const orgHeader = grid._hostElement.querySelector('.cell[data-group="org"]') as HTMLElement;
+      const implicitHeader = grid._hostElement.querySelector('.cell[data-group="__implicit__0"]') as HTMLElement;
+
+      expect(personalHeader.draggable).toBe(true);
+      expect(orgHeader.draggable).toBe(true);
+      expect(implicitHeader.draggable).toBeFalsy();
+    });
+
+    it('should mark group headers with data-group-drag-bound', async () => {
+      const { grid } = createGroupedGridMock();
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+      const personalHeader = grid._hostElement.querySelector('.cell[data-group="personal"]') as HTMLElement;
+      expect(personalHeader.getAttribute('data-group-drag-bound')).toBe('true');
+    });
+
+    it('should resolve fragment fields from grid-column style', async () => {
+      const { grid } = createGroupedGridMock();
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+      // Simulate dragstart on personal group (columns 2-3 → firstName, lastName)
+      const personalHeader = grid._hostElement.querySelector('.cell[data-group="personal"]') as HTMLElement;
+      const dragstart = new Event('dragstart', { bubbles: true }) as any;
+      dragstart.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+      personalHeader.dispatchEvent(dragstart);
+
+      // The header should get 'dragging' class
+      expect(personalHeader.classList.contains('dragging')).toBe(true);
+    });
+
+    it('should move group as block on drop', async () => {
+      const { grid } = createGroupedGridMock();
+      grid.dispatchEvent = vi.fn(() => true); // Not cancelled
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+      const personalHeader = grid._hostElement.querySelector('.cell[data-group="personal"]') as HTMLElement;
+      const orgHeader = grid._hostElement.querySelector('.cell[data-group="org"]') as HTMLElement;
+
+      // Dragstart on personal group
+      const dragstart = new Event('dragstart', { bubbles: true }) as any;
+      dragstart.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+      personalHeader.dispatchEvent(dragstart);
+
+      // Drop on org group (right side = after)
+      const orgRect = { left: 300, width: 200, top: 0, height: 30 };
+      orgHeader.getBoundingClientRect = () => orgRect as DOMRect;
+
+      const dropEvent = new Event('drop', { bubbles: true, cancelable: true }) as any;
+      dropEvent.clientX = 450; // Right side of org header → after
+      dropEvent.preventDefault = vi.fn();
+      orgHeader.dispatchEvent(dropEvent);
+
+      // column-move event should have been dispatched
+      expect(grid.dispatchEvent).toHaveBeenCalled();
+      const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent<ColumnMoveDetail>;
+      expect(event.type).toBe('column-move');
+
+      // The new order should have personal group after org group:
+      // id, dept, title, firstName, lastName
+      expect(event.detail.columnOrder).toEqual(['id', 'dept', 'title', 'firstName', 'lastName']);
+    });
+
+    it('should not make locked group headers draggable', async () => {
+      const columns = [
+        { field: 'id', header: 'ID' },
+        { field: 'name', header: 'Name', meta: { group: 'locked', lockPosition: true } },
+        { field: 'email', header: 'Email', meta: { group: 'locked', lockPosition: true } },
+      ];
+      const grid = createGridMock(columns);
+
+      const groupRow = document.createElement('div');
+      groupRow.className = 'header-group-row';
+      const lockedCell = document.createElement('div');
+      lockedCell.className = 'cell header-group-cell';
+      lockedCell.setAttribute('data-group', 'locked');
+      lockedCell.style.gridColumn = '2 / span 2';
+      groupRow.appendChild(lockedCell);
+      const headerRow = grid._hostElement.querySelector('.header-row')!;
+      grid._hostElement.insertBefore(groupRow, headerRow);
+
+      const plugin = new ReorderPlugin();
+      plugin.attach(grid as any);
+      plugin.afterRender();
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+
+      expect(lockedCell.draggable).toBeFalsy();
+    });
+  });
+  // #endregion
 });

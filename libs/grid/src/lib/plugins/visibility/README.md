@@ -68,6 +68,15 @@ visibility.showAll();
 visibility.isPanelVisible();
 ```
 
+## Column Groups in the Panel
+
+When `GroupingColumnsPlugin` is active, the visibility panel groups columns under their group headers.
+If groups are **fragmented** (split across non-contiguous positions due to column reordering), each
+fragment appears as a separate section in the panel, matching the grid's actual display order.
+
+When `ReorderPlugin` is also active, group headers in the panel are draggable. Dragging a group
+header moves only the columns in that fragment, not the entire group.
+
 ## Events
 
 ### `column-visibility`

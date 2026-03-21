@@ -24,6 +24,9 @@ import type { ContextMenuParams, HeaderContextMenuItem } from '../context-menu/t
 import type { ColumnGroupInfo, VisibilityConfig } from './types';
 import styles from './visibility.css?inline';
 
+/** Column metadata shape returned by `grid.getAllColumns()`. */
+type ColumnEntry = { field: string; header: string; visible: boolean; lockVisible?: boolean; utility?: boolean };
+
 /**
  * Detail for column-reorder-request events emitted when users drag-drop in the visibility panel.
  */
@@ -469,6 +472,8 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   /**
    * Build the column toggle checkboxes.
    * When GroupingColumnsPlugin is present, renders columns under collapsible group headers.
+   * Groups that are fragmented (same group split across non-contiguous positions) are
+   * shown as separate sections to match the grid's visual layout.
    * When a reorder plugin is present, adds drag handles for reordering.
    */
   private rebuildToggles(columnList: HTMLElement): void {
@@ -490,60 +495,91 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       return;
     }
 
-    // Build field → group lookup
+    // Build field → group lookup (field name → group membership info)
     const fieldToGroup = new Map<string, ColumnGroupInfo>();
     for (const group of groups) {
       for (const field of group.fields) fieldToGroup.set(field, group);
     }
 
-    // Walk columns in display order, interleaving groups and ungrouped columns.
-    // When we encounter the first column of a group, render the entire group section.
-    const renderedGroups = new Set<string>();
+    // Walk columns in display order and detect contiguous fragments.
+    // A fragment is a run of consecutive columns belonging to the same group.
+    // Fragmented groups (same group ID at non-contiguous positions) produce
+    // separate sections so the panel matches the grid's visual layout.
+    const fragments = this.computeFragments(allColumns, fieldToGroup);
 
-    for (const col of allColumns) {
-      const group = fieldToGroup.get(col.field);
-
-      if (group) {
-        // Column belongs to a group — render entire group section at first encounter
-        if (!renderedGroups.has(group.id)) {
-          renderedGroups.add(group.id);
-          // Filter allColumns (which is in display order) to group members.
-          // This preserves the current column order after reordering,
-          // rather than using group.fields which may be in static/original order.
-          const groupFieldSet = new Set(group.fields);
-          const groupCols = allColumns.filter((c) => groupFieldSet.has(c.field));
-          if (groupCols.length > 0) {
-            this.renderGroupSection(group, groupCols, reorderEnabled, columnList);
-          }
-        }
-        // Subsequent columns of the same group are already rendered — skip
+    for (const fragment of fragments) {
+      if (fragment.group) {
+        this.renderGroupSection(fragment.group, fragment.columns, reorderEnabled, columnList);
       } else {
-        // Ungrouped column — render as individual row at its natural position
-        const fullIndex = allColumns.indexOf(col);
-        columnList.appendChild(this.createColumnRow(col, fullIndex, reorderEnabled, columnList));
+        // Ungrouped column — render as individual row
+        const fullIndex = allColumns.indexOf(fragment.columns[0]);
+        columnList.appendChild(this.createColumnRow(fragment.columns[0], fullIndex, reorderEnabled, columnList));
       }
     }
   }
 
   /**
-   * Render a group section with header checkbox and indented column rows.
+   * Compute contiguous column fragments from display-order columns.
+   * Each fragment is either a group section (contiguous run of same-group columns)
+   * or a single ungrouped column.
+   */
+  private computeFragments(
+    allColumns: ColumnEntry[],
+    fieldToGroup: Map<string, ColumnGroupInfo>,
+  ): Array<{ group: ColumnGroupInfo | null; columns: ColumnEntry[] }> {
+    const fragments: Array<{ group: ColumnGroupInfo | null; columns: ColumnEntry[] }> = [];
+    let currentGroup: ColumnGroupInfo | null = null;
+    let currentCols: ColumnEntry[] = [];
+
+    for (const col of allColumns) {
+      const group = fieldToGroup.get(col.field) ?? null;
+
+      if (group && currentGroup && group.id === currentGroup.id) {
+        // Same group continues — extend fragment
+        currentCols.push(col);
+      } else {
+        // Flush previous fragment
+        if (currentCols.length > 0) {
+          fragments.push({ group: currentGroup, columns: currentCols });
+        }
+        currentGroup = group;
+        currentCols = [col];
+      }
+    }
+    // Flush last fragment
+    if (currentCols.length > 0) {
+      fragments.push({ group: currentGroup, columns: currentCols });
+    }
+
+    return fragments;
+  }
+
+  /**
+   * Render a group fragment section with header checkbox and indented column rows.
+   * A fragment is a contiguous run of columns from the same group. When a group is
+   * fragmented (split across non-contiguous positions), each fragment gets its own section.
    */
   private renderGroupSection(
     group: ColumnGroupInfo,
-    columns: ReturnType<typeof this.grid.getAllColumns>,
+    columns: ColumnEntry[],
     reorderEnabled: boolean,
     container: HTMLElement,
   ): void {
+    // The fragment's fields — only the columns in this contiguous section
+    const fragmentFields = columns.map((c) => c.field);
+
     // Group header row
     const header = document.createElement('div');
     header.className = 'tbw-visibility-group-header';
     header.setAttribute('data-group-id', group.id);
 
-    // Make group header draggable when reorder is enabled
+    // Make group header draggable when reorder is enabled.
+    // Pass only this fragment's fields so dragging moves just this
+    // contiguous block, not all columns of the (possibly fragmented) group.
     if (reorderEnabled) {
       header.draggable = true;
       header.classList.add('reorderable');
-      this.setupGroupDragListeners(header, group, container);
+      this.setupGroupDragListeners(header, group, fragmentFields, container);
     }
 
     const headerLabel = document.createElement('label');
@@ -609,11 +645,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
   /**
    * Render a flat (ungrouped) list of column rows.
    */
-  private renderFlatColumnList(
-    columns: ReturnType<typeof this.grid.getAllColumns>,
-    reorderEnabled: boolean,
-    container: HTMLElement,
-  ): void {
+  private renderFlatColumnList(columns: ColumnEntry[], reorderEnabled: boolean, container: HTMLElement): void {
     const allColumnsFullList = this.grid.getAllColumns().filter((c) => !c.utility);
     for (const col of columns) {
       const fullIndex = allColumnsFullList.findIndex((c) => c.field === col.field);
@@ -625,7 +657,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
    * Create a single column visibility row element.
    */
   private createColumnRow(
-    col: ReturnType<typeof this.grid.getAllColumns>[number],
+    col: ColumnEntry,
     index: number,
     reorderEnabled: boolean,
     columnList: HTMLElement,
@@ -678,13 +710,19 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
   /**
    * Set up drag-and-drop listeners for a group header row.
-   * Dragging a group moves all its member columns as a block.
+   * Dragging a group fragment moves only the columns in that fragment as a block.
+   * When a group is fragmented, each fragment header drags independently.
    */
-  private setupGroupDragListeners(header: HTMLElement, group: ColumnGroupInfo, columnList: HTMLElement): void {
+  private setupGroupDragListeners(
+    header: HTMLElement,
+    group: ColumnGroupInfo,
+    fragmentFields: string[],
+    columnList: HTMLElement,
+  ): void {
     header.addEventListener('dragstart', (e: DragEvent) => {
       this.isDragging = true;
       this.draggedGroupId = group.id;
-      this.draggedGroupFields = [...group.fields];
+      this.draggedGroupFields = [...fragmentFields];
       // Use first field as representative for dataTransfer
       this.draggedField = null;
       this.draggedIndex = null;
@@ -714,12 +752,16 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
       this.clearDragClasses(columnList);
     });
 
-    // Group headers are also drop targets for other groups
+    // Group headers are also drop targets for other groups (or other fragments of the same group)
     header.addEventListener('dragover', (e: DragEvent) => {
       e.preventDefault();
       if (!this.isDragging) return;
-      // Can't drop onto self
-      if (this.draggedGroupId === group.id) return;
+      // Can't drop onto the same fragment (same exact fields)
+      if (
+        this.draggedGroupFields.length === fragmentFields.length &&
+        this.draggedGroupFields.every((f) => fragmentFields.includes(f))
+      )
+        return;
       // Can't drop individual columns onto group headers
       if (!this.draggedGroupId) return;
 
@@ -739,25 +781,28 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
 
     header.addEventListener('drop', (e: DragEvent) => {
       e.preventDefault();
-      if (!this.isDragging || !this.draggedGroupId || this.draggedGroupId === group.id) return;
+      if (!this.isDragging || !this.draggedGroupId) return;
+      // Can't drop onto the same fragment
+      if (
+        this.draggedGroupFields.length === fragmentFields.length &&
+        this.draggedGroupFields.every((f) => fragmentFields.includes(f))
+      )
+        return;
 
       const rect = header.getBoundingClientRect();
       const before = e.clientY < rect.top + rect.height / 2;
 
-      this.executeGroupDrop(this.draggedGroupFields, group.fields, before, columnList);
+      this.executeGroupDrop(this.draggedGroupFields, fragmentFields, before);
     });
   }
 
   /**
-   * Execute a group drop — move the dragged group's fields as a block
-   * to the position relative to the target group or column.
+   * Execute a group drop — move the dragged fragment's fields as a block
+   * to the position relative to the target group/column.
+   * Routes through the ReorderPlugin when available for proper animation and
+   * full render cycle, otherwise falls back to direct grid.setColumnOrder().
    */
-  private executeGroupDrop(
-    draggedFields: string[],
-    targetFields: string[],
-    before: boolean,
-    columnList: HTMLElement,
-  ): void {
+  private executeGroupDrop(draggedFields: string[], targetFields: string[], before: boolean): void {
     const allColumns = this.grid.getAllColumns();
     const currentOrder = allColumns.map((c) => c.field);
 
@@ -777,10 +822,20 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     const draggedInOrder = currentOrder.filter((f) => draggedFields.includes(f));
     remaining.splice(insertIndex, 0, ...draggedInOrder);
 
-    this.grid.setColumnOrder(remaining);
-    // Panel rebuild handled by column-move listener — but since we're calling
-    // setColumnOrder directly (not through ReorderPlugin.moveColumn), we need
-    // to manually trigger a rebuild.
+    // Route through ReorderPlugin.setColumnOrder when available and attached —
+    // this calls updateColumnOrder which handles animation and forceLayout for
+    // proper body cell rebuilds. Fall back to direct grid.setColumnOrder otherwise.
+    const reorderPlugin = this.grid.getPluginByName?.('reorder') as
+      | { setColumnOrder?: (o: string[]) => void; gridElement?: unknown }
+      | undefined;
+    if (reorderPlugin?.setColumnOrder && reorderPlugin.gridElement) {
+      reorderPlugin.setColumnOrder(remaining);
+    } else {
+      this.grid.setColumnOrder(remaining);
+    }
+
+    // Panel rebuild is handled by the column-move listener when ReorderPlugin
+    // emits the event. For the direct fallback path, trigger manually.
     requestAnimationFrame(() => {
       if (this.columnListElement) {
         this.rebuildToggles(this.columnListElement);
@@ -867,7 +922,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
         if (row.classList.contains('tbw-visibility-row--grouped')) return;
         const rect = row.getBoundingClientRect();
         const before = e.clientY < rect.top + rect.height / 2;
-        this.executeGroupDrop(this.draggedGroupFields, [field], before, columnList);
+        this.executeGroupDrop(this.draggedGroupFields, [field], before);
         return;
       }
 

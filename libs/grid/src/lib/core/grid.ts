@@ -1447,6 +1447,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       return;
     }
 
+    // Resolve the --tbw-row-height CSS variable to detect theme changes.
+    // When a theme is swapped, the computed value changes (e.g., 52px → 28px).
+    // We accept both increases AND decreases from the CSS variable because
+    // this reflects an intentional style change, not content oscillation.
+    const cssRowHeight = this.#resolveCssRowHeight();
+
     // Find the tallest cell in the row (custom renderers may push some cells taller)
     const cells = firstRow.querySelectorAll('.cell');
     let maxCellHeight = 0;
@@ -1459,17 +1465,42 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
     // Use the larger of row height or max cell height
     const measuredHeight = Math.max(rowRect.height, maxCellHeight);
-    // Only accept height INCREASES (with 1px threshold for sub-pixel rounding).
-    // Decreases are ignored because mixed-height content (e.g., server-side plugin
-    // placeholder rows vs real data rows) can cause oscillation: the ResizeObserver
-    // measures a short placeholder → rowHeight decreases → spacer shrinks → scroll
-    // maps to different rows (tall real data) → rowHeight increases → spacer grows
-    // → scroll maps back to placeholders → repeat forever.
-    if (measuredHeight > 0 && measuredHeight - this._virtualization.rowHeight > 1) {
-      this._virtualization.rowHeight = measuredHeight;
+
+    // Determine if the row height changed.
+    // - CSS variable changes (theme switch): accept both increases AND decreases
+    // - Content-based changes: only accept increases to avoid oscillation from
+    //   mixed-height content (e.g., server-side plugin placeholder vs real rows)
+    const currentHeight = this._virtualization.rowHeight;
+    const cssChanged = cssRowHeight > 0 && Math.abs(cssRowHeight - currentHeight) > 1;
+    const contentGrew = measuredHeight > 0 && measuredHeight - currentHeight > 1;
+
+    if (cssChanged || contentGrew) {
+      // Prefer CSS-resolved height for theme changes; use measured height for content growth
+      this._virtualization.rowHeight = cssChanged ? Math.max(cssRowHeight, measuredHeight) : measuredHeight;
       // Use scheduler to batch with other pending work
       this.#scheduler.requestPhase(RenderPhase.VIRTUALIZATION, 'measureRowHeight');
     }
+  }
+
+  /**
+   * Resolve the --tbw-row-height CSS variable to a pixel value.
+   * Reads from an existing row cell (which uses min-height: var(--tbw-row-height))
+   * to avoid creating/removing temporary DOM elements.
+   * Returns 0 if no row is available or the variable is unset.
+   */
+  #resolveCssRowHeight(): number {
+    const raw = getComputedStyle(this).getPropertyValue('--tbw-row-height').trim();
+    if (!raw) return 0;
+    // Pure pixel value — fast path, no DOM measurement needed
+    if (raw.endsWith('px')) return parseFloat(raw) || 0;
+    // Relative units (em, rem, etc.) — resolve from an existing cell's computed min-height.
+    // Cells bind to --tbw-row-height via CSS, so their resolved min-height gives the pixel value.
+    const cell = this._bodyEl?.querySelector(
+      '.data-grid-row:not([style*="--tbw-row-height"]) > .cell',
+    ) as HTMLElement | null;
+    if (!cell) return 0;
+    const minHeight = parseFloat(getComputedStyle(cell).minHeight);
+    return minHeight > 0 ? minHeight : 0;
   }
 
   /**

@@ -1,0 +1,118 @@
+---
+/**
+ * FullscreenButton.astro — Reusable fullscreen toggle using the native Fullscreen API.
+ *
+ * Renders a small button that, on click, puts the closest matching ancestor
+ * into fullscreen mode. The browser provides a native "Press Escape to exit"
+ * indicator. The button icon toggles between expand and collapse states.
+ *
+ * Usage:
+ * ```astro
+ * <div class="my-container">
+ *   <FullscreenButton target=".my-container" />
+ *   <tbw-grid></tbw-grid>
+ * </div>
+ * ```
+ */
+interface Props {
+  /** CSS selector for the element to fullscreen (resolved via `.closest()` from the button) */
+  target: string;
+  /** Button tooltip / accessible label */
+  label?: string;
+}
+
+const { target, label = 'Open in fullscreen' } = Astro.props;
+---
+
+<button
+  class="fullscreen-btn"
+  data-fs-target={target}
+  type="button"
+  title={label}
+  aria-label={label}
+>
+  <svg class="fullscreen-btn__expand" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <polyline points="15 3 21 3 21 9" />
+    <polyline points="9 21 3 21 3 15" />
+    <line x1="21" y1="3" x2="14" y2="10" />
+    <line x1="3" y1="21" x2="10" y2="14" />
+  </svg>
+  <svg class="fullscreen-btn__collapse" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <polyline points="4 14 10 14 10 20" />
+    <polyline points="20 10 14 10 14 4" />
+    <line x1="14" y1="10" x2="21" y2="3" />
+    <line x1="3" y1="21" x2="10" y2="14" />
+  </svg>
+</button>
+
+<script>
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('.fullscreen-btn') as HTMLButtonElement | null;
+    if (!btn) return;
+
+    const selector = btn.dataset.fsTarget;
+    if (!selector) return;
+
+    const target = btn.closest(selector);
+    if (!target) return;
+
+    if (document.fullscreenElement === target) {
+      document.exitFullscreen();
+    } else {
+      target.requestFullscreen();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    // Update all fullscreen buttons to reflect current state
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.fullscreen-btn');
+    for (const btn of buttons) {
+      const selector = btn.dataset.fsTarget;
+      if (!selector) continue;
+      const target = btn.closest(selector);
+      const isFullscreen = document.fullscreenElement === target;
+      btn.classList.toggle('fullscreen-btn--active', isFullscreen);
+      btn.title = isFullscreen ? 'Exit fullscreen' : 'Open in fullscreen';
+      btn.setAttribute('aria-label', isFullscreen ? 'Exit fullscreen' : 'Open in fullscreen');
+    }
+  });
+</script>
+
+<style>
+  .fullscreen-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 6px;
+    background: var(--sl-color-gray-6);
+    color: var(--sl-color-gray-2);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    line-height: 1;
+  }
+
+  .fullscreen-btn:hover {
+    color: var(--sl-color-text);
+    background: var(--sl-color-gray-5);
+  }
+
+  .fullscreen-btn:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Toggle expand/collapse icons */
+  .fullscreen-btn__collapse {
+    display: none;
+  }
+
+  .fullscreen-btn--active .fullscreen-btn__expand {
+    display: none;
+  }
+
+  .fullscreen-btn--active .fullscreen-btn__collapse {
+    display: block;
+  }
+</style>

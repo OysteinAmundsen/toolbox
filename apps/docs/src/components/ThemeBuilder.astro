@@ -5,6 +5,7 @@
  * Ported from ThemeBuilder.stories.ts. Lets users customize all CSS variables
  * and export the result as a reusable theme CSS file.
  */
+import FullscreenButton from './FullscreenButton.astro';
 ---
 
 <div class="theme-builder-container not-content" id="theme-builder">
@@ -14,6 +15,7 @@
     <button class="theme-builder-btn" id="tb-download">💾 Download CSS</button>
     <button class="theme-builder-btn" id="tb-preview">👁 Preview CSS</button>
     <button class="theme-builder-btn" id="tb-reset" style="margin-left:auto;">↺ Reset</button>
+    <FullscreenButton target=".theme-builder-container" label="Open theme builder in fullscreen" />
   </div>
   <div class="theme-builder-main">
     <div class="theme-builder-grid-wrapper">
@@ -847,6 +849,11 @@ VisibilityPlugin,
     height: 90vh;
     display: grid;
     grid-template-rows: auto 1fr auto;
+  }
+
+  .theme-builder-container:fullscreen {
+    height: 100vh;
+    background: var(--sl-color-bg, #fff);
   }
 
   .theme-builder-toolbar {

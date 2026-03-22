@@ -14,6 +14,7 @@
  * ```
  */
 import { Code } from 'astro-expressive-code/components';
+import FullscreenButton from './FullscreenButton.astro';
 
 interface Props {
   /** Path to the demo .astro file, relative to src/components/ */
@@ -253,6 +254,7 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
 
 {source ? (
   <div class="show-source-wrapper not-content">
+    <FullscreenButton target=".show-source-wrapper" label="Open demo in fullscreen" />
     <slot />
     <div class="demo-source-panel">
       <button class="demo-source-toggle" type="button" aria-expanded="false">
@@ -369,6 +371,47 @@ const inlineHtml = isSimpleHtml ? htmlSource : '';
     border-top: 0;
     border-radius: 0 0 8px 8px;
     overflow: hidden;
+  }
+
+  /* --- Fullscreen button: top-right overlay on the demo --- */
+  .show-source-wrapper > :global(.fullscreen-btn) {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.15s, background 0.15s;
+  }
+
+  .show-source-wrapper:hover > :global(.fullscreen-btn),
+  .show-source-wrapper:focus-within > :global(.fullscreen-btn),
+  .show-source-wrapper > :global(.fullscreen-btn:focus-visible) {
+    opacity: 1;
+  }
+
+  /* Always visible when in fullscreen */
+  .show-source-wrapper > :global(.fullscreen-btn.fullscreen-btn--active) {
+    opacity: 1;
+  }
+
+  /* --- Fullscreen mode --- */
+  .show-source-wrapper:fullscreen {
+    background: var(--sl-color-bg, #fff);
+    padding: 2rem;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .show-source-wrapper:fullscreen > :global(.grid-demo) tbw-grid,
+  .show-source-wrapper:fullscreen > :global(.grid-playground) tbw-grid {
+    height: 80vh;
+  }
+
+  .show-source-wrapper:fullscreen > :global(.grid-demo),
+  .show-source-wrapper:fullscreen > :global(.grid-playground) {
+    flex: 1;
+    border-radius: 8px;
   }
 
   /* --- Toggle button --- */

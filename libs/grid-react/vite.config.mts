@@ -4,6 +4,7 @@ import { copyFileSync } from 'fs';
 import * as path from 'path';
 import { defineConfig, type Plugin } from 'vite';
 import dts from 'vite-plugin-dts';
+import { bundleBudget } from '../../tools/vite-bundle-budget';
 
 const outDir = path.resolve(import.meta.dirname, '../../dist/libs/grid-react');
 
@@ -36,6 +37,10 @@ export default defineConfig(() => ({
       pathsToAliases: false,
     }),
     copyReadme(),
+    bundleBudget({
+      outDir,
+      budgets: [{ path: 'index.js', maxSize: 50 * 1024 }],
+    }),
   ],
   build: {
     outDir: '../../dist/libs/grid-react',

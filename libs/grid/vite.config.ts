@@ -5,6 +5,7 @@ import cleanup from 'rollup-plugin-cleanup';
 import { build, BuildOptions, defineConfig, LibraryOptions, Plugin } from 'vite';
 import dts from 'vite-plugin-dts';
 import { gzipSync } from 'zlib';
+import { bundleBudget } from '../../tools/vite-bundle-budget';
 
 // Read package.json version for build-time injection
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
@@ -355,7 +356,20 @@ export default defineConfig(({ command }) => ({
     }),
     // Only run build-specific plugins during actual build, not during tests
     ...(command === 'build'
-      ? [copyThemes(), copyReadme(), buildPluginModules(), buildFeatureModules(), buildUmdBundles()]
+      ? [
+          copyThemes(),
+          copyReadme(),
+          buildPluginModules(),
+          buildFeatureModules(),
+          buildUmdBundles(),
+          bundleBudget({
+            outDir,
+            budgets: [
+              { path: 'index.js', maxSize: 170 * 1024, maxGzip: 45 * 1024 },
+              { path: 'lib/plugins/*/index.js', maxSize: 50 * 1024 },
+            ],
+          }),
+        ]
       : []),
   ],
   build: {

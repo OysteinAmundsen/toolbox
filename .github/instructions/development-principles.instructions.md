@@ -17,6 +17,9 @@ Every change must consider these three pillars:
 ## Bundle Size
 
 - **Core budget**: `index.js` must stay ≤170 kB (≤45 kB gzipped)
+- **Plugin budget**: Each plugin ≤50 kB
+- **Adapter budgets**: `grid-react/index.js` ≤50 kB, `grid-vue/index.js` ≤50 kB
+- **Enforced automatically**: Vite `bundleBudget` plugin fails the build on violations (see `tools/vite-bundle-budget.ts`)
 - **Tree-shakeable**: Features and plugins are separate entry points, not bundled in core
 - **No dead code**: Remove unused functions, imports, and types immediately
 - **Minimize abstraction overhead**: Prefer inline code over creating classes/wrappers for simple operations

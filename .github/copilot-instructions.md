@@ -70,7 +70,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 ## Core Constraints
 
 - **Delivery workflow is mandatory:** Every change — no matter how small — must follow the 5-step delivery checklist in `delivery-workflow.instructions.md`: implement → test → build/lint → docs → retrospective. Do not consider work complete until all steps are finished. No exceptions.
-- **Bundle budget:** `index.js` ≤170 kB (≤45 kB gzipped) — verify with `bun nx build grid`
+- **Bundle budget:** `index.js` ≤170 kB (≤45 kB gzipped), plugins ≤50 kB each, adapters: react ≤50 kB / vue ≤50 kB — enforced by `tools/vite-bundle-budget.ts` plugin (build fails on violation)
 - **Always use Nx:** `bun nx <target> <project>`, never invoke Vitest/Vite/ESLint directly
 - **Strict TypeScript:** `strict: true`, no implicit any
 - **Code style:** ESLint flat config + Prettier defaults

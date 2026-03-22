@@ -80,4 +80,11 @@ export default [
       '@nx/enforce-module-boundaries': 'off',
     },
   },
+  {
+    // Disable module boundary checks for lib vite configs (they import shared build tools)
+    files: ['libs/**/vite.config.ts', 'libs/**/vite.config.mts'],
+    rules: {
+      '@nx/enforce-module-boundaries': 'off',
+    },
+  },
 ];

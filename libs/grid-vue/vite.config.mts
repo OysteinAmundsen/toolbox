@@ -5,6 +5,7 @@ import * as path from 'path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+import { bundleBudget } from '../../tools/vite-bundle-budget';
 
 const outDir = path.resolve(import.meta.dirname, '../../dist/libs/grid-vue');
 
@@ -49,6 +50,10 @@ export default defineConfig(() => ({
       },
     }),
     copyReadme(),
+    bundleBudget({
+      outDir,
+      budgets: [{ path: 'index.js', maxSize: 50 * 1024 }],
+    }),
   ],
   build: {
     outDir: '../../dist/libs/grid-vue',

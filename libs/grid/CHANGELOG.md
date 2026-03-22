@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.27.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.26.2...grid-1.27.0) (2026-03-22)
+
+
+### Features
+
+* **grid:** enable master-detail and row-grouping plugins to work together ([ea5461d](https://github.com/OysteinAmundsen/toolbox/commit/ea5461d97e1e4af8e90daa0f05eed6d3279ae710))
+* **grid:** fragment column groups when columns are reordered across boundaries ([4b91a77](https://github.com/OysteinAmundsen/toolbox/commit/4b91a770e487176a15b4101546e2f04ede73e37e))
+* **grid:** make PinnedColumnsPlugin and GroupingColumnsPlugin compatible ([d6a30e4](https://github.com/OysteinAmundsen/toolbox/commit/d6a30e4f66a37268888d7e60e091296d01f85c68))
+* **grid:** support overlay label in per-column aggregation rows ([ea5e3b3](https://github.com/OysteinAmundsen/toolbox/commit/ea5e3b3e6631e50058bde54a15186a18c758a614))
+
+
+### Bug Fixes
+
+* **grid:** declare incompatible plugin combinations for row-model and server-side plugins ([c46bc30](https://github.com/OysteinAmundsen/toolbox/commit/c46bc30ea1ff00737fc524cf39a871cfafbb3af3))
+* **grid:** downgrade TBW021 optional dependency diagnostic to console.debug ([ecef0cd](https://github.com/OysteinAmundsen/toolbox/commit/ecef0cd392d7ca7a058ecb5fdf66ec010a363eb9))
+* **grid:** fix aggregation cell alignment shift from sticky label grid placement ([360a853](https://github.com/OysteinAmundsen/toolbox/commit/360a853893c92cebfd1221ba0854598a491b6a26))
+* **grid:** pin column group headers and fix group-end borders at pin boundaries ([437eb54](https://github.com/OysteinAmundsen/toolbox/commit/437eb54587688ef7195c2e9b8e62a9a336f053b4))
+* **grid:** pin column group headers with their pinned columns ([4e3e7b1](https://github.com/OysteinAmundsen/toolbox/commit/4e3e7b1f54dae8876c6e4096637fb9bc8c466571))
+* **grid:** prevent data columns from being absorbed into adjacent group headers ([dadbf56](https://github.com/OysteinAmundsen/toolbox/commit/dadbf56287ef1ac95ba6c6faf3c79fe26ee763fd))
+* **grid:** recalculate virtual scroll height when theme changes row height ([e833ac4](https://github.com/OysteinAmundsen/toolbox/commit/e833ac432baf14e4aa37688a761b79d26946e95b))
+* **grid:** remove stale responsive/groupingRows incompatibility — variable row heights now supported ([7e1c13f](https://github.com/OysteinAmundsen/toolbox/commit/7e1c13fa880bde390bdad315d2aa95906f8ceb4b))
+* **grid:** replace unreliable children[0] with querySelector in plugins ([a4b6fff](https://github.com/OysteinAmundsen/toolbox/commit/a4b6fff7d24902f8f56ea5df11f16c8214806ab8))
+* **grid:** separate resize handle hit area from visual width and freeze columns during resize ([a80088e](https://github.com/OysteinAmundsen/toolbox/commit/a80088e704b21050e112c83366181ddd1162ad3d))
+* **grid:** support group header drag in grid and fragment-aware visibility panel ([f1d2d1c](https://github.com/OysteinAmundsen/toolbox/commit/f1d2d1c344a1e6ab45e58aa7e1ba45740870a2d8))
+
 ## [1.26.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.26.1...grid-1.26.2) (2026-03-20)
 
 

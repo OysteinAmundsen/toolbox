@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.27.0...grid-1.27.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **grid:** fix custom elements manifest for webcomponents.org compatibility ([194ed8f](https://github.com/OysteinAmundsen/toolbox/commit/194ed8f7dc1a3e95c93e65b79ca0dbfdf7759005))
+
 ## [1.27.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.26.2...grid-1.27.0) (2026-03-22)
 
 

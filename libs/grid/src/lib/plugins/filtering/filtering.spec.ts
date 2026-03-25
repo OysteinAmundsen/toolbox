@@ -1678,6 +1678,515 @@ describe('FilteringPlugin class', () => {
 
   // #endregion
 
+  // #region Stale Filter Detection (#166)
+
+  describe('getStaleFilters', () => {
+    it('should detect stale notIn filter when all values are excluded', () => {
+      const rows = [{ status: 'Active' }, { status: 'Pending' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      // Exclude all values → stale
+      plugin.setFilter('status', { type: 'set', operator: 'notIn', value: ['Active', 'Pending'] });
+      expect(plugin.getStaleFilters()).toHaveLength(1);
+      expect(plugin.getStaleFilters()[0].field).toBe('status');
+      grid._cleanup();
+    });
+
+    it('should not flag notIn filter as stale when some values remain selected', () => {
+      const rows = [{ status: 'Active' }, { status: 'Pending' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('status', { type: 'set', operator: 'notIn', value: ['Pending'] });
+      expect(plugin.getStaleFilters()).toHaveLength(0);
+      grid._cleanup();
+    });
+
+    it('should detect stale in filter when no included values exist in data', () => {
+      const rows = [{ status: 'Active' }, { status: 'Pending' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('status', { type: 'set', operator: 'in', value: ['Archived', 'Deleted'] });
+      expect(plugin.getStaleFilters()).toHaveLength(1);
+      grid._cleanup();
+    });
+
+    it('should not flag in filter as stale when some values exist', () => {
+      const rows = [{ status: 'Active' }, { status: 'Pending' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('status', { type: 'set', operator: 'in', value: ['Active', 'Archived'] });
+      expect(plugin.getStaleFilters()).toHaveLength(0);
+      grid._cleanup();
+    });
+
+    it('should ignore non-set filters', () => {
+      const rows = [{ name: 'Alice' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'xyz' });
+      expect(plugin.getStaleFilters()).toHaveLength(0);
+      grid._cleanup();
+    });
+
+    it('should emit filter-stale event when data changes make filters stale', () => {
+      const rows = [{ status: 'Active' }, { status: 'Pending' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('status', { type: 'set', operator: 'in', value: ['Active'] });
+
+      // Change data so 'Active' no longer exists
+      const newRows = [{ status: 'Archived' }, { status: 'Deleted' }];
+      (grid as any).sourceRows = newRows;
+      (grid as any).rows = newRows;
+
+      grid.dispatchEvent.mockClear();
+      plugin.processRows(newRows);
+
+      // Verify filter-stale was dispatched
+      const staleCall = grid.dispatchEvent.mock.calls.find(
+        (call: any[]) => call[0] instanceof CustomEvent && call[0].type === 'filter-stale',
+      );
+      expect(staleCall).toBeDefined();
+      expect(staleCall![0].detail.staleFilters).toHaveLength(1);
+      grid._cleanup();
+    });
+  });
+
+  // #endregion
+
+  // #region Set Filter UX Helpers (#167)
+
+  describe('isAllSelected', () => {
+    it('should return true when no filter is active', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      expect(plugin.isAllSelected('city')).toBe(true);
+      grid._cleanup();
+    });
+
+    it('should return true when notIn has empty exclusion list', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: [] });
+      expect(plugin.isAllSelected('city')).toBe(true);
+      grid._cleanup();
+    });
+
+    it('should return false when some values are excluded', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['LA'] });
+      expect(plugin.isAllSelected('city')).toBe(false);
+      grid._cleanup();
+    });
+
+    it('should return true when in filter includes all values', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'in', value: ['NYC', 'LA'] });
+      expect(plugin.isAllSelected('city')).toBe(true);
+      grid._cleanup();
+    });
+  });
+
+  describe('isIndeterminate', () => {
+    it('should return false when no filter active', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      expect(plugin.isIndeterminate('city')).toBe(false);
+      grid._cleanup();
+    });
+
+    it('should return true when some but not all are excluded', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }, { city: 'Chicago' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['LA'] });
+      expect(plugin.isIndeterminate('city')).toBe(true);
+      grid._cleanup();
+    });
+
+    it('should return false when all are excluded', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['NYC', 'LA'] });
+      expect(plugin.isIndeterminate('city')).toBe(false);
+      grid._cleanup();
+    });
+  });
+
+  describe('getSelectedValues', () => {
+    it('should return all values when no filter active', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      expect(plugin.getSelectedValues('city')).toEqual(['LA', 'NYC']);
+      grid._cleanup();
+    });
+
+    it('should exclude notIn values', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }, { city: 'Chicago' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['LA'] });
+      expect(plugin.getSelectedValues('city')).toEqual(['Chicago', 'NYC']);
+      grid._cleanup();
+    });
+
+    it('should return only in values that exist in data', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'in', value: ['NYC', 'Bogota'] });
+      expect(plugin.getSelectedValues('city')).toEqual(['NYC']);
+      grid._cleanup();
+    });
+  });
+
+  describe('getUniqueValuesSortedBySelection', () => {
+    it('should return selected values first, then unselected', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }, { city: 'Boston' }, { city: 'Chicago' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['LA', 'Chicago'] });
+      const sorted = plugin.getUniqueValuesSortedBySelection('city');
+      // Selected first (Boston, NYC), then unselected (Chicago, LA)
+      expect(sorted).toEqual(['Boston', 'NYC', 'Chicago', 'LA']);
+      grid._cleanup();
+    });
+  });
+
+  describe('getFilterSummaryLabel', () => {
+    it('should return "All" when no filter active', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      expect(plugin.getFilterSummaryLabel('city')).toBe('All');
+      grid._cleanup();
+    });
+
+    it('should return "None" when all values excluded', () => {
+      const rows = [{ city: 'NYC' }, { city: 'LA' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['NYC', 'LA'] });
+      expect(plugin.getFilterSummaryLabel('city')).toBe('None');
+      grid._cleanup();
+    });
+
+    it('should show items with +N more for overflow', () => {
+      const rows = [{ city: 'A' }, { city: 'B' }, { city: 'C' }, { city: 'D' }, { city: 'E' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['E'] });
+      // 4 selected (A, B, C, D), maxItems default 3 → "A, B, C +1 more"
+      expect(plugin.getFilterSummaryLabel('city')).toBe('A, B, C +1 more');
+      grid._cleanup();
+    });
+
+    it('should show all items when within maxItems', () => {
+      const rows = [{ city: 'A' }, { city: 'B' }, { city: 'C' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      plugin.setFilter('city', { type: 'set', operator: 'notIn', value: ['C'] });
+      expect(plugin.getFilterSummaryLabel('city')).toBe('A, B');
+      grid._cleanup();
+    });
+  });
+
+  // #endregion
+
+  // #region Data Range Helpers (#168)
+
+  describe('getNumericDataRange', () => {
+    it('should return min/max for numeric values', () => {
+      const rows = [{ age: 25 }, { age: 30 }, { age: 18 }, { age: 42 }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      const range = plugin.getNumericDataRange('age');
+      expect(range).toEqual({ min: 18, max: 42 });
+      grid._cleanup();
+    });
+
+    it('should apply floor/ceil to min/max', () => {
+      const rows = [{ price: 9.3 }, { price: 99.7 }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      const range = plugin.getNumericDataRange('price');
+      expect(range).toEqual({ min: 9, max: 100 });
+      grid._cleanup();
+    });
+
+    it('should return null when no numeric values exist', () => {
+      const rows = [{ status: 'Active' }, { status: 'Pending' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      expect(plugin.getNumericDataRange('status')).toBeNull();
+      grid._cleanup();
+    });
+
+    it('should ignore non-numeric values in mixed columns', () => {
+      const rows = [{ val: 10 }, { val: 'text' }, { val: 50 }, { val: null }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      const range = plugin.getNumericDataRange('val');
+      expect(range).toEqual({ min: 10, max: 50 });
+      grid._cleanup();
+    });
+  });
+
+  describe('getDateDataRange', () => {
+    it('should return from/to for Date objects', () => {
+      const rows = [{ d: new Date('2024-01-15') }, { d: new Date('2024-06-30') }, { d: new Date('2024-03-01') }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      const range = plugin.getDateDataRange('d');
+      expect(range).not.toBeNull();
+      expect(range!.from.toISOString().slice(0, 10)).toBe('2024-01-15');
+      expect(range!.to.toISOString().slice(0, 10)).toBe('2024-06-30');
+      grid._cleanup();
+    });
+
+    it('should handle ISO date strings', () => {
+      const rows = [{ d: '2024-01-01' }, { d: '2024-12-31' }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      const range = plugin.getDateDataRange('d');
+      expect(range).not.toBeNull();
+      expect(range!.from.toISOString().slice(0, 10)).toBe('2024-01-01');
+      expect(range!.to.toISOString().slice(0, 10)).toBe('2024-12-31');
+      grid._cleanup();
+    });
+
+    it('should return null when no valid dates exist', () => {
+      const rows = [{ d: 'not-a-date' }, { d: 42 }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      expect(plugin.getDateDataRange('d')).toBeNull();
+      grid._cleanup();
+    });
+  });
+
+  // #endregion
+
+  // #region Blank Filter Toggle Helpers (#169)
+
+  describe('isBlankFilter', () => {
+    it('should return false when no filter active', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      expect(plugin.isBlankFilter('any')).toBe(false);
+      grid._cleanup();
+    });
+
+    it('should return true for blank operator', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.setFilter('field', { type: 'text', operator: 'blank', value: '' });
+      expect(plugin.isBlankFilter('field')).toBe(true);
+      grid._cleanup();
+    });
+
+    it('should return true for notBlank operator', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.setFilter('field', { type: 'text', operator: 'notBlank', value: '' });
+      expect(plugin.isBlankFilter('field')).toBe(true);
+      grid._cleanup();
+    });
+
+    it('should return false for other operators', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.setFilter('field', { type: 'text', operator: 'contains', value: 'x' });
+      expect(plugin.isBlankFilter('field')).toBe(false);
+      grid._cleanup();
+    });
+  });
+
+  describe('getBlankMode', () => {
+    it('should return all when no filter', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      expect(plugin.getBlankMode('field')).toBe('all');
+      grid._cleanup();
+    });
+
+    it('should return blanksOnly for blank operator', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.setFilter('field', { type: 'text', operator: 'blank', value: '' });
+      expect(plugin.getBlankMode('field')).toBe('blanksOnly');
+      grid._cleanup();
+    });
+
+    it('should return nonBlanksOnly for notBlank operator', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.setFilter('field', { type: 'text', operator: 'notBlank', value: '' });
+      expect(plugin.getBlankMode('field')).toBe('nonBlanksOnly');
+      grid._cleanup();
+    });
+  });
+
+  describe('toggleBlankFilter', () => {
+    it('should set blank operator for blanksOnly mode', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.toggleBlankFilter('field', 'blanksOnly');
+      const filter = plugin.getFilter('field');
+      expect(filter?.operator).toBe('blank');
+      grid._cleanup();
+    });
+
+    it('should set notBlank operator for nonBlanksOnly mode', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.toggleBlankFilter('field', 'nonBlanksOnly');
+      const filter = plugin.getFilter('field');
+      expect(filter?.operator).toBe('notBlank');
+      grid._cleanup();
+    });
+
+    it('should clear filter for all mode', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      plugin.toggleBlankFilter('field', 'blanksOnly');
+      expect(plugin.isFieldFiltered('field')).toBe(true);
+
+      plugin.toggleBlankFilter('field', 'all');
+      expect(plugin.isFieldFiltered('field')).toBe(false);
+      grid._cleanup();
+    });
+
+    it('should stash active range filter and restore on all', () => {
+      const rows = [{ price: 10 }, { price: 50 }, { price: null }];
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock(rows);
+      plugin.attach(grid as any);
+
+      // Set a range filter first
+      plugin.setFilter('price', { type: 'number', operator: 'between', value: 10, valueTo: 50 });
+      expect(plugin.getFilter('price')?.operator).toBe('between');
+
+      // Switch to blanksOnly — should stash the range
+      plugin.toggleBlankFilter('price', 'blanksOnly');
+      expect(plugin.getFilter('price')?.operator).toBe('blank');
+
+      // Switch back to all — should restore the stashed range
+      plugin.toggleBlankFilter('price', 'all');
+      const restored = plugin.getFilter('price');
+      expect(restored?.operator).toBe('between');
+      expect(restored?.value).toBe(10);
+      expect(restored?.valueTo).toBe(50);
+      grid._cleanup();
+    });
+
+    it('should preserve stash when toggling between blank modes', () => {
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock();
+      plugin.attach(grid as any);
+
+      // Set a text filter then switch to blanksOnly
+      plugin.setFilter('name', { type: 'text', operator: 'contains', value: 'xyz' });
+      plugin.toggleBlankFilter('name', 'blanksOnly');
+
+      // Toggle to nonBlanksOnly — stash should be preserved
+      plugin.toggleBlankFilter('name', 'nonBlanksOnly');
+      expect(plugin.getFilter('name')?.operator).toBe('notBlank');
+
+      // Restore
+      plugin.toggleBlankFilter('name', 'all');
+      expect(plugin.getFilter('name')?.operator).toBe('contains');
+      expect(plugin.getFilter('name')?.value).toBe('xyz');
+      grid._cleanup();
+    });
+  });
+
+  // #endregion
+
   // #endregion
 });
 

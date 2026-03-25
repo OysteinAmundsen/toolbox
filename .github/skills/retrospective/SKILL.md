@@ -36,6 +36,8 @@ Determine where the lesson belongs:
 | **Tool/command discovery**  | Existing instruction or skill that uses the tool                             | Better CLI flag, new MCP tool usage              |
 | **Pitfall / gotcha**        | `.github/instructions/grid-pitfalls.instructions.md` or relevant instruction | Things that waste time if not known              |
 
+**Before choosing a target**, scan the full list of instruction files in `.github/instructions/` and skill files in `.github/skills/`. The right home is whichever file a future agent would have loaded when it needed the lesson. Grid-pitfalls is appropriate only for gotchas specific to the grid's DOM/render behavior — most lessons belong elsewhere.
+
 ### Decision: New file or update existing?
 
 - **Update existing** if the lesson fits an existing instruction or skill topic
@@ -145,6 +147,7 @@ Present the retrospective findings as a brief report:
 
 ## Anti-Patterns
 
+- **Don't default to grid-pitfalls** — Pitfalls is just _one_ target. Most lessons belong in architecture, API, testing, CSS, TypeScript conventions, or workflow instructions. Ask "where would a future agent need this?" and route accordingly
 - **Don't document one-off quirks** that will never recur
 - **Don't bloat the main file** — always ask "can this live in an instruction or skill instead?"
 - **Don't duplicate** — if the advice exists elsewhere, add a cross-reference, not a copy

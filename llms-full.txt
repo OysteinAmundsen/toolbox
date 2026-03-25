@@ -910,6 +910,26 @@ new FilteringPlugin({
 // trackColumnState: when true, filter state is included in column-state-change snapshots and filter
 //   changes fire the column-state-change event (debounced). When false (default), filters are excluded
 //   from column state entirely.
+//
+// Stale filter detection:
+//   getStaleFilters() → FilterModel[]  — set filters where no values match current data
+//   'filter-stale' event emitted when data changes make set filters stale
+//
+// Set filter UX helpers:
+//   isAllSelected(field) → boolean     — true if all values selected (no set filter or empty exclusion)
+//   isIndeterminate(field) → boolean   — true if some but not all values selected
+//   getSelectedValues(field) → unknown[]  — currently selected (included) values
+//   getUniqueValuesSortedBySelection(field) → unknown[]  — selected first, then unselected
+//   getFilterSummaryLabel(field, maxItems?) → string  — 'All', 'None', or 'A, B +N more'
+//
+// Data range helpers:
+//   getNumericDataRange(field) → { min, max } | null  — floor/ceil bounds of numeric column
+//   getDateDataRange(field) → { from: Date, to: Date } | null  — earliest/latest dates in column
+//
+// Blank filter toggle:
+//   isBlankFilter(field) → boolean  — true if blank or notBlank operator active
+//   getBlankMode(field) → 'all' | 'blanksOnly' | 'nonBlanksOnly'
+//   toggleBlankFilter(field, mode) — switches blank mode, stashes/restores active filter
 ```
 
 ### TreePlugin

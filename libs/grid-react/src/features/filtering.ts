@@ -34,16 +34,19 @@
 import type { DataGridElement } from '@toolbox-web/grid';
 import {
   FilteringPlugin,
+  type BlankMode,
+  type DateDataRange,
   type FilterConfig,
   type FilterModel,
   type FilterPanelParams,
+  type NumericDataRange,
 } from '@toolbox-web/grid/plugins/filtering';
 import type { ReactNode } from 'react';
 import { useCallback, useContext } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { GridElementContext } from '../lib/grid-element-context';
 import { registerFeature } from '../lib/feature-registry';
+import { GridElementContext } from '../lib/grid-element-context';
 
 registerFeature('filtering', (rawConfig) => {
   if (typeof rawConfig === 'boolean') return new FilteringPlugin();
@@ -119,6 +122,61 @@ export interface FilteringMethods {
    * Get unique values for a field (for building filter dropdowns).
    */
   getUniqueValues: (field: string) => unknown[];
+
+  /**
+   * Get set filters whose values no longer match any rows in the current data.
+   */
+  getStaleFilters: () => FilterModel[];
+
+  /**
+   * Check if all unique values are selected for a set filter field.
+   */
+  isAllSelected: (field: string) => boolean;
+
+  /**
+   * Check if a set filter has some but not all values selected.
+   */
+  isIndeterminate: (field: string) => boolean;
+
+  /**
+   * Get the currently selected values for a set filter field.
+   */
+  getSelectedValues: (field: string) => unknown[];
+
+  /**
+   * Get unique values sorted by selection state (selected first).
+   */
+  getUniqueValuesSortedBySelection: (field: string) => unknown[];
+
+  /**
+   * Get a summary label for a set filter (e.g. 'All', 'None', 'A, B +2 more').
+   */
+  getFilterSummaryLabel: (field: string, maxItems?: number) => string;
+
+  /**
+   * Get the numeric min/max range for a column's values.
+   */
+  getNumericDataRange: (field: string) => NumericDataRange | null;
+
+  /**
+   * Get the date range (earliest/latest) for a column's values.
+   */
+  getDateDataRange: (field: string) => DateDataRange | null;
+
+  /**
+   * Check if a field has a blank or notBlank filter active.
+   */
+  isBlankFilter: (field: string) => boolean;
+
+  /**
+   * Get the current blank mode for a field.
+   */
+  getBlankMode: (field: string) => BlankMode;
+
+  /**
+   * Toggle blank filter mode for a field.
+   */
+  toggleBlankFilter: (field: string, mode: BlankMode) => void;
 }
 
 /**
@@ -225,6 +283,54 @@ export function useGridFiltering(): FilteringMethods {
 
   const getUniqueValues = useCallback((field: string) => getPlugin()?.getUniqueValues(field) ?? [], [getPlugin]);
 
+  const getStaleFilters = useCallback(() => getPlugin()?.getStaleFilters() ?? [], [getPlugin]);
+
+  const isAllSelected = useCallback((field: string) => getPlugin()?.isAllSelected(field) ?? true, [getPlugin]);
+
+  const isIndeterminate = useCallback((field: string) => getPlugin()?.isIndeterminate(field) ?? false, [getPlugin]);
+
+  const getSelectedValues = useCallback((field: string) => getPlugin()?.getSelectedValues(field) ?? [], [getPlugin]);
+
+  const getUniqueValuesSortedBySelection = useCallback(
+    (field: string) => getPlugin()?.getUniqueValuesSortedBySelection(field) ?? [],
+    [getPlugin],
+  );
+
+  const getFilterSummaryLabel = useCallback(
+    (field: string, maxItems?: number) => getPlugin()?.getFilterSummaryLabel(field, maxItems) ?? 'All',
+    [getPlugin],
+  );
+
+  const getNumericDataRange = useCallback(
+    (field: string) => getPlugin()?.getNumericDataRange(field) ?? null,
+    [getPlugin],
+  );
+
+  const getDateDataRange = useCallback((field: string) => getPlugin()?.getDateDataRange(field) ?? null, [getPlugin]);
+
+  const isBlankFilter = useCallback((field: string) => getPlugin()?.isBlankFilter(field) ?? false, [getPlugin]);
+
+  const getBlankMode = useCallback(
+    (field: string): BlankMode => getPlugin()?.getBlankMode(field) ?? 'all',
+    [getPlugin],
+  );
+
+  const toggleBlankFilter = useCallback(
+    (field: string, mode: BlankMode) => {
+      const plugin = getPlugin();
+      if (!plugin) {
+        console.warn(
+          `[tbw-grid:filtering] FilteringPlugin not found.\n\n` +
+            `  → Enable filtering on the grid:\n` +
+            `    <DataGrid filtering />`,
+        );
+        return;
+      }
+      plugin.toggleBlankFilter(field, mode);
+    },
+    [getPlugin],
+  );
+
   return {
     setFilter,
     getFilter,
@@ -235,5 +341,16 @@ export function useGridFiltering(): FilteringMethods {
     isFieldFiltered,
     getFilteredRowCount,
     getUniqueValues,
+    getStaleFilters,
+    isAllSelected,
+    isIndeterminate,
+    getSelectedValues,
+    getUniqueValuesSortedBySelection,
+    getFilterSummaryLabel,
+    getNumericDataRange,
+    getDateDataRange,
+    isBlankFilter,
+    getBlankMode,
+    toggleBlankFilter,
   };
 }

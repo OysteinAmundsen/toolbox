@@ -23,7 +23,16 @@ import { renderDefaultFilterPanel } from './filter-panel-default';
 import { renderNumberFilterPanel } from './filter-panel-number';
 import styles from './filtering.css?inline';
 import filterPanelStyles from './FilteringPlugin.css?inline';
-import type { FilterChangeDetail, FilterConfig, FilterModel, FilterPanelParams } from './types';
+import type {
+  BlankMode,
+  DateDataRange,
+  FilterChangeDetail,
+  FilterConfig,
+  FilterModel,
+  FilterPanelParams,
+  FilterStaleDetail,
+  NumericDataRange,
+} from './types';
 
 /**
  * Filtering Plugin for tbw-grid
@@ -421,6 +430,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
           this.syncExcludedValues(field, filter);
         }
       }
+
+      // Emit filter-stale event if any set filters became stale after data change
+      const staleFilters = this.getStaleFilters();
+      if (staleFilters.length > 0) {
+        this.emit<FilterStaleDetail>('filter-stale', { staleFilters });
+      }
     }
 
     // Filter rows synchronously (worker support can be added later)
@@ -664,6 +679,221 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     const getter = col?.filterValue;
     return getUniqueValues(this.sourceRows as Record<string, unknown>[], field, getter);
   }
+
+  // #region Stale Filter Detection (#166)
+
+  /**
+   * Get set filters whose exclusion/inclusion list no longer matches any values
+   * in the current data, effectively selecting zero rows.
+   *
+   * - `notIn`: stale when every current unique value is in the exclusion list (selected count = 0)
+   * - `in`: stale when none of the included values exist in the current data
+   */
+  getStaleFilters(): FilterModel[] {
+    const stale: FilterModel[] = [];
+    for (const [field, filter] of this.filters) {
+      if (filter.type !== 'set') continue;
+      const unique = this.getUniqueValues(field);
+
+      if (filter.operator === 'notIn' && Array.isArray(filter.value)) {
+        const excluded = new Set(filter.value);
+        const selectedCount = unique.filter((v) => !excluded.has(v)).length;
+        if (selectedCount === 0) stale.push(filter);
+      } else if (filter.operator === 'in' && Array.isArray(filter.value)) {
+        const included = new Set(filter.value);
+        const matchCount = unique.filter((v) => included.has(v)).length;
+        if (matchCount === 0) stale.push(filter);
+      }
+    }
+    return stale;
+  }
+
+  // #endregion
+
+  // #region Set Filter UX Helpers (#167)
+
+  /**
+   * Check if all unique values are selected (none excluded) for a set filter field.
+   * Returns true when no set filter is active or when all values are selected.
+   */
+  isAllSelected(field: string): boolean {
+    const filter = this.filters.get(field);
+    if (!filter || filter.type !== 'set') return true;
+    const unique = this.getUniqueValues(field);
+    if (filter.operator === 'notIn' && Array.isArray(filter.value)) {
+      return filter.value.length === 0;
+    }
+    if (filter.operator === 'in' && Array.isArray(filter.value)) {
+      return filter.value.length >= unique.length;
+    }
+    return true;
+  }
+
+  /**
+   * Check if a set filter is in an indeterminate state (some but not all values selected).
+   */
+  isIndeterminate(field: string): boolean {
+    const filter = this.filters.get(field);
+    if (!filter || filter.type !== 'set') return false;
+    const unique = this.getUniqueValues(field);
+    if (filter.operator === 'notIn' && Array.isArray(filter.value)) {
+      return filter.value.length > 0 && filter.value.length < unique.length;
+    }
+    if (filter.operator === 'in' && Array.isArray(filter.value)) {
+      return filter.value.length > 0 && filter.value.length < unique.length;
+    }
+    return false;
+  }
+
+  /**
+   * Get the currently selected (included) values for a set filter field.
+   * For `notIn` filters: unique values minus excluded. For `in` filters: the included values.
+   * Returns all unique values when no set filter is active.
+   */
+  getSelectedValues(field: string): unknown[] {
+    const filter = this.filters.get(field);
+    const unique = this.getUniqueValues(field);
+    if (!filter || filter.type !== 'set') return unique;
+    if (filter.operator === 'notIn' && Array.isArray(filter.value)) {
+      const excluded = new Set(filter.value);
+      return unique.filter((v) => !excluded.has(v));
+    }
+    if (filter.operator === 'in' && Array.isArray(filter.value)) {
+      return filter.value.filter((v) => unique.includes(v));
+    }
+    return unique;
+  }
+
+  /**
+   * Get unique values sorted by selection state — selected items first,
+   * then unselected, alphabetical within each group.
+   */
+  getUniqueValuesSortedBySelection(field: string): unknown[] {
+    const unique = this.getUniqueValues(field);
+    const selected = new Set(this.getSelectedValues(field));
+    const selectedArr = unique.filter((v) => selected.has(v));
+    const unselectedArr = unique.filter((v) => !selected.has(v));
+    return [...selectedArr, ...unselectedArr];
+  }
+
+  /**
+   * Get a summary label for a set filter, suitable for dropdown trigger display.
+   * Returns 'All' when no filter, 'None' when all excluded, or up to `maxItems`
+   * item names with '+N more' overflow.
+   */
+  getFilterSummaryLabel(field: string, maxItems = 3): string {
+    const selected = this.getSelectedValues(field);
+    const unique = this.getUniqueValues(field);
+    if (selected.length === 0) return 'None';
+    if (selected.length === unique.length) return 'All';
+    const visible = selected.slice(0, maxItems).map(String);
+    const remaining = selected.length - maxItems;
+    return remaining > 0 ? `${visible.join(', ')} +${remaining} more` : visible.join(', ');
+  }
+
+  // #endregion
+
+  // #region Data Range Helpers (#168)
+
+  /**
+   * Get the numeric min/max range for a column's values.
+   * Returns null if no valid numeric values exist.
+   */
+  getNumericDataRange(field: string): NumericDataRange | null {
+    const values = this.getUniqueValues(field).filter((v): v is number => typeof v === 'number' && !isNaN(v));
+    if (values.length === 0) return null;
+    return { min: Math.floor(Math.min(...values)), max: Math.ceil(Math.max(...values)) };
+  }
+
+  /**
+   * Get the date range (earliest/latest) for a column's values.
+   * Handles Date objects and ISO date strings. Returns null if no valid dates exist.
+   */
+  getDateDataRange(field: string): DateDataRange | null {
+    const unique = this.getUniqueValues(field);
+    let min = Infinity;
+    let max = -Infinity;
+    let found = false;
+    for (const v of unique) {
+      const time = v instanceof Date ? v.getTime() : typeof v === 'string' ? new Date(v).getTime() : NaN;
+      if (isNaN(time)) continue;
+      found = true;
+      if (time < min) min = time;
+      if (time > max) max = time;
+    }
+    return found ? { from: new Date(min), to: new Date(max) } : null;
+  }
+
+  // #endregion
+
+  // #region Blank Filter Toggle Helpers (#169)
+
+  /**
+   * Check if a field currently has a blank or notBlank filter active.
+   */
+  isBlankFilter(field: string): boolean {
+    const filter = this.filters.get(field);
+    return filter?.operator === 'blank' || filter?.operator === 'notBlank';
+  }
+
+  /**
+   * Get the current blank mode for a field.
+   * - `'all'` — no blank filter active
+   * - `'blanksOnly'` — `blank` operator active
+   * - `'nonBlanksOnly'` — `notBlank` operator active
+   */
+  getBlankMode(field: string): BlankMode {
+    const filter = this.filters.get(field);
+    if (filter?.operator === 'blank') return 'blanksOnly';
+    if (filter?.operator === 'notBlank') return 'nonBlanksOnly';
+    return 'all';
+  }
+
+  /**
+   * Toggle blank filter mode for a field.
+   *
+   * Handles transitions:
+   * - `'all'` → clears the filter entirely
+   * - `'blanksOnly'` → sets `blank` operator, stashing any active filter in `valueTo`
+   * - `'nonBlanksOnly'` → sets `notBlank` operator, stashing any active filter in `valueTo`
+   *
+   * When switching back to `'all'`, the stashed filter (if any) is restored.
+   */
+  toggleBlankFilter(field: string, mode: BlankMode): void {
+    if (mode === 'all') {
+      // Restore stashed filter if one was preserved
+      const currentFilter = this.filters.get(field);
+      if (currentFilter?.valueTo && typeof currentFilter.valueTo === 'object') {
+        const stashed = currentFilter.valueTo as Omit<FilterModel, 'field'>;
+        this.setFilter(field, stashed);
+      } else {
+        this.setFilter(field, null);
+      }
+      return;
+    }
+
+    const currentFilter = this.filters.get(field);
+    // Stash the current non-blank filter so it can be restored
+    const stash =
+      currentFilter && currentFilter.operator !== 'blank' && currentFilter.operator !== 'notBlank'
+        ? {
+            type: currentFilter.type,
+            operator: currentFilter.operator,
+            value: currentFilter.value,
+            valueTo: currentFilter.valueTo,
+          }
+        : currentFilter?.valueTo; // Preserve existing stash when toggling between blank modes
+
+    this.setFilter(field, {
+      type: currentFilter?.type ?? 'text',
+      operator: mode === 'blanksOnly' ? 'blank' : 'notBlank',
+      value: '',
+      valueTo: stash,
+    });
+  }
+
+  // #endregion
+
   // #endregion
 
   // #region Private Methods

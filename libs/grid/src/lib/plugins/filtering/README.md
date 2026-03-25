@@ -140,6 +140,17 @@ grid.addEventListener('filter-change', (e) => {
 });
 ```
 
+### `filter-stale`
+
+Fired when set filters become stale after data changes (their values no longer match any rows).
+
+```typescript
+grid.addEventListener('filter-stale', (e) => {
+  console.log('Stale filters:', e.detail.staleFilters);
+  // Auto-clear stale filters, or show a warning to the user
+});
+```
+
 ## API Methods
 
 Access via `grid.getPluginByName('filtering')`:
@@ -178,6 +189,54 @@ filtering.setFilter('price', { type: 'number', operator: 'greaterThan', value: 1
 // Also available on setFilterModel, clearAllFilters, clearFieldFilter:
 filtering.setFilterModel(filters, { silent: true });
 filtering.clearAllFilters({ silent: true });
+```
+
+### Stale Filter Detection
+
+```typescript
+// Get set filters whose values no longer match any rows
+const stale = filtering.getStaleFilters();
+```
+
+### Set Filter UX Helpers
+
+```typescript
+// Check select-all state
+filtering.isAllSelected('status'); // true if all values selected
+filtering.isIndeterminate('status'); // true if some but not all selected
+
+// Get selected values and sorted display order
+filtering.getSelectedValues('status'); // currently selected values
+filtering.getUniqueValuesSortedBySelection('status'); // selected first, then unselected
+
+// Summary label for dropdown triggers
+filtering.getFilterSummaryLabel('status'); // 'All', 'None', or 'A, B +2 more'
+filtering.getFilterSummaryLabel('status', 5); // custom maxItems
+```
+
+### Data Range Helpers
+
+```typescript
+// Numeric column bounds (for sliders)
+const range = filtering.getNumericDataRange('price');
+// { min: 0, max: 100 } or null
+
+// Date column bounds (for date pickers)
+const dates = filtering.getDateDataRange('hireDate');
+// { from: Date, to: Date } or null
+```
+
+### Blank Filter Toggle
+
+```typescript
+// Check blank filter state
+filtering.isBlankFilter('email'); // true if blank or notBlank operator active
+filtering.getBlankMode('email'); // 'all' | 'blanksOnly' | 'nonBlanksOnly'
+
+// Toggle blank mode (stashes/restores active range/text filters)
+filtering.toggleBlankFilter('email', 'blanksOnly');
+filtering.toggleBlankFilter('email', 'nonBlanksOnly');
+filtering.toggleBlankFilter('email', 'all'); // restores previous filter
 ```
 
 ## CSS Variables

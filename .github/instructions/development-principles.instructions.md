@@ -6,6 +6,14 @@ applyTo: '{libs,apps,demos}/**/*.ts'
 
 Every change must consider these three pillars:
 
+## Minimal Code, Maximum Performance
+
+Write the least code that correctly solves the problem. Avoid over-engineering, unnecessary abstractions, and speculative features.
+
+## Do It Right, Not Easy
+
+Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even when they take longer.
+
 ## Maintainability
 
 - **File size limit**: Keep files under ~2000 lines of code (excluding JSDoc/comments)

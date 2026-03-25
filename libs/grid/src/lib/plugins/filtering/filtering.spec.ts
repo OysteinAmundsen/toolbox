@@ -1539,6 +1539,143 @@ describe('FilteringPlugin class', () => {
     grid._cleanup();
   });
 
+  it('processRows should recompute excludedValues for in filters when data changes (regression: stale panel state)', () => {
+    const initialRows = [{ grade: 'Gudrun Blend' }, { grade: 'Mariner Blend' }];
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock(initialRows);
+    plugin.attach(grid as any);
+
+    // Set an `in` filter for two grades
+    plugin.setFilter('grade', { type: 'set', operator: 'in', value: ['Gudrun Blend', 'Mariner Blend'] });
+    plugin.processRows(initialRows);
+
+    // excludedValues should be empty (no extra unique values)
+    const excludedBefore = (plugin as any).excludedValues.get('grade') as Set<unknown>;
+    expect(excludedBefore?.size ?? 0).toBe(0);
+
+    // Data changes — a new grade appears in the dataset
+    const newRows = [{ grade: 'Gudrun Blend' }, { grade: 'Mariner Blend' }, { grade: 'Skarv' }];
+    (grid as any).sourceRows = newRows;
+    (grid as any).rows = newRows;
+
+    const result = plugin.processRows(newRows);
+
+    // The `in` filter should still only pass the two selected grades
+    expect(result).toHaveLength(2);
+    expect(result.map((r: any) => r.grade).sort()).toEqual(['Gudrun Blend', 'Mariner Blend']);
+
+    // excludedValues must now include 'Skarv' so the filter panel shows it unchecked
+    const excludedAfter = (plugin as any).excludedValues.get('grade') as Set<unknown>;
+    expect(excludedAfter).toBeDefined();
+    expect(excludedAfter.has('Skarv')).toBe(true);
+    expect(excludedAfter.has('Gudrun Blend')).toBe(false);
+    expect(excludedAfter.has('Mariner Blend')).toBe(false);
+    grid._cleanup();
+  });
+
+  it('processRows should drop disappeared values from excludedValues when data shrinks', () => {
+    const initialRows = [{ grade: 'Gudrun Blend' }, { grade: 'Mariner Blend' }, { grade: 'Skarv' }];
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock(initialRows);
+    plugin.attach(grid as any);
+
+    // Select only two of three — 'Skarv' should be excluded
+    plugin.setFilter('grade', { type: 'set', operator: 'in', value: ['Gudrun Blend', 'Mariner Blend'] });
+    plugin.processRows(initialRows);
+
+    const excludedBefore = (plugin as any).excludedValues.get('grade') as Set<unknown>;
+    expect(excludedBefore.has('Skarv')).toBe(true);
+
+    // Data changes — 'Skarv' disappears from the dataset entirely
+    const newRows = [{ grade: 'Gudrun Blend' }, { grade: 'Mariner Blend' }];
+    (grid as any).sourceRows = newRows;
+    (grid as any).rows = newRows;
+
+    plugin.processRows(newRows);
+
+    // excludedValues should no longer contain 'Skarv'
+    const excludedAfter = (plugin as any).excludedValues.get('grade') as Set<unknown>;
+    expect(excludedAfter?.has('Skarv') ?? false).toBe(false);
+    expect(excludedAfter?.size ?? 0).toBe(0);
+    grid._cleanup();
+  });
+
+  it('processRows should recompute excludedValues for multiple in filters on different fields', () => {
+    const initialRows = [
+      { grade: 'Gudrun Blend', region: 'North Sea' },
+      { grade: 'Mariner Blend', region: 'North Sea' },
+    ];
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock(initialRows);
+    plugin.attach(grid as any);
+
+    plugin.setFilter('grade', { type: 'set', operator: 'in', value: ['Gudrun Blend', 'Mariner Blend'] });
+    plugin.setFilter('region', { type: 'set', operator: 'in', value: ['North Sea'] });
+    plugin.processRows(initialRows);
+
+    // New data adds a grade and a region
+    const newRows = [
+      { grade: 'Gudrun Blend', region: 'North Sea' },
+      { grade: 'Mariner Blend', region: 'North Sea' },
+      { grade: 'Skarv', region: 'Norwegian Sea' },
+    ];
+    (grid as any).sourceRows = newRows;
+    (grid as any).rows = newRows;
+
+    const result = plugin.processRows(newRows);
+
+    // Only rows matching both filters should pass
+    expect(result).toHaveLength(2);
+
+    // Both fields should have updated excludedValues
+    const gradeExcluded = (plugin as any).excludedValues.get('grade') as Set<unknown>;
+    expect(gradeExcluded.has('Skarv')).toBe(true);
+
+    const regionExcluded = (plugin as any).excludedValues.get('region') as Set<unknown>;
+    expect(regionExcluded.has('Norwegian Sea')).toBe(true);
+    expect(regionExcluded.has('North Sea')).toBe(false);
+    grid._cleanup();
+  });
+
+  it('processRows should not mutate notIn excludedValues when data changes', () => {
+    const initialRows = [{ grade: 'Gudrun Blend' }, { grade: 'Mariner Blend' }, { grade: 'Skarv' }];
+    const plugin = new FilteringPlugin();
+    const grid = createGridMock(initialRows);
+    plugin.attach(grid as any);
+
+    // notIn filter: exclude 'Skarv' (only Gudrun and Mariner pass)
+    plugin.setFilter('grade', { type: 'set', operator: 'notIn', value: ['Skarv'] });
+    plugin.processRows(initialRows);
+
+    const excludedBefore = (plugin as any).excludedValues.get('grade') as Set<unknown>;
+    expect(excludedBefore).toBeDefined();
+    expect(excludedBefore.has('Skarv')).toBe(true);
+    expect(excludedBefore.size).toBe(1);
+
+    // Data changes — a new grade appears
+    const newRows = [
+      { grade: 'Gudrun Blend' },
+      { grade: 'Mariner Blend' },
+      { grade: 'Skarv' },
+      { grade: 'Johan Sverdrup' },
+    ];
+    (grid as any).sourceRows = newRows;
+    (grid as any).rows = newRows;
+
+    const result = plugin.processRows(newRows);
+
+    // notIn should still only exclude 'Skarv', passing 3 rows
+    expect(result).toHaveLength(3);
+    expect(result.map((r: any) => r.grade).sort()).toEqual(['Gudrun Blend', 'Johan Sverdrup', 'Mariner Blend']);
+
+    // excludedValues should be unchanged — still only 'Skarv'
+    const excludedAfter = (plugin as any).excludedValues.get('grade') as Set<unknown>;
+    expect(excludedAfter.size).toBe(1);
+    expect(excludedAfter.has('Skarv')).toBe(true);
+    expect(excludedAfter.has('Johan Sverdrup')).toBe(false);
+    grid._cleanup();
+  });
+
   // #endregion
 
   // #endregion

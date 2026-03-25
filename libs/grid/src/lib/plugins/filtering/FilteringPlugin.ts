@@ -413,6 +413,16 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       return this.cachedResult;
     }
 
+    // When input rows changed, recompute excludedValues for `in` filters
+    // so the filter panel checkboxes reflect newly appeared unique values.
+    if (!inputUnchanged) {
+      for (const [field, filter] of this.filters) {
+        if (filter.type === 'set' && filter.operator === 'in') {
+          this.syncExcludedValues(field, filter);
+        }
+      }
+    }
+
     // Filter rows synchronously (worker support can be added later)
     const result = filterRows(
       [...rows] as Record<string, unknown>[],

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.10.2...grid-vue-0.10.3) (2026-03-25)
+
+
+### Enhancements
+
+* **grid:** add filtering UX helpers — stale detection, set helpers, data ranges, blank toggle ([#166](https://github.com/OysteinAmundsen/toolbox/issues/166), [#167](https://github.com/OysteinAmundsen/toolbox/issues/167), [#168](https://github.com/OysteinAmundsen/toolbox/issues/168), [#169](https://github.com/OysteinAmundsen/toolbox/issues/169)) ([b5452a8](https://github.com/OysteinAmundsen/toolbox/commit/b5452a8d04eb73caa96216004c1e50ae7c155309))
+
 ## [0.10.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.10.1...grid-vue-0.10.2) (2026-03-17)
 
 

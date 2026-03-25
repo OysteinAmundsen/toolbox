@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.4...grid-react-0.17.5) (2026-03-25)
+
+
+### Enhancements
+
+* **grid:** add filtering UX helpers — stale detection, set helpers, data ranges, blank toggle ([#166](https://github.com/OysteinAmundsen/toolbox/issues/166), [#167](https://github.com/OysteinAmundsen/toolbox/issues/167), [#168](https://github.com/OysteinAmundsen/toolbox/issues/168), [#169](https://github.com/OysteinAmundsen/toolbox/issues/169)) ([b5452a8](https://github.com/OysteinAmundsen/toolbox/commit/b5452a8d04eb73caa96216004c1e50ae7c155309))
+
 ## [0.17.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.3...grid-react-0.17.4) (2026-03-17)
 
 

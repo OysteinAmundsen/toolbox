@@ -2,6 +2,8 @@
 
 Copy and paste grid data with configurable delimiters.
 
+By default, the clipboard uses **copy-what-you-see** — copied values reflect column `format` functions (including `typeDefaults`), and for columns with custom renderers, the visible cell text is extracted from the DOM. A custom `processCell` callback, if provided, takes priority over the default behavior.
+
 ## Installation
 
 ```typescript
@@ -25,14 +27,14 @@ grid.gridConfig = {
 
 ## Configuration
 
-| Option           | Type                            | Default               | Description                                    |
-| ---------------- | ------------------------------- | --------------------- | ---------------------------------------------- |
-| `includeHeaders` | `boolean`                       | `false`               | Include column headers in copied text          |
-| `delimiter`      | `string`                        | `'\t'`                | Column delimiter (tab for Excel compatibility) |
-| `newline`        | `string`                        | `'\n'`                | Row delimiter                                  |
-| `quoteStrings`   | `boolean`                       | `false`               | Wrap string values with quotes                 |
-| `processCell`    | `(value, field, row) => string` | -                     | Custom cell value processor                    |
-| `pasteHandler`   | `PasteHandler \| null`          | `defaultPasteHandler` | Custom paste handler. Set to `null` to disable |
+| Option           | Type                            | Default               | Description                                               |
+| ---------------- | ------------------------------- | --------------------- | --------------------------------------------------------- |
+| `includeHeaders` | `boolean`                       | `false`               | Include column headers in copied text                     |
+| `delimiter`      | `string`                        | `'\t'`                | Column delimiter (tab for Excel compatibility)            |
+| `newline`        | `string`                        | `'\n'`                | Row delimiter                                             |
+| `quoteStrings`   | `boolean`                       | `false`               | Wrap string values with quotes                            |
+| `processCell`    | `(value, field, row) => string` | -                     | Custom cell value processor (overrides copy-what-you-see) |
+| `pasteHandler`   | `PasteHandler \| null`          | `defaultPasteHandler` | Custom paste handler. Set to `null` to disable            |
 
 ## Keyboard Shortcuts
 

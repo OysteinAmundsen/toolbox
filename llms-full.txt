@@ -987,13 +987,15 @@ new ResponsivePlugin({
 
 ### ClipboardPlugin
 
+Copy-what-you-see by default: uses column `format` functions and `typeDefaults`, or reads DOM text from rendered cells. `processCell` overrides this.
+
 ```typescript
 new ClipboardPlugin({
   includeHeaders?: boolean,                               // Include headers in copy (default: false)
   delimiter?: string,                                     // Column delimiter (default: '\t')
   newline?: string,                                       // Row delimiter (default: '\n')
   quoteStrings?: boolean,                                 // Wrap strings with quotes (default: false)
-  processCell?: (value, field, row) => string,            // Custom value formatter
+  processCell?: (value, field, row) => string,            // Custom value formatter (overrides copy-what-you-see)
   pasteHandler?: PasteHandler | null,                     // Custom paste handler (null = disable)
 })
 // Programmatic API:

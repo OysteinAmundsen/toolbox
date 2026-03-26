@@ -18,3 +18,7 @@ Each adapter auto-registers a framework-specific `GridAdapter` on `<tbw-grid>` e
 - `libs/grid-angular/src/lib/base-filter-panel.ts` - BaseFilterPanel (custom filter panel base class)
 - `libs/grid-react/src/index.ts` - React adapter exports (DataGrid, GridColumn, hooks)
 - `libs/grid-vue/src/index.ts` - Vue adapter exports (DataGrid, GridColumn, composables)
+
+## Common Pitfalls
+
+- **Keep adapter proxy signatures in sync with core plugins** — When a core plugin method gains a new parameter (e.g., `options?: { silent?: boolean }`), update the `FilteringMethods`/`*Methods` interface AND the proxy closures in **all three** adapters. Forgetting one adapter silently drops the parameter for that framework's users.

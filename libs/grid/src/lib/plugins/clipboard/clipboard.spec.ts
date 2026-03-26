@@ -1018,6 +1018,131 @@ describe('clipboard', () => {
       plugin.detach();
       expect(plugin.getLastCopied()).toBeNull();
     });
+
+    // #region Copy-what-you-see (format function default)
+    it('should use column format function when no processCell is provided', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'price', header: 'Price', format: (v: unknown) => `$${Number(v).toFixed(2)}` },
+        { field: 'name', header: 'Name' },
+      ];
+      const rows = [
+        { price: 42.5, name: 'Widget' },
+        { price: 100, name: 'Gadget' },
+      ];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('$42.50\tWidget\n$100.00\tGadget');
+    });
+
+    it('should prioritize processCell over column format', () => {
+      const columns: ColumnConfig[] = [
+        { field: 'price', header: 'Price', format: (v: unknown) => `$${Number(v).toFixed(2)}` },
+      ];
+      const rows = [{ price: 42.5 }];
+      const plugin = new ClipboardPlugin({
+        processCell: (value) => `CUSTOM:${value}`,
+      });
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('CUSTOM:42.5');
+    });
+
+    it('should fall back to formatValueAsText for columns without format or renderer', () => {
+      const columns: ColumnConfig[] = [{ field: 'value', header: 'Value' }];
+      const rows = [{ value: 42 }, { value: null }, { value: true }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('42\n\ntrue');
+    });
+
+    it('should use DOM textContent for columns with renderer when row is visible', () => {
+      const columns: ColumnConfig[] = [
+        {
+          field: 'status',
+          header: 'Status',
+          renderer: () => document.createElement('span'), // has renderer, no format
+        },
+      ];
+      const rows = [{ status: 'active' }];
+      const plugin = new ClipboardPlugin();
+
+      // Create a mock grid with a querySelector that simulates rendered cells
+      const mockCell = document.createElement('div');
+      mockCell.textContent = 'Active Badge';
+
+      const grid = {
+        ...createGridMockForPlugin(rows, columns),
+        querySelector: (selector: string) => {
+          if (selector.includes('data-field="status"')) return mockCell;
+          return null;
+        },
+      };
+      // Ensure _hostElement points to the grid object itself for gridElement access
+      (grid as any)._hostElement = grid;
+
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('Active Badge');
+    });
+
+    it('should fall back to raw value for renderer columns when row is not in DOM', () => {
+      const columns: ColumnConfig[] = [
+        {
+          field: 'status',
+          header: 'Status',
+          renderer: () => document.createElement('span'), // has renderer, no format
+        },
+      ];
+      const rows = [{ status: 'active' }];
+      const plugin = new ClipboardPlugin();
+      // Default mock returns null for querySelector — simulates non-visible row
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('active');
+    });
+
+    it('should handle format function that returns null gracefully', () => {
+      const columns: ColumnConfig[] = [{ field: 'val', header: 'Val', format: () => null as unknown as string }];
+      const rows = [{ val: 42 }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('');
+    });
+
+    it('should handle format function that throws gracefully', () => {
+      const columns: ColumnConfig[] = [
+        {
+          field: 'val',
+          header: 'Val',
+          format: () => {
+            throw new Error('format error');
+          },
+        },
+      ];
+      const rows = [{ val: 42 }];
+      const plugin = new ClipboardPlugin();
+      const grid = createGridMockForPlugin(rows, columns);
+      plugin.attach(grid as any);
+
+      // Should fall back to raw value
+      const text = plugin.getSelectionAsText();
+      expect(text).toBe('42');
+    });
+    // #endregion
   });
 
   // #endregion

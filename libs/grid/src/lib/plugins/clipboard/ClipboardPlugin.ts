@@ -46,7 +46,7 @@ import {
  * | `delimiter` | `string` | `'\t'` | Column delimiter (tab for Excel compatibility) |
  * | `newline` | `string` | `'\n'` | Row delimiter |
  * | `quoteStrings` | `boolean` | `false` | Wrap string values in quotes |
- * | `processCell` | `(value, field, row) => string` | - | Custom cell value processor |
+ * | `processCell` | `(value, field, row) => string` | - | Custom cell value processor (overrides copy-what-you-see) |
  * | `pasteHandler` | `PasteHandler \| null` | `defaultPasteHandler` | Custom paste handler |
  *
  * ## Keyboard Shortcuts
@@ -358,6 +358,11 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
 
   /**
    * Build delimited text from resolved columns and rows.
+   *
+   * When no `processCell` callback is configured, uses "copy what you see" logic:
+   * 1. Column `format` function (includes typeDefaults merged at config time)
+   * 2. DOM cell textContent for columns with custom renderers (visible rows only)
+   * 3. Raw value via `formatValueAsText` as final fallback
    */
   #buildText(columns: ColumnConfig[], rows: Record<string, unknown>[], options?: CopyOptions): string {
     const delimiter = options?.delimiter ?? this.config.delimiter ?? '\t';
@@ -377,12 +382,62 @@ export class ClipboardPlugin extends BaseGridPlugin<ClipboardConfig> {
       const cells = columns.map((col) => {
         const value = row[col.field];
         if (processCell) return processCell(value, col.field, row);
-        return formatValueAsText(value);
+        return this.#formatCellAsDisplayed(col, value, row);
       });
       lines.push(cells.join(delimiter));
     }
 
     return lines.join(newline);
+  }
+
+  /**
+   * Format a cell value the way the grid displays it.
+   *
+   * Priority:
+   * 1. Column `format` function (includes typeDefaults applied at config merge time)
+   * 2. DOM textContent for columns with a custom renderer (virtualized rows only)
+   * 3. Raw value via `formatValueAsText`
+   */
+  #formatCellAsDisplayed(col: ColumnConfig, value: unknown, row: Record<string, unknown>): string {
+    // 1. Column format function (covers col.format and typeDefaults)
+    if (col.format) {
+      try {
+        const formatted = col.format(value, row);
+        return formatted == null ? '' : String(formatted);
+      } catch {
+        // Format failed — fall through to next strategy
+      }
+    }
+
+    // 2. DOM textContent for columns with custom renderers
+    if (col.renderer || col.viewRenderer) {
+      const text = this.#readCellTextFromDOM(col.field, row);
+      if (text != null) return text;
+    }
+
+    // 3. Fallback to raw value formatting
+    return formatValueAsText(value);
+  }
+
+  /**
+   * Try to read a cell's displayed text from the DOM.
+   *
+   * Only works for rows currently rendered in the virtualized viewport.
+   * Returns `null` if the row is not in the DOM (caller should fall back).
+   */
+  #readCellTextFromDOM(field: string, row: Record<string, unknown>): string | null {
+    const host = this.gridElement;
+    if (!host) return null;
+
+    // Find the row index in the grid's current row array
+    const rowIndex = this.rows.indexOf(row);
+    if (rowIndex === -1) return null;
+
+    // Query the rendered cell by row index and field name
+    const cell = host.querySelector<HTMLElement>(`.cell[data-row="${rowIndex}"][data-field="${field}"]`);
+    if (!cell) return null;
+
+    return cell.textContent?.trim() ?? null;
   }
 
   /**

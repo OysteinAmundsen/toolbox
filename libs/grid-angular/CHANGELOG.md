@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.0...grid-angular-0.19.1) (2026-03-26)
+
+
+### Bug Fixes
+
+* **grid-react,grid-vue:** forward options parameter in filtering proxy methods ([1f2a35f](https://github.com/OysteinAmundsen/toolbox/commit/1f2a35f1110e36216fbdf601377d8c9833b67bee))
+
 ## [0.19.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.18.4...grid-angular-0.19.0) (2026-03-26)
 
 

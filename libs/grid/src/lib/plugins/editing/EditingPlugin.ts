@@ -2099,8 +2099,21 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
 
     // Re-render the row to remove editors
     if (rowEl) {
+      // Release framework editor components (Angular/React/Vue) BEFORE clearing
+      // editing state. This ensures releaseCell runs while the editor DOM is
+      // still inside each cell, so the adapter can find and destroy ComponentRefs.
+      // Without this, overlay editors (BaseOverlayEditor) leak panels on <body>
+      // with active MutationObservers that react to cell-focus class changes.
+      const adapter = internalGrid.__frameworkAdapter;
+      const editingCells = rowEl.querySelectorAll('.cell.editing');
+      if (adapter?.releaseCell) {
+        editingCells.forEach((cell) => {
+          adapter.releaseCell!(cell as HTMLElement);
+        });
+      }
+
       // Remove editing class and re-render cells
-      rowEl.querySelectorAll('.cell.editing').forEach((cell) => {
+      editingCells.forEach((cell) => {
         cell.classList.remove('editing');
         clearEditingState(cell.parentElement as RowElementInternal);
       });

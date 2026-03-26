@@ -580,7 +580,19 @@ export abstract class BaseOverlayEditor<TRow = unknown, TValue = unknown> extend
 
     let pendingHideRaf = 0;
 
+    const hostEl = this._elementRef.nativeElement;
+
     this._focusObserver = new MutationObserver((mutations) => {
+      // Guard: if the editor's host element is no longer inside the cell,
+      // it means the component was detached (e.g., editing session ended
+      // and the render pipeline cleared the cell DOM). Disconnect to
+      // prevent orphaned observers from opening stale overlay panels.
+      if (!cell.contains(hostEl)) {
+        this._focusObserver?.disconnect();
+        this._focusObserver = null;
+        return;
+      }
+
       for (const mutation of mutations) {
         if (mutation.type !== 'attributes' || mutation.attributeName !== 'class') continue;
 

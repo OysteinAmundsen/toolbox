@@ -831,10 +831,7 @@ describe('releaseCell lifecycle', () => {
     const releaseSpy = vi.fn();
     const g = makeGrid();
     // Add a format function to a column so the standard path handles it
-    g._columns = [
-      { field: 'id' },
-      { field: 'name', format: (v: string) => v?.toUpperCase() },
-    ];
+    g._columns = [{ field: 'id' }, { field: 'name', format: (v: string) => v?.toUpperCase() }];
     g.__frameworkAdapter = {
       canHandle: () => false,
       createRenderer: () => () => null,

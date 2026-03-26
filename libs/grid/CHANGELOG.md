@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.28.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.27.2...grid-1.28.0) (2026-03-26)
+
+
+### Features
+
+* **grid:** add TooltipPlugin with popover-based overflow tooltips ([61fc11c](https://github.com/OysteinAmundsen/toolbox/commit/61fc11c1b755b8eabbd019e37901e2a84ee8bf8a))
+
+
+### Bug Fixes
+
+* **grid:** sanitize icon HTML to prevent XSS via innerHTML ([7c5a8e8](https://github.com/OysteinAmundsen/toolbox/commit/7c5a8e8799f2b71f57865e22c9888ff28fcc5715))
+
 ## [1.27.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.27.1...grid-1.27.2) (2026-03-25)
 
 

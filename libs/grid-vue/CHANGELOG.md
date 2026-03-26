@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.10.3...grid-vue-0.11.0) (2026-03-26)
+
+
+### Features
+
+* **grid:** add TooltipPlugin with popover-based overflow tooltips ([61fc11c](https://github.com/OysteinAmundsen/toolbox/commit/61fc11c1b755b8eabbd019e37901e2a84ee8bf8a))
+
 ## [0.10.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.10.2...grid-vue-0.10.3) (2026-03-25)
 
 

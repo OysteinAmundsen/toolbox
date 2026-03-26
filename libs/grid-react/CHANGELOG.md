@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.5...grid-react-0.18.0) (2026-03-26)
+
+
+### Features
+
+* **grid:** add TooltipPlugin with popover-based overflow tooltips ([61fc11c](https://github.com/OysteinAmundsen/toolbox/commit/61fc11c1b755b8eabbd019e37901e2a84ee8bf8a))
+
 ## [0.17.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.17.4...grid-react-0.17.5) (2026-03-25)
 
 

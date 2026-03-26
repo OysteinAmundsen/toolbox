@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.28.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.0...grid-1.28.1) (2026-03-26)
+
+
+### Bug Fixes
+
+* **grid,grid-angular:** release editor components before re-render to prevent overlay leaks ([a7b1315](https://github.com/OysteinAmundsen/toolbox/commit/a7b1315d4342d573c158eb2e97b63c89a3e22b8f))
+* **grid:** release editor DOM in fastPatchRow standard path before overwriting cell content ([a91dc30](https://github.com/OysteinAmundsen/toolbox/commit/a91dc30bd6da0959d4b20b0fc4eeb4eb0fb25e7a))
+
+
+### Enhancements
+
+* **grid:** clipboard copy-what-you-see using column format and DOM text ([4798cab](https://github.com/OysteinAmundsen/toolbox/commit/4798caba5c0d4b1209b9bf86f6416fa0b0703af8))
+
 ## [1.28.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.27.2...grid-1.28.0) (2026-03-26)
 
 

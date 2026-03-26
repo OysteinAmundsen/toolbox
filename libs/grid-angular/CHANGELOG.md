@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.1...grid-angular-0.19.2) (2026-03-26)
+
+
+### Bug Fixes
+
+* **grid,grid-angular:** release editor components before re-render to prevent overlay leaks ([a7b1315](https://github.com/OysteinAmundsen/toolbox/commit/a7b1315d4342d573c158eb2e97b63c89a3e22b8f))
+
 ## [0.19.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.0...grid-angular-0.19.1) (2026-03-26)
 
 

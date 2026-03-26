@@ -56,4 +56,5 @@ export type FeatureName =
   | 'export'
   | 'print'
   | 'pivot'
-  | 'serverSide';
+  | 'serverSide'
+  | 'tooltip';

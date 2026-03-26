@@ -94,6 +94,7 @@ These plugins **cannot** be used together. A development-mode warning is shown w
 | `UndoRedoPlugin` | `@toolbox-web/grid/plugins/undo-redo` |
 | `ServerSidePlugin` | `@toolbox-web/grid/plugins/server-side` |
 | `PivotPlugin` | `@toolbox-web/grid/plugins/pivot` |
+| `TooltipPlugin` | `@toolbox-web/grid/plugins/tooltip` |
 
 All-in-one import (larger bundle): `import { SelectionPlugin, EditingPlugin, ... } from '@toolbox-web/grid/all';`
 
@@ -199,6 +200,7 @@ Feature props enable declarative plugin loading with tree-shaking. Import the fe
 | `print` | `features/print` | `true` |
 | `pivot` | `features/pivot` | `{ rowFields: [...], columnFields: [...] }` |
 | `serverSide` | `features/server-side` | `{ dataSource: async (params) => ... }` |
+| `tooltip` | `features/tooltip` | `true`, `{ header: true, cell: false }` |
 
 For Angular: replace `@toolbox-web/grid-react` with `@toolbox-web/grid-angular`.
 For Vue: replace `@toolbox-web/grid-react` with `@toolbox-web/grid-vue`.
@@ -1073,6 +1075,18 @@ pivot.setValueFields(fields);        // Update value fields
 pivot.refresh();                     // Force re-compute pivot
 pivot.expandAll();                   // Expand all groups
 pivot.collapseAll();                 // Collapse all groups
+```
+
+### TooltipPlugin
+
+```typescript
+new TooltipPlugin({
+  header?: boolean,                  // Enable header overflow tooltips (default: true)
+  cell?: boolean,                    // Enable cell overflow tooltips (default: true)
+})
+// Per-column overrides:
+// { field: 'name', headerTooltip: 'Full legal name', cellTooltip: (ctx) => `${ctx.row.first} ${ctx.row.last}` }
+// { field: 'actions', cellTooltip: false, headerTooltip: false }  // Disable for column
 ```
 
 ### MultiSortPlugin

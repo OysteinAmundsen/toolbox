@@ -489,6 +489,7 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     'print',
     'pivot',
     'serverSide',
+    'tooltip',
   ] as const;
 
   // Create a stable key from feature prop values to detect actual changes

@@ -36,6 +36,7 @@ import type {
   RowReorderConfig,
   SelectionConfig,
   ServerSideConfig,
+  TooltipConfig,
   TreeConfig,
   UndoRedoConfig,
   VisibilityConfig,
@@ -442,6 +443,19 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   serverSide?: ServerSideConfig;
+
+  /**
+   * Enable tooltip display for header and cell content.
+   *
+   * @requires `import '@toolbox-web/grid-vue/features/tooltip';`
+   *
+   * @example
+   * ```vue
+   * <TbwGrid :tooltip="true" />
+   * <TbwGrid :tooltip="{ header: true, cell: false }" />
+   * ```
+   */
+  tooltip?: boolean | TooltipConfig;
 }
 
 /**

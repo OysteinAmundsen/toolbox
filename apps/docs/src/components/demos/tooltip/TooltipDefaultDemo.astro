@@ -1,0 +1,59 @@
+---
+// TooltipDefaultDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="tooltip-default-demo">
+  <DemoControls controls={[
+    { section: 'TOOLTIP', name: 'header', label: 'Header tooltips', type: 'boolean',
+      default: true, description: 'Show tooltips when header text overflows' },
+    { section: 'TOOLTIP', name: 'cell', label: 'Cell tooltips', type: 'boolean',
+      default: true, description: 'Show tooltips when cell text overflows' },
+  ]} />
+  <tbw-grid style="height: 400px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/tooltip';
+
+const container = document.getElementById('tooltip-default-demo');
+if (container) {
+  const grid = queryGrid('tbw-grid', container)!;
+
+  const sampleData = [
+    { id: 1, name: 'Alice Johnson', email: 'alice.johnson@acmecorporation.com', department: 'Engineering & Development', role: 'Senior Software Engineer' },
+    { id: 2, name: 'Bob Smith', email: 'bob.smith@acmecorporation.com', department: 'Marketing & Communications', role: 'Brand Strategy Director' },
+    { id: 3, name: 'Carol Williams', email: 'carol.williams@acmecorporation.com', department: 'Human Resources', role: 'Recruitment Specialist' },
+    { id: 4, name: 'David Brown', email: 'david.brown@acmecorporation.com', department: 'Sales & Business Development', role: 'Regional Account Manager' },
+    { id: 5, name: 'Eve Davis', email: 'eve.davis@acmecorporation.com', department: 'Finance & Accounting', role: 'Senior Financial Analyst' },
+  ];
+
+  function rebuild(opts: Record<string, unknown>) {
+    grid.gridConfig = {
+      columns: [
+        { field: 'id', header: 'ID', width: 50 },
+        { field: 'name', header: 'Full Name', width: 100 },
+        { field: 'email', header: 'Email Address', width: 120 },
+        { field: 'department', header: 'Department / Division', width: 110 },
+        { field: 'role', header: 'Job Title & Responsibilities', width: 120,
+          headerTooltip: 'The official job title and primary area of responsibility',
+          cellTooltip: (ctx) => `${ctx.row.name} — ${ctx.value}` },
+      ],
+      features: {
+        tooltip: {
+          header: (opts.header as boolean) ?? true,
+          cell: (opts.cell as boolean) ?? true,
+        },
+      },
+    };
+    grid.rows = sampleData;
+  }
+
+  rebuild({ header: true, cell: true });
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    rebuild(e.detail.allValues);
+  }) as EventListener);
+}
+</script>

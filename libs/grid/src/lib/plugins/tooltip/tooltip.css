@@ -1,0 +1,64 @@
+@layer tbw-plugins {
+  .tbw-tooltip-popover {
+    /* Reset browser popover defaults — overflow:visible set inline for UA specificity */
+    margin: 0;
+    padding: var(--tbw-tooltip-padding, var(--tbw-spacing-sm, 0.375rem) var(--tbw-spacing-md, 0.5rem));
+    background: var(--tbw-tooltip-bg, light-dark(#333338, #484850));
+    color: var(--tbw-tooltip-fg, light-dark(#f5f5f5, #f0f0f0));
+    border: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
+    border-radius: var(--tbw-tooltip-radius, var(--tbw-border-radius, 0.25rem));
+    box-shadow: none;
+    filter: var(--tbw-tooltip-shadow, drop-shadow(0 4px 4px rgba(0, 0, 0, 0.45)));
+    font-family: var(--tbw-font-family, system-ui, sans-serif);
+    font-size: var(--tbw-tooltip-font-size, var(--tbw-font-size-sm, 0.9285em));
+    max-width: var(--tbw-tooltip-max-width, 300px);
+    white-space: pre-line;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    pointer-events: none;
+    z-index: 10001;
+  }
+
+  /* Arrow — rotated box gives a visible diamond with background + border */
+  .tbw-tooltip-popover::after {
+    content: '';
+    position: absolute;
+    width: var(--tbw-tooltip-arrow-size, 14px);
+    height: var(--tbw-tooltip-arrow-size, 14px);
+    left: var(--tbw-tooltip-arrow-offset, 16px);
+    background: inherit;
+    pointer-events: none;
+  }
+
+  /* Arrow below-anchor default: diamond points up from the top edge */
+  .tbw-tooltip-popover:not(.tbw-tooltip-above)::after {
+    top: calc(var(--tbw-tooltip-arrow-size, 14px) / -2);
+    transform: rotate(45deg);
+    border-top: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
+    border-left: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
+  }
+
+  /* Above-anchor: diamond points down from the bottom edge */
+  .tbw-tooltip-popover.tbw-tooltip-above::after {
+    bottom: calc(var(--tbw-tooltip-arrow-size, 14px) / -2);
+    transform: rotate(45deg);
+    border-bottom: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
+    border-right: 1px solid var(--tbw-tooltip-border, light-dark(#222226, #6a6a72));
+  }
+
+  /* CSS Anchor Positioning — modern browsers */
+  @supports (anchor-name: --test) {
+    .tbw-tooltip-popover {
+      position-anchor: --tbw-tooltip-anchor;
+      top: calc(anchor(bottom) + 11px);
+      left: anchor(left);
+      position-try-fallbacks: --tbw-tooltip-flip-above;
+    }
+
+    /* Flip above the anchor when no space below */
+    @position-try --tbw-tooltip-flip-above {
+      top: auto;
+      bottom: calc(anchor(top) + 11px);
+    }
+  }
+}

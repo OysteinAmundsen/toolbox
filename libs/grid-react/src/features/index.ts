@@ -48,6 +48,7 @@ import './row-reorder';
 import './selection';
 import './server-side';
 // './sorting' is deprecated, imports './multi-sort' internally
+import './tooltip';
 import './tree';
 import './undo-redo';
 import './visibility';

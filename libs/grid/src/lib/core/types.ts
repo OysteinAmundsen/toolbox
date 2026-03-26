@@ -802,8 +802,6 @@ export interface BaseColumnConfig<TRow = any, TValue = any> {
   sortComparator?: (a: TValue, b: TValue, rowA: TRow, rowB: TRow) => number;
   /** For select type - available options */
   options?: Array<{ label: string; value: unknown }> | (() => Array<{ label: string; value: unknown }>);
-  /** For select - allow multi select */
-  multi?: boolean;
   /**
    * Formats the raw cell value into a display string.
    *

@@ -36,6 +36,7 @@ import type {
   RowReorderConfig,
   SelectionConfig,
   ServerSideConfig,
+  TooltipConfig,
   TreeConfig,
   UndoRedoConfig,
   VisibilityConfig,
@@ -463,6 +464,23 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   serverSide?: ServerSideConfig;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // DISPLAY
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Enable styled popover tooltips on overflowing cells and headers.
+   *
+   * @requires `import '@toolbox-web/grid-react/features/tooltip';`
+   *
+   * @example
+   * ```tsx
+   * <DataGrid tooltip />
+   * <DataGrid tooltip={{ cell: false }} />
+   * ```
+   */
+  tooltip?: boolean | TooltipConfig;
 }
 
 /**

@@ -34,6 +34,7 @@ import './responsive';
 import './row-reorder';
 import './selection';
 import './server-side';
+import './tooltip';
 import './tree';
 import './undo-redo';
 import './visibility';

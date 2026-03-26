@@ -1,0 +1,163 @@
+---
+title: "Tooltip Plugin"
+description: "Display popover tooltips for truncated header and cell text, with per-column overrides."
+---
+
+import { TabItem, Tabs } from '@astrojs/starlight/components';
+import TooltipDefaultDemo from '@components/demos/tooltip/TooltipDefaultDemo.astro';
+import ShowSource from '@components/ShowSource.astro';
+
+The Tooltip plugin shows popover tooltips when header or cell text overflows its container. It uses the [Popover API](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API) with CSS anchor positioning for a native, consistent experience across browsers — with a JavaScript fallback for older browsers.
+
+Tooltips appear automatically on hover. Per-column overrides let you provide custom static text or dynamic content derived from row data.
+
+## Installation
+
+```ts
+import '@toolbox-web/grid/features/tooltip';
+```
+
+## Basic Usage
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/tooltip';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'id', header: 'ID', width: 60 },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email Address' },
+    { field: 'department', header: 'Department / Division' },
+  ],
+  features: { tooltip: true },
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/tooltip';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function App({ data }) {
+  return (
+    <DataGrid
+      rows={data}
+      columns={[
+        { field: 'id', header: 'ID', width: 60 },
+        { field: 'name', header: 'Name' },
+        { field: 'email', header: 'Email Address' },
+      ]}
+      tooltip
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/tooltip';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+</script>
+
+<template>
+  <TbwGrid :rows="data" tooltip>
+    <TbwGridColumn field="id" header="ID" :width="60" />
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="email" header="Email Address" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/tooltip';
+
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-grid',
+  imports: [Grid],
+  template: `
+    <tbw-grid
+      [rows]="rows"
+      [columns]="columns"
+      [tooltip]="true"
+      style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class GridComponent {
+  rows = [];
+  columns = [
+    { field: 'id', header: 'ID', width: 60 },
+    { field: 'name', header: 'Name' },
+    { field: 'email', header: 'Email Address' },
+  ];
+}
+```
+  </TabItem>
+</Tabs>
+
+## Demo
+
+Hover over truncated column headers or cell values to see tooltips. Toggle header/cell tooltips with the controls. The **Job Title** column demonstrates a custom `headerTooltip` string and a dynamic `cellTooltip` function.
+
+<ShowSource file="demos/tooltip/TooltipDefaultDemo.astro">
+  <TooltipDefaultDemo />
+</ShowSource>
+
+## Configuration
+
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `header` | `boolean` | `true` | Enable automatic tooltips on overflowing header text |
+| `cell` | `boolean` | `true` | Enable automatic tooltips on overflowing cell text |
+
+## Per-Column Overrides
+
+Override tooltip behavior on individual columns with `headerTooltip` and `cellTooltip`:
+
+```ts
+const columns = [
+  // Static header tooltip
+  { field: 'revenue', header: 'Rev.', headerTooltip: 'Total revenue in USD (before tax)' },
+
+  // Dynamic cell tooltip from row data
+  { field: 'name', cellTooltip: (ctx) => `${ctx.row.firstName} ${ctx.row.lastName}` },
+
+  // Disable tooltip for a specific column
+  { field: 'actions', cellTooltip: false, headerTooltip: false },
+];
+```
+
+| Property | Type | Description |
+| -------- | ---- | ----------- |
+| `headerTooltip` | `false \| string \| (ctx) => string \| null` | Override header tooltip. `false` disables it, a string sets static text, a function returns dynamic text (return `null` to suppress). |
+| `cellTooltip` | `false \| string \| (ctx) => string \| null` | Override cell tooltip. Same signature as `headerTooltip`. The callback receives `{ value, row, field, column }`. |
+
+## Styling
+
+The tooltip popover includes a directional arrow that automatically flips when the tooltip appears above the cell. It supports CSS custom properties:
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--tbw-tooltip-bg` | `var(--tbw-color-panel-bg)` | Tooltip background color |
+| `--tbw-tooltip-fg` | `var(--tbw-color-panel-fg)` | Tooltip text color |
+| `--tbw-tooltip-border` | `var(--tbw-color-border)` | Tooltip border and arrow color |
+| `--tbw-tooltip-shadow` | `0 2px 8px rgba(0,0,0,.15)` | Tooltip box shadow |
+| `--tbw-tooltip-radius` | `var(--tbw-border-radius)` | Border radius |
+| `--tbw-tooltip-arrow-offset` | `12px` | Horizontal offset of the arrow from the left edge |
+
+```css
+tbw-grid {
+  --tbw-tooltip-bg: #1e1e2e;
+  --tbw-tooltip-fg: #cdd6f4;
+  --tbw-tooltip-border: #45475a;
+}
+```

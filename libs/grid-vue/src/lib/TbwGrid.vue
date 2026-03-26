@@ -41,6 +41,7 @@ import type {
   SelectionConfig,
   ServerSideConfig,
   SortChangeDetail,
+  TooltipConfig,
   TreeConfig,
   TreeExpandDetail,
   UndoRedoConfig,
@@ -227,6 +228,11 @@ const props = defineProps({
     type: Object as PropType<ServerSideConfig>,
     default: undefined,
   },
+  /** Enable tooltip display for header and cell content */
+  tooltip: {
+    type: [Boolean, Object] as PropType<boolean | TooltipConfig>,
+    default: undefined,
+  },
 });
 
 /**
@@ -327,6 +333,7 @@ const FEATURE_PROPS: FeatureName[] = [
   'print',
   'pivot',
   'serverSide',
+  'tooltip',
 ];
 
 /**

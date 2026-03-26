@@ -242,6 +242,8 @@ declare module '../../core/types' {
     editable?: boolean | ((row: TRow) => boolean);
     /** Optional custom editor factory or element tag name. Requires EditingPlugin. */
     editor?: ColumnEditorSpec<TRow, TValue>;
+    /** For select type - allow multi select. Requires EditingPlugin. */
+    multi?: boolean;
     /**
      * Configuration parameters for built-in editors.
      * Shape depends on column type (NumberEditorParams, TextEditorParams, DateEditorParams, SelectEditorParams).

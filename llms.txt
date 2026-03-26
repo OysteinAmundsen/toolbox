@@ -6,7 +6,7 @@
 
 Built-in (no plugins): Row virtualization (100k+ rows at 60fps, infinite scroll), sorting, column resizing, auto-sizing, keyboard navigation, custom renderers/editors, footer aggregations, 6 themes, row animations.
 
-Via features (22 available, tree-shakeable via side-effect imports): Selection (cell/row/range/checkbox), inline editing (cell/row mode), filtering (text/number/date/set/boolean), multi-sort, row grouping with aggregations, column grouping (spanning headers), tree data (hierarchical/nested), master-detail (expandable rows), pinned/frozen/sticky columns & rows, column/row drag reorder, column visibility (show/hide), column virtualization, export (CSV/JSON/Excel/XLSX), print, context menus, clipboard (copy/paste), undo/redo, server-side/remote data (infinite scroll, lazy loading, SSRM-style), pivot tables (row/column fields, value aggregation), responsive/mobile card layout.
+Via features (23 available, tree-shakeable via side-effect imports): Selection (cell/row/range/checkbox), inline editing (cell/row mode), filtering (text/number/date/set/boolean), multi-sort, row grouping with aggregations, column grouping (spanning headers), tree data (hierarchical/nested), master-detail (expandable rows), pinned/frozen/sticky columns & rows, column/row drag reorder, column visibility (show/hide), column virtualization, export (CSV/JSON/Excel/XLSX), print, context menus, clipboard (copy/paste), undo/redo, server-side/remote data (infinite scroll, lazy loading, SSRM-style), pivot tables (row/column fields, value aggregation), responsive/mobile card layout, popover tooltips (overflow detection, per-column overrides).
 
 ## Important Notes
 
@@ -80,6 +80,7 @@ Key TypeScript interfaces for configuration and events:
 - [Undo/Redo Plugin](https://toolboxjs.com/grid/plugins/undo-redo/): Edit history with Ctrl+Z/Ctrl+Y
 - [Server-Side Plugin](https://toolboxjs.com/grid/plugins/server-side/): Server-side row model (SSRM-style), infinite scrolling, lazy loading from remote APIs, block-based caching, server-side sorting/filtering/pagination, async data fetching, large dataset support
 - [Pivot Plugin](https://toolboxjs.com/grid/plugins/pivot/): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max), dynamic pivot columns
+- [Tooltip Plugin](https://toolboxjs.com/grid/plugins/tooltip/): Popover tooltips for overflowing header/cell text, per-column static/dynamic overrides, CSS anchor positioning, Popover API
 
 **Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with GroupingRows/Tree/Pivot (they require the full dataset; server-side loads lazily). A dev-mode warning is shown when conflicts are detected.
 

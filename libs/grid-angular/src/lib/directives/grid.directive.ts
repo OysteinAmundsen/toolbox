@@ -62,6 +62,7 @@ import type {
   SelectionChangeDetail,
   SelectionConfig,
   ServerSideConfig,
+  TooltipConfig,
   TreeConfig,
   TreeExpandDetail,
   UndoRedoConfig,
@@ -877,6 +878,17 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    */
   serverSide = input<ServerSideConfig>();
 
+  /**
+   * Controls the tooltip behavior for the grid.
+   *
+   * @example
+   * ```html
+   * <tbw-grid [tooltip]="true" />
+   * <tbw-grid [tooltip]="{ header: true, cell: false }" />
+   * ```
+   */
+  tooltip = input<boolean | TooltipConfig>();
+
   // ═══════════════════════════════════════════════════════════════════════════
   // EVENT OUTPUTS - All grid events
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1271,6 +1283,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     addPlugin('print', this.print());
     addPlugin('pivot', this.pivot());
     addPlugin('serverSide', this.serverSide());
+    addPlugin('tooltip', this.tooltip());
 
     return plugins;
   }

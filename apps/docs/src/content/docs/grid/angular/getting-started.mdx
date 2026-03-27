@@ -236,44 +236,50 @@ For complex editors (date pickers, overlays, form-integrated editors), see [Base
 
 ## Handling Events
 
-Listen to grid events using standard Angular event binding:
+The `Grid` directive provides typed Angular outputs for all grid events. Use **camelCase** event binding — the outputs deliver the unwrapped event detail directly (no `.detail` needed):
 
 ```typescript
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+import type { CellClickDetail, RowClickDetail, CellCommitDetail, SortChangeDetail } from '@toolbox-web/grid';
+
 @Component({
   imports: [Grid],
   template: `
     <tbw-grid
       [rows]="employees"
       [gridConfig]="config"
-      (cell-click)="onCellClick($event)"
-      (row-click)="onRowClick($event)"
-      (cell-commit)="onCellCommit($event)"
-      (sort-change)="onSortChange($event)"
+      (cellClick)="onCellClick($event)"
+      (rowClick)="onRowClick($event)"
+      (cellCommit)="onCellCommit($event)"
+      (sortChange)="onSortChange($event)"
     />
   `,
 })
 export class EmployeeGridComponent {
-  onCellClick(event: CustomEvent) {
-    const { row, column, value } = event.detail;
-    console.log('Cell clicked:', { row, column, value });
+  onCellClick(detail: CellClickDetail<Employee>) {
+    console.log('Cell clicked:', detail.row, detail.field, detail.value);
   }
 
-  onRowClick(event: CustomEvent) {
-    const { row, rowIndex } = event.detail;
-    console.log('Row clicked:', row);
+  onRowClick(detail: RowClickDetail<Employee>) {
+    console.log('Row clicked:', detail.row, detail.rowIndex);
   }
 
-  onCellCommit(event: CustomEvent) {
-    const { row, column, newValue, oldValue } = event.detail;
-    console.log('Cell edited:', { row, column, newValue, oldValue });
+  onCellCommit(detail: CellCommitDetail<Employee>) {
+    console.log('Cell edited:', detail.field, detail.oldValue, '→', detail.value);
   }
 
-  onSortChange(event: CustomEvent) {
-    const { sortState } = event.detail;
-    console.log('Sort changed:', sortState);
+  onSortChange(detail: SortChangeDetail) {
+    console.log('Sort changed:', detail);
   }
 }
 ```
+
+:::tip[camelCase vs kebab-case]
+Always use **camelCase** outputs like `(cellClick)` — they deliver the typed, unwrapped detail directly.
+
+Kebab-case bindings like `(cell-click)` also work (they listen to the native DOM `CustomEvent`), but `$event` is an untyped `CustomEvent` requiring manual `.detail` unwrapping.
+:::
 
 ## Programmatic Grid Access
 

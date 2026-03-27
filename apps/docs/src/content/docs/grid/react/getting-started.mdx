@@ -496,7 +496,11 @@ function EmployeeGrid() {
 
 ## The `useGridEvent` Hook
 
-For programmatic event handling outside of props, use `useGridEvent`:
+:::caution[Deprecated]
+`useGridEvent` is deprecated and will be removed in v2. Prefer event props directly on `<DataGrid>` (shown above). Use `useGridEvent` only when you need to subscribe to events programmatically outside of JSX.
+:::
+
+For programmatic event handling outside of props, `useGridEvent` provides event subscription with automatic cleanup:
 
 ```tsx
 import { useRef, useState } from 'react';

@@ -359,7 +359,11 @@ async function exportCsv() {
 
 ## The `useGridEvent` Composable
 
-For programmatic event handling beyond template bindings, use `useGridEvent`. It provides type-safe event subscription with automatic cleanup:
+:::caution[Deprecated]
+`useGridEvent` is deprecated and will be removed in v2. Prefer `@event` bindings directly on `<TbwGrid>` (shown above). Use `useGridEvent` only when you need to listen for events outside the template (e.g., in a composable with no template access).
+:::
+
+For programmatic event handling beyond template bindings, `useGridEvent` provides type-safe event subscription with automatic cleanup:
 
 ```html
 <script setup lang="ts">

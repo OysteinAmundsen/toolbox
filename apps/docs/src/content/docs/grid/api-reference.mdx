@@ -731,25 +731,28 @@ grid.on('cell-commit', (detail, e) => {
   </TabItem>
   <TabItem label="React">
 ```tsx
-import { DataGrid, useGrid, useGridEvent } from '@toolbox-web/grid-react';
+import { DataGrid } from '@toolbox-web/grid-react';
 import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
 
 function EmployeeGrid() {
-  const gridRef = useGrid<Employee>();
+  // Event props deliver the unwrapped detail directly
+  const handleCellClick = useCallback((detail: CellClickDetail<Employee>) => {
+    console.log(detail.row, detail.field);
+  }, []);
 
-  // Type-safe event hook
-  useGridEvent(gridRef, 'cell-click', (e) => {
-    console.log(e.detail.row, e.detail.field);
-  });
-
-  // Or use event handler props
-  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>) => {
+  const handleCellCommit = useCallback((detail: CellCommitDetail<Employee>, e?: CustomEvent) => {
     if (!isValid(detail.value)) {
-      // Cancelable — return false or call e.preventDefault()
+      e?.preventDefault(); // Rejects the edit
     }
   }, []);
 
-  return <DataGrid ref={gridRef} rows={employees} onCellCommit={handleCellCommit} />;
+  return (
+    <DataGrid
+      rows={employees}
+      onCellClick={handleCellClick}
+      onCellCommit={handleCellCommit}
+    />
+  );
 }
 ```
   </TabItem>
@@ -759,13 +762,13 @@ function EmployeeGrid() {
 import { TbwGrid } from '@toolbox-web/grid-vue';
 import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
 
-function onCellClick(detail: CellClickDetail) {
-  console.log(detail.row, detail.field);
+function onCellClick(event: CustomEvent<CellClickDetail>) {
+  console.log(event.detail.row, event.detail.field);
 }
 
-function onCellCommit(detail: CellCommitDetail) {
-  if (!isValid(detail.value)) {
-    // Cancelable — call detail.preventDefault()
+function onCellCommit(event: CustomEvent<CellCommitDetail>) {
+  if (!isValid(event.detail.value)) {
+    event.preventDefault(); // Rejects the edit
   }
 }
 </script>
@@ -779,29 +782,35 @@ function onCellCommit(detail: CellCommitDetail) {
 ```typescript
 import { Component } from '@angular/core';
 import { Grid } from '@toolbox-web/grid-angular';
+import type { CellClickDetail, CellCommitDetail } from '@toolbox-web/grid';
 
 @Component({
   imports: [Grid],
   template: `
     <tbw-grid
       [rows]="employees"
-      (cell-click)="onCellClick($event)"
-      (cell-commit)="onCellCommit($event)"
+      (cellClick)="onCellClick($event)"
+      (cellCommit)="onCellCommit($event)"
     />
   `,
 })
 export class EmployeeGridComponent {
-  onCellClick(event: CustomEvent) {
-    console.log(event.detail.row, event.detail.field);
+  onCellClick(detail: CellClickDetail<Employee>) {
+    console.log(detail.row, detail.field);
   }
 
-  onCellCommit(event: CustomEvent) {
-    if (!isValid(event.detail.value)) {
-      event.preventDefault(); // Rejects the edit
+  onCellCommit(detail: CellCommitDetail<Employee>) {
+    if (!isValid(detail.value)) {
+      // To cancel, use the native event via kebab-case binding:
+      // (cell-commit)="onCellCommit($event)" → event.preventDefault()
     }
   }
 }
 ```
+
+:::note[camelCase vs kebab-case]
+Use **camelCase** outputs like `(cellClick)` for typed, unwrapped detail. Use kebab-case `(cell-commit)` when you need `preventDefault()` on the native `CustomEvent`.
+:::
   </TabItem>
 </Tabs>
 

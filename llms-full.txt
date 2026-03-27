@@ -826,15 +826,40 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `column-visibility-change` | Visibility | `VisibilityChangeDetail` |
 | `column-reorder` | Reorder | `ReorderDetail` |
 
-**React event handling:** Use the `on` prefix props on `<DataGrid>`:
+**React event handling:** Use `on`-prefix props on `<DataGrid>` — the detail is unwrapped automatically:
 
 ```tsx
 <DataGrid
-  onCellClick={(e) => console.log(e.detail)}
-  onCellChange={(e) => console.log(e.detail)}
-  onSortChange={(e) => console.log(e.detail)}
-  onRowsChange={setData}  // Special prop: called when editing commits
+  onCellClick={(detail) => console.log(detail.row)}
+  onCellChange={(detail) => console.log(detail.field)}
+  onSortChange={(detail) => console.log(detail)}
+  onCellCommit={(detail, event) => {
+    if (!isValid(detail.value)) event?.preventDefault();
+  }}
 />
+```
+
+**Angular event handling:** Use **camelCase** outputs on the `Grid` directive — the detail is unwrapped automatically:
+
+```html
+<tbw-grid [rows]="employees" (cellClick)="onCellClick($event)" (rowClick)="onRowClick($event)" />
+```
+```typescript
+onCellClick(detail: CellClickDetail<Employee>) {
+  console.log(detail.row, detail.field);
+}
+```
+Use kebab-case `(cell-commit)` when you need `event.preventDefault()` on the native `CustomEvent`.
+
+**Vue event handling:** Use `@event` bindings — handlers receive the full `CustomEvent`:
+
+```vue
+<TbwGrid :rows="employees" @cell-click="onCellClick" @sort-change="onSortChange" />
+```
+```typescript
+function onCellClick(event: CustomEvent<CellClickDetail>) {
+  console.log(event.detail.row, event.detail.field);
+}
 ```
 
 ---
@@ -1844,11 +1869,12 @@ import '@toolbox-web/grid-vue/features/selection';     // Feature side-effect im
 ### Composables
 
 ```typescript
-import { useGrid, useGridEvent } from '@toolbox-web/grid-vue';
+import { useGrid } from '@toolbox-web/grid-vue';
 
 const { gridElement, forceLayout, getConfig, ready, getPlugin } = useGrid();
-useGridEvent('cell-click', (e) => console.log(e.detail));
 ```
+
+Events are handled via standard `@event` bindings on `<TbwGrid>` (see above).
 
 ### Key Vue Pitfalls
 

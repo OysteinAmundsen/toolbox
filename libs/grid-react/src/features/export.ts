@@ -30,7 +30,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type ExportPlugin, type ExportFormat, type ExportParams } from '@toolbox-web/grid/plugins/export';
+import { type ExportFormat, type ExportParams, type ExportPlugin } from '@toolbox-web/grid/plugins/export';
 import { useCallback, useContext } from 'react';
 import { GridElementContext } from '../lib/grid-element-context';
 
@@ -102,9 +102,7 @@ export function useGridExport(selector?: string): ExportMethods {
   const gridRef = useContext(GridElementContext);
 
   const getPlugin = useCallback((): ExportPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridRef?.current) as DataGridElement | null;
+    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
     return grid?.getPluginByName('export');
   }, [gridRef, selector]);
 

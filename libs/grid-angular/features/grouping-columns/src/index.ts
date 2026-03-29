@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/grouping-columns';
+export type { _Augmentation as _GroupingColumnsAugmentation } from '@toolbox-web/grid/features/grouping-columns';

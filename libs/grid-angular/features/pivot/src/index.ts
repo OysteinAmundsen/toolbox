@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/pivot';
+export type { _Augmentation as _PivotAugmentation } from '@toolbox-web/grid/features/pivot';

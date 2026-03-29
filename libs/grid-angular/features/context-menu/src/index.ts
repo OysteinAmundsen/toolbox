@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/context-menu';
+export type { _Augmentation as _ContextMenuAugmentation } from '@toolbox-web/grid/features/context-menu';

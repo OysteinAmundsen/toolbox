@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/master-detail';
+export type { _Augmentation as _MasterDetailAugmentation } from '@toolbox-web/grid/features/master-detail';

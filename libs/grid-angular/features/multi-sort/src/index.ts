@@ -20,3 +20,4 @@
  */
 
 import '@toolbox-web/grid/features/multi-sort';
+export type { _Augmentation as _MultiSortAugmentation } from '@toolbox-web/grid/features/multi-sort';

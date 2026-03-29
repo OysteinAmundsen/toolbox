@@ -32,7 +32,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type SelectionPlugin, type CellRange, type SelectionResult } from '@toolbox-web/grid/plugins/selection';
+import { type CellRange, type SelectionPlugin, type SelectionResult } from '@toolbox-web/grid/plugins/selection';
 import { inject, ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 

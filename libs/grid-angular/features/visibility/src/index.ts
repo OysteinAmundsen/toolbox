@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/visibility';
+export type { _Augmentation as _VisibilityAugmentation } from '@toolbox-web/grid/features/visibility';

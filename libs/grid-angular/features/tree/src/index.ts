@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/tree';
+export type { _Augmentation as _TreeAugmentation } from '@toolbox-web/grid/features/tree';

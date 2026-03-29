@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/column-virtualization';
+export type { _Augmentation as _ColumnVirtualizationAugmentation } from '@toolbox-web/grid/features/column-virtualization';

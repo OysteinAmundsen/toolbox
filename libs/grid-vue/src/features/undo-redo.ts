@@ -33,7 +33,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type UndoRedoPlugin, type UndoRedoAction } from '@toolbox-web/grid/plugins/undo-redo';
+import { type UndoRedoAction, type UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 import { inject, ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 
@@ -132,9 +132,7 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
   const gridElement = selector ? ref(null) : inject(GRID_ELEMENT_KEY, ref(null));
 
   const getPlugin = (): UndoRedoPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridElement.value) as DataGridElement | null;
+    const grid = (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
     return grid?.getPluginByName('undoRedo');
   };
 

@@ -16,3 +16,4 @@
  */
 
 import '@toolbox-web/grid/features/clipboard';
+export type { _Augmentation as _ClipboardAugmentation } from '@toolbox-web/grid/features/clipboard';

@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/responsive';
+export type { _Augmentation as _ResponsiveAugmentation } from '@toolbox-web/grid/features/responsive';

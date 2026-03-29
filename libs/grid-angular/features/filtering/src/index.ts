@@ -33,6 +33,7 @@ import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } 
 import type { DataGridElement } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/filtering';
 import { FilteringPlugin, type BlankMode, type FilterModel } from '@toolbox-web/grid/plugins/filtering';
+export type { _Augmentation as _FilteringAugmentation } from '@toolbox-web/grid/features/filtering';
 
 /**
  * Filtering methods returned from injectGridFiltering.

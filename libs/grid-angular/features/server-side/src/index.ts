@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/server-side';
+export type { _Augmentation as _ServerSideAugmentation } from '@toolbox-web/grid/features/server-side';

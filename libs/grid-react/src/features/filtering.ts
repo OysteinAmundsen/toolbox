@@ -173,9 +173,7 @@ export function useGridFiltering(selector?: string): FilteringMethods {
   const gridRef = useContext(GridElementContext);
 
   const getPlugin = useCallback((): FilteringPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridRef?.current) as DataGridElement | null;
+    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
     return grid?.getPluginByName('filtering');
   }, [gridRef, selector]);
 

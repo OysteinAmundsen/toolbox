@@ -32,7 +32,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type ExportPlugin, type ExportFormat, type ExportParams } from '@toolbox-web/grid/plugins/export';
+import { type ExportFormat, type ExportParams, type ExportPlugin } from '@toolbox-web/grid/plugins/export';
 import { inject, ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 
@@ -106,9 +106,7 @@ export function useGridExport(selector?: string): ExportMethods {
   const gridElement = selector ? ref(null) : inject(GRID_ELEMENT_KEY, ref(null));
 
   const getPlugin = (): ExportPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridElement.value) as DataGridElement | null;
+    const grid = (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
     return grid?.getPluginByName('export');
   };
 

@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/reorder-rows';
+export type { _Augmentation as _ReorderRowsAugmentation } from '@toolbox-web/grid/features/reorder-rows';

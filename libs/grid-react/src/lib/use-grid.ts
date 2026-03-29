@@ -232,36 +232,45 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
     await gridRef.forceLayout?.();
   }, [getGridElement]);
 
-  const toggleGroup = useCallback(async (key: string) => {
-    const el = getGridElement();
-    if (el) {
-      // toggleGroup is added by GroupingRowsPlugin, not on base DataGridElement type
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (el as any).toggleGroup?.(key);
-      return;
-    }
-    const gridRef = ref.current;
-    if (!gridRef) return;
-    await gridRef.toggleGroup?.(key);
-  }, [getGridElement]);
+  const toggleGroup = useCallback(
+    async (key: string) => {
+      const el = getGridElement();
+      if (el) {
+        // toggleGroup is added by GroupingRowsPlugin, not on base DataGridElement type
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (el as any).toggleGroup?.(key);
+        return;
+      }
+      const gridRef = ref.current;
+      if (!gridRef) return;
+      await gridRef.toggleGroup?.(key);
+    },
+    [getGridElement],
+  );
 
-  const registerStyles = useCallback((id: string, css: string) => {
-    const el = getGridElement();
-    if (el) {
-      el.registerStyles?.(id, css);
-      return;
-    }
-    ref.current?.registerStyles?.(id, css);
-  }, [getGridElement]);
+  const registerStyles = useCallback(
+    (id: string, css: string) => {
+      const el = getGridElement();
+      if (el) {
+        el.registerStyles?.(id, css);
+        return;
+      }
+      ref.current?.registerStyles?.(id, css);
+    },
+    [getGridElement],
+  );
 
-  const unregisterStyles = useCallback((id: string) => {
-    const el = getGridElement();
-    if (el) {
-      el.unregisterStyles?.(id);
-      return;
-    }
-    ref.current?.unregisterStyles?.(id);
-  }, [getGridElement]);
+  const unregisterStyles = useCallback(
+    (id: string) => {
+      const el = getGridElement();
+      if (el) {
+        el.unregisterStyles?.(id);
+        return;
+      }
+      ref.current?.unregisterStyles?.(id);
+    },
+    [getGridElement],
+  );
 
   const getVisibleColumns = useCallback(() => {
     if (!config?.columns) return [];
@@ -315,25 +324,31 @@ export function useGrid<TRow = unknown>(selector?: string): UseGridReturn<TRow> 
   // EXPORT CONVENIENCE METHODS
   // ═══════════════════════════════════════════════════════════════════
 
-  const exportToCsv = useCallback((filename?: string) => {
-    const element = getGridElement() as any;
-    const plugin = element?.getPluginByName?.('export');
-    if (!plugin) {
-      console.warn('[useGrid] exportToCsv requires ExportPlugin (use export prop)');
-      return;
-    }
-    plugin.exportCsv?.({ filename: filename ?? 'export.csv' });
-  }, [getGridElement]);
+  const exportToCsv = useCallback(
+    (filename?: string) => {
+      const element = getGridElement() as any;
+      const plugin = element?.getPluginByName?.('export');
+      if (!plugin) {
+        console.warn('[useGrid] exportToCsv requires ExportPlugin (use export prop)');
+        return;
+      }
+      plugin.exportCsv?.({ filename: filename ?? 'export.csv' });
+    },
+    [getGridElement],
+  );
 
-  const exportToJson = useCallback((filename?: string) => {
-    const element = getGridElement() as any;
-    const plugin = element?.getPluginByName?.('export');
-    if (!plugin) {
-      console.warn('[useGrid] exportToJson requires ExportPlugin (use export prop)');
-      return;
-    }
-    plugin.exportJson?.({ filename: filename ?? 'export.json' });
-  }, [getGridElement]);
+  const exportToJson = useCallback(
+    (filename?: string) => {
+      const element = getGridElement() as any;
+      const plugin = element?.getPluginByName?.('export');
+      if (!plugin) {
+        console.warn('[useGrid] exportToJson requires ExportPlugin (use export prop)');
+        return;
+      }
+      plugin.exportJson?.({ filename: filename ?? 'export.json' });
+    },
+    [getGridElement],
+  );
 
   return {
     ref,

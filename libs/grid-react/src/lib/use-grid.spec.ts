@@ -158,7 +158,9 @@ describe('use-grid', () => {
 
   describe('selection methods without plugin', () => {
     it('selectAll should warn and return without plugin', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
       const { result, cleanup } = captureHook();
 
       // Simulate ref with element but no selection plugin
@@ -296,7 +298,9 @@ describe('use-grid', () => {
 
   describe('export methods', () => {
     it('exportToCsv should warn without plugin', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
       const { result, cleanup } = captureHook();
 
       (result.current!.ref as any).current = {
@@ -311,7 +315,9 @@ describe('use-grid', () => {
     });
 
     it('exportToJson should warn without plugin', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* noop */ });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        /* noop */
+      });
       const { result, cleanup } = captureHook();
 
       (result.current!.ref as any).current = {

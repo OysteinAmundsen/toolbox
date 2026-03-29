@@ -28,7 +28,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type SelectionPlugin, type CellRange, type SelectionResult } from '@toolbox-web/grid/plugins/selection';
+import { type CellRange, type SelectionPlugin, type SelectionResult } from '@toolbox-web/grid/plugins/selection';
 import { useCallback, useContext } from 'react';
 import { GridElementContext } from '../lib/grid-element-context';
 
@@ -111,9 +111,7 @@ export function useGridSelection<TRow = unknown>(selector?: string): SelectionMe
   const gridRef = useContext(GridElementContext);
 
   const getPlugin = useCallback((): SelectionPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridRef?.current) as DataGridElement<TRow> | null;
+    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement<TRow> | null;
     return grid?.getPluginByName('selection');
   }, [gridRef, selector]);
 
@@ -127,9 +125,7 @@ export function useGridSelection<TRow = unknown>(selector?: string): SelectionMe
       );
       return;
     }
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridRef?.current) as DataGridElement<TRow> | null;
+    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement<TRow> | null;
     // Cast to any to access protected config
     const mode = (plugin as any).config?.mode;
 

@@ -33,7 +33,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type UndoRedoPlugin, type UndoRedoAction } from '@toolbox-web/grid/plugins/undo-redo';
+import { type UndoRedoAction, type UndoRedoPlugin } from '@toolbox-web/grid/plugins/undo-redo';
 import { useCallback, useContext } from 'react';
 import { GridElementContext } from '../lib/grid-element-context';
 
@@ -132,9 +132,7 @@ export function useGridUndoRedo(selector?: string): UndoRedoMethods {
   const gridRef = useContext(GridElementContext);
 
   const getPlugin = useCallback((): UndoRedoPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridRef?.current) as DataGridElement | null;
+    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
     return grid?.getPluginByName('undoRedo');
   }, [gridRef, selector]);
 

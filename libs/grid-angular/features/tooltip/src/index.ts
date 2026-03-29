@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/tooltip';
+export type { _Augmentation as _TooltipAugmentation } from '@toolbox-web/grid/features/tooltip';

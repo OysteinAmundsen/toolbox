@@ -33,6 +33,7 @@ import { afterNextRender, DestroyRef, ElementRef, inject, signal, type Signal } 
 import type { DataGridElement } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/undo-redo';
 import { UndoRedoPlugin, type UndoRedoAction } from '@toolbox-web/grid/plugins/undo-redo';
+export type { _Augmentation as _UndoRedoAugmentation } from '@toolbox-web/grid/features/undo-redo';
 
 /**
  * Undo/Redo methods returned from injectGridUndoRedo.

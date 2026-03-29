@@ -17,3 +17,4 @@
  */
 
 import '@toolbox-web/grid/features/pinned-columns';
+export type { _Augmentation as _PinnedColumnsAugmentation } from '@toolbox-web/grid/features/pinned-columns';

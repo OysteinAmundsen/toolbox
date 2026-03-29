@@ -32,7 +32,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type PrintPlugin, type PrintParams } from '@toolbox-web/grid/plugins/print';
+import { type PrintParams, type PrintPlugin } from '@toolbox-web/grid/plugins/print';
 import { inject, ref } from 'vue';
 import { GRID_ELEMENT_KEY } from '../lib/use-grid';
 
@@ -88,9 +88,7 @@ export function useGridPrint(selector?: string): PrintMethods {
   const gridElement = selector ? ref(null) : inject(GRID_ELEMENT_KEY, ref(null));
 
   const getPlugin = (): PrintPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridElement.value) as DataGridElement | null;
+    const grid = (selector ? document.querySelector(selector) : gridElement.value) as DataGridElement | null;
     return grid?.getPluginByName('print');
   };
 

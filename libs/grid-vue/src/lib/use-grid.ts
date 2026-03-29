@@ -47,7 +47,7 @@ export interface UseGridReturn {
  *   contains multiple grids, e.g. `'tbw-grid.primary'` or `'#my-grid'`.
  */
 export function useGrid(selector?: string): UseGridReturn {
-  const gridElement = selector ? ref(null) as Ref<DataGridElement | null> : inject(GRID_ELEMENT_KEY, ref(null));
+  const gridElement = selector ? (ref(null) as Ref<DataGridElement | null>) : inject(GRID_ELEMENT_KEY, ref(null));
 
   /**
    * Resolve the grid element. When a selector is provided, uses a DOM query;

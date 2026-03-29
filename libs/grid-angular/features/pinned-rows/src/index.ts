@@ -14,3 +14,4 @@
  */
 
 import '@toolbox-web/grid/features/pinned-rows';
+export type { _Augmentation as _PinnedRowsAugmentation } from '@toolbox-web/grid/features/pinned-rows';

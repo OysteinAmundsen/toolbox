@@ -41,6 +41,7 @@ import {
   type SelectionChangeDetail,
   type SelectionResult,
 } from '@toolbox-web/grid/plugins/selection';
+export type { _Augmentation as _SelectionAugmentation } from '@toolbox-web/grid/features/selection';
 
 /**
  * Selection methods returned from injectGridSelection.

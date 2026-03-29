@@ -30,7 +30,7 @@
  */
 
 import type { DataGridElement } from '@toolbox-web/grid';
-import { type PrintPlugin, type PrintParams } from '@toolbox-web/grid/plugins/print';
+import { type PrintParams, type PrintPlugin } from '@toolbox-web/grid/plugins/print';
 import { useCallback, useContext } from 'react';
 import { GridElementContext } from '../lib/grid-element-context';
 
@@ -86,9 +86,7 @@ export function useGridPrint(selector?: string): PrintMethods {
   const gridRef = useContext(GridElementContext);
 
   const getPlugin = useCallback((): PrintPlugin | undefined => {
-    const grid = (selector
-      ? document.querySelector(selector)
-      : gridRef?.current) as DataGridElement | null;
+    const grid = (selector ? document.querySelector(selector) : gridRef?.current) as DataGridElement | null;
     return grid?.getPluginByName('print');
   }, [gridRef, selector]);
 

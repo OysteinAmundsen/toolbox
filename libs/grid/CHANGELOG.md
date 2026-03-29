@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.28.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.1...grid-1.28.2) (2026-03-29)
+
+
+### Bug Fixes
+
+* **grid:** add type anchors to feature modules for bundler compatibility ([721e610](https://github.com/OysteinAmundsen/toolbox/commit/721e610482fd4575eab6d37260e1606f1fa76a58))
+* **grid:** make FeatureConfig reject unknown feature keys via sentinel type ([19e4428](https://github.com/OysteinAmundsen/toolbox/commit/19e4428917418c140e61a08c27e5f9181ebd042f))
+
 ## [1.28.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.0...grid-1.28.1) (2026-03-26)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.11.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.1...grid-vue-0.11.2) (2026-03-29)
+
+
+### Bug Fixes
+
+* **grid-angular:** re-export feature type anchors to preserve FeatureConfig augmentation ([8d47822](https://github.com/OysteinAmundsen/toolbox/commit/8d4782291fd2475611160713e2d5d39ae391a358))
+
+
+### Enhancements
+
+* **grid-angular,grid-react,grid-vue:** add optional selector parameter to inject/use functions for multi-grid support ([c8e377d](https://github.com/OysteinAmundsen/toolbox/commit/c8e377d7c2af48ab865d77db97e873739bd46451))
+
 ## [0.11.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.0...grid-vue-0.11.1) (2026-03-26)
 
 

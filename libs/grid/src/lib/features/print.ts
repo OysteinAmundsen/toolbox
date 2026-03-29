@@ -23,3 +23,6 @@ registerFeature('print', (config) => {
   if (config === true) return new PrintPlugin();
   return new PrintPlugin((config as PrintConfig) ?? undefined);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

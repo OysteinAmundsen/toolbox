@@ -23,3 +23,6 @@ registerFeature('filtering', (config) => {
   if (typeof config === 'boolean') return new FilteringPlugin();
   return new FilteringPlugin((config as FilterConfig) ?? undefined);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

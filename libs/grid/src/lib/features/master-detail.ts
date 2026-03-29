@@ -23,3 +23,6 @@ registerFeature('masterDetail', (config) => {
   const options = typeof config === 'boolean' ? {} : ((config as MasterDetailConfig) ?? {});
   return new MasterDetailPlugin(options);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

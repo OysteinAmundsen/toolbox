@@ -28,3 +28,6 @@ const factory = (config: unknown) => {
 
 registerFeature('reorderColumns', factory);
 registerFeature('reorder', factory);
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

@@ -30,3 +30,6 @@ registerFeature('multiSort', (config) => {
   }
   return new MultiSortPlugin(config as MultiSortConfig);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

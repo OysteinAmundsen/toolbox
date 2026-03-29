@@ -23,3 +23,6 @@ registerFeature('export', (config) => {
   const options = typeof config === 'boolean' ? {} : ((config as ExportConfig) ?? {});
   return new ExportPlugin(options);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

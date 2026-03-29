@@ -28,3 +28,6 @@ registerFeature('editing', (config) => {
   }
   return new EditingPlugin((config as EditingConfig) ?? undefined);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

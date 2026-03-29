@@ -22,3 +22,6 @@ declare module '../core/types' {
 registerFeature('pinnedColumns', (config) => {
   return new PinnedColumnsPlugin();
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

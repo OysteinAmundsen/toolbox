@@ -23,3 +23,6 @@ registerFeature('tooltip', (config) => {
   if (config === true) return new TooltipPlugin();
   return new TooltipPlugin((config as TooltipConfig) ?? undefined);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

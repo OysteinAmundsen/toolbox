@@ -25,3 +25,6 @@ registerFeature('selection', (config) => {
   }
   return new SelectionPlugin(config ?? undefined);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

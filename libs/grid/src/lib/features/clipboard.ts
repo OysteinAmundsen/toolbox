@@ -26,3 +26,6 @@ registerFeature('clipboard', (config) => {
   const options = typeof config === 'boolean' ? {} : ((config as ClipboardConfig) ?? {});
   return new ClipboardPlugin(options);
 });
+
+/** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
+export type _Augmentation = true;

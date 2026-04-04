@@ -13,8 +13,10 @@
     align-items: center;
     padding: var(--tbw-cell-padding, 0.125rem 0.5rem);
   }
-  .group-row:hover {
-    background: var(--tbw-grouping-rows-bg-hover, var(--tbw-color-row-hover));
+  @media (hover: hover) {
+    .group-row:hover {
+      background: var(--tbw-grouping-rows-bg-hover, var(--tbw-color-row-hover));
+    }
   }
   .group-toggle {
     cursor: pointer;

@@ -17,8 +17,10 @@
     border-bottom: var(--tbw-row-divider);
   }
 
-  .pivot-group-row:hover {
-    background: var(--tbw-pivot-group-hover, var(--tbw-color-row-hover));
+  @media (hover: hover) {
+    .pivot-group-row:hover {
+      background: var(--tbw-pivot-group-hover, var(--tbw-color-row-hover));
+    }
   }
 
   .pivot-leaf-row {

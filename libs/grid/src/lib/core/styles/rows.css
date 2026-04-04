@@ -18,8 +18,10 @@
         background: var(--tbw-color-row-alt);
       }
 
-      &:hover {
-        background: var(--tbw-color-row-hover);
+      @media (hover: hover) {
+        &:hover {
+          background: var(--tbw-color-row-hover);
+        }
       }
 
       > .cell {

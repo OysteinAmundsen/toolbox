@@ -161,7 +161,7 @@ Called after each render cycle. Use for grid-wide DOM manipulation.
 ```typescript
 override afterRender(): void {
   const gridEl = this.gridElement;
-  const rows = gridEl.querySelectorAll('[data-row-index]');
+  const rows = gridEl.querySelectorAll('.data-grid-row');
   rows.forEach((row, i) => {
     if (i % 2 === 0) row.classList.add('even-row');
   });

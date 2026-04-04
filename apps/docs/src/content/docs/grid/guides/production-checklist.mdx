@@ -169,7 +169,7 @@ describe('Employee Grid', () => {
 
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    const rows = grid.querySelectorAll('[data-row-index]');
+    const rows = grid.querySelectorAll('.data-grid-row');
     expect(rows.length).toBe(2);
   });
 });
@@ -177,7 +177,7 @@ describe('Employee Grid', () => {
 
 ### E2E Tests (Playwright / Cypress)
 
-- **Wait for grid readiness** — The grid renders asynchronously. Wait for `[data-row-index]` elements before asserting.
+- **Wait for grid readiness** — The grid renders asynchronously. Wait for `.data-grid-row` elements before asserting.
 - **Virtual scrolling** — Only visible rows exist in the DOM. Scroll to bring off-screen rows into view before interacting.
 - **Editing** — Double-click a cell, wait for the input element, type, then press Enter.
 

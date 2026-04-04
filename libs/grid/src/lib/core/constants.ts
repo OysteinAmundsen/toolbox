@@ -98,14 +98,10 @@ export const GridClasses = {
  */
 export const GridDataAttrs = {
   // ─── Core Attributes ──────────────────────────────────────────────
-  ROW_INDEX: 'data-row-index',
-  COL_INDEX: 'data-col-index',
   FIELD: 'data-field',
 
   // ─── Shared Attributes (used by plugins) ──────────────────────────
   GROUP_KEY: 'data-group-key', // GroupingRowsPlugin
-  TREE_LEVEL: 'data-tree-level', // TreePlugin
-  STICKY: 'data-sticky', // PinnedColumnsPlugin
 } as const;
 
 // #endregion
@@ -130,10 +126,7 @@ export const GridSelectors = {
   GROUP_ROW: `.${GridClasses.GROUP_ROW}`,
 
   // By data attribute
-  ROW_BY_INDEX: (index: number) => `.${GridClasses.DATA_ROW}[${GridDataAttrs.ROW_INDEX}="${index}"]`,
   CELL_BY_FIELD: (field: string) => `.${GridClasses.DATA_CELL}[${GridDataAttrs.FIELD}="${field}"]`,
-  CELL_AT: (row: number, col: number) =>
-    `.${GridClasses.DATA_ROW}[${GridDataAttrs.ROW_INDEX}="${row}"] .${GridClasses.DATA_CELL}[${GridDataAttrs.COL_INDEX}="${col}"]`,
 
   // State selectors
   SELECTED_ROWS: `.${GridClasses.DATA_ROW}.${GridClasses.SELECTED}`,

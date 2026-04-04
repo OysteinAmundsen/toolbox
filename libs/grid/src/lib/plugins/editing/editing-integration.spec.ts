@@ -1838,8 +1838,7 @@ describe('EditingPlugin', () => {
       const editRowRef = (editingPlugin as any)['#activeEditRowRef'] ?? grid._rows[1];
 
       // Simulate typing into the editor
-      const row = grid.querySelector('.data-grid-row[data-row-index="1"]');
-      const nameCell = row?.querySelector('.cell.editing');
+      const nameCell = grid.querySelector('.cell[data-row="1"].editing');
       const input = nameCell?.querySelector('input') as HTMLInputElement | null;
       if (input) {
         input.value = 'Bobby';

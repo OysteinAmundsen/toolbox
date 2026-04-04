@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.28.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.2...grid-1.28.3) (2026-04-04)
+
+
+### Bug Fixes
+
+* **grid-vue,grid-react:** close adapter API parity gaps ([3ff3e9a](https://github.com/OysteinAmundsen/toolbox/commit/3ff3e9a8ae0d9e03bfa4ef73f6637a344f4c7a02))
+* **grid:** prevent stale velocity from causing scroll after touch hold ([92dca5f](https://github.com/OysteinAmundsen/toolbox/commit/92dca5f292ed06db656fe5ffa886c2b3ad7d3aeb))
+* **grid:** prevent sticky hover highlight on touch devices during scroll ([82256fe](https://github.com/OysteinAmundsen/toolbox/commit/82256fe005830599f214bc25e377c96251226a6e))
+
 ## [1.28.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.1...grid-1.28.2) (2026-03-29)
 
 

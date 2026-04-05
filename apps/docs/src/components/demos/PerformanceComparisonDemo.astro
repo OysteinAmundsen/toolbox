@@ -118,17 +118,29 @@ import '@toolbox-web/grid/features/filtering';
 
   const cooldown = (ms = 500) => new Promise<void>((r) => setTimeout(r, ms));
 
-  const measure = async (fn: () => void | Promise<void>): Promise<number> => {
-    await nextFrame();
+  /**
+   * Measure the full visual update cycle: API call + one rAF for deferred
+   * rendering to complete. Uses identical methodology for both grids so
+   * the ~16ms frame cost applies equally. This ensures we always measure
+   * "time until the DOM reflects the change", not "time to schedule work".
+   */
+  const measureVisual = async (fn: () => void | Promise<void>): Promise<number> => {
+    await nextFrame(); // settle before measuring
     const start = performance.now();
     await fn();
-    await nextFrame();
+    await new Promise<void>((r) => requestAnimationFrame(() => r())); // one frame to complete any deferred work
     return performance.now() - start;
   };
 
-  function measureMemory(): number | null {
+  async function measureMemory(): Promise<number | null> {
     const mem = (performance as any).memory;
-    return mem ? mem.usedJSHeapSize : null;
+    if (!mem) return null;
+    // Trigger GC if available (Chrome with --expose-gc, or DevTools protocol)
+    if (typeof (window as any).gc === 'function') {
+      (window as any).gc();
+      await new Promise((r) => setTimeout(r, 50)); // let GC settle
+    }
+    return mem.usedJSHeapSize;
   }
   // #endregion
 
@@ -188,7 +200,7 @@ import '@toolbox-web/grid/features/filtering';
     }));
 
     // Initial render
-    const renderTime = await measure(() => {
+    const renderTime = await measureVisual(() => {
       grid.gridConfig = {
         columns: tbwColumns,
         fitMode: 'fixed',
@@ -224,69 +236,70 @@ import '@toolbox-web/grid/features/filtering';
       }
     }
 
-    // Sort (programmatic via sort() API)
-    const sortTime = await measure(() => {
-      (grid as any).sort('id', 'desc');
-    });
+    // Sort (programmatic via sort() API — synchronous, no rAF overhead)
+    await nextFrame(); // settle before measuring
+    const sortStart = performance.now();
+    grid.sort?.('id', 'desc');
+    const sortTime = performance.now() - sortStart;
     results.set('Sort', sortTime);
-    (grid as any).sort(null);
+    grid.sort?.(null);
     await nextFrame();
     await cooldown(50);
 
     // Filter (number filter on id column — keeps rows with id > rowCount/2)
-    const filterPlugin = (grid as any).getPluginByName('filtering');
+    const filterPlugin = grid.getPluginByName?.('filtering');
     if (filterPlugin) {
       const threshold = Math.floor(rowCount / 2);
-      // setFilterModel defers actual filtering to the render scheduler.
-      // Start timer before calling, then await forceLayout to capture full cost.
-      await nextFrame();
-      const filterStart = performance.now();
-      filterPlugin.setFilterModel([
-        { field: 'id', type: 'number', operator: 'greaterThan', value: threshold },
-      ]);
-      await (grid as any).forceLayout();
-      const filterTime = performance.now() - filterStart;
+      const filterTime = await measureVisual(() => {
+        filterPlugin.setFilterModel([
+          { field: 'id', type: 'number', operator: 'greaterThan', value: threshold },
+        ]);
+      });
       results.set('Filter', filterTime);
       filterPlugin.clearAllFilters();
-      await (grid as any).forceLayout();
+      await grid.forceLayout?.();
       await cooldown(50);
     }
 
     // Data replacement
     const newRows = generateRows(rowCount, COL_COUNT);
-    const replaceTime = await measure(() => { grid.rows = newRows; });
+    const replaceTime = await measureVisual(() => { grid.rows = newRows; });
     results.set('Data replacement', replaceTime);
     await cooldown(50);
 
     // Update single row
-    if ((grid as any).updateRow) {
-      const updateTime = await measure(() => {
-        (grid as any).updateRow(String(Math.floor(rowCount / 2) + 1), { col1: 'UPDATED' });
+    if (grid.updateRow) {
+      const updateTime = await measureVisual(() => {
+        grid.updateRow!(String(Math.floor(rowCount / 2) + 1), { col1: 'UPDATED' });
       });
       results.set('Update single row', updateTime);
       await cooldown(50);
     }
 
     // Column resize
-    const resizeTime = await measure(() => {
-      const state = (grid as any).getColumnState?.();
-      if (state?.columns?.[0]) {
-        state.columns[0].width = 200;
-        (grid as any).columnState = state;
-      }
-    });
-    results.set('Column resize', resizeTime);
-    await cooldown(50);
+    {
+      const resizeTime = await measureVisual(() => {
+        const state = grid.getColumnState?.();
+        if (state?.columns?.[0]) {
+          state.columns[0].width = 200;
+          grid.columnState = state;
+        }
+      });
+      results.set('Column resize', resizeTime);
+      await cooldown(50);
+    }
 
     // Scroll to end
-    const scrollEndTime = await measure(() => {
-      (grid as any).scrollToRow?.(rowCount - 1, { align: 'end' });
-    });
-    results.set('Scroll to end', scrollEndTime);
-    await cooldown(50);
+    {
+      const scrollEndTime = await measureVisual(() => {
+        grid.scrollToRow?.(rowCount - 1, { align: 'end' });
+      });
+      results.set('Scroll to end', scrollEndTime);
+      await cooldown(50);
+    }
 
     // Memory usage (Chrome only)
-    const mem = measureMemory();
+    const mem = await measureMemory();
     if (mem !== null) results.set('Memory usage', mem);
 
     // Cleanup
@@ -322,7 +335,7 @@ import '@toolbox-web/grid/features/filtering';
 
     // Initial render
     let gridApi: any;
-    const renderTime = await measure(() => {
+    const renderTime = await measureVisual(() => {
       gridApi = agGrid.createGrid(container, {
         columnDefs: agColumnDefs, rowData: rows,
         suppressColumnVirtualisation: false, animateRows: false,
@@ -356,11 +369,12 @@ import '@toolbox-web/grid/features/filtering';
       }
     }
 
-    // Sort
+    // Sort (synchronous — measure directly without rAF overhead)
     if (gridApi) {
-      const sortTime = await measure(() => {
-        gridApi.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });
-      });
+      await nextFrame(); // settle before measuring
+      const sortStart = performance.now();
+      gridApi.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });
+      const sortTime = performance.now() - sortStart;
       results.set('Sort', sortTime);
       gridApi.applyColumnState({ defaultState: { sort: null } });
       await cooldown(50);
@@ -369,7 +383,7 @@ import '@toolbox-web/grid/features/filtering';
     // Filter (number filter on id column — keeps rows with id > rowCount/2)
     if (gridApi) {
       const threshold = Math.floor(rowCount / 2);
-      const filterTime = await measure(() => {
+      const filterTime = await measureVisual(() => {
         gridApi.setFilterModel({
           id: { filterType: 'number', type: 'greaterThan', filter: threshold },
         });
@@ -382,14 +396,16 @@ import '@toolbox-web/grid/features/filtering';
 
     // Data replacement
     const newRows = generateRows(rowCount, COL_COUNT);
-    const replaceTime = await measure(() => { gridApi.setGridOption('rowData', newRows); });
+    const replaceTime = await measureVisual(() => {
+      gridApi.setGridOption('rowData', newRows);
+    });
     results.set('Data replacement', replaceTime);
     await cooldown(50);
 
     // Update single row
     if (gridApi) {
       const midId = Math.floor(rowCount / 2) + 1;
-      const updateTime = await measure(() => {
+      const updateTime = await measureVisual(() => {
         gridApi.applyTransaction({ update: [{ id: midId, col1: 'UPDATED' }] });
       });
       results.set('Update single row', updateTime);
@@ -398,7 +414,7 @@ import '@toolbox-web/grid/features/filtering';
 
     // Column resize
     if (gridApi) {
-      const resizeTime = await measure(() => {
+      const resizeTime = await measureVisual(() => {
         gridApi.applyColumnState({ state: [{ colId: 'id', width: 200 }] });
       });
       results.set('Column resize', resizeTime);
@@ -407,7 +423,7 @@ import '@toolbox-web/grid/features/filtering';
 
     // Scroll to end
     if (gridApi) {
-      const scrollEndTime = await measure(() => {
+      const scrollEndTime = await measureVisual(() => {
         gridApi.ensureIndexVisible(rowCount - 1, 'bottom');
       });
       results.set('Scroll to end', scrollEndTime);
@@ -415,7 +431,7 @@ import '@toolbox-web/grid/features/filtering';
     }
 
     // Memory usage (Chrome only)
-    const mem = measureMemory();
+    const mem = await measureMemory();
     if (mem !== null) results.set('Memory usage', mem);
 
     // Cleanup
@@ -433,7 +449,7 @@ import '@toolbox-web/grid/features/filtering';
   const COLOR_WIN = '#4ade80'; // green — winner value
   const COLOR_LOSE = '#f87171'; // red — loser value
   const COLOR_TIE = '#94a3b8'; // slate — within noise floor
-  const NOISE_FLOOR_MS = 34; // single frame @ 30fps — below this, results are noise
+  const NOISE_FLOOR_MS = 17; // single frame @ 60fps — below this, results are within measurement noise
 
   function formatDelta(winner: number, loser: number): string {
     if (loser === 0 || winner === 0) return '';
@@ -619,6 +635,14 @@ import '@toolbox-web/grid/features/filtering';
       return;
     }
     versionsEl.textContent = agGridVersion ? `AG Grid v${agGridVersion} (latest from CDN)` : '';
+
+    // Warmup: run both grids at a small scale to JIT-compile all code paths.
+    // This eliminates cold-start outliers at the first real scale point.
+    statusEl.textContent = 'Warming up...';
+    gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Warmup...</p>';
+    await runToolboxAtScale(gridArea, 100);
+    await runAgAtScale(gridArea, 100);
+    await cooldown(500);
 
     const allResults: ScaleResult[] = SCALE_POINTS.map((rowCount) => ({
       rowCount,

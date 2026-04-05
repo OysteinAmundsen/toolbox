@@ -2987,9 +2987,12 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    * ```
    */
   async forceLayout(): Promise<void> {
-    // Request a full render cycle through the scheduler
-    this.#scheduler.requestPhase(RenderPhase.FULL, 'forceLayout');
-    // Wait for the render cycle to complete
+    // If work is already pending, just flush at whatever phase was requested.
+    // If nothing is pending, request FULL for backward compatibility
+    // (callers may depend on forceLayout triggering a complete rebuild).
+    if (this.#scheduler.pendingPhase === 0) {
+      this.#scheduler.requestPhase(RenderPhase.FULL, 'forceLayout');
+    }
     return this.#scheduler.whenReady();
   }
 

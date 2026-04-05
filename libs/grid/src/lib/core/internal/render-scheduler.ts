@@ -154,7 +154,9 @@ export class RenderScheduler {
   }
 
   /**
-   * Get the current pending phase (0 if none).
+   * The current pending phase (0 if nothing is pending).
+   * Used by `forceLayout()` to flush at the correct phase
+   * without unnecessarily escalating to FULL.
    */
   get pendingPhase(): RenderPhase | 0 {
     return this.#pendingPhase;

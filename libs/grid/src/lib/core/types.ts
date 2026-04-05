@@ -2320,6 +2320,24 @@ export interface GridConfig<TRow = any> {
   sortHandler?: SortHandler<TRow>;
 
   /**
+   * Initial sort state applied when the grid first renders.
+   *
+   * Equivalent to calling `grid.sort(field, direction)` after the grid is created,
+   * but avoids the imperative call and extra render cycle.
+   *
+   * @example
+   * ```ts
+   * gridConfig = {
+   *   initialSort: { field: 'salary', direction: 'desc' },
+   * };
+   * ```
+   *
+   * @see {@link DataGrid.sort} for runtime sorting
+   * @see {@link DataGrid.sortModel} for reading current sort state
+   */
+  initialSort?: { field: string; direction: 'asc' | 'desc' };
+
+  /**
    * Function to extract a unique identifier from a row.
    * Used by `updateRow()`, `getRow()`, and ID-based tracking.
    *

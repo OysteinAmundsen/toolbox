@@ -107,6 +107,20 @@ function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
 }
 
 /**
+ * Execute the built-in sort on rows in-place, using a column-level custom
+ * comparator when present, otherwise the default comparator.
+ */
+function executeBuiltInSortInPlace(rows: any[], field: string, direction: 1 | -1, columns: ColumnConfig<any>[]): void {
+  const col = columns.find((c) => c.field === field);
+  const customComparator = col?.sortComparator;
+  if (customComparator) {
+    rows.sort((rA: any, rB: any) => customComparator(rA[field], rB[field], rA, rB) * direction);
+  } else {
+    sortInPlace(rows, field, direction);
+  }
+}
+
+/**
  * Apply sort result to grid and update UI.
  * Called after sync or async sort completes.
  */
@@ -173,14 +187,12 @@ export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
     // Fast path: caller (#rebuildRowModel) already passed a copy of #rows.
     // Save a snapshot for "clear sort", then sort in-place — avoids a second allocation.
     grid.__originalOrder = [...rows];
-    const col = (grid._columns as ColumnConfig<any>[]).find((c) => c.field === grid._sortState!.field);
-    const customComparator = col?.sortComparator;
-    if (customComparator) {
-      const { field, direction } = grid._sortState!;
-      rows.sort((rA: any, rB: any) => customComparator(rA[field], rB[field], rA, rB) * direction);
-    } else {
-      sortInPlace(rows, grid._sortState!.field, grid._sortState!.direction);
-    }
+    executeBuiltInSortInPlace(
+      rows,
+      grid._sortState!.field,
+      grid._sortState!.direction,
+      grid._columns as ColumnConfig<any>[],
+    );
     return rows;
   }
 
@@ -209,13 +221,7 @@ export function applySort(grid: GridHost, col: ColumnConfig<any>, dir: 1 | -1): 
   if (handler === builtInSort) {
     // Fast path: sort grid._rows in-place — avoids allocating a 1M-element copy.
     // __originalOrder was already saved by toggleSort before calling applySort.
-    const sortCol = columns.find((c) => c.field === sortState.field);
-    const customComparator = sortCol?.sortComparator;
-    if (customComparator) {
-      grid._rows.sort((rA: any, rB: any) => customComparator(rA[col.field], rB[col.field], rA, rB) * dir);
-    } else {
-      sortInPlace(grid._rows, sortState.field, dir);
-    }
+    executeBuiltInSortInPlace(grid._rows as any[], sortState.field, dir, columns);
     finalizeSortResult(grid, grid._rows, col, dir);
     return;
   }

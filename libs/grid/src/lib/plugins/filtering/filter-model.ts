@@ -30,6 +30,10 @@ function toNumeric(value: unknown): number {
 /**
  * Check if a single row matches a filter condition.
  *
+ * Delegates to `compileFilter` to avoid duplicating operator logic. The compiled
+ * predicate is created per call, so prefer `filterRows` (which pre-compiles once)
+ * for bulk filtering.
+ *
  * @param row - The row data object
  * @param filter - The filter to apply
  * @param caseSensitive - Whether text comparisons are case sensitive
@@ -42,102 +46,7 @@ export function matchesFilter(
   caseSensitive = false,
   filterValue?: (value: unknown, row: Record<string, unknown>) => unknown | unknown[],
 ): boolean {
-  const rawValue = row[filter.field];
-
-  // Handle blank/notBlank first - these work on null/undefined/empty
-  if (filter.operator === 'blank') {
-    return rawValue == null || rawValue === '';
-  }
-  if (filter.operator === 'notBlank') {
-    return rawValue != null && rawValue !== '';
-  }
-
-  // When a filterValue extractor is present, use array-aware matching for set operators.
-  // Each extracted value is checked individually against the filter set.
-  if (filterValue && (filter.operator === 'notIn' || filter.operator === 'in')) {
-    const extracted = filterValue(rawValue, row);
-    const values = Array.isArray(extracted) ? extracted : extracted != null ? [extracted] : [];
-
-    if (filter.operator === 'notIn') {
-      // Row is hidden if ANY extracted value is in the excluded set.
-      // Empty values array (null/empty cell) → controlled by BLANK_FILTER_VALUE sentinel.
-      const excluded = filter.value;
-      if (!Array.isArray(excluded)) return true;
-      if (values.length === 0) return !excluded.includes(BLANK_FILTER_VALUE);
-      return !values.some((v) => excluded.includes(v));
-    }
-    if (filter.operator === 'in') {
-      // Row passes if ANY extracted value is in the included set.
-      // Empty values array (null/empty cell) → controlled by BLANK_FILTER_VALUE sentinel.
-      const included = filter.value;
-      if (!Array.isArray(included)) return false;
-      if (values.length === 0) return included.includes(BLANK_FILTER_VALUE);
-      return values.some((v) => included.includes(v));
-    }
-  }
-
-  // Set operators: blank rows (null/undefined/empty string) are matched
-  // via the BLANK_FILTER_VALUE sentinel, mirroring the extractor-based path.
-  if (filter.operator === 'notIn') {
-    if (rawValue == null || rawValue === '') {
-      return !Array.isArray(filter.value) || !filter.value.includes(BLANK_FILTER_VALUE);
-    }
-    return Array.isArray(filter.value) && !filter.value.includes(rawValue);
-  }
-  if (filter.operator === 'in') {
-    if (rawValue == null || rawValue === '') {
-      return Array.isArray(filter.value) && filter.value.includes(BLANK_FILTER_VALUE);
-    }
-    return Array.isArray(filter.value) && filter.value.includes(rawValue);
-  }
-
-  // Null/undefined values don't match other filters
-  if (rawValue == null) return false;
-
-  // Prepare values for comparison
-  const stringValue = String(rawValue);
-  const compareValue = caseSensitive ? stringValue : stringValue.toLowerCase();
-  const compareFilterValue = caseSensitive ? String(filter.value) : String(filter.value).toLowerCase();
-
-  switch (filter.operator) {
-    // Text operators
-    case 'contains':
-      return compareValue.includes(compareFilterValue);
-
-    case 'notContains':
-      return !compareValue.includes(compareFilterValue);
-
-    case 'equals':
-      return compareValue === compareFilterValue;
-
-    case 'notEquals':
-      return compareValue !== compareFilterValue;
-
-    case 'startsWith':
-      return compareValue.startsWith(compareFilterValue);
-
-    case 'endsWith':
-      return compareValue.endsWith(compareFilterValue);
-
-    // Number/Date operators (use toNumeric for Date objects and date strings)
-    case 'lessThan':
-      return toNumeric(rawValue) < toNumeric(filter.value);
-
-    case 'lessThanOrEqual':
-      return toNumeric(rawValue) <= toNumeric(filter.value);
-
-    case 'greaterThan':
-      return toNumeric(rawValue) > toNumeric(filter.value);
-
-    case 'greaterThanOrEqual':
-      return toNumeric(rawValue) >= toNumeric(filter.value);
-
-    case 'between':
-      return toNumeric(rawValue) >= toNumeric(filter.value) && toNumeric(rawValue) <= toNumeric(filter.valueTo);
-
-    default:
-      return true;
-  }
+  return compileFilter(filter, caseSensitive, filterValue)(row);
 }
 
 /**
@@ -164,45 +73,47 @@ function compileFilter(
       return v != null && v !== '';
     };
 
-  // Set operators with filterValue extractor
+  // Set operators with filterValue extractor — pre-convert to Set for O(1) lookups
   if (filterValue && (op === 'notIn' || op === 'in')) {
-    const set = filter.value;
+    const arr = filter.value;
     if (op === 'notIn') {
-      if (!Array.isArray(set)) return () => true;
+      if (!Array.isArray(arr)) return () => true;
+      const lookup = new Set(arr);
       return (row) => {
         const extracted = filterValue(row[field], row);
         const values = Array.isArray(extracted) ? extracted : extracted != null ? [extracted] : [];
-        if (values.length === 0) return !set.includes(BLANK_FILTER_VALUE);
-        return !values.some((v) => set.includes(v));
+        if (values.length === 0) return !lookup.has(BLANK_FILTER_VALUE);
+        return !values.some((v) => lookup.has(v));
       };
     }
     // op === 'in'
-    if (!Array.isArray(set)) return () => false;
+    if (!Array.isArray(arr)) return () => false;
+    const lookup = new Set(arr);
     return (row) => {
       const extracted = filterValue(row[field], row);
       const values = Array.isArray(extracted) ? extracted : extracted != null ? [extracted] : [];
-      if (values.length === 0) return set.includes(BLANK_FILTER_VALUE);
-      return values.some((v) => set.includes(v));
+      if (values.length === 0) return lookup.has(BLANK_FILTER_VALUE);
+      return values.some((v) => lookup.has(v));
     };
   }
 
-  // Set operators without extractor
+  // Set operators without extractor — pre-convert to Set for O(1) lookups
   if (op === 'notIn') {
     if (!Array.isArray(filter.value)) return () => true;
-    const set = filter.value;
+    const lookup = new Set(filter.value);
     return (row) => {
       const v = row[field];
-      if (v == null || v === '') return !set.includes(BLANK_FILTER_VALUE);
-      return !set.includes(v);
+      if (v == null || v === '') return !lookup.has(BLANK_FILTER_VALUE);
+      return !lookup.has(v);
     };
   }
   if (op === 'in') {
     if (!Array.isArray(filter.value)) return () => false;
-    const set = filter.value;
+    const lookup = new Set(filter.value);
     return (row) => {
       const v = row[field];
-      if (v == null || v === '') return set.includes(BLANK_FILTER_VALUE);
-      return set.includes(v);
+      if (v == null || v === '') return lookup.has(BLANK_FILTER_VALUE);
+      return lookup.has(v);
     };
   }
 
@@ -315,8 +226,8 @@ function compileFilter(
         };
   }
 
-  // Fallback: use the generic matchesFilter
-  return (row) => matchesFilter(row, filter, caseSensitive, filterValue);
+  // Unknown operator — pass row through
+  return () => true;
 }
 
 /**

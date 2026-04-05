@@ -2271,6 +2271,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Start fresh from original rows (plugins will transform them)
     const originalRows = Array.isArray(this.#rows) ? [...this.#rows] : [];
 
+    // Apply initialSort on first data load (no active sort and config specifies one)
+    if (!this._sortState && this.#effectiveConfig.initialSort) {
+      const { field, direction } = this.#effectiveConfig.initialSort;
+      const col = (this._columns as ColumnConfig<T>[]).find((c) => c.field === field);
+      if (col) {
+        this.__originalOrder = [...originalRows];
+        this._sortState = { field, direction: direction === 'desc' ? -1 : 1 };
+      }
+    }
+
     // Re-apply core sort before plugins so sorted order is maintained on data refresh.
     // This runs BEFORE processRows so grouping/filtering work on sorted data.
     const sortedRows = reapplyCoreSort(this, originalRows);

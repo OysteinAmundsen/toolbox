@@ -1375,6 +1375,7 @@ const existing = queryGrid<Employee>('#my-grid');
 | `insertRow(index, row, animate?)` | Insert row at visible position (auto-animates) → `Promise<void>` |
 | `removeRow(index, animate?)` | Remove row at visible position (auto-animates) → `Promise<T \| undefined>` |
 | `focusCell(rowIndex, column)` | Focus cell by row index and column index or field name |
+| `sort(field, direction?)` | Sort by column (`'asc'`/`'desc'`), toggle, or clear (`null`) |
 | `scrollToRow(rowIndex, options?)` | Scroll row into view (align: start/center/end/nearest, behavior: instant/smooth) |
 | `scrollToRowById(rowId, options?)` | Scroll to row by ID |
 | `setRowLoading(id, loading)` | Row-level loading indicator |

@@ -130,21 +130,35 @@ export function computeColumnGroups<T>(columns: ColumnConfig<T>[]): ColumnGroup<
 }
 
 /**
+ * Merge column groups into their final form for rendering:
+ * identifies embedded implicit groups and collapses adjacent same-ID fragments.
+ *
+ * Call once per render and pass the result to both `buildGroupHeaderRow` and
+ * `applyGroupedHeaderCellClasses` to avoid redundant computation.
+ */
+export function mergeGroups<T>(groups: ColumnGroup<T>[]): { merged: ColumnGroup<T>[]; embedded: Set<string> } {
+  const embedded = findEmbeddedImplicitGroups(groups);
+  const merged = mergeAdjacentSameIdGroups(groups, embedded);
+  return { merged, embedded };
+}
+
+/**
  * Apply CSS classes to header cells based on their group membership.
  *
  * @param headerRowEl - The header row element
- * @param groups - The computed column groups
+ * @param groups - The computed column groups (raw, before merging)
  * @param columns - The column configurations
+ * @param precomputed - Optional pre-computed merged groups (avoids redundant merge)
  */
 export function applyGroupedHeaderCellClasses(
   headerRowEl: HTMLElement | null,
   groups: ColumnGroup[],
   columns: ColumnConfig[],
+  precomputed?: { merged: ColumnGroup[]; embedded: Set<string> },
 ): void {
   if (!groups.length || !headerRowEl) return;
 
-  const embedded = findEmbeddedImplicitGroups(groups);
-  const mergedGroups = mergeAdjacentSameIdGroups(groups, embedded);
+  const { merged: mergedGroups, embedded } = precomputed ?? mergeGroups(groups);
 
   const fieldToGroup = new Map<string, string>();
   for (const g of mergedGroups) {
@@ -287,12 +301,15 @@ export function mergeAdjacentSameIdGroups<T>(groups: ColumnGroup<T>[], embedded:
  *
  * @param groups - The computed column groups
  * @param columns - The column configurations (final array including any plugin-added columns)
+ * @param renderer - Optional custom group header renderer
+ * @param precomputed - Optional pre-computed merged groups (avoids redundant merge)
  * @returns The group header row element, or null if no groups
  */
 export function buildGroupHeaderRow(
   groups: ColumnGroup[],
   columns: ColumnConfig[],
   renderer?: GroupingColumnsConfig['groupHeaderRenderer'],
+  precomputed?: { merged: ColumnGroup[]; embedded: Set<string> },
 ): HTMLElement | null {
   if (groups.length === 0) return null;
 
@@ -300,8 +317,7 @@ export function buildGroupHeaderRow(
   groupRow.className = 'header-group-row';
   groupRow.setAttribute('role', 'row');
 
-  const embedded = findEmbeddedImplicitGroups(groups);
-  const mergedGroups = mergeAdjacentSameIdGroups(groups, embedded);
+  const { merged: mergedGroups } = precomputed ?? mergeGroups(groups);
 
   for (const g of mergedGroups) {
     const gid = String(g.id);

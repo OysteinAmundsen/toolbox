@@ -15,9 +15,8 @@ import {
   applyGroupedHeaderCellClasses,
   buildGroupHeaderRow,
   computeColumnGroups,
-  findEmbeddedImplicitGroups,
   hasColumnGroups,
-  mergeAdjacentSameIdGroups,
+  mergeGroups,
   resolveColumnGroupDefs,
 } from './grouping-columns';
 import styles from './grouping-columns.css?inline';
@@ -498,19 +497,18 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
 
     // Keep #groupEndFields in sync for afterCellRender (covers scheduler-driven renders)
     this.#groupEndFields.clear();
-    const embedded = findEmbeddedImplicitGroups(groups);
-    const mergedGroups = mergeAdjacentSameIdGroups(groups, embedded);
-    for (let gi = 0; gi < mergedGroups.length; gi++) {
-      const g = mergedGroups[gi];
+    const precomputed = mergeGroups(groups);
+    for (let gi = 0; gi < precomputed.merged.length; gi++) {
+      const g = precomputed.merged[gi];
       const lastCol = g.columns[g.columns.length - 1];
       // Don't mark the last group — no adjacent group follows it
-      if (lastCol?.field && gi < mergedGroups.length - 1) {
+      if (lastCol?.field && gi < precomputed.merged.length - 1) {
         this.#groupEndFields.add(lastCol.field);
       }
     }
 
     // Build and insert group header row
-    const groupRow = buildGroupHeaderRow(groups, finalColumns, this.config.groupHeaderRenderer);
+    const groupRow = buildGroupHeaderRow(groups, finalColumns, this.config.groupHeaderRenderer, precomputed);
     if (groupRow) {
       // Toggle border visibility class
       groupRow.classList.toggle('no-borders', !this.config.showGroupBorders);
@@ -528,7 +526,7 @@ export class GroupingColumnsPlugin extends BaseGridPlugin<GroupingColumnsConfig>
     if (headerRow) {
       // Toggle border visibility on header cells
       headerRow.classList.toggle('no-group-borders', !this.config.showGroupBorders);
-      applyGroupedHeaderCellClasses(headerRow, groups, finalColumns);
+      applyGroupedHeaderCellClasses(headerRow, groups, finalColumns, precomputed);
     }
   }
 

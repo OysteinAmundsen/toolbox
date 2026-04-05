@@ -61,6 +61,7 @@ export class PluginManager {
   /** Cached hook presence flags — invalidated on plugin attach/detach */
   private _hasAfterCellRender = false;
   private _hasAfterRowRender = false;
+  private _hasProcessRows = false;
   // #endregion
 
   // #region Event Bus State
@@ -240,6 +241,7 @@ export class PluginManager {
     this.queryHandlers.clear();
     this._hasAfterCellRender = false;
     this._hasAfterRowRender = false;
+    this._hasProcessRows = false;
   }
   // #endregion
 
@@ -315,8 +317,10 @@ export class PluginManager {
 
   /**
    * Execute processRows hook on all plugins.
+   * Returns a mutable copy only when at least one plugin transforms rows.
    */
   processRows(rows: readonly any[]): any[] {
+    if (!this._hasProcessRows) return rows as any[];
     let result = [...rows];
     for (const plugin of this.plugins) {
       if (plugin.processRows) {
@@ -401,6 +405,7 @@ export class PluginManager {
   #invalidateHookCaches(): void {
     this._hasAfterCellRender = this.plugins.some((p) => typeof p.afterCellRender === 'function');
     this._hasAfterRowRender = this.plugins.some((p) => typeof p.afterRowRender === 'function');
+    this._hasProcessRows = this.plugins.some((p) => typeof p.processRows === 'function');
   }
 
   /**

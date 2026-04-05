@@ -3,6 +3,8 @@ title: Feature Comparison
 description: Compare @toolbox-web/grid features with AG Grid and other data grid libraries. Many AG Grid Enterprise features are free in Toolbox Grid.
 ---
 
+import PerformanceComparisonDemo from '@components/demos/PerformanceComparisonDemo.astro';
+
 
 Looking for a **free alternative to AG Grid**? `@toolbox-web/grid` is a high-performance, open-source data grid with many of the same features—no license fees, no enterprise tiers, no feature gates.
 
@@ -82,6 +84,22 @@ Looking for a **free alternative to AG Grid**? `@toolbox-web/grid` is a high-per
 - **~45KB gzipped** — Half the size of AG Grid Community
 - **Zero dependencies** — Nothing to conflict or update
 - **DOM recycling** — Minimal garbage collection pressure
+
+Don't take our word for it — run the live benchmark below. It iterates through increasing data sizes (1K → 1M rows), testing both grids sequentially in your browser with identical data and configuration.
+
+<PerformanceComparisonDemo />
+
+<details>
+<summary>How this benchmark works</summary>
+
+1. At each scale point, Toolbox Grid benchmarks run first, then the grid is destroyed
+2. A cooldown period allows garbage collection
+3. AG Grid Community (loaded from CDN, always latest version) runs the same tests on the same data
+4. Results build up progressively, showing the scaling curve
+
+Expand **Show Grid Configurations** in the benchmark to verify both grids use equivalent settings.
+
+</details>
 
 ### True Framework Freedom
 

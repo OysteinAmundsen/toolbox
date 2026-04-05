@@ -2030,7 +2030,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Individual update applicators - these do the actual work
   #applyRowsUpdate(): void {
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
-    // Rebuild row ID map for O(1) lookups
+    // Rebuild row ID map for O(1) lookups — needed immediately for getRow() callers
     this._rebuildRowIdMap();
     // Request a ROWS phase render through the scheduler.
     // This batches with any other pending work (e.g., React adapter's refreshColumns).
@@ -2283,8 +2283,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Note: processedRows may contain group markers that plugins handle via renderRow hook
     this._rows = processedRows as T[];
 
-    // Rebuild row ID map to keep indices in sync with the (possibly sorted) _rows.
-    // Without this, #rowIdMap has stale indices from the unsorted copy set in #applyRowsUpdate.
+    // Rebuild row ID map to keep indices in sync with the processed _rows.
     this._rebuildRowIdMap();
 
     // Rebuild position cache for variable heights (rows may have changed)

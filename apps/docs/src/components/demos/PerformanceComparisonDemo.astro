@@ -1,7 +1,8 @@
 ---
 // PerformanceComparisonDemo.astro — Head-to-head benchmark: Toolbox Grid vs AG Grid
-// Loads AG Grid Community from CDN (always latest). Runs each grid sequentially
-// on the same data with a cooldown between grids for a fair comparison.
+// Loads AG Grid Community from CDN (always latest). Iterates through increasing
+// data sizes (1K → 1M rows), testing each grid sequentially at every scale point
+// with a cooldown between them for a fair comparison.
 ---
 <div class="perf-compare-wrapper not-content">
   <div class="perf-compare-bar">
@@ -10,9 +11,12 @@
       <span id="compare-status">Ready</span>
     </div>
     <div class="perf-compare-bar-right">
-      <label>Rows: <input type="range" id="compare-rows" min="1000" max="100000" step="1000" value="10000" /><span id="compare-rows-val">10,000</span></label>
-      <label>Columns: <input type="range" id="compare-cols" min="5" max="50" step="5" value="10" /><span id="compare-cols-val">10</span></label>
+      <span id="compare-versions" style="font-size:12px;opacity:0.7;"></span>
     </div>
+  </div>
+
+  <div id="compare-progress" class="perf-compare-progress" style="display:none;">
+    <div id="compare-progress-bar" class="perf-compare-progress-fill"></div>
   </div>
 
   <details id="compare-config-details" class="perf-compare-config">
@@ -20,11 +24,11 @@
     <div class="perf-compare-config-panels">
       <div class="perf-compare-config-panel">
         <h4>Toolbox Grid</h4>
-        <pre id="compare-config-tbw"><code>// Configuration shown after benchmark runs</code></pre>
+        <pre id="compare-config-tbw"><code>// Configuration displayed here</code></pre>
       </div>
       <div class="perf-compare-config-panel">
         <h4>AG Grid Community <span id="ag-version" style="font-weight:normal;opacity:0.7;font-size:12px;"></span></h4>
-        <pre id="compare-config-ag"><code>// Configuration shown after benchmark runs</code></pre>
+        <pre id="compare-config-ag"><code>// Configuration displayed here</code></pre>
       </div>
     </div>
   </details>
@@ -34,8 +38,8 @@
   </div>
 
   <div id="compare-results" class="perf-compare-results">
-    <p>Click <strong>Run Comparison</strong> to benchmark both grids sequentially with identical data.</p>
-    <p style="opacity:0.7;font-size:12px;">Tests: Initial render, scroll performance, sort, data replacement, memory (DOM nodes). Each grid is tested alone with full CPU/GPU availability.</p>
+    <p>Click <strong>Run Comparison</strong> to benchmark both grids at increasing data sizes.</p>
+    <p style="opacity:0.7;font-size:12px;">Scale points: 1K → 10K → 100K → 500K → 1M rows × 10 columns. Each grid runs alone with full CPU/GPU availability, with a cooldown between them at every scale point.</p>
   </div>
 </div>
 
@@ -48,14 +52,18 @@ import '@toolbox-web/grid/features/filtering';
 import '@toolbox-web/grid/features/multi-sort';
 import '@toolbox-web/grid/features/selection';
 
+  // #region Constants
+  const SCALE_POINTS = [1_000, 10_000, 100_000, 500_000, 1_000_000];
+  const COL_COUNT = 10;
+  const METRICS = ['Initial render', 'Scroll avg frame', 'Sort', 'Data replacement'] as const;
+  type MetricName = typeof METRICS[number];
+  // #endregion
+
   // #region Types & Helpers
-  interface ComparisonResult {
-    name: string;
-    category: 'render' | 'scroll' | 'operation' | 'memory';
-    tbw: number;
-    ag: number;
-    unit: string;
-    note?: string;
+  interface ScaleResult {
+    rowCount: number;
+    tbw: Map<string, number>;
+    ag: Map<string, number>;
   }
 
   function generateColumns(count: number): { field: string; header: string; width: number }[] {
@@ -86,9 +94,10 @@ import '@toolbox-web/grid/features/selection';
     return `${(ms / 1000).toFixed(2)}s`;
   }
 
-  function formatValue(value: number, unit: string): string {
-    if (unit === 'count') return value.toLocaleString();
-    return formatTime(value);
+  function formatRowCount(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+    return String(n);
   }
 
   const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
@@ -111,7 +120,6 @@ import '@toolbox-web/grid/features/selection';
   async function loadAgGrid(): Promise<void> {
     if (agGridLoaded) return;
 
-    // Fetch version from CDN package.json
     try {
       const res = await fetch('https://cdn.jsdelivr.net/npm/ag-grid-community/package.json');
       if (res.ok) {
@@ -123,7 +131,6 @@ import '@toolbox-web/grid/features/selection';
     } catch { /* version display is optional */ }
 
     return new Promise((resolve, reject) => {
-      // Load CSS
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = 'https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-grid.min.css';
@@ -134,7 +141,6 @@ import '@toolbox-web/grid/features/selection';
       themeLink.href = 'https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-quartz.min.css';
       document.head.appendChild(themeLink);
 
-      // Load JS
       const script = document.createElement('script');
       script.src = 'https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js';
       script.onload = () => { agGridLoaded = true; resolve(); };
@@ -144,60 +150,47 @@ import '@toolbox-web/grid/features/selection';
   }
   // #endregion
 
-  // #region Toolbox Grid Benchmarks
-  async function runToolboxBenchmarks(
+  // #region Toolbox Grid Benchmarks (single scale point)
+  async function runToolboxAtScale(
     gridArea: HTMLElement,
-    rows: Record<string, unknown>[],
-    columns: { field: string; header: string; width: number }[],
     rowCount: number,
-    colCount: number,
-  ): Promise<Map<string, { value: number; unit: string }>> {
-    const results = new Map<string, { value: number; unit: string }>();
+  ): Promise<Map<string, number>> {
+    const results = new Map<string, number>();
+    const columns = generateColumns(COL_COUNT);
+    const rows = generateRows(rowCount, COL_COUNT);
 
-    // Create grid element
     gridArea.innerHTML = '<tbw-grid id="compare-tbw-grid" style="width:100%;height:100%;"></tbw-grid>';
     const grid = queryGrid('#compare-tbw-grid')!;
     await cooldown(100);
 
-    // Initial render
     const tbwColumns: ColumnConfig[] = columns.map((c) => ({
-      field: c.field,
-      header: c.header,
-      width: c.width,
-      type: c.field === 'id' ? 'number' : 'string',
-      sortable: true,
+      field: c.field, header: c.header, width: c.width,
+      type: c.field === 'id' ? 'number' : 'string', sortable: true,
     }));
 
+    // Initial render
     const renderTime = await measure(() => {
       grid.gridConfig = {
         columns: tbwColumns,
         fitMode: 'fixed',
-        features: {
-          selection: 'range',
-          multiSort: { maxSortColumns: 3 },
-          ...(colCount >= 20 ? { columnVirtualization: { threshold: 20, overscan: 3 } } : {}),
-        },
+        features: { selection: 'range', multiSort: { maxSortColumns: 3 } },
       };
-      grid.rows = [...rows];
+      grid.rows = rows;
     });
-    results.set('Initial render', { value: renderTime, unit: 'ms' });
+    results.set('Initial render', renderTime);
     await cooldown(200);
 
-    // Scroll performance
+    // Scroll
     const scrollContainer = grid.querySelector('.faux-vscroll');
     if (scrollContainer) {
       const totalHeight = scrollContainer.scrollHeight;
       const viewportHeight = scrollContainer.clientHeight;
       const steps = 30;
       const stepSize = (totalHeight - viewportHeight) / steps;
-
       if (stepSize > 0) {
-        // Warm-up pass
         for (let i = 0; i <= steps; i++) { scrollContainer.scrollTop = i * stepSize; await nextFrame(); }
         scrollContainer.scrollTop = 0;
-        await cooldown(100);
-
-        // Measured pass
+        await cooldown(50);
         const frameTimes: number[] = [];
         for (let i = 0; i <= steps; i++) {
           const start = performance.now();
@@ -205,13 +198,9 @@ import '@toolbox-web/grid/features/selection';
           await nextFrame();
           frameTimes.push(performance.now() - start);
         }
-        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        const sorted = [...frameTimes].sort((a, b) => a - b);
-        const p95 = sorted[Math.floor(sorted.length * 0.95)];
-        results.set('Scroll avg frame', { value: avg, unit: 'ms' });
-        results.set('Scroll P95 frame', { value: p95, unit: 'ms' });
+        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
         scrollContainer.scrollTop = 0;
-        await cooldown(100);
+        await cooldown(50);
       }
     }
 
@@ -219,20 +208,16 @@ import '@toolbox-web/grid/features/selection';
     const sortPlugin = (grid as any).getPluginByName?.('multiSort') as { setSortModel: (m: unknown[]) => void; clearSort: () => void } | undefined;
     if (sortPlugin) {
       const sortTime = await measure(() => { sortPlugin.setSortModel([{ field: 'id', direction: 'desc' }]); });
-      results.set('Sort', { value: sortTime, unit: 'ms' });
+      results.set('Sort', sortTime);
       sortPlugin.clearSort();
-      await cooldown(100);
+      await cooldown(50);
     }
 
     // Data replacement
-    const newRows = generateRows(rowCount, colCount);
+    const newRows = generateRows(rowCount, COL_COUNT);
     const replaceTime = await measure(() => { grid.rows = newRows; });
-    results.set('Data replacement', { value: replaceTime, unit: 'ms' });
-    await cooldown(100);
-
-    // DOM node count
-    const domRows = grid.querySelectorAll('.data-grid-row').length;
-    results.set('DOM rows rendered', { value: domRows, unit: 'count' });
+    results.set('Data replacement', replaceTime);
+    await cooldown(50);
 
     // Cleanup
     grid.rows = [];
@@ -244,58 +229,48 @@ import '@toolbox-web/grid/features/selection';
   }
   // #endregion
 
-  // #region AG Grid Benchmarks
-  async function runAgGridBenchmarks(
+  // #region AG Grid Benchmarks (single scale point)
+  async function runAgAtScale(
     gridArea: HTMLElement,
-    rows: Record<string, unknown>[],
-    columns: { field: string; header: string; width: number }[],
     rowCount: number,
-    _colCount: number,
-  ): Promise<Map<string, { value: number; unit: string }>> {
-    const results = new Map<string, { value: number; unit: string }>();
+  ): Promise<Map<string, number>> {
+    const results = new Map<string, number>();
     const agGrid = (window as any).agGrid;
     if (!agGrid) throw new Error('AG Grid not loaded');
 
-    // Create container
+    const columns = generateColumns(COL_COUNT);
+    const rows = generateRows(rowCount, COL_COUNT);
+
     gridArea.innerHTML = '<div id="compare-ag-grid" class="ag-theme-quartz" style="width:100%;height:100%;"></div>';
     const container = document.getElementById('compare-ag-grid')!;
     await cooldown(100);
 
     const agColumnDefs = columns.map((c) => ({
-      field: c.field,
-      headerName: c.header,
-      width: c.width,
-      sortable: true,
+      field: c.field, headerName: c.header, width: c.width, sortable: true,
     }));
 
     // Initial render
     let gridApi: any;
     const renderTime = await measure(() => {
       gridApi = agGrid.createGrid(container, {
-        columnDefs: agColumnDefs,
-        rowData: [...rows],
-        suppressColumnVirtualisation: false,
-        animateRows: false,
+        columnDefs: agColumnDefs, rowData: rows,
+        suppressColumnVirtualisation: false, animateRows: false,
       });
     });
-    results.set('Initial render', { value: renderTime, unit: 'ms' });
+    results.set('Initial render', renderTime);
     await cooldown(200);
 
-    // Scroll performance
+    // Scroll
     const agScrollViewport = container.querySelector('.ag-body-viewport');
     if (agScrollViewport) {
       const totalHeight = agScrollViewport.scrollHeight;
       const viewportHeight = agScrollViewport.clientHeight;
       const steps = 30;
       const stepSize = (totalHeight - viewportHeight) / steps;
-
       if (stepSize > 0) {
-        // Warm-up pass
         for (let i = 0; i <= steps; i++) { agScrollViewport.scrollTop = i * stepSize; await nextFrame(); }
         agScrollViewport.scrollTop = 0;
-        await cooldown(100);
-
-        // Measured pass
+        await cooldown(50);
         const frameTimes: number[] = [];
         for (let i = 0; i <= steps; i++) {
           const start = performance.now();
@@ -303,13 +278,9 @@ import '@toolbox-web/grid/features/selection';
           await nextFrame();
           frameTimes.push(performance.now() - start);
         }
-        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        const sorted = [...frameTimes].sort((a, b) => a - b);
-        const p95 = sorted[Math.floor(sorted.length * 0.95)];
-        results.set('Scroll avg frame', { value: avg, unit: 'ms' });
-        results.set('Scroll P95 frame', { value: p95, unit: 'ms' });
+        results.set('Scroll avg frame', frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length);
         agScrollViewport.scrollTop = 0;
-        await cooldown(100);
+        await cooldown(50);
       }
     }
 
@@ -318,22 +289,16 @@ import '@toolbox-web/grid/features/selection';
       const sortTime = await measure(() => {
         gridApi.applyColumnState({ state: [{ colId: 'id', sort: 'desc' }] });
       });
-      results.set('Sort', { value: sortTime, unit: 'ms' });
+      results.set('Sort', sortTime);
       gridApi.applyColumnState({ defaultState: { sort: null } });
-      await cooldown(100);
+      await cooldown(50);
     }
 
     // Data replacement
-    const newRows = generateRows(rowCount, _colCount);
-    const replaceTime = await measure(() => {
-      gridApi.setGridOption('rowData', newRows);
-    });
-    results.set('Data replacement', { value: replaceTime, unit: 'ms' });
-    await cooldown(100);
-
-    // DOM node count
-    const domRows = container.querySelectorAll('.ag-row').length;
-    results.set('DOM rows rendered', { value: domRows, unit: 'count' });
+    const newRows = generateRows(rowCount, COL_COUNT);
+    const replaceTime = await measure(() => { gridApi.setGridOption('rowData', newRows); });
+    results.set('Data replacement', replaceTime);
+    await cooldown(50);
 
     // Cleanup
     if (gridApi) gridApi.destroy();
@@ -345,59 +310,55 @@ import '@toolbox-web/grid/features/selection';
   // #endregion
 
   // #region Results Rendering
-  function renderComparisonTable(results: ComparisonResult[], status: 'running' | 'complete'): string {
-    const categories = ['render', 'scroll', 'operation', 'memory'] as const;
-    const categoryLabels: Record<string, string> = {
-      render: '🎨 Render',
-      scroll: '📜 Scroll',
-      operation: '⚡ Operations',
-      memory: '💾 DOM / Memory',
-    };
-
+  function renderScaleTable(allResults: ScaleResult[], done: boolean): string {
     let html = '';
 
-    for (const cat of categories) {
-      const catResults = results.filter((r) => r.category === cat);
-      if (catResults.length === 0) continue;
+    for (const metric of METRICS) {
+      const hasBothGrids = allResults.some((r) => r.tbw.has(metric) && r.ag.has(metric));
+      if (!hasBothGrids && allResults.length > 0 && allResults[0].ag.size > 0) continue;
+
+      // Find max value for bar scaling
+      let maxVal = 0;
+      for (const r of allResults) {
+        maxVal = Math.max(maxVal, r.tbw.get(metric) ?? 0, r.ag.get(metric) ?? 0);
+      }
+      if (maxVal === 0) maxVal = 1;
 
       html += `
         <div style="background:var(--sl-color-gray-6,#1e1e1e);border-radius:6px;padding:12px;margin-bottom:12px;">
-          <h4 style="margin:0 0 10px 0;color:var(--sl-color-white,#e5e5e5);font-size:13px;font-weight:600;">${categoryLabels[cat]}</h4>
-          <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:4px 16px;font-size:12px;align-items:center;">
-            <div style="font-weight:600;color:#888;font-size:11px;">METRIC</div>
-            <div style="font-weight:600;color:#888;font-size:11px;text-align:right;">TOOLBOX</div>
-            <div style="font-weight:600;color:#888;font-size:11px;text-align:right;">AG GRID</div>
-            <div style="font-weight:600;color:#888;font-size:11px;text-align:center;">DIFF</div>
-            ${catResults.map((r) => {
-              const tbwStr = formatValue(r.tbw, r.unit);
-              const agStr = formatValue(r.ag, r.unit);
+          <h4 style="margin:0 0 10px 0;color:var(--sl-color-white,#e5e5e5);font-size:13px;font-weight:600;">${metric}</h4>
+          <div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:6px 12px;font-size:12px;align-items:center;">
+            <div style="font-weight:600;color:#888;font-size:11px;">ROWS</div>
+            <div style="font-weight:600;color:#888;font-size:11px;">TOOLBOX GRID</div>
+            <div style="font-weight:600;color:#888;font-size:11px;">AG GRID</div>
+            ${allResults.map((r) => {
+              const tbw = r.tbw.get(metric);
+              const ag = r.ag.get(metric);
+              const tbwDone = tbw !== undefined;
+              const agDone = ag !== undefined;
+              const tbwWins = tbwDone && agDone && (tbw ?? 0) <= (ag ?? 0);
+              const agWins = tbwDone && agDone && (ag ?? 0) < (tbw ?? 0);
 
-              let diffStr: string;
-              let diffColor: string;
-              if (r.unit === 'count') {
-                const diff = r.ag - r.tbw;
-                if (diff === 0) { diffStr = 'Same'; diffColor = '#888'; }
-                else if (diff > 0) { diffStr = `${diff.toLocaleString()} fewer`; diffColor = '#4ade80'; }
-                else { diffStr = `${Math.abs(diff).toLocaleString()} more`; diffColor = '#f87171'; }
-              } else {
-                if (r.tbw === 0 && r.ag === 0) { diffStr = 'Same'; diffColor = '#888'; }
-                else if (r.ag === 0) { diffStr = '—'; diffColor = '#888'; }
-                else {
-                  const ratio = r.ag / r.tbw;
-                  if (ratio > 1.1) { diffStr = `${ratio.toFixed(1)}× faster`; diffColor = '#4ade80'; }
-                  else if (ratio < 0.9) { diffStr = `${(1 / ratio).toFixed(1)}× slower`; diffColor = '#f87171'; }
-                  else { diffStr = '~Same'; diffColor = '#888'; }
-                }
-              }
+              const tbwPct = tbwDone ? Math.max(2, ((tbw ?? 0) / maxVal) * 100) : 0;
+              const agPct = agDone ? Math.max(2, ((ag ?? 0) / maxVal) * 100) : 0;
 
-              const tbwWins = r.unit === 'count' ? r.tbw <= r.ag : r.tbw <= r.ag;
-              const agWins = r.unit === 'count' ? r.ag < r.tbw : r.ag < r.tbw;
+              const tbwLabel = tbwDone ? formatTime(tbw ?? 0) : '...';
+              const agLabel = agDone ? formatTime(ag ?? 0) : '...';
 
               return `
-                <div style="color:var(--sl-color-white,#e5e5e5);white-space:nowrap;">${r.name}${r.note ? ` <span style="opacity:0.5;font-size:11px;">${r.note}</span>` : ''}</div>
-                <div style="font-family:monospace;text-align:right;color:${tbwWins ? '#4ade80' : agWins ? '#f87171' : 'var(--sl-color-white,#e5e5e5)'};">${tbwStr}</div>
-                <div style="font-family:monospace;text-align:right;color:${agWins ? '#4ade80' : tbwWins ? '#f87171' : 'var(--sl-color-white,#e5e5e5)'};">${agStr}</div>
-                <div style="font-family:monospace;text-align:center;font-size:11px;color:${diffColor};">${diffStr}</div>
+                <div style="color:var(--sl-color-white,#e5e5e5);font-family:monospace;font-weight:600;">${formatRowCount(r.rowCount)}</div>
+                <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                  <div style="flex:1;height:18px;background:var(--sl-color-gray-7,#111);border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;width:${tbwPct}%;background:${tbwWins ? '#4ade80' : agWins ? '#f87171' : '#60a5fa'};border-radius:3px;transition:width 0.3s;"></div>
+                  </div>
+                  <span style="font-family:monospace;min-width:70px;text-align:right;color:${tbwWins ? '#4ade80' : agWins ? '#f87171' : 'var(--sl-color-white,#e5e5e5)'};">${tbwLabel}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+                  <div style="flex:1;height:18px;background:var(--sl-color-gray-7,#111);border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;width:${agPct}%;background:${agWins ? '#4ade80' : tbwWins ? '#f87171' : '#60a5fa'};border-radius:3px;transition:width 0.3s;"></div>
+                  </div>
+                  <span style="font-family:monospace;min-width:70px;text-align:right;color:${agWins ? '#4ade80' : tbwWins ? '#f87171' : 'var(--sl-color-white,#e5e5e5)'};">${agLabel}</span>
+                </div>
               `;
             }).join('')}
           </div>
@@ -405,99 +366,78 @@ import '@toolbox-web/grid/features/selection';
       `;
     }
 
-    if (status === 'complete') {
-      const wins = results.filter((r) => r.unit === 'count' ? r.tbw <= r.ag : r.tbw <= r.ag).length;
-      const total = results.length;
+    if (done) {
+      // Summary: count wins across all scale points and metrics
+      let tbwWins = 0;
+      let agWins = 0;
+      for (const r of allResults) {
+        for (const metric of METRICS) {
+          const tbw = r.tbw.get(metric);
+          const ag = r.ag.get(metric);
+          if (tbw !== undefined && ag !== undefined) {
+            if (tbw < ag) tbwWins++; else if (ag < tbw) agWins++;
+          }
+        }
+      }
       html += `
         <div style="margin-top:8px;padding:12px;background:var(--sl-color-gray-6,#1e1e1e);border-radius:6px;text-align:center;">
-          <strong style="color:var(--sl-color-white,#e5e5e5);font-size:14px;">Toolbox Grid wins ${wins}/${total} metrics</strong>
-          <div style="color:#888;font-size:12px;margin-top:4px;">Results from your browser — run it again to verify consistency</div>
+          <strong style="color:var(--sl-color-white,#e5e5e5);font-size:14px;">
+            Toolbox Grid wins ${tbwWins}/${tbwWins + agWins} data points
+          </strong>
+          <div style="color:#888;font-size:12px;margin-top:4px;">
+            Tested at ${SCALE_POINTS.map(formatRowCount).join(', ')} rows × ${COL_COUNT} columns — results from your browser
+          </div>
         </div>
       `;
-    } else {
-      html += `<div style="margin-top:8px;padding:8px;opacity:0.6;text-align:center;font-size:12px;">Running benchmarks...</div>`;
     }
 
     return html;
   }
   // #endregion
 
-  // #region Config Display
-  function getToolboxConfigString(colCount: number): string {
-    const features: Record<string, unknown> = {
-      selection: 'range',
-      multiSort: { maxSortColumns: 3 },
-    };
-    if (colCount >= 20) {
-      features['columnVirtualization'] = { threshold: 20, overscan: 3 };
-    }
-    return `grid.gridConfig = {
-  columns: [
-    { field: 'id', header: 'ID', width: 80, type: 'number', sortable: true },
-    // ... ${colCount - 1} more columns, width: 120, sortable: true
-  ],
-  fitMode: 'fixed',
-  features: ${JSON.stringify(features, null, 4).replace(/^/gm, '  ').trim()},
-};
-grid.rows = data; // ${'{rowCount}'} rows`;
-  }
-
-  function getAgGridConfigString(colCount: number, rowCount: number): string {
-    return `agGrid.createGrid(container, {
-  columnDefs: [
-    { field: 'id', headerName: 'ID', width: 80, sortable: true },
-    // ... ${colCount - 1} more columns, width: 120, sortable: true
-  ],
-  rowData: data, // ${rowCount.toLocaleString()} rows
-  suppressColumnVirtualisation: false,
-  animateRows: false,
-});`;
-  }
-  // #endregion
-
   // #region DOM References
-  const rowsSlider = document.getElementById('compare-rows') as HTMLInputElement;
-  const colsSlider = document.getElementById('compare-cols') as HTMLInputElement;
-  const rowsVal = document.getElementById('compare-rows-val')!;
-  const colsVal = document.getElementById('compare-cols-val')!;
   const runBtn = document.getElementById('compare-run') as HTMLButtonElement;
   const statusEl = document.getElementById('compare-status')!;
   const resultsEl = document.getElementById('compare-results')!;
   const gridArea = document.getElementById('compare-grid-area')!;
+  const progressContainer = document.getElementById('compare-progress')!;
+  const progressBar = document.getElementById('compare-progress-bar')!;
+  const versionsEl = document.getElementById('compare-versions')!;
+
+  // Populate config panels (set via JS to avoid Astro template parsing of curly braces)
   const tbwConfigEl = document.getElementById('compare-config-tbw')!;
   const agConfigEl = document.getElementById('compare-config-ag')!;
-  // #endregion
-
-  // #region Slider Handlers
-  function getRowCount() { return parseInt(rowsSlider.value, 10); }
-  function getColCount() { return parseInt(colsSlider.value, 10); }
-
-  rowsSlider.addEventListener('input', () => {
-    rowsVal.textContent = getRowCount().toLocaleString();
-    updateStatus();
-  });
-  colsSlider.addEventListener('input', () => {
-    colsVal.textContent = String(getColCount());
-    updateStatus();
-  });
-
-  function updateStatus() {
-    statusEl.textContent = `Ready — ${getRowCount().toLocaleString()} rows × ${getColCount()} columns`;
-  }
-  updateStatus();
+  tbwConfigEl.textContent = [
+    'grid.gridConfig = {',
+    '  columns: [',
+    "    { field: 'id', header: 'ID', width: 80, type: 'number', sortable: true },",
+    '    // ... 9 more columns, width: 120, sortable: true',
+    '  ],',
+    "  fitMode: 'fixed',",
+    '  features: {',
+    "    selection: 'range',",
+    '    multiSort: { maxSortColumns: 3 },',
+    '  },',
+    '};',
+    'grid.rows = data; // 1K \u2192 1M rows',
+  ].join('\n');
+  agConfigEl.textContent = [
+    'agGrid.createGrid(container, {',
+    '  columnDefs: [',
+    "    { field: 'id', headerName: 'ID', width: 80, sortable: true },",
+    '    // ... 9 more columns, width: 120, sortable: true',
+    '  ],',
+    '  rowData: data, // 1K \u2192 1M rows',
+    '  suppressColumnVirtualisation: false,',
+    '  animateRows: false,',
+    '});',
+  ].join('\n');
   // #endregion
 
   // #region Benchmark Orchestrator
   runBtn.addEventListener('click', async () => {
     runBtn.disabled = true;
-    const rowCount = getRowCount();
-    const colCount = getColCount();
-    const columns = generateColumns(colCount);
-    const rows = generateRows(rowCount, colCount);
-
-    // Update config display
-    tbwConfigEl.innerHTML = `<code>${getToolboxConfigString(colCount).replace('{rowCount}', rowCount.toLocaleString())}</code>`;
-    agConfigEl.innerHTML = `<code>${getAgGridConfigString(colCount, rowCount)}</code>`;
+    progressContainer.style.display = 'block';
 
     // Load AG Grid from CDN
     statusEl.textContent = 'Loading AG Grid from CDN...';
@@ -506,68 +446,81 @@ grid.rows = data; // ${'{rowCount}'} rows`;
     } catch {
       statusEl.textContent = 'Failed to load AG Grid from CDN';
       runBtn.disabled = false;
+      progressContainer.style.display = 'none';
       return;
     }
+    versionsEl.textContent = agGridVersion ? `AG Grid v${agGridVersion} (latest from CDN)` : '';
 
-    // Phase 1: Toolbox Grid
-    statusEl.textContent = 'Running: Toolbox Grid benchmarks...';
-    resultsEl.innerHTML = '<p style="text-align:center;padding:20px;opacity:0.6;">⏱ Running Toolbox Grid benchmarks...</p>';
-    await cooldown(200);
+    const allResults: ScaleResult[] = SCALE_POINTS.map((rowCount) => ({
+      rowCount,
+      tbw: new Map(),
+      ag: new Map(),
+    }));
 
-    const tbwResults = await runToolboxBenchmarks(gridArea, rows, columns, rowCount, colCount);
+    const totalSteps = SCALE_POINTS.length * 2; // tbw + ag per scale point
+    let completedSteps = 0;
 
-    // Cooldown between grids
-    statusEl.textContent = 'Cooldown — waiting for GC before AG Grid...';
-    gridArea.innerHTML = '<p style="text-align:center;opacity:0.6;padding:40px 0;">Cooldown between grids...</p>';
-    await cooldown(1000);
-
-    // Phase 2: AG Grid
-    statusEl.textContent = 'Running: AG Grid benchmarks...';
-    resultsEl.innerHTML = '<p style="text-align:center;padding:20px;opacity:0.6;">⏱ Running AG Grid benchmarks...</p>';
-    await cooldown(200);
-
-    const agResults = await runAgGridBenchmarks(gridArea, rows, columns, rowCount, colCount);
-
-    // Build comparison
-    const testNames = ['Initial render', 'Scroll avg frame', 'Scroll P95 frame', 'Sort', 'Data replacement', 'DOM rows rendered'];
-    const categoryMap: Record<string, ComparisonResult['category']> = {
-      'Initial render': 'render',
-      'Scroll avg frame': 'scroll',
-      'Scroll P95 frame': 'scroll',
-      'Sort': 'operation',
-      'Data replacement': 'operation',
-      'DOM rows rendered': 'memory',
+    const updateProgress = () => {
+      const pct = Math.round((completedSteps / totalSteps) * 100);
+      progressBar.style.width = `${pct}%`;
     };
 
-    const comparison: ComparisonResult[] = [];
-    for (const name of testNames) {
-      const tbw = tbwResults.get(name);
-      const ag = agResults.get(name);
-      if (tbw && ag) {
-        comparison.push({
-          name,
-          category: categoryMap[name],
-          tbw: tbw.value,
-          ag: ag.value,
-          unit: tbw.unit,
-        });
+    for (let i = 0; i < SCALE_POINTS.length; i++) {
+      const rowCount = SCALE_POINTS[i];
+      const label = formatRowCount(rowCount);
+
+      // Phase 1: Toolbox Grid at this scale point
+      statusEl.textContent = `Toolbox Grid — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
+      gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ Toolbox Grid — ${label} rows...</p>`;
+      await cooldown(200);
+
+      const tbwResults = await runToolboxAtScale(gridArea, rowCount);
+      allResults[i].tbw = tbwResults;
+      completedSteps++;
+      updateProgress();
+      resultsEl.innerHTML = renderScaleTable(allResults, false);
+
+      // Cooldown between grids
+      statusEl.textContent = `Cooldown before AG Grid — ${label} rows...`;
+      gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Cooldown...</p>';
+      await cooldown(1000);
+
+      // Phase 2: AG Grid at this scale point
+      statusEl.textContent = `AG Grid — ${label} rows (${i + 1}/${SCALE_POINTS.length})`;
+      gridArea.innerHTML = `<p style="text-align:center;opacity:0.6;padding:20px 0;">⏱ AG Grid — ${label} rows...</p>`;
+      await cooldown(200);
+
+      const agResults = await runAgAtScale(gridArea, rowCount);
+      allResults[i].ag = agResults;
+      completedSteps++;
+      updateProgress();
+      resultsEl.innerHTML = renderScaleTable(allResults, false);
+
+      // Cooldown before next scale point
+      if (i < SCALE_POINTS.length - 1) {
+        statusEl.textContent = `Cooldown before ${formatRowCount(SCALE_POINTS[i + 1])} rows...`;
+        gridArea.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px 0;">Cooldown...</p>';
+        await cooldown(1000);
       }
     }
 
-    // Show results
-    gridArea.innerHTML = '<p style="text-align:center;opacity:0.6;padding:40px 0;">Benchmark complete</p>';
-    statusEl.textContent = `Complete — ${rowCount.toLocaleString()} rows × ${colCount} columns` + (agGridVersion ? ` — AG Grid v${agGridVersion}` : '');
-    resultsEl.innerHTML = renderComparisonTable(comparison, 'complete');
+    // Final results
+    gridArea.innerHTML = '<p style="text-align:center;opacity:0.6;padding:20px 0;">Benchmark complete</p>';
+    statusEl.textContent = `Complete — ${SCALE_POINTS.map(formatRowCount).join(' → ')} rows` + (agGridVersion ? ` — AG Grid v${agGridVersion}` : '');
+    resultsEl.innerHTML = renderScaleTable(allResults, true);
+    progressBar.style.width = '100%';
     runBtn.disabled = false;
 
-    console.table(comparison.map((r) => ({
-      Metric: r.name,
-      'Toolbox Grid': formatValue(r.tbw, r.unit),
-      'AG Grid': formatValue(r.ag, r.unit),
-      Winner: r.unit === 'count'
-        ? (r.tbw <= r.ag ? 'Toolbox' : 'AG Grid')
-        : (r.tbw <= r.ag ? 'Toolbox' : 'AG Grid'),
-    })));
+    // Console log
+    for (const metric of METRICS) {
+      console.groupCollapsed(`📊 ${metric}`);
+      console.table(allResults.map((r) => ({
+        Rows: formatRowCount(r.rowCount),
+        Toolbox: r.tbw.get(metric),
+        'AG Grid': r.ag.get(metric),
+      })));
+      console.groupEnd();
+    }
   });
   // #endregion
 </script>
@@ -594,21 +547,11 @@ grid.rows = data; // ${'{rowCount}'} rows`;
     gap: 8px;
   }
 
-  .perf-compare-bar label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
   .perf-compare-bar-left,
   .perf-compare-bar-right {
     display: flex;
     align-items: center;
     gap: 12px;
-  }
-
-  .perf-compare-bar input[type="range"] {
-    width: 120px;
   }
 
   .perf-compare-btn {
@@ -628,6 +571,19 @@ grid.rows = data; // ${'{rowCount}'} rows`;
   #compare-status {
     font-size: 13px;
     color: var(--sl-color-gray-2);
+  }
+
+  .perf-compare-progress {
+    height: 3px;
+    background: var(--sl-color-gray-5);
+    overflow: hidden;
+  }
+
+  .perf-compare-progress-fill {
+    height: 100%;
+    width: 0;
+    background: var(--sl-color-accent);
+    transition: width 0.3s;
   }
 
   .perf-compare-config {

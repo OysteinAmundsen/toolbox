@@ -74,11 +74,35 @@ export function defaultComparator(a: unknown, b: unknown): number {
  */
 export function builtInSort<T>(rows: T[], sortState: SortState, columns: ColumnConfig<T>[]): T[] {
   const col = columns.find((c) => c.field === sortState.field);
-  const comparator = col?.sortComparator ?? defaultComparator;
+  const customComparator = col?.sortComparator;
   const { field, direction } = sortState;
+  const sorted = [...rows];
 
-  return [...rows].sort((rA: any, rB: any) => {
-    return comparator(rA[field], rB[field], rA, rB) * direction;
+  if (customComparator) {
+    // Custom comparator path — keep the indirect call
+    sorted.sort((rA: any, rB: any) => customComparator(rA[field], rB[field], rA, rB) * direction);
+  } else {
+    // Fast path — inline default comparator and fold direction to avoid
+    // ~20M indirect function calls + multiplications at 1M rows.
+    sortInPlace(sorted, field, direction);
+  }
+
+  return sorted;
+}
+
+/**
+ * Sort an array in-place using the default comparator with direction folded in.
+ * Shared between the public `builtInSort` (which copies first) and the internal
+ * fast paths in `applySort` / `reapplyCoreSort` (which skip the copy).
+ */
+function sortInPlace(rows: any[], field: string, direction: 1 | -1): void {
+  rows.sort((rA: any, rB: any) => {
+    const a = rA[field];
+    const b = rB[field];
+    if (a == null && b == null) return 0;
+    if (a == null) return -direction;
+    if (b == null) return direction;
+    return a > b ? direction : a < b ? -direction : 0;
   });
 }
 
@@ -142,8 +166,26 @@ export function toggleSort(grid: GridHost, col: ColumnConfig<any>): void {
  */
 export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
   if (!grid._sortState) return rows;
-  grid.__originalOrder = [...rows];
+
   const handler: SortHandler<any> = grid.effectiveConfig?.sortHandler ?? builtInSort;
+
+  if (handler === builtInSort) {
+    // Fast path: caller (#rebuildRowModel) already passed a copy of #rows.
+    // Save a snapshot for "clear sort", then sort in-place — avoids a second allocation.
+    grid.__originalOrder = [...rows];
+    const col = (grid._columns as ColumnConfig<any>[]).find((c) => c.field === grid._sortState!.field);
+    const customComparator = col?.sortComparator;
+    if (customComparator) {
+      const { field, direction } = grid._sortState!;
+      rows.sort((rA: any, rB: any) => customComparator(rA[field], rB[field], rA, rB) * direction);
+    } else {
+      sortInPlace(rows, grid._sortState!.field, grid._sortState!.direction);
+    }
+    return rows;
+  }
+
+  // Custom handler: preserve current behavior
+  grid.__originalOrder = rows;
   const result = handler(rows, grid._sortState, grid._columns as ColumnConfig<any>[]);
   if (result && typeof (result as Promise<unknown[]>).then === 'function') return rows;
   return result as T[];
@@ -163,6 +205,20 @@ export function applySort(grid: GridHost, col: ColumnConfig<any>, dir: 1 | -1): 
 
   // Get custom handler from effectiveConfig, or use built-in
   const handler: SortHandler<any> = grid.effectiveConfig?.sortHandler ?? builtInSort;
+
+  if (handler === builtInSort) {
+    // Fast path: sort grid._rows in-place — avoids allocating a 1M-element copy.
+    // __originalOrder was already saved by toggleSort before calling applySort.
+    const sortCol = columns.find((c) => c.field === sortState.field);
+    const customComparator = sortCol?.sortComparator;
+    if (customComparator) {
+      grid._rows.sort((rA: any, rB: any) => customComparator(rA[col.field], rB[col.field], rA, rB) * dir);
+    } else {
+      sortInPlace(grid._rows, sortState.field, dir);
+    }
+    finalizeSortResult(grid, grid._rows, col, dir);
+    return;
+  }
 
   const result = handler(grid._rows, sortState, columns);
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.2...grid-vue-0.11.3) (2026-04-05)
+
+
+### Bug Fixes
+
+* **grid-vue,grid-react:** close adapter API parity gaps ([3ff3e9a](https://github.com/OysteinAmundsen/toolbox/commit/3ff3e9a8ae0d9e03bfa4ef73f6637a344f4c7a02))
+
 ## [0.11.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-vue-0.11.1...grid-vue-0.11.2) (2026-03-29)
 
 

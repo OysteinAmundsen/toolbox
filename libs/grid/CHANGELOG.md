@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.29.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.2...grid-1.29.0) (2026-04-05)
+
+
+### Features
+
+* **grid:** add public sort() API for programmatic single-column sorting ([a5a475c](https://github.com/OysteinAmundsen/toolbox/commit/a5a475cf2e290d3a72451842bf7f3e7eb59ecd7b))
+
+
+### Bug Fixes
+
+* **grid-vue,grid-react:** close adapter API parity gaps ([3ff3e9a](https://github.com/OysteinAmundsen/toolbox/commit/3ff3e9a8ae0d9e03bfa4ef73f6637a344f4c7a02))
+* **grid:** prevent stale velocity from causing scroll after touch hold ([92dca5f](https://github.com/OysteinAmundsen/toolbox/commit/92dca5f292ed06db656fe5ffa886c2b3ad7d3aeb))
+* **grid:** prevent sticky hover highlight on touch devices during scroll ([82256fe](https://github.com/OysteinAmundsen/toolbox/commit/82256fe005830599f214bc25e377c96251226a6e))
+
+
+### Performance Improvements
+
+* **grid, docs:** fair benchmark methodology and forceLayout optimization ([81ccda3](https://github.com/OysteinAmundsen/toolbox/commit/81ccda36ae878fc3d1f4eaa13650886765421604))
+* **grid, docs:** optimize filter/sort pipeline and improve benchmark methodology ([6f6f574](https://github.com/OysteinAmundsen/toolbox/commit/6f6f574b16488a45c335c4559e8df5cfae20837d))
+* **grid:** column resize O(1) fast path + multiSort in-place sort ([7aeb192](https://github.com/OysteinAmundsen/toolbox/commit/7aeb192a4f710a525a81a8f185e2ece853ce7726))
+* **grid:** in-place sort for internal paths, eliminating O(n) array copy ([8b87261](https://github.com/OysteinAmundsen/toolbox/commit/8b872610a986fffe25b4ac6122c2cf6a66dbf0df))
+* **grid:** optimize filtering hot path with compiled predicates ([6b5287a](https://github.com/OysteinAmundsen/toolbox/commit/6b5287a0516ae76e19f40535d5b5b16530308de7))
+
 ## [1.28.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.1...grid-1.28.2) (2026-03-29)
 
 

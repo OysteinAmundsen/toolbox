@@ -49,7 +49,6 @@ import type { ColumnConfig } from '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
 import '@toolbox-web/grid/features/column-virtualization';
 import '@toolbox-web/grid/features/filtering';
-import '@toolbox-web/grid/features/multi-sort';
 import '@toolbox-web/grid/features/selection';
 
   // #region Constants
@@ -195,7 +194,7 @@ import '@toolbox-web/grid/features/selection';
         columns: tbwColumns,
         fitMode: 'fixed',
         getRowId: (row: any) => String(row.id),
-        features: { selection: 'range', multiSort: { maxSortColumns: 3 } },
+        features: { selection: 'range' },
       };
       grid.rows = rows;
     });
@@ -226,12 +225,16 @@ import '@toolbox-web/grid/features/selection';
       }
     }
 
-    // Sort
-    const sortPlugin = (grid as any).getPluginByName?.('multiSort') as { setSortModel: (m: unknown[]) => void; clearSort: () => void } | undefined;
-    if (sortPlugin) {
-      const sortTime = await measure(() => { sortPlugin.setSortModel([{ field: 'id', direction: 'desc' }]); });
+    // Sort (built-in single-column sort via header click)
+    const idHeader = grid.querySelector('[role="columnheader"].sortable') as HTMLElement | null;
+    if (idHeader) {
+      const sortTime = await measure(() => { idHeader.click(); });
       results.set('Sort', sortTime);
-      sortPlugin.clearSort();
+      // Click again twice to cycle back to unsorted (asc → desc → none)
+      idHeader.click();
+      await nextFrame();
+      idHeader.click();
+      await nextFrame();
       await cooldown(50);
     }
 
@@ -531,7 +534,6 @@ import '@toolbox-web/grid/features/selection';
     '  getRowId: (row) => String(row.id),',
     '  features: {',
     "    selection: 'range',",
-    '    multiSort: { maxSortColumns: 3 },',
     '  },',
     '};',
     'grid.rows = data; // 1K \u2192 1M rows',

@@ -3641,13 +3641,58 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   /**
    * Apply column state internally.
+   * Uses a fast path when only column widths changed (O(m) CSS update instead
+   * of O(n) full row re-render). Falls back to full #setup() for structural
+   * changes (visibility, order, sort).
    */
   #applyColumnState(state: GridColumnState): void {
+    // Snapshot column order, visibility, and sort before applying state
+    const prevColumns = this._columns;
+    const prevSort = this._sortState;
+
     const plugins = (this.#pluginManager?.getAll() ?? []) as BaseGridPlugin[];
     this.#configManager.applyState(state, plugins);
 
-    // Re-setup to apply changes
+    // Detect if only widths changed (fast path: skip full row rebuild)
+    if (this.#isWidthOnlyChange(prevColumns, prevSort)) {
+      // Invalidate visible columns cache (configManager bypasses grid._columns setter)
+      this.#visibleColumnsCache = undefined;
+      // Update CSS grid-template-columns — O(m) column count
+      updateTemplate(this);
+      // Notify plugins via afterRender hooks
+      this.#scheduler.requestPhase(RenderPhase.STYLE, 'column-width');
+      return;
+    }
+
+    // Structural change — full reconfiguration
     this.#setup();
+  }
+
+  /**
+   * Check if the column state change only affected widths.
+   * Compares current columns (post-applyState) against previous snapshot.
+   * Returns false if column order, visibility, count, or sort changed.
+   */
+  #isWidthOnlyChange(prevColumns: ColumnInternal<T>[], prevSort: { field: string; direction: 1 | -1 } | null): boolean {
+    const newColumns = this._columns;
+    const newSort = this._sortState;
+
+    // Sort changed
+    if (prevSort?.field !== newSort?.field || prevSort?.direction !== newSort?.direction) return false;
+
+    // Column count changed
+    if (prevColumns.length !== newColumns.length) return false;
+
+    for (let i = 0; i < prevColumns.length; i++) {
+      const prev = prevColumns[i];
+      const next = newColumns[i];
+      // Order changed (different field at same index)
+      if (prev.field !== next.field) return false;
+      // Visibility changed (normalize undefined/false to boolean)
+      if (!!prev.hidden !== !!next.hidden) return false;
+    }
+
+    return true;
   }
 
   /**

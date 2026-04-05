@@ -19,19 +19,47 @@ import type { SortModel } from './types';
 export function applySorts<TRow = unknown>(rows: TRow[], sorts: SortModel[], columns: ColumnConfig<TRow>[]): TRow[] {
   if (!sorts.length) return [...rows];
 
-  return [...rows].sort((a, b) => {
-    for (const sort of sorts) {
-      const col = columns.find((c) => c.field === sort.field);
-      const comparator = col?.sortComparator ?? defaultComparator;
-      const aVal = (a as Record<string, unknown>)[sort.field];
-      const bVal = (b as Record<string, unknown>)[sort.field];
-      const result = comparator(aVal, bVal, a, b);
-      if (result !== 0) {
-        return sort.direction === 'asc' ? result : -result;
-      }
-    }
-    return 0;
+  const copy = [...rows];
+  sortRowsInPlace(copy, sorts, columns);
+  return copy;
+}
+
+/**
+ * Sort an array in-place using multiple sort columns.
+ * Pre-resolves column comparators to avoid O(n·log·n·m) column lookups
+ * inside the comparator.
+ * @internal
+ */
+export function sortRowsInPlace<TRow = unknown>(rows: TRow[], sorts: SortModel[], columns: ColumnConfig<TRow>[]): void {
+  if (!sorts.length) return;
+
+  // Pre-resolve comparator chain — avoids columns.find() on every pair comparison
+  const chain = sorts.map((sort) => {
+    const col = columns.find((c) => c.field === sort.field);
+    return {
+      field: sort.field,
+      asc: sort.direction === 'asc',
+      comparator: col?.sortComparator ?? defaultComparator,
+    };
   });
+
+  if (chain.length === 1) {
+    // Single-sort fast path — avoid loop overhead
+    const { field, asc, comparator } = chain[0];
+    rows.sort((a: any, b: any) => {
+      const result = comparator(a[field], b[field], a, b);
+      return asc ? result : -result;
+    });
+  } else {
+    rows.sort((a: any, b: any) => {
+      for (let i = 0; i < chain.length; i++) {
+        const { field, asc, comparator } = chain[i];
+        const result = comparator(a[field], b[field], a, b);
+        if (result !== 0) return asc ? result : -result;
+      }
+      return 0;
+    });
+  }
 }
 
 /**

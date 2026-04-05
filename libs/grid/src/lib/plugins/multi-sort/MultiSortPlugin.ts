@@ -8,7 +8,7 @@
 import { announce } from '../../core/internal/aria';
 import { BaseGridPlugin, HeaderClickEvent } from '../../core/plugin/base-plugin';
 import type { ColumnState, GridHost } from '../../core/types';
-import { applySorts, getSortDirection, getSortIndex, toggleSort } from './multi-sort';
+import { getSortDirection, getSortIndex, sortRowsInPlace, toggleSort } from './multi-sort';
 import styles from './multi-sort.css?inline';
 import type { MultiSortConfig, SortModel } from './types';
 
@@ -144,9 +144,12 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
       }
     }
 
-    const sorted = applySorts([...rows], this.sortModel, [...this.columns]);
-    this.cachedSortResult = sorted;
-    return sorted;
+    // Sort in-place — the input array is already a mutable copy from plugin-manager.
+    // Pre-resolved comparator chain avoids column lookup on every pair comparison.
+    const mutableRows = rows as unknown[];
+    sortRowsInPlace(mutableRows, this.sortModel, this.columns);
+    this.cachedSortResult = mutableRows;
+    return mutableRows;
   }
 
   /** @internal */

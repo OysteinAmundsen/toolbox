@@ -40,5 +40,7 @@ Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even whe
 - **Batch DOM operations**: Use `requestAnimationFrame` via the scheduler, never direct RAF calls
 - **Minimize DOM queries**: Cache element references, avoid `querySelector` in hot paths
 - **Lazy initialization**: Defer work that isn't needed for first paint
+- **Prefer indexed `for` loops in hot paths**: Use `for (let i = 0; i < arr.length; i++)` instead of `.forEach()`, `for...of`, `.map()`, `.filter()`, or `.reduce()` in per-scroll/per-row/per-cell code. These ES6+ patterns allocate closures or iterator objects on every call. `for...of` on arrays, `.forEach()`, and `.filter().forEach()` chains are the most common offenders. Reserve higher-order methods for setup/config code where clarity matters more than throughput.
+- **Prefer `.slice()` over `[...arr]`**: Array spread creates an iterator; `.slice()` is a direct copy.
 
 **When in doubt:** Smaller is better. Simpler is better. Faster is better.

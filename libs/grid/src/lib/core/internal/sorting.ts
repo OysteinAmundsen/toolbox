@@ -129,7 +129,9 @@ function finalizeSortResult<T>(grid: GridHost<T>, sortedRows: T[], col: ColumnCo
   // Bump epoch so renderVisibleRows triggers full inline rebuild
   grid.__rowRenderEpoch++;
   // Invalidate pooled rows to guarantee rebuild
-  grid._rowPool.forEach((r) => (r.__epoch = -1));
+  for (let i = 0; i < grid._rowPool.length; i++) {
+    grid._rowPool[i].__epoch = -1;
+  }
   renderHeader(grid);
   grid.refreshVirtualWindow(true);
   grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }));
@@ -153,19 +155,24 @@ export function toggleSort(grid: GridHost, col: ColumnConfig<any>): void {
     // Force full row rebuild after clearing sort so templated cells reflect original order
     grid.__rowRenderEpoch++;
     // Invalidate existing pooled row epochs so virtualization triggers a full inline rebuild
-    grid._rowPool.forEach((r) => (r.__epoch = -1));
+    for (let i = 0; i < grid._rowPool.length; i++) {
+      grid._rowPool[i].__epoch = -1;
+    }
     grid._rows = grid.__originalOrder.slice();
     grid.__originalOrder = [];
     renderHeader(grid);
     // After re-render ensure cleared column shows aria-sort="none" baseline.
     const headers = grid._headerRowEl?.querySelectorAll('[role="columnheader"].sortable');
-    headers?.forEach((h) => {
-      if (!h.getAttribute('aria-sort')) h.setAttribute('aria-sort', 'none');
-      else if (h.getAttribute('aria-sort') === 'ascending' || h.getAttribute('aria-sort') === 'descending') {
-        // The active column was re-rendered already, but normalize any missing ones.
-        if (!grid._sortState) h.setAttribute('aria-sort', 'none');
+    if (headers) {
+      for (let i = 0; i < headers.length; i++) {
+        const h = headers[i];
+        if (!h.getAttribute('aria-sort')) h.setAttribute('aria-sort', 'none');
+        else if (h.getAttribute('aria-sort') === 'ascending' || h.getAttribute('aria-sort') === 'descending') {
+          // The active column was re-rendered already, but normalize any missing ones.
+          if (!grid._sortState) h.setAttribute('aria-sort', 'none');
+        }
       }
-    });
+    }
     grid.refreshVirtualWindow(true);
     grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: 0 } }));
     announce(grid, 'Sort cleared');
@@ -187,7 +194,7 @@ export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
   if (handler === builtInSort) {
     // Fast path: caller (#rebuildRowModel) already passed a copy of #rows.
     // Save a snapshot for "clear sort", then sort in-place — avoids a second allocation.
-    grid.__originalOrder = [...rows];
+    grid.__originalOrder = rows.slice();
     executeBuiltInSortInPlace(
       rows,
       grid._sortState!.field,

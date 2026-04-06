@@ -218,7 +218,7 @@ export class RowManager<T = any> {
     invalidateCellCache(grid);
     grid._rebuildRowIdMap();
     grid.__rowRenderEpoch++;
-    for (const r of grid._rowPool) r.__epoch = -1;
+    for (let i = 0; i < grid._rowPool.length; i++) grid._rowPool[i].__epoch = -1;
     grid.refreshVirtualWindow(true);
 
     // Notify plugins about the inserted row (e.g., editing dirty tracking)
@@ -272,7 +272,7 @@ export class RowManager<T = any> {
     invalidateCellCache(grid);
     grid._rebuildRowIdMap();
     grid.__rowRenderEpoch++;
-    for (const r of grid._rowPool) r.__epoch = -1;
+    for (let i = 0; i < grid._rowPool.length; i++) grid._rowPool[i].__epoch = -1;
     grid.refreshVirtualWindow(true);
 
     grid._emitDataChange();
@@ -280,9 +280,10 @@ export class RowManager<T = any> {
     // Clean up stale remove animation attributes after re-render
     if (animate) {
       requestAnimationFrame(() => {
-        grid.querySelectorAll('[data-animating="remove"]').forEach((el) => {
-          el.removeAttribute('data-animating');
-        });
+        const els = grid.querySelectorAll('[data-animating="remove"]');
+        for (let i = 0; i < els.length; i++) {
+          els[i].removeAttribute('data-animating');
+        }
       });
     }
 
@@ -406,7 +407,7 @@ export class RowManager<T = any> {
       invalidateCellCache(grid);
       grid._rebuildRowIdMap();
       grid.__rowRenderEpoch++;
-      for (const r of grid._rowPool) r.__epoch = -1;
+      for (let i = 0; i < grid._rowPool.length; i++) grid._rowPool[i].__epoch = -1;
       grid.refreshVirtualWindow(true);
     } else if (hasUpdates) {
       invalidateCellCache(grid);
@@ -437,9 +438,10 @@ export class RowManager<T = any> {
     // 7. Clean up stale remove animations
     if (animate && result.removed.length > 0) {
       requestAnimationFrame(() => {
-        grid.querySelectorAll('[data-animating="remove"]').forEach((el) => {
-          el.removeAttribute('data-animating');
-        });
+        const els = grid.querySelectorAll('[data-animating="remove"]');
+        for (let i = 0; i < els.length; i++) {
+          els[i].removeAttribute('data-animating');
+        }
       });
     }
 

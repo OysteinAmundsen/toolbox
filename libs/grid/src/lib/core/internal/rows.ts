@@ -111,7 +111,9 @@ function clearEditingState(rowEl: RowElementInternal): void {
   rowEl.removeAttribute('data-has-editing');
   // Clear editing class from all cells
   const cells = rowEl.querySelectorAll(`.cell.${GridClasses.EDITING}`);
-  cells.forEach((cell) => cell.classList.remove(GridClasses.EDITING));
+  for (let i = 0; i < cells.length; i++) {
+    cells[i].classList.remove(GridClasses.EDITING);
+  }
 }
 // #endregion
 
@@ -359,14 +361,18 @@ export function renderVisibleRows(
       // Remove previous dynamic classes (stored in data attribute)
       const prevClasses = rowEl.getAttribute('data-dynamic-classes');
       if (prevClasses) {
-        prevClasses.split(' ').forEach((cls) => cls && rowEl.classList.remove(cls));
+        const parts = prevClasses.split(' ');
+        for (let j = 0; j < parts.length; j++) {
+          if (parts[j]) rowEl.classList.remove(parts[j]);
+        }
       }
       try {
         const result = rowClassFn(rowData);
         const newClasses = typeof result === 'string' ? result.split(/\s+/) : result;
         if (newClasses && newClasses.length > 0) {
           let dynamicClassStr = '';
-          for (const c of newClasses) {
+          for (let j = 0; j < newClasses.length; j++) {
+            const c = newClasses[j];
             if (c && typeof c === 'string') {
               rowEl.classList.add(c);
               dynamicClassStr += (dynamicClassStr ? ' ' : '') + c;
@@ -551,16 +557,25 @@ function fastPatchRow(grid: GridHost, rowEl: HTMLElement, rowData: any, rowIndex
       // Remove previous dynamic classes
       const prevClasses = cell.getAttribute('data-dynamic-classes');
       if (prevClasses) {
-        prevClasses.split(' ').forEach((cls) => cls && cell.classList.remove(cls));
+        const parts = prevClasses.split(' ');
+        for (let j = 0; j < parts.length; j++) {
+          if (parts[j]) cell.classList.remove(parts[j]);
+        }
       }
       try {
         const value = rowData[col.field];
         const result = cellClassFn(value, rowData, col);
         const cellClasses = typeof result === 'string' ? result.split(/\s+/) : result;
         if (cellClasses && cellClasses.length > 0) {
-          const validClasses = cellClasses.filter((c: string) => c && typeof c === 'string');
-          validClasses.forEach((cls: string) => cell.classList.add(cls));
-          cell.setAttribute('data-dynamic-classes', validClasses.join(' '));
+          let dynamicClassStr = '';
+          for (let j = 0; j < cellClasses.length; j++) {
+            const c = cellClasses[j];
+            if (c && typeof c === 'string') {
+              cell.classList.add(c);
+              dynamicClassStr += (dynamicClassStr ? ' ' : '') + c;
+            }
+          }
+          cell.setAttribute('data-dynamic-classes', dynamicClassStr);
         } else {
           cell.removeAttribute('data-dynamic-classes');
         }

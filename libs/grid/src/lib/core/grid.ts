@@ -1260,8 +1260,8 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#lastFeaturesConfig = undefined;
 
     // Clear row pool - detach from DOM and release references
-    for (const rowEl of this._rowPool) {
-      rowEl.remove();
+    for (let i = 0; i < this._rowPool.length; i++) {
+      this._rowPool[i].remove();
     }
     this._rowPool.length = 0;
 
@@ -1458,10 +1458,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Find the tallest cell in the row (custom renderers may push some cells taller)
     const cells = firstRow.querySelectorAll('.cell');
     let maxCellHeight = 0;
-    cells.forEach((cell) => {
-      const h = (cell as HTMLElement).offsetHeight;
+    for (let i = 0; i < cells.length; i++) {
+      const h = (cells[i] as HTMLElement).offsetHeight;
       if (h > maxCellHeight) maxCellHeight = h;
-    });
+    }
 
     const rowRect = (firstRow as HTMLElement).getBoundingClientRect();
 
@@ -1517,10 +1517,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     // Find the tallest cell in the row (custom renderers may push some cells taller)
     const cells = firstRow.querySelectorAll('.cell');
     let maxCellHeight = 0;
-    cells.forEach((cell) => {
-      const h = (cell as HTMLElement).offsetHeight;
+    for (let i = 0; i < cells.length; i++) {
+      const h = (cells[i] as HTMLElement).offsetHeight;
       if (h > maxCellHeight) maxCellHeight = h;
-    });
+    }
 
     const rowRect = (firstRow as HTMLElement).getBoundingClientRect();
 
@@ -1674,16 +1674,18 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
             if (isHorizontal && scrollAreaForWheel) {
               const delta = e.shiftKey ? e.deltaY : e.deltaX;
-              const { scrollLeft, scrollWidth, clientWidth } = scrollAreaForWheel;
-              const canScroll = (delta > 0 && scrollLeft < scrollWidth - clientWidth) || (delta < 0 && scrollLeft > 0);
+              const canScroll =
+                (delta > 0 &&
+                  scrollAreaForWheel.scrollLeft < scrollAreaForWheel.scrollWidth - scrollAreaForWheel.clientWidth) ||
+                (delta < 0 && scrollAreaForWheel.scrollLeft > 0);
               if (canScroll) {
                 e.preventDefault();
                 scrollAreaForWheel.scrollLeft += delta;
               }
             } else if (!isHorizontal) {
-              const { scrollTop, scrollHeight, clientHeight } = fauxScrollbar;
               const canScroll =
-                (e.deltaY > 0 && scrollTop < scrollHeight - clientHeight) || (e.deltaY < 0 && scrollTop > 0);
+                (e.deltaY > 0 && fauxScrollbar.scrollTop < fauxScrollbar.scrollHeight - fauxScrollbar.clientHeight) ||
+                (e.deltaY < 0 && fauxScrollbar.scrollTop > 0);
               if (canScroll) {
                 e.preventDefault();
                 fauxScrollbar.scrollTop += e.deltaY;
@@ -1954,13 +1956,16 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   #updateAriaSelection(): void {
     // Mark active row and cell with aria-selected
     const rows = this._bodyEl?.querySelectorAll('.data-grid-row');
-    rows?.forEach((row, rowIdx) => {
-      const isActiveRow = rowIdx === this._focusRow;
-      row.setAttribute('aria-selected', String(isActiveRow));
-      row.querySelectorAll('.cell').forEach((cell, colIdx) => {
-        (cell as HTMLElement).setAttribute('aria-selected', String(isActiveRow && colIdx === this._focusCol));
-      });
-    });
+    if (rows) {
+      for (let ri = 0; ri < rows.length; ri++) {
+        const isActiveRow = ri === this._focusRow;
+        rows[ri].setAttribute('aria-selected', String(isActiveRow));
+        const cells = rows[ri].querySelectorAll('.cell');
+        for (let ci = 0; ci < cells.length; ci++) {
+          (cells[ci] as HTMLElement).setAttribute('aria-selected', String(isActiveRow && ci === this._focusCol));
+        }
+      }
+    }
   }
   // #endregion
 
@@ -2067,9 +2072,10 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       this.__didInitialAutoSize = false;
       autoSizeColumns(this);
     } else {
-      this._columns.forEach((c: any) => {
+      for (let i = 0; i < this._columns.length; i++) {
+        const c = this._columns[i] as any;
         if (!c.__userResized && c.__autoSized) delete c.width;
-      });
+      }
       updateTemplate(this);
     }
   }
@@ -3767,7 +3773,7 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
       const prevField = this._sortState.field;
       this._sortState = null;
       this.__rowRenderEpoch++;
-      this._rowPool.forEach((r) => (r.__epoch = -1));
+      for (let i = 0; i < this._rowPool.length; i++) this._rowPool[i].__epoch = -1;
       this._rows = this.__originalOrder.slice();
       this.__originalOrder = [];
       renderHeader(this);

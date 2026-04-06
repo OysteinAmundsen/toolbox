@@ -128,7 +128,9 @@ export function mergeColumns(
   // Build domMap by merging multiple DOM columns with the same field
   // This supports React pattern where renderer and editor are in separate GridColumn elements
   const domMap: Record<string, ColumnInternal> = {};
-  (dom as ColumnInternal[]).forEach((c) => {
+  const domArr = dom as ColumnInternal[];
+  for (let i = 0; i < domArr.length; i++) {
+    const c = domArr[i];
     const existing = domMap[c.field];
     if (existing) {
       // Merge this column's properties into the existing one
@@ -153,7 +155,7 @@ export function mergeColumns(
     } else {
       domMap[c.field] = { ...c };
     }
-  });
+  }
 
   const merged: ColumnInternal[] = (programmatic as ColumnInternal[]).map((c) => {
     const d = domMap[c.field];
@@ -181,7 +183,8 @@ export function mergeColumns(
     delete domMap[c.field];
     return m;
   });
-  Object.keys(domMap).forEach((field) => merged.push(domMap[field]));
+  const remainingFields = Object.keys(domMap);
+  for (let i = 0; i < remainingFields.length; i++) merged.push(domMap[remainingFields[i]]);
   return merged;
 }
 // #endregion
@@ -217,12 +220,14 @@ export function autoSizeColumns(grid: GridHost): void {
   const headerCells = Array.from(grid._headerRowEl?.children || []) as HTMLElement[];
   if (!headerCells.length) return;
   let changed = false;
-  grid._visibleColumns.forEach((col: ColumnInternal, i: number) => {
-    if (col.width) return;
+  const visibleCols = grid._visibleColumns;
+  for (let i = 0; i < visibleCols.length; i++) {
+    const col = visibleCols[i] as ColumnInternal;
+    if (col.width) continue;
     const headerCell = headerCells[i];
     let max = headerCell ? headerCell.scrollWidth : 0;
-    for (const rowEl of grid._rowPool) {
-      const cell = rowEl.children[i] as HTMLElement | undefined;
+    for (let j = 0; j < grid._rowPool.length; j++) {
+      const cell = grid._rowPool[j].children[i] as HTMLElement | undefined;
       if (cell) {
         const w = cell.scrollWidth;
         if (w > max) max = w;
@@ -233,7 +238,7 @@ export function autoSizeColumns(grid: GridHost): void {
       col.__autoSized = true;
       changed = true;
     }
-  });
+  }
   if (changed) updateTemplate(grid);
   grid.__didInitialAutoSize = true;
 }
@@ -271,24 +276,31 @@ export function updateTemplate(grid: GridHost): void {
   //  - 'fixed': columns with explicit width use that width; columns without width use max-content
   const mode = grid.effectiveConfig?.fitMode || grid.fitMode || FitModeEnum.STRETCH;
 
+  const visibleColumns = grid._visibleColumns;
+
   if (mode === FitModeEnum.STRETCH) {
-    grid._gridTemplate = grid._visibleColumns
-      .map((c: ColumnInternal) => {
-        if (c.width != null) return resolveWidth(c.width, c.field);
-        // Flexible column: pure 1fr unless minWidth specified
+    let template = '';
+    for (let i = 0; i < visibleColumns.length; i++) {
+      const c = visibleColumns[i] as ColumnInternal;
+      let track: string;
+      if (c.width != null) {
+        track = resolveWidth(c.width, c.field);
+      } else {
         const min = c.minWidth;
-        return min != null ? `minmax(${min}px, 1fr)` : '1fr';
-      })
-      .join(' ')
-      .trim();
+        track = min != null ? `minmax(${min}px, 1fr)` : '1fr';
+      }
+      template += (template ? ' ' : '') + track;
+    }
+    grid._gridTemplate = template;
   } else {
     // fixed mode: explicit pixel widths or max-content for content-based sizing
-    grid._gridTemplate = grid._visibleColumns
-      .map((c: ColumnInternal) => {
-        if (c.width != null) return resolveWidth(c.width, c.field);
-        return 'max-content';
-      })
-      .join(' ');
+    let template = '';
+    for (let i = 0; i < visibleColumns.length; i++) {
+      const c = visibleColumns[i] as ColumnInternal;
+      const track = c.width != null ? resolveWidth(c.width, c.field) : 'max-content';
+      template += (template ? ' ' : '') + track;
+    }
+    grid._gridTemplate = template;
   }
   grid.style.setProperty('--tbw-column-template', grid._gridTemplate);
 }

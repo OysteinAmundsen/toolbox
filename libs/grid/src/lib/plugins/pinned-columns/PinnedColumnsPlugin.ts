@@ -204,19 +204,45 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
 
     // Apply sticky offsets after a microtask to ensure DOM is ready
     queueMicrotask(() => {
-      this.#groupEndAdjustments = applyStickyOffsets(host, columns);
+      const result = applyStickyOffsets(host, columns);
+      this.#groupEndAdjustments = result.groupEndAdjustments;
+      this.leftOffsets = result.leftOffsets;
+      this.rightOffsets = result.rightOffsets;
     });
   }
 
   /**
-   * Maintain group-end adjustments on cells rendered during scroll.
-   * Runs after GroupingColumnsPlugin.afterCellRender (which sets group-end
-   * based on group boundaries), overriding it at pin boundaries.
+   * Apply sticky positioning and group-end adjustments on cells rendered during scroll.
+   * When virtualization recycles row pool elements, newly rendered cells lack the
+   * inline sticky styles applied by `applyStickyOffsets` in `afterRender`. This hook
+   * ensures every cell gets correct sticky positioning using the cached offset maps.
    * @internal
    */
   override afterCellRender(context: AfterCellRenderContext): void {
     if (!this.isApplied) return;
     const field = context.column.field;
+    const cellEl = context.cellElement;
+
+    // Apply sticky positioning from cached offset maps
+    const leftOffset = this.leftOffsets.get(field);
+    if (leftOffset !== undefined) {
+      if (!cellEl.classList.contains(GridClasses.STICKY_LEFT)) {
+        cellEl.classList.add(GridClasses.STICKY_LEFT);
+      }
+      cellEl.style.position = 'sticky';
+      cellEl.style.left = leftOffset + 'px';
+    } else {
+      const rightOffset = this.rightOffsets.get(field);
+      if (rightOffset !== undefined) {
+        if (!cellEl.classList.contains(GridClasses.STICKY_RIGHT)) {
+          cellEl.classList.add(GridClasses.STICKY_RIGHT);
+        }
+        cellEl.style.position = 'sticky';
+        cellEl.style.right = rightOffset + 'px';
+      }
+    }
+
+    // Maintain group-end adjustments at pin boundaries
     if (this.#groupEndAdjustments.addGroupEnd.has(field)) {
       context.cellElement.classList.add('group-end');
     } else if (this.#groupEndAdjustments.removeGroupEnd.has(field)) {
@@ -375,7 +401,10 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
    */
   refreshStickyOffsets(): void {
     const columns = [...this.columns];
-    applyStickyOffsets(this.gridElement, columns);
+    const result = applyStickyOffsets(this.gridElement, columns);
+    this.#groupEndAdjustments = result.groupEndAdjustments;
+    this.leftOffsets = result.leftOffsets;
+    this.rightOffsets = result.rightOffsets;
   }
 
   /**

@@ -322,7 +322,7 @@ describe('sticky-columns', () => {
           { field: 'firstName', group: 'employee' },
           { field: 'lastName', group: 'employee' },
         ];
-        const adjustments = applyStickyOffsets(splitHost, cols);
+        const { groupEndAdjustments: adjustments } = applyStickyOffsets(splitHost, cols);
 
         // Original implicit group cell should be replaced by two cells
         const implicitCells = splitHost.querySelectorAll('.header-group-cell.implicit-group');
@@ -367,7 +367,7 @@ describe('sticky-columns', () => {
           { field: 'firstName', group: 'employee' },
           { field: 'lastName', group: 'employee' },
         ];
-        const adjustments = applyStickyOffsets(splitHost, cols);
+        const { groupEndAdjustments: adjustments } = applyStickyOffsets(splitHost, cols);
 
         // Should remain a single implicit group cell
         const implicitCells = splitHost.querySelectorAll('.header-group-cell.implicit-group');
@@ -385,7 +385,7 @@ describe('sticky-columns', () => {
           { field: 'firstName', group: 'employee' },
           { field: 'lastName', group: 'employee' },
         ];
-        const adjustments = applyStickyOffsets(splitHost, cols);
+        const { groupEndAdjustments: adjustments } = applyStickyOffsets(splitHost, cols);
 
         // Should remain a single implicit group cell (now fully pinned)
         const implicitCells = splitHost.querySelectorAll('.header-group-cell.implicit-group');

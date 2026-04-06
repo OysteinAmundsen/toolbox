@@ -166,22 +166,40 @@ export interface GroupEndAdjustments {
 }
 
 /**
+ * Result of applying sticky offsets — includes both the group-end adjustments
+ * and the measured left/right offset maps for use in per-cell rendering hooks.
+ */
+export interface StickyOffsetsResult {
+  groupEndAdjustments: GroupEndAdjustments;
+  leftOffsets: Map<string, number>;
+  rightOffsets: Map<string, number>;
+}
+
+/**
  * Apply sticky offsets to header and body cells.
  * This modifies the DOM elements in place.
  *
  * @param host - The grid host element (render root for DOM queries)
  * @param columns - Array of column configurations
- * @returns Group-end adjustments for `afterCellRender` hooks to maintain during scroll
+ * @returns Sticky offsets result with group-end adjustments and measured offset maps
  */
-export function applyStickyOffsets(host: HTMLElement, columns: any[]): GroupEndAdjustments {
-  const empty: GroupEndAdjustments = { addGroupEnd: new Set(), removeGroupEnd: new Set() };
+export function applyStickyOffsets(host: HTMLElement, columns: any[]): StickyOffsetsResult {
+  const emptyResult: StickyOffsetsResult = {
+    groupEndAdjustments: { addGroupEnd: new Set(), removeGroupEnd: new Set() },
+    leftOffsets: new Map(),
+    rightOffsets: new Map(),
+  };
 
   // With light DOM, query the host element directly
   const headerCells = Array.from(host.querySelectorAll('.header-row .cell')) as HTMLElement[];
-  if (!headerCells.length) return empty;
+  if (!headerCells.length) return emptyResult;
 
   // Detect text direction from the host element
   const direction = getDirection(host);
+
+  // Collect measured offsets for caching in the plugin
+  const leftOffsets = new Map<string, number>();
+  const rightOffsets = new Map<string, number>();
 
   // Apply left sticky (includes 'start' in LTR, 'end' in RTL)
   let left = 0;
@@ -189,6 +207,7 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): GroupEndA
     if (isResolvedLeft(col, direction)) {
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
+        leftOffsets.set(col.field, left);
         cell.classList.add(GridClasses.STICKY_LEFT);
         cell.style.position = 'sticky';
         cell.style.left = left + 'px';
@@ -210,6 +229,7 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): GroupEndA
     if (isResolvedRight(col, direction)) {
       const cell = headerCells.find((c) => c.getAttribute('data-field') === col.field);
       if (cell) {
+        rightOffsets.set(col.field, right);
         cell.classList.add(GridClasses.STICKY_RIGHT);
         cell.style.position = 'sticky';
         cell.style.right = right + 'px';
@@ -245,7 +265,7 @@ export function applyStickyOffsets(host: HTMLElement, columns: any[]): GroupEndA
     }
   }
 
-  return adjustments;
+  return { groupEndAdjustments: adjustments, leftOffsets, rightOffsets };
 }
 
 /**

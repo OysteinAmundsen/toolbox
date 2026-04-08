@@ -935,10 +935,14 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     // Create abort controller for panel-scoped listeners
     // This allows cleanup when panel closes OR when grid disconnects
     this.panelAbortController = new AbortController();
+    const { signal } = this.panelAbortController;
 
     // Add global click handler to close on outside click
-    // Defer to next tick to avoid immediate close from the click that opened the panel
+    // Defer to next tick to avoid immediate close from the click that opened the panel.
+    // Capture `signal` eagerly so detach() → abort() works even if the timeout fires after
+    // panelAbortController has been nullified.
     setTimeout(() => {
+      if (signal.aborted) return;
       document.addEventListener(
         'click',
         (e: MouseEvent) => {
@@ -946,7 +950,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
             this.closeFilterPanel();
           }
         },
-        { signal: this.panelAbortController?.signal },
+        { signal },
       );
     }, 0);
   }

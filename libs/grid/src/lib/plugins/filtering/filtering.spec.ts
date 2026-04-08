@@ -1856,6 +1856,41 @@ describe('FilteringPlugin class', () => {
 
   // #endregion
 
+  // #region Panel close handler cleanup
+
+  describe('setupPanelCloseHandler cleanup on detach', () => {
+    it('should not leak document click listeners when detach is called before setTimeout fires', () => {
+      vi.useFakeTimers();
+      const plugin = new FilteringPlugin();
+      const grid = createGridMock([{ name: 'A' }], [{ field: 'name', header: 'Name' }]);
+      plugin.attach(grid as any);
+
+      // Call the private method via bracket notation to simulate opening a filter panel
+      const panel = document.createElement('div');
+      const button = document.createElement('button');
+      document.body.appendChild(panel);
+      (plugin as any).setupPanelCloseHandler(panel, button);
+
+      // Detach BEFORE the setTimeout fires — this is the race condition
+      plugin.detach();
+
+      // Now let the setTimeout fire
+      vi.advanceTimersByTime(1);
+
+      // Simulate a click on document — should NOT throw or call closeFilterPanel
+      const clickSpy = vi.spyOn(plugin as any, 'closeFilterPanel');
+      document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+      expect(clickSpy).not.toHaveBeenCalled();
+
+      panel.remove();
+      grid._cleanup();
+      vi.useRealTimers();
+    });
+  });
+
+  // #endregion
+
   // #endregion
 });
 

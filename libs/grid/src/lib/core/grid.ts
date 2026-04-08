@@ -353,10 +353,20 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
 
   // visibleColumns returns only visible columns for rendering
   // This is what header/row rendering should use
-  // Cached — invalidated when _columns is set
+  // Cached — invalidated when _columns is set or _invalidateVisibleColumnsCache() is called
   #visibleColumnsCache?: ColumnInternal<T>[];
   get _visibleColumns(): ColumnInternal<T>[] {
     return (this.#visibleColumnsCache ??= this._columns.filter((c) => !c.hidden));
+  }
+
+  /**
+   * Clear the cached _visibleColumns so the next access recomputes from _columns.
+   * Called by ConfigManager when it mutates effectiveConfig.columns directly
+   * (bypassing the _columns setter which normally handles invalidation).
+   * @internal
+   */
+  _invalidateVisibleColumnsCache(): void {
+    this.#visibleColumnsCache = undefined;
   }
   // #endregion
 

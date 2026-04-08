@@ -810,9 +810,19 @@ export class ConfigManager<T = unknown> {
 
     this.columns = reordered;
 
+    // Invalidate the grid's visible-columns cache. The columns setter above
+    // updates effectiveConfig.columns (shared with the grid), but the grid
+    // caches _visibleColumns and only invalidates it via its own _columns setter.
+    // Without this, renderHeader and row rendering read the stale cached order.
+    this.#grid._invalidateVisibleColumnsCache();
+
     renderHeader(this.#grid);
     updateTemplate(this.#grid);
-    this.#grid._requestSchedulerPhase(RenderPhase.VIRTUALIZATION, 'configManager');
+    // Column reorder is a structural change: request COLUMNS phase so processColumns()
+    // bumps __rowRenderEpoch, forcing full cell rebuilds (renderInlineRow) instead of
+    // content-only patches (fastPatchRow). Without this, body cells retain stale
+    // data-field/data-col attributes and the FLIP animation applies wrong deltas.
+    this.#grid._requestSchedulerPhase(RenderPhase.COLUMNS, 'configManager');
   }
   // #endregion
 

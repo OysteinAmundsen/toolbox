@@ -69,6 +69,8 @@ type(scope): short description
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `chore`, `perf`
 **Scopes:** `grid`, `grid-angular`, `grid-react`, `themes`, `docs`, `demo`
 
+**Documentation-only commits must use `docs` type** — e.g. `docs(grid): clarify event naming in Angular examples`. Never use `feat` or `fix` for changes that only touch documentation files (MDX, README, llms.txt, llms-full.txt). Using `feat`/`fix` with a library scope triggers release-please to create a release for that library even though no code changed.
+
 **Prompt format:** After completing a logical unit of work, suggest:
 
 > 📦 **Good commit point:** `type(scope): description`

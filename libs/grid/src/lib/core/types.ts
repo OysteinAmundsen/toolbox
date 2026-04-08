@@ -568,6 +568,8 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   requestStateChange?: () => void;
 
   // Methods exposed for extracted managers (VirtualizationManager, FocusManager, RowManager, RenderScheduler)
+  /** @internal Clear the cached _visibleColumns array so the next read recomputes from _columns. */
+  _invalidateVisibleColumnsCache(): void;
   /** @internal */ _renderVisibleRows(start: number, end: number, epoch?: number): void;
   /** @internal */ _updateAriaCounts(totalRows: number, totalCols: number): void;
   /** @internal */ _requestSchedulerPhase(phase: number, source: string): void;

@@ -25,6 +25,7 @@ describe('ConfigManager', () => {
       _setup: vi.fn(),
       _applyAnimationConfig: vi.fn(),
       _requestSchedulerPhase: vi.fn(),
+      _invalidateVisibleColumnsCache: vi.fn(),
       // Needed by renderHeader() and updateTemplate() called from setColumnOrder
       findHeaderRow: vi.fn(() => document.createElement('div')),
       _headerRowEl: document.createElement('div'),

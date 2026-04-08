@@ -717,11 +717,10 @@ export class ReorderPlugin extends BaseGridPlugin<ReorderConfig> {
     if (animation === 'flip' && this.gridElement) {
       const oldPositions = this.captureHeaderPositions();
       this.grid.setColumnOrder(newOrder);
-      // Force a full render cycle so body cells are rebuilt in new column order.
-      // setColumnOrder rebuilds headers synchronously but body cells are async
-      // (VIRTUALIZATION phase only patches content in place via fastPatchRow).
-      // forceLayout triggers processColumns which bumps the row render epoch,
-      // ensuring body cells are fully rebuilt with correct DOM order.
+      // setColumnOrder now requests COLUMNS phase (not just VIRTUALIZATION), so
+      // processColumns() runs and bumps __rowRenderEpoch. forceLayout() waits
+      // for the pending phase to flush, ensuring body cells are fully rebuilt
+      // with correct data-field attributes before the FLIP animation runs.
       if (typeof this.grid.forceLayout === 'function') {
         this.grid.forceLayout().then(() => {
           this.animateFLIP(oldPositions);

@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.30.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.29.0...grid-1.30.0) (2026-04-08)
+
+
+### Features
+
+* **grid:** split explicit column group headers at pin boundaries ([252083f](https://github.com/OysteinAmundsen/toolbox/commit/252083fc5764502b7257646a165bb5efa8265e63))
+
+
+### Bug Fixes
+
+* **grid:** column reorder visual update and FLIP animation direction ([c2e73e4](https://github.com/OysteinAmundsen/toolbox/commit/c2e73e4ed940eab69e89d3100b8233f694787ae6))
+* **grid:** sticky positioning and group-end adjustments for better cell rendering during scroll ([d4f884b](https://github.com/OysteinAmundsen/toolbox/commit/d4f884bf63d9f4a3122d8336fa34d2d3da26e8f0))
+
+
+### Performance Improvements
+
+* **grid:** replace ES6+ loop patterns with indexed for loops in hot paths ([7806c58](https://github.com/OysteinAmundsen/toolbox/commit/7806c58ada7a75fd1cdd7cfc3514a57aabf1d455))
+* **grid:** revert NodeList/native C++ optimizations that hurt speed ([e9cfe31](https://github.com/OysteinAmundsen/toolbox/commit/e9cfe3199903a57fa0c2cef74d813bdcfeeca8f7))
+
 ## [1.29.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.28.2...grid-1.29.0) (2026-04-05)
 
 

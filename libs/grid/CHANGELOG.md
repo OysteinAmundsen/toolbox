@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.0...grid-1.30.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* **grid:** capture abort signal eagerly to prevent listener leak in filter panel ([e7d23a6](https://github.com/OysteinAmundsen/toolbox/commit/e7d23a68ebd7372217849eb216abf224bcf1cff4))
+
 ## [1.30.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.29.0...grid-1.30.0) (2026-04-08)
 
 

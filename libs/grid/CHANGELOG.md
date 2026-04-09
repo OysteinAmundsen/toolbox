@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.1...grid-1.30.2) (2026-04-09)
+
+
+### Bug Fixes
+
+* **grid:** add missing filterType augmented column option ([907ff39](https://github.com/OysteinAmundsen/toolbox/commit/907ff3962f7ed70ef3e3c27e11f4304cac67397e))
+
 ## [1.30.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.0...grid-1.30.1) (2026-04-08)
 
 

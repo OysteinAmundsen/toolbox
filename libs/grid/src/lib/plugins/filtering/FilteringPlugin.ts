@@ -909,8 +909,10 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     // 3. Fall back to built-in type-specific panel renderers
+    //    filterType takes precedence over column.type so consumers can
+    //    e.g. show a set filter for a numeric column.
     if (!usedCustomRenderer) {
-      const columnType = column.type;
+      const columnType = column.filterType ?? column.type;
       if (columnType === 'number') {
         renderNumberFilterPanel(panel, params, uniqueValues, this.filters);
       } else if (columnType === 'date') {

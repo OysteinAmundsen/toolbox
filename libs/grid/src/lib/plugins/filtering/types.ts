@@ -49,6 +49,23 @@ declare module '../../core/types' {
      * ```
      */
     filterValue?: (value: unknown, row: any) => unknown | unknown[];
+
+    /**
+     * Override the filter panel UI type independently of the column's `type`.
+     *
+     * By default the built-in filter panel is chosen based on `column.type`
+     * (e.g. `'number'` → range slider, `'date'` → date pickers). Set
+     * `filterType` when you want a different panel — for example a numeric
+     * column that should show a set (checkbox list) filter instead of a
+     * range slider.
+     *
+     * @example
+     * ```typescript
+     * // Volume is stored as a number but users want a value-picker
+     * { field: 'volume', type: 'number', filterType: 'set', filterable: true }
+     * ```
+     */
+    filterType?: FilterType;
   }
 
   interface TypeDefault {

@@ -165,6 +165,19 @@ Override in your theme:
 
 ## Icon Customization
 
+The grid uses a **CSS-first hybrid icon system** with two configuration paths:
+
+| Approach | Best for | How it works |
+|----------|----------|-------------|
+| **CSS variables** (default) | Themes, static icons, no-JS customization | Override `--tbw-icon-*` properties on `tbw-grid` |
+| **JavaScript** (`gridConfig.icons`) | Dynamic icons, icon libraries, runtime changes | Set `icons` in grid config — takes precedence over CSS |
+
+CSS is the **recommended default** — it requires no JavaScript, works with cascade layers, and is tree-shakeable. Use the JS path when you need dynamic icons (e.g., loading from an icon library at runtime) or `HTMLElement` instances.
+
+:::tip
+See the [API Reference — Icon Customization](/grid/api-reference/#icon-customization) for the JavaScript approach and the full list of icon keys.
+:::
+
 All grid icons (sort indicators, expand/collapse, filter, drag handles, etc.) are rendered via CSS custom properties. Override them in your theme.
 
 ### Text / Emoji Icons

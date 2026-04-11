@@ -52,6 +52,17 @@ After any code change, use this checklist to identify which documentation needs 
 
 ## How to Write Each Doc Type
 
+### Multi-Path Features
+
+When a feature has multiple configuration paths (e.g., CSS vs JS, declarative vs programmatic), **every documentation surface that covers the feature must:**
+
+1. **State that both paths exist** — even if it only covers one in detail
+2. **Explain when to use which** — include a comparison table with trade-offs
+3. **Cross-reference** — link to the other doc surface that covers the other path in detail
+4. **Identify the recommended default** — guide developers toward the simpler path unless they have specific needs
+
+Apply this to: icons (CSS vars vs `gridConfig.icons`), column config (declarative `<tbw-grid-column>` vs JS `columns`), features (declarative `features` vs manual `plugins`), styling (CSS custom properties vs `registerStyles()` vs `cellClass`/`rowClass`), etc.
+
 ### Plugin MDX (`.mdx`)
 
 Plugin MDX pages live in `apps/docs/src/content/docs/grid/plugins/`. Structure:

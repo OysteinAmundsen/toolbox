@@ -445,7 +445,7 @@ grid.gridConfig = {
 
 ### Icons Configuration
 
-The grid provides a centralized icon system via `gridConfig.icons`. All plugins (tree, grouping, sorting, context menus, etc.) automatically use these icons, ensuring visual consistency across the entire grid.
+The grid provides a **CSS-first hybrid icon system**. By default, all icons render via CSS custom properties (see [Theming — Icon Customization](https://toolboxjs.com/grid/guides/theming/#icon-customization)). For programmatic control or `HTMLElement` icons, use `gridConfig.icons` — these take precedence over CSS.
 
 ```typescript
 import { DEFAULT_GRID_ICONS } from '@toolbox-web/grid';

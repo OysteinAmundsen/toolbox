@@ -2055,7 +2055,16 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 | `--tbw-checkbox-size` | - | Checkbox size |
 | `--tbw-toggle-size` | `1.25em` | Toggle button size |
 
-### Icon Content Variables
+### Icon System
+
+The grid uses a **CSS-first hybrid icon system** with two configuration paths:
+
+- **CSS variables (default):** Override `--tbw-icon-*` properties on `tbw-grid`. Best for themes, static icons, no-JS customization. Works with cascade layers.
+- **JavaScript (`gridConfig.icons`):** Set `icons` in grid config. Takes precedence over CSS. Best for dynamic icons, icon libraries, or `HTMLElement` instances.
+
+CSS is the recommended default — use JS only when you need runtime control or DOM element icons.
+
+#### Icon Content Variables
 
 All grid icons render via CSS custom properties. Override to change icons globally.
 
@@ -2073,7 +2082,24 @@ All grid icons render via CSS custom properties. Override to change icons global
 | `--tbw-icon-tool-panel` | `'☰'` | Tool panel toggle button |
 | `--tbw-icon-print` | `'🖨️'` | Print button |
 
-Each icon also has a `-mask` variant (e.g., `--tbw-icon-filter-mask`) for SVG mask rendering with `currentColor`. The **filter** and **filter-active** icons use masks by default — just override their `-mask` variable. For any other icon, switching to SVG mask mode requires: (1) set the text variable to `''`, (2) set the `-mask` variable to a `url()`, and (3) add `background: currentColor` on the `[data-icon='<key>']:empty::before` pseudo-element. The grid ships `mask-image`, `mask-size`, `mask-repeat`, and `mask-position` for every icon. See the Theming guide for a full example.
+Each icon also has a `-mask` variant (e.g., `--tbw-icon-filter-mask`) for SVG mask rendering with `currentColor`. The **filter** and **filter-active** icons use masks by default — just override their `-mask` variable. For any other icon, switching to SVG mask mode requires: (1) set the text variable to `''`, (2) set the `-mask` variable to a `url()`, and (3) add `background: currentColor` with `width`/`height` on the `[data-icon='<key>']:empty::before` pseudo-element. The grid ships `mask-image`, `mask-size`, `mask-repeat`, and `mask-position` for every icon. See the Theming guide for a full example.
+
+#### JavaScript Icon Configuration
+
+For dynamic or programmatic icons, use `gridConfig.icons` (takes precedence over CSS):
+
+```typescript
+grid.gridConfig = {
+  icons: {
+    expand: '➕',
+    collapse: '➖',
+    sortAsc: '<svg viewBox="0 0 16 16"><path d="M8 4l4 8H4z"/></svg>',
+    filter: document.createElement('my-icon'), // HTMLElement instance
+  },
+};
+```
+
+Icon values can be strings (text, emoji, HTML/SVG) or `HTMLElement` instances. When a JS icon is set, it injects DOM content into the icon element, suppressing the CSS `::before` pseudo-element via the `:empty` selector.
 
 ### Focus & Selection
 

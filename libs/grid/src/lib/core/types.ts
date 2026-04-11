@@ -2279,7 +2279,14 @@ export interface GridConfig<TRow = any> {
 
   /**
    * Grid-wide icon configuration.
-   * Provides consistent icons across all plugins (tree, grouping, sorting, etc.).
+   *
+   * The grid uses a **CSS-first hybrid icon system**:
+   * - **Default (CSS):** Icons render via `--tbw-icon-*` CSS custom properties on `tbw-grid`.
+   *   Override them in your theme CSS — no JavaScript needed.
+   * - **JS override:** Setting `gridConfig.icons` takes precedence over CSS for any key provided.
+   *   Use this for dynamic icons, icon libraries, or `HTMLElement` instances.
+   *
+   * All icons are optional — sensible defaults are used when not specified.
    * Plugins will use these by default but can override with their own config.
    */
   icons?: GridIcons;
@@ -2983,6 +2990,14 @@ export type IconValue = string | HTMLElement;
 /**
  * Grid-wide icon configuration.
  * All icons are optional - sensible defaults are used when not specified.
+ *
+ * The grid uses a **CSS-first hybrid approach**: icons render via `--tbw-icon-*` CSS
+ * custom properties by default. Setting `gridConfig.icons` provides JS overrides that
+ * take precedence over CSS (the JS icon injects DOM content, suppressing the CSS
+ * `::before` pseudo-element via the `:empty` selector).
+ *
+ * **Use CSS** for static theming (text, emoji, SVG masks via `--tbw-icon-*-mask`).
+ * **Use JS** for dynamic icons, icon libraries, or `HTMLElement` instances.
  *
  * Icons can be text (including emoji), HTML strings (for SVG), or HTMLElement instances.
  *

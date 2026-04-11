@@ -147,7 +147,7 @@ describe('shell module', () => {
       const html = renderShellHeader(undefined, state);
 
       expect(html).toContain('data-panel-toggle');
-      expect(html).toContain('☰');
+      expect(html).toContain('data-icon="tool-panel"');
       expect(html).toContain('title="Settings"');
     });
 

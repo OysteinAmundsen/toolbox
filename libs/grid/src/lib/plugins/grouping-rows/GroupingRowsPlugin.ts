@@ -487,7 +487,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     btn.type = 'button';
     btn.className = `${GridClasses.GROUP_TOGGLE}${expanded ? ` ${GridClasses.EXPANDED}` : ''}`;
     btn.setAttribute('aria-label', expanded ? 'Collapse group' : 'Expand group');
-    this.setIcon(btn, this.resolveIcon(expanded ? 'collapse' : 'expand'));
+    this.setIcon(btn, expanded ? 'collapse' : 'expand');
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       handleToggle();

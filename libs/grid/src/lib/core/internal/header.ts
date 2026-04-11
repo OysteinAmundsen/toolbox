@@ -7,8 +7,8 @@
  */
 
 import { GridClasses } from '../constants';
-import type { ColumnInternal, GridHost, HeaderCellContext, IconValue, InternalGrid } from '../types';
-import { DEFAULT_GRID_ICONS } from '../types';
+import { toIconAttr } from '../plugin/base-plugin';
+import type { ColumnInternal, GridHost, GridIcons, HeaderCellContext, IconValue, InternalGrid } from '../types';
 import { addPart } from './columns';
 import { sanitizeHTML } from './sanitize';
 import { toggleSort } from './sorting';
@@ -51,14 +51,24 @@ function setIcon(element: HTMLElement, icon: IconValue): void {
 
 /**
  * Create a sort indicator element for a column.
+ * Uses CSS-first icon rendering: sets data-icon for CSS pseudo-elements,
+ * only injects DOM content if user provided a JS icon override.
  */
 function createSortIndicator(grid: InternalGrid, col: ColumnInternal): HTMLElement {
   const icon = document.createElement('span');
   addPart(icon, 'sort-indicator');
   const active = grid._sortState?.field === col.field ? grid._sortState.direction : 0;
-  const icons = { ...DEFAULT_GRID_ICONS, ...grid.icons };
-  const iconValue = active === 1 ? icons.sortAsc : active === -1 ? icons.sortDesc : icons.sortNone;
-  setIcon(icon, iconValue);
+  const iconKey: keyof GridIcons = active === 1 ? 'sortAsc' : active === -1 ? 'sortDesc' : 'sortNone';
+
+  // Set data-icon for CSS icon rendering
+  icon.dataset.icon = toIconAttr(iconKey);
+
+  // Only inject content if user explicitly configured a JS icon override
+  const userIcon = grid.icons?.[iconKey];
+  if (userIcon !== undefined) {
+    setIcon(icon, userIcon);
+  }
+
   return icon;
 }
 

@@ -1,0 +1,97 @@
+/**
+ * CSS-Based Icon System
+ *
+ * Renders icons via CSS pseudo-elements when no JS override is present.
+ * The :empty selector ensures CSS icons are suppressed when setIcon() injects content.
+ *
+ * Two strategies:
+ * - Text/emoji: `content: var(--tbw-icon-<key>)` in ::before
+ * - SVG mask: `mask-image: var(--tbw-icon-<key>-mask)` with currentColor fill
+ *
+ * To switch an icon to SVG mask mode: set content var to '' and provide -mask URL.
+ *
+ * @layer tbw-base
+ */
+@layer tbw-base {
+  tbw-grid {
+    /* ========== Icon content (::before content) ========== */
+    [data-icon='expand']:empty::before {
+      content: var(--tbw-icon-expand);
+    }
+    [data-icon='collapse']:empty::before {
+      content: var(--tbw-icon-collapse);
+    }
+    [data-icon='sort-asc']:empty::before {
+      content: var(--tbw-icon-sort-asc);
+    }
+    [data-icon='sort-desc']:empty::before {
+      content: var(--tbw-icon-sort-desc);
+    }
+    [data-icon='sort-none']:empty::before {
+      content: var(--tbw-icon-sort-none);
+    }
+    [data-icon='submenu-arrow']:empty::before {
+      content: var(--tbw-icon-submenu-arrow);
+    }
+    [data-icon='drag-handle']:empty::before {
+      content: var(--tbw-icon-drag-handle);
+    }
+    [data-icon='tool-panel']:empty::before {
+      content: var(--tbw-icon-tool-panel);
+    }
+    [data-icon='print']:empty::before {
+      content: var(--tbw-icon-print);
+    }
+    [data-icon='filter']:empty::before {
+      content: var(--tbw-icon-filter);
+    }
+    [data-icon='filter-active']:empty::before {
+      content: var(--tbw-icon-filter-active);
+    }
+
+    /* Common layout for all icon pseudo-elements */
+    [data-icon]:empty::before {
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    /* ========== SVG mask-based icons ========== */
+    /* Mask rendering for filter icons (use mask by default).
+       To switch any other icon to mask mode, override its content var to '',
+       and set its -mask var to a URL. You will also need to add
+       background: currentColor and mask-size/repeat/position via your own CSS. */
+    [data-icon='filter']:empty::before,
+    [data-icon='filter-active']:empty::before {
+      width: var(--tbw-icon-size, 1em);
+      height: var(--tbw-icon-size, 1em);
+      background: currentColor;
+      -webkit-mask-size: contain;
+      mask-size: contain;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+      mask-position: center;
+    }
+    [data-icon='filter']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-filter-mask);
+      mask-image: var(--tbw-icon-filter-mask);
+    }
+    [data-icon='filter-active']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-filter-active-mask);
+      mask-image: var(--tbw-icon-filter-active-mask);
+    }
+  }
+
+  /* Context menu icons — rendered outside tbw-grid on document.body.
+     CSS custom properties defined on tbw-grid are NOT inherited by body > .tbw-context-menu,
+     so we use fallback values in var() for context menu icons. */
+  .tbw-context-menu [data-icon]:empty::before {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+  }
+  .tbw-context-menu [data-icon='submenu-arrow']:empty::before {
+    content: var(--tbw-icon-submenu-arrow, '▶');
+  }
+}

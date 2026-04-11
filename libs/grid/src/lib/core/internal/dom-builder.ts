@@ -203,7 +203,7 @@ export interface ShellHeaderOptions {
   title?: string;
   hasPanels: boolean;
   isPanelOpen: boolean;
-  toolPanelIcon: string;
+  toolPanelIcon?: string;
   /** Config toolbar contents with render function (pre-sorted by order) */
   configButtons: Array<{
     id: string;
@@ -269,7 +269,10 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
       'aria-pressed': String(options.isPanelOpen),
       'aria-controls': 'tbw-tool-panel',
     });
-    toggleBtn.innerHTML = options.toolPanelIcon;
+    toggleBtn.dataset.icon = 'tool-panel';
+    if (options.toolPanelIcon !== undefined) {
+      toggleBtn.innerHTML = options.toolPanelIcon;
+    }
     toolbar.appendChild(toggleBtn);
   }
 
@@ -285,8 +288,8 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
 export interface ShellBodyOptions {
   position: 'left' | 'right';
   isPanelOpen: boolean;
-  expandIcon: string;
-  collapseIcon: string;
+  expandIcon?: string;
+  collapseIcon?: string;
   /** Sorted panels for accordion */
   panels: Array<{
     id: string;
@@ -358,8 +361,10 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
 
       // Chevron (hidden for single panel) — always use expandIcon, CSS rotation handles state
       if (!isSinglePanel) {
-        const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron' });
-        chevronSpan.innerHTML = options.expandIcon;
+        const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron', 'data-icon': 'expand' });
+        if (options.expandIcon !== undefined) {
+          chevronSpan.innerHTML = options.expandIcon;
+        }
         headerBtn.appendChild(chevronSpan);
       }
 

@@ -471,7 +471,7 @@ export class ContextMenuPlugin extends BaseGridPlugin<ContextMenuConfig> {
         this.menuElement = null;
         this.isOpen = false;
       },
-      this.gridIcons.submenuArrow,
+      this.grid?.gridConfig?.icons?.submenuArrow,
     );
 
     // Attach keyboard navigation (arrow keys, Enter, Escape)

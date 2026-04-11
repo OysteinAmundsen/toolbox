@@ -609,7 +609,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     if (reorderEnabled) {
       const handle = document.createElement('span');
       handle.className = 'tbw-visibility-handle';
-      this.setIcon(handle, this.resolveIcon('dragHandle'));
+      this.setIcon(handle, 'dragHandle');
       handle.title = 'Drag to reorder group';
       // Insert handle before the label
       header.insertBefore(handle, headerLabel);
@@ -684,7 +684,7 @@ export class VisibilityPlugin extends BaseGridPlugin<VisibilityConfig> {
     if (reorderEnabled && canMoveColumn(col)) {
       const handle = document.createElement('span');
       handle.className = 'tbw-visibility-handle';
-      this.setIcon(handle, this.resolveIcon('dragHandle'));
+      this.setIcon(handle, 'dragHandle');
       handle.title = 'Drag to reorder';
       row.appendChild(handle);
     }

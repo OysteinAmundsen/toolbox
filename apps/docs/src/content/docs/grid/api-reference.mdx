@@ -1010,7 +1010,25 @@ grid.gridConfig = {
 
 ### Icon Customization
 
-Override any grid icon with SVG strings or emoji.
+Icons are rendered via **CSS custom properties** by default — no JavaScript configuration needed. Override any icon with CSS:
+
+```css
+@layer tbw-theme {
+  tbw-grid {
+    /* Text/emoji icons */
+    --tbw-icon-sort-asc: '↑';
+    --tbw-icon-sort-desc: '↓';
+    --tbw-icon-expand: '+';
+    --tbw-icon-collapse: '−';
+
+    /* SVG mask icons — set text content to '' and provide a mask URL */
+    --tbw-icon-filter: '';
+    --tbw-icon-filter-mask: url("data:image/svg+xml,...");
+  }
+}
+```
+
+For programmatic control (e.g., dynamic icon libraries), use `gridConfig.icons` which takes precedence over CSS:
 
 ```typescript
 grid.gridConfig = {

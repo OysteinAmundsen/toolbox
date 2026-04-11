@@ -426,7 +426,7 @@ describe('contextMenu', () => {
       const arrow = menu.querySelector('.tbw-context-menu-arrow');
 
       expect(arrow).not.toBeNull();
-      expect(arrow?.textContent).toBe('▶');
+      expect(arrow?.getAttribute('data-icon')).toBe('submenu-arrow');
     });
 
     it('should call onAction when item with action is clicked', () => {

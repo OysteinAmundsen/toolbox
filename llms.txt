@@ -26,7 +26,7 @@ Enable capabilities via side-effect imports and declarative `features` config (o
 - [Toolbox Grid vs AG Grid: Feature Comparison](https://toolboxjs.com/grid/comparison/): Free alternative to AG Grid with feature-by-feature comparison, includes features that are Enterprise-only in AG Grid but free in Toolbox Grid
 - [API Reference](https://toolboxjs.com/grid/api-reference/): Complete properties, methods, events, and types
 - [Theming Guide](https://toolboxjs.com/grid/guides/theming/): CSS custom properties for styling and built-in themes
-- [CSS Variable Reference](./llms-full.txt): Complete list of all `--tbw-*` CSS custom properties including plugin-specific variables
+- [CSS Variable Reference](./llms-full.txt): Complete list of all `--tbw-*` CSS custom properties including plugin-specific variables and `--tbw-icon-*` icon variables
 - [Plugin Overview](https://toolboxjs.com/grid/plugins/): Available plugins and their dependencies
 - [Architecture](https://toolboxjs.com/grid/architecture/): Internal design, render scheduler, configuration precedence
 

@@ -169,7 +169,7 @@ export class RowReorderPlugin extends BaseGridPlugin<RowReorderConfig> {
         container.draggable = true;
 
         // Use the grid's configured dragHandle icon
-        this.setIcon(container, this.resolveIcon('dragHandle'));
+        this.setIcon(container, 'dragHandle');
 
         return container;
       },

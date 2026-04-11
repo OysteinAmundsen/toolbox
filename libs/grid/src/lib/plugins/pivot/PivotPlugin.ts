@@ -398,8 +398,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
         columns: this.gridColumns,
         rowIndex,
         onToggle: (key) => this.toggle(key),
-        resolveIcon: (iconKey) => this.resolveIcon(iconKey),
-        setIcon: (el, icon) => this.setIcon(el, icon),
+        setIcon: (el, iconKey) => this.setIcon(el, iconKey),
       });
     }
 

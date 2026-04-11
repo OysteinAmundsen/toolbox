@@ -163,6 +163,90 @@ Override in your theme:
 }
 ```
 
+## Icon Customization
+
+All grid icons (sort indicators, expand/collapse, filter, drag handles, etc.) are rendered via CSS custom properties. Override them in your theme.
+
+### Text / Emoji Icons
+
+Set the `--tbw-icon-<key>` variable to any CSS `<string>` value:
+
+```css
+@layer tbw-theme {
+  tbw-grid {
+    --tbw-icon-sort-asc: '↑';
+    --tbw-icon-sort-desc: '↓';
+    --tbw-icon-expand: '+';
+    --tbw-icon-collapse: '−';
+    --tbw-icon-size: 1.2em;
+  }
+}
+```
+
+### SVG Mask Icons
+
+The **filter** and **filter-active** icons use SVG masks by default — just override their `-mask` variable:
+
+```css
+@layer tbw-theme {
+  tbw-grid {
+    --tbw-icon-filter: '';
+    --tbw-icon-filter-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z'/%3E%3C/svg%3E");
+  }
+}
+```
+
+For **any other icon**, switching to mask mode requires three steps:
+
+1. Set the content variable to `''` (empty string) so the pseudo-element is generated but shows no text
+2. Set the `-mask` variable to an SVG `url()`
+3. Add your own CSS rule for `background`, `mask-size`, `mask-repeat`, and `mask-position` — these are only built-in for the filter icons
+
+```css
+@layer tbw-theme {
+  tbw-grid {
+    /* Step 1 & 2: set content to '' and provide the mask URL */
+    --tbw-icon-sort-asc: '';
+    --tbw-icon-sort-asc-mask: url("data:image/svg+xml,...");
+  }
+
+  /* Step 3: add mask rendering rules for this icon */
+  tbw-grid [data-icon='sort-asc']:empty::before {
+    background: currentColor;
+    -webkit-mask-image: var(--tbw-icon-sort-asc-mask);
+    mask-image: var(--tbw-icon-sort-asc-mask);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+}
+```
+
+:::tip
+The grid intentionally ships mask CSS only for filter icons to keep the base bundle small. The pattern above gives theme authors full control to opt in per icon.
+:::
+
+### Available Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `--tbw-icon-expand` | `'▶'` | Tree / group / master-detail expand |
+| `--tbw-icon-collapse` | `'▼'` | Tree / group / master-detail collapse |
+| `--tbw-icon-sort-asc` | `'▲'` | Sort ascending indicator |
+| `--tbw-icon-sort-desc` | `'▼'` | Sort descending indicator |
+| `--tbw-icon-sort-none` | `'⇅'` | Unsorted indicator |
+| `--tbw-icon-filter` | `''` (mask) | Column filter icon |
+| `--tbw-icon-filter-active` | `''` (mask) | Active filter icon |
+| `--tbw-icon-submenu-arrow` | `'▶'` | Context menu submenu arrow |
+| `--tbw-icon-drag-handle` | `'⋮⋮'` | Row drag handle |
+| `--tbw-icon-tool-panel` | `'☰'` | Tool panel toggle |
+| `--tbw-icon-print` | `'🖨️'` | Print button |
+
+Each icon also has a `-mask` variant (e.g., `--tbw-icon-sort-asc-mask`) for SVG mask-based rendering with `currentColor`.
+
 ## See Also
 
 <CardGrid>

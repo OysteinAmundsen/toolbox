@@ -462,8 +462,7 @@ export class PrintPlugin extends BaseGridPlugin<PrintConfig> {
         button.type = 'button';
 
         // Use print icon
-        const icon = this.resolveIcon('print') || '🖨️';
-        this.setIcon(button, icon);
+        this.setIcon(button, 'print');
 
         button.addEventListener(
           'click',

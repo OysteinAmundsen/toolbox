@@ -5,8 +5,8 @@
  */
 
 import { sanitizeHTML } from '../../core/internal/sanitize';
+import { toIconAttr } from '../../core/plugin/base-plugin';
 import type { IconValue } from '../../core/types';
-import { DEFAULT_GRID_ICONS } from '../../core/types';
 import type { ContextMenuItem, ContextMenuParams } from './types';
 
 /**
@@ -77,7 +77,7 @@ export function createMenuElement(
   items: ContextMenuItem[],
   params: ContextMenuParams,
   onAction: (item: ContextMenuItem) => void,
-  submenuArrow: IconValue = DEFAULT_GRID_ICONS.submenuArrow,
+  submenuArrow?: IconValue,
 ): HTMLElement {
   const menu = document.createElement('div');
   menu.className = 'tbw-context-menu';
@@ -147,11 +147,14 @@ export function createMenuElement(
     if (item.subMenu?.length) {
       const arrow = document.createElement('span');
       arrow.className = 'tbw-context-menu-arrow';
-      // Use provided submenu arrow icon (string or HTMLElement)
-      if (typeof submenuArrow === 'string') {
-        arrow.innerHTML = sanitizeHTML(submenuArrow);
-      } else if (submenuArrow instanceof HTMLElement) {
-        arrow.appendChild(submenuArrow.cloneNode(true));
+      arrow.dataset.icon = toIconAttr('submenuArrow');
+      // Only inject content if a JS icon override was provided
+      if (submenuArrow !== undefined) {
+        if (typeof submenuArrow === 'string') {
+          arrow.innerHTML = sanitizeHTML(submenuArrow);
+        } else if (submenuArrow instanceof HTMLElement) {
+          arrow.appendChild(submenuArrow.cloneNode(true));
+        }
       }
       menuItem.appendChild(arrow);
 

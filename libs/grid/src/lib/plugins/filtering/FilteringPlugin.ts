@@ -457,8 +457,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         }
         // Update icon if active state changed
         if (wasActive !== hasFilter) {
-          const iconName = hasFilter ? 'filterActive' : 'filter';
-          this.setIcon(filterBtn, this.resolveIcon(iconName));
+          this.setIcon(filterBtn, hasFilter ? 'filterActive' : 'filter');
         }
         return;
       }
@@ -468,8 +467,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       filterBtn.className = 'tbw-filter-btn';
       filterBtn.setAttribute('aria-label', `Filter ${col.header ?? field}`);
       // Use grid icons configuration
-      const iconName = hasFilter ? 'filterActive' : 'filter';
-      this.setIcon(filterBtn, this.resolveIcon(iconName));
+      this.setIcon(filterBtn, hasFilter ? 'filterActive' : 'filter');
 
       // Mark button as active if filter exists
       if (hasFilter) {

@@ -13,6 +13,7 @@ import { sanitizeHTML } from '../internal/sanitize';
 import type {
   ColumnConfig,
   ColumnState,
+  GridIcons,
   GridPlugin,
   HeaderContentDefinition,
   IconValue,
@@ -40,7 +41,7 @@ export type {
   PluginCellRenderContext,
   PluginQuery,
   RowClickEvent,
-  ScrollEvent
+  ScrollEvent,
 } from './types';
 
 import type {
@@ -380,6 +381,11 @@ export interface PluginManifest<TConfig = unknown> {
    * ```
    */
   events?: EventDefinition[];
+}
+
+/** Convert camelCase icon key to kebab-case data-icon attribute value. */
+export function toIconAttr(key: string): string {
+  return key.replace(/([A-Z])/g, '-$1').toLowerCase();
 }
 
 /**
@@ -783,7 +789,7 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Get the grid-level icons configuration.
    * Returns merged icons (user config + defaults).
    */
-  protected get gridIcons(): typeof DEFAULT_GRID_ICONS {
+  protected get gridIcons(): Required<GridIcons> {
     const userIcons = this.grid?.gridConfig?.icons ?? {};
     return { ...DEFAULT_GRID_ICONS, ...userIcons };
   }
@@ -853,11 +859,12 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * Resolve an icon value to string or HTMLElement.
    * Checks plugin config first, then grid-level icons, then defaults.
    *
+   * @deprecated Use `setIcon(element, iconKey)` instead. Will be removed in v2.0.0.
    * @param iconKey - The icon key in GridIcons (e.g., 'expand', 'collapse')
    * @param pluginOverride - Optional plugin-level override
    * @returns The resolved icon value
    */
-  protected resolveIcon(iconKey: keyof typeof DEFAULT_GRID_ICONS, pluginOverride?: IconValue): IconValue {
+  protected resolveIcon(iconKey: keyof GridIcons, pluginOverride?: IconValue): IconValue {
     // Plugin override takes precedence
     if (pluginOverride !== undefined) {
       return pluginOverride;
@@ -867,19 +874,53 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   }
 
   /**
-   * Set an icon value on an element.
-   * Handles both string (text/HTML) and HTMLElement values.
+   * Set an icon on an element using the CSS-first hybrid approach.
+   *
+   * Sets `data-icon` for CSS pseudo-element rendering and `data-expanded` for
+   * expand/collapse toggle elements. Only injects DOM content when a JS override
+   * is present (via `gridConfig.icons` or `pluginOverride`), which naturally
+   * suppresses the CSS `::before` via the `:empty` selector.
    *
    * @param element - The element to set the icon on
-   * @param icon - The icon value (string or HTMLElement)
+   * @param iconKey - The icon key in GridIcons (e.g., 'expand', 'collapse')
+   * @param pluginOverride - Optional plugin-level override (string or HTMLElement)
    */
-  protected setIcon(element: HTMLElement, icon: IconValue): void {
-    if (typeof icon === 'string') {
-      element.innerHTML = sanitizeHTML(icon);
-    } else if (icon instanceof HTMLElement) {
-      element.innerHTML = '';
-      element.appendChild(icon.cloneNode(true));
+  protected setIcon(element: HTMLElement, iconKey: keyof GridIcons, pluginOverride?: IconValue): void {
+    // Set data-icon attribute for CSS targeting (always)
+    element.dataset.icon = toIconAttr(iconKey);
+
+    // Set data-expanded for toggle elements (tree, group, master-detail)
+    if (iconKey === 'collapse') {
+      element.dataset.expanded = '';
+    } else if (iconKey === 'expand') {
+      delete element.dataset.expanded;
     }
+
+    // Resolve JS-only icon (returns undefined when CSS default should be used)
+    const jsIcon = this.#resolveJsIcon(iconKey, pluginOverride);
+
+    if (jsIcon !== undefined) {
+      // JS override: inject content (suppresses CSS ::before via :empty)
+      if (typeof jsIcon === 'string') {
+        element.innerHTML = sanitizeHTML(jsIcon);
+      } else if (jsIcon instanceof HTMLElement) {
+        element.innerHTML = '';
+        element.appendChild(jsIcon.cloneNode(true));
+      }
+    } else {
+      // CSS path: ensure element is empty so ::before renders
+      element.innerHTML = '';
+    }
+  }
+
+  /**
+   * Resolve JS-only icon override. Returns undefined if CSS default should render.
+   * Only returns a value when the user explicitly set gridConfig.icons[key] or
+   * the plugin passed an override.
+   */
+  #resolveJsIcon(iconKey: keyof GridIcons, pluginOverride?: IconValue): IconValue | undefined {
+    if (pluginOverride !== undefined) return pluginOverride;
+    return this.grid?.gridConfig?.icons?.[iconKey];
   }
 
   /**
@@ -907,11 +948,11 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
     if (direction) {
       cell.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
       cell.setAttribute('data-sort', direction);
-      this.setIcon(indicator, this.resolveIcon(direction === 'asc' ? 'sortAsc' : 'sortDesc'));
+      this.setIcon(indicator, direction === 'asc' ? 'sortAsc' : 'sortDesc');
     } else {
       cell.setAttribute('aria-sort', 'none');
       cell.removeAttribute('data-sort');
-      this.setIcon(indicator, this.resolveIcon('sortNone'));
+      this.setIcon(indicator, 'sortNone');
     }
 
     // Insert before filter button or resize handle to maintain DOM order

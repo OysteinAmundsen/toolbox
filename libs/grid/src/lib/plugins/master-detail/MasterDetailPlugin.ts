@@ -406,7 +406,7 @@ export class MasterDetailPlugin extends BaseGridPlugin<MasterDetailConfig> {
       const toggle = document.createElement('span');
       toggle.className = `master-detail-toggle${isExpanded ? ' expanded' : ''}`;
       // Use grid-level icons (fall back to defaults)
-      this.setIcon(toggle, this.resolveIcon(isExpanded ? 'collapse' : 'expand'));
+      this.setIcon(toggle, isExpanded ? 'collapse' : 'expand');
       // role="button" is required for aria-expanded to be valid
       toggle.setAttribute('role', 'button');
       toggle.setAttribute('tabindex', '0');

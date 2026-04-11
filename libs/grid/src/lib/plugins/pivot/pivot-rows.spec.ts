@@ -32,10 +32,7 @@ describe('pivot-rows', () => {
       ] as ColumnConfig[],
       rowIndex: 0,
       onToggle: vi.fn(),
-      resolveIcon: vi.fn((key) => (key === 'expand' ? '▶' : '▼')),
-      setIcon: vi.fn((el, icon) => {
-        el.textContent = String(icon);
-      }),
+      setIcon: vi.fn(),
       ...overrides,
     });
 
@@ -128,7 +125,8 @@ describe('pivot-rows', () => {
       const ctx = createContext();
       renderPivotGroupRow(row, rowEl, ctx);
 
-      expect(ctx.resolveIcon).toHaveBeenCalledWith('collapse');
+      const toggleBtn = rowEl.querySelector('.pivot-toggle');
+      expect(ctx.setIcon).toHaveBeenCalledWith(toggleBtn, 'collapse');
     });
 
     it('should render expand icon when collapsed', () => {
@@ -142,7 +140,8 @@ describe('pivot-rows', () => {
       const ctx = createContext();
       renderPivotGroupRow(row, rowEl, ctx);
 
-      expect(ctx.resolveIcon).toHaveBeenCalledWith('expand');
+      const toggleBtn = rowEl.querySelector('.pivot-toggle');
+      expect(ctx.setIcon).toHaveBeenCalledWith(toggleBtn, 'expand');
     });
 
     it('should render label and count in first column', () => {

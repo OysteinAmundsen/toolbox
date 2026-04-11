@@ -17,6 +17,7 @@
 import animations from './animations.css?inline';
 import base from './base.css?inline';
 import header from './header.css?inline';
+import icons from './icons.css?inline';
 import loading from './loading.css?inline';
 import mediaQueries from './media-queries.css?inline';
 import rows from './rows.css?inline';
@@ -43,6 +44,7 @@ export const gridStyles = `@layer tbw-base, tbw-plugins, tbw-theme;
 
 ${variables}
 ${base}
+${icons}
 ${header}
 ${rows}
 ${shell}

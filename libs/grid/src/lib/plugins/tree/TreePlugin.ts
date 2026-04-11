@@ -326,8 +326,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
     const firstCol = cols[0];
     const originalRenderer = firstCol.viewRenderer;
     const getConfig = () => this.config;
-    const setIcon = this.setIcon.bind(this);
-    const resolveIcon = this.resolveIcon.bind(this);
+    const setIconFn = this.setIcon.bind(this);
 
     const wrappedRenderer: ColumnViewRenderer = (ctx) => {
       const { row, value } = ctx;
@@ -348,7 +347,7 @@ export class TreePlugin extends BaseGridPlugin<TreeConfig> {
         if (treeRow.__treeHasChildren) {
           const icon = document.createElement('span');
           icon.className = `${GridClasses.TREE_TOGGLE}${treeRow.__treeExpanded ? ` ${GridClasses.EXPANDED}` : ''}`;
-          setIcon(icon, resolveIcon(treeRow.__treeExpanded ? 'collapse' : 'expand'));
+          setIconFn(icon, treeRow.__treeExpanded ? 'collapse' : 'expand');
           icon.setAttribute('data-tree-key', String(treeRow.__treeKey ?? ''));
           container.appendChild(icon);
         } else {

@@ -241,8 +241,8 @@ override afterRowRender(context: AfterRowRenderContext): void {
 | `this.emit(eventName, detail)` | Dispatch custom event from grid |
 | `this.requestRender()` | Request full re-render |
 | `this.requestAfterRender()` | Request lightweight style update |
-| `this.resolveIcon(name)` | Get icon value by name |
-| `this.setIcon(el, icon)` | Set icon on element |
+| `this.resolveIcon(name)` | Get icon value by name (**deprecated** — use `setIcon`) |
+| `this.setIcon(el, iconKey)` | Set icon on element using CSS-first hybrid approach |
 
 ## Event Hooks
 

@@ -165,5 +165,32 @@
     --tbw-detail-padding: var(--tbw-spacing-xl);
     --tbw-detail-max-height: 31.25rem; /* ~500px */
     --tbw-indicator-size: var(--tbw-spacing-sm);
+
+    /* ========== Icon Content (CSS-based icons) ========== */
+    /* Text/emoji icons — used via content: var(...) in ::before pseudo-elements */
+    --tbw-icon-expand: '▶';
+    --tbw-icon-collapse: '▼';
+    --tbw-icon-sort-asc: '▲';
+    --tbw-icon-sort-desc: '▼';
+    --tbw-icon-sort-none: '⇅';
+    --tbw-icon-submenu-arrow: '▶';
+    --tbw-icon-drag-handle: '⋮⋮';
+    --tbw-icon-tool-panel: '☰';
+    --tbw-icon-filter: ''; /* Uses mask strategy (SVG) by default */
+    --tbw-icon-filter-active: ''; /* Uses mask strategy (SVG) by default */
+    --tbw-icon-print: '🖨️';
+
+    /* SVG mask-based icons — set --tbw-icon-<key>: none and provide a -mask to switch to SVG */
+    --tbw-icon-expand-mask: none;
+    --tbw-icon-collapse-mask: none;
+    --tbw-icon-sort-asc-mask: none;
+    --tbw-icon-sort-desc-mask: none;
+    --tbw-icon-sort-none-mask: none;
+    --tbw-icon-submenu-arrow-mask: none;
+    --tbw-icon-drag-handle-mask: none;
+    --tbw-icon-tool-panel-mask: none;
+    --tbw-icon-filter-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' width='12' height='12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='currentColor' d='M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z'/%3E%3C/svg%3E");
+    --tbw-icon-filter-active-mask: var(--tbw-icon-filter-mask);
+    --tbw-icon-print-mask: none;
   }
 }

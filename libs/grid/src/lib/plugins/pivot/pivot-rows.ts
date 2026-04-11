@@ -9,7 +9,7 @@
  * When adding new cell rendering logic, always check for `col.format` on value columns.
  */
 
-import type { ColumnConfig, IconValue } from '../../core/types';
+import type { ColumnConfig, GridIcons } from '../../core/types';
 
 /** Row data with pivot metadata */
 export interface PivotRowData {
@@ -29,8 +29,7 @@ export interface RowRenderContext {
   columns: ColumnConfig[];
   rowIndex: number;
   onToggle: (key: string) => void;
-  resolveIcon: (iconKey: 'expand' | 'collapse') => IconValue;
-  setIcon: (element: HTMLElement, icon: IconValue) => void;
+  setIcon: (element: HTMLElement, iconKey: keyof GridIcons) => void;
 }
 
 /**
@@ -63,7 +62,7 @@ export function renderPivotGroupRow(row: PivotRowData, rowEl: HTMLElement, ctx: 
       btn.type = 'button';
       btn.className = 'pivot-toggle';
       btn.setAttribute('aria-label', row.__pivotExpanded ? 'Collapse group' : 'Expand group');
-      ctx.setIcon(btn, ctx.resolveIcon(row.__pivotExpanded ? 'collapse' : 'expand'));
+      ctx.setIcon(btn, row.__pivotExpanded ? 'collapse' : 'expand');
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         ctx.onToggle(rowKey);

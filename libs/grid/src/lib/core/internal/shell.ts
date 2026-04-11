@@ -15,7 +15,6 @@ import type {
   ToolbarContentDefinition,
   ToolPanelDefinition,
 } from '../types';
-import { DEFAULT_GRID_ICONS } from '../types';
 import {
   HEADER_CONTENT_DUPLICATE,
   NO_TOOL_PANELS,
@@ -25,7 +24,7 @@ import {
   TOOLBAR_CONTENT_DUPLICATE,
   warnDiagnostic,
 } from './diagnostics';
-import { escapeHtml } from './sanitize';
+import { escapeHtml, sanitizeHTML } from './sanitize';
 
 // #region Types & State
 /**
@@ -188,11 +187,17 @@ export function shouldRenderShellHeader(config: ShellConfig | undefined): boolea
 export function renderShellHeader(
   config: ShellConfig | undefined,
   state: ShellState,
-  toolPanelIcon: IconValue = '☰',
+  toolPanelIcon?: IconValue,
 ): string {
   const title = config?.header?.title ?? state.lightDomTitle ?? '';
   const hasTitle = !!title;
-  const iconStr = iconToString(toolPanelIcon);
+
+  // Build tool panel button content: use data-icon for CSS, inject content only for JS overrides
+  let toolPanelBtnContent = '';
+  if (toolPanelIcon !== undefined) {
+    // JS override: inject content but still set data-icon
+    toolPanelBtnContent = typeof toolPanelIcon === 'string' ? sanitizeHTML(toolPanelIcon) : toolPanelIcon.outerHTML;
+  }
 
   // Get all toolbar contents from effectiveConfig (already merged: config + API + light DOM)
   // The config-manager merges state.toolbarContents into effectiveConfig.shell.header.toolbarContents
@@ -234,7 +239,7 @@ export function renderShellHeader(
   if (hasPanels) {
     const isOpen = state.isPanelOpen;
     const toggleClass = isOpen ? 'tbw-toolbar-btn active' : 'tbw-toolbar-btn';
-    toolbarHtml += `<button class="${toggleClass}" data-panel-toggle title="Settings" aria-label="Toggle settings panel" aria-pressed="${isOpen}" aria-controls="tbw-tool-panel">${iconStr}</button>`;
+    toolbarHtml += `<button class="${toggleClass}" data-panel-toggle data-icon="tool-panel" title="Settings" aria-label="Toggle settings panel" aria-pressed="${isOpen}" aria-controls="tbw-tool-panel">${toolPanelBtnContent}</button>`;
   }
 
   return `
@@ -261,7 +266,8 @@ export function renderShellBody(
   const position = config?.toolPanel?.position ?? 'right';
   const hasPanel = state.toolPanels.size > 0;
   const isOpen = state.isPanelOpen;
-  const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
+  const hasJsExpandIcon = icons?.expand !== undefined;
+  const expandIcon = hasJsExpandIcon ? iconToString(icons.expand) : '';
 
   // Sort panels by order for accordion sections
   const sortedPanels = [...state.toolPanels.values()].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
@@ -274,7 +280,9 @@ export function renderShellBody(
     const iconHtml = panel.icon ? `<span class="tbw-accordion-icon">${panel.icon}</span>` : '';
     // Hide chevron for single panel (no toggling needed)
     // Always use expandIcon (▶) — CSS rotation handles the expanded state
-    const chevronHtml = isSinglePanel ? '' : `<span class="tbw-accordion-chevron">${expandIcon}</span>`;
+    const chevronHtml = isSinglePanel
+      ? ''
+      : `<span class="tbw-accordion-chevron" data-icon="expand">${expandIcon}</span>`;
     // Disable accordion toggle for single panel
     const sectionClasses = `tbw-accordion-section${isExpanded ? ' expanded' : ''}${isSinglePanel ? ' single' : ''}`;
     accordionHtml += `
@@ -1359,9 +1367,9 @@ export function buildGridDOMIntoElement(
   }
 
   if (hasShell) {
-    const toolPanelIcon = iconToString(icons?.toolPanel ?? DEFAULT_GRID_ICONS.toolPanel);
-    const expandIcon = iconToString(icons?.expand ?? DEFAULT_GRID_ICONS.expand);
-    const collapseIcon = iconToString(icons?.collapse ?? DEFAULT_GRID_ICONS.collapse);
+    const toolPanelIcon = icons?.toolPanel !== undefined ? iconToString(icons.toolPanel) : undefined;
+    const expandIcon = icons?.expand !== undefined ? iconToString(icons.expand) : undefined;
+    const collapseIcon = icons?.collapse !== undefined ? iconToString(icons.collapse) : undefined;
 
     // All toolbar contents now come from shellConfig (merged by ConfigManager)
     const allContents = shellConfig?.header?.toolbarContents ?? [];

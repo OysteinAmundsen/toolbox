@@ -163,7 +163,7 @@ describe('renderHeader', () => {
       const g = makeGrid({ columns: [{ field: 'id', sortable: true }] });
       renderHeader(g);
       const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
-      expect(indicator.textContent).toBe('⇅');
+      expect(indicator.dataset.icon).toBe('sort-none');
     });
 
     it('shows ascending indicator when sorted asc', () => {
@@ -173,7 +173,7 @@ describe('renderHeader', () => {
       });
       renderHeader(g);
       const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
-      expect(indicator.textContent).toBe('▲');
+      expect(indicator.dataset.icon).toBe('sort-asc');
     });
 
     it('shows descending indicator when sorted desc', () => {
@@ -183,7 +183,7 @@ describe('renderHeader', () => {
       });
       renderHeader(g);
       const indicator = g._headerRowEl.querySelector('[part="sort-indicator"]');
-      expect(indicator.textContent).toBe('▼');
+      expect(indicator.dataset.icon).toBe('sort-desc');
     });
 
     it('sets aria-sort=none when not sorted', () => {

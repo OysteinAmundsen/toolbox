@@ -2055,6 +2055,26 @@ import { GridProvider, GridTypeProvider, GridIconProvider } from '@toolbox-web/g
 | `--tbw-checkbox-size` | - | Checkbox size |
 | `--tbw-toggle-size` | `1.25em` | Toggle button size |
 
+### Icon Content Variables
+
+All grid icons render via CSS custom properties. Override to change icons globally.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `--tbw-icon-expand` | `'▶'` | Expand icon (tree, groups, master-detail) |
+| `--tbw-icon-collapse` | `'▼'` | Collapse icon |
+| `--tbw-icon-sort-asc` | `'▲'` | Sort ascending indicator |
+| `--tbw-icon-sort-desc` | `'▼'` | Sort descending indicator |
+| `--tbw-icon-sort-none` | `'⇅'` | Unsorted column indicator |
+| `--tbw-icon-filter` | `''` | Filter button (uses mask by default) |
+| `--tbw-icon-filter-active` | `''` | Active filter indicator (uses mask by default) |
+| `--tbw-icon-submenu-arrow` | `'▶'` | Context menu submenu arrow |
+| `--tbw-icon-drag-handle` | `'⋮⋮'` | Drag handle for reorder |
+| `--tbw-icon-tool-panel` | `'☰'` | Tool panel toggle button |
+| `--tbw-icon-print` | `'🖨️'` | Print button |
+
+Each icon also has a `-mask` variant (e.g., `--tbw-icon-filter-mask`) for SVG mask rendering with `currentColor`. The **filter** and **filter-active** icons use masks by default — just override their `-mask` variable. For any other icon, switching to SVG mask mode requires: (1) set the text variable to `''`, (2) set the `-mask` variable to a `url()`, and (3) add your own CSS rule targeting `[data-icon='<key>']:empty::before` with `background: currentColor` and `mask-image/size/repeat/position` properties. See the Theming guide for a full example.
+
 ### Focus & Selection
 
 | Variable | Description |

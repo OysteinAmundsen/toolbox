@@ -1390,9 +1390,9 @@ describe('sortPivotMulti', () => {
       { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: { 'Q1|sales': 20, 'Q2|sales': 10 }, total: 30 },
       { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: { 'Q1|sales': 15, 'Q2|sales': 20 }, total: 35 },
     ];
-    sortPivotMulti(rows, [{ by: 'value', direction: 'asc', valueField: 'sales' }], []);
-    // Sorts by value matching |sales — first match is Q1|sales: C(5), B(15), A(20)
-    expect(rows.map((r) => r.rowLabel)).toEqual(['C', 'B', 'A']);
+    sortPivotMulti(rows, [{ by: 'value', direction: 'asc', valueField: 'sales' }], [{ field: 'sales', aggFunc: 'sum' as const }]);
+    // Sums all columns matching |sales: A(20+10=30), C(5+30=35), B(15+20=35)
+    expect(rows.map((r) => r.rowLabel)).toEqual(['A', 'C', 'B']);
   });
 
   it('sorts children recursively', () => {
@@ -1679,7 +1679,7 @@ describe('PivotPlugin interactive header-click sorting', () => {
     expect(result).toBe(true);
 
     const sortConfig = plugin.handleQuery({ type: 'sort:get-sort-config', context: null });
-    expect(sortConfig).toEqual({ by: 'value', valueField: 'sales', direction: 'asc' });
+    expect(sortConfig).toEqual({ by: 'value', valueField: 'East|sales', direction: 'asc' });
   });
 
   it('handles click on __pivotTotal — sorts by total value', () => {

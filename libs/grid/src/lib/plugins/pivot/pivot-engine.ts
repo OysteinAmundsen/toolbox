@@ -366,25 +366,51 @@ export function sortPivotRows(rows: PivotRow[], sortConfig: PivotSortConfig, val
 export function sortPivotMulti(rows: PivotRow[], configs: PivotSortConfig[], valueFields: PivotValueField[]): void {
   if (configs.length === 0) return;
 
+  const knownValueFields = new Set(valueFields.map((vf) => vf.field));
+
+  /** Resolve the numeric sort value for a row given a valueField key. */
+  const getSortValue = (row: PivotRow, valueField: string): number => {
+    // Direct match (full value key like "Q1|sales")
+    if (row.values[valueField] != null) {
+      return typeof row.values[valueField] === 'number' ? (row.values[valueField] as number) : 0;
+    }
+    // Suffix match — sum all matching columns for a bare field name
+    if (knownValueFields.has(valueField)) {
+      const suffix = `|${valueField}`;
+      let sum = 0;
+      let found = false;
+      for (const key of Object.keys(row.values)) {
+        if (key.endsWith(suffix)) {
+          sum += typeof row.values[key] === 'number' ? (row.values[key] as number) : 0;
+          found = true;
+        }
+      }
+      if (found) return sum;
+    }
+    return row.total ?? 0;
+  };
+
+  // Precompute accessors for deterministic ordering (same accessor for both a and b)
+  const accessors = configs.map((cfg) => {
+    if (cfg.by === 'value') {
+      if (cfg.valueField) {
+        return (row: PivotRow) => getSortValue(row, cfg.valueField!);
+      }
+      return (row: PivotRow) => row.total ?? 0;
+    }
+    return null; // label sort — uses localeCompare directly
+  });
+
   rows.sort((a, b) => {
-    for (const cfg of configs) {
+    for (let i = 0; i < configs.length; i++) {
+      const cfg = configs[i];
       const dir = cfg.direction === 'desc' ? -1 : 1;
       let cmp = 0;
 
       if (cfg.by === 'value') {
-        if (cfg.valueField) {
-          // Sort by a specific value column (e.g. "Q1|sales" → look up in row.values)
-          // Find any value key containing this valueField
-          const matchKey = Object.keys(a.values).find((k) => k.endsWith(`|${cfg.valueField}`)) ?? cfg.valueField;
-          const aVal = (a.values[matchKey] ?? a.total) ?? 0;
-          const bVal = (b.values[matchKey] ?? b.total) ?? 0;
-          cmp = ((aVal as number) - (bVal as number)) * dir;
-        } else {
-          // Sort by total
-          cmp = ((a.total ?? 0) - (b.total ?? 0)) * dir;
-        }
+        const accessor = accessors[i] as (row: PivotRow) => number;
+        cmp = (accessor(a) - accessor(b)) * dir;
       } else {
-        // Sort by label
         cmp = a.rowLabel.localeCompare(b.rowLabel) * dir;
       }
 

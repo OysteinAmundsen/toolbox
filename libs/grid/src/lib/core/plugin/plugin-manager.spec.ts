@@ -13,7 +13,7 @@ import type { GridElementRef } from './types';
 // #region Test Fixtures
 
 function createMockGrid(): GridElementRef {
-  return {
+  const mock: Partial<GridElementRef> = {
     clientWidth: 800,
     clientHeight: 600,
     addEventListener: vi.fn(),
@@ -29,8 +29,8 @@ function createMockGrid(): GridElementRef {
     _focusRow: 0,
     _focusCol: 0,
     disconnectSignal: new AbortController().signal,
-    gridConfig: {} as any,
-    effectiveConfig: {} as any,
+    gridConfig: {} as GridElementRef['gridConfig'],
+    effectiveConfig: {} as GridElementRef['effectiveConfig'],
     getRowId: () => '1',
     getRow: () => undefined,
     updateRow: vi.fn(),
@@ -38,7 +38,7 @@ function createMockGrid(): GridElementRef {
     requestRender: vi.fn(),
     requestRenderWithFocus: vi.fn(),
     requestAfterRender: vi.fn(),
-    forceLayout: vi.fn(),
+    forceLayout: vi.fn() as unknown as GridElementRef['forceLayout'],
     dispatchEvent: vi.fn(),
     queryPlugins: vi.fn(() => []),
     query: vi.fn(() => []),
@@ -55,7 +55,8 @@ function createMockGrid(): GridElementRef {
     unregisterToolPanel: vi.fn(),
     getToolPanels: () => [],
     _pluginManager: undefined,
-  } as unknown as GridElementRef;
+  };
+  return mock as GridElementRef;
 }
 
 /** Tracks the order in which plugins execute hooks */

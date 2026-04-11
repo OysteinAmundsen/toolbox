@@ -572,11 +572,12 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     if (field === '__pivotTotal') {
       return { by: 'value' };
     }
-    // Value columns use format: colKey|valueField (from createValueKey)
+    // Value columns use format: colKey|valueField (from createValueKey).
+    // Preserve the full value key so sorting targets the exact pivot column
+    // the user clicked, rather than collapsing distinct columns like
+    // "Q1|sales" and "Q2|sales" into the same "sales" config.
     if (field.includes('|')) {
-      const parts = field.split('|');
-      const valueField = parts[parts.length - 1];
-      return { by: 'value', valueField };
+      return { by: 'value', valueField: field };
     }
     return null;
   }
@@ -624,13 +625,33 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     const gridEl = this.gridElement;
     if (!gridEl) return;
 
+    // Derive effective sort state: interactive state takes priority,
+    // then fall back to programmatic config.sortRows.
+    const effectiveField = this.activeSortField;
+    const effectiveDir = this.activeSortDir;
+    const programmatic = !effectiveField ? this.config.sortRows : null;
+
     const headerCells = gridEl.querySelectorAll('.header-row .cell[data-field]');
     for (const cell of headerCells) {
       const field = cell.getAttribute('data-field');
       if (!field || !this.isPivotField(field)) continue;
 
-      const isSorted = this.activeSortField === field;
-      const sortDir = isSorted ? this.activeSortDir : null;
+      let sortDir: 'asc' | 'desc' | null = null;
+
+      if (effectiveField === field) {
+        // Interactive sort is active on this column
+        sortDir = effectiveDir;
+      } else if (programmatic) {
+        // Programmatic sortRows — match by sort type
+        if (programmatic.by === 'label' && field === '__pivotLabel') {
+          sortDir = programmatic.direction ?? 'asc';
+        } else if (programmatic.by === 'value' && field === '__pivotTotal' && !programmatic.valueField) {
+          sortDir = programmatic.direction ?? 'asc';
+        } else if (programmatic.by === 'value' && programmatic.valueField && field === programmatic.valueField) {
+          sortDir = programmatic.direction ?? 'asc';
+        }
+      }
+
       this.updateSortIndicator(cell, sortDir);
     }
   }

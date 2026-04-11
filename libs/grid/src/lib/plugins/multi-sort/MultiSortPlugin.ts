@@ -140,10 +140,11 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
       case 'sort:get-model':
         return [...this.sortModel];
       case 'sort:set-model': {
-        const model = query.context as SortModel[];
-        this.sortModel = [...model];
+        const model = query.context;
+        if (!Array.isArray(model)) return false;
+        this.sortModel = [...model] as SortModel[];
         this.clearCoreSortState();
-        this.emit('sort-change', { sortModel: [...model] });
+        this.emit('sort-change', { sortModel: [...this.sortModel] });
         this.requestRender();
         return true;
       }

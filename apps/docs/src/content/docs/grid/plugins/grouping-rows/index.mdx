@@ -4,12 +4,9 @@ description: "Group rows by column values with expandable groups."
 ---
 
 import { TabItem, Tabs } from '@astrojs/starlight/components';
-import GroupingRowsAccordionModeDemo from '@components/demos/grouping-rows/GroupingRowsAccordionModeDemo.astro';
 import GroupingRowsDefaultDemo from '@components/demos/grouping-rows/GroupingRowsDefaultDemo.astro';
-import GroupingRowsDefaultExpandedByKeyDemo from '@components/demos/grouping-rows/GroupingRowsDefaultExpandedByKeyDemo.astro';
 import GroupingRowsEventsDemo from '@components/demos/grouping-rows/GroupingRowsEventsDemo.astro';
-import GroupingRowsExpandedByDefaultDemo from '@components/demos/grouping-rows/GroupingRowsExpandedByDefaultDemo.astro';
-import GroupingRowsNoRowCountDemo from '@components/demos/grouping-rows/GroupingRowsNoRowCountDemo.astro';
+import GroupingRowsMultiLevelDemo from '@components/demos/grouping-rows/GroupingRowsMultiLevelDemo.astro';
 import GroupingRowsWithAggregatorsDemo from '@components/demos/grouping-rows/GroupingRowsWithAggregatorsDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -142,33 +139,6 @@ export class EmployeeGridComponent {
 
 
 
-
-### Expanded by Default
-
-<ShowSource file="demos/grouping-rows/GroupingRowsExpandedByDefaultDemo.astro">
-  <GroupingRowsExpandedByDefaultDemo />
-</ShowSource>
-
-
-
-### Without Row Count
-
-<ShowSource file="demos/grouping-rows/GroupingRowsNoRowCountDemo.astro">
-  <GroupingRowsNoRowCountDemo />
-</ShowSource>
-
-
-
-### Expanded by Key
-
-<ShowSource file="demos/grouping-rows/GroupingRowsDefaultExpandedByKeyDemo.astro">
-  <GroupingRowsDefaultExpandedByKeyDemo />
-</ShowSource>
-
-Pass a specific key string to `defaultExpanded` to expand only that group initially.
-
-
-
 ## Configuration Options
 
 See [`GroupingRowsConfig`](./interfaces/groupingrowsconfig/) for the full list of options and their defaults.
@@ -219,10 +189,6 @@ Animation respects the grid-level `animation.mode` setting.
 :::
 
 ### Accordion Mode
-
-<ShowSource file="demos/grouping-rows/GroupingRowsAccordionModeDemo.astro">
-  <GroupingRowsAccordionModeDemo />
-</ShowSource>
 
 In accordion mode, only one group can be expanded at a time. Expanding a group automatically collapses all sibling groups at the same depth level.
 
@@ -282,7 +248,11 @@ aggregators: {
 
 ## Multi-Level Grouping
 
-Return multiple values from `groupOn` to create nested group hierarchies:
+Return multiple values from `groupOn` to create nested group hierarchies. Row counts display correctly at every depth level.
+
+<ShowSource file="demos/grouping-rows/GroupingRowsMultiLevelDemo.astro">
+  <GroupingRowsMultiLevelDemo />
+</ShowSource>
 
 ```ts
 features: {

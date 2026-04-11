@@ -83,6 +83,50 @@ describe('row-grouping (buildGroupedRowModel)', () => {
     expect((result[0] as any).depth).toBe(0);
   });
 
+  it('top-level group rows include all descendant data rows', () => {
+    const rows = [
+      { name: 'Alice', country: 'US', org: 'Eng' },
+      { name: 'Bob', country: 'US', org: 'Eng' },
+      { name: 'Carol', country: 'US', org: 'Sales' },
+      { name: 'Dave', country: 'UK', org: 'Eng' },
+    ];
+    const config: RowGroupingConfig = {
+      groupOn: (r) => [r.country, r.org],
+    };
+    const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
+
+    // Two top-level groups: US and UK
+    expect(result.length).toBe(2);
+    const usGroup = result[0] as any;
+    const ukGroup = result[1] as any;
+    expect(usGroup.key).toBe('US');
+    expect(usGroup.rows.length).toBe(3); // Alice, Bob, Carol
+    expect(ukGroup.key).toBe('UK');
+    expect(ukGroup.rows.length).toBe(1); // Dave
+  });
+
+  it('nested group rows include only their own subtree rows', () => {
+    const rows = [
+      { name: 'Alice', country: 'US', org: 'Eng' },
+      { name: 'Bob', country: 'US', org: 'Eng' },
+      { name: 'Carol', country: 'US', org: 'Sales' },
+    ];
+    const config: RowGroupingConfig = {
+      groupOn: (r) => [r.country, r.org],
+    };
+    const expanded = new Set(['US']);
+    const result = buildGroupedRowModel({ rows, config, expanded });
+
+    // US group + 2 nested groups (Eng, Sales)
+    expect(result.length).toBe(3);
+    const usGroup = result[0] as any;
+    const engGroup = result[1] as any;
+    const salesGroup = result[2] as any;
+    expect(usGroup.rows.length).toBe(3); // all US rows
+    expect(engGroup.rows.length).toBe(2); // Alice, Bob
+    expect(salesGroup.rows.length).toBe(1); // Carol
+  });
+
   it('shows nested groups when parent expanded', () => {
     const rows = [
       { name: 'Alice', dept: 'Eng', team: 'Frontend' },

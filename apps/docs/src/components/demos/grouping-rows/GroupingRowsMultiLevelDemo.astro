@@ -1,0 +1,47 @@
+---
+// GroupingRowsMultiLevelDemo.astro — Multi-level grouping with correct row counts at every depth
+---
+<div class="grid-demo not-content" id="grouping-rows-multi-level-demo">
+  <tbw-grid style="height: 450px;"></tbw-grid>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/grouping-rows';
+
+const container = document.getElementById('grouping-rows-multi-level-demo');
+if (container) {
+  const sampleData = [
+    { id: 1, name: 'Alice', country: 'USA', department: 'Engineering', salary: 95000 },
+    { id: 2, name: 'Bob', country: 'USA', department: 'Marketing', salary: 75000 },
+    { id: 3, name: 'Carol', country: 'USA', department: 'Engineering', salary: 105000 },
+    { id: 4, name: 'Dan', country: 'UK', department: 'Sales', salary: 85000 },
+    { id: 5, name: 'Eve', country: 'UK', department: 'Marketing', salary: 72000 },
+    { id: 6, name: 'Frank', country: 'USA', department: 'Sales', salary: 98000 },
+    { id: 7, name: 'Grace', country: 'UK', department: 'Sales', salary: 88000 },
+    { id: 8, name: 'Henry', country: 'Germany', department: 'Engineering', salary: 92000 },
+    { id: 9, name: 'Ivy', country: 'Germany', department: 'Engineering', salary: 110000 },
+    { id: 10, name: 'Jack', country: 'UK', department: 'Engineering', salary: 78000 },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+  grid.gridConfig = {
+    columns: [
+      { field: 'id', header: 'ID', type: 'number', width: 60 },
+      { field: 'name', header: 'Name' },
+      { field: 'country', header: 'Country' },
+      { field: 'department', header: 'Department' },
+      { field: 'salary', header: 'Salary', type: 'number', align: 'right' },
+    ],
+    features: {
+      groupingRows: {
+        groupOn: (row: { country: string; department: string }) => [row.country, row.department],
+        defaultExpanded: true,
+        showRowCount: true,
+      } as any,
+    },
+  };
+  grid.rows = sampleData;
+}
+</script>

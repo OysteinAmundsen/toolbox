@@ -69,6 +69,22 @@ export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }
     if (only.rows.length === rows.length) return [];
   }
 
+  // Propagate descendant rows up to parent nodes so that each group's
+  // `rows` array contains ALL data rows in its subtree, not just direct children.
+  // This is required for correct counts and aggregations on multi-level groups.
+  const collectRows = (node: GroupNode): any[] => {
+    if (node.children.size === 0) return node.rows;
+    const all: any[] = [...node.rows];
+    for (const child of node.children.values()) {
+      all.push(...collectRows(child));
+    }
+    node.rows = all;
+    return all;
+  };
+  for (const child of root.children.values()) {
+    collectRows(child);
+  }
+
   // Merge expanded sets - use initialExpanded on first render, then expanded takes over
   const effectiveExpanded = new Set([...expanded, ...(initialExpanded ?? [])]);
 

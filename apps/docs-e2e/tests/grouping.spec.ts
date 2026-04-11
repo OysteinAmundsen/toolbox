@@ -14,41 +14,6 @@ test.describe('Row Grouping Demos', () => {
     await page.waitForTimeout(500);
   });
 
-  test('GroupingRowsExpandedByDefaultDemo — all groups start expanded', async ({ page }) => {
-    await openDemo(page, 'grouping-rows/GroupingRowsExpandedByDefaultDemo');
-
-    // Data rows should be visible (groups are expanded)
-    const rows = await dataRows(page).count();
-    expect(rows).toBeGreaterThan(0);
-
-    // All group headers should have expanded state
-    const groupHeaders = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]');
-    const groupCount = await groupHeaders.count();
-    expect(groupCount).toBeGreaterThan(0);
-
-    // With 7 data rows across 3 departments + group headers, total visible rows should be > 7
-    const allRows = page.locator('tbw-grid [role="rowgroup"]:last-of-type [role="row"]');
-    const totalVisible = await allRows.count();
-    expect(totalVisible).toBeGreaterThan(groupCount); // More rows than just group headers
-  });
-
-  test('GroupingRowsAccordionModeDemo — expanding one group collapses others', async ({ page }) => {
-    await openDemo(page, 'grouping-rows/GroupingRowsAccordionModeDemo');
-
-    const groupHeaders = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]');
-    const count = await groupHeaders.count();
-
-    if (count >= 2) {
-      // Click first group
-      await groupHeaders.nth(0).click();
-      await page.waitForTimeout(500);
-
-      // Click second group — first should collapse
-      await groupHeaders.nth(1).click();
-      await page.waitForTimeout(500);
-    }
-  });
-
   test('GroupingRowsEventsDemo — toggle fires events', async ({ page }) => {
     await openDemo(page, 'grouping-rows/GroupingRowsEventsDemo');
 
@@ -63,18 +28,6 @@ test.describe('Row Grouping Demos', () => {
         expect(text?.length).toBeGreaterThan(0);
       }
     }
-  });
-
-  test('GroupingRowsNoRowCountDemo — group headers have no count', async ({ page }) => {
-    await openDemo(page, 'grouping-rows/GroupingRowsNoRowCountDemo');
-
-    const groupHeaders = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]');
-    await expect(groupHeaders.first()).toBeVisible({ timeout: 5000 });
-
-    // Group header text should NOT contain a count like "(3)" or "3 rows"
-    const headerText = await groupHeaders.first().textContent();
-    expect(headerText).not.toMatch(/\(\d+\)/);
-    expect(headerText).not.toMatch(/\d+\s*rows?/i);
   });
 
   test('GroupingRowsWithAggregatorsDemo — footer aggregates visible', async ({ page }) => {
@@ -92,24 +45,6 @@ test.describe('Row Grouping Demos', () => {
     // Aggregation might be inline in group rows; verify data rows appeared
     const rows = await dataRows(page).count();
     expect(rows).toBeGreaterThan(0);
-  });
-
-  test('GroupingRowsDefaultExpandedByKeyDemo — only specific group expanded', async ({ page }) => {
-    await openDemo(page, 'grouping-rows/GroupingRowsDefaultExpandedByKeyDemo');
-
-    // The 'Engineering' group should be expanded by default
-    const groupHeaders = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]');
-    const groupCount = await groupHeaders.count();
-    expect(groupCount).toBeGreaterThan(1);
-
-    // Engineering group should be expanded (its data rows visible)
-    // With 4 Engineering employees visible, there should be some data rows
-    const rows = await dataRows(page).count();
-    expect(rows).toBeGreaterThan(0);
-
-    // Find the Engineering group header
-    const engGroup = page.locator('tbw-grid .group-row, tbw-grid [data-group-key]', { hasText: 'Engineering' });
-    await expect(engGroup).toBeVisible();
   });
 });
 

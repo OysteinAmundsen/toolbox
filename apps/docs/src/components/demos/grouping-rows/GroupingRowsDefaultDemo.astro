@@ -6,8 +6,9 @@ import DemoControls from '@components/DemoControls.astro';
   <DemoControls controls={[
     { section: 'GROUPING', name: 'animation', label: 'Animation', type: 'select',
       options: ['slide', 'expand', 'fade', 'none'], default: 'slide', description: 'Expand/collapse animation' },
-    { section: 'GROUPING', name: 'defaultExpanded', label: 'Default expanded', type: 'boolean',
-      default: false, description: 'Expand groups by default' },
+    { section: 'GROUPING', name: 'defaultExpanded', label: 'Expand', type: 'select',
+      options: ['none', 'all', 'Engineering', 'Marketing', 'Sales'], default: 'none',
+      description: 'Pass a specific key string to `defaultExpanded` to expand only that group initially' },
     { section: 'GROUPING', name: 'showRowCount', label: 'Show row count', type: 'boolean',
       default: true, description: 'Display count of rows in group header' },
     { section: 'GROUPING', name: 'accordion', label: 'Accordion mode', type: 'boolean',
@@ -44,24 +45,31 @@ if (container) {
   const grid = queryGrid('tbw-grid', container)!;
 
   function rebuild(opts: Record<string, unknown>) {
+    const accordion = opts.accordion as boolean ?? false;
+    const expandRaw = opts.defaultExpanded as string;
+    const defaultExpanded = accordion && expandRaw === 'all' ? false
+      : expandRaw === 'all' ? true
+      : expandRaw === 'none' ? false
+      : expandRaw;
+
     grid.gridConfig = {
       columns,
       features: {
         groupingRows: {
           animation: (opts.animation as string) ?? 'slide',
           groupOn: (row: { department: string }) => row.department,
-          defaultExpanded: opts.defaultExpanded as boolean ?? false,
+          defaultExpanded,
           showRowCount: opts.showRowCount as boolean ?? true,
           indentWidth: (opts.indentWidth as number) ?? 20,
           fullWidth: true,
-          accordion: opts.accordion as boolean ?? false,
+          accordion,
         } as any,
       },
     };
     grid.rows = sampleData;
   }
 
-  rebuild({ animation: 'slide', defaultExpanded: false, showRowCount: true, accordion: false, indentWidth: 20 });
+  rebuild({ animation: 'slide', defaultExpanded: 'none', showRowCount: true, accordion: false, indentWidth: 20 });
 
   container.addEventListener('control-change', ((e: CustomEvent) => {
     rebuild(e.detail.allValues);

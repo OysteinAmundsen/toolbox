@@ -191,6 +191,9 @@ export function reapplyCoreSort<T>(grid: InternalGrid<T>, rows: T[]): T[] {
 
   const handler: SortHandler<any> = grid.effectiveConfig?.sortHandler ?? builtInSort;
 
+  // Reference equality gate: builtInSort is public API and must not mutate its input,
+  // but internally we can bypass the copy when we know the caller already made one.
+  // Do NOT replace with duck-typing or string comparison — the identity check is intentional.
   if (handler === builtInSort) {
     // Fast path: caller (#rebuildRowModel) already passed a copy of #rows.
     // Save a snapshot for "clear sort", then sort in-place — avoids a second allocation.
@@ -226,6 +229,7 @@ export function applySort(grid: GridHost, col: ColumnConfig<any>, dir: 1 | -1): 
   // Get custom handler from effectiveConfig, or use built-in
   const handler: SortHandler<any> = grid.effectiveConfig?.sortHandler ?? builtInSort;
 
+  // Reference equality gate — see comment in reapplyCoreSort above.
   if (handler === builtInSort) {
     // Fast path: sort grid._rows in-place — avoids allocating a 1M-element copy.
     // __originalOrder was already saved by toggleSort before calling applySort.

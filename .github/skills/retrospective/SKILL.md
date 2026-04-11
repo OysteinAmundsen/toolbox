@@ -25,7 +25,33 @@ Review the conversation and task execution. Answer these questions:
 
 ## Step 2: Classify the Lesson
 
-Determine where the lesson belongs:
+Before routing a lesson to a file, walk through this decision tree **in order**:
+
+### 2a. Should we fix this instead of documenting it?
+
+If a lesson boils down to "this is unnecessarily hard/confusing," consider whether the root cause can be eliminated. Ask:
+
+- Is this complexity essential, or is it an accident of the current design?
+- Would a rename, a better default, or a small refactor make the lesson unnecessary?
+- Would a future contributor hit the same wall?
+
+If the answer is "we can fix it" → **create a GitHub issue** instead of (or in addition to) documenting the workaround. Tag it with the relevant area (`grid`, `plugins`, `docs`, `dx`). A library should be bulletproof and easy to use — documenting sharp edges is a fallback, not the goal.
+
+### 2b. Does this belong in the code itself?
+
+The most discoverable place for knowledge is **right where someone will be reading or editing**. Prefer inline placement when the lesson is tied to a specific function, type, or code block:
+
+| Medium               | When to use                                                                                         | Example                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Inline comment**   | Implementation gotcha tied to a specific line or block; only relevant when reading *this* code       | `// Do NOT remove — getRow() callers need the map before scheduler` |
+| **JSDoc**            | Public API contract, non-obvious parameter semantics, or behavior consumers must know about          | `@remarks With a single rowGroupField, isGroup is always false`     |
+| **Type-level doc**   | Property or type whose name alone is misleading or ambiguous                                        | JSDoc on `PivotRow.isGroup` explaining what "group" really means    |
+
+**Rule of thumb:** If someone would need to leave the file to understand the code, the comment is missing. If the information is useful to *consumers* (not just maintainers), make it JSDoc so it appears in generated API docs and IDE tooltips.
+
+### 2c. Route to the right knowledge-base file
+
+For lessons that are cross-cutting (span multiple files, not tied to one code location) or procedural:
 
 | Lesson Type                 | Target File                                                                  | Example                                          |
 | --------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------ |
@@ -38,7 +64,7 @@ Determine where the lesson belongs:
 
 **Before choosing a target**, scan the full list of instruction files in `.github/instructions/` and skill files in `.github/skills/`. The right home is whichever file a future agent would have loaded when it needed the lesson. Grid-pitfalls is appropriate only for gotchas specific to the grid's DOM/render behavior — most lessons belong elsewhere.
 
-### Decision: New file or update existing?
+### 2d. New file or update existing?
 
 - **Update existing** if the lesson fits an existing instruction or skill topic
 - **Create new instruction file** if there's no home for it AND it applies to a specific file glob pattern
@@ -147,6 +173,8 @@ Present the retrospective findings as a brief report:
 
 ## Anti-Patterns
 
+- **Don't document what you can fix** — If the gotcha exists because of accidental complexity, file an issue to fix it. A workaround comment is a last resort, not a first instinct
+- **Don't hide code-specific knowledge in instruction files** — If a lesson is tied to a specific function or type, put it in a comment or JSDoc *at that location*. Instruction files are for cross-cutting concerns
 - **Don't default to grid-pitfalls** — Pitfalls is just _one_ target. Most lessons belong in architecture, API, testing, CSS, TypeScript conventions, or workflow instructions. Ask "where would a future agent need this?" and route accordingly
 - **Don't document one-off quirks** that will never recur
 - **Don't bloat the main file** — always ask "can this live in an instruction or skill instead?"

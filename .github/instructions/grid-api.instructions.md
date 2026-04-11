@@ -69,3 +69,18 @@ There are **22 features** — one per plugin, ~200-300 bytes each. Framework ada
 ## Plugin Development
 
 See the `new-plugin` skill for the complete guide: file structure, hooks, event bus, query system, manifest, dependencies, and runtime config validation.
+
+## API & Plugin Conventions
+
+- **Don't import from `internal/` in public API** — Keep `src/public.ts` as the only external export; internal modules are implementation details
+- **Plugin barrel exports = published API surface** — Each plugin's `index.ts` is a Vite entry point. Everything exported becomes public `@toolbox-web/grid/plugins/<name>` surface and gets TypeDoc docs. Only export the plugin class, public types, and intentionally public utilities
+- **Public API setters must always trigger render** — Plugin `set*` methods should call `refresh()` unconditionally, not `refreshIfActive()`. Guard rendering behind `isActive` only in internal callbacks
+
+## Feature & Plugin Usage Reference
+
+- **Editing is opt-in** — `editable: true` or `editor` requires `features: { editing: true }` or `EditingPlugin`
+- **Dirty tracking is opt-in** — Enable via `new EditingPlugin({ dirtyTracking: true })`. Requires `getRowId`. Provides `isDirty()`, `getDirtyRows()`, `markAsPristine()`, `revertRow()`, and `dirty-change` event
+- **Use `insertRow()`/`removeRow()` for manual row mutations** — Operates on the current sorted/filtered view without re-running the pipeline, auto-animates. Use `grid.rows = data` for full data refreshes
+- **Use `focusCell()` and `scrollToRow()` for programmatic navigation** — `grid.focusCell(rowIndex, column)` accepts column index or field name. `grid.scrollToRow(rowIndex, { align, behavior })` scrolls into view
+- **Silent filter updates for batching** — `setFilter()`, `setFilterModel()`, `clearAllFilters()`, `clearFieldFilter()` accept `{ silent: true }` to defer re-render
+- **Filter state and column state persistence** — Set `trackColumnState: true` in FilteringPlugin config to include filter state in `column-state-change` events and `getColumnState()` snapshots

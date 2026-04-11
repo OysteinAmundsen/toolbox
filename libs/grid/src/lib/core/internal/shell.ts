@@ -1351,7 +1351,9 @@ export function buildGridDOMIntoElement(
   // Clear existing content (this would delete light DOM elements, so we preserved them first)
   renderRoot.replaceChildren();
 
-  // Re-append preserved light DOM elements (hidden, they're used for config)
+  // Re-append preserved light DOM elements (hidden, they're used for config).
+  // IMPORTANT: These are prepended before .tbw-grid-root, so `renderRoot.children[0]`
+  // is NOT the grid root. Use `querySelector('.tbw-grid-root')` instead.
   for (const el of lightDomElements) {
     renderRoot.appendChild(el);
   }

@@ -36,14 +36,14 @@ Auto-applied from `.github/instructions/` when working on matching files:
 
 | Instruction file         | Applies to                         | Content                                                                     |
 | ------------------------ | ---------------------------------- | --------------------------------------------------------------------------- |
-| `development-principles` | `{libs,apps,demos}/**/*.ts`        | Three pillars: maintainability, bundle size, performance                    |
+| `development-principles` | `{libs,apps,demos}/**/*.ts`        | Three pillars + troubleshooting: check pitfalls when stuck                  |
 | `delivery-workflow`      | `{libs,apps,demos}/**`             | 5-step delivery checklist, commit hygiene, feature workflow                 |
 | `nx-workflow`            | `{libs,apps,demos,e2e}/**`         | Nx commands, path mappings, Vite build, CI                                  |
-| `grid-architecture`      | `libs/grid/src/**`                 | Config precedence, render scheduler, virtualization, web component patterns |
-| `grid-api`               | `libs/grid/**`                     | API stability, feature system, features vs plugins, plugin API              |
-| `grid-pitfalls`          | `libs/grid/**`                     | Grid-specific common pitfalls                                               |
+| `grid-architecture`      | `libs/grid/src/**`                 | Config precedence, render scheduler, virtualization, plugin DOM access      |
+| `grid-api`               | `libs/grid/**`                     | API stability, features vs plugins, plugin conventions, usage reference     |
+| `grid-pitfalls`          | `libs/grid/**`                     | Counterintuitive DOM/render/plugin gotchas (check when debugging)           |
 | `typescript-conventions` | `**/*.ts`                          | No `as unknown as`, region markers, naming/visibility                       |
-| `css-conventions`        | `**/*.css`                         | Color guidelines, `light-dark()` usage                                      |
+| `css-conventions`        | `**/*.css`                         | Color guidelines, `light-dark()`, hover/sticky rules                        |
 | `testing-patterns`       | `**/*.spec.ts`                     | Test co-location, `waitUpgrade()`, DOM cleanup                              |
 | `e2e-testing`            | `{e2e,apps/docs-e2e}/**`           | Playwright patterns, docs demo e2e, cross-framework e2e, utilities          |
 | `docs-site`              | `apps/docs/**`                     | Astro/Starlight docs, key components                                        |
@@ -83,7 +83,7 @@ Loaded on demand from `.github/skills/` for task-specific workflows:
 3. **Nx target names** — Use inferred targets from plugins (e.g., `test`, `build`, `lint`)
 4. **Bun vs Node** — This repo uses Bun; some Node-specific patterns may not work
 
-Grid-specific pitfalls are in `grid-pitfalls.instructions.md` (auto-applied when editing grid files).
+Grid-specific gotchas (DOM, rendering, plugin system) are in `grid-pitfalls.instructions.md` (auto-applied when editing grid files). **Check pitfalls first when something fails unexpectedly.**
 
 ## External Dependencies
 

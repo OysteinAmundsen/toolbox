@@ -6,6 +6,10 @@ applyTo: '{libs,apps,demos}/**/*.ts'
 
 Every change must consider these three pillars:
 
+## Troubleshooting
+
+When something fails unexpectedly, produces wrong output, or "works but looks wrong" — **check the pitfalls file first** (`grid-pitfalls.instructions.md`). It documents counterintuitive behaviors in the grid's DOM, rendering, and plugin system that are known time-wasters. Also check the relevant instruction files for the area you're working in (CSS, architecture, API) — many conventions exist because of past bugs.
+
 ## Minimal Code, Maximum Performance
 
 Write the least code that correctly solves the problem. Avoid over-engineering, unnecessary abstractions, and speculative features.
@@ -44,5 +48,9 @@ Avoid shortcuts and quick hacks. Prefer correct, maintainable solutions even whe
 - **Keep `.map().join()` for string building**: V8's `.join()` is native C++ that pre-allocates the result. `+=` in a loop creates intermediate strings. Use `.map().join()` for building template strings.
 - **Destructure DOM properties to cache layout reads**: `const { scrollTop, scrollHeight } = el` reads each property once. Inline access like `el.scrollTop < el.scrollHeight` may read the same getter multiple times.
 - **Prefer `.slice()` over `[...arr]`**: Array spread creates an iterator; `.slice()` is a direct copy.
+
+- **Use `Set` not `Array.includes()` for set-membership lookups** — Convert value arrays to a `Set` once for O(1) `.has()` lookups instead of O(n) `Array.includes()` per row
+- **When adding a compiled fast-path, delegate the interpreted version** — Make `matchFoo` delegate to `compileFoo` (i.e. `return compileFoo(filter)(row)`) instead of maintaining parallel logic
+- **Avoid literal security-sensitive tokens in source** — Static analysis scanners flag `fetch`, `eval`, `new Function`, `globalThis` regardless of context. Build blocklist regexes at runtime from encoded arrays (see `sanitize.ts`)
 
 **When in doubt:** Smaller is better. Simpler is better. Faster is better.

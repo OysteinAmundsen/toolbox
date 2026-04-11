@@ -211,7 +211,12 @@ export interface PivotRow {
   values: Record<string, number | null>;
   /** Row total across all columns */
   total?: number;
-  /** Whether this row has children (is a group header) */
+  /**
+   * Whether this row has sub-groups (i.e. `remainingFields.length > 0` in the engine).
+   * NOTE: With a single `rowGroupFields`, grouped rows have `isGroup: false` because
+   * there are no further levels to expand. Use multi-level grouping when testing
+   * group-related logic like `getAllGroupKeys()`.
+   */
   isGroup: boolean;
   /** Child rows (for hierarchical grouping) */
   children?: PivotRow[];

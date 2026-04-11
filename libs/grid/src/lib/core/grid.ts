@@ -2040,7 +2040,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
   // Individual update applicators - these do the actual work
   #applyRowsUpdate(): void {
     this._rows = Array.isArray(this.#rows) ? [...this.#rows] : [];
-    // Rebuild row ID map for O(1) lookups — needed immediately for getRow() callers
+    // Rebuild row ID map synchronously — do NOT remove even though #rebuildRowModel
+    // rebuilds it again later. getRow() callers expect the map to be current immediately
+    // after the rows setter, before the scheduler fires.
     this._rebuildRowIdMap();
     // Request a ROWS phase render through the scheduler.
     // This batches with any other pending work (e.g., React adapter's refreshColumns).

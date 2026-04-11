@@ -134,6 +134,11 @@ const employees = indices.map((i) => myLocalData[i]); // May be wrong after sort
 - **Lifecycle**: `connectedCallback()`, `disconnectedCallback()`, `attributeChangedCallback()`
 - **Light DOM**: Render directly to element with CSS nesting (`tbw-grid { }`) for style scoping
 
+## Plugin DOM Access
+
+- **Use `this.gridElement`** for DOM queries — the grid uses light DOM (no Shadow DOM)
+- **`#applyColumnState` width-only fast path** — When `columnState` changes only column widths, the grid skips `#setup()` → `RenderPhase.FULL` and instead invalidates the visible columns cache + calls `updateTemplate()` directly. `#isWidthOnlyChange` normalizes `hidden` with `!!` because `applyState` sets `hidden = !visible`
+
 ## DOM Constants (`core/constants.ts`)
 
 - **Always use `GridClasses`** for CSS class names in TypeScript — never raw strings like `'sticky-left'` or `'dragging'`

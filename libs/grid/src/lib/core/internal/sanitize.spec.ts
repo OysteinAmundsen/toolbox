@@ -37,6 +37,51 @@ describe('sanitize functions', () => {
     const blocked = evalTemplateString('Test {{ Reflect.ownKeys(value) }}', { value: 1, row: {} });
     expect(blocked).toBe('');
   });
+
+  it('evaluates arithmetic expressions', () => {
+    expect(evalTemplateString('{{ value + 2 }}', { value: 3, row: {} })).toBe('5');
+    expect(evalTemplateString('{{ value * 10 }}', { value: 5, row: {} })).toBe('50');
+    expect(evalTemplateString('{{ value - 1 }}', { value: 10, row: {} })).toBe('9');
+    expect(evalTemplateString('{{ value / 2 }}', { value: 8, row: {} })).toBe('4');
+    expect(evalTemplateString('{{ value % 3 }}', { value: 7, row: {} })).toBe('1');
+  });
+
+  it('evaluates comparison expressions', () => {
+    expect(evalTemplateString('{{ value > 5 }}', { value: 10, row: {} })).toBe('true');
+    expect(evalTemplateString('{{ value < 5 }}', { value: 10, row: {} })).toBe('false');
+    expect(evalTemplateString('{{ value >= 10 }}', { value: 10, row: {} })).toBe('true');
+    expect(evalTemplateString('{{ value <= 9 }}', { value: 10, row: {} })).toBe('false');
+  });
+
+  it('evaluates equality expressions', () => {
+    expect(evalTemplateString('{{ value == 5 }}', { value: 5, row: {} })).toBe('true');
+    expect(evalTemplateString('{{ value != 5 }}', { value: 5, row: {} })).toBe('false');
+  });
+
+  it('evaluates ternary expressions', () => {
+    expect(evalTemplateString("{{ value > 0 ? 'yes' : 'no' }}", { value: 5, row: {} })).toBe('yes');
+    expect(evalTemplateString("{{ value > 0 ? 'yes' : 'no' }}", { value: -1, row: {} })).toBe('no');
+  });
+
+  it('evaluates logical expressions', () => {
+    expect(evalTemplateString('{{ value > 0 && value < 10 }}', { value: 5, row: {} })).toBe('true');
+    expect(evalTemplateString('{{ value > 0 && value < 10 }}', { value: 15, row: {} })).toBe('false');
+    expect(evalTemplateString('{{ value > 10 || value < 0 }}', { value: -1, row: {} })).toBe('true');
+  });
+
+  it('evaluates negation expressions', () => {
+    expect(evalTemplateString('{{ !value }}', { value: false, row: {} })).toBe('true');
+    expect(evalTemplateString('{{ !value }}', { value: true, row: {} })).toBe('false');
+  });
+
+  it('evaluates parenthesized expressions', () => {
+    expect(evalTemplateString('{{ (value + 1) * 2 }}', { value: 3, row: {} })).toBe('8');
+  });
+
+  it('evaluates string concatenation', () => {
+    expect(evalTemplateString("{{ value + ' items' }}", { value: 3, row: {} })).toBe('3 items');
+  });
+
   it('compileTemplate marks blocked templates', () => {
     const good = compileTemplate('Val: {{ value }}');
     expect((good as any).__blocked).toBe(false);

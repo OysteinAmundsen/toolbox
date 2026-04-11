@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.30.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.2...grid-1.30.3) (2026-04-11)
+
+
+### Bug Fixes
+
+* **grid:** correct row count for multi-level group headers ([#179](https://github.com/OysteinAmundsen/toolbox/issues/179)) ([#181](https://github.com/OysteinAmundsen/toolbox/issues/181)) ([0af8672](https://github.com/OysteinAmundsen/toolbox/commit/0af8672abf9981900ff2885218c499a5ae9e7ad9))
+* **grid:** eliminate socket.dev security warnings from published bundle ([022b052](https://github.com/OysteinAmundsen/toolbox/commit/022b052d9bef4046a8faa7286d2e3ab25de56ac4))
+
 ## [1.30.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.1...grid-1.30.2) (2026-04-09)
 
 

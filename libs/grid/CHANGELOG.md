@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.31.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.3...grid-1.31.0) (2026-04-11)
+
+
+### Features
+
+* **grid:** add CSS-first icon system with hybrid JS override ([#185](https://github.com/OysteinAmundsen/toolbox/issues/185)) ([3f63636](https://github.com/OysteinAmundsen/toolbox/commit/3f636365b6bc99c921b6e8ff2105842aed4cbffe))
+
+
+### Bug Fixes
+
+* **grid:** added missing pivot column sorting via header click ([#183](https://github.com/OysteinAmundsen/toolbox/issues/183)) ([#184](https://github.com/OysteinAmundsen/toolbox/issues/184)) ([7ec66c0](https://github.com/OysteinAmundsen/toolbox/commit/7ec66c072d10d7fefae6394b43a2fb11161dc1b8))
+* **grid:** apply value formatting in pivot rendering, fix grand total in row model ([de0eb2e](https://github.com/OysteinAmundsen/toolbox/commit/de0eb2e001e2e3db02f7963c4f0b420fdc8fa3be))
+* **grid:** stabilize row height when entering edit mode ([ccf2a5e](https://github.com/OysteinAmundsen/toolbox/commit/ccf2a5eac88e57a1f0313527e6b18441c4f02d1a))
+
+
+### Enhancements
+
+* **grid:** enhance pivot plugin with events, custom aggregators, sorting, and formatting ([a70304b](https://github.com/OysteinAmundsen/toolbox/commit/a70304b4ecda0effcdb5e30c03cf5b00d4729489))
+
+
+### Performance Improvements
+
+* **grid:** eliminate collectRows post-pass in grouping-rows tree build ([e215913](https://github.com/OysteinAmundsen/toolbox/commit/e215913337dcd9ae7e4fa0d25292a4633908d488))
+
 ## [1.30.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.2...grid-1.30.3) (2026-04-11)
 
 

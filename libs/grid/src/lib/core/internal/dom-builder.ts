@@ -10,6 +10,7 @@
  */
 
 import { GridClasses } from '../constants';
+import { sanitizeHTML } from './sanitize';
 
 // #region Element Factories
 /**
@@ -271,7 +272,7 @@ export function buildShellHeader(options: ShellHeaderOptions): HTMLDivElement {
     });
     toggleBtn.dataset.icon = 'tool-panel';
     if (options.toolPanelIcon !== undefined) {
-      toggleBtn.innerHTML = options.toolPanelIcon;
+      toggleBtn.innerHTML = sanitizeHTML(options.toolPanelIcon);
     }
     toolbar.appendChild(toggleBtn);
   }
@@ -350,7 +351,7 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
       // Icon
       if (panel.icon) {
         const iconSpan = createElement('span', { class: 'tbw-accordion-icon' });
-        iconSpan.innerHTML = panel.icon;
+        iconSpan.innerHTML = sanitizeHTML(panel.icon);
         headerBtn.appendChild(iconSpan);
       }
 
@@ -363,7 +364,7 @@ export function buildShellBody(options: ShellBodyOptions): HTMLDivElement {
       if (!isSinglePanel) {
         const chevronSpan = createElement('span', { class: 'tbw-accordion-chevron', 'data-icon': 'expand' });
         if (options.expandIcon !== undefined) {
-          chevronSpan.innerHTML = options.expandIcon;
+          chevronSpan.innerHTML = sanitizeHTML(options.expandIcon);
         }
         headerBtn.appendChild(chevronSpan);
       }

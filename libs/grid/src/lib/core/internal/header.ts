@@ -42,7 +42,7 @@ function isColumnResizable(grid: InternalGrid, col: ColumnInternal): boolean {
  */
 function setIcon(element: HTMLElement, icon: IconValue): void {
   if (typeof icon === 'string') {
-    element.textContent = icon;
+    element.innerHTML = sanitizeHTML(icon);
   } else if (icon instanceof HTMLElement) {
     element.innerHTML = '';
     element.appendChild(icon.cloneNode(true));

@@ -72,6 +72,11 @@
     /* ========== Sorting Indicators ========== */
     --tbw-sort-indicator-color: light-dark(#a5a8c8, #6b7094);
     --tbw-sort-indicator-active-color: var(--tbw-color-accent);
+    /* Hide inactive sort/filter icons until header hover */
+    --tbw-sort-indicator-display: none;
+    --tbw-sort-indicator-visibility: hidden;
+    --tbw-filter-btn-display: none;
+    --tbw-filter-btn-visibility: hidden;
 
     /* ========== Scrollbar ========== */
     --tbw-scrollbar-thumb: light-dark(#c4c3e8, #3d4260);

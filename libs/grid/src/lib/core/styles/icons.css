@@ -50,27 +50,65 @@
     }
 
     /* Common layout for all icon pseudo-elements */
+    /* Common layout for all icon pseudo-elements */
     [data-icon]:empty::before {
       display: inline-block;
       vertical-align: middle;
-    }
-
-    /* ========== SVG mask-based icons ========== */
-    /* Mask rendering for filter icons (use mask by default).
-       To switch any other icon to mask mode, override its content var to '',
-       and set its -mask var to a URL. You will also need to add
-       background: currentColor and mask-size/repeat/position via your own CSS. */
-    [data-icon='filter']:empty::before,
-    [data-icon='filter-active']:empty::before {
-      width: var(--tbw-icon-size, 1em);
-      height: var(--tbw-icon-size, 1em);
-      background: currentColor;
       -webkit-mask-size: contain;
       mask-size: contain;
       -webkit-mask-repeat: no-repeat;
       mask-repeat: no-repeat;
       -webkit-mask-position: center;
       mask-position: center;
+    }
+
+    /* ========== SVG mask-based icons ========== */
+    /* Mask image bindings for all icons. Defaults are `none` (no mask), so text icons
+       render normally. To switch an icon to SVG mask mode: set its content var to '',
+       set its -mask var to a URL, and add `background: currentColor` on that icon. */
+    [data-icon='expand']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-expand-mask);
+      mask-image: var(--tbw-icon-expand-mask);
+    }
+    [data-icon='collapse']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-collapse-mask);
+      mask-image: var(--tbw-icon-collapse-mask);
+    }
+    [data-icon='sort-asc']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-sort-asc-mask);
+      mask-image: var(--tbw-icon-sort-asc-mask);
+    }
+    [data-icon='sort-desc']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-sort-desc-mask);
+      mask-image: var(--tbw-icon-sort-desc-mask);
+    }
+    [data-icon='sort-none']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-sort-none-mask);
+      mask-image: var(--tbw-icon-sort-none-mask);
+    }
+    [data-icon='submenu-arrow']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-submenu-arrow-mask);
+      mask-image: var(--tbw-icon-submenu-arrow-mask);
+    }
+    [data-icon='drag-handle']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-drag-handle-mask);
+      mask-image: var(--tbw-icon-drag-handle-mask);
+    }
+    [data-icon='tool-panel']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-tool-panel-mask);
+      mask-image: var(--tbw-icon-tool-panel-mask);
+    }
+    [data-icon='print']:empty::before {
+      -webkit-mask-image: var(--tbw-icon-print-mask);
+      mask-image: var(--tbw-icon-print-mask);
+    }
+
+    /* Filter icons use masks by default — include background: currentColor and dimensions */
+    [data-icon='filter']:empty::before,
+    [data-icon='filter-active']:empty::before {
+      width: var(--tbw-icon-size, 1em);
+      height: var(--tbw-icon-size, 1em);
+      background: currentColor;
     }
     [data-icon='filter']:empty::before {
       -webkit-mask-image: var(--tbw-icon-filter-mask);

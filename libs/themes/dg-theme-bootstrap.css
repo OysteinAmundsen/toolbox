@@ -82,6 +82,11 @@
     /* ========== Sort Indicators ========== */
     --tbw-sort-indicator-color: light-dark(#6c757d, #adb5bd);
     --tbw-sort-indicator-active-color: light-dark(#212529, #dee2e6);
+    /* Hide inactive sort/filter icons until header hover */
+    --tbw-sort-indicator-display: none;
+    --tbw-sort-indicator-visibility: hidden;
+    --tbw-filter-btn-display: none;
+    --tbw-filter-btn-visibility: hidden;
 
     /* ========== Borders ========== */
     /* Bootstrap's thicker header bottom border */

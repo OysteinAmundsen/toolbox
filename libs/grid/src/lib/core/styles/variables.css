@@ -180,7 +180,7 @@
     --tbw-icon-filter-active: ''; /* Uses mask strategy (SVG) by default */
     --tbw-icon-print: '🖨️';
 
-    /* SVG mask-based icons — set --tbw-icon-<key>: none and provide a -mask to switch to SVG */
+    /* SVG mask-based icons — set --tbw-icon-<key>: '' and provide a -mask to switch to SVG */
     --tbw-icon-expand-mask: none;
     --tbw-icon-collapse-mask: none;
     --tbw-icon-sort-asc-mask: none;

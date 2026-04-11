@@ -32,7 +32,7 @@ import { escapeHtml, sanitizeHTML } from './sanitize';
  */
 function iconToString(icon: IconValue | undefined): string {
   if (!icon) return '';
-  if (typeof icon === 'string') return icon;
+  if (typeof icon === 'string') return sanitizeHTML(icon);
   // For HTMLElement, get the outerHTML
   return icon.outerHTML;
 }

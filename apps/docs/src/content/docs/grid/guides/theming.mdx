@@ -196,38 +196,27 @@ The **filter** and **filter-active** icons use SVG masks by default — just ove
 }
 ```
 
-For **any other icon**, switching to mask mode requires three steps:
-
-1. Set the content variable to `''` (empty string) so the pseudo-element is generated but shows no text
-2. Set the `-mask` variable to an SVG `url()`
-3. Add your own CSS rule for `background`, `mask-size`, `mask-repeat`, and `mask-position` — these are only built-in for the filter icons
+For **any other icon**, switching to mask mode requires setting the content to `''`, providing a `-mask` URL, and adding `background: currentColor` with explicit dimensions:
 
 ```css
 @layer tbw-theme {
   tbw-grid {
-    /* Step 1 & 2: set content to '' and provide the mask URL */
+    /* Set content to '' and provide the mask URL */
     --tbw-icon-sort-asc: '';
     --tbw-icon-sort-asc-mask: url("data:image/svg+xml,...");
   }
 
-  /* Step 3: add mask rendering rules for this icon */
+  /* Add background + dimensions so the mask is visible (cannot be shipped
+     generically because they would affect text/emoji icon layout) */
   tbw-grid [data-icon='sort-asc']:empty::before {
+    width: var(--tbw-icon-size, 1em);
+    height: var(--tbw-icon-size, 1em);
     background: currentColor;
-    -webkit-mask-image: var(--tbw-icon-sort-asc-mask);
-    mask-image: var(--tbw-icon-sort-asc-mask);
-    -webkit-mask-size: contain;
-    mask-size: contain;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
   }
 }
 ```
 
-:::tip
-The grid intentionally ships mask CSS only for filter icons to keep the base bundle small. The pattern above gives theme authors full control to opt in per icon.
-:::
+The grid ships `mask-image`, `mask-size`, `mask-repeat`, and `mask-position` for every icon — you only need to add `background: currentColor`.
 
 ### Available Variables
 

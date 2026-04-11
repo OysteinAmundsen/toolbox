@@ -6,6 +6,7 @@ description: "Transform row data into a cross-tabulation (pivot table) layout."
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import PivotDefaultDemo from '@components/demos/pivot/PivotDefaultDemo.astro';
 import PivotEventsDemo from '@components/demos/pivot/PivotEventsDemo.astro';
+import PivotSortingDemo from '@components/demos/pivot/PivotSortingDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -148,7 +149,7 @@ export class SalesPivotComponent {
   <PivotDefaultDemo />
 </ShowSource>
 
-Use the controls to explore the full pivot configuration — toggle active state, totals, grand total, tool panel, default expansion, indent width, aggregation function, sorting, value formatting, and animation style.
+Use the controls to explore the full pivot configuration — toggle active state, totals, grand total, tool panel, default expansion, indent width, aggregation function, and animation style. For sorting, see the [Sorting](#sorting) section below.
 
 ## Events & Programmatic API
 
@@ -266,7 +267,21 @@ plugin.getExpandedGroups();         // returns string[] of expanded keys
 
 ## Sorting
 
-Sort pivot rows and columns via configuration:
+Pivot columns support interactive sorting — click any column header to cycle through ascending, descending, and unsorted.
+
+### Multi-Column Sort
+
+When the [Multi-Sort plugin](/grid/plugins/multi-sort/) is loaded alongside Pivot, shift-click adds
+secondary sort columns with numbered priority badges. Pivot translates the multi-sort model into
+hierarchical sorting that respects the group structure.
+
+<ShowSource component="pivot/PivotSortingDemo">
+  <PivotSortingDemo />
+</ShowSource>
+
+### Programmatic Sort
+
+You can also configure sorting programmatically:
 
 ```ts
 features: {
@@ -281,12 +296,6 @@ features: {
 
 `sortRows` accepts `{ by: 'label' | 'value', direction: 'asc' | 'desc', valueField?: string }`.
 When `by` is `'value'`, rows are sorted by their total (or by a specific `valueField`).
-
-:::note
-Pivot sorting is applied at build time via configuration. Interactive sorting by clicking column
-headers is not currently supported — pivot columns are generated dynamically and don't participate
-in the grid's built-in sort mechanism.
-:::
 
 ## Default Expanded
 

@@ -14,6 +14,7 @@ function createGridMock(rows: any[] = [], columns: any[] = []) {
     const cell = document.createElement('div');
     cell.className = 'cell';
     cell.setAttribute('data-field', col.field);
+    if (col.sortable) cell.classList.add('sortable');
     // Add a label span
     const label = document.createElement('span');
     label.className = 'label';
@@ -578,10 +579,29 @@ describe('MultiSortPlugin', () => {
 
       const nameCell = grid._hostElement.querySelector('.cell[data-field="name"]');
       expect(nameCell?.getAttribute('data-sort')).toBeNull();
-      expect(nameCell?.querySelector('.sort-indicator')).toBeNull();
+      // Unsorted sortable column should still have the idle (sortNone) indicator
+      expect(nameCell?.querySelector('.sort-indicator')).not.toBeNull();
 
       const ageCell = grid._hostElement.querySelector('.cell[data-field="age"]');
       expect(ageCell?.getAttribute('data-sort')).toBe('desc');
+    });
+
+    it('should show idle indicator on sortable columns with no active sort', () => {
+      const plugin = new MultiSortPlugin();
+      const grid = createGridMock([], sortableColumns);
+      plugin.attach(grid as any);
+
+      plugin.afterRender();
+
+      // Sortable columns should have an idle indicator
+      const nameCell = grid._hostElement.querySelector('.cell[data-field="name"]');
+      const indicator = nameCell?.querySelector('.sort-indicator');
+      expect(indicator).not.toBeNull();
+      expect(indicator?.getAttribute('part')).toBe('sort-indicator');
+
+      // Non-sortable column should NOT have an idle indicator
+      const idCell = grid._hostElement.querySelector('.cell[data-field="id"]');
+      expect(idCell?.querySelector('.sort-indicator')).toBeNull();
     });
   });
 
@@ -682,6 +702,51 @@ describe('MultiSortPlugin', () => {
       plugin.clearSort();
 
       expect(grid._sortState).toBeNull();
+    });
+  });
+
+  describe('handleQuery', () => {
+    it('returns current sort model for sort:get-model', () => {
+      const plugin = new MultiSortPlugin();
+      const grid = createGridMock([], sortableColumns);
+      plugin.attach(grid as any);
+      plugin.setSortModel([{ field: 'name', direction: 'asc' }]);
+
+      const result = plugin.handleQuery({ type: 'sort:get-model', context: null });
+      expect(result).toEqual([{ field: 'name', direction: 'asc' }]);
+    });
+
+    it('returns empty array when no sort is active', () => {
+      const plugin = new MultiSortPlugin();
+      const grid = createGridMock([], sortableColumns);
+      plugin.attach(grid as any);
+
+      const result = plugin.handleQuery({ type: 'sort:get-model', context: null });
+      expect(result).toEqual([]);
+    });
+
+    it('sets sort model via sort:set-model', () => {
+      const plugin = new MultiSortPlugin();
+      const grid = createGridMock([], sortableColumns);
+      plugin.attach(grid as any);
+
+      const model: SortModel[] = [
+        { field: 'name', direction: 'asc' },
+        { field: 'age', direction: 'desc' },
+      ];
+      plugin.handleQuery({ type: 'sort:set-model', context: model });
+
+      expect(plugin.getSortModel()).toEqual(model);
+      expect(grid._sortState).toBeNull();
+    });
+
+    it('returns undefined for unknown query types', () => {
+      const plugin = new MultiSortPlugin();
+      const grid = createGridMock([], sortableColumns);
+      plugin.attach(grid as any);
+
+      const result = plugin.handleQuery({ type: 'unknown-query', context: null });
+      expect(result).toBeUndefined();
     });
   });
 });

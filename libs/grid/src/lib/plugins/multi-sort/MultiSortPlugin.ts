@@ -6,7 +6,7 @@
  */
 
 import { announce } from '../../core/internal/aria';
-import { BaseGridPlugin, HeaderClickEvent } from '../../core/plugin/base-plugin';
+import { BaseGridPlugin, HeaderClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnState, GridHost } from '../../core/types';
 import { getSortDirection, getSortIndex, sortRowsInPlace, toggleSort } from './multi-sort';
 import styles from './multi-sort.css?inline';
@@ -75,6 +75,17 @@ import type { MultiSortConfig, SortModel } from './types';
  * @internal Extends BaseGridPlugin
  */
 export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
+  /**
+   * Plugin manifest declaring query types this plugin responds to.
+   * @internal
+   */
+  static override readonly manifest: PluginManifest = {
+    queries: [
+      { type: 'sort:get-model', description: 'Returns the current multi-sort model as SortModel[]' },
+      { type: 'sort:set-model', description: 'Sets the multi-sort model from context (SortModel[])' },
+    ],
+  };
+
   /** @internal */
   readonly name = 'multiSort';
   /** @internal */
@@ -119,6 +130,28 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
     this.sortModel = [];
     this.cachedSortResult = null;
   }
+  // #endregion
+
+  // #region Query System
+
+  /** @internal */
+  override handleQuery(query: PluginQuery): unknown {
+    switch (query.type) {
+      case 'sort:get-model':
+        return [...this.sortModel];
+      case 'sort:set-model': {
+        const model = query.context as SortModel[];
+        this.sortModel = [...model];
+        this.clearCoreSortState();
+        this.emit('sort-change', { sortModel: [...model] });
+        this.requestRender();
+        return true;
+      }
+      default:
+        return undefined;
+    }
+  }
+
   // #endregion
 
   // #region Hooks
@@ -188,7 +221,6 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
 
     const showIndex = this.config.showSortIndex !== false;
 
-    // Update all sortable header cells with sort indicators
     const headerCells = gridEl.querySelectorAll('.header-row .cell[data-field]');
     headerCells.forEach((cell) => {
       const field = cell.getAttribute('data-field');
@@ -198,51 +230,24 @@ export class MultiSortPlugin extends BaseGridPlugin<MultiSortConfig> {
       const sortDir = getSortDirection(this.sortModel, field);
 
       // Remove existing sort index badge (always clean up)
-      const existingBadge = cell.querySelector('.sort-index');
-      existingBadge?.remove();
+      cell.querySelector('.sort-index')?.remove();
 
       if (sortDir) {
-        // Column is sorted - remove base indicator and add our own
-        const existingIndicator = cell.querySelector('[part~="sort-indicator"], .sort-indicator');
-        existingIndicator?.remove();
-
-        cell.setAttribute('data-sort', sortDir);
-
-        // Add sort arrow indicator - insert BEFORE filter button and resize handle
-        // to maintain consistent order: [label, sort-indicator, sort-index, filter-btn, resize-handle]
-        const indicator = document.createElement('span');
-        indicator.className = 'sort-indicator';
-        // Use grid-level icons (fall back to defaults)
-        this.setIcon(indicator, this.resolveIcon(sortDir === 'asc' ? 'sortAsc' : 'sortDesc'));
-
-        // Find insertion point: before filter button or resize handle
-        const filterBtn = cell.querySelector('.tbw-filter-btn');
-        const resizeHandle = cell.querySelector('.resize-handle');
-        const insertBefore = filterBtn ?? resizeHandle;
-        if (insertBefore) {
-          cell.insertBefore(indicator, insertBefore);
-        } else {
-          cell.appendChild(indicator);
-        }
+        const indicator = this.updateSortIndicator(cell, sortDir);
 
         // Add sort index badge if multiple columns sorted and showSortIndex is enabled
         if (showIndex && this.sortModel.length > 1 && sortIndex !== undefined) {
           const badge = document.createElement('span');
           badge.className = 'sort-index';
           badge.textContent = String(sortIndex);
-          // Insert badge right after the indicator
           if (indicator.nextSibling) {
             cell.insertBefore(badge, indicator.nextSibling);
           } else {
             cell.appendChild(badge);
           }
         }
-      } else {
-        cell.removeAttribute('data-sort');
-        // Remove any stale sort indicators left by a previous afterRender cycle
-        // Base indicators use part="sort-indicator", plugin indicators use class="sort-indicator"
-        const staleIndicator = cell.querySelector('[part~="sort-indicator"], .sort-indicator');
-        staleIndicator?.remove();
+      } else if (cell.classList.contains('sortable')) {
+        this.updateSortIndicator(cell, null);
       }
     });
   }

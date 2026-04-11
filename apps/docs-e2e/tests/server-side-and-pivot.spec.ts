@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dataRows, grid, openDemo } from './utils';
+import { cellText, dataRows, grid, openDemo } from './utils';
 
 test.describe('Server-Side Demos', () => {
   test('ServerSideDefaultDemo — infinite scroll loads more data', async ({ page }) => {
@@ -49,5 +49,93 @@ test.describe('Pivot Demo', () => {
 
     const rows = await dataRows(page).count();
     expect(rows).toBeGreaterThan(0);
+  });
+
+  test('PivotSortingDemo — click header sorts ascending via MultiSort', async ({ page }) => {
+    await openDemo(page, 'pivot/PivotSortingDemo');
+    await expect(grid(page)).toBeVisible();
+
+    // MultiSort + Pivot are both enabled. Click a pivot column header.
+    const groupHeader = page.locator('tbw-grid [role="columnheader"]').first();
+    await expect(groupHeader).toBeVisible();
+
+    // Click to sort ascending (handled by MultiSort)
+    await groupHeader.click();
+    await page.waitForTimeout(300);
+
+    // MultiSort sets data-sort and aria-sort attributes
+    expect(await groupHeader.getAttribute('aria-sort')).toBe('ascending');
+
+    const firstRowText = await cellText(page, 0, 0);
+    expect(firstRowText.trim()).toBeTruthy();
+  });
+
+  test('PivotSortingDemo — double-click reverses to descending', async ({ page }) => {
+    await openDemo(page, 'pivot/PivotSortingDemo');
+    await expect(grid(page)).toBeVisible();
+
+    const groupHeader = page.locator('tbw-grid [role="columnheader"]').first();
+    await groupHeader.click();
+    await page.waitForTimeout(300);
+    await groupHeader.click();
+    await page.waitForTimeout(300);
+
+    expect(await groupHeader.getAttribute('aria-sort')).toBe('descending');
+  });
+
+  test('PivotSortingDemo — triple-click clears sort', async ({ page }) => {
+    await openDemo(page, 'pivot/PivotSortingDemo');
+    await expect(grid(page)).toBeVisible();
+
+    const groupHeader = page.locator('tbw-grid [role="columnheader"]').first();
+    await groupHeader.click();
+    await page.waitForTimeout(300);
+    await groupHeader.click();
+    await page.waitForTimeout(300);
+    await groupHeader.click();
+    await page.waitForTimeout(300);
+
+    const ariaSort = await groupHeader.getAttribute('aria-sort');
+    expect(ariaSort).toBe('none');
+  });
+
+  test('PivotSortingDemo — sort event log updates', async ({ page }) => {
+    await openDemo(page, 'pivot/PivotSortingDemo');
+    await expect(grid(page)).toBeVisible();
+
+    const groupHeader = page.locator('tbw-grid [role="columnheader"]').first();
+    await groupHeader.click();
+    await page.waitForTimeout(300);
+
+    const log = page.locator('#pivot-sorting-events-log');
+    const logText = await log.textContent();
+    expect(logText).toContain('Sorted by');
+    expect(logText).toContain('asc');
+  });
+
+  test('PivotSortingDemo — shift-click sorts by multiple columns', async ({ page }) => {
+    await openDemo(page, 'pivot/PivotSortingDemo');
+    await expect(grid(page)).toBeVisible();
+
+    const headers = page.locator('tbw-grid [role="columnheader"]');
+    const firstHeader = headers.first();
+    const secondHeader = headers.nth(1);
+
+    // Click first column to sort ascending
+    await firstHeader.click();
+    await page.waitForTimeout(300);
+    expect(await firstHeader.getAttribute('aria-sort')).toBe('ascending');
+
+    // Shift-click second column to add it as secondary sort
+    await secondHeader.click({ modifiers: ['Shift'] });
+    await page.waitForTimeout(300);
+
+    // Both columns should show as sorted
+    expect(await firstHeader.getAttribute('data-sort')).toBe('asc');
+    expect(await secondHeader.getAttribute('data-sort')).toBe('asc');
+
+    // Sort index badges should appear (MultiSort's showSortIndex: true)
+    const badges = page.locator('tbw-grid .sort-index');
+    expect(await badges.count()).toBe(2);
   });
 });

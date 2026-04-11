@@ -40,7 +40,7 @@ export type {
   PluginCellRenderContext,
   PluginQuery,
   RowClickEvent,
-  ScrollEvent,
+  ScrollEvent
 } from './types';
 
 import type {
@@ -294,7 +294,9 @@ export type HookName =
   | 'onCellMouseDown'
   | 'onCellMouseMove'
   | 'onCellMouseUp'
+  | 'onHeaderClick'
   | 'onKeyDown'
+  | 'onRowClick'
   | 'onScroll'
   | 'onScrollRender';
 
@@ -878,6 +880,49 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
       element.innerHTML = '';
       element.appendChild(icon.cloneNode(true));
     }
+  }
+
+  /**
+   * Create or replace a sort indicator on a header cell.
+   *
+   * Handles the full lifecycle: removes any existing indicator, creates a new
+   * `<span part="sort-indicator" class="sort-indicator">` with the appropriate
+   * icon, sets `aria-sort` / `data-sort` attributes, and inserts it before the
+   * filter button or resize handle.
+   *
+   * Plugins decide **which** cells and **when** — this method handles **how**.
+   *
+   * @param cell - The header cell element
+   * @param direction - `'asc'` | `'desc'` for sorted, `null` for unsorted idle state
+   * @returns The created indicator element (useful for appending badges, etc.)
+   */
+  protected updateSortIndicator(cell: Element, direction: 'asc' | 'desc' | null): HTMLElement {
+    // Remove any existing indicator (core uses part, plugins use class)
+    cell.querySelector('[part~="sort-indicator"], .sort-indicator')?.remove();
+
+    const indicator = document.createElement('span');
+    indicator.setAttribute('part', 'sort-indicator');
+    indicator.className = 'sort-indicator';
+
+    if (direction) {
+      cell.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+      cell.setAttribute('data-sort', direction);
+      this.setIcon(indicator, this.resolveIcon(direction === 'asc' ? 'sortAsc' : 'sortDesc'));
+    } else {
+      cell.setAttribute('aria-sort', 'none');
+      cell.removeAttribute('data-sort');
+      this.setIcon(indicator, this.resolveIcon('sortNone'));
+    }
+
+    // Insert before filter button or resize handle to maintain DOM order
+    const insertBefore = cell.querySelector('.tbw-filter-btn') ?? cell.querySelector('.resize-handle');
+    if (insertBefore) {
+      cell.insertBefore(indicator, insertBefore);
+    } else {
+      cell.appendChild(indicator);
+    }
+
+    return indicator;
   }
 
   /**

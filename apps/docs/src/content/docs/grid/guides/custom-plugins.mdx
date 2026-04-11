@@ -450,6 +450,12 @@ export class MyPlugin extends BaseGridPlugin<MyPluginConfig> {
     incompatibleWith: [
       { name: 'conflictingPlugin', reason: 'Both plugins modify the same DOM elements' },
     ],
+
+    // Hook execution priority (lower = earlier, default 0)
+    hookPriority: {
+      processRows: 100,   // Run after most plugins
+      afterRender: -50,   // Run before most plugins
+    },
   };
 
   readonly name = 'myPlugin';
@@ -496,6 +502,26 @@ configRules: [
 
 - `severity: 'error'` — Throws an exception (always)
 - `severity: 'warn'` — Logs to console (development only)
+
+### Hook Priority
+
+By default, hooks execute in plugin array order. Use `hookPriority` to override the execution order for specific hooks without changing the plugin array:
+
+```typescript
+static override readonly manifest: PluginManifest = {
+  hookPriority: {
+    processRows: 100,   // Higher value → runs later
+    afterRender: -50,   // Negative value → runs earlier
+  },
+};
+```
+
+- Default priority is **0** for all hooks
+- **Lower values** execute first; **higher values** execute later
+- Plugins with equal priority preserve their original array order
+- Priority is configured **per hook** — a plugin can run early for one hook and late for another
+
+Available hooks: `processColumns`, `processRows`, `afterRender`, `afterCellRender`, `afterRowRender`, `onCellClick`, `onCellMouseDown`, `onCellMouseMove`, `onCellMouseUp`, `onKeyDown`, `onScroll`, `onScrollRender`.
 
 ### Plugin Dependencies
 

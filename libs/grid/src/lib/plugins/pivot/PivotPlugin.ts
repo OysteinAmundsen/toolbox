@@ -6,7 +6,8 @@
  * Includes a tool panel for interactive pivot configuration.
  */
 
-import { BaseGridPlugin, type PluginManifest } from '../../core/plugin/base-plugin';
+import { announce } from '../../core/internal/aria';
+import { BaseGridPlugin, HeaderClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import {
   buildPivot,
@@ -14,6 +15,7 @@ import {
   getAllGroupKeys,
   getColumnTotals,
   resolveDefaultExpanded,
+  sortPivotMulti,
   type PivotDataRow,
 } from './pivot-engine';
 import { createValueKey, validatePivotConfig } from './pivot-model';
@@ -25,6 +27,8 @@ import type {
   PivotConfig,
   PivotConfigChangeDetail,
   PivotResult,
+  PivotSortConfig,
+  PivotSortDir,
   PivotStateChangeDetail,
   PivotToggleDetail,
   PivotValueField,
@@ -94,6 +98,14 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    * @internal
    */
   static override readonly manifest: PluginManifest = {
+    hookPriority: {
+      // Run before MultiSortPlugin so pivot columns are intercepted first
+      // when MultiSort is NOT present; non-pivot columns fall through.
+      onHeaderClick: -10,
+      // Run AFTER MultiSortPlugin's processRows so MultiSort sorts raw rows
+      // (a no-op for pivot fields) before Pivot builds and sorts its own rows.
+      processRows: 100,
+    },
     incompatibleWith: [
       {
         name: 'groupingRows',
@@ -113,6 +125,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
           'PivotPlugin requires the full dataset to compute aggregations. ' +
           'ServerSidePlugin lazy-loads rows in blocks, so pivot aggregation cannot be performed client-side.',
       },
+    ],
+    queries: [
+      { type: 'sort:get-sort-config', description: 'Returns the current pivot sort configuration' },
     ],
   };
 
@@ -153,6 +168,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private valueFormatters: Map<string, (value: number) => string> = new Map();
   /** Column totals for percentage mode */
   private columnTotals: Record<string, number> = {};
+  /** Current interactive sort state for pivot columns (managed by onHeaderClick) */
+  private activeSortField: string | null = null;
+  private activeSortDir: PivotSortDir | null = null;
 
   /**
    * Check if the plugin has valid pivot configuration (at least value fields).
@@ -188,6 +206,9 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.userHasToggledExpand = false;
     this.valueFormatters.clear();
     this.columnTotals = {};
+    this.activeSortField = null;
+    this.activeSortDir = null;
+    this.config.sortRows = undefined;
   }
 
   // #endregion
@@ -241,6 +262,13 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Build pivot first so we have the rows structure
     this.pivotResult = buildPivot(rows as PivotDataRow[], this.config);
+
+    // When MultiSort is active, apply its sort model to pivot rows.
+    // This overrides config.sortRows when MultiSort has active sorts.
+    const multiSortConfigs = this.getMultiSortConfigs();
+    if (multiSortConfigs) {
+      sortPivotMulti(this.pivotResult.rows, multiSortConfigs, this.config.valueFields ?? []);
+    }
 
     // Initialize expanded state with defaults if first build AND user hasn't manually toggled
     // This prevents re-expanding when user collapses all groups
@@ -320,6 +348,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       field: '__pivotLabel',
       header: rowGroupHeaders || 'Group',
       width: 200,
+      sortable: true,
     });
 
     // Value columns for each column key
@@ -334,6 +363,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
           header: `${colKey} - ${valueHeader} (${aggLabel})`,
           width: 120,
           type: 'number',
+          sortable: true,
           ...(formatter ? { format: (v: unknown) => (v != null ? formatter(Number(v)) : '') } : {}),
         } as ColumnConfig);
       }
@@ -346,6 +376,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
         header: 'Total',
         width: 100,
         type: 'number',
+        sortable: true,
       });
     }
 
@@ -429,6 +460,128 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   }
 
   /** @internal */
+  override handleQuery(query: PluginQuery): unknown {
+    if (query.type === 'sort:get-sort-config') {
+      // When MultiSort is driving sort state, return its translated config
+      const multiConfigs = this.getMultiSortConfigs();
+      if (multiConfigs) return multiConfigs;
+      return this.config.sortRows ?? null;
+    }
+    return undefined;
+  }
+
+  /** @internal */
+  override onHeaderClick(event: HeaderClickEvent): boolean {
+    if (!this.isActive) return false;
+
+    const field = event.field;
+
+    // Only handle clicks on pivot-generated columns
+    if (!this.isPivotField(field)) return false;
+
+    // When MultiSort is present, let it handle the click (supports shift-click
+    // for multi-column sort). PivotPlugin reads MultiSort's sort model in processRows.
+    if (this.isMultiSortActive()) return false;
+
+    // Map the clicked column to a PivotSortConfig
+    const sortConfig = this.mapFieldToSortConfig(field);
+    if (!sortConfig) return false;
+
+    // Toggle direction: none → asc → desc → none
+    const currentDir = this.activeSortDir;
+    const currentField = this.activeSortField;
+    let newDir: PivotSortDir | null;
+
+    if (currentField !== field) {
+      // Different column — start ascending
+      newDir = 'asc';
+    } else if (currentDir === 'asc') {
+      newDir = 'desc';
+    } else {
+      newDir = null; // Clear sort
+    }
+
+    this.activeSortField = newDir ? field : null;
+    this.activeSortDir = newDir;
+
+    // Apply to pivot config
+    if (newDir) {
+      this.config.sortRows = { ...sortConfig, direction: newDir };
+    } else {
+      this.config.sortRows = undefined;
+    }
+
+    this.emit<PivotConfigChangeDetail>('pivot-config-change', {
+      property: 'sortRows',
+    });
+
+    this.refresh();
+
+    // Announce for screen readers
+    const gridEl = this.gridElement;
+    if (gridEl) {
+      const colHeader = event.column.header ?? field;
+      if (newDir) {
+        announce(gridEl, `Sorted by ${colHeader}, ${newDir === 'asc' ? 'ascending' : 'descending'}`);
+      } else {
+        announce(gridEl, 'Sort cleared');
+      }
+    }
+
+    return true;
+  }
+
+  /** Check if a field belongs to a pivot-generated column. */
+  private isPivotField(field: string): boolean {
+    return field === '__pivotLabel' || field === '__pivotTotal' || field.includes('|');
+  }
+
+  /** Check whether the MultiSort plugin is loaded alongside Pivot. */
+  private isMultiSortActive(): boolean {
+    const results = this.grid?.queryPlugins?.({ type: 'sort:get-model', context: null });
+    return Array.isArray(results) && results.length > 0;
+  }
+
+  /**
+   * Read MultiSort's sort model and translate entries to PivotSortConfig[].
+   * Returns null when MultiSort is not present or has no active sorts.
+   */
+  private getMultiSortConfigs(): PivotSortConfig[] | null {
+    const results = this.grid?.queryPlugins?.({ type: 'sort:get-model', context: null });
+    if (!results || results.length === 0) return null;
+
+    const sortModel = results[0] as Array<{ field: string; direction: 'asc' | 'desc' }>;
+    if (!Array.isArray(sortModel) || sortModel.length === 0) return null;
+
+    const configs: PivotSortConfig[] = [];
+    for (const entry of sortModel) {
+      if (!this.isPivotField(entry.field)) continue;
+      const base = this.mapFieldToSortConfig(entry.field);
+      if (base) {
+        configs.push({ ...base, direction: entry.direction });
+      }
+    }
+    return configs.length > 0 ? configs : null;
+  }
+
+  /** Map a pivot column field to the appropriate PivotSortConfig (without direction). */
+  private mapFieldToSortConfig(field: string): Omit<PivotSortConfig, 'direction'> | null {
+    if (field === '__pivotLabel') {
+      return { by: 'label' };
+    }
+    if (field === '__pivotTotal') {
+      return { by: 'value' };
+    }
+    // Value columns use format: colKey|valueField (from createValueKey)
+    if (field.includes('|')) {
+      const parts = field.split('|');
+      const valueField = parts[parts.length - 1];
+      return { by: 'value', valueField };
+    }
+    return null;
+  }
+
+  /** @internal */
   override afterRender(): void {
     // Render grand total as a sticky pinned footer when pivot is active
     // Skip when grandTotalInRowModel is true (grand total is already in the row model)
@@ -436,6 +589,12 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       this.renderGrandTotalFooter();
     } else {
       this.cleanupGrandTotalFooter();
+    }
+
+    // Update sort indicators on pivot header cells.
+    // When MultiSort is active it manages all indicators (including unsorted state).
+    if (this.isActive && !this.isMultiSortActive()) {
+      this.updateSortIndicators();
     }
 
     // Apply animations to newly visible rows
@@ -454,6 +613,26 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       }
     }
     this.keysToAnimate.clear();
+  }
+
+  /**
+   * Update sort indicator icons on pivot header cells.
+   * Core's indicator rendering reads `_sortState`, which doesn't reflect pivot sort.
+   * We manage indicators directly, following the same pattern as MultiSortPlugin.
+   */
+  private updateSortIndicators(): void {
+    const gridEl = this.gridElement;
+    if (!gridEl) return;
+
+    const headerCells = gridEl.querySelectorAll('.header-row .cell[data-field]');
+    for (const cell of headerCells) {
+      const field = cell.getAttribute('data-field');
+      if (!field || !this.isPivotField(field)) continue;
+
+      const isSorted = this.activeSortField === field;
+      const sortDir = isSorted ? this.activeSortDir : null;
+      this.updateSortIndicator(cell, sortDir);
+    }
   }
 
   /**

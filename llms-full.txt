@@ -1104,6 +1104,7 @@ new PivotPlugin({
   sortRows?: PivotSortConfig,        // Sort row groups: { by: 'label' | 'value', direction: 'asc' | 'desc' }
   sortColumns?: 'asc' | 'desc',     // Sort column keys (default: 'asc')
 })
+// Interactive sorting: click headers to sort. With MultiSort loaded, shift-click adds secondary sorts.
 // Programmatic API:
 const pivot = grid.getPluginByName('pivot');
 pivot.enablePivot();                 // Activate pivot mode

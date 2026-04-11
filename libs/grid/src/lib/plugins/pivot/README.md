@@ -128,6 +128,20 @@ The pivot plugin registers a tool panel for interactive configuration:
 - **Values**: Aggregated value fields with selectable aggregation function
 - **Options**: Toggle totals, grand total, and default expansion state
 
+## Sorting
+
+Click any pivot column header to sort. When the [Multi-Sort plugin](../multi-sort/) is also loaded, shift-click adds secondary sort columns with numbered priority badges. Pivot translates the sort model into hierarchical sorting that respects the group structure.
+
+Programmatic sorting via `sortRows` config:
+
+```typescript
+new PivotPlugin({
+  rowGroupFields: ['region'],
+  valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+  sortRows: { by: 'label', direction: 'asc' },
+});
+```
+
 ### Programmatic-Only Usage
 
 To use pivot transformation without exposing the tool panel UI to users:

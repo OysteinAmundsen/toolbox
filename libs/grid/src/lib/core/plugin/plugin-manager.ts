@@ -4,10 +4,10 @@
  * Manages plugin instances for a single grid.
  * Each grid has its own PluginManager with its own set of plugin instances.
  *
- * **Plugin Order Matters**: Plugins are executed in the order they appear in the
- * `plugins` array. This affects the order of hook execution (processRows, processColumns,
- * afterRender, etc.). For example, if you want filtering to run before grouping,
- * add FilteringPlugin before GroupingRowsPlugin in the array.
+ * **Plugin Order Matters**: By default, plugins are executed in the order they appear
+ * in the `plugins` array. Plugins can override execution order for specific hooks via
+ * `manifest.hookPriority` (lower values run earlier, default is 0). Plugins with equal
+ * priority preserve their original array order.
  */
 
 import { DEPRECATED_HOOK, PLUGIN_EVENT_ERROR, errorDiagnostic, warnDiagnostic } from '../internal/diagnostics';
@@ -25,6 +25,7 @@ import type {
   GridElement,
   HeaderClickEvent,
   HeaderRenderer,
+  HookName,
   PluginQuery,
   RowClickEvent,
   ScrollEvent,
@@ -33,8 +34,8 @@ import type {
 /**
  * Manages plugins for a single grid instance.
  *
- * Plugins are executed in array order. This is intentional and documented behavior.
- * Place plugins in the order you want their hooks to execute.
+ * Plugins are executed in array order by default. Use `manifest.hookPriority`
+ * to override execution order for specific hooks.
  */
 export class PluginManager {
   // #region Properties
@@ -62,6 +63,9 @@ export class PluginManager {
   private _hasAfterCellRender = false;
   private _hasAfterRowRender = false;
   private _hasProcessRows = false;
+
+  /** Cached plugin lists sorted by hookPriority per hook — invalidated on plugin attach/detach */
+  #sortedPluginsByHook = new Map<HookName, BaseGridPlugin[]>();
   // #endregion
 
   // #region Event Bus State
@@ -242,6 +246,7 @@ export class PluginManager {
     this._hasAfterCellRender = false;
     this._hasAfterRowRender = false;
     this._hasProcessRows = false;
+    this.#sortedPluginsByHook.clear();
   }
   // #endregion
 
@@ -322,12 +327,10 @@ export class PluginManager {
   processRows(rows: readonly any[]): any[] {
     if (!this._hasProcessRows) return rows as any[];
     let result: any[] = rows as any[];
-    for (const plugin of this.plugins) {
-      if (plugin.processRows) {
-        const transformed = plugin.processRows(result);
-        if (transformed !== result) {
-          result = transformed;
-        }
+    for (const plugin of this.#getPluginsForHook('processRows')) {
+      const transformed = plugin.processRows!(result);
+      if (transformed !== result) {
+        result = transformed;
       }
     }
     return result;
@@ -338,10 +341,8 @@ export class PluginManager {
    */
   processColumns(columns: readonly ColumnConfig[]): ColumnConfig[] {
     let result = [...columns];
-    for (const plugin of this.plugins) {
-      if (plugin.processColumns) {
-        result = plugin.processColumns(result);
-      }
+    for (const plugin of this.#getPluginsForHook('processColumns')) {
+      result = plugin.processColumns!(result);
     }
     return result;
   }
@@ -359,8 +360,8 @@ export class PluginManager {
    * Execute afterRender hook on all plugins.
    */
   afterRender(): void {
-    for (const plugin of this.plugins) {
-      plugin.afterRender?.();
+    for (const plugin of this.#getPluginsForHook('afterRender')) {
+      plugin.afterRender!();
     }
   }
 
@@ -371,8 +372,8 @@ export class PluginManager {
    * @param context - The cell render context
    */
   afterCellRender(context: AfterCellRenderContext): void {
-    for (const plugin of this.plugins) {
-      plugin.afterCellRender?.(context);
+    for (const plugin of this.#getPluginsForHook('afterCellRender')) {
+      plugin.afterCellRender!(context);
     }
   }
 
@@ -391,8 +392,8 @@ export class PluginManager {
    * @param context - The row render context
    */
   afterRowRender(context: AfterRowRenderContext): void {
-    for (const plugin of this.plugins) {
-      plugin.afterRowRender?.(context);
+    for (const plugin of this.#getPluginsForHook('afterRowRender')) {
+      plugin.afterRowRender!(context);
     }
   }
 
@@ -404,11 +405,43 @@ export class PluginManager {
     return this._hasAfterRowRender;
   }
 
-  /** Recompute cached hook presence flags. */
+  /** Recompute cached hook presence flags and clear sorted-plugin caches. */
   #invalidateHookCaches(): void {
     this._hasAfterCellRender = this.plugins.some((p) => typeof p.afterCellRender === 'function');
     this._hasAfterRowRender = this.plugins.some((p) => typeof p.afterRowRender === 'function');
     this._hasProcessRows = this.plugins.some((p) => typeof p.processRows === 'function');
+    this.#sortedPluginsByHook.clear();
+  }
+
+  /**
+   * Get plugins that implement a given hook, sorted by hookPriority.
+   * Results are cached and invalidated on plugin attach/detach.
+   *
+   * Plugins without a declared priority default to 0.
+   * Lower values execute earlier; higher values execute later.
+   * Plugins with equal priority preserve their original array order (stable sort).
+   */
+  #getPluginsForHook(hookName: HookName): BaseGridPlugin[] {
+    let sorted = this.#sortedPluginsByHook.get(hookName);
+    if (sorted) return sorted;
+
+    sorted = this.plugins.filter((p) => hookName in p && typeof p[hookName] === 'function');
+
+    // Only sort when at least one plugin declares a priority for this hook
+    const getPriority = (p: BaseGridPlugin): number => {
+      const hp = (p.constructor as typeof BaseGridPlugin).manifest?.hookPriority;
+      if (!hp) return 0;
+      const val = hp[hookName as keyof typeof hp];
+      return val ?? 0;
+    };
+    const needsSort = sorted.some((p) => getPriority(p) !== 0);
+
+    if (needsSort) {
+      sorted.sort((a, b) => getPriority(a) - getPriority(b));
+    }
+
+    this.#sortedPluginsByHook.set(hookName, sorted);
+    return sorted;
   }
 
   /**
@@ -416,8 +449,8 @@ export class PluginManager {
    * Called after scroll-triggered row rendering for lightweight visual state updates.
    */
   onScrollRender(): void {
-    for (const plugin of this.plugins) {
-      plugin.onScrollRender?.();
+    for (const plugin of this.#getPluginsForHook('onScrollRender')) {
+      plugin.onScrollRender!();
     }
   }
 
@@ -644,8 +677,8 @@ export class PluginManager {
    * Returns true if any plugin handled the event.
    */
   onKeyDown(event: KeyboardEvent): boolean {
-    for (const plugin of this.plugins) {
-      if (plugin.onKeyDown?.(event)) {
+    for (const plugin of this.#getPluginsForHook('onKeyDown')) {
+      if (plugin.onKeyDown!(event)) {
         return true;
       }
     }
@@ -657,8 +690,8 @@ export class PluginManager {
    * Returns true if any plugin handled the event.
    */
   onCellClick(event: CellClickEvent): boolean {
-    for (const plugin of this.plugins) {
-      if (plugin.onCellClick?.(event)) {
+    for (const plugin of this.#getPluginsForHook('onCellClick')) {
+      if (plugin.onCellClick!(event)) {
         return true;
       }
     }
@@ -670,8 +703,8 @@ export class PluginManager {
    * Returns true if any plugin handled the event.
    */
   onRowClick(event: RowClickEvent): boolean {
-    for (const plugin of this.plugins) {
-      if (plugin.onRowClick?.(event)) {
+    for (const plugin of this.#getPluginsForHook('onRowClick')) {
+      if (plugin.onRowClick!(event)) {
         return true;
       }
     }
@@ -683,8 +716,8 @@ export class PluginManager {
    * Returns true if any plugin handled the event.
    */
   onHeaderClick(event: HeaderClickEvent): boolean {
-    for (const plugin of this.plugins) {
-      if (plugin.onHeaderClick?.(event)) {
+    for (const plugin of this.#getPluginsForHook('onHeaderClick')) {
+      if (plugin.onHeaderClick!(event)) {
         return true;
       }
     }
@@ -695,8 +728,8 @@ export class PluginManager {
    * Execute onScroll hook on all plugins.
    */
   onScroll(event: ScrollEvent): void {
-    for (const plugin of this.plugins) {
-      plugin.onScroll?.(event);
+    for (const plugin of this.#getPluginsForHook('onScroll')) {
+      plugin.onScroll!(event);
     }
   }
 
@@ -705,8 +738,8 @@ export class PluginManager {
    * Returns true if any plugin handled the event.
    */
   onCellMouseDown(event: CellMouseEvent): boolean {
-    for (const plugin of this.plugins) {
-      if (plugin.onCellMouseDown?.(event)) {
+    for (const plugin of this.#getPluginsForHook('onCellMouseDown')) {
+      if (plugin.onCellMouseDown!(event)) {
         return true;
       }
     }
@@ -718,8 +751,8 @@ export class PluginManager {
    * Returns true if any plugin handled the event.
    */
   onCellMouseMove(event: CellMouseEvent): boolean {
-    for (const plugin of this.plugins) {
-      if (plugin.onCellMouseMove?.(event)) {
+    for (const plugin of this.#getPluginsForHook('onCellMouseMove')) {
+      if (plugin.onCellMouseMove!(event)) {
         return true;
       }
     }
@@ -731,8 +764,8 @@ export class PluginManager {
    * Returns true if any plugin handled the event.
    */
   onCellMouseUp(event: CellMouseEvent): boolean {
-    for (const plugin of this.plugins) {
-      if (plugin.onCellMouseUp?.(event)) {
+    for (const plugin of this.#getPluginsForHook('onCellMouseUp')) {
+      if (plugin.onCellMouseUp!(event)) {
         return true;
       }
     }

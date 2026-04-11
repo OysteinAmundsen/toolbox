@@ -9,6 +9,7 @@ import {
   groupByFields,
   type PivotDataRow,
   resolveDefaultExpanded,
+  sortPivotMulti,
   sortPivotRows,
 } from './pivot-engine';
 import { createValueKey, getPivotAggregator, validatePivotConfig } from './pivot-model';
@@ -1354,6 +1355,75 @@ describe('sortPivotRows', () => {
   });
 });
 
+describe('sortPivotMulti', () => {
+  it('sorts by single criterion (same as sortPivotRows)', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'C', rowLabel: 'C', depth: 0, isGroup: false, values: {}, total: 3 },
+      { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: {}, total: 1 },
+      { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: {}, total: 2 },
+    ];
+    sortPivotMulti(rows, [{ by: 'label', direction: 'asc' }], []);
+    expect(rows.map((r) => r.rowLabel)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('breaks ties with secondary criterion', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'A1', rowLabel: 'A', depth: 0, isGroup: false, values: {}, total: 30 },
+      { rowKey: 'A2', rowLabel: 'A', depth: 0, isGroup: false, values: {}, total: 10 },
+      { rowKey: 'B1', rowLabel: 'B', depth: 0, isGroup: false, values: {}, total: 20 },
+    ];
+    sortPivotMulti(
+      rows,
+      [
+        { by: 'label', direction: 'asc' },
+        { by: 'value', direction: 'desc' },
+      ],
+      [{ field: 'sales', aggFunc: 'sum' as const }],
+    );
+    // A before B (primary: label asc), then A1(30) before A2(10) (secondary: value desc)
+    expect(rows.map((r) => r.rowKey)).toEqual(['A1', 'A2', 'B1']);
+  });
+
+  it('sorts by specific value column key', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'C', rowLabel: 'C', depth: 0, isGroup: false, values: { 'Q1|sales': 5, 'Q2|sales': 30 }, total: 35 },
+      { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: { 'Q1|sales': 20, 'Q2|sales': 10 }, total: 30 },
+      { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: { 'Q1|sales': 15, 'Q2|sales': 20 }, total: 35 },
+    ];
+    sortPivotMulti(rows, [{ by: 'value', direction: 'asc', valueField: 'sales' }], []);
+    // Sorts by value matching |sales — first match is Q1|sales: C(5), B(15), A(20)
+    expect(rows.map((r) => r.rowLabel)).toEqual(['C', 'B', 'A']);
+  });
+
+  it('sorts children recursively', () => {
+    const rows: PivotRow[] = [
+      {
+        rowKey: 'A',
+        rowLabel: 'A',
+        depth: 0,
+        isGroup: true,
+        values: {},
+        total: 0,
+        children: [
+          { rowKey: 'A|Z', rowLabel: 'Z', depth: 1, isGroup: false, values: {}, total: 2 },
+          { rowKey: 'A|X', rowLabel: 'X', depth: 1, isGroup: false, values: {}, total: 1 },
+        ],
+      },
+    ];
+    sortPivotMulti(rows, [{ by: 'label', direction: 'asc' }], []);
+    expect(rows[0].children!.map((r) => r.rowLabel)).toEqual(['X', 'Z']);
+  });
+
+  it('does nothing with empty configs', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'C', rowLabel: 'C', depth: 0, isGroup: false, values: {}, total: 3 },
+      { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: {}, total: 1 },
+    ];
+    sortPivotMulti(rows, [], []);
+    expect(rows.map((r) => r.rowLabel)).toEqual(['C', 'A']);
+  });
+});
+
 describe('resolveDefaultExpanded', () => {
   const allKeys = ['A', 'B', 'C'];
 
@@ -1459,3 +1529,349 @@ describe('Custom aggregator in model', () => {
     expect(agg([2, 3, 4])).toBe(24);
   });
 });
+
+// #region Interactive header-click sorting
+
+describe('PivotPlugin interactive header-click sorting', () => {
+  const sampleRows = [
+    { category: 'B', region: 'East', sales: 30 },
+    { category: 'A', region: 'West', sales: 10 },
+    { category: 'C', region: 'East', sales: 20 },
+    { category: 'A', region: 'East', sales: 40 },
+    { category: 'B', region: 'West', sales: 50 },
+  ];
+
+  it('declares negative onHeaderClick hookPriority to run before MultiSort', () => {
+    expect(PivotPlugin.manifest.hookPriority?.onHeaderClick).toBeLessThan(0);
+  });
+
+  function createPluginWithGrid(config?: Partial<PivotConfig>, options?: { multiSortModel?: Array<{ field: string; direction: 'asc' | 'desc' }> }) {
+    const plugin = new PivotPlugin({
+      rowGroupFields: ['category'],
+      columnGroupFields: ['region'],
+      valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      ...config,
+    });
+
+    const gridEl = document.createElement('div');
+    gridEl.className = 'tbw-grid';
+    const container = document.createElement('div');
+    container.className = 'tbw-grid-root';
+    gridEl.appendChild(container);
+
+    // Add header row with cells for sort indicator testing
+    const headerRow = document.createElement('div');
+    headerRow.className = 'header-row';
+    for (const field of ['__pivotLabel', 'East|sales', 'West|sales', '__pivotTotal']) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.setAttribute('data-field', field);
+      cell.setAttribute('role', 'columnheader');
+      headerRow.appendChild(cell);
+    }
+    container.appendChild(headerRow);
+    document.body.appendChild(gridEl);
+
+    let renderCount = 0;
+    const multiSortModel = options?.multiSortModel;
+    Object.assign(gridEl, {
+      columns: [
+        { field: 'category', header: 'Category', visible: true },
+        { field: 'region', header: 'Region', visible: true },
+        { field: 'sales', header: 'Sales', visible: true },
+      ],
+      rows: sampleRows,
+      effectiveConfig: {},
+      requestRender: () => renderCount++,
+      getAllColumns: () => (gridEl as any).columns,
+      getRenderCount: () => renderCount,
+      _hostElement: gridEl,
+      queryPlugins: (query: any) => {
+        if (query.type === 'sort:get-model' && multiSortModel !== undefined) {
+          return [multiSortModel];
+        }
+        return [];
+      },
+      isToolPanelOpen: false,
+      expandedToolPanelSections: [],
+      openToolPanel: vi.fn(),
+      closeToolPanel: vi.fn(),
+      toggleToolPanel: vi.fn(),
+      toggleToolPanelSection: vi.fn(),
+    });
+
+    plugin.attach(gridEl as any);
+    return { plugin, gridEl, getRenderCount: () => renderCount };
+  }
+
+  function makeHeaderClickEvent(field: string, column?: any): any {
+    return {
+      colIndex: 0,
+      field,
+      column: column ?? { field, header: field, sortable: true },
+      headerEl: document.createElement('div'),
+      originalEvent: new MouseEvent('click'),
+    };
+  }
+
+  it('ignores clicks when pivot is not active', () => {
+    const { plugin } = createPluginWithGrid({ active: false });
+    // processRows not called yet, so plugin is not active
+    const result = plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    expect(result).toBe(false);
+  });
+
+  it('ignores clicks on non-pivot columns', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+    const result = plugin.onHeaderClick(makeHeaderClickEvent('someRegularField'));
+    expect(result).toBe(false);
+  });
+
+  it('handles click on __pivotLabel — ascending on first click', () => {
+    const { plugin, getRenderCount } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+    const startCount = getRenderCount();
+
+    const result = plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    expect(result).toBe(true);
+    expect(getRenderCount()).toBeGreaterThan(startCount);
+
+    // processRows again to see the sort applied
+    const rows = plugin.processRows(sampleRows);
+    const labels = rows
+      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
+      .map((r: any) => r.__pivotLabel);
+    expect(labels).toEqual(['A', 'B', 'C']);
+  });
+
+  it('toggles to descending on second click', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+
+    const rows = plugin.processRows(sampleRows);
+    const labels = rows
+      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
+      .map((r: any) => r.__pivotLabel);
+    expect(labels).toEqual(['C', 'B', 'A']);
+  });
+
+  it('clears sort on third click', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+
+    const sortConfig = plugin.handleQuery({ type: 'sort:get-sort-config', context: null });
+    expect(sortConfig).toBeNull();
+  });
+
+  it('handles click on value column — sorts by value', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    const result = plugin.onHeaderClick(makeHeaderClickEvent('East|sales'));
+    expect(result).toBe(true);
+
+    const sortConfig = plugin.handleQuery({ type: 'sort:get-sort-config', context: null });
+    expect(sortConfig).toEqual({ by: 'value', valueField: 'sales', direction: 'asc' });
+  });
+
+  it('handles click on __pivotTotal — sorts by total value', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotTotal'));
+
+    const sortConfig = plugin.handleQuery({ type: 'sort:get-sort-config', context: null });
+    expect(sortConfig).toEqual({ by: 'value', direction: 'asc' });
+  });
+
+  it('switching to a different column resets direction to ascending', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotTotal'));
+
+    const sortConfig = plugin.handleQuery({ type: 'sort:get-sort-config', context: null });
+    expect(sortConfig).toEqual({ by: 'value', direction: 'asc' });
+  });
+
+  it('emits pivot-config-change event on sort', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    const emitSpy = vi.spyOn(plugin, 'emit');
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+
+    expect(emitSpy).toHaveBeenCalledWith('pivot-config-change', {
+      property: 'sortRows',
+    });
+  });
+
+  it('sets sortable: true on all generated pivot columns', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    const pivotColumns = plugin.processColumns([
+      { field: 'category', header: 'Category' },
+      { field: 'sales', header: 'Sales' },
+    ]);
+
+    for (const col of pivotColumns) {
+      expect(col.sortable).toBe(true);
+    }
+  });
+
+  it('shows unsorted icon on all pivot columns initially', () => {
+    const { plugin, gridEl } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+    plugin.afterRender();
+
+    const pivotFields = ['__pivotLabel', 'East|sales', 'West|sales', '__pivotTotal'];
+    for (const field of pivotFields) {
+      const cell = gridEl.querySelector(`.cell[data-field="${field}"]`);
+      expect(cell?.getAttribute('aria-sort')).toBe('none');
+      expect(cell?.querySelector('.sort-indicator')).toBeTruthy();
+    }
+  });
+
+  it('updates sort indicators in afterRender', () => {
+    const { plugin, gridEl } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.afterRender();
+
+    const labelCell = gridEl.querySelector('.cell[data-field="__pivotLabel"]');
+    expect(labelCell?.getAttribute('aria-sort')).toBe('ascending');
+    expect(labelCell?.getAttribute('data-sort')).toBe('asc');
+    expect(labelCell?.querySelector('.sort-indicator')).toBeTruthy();
+
+    // Unsorted columns should still have an idle sort indicator
+    const totalCell = gridEl.querySelector('.cell[data-field="__pivotTotal"]');
+    expect(totalCell?.getAttribute('aria-sort')).toBe('none');
+    expect(totalCell?.querySelector('.sort-indicator')).toBeTruthy();
+  });
+
+  it('clears sort indicators when sort is cleared', () => {
+    const { plugin, gridEl } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.afterRender();
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    plugin.afterRender();
+
+    const labelCell = gridEl.querySelector('.cell[data-field="__pivotLabel"]');
+    expect(labelCell?.getAttribute('aria-sort')).toBe('none');
+    // Unsorted indicator should still be present (sortNone icon)
+    expect(labelCell?.querySelector('.sort-indicator')).toBeTruthy();
+    expect(labelCell?.getAttribute('data-sort')).toBeNull();
+  });
+
+  it('resets sort state on detach', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+    plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+
+    plugin.detach();
+
+    const sortConfig = plugin.handleQuery({ type: 'sort:get-sort-config', context: null });
+    expect(sortConfig).toBeNull();
+  });
+
+  it('declares processRows hookPriority > 0 to run after MultiSort', () => {
+    expect(PivotPlugin.manifest.hookPriority?.processRows).toBeGreaterThan(0);
+  });
+
+  // --- MultiSort integration tests ---
+
+  it('defers to MultiSort on header click when MultiSort is active', () => {
+    const { plugin } = createPluginWithGrid(undefined, {
+      multiSortModel: [],
+    });
+    plugin.processRows(sampleRows);
+
+    // With MultiSort present, PivotPlugin returns false (lets MultiSort handle it)
+    const result = plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    expect(result).toBe(false);
+  });
+
+  it('handles header click itself when MultiSort is NOT active', () => {
+    const { plugin } = createPluginWithGrid();
+    plugin.processRows(sampleRows);
+
+    // Without MultiSort, PivotPlugin handles the click
+    const result = plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
+    expect(result).toBe(true);
+  });
+
+  it('applies MultiSort model to pivot rows in processRows', () => {
+    const { plugin } = createPluginWithGrid(undefined, {
+      multiSortModel: [{ field: '__pivotLabel', direction: 'desc' }],
+    });
+
+    const rows = plugin.processRows(sampleRows);
+    // With descending label sort, the order should be C, B, A
+    const labels = rows
+      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
+      .map((r: any) => r.__pivotLabel);
+    expect(labels).toEqual(['C', 'B', 'A']);
+  });
+
+  it('applies multi-criteria sort from MultiSort model', () => {
+    // Sort by label ascending first, then by total (would only distinguish ties)
+    const { plugin } = createPluginWithGrid(undefined, {
+      multiSortModel: [{ field: '__pivotLabel', direction: 'asc' }],
+    });
+
+    const rows = plugin.processRows(sampleRows);
+    const labels = rows
+      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
+      .map((r: any) => r.__pivotLabel);
+    expect(labels).toEqual(['A', 'B', 'C']);
+  });
+
+  it('handleQuery returns MultiSort configs as array when active', () => {
+    const { plugin } = createPluginWithGrid(undefined, {
+      multiSortModel: [
+        { field: '__pivotLabel', direction: 'asc' },
+        { field: '__pivotTotal', direction: 'desc' },
+      ],
+    });
+    plugin.processRows(sampleRows);
+
+    const result = plugin.handleQuery({ type: 'sort:get-sort-config', context: null });
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toEqual([
+      { by: 'label', direction: 'asc' },
+      { by: 'value', direction: 'desc' },
+    ]);
+  });
+
+  it('skips updateSortIndicators when MultiSort is active', () => {
+    const { plugin, gridEl } = createPluginWithGrid(undefined, {
+      multiSortModel: [{ field: '__pivotLabel', direction: 'asc' }],
+    });
+    plugin.processRows(sampleRows);
+    plugin.afterRender();
+
+    // When MultiSort is active, PivotPlugin should NOT touch sort indicators.
+    // The header cells should not have aria-sort set by PivotPlugin.
+    const labelCell = gridEl.querySelector('.cell[data-field="__pivotLabel"]');
+    // PivotPlugin did NOT set these — MultiSort would in a real integration
+    expect(labelCell?.getAttribute('aria-sort')).toBeNull();
+  });
+});
+
+// #endregion

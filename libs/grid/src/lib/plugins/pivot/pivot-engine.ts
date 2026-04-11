@@ -359,6 +359,48 @@ export function sortPivotRows(rows: PivotRow[], sortConfig: PivotSortConfig, val
 }
 
 /**
+ * Sort pivot rows by multiple criteria (from MultiSort's sort model).
+ * Each criterion is a PivotSortConfig; earlier entries take precedence.
+ * Maintains hierarchy by sorting children recursively at each level.
+ */
+export function sortPivotMulti(rows: PivotRow[], configs: PivotSortConfig[], valueFields: PivotValueField[]): void {
+  if (configs.length === 0) return;
+
+  rows.sort((a, b) => {
+    for (const cfg of configs) {
+      const dir = cfg.direction === 'desc' ? -1 : 1;
+      let cmp = 0;
+
+      if (cfg.by === 'value') {
+        if (cfg.valueField) {
+          // Sort by a specific value column (e.g. "Q1|sales" → look up in row.values)
+          // Find any value key containing this valueField
+          const matchKey = Object.keys(a.values).find((k) => k.endsWith(`|${cfg.valueField}`)) ?? cfg.valueField;
+          const aVal = (a.values[matchKey] ?? a.total) ?? 0;
+          const bVal = (b.values[matchKey] ?? b.total) ?? 0;
+          cmp = ((aVal as number) - (bVal as number)) * dir;
+        } else {
+          // Sort by total
+          cmp = ((a.total ?? 0) - (b.total ?? 0)) * dir;
+        }
+      } else {
+        // Sort by label
+        cmp = a.rowLabel.localeCompare(b.rowLabel) * dir;
+      }
+
+      if (cmp !== 0) return cmp;
+    }
+    return 0;
+  });
+
+  for (const row of rows) {
+    if (row.children?.length) {
+      sortPivotMulti(row.children, configs, valueFields);
+    }
+  }
+}
+
+/**
  * Resolve `defaultExpanded` config to a set of keys, similar to grouping-rows.
  */
 export function resolveDefaultExpanded(

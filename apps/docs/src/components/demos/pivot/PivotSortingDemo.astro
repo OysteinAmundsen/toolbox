@@ -1,0 +1,94 @@
+---
+// PivotSortingDemo.astro — Interactive sorting by clicking column headers
+---
+<div class="grid-demo not-content" id="pivot-sorting-demo">
+  <p class="demo-hint" style="margin: 0 0 0.5rem; font-size: 0.85rem; color: var(--sl-color-gray-3);">
+    Click any column header to sort. Shift-click to sort by multiple columns. Click again to reverse. Click a third time to clear.
+  </p>
+  <tbw-grid style="height: 400px;"></tbw-grid>
+  <div id="pivot-sorting-events-log" data-event-log style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--sl-color-gray-3); min-height: 1.5em;"></div>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/multi-sort';
+import '@toolbox-web/grid/features/pivot';
+
+const container = document.getElementById('pivot-sorting-demo');
+if (container) {
+  const salesData = [
+    { region: 'North', product: 'Widget A', quarter: 'Q1', sales: 1200 },
+    { region: 'North', product: 'Widget B', quarter: 'Q1', sales: 800 },
+    { region: 'North', product: 'Widget A', quarter: 'Q2', sales: 1500 },
+    { region: 'North', product: 'Widget B', quarter: 'Q2', sales: 950 },
+    { region: 'South', product: 'Widget A', quarter: 'Q1', sales: 900 },
+    { region: 'South', product: 'Widget B', quarter: 'Q1', sales: 1100 },
+    { region: 'South', product: 'Widget A', quarter: 'Q2', sales: 1300 },
+    { region: 'South', product: 'Widget B', quarter: 'Q2', sales: 1400 },
+    { region: 'East', product: 'Widget A', quarter: 'Q1', sales: 750 },
+    { region: 'East', product: 'Widget B', quarter: 'Q1', sales: 650 },
+    { region: 'East', product: 'Widget A', quarter: 'Q2', sales: 880 },
+    { region: 'East', product: 'Widget B', quarter: 'Q2', sales: 720 },
+    { region: 'West', product: 'Widget A', quarter: 'Q1', sales: 1050 },
+    { region: 'West', product: 'Widget B', quarter: 'Q1', sales: 920 },
+    { region: 'West', product: 'Widget A', quarter: 'Q2', sales: 1180 },
+    { region: 'West', product: 'Widget B', quarter: 'Q2', sales: 1060 },
+  ];
+
+  const columns = [
+    { field: 'region', header: 'Region' },
+    { field: 'product', header: 'Product' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'sales', header: 'Sales', type: 'number' as const },
+  ];
+
+  const grid = queryGrid('tbw-grid', container);
+  if (grid) {
+    grid.gridConfig = {
+      columns,
+      sortable: true,
+      features: {
+        pivot: {
+          rowGroupFields: ['region', 'product'],
+          columnGroupFields: ['quarter'],
+          valueFields: [{ field: 'sales', aggFunc: 'sum', header: 'Sales' }],
+          showTotals: true,
+          showGrandTotal: true,
+          defaultExpanded: true,
+        },
+        multiSort: { showSortIndex: true },
+      },
+    };
+    grid.rows = salesData;
+
+    // Log sort events (MultiSort fires 'sort-change', standalone pivot fires 'pivot-config-change')
+    const log = document.getElementById('pivot-sorting-events-log');
+    function updateLog() {
+      if (!log) return;
+      const sortConfig = grid.queryPlugins({ type: 'sort:get-sort-config', context: null })[0] as any;
+      if (Array.isArray(sortConfig)) {
+        // Multi-sort mode: array of PivotSortConfig
+        const desc = sortConfig.map((c: any) =>
+          `${c.by}${c.valueField ? ` (${c.valueField})` : ''} ${c.direction}`
+        ).join(', then ');
+        log.textContent = `Sorted by ${desc}`;
+      } else if (sortConfig) {
+        log.textContent = `Sorted by ${sortConfig.by}${sortConfig.valueField ? ` (${sortConfig.valueField})` : ''} — ${sortConfig.direction}`;
+      } else {
+        log.textContent = 'Sort cleared';
+      }
+    }
+    grid.on('sort-change', updateLog);
+    grid.on('pivot-config-change', (detail: any) => {
+      if (detail.property === 'sortRows') updateLog();
+    });
+  }
+}
+</script>
+
+<style>
+  #pivot-sorting-demo tbw-grid {
+    height: 400px;
+  }
+</style>

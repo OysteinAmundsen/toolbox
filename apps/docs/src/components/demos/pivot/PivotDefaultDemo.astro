@@ -12,8 +12,6 @@ import DemoControls from '@components/DemoControls.astro';
       default: true, description: 'Show the per-row Total column on the right' },
     { section: 'PIVOT', name: 'showGrandTotal', label: 'Show grand total', type: 'boolean',
       default: true, description: 'Show grand total row at the bottom' },
-    { section: 'PIVOT', name: 'grandTotalInRowModel', label: 'Grand total in row model', type: 'boolean',
-      default: false, description: 'Render grand total as a regular row instead of a sticky footer (useful for export/copy)' },
     { section: 'PIVOT', name: 'showToolPanel', label: 'Show tool panel', type: 'boolean',
       default: true, description: 'Show drag-and-drop tool panel' },
     { section: 'PIVOT', name: 'defaultExpanded', label: 'Default expanded', type: 'boolean',
@@ -22,12 +20,6 @@ import DemoControls from '@components/DemoControls.astro';
       default: 20, min: 0, max: 60, description: 'Indent per depth level (px)' },
     { section: 'PIVOT', name: 'animation', label: 'Animation', type: 'select',
       options: ['slide', 'fade', 'false'], default: 'slide', description: 'Expand/collapse animation' },
-    { section: 'SORTING', name: 'sortRowsBy', label: 'Sort rows by', type: 'select',
-      options: ['none', 'label', 'value'], default: 'none', description: 'Sort row groups' },
-    { section: 'SORTING', name: 'sortRowsDir', label: 'Sort rows direction', type: 'select',
-      options: ['asc', 'desc'], default: 'asc', description: 'Sort direction for rows' },
-    { section: 'SORTING', name: 'sortColumns', label: 'Sort columns', type: 'select',
-      options: ['none', 'asc', 'desc'], default: 'none', description: 'Sort column keys' },
   ]} />
   <tbw-grid style="height: 400px;"></tbw-grid>
 </div>
@@ -71,9 +63,6 @@ if (container) {
       : 'Max Sales';
     const animRaw = (opts.animation as string) ?? 'slide';
     const animation = animRaw === 'false' ? false : animRaw;
-    const sortRowsBy = (opts.sortRowsBy as string) ?? 'none';
-    const sortRowsDir = (opts.sortRowsDir as string) ?? 'asc';
-    const sortColumnsRaw = (opts.sortColumns as string) ?? 'none';
     const valueField: Record<string, unknown> = {
       field: 'sales', aggFunc, header: headerLabel,
       format: (v: number) => `$${v.toLocaleString()}`,
@@ -86,17 +75,10 @@ if (container) {
       valueFields: [valueField],
       showTotals: opts.showTotals as boolean ?? true,
       showGrandTotal: opts.showGrandTotal as boolean ?? true,
-      grandTotalInRowModel: opts.grandTotalInRowModel as boolean ?? false,
       showToolPanel: opts.showToolPanel as boolean ?? true,
       defaultExpanded: opts.defaultExpanded as boolean ?? true,
       indentWidth: opts.indentWidth as number ?? 20,
     };
-    if (sortRowsBy !== 'none') {
-      pivotConfig.sortRows = { by: sortRowsBy, direction: sortRowsDir };
-    }
-    if (sortColumnsRaw !== 'none') {
-      pivotConfig.sortColumns = sortColumnsRaw;
-    }
     grid.gridConfig = {
       columns,
       features: { pivot: pivotConfig as any },
@@ -104,7 +86,7 @@ if (container) {
     grid.rows = salesData;
   }
 
-  rebuild({ active: true, showTotals: true, showGrandTotal: true, grandTotalInRowModel: false, showToolPanel: true, defaultExpanded: true, indentWidth: 20, animation: 'slide', aggFunc: 'sum', sortRowsBy: 'none', sortRowsDir: 'asc', sortColumns: 'none' });
+  rebuild({ active: true, showTotals: true, showGrandTotal: true, showToolPanel: true, defaultExpanded: true, indentWidth: 20, animation: 'slide', aggFunc: 'sum' });
 
   container.addEventListener('control-change', ((e: CustomEvent) => {
     rebuild(e.detail.allValues);

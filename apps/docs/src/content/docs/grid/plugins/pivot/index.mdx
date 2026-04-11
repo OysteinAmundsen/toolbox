@@ -157,7 +157,39 @@ See [`PivotConfig`](./Interfaces/PivotConfig/) for the full list of options and 
 
 ## Aggregation Functions
 
-`sum`, `avg`, `count`, `min`, `max`, `first`, `last`
+Built-in: `sum`, `avg`, `count`, `min`, `max`, `first`, `last`
+
+### Custom Aggregators
+
+You can provide a custom aggregation function instead of a built-in name:
+
+```ts
+features: {
+  pivot: {
+    rowGroupFields: ['region'],
+    valueFields: [{
+      field: 'sales',
+      aggFunc: (values) => values.reduce((a, b) => a + b * 2, 0),
+    }],
+  },
+}
+```
+
+Custom aggregators appear as "CUSTOM" in the tool panel and cannot be changed via the UI.
+
+## Value Formatting
+
+Format aggregated values with a `format` function on the value field:
+
+```ts
+valueFields: [{
+  field: 'revenue',
+  aggFunc: 'sum',
+  format: (value) => `$${value.toLocaleString()}`,
+}]
+```
+
+If no `format` is provided, the plugin falls back to the original column's `format` function.
 
 ## Programmatic-Only Usage
 
@@ -203,6 +235,73 @@ plugin.expand('North__Widget A');  // expand a specific group by key
 plugin.collapse('North');           // collapse a group
 plugin.expandAll();
 plugin.collapseAll();
+plugin.getExpandedGroups();         // returns string[] of expanded keys
+```
+
+## Sorting
+
+Sort pivot rows and columns:
+
+```ts
+features: {
+  pivot: {
+    rowGroupFields: ['region'],
+    valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+    sortRows: { by: 'label', direction: 'asc' },    // sort row groups alphabetically
+    sortColumns: 'desc',                              // sort column keys descending
+  },
+}
+```
+
+`sortRows` accepts `{ by: 'label' | 'value', direction: 'asc' | 'desc', valueField?: string }`.
+When `by` is `'value'`, rows are sorted by their total (or by a specific `valueField`).
+
+## Default Expanded
+
+Control which groups start expanded:
+
+```ts
+features: {
+  pivot: {
+    defaultExpanded: true,           // all groups (default)
+    defaultExpanded: false,          // all collapsed
+    defaultExpanded: 'North',        // expand only the 'North' group
+    defaultExpanded: ['North', 'South'], // expand specific groups
+    defaultExpanded: 0,              // expand group at index 0
+  },
+}
+```
+
+## Grand Total in Row Model
+
+By default, the grand total renders as a sticky footer. To include it in the row model
+(useful for exports and copy/paste):
+
+```ts
+features: {
+  pivot: {
+    showGrandTotal: true,
+    grandTotalInRowModel: true,
+  },
+}
+```
+
+## Events
+
+| Event | Detail | Description |
+| --- | --- | --- |
+| `pivot-toggle` | `{ key, expanded, label, depth }` | Fired when a group is expanded or collapsed |
+| `pivot-state-change` | `{ active: boolean }` | Fired when pivot mode is enabled or disabled |
+| `pivot-config-change` | `{ property, field?, zone? }` | Fired when pivot configuration changes (fields, agg func, etc.) |
+
+```ts
+grid.addEventListener('pivot-toggle', (e) => {
+  console.log(`${e.detail.label} ${e.detail.expanded ? 'expanded' : 'collapsed'}`);
+});
+
+grid.addEventListener('pivot-state-change', (e) => {
+  console.log(`Pivot is now ${e.detail.active ? 'active' : 'inactive'}`);
+});
 ```
 
 ## Styling

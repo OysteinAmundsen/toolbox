@@ -8,11 +8,27 @@
 
 import { BaseGridPlugin, type PluginManifest } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
-import { buildPivot, flattenPivotRows, getAllGroupKeys, type PivotDataRow } from './pivot-engine';
+import {
+  buildPivot,
+  flattenPivotRows,
+  getAllGroupKeys,
+  getColumnTotals,
+  resolveDefaultExpanded,
+  type PivotDataRow,
+} from './pivot-engine';
 import { createValueKey, validatePivotConfig } from './pivot-model';
 import { renderPivotPanel, type FieldInfo, type PanelCallbacks } from './pivot-panel';
 import { renderPivotGrandTotalRow, renderPivotGroupRow, renderPivotLeafRow, type PivotRowData } from './pivot-rows';
-import type { AggFunc, ExpandCollapseAnimation, PivotConfig, PivotResult, PivotValueField } from './types';
+import type {
+  AggFunc,
+  ExpandCollapseAnimation,
+  PivotConfig,
+  PivotConfigChangeDetail,
+  PivotResult,
+  PivotStateChangeDetail,
+  PivotToggleDetail,
+  PivotValueField,
+} from './types';
 
 // Import CSS as inline string (Vite handles this)
 import styles from './pivot.css?inline';
@@ -125,7 +141,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private pivotResult: PivotResult | null = null;
   private fieldHeaderMap: Map<string, string> = new Map();
   private expandedKeys: Set<string> = new Set();
-  private defaultExpanded = true;
+  private defaultExpanded: boolean | number | string | string[] = true;
   /** Tracks whether user has manually interacted with expand/collapse */
   private userHasToggledExpand = false;
   private originalColumns: Array<{ field: string; header: string }> = [];
@@ -133,6 +149,10 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   private grandTotalFooter: HTMLElement | null = null;
   private previousVisibleKeys = new Set<string>();
   private keysToAnimate = new Set<string>();
+  /** Cached value formatters keyed by value field name */
+  private valueFormatters: Map<string, (value: number) => string> = new Map();
+  /** Column totals for percentage mode */
+  private columnTotals: Record<string, number> = {};
 
   /**
    * Check if the plugin has valid pivot configuration (at least value fields).
@@ -166,6 +186,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.userHasToggledExpand = false;
+    this.valueFormatters.clear();
+    this.columnTotals = {};
   }
 
   // #endregion
@@ -214,6 +236,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
 
     this.buildFieldHeaderMap();
+    this.buildValueFormatters();
     this.defaultExpanded = this.config.defaultExpanded ?? true;
 
     // Build pivot first so we have the rows structure
@@ -221,16 +244,27 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
     // Initialize expanded state with defaults if first build AND user hasn't manually toggled
     // This prevents re-expanding when user collapses all groups
-    if (this.expandedKeys.size === 0 && this.defaultExpanded && !this.userHasToggledExpand) {
-      this.expandAllKeys();
+    if (this.expandedKeys.size === 0 && !this.userHasToggledExpand) {
+      const allKeys = getAllGroupKeys(this.pivotResult.rows);
+      this.expandedKeys = resolveDefaultExpanded(this.defaultExpanded, allKeys);
+    }
+
+    // Cache column totals for percentage mode
+    if (this.config.valueDisplayMode && this.config.valueDisplayMode !== 'raw') {
+      this.columnTotals = getColumnTotals(
+        this.pivotResult.rows,
+        this.pivotResult.columnKeys,
+        this.config.valueFields ?? [],
+      );
     }
 
     // Return flattened pivot rows respecting expanded state
     const indentWidth = this.config.indentWidth ?? 20;
+    const flattenedDefExpanded = this.defaultExpanded === true || this.defaultExpanded === undefined;
     const flatRows: PivotDataRow[] = flattenPivotRows(
       this.pivotResult.rows,
       this.expandedKeys,
-      this.defaultExpanded,
+      flattenedDefExpanded,
     ).map((pr) => ({
       __pivotRowKey: pr.rowKey,
       __pivotLabel: pr.rowLabel,
@@ -257,8 +291,17 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     }
     this.previousVisibleKeys = currentVisibleKeys;
 
-    // Grand total is rendered as a pinned footer row in afterRender,
-    // not as part of the scrolling row data
+    // Grand total: include in row model when configured, otherwise rendered as sticky footer
+    if (this.config.grandTotalInRowModel && this.config.showGrandTotal && this.pivotResult) {
+      flatRows.push({
+        __pivotRowKey: '__grandTotal',
+        __pivotLabel: 'Grand Total',
+        __pivotIsGrandTotal: true,
+        __pivotDepth: 0,
+        __pivotTotal: this.pivotResult.grandTotal,
+        ...this.pivotResult.totals,
+      });
+    }
 
     return flatRows;
   }
@@ -284,12 +327,15 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       for (const vf of this.config.valueFields ?? []) {
         const valueKey = createValueKey([colKey], vf.field);
         const valueHeader = vf.header || this.fieldHeaderMap.get(vf.field) || vf.field;
+        const aggLabel = typeof vf.aggFunc === 'function' ? 'custom' : vf.aggFunc;
+        const formatter = this.valueFormatters.get(vf.field);
         pivotColumns.push({
           field: valueKey,
-          header: `${colKey} - ${valueHeader} (${vf.aggFunc})`,
+          header: `${colKey} - ${valueHeader} (${aggLabel})`,
           width: 120,
           type: 'number',
-        });
+          ...(formatter ? { format: (v: unknown) => (v != null ? formatter(Number(v)) : '') } : {}),
+        } as ColumnConfig);
       }
     }
 
@@ -380,7 +426,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   /** @internal */
   override afterRender(): void {
     // Render grand total as a sticky pinned footer when pivot is active
-    if (this.isActive && this.config.showGrandTotal && this.pivotResult) {
+    // Skip when grandTotalInRowModel is true (grand total is already in the row model)
+    if (this.isActive && this.config.showGrandTotal && this.pivotResult && !this.config.grandTotalInRowModel) {
       this.renderGrandTotalFooter();
     } else {
       this.cleanupGrandTotalFooter();
@@ -456,11 +503,13 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   toggle(key: string): void {
     this.userHasToggledExpand = true;
-    if (this.expandedKeys.has(key)) {
+    const wasExpanded = this.expandedKeys.has(key);
+    if (wasExpanded) {
       this.expandedKeys.delete(key);
     } else {
       this.expandedKeys.add(key);
     }
+    this.emitToggle(key, !wasExpanded);
     this.requestRender();
   }
 
@@ -472,6 +521,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   expand(key: string): void {
     this.userHasToggledExpand = true;
     this.expandedKeys.add(key);
+    this.emitToggle(key, true);
     this.requestRender();
   }
 
@@ -483,6 +533,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   collapse(key: string): void {
     this.userHasToggledExpand = true;
     this.expandedKeys.delete(key);
+    this.emitToggle(key, false);
     this.requestRender();
   }
 
@@ -525,6 +576,15 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     return this.expandedKeys.has(key);
   }
 
+  /**
+   * Get all currently expanded group keys.
+   *
+   * @returns Array of expanded pivot row keys
+   */
+  getExpandedGroups(): string[] {
+    return [...this.expandedKeys];
+  }
+
   // #endregion
 
   // #region Public API
@@ -546,6 +606,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       this.captureOriginalColumns();
     }
     this.isActive = true;
+    this.emit<PivotStateChangeDetail>('pivot-state-change', { active: true });
     this.requestRender();
   }
 
@@ -557,6 +618,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
   disablePivot(): void {
     this.isActive = false;
     this.pivotResult = null;
+    this.emit<PivotStateChangeDetail>('pivot-state-change', { active: false });
     this.requestRender();
   }
 
@@ -596,7 +658,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    */
   setRowGroupFields(fields: string[]): void {
     this.config.rowGroupFields = fields;
-    this.requestRender();
+    this.emitConfigChange('rowGroupFields');
+    this.refresh();
   }
 
   /**
@@ -614,7 +677,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    */
   setColumnGroupFields(fields: string[]): void {
     this.config.columnGroupFields = fields;
-    this.requestRender();
+    this.emitConfigChange('columnGroupFields');
+    this.refresh();
   }
 
   /**
@@ -636,7 +700,8 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    */
   setValueFields(fields: PivotValueField[]): void {
     this.config.valueFields = fields;
-    this.requestRender();
+    this.emitConfigChange('valueFields');
+    this.refresh();
   }
 
   /**
@@ -753,13 +818,37 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
         }
         this.refreshPanel();
       },
-      onAddFieldToZone: (field, zone) => this.addFieldToZone(field, zone),
-      onRemoveFieldFromZone: (field, zone) => this.removeFieldFromZone(field, zone),
-      onAddValueField: (field, aggFunc) => this.addValueField(field, aggFunc),
-      onRemoveValueField: (field) => this.removeValueField(field),
-      onUpdateValueAggFunc: (field, aggFunc) => this.updateValueAggFunc(field, aggFunc),
+      onAddFieldToZone: (field, zone) => {
+        this.addFieldToZone(field, zone);
+        this.emitConfigChange(zone === 'rowGroups' ? 'rowGroupFields' : 'columnGroupFields', field, zone);
+      },
+      onRemoveFieldFromZone: (field, zone) => {
+        this.removeFieldFromZone(field, zone);
+        this.emitConfigChange(zone === 'rowGroups' ? 'rowGroupFields' : 'columnGroupFields', field, zone);
+      },
+      onReorderFieldInZone: (field, zone, newIndex) => {
+        this.reorderFieldInZone(field, zone, newIndex);
+        this.emitConfigChange(zone === 'rowGroups' ? 'rowGroupFields' : 'columnGroupFields', field, zone);
+      },
+      onMoveFieldBetweenZones: (field, fromZone, toZone) => {
+        this.moveFieldBetweenZones(field, fromZone, toZone);
+        this.emitConfigChange(toZone === 'rowGroups' ? 'rowGroupFields' : 'columnGroupFields', field, toZone);
+      },
+      onAddValueField: (field, aggFunc) => {
+        this.addValueField(field, aggFunc);
+        this.emitConfigChange('valueFields', field, 'values');
+      },
+      onRemoveValueField: (field) => {
+        this.removeValueField(field);
+        this.emitConfigChange('valueFields', field, 'values');
+      },
+      onUpdateValueAggFunc: (field, aggFunc) => {
+        this.updateValueAggFunc(field, aggFunc);
+        this.emitConfigChange('valueFields', field, 'values');
+      },
       onOptionChange: (option, value) => {
         this.config[option] = value;
+        this.emitConfigChange(option);
         if (this.isActive) this.refresh();
       },
       getAvailableFields: () => this.getAvailableFields(),
@@ -801,6 +890,41 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     this.refreshIfActive();
   }
 
+  private reorderFieldInZone(field: string, zoneType: 'rowGroups' | 'columnGroups', newIndex: number): void {
+    const fields =
+      zoneType === 'rowGroups' ? [...(this.config.rowGroupFields ?? [])] : [...(this.config.columnGroupFields ?? [])];
+    const oldIndex = fields.indexOf(field);
+    if (oldIndex === -1 || oldIndex === newIndex) return;
+    fields.splice(oldIndex, 1);
+    fields.splice(newIndex > oldIndex ? newIndex - 1 : newIndex, 0, field);
+    if (zoneType === 'rowGroups') {
+      this.config.rowGroupFields = fields;
+    } else {
+      this.config.columnGroupFields = fields;
+    }
+    this.refreshIfActive();
+  }
+
+  private moveFieldBetweenZones(
+    field: string,
+    fromZone: 'rowGroups' | 'columnGroups',
+    toZone: 'rowGroups' | 'columnGroups',
+  ): void {
+    // Remove from source
+    if (fromZone === 'rowGroups') {
+      this.config.rowGroupFields = (this.config.rowGroupFields ?? []).filter((f) => f !== field);
+    } else {
+      this.config.columnGroupFields = (this.config.columnGroupFields ?? []).filter((f) => f !== field);
+    }
+    // Add to target
+    if (toZone === 'rowGroups') {
+      this.config.rowGroupFields = [...(this.config.rowGroupFields ?? []), field];
+    } else {
+      this.config.columnGroupFields = [...(this.config.columnGroupFields ?? []), field];
+    }
+    this.refreshIfActive();
+  }
+
   private removeFromOtherZones(field: string, targetZone: 'rowGroups' | 'columnGroups' | 'values'): void {
     if (targetZone !== 'rowGroups') {
       this.config.rowGroupFields = (this.config.rowGroupFields ?? []).filter((f) => f !== field);
@@ -836,6 +960,52 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
       this.config.valueFields = [...valueFields];
     }
     if (this.isActive) this.refresh();
+  }
+
+  // #region Event Helpers
+
+  private emitToggle(key: string, expanded: boolean): void {
+    const flatRow = this.rows.find((r) => (r as PivotDataRow).__pivotRowKey === key) as PivotDataRow | undefined;
+    this.emit<PivotToggleDetail>('pivot-toggle', {
+      key,
+      expanded,
+      label: (flatRow?.__pivotLabel as string) ?? key,
+      depth: (flatRow?.__pivotDepth as number) ?? 0,
+    });
+  }
+
+  private emitConfigChange(property: string, field?: string, zone?: 'rowGroups' | 'columnGroups' | 'values'): void {
+    this.emit<PivotConfigChangeDetail>('pivot-config-change', { property, field, zone });
+  }
+
+  // #endregion
+
+  // #region Value Formatting
+
+  /**
+   * Build value formatters from PivotValueField.format or original column format.
+   */
+  private buildValueFormatters(): void {
+    this.valueFormatters.clear();
+    const valueFields = this.config.valueFields ?? [];
+    for (const vf of valueFields) {
+      if (vf.format) {
+        this.valueFormatters.set(vf.field, vf.format);
+      } else {
+        // Check if the original column had a format function
+        const origCol = this.originalColumns.find((c) => c.field === vf.field);
+        if (origCol) {
+          const allCols = this.grid.getAllColumns?.() ?? this.grid.columns ?? [];
+          const col = allCols.find((c: { field: string }) => c.field === vf.field) as
+            | { field: string; format?: (value: unknown, row: unknown) => string }
+            | undefined;
+          if (col?.format) {
+            const fmt = col.format;
+            this.valueFormatters.set(vf.field, (v: number) => fmt(v, {}));
+          }
+        }
+      }
+    }
   }
 
   // #endregion

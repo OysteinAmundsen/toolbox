@@ -1,16 +1,26 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildPivot,
   buildPivotRows,
   calculateTotals,
   flattenPivotRows,
+  getColumnTotals,
   getUniqueColumnKeys,
   groupByFields,
   type PivotDataRow,
+  resolveDefaultExpanded,
+  sortPivotRows,
 } from './pivot-engine';
 import { createValueKey, getPivotAggregator, validatePivotConfig } from './pivot-model';
 import { PivotPlugin } from './PivotPlugin';
-import type { PivotConfig, PivotRow, PivotValueField } from './types';
+import type {
+  PivotConfig,
+  PivotConfigChangeDetail,
+  PivotRow,
+  PivotStateChangeDetail,
+  PivotToggleDetail,
+  PivotValueField,
+} from './types';
 
 describe('pivot-model', () => {
   describe('getPivotAggregator', () => {
@@ -1076,5 +1086,376 @@ describe('PivotPlugin lifecycle and API', () => {
       // Should return original rows due to validation error
       expect(result).toEqual(mockGrid.rows);
     });
+  });
+
+  describe('Custom aggregator', () => {
+    it('uses a custom aggregation function in processRows', () => {
+      const weightedSum = (values: number[]) => values.reduce((a, b) => a + b * 2, 0);
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: weightedSum }],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', sales: 10 },
+        { category: 'A', sales: 20 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      const result = plugin.processRows(mockGrid.rows);
+      const groupRow = result.find((r) => r.__pivotRowKey === 'A');
+      expect(groupRow).toBeDefined();
+      expect(groupRow?.__pivotTotal).toBe(60); // (10 + 20) * 2
+    });
+  });
+
+  describe('Events', () => {
+    it('emits pivot-state-change when enabling pivot', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      const handler = vi.fn();
+      mockGrid.addEventListener('pivot-state-change', handler);
+
+      plugin.enablePivot();
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      const detail = handler.mock.calls[0][0].detail as PivotStateChangeDetail;
+      expect(detail.active).toBe(true);
+    });
+
+    it('emits pivot-state-change when disabling pivot', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      const handler = vi.fn();
+      mockGrid.addEventListener('pivot-state-change', handler);
+      plugin.disablePivot();
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      const detail = handler.mock.calls[0][0].detail as PivotStateChangeDetail;
+      expect(detail.active).toBe(false);
+    });
+
+    it('emits pivot-toggle when toggling a group', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', sales: 10 },
+        { category: 'B', sales: 20 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const handler = vi.fn();
+      mockGrid.addEventListener('pivot-toggle', handler);
+
+      plugin.toggle('A');
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      const detail = handler.mock.calls[0][0].detail as PivotToggleDetail;
+      expect(detail.key).toBe('A');
+      expect(typeof detail.expanded).toBe('boolean');
+    });
+
+    it('emits pivot-config-change when setting row group fields', () => {
+      const plugin = new PivotPlugin({});
+      const mockGrid = createMockGrid();
+      plugin.attach(mockGrid as any);
+
+      const handler = vi.fn();
+      mockGrid.addEventListener('pivot-config-change', handler);
+
+      plugin.setRowGroupFields(['category']);
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      const detail = handler.mock.calls[0][0].detail as PivotConfigChangeDetail;
+      expect(detail.property).toBe('rowGroupFields');
+    });
+  });
+
+  describe('getExpandedGroups', () => {
+    it('returns empty array when no groups expanded', () => {
+      const plugin = new PivotPlugin({});
+      expect(plugin.getExpandedGroups()).toEqual([]);
+    });
+
+    it('returns expanded keys after processRows with multi-level groups', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category', 'subcategory'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        defaultExpanded: true,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', subcategory: 'X', sales: 10 },
+        { category: 'B', subcategory: 'Y', sales: 20 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const groups = plugin.getExpandedGroups();
+      expect(groups).toContain('A');
+      expect(groups).toContain('B');
+    });
+
+    it('reflects collapse state', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category', 'subcategory'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        defaultExpanded: true,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', subcategory: 'X', sales: 10 },
+        { category: 'B', subcategory: 'Y', sales: 20 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      plugin.collapse('A');
+      const groups = plugin.getExpandedGroups();
+      expect(groups).not.toContain('A');
+      expect(groups).toContain('B');
+    });
+  });
+
+  describe('grandTotalInRowModel', () => {
+    it('appends grand total row when grandTotalInRowModel is true', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        showGrandTotal: true,
+        grandTotalInRowModel: true,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', sales: 10 },
+        { category: 'B', sales: 20 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      const rows = plugin.processRows(mockGrid.rows);
+      const grandTotalRow = rows.find((r) => r.__pivotIsGrandTotal);
+      expect(grandTotalRow).toBeDefined();
+      expect(grandTotalRow?.__pivotLabel).toBe('Grand Total');
+      expect(grandTotalRow?.__pivotRowKey).toBe('__grandTotal');
+    });
+
+    it('does not append grand total row when grandTotalInRowModel is false', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+        showGrandTotal: true,
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [
+        { category: 'A', sales: 10 },
+        { category: 'B', sales: 20 },
+      ];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+
+      const rows = plugin.processRows(mockGrid.rows);
+      const grandTotalRow = rows.find((r) => r.__pivotIsGrandTotal);
+      expect(grandTotalRow).toBeUndefined();
+    });
+  });
+
+  describe('Value formatting', () => {
+    it('applies custom format from PivotValueField', () => {
+      const plugin = new PivotPlugin({
+        rowGroupFields: ['category'],
+        valueFields: [
+          {
+            field: 'sales',
+            aggFunc: 'sum',
+            format: (v: number) => `$${v.toFixed(2)}`,
+          },
+        ],
+      });
+      const mockGrid = createMockGrid();
+      mockGrid.rows = [{ category: 'A', sales: 100 }];
+      plugin.attach(mockGrid as any);
+      plugin.enablePivot();
+      plugin.processRows(mockGrid.rows);
+
+      const columns = plugin.processColumns([]);
+      const valueCol = columns.find((c) => c.field !== '__pivotLabel' && c.field !== '__pivotTotal');
+      expect(valueCol).toBeDefined();
+      expect(typeof valueCol?.format).toBe('function');
+      // The format wraps the custom formatter
+      expect((valueCol?.format as (v: unknown) => string)(100)).toBe('$100.00');
+    });
+  });
+});
+
+// #region Engine function tests
+
+describe('sortPivotRows', () => {
+  it('sorts by label ascending', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'C', rowLabel: 'C', depth: 0, isGroup: false, values: {}, total: 3 },
+      { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: {}, total: 1 },
+      { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: {}, total: 2 },
+    ];
+    sortPivotRows(rows, { by: 'label', direction: 'asc' }, []);
+    expect(rows.map((r) => r.rowLabel)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('sorts by label descending', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: {}, total: 1 },
+      { rowKey: 'C', rowLabel: 'C', depth: 0, isGroup: false, values: {}, total: 3 },
+      { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: {}, total: 2 },
+    ];
+    sortPivotRows(rows, { by: 'label', direction: 'desc' }, []);
+    expect(rows.map((r) => r.rowLabel)).toEqual(['C', 'B', 'A']);
+  });
+
+  it('sorts by value ascending', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'C', rowLabel: 'C', depth: 0, isGroup: false, values: {}, total: 30 },
+      { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: {}, total: 10 },
+      { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: {}, total: 20 },
+    ];
+    sortPivotRows(rows, { by: 'value', direction: 'asc' }, [{ field: 'sales', aggFunc: 'sum' }]);
+    expect(rows.map((r) => r.rowLabel)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('sorts children recursively', () => {
+    const rows: PivotRow[] = [
+      {
+        rowKey: 'A',
+        rowLabel: 'A',
+        depth: 0,
+        isGroup: true,
+        values: {},
+        total: 0,
+        children: [
+          { rowKey: 'A|Z', rowLabel: 'Z', depth: 1, isGroup: false, values: {}, total: 2 },
+          { rowKey: 'A|X', rowLabel: 'X', depth: 1, isGroup: false, values: {}, total: 1 },
+        ],
+      },
+    ];
+    sortPivotRows(rows, { by: 'label', direction: 'asc' }, []);
+    expect(rows[0].children!.map((r) => r.rowLabel)).toEqual(['X', 'Z']);
+  });
+});
+
+describe('resolveDefaultExpanded', () => {
+  const allKeys = ['A', 'B', 'C'];
+
+  it('returns all keys for true', () => {
+    const result = resolveDefaultExpanded(true, allKeys);
+    expect(result).toEqual(new Set(['A', 'B', 'C']));
+  });
+
+  it('returns all keys for undefined', () => {
+    const result = resolveDefaultExpanded(undefined, allKeys);
+    expect(result).toEqual(new Set(['A', 'B', 'C']));
+  });
+
+  it('returns empty set for false', () => {
+    const result = resolveDefaultExpanded(false, allKeys);
+    expect(result).toEqual(new Set());
+  });
+
+  it('returns single key for number index', () => {
+    const result = resolveDefaultExpanded(1, allKeys);
+    expect(result).toEqual(new Set(['B']));
+  });
+
+  it('returns empty set for out-of-range index', () => {
+    const result = resolveDefaultExpanded(99, allKeys);
+    expect(result).toEqual(new Set());
+  });
+
+  it('returns single key for string', () => {
+    const result = resolveDefaultExpanded('B', allKeys);
+    expect(result).toEqual(new Set(['B']));
+  });
+
+  it('returns set from array', () => {
+    const result = resolveDefaultExpanded(['A', 'C'], allKeys);
+    expect(result).toEqual(new Set(['A', 'C']));
+  });
+});
+
+describe('getColumnTotals', () => {
+  it('sums leaf row values per column key', () => {
+    const rows: PivotRow[] = [
+      { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: { 'Q1|sales': 10, 'Q2|sales': 20 }, total: 30 },
+      { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: { 'Q1|sales': 5, 'Q2|sales': 15 }, total: 20 },
+    ];
+    const totals = getColumnTotals(rows, ['Q1', 'Q2'], [{ field: 'sales', aggFunc: 'sum' }]);
+    expect(totals['Q1|sales']).toBe(15);
+    expect(totals['Q2|sales']).toBe(35);
+  });
+
+  it('skips group rows to avoid double-counting', () => {
+    const rows: PivotRow[] = [
+      {
+        rowKey: 'A',
+        rowLabel: 'A',
+        depth: 0,
+        isGroup: true,
+        values: { 'Q1|sales': 100 },
+        total: 100,
+        children: [{ rowKey: 'A|x', rowLabel: 'x', depth: 1, isGroup: false, values: { 'Q1|sales': 100 }, total: 100 }],
+      },
+    ];
+    const totals = getColumnTotals(rows, ['Q1'], [{ field: 'sales', aggFunc: 'sum' }]);
+    expect(totals['Q1|sales']).toBe(100); // not 200
+  });
+});
+
+describe('getUniqueColumnKeys sorting', () => {
+  const rows = [{ region: 'West' }, { region: 'East' }, { region: 'North' }];
+
+  it('sorts ascending by default', () => {
+    const keys = getUniqueColumnKeys(rows, ['region']);
+    expect(keys).toEqual(['East', 'North', 'West']);
+  });
+
+  it('sorts descending when requested', () => {
+    const keys = getUniqueColumnKeys(rows, ['region'], 'desc');
+    expect(keys).toEqual(['West', 'North', 'East']);
+  });
+});
+
+describe('buildPivot with sorting', () => {
+  it('applies sortRows config', () => {
+    const rows = [
+      { category: 'B', sales: 20 },
+      { category: 'A', sales: 10 },
+    ];
+    const config: PivotConfig = {
+      rowGroupFields: ['category'],
+      valueFields: [{ field: 'sales', aggFunc: 'sum' }],
+      sortRows: { by: 'label', direction: 'desc' },
+    };
+    const result = buildPivot(rows, config);
+    expect(result.rows[0].rowLabel).toBe('B');
+    expect(result.rows[1].rowLabel).toBe('A');
+  });
+});
+
+describe('Custom aggregator in model', () => {
+  it('getPivotAggregator returns the function for custom aggFunc', () => {
+    const custom = (values: number[]) => values.reduce((a, b) => a * b, 1);
+    const agg = getPivotAggregator(custom as any);
+    expect(agg([2, 3, 4])).toBe(24);
   });
 });

@@ -1,8 +1,14 @@
 import { getValueAggregator } from '../../core/internal/aggregators';
-import type { PivotConfig } from './types';
+import type { AggFunc, PivotConfig } from './types';
 
-// Re-export for backward compatibility within pivot plugin
-export const getPivotAggregator = getValueAggregator;
+/**
+ * Resolve an AggFunc to an executable function.
+ * Supports both built-in string names and custom functions.
+ */
+export function getPivotAggregator(aggFunc: AggFunc): (values: number[]) => number {
+  if (typeof aggFunc === 'function') return aggFunc;
+  return getValueAggregator(aggFunc);
+}
 
 export function validatePivotConfig(config: PivotConfig): string[] {
   const errors: string[] = [];

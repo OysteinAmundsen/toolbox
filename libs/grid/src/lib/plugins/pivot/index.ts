@@ -6,4 +6,18 @@
  */
 export type { PivotDataRow } from './pivot-engine';
 export { PivotPlugin } from './PivotPlugin';
-export type { AggFunc, PivotConfig, PivotResult, PivotRow, PivotValueField } from './types';
+export type {
+  AggFunc,
+  CustomAggFunc,
+  PivotConfig,
+  PivotConfigChangeDetail,
+  PivotDefaultExpandedValue,
+  PivotResult,
+  PivotRow,
+  PivotSortConfig,
+  PivotSortDir,
+  PivotStateChangeDetail,
+  PivotToggleDetail,
+  PivotValueDisplayMode,
+  PivotValueField,
+} from './types';

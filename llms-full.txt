@@ -823,6 +823,9 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `group-expand` | GroupingRows | `GroupExpandDetail` |
 | `export-start` | Export | `ExportStartDetail` |
 | `export-complete` | Export | `ExportCompleteDetail` |
+| `pivot-toggle` | Pivot | `PivotToggleDetail` (`key`, `expanded`, `label`, `depth`) |
+| `pivot-state-change` | Pivot | `PivotStateChangeDetail` (`active`) |
+| `pivot-config-change` | Pivot | `PivotConfigChangeDetail` (`property`, `field?`, `zone?`) |
 | `clipboard-copy` | Clipboard | `ClipboardCopyDetail` |
 | `clipboard-paste` | Clipboard | `ClipboardPasteDetail` |
 | `context-menu-open` | ContextMenu | `ContextMenuOpenDetail` |
@@ -1088,14 +1091,18 @@ new PivotPlugin({
   active?: boolean,                  // Whether pivot is active on load (default: true when fields configured)
   rowGroupFields?: string[],         // Fields to group rows by
   columnGroupFields?: string[],      // Fields to create pivot columns from
-  valueFields?: PivotValueField[],   // Value fields with aggregation: { field, aggFunc, header? }
-                                     //   aggFunc: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last'
+  valueFields?: PivotValueField[],   // Value fields with aggregation: { field, aggFunc, header?, format? }
+                                     //   aggFunc: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'first' | 'last' | CustomAggFunc
+                                     //   format?: (value: number) => string  — custom value formatter
   showTotals?: boolean,              // Show row totals column
   showGrandTotal?: boolean,          // Show grand total row
-  defaultExpanded?: boolean,         // Groups expanded by default (default: true)
+  grandTotalInRowModel?: boolean,    // Include grand total in row model (for export/copy)
+  defaultExpanded?: boolean | number | string | string[],  // Groups expanded by default (default: true)
   indentWidth?: number,              // Indent per depth level in px (default: 20)
   showToolPanel?: boolean,           // Show pivot config tool panel (default: true)
   animation?: false | 'slide' | 'fade', // Expand/collapse animation (default: 'slide')
+  sortRows?: PivotSortConfig,        // Sort row groups: { by: 'label' | 'value', direction: 'asc' | 'desc' }
+  sortColumns?: 'asc' | 'desc',     // Sort column keys (default: 'asc')
 })
 // Programmatic API:
 const pivot = grid.getPluginByName('pivot');
@@ -1109,6 +1116,8 @@ pivot.setValueFields(fields);        // Update value fields
 pivot.refresh();                     // Force re-compute pivot
 pivot.expandAll();                   // Expand all groups
 pivot.collapseAll();                 // Collapse all groups
+pivot.getExpandedGroups();           // Get expanded group keys
+// Events: 'pivot-toggle', 'pivot-state-change', 'pivot-config-change'
 ```
 
 ### TooltipPlugin

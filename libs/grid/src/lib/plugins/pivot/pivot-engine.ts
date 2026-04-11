@@ -1,5 +1,5 @@
 import { createValueKey, getPivotAggregator } from './pivot-model';
-import type { PivotConfig, PivotResult, PivotRow, PivotValueField } from './types';
+import type { PivotConfig, PivotResult, PivotRow, PivotSortConfig, PivotSortDir, PivotValueField } from './types';
 
 export type PivotDataRow = Record<string, unknown>;
 
@@ -13,7 +13,7 @@ export function buildPivot(rows: PivotDataRow[], config: PivotConfig): PivotResu
   const valueFields = config.valueFields ?? [];
 
   // Get unique column combinations
-  const columnKeys = getUniqueColumnKeys(rows, columnGroupFields);
+  const columnKeys = getUniqueColumnKeys(rows, columnGroupFields, config.sortColumns);
 
   // Build hierarchical pivot rows
   const pivotRows = buildHierarchicalPivotRows(
@@ -25,6 +25,11 @@ export function buildPivot(rows: PivotDataRow[], config: PivotConfig): PivotResu
     0, // starting depth
     '', // parent key prefix
   );
+
+  // Sort row groups if configured
+  if (config.sortRows) {
+    sortPivotRows(pivotRows, config.sortRows, valueFields);
+  }
 
   // Calculate grand totals
   const totals = calculateTotals(pivotRows, columnKeys, valueFields);
@@ -41,7 +46,11 @@ export function buildPivot(rows: PivotDataRow[], config: PivotConfig): PivotResu
 /**
  * Get unique column key combinations from the data.
  */
-export function getUniqueColumnKeys(rows: PivotDataRow[], columnFields: string[]): string[] {
+export function getUniqueColumnKeys(
+  rows: PivotDataRow[],
+  columnFields: string[],
+  sortDir: PivotSortDir = 'asc',
+): string[] {
   if (columnFields.length === 0) return ['value'];
 
   const keys = new Set<string>();
@@ -49,7 +58,8 @@ export function getUniqueColumnKeys(rows: PivotDataRow[], columnFields: string[]
     const key = columnFields.map((f) => String(row[f] ?? '')).join('|');
     keys.add(key);
   }
-  return [...keys].sort();
+  const sorted = [...keys].sort();
+  return sortDir === 'desc' ? sorted.reverse() : sorted;
 }
 
 /**
@@ -320,4 +330,78 @@ export function getAllGroupKeys(rows: PivotRow[]): string[] {
   }
 
   return keys;
+}
+
+/**
+ * Recursively sort pivot rows at each level.
+ */
+export function sortPivotRows(rows: PivotRow[], sortConfig: PivotSortConfig, valueFields: PivotValueField[]): void {
+  const dir = sortConfig.direction === 'desc' ? -1 : 1;
+
+  rows.sort((a, b) => {
+    if (sortConfig.by === 'value') {
+      const field = sortConfig.valueField ?? valueFields[0]?.field;
+      if (field) {
+        const aVal = a.total ?? 0;
+        const bVal = b.total ?? 0;
+        return (aVal - bVal) * dir;
+      }
+    }
+    // Default: sort by label
+    return a.rowLabel.localeCompare(b.rowLabel) * dir;
+  });
+
+  for (const row of rows) {
+    if (row.children?.length) {
+      sortPivotRows(row.children, sortConfig, valueFields);
+    }
+  }
+}
+
+/**
+ * Resolve `defaultExpanded` config to a set of keys, similar to grouping-rows.
+ */
+export function resolveDefaultExpanded(
+  value: boolean | number | string | string[] | undefined,
+  allGroupKeys: string[],
+): Set<string> {
+  if (value === true || value === undefined) return new Set(allGroupKeys);
+  if (value === false) return new Set();
+  if (typeof value === 'number') {
+    const key = allGroupKeys[value];
+    return key ? new Set([key]) : new Set();
+  }
+  if (typeof value === 'string') return new Set([value]);
+  if (Array.isArray(value)) return new Set(value);
+  return new Set();
+}
+
+/**
+ * Calculate column totals (sum of all leaf row values per column key).
+ * Used for percentage-of-column calculations.
+ */
+export function getColumnTotals(
+  rows: PivotRow[],
+  columnKeys: string[],
+  valueFields: PivotValueField[],
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+
+  function sumLeaves(rows: PivotRow[]) {
+    for (const row of rows) {
+      if (!row.isGroup || !row.children?.length) {
+        for (const colKey of columnKeys) {
+          for (const vf of valueFields) {
+            const valueKey = createValueKey([colKey], vf.field);
+            totals[valueKey] = (totals[valueKey] ?? 0) + (row.values[valueKey] ?? 0);
+          }
+        }
+      } else if (row.children) {
+        sumLeaves(row.children);
+      }
+    }
+  }
+
+  sumLeaves(rows);
+  return totals;
 }

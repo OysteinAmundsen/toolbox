@@ -6,10 +6,13 @@
  */
 
 import { GridClasses } from '../../core/constants';
-import type { AggFunc, PivotConfig, PivotValueField } from './types';
+import type { AggFunc, CustomAggFunc, PivotConfig, PivotValueField } from './types';
 
-/** All available aggregation functions */
-export const AGG_FUNCS: AggFunc[] = ['sum', 'avg', 'count', 'min', 'max', 'first', 'last'];
+/** Built-in aggregation function names (excludes custom functions) */
+type BuiltInAggFunc = Exclude<AggFunc, CustomAggFunc>;
+
+/** All available built-in aggregation functions for the panel UI */
+export const AGG_FUNCS: BuiltInAggFunc[] = ['sum', 'avg', 'count', 'min', 'max', 'first', 'last'];
 
 /** Field info for available fields */
 export interface FieldInfo {
@@ -22,6 +25,12 @@ export interface PanelCallbacks {
   onTogglePivot: (enabled: boolean) => void;
   onAddFieldToZone: (field: string, zone: 'rowGroups' | 'columnGroups') => void;
   onRemoveFieldFromZone: (field: string, zone: 'rowGroups' | 'columnGroups') => void;
+  onReorderFieldInZone: (field: string, zone: 'rowGroups' | 'columnGroups', newIndex: number) => void;
+  onMoveFieldBetweenZones: (
+    field: string,
+    fromZone: 'rowGroups' | 'columnGroups',
+    toZone: 'rowGroups' | 'columnGroups',
+  ) => void;
   onAddValueField: (field: string, aggFunc: AggFunc) => void;
   onRemoveValueField: (field: string) => void;
   onUpdateValueAggFunc: (field: string, aggFunc: AggFunc) => void;
@@ -112,7 +121,7 @@ function createFieldZone(zoneType: 'rowGroups' | 'columnGroups', ctx: RenderCont
   if (currentFields.length === 0) {
     const placeholder = document.createElement('div');
     placeholder.className = 'tbw-pivot-placeholder';
-    placeholder.textContent = 'Drag fields here or click to add';
+    placeholder.textContent = 'Drag fields here';
     zone.appendChild(placeholder);
   } else {
     for (const field of currentFields) {
@@ -120,7 +129,7 @@ function createFieldZone(zoneType: 'rowGroups' | 'columnGroups', ctx: RenderCont
     }
   }
 
-  // Drop handling
+  // Drop handling — supports reorder within zone and cross-zone moves
   zone.addEventListener(
     'dragover',
     (e) => {
@@ -145,7 +154,28 @@ function createFieldZone(zoneType: 'rowGroups' | 'columnGroups', ctx: RenderCont
       zone.classList.remove('drag-over');
 
       const field = e.dataTransfer?.getData('text/plain');
-      if (field) {
+      const sourceZone = e.dataTransfer?.getData('source-zone') as 'rowGroups' | 'columnGroups' | undefined;
+      if (!field) return;
+
+      // Determine drop position for reordering
+      const chips = zone.querySelectorAll('.tbw-pivot-field-chip');
+      let dropIndex = chips.length;
+      for (let i = 0; i < chips.length; i++) {
+        const rect = chips[i].getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2) {
+          dropIndex = i;
+          break;
+        }
+      }
+
+      if (sourceZone && sourceZone !== zoneType && (sourceZone === 'rowGroups' || sourceZone === 'columnGroups')) {
+        // Cross-zone move
+        callbacks.onMoveFieldBetweenZones(field, sourceZone, zoneType);
+      } else if (sourceZone === zoneType) {
+        // Reorder within same zone
+        callbacks.onReorderFieldInZone(field, zoneType, dropIndex);
+      } else {
+        // New field from available fields
         callbacks.onAddFieldToZone(field, zoneType);
       }
     },
@@ -221,7 +251,7 @@ function createValuesZone(ctx: RenderContext): HTMLElement {
   if (currentValues.length === 0) {
     const placeholder = document.createElement('div');
     placeholder.className = 'tbw-pivot-placeholder';
-    placeholder.textContent = 'Drag numeric fields here for aggregation';
+    placeholder.textContent = 'Drag numeric fields here';
     zone.appendChild(placeholder);
   } else {
     for (const valueField of currentValues) {
@@ -280,22 +310,33 @@ function createValueChip(valueField: PivotValueField, ctx: RenderContext): HTMLE
   label.className = 'tbw-pivot-chip-label';
   label.textContent = fieldInfo?.header ?? valueField.field;
 
+  const isCustomAgg = typeof valueField.aggFunc === 'function';
+
   const aggSelect = document.createElement('select');
   aggSelect.className = 'tbw-pivot-agg-select';
   aggSelect.title = 'Aggregation function';
+
+  if (isCustomAgg) {
+    const option = document.createElement('option');
+    option.value = '__custom__';
+    option.textContent = 'CUSTOM';
+    option.selected = true;
+    aggSelect.appendChild(option);
+    aggSelect.disabled = true;
+  }
 
   for (const aggFunc of AGG_FUNCS) {
     const option = document.createElement('option');
     option.value = aggFunc;
     option.textContent = aggFunc.toUpperCase();
-    option.selected = aggFunc === valueField.aggFunc;
+    if (!isCustomAgg) option.selected = aggFunc === valueField.aggFunc;
     aggSelect.appendChild(option);
   }
 
   aggSelect.addEventListener(
     'change',
     () => {
-      callbacks.onUpdateValueAggFunc(valueField.field, aggSelect.value as AggFunc);
+      callbacks.onUpdateValueAggFunc(valueField.field, aggSelect.value as BuiltInAggFunc);
     },
     { signal },
   );
@@ -346,6 +387,29 @@ function createAvailableFieldsZone(ctx: RenderContext): HTMLElement {
     empty.textContent = 'All fields are in use';
     zone.appendChild(empty);
   } else {
+    // Search filter for available fields (only when 6+ fields)
+    const fieldsContainer = document.createElement('div');
+    fieldsContainer.className = 'tbw-pivot-fields-list';
+
+    if (availableFields.length >= 6) {
+      const search = document.createElement('input');
+      search.type = 'text';
+      search.placeholder = 'Filter fields\u2026';
+      search.className = 'tbw-pivot-field-search';
+      search.addEventListener(
+        'input',
+        () => {
+          const query = search.value.toLowerCase();
+          for (const chip of fieldsContainer.querySelectorAll('.tbw-pivot-field-chip')) {
+            const el = chip as HTMLElement;
+            el.style.display = el.textContent?.toLowerCase().includes(query) ? '' : 'none';
+          }
+        },
+        { signal },
+      );
+      zone.appendChild(search);
+    }
+
     for (const field of availableFields) {
       const chip = document.createElement('div');
       chip.className = 'tbw-pivot-field-chip available';
@@ -370,8 +434,10 @@ function createAvailableFieldsZone(ctx: RenderContext): HTMLElement {
         { signal },
       );
 
-      zone.appendChild(chip);
+      fieldsContainer.appendChild(chip);
     }
+
+    zone.appendChild(fieldsContainer);
   }
 
   return zone;

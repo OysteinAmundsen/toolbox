@@ -41,7 +41,9 @@ Do **not** consider work complete until all five steps are finished. Skipping st
 
 ### Enforcement
 
-**At the start of every task**, create a todo list with all five delivery steps before writing any code. Mark each step in-progress/completed as you go. Do **not** suggest a commit or report completion until every step shows completed. This is non-negotiable — the todo list is the mechanism that prevents steps from being forgotten.
+**At the start of every task**, create a todo list with all five delivery steps **plus a final "Suggest commit" step** before writing any code. Mark each step in-progress/completed as you go. Do **not** report completion until every step — including the commit suggestion — shows completed. This is non-negotiable — the todo list is the mechanism that prevents steps from being forgotten.
+
+**After all five steps are complete**, suggest a commit using the format from the Commit Hygiene section below. This is not optional — every completed task must end with a commit suggestion.
 
 ## Commit Hygiene
 

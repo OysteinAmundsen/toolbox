@@ -301,9 +301,30 @@
 
   .tbw-pivot-available-fields {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: var(--tbw-spacing-sm, 0.375rem);
     min-height: 40px;
+  }
+
+  .tbw-pivot-field-search {
+    width: 100%;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--tbw-color-border, #d0d5dd);
+    border-radius: var(--tbw-radius-sm, 0.25rem);
+    font-size: var(--tbw-font-size-sm, 0.875rem);
+    background: var(--tbw-color-bg, #fff);
+    color: var(--tbw-color-fg, #1a1a2e);
+    outline: none;
+  }
+
+  .tbw-pivot-field-search:focus {
+    border-color: var(--tbw-color-primary, #3b82f6);
+  }
+
+  .tbw-pivot-fields-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--tbw-spacing-sm, 0.375rem);
   }
 
   /* ===== Options Panel ===== */

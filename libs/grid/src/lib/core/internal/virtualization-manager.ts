@@ -116,16 +116,14 @@ export class VirtualizationManager<T = any> {
     const hScrollbarPadding = Math.max(0, fauxScrollHeight - scrollAreaHeight);
 
     let rowContentHeight: number;
-    let pluginExtraHeight = 0;
 
     if (s.variableHeights && s.positionCache) {
       rowContentHeight = getTotalHeight(s.positionCache);
     } else {
       rowContentHeight = totalRows * s.rowHeight;
-      pluginExtraHeight = this.#grid._getPluginExtraHeight();
     }
 
-    return rowContentHeight + viewportHeightDiff + pluginExtraHeight + hScrollbarPadding;
+    return rowContentHeight + viewportHeightDiff + hScrollbarPadding;
   }
 
   // #endregion
@@ -143,9 +141,7 @@ export class VirtualizationManager<T = any> {
     const grid = this.#grid;
     const rows = grid._rows;
     const estimatedHeight = s.rowHeight || 28;
-    const rowHeightFn = grid.effectiveConfig?.rowHeight as
-      | ((row: T, index: number) => number | undefined)
-      | undefined;
+    const rowHeightFn = grid.effectiveConfig?.rowHeight as ((row: T, index: number) => number | undefined) | undefined;
     const getRowId = grid.effectiveConfig?.getRowId;
     const rowIdFn = getRowId ? (row: T) => getRowId(row) : undefined;
 
@@ -327,16 +323,6 @@ export class VirtualizationManager<T = any> {
       if (start === -1) start = 0;
     } else {
       start = Math.floor(scrollTop / rowHeight);
-
-      let iterations = 0;
-      const maxIterations = 10;
-      while (iterations < maxIterations) {
-        const extraHeightBefore = grid._getPluginExtraHeightBefore(start);
-        const adjustedStart = Math.floor((scrollTop - extraHeightBefore) / rowHeight);
-        if (adjustedStart >= start || adjustedStart < 0) break;
-        start = adjustedStart;
-        iterations++;
-      }
     }
 
     // Round down to even number for zebra stripe parity
@@ -414,8 +400,7 @@ export class VirtualizationManager<T = any> {
     if (s.variableHeights && positionCache && positionCache[start]) {
       startRowOffset = positionCache[start].offset;
     } else {
-      const extraHeightBeforeStart = grid._getPluginExtraHeightBefore(start);
-      startRowOffset = start * rowHeight + extraHeightBeforeStart;
+      startRowOffset = start * rowHeight;
     }
 
     const subPixelOffset = -(scrollTop - startRowOffset);

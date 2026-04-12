@@ -30,20 +30,10 @@
 export type PinnedPosition = 'left' | 'right' | 'start' | 'end';
 
 /**
- * @deprecated Use {@link PinnedPosition} instead. Will be removed in  v2.0.
- */
-export type StickyPosition = PinnedPosition;
-
-/**
  * Physical pin position after resolving logical values.
  * Used internally after applying RTL resolution.
  */
 export type ResolvedPinnedPosition = 'left' | 'right';
-
-/**
- * @deprecated Use {@link ResolvedPinnedPosition} instead. Will be removed in  v2.0.
- */
-export type ResolvedStickyPosition = ResolvedPinnedPosition;
 
 // ============================================================================
 // Module Augmentation - Add pinned property to column config
@@ -69,11 +59,6 @@ declare module '../../core/types' {
      * Requires PinnedColumnsPlugin.
      */
     pinned?: PinnedPosition;
-
-    /**
-     * @deprecated Use `pinned` instead. Will be removed in v2.0.
-     */
-    sticky?: PinnedPosition;
   }
 
   interface PluginNameMap {

@@ -1,4 +1,4 @@
-import { contentChild, Directive, effect, ElementRef, EventEmitter, inject, TemplateRef } from '@angular/core';
+import { contentChild, Directive, effect, ElementRef, inject, TemplateRef } from '@angular/core';
 import type { AbstractControl } from '@angular/forms';
 
 /**
@@ -57,16 +57,6 @@ export interface GridEditorContext<TValue = unknown, TRow = unknown> {
    * - The field doesn't exist in the FormGroup
    */
   control?: AbstractControl;
-  /**
-   * @deprecated Use `onCommit` callback function instead. Will be removed in v2.0.
-   * EventEmitter for commit - requires `.emit()` call.
-   */
-  commit: EventEmitter<TValue>;
-  /**
-   * @deprecated Use `onCancel` callback function instead. Will be removed in v2.0.
-   * EventEmitter for cancel - requires `.emit()` call.
-   */
-  cancel: EventEmitter<void>;
 }
 
 // Global registry mapping DOM elements to their templates

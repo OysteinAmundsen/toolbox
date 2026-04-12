@@ -11,18 +11,18 @@ import {
   resolveDefaultExpanded,
   toggleGroupExpansion,
 } from './grouping-rows';
-import type { RenderRow, RowGroupingConfig } from './types';
+import type { RenderRow, GroupingRowsConfig } from './types';
 
 describe('row-grouping (buildGroupedRowModel)', () => {
   it('returns empty when groupOn not provided', () => {
-    const config: RowGroupingConfig = {};
+    const config: GroupingRowsConfig = {};
     const res = buildGroupedRowModel({ rows: [{ a: 1 }, { a: 2 }], config, expanded: new Set() });
     expect(res).toEqual([]);
   });
 
   it('returns empty when all rows are ungrouped', () => {
     const rows = [{ a: 1 }, { a: 2 }];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: () => null,
     };
     expect(buildGroupedRowModel({ rows, config, expanded: new Set() })).toEqual([]);
@@ -34,7 +34,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Bob', dept: 'Engineering' },
       { name: 'Carol', dept: 'Sales' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => r.dept,
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
@@ -52,7 +52,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Alice', dept: 'Engineering' },
       { name: 'Bob', dept: 'Sales' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => r.dept,
     };
     const expanded = new Set(['Engineering']);
@@ -72,7 +72,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Alice', dept: 'Eng', team: 'Frontend' },
       { name: 'Bob', dept: 'Eng', team: 'Backend' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => [r.dept, r.team],
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
@@ -90,7 +90,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Carol', country: 'US', org: 'Sales' },
       { name: 'Dave', country: 'UK', org: 'Eng' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => [r.country, r.org],
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
@@ -111,7 +111,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Bob', country: 'US', org: 'Eng' },
       { name: 'Carol', country: 'US', org: 'Sales' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => [r.country, r.org],
     };
     const expanded = new Set(['US']);
@@ -132,7 +132,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Alice', dept: 'Eng', team: 'Frontend' },
       { name: 'Bob', dept: 'Eng', team: 'Backend' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => [r.dept, r.team],
     };
     const expanded = new Set(['Eng']);
@@ -150,7 +150,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Alice', dept: null },
       { name: 'Bob', dept: 'Sales' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => r.dept ?? '∅', // Explicit null handling in groupOn
     };
     const result = buildGroupedRowModel({ rows, config, expanded: new Set() });
@@ -166,7 +166,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Bob', dept: 'Engineering' },
       { name: 'Carol', dept: 'Sales' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => r.dept,
     };
     // Build first to get all keys, then pass them as initialExpanded
@@ -195,7 +195,7 @@ describe('row-grouping (buildGroupedRowModel)', () => {
       { name: 'Alice', dept: 'Eng', team: 'Frontend' },
       { name: 'Bob', dept: 'Eng', team: 'Backend' },
     ];
-    const config: RowGroupingConfig = {
+    const config: GroupingRowsConfig = {
       groupOn: (r) => [r.dept, r.team],
     };
 

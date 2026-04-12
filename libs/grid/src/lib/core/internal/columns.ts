@@ -52,7 +52,6 @@ export function parseLightDomColumns(host: HTMLElement): ColumnInternal[] {
       }
 
       if (el.hasAttribute('resizable')) config.resizable = true;
-      if (el.hasAttribute('sizable')) config.resizable = true; // legacy attribute support
 
       // Parse editor and renderer attribute names for programmatic lookup
       const editorName = el.getAttribute('editor');

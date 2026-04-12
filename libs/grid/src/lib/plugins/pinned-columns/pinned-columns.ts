@@ -10,18 +10,14 @@ import { GridClasses } from '../../core/constants';
 import { getDirection, resolveInlinePosition, type TextDirection } from '../../core/internal/utils';
 import type { PinnedPosition, ResolvedPinnedPosition } from './types';
 
-// Keep deprecated imports working (StickyPosition = PinnedPosition)
-type StickyPosition = PinnedPosition;
-type ResolvedStickyPosition = ResolvedPinnedPosition;
-
 /**
- * Get the effective pinned position from a column, checking `pinned` first then `sticky` (deprecated).
+ * Get the effective pinned position from a column.
  *
  * @param col - Column configuration object
  * @returns The pinned position, or undefined if not pinned
  */
 export function getColumnPinned(col: any): PinnedPosition | undefined {
-  return col.pinned ?? col.sticky ?? col.meta?.pinned ?? col.meta?.sticky;
+  return col.pinned ?? col.meta?.pinned;
 }
 
 /**
@@ -35,7 +31,7 @@ export function getColumnPinned(col: any): PinnedPosition | undefined {
  * @param direction - Text direction ('ltr' or 'rtl')
  * @returns Physical pinned position ('left' or 'right')
  */
-export function resolveStickyPosition(position: StickyPosition, direction: TextDirection): ResolvedStickyPosition {
+export function resolveStickyPosition(position: PinnedPosition, direction: TextDirection): ResolvedPinnedPosition {
   return resolveInlinePosition(position, direction);
 }
 
@@ -95,7 +91,7 @@ export function hasStickyColumns(columns: any[]): boolean {
  * @param column - Column configuration
  * @returns The sticky position or null if not sticky
  */
-export function getColumnStickyPosition(column: any): StickyPosition | null {
+export function getColumnStickyPosition(column: any): PinnedPosition | null {
   return getColumnPinned(column) ?? null;
 }
 

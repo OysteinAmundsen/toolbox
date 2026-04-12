@@ -162,7 +162,6 @@ export const DGEvents = {
   MOUNT_EXTERNAL_EDITOR: 'mount-external-editor',
   SORT_CHANGE: 'sort-change',
   COLUMN_RESIZE: 'column-resize',
-  ACTIVATE_CELL: 'activate-cell',
   /** Unified cell activation event (keyboard or pointer) */
   CELL_ACTIVATE: 'cell-activate',
   GROUP_TOGGLE: 'group-toggle',
@@ -267,8 +266,6 @@ export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
 
 // Public type exports
 export type {
-  /** @deprecated Use CellActivateDetail instead */
-  ActivateCellDetail,
   AggregatorRef,
   // Animation types
   AnimationConfig,
@@ -362,7 +359,7 @@ export { builtInSort, defaultComparator } from './lib/core/internal/sorting';
 
 // #region Plugin Development
 // Plugin base class - for creating custom plugins
-export { BaseGridPlugin, PLUGIN_QUERIES } from './lib/core/plugin';
+export { BaseGridPlugin } from './lib/core/plugin';
 export type {
   AfterCellRenderContext,
   AfterRowRenderContext,

@@ -36,11 +36,6 @@ export type CellRenderer<TRow = unknown, TValue = unknown> =
   | ((ctx: CellRenderContext<TRow, TValue>) => VNode)
   | Component;
 
-/**
- * @deprecated Use `CellRenderer` instead. Will be removed in v2.
- * @see {@link CellRenderer}
- */
-export type VueCellRenderer<TRow = unknown, TValue = unknown> = CellRenderer<TRow, TValue>;
 // #endregion
 
 // #region CellEditor Type
@@ -66,11 +61,6 @@ export type CellEditor<TRow = unknown, TValue = unknown> =
   | ((ctx: ColumnEditorContext<TRow, TValue>) => VNode)
   | Component;
 
-/**
- * @deprecated Use `CellEditor` instead. Will be removed in v2.
- * @see {@link CellEditor}
- */
-export type VueCellEditor<TRow = unknown, TValue = unknown> = CellEditor<TRow, TValue>;
 // #endregion
 
 // #region ColumnConfig Interface
@@ -128,11 +118,6 @@ export interface ColumnConfig<TRow = unknown, TValue = unknown> extends Omit<
   headerLabelRenderer?: ((ctx: HeaderLabelContext<TRow>) => VNode) | Component;
 }
 
-/**
- * @deprecated Use `ColumnConfig` instead. Will be removed in v2.
- * @see {@link ColumnConfig}
- */
-export type VueColumnConfig<TRow = unknown, TValue = unknown> = ColumnConfig<TRow, TValue>;
 // #endregion
 
 // #region GridConfig Interface
@@ -174,9 +159,4 @@ export interface GridConfig<TRow = unknown> extends Omit<BaseGridConfig<TRow>, '
   loadingRenderer?: BaseGridConfig<TRow>['loadingRenderer'] | ((ctx: LoadingContext) => VNode) | Component;
 }
 
-/**
- * @deprecated Use `GridConfig` instead. Will be removed in v2.
- * @see {@link GridConfig}
- */
-export type VueGridConfig<TRow = unknown> = GridConfig<TRow>;
 // #endregion

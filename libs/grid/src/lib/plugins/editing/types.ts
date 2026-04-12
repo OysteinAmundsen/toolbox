@@ -550,15 +550,6 @@ export interface EditingConfig {
   focusTrap?: boolean;
 }
 
-/**
- * Context passed to editor factory functions.
- *
- * Extends the public {@link ColumnEditorContext} with no additional properties.
- * Kept as a separate type for backward compatibility with existing plugin code
- * that imports `EditorContext` from the editing plugin.
- */
-export type EditorContext<T = any, V = unknown> = ColumnEditorContext<T, V>;
-
 // ============================================================================
 // Editor Parameters - Configuration for built-in editors
 // ============================================================================

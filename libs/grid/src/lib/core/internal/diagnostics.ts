@@ -80,8 +80,6 @@ export const MISSING_DEPENDENCY = 'TBW020' as const;
 export const OPTIONAL_DEPENDENCY = 'TBW021' as const;
 /** Two loaded plugins are incompatible. */
 export const INCOMPATIBLE_PLUGINS = 'TBW022' as const;
-/** Plugin uses deprecated hooks. */
-export const DEPRECATED_HOOK = 'TBW023' as const;
 /** Error thrown inside a plugin event handler. */
 export const PLUGIN_EVENT_ERROR = 'TBW024' as const;
 
@@ -177,7 +175,6 @@ export type DiagnosticCode =
   | typeof MISSING_DEPENDENCY
   | typeof OPTIONAL_DEPENDENCY
   | typeof INCOMPATIBLE_PLUGINS
-  | typeof DEPRECATED_HOOK
   | typeof PLUGIN_EVENT_ERROR
   | typeof FEATURE_REREGISTERED
   | typeof FEATURE_NOT_IMPORTED

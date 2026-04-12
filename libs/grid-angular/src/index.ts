@@ -5,29 +5,12 @@
  * Provides directives for seamless Angular integration with the grid component.
  */
 
-// Primary export - use this
+// Primary export
 export { GridAdapter } from './lib/angular-grid-adapter';
-// Deprecated alias
-export {
-  /** @deprecated Use `GridAdapter` instead. Will be removed in v2. */
-  AngularGridAdapter,
-} from './lib/angular-grid-adapter';
 
-// Configuration types - use unified names (GridConfig, ColumnConfig, CellRenderer, etc.)
+// Configuration types
 export { isComponentClass } from './lib/angular-column-config';
 export type {
-  // Deprecated names - use unified names instead
-  /** @deprecated Use `CellEditor` instead */
-  AngularCellEditor,
-  /** @deprecated Use `CellRenderer` instead. Will be removed in v2. */
-  AngularCellRenderer,
-  /** @deprecated Use `ColumnConfig` instead. Will be removed in v2. */
-  AngularColumnConfig,
-  /** @deprecated Use `GridConfig` instead. Will be removed in v2. */
-  AngularGridConfig,
-  /** @deprecated Use `TypeDefault` instead. Will be removed in v2. */
-  AngularTypeDefault,
-  // Primary exports - use these
   CellEditor,
   CellRenderer,
   ColumnConfig,
@@ -45,7 +28,7 @@ export { GRID_ICONS, GridIconRegistry, provideGridIcons } from './lib/grid-icon-
 
 // Inject function for programmatic grid access
 export { injectGrid } from './lib/inject-grid';
-export type { ExportMethods, InjectGridReturn, SelectionMethods } from './lib/inject-grid';
+export type { InjectGridReturn } from './lib/inject-grid';
 
 // Feature registry for tree-shakeable plugin registration
 export {
@@ -87,6 +70,3 @@ export type { CellCommitEvent, RowCommitEvent } from './lib/directives/grid.dire
 // Structural directives for cleaner template syntax
 export { TbwEditor, TbwRenderer } from './lib/directives/structural-directives';
 export type { StructuralCellContext, StructuralEditorContext } from './lib/directives/structural-directives';
-
-// Backwards compatibility aliases (deprecated)
-export { TbwEditor as TbwCellEditor, TbwRenderer as TbwCellView } from './lib/directives/structural-directives';

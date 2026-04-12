@@ -220,36 +220,6 @@ export function calculateRowTotal(values: Record<string, number | null>): number
 }
 
 /**
- * Legacy flat pivot row building (for backwards compatibility).
- */
-export function buildPivotRows(
-  groupedData: Map<string, PivotDataRow[]>,
-  columnFields: string[],
-  columnKeys: string[],
-  valueFields: PivotValueField[],
-  depth: number,
-): PivotRow[] {
-  const result: PivotRow[] = [];
-
-  for (const [rowKey, groupRows] of groupedData) {
-    const values = aggregateValues(groupRows, columnFields, columnKeys, valueFields);
-    const total = calculateRowTotal(values);
-
-    result.push({
-      rowKey,
-      rowLabel: rowKey || '(blank)',
-      depth,
-      values,
-      total,
-      isGroup: false,
-      rowCount: groupRows.length,
-    });
-  }
-
-  return result;
-}
-
-/**
  * Calculate grand totals across all pivot rows.
  */
 export function calculateTotals(

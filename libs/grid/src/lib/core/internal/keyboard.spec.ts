@@ -179,7 +179,7 @@ describe('keyboard navigation', () => {
     expect(g._focusRow).toBe(49); // clamped to last row (49)
   });
   // NOTE: Enter key editing is now handled by EditingPlugin, not core keyboard handler
-  it('Enter dispatches activate-cell event', () => {
+  it('Enter dispatches cell-activate event', () => {
     const g = makeGrid(5, 2);
     const events: CustomEvent[] = [];
     g.dispatchEvent = (ev: Event) => {
@@ -187,9 +187,10 @@ describe('keyboard navigation', () => {
       return true;
     };
     key(g, 'Enter');
-    const activate = events.find((e) => e.type === 'activate-cell');
+    const activate = events.find((e) => e.type === 'cell-activate');
     expect(activate).toBeTruthy();
-    expect(activate!.detail).toEqual({ row: 0, col: 0 });
+    expect(activate!.detail.rowIndex).toBe(0);
+    expect(activate!.detail.colIndex).toBe(0);
   });
   it('Enter does not block keyboard navigation', () => {
     const g = makeGrid(5, 2);
@@ -297,8 +298,8 @@ describe('keyboard navigation', () => {
     });
   });
 
-  describe('activate-cell event', () => {
-    it('dispatches activate-cell event on Enter key with correct detail', () => {
+  describe('cell-activate event', () => {
+    it('dispatches cell-activate event on Enter key with correct detail', () => {
       const grid = makeGrid(3, 3);
       grid._focusRow = 1;
       grid._focusCol = 2;
@@ -306,20 +307,20 @@ describe('keyboard navigation', () => {
       key(grid, 'Enter');
 
       // The mock grid captures events in __events array
-      const activateEvent = grid.__events.find((e: CustomEvent) => e.type === 'activate-cell');
+      const activateEvent = grid.__events.find((e: CustomEvent) => e.type === 'cell-activate');
       expect(activateEvent).toBeDefined();
-      expect(activateEvent.detail.row).toBe(1);
-      expect(activateEvent.detail.col).toBe(2);
+      expect(activateEvent.detail.rowIndex).toBe(1);
+      expect(activateEvent.detail.colIndex).toBe(2);
     });
 
-    it('dispatches cancelable activate-cell event', () => {
+    it('dispatches cancelable cell-activate event', () => {
       const grid = makeGrid(3, 3);
       grid._focusRow = 1;
       grid._focusCol = 1;
 
       key(grid, 'Enter');
 
-      const activateEvent = grid.__events.find((e: CustomEvent) => e.type === 'activate-cell');
+      const activateEvent = grid.__events.find((e: CustomEvent) => e.type === 'cell-activate');
       expect(activateEvent).toBeDefined();
       expect(activateEvent.cancelable).toBe(true);
     });

@@ -98,13 +98,6 @@ const KNOWN_COLUMN_PROPERTIES: InternalPropertyDefinition[] = [
     description: 'the "pinned" column property',
     isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
   },
-  {
-    property: 'sticky',
-    pluginName: 'pinnedColumns',
-    level: 'column',
-    description: 'the "sticky" column property (deprecated, use "pinned")',
-    isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
-  },
 ];
 
 /**

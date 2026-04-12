@@ -158,19 +158,10 @@ export function handleGridKeyDown(grid: GridHost, e: KeyboardEvent): void {
       });
       grid.dispatchEvent(activateEvent);
 
-      // Also emit deprecated activate-cell for backwards compatibility
-      const legacyEvent = new CustomEvent('activate-cell', {
-        cancelable: true,
-        detail: { row: rowIndex, col: colIndex },
-      });
-      grid.dispatchEvent(legacyEvent);
-
-      // If either event was prevented, block further keyboard processing
-      if (activateEvent.defaultPrevented || legacyEvent.defaultPrevented) {
+      if (activateEvent.defaultPrevented) {
         e.preventDefault();
         return;
       }
-      // Otherwise allow normal keyboard processing
       break;
     }
     default:

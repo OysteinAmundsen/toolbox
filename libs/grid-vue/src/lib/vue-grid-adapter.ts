@@ -1204,9 +1204,3 @@ export class GridAdapter implements FrameworkAdapter {
     }
   }
 }
-
-/**
- * @deprecated Use `GridAdapter` instead. This alias will be removed in v2.
- * @see {@link GridAdapter}
- */
-export const VueGridAdapter = GridAdapter;

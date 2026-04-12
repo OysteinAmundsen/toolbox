@@ -310,10 +310,10 @@ describe('renderHeader', () => {
       expect(cell.classList.contains('resizable')).toBe(true);
     });
 
-    it('adds resizable class on all resizable cells (plugin overrides for sticky)', () => {
+    it('adds resizable class on all resizable cells (plugin overrides for pinned)', () => {
       // Core always adds resizable class for resize handle positioning
       // PinnedColumnsPlugin will override to position: sticky when it applies offsets
-      const g = makeGrid({ columns: [{ field: 'name', resizable: true, sticky: 'left' }] });
+      const g = makeGrid({ columns: [{ field: 'name', resizable: true, pinned: 'left' }] });
       renderHeader(g);
       const cell = g._headerRowEl.querySelector('.cell') as HTMLElement;
       expect(cell.classList.contains('resizable')).toBe(true);

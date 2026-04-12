@@ -363,14 +363,6 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
     // Inject resetChangedRows method
     (grid as any).resetChangedRows = (silent?: boolean) => this.resetChangedRows(silent);
 
-    // Inject beginBulkEdit method (for backward compatibility)
-    (grid as any).beginBulkEdit = (rowIndex: number, field?: string) => {
-      if (field) {
-        this.beginCellEdit(rowIndex, field);
-      }
-      // If no field specified, we can't start editing without a specific cell
-    };
-
     // Document-level Escape to cancel editing (only in 'row' mode)
     document.addEventListener(
       'keydown',
@@ -885,16 +877,8 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           });
           this.gridElement.dispatchEvent(activateEvent);
 
-          // Also emit deprecated activate-cell for backwards compatibility
-          const legacyEvent = new CustomEvent('activate-cell', {
-            cancelable: true,
-            bubbles: true,
-            detail: { row: focusRow, col: focusCol },
-          });
-          this.gridElement.dispatchEvent(legacyEvent);
-
           // If consumer canceled the activation, don't start editing
-          if (activateEvent.defaultPrevented || legacyEvent.defaultPrevented) {
+          if (activateEvent.defaultPrevented) {
             event.preventDefault();
             return true;
           }

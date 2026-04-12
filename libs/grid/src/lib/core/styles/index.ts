@@ -53,6 +53,3 @@ ${loading}
 ${animations}
 ${mediaQueries}
 `;
-
-// Default export for backwards compatibility with `import styles from './grid.css?inline'`
-export default gridStyles;

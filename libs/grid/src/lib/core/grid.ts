@@ -60,15 +60,9 @@ import {
 import { getRowIndexAtOffset } from './internal/virtualization';
 import { VirtualizationManager } from './internal/virtualization-manager';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent, ScrollEvent } from './plugin';
-import type {
-  BaseGridPlugin,
-  CellClickEvent,
-  HeaderClickEvent,
-  PluginQuery,
-  RowClickEvent,
-} from './plugin/base-plugin';
+import type { BaseGridPlugin, CellClickEvent, HeaderClickEvent, RowClickEvent } from './plugin/base-plugin';
 import { PluginManager } from './plugin/plugin-manager';
-import styles from './styles';
+import { gridStyles as styles } from './styles';
 import type {
   AnimationConfig,
   ColumnConfig,
@@ -1442,9 +1436,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   #measureRowHeight(): void {
     // Skip if a plugin is managing variable row heights (e.g., ResponsivePlugin with groups)
-    // In that case, the plugin handles height via getExtraHeight() and we shouldn't
+    // In that case, the plugin handles height via getRowHeight() and we shouldn't
     // override the base row height, which would cause oscillation loops.
-    if (this.#pluginManager.hasExtraHeight()) {
+    if (this.#pluginManager.hasRowHeightPlugin()) {
       return;
     }
 
@@ -2396,19 +2390,9 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     this.#scheduler.requestPhase(phase, source);
   }
 
-  /** @internal Plugin extra height for spacer calculation. */
-  _getPluginExtraHeight(): number {
-    return this.#pluginManager?.getExtraHeight() ?? 0;
-  }
-
   /** @internal Plugin-specific row height override. */
   _getPluginRowHeight(row: T, index: number): number | undefined {
     return this.#pluginManager?.getRowHeight?.(row, index);
-  }
-
-  /** @internal Plugin extra height before a given row index. */
-  _getPluginExtraHeightBefore(start: number): number {
-    return this.#pluginManager?.getExtraHeightBefore?.(start) ?? 0;
   }
 
   /** @internal Let plugins adjust the virtual start index backwards. */
@@ -2867,23 +2851,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
     focusedCell?: HTMLElement,
   ): { left: number; right: number; skipScroll?: boolean } {
     return this.#pluginManager?.getHorizontalScrollOffsets(rowEl, focusedCell) ?? { left: 0, right: 0 };
-  }
-
-  /**
-   * Query all plugins with a generic query and collect responses.
-   * This enables inter-plugin communication without the core knowing plugin-specific concepts.
-   * @group Plugin Communication
-   * @internal Plugin API
-   *
-   * @example
-   * // Check if any plugin vetoes moving a column
-   * const responses = grid.queryPlugins<boolean>({ type: 'canMoveColumn', context: column });
-   * const canMove = !responses.includes(false);
-   *
-   * @deprecated Use the simplified `query<T>(type, context)` method instead. Will be removed in v2.
-   */
-  queryPlugins<T>(query: PluginQuery): T[] {
-    return this.#pluginManager?.queryPlugins<T>(query) ?? [];
   }
 
   /**
@@ -3350,19 +3317,6 @@ export class DataGridElement<T = any> extends HTMLElement implements InternalGri
    */
   applyTransactionAsync(transaction: RowTransaction<T>): Promise<TransactionResult<T>> {
     return this.#rowManager.applyTransactionAsync(transaction);
-  }
-
-  /**
-   * Suspend row processing for the next rows update.
-   *
-   * @deprecated This method is a no-op. Use {@link insertRow} or {@link removeRow}
-   * instead, which correctly preserve the current sort/filter view while adding
-   * or removing individual rows. Will be removed in v2.
-   *
-   * @group Lifecycle
-   */
-  suspendProcessing(): void {
-    // No-op — kept for backwards compatibility.
   }
   // #endregion
 

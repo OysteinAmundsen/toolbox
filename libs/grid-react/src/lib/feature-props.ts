@@ -184,15 +184,6 @@ export interface FeatureProps<TRow = unknown> {
   multiSort?: boolean | 'single' | 'multi' | MultiSortConfig;
 
   /**
-   * @deprecated Use `multiSort` instead. Will be removed in v2.
-   *
-   * Enable column sorting. This is an alias for `multiSort`.
-   *
-   * @requires `import '@toolbox-web/grid-react/features/multi-sort';`
-   */
-  sorting?: boolean | 'single' | 'multi' | MultiSortConfig;
-
-  /**
    * Enable column filtering.
    *
    * @requires `import '@toolbox-web/grid-react/features/filtering';`
@@ -220,11 +211,6 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   reorderColumns?: boolean | ReorderConfig;
-
-  /**
-   * @deprecated Use `reorderColumns` instead. Will be removed in v2.
-   */
-  reorder?: boolean | ReorderConfig;
 
   /**
    * Enable column visibility toggle panel.
@@ -298,11 +284,6 @@ export interface FeatureProps<TRow = unknown> {
    * ```
    */
   reorderRows?: boolean | RowReorderConfig;
-
-  /**
-   * @deprecated Use `reorderRows` instead. Will be removed in v2.0.
-   */
-  rowReorder?: boolean | RowReorderConfig;
 
   /**
    * Enable row grouping by field values.

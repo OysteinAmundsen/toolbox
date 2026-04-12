@@ -1,10 +1,10 @@
 import { Component, computed, input } from '@angular/core';
 import type { Employee } from '@demo/shared';
 import type { ColumnConfig } from '@toolbox-web/grid';
-import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
+import type { CellRenderer } from '@toolbox-web/grid-angular';
 
 /**
- * Rating display renderer implementing AngularCellRenderer interface.
+ * Rating display renderer implementing CellRenderer interface.
  * Can be used via template syntax (*tbwRenderer) or component-class column config.
  */
 @Component({
@@ -12,8 +12,8 @@ import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
   template: `<span class="rating-display" [class]="levelClass()">{{ displayValue() }} ★</span>`,
   styles: [],
 })
-export class RatingDisplayComponent implements AngularCellRenderer<Employee, number> {
-  // AngularCellRenderer interface inputs
+export class RatingDisplayComponent implements CellRenderer<Employee, number> {
+  // CellRenderer interface inputs
   value = input<number>(0);
   row = input<Employee>();
   column = input<ColumnConfig<Employee>>();

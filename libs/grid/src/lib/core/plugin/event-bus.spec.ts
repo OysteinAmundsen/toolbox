@@ -134,19 +134,6 @@ class QueryHandlerPlugin extends BaseGridPlugin {
   }
 }
 
-/** Test plugin using legacy onPluginQuery */
-class LegacyQueryPlugin extends BaseGridPlugin {
-  readonly name = 'legacyQuery';
-  private value = 'legacy';
-
-  override onPluginQuery(query: PluginQuery): unknown {
-    if (query.type === 'get-value') {
-      return this.value;
-    }
-    return undefined;
-  }
-}
-
 // ============================================================================
 // Event Bus Tests
 // ============================================================================
@@ -346,42 +333,6 @@ describe('Query System', () => {
       const responses = pluginManager.queryPlugins<number>({ type: 'get-count', context: null });
 
       expect(responses).toEqual([42, 100]);
-    });
-  });
-
-  describe('onPluginQuery (legacy API)', () => {
-    it('should still work with onPluginQuery for backwards compatibility', () => {
-      const legacy = new LegacyQueryPlugin();
-      pluginManager.attach(legacy);
-
-      const responses = pluginManager.queryPlugins<string>({ type: 'get-value', context: null });
-
-      expect(responses).toEqual(['legacy']);
-    });
-
-    it('should prefer handleQuery over onPluginQuery when both are defined', () => {
-      // Create a plugin with both methods
-      class BothMethodsPlugin extends BaseGridPlugin {
-        readonly name = 'both';
-
-        override handleQuery(query: PluginQuery): unknown {
-          if (query.type === 'test') return 'handleQuery';
-          return undefined;
-        }
-
-        override onPluginQuery(query: PluginQuery): unknown {
-          if (query.type === 'test') return 'onPluginQuery';
-          return undefined;
-        }
-      }
-
-      const both = new BothMethodsPlugin();
-      pluginManager.attach(both);
-
-      const responses = pluginManager.queryPlugins<string>({ type: 'test', context: null });
-
-      // handleQuery should take precedence
-      expect(responses).toEqual(['handleQuery']);
     });
   });
 

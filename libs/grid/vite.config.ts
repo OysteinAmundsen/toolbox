@@ -413,6 +413,11 @@ export default defineConfig(({ command }) => ({
     reporters: process.env.CI ? ['default', 'github-actions'] : ['default'],
     // Isolate test files to prevent module initialization race conditions
     isolate: true,
-    coverage: { provider: 'v8', reporter: ['text', 'html', 'lcov'], reportsDirectory: '../../coverage/libs/grid' },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
+      reportsDirectory: '../../coverage/libs/grid',
+      thresholds: { statements: 80, branches: 69, functions: 82, lines: 82 },
+    },
   },
 }));

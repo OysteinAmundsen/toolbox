@@ -235,5 +235,114 @@ describe('use-grid', () => {
       expect(result.config).toBeDefined();
       expect(result.config.value).toBe(null);
     });
+
+    it('should return empty array for getVisibleColumns when gridConfig has no columns', () => {
+      const { result, app, container } = mountWithGrid({ gridConfig: {} });
+
+      const visible = result.getVisibleColumns();
+      expect(visible).toEqual([]);
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should return empty array for getVisibleColumns when gridConfig is null', () => {
+      const { result, app, container } = mountWithGrid({ gridConfig: null });
+
+      const visible = result.getVisibleColumns();
+      expect(visible).toEqual([]);
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should handle toggleGroup when method is not on grid', async () => {
+      const { result, app, container } = mountWithGrid({});
+
+      // toggleGroup uses optional chaining: grid?.toggleGroup?.(key)
+      await result.toggleGroup('key');
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should handle registerStyles when method is not on grid', () => {
+      const { result, app, container } = mountWithGrid({});
+
+      // registerStyles uses optional chaining: getGrid()?.registerStyles?.(id, css)
+      expect(() => result.registerStyles('test', '.css {}')).not.toThrow();
+
+      app.unmount();
+      container.remove();
+    });
+
+    it('should handle unregisterStyles when method is not on grid', () => {
+      const { result, app, container } = mountWithGrid({});
+
+      expect(() => result.unregisterStyles('test')).not.toThrow();
+
+      app.unmount();
+      container.remove();
+    });
+  });
+
+  describe('useGrid with selector', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should find grid via DOM selector instead of inject', () => {
+      // Set up a grid element in the DOM
+      const gridElement = document.createElement('tbw-grid');
+      gridElement.classList.add('my-grid');
+      (gridElement as any).forceLayout = vi.fn().mockResolvedValue(undefined);
+      (gridElement as any).gridConfig = { columns: [{ field: 'a' }] };
+      document.body.appendChild(gridElement);
+
+      let result!: ReturnType<typeof useGrid>;
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const app = createApp(
+        defineComponent({
+          setup() {
+            result = useGrid('tbw-grid.my-grid');
+            return () => h('div');
+          },
+        }),
+      );
+      app.mount(container);
+
+      // Calling a method should work via DOM lookup
+      const visible = result.getVisibleColumns();
+      expect(visible).toHaveLength(1);
+      expect((visible[0] as any).field).toBe('a');
+
+      app.unmount();
+      container.remove();
+      gridElement.remove();
+    });
+
+    it('should return empty results when selector does not match any element', () => {
+      let result!: ReturnType<typeof useGrid>;
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+
+      const app = createApp(
+        defineComponent({
+          setup() {
+            result = useGrid('.nonexistent-grid');
+            return () => h('div');
+          },
+        }),
+      );
+      app.mount(container);
+
+      expect(result.getVisibleColumns()).toEqual([]);
+      expect(result.getConfig()).toBeUndefined();
+
+      app.unmount();
+      container.remove();
+    });
   });
 });

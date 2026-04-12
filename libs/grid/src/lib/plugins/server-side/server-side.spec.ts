@@ -1,15 +1,53 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { BlockCache } from './cache';
 import {
   getBlockNumber,
   getBlockRange,
   getRequiredBlocks,
-  loadBlock,
   getRowFromCache,
   isBlockLoaded,
   isBlockLoading,
+  loadBlock,
 } from './datasource';
-import { BlockCache } from './cache';
-import type { ServerSideDataSource, GetRowsResult } from './types';
+import { ServerSidePlugin } from './ServerSidePlugin';
+import type { ServerSideDataSource } from './types';
+
+// #region Mock Grid
+
+function createServerSideMockGrid(overrides: Record<string, unknown> = {}) {
+  const el = document.createElement('div');
+  // Add a child so children[0] is defined (used by base plugin for gridElement)
+  el.appendChild(document.createElement('div'));
+  const rows: unknown[] = [];
+
+  Object.defineProperty(el, 'rows', { value: rows, writable: true, configurable: true });
+  Object.defineProperty(el, 'sourceRows', { value: rows, writable: true, configurable: true });
+  Object.defineProperty(el, 'columns', { value: [], writable: true, configurable: true });
+  Object.defineProperty(el, '_visibleColumns', { value: [], writable: true, configurable: true });
+  Object.defineProperty(el, '_virtualization', {
+    value: overrides._virtualization ?? { enabled: false, start: 0, end: 20 },
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(el, 'gridConfig', { value: {}, writable: true, configurable: true });
+  Object.defineProperty(el, 'effectiveConfig', { value: {}, writable: true, configurable: true });
+  Object.defineProperty(el, 'getPlugin', { value: () => undefined, configurable: true });
+  Object.defineProperty(el, 'getPluginByName', { value: () => undefined, configurable: true });
+  Object.defineProperty(el, 'getPluginState', { value: () => null, configurable: true });
+  Object.defineProperty(el, 'query', { value: () => [], configurable: true });
+  Object.defineProperty(el, 'requestRender', { value: vi.fn(), writable: true, configurable: true });
+  Object.defineProperty(el, 'refreshVirtualWindow', { value: vi.fn(), configurable: true });
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (key !== '_virtualization') {
+      Object.defineProperty(el, key, { value, writable: true, configurable: true });
+    }
+  }
+
+  return el as HTMLElement & Record<string, any>;
+}
+
+// #endregion
 
 describe('server-side plugin', () => {
   describe('getBlockNumber', () => {
@@ -160,11 +198,11 @@ describe('server-side plugin', () => {
       const loadedBlocks = new Map<number, any[]>();
       loadedBlocks.set(
         0,
-        Array.from({ length: 100 }, (_, i) => ({ id: i }))
+        Array.from({ length: 100 }, (_, i) => ({ id: i })),
       );
       loadedBlocks.set(
         1,
-        Array.from({ length: 100 }, (_, i) => ({ id: 100 + i }))
+        Array.from({ length: 100 }, (_, i) => ({ id: 100 + i })),
       );
 
       expect(getRowFromCache(0, 100, loadedBlocks)).toEqual({ id: 0 });
@@ -336,6 +374,263 @@ describe('server-side plugin', () => {
       expect(cache.has(0)).toBe(true);
       expect(cache.has(1)).toBe(true);
       expect(cache.has(3)).toBe(true);
+    });
+  });
+});
+
+describe('ServerSidePlugin', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    vi.restoreAllMocks();
+  });
+
+  describe('constructor and defaults', () => {
+    it('should have correct name', () => {
+      const plugin = new ServerSidePlugin();
+      expect(plugin.name).toBe('serverSide');
+    });
+
+    it('should accept custom config', () => {
+      const plugin = new ServerSidePlugin({ pageSize: 50, cacheBlockSize: 50, maxConcurrentRequests: 1 });
+      expect(plugin.name).toBe('serverSide');
+    });
+  });
+
+  describe('manifest', () => {
+    it('should declare incompatibilities', () => {
+      const manifest = ServerSidePlugin.manifest;
+      expect(manifest.incompatibleWith).toBeDefined();
+      expect(manifest.incompatibleWith!.length).toBe(3);
+      expect(manifest.incompatibleWith!.map((i) => i.name)).toEqual(['groupingRows', 'tree', 'pivot']);
+    });
+  });
+
+  describe('setDataSource', () => {
+    it('should load first block and trigger render', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }, { id: 2 }], totalRowCount: 100 }),
+      };
+
+      plugin.setDataSource(mockDS);
+
+      // Wait for the async load
+      await vi.waitFor(() => expect(grid.requestRender).toHaveBeenCalled());
+
+      expect(mockDS.getRows).toHaveBeenCalledWith({ startRow: 0, endRow: 10 });
+      expect(plugin.getTotalRowCount()).toBe(100);
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+    });
+
+    it('should clear previous state when setting new data source', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const ds1: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 50 }),
+      };
+      plugin.setDataSource(ds1);
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(50));
+
+      const ds2: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 2 }], totalRowCount: 200 }),
+      };
+      plugin.setDataSource(ds2);
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(200));
+
+      expect(plugin.getLoadedBlockCount()).toBe(1);
+    });
+  });
+
+  describe('processRows', () => {
+    it('should pass through rows when no data source is set', () => {
+      const plugin = new ServerSidePlugin();
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const rows = [{ id: 1 }, { id: 2 }];
+      const result = plugin.processRows(rows);
+      expect(result).toEqual(rows);
+    });
+
+    it('should return managed rows with placeholders when data source is set', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 5 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }], totalRowCount: 10 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getTotalRowCount()).toBe(10));
+
+      const result = plugin.processRows([]);
+      expect(result.length).toBe(10);
+      // First 5 are loaded data
+      expect(result[0]).toEqual({ id: 0 });
+      expect(result[4]).toEqual({ id: 4 });
+      // Remaining are placeholders
+      expect((result[5] as any).__loading).toBe(true);
+    });
+  });
+
+  describe('isRowLoaded', () => {
+    it('should return false when no data is loaded', () => {
+      const plugin = new ServerSidePlugin();
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      expect(plugin.isRowLoaded(0)).toBe(false);
+    });
+
+    it('should return true for rows in loaded blocks', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 100 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 100 }, (_, i) => ({ id: i })), totalRowCount: 500 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      expect(plugin.isRowLoaded(0)).toBe(true);
+      expect(plugin.isRowLoaded(50)).toBe(true);
+      expect(plugin.isRowLoaded(99)).toBe(true);
+      expect(plugin.isRowLoaded(100)).toBe(false);
+    });
+  });
+
+  describe('refresh', () => {
+    it('should clear cache and trigger re-render', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 10 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      grid.requestRender.mockClear();
+      plugin.refresh();
+
+      expect(plugin.getLoadedBlockCount()).toBe(0);
+      expect(grid.requestRender).toHaveBeenCalled();
+    });
+
+    it('should do nothing when no data source is set', () => {
+      const plugin = new ServerSidePlugin();
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      plugin.refresh(); // should not throw
+      expect(grid.requestRender).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('purgeCache', () => {
+    it('should clear loaded blocks without triggering render', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 10 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      grid.requestRender.mockClear();
+      plugin.purgeCache();
+
+      expect(plugin.getLoadedBlockCount()).toBe(0);
+      expect(grid.requestRender).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('onScroll', () => {
+    it('should trigger block loading on scroll', async () => {
+      vi.useFakeTimers();
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid({
+        _virtualization: { enabled: true, start: 10, end: 20 },
+      });
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi
+          .fn()
+          .mockResolvedValue({ rows: Array.from({ length: 10 }, (_, i) => ({ id: i })), totalRowCount: 100 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      // Scroll to trigger loading of block 1
+      plugin.onScroll({ scrollTop: 500, scrollLeft: 0, direction: 'vertical' } as any);
+
+      // The debounced check should fire
+      vi.advanceTimersByTime(200);
+
+      // getRows should have been called for block 1 (after initial block 0)
+      expect(mockDS.getRows).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it('should not fetch when no data source is set', () => {
+      const plugin = new ServerSidePlugin();
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      // Should not throw
+      plugin.onScroll({ scrollTop: 500, scrollLeft: 0, direction: 'vertical' } as any);
+    });
+  });
+
+  describe('detach', () => {
+    it('should clean up all state', async () => {
+      const plugin = new ServerSidePlugin({ cacheBlockSize: 10 });
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+
+      const mockDS: ServerSideDataSource = {
+        getRows: vi.fn().mockResolvedValue({ rows: [{ id: 1 }], totalRowCount: 10 }),
+      };
+      plugin.setDataSource(mockDS);
+      await vi.waitFor(() => expect(plugin.getLoadedBlockCount()).toBe(1));
+
+      plugin.detach();
+
+      expect(plugin.getTotalRowCount()).toBe(0);
+      expect(plugin.getLoadedBlockCount()).toBe(0);
+    });
+  });
+
+  describe('getTotalRowCount', () => {
+    it('should return 0 initially', () => {
+      const plugin = new ServerSidePlugin();
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      expect(plugin.getTotalRowCount()).toBe(0);
+    });
+  });
+
+  describe('getLoadedBlockCount', () => {
+    it('should return 0 initially', () => {
+      const plugin = new ServerSidePlugin();
+      const grid = createServerSideMockGrid();
+      plugin.attach(grid as any);
+      expect(plugin.getLoadedBlockCount()).toBe(0);
     });
   });
 });

@@ -10,6 +10,8 @@ Analyze test coverage for the specified file or project and write **unit/integra
 
 > **E2E tests** are covered separately by the `e2e-testing` instruction file (auto-applied when editing `e2e/` or `apps/docs-e2e/` files). This skill focuses on Vitest-based unit and integration tests only.
 
+> **Coverage thresholds** are enforced per project (statements, branches, functions, lines) in each project's vite/vitest config. CI runs `--coverage` and fails if thresholds are not met. When adding tests, ensure thresholds still pass. To ratchet thresholds upward after improving coverage, update the `thresholds` block in the project's config.
+
 ## Step 1: Run Coverage Analysis
 
 Use the VS Code test runner with coverage mode, or run via terminal:

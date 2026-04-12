@@ -201,11 +201,12 @@ export function injectGridSelection<TRow = unknown>(selector = 'tbw-grid'): Sele
    * Handle selection-change events from the grid.
    * Updates both reactive signals.
    */
-  const onSelectionChange = (detail: SelectionChangeDetail): void => {
+  const onSelectionChange = (detail: unknown): void => {
+    const selectionDetail = detail as SelectionChangeDetail;
     const plugin = getPlugin();
     if (plugin) {
       selectionSignal.set(plugin.getSelection());
-      selectedRowIndicesSignal.set(detail.mode === 'row' ? plugin.getSelectedRowIndices() : []);
+      selectedRowIndicesSignal.set(selectionDetail.mode === 'row' ? plugin.getSelectedRowIndices() : []);
       selectedRowsSignal.set(plugin.getSelectedRows<TRow>());
     }
   };

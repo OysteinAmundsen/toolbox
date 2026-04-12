@@ -124,7 +124,7 @@ export function injectGridPrint(selector = 'tbw-grid'): PrintMethods {
   };
 
   const getPlugin = (): PrintPlugin | undefined => {
-    return getGrid()?.getPluginByName('print');
+    return getGrid()?.getPluginByName('print') as PrintPlugin | undefined;
   };
 
   // Eagerly discover the grid after the first render so isReady updates

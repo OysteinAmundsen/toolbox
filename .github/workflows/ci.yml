@@ -125,8 +125,44 @@ jobs:
       - name: Run linting (affected)
         run: bun nx affected -t lint --quiet --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
-      - name: Run tests (affected)
-        run: bun nx affected -t test --exclude='demo-*' --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
+      - name: Run tests with coverage (affected)
+        run: bun nx affected -t test --exclude='demo-*' --coverage --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
+
+      - name: Coverage Report - Grid
+        if: always() && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: Grid
+          json-summary-path: coverage/libs/grid/coverage-summary.json
+          file-coverage-mode: none
+        continue-on-error: true
+
+      - name: Coverage Report - Grid Angular
+        if: always() && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: Grid Angular
+          json-summary-path: libs/grid-angular/test-output/vitest/coverage/coverage-summary.json
+          file-coverage-mode: none
+        continue-on-error: true
+
+      - name: Coverage Report - Grid React
+        if: always() && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: Grid React
+          json-summary-path: libs/grid-react/test-output/vitest/coverage/coverage-summary.json
+          file-coverage-mode: none
+        continue-on-error: true
+
+      - name: Coverage Report - Grid Vue
+        if: always() && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: Grid Vue
+          json-summary-path: coverage/libs/grid-vue/coverage-summary.json
+          file-coverage-mode: none
+        continue-on-error: true
 
   build:
     needs: setup

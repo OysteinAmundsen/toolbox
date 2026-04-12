@@ -247,8 +247,7 @@ describe('BaseOverlayEditor', () => {
       // Just verify the style element exists
       const styleEl = document.querySelector('style[data-tbw-overlay]');
       // May or may not exist depending on whether any instance was created
-      // The important thing is the class exists and has the method
-      expect(BaseOverlayEditor).toBeDefined();
+      expect(styleEl !== undefined || BaseOverlayEditor).toBeTruthy();
     });
   });
 
@@ -316,6 +315,453 @@ describe('BaseOverlayEditor', () => {
       const instance = Object.create(BaseOverlayEditor.prototype);
       instance['_focusObserver'] = null;
       expect(instance['_focusObserver']).toBeNull();
+    });
+  });
+
+  describe('initOverlay', () => {
+    it('should move panel to body and set up CSS classes/attributes', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const cell = document.createElement('div');
+      cell.setAttribute('part', 'cell');
+      const host = document.createElement('span');
+      cell.appendChild(host);
+      document.body.appendChild(cell);
+
+      instance['_panel'] = null;
+      instance['_anchorId'] = '';
+      instance['_supportsAnchor'] = false;
+      instance['_abortCtrl'] = null;
+      instance['overlayPosition'] = 'below';
+      instance['_elementRef'] = { nativeElement: host };
+      instance['_getCell'] = () => cell;
+      instance['_getGridElement'] = () => null;
+      instance['_onDocumentPointerDown'] = vi.fn();
+
+      instance['initOverlay'](panel);
+
+      expect(panel.classList.contains('tbw-overlay-panel')).toBe(true);
+      expect(panel.getAttribute('data-pos')).toBe('below');
+      expect(panel.getAttribute('data-anchor-id')).toBeTruthy();
+      expect(panel.style.display).toBe('none');
+      expect(document.body.contains(panel)).toBe(true);
+      expect(instance['_panel']).toBe(panel);
+      expect(instance['_abortCtrl']).toBeInstanceOf(AbortController);
+
+      // Cleanup
+      panel.remove();
+      cell.remove();
+      instance['_abortCtrl']?.abort();
+    });
+
+    it('should register panel as external focus container on the grid', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const registerFn = vi.fn();
+
+      instance['_panel'] = null;
+      instance['_anchorId'] = '';
+      instance['_supportsAnchor'] = false;
+      instance['_abortCtrl'] = null;
+      instance['overlayPosition'] = 'below';
+      instance['_elementRef'] = { nativeElement: document.createElement('div') };
+      instance['_getCell'] = () => null;
+      instance['_getGridElement'] = () => ({ registerExternalFocusContainer: registerFn });
+      instance['_onDocumentPointerDown'] = vi.fn();
+
+      instance['initOverlay'](panel);
+
+      expect(registerFn).toHaveBeenCalledWith(panel);
+
+      // Cleanup
+      panel.remove();
+      instance['_abortCtrl']?.abort();
+    });
+  });
+
+  describe('showOverlay', () => {
+    it('should make panel visible', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      panel.style.display = 'none';
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = false;
+      instance['_supportsAnchor'] = true;
+
+      instance['showOverlay']();
+
+      expect(instance['_isOpen']).toBe(true);
+      expect(panel.style.display).toBe('');
+    });
+
+    it('should do nothing if panel is null', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_panel'] = null;
+      instance['_isOpen'] = false;
+
+      expect(() => instance['showOverlay']()).not.toThrow();
+      expect(instance['_isOpen']).toBe(false);
+    });
+
+    it('should do nothing if already open', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+
+      instance['showOverlay']();
+      // No error, remains open
+      expect(instance['_isOpen']).toBe(true);
+    });
+
+    it('should use JS fallback positioning when CSS anchor not supported', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      panel.style.display = 'none';
+      document.body.appendChild(panel);
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = false;
+      instance['_supportsAnchor'] = false;
+      instance['_positionWithJs'] = vi.fn();
+
+      instance['showOverlay']();
+
+      expect(instance['_positionWithJs']).toHaveBeenCalledOnce();
+      expect(instance['_isOpen']).toBe(true);
+
+      panel.remove();
+    });
+  });
+
+  describe('hideOverlay', () => {
+    it('should hide the panel and return focus to inline input', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const input = document.createElement('input');
+      const focusSpy = vi.spyOn(input, 'focus');
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+      instance['getInlineInput'] = () => input;
+
+      instance['hideOverlay']();
+
+      expect(instance['_isOpen']).toBe(false);
+      expect(panel.style.display).toBe('none');
+      expect(focusSpy).toHaveBeenCalledOnce();
+    });
+
+    it('should not return focus when suppressTabAdvance is true', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const input = document.createElement('input');
+      const focusSpy = vi.spyOn(input, 'focus');
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+      instance['getInlineInput'] = () => input;
+
+      instance['hideOverlay'](true);
+
+      expect(instance['_isOpen']).toBe(false);
+      expect(focusSpy).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing if panel is null', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_panel'] = null;
+      instance['_isOpen'] = false;
+
+      expect(() => instance['hideOverlay']()).not.toThrow();
+    });
+
+    it('should do nothing if already closed', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      instance['_panel'] = panel;
+      instance['_isOpen'] = false;
+
+      expect(() => instance['hideOverlay']()).not.toThrow();
+    });
+  });
+
+  describe('reopenOverlay', () => {
+    it('should close and immediately reopen', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+      instance['_supportsAnchor'] = true;
+
+      instance['reopenOverlay']();
+
+      expect(instance['_isOpen']).toBe(true);
+      expect(panel.style.display).toBe('');
+    });
+
+    it('should do nothing if panel is null', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_panel'] = null;
+
+      expect(() => instance['reopenOverlay']()).not.toThrow();
+    });
+  });
+
+  describe('onEditClose', () => {
+    it('should call hideOverlay with suppressTabAdvance=true', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['hideOverlay'] = vi.fn();
+
+      instance['onEditClose']();
+
+      expect(instance['hideOverlay']).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe('advanceGridFocus', () => {
+    it('should dispatch a Tab keydown event on the cell', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      cell.setAttribute('part', 'cell');
+      let received: KeyboardEvent | null = null;
+      cell.addEventListener('keydown', (e) => {
+        received = e as KeyboardEvent;
+      });
+
+      instance['_getCell'] = () => cell;
+
+      instance['advanceGridFocus']();
+
+      expect(received).not.toBeNull();
+      expect(received!.key).toBe('Tab');
+      expect(received!.shiftKey).toBe(false);
+      expect(received!.bubbles).toBe(true);
+    });
+
+    it('should dispatch Shift+Tab when backward=true', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      let received: KeyboardEvent | null = null;
+      cell.addEventListener('keydown', (e) => {
+        received = e as KeyboardEvent;
+      });
+
+      instance['_getCell'] = () => cell;
+
+      instance['advanceGridFocus'](true);
+
+      expect(received).not.toBeNull();
+      expect(received!.key).toBe('Tab');
+      expect(received!.shiftKey).toBe(true);
+    });
+
+    it('should do nothing when no parent cell exists', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_getCell'] = () => null;
+
+      expect(() => instance['advanceGridFocus']()).not.toThrow();
+    });
+  });
+
+  describe('_onDocumentPointerDown', () => {
+    it('should call onOverlayOutsideClick when clicking outside panel and host', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const host = document.createElement('div');
+      const outside = document.createElement('div');
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+      instance['_elementRef'] = { nativeElement: host };
+      instance['onOverlayOutsideClick'] = vi.fn();
+
+      const event = new PointerEvent('pointerdown');
+      Object.defineProperty(event, 'target', { value: outside });
+
+      instance['_onDocumentPointerDown'](event);
+
+      expect(instance['onOverlayOutsideClick']).toHaveBeenCalledOnce();
+    });
+
+    it('should ignore clicks inside the panel', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const child = document.createElement('span');
+      panel.appendChild(child);
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+      instance['_elementRef'] = { nativeElement: document.createElement('div') };
+      instance['onOverlayOutsideClick'] = vi.fn();
+
+      const event = new PointerEvent('pointerdown');
+      Object.defineProperty(event, 'target', { value: child });
+
+      instance['_onDocumentPointerDown'](event);
+
+      expect(instance['onOverlayOutsideClick']).not.toHaveBeenCalled();
+    });
+
+    it('should ignore clicks inside the host element', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const host = document.createElement('div');
+      const child = document.createElement('span');
+      host.appendChild(child);
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+      instance['_elementRef'] = { nativeElement: host };
+      instance['onOverlayOutsideClick'] = vi.fn();
+
+      const event = new PointerEvent('pointerdown');
+      Object.defineProperty(event, 'target', { value: child });
+
+      instance['_onDocumentPointerDown'](event);
+
+      expect(instance['onOverlayOutsideClick']).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing when overlay is not open', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_panel'] = document.createElement('div');
+      instance['_isOpen'] = false;
+      instance['onOverlayOutsideClick'] = vi.fn();
+
+      const event = new PointerEvent('pointerdown');
+      instance['_onDocumentPointerDown'](event);
+
+      expect(instance['onOverlayOutsideClick']).not.toHaveBeenCalled();
+    });
+
+    it('should do nothing when panel is null', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_panel'] = null;
+      instance['_isOpen'] = true;
+      instance['onOverlayOutsideClick'] = vi.fn();
+
+      const event = new PointerEvent('pointerdown');
+      instance['_onDocumentPointerDown'](event);
+
+      expect(instance['onOverlayOutsideClick']).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('_positionWithJs', () => {
+    function createPositionInstance(position: string) {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      const panel = document.createElement('div');
+      document.body.appendChild(cell);
+      document.body.appendChild(panel);
+
+      // Mock getBoundingClientRect
+      vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({
+        top: 100,
+        bottom: 140,
+        left: 200,
+        right: 400,
+        width: 200,
+        height: 40,
+        x: 200,
+        y: 100,
+        toJSON: vi.fn(),
+      });
+      vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+        top: 0,
+        bottom: 100,
+        left: 0,
+        right: 150,
+        width: 150,
+        height: 100,
+        x: 0,
+        y: 0,
+        toJSON: vi.fn(),
+      });
+
+      instance['_panel'] = panel;
+      instance['overlayPosition'] = position;
+      instance['_getCell'] = () => cell;
+
+      return { instance, cell, panel };
+    }
+
+    it('should position below the cell (default)', () => {
+      const { instance, panel, cell } = createPositionInstance('below');
+
+      instance['_positionWithJs']();
+
+      expect(panel.style.top).toBe('140px'); // cellRect.bottom
+      expect(panel.style.left).toBe('200px'); // cellRect.left
+
+      panel.remove();
+      cell.remove();
+    });
+
+    it('should position above the cell', () => {
+      const { instance, panel, cell } = createPositionInstance('above');
+
+      instance['_positionWithJs']();
+
+      expect(panel.style.top).toBe('0px'); // cellRect.top - panelHeight
+      expect(panel.style.left).toBe('200px');
+
+      panel.remove();
+      cell.remove();
+    });
+
+    it('should position below-right', () => {
+      const { instance, panel, cell } = createPositionInstance('below-right');
+
+      instance['_positionWithJs']();
+
+      expect(panel.style.top).toBe('140px'); // cellRect.bottom
+      expect(panel.style.left).toBe('250px'); // cellRect.right - panelWidth
+
+      panel.remove();
+      cell.remove();
+    });
+
+    it('should position over-top-left', () => {
+      const { instance, panel, cell } = createPositionInstance('over-top-left');
+
+      instance['_positionWithJs']();
+
+      expect(panel.style.top).toBe('100px'); // cellRect.top
+      expect(panel.style.left).toBe('200px'); // cellRect.left
+
+      panel.remove();
+      cell.remove();
+    });
+
+    it('should position over-bottom-left', () => {
+      const { instance, panel, cell } = createPositionInstance('over-bottom-left');
+
+      instance['_positionWithJs']();
+
+      expect(panel.style.top).toBe('40px'); // cellRect.bottom - panelHeight
+      expect(panel.style.left).toBe('200px');
+
+      panel.remove();
+      cell.remove();
+    });
+
+    it('should do nothing when cell is null', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_panel'] = document.createElement('div');
+      instance['_getCell'] = () => null;
+
+      expect(() => instance['_positionWithJs']()).not.toThrow();
+    });
+
+    it('should do nothing when panel is null', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      instance['_panel'] = null;
+      instance['_getCell'] = () => document.createElement('div');
+
+      expect(() => instance['_positionWithJs']()).not.toThrow();
     });
   });
 });

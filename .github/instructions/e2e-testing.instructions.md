@@ -158,3 +158,52 @@ These verify visual and functional parity across framework demos (vanilla as bas
 | `captureGridScreenshot(page)`                          | Grid-scoped screenshot with title hidden                   |
 | `activateCellEditor(page, field)`                      | Double-click cell by field name                            |
 | `setMobileViewport(page)` / `setDesktopViewport(page)` | Viewport helpers                                           |
+
+## Performance Regression Tests (`e2e/tests/performance-regression.spec.ts`)
+
+Automated benchmarks that catch performance regressions in CI via **relative baseline comparison** (not absolute budgets).
+
+### How It Works
+
+1. Tests measure render, scroll, sort, filter, and interaction metrics
+2. Metrics are recorded to `e2e/test-results/perf-metrics-*.json`
+3. CI runs tests **3 times** and takes the **median** of each metric
+4. `scripts/compare-perf-baseline.mjs` compares medians against `e2e/perf-baseline.json`
+5. Fails if any metric regresses **>50%** over baseline
+
+### Environment Variables
+
+| Variable             | Purpose                                                               |
+| -------------------- | --------------------------------------------------------------------- |
+| `PERF_BASELINE_MODE` | Set to `record` to skip hard assertions (CI uses baseline comparison) |
+| `PERF_RUN_ID`        | Unique ID for the output file (`perf-metrics-{runId}.json`)           |
+
+### Running Locally
+
+```bash
+# Local mode (hard assertions + metric recording)
+bunx playwright test --config=e2e/playwright.config.ts performance-regression
+
+# CI-style mode (record-only, no hard assertions)
+PERF_BASELINE_MODE=record bunx playwright test --config=e2e/playwright.config.ts performance-regression
+```
+
+### Updating the Baseline
+
+Trigger **"Update perf baseline"** via `workflow_dispatch` in GitHub Actions, or manually:
+
+```bash
+# Run 3 times to collect medians
+for i in 1 2 3; do PERF_BASELINE_MODE=record PERF_RUN_ID=run$i bunx playwright test --config=e2e/playwright.config.ts --grep "Performance Regression"; done
+node scripts/update-perf-baseline.mjs e2e/test-results
+```
+
+### Key Files
+
+| File                                       | Purpose                                      |
+| ------------------------------------------ | -------------------------------------------- |
+| `e2e/tests/performance-regression.spec.ts` | Test definitions with `recordMetric()` calls |
+| `e2e/tests/perf-metrics-helper.ts`         | Metric accumulator + flush utility           |
+| `e2e/perf-baseline.json`                   | Committed baseline (CI-recorded)             |
+| `scripts/compare-perf-baseline.mjs`        | Compares results vs baseline, exits non-zero |
+| `scripts/update-perf-baseline.mjs`         | Records new baseline from result files       |

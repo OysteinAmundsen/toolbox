@@ -28,9 +28,10 @@ const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
 
 export default defineConfig({
   testDir: './tests',
-  /* Completely exclude CI-incompatible test files so they don't appear in reports */
+  /* Completely exclude CI-incompatible test files so they don't appear in reports.
+   * Exception: PERF_BASELINE_MODE enables perf tests for the dedicated CI perf job. */
   testIgnore: process.env.CI
-    ? ['**/performance-regression*', '**/virtualization-stability*']
+    ? [...(!process.env.PERF_BASELINE_MODE ? ['**/performance-regression*'] : []), '**/virtualization-stability*']
     : [],
   /* Run tests in files in parallel */
   fullyParallel: true,

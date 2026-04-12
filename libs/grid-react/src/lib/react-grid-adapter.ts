@@ -463,7 +463,7 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    // ReactTypeDefault stored in registry uses unknown since it's framework-agnostic storage.
+    // TypeDefault stored in registry uses unknown since it's framework-agnostic storage.
     // We cast to TRow for type-safe usage at consumption time.
     const reactDefault = this.typeDefaults[type] as ReactTypeDefault<TRow> | undefined;
     if (!reactDefault) {

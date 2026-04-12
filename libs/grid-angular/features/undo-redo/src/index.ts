@@ -218,7 +218,7 @@ export function injectGridUndoRedo(selector = 'tbw-grid'): UndoRedoMethods {
   };
 
   const getPlugin = (): UndoRedoPlugin | undefined => {
-    return getGrid()?.getPluginByName('undoRedo');
+    return getGrid()?.getPluginByName('undoRedo') as UndoRedoPlugin | undefined;
   };
 
   // Eagerly discover the grid after the first render so event listeners

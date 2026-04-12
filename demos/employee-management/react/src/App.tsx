@@ -32,7 +32,6 @@ import '@toolbox-web/grid-react/features/pinned-rows';
 import '@toolbox-web/grid-react/features/reorder-columns';
 import '@toolbox-web/grid-react/features/responsive';
 import '@toolbox-web/grid-react/features/selection';
-import '@toolbox-web/grid-react/features/sorting';
 import '@toolbox-web/grid-react/features/undo-redo';
 import '@toolbox-web/grid-react/features/visibility';
 

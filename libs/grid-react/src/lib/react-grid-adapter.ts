@@ -15,7 +15,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel';
 import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
-import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
+import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
 
 /**
@@ -473,7 +473,7 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    // ReactTypeDefault stored in registry uses unknown since it's framework-agnostic storage.
+    // TypeDefault stored in registry uses unknown since it's framework-agnostic storage.
     // We cast to TRow for type-safe usage at consumption time.
     const reactDefault = this.typeDefaults[type] as ReactTypeDefault<TRow> | undefined;
     if (!reactDefault) {

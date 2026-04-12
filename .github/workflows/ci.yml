@@ -261,6 +261,7 @@ jobs:
         if: github.event_name == 'push'
         id: release
         with:
+          target-branch: ${{ github.ref_name }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 

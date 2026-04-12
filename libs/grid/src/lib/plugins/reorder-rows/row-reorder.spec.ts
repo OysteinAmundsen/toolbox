@@ -617,4 +617,149 @@ describe('RowReorderPlugin', () => {
       expect(plugin.aliases).toContain('rowReorder');
     });
   });
+
+  describe('drag-and-drop events', () => {
+    let plugin: RowReorderPlugin;
+    let grid: ReturnType<typeof createGridMock>;
+    let gridEl: HTMLElement;
+
+    beforeEach(() => {
+      plugin = new RowReorderPlugin();
+      grid = createGridMock([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      grid.dispatchEvent = vi.fn(() => true);
+
+      // Create DOM structure for drag targets
+      gridEl = document.createElement('div');
+      for (let i = 0; i < 3; i++) {
+        const row = document.createElement('div');
+        row.className = 'data-grid-row';
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.setAttribute('data-row', String(i));
+        row.appendChild(cell);
+
+        const handle = document.createElement('div');
+        handle.className = 'dg-row-drag-handle';
+        row.appendChild(handle);
+        gridEl.appendChild(row);
+      }
+      document.body.appendChild(gridEl);
+
+      // Set _hostElement so the plugin finds the real DOM for drag delegation
+      (grid as any)._hostElement = gridEl;
+
+      plugin.attach(grid as any);
+    });
+
+    afterEach(() => {
+      plugin.detach();
+      document.body.innerHTML = '';
+    });
+
+    it('should set drag state on dragstart from drag handle', () => {
+      const handle = gridEl.querySelector('.dg-row-drag-handle')!;
+      const row = handle.closest('.data-grid-row')!;
+
+      const event = new Event('dragstart', { bubbles: true }) as any;
+      Object.defineProperty(event, 'dataTransfer', {
+        value: { effectAllowed: '', setData: vi.fn() },
+        writable: true,
+      });
+      handle.dispatchEvent(event);
+
+      expect(row.classList.contains('dragging')).toBe(true);
+    });
+
+    it('should clean up on dragend', () => {
+      const handle = gridEl.querySelector('.dg-row-drag-handle')!;
+
+      const startEvent = new Event('dragstart', { bubbles: true }) as any;
+      Object.defineProperty(startEvent, 'dataTransfer', {
+        value: { effectAllowed: '', setData: vi.fn() },
+        writable: true,
+      });
+      handle.dispatchEvent(startEvent);
+
+      gridEl.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+      const rows = gridEl.querySelectorAll('.data-grid-row.dragging');
+      expect(rows.length).toBe(0);
+    });
+
+    it('should handle drop to execute row move', () => {
+      const handle = gridEl.querySelector('.dg-row-drag-handle')!;
+
+      const startEvent = new Event('dragstart', { bubbles: true }) as any;
+      Object.defineProperty(startEvent, 'dataTransfer', {
+        value: { effectAllowed: '', setData: vi.fn() },
+        writable: true,
+      });
+      handle.dispatchEvent(startEvent);
+
+      // Dragover on row 2's cell to set dropRowIndex
+      const row2Cell = gridEl.querySelectorAll('.data-grid-row')[2].querySelector('.cell')!;
+      const overEvent = new Event('dragover', { bubbles: true, cancelable: true }) as any;
+      Object.defineProperty(overEvent, 'clientY', { value: 9999 });
+      overEvent.preventDefault = vi.fn();
+      row2Cell.dispatchEvent(overEvent);
+
+      // Drop
+      const dropEvent = new Event('drop', { bubbles: true, cancelable: true }) as any;
+      dropEvent.preventDefault = vi.fn();
+      gridEl.dispatchEvent(dropEvent);
+
+      expect(grid.dispatchEvent).toHaveBeenCalled();
+    });
+
+    it('should handle dragleave to clean up target classes', () => {
+      const row = gridEl.querySelector('.data-grid-row')!;
+      row.classList.add('drop-target', 'drop-before', 'drop-after');
+
+      const cell = row.querySelector('.cell')!;
+      cell.dispatchEvent(new Event('dragleave', { bubbles: true }));
+
+      expect(row.classList.contains('drop-target')).toBe(false);
+    });
+  });
+
+  describe('keyboard move revert on cancel', () => {
+    it('should revert position when event is cancelled', () => {
+      vi.useFakeTimers();
+      const plugin = new RowReorderPlugin({ debounceMs: 100 });
+      const rows = [{ id: 1 }, { id: 2 }, { id: 3 }];
+      const grid = createGridMock(rows);
+      // Cancel the event
+      grid.dispatchEvent = vi.fn((event: Event) => {
+        event.preventDefault();
+        return false;
+      });
+      plugin.attach(grid as any);
+
+      grid._focusRow = 0;
+      const event = {
+        key: 'ArrowDown',
+        ctrlKey: true,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      } as unknown as KeyboardEvent;
+      plugin.onKeyDown(event);
+
+      // Advance past debounce
+      vi.advanceTimersByTime(200);
+
+      // Event was emitted and cancelled
+      expect(grid.dispatchEvent).toHaveBeenCalledTimes(1);
+      // Focus should be reverted to original position
+      expect(grid._focusRow).toBe(0);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe('styles', () => {
+    it('should have styles property', () => {
+      const plugin = new RowReorderPlugin();
+      expect(typeof plugin.styles).toBe('string');
+    });
+  });
 });

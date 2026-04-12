@@ -538,4 +538,148 @@ describe('ReorderPlugin (class)', () => {
     });
   });
   // #endregion
+
+  describe('fade animation', () => {
+    it('should use fade animation when configured', () => {
+      const plugin = new ReorderPlugin({ animation: 'fade' });
+      const grid = createGridMock(sampleColumns);
+      grid.dispatchEvent = vi.fn(() => true);
+      plugin.attach(grid as any);
+
+      plugin.moveColumn('id', 2);
+
+      // For fade, forceLayout should NOT be called (only used by flip)
+      expect(grid.forceLayout).not.toHaveBeenCalled();
+      // But setColumnOrder should still be called
+      expect(grid.setColumnOrder).toHaveBeenCalled();
+    });
+  });
+
+  describe('custom animation duration', () => {
+    it('should accept custom animationDuration', () => {
+      const plugin = new ReorderPlugin({ animation: false, animationDuration: 500 });
+      const grid = createGridMock(sampleColumns);
+      grid.dispatchEvent = vi.fn(() => true);
+      plugin.attach(grid as any);
+
+      plugin.moveColumn('id', 2);
+
+      expect(grid.setColumnOrder).toHaveBeenCalled();
+    });
+  });
+
+  describe('drag-and-drop individual column headers', () => {
+    it('should handle dragstart on header cell', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      const nameCell = grid._hostElement.querySelector('.cell[data-field="name"]') as HTMLElement;
+
+      const event = new Event('dragstart', { bubbles: true }) as any;
+      event.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+      nameCell.dispatchEvent(event);
+
+      expect(nameCell.classList.contains('dragging')).toBe(true);
+      expect(event.dataTransfer.setData).toHaveBeenCalledWith('text/plain', 'name');
+    });
+
+    it('should handle dragend to clean up', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      const nameCell = grid._hostElement.querySelector('.cell[data-field="name"]') as HTMLElement;
+
+      // Start drag
+      const startEvent = new Event('dragstart', { bubbles: true }) as any;
+      startEvent.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+      nameCell.dispatchEvent(startEvent);
+
+      // End drag
+      nameCell.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+      expect(nameCell.classList.contains('dragging')).toBe(false);
+    });
+
+    it('should handle drop on header cell to execute column move', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      grid.dispatchEvent = vi.fn(() => true);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      const idCell = grid._hostElement.querySelector('.cell[data-field="id"]') as HTMLElement;
+      const cityCell = grid._hostElement.querySelector('.cell[data-field="city"]') as HTMLElement;
+
+      // Start drag on 'id'
+      const startEvent = new Event('dragstart', { bubbles: true }) as any;
+      startEvent.dataTransfer = { effectAllowed: '', setData: vi.fn() };
+      idCell.dispatchEvent(startEvent);
+
+      // Dragover city to set drop index
+      cityCell.getBoundingClientRect = () => ({
+        left: 600,
+        width: 200,
+        top: 0,
+        bottom: 40,
+        height: 40,
+        right: 800,
+        x: 600,
+        y: 0,
+        toJSON: () => ({}),
+      });
+      const overEvent = new Event('dragover', { bubbles: true }) as any;
+      overEvent.clientX = 750; // Right side → after
+      overEvent.preventDefault = vi.fn();
+      cityCell.dispatchEvent(overEvent);
+
+      // Drop
+      const dropEvent = new Event('drop', { bubbles: true, cancelable: true }) as any;
+      dropEvent.preventDefault = vi.fn();
+      cityCell.dispatchEvent(dropEvent);
+
+      expect(grid.dispatchEvent).toHaveBeenCalled();
+      const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent<ColumnMoveDetail>;
+      expect(event.type).toBe('column-move');
+    });
+
+    it('should handle dragleave to clear styling', () => {
+      const plugin = new ReorderPlugin();
+      const grid = createGridMock(sampleColumns);
+      plugin.attach(grid as any);
+      plugin.afterRender();
+
+      const nameCell = grid._hostElement.querySelector('.cell[data-field="name"]') as HTMLElement;
+      nameCell.classList.add('drop-target', 'drop-before', 'drop-after');
+
+      nameCell.dispatchEvent(new Event('dragleave', { bubbles: true }));
+
+      expect(nameCell.classList.contains('drop-target')).toBe(false);
+      expect(nameCell.classList.contains('drop-before')).toBe(false);
+      expect(nameCell.classList.contains('drop-after')).toBe(false);
+    });
+  });
+
+  describe('requestStateChange', () => {
+    it('should call requestStateChange after column order update', () => {
+      const plugin = new ReorderPlugin({ animation: false });
+      const grid = createGridMock(sampleColumns);
+      grid.dispatchEvent = vi.fn(() => true);
+      plugin.attach(grid as any);
+
+      plugin.moveColumn('id', 2);
+
+      expect(grid.requestStateChange).toHaveBeenCalled();
+    });
+  });
+
+  describe('styles', () => {
+    it('should have styles property', () => {
+      const plugin = new ReorderPlugin();
+      expect(typeof plugin.styles).toBe('string');
+    });
+  });
 });

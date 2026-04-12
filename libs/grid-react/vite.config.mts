@@ -108,6 +108,8 @@ export default defineConfig(() => ({
     coverage: {
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
+      reporter: ['text', 'json-summary'],
+      thresholds: { statements: 80, branches: 67, functions: 81, lines: 80 },
     },
     alias: [
       // Resolve @toolbox-web/grid-react feature imports to local source (for tests)

@@ -1,6 +1,5 @@
 import type { ShellState } from './internal/shell';
 import type { RowPosition } from './internal/virtualization';
-import type { PluginQuery } from './plugin/base-plugin';
 import type { AfterCellRenderContext, AfterRowRenderContext, CellMouseEvent } from './plugin/types';
 
 /**
@@ -562,8 +561,6 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
     rowEl?: HTMLElement,
     focusedCell?: HTMLElement,
   ) => { left: number; right: number; skipScroll?: boolean };
-  /** Query all plugins with a generic query and collect responses */
-  queryPlugins?: <T>(query: PluginQuery) => T[];
   /** Request emission of column-state-change event (debounced) */
   requestStateChange?: () => void;
 
@@ -575,9 +572,7 @@ export interface InternalGrid<T = any> extends PublicGrid<T>, GridConfig<T> {
   /** @internal */ _requestSchedulerPhase(phase: number, source: string): void;
   /** @internal */ _rebuildRowIdMap(): void;
   /** @internal */ _emitDataChange(): void;
-  /** @internal */ _getPluginExtraHeight(): number;
   /** @internal */ _getPluginRowHeight(row: T, index: number): number | undefined;
-  /** @internal */ _getPluginExtraHeightBefore(start: number): number;
   /** @internal */ _adjustPluginVirtualStart(start: number, scrollTop: number, rowHeight: number): number | undefined;
   /** @internal */ _afterPluginRender(): void;
   /** @internal */ _emitPluginEvent(event: string, detail: unknown): void;
@@ -3554,19 +3549,6 @@ export interface CellActivateDetail<TRow = unknown> {
 }
 
 /**
- * @deprecated Use `CellActivateDetail` instead. Will be removed in next major version.
- * Kept for backwards compatibility. Will be removed in v2.
- *
- * @category Events
- */
-export interface ActivateCellDetail {
-  /** Zero-based row index now focused. */
-  row: number;
-  /** Zero-based column index now focused. */
-  col: number;
-}
-
-/**
  * Event detail for mounting external view renderers.
  *
  * Emitted when a cell uses an external component spec (React, Angular, Vue)
@@ -3695,8 +3677,7 @@ export interface DataGridEventMap<TRow = unknown> {
 
   /**
    * Fired when a cell is activated by Enter key or pointer click.
-   * Unified event for both keyboard and pointer activation — use this
-   * instead of the deprecated `activate-cell`.
+   * Unified event for both keyboard and pointer activation.
    *
    * Call `event.preventDefault()` to suppress default behavior (e.g., inline editing).
    *
@@ -3847,13 +3828,6 @@ export interface DataGridEventMap<TRow = unknown> {
    * @group Core Events
    */
   'column-resize': ColumnResizeDetail;
-
-  /**
-   * @deprecated Use `cell-activate` instead. Will be removed in v2.
-   * @see {@link ActivateCellDetail}
-   * @group Core Events
-   */
-  'activate-cell': ActivateCellDetail;
 
   /**
    * Fired when column state changes — reordering, resizing, visibility toggle,

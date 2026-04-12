@@ -286,8 +286,7 @@ export interface DataGridProps<TRow = unknown> extends AllFeatureProps<TRow>, Ev
    * ```
    */
   loading?: boolean;
-  /** Edit trigger mode - DEPRECATED: use `editing` prop instead */
-  editOn?: 'click' | 'dblclick' | 'none';
+
   /** Custom CSS styles to inject into the grid via `document.adoptedStyleSheets` */
   customStyles?: string;
   /** Class name for the grid element */
@@ -434,7 +433,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     filterable,
     selectable,
     loading,
-    editOn,
     customStyles,
     className,
     style,
@@ -468,12 +466,9 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
     'editing',
     'filtering',
     'multiSort',
-    'sorting', // deprecated alias for multiSort
     'clipboard',
     'contextMenu',
     'reorderColumns',
-    'reorder', // deprecated alias for reorderColumns
-    'rowReorder', // deprecated alias for reorderRows
     'reorderRows',
     'visibility',
     'undoRedo',
@@ -653,13 +648,6 @@ export const DataGrid = forwardRef<DataGridRef, DataGridProps>(function DataGrid
       (gridRef.current as unknown as { fitMode: string }).fitMode = fitMode;
     }
   }, [fitMode]);
-
-  // Sync editOn
-  useEffect(() => {
-    if (gridRef.current && editOn !== undefined) {
-      (gridRef.current as unknown as { editOn: string }).editOn = editOn;
-    }
-  }, [editOn]);
 
   // Sync loading
   useEffect(() => {

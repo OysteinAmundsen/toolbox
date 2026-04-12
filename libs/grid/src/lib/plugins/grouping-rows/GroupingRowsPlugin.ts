@@ -5,6 +5,7 @@
  */
 
 import { GridClasses } from '../../core/constants';
+import { aggregatorRegistry } from '../../core/internal/aggregators';
 import { BaseGridPlugin, CellClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
@@ -15,7 +16,6 @@ import {
   getGroupKeys,
   getGroupRowCount,
   resolveDefaultExpanded,
-  runAggregator,
   toggleGroupExpansion,
 } from './grouping-rows';
 import styles from './grouping-rows.css?inline';
@@ -540,7 +540,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
 
       for (const [field, aggRef] of aggregatorEntries) {
         const col = this.columns.find((c) => c.field === field);
-        const result = runAggregator(aggRef, groupRows, field, col);
+        const result = aggregatorRegistry.run(aggRef, groupRows, field, col);
         if (result != null) {
           const aggSpan = document.createElement('span');
           aggSpan.className = 'group-aggregate';
@@ -599,7 +599,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         const label = document.createElement('span');
         const firstColAgg = aggregators[col.field];
         if (firstColAgg) {
-          const aggResult = runAggregator(firstColAgg, groupRows, col.field, col);
+          const aggResult = aggregatorRegistry.run(firstColAgg, groupRows, col.field, col);
           label.textContent = aggResult != null ? String(aggResult) : String(row.__groupValue);
         } else {
           label.textContent = this.getGroupLabelText(row.__groupValue, row.__groupDepth || 0, row.__groupKey);
@@ -616,7 +616,7 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
         // Other columns: run aggregator if defined
         const aggRef = aggregators[col.field];
         if (aggRef) {
-          const result = runAggregator(aggRef, groupRows, col.field, col);
+          const result = aggregatorRegistry.run(aggRef, groupRows, col.field, col);
           cell.textContent = result != null ? String(result) : '';
         } else {
           cell.textContent = '';

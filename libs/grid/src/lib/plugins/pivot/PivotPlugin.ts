@@ -126,9 +126,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
           'ServerSidePlugin lazy-loads rows in blocks, so pivot aggregation cannot be performed client-side.',
       },
     ],
-    queries: [
-      { type: 'sort:get-sort-config', description: 'Returns the current pivot sort configuration' },
-    ],
+    queries: [{ type: 'sort:get-sort-config', description: 'Returns the current pivot sort configuration' }],
   };
 
   /** @internal */
@@ -537,7 +535,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
 
   /** Check whether the MultiSort plugin is loaded alongside Pivot. */
   private isMultiSortActive(): boolean {
-    const results = this.grid?.queryPlugins?.({ type: 'sort:get-model', context: null });
+    const results = this.grid?.query?.('sort:get-model', null);
     return Array.isArray(results) && results.length > 0;
   }
 
@@ -546,7 +544,7 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
    * Returns null when MultiSort is not present or has no active sorts.
    */
   private getMultiSortConfigs(): PivotSortConfig[] | null {
-    const results = this.grid?.queryPlugins?.({ type: 'sort:get-model', context: null });
+    const results = this.grid?.query?.('sort:get-model', null);
     if (!results || results.length === 0) return null;
 
     const sortModel = results[0] as Array<{ field: string; direction: 'asc' | 'desc' }>;

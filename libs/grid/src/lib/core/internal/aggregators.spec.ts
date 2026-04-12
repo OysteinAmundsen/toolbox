@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  getAggregator,
-  getValueAggregator,
-  listAggregators,
-  registerAggregator,
-  runAggregator,
-  runValueAggregator,
-  unregisterAggregator,
-} from './aggregators';
+import { aggregatorRegistry, getValueAggregator, runValueAggregator } from './aggregators';
+
+const getAggregator = aggregatorRegistry.get.bind(aggregatorRegistry);
+const runAggregator = aggregatorRegistry.run.bind(aggregatorRegistry);
+const registerAggregator = aggregatorRegistry.register.bind(aggregatorRegistry);
+const unregisterAggregator = aggregatorRegistry.unregister.bind(aggregatorRegistry);
+const listAggregators = aggregatorRegistry.list.bind(aggregatorRegistry);
 
 describe('aggregators', () => {
   const testRows = [

@@ -1,5 +1,5 @@
 /**
- * Tests for VueGridAdapter registration and lookup
+ * Tests for GridAdapter registration and lookup
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { defineComponent, h, type VNode } from 'vue';
@@ -15,10 +15,9 @@ import {
   isVueComponent,
   registerColumnEditor,
   registerColumnRenderer,
-  VueGridAdapter,
 } from './vue-grid-adapter';
 
-describe('VueGridAdapter', () => {
+describe('GridAdapter', () => {
   describe('field-based registry', () => {
     beforeEach(() => {
       clearFieldRegistries();
@@ -96,27 +95,27 @@ describe('VueGridAdapter', () => {
     });
   });
 
-  describe('VueGridAdapter class', () => {
+  describe('GridAdapter class', () => {
     it('should be a valid class', () => {
-      expect(VueGridAdapter).toBeDefined();
-      expect(typeof VueGridAdapter).toBe('function');
+      expect(GridAdapter).toBeDefined();
+      expect(typeof GridAdapter).toBe('function');
     });
 
     it('should have required interface methods', () => {
-      expect(VueGridAdapter.prototype.canHandle).toBeDefined();
-      expect(VueGridAdapter.prototype.createRenderer).toBeDefined();
-      expect(VueGridAdapter.prototype.createEditor).toBeDefined();
-      expect(VueGridAdapter.prototype.cleanup).toBeDefined();
+      expect(GridAdapter.prototype.canHandle).toBeDefined();
+      expect(GridAdapter.prototype.createRenderer).toBeDefined();
+      expect(GridAdapter.prototype.createEditor).toBeDefined();
+      expect(GridAdapter.prototype.cleanup).toBeDefined();
     });
 
     it('should instantiate correctly', () => {
-      const adapter = new VueGridAdapter();
-      expect(adapter).toBeInstanceOf(VueGridAdapter);
+      const adapter = new GridAdapter();
+      expect(adapter).toBeInstanceOf(GridAdapter);
     });
 
     describe('canHandle', () => {
       it('should return false if no renderer/editor registered', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         const element = document.createElement('tbw-grid-column');
         element.setAttribute('field', 'unregisteredField');
 
@@ -124,7 +123,7 @@ describe('VueGridAdapter', () => {
       });
 
       it('should return true if renderer registered', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         const element = document.createElement('tbw-grid-column');
         element.setAttribute('field', 'registeredField');
 
@@ -136,7 +135,7 @@ describe('VueGridAdapter', () => {
 
     describe('createRenderer', () => {
       it('should return undefined if no renderer registered', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         const element = document.createElement('tbw-grid-column');
         element.setAttribute('field', 'noRenderer');
 
@@ -147,7 +146,7 @@ describe('VueGridAdapter', () => {
 
     describe('createEditor', () => {
       it('should return undefined if no editor registered', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         const element = document.createElement('tbw-grid-column');
         element.setAttribute('field', 'noEditor');
 
@@ -158,20 +157,20 @@ describe('VueGridAdapter', () => {
 
     describe('type defaults', () => {
       it('should have setTypeDefaults method', () => {
-        expect(VueGridAdapter.prototype.setTypeDefaults).toBeDefined();
+        expect(GridAdapter.prototype.setTypeDefaults).toBeDefined();
       });
 
       it('should have getTypeDefault method', () => {
-        expect(VueGridAdapter.prototype.getTypeDefault).toBeDefined();
+        expect(GridAdapter.prototype.getTypeDefault).toBeDefined();
       });
 
       it('should return undefined when no type defaults are set', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         expect(adapter.getTypeDefault('country')).toBeUndefined();
       });
 
       it('should return undefined for unregistered type', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         adapter.setTypeDefaults({
           country: { renderer: () => null as unknown as VNode },
         });
@@ -179,7 +178,7 @@ describe('VueGridAdapter', () => {
       });
 
       it('should return type default with renderer', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         const renderer = () => null as unknown as VNode;
         adapter.setTypeDefaults({
           country: { renderer },
@@ -191,7 +190,7 @@ describe('VueGridAdapter', () => {
       });
 
       it('should return type default with editor', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         const editor = () => null as unknown as VNode;
         adapter.setTypeDefaults({
           status: { editor },
@@ -203,7 +202,7 @@ describe('VueGridAdapter', () => {
       });
 
       it('should return type default with editorParams', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         const editorParams = { options: ['A', 'B'] };
         adapter.setTypeDefaults({
           category: { editorParams },
@@ -215,7 +214,7 @@ describe('VueGridAdapter', () => {
       });
 
       it('should clear type defaults when set to null', () => {
-        const adapter = new VueGridAdapter();
+        const adapter = new GridAdapter();
         adapter.setTypeDefaults({
           country: { renderer: () => null as unknown as VNode },
         });
@@ -1065,15 +1064,15 @@ describe('VueGridAdapter', () => {
 
   // #endregion
 
-  // #region VueGridAdapter alias
+  // #region GridAdapter alias
 
-  describe('VueGridAdapter alias', () => {
+  describe('GridAdapter alias', () => {
     it('should be the same as GridAdapter', () => {
-      expect(VueGridAdapter).toBe(GridAdapter);
+      expect(GridAdapter).toBe(GridAdapter);
     });
 
     it('should produce instances with same prototype', () => {
-      const adapter = new VueGridAdapter();
+      const adapter = new GridAdapter();
       expect(adapter).toBeInstanceOf(GridAdapter);
     });
   });

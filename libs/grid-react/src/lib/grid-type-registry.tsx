@@ -55,11 +55,6 @@ export interface TypeDefault<TRow = unknown, TValue = unknown> {
   filterPanelRenderer?: (params: FilterPanelParams) => ReactNode;
 }
 
-/**
- * @deprecated Use `TypeDefault` instead. Will be removed in v2.
- * @see {@link TypeDefault}
- */
-export type ReactTypeDefault<TRow = unknown, TValue = unknown> = TypeDefault<TRow, TValue>;
 // #endregion
 
 /**
@@ -229,12 +224,6 @@ export function wrapReactFilterPanelRenderer(
     container.appendChild(rendered);
   };
 }
-
-/**
- * @deprecated Use `typeDefaultToBaseTypeDefault` instead. Will be removed in v2.
- * @see {@link typeDefaultToBaseTypeDefault}
- */
-export const reactTypeDefaultToGridTypeDefault = typeDefaultToBaseTypeDefault;
 
 /**
  * Internal context for passing the type defaults to the adapter.

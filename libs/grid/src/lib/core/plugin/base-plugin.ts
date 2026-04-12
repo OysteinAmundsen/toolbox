@@ -23,7 +23,6 @@ import type {
 import { DEFAULT_GRID_ICONS } from '../types';
 
 // Re-export shared plugin types for convenience
-export { PLUGIN_QUERIES } from './types';
 export type {
   AfterCellRenderContext,
   AfterRowRenderContext,
@@ -856,24 +855,6 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   // #endregion
 
   /**
-   * Resolve an icon value to string or HTMLElement.
-   * Checks plugin config first, then grid-level icons, then defaults.
-   *
-   * @deprecated Use `setIcon(element, iconKey)` instead. Will be removed in v2.0.0.
-   * @param iconKey - The icon key in GridIcons (e.g., 'expand', 'collapse')
-   * @param pluginOverride - Optional plugin-level override
-   * @returns The resolved icon value
-   */
-  protected resolveIcon(iconKey: keyof GridIcons, pluginOverride?: IconValue): IconValue {
-    // Plugin override takes precedence
-    if (pluginOverride !== undefined) {
-      return pluginOverride;
-    }
-    // Then grid-level config
-    return this.gridIcons[iconKey];
-  }
-
-  /**
    * Set an icon on an element using the CSS-first hybrid approach.
    *
    * Sets `data-icon` for CSS pseudo-element rendering and `data-expanded` for
@@ -1167,70 +1148,6 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   onScrollRender?(): void;
 
   /**
-   * Return extra height contributed by this plugin (e.g., expanded detail rows).
-   * Used to adjust scrollbar height calculations for virtualization.
-   *
-   * @returns Total extra height in pixels
-   *
-   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v2.0.
-   * The new `getRowHeight(row, index)` hook provides per-row height information which
-   * enables better position caching and variable row height support.
-   *
-   * @example
-   * ```ts
-   * // OLD (deprecated):
-   * getExtraHeight(): number {
-   *   return this.expandedRows.size * this.detailHeight;
-   * }
-   *
-   * // NEW (preferred):
-   * getRowHeight(row: unknown, index: number): number | undefined {
-   *   if (this.isExpanded(row)) {
-   *     return this.baseRowHeight + this.getDetailHeight(row);
-   *   }
-   *   return undefined;
-   * }
-   * ```
-   */
-  getExtraHeight?(): number;
-
-  /**
-   * Return extra height that appears before a given row index.
-   * Used by virtualization to correctly calculate scroll positions when
-   * there's variable height content (like expanded detail rows) above the viewport.
-   *
-   * @param beforeRowIndex - The row index to calculate extra height before
-   * @returns Extra height in pixels that appears before this row
-   *
-   * @deprecated Use {@link getRowHeight} instead. This hook will be removed in v2.0.
-   * The new `getRowHeight(row, index)` hook provides per-row height information which
-   * enables better position caching and variable row height support.
-   *
-   * @example
-   * ```ts
-   * // OLD (deprecated):
-   * getExtraHeightBefore(beforeRowIndex: number): number {
-   *   let height = 0;
-   *   for (const expandedRowIndex of this.expandedRowIndices) {
-   *     if (expandedRowIndex < beforeRowIndex) {
-   *       height += this.getDetailHeight(expandedRowIndex);
-   *     }
-   *   }
-   *   return height;
-   * }
-   *
-   * // NEW (preferred):
-   * getRowHeight(row: unknown, index: number): number | undefined {
-   *   if (this.isExpanded(row)) {
-   *     return this.baseRowHeight + this.getDetailHeight(row);
-   *   }
-   *   return undefined;
-   * }
-   * ```
-   */
-  getExtraHeightBefore?(beforeRowIndex: number): number;
-
-  /**
    * Get the height of a specific row.
    * Used for synthetic rows (group headers, detail panels, etc.) that have fixed heights.
    * Return undefined if this plugin does not manage the height for this row.
@@ -1241,17 +1158,6 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
    * @param row - The row data
    * @param index - The row index in the processed rows array
    * @returns The row height in pixels, or undefined if not managed by this plugin
-   *
-   * @example
-   * ```ts
-   * getRowHeight(row: unknown, index: number): number | undefined {
-   *   // Group headers have a fixed height
-   *   if (this.isGroupHeader(row)) {
-   *     return 32;
-   *   }
-   *   return undefined; // Let grid use default/measured height
-   * }
-   * ```
    */
   getRowHeight?(row: unknown, index: number): number | undefined;
 
@@ -1307,39 +1213,6 @@ export abstract class BaseGridPlugin<TConfig = unknown> implements GridPlugin {
   // #endregion
 
   // #region Inter-Plugin Communication
-
-  /**
-   * Handle queries from other plugins.
-   * This is the generic mechanism for inter-plugin communication.
-   * Plugins can respond to well-known query types or define their own.
-   *
-   * **Prefer `handleQuery` for new plugins** - it has the same signature but
-   * a clearer name. `onPluginQuery` is kept for backwards compatibility.
-   *
-   * @category Plugin Development
-   * @param query - The query object with type and context
-   * @returns Query-specific response, or undefined if not handling this query
-   *
-   * @example
-   * ```ts
-   * onPluginQuery(query: PluginQuery): unknown {
-   *   switch (query.type) {
-   *     case PLUGIN_QUERIES.CAN_MOVE_COLUMN:
-   *       // Prevent moving pinned columns
-   *       const column = query.context as ColumnConfig;
-   *       if (column.sticky === 'left' || column.sticky === 'right') {
-   *         return false;
-   *       }
-   *       break;
-   *     case PLUGIN_QUERIES.GET_CONTEXT_MENU_ITEMS:
-   *       const params = query.context as ContextMenuParams;
-   *       return [{ id: 'my-action', label: 'My Action', action: () => {} }];
-   *   }
-   * }
-   * ```
-   * @deprecated Use `handleQuery` instead for new plugins. Will be removed in v2.
-   */
-  onPluginQuery?(query: PluginQuery): unknown;
 
   /**
    * Handle queries from other plugins or the grid.

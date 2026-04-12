@@ -113,16 +113,6 @@ const PLUGIN_DEPENDENCIES: Record<string, string[]> = {
 };
 
 /**
- * Deprecated alias mappings.
- * When both alias and primary are set, primary takes precedence.
- */
-const FEATURE_ALIASES: Record<string, string> = {
-  sorting: 'multiSort',
-  reorder: 'reorderColumns',
-  rowReorder: 'reorderRows',
-};
-
-/**
  * Create a plugin instance for a single feature.
  * Shows a warning if the feature is not registered.
  */
@@ -173,7 +163,6 @@ function validateDependencies(featureNames: string[]): void {
  * Create plugin instances from a features configuration object.
  *
  * Handles:
- * - Deprecated alias resolution (sorting → multiSort, etc.)
  * - Dependency validation (clipboard needs selection)
  * - Dependency ordering (selection before clipboard)
  * - Skipping false/undefined values
@@ -185,17 +174,8 @@ export function createPluginsFromFeatures(features: Record<string, unknown>): Gr
   const plugins: GridPlugin[] = [];
   const enabledFeatures: string[] = [];
 
-  // Resolve deprecated aliases: use primary name, skip alias if primary is set
-  const effective: Record<string, unknown> = { ...features };
-  for (const [alias, primary] of Object.entries(FEATURE_ALIASES)) {
-    if (effective[alias] !== undefined && effective[primary] === undefined) {
-      effective[primary] = effective[alias];
-    }
-    delete effective[alias];
-  }
-
   // Collect enabled feature names
-  for (const [key, value] of Object.entries(effective)) {
+  for (const [key, value] of Object.entries(features)) {
     if (value === undefined || value === false) continue;
     enabledFeatures.push(key);
   }
@@ -212,7 +192,7 @@ export function createPluginsFromFeatures(features: Record<string, unknown>): Gr
   const orderedFeatures = [...new Set(dependencyOrder)].filter((f) => enabledFeatures.includes(f));
 
   for (const featureName of orderedFeatures) {
-    const config = effective[featureName];
+    const config = features[featureName];
     if (config === undefined || config === false) continue;
 
     const plugin = createPluginFromFeature(featureName, config);

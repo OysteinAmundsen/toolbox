@@ -42,12 +42,11 @@ import './pinned-columns';
 import './pinned-rows';
 import './pivot';
 import './print';
-import './reorder';
+import './reorder-columns';
+import './reorder-rows';
 import './responsive';
-import './row-reorder';
 import './selection';
 import './server-side';
-// './sorting' is deprecated, imports './multi-sort' internally
 import './tooltip';
 import './tree';
 import './undo-redo';

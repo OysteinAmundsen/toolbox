@@ -1,10 +1,10 @@
 import { Component, input } from '@angular/core';
 import type { Employee } from '@demo/shared';
 import type { ColumnConfig } from '@toolbox-web/grid';
-import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
+import type { CellRenderer } from '@toolbox-web/grid-angular';
 
 /**
- * Status badge renderer component implementing AngularCellRenderer interface.
+ * Status badge renderer component implementing CellRenderer interface.
  * Can be used via both template syntax (*tbwRenderer) and component-class column config.
  */
 @Component({
@@ -18,8 +18,8 @@ import type { AngularCellRenderer } from '@toolbox-web/grid-angular';
     `,
   ],
 })
-export class StatusBadgeComponent implements AngularCellRenderer<Employee, string> {
-  // AngularCellRenderer interface inputs
+export class StatusBadgeComponent implements CellRenderer<Employee, string> {
+  // CellRenderer interface inputs
   value = input<string>('');
   row = input<Employee>();
   column = input<ColumnConfig<Employee>>();

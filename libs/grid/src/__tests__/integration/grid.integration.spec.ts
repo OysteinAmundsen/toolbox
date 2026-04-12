@@ -441,7 +441,7 @@ describe('tbw-grid integration: column grouping / sticky', () => {
     grid = document.createElement('tbw-grid');
     document.body.appendChild(grid);
     grid.columns = [
-      { field: 'id', header: 'ID', group: 'meta', sticky: 'left' },
+      { field: 'id', header: 'ID', group: 'meta', pinned: 'left' },
       { field: 'name', header: 'Name', group: { id: 'meta', label: 'Meta Data' } },
       { field: 'status', header: 'Status' },
       { field: 'amount', header: 'Amount' },
@@ -2347,16 +2347,6 @@ describe('insertRow / removeRow', () => {
     grid.insertRow(-5, { id: 0 }, false);
     await nextFrame();
     expect(grid.rows[0]).toEqual({ id: 0 });
-  });
-
-  it('suspendProcessing is a no-op (deprecated)', async () => {
-    grid.columns = [{ field: 'id', header: 'ID' }];
-    grid.rows = [{ id: 1 }];
-    await waitUpgrade(grid);
-    await nextFrame();
-
-    // Should not throw
-    expect(() => grid.suspendProcessing()).not.toThrow();
   });
 });
 

@@ -249,57 +249,11 @@ describe('validatePluginProperties', () => {
     });
   });
 
-  describe('sticky property (PinnedColumnsPlugin)', () => {
-    it('does not throw when sticky is used with PinnedColumnsPlugin', () => {
-      const config: GridConfig = {
-        columns: [{ field: 'id', sticky: 'left' }],
-      } as GridConfig;
-
-      expect(() => {
-        validatePluginProperties(config, [mockPinnedColumnsPlugin]);
-      }).not.toThrow();
-    });
-
-    it('throws when sticky: left is used without PinnedColumnsPlugin', () => {
-      const config: GridConfig = {
-        columns: [{ field: 'id', sticky: 'left' }],
-      } as GridConfig;
-
-      expect(() => {
-        validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\].*Configuration error/);
-      expect(() => {
-        validatePluginProperties(config, []);
-      }).toThrow(/PinnedColumnsPlugin/);
-    });
-
-    it('throws when sticky: right is used without PinnedColumnsPlugin', () => {
-      const config: GridConfig = {
-        columns: [{ field: 'actions', sticky: 'right' }],
-      } as GridConfig;
-
-      expect(() => {
-        validatePluginProperties(config, []);
-      }).toThrow(/\[tbw-grid\].*Configuration error/);
-    });
-
-    it('does not throw when sticky is undefined', () => {
-      const config: GridConfig = {
-        columns: [{ field: 'name' }],
-      };
-
-      expect(() => {
-        validatePluginProperties(config, []);
-      }).not.toThrow();
-    });
-  });
-
   describe('multiple plugins missing', () => {
     it('consolidates errors from multiple missing plugins', () => {
       const config: GridConfig = {
         columns: [
           { field: 'name', editable: true },
-          { field: 'id', sticky: 'left' },
           { field: 'email', group: 'contact' },
         ],
       } as GridConfig;
@@ -309,9 +263,6 @@ describe('validatePluginProperties', () => {
       }).toThrow(/EditingPlugin/);
       expect(() => {
         validatePluginProperties(config, []);
-      }).toThrow(/PinnedColumnsPlugin/);
-      expect(() => {
-        validatePluginProperties(config, []);
       }).toThrow(/GroupingColumnsPlugin/);
     });
 
@@ -319,14 +270,14 @@ describe('validatePluginProperties', () => {
       const config: GridConfig = {
         columns: [
           { field: 'name', editable: true },
-          { field: 'id', sticky: 'left' },
+          { field: 'email', group: 'contact' },
         ],
       } as GridConfig;
 
-      // With editing plugin present, only sticky should fail
+      // With editing plugin present, only group should fail
       expect(() => {
         validatePluginProperties(config, [mockEditingPlugin]);
-      }).toThrow(/PinnedColumnsPlugin/);
+      }).toThrow(/GroupingColumnsPlugin/);
       expect(() => {
         validatePluginProperties(config, [mockEditingPlugin]);
       }).not.toThrow(/EditingPlugin/);

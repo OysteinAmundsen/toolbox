@@ -1,4 +1,31 @@
 {
   "$schema": "./perf-baseline.schema.json",
-  "baseline": null
+  "baseline": {
+    "runner": "github-actions-ubuntu-latest",
+    "date": "2026-04-12",
+    "metrics": {
+      "vanilla.initialRender": 1851,
+      "vanilla.render500": 501.2,
+      "vanilla.render1000": 800.9,
+      "vanilla.scrollAvg": 18.52,
+      "vanilla.scrollP95": 28.2,
+      "vanilla.scrollP99": 28.8,
+      "vanilla.stressScrollAvg": 38.18,
+      "vanilla.stressScrollMax": 68.5,
+      "vanilla.hscrollAvg": 15.84,
+      "vanilla.hscrollP95": 17.5,
+      "angular.scrollAvg": 27.54,
+      "angular.scrollP95": 48.9,
+      "angular.stressScrollAvg": 28.03,
+      "angular.stressScrollMax": 47.5,
+      "react.scrollAvg": 22.86,
+      "react.scrollP95": 30.8,
+      "react.stressScrollAvg": 22.2,
+      "react.stressScrollMax": 28.7,
+      "vue.scrollAvg": 17.26,
+      "vue.scrollP95": 19.1,
+      "vue.stressScrollAvg": 16.97,
+      "vue.stressScrollMax": 22.3
+    }
+  }
 }

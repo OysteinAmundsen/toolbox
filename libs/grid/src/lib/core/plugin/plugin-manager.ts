@@ -10,8 +10,7 @@
  * priority preserve their original array order.
  */
 
-import { DEPRECATED_HOOK, PLUGIN_EVENT_ERROR, errorDiagnostic, warnDiagnostic } from '../internal/diagnostics';
-import { isDevelopment } from '../internal/utils';
+import { PLUGIN_EVENT_ERROR, errorDiagnostic } from '../internal/diagnostics';
 import { validatePluginDependencies } from '../internal/validate-config';
 import type { ColumnConfig } from '../types';
 import type {
@@ -86,12 +85,6 @@ export class PluginManager {
   private queryHandlers: Map<string, Set<BaseGridPlugin>> = new Map();
   // #endregion
 
-  // #region Deprecation Warnings
-  /** Set of plugin constructors that have been warned about deprecated hooks */
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type -- WeakSet key is plugin.constructor identity
-  private static deprecationWarned = new WeakSet<Function>();
-  // #endregion
-
   // #region Lifecycle
   constructor(private grid: GridElement) {}
 
@@ -137,9 +130,6 @@ export class PluginManager {
     // Register query handlers from manifest
     this.registerQueryHandlers(plugin);
 
-    // Warn about deprecated hooks (once per plugin class)
-    this.warnDeprecatedHooks(plugin);
-
     // Call attach lifecycle method
     plugin.attach(this.grid);
 
@@ -169,37 +159,6 @@ export class PluginManager {
         this.queryHandlers.set(queryDef.type, handlers);
       }
       handlers.add(plugin);
-    }
-  }
-
-  /**
-   * Warn about deprecated plugin hooks.
-   * Only warns once per plugin class, only in development environments.
-   */
-  private warnDeprecatedHooks(plugin: BaseGridPlugin): void {
-    const PluginClass = plugin.constructor;
-
-    // Skip if already warned for this plugin class
-    if (PluginManager.deprecationWarned.has(PluginClass)) return;
-
-    // Only warn in development
-    if (!isDevelopment()) return;
-
-    const hasOldHooks =
-      typeof plugin.getExtraHeight === 'function' || typeof plugin.getExtraHeightBefore === 'function';
-
-    const hasNewHook = typeof plugin.getRowHeight === 'function';
-
-    // Warn if using old hooks without new hook
-    if (hasOldHooks && !hasNewHook) {
-      PluginManager.deprecationWarned.add(PluginClass);
-      warnDiagnostic(
-        DEPRECATED_HOOK,
-        `"${plugin.name}" uses getExtraHeight() / getExtraHeightBefore() ` +
-          `which are deprecated and will be removed in v2.0.\n` +
-          `  → Migrate to getRowHeight(row, index) for better variable row height support.`,
-        this.grid.getAttribute('id') ?? undefined,
-      );
     }
   }
 
@@ -455,48 +414,6 @@ export class PluginManager {
   }
 
   /**
-   * Get total extra height contributed by plugins (e.g., expanded detail rows).
-   * Used to adjust scrollbar height calculations.
-   */
-  getExtraHeight(): number {
-    let total = 0;
-    for (const plugin of this.plugins) {
-      if (typeof plugin.getExtraHeight === 'function') {
-        total += plugin.getExtraHeight();
-      }
-    }
-    return total;
-  }
-
-  /**
-   * Check if any plugin is contributing extra height.
-   * When true, plugins are managing variable row heights and the grid should
-   * not override the base row height via #measureRowHeight().
-   */
-  hasExtraHeight(): boolean {
-    for (const plugin of this.plugins) {
-      if (typeof plugin.getExtraHeight === 'function' && plugin.getExtraHeight() > 0) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Get extra height from plugins that appears before a given row index.
-   * Used by virtualization to correctly position the scroll window.
-   */
-  getExtraHeightBefore(beforeRowIndex: number): number {
-    let total = 0;
-    for (const plugin of this.plugins) {
-      if (typeof plugin.getExtraHeightBefore === 'function') {
-        total += plugin.getExtraHeightBefore(beforeRowIndex);
-      }
-    }
-    return total;
-  }
-
-  /**
    * Get the height of a specific row from plugins.
    * Used for synthetic rows (group headers, etc.) that have fixed heights.
    * Returns undefined if no plugin provides a height for this row.
@@ -564,8 +481,6 @@ export class PluginManager {
    * the query type in their `manifest.queries` are invoked. Falls back to querying
    * all plugins for backwards compatibility with legacy plugins.
    *
-   * Checks both `handleQuery` (preferred) and `onPluginQuery` (legacy) hooks.
-   *
    * @param query - The query object containing type and context
    * @returns Array of non-undefined responses from plugins
    */
@@ -577,7 +492,7 @@ export class PluginManager {
     if (handlers && handlers.size > 0) {
       // Route only to plugins that declared this query type
       for (const plugin of handlers) {
-        const response = plugin.handleQuery?.(query) ?? plugin.onPluginQuery?.(query);
+        const response = plugin.handleQuery?.(query);
         if (response !== undefined) {
           responses.push(response as T);
         }
@@ -587,8 +502,7 @@ export class PluginManager {
 
     // Fallback: query all plugins (legacy behavior for plugins without manifest)
     for (const plugin of this.plugins) {
-      // Try handleQuery first (new API), fall back to onPluginQuery (legacy)
-      const response = plugin.handleQuery?.(query) ?? plugin.onPluginQuery?.(query);
+      const response = plugin.handleQuery?.(query);
       if (response !== undefined) {
         responses.push(response as T);
       }

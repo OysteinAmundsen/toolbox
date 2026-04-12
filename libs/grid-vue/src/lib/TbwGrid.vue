@@ -54,7 +54,7 @@ import { createPluginFromFeature, type FeatureName } from './feature-registry';
 import { useGridIcons } from './grid-icon-registry';
 import { useGridTypeDefaults } from './grid-type-registry';
 import { GRID_ELEMENT_KEY } from './use-grid';
-import { GridAdapter, VueGridAdapter } from './vue-grid-adapter';
+import { GridAdapter } from './vue-grid-adapter';
 
 // Track if adapter is registered
 let adapterRegistered = false;
@@ -65,7 +65,7 @@ let globalAdapter: GridAdapter | null = null;
  */
 function ensureAdapterRegistered(): GridAdapter {
   if (!adapterRegistered) {
-    globalAdapter = new VueGridAdapter();
+    globalAdapter = new GridAdapter();
     GridElement.registerAdapter(globalAdapter);
     adapterRegistered = true;
   }
@@ -179,11 +179,6 @@ const props = defineProps({
     type: [Boolean, String, Object] as PropType<boolean | 'single' | 'multi' | MultiSortConfig>,
     default: undefined,
   },
-  /** @deprecated Use multiSort instead. Will be removed in v2. */
-  sorting: {
-    type: [Boolean, String, Object] as PropType<boolean | 'single' | 'multi' | MultiSortConfig>,
-    default: undefined,
-  },
   /** Enable column filtering */
   filtering: {
     type: [Boolean, Object] as PropType<boolean | FilterConfig<TRow>>,
@@ -191,11 +186,6 @@ const props = defineProps({
   },
   /** Enable column drag-to-reorder */
   reorderColumns: {
-    type: [Boolean, Object] as PropType<boolean | ReorderConfig>,
-    default: undefined,
-  },
-  /** @deprecated Use `reorderColumns` instead. Will be removed in v2. */
-  reorder: {
     type: [Boolean, Object] as PropType<boolean | ReorderConfig>,
     default: undefined,
   },
@@ -221,11 +211,6 @@ const props = defineProps({
   },
   /** Enable row drag-to-reorder */
   reorderRows: {
-    type: [Boolean, Object] as PropType<boolean | RowReorderConfig>,
-    default: undefined,
-  },
-  /** @deprecated Use `reorderRows` instead. Will be removed in v2. */
-  rowReorder: {
     type: [Boolean, Object] as PropType<boolean | RowReorderConfig>,
     default: undefined,
   },
@@ -366,16 +351,13 @@ const FEATURE_PROPS: FeatureName[] = [
   'clipboard',
   'contextMenu',
   'multiSort',
-  'sorting',
   'filtering',
   'reorderColumns',
-  'reorder', // deprecated alias for reorderColumns
   'visibility',
   'pinnedColumns',
   'groupingColumns',
   'columnVirtualization',
   'reorderRows',
-  'rowReorder', // deprecated alias for reorderRows
   'groupingRows',
   'pinnedRows',
   'tree',

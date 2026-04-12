@@ -37,16 +37,13 @@ export type FeatureName =
   | 'clipboard'
   | 'contextMenu'
   | 'multiSort'
-  | 'sorting' // @deprecated - use 'multiSort' instead. Will be removed in v2.
   | 'filtering'
   | 'reorderColumns'
-  | 'reorder' // @deprecated - use 'reorderColumns' instead. Will be removed in v2.
   | 'visibility'
   | 'pinnedColumns'
   | 'groupingColumns'
   | 'columnVirtualization'
   | 'reorderRows'
-  | 'rowReorder' // @deprecated - use 'reorderRows' instead. Will be removed in v2.
   | 'groupingRows'
   | 'pinnedRows'
   | 'tree'

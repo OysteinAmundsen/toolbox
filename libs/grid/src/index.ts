@@ -47,14 +47,5 @@ export type {
 } from './lib/core/plugin';
 
 // Aggregator registry and functions
-export {
-  aggregatorRegistry,
-  getAggregator,
-  getValueAggregator,
-  listAggregators,
-  registerAggregator,
-  runAggregator,
-  runValueAggregator,
-  unregisterAggregator,
-} from './lib/core/internal/aggregators';
+export { aggregatorRegistry, getValueAggregator, runValueAggregator } from './lib/core/internal/aggregators';
 export type { AggregatorFn, ValueAggregatorFn } from './lib/core/internal/aggregators';

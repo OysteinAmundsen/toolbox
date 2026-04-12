@@ -1,5 +1,5 @@
 /**
- * Tests for ReactGridAdapter registration and lookup.
+ * Tests for GridAdapter registration and lookup.
  *
  * @vitest-environment happy-dom
  */
@@ -12,12 +12,11 @@ import {
   getColumnRenderer,
   getRegisteredFields,
   GridAdapter,
-  ReactGridAdapter,
   registerColumnEditor,
   registerColumnRenderer,
 } from './react-grid-adapter';
 
-describe('ReactGridAdapter', () => {
+describe('GridAdapter', () => {
   describe('field-based registry', () => {
     beforeEach(() => {
       // Note: In a real test, we'd need to clear the registries
@@ -97,11 +96,11 @@ describe('ReactGridAdapter', () => {
     });
   });
 
-  describe('ReactGridAdapter class', () => {
-    let adapter: ReactGridAdapter;
+  describe('GridAdapter class', () => {
+    let adapter: GridAdapter;
 
     beforeEach(() => {
-      adapter = new ReactGridAdapter();
+      adapter = new GridAdapter();
     });
 
     describe('canHandle', () => {
@@ -410,8 +409,12 @@ describe('ReactGridAdapter', () => {
           row: {},
           column: {} as any,
           field: 'status',
-          commit: () => { /* noop */ },
-          cancel: () => { /* noop */ },
+          commit: () => {
+            /* noop */
+          },
+          cancel: () => {
+            /* noop */
+          },
         });
 
         expect(result).toBeInstanceOf(HTMLElement);
@@ -460,8 +463,12 @@ describe('ReactGridAdapter', () => {
           row: {},
           column: {} as any,
           field: 'releaseCellTest',
-          commit: () => { /* noop */ },
-          cancel: () => { /* noop */ },
+          commit: () => {
+            /* noop */
+          },
+          cancel: () => {
+            /* noop */
+          },
         } as any);
 
         // Simulate cell containing the editor
@@ -475,16 +482,6 @@ describe('ReactGridAdapter', () => {
       it('should not throw when cell has no tracked editors', () => {
         const cellEl = document.createElement('td');
         expect(() => adapter.releaseCell(cellEl)).not.toThrow();
-      });
-    });
-
-    // #endregion
-
-    // #region ReactGridAdapter alias
-
-    describe('ReactGridAdapter alias', () => {
-      it('should be the same as GridAdapter', () => {
-        expect(ReactGridAdapter).toBe(GridAdapter);
       });
     });
 

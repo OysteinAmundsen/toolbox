@@ -2,100 +2,9 @@ import { afterNextRender, computed, ElementRef, inject, type Signal, signal } fr
 import type { ColumnConfig, DataGridElement, GridConfig } from '@toolbox-web/grid';
 
 /**
- * Selection convenience methods returned from injectGrid.
- *
- * @deprecated These methods are deprecated and will be removed in a future version.
- * Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead.
- *
- * @example
- * ```typescript
- * // Old (deprecated)
- * const grid = injectGrid();
- * grid.selectAll();
- *
- * // New (recommended)
- * import { injectGridSelection } from '@toolbox-web/grid-angular/features/selection';
- * const selection = injectGridSelection();
- * selection.selectAll();
- * ```
- */
-export interface SelectionMethods<TRow = unknown> {
-  /**
-   * Select all rows in the grid.
-   * Requires SelectionPlugin with mode: 'row'.
-   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead. Will be removed in v2.
-   */
-  selectAll: () => void;
-
-  /**
-   * Clear all selection.
-   * Works with any SelectionPlugin mode.
-   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead. Will be removed in v2.
-   */
-  clearSelection: () => void;
-
-  /**
-   * Get selected row indices.
-   * Returns Set of selected row indices.
-   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead. Will be removed in v2.
-   */
-  getSelectedIndices: () => Set<number>;
-
-  /**
-   * Get selected rows data.
-   * Returns array of selected row objects.
-   * @deprecated Use `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection` instead. Will be removed in v2.
-   */
-  getSelectedRows: () => TRow[];
-}
-
-/**
- * Export convenience methods returned from injectGrid.
- *
- * @deprecated These methods are deprecated and will be removed in v2.
- * Use `injectGridExport()` from `@toolbox-web/grid-angular/features/export` instead.
- *
- * @example
- * ```typescript
- * // Old (deprecated)
- * const grid = injectGrid();
- * grid.exportToCsv('data.csv');
- *
- * // New (recommended)
- * import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
- * const gridExport = injectGridExport();
- * gridExport.exportToCsv('data.csv');
- * ```
- */
-export interface ExportMethods {
-  /**
-   * Export grid data to CSV file.
-   * Requires ExportPlugin to be loaded.
-   *
-   * @param filename - Optional filename (defaults to 'export.csv')
-   * @deprecated Use `injectGridExport()` from `@toolbox-web/grid-angular/features/export` instead. Will be removed in v2.
-   */
-  exportToCsv: (filename?: string) => void;
-
-  /**
-   * Export grid data to JSON file.
-   * Requires ExportPlugin to be loaded.
-   *
-   * @param filename - Optional filename (defaults to 'export.json')
-   * @deprecated Use `injectGridExport()` from `@toolbox-web/grid-angular/features/export` instead. Will be removed in v2.
-   */
-  exportToJson: (filename?: string) => void;
-}
-
-/**
  * Return type for injectGrid function.
- *
- * Note: Selection and export convenience methods are deprecated.
- * Use feature-specific inject functions instead:
- * - `injectGridSelection()` from `@toolbox-web/grid-angular/features/selection`
- * - `injectGridExport()` from `@toolbox-web/grid-angular/features/export`
  */
-export interface InjectGridReturn<TRow = unknown> extends SelectionMethods<TRow>, ExportMethods {
+export interface InjectGridReturn<TRow = unknown> {
   /** Direct access to the typed grid element */
   element: Signal<DataGridElement<TRow> | null>;
   /** Whether the grid is ready */
@@ -223,98 +132,6 @@ export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridRet
     element()?.unregisterStyles?.(id);
   };
 
-  // ═══════════════════════════════════════════════════════════════════
-  // SELECTION CONVENIENCE METHODS
-  // ═══════════════════════════════════════════════════════════════════
-
-  const selectAll = (): void => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gridElement = element() as any;
-    const plugin = gridElement?.getPluginByName?.('selection');
-    if (!plugin) {
-      console.warn('[injectGrid] selectAll requires SelectionPlugin');
-      return;
-    }
-    // Row mode: select all row indices
-    if (plugin.config?.mode === 'row') {
-      const rows = gridElement?.rows ?? [];
-      const allIndices = new Set<number>(rows.map((_: unknown, i: number) => i));
-      plugin.selected = allIndices;
-      plugin.requestAfterRender?.();
-    }
-  };
-
-  const clearSelection = (): void => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gridElement = element() as any;
-    const plugin = gridElement?.getPluginByName?.('selection');
-    if (!plugin) return;
-
-    const mode = plugin.config?.mode;
-    if (mode === 'row') {
-      plugin.selected = new Set();
-    } else if (mode === 'range' || mode === 'cell') {
-      plugin.ranges = [];
-    }
-    plugin.requestAfterRender?.();
-  };
-
-  const getSelectedIndices = (): Set<number> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gridElement = element() as any;
-    const plugin = gridElement?.getPluginByName?.('selection');
-    if (!plugin) return new Set();
-
-    if (plugin.config?.mode === 'row') {
-      return new Set(plugin.selected ?? []);
-    }
-    // Range/cell mode: extract unique row indices from ranges
-    const ranges = plugin.ranges ?? [];
-    const indices = new Set<number>();
-    for (const range of ranges) {
-      for (let r = range.startRow; r <= range.endRow; r++) {
-        indices.add(r);
-      }
-    }
-    return indices;
-  };
-
-  const getSelectedRows = (): TRow[] => {
-    const gridElement = element();
-    if (!gridElement) return [];
-    const rows = gridElement.rows ?? [];
-    const indices = getSelectedIndices();
-    return Array.from(indices)
-      .filter((i) => i >= 0 && i < rows.length)
-      .map((i) => rows[i]);
-  };
-
-  // ═══════════════════════════════════════════════════════════════════
-  // EXPORT CONVENIENCE METHODS
-  // ═══════════════════════════════════════════════════════════════════
-
-  const exportToCsv = (filename?: string): void => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gridElement = element() as any;
-    const plugin = gridElement?.getPluginByName?.('export');
-    if (!plugin) {
-      console.warn('[injectGrid] exportToCsv requires ExportPlugin');
-      return;
-    }
-    plugin.exportToCsv?.(filename);
-  };
-
-  const exportToJson = (filename?: string): void => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const gridElement = element() as any;
-    const plugin = gridElement?.getPluginByName?.('export');
-    if (!plugin) {
-      console.warn('[injectGrid] exportToJson requires ExportPlugin');
-      return;
-    }
-    plugin.exportToJson?.(filename);
-  };
-
   return {
     element,
     isReady,
@@ -325,11 +142,5 @@ export function injectGrid<TRow = unknown>(selector = 'tbw-grid'): InjectGridRet
     toggleGroup,
     registerStyles,
     unregisterStyles,
-    selectAll,
-    clearSelection,
-    getSelectedIndices,
-    getSelectedRows,
-    exportToCsv,
-    exportToJson,
   };
 }

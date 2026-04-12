@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildPivot,
-  buildPivotRows,
   calculateTotals,
   flattenPivotRows,
   getColumnTotals,
   getUniqueColumnKeys,
   groupByFields,
-  type PivotDataRow,
   resolveDefaultExpanded,
   sortPivotMulti,
   sortPivotRows,
@@ -251,54 +249,6 @@ describe('pivot-engine', () => {
       const groups = groupByFields(rows, ['category']);
       expect(groups.get('A')).toHaveLength(1);
       expect(groups.get('')).toHaveLength(1);
-    });
-  });
-
-  describe('buildPivotRows', () => {
-    it('should build pivot rows with values', () => {
-      const groupedData = new Map<string, PivotDataRow[]>([
-        ['GroupA', [{ amount: 100 }, { amount: 200 }]],
-        ['GroupB', [{ amount: 50 }]],
-      ]);
-      const valueFields: PivotValueField[] = [{ field: 'amount', aggFunc: 'sum' }];
-
-      const rows = buildPivotRows(groupedData, [], ['value'], valueFields, 0);
-
-      expect(rows).toHaveLength(2);
-      expect(rows[0].rowKey).toBe('GroupA');
-      expect(rows[0].rowLabel).toBe('GroupA');
-      expect(rows[0].values['value|amount']).toBe(300);
-      expect(rows[1].values['value|amount']).toBe(50);
-    });
-
-    it('should calculate totals per row', () => {
-      const groupedData = new Map<string, PivotDataRow[]>([['GroupA', [{ sales: 100, profit: 20 }]]]);
-      const valueFields: PivotValueField[] = [
-        { field: 'sales', aggFunc: 'sum' },
-        { field: 'profit', aggFunc: 'sum' },
-      ];
-
-      const rows = buildPivotRows(groupedData, [], ['value'], valueFields, 0);
-
-      expect(rows[0].total).toBe(120);
-    });
-
-    it('should handle blank row keys', () => {
-      const groupedData = new Map<string, PivotDataRow[]>([['', [{ amount: 100 }]]]);
-      const valueFields: PivotValueField[] = [{ field: 'amount', aggFunc: 'sum' }];
-
-      const rows = buildPivotRows(groupedData, [], ['value'], valueFields, 0);
-
-      expect(rows[0].rowLabel).toBe('(blank)');
-    });
-
-    it('should set correct depth', () => {
-      const groupedData = new Map<string, PivotDataRow[]>([['Group', [{ amount: 100 }]]]);
-      const valueFields: PivotValueField[] = [{ field: 'amount', aggFunc: 'sum' }];
-
-      const rows = buildPivotRows(groupedData, [], ['value'], valueFields, 2);
-
-      expect(rows[0].depth).toBe(2);
     });
   });
 
@@ -1390,7 +1340,11 @@ describe('sortPivotMulti', () => {
       { rowKey: 'A', rowLabel: 'A', depth: 0, isGroup: false, values: { 'Q1|sales': 20, 'Q2|sales': 10 }, total: 30 },
       { rowKey: 'B', rowLabel: 'B', depth: 0, isGroup: false, values: { 'Q1|sales': 15, 'Q2|sales': 20 }, total: 35 },
     ];
-    sortPivotMulti(rows, [{ by: 'value', direction: 'asc', valueField: 'sales' }], [{ field: 'sales', aggFunc: 'sum' as const }]);
+    sortPivotMulti(
+      rows,
+      [{ by: 'value', direction: 'asc', valueField: 'sales' }],
+      [{ field: 'sales', aggFunc: 'sum' as const }],
+    );
     // Sums all columns matching |sales: A(20+10=30), C(5+30=35), B(15+20=35)
     expect(rows.map((r) => r.rowLabel)).toEqual(['A', 'C', 'B']);
   });
@@ -1545,7 +1499,10 @@ describe('PivotPlugin interactive header-click sorting', () => {
     expect(PivotPlugin.manifest.hookPriority?.onHeaderClick).toBeLessThan(0);
   });
 
-  function createPluginWithGrid(config?: Partial<PivotConfig>, options?: { multiSortModel?: Array<{ field: string; direction: 'asc' | 'desc' }> }) {
+  function createPluginWithGrid(
+    config?: Partial<PivotConfig>,
+    options?: { multiSortModel?: Array<{ field: string; direction: 'asc' | 'desc' }> },
+  ) {
     const plugin = new PivotPlugin({
       rowGroupFields: ['category'],
       columnGroupFields: ['region'],
@@ -1586,8 +1543,8 @@ describe('PivotPlugin interactive header-click sorting', () => {
       getAllColumns: () => (gridEl as any).columns,
       getRenderCount: () => renderCount,
       _hostElement: gridEl,
-      queryPlugins: (query: any) => {
-        if (query.type === 'sort:get-model' && multiSortModel !== undefined) {
+      query: (type: string) => {
+        if (type === 'sort:get-model' && multiSortModel !== undefined) {
           return [multiSortModel];
         }
         return [];
@@ -1639,9 +1596,7 @@ describe('PivotPlugin interactive header-click sorting', () => {
 
     // processRows again to see the sort applied
     const rows = plugin.processRows(sampleRows);
-    const labels = rows
-      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
-      .map((r: any) => r.__pivotLabel);
+    const labels = rows.filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal).map((r: any) => r.__pivotLabel);
     expect(labels).toEqual(['A', 'B', 'C']);
   });
 
@@ -1653,9 +1608,7 @@ describe('PivotPlugin interactive header-click sorting', () => {
     plugin.onHeaderClick(makeHeaderClickEvent('__pivotLabel'));
 
     const rows = plugin.processRows(sampleRows);
-    const labels = rows
-      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
-      .map((r: any) => r.__pivotLabel);
+    const labels = rows.filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal).map((r: any) => r.__pivotLabel);
     expect(labels).toEqual(['C', 'B', 'A']);
   });
 
@@ -1823,9 +1776,7 @@ describe('PivotPlugin interactive header-click sorting', () => {
 
     const rows = plugin.processRows(sampleRows);
     // With descending label sort, the order should be C, B, A
-    const labels = rows
-      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
-      .map((r: any) => r.__pivotLabel);
+    const labels = rows.filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal).map((r: any) => r.__pivotLabel);
     expect(labels).toEqual(['C', 'B', 'A']);
   });
 
@@ -1836,9 +1787,7 @@ describe('PivotPlugin interactive header-click sorting', () => {
     });
 
     const rows = plugin.processRows(sampleRows);
-    const labels = rows
-      .filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal)
-      .map((r: any) => r.__pivotLabel);
+    const labels = rows.filter((r: any) => r.__pivotRowKey && !r.__pivotIsGrandTotal).map((r: any) => r.__pivotLabel);
     expect(labels).toEqual(['A', 'B', 'C']);
   });
 

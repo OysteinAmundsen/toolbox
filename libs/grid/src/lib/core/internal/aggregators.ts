@@ -126,10 +126,3 @@ export function runValueAggregator(aggFunc: string, values: number[]): number {
   return getValueAggregator(aggFunc)(values);
 }
 // #endregion
-
-// Legacy function exports for backward compatibility
-export const registerAggregator = aggregatorRegistry.register.bind(aggregatorRegistry);
-export const unregisterAggregator = aggregatorRegistry.unregister.bind(aggregatorRegistry);
-export const getAggregator = aggregatorRegistry.get.bind(aggregatorRegistry);
-export const runAggregator = aggregatorRegistry.run.bind(aggregatorRegistry);
-export const listAggregators = aggregatorRegistry.list.bind(aggregatorRegistry);

@@ -61,11 +61,6 @@ export interface TypeDefault<TRow = unknown, TValue = unknown> {
   filterPanelRenderer?: (params: FilterPanelParams) => VNode;
 }
 
-/**
- * @deprecated Use `TypeDefault` instead. Will be removed in v2.
- * @see {@link TypeDefault}
- */
-export type VueTypeDefault<TRow = unknown, TValue = unknown> = TypeDefault<TRow, TValue>;
 // #endregion
 
 /**

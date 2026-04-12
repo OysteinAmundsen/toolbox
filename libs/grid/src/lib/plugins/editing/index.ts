@@ -16,9 +16,8 @@ export type {
   // Editor config types
   DateEditorParams,
   EditCloseDetail,
-  EditOpenDetail,
   EditingConfig,
-  EditorContext,
+  EditOpenDetail,
   EditorParams,
   NumberEditorParams,
   RowCommitDetail,

@@ -125,8 +125,8 @@ jobs:
       - name: Run linting (affected)
         run: bun nx affected -t lint --quiet --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
-      - name: Run tests (affected)
-        run: bun nx affected -t test --exclude='demo-*' --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
+      - name: Run tests with coverage (affected)
+        run: bun nx affected -t test --exclude='demo-*' --coverage --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
   build:
     needs: setup

@@ -133,6 +133,7 @@ chore: update dependencies
 - **Unit tests**: Co-locate with source files (`feature.ts` → `feature.spec.ts`)
 - **Integration tests**: Place in `src/__tests__/integration/`
 - Aim for meaningful coverage, not 100%
+- Coverage thresholds are enforced per project in CI — run `bun nx test <project> --coverage` to check locally
 
 ### Components
 

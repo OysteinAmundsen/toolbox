@@ -1,25 +1,31 @@
 import { expect, test } from '@playwright/test';
+import { flushMetrics, recordMetric } from './perf-metrics-helper';
 import { DEMOS, waitForGridReady } from './utils';
 
 /**
  * E2E Performance Regression Tests
  *
- * These tests measure real-world grid performance in a browser and enforce
- * budgets that fail CI if a feature degrades performance. Each test measures
- * a specific operation and asserts it completes within an acceptable time.
+ * These tests measure real-world grid performance in a browser and record
+ * metrics for CI-based regression detection. Each test measures a specific
+ * operation and records the result.
  *
- * Performance budgets are intentionally generous (2-3x expected) to avoid
- * flaky failures from CI machine variance, while still catching real
- * regressions (10x+ slowdowns).
+ * **CI mode (PERF_BASELINE_MODE=record|compare):**
+ * - Metrics are recorded to `e2e/test-results/perf-metrics-*.json`
+ * - Hard assertions are skipped (thresholds are machine-dependent)
+ * - The `compare-perf-baseline.mjs` script handles pass/fail via relative
+ *   comparison against a committed baseline (50% regression threshold)
  *
- * **Not run on CI**: Timing budgets are inherently machine-dependent and
- * produce unreliable results on shared CI runners with variable CPU/memory.
- * Run locally to validate performance before merging.
+ * **Local mode (default):**
+ * - Metrics are recorded AND hard budget assertions are enforced
+ * - Budgets are generous (2-3x expected) as a local safety net
  *
- * Run with: npx playwright test performance-regression.spec.ts
- *
- * NOTE: Excluded from CI via testIgnore in playwright.config.ts
+ * Run locally: bunx playwright test performance-regression.spec.ts
+ * Run on CI:   PERF_BASELINE_MODE=record bunx playwright test ...
  */
+
+/** When true, skip hard assertions — CI uses relative baseline comparison instead */
+const isBaselineMode = !!process.env.PERF_BASELINE_MODE;
+const runId = process.env.PERF_RUN_ID ?? Date.now().toString();
 
 // #region Helpers
 
@@ -88,6 +94,11 @@ const RAF_WAIT = `await new Promise(r => requestAnimationFrame(() => r()));`;
 
 // #endregion
 
+// Flush recorded metrics to a JSON file after all tests complete
+test.afterAll(() => {
+  flushMetrics(runId);
+});
+
 // #region Initial Render Performance
 
 test.describe('Performance Regression: Initial Render', () => {
@@ -99,10 +110,11 @@ test.describe('Performance Regression: Initial Render', () => {
     await waitForGridReady(page);
 
     const renderTime = Date.now() - before;
+    recordMetric('vanilla.initialRender', renderTime);
 
     // Budget: full page load + grid render should be < 5s
     // This is generous to account for CI cold-start
-    expect(renderTime).toBeLessThan(5000);
+    if (!isBaselineMode) expect(renderTime).toBeLessThan(5000);
   });
 
   test('vanilla: grid renders 500 rows within time budget', async ({ page }) => {
@@ -125,8 +137,10 @@ test.describe('Performance Regression: Initial Render', () => {
       })()
     `);
 
+    recordMetric('vanilla.render500', renderTime as number);
+
     // Budget: 500 rows should render in < 2s including data generation
-    expect(renderTime).toBeLessThan(2000);
+    if (!isBaselineMode) expect(renderTime).toBeLessThan(2000);
   });
 
   test('vanilla: grid renders 1000 rows within time budget', async ({ page }) => {
@@ -147,8 +161,10 @@ test.describe('Performance Regression: Initial Render', () => {
       })()
     `);
 
+    recordMetric('vanilla.render1000', renderTime as number);
+
     // Budget: 1000 rows should render in < 3s including data generation
-    expect(renderTime).toBeLessThan(3000);
+    if (!isBaselineMode) expect(renderTime).toBeLessThan(3000);
   });
 });
 
@@ -202,9 +218,14 @@ test.describe('Performance Regression: Scroll', () => {
     `)) as { avg: number; p95: number; p99: number; max: number };
 
     // Scroll budgets (generous for CI)
-    expect(result.avg).toBeLessThan(50); // Average: < 50ms (20fps minimum)
-    expect(result.p95).toBeLessThan(80); // P95: < 80ms
-    expect(result.p99).toBeLessThan(100); // P99: < 100ms
+    recordMetric('vanilla.scrollAvg', result.avg);
+    recordMetric('vanilla.scrollP95', result.p95);
+    recordMetric('vanilla.scrollP99', result.p99);
+    if (!isBaselineMode) {
+      expect(result.avg).toBeLessThan(50); // Average: < 50ms (20fps minimum)
+      expect(result.p95).toBeLessThan(80); // P95: < 80ms
+      expect(result.p99).toBeLessThan(100); // P99: < 100ms
+    }
   });
 
   test('vanilla: stress scroll (random jumps) stays under budget', async ({ page }) => {
@@ -244,8 +265,12 @@ test.describe('Performance Regression: Scroll', () => {
       })()
     `)) as { avg: number; max: number };
 
-    expect(result.avg).toBeLessThan(80); // Random jumps are expensive
-    expect(result.max).toBeLessThan(150); // Worst case single frame
+    recordMetric('vanilla.stressScrollAvg', result.avg);
+    recordMetric('vanilla.stressScrollMax', result.max);
+    if (!isBaselineMode) {
+      expect(result.avg).toBeLessThan(80); // Random jumps are expensive
+      expect(result.max).toBeLessThan(150); // Worst case single frame
+    }
   });
 
   test('vanilla: horizontal scroll frame times stay under budget', async ({ page }) => {
@@ -289,8 +314,12 @@ test.describe('Performance Regression: Scroll', () => {
     `)) as { avg: number; p95: number; skipped: boolean };
 
     if (!result.skipped) {
-      expect(result.avg).toBeLessThan(50);
-      expect(result.p95).toBeLessThan(80);
+      recordMetric('vanilla.hscrollAvg', result.avg);
+      recordMetric('vanilla.hscrollP95', result.p95);
+      if (!isBaselineMode) {
+        expect(result.avg).toBeLessThan(50);
+        expect(result.p95).toBeLessThan(80);
+      }
     }
   });
 });
@@ -384,9 +413,13 @@ for (const framework of ['angular', 'react', 'vue'] as const) {
         max: number;
       };
 
-      expect(result.avg).toBeLessThan(50);
-      expect(result.p95).toBeLessThan(80);
-      expect(result.p99).toBeLessThan(100);
+      recordMetric(`${framework}.scrollAvg`, result.avg);
+      recordMetric(`${framework}.scrollP95`, result.p95);
+      if (!isBaselineMode) {
+        expect(result.avg).toBeLessThan(50);
+        expect(result.p95).toBeLessThan(80);
+        expect(result.p99).toBeLessThan(100);
+      }
     });
 
     test(`${framework}: stress scroll (random jumps) stays under budget`, async ({ page }) => {
@@ -399,8 +432,12 @@ for (const framework of ['angular', 'react', 'vue'] as const) {
         max: number;
       };
 
-      expect(result.avg).toBeLessThan(80);
-      expect(result.max).toBeLessThan(150);
+      recordMetric(`${framework}.stressScrollAvg`, result.avg);
+      recordMetric(`${framework}.stressScrollMax`, result.max);
+      if (!isBaselineMode) {
+        expect(result.avg).toBeLessThan(80);
+        expect(result.max).toBeLessThan(150);
+      }
     });
   });
 }
@@ -417,9 +454,11 @@ for (const framework of ['angular', 'react', 'vue'] as const) {
 
       const renderTime = Date.now() - before;
 
+      recordMetric(`${framework}.initialRender`, renderTime);
+
       // Budget: full page load + framework bootstrap + grid render < 8s
       // Frameworks have more overhead than vanilla (Angular zone.js, React hydration, etc.)
-      expect(renderTime).toBeLessThan(8000);
+      if (!isBaselineMode) expect(renderTime).toBeLessThan(8000);
     });
 
     test(`${framework}: grid renders 500 rows within time budget`, async ({ page }) => {
@@ -460,8 +499,10 @@ for (const framework of ['angular', 'react', 'vue'] as const) {
         })()
       `);
 
+      recordMetric(`${framework}.render500`, renderTime as number);
+
       // Budget: 500 rows re-render < 3s (generous for framework overhead)
-      expect(renderTime).toBeLessThan(3000);
+      if (!isBaselineMode) expect(renderTime).toBeLessThan(3000);
     });
   });
 }
@@ -528,9 +569,11 @@ for (const framework of ['angular', 'react', 'vue'] as const) {
 
       const clickTime = await page.evaluate(CELL_CLICK_MEASUREMENT);
 
+      recordMetric(`${framework}.clickLatency`, clickTime as number);
+
       // Click response should be < 100ms (feels instant)
       // Framework adapters may add small overhead but should not be noticeable
-      expect(clickTime).toBeLessThan(100);
+      if (!isBaselineMode) expect(clickTime).toBeLessThan(100);
     });
 
     test(`${framework}: keyboard navigation response time`, async ({ page }) => {
@@ -542,9 +585,13 @@ for (const framework of ['angular', 'react', 'vue'] as const) {
         max: number;
       };
 
-      // Arrow key nav should be < 50ms average
-      expect(navTime.avg).toBeLessThan(50);
-      expect(navTime.max).toBeLessThan(100);
+      recordMetric(`${framework}.keyNavAvg`, navTime.avg);
+      recordMetric(`${framework}.keyNavMax`, navTime.max);
+      if (!isBaselineMode) {
+        // Arrow key nav should be < 50ms average
+        expect(navTime.avg).toBeLessThan(50);
+        expect(navTime.max).toBeLessThan(100);
+      }
     });
   });
 }
@@ -575,8 +622,10 @@ test.describe('Performance Regression: Sort & Filter', () => {
       })()
     `);
 
+    recordMetric('vanilla.sort500', sortTime as number);
+
     // Budget: sort 500 rows should be < 500ms
-    expect(sortTime).toBeLessThan(500);
+    if (!isBaselineMode) expect(sortTime).toBeLessThan(500);
   });
 
   test('vanilla: sorting twice (asc then desc) stays within budget', async ({ page }) => {
@@ -606,8 +655,10 @@ test.describe('Performance Regression: Sort & Filter', () => {
       })()
     `);
 
+    recordMetric('vanilla.sortDouble500', totalTime as number);
+
     // Two sorts should still be fast
-    expect(totalTime).toBeLessThan(1000);
+    if (!isBaselineMode) expect(totalTime).toBeLessThan(1000);
   });
 });
 
@@ -659,10 +710,14 @@ test.describe('Performance Regression: Filter Latency', () => {
 
     if (filterTime.error) return; // Skip if filtering not available
 
-    // Panel open should be < 300ms
-    expect(filterTime.openTime).toBeLessThan(300);
-    // Filter re-render (including 200ms debounce) should be < 800ms
-    expect(filterTime.filterTime).toBeLessThan(800);
+    recordMetric('vanilla.filterPanelOpen', filterTime.openTime);
+    recordMetric('vanilla.filterRerender', filterTime.filterTime);
+    if (!isBaselineMode) {
+      // Panel open should be < 300ms
+      expect(filterTime.openTime).toBeLessThan(300);
+      // Filter re-render (including 200ms debounce) should be < 800ms
+      expect(filterTime.filterTime).toBeLessThan(800);
+    }
   });
 
   test('vanilla: rapid filter typing does not cause compounding delays', async ({ page }) => {
@@ -705,7 +760,8 @@ test.describe('Performance Regression: Filter Latency', () => {
 
     // Individual keystrokes should be fast (debounce absorbs the heavy work)
     const avg = result.times.reduce((a: number, b: number) => a + b, 0) / result.times.length;
-    expect(avg).toBeLessThan(50); // Each keystroke event < 50ms
+    recordMetric('vanilla.rapidFilterAvg', avg);
+    if (!isBaselineMode) expect(avg).toBeLessThan(50); // Each keystroke event < 50ms
 
     // Later keystrokes should not be slower than earlier ones (no compounding)
     const firstHalf = result.times.slice(0, 5);
@@ -753,9 +809,13 @@ for (const framework of ['angular', 'react', 'vue'] as const) {
 
       if (filterTime.error) return;
 
-      // Panel open < 300ms, filter re-render < 800ms (including debounce)
-      expect(filterTime.openTime).toBeLessThan(300);
-      expect(filterTime.filterTime).toBeLessThan(800);
+      recordMetric(`${framework}.filterPanelOpen`, filterTime.openTime);
+      recordMetric(`${framework}.filterRerender`, filterTime.filterTime);
+      if (!isBaselineMode) {
+        // Panel open < 300ms, filter re-render < 800ms (including debounce)
+        expect(filterTime.openTime).toBeLessThan(300);
+        expect(filterTime.filterTime).toBeLessThan(800);
+      }
     });
   });
 }
@@ -786,8 +846,10 @@ test.describe('Performance Regression: Data Mutation', () => {
       })()
     `);
 
+    recordMetric('vanilla.dataMutation500', mutationTime as number);
+
     // Budget: full re-render with 500 rows < 2s
-    expect(mutationTime).toBeLessThan(2000);
+    if (!isBaselineMode) expect(mutationTime).toBeLessThan(2000);
   });
 
   test('vanilla: toggling a feature (editing) re-renders within budget', async ({ page }) => {
@@ -809,8 +871,10 @@ test.describe('Performance Regression: Data Mutation', () => {
       })()
     `);
 
+    recordMetric('vanilla.featureToggle', toggleTime as number);
+
     // Budget: feature toggle + grid rebuild < 2s
-    expect(toggleTime).toBeLessThan(2000);
+    if (!isBaselineMode) expect(toggleTime).toBeLessThan(2000);
   });
 });
 
@@ -896,8 +960,10 @@ test.describe('Performance Regression: Interaction Latency', () => {
       })()
     `);
 
+    recordMetric('vanilla.clickLatency', clickTime as number);
+
     // Click response should be < 100ms (feels instant)
-    expect(clickTime).toBeLessThan(100);
+    if (!isBaselineMode) expect(clickTime).toBeLessThan(100);
   });
 
   test('vanilla: double-click to edit response time stays under budget', async ({ page }) => {
@@ -921,8 +987,10 @@ test.describe('Performance Regression: Interaction Latency', () => {
       })()
     `);
 
+    recordMetric('vanilla.editLatency', editTime as number);
+
     // Double-click to editor should be < 200ms
-    expect(editTime).toBeLessThan(200);
+    if (!isBaselineMode) expect(editTime).toBeLessThan(200);
   });
 
   test('vanilla: keyboard navigation (arrow keys) response time', async ({ page }) => {
@@ -958,9 +1026,13 @@ test.describe('Performance Regression: Interaction Latency', () => {
       })()
     `)) as { avg: number; max: number };
 
-    // Arrow key nav should be < 50ms average (feels instant)
-    expect(navTime.avg).toBeLessThan(50);
-    expect(navTime.max).toBeLessThan(100);
+    recordMetric('vanilla.keyNavAvg', navTime.avg);
+    recordMetric('vanilla.keyNavMax', navTime.max);
+    if (!isBaselineMode) {
+      // Arrow key nav should be < 50ms average (feels instant)
+      expect(navTime.avg).toBeLessThan(50);
+      expect(navTime.max).toBeLessThan(100);
+    }
   });
 });
 
@@ -993,8 +1065,10 @@ test.describe('Performance Regression: Master-Detail', () => {
         })()
       `);
 
+      recordMetric('vanilla.detailExpand', expandTime as number);
+
       // Expand should be < 300ms
-      expect(expandTime).toBeLessThan(300);
+      if (!isBaselineMode) expect(expandTime).toBeLessThan(300);
     }
   });
 
@@ -1081,8 +1155,9 @@ test.describe('Performance Regression: Resize', () => {
 
     if (avg === 0) return; // No resize handle found
 
+    recordMetric('vanilla.colResizeAvg', avg as number);
     // Average frame time should stay under 50ms (20fps minimum during resize)
-    expect(avg).toBeLessThan(50);
+    if (!isBaselineMode) expect(avg).toBeLessThan(50);
   });
 
   test('vanilla: container resize does not cause layout thrashing', async ({ page }) => {
@@ -1121,9 +1196,13 @@ test.describe('Performance Regression: Resize', () => {
       })()
     `)) as { avg: number; max: number };
 
-    // Container resize should not cause long frames
-    expect(resizeTime.avg).toBeLessThan(300);
-    expect(resizeTime.max).toBeLessThan(500);
+    recordMetric('vanilla.containerResizeAvg', resizeTime.avg);
+    recordMetric('vanilla.containerResizeMax', resizeTime.max);
+    if (!isBaselineMode) {
+      // Container resize should not cause long frames
+      expect(resizeTime.avg).toBeLessThan(300);
+      expect(resizeTime.max).toBeLessThan(500);
+    }
   });
 });
 
@@ -1220,8 +1299,10 @@ test.describe('Performance Regression: Large Column Count', () => {
       })()
     `)) as { renderTime: number; domCells: number; error?: string };
 
+    recordMetric('vanilla.render50cols', result.renderTime);
+
     // 50 columns × 200 rows should render in < 5s
-    expect(result.renderTime).toBeLessThan(5000);
+    if (!isBaselineMode) expect(result.renderTime).toBeLessThan(5000);
 
     // With column virtualization off, all column cells are rendered per row
     // With it on, only visible ones. Either way, should be bounded.
@@ -1282,12 +1363,14 @@ test.describe('Performance Regression: Large Column Count', () => {
       })()
     `)) as { renderTime: number; scrollAvg: number };
 
+    recordMetric('vanilla.render100cols', result.renderTime);
     // 100-column grid initial render < 8s (generous for CI)
-    expect(result.renderTime).toBeLessThan(8000);
+    if (!isBaselineMode) expect(result.renderTime).toBeLessThan(8000);
 
     // Horizontal scroll should remain responsive
     if (result.scrollAvg >= 0) {
-      expect(result.scrollAvg).toBeLessThan(100);
+      recordMetric('vanilla.hscroll100cols', result.scrollAvg);
+      if (!isBaselineMode) expect(result.scrollAvg).toBeLessThan(100);
     }
   });
 });

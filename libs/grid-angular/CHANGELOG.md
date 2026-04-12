@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.3...grid-angular-1.0.0) (2026-04-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([c2d7277](https://github.com/OysteinAmundsen/toolbox/commit/c2d72771710cf5155a63638aa31c3de6abc5ec95))
+
 ## [0.19.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.2...grid-angular-0.19.3) (2026-03-29)
 
 

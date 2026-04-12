@@ -73,9 +73,5 @@ declare module '../../core/types' {
   interface PluginNameMap {
     /** Primary name for the column reorder plugin */
     reorderColumns: import('./ReorderPlugin').ReorderPlugin;
-    /**
-     * @deprecated Use `'reorderColumns'` instead. Will be removed in v2.0.
-     */
-    reorder: import('./ReorderPlugin').ReorderPlugin;
   }
 }

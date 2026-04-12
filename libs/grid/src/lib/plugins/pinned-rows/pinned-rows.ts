@@ -5,7 +5,7 @@
  * Includes both info bar and aggregation row rendering.
  */
 
-import { getAggregator } from '../../core/internal/aggregators';
+import { aggregatorRegistry } from '../../core/internal/aggregators';
 import type { ColumnConfig } from '../../core/types';
 import type {
   AggregationRowConfig,
@@ -230,13 +230,13 @@ function resolveAggregatedValue(
   const aggDef = rowConfig.aggregators?.[col.field];
   if (aggDef) {
     if (isAggregatorConfig(aggDef)) {
-      const aggFn = getAggregator(aggDef.aggFunc);
+      const aggFn = aggregatorRegistry.get(aggDef.aggFunc);
       if (aggFn) {
         value = aggFn(dataRows, col.field, col);
       }
       formatter = aggDef.formatter;
     } else {
-      const aggFn = getAggregator(aggDef);
+      const aggFn = aggregatorRegistry.get(aggDef);
       if (aggFn) {
         value = aggFn(dataRows, col.field, col);
       }
@@ -335,6 +335,3 @@ export function buildContext(
     grid,
   };
 }
-
-// Keep old name as alias for backwards compatibility
-export const createPinnedRowsElement = createInfoBarElement;

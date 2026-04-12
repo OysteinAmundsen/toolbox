@@ -71,11 +71,6 @@ export interface ColumnConfig<TRow = unknown> extends Omit<
   headerLabelRenderer?: (ctx: HeaderLabelContext<TRow>) => ReactNode;
 }
 
-/**
- * @deprecated Use `ColumnConfig` instead. Will be removed in v2.
- * @see {@link ColumnConfig}
- */
-export type ReactColumnConfig<TRow = unknown> = ColumnConfig<TRow>;
 // #endregion
 
 // #region GridConfig Type
@@ -107,11 +102,6 @@ export type GridConfig<TRow = unknown> = Omit<BaseGridConfig<TRow>, 'columns' | 
   loadingRenderer?: BaseGridConfig<TRow>['loadingRenderer'] | ((ctx: LoadingContext) => ReactNode);
 };
 
-/**
- * @deprecated Use `GridConfig` instead. Will be removed in v2.
- * @see {@link GridConfig}
- */
-export type ReactGridConfig<TRow = unknown> = GridConfig<TRow>;
 // #endregion
 
 // Symbol used to mark configs that have already been processed by processGridConfig.
@@ -329,9 +319,3 @@ export function processGridConfig<TRow>(config: GridConfig<TRow> | undefined): B
 
   return result;
 }
-
-/**
- * @deprecated Use `processGridConfig` instead. Will be removed in v2.
- * @see {@link processGridConfig}
- */
-export const processReactGridConfig = processGridConfig;

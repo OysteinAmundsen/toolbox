@@ -9,9 +9,15 @@
  */
 
 import { EDITOR_MOUNT_ERROR, warnDiagnostic } from '../../../core/internal/diagnostics';
-import type { ColumnConfig, ColumnInternal, GridHost, RowElementInternal } from '../../../core/types';
+import type {
+  ColumnConfig,
+  ColumnEditorContext,
+  ColumnInternal,
+  GridHost,
+  RowElementInternal,
+} from '../../../core/types';
 import { defaultEditorFor, getInputValue } from '../editors';
-import type { EditingConfig, EditorContext } from '../types';
+import type { EditingConfig } from '../types';
 import {
   FOCUSABLE_EDITOR_SELECTOR,
   incrementEditingCount,
@@ -222,7 +228,7 @@ export function injectEditor<T>(
       });
     }
   } else if (typeof editorSpec === 'function') {
-    const ctx: EditorContext<T> = {
+    const ctx: ColumnEditorContext<T> = {
       row: rowData,
       rowId: rowId ?? '',
       value,
@@ -289,7 +295,7 @@ export function injectEditor<T>(
     placeholder.setAttribute('data-field', column.field);
     editorHost.appendChild(placeholder);
     cell.setAttribute('data-editor-managed', '');
-    const context: EditorContext<T> = {
+    const context: ColumnEditorContext<T> = {
       row: rowData,
       rowId: rowId ?? '',
       value,

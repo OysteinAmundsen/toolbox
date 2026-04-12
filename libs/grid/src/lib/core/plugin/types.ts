@@ -216,29 +216,6 @@ export interface PluginQuery<T = unknown> {
   /** Query-specific context/parameters */
   context: T;
 }
-
-/**
- * Well-known plugin query types.
- * Plugins can define additional query types beyond these.
- *
- * @deprecated Use string literals with `grid.query()` instead. Query types should
- * be declared in the responding plugin's `manifest.queries` for automatic routing.
- * This constant will be removed in  v2.0.
- *
- * @example
- * // Before (deprecated):
- * import { PLUGIN_QUERIES } from '@toolbox-web/grid';
- * const responses = grid.queryPlugins({ type: PLUGIN_QUERIES.CAN_MOVE_COLUMN, context: column });
- *
- * // After (recommended):
- * const responses = grid.query<boolean>('canMoveColumn', column);
- */
-export const PLUGIN_QUERIES = {
-  /** Ask if a column can be moved. Context: ColumnConfig. Response: boolean | undefined */
-  CAN_MOVE_COLUMN: 'canMoveColumn',
-  /** Get context menu items. Context: ContextMenuParams. Response: ContextMenuItem[] */
-  GET_CONTEXT_MENU_ITEMS: 'getContextMenuItems',
-} as const;
 // #endregion
 
 // #region Cell Renderer Types
@@ -433,20 +410,6 @@ export interface GridElementRef {
     /** Whether any attached plugin injects/removes rows (group headers, tree nodes, etc.). */
     _hasRowStructurePlugins: boolean;
   };
-
-  /**
-   * Query all plugins with a generic query and collect responses.
-   * Used for inter-plugin communication (e.g., asking PinnedColumnsPlugin
-   * if a column can be moved).
-   *
-   * @example
-   * const responses = grid.queryPlugins<boolean>({
-   *   type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
-   *   context: column
-   * });
-   * const canMove = !responses.includes(false);
-   */
-  queryPlugins<T>(query: PluginQuery): T[];
 
   /**
    * Query plugins with a simplified API.

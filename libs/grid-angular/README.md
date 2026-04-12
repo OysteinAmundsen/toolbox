@@ -87,7 +87,7 @@ Features are enabled using **declarative inputs** with **side-effect imports**. 
 ```typescript
 // 1. Import features you need (once, typically in the component file)
 import '@toolbox-web/grid-angular/features/selection';
-import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/multi-sort';
 import '@toolbox-web/grid-angular/features/filtering';
 
 // 2. Use declarative inputs — no manual plugin instantiation!
@@ -117,30 +117,30 @@ import '@toolbox-web/grid-angular/features/filtering';
 
 Import from `@toolbox-web/grid-angular/features/<name>`:
 
-| Feature                 | Input                  | Example                                                                  |
-| ----------------------- | ---------------------- | ------------------------------------------------------------------------ |
-| `selection`             | `[selection]`          | `[selection]="'range'"` or `[selection]="{ mode: 'row', checkbox: true }"` |
-| `sorting`               | `[sorting]`            | `[sorting]="'multi'"` or `[sorting]="{ maxSortLevels: 3 }"`              |
-| `filtering`             | `[filtering]`          | `[filtering]="true"` or `[filtering]="{ debounceMs: 200 }"`              |
-| `editing`               | `[editing]`            | `[editing]="true"` or `[editing]="'dblclick'"`                           |
-| `clipboard`             | `[clipboard]`          | `[clipboard]="true"` (requires selection)                                 |
-| `undo-redo`             | `[undoRedo]`           | `[undoRedo]="true"` (requires editing)                                    |
-| `context-menu`          | `[contextMenu]`        | `[contextMenu]="true"`                                                    |
-| `reorder`               | `[reorder]`            | `[reorder]="true"` (column drag-to-reorder)                              |
-| `row-reorder`           | `[rowReorder]`         | `[rowReorder]="true"` (row drag-to-reorder)                              |
-| `visibility`            | `[visibility]`         | `[visibility]="true"` (column visibility panel)                           |
-| `pinned-columns`        | `[pinnedColumns]`      | `[pinnedColumns]="true"`                                                  |
-| `pinned-rows`           | `[pinnedRows]`         | `[pinnedRows]="true"`                                                     |
-| `grouping-columns`      | `[groupingColumns]`    | `[groupingColumns]="true"`                                                |
-| `grouping-rows`         | `[groupingRows]`       | `[groupingRows]="{ groupBy: 'department' }"`                              |
-| `tree`                  | `[tree]`               | `[tree]="{ childrenField: 'children' }"`                                  |
-| `column-virtualization` | `[columnVirtualization]` | `[columnVirtualization]="true"`                                          |
-| `export`                | `[export]`             | `[export]="true"`                                                         |
-| `print`                 | `[print]`              | `[print]="true"`                                                          |
-| `responsive`            | `[responsive]`         | `[responsive]="true"` (card layout on mobile)                             |
-| `master-detail`         | `[masterDetail]`       | `[masterDetail]="true"` (use with `<tbw-grid-detail>`)                    |
-| `pivot`                 | `[pivot]`              | `[pivot]="{ rowFields: [...], columnFields: [...] }"`                     |
-| `server-side`           | `[serverSide]`         | `[serverSide]="{ ... }"`                                                  |
+| Feature                 | Input                    | Example                                                                    |
+| ----------------------- | ------------------------ | -------------------------------------------------------------------------- |
+| `selection`             | `[selection]`            | `[selection]="'range'"` or `[selection]="{ mode: 'row', checkbox: true }"` |
+| `multi-sort`            | `[sorting]`              | `[sorting]="'multi'"` or `[sorting]="{ maxSortLevels: 3 }"`                |
+| `filtering`             | `[filtering]`            | `[filtering]="true"` or `[filtering]="{ debounceMs: 200 }"`                |
+| `editing`               | `[editing]`              | `[editing]="true"` or `[editing]="'dblclick'"`                             |
+| `clipboard`             | `[clipboard]`            | `[clipboard]="true"` (requires selection)                                  |
+| `undo-redo`             | `[undoRedo]`             | `[undoRedo]="true"` (requires editing)                                     |
+| `context-menu`          | `[contextMenu]`          | `[contextMenu]="true"`                                                     |
+| `reorder-columns`       | `[reorder]`              | `[reorder]="true"` (column drag-to-reorder)                                |
+| `reorder-rows`          | `[rowReorder]`           | `[rowReorder]="true"` (row drag-to-reorder)                                |
+| `visibility`            | `[visibility]`           | `[visibility]="true"` (column visibility panel)                            |
+| `pinned-columns`        | `[pinnedColumns]`        | `[pinnedColumns]="true"`                                                   |
+| `pinned-rows`           | `[pinnedRows]`           | `[pinnedRows]="true"`                                                      |
+| `grouping-columns`      | `[groupingColumns]`      | `[groupingColumns]="true"`                                                 |
+| `grouping-rows`         | `[groupingRows]`         | `[groupingRows]="{ groupBy: 'department' }"`                               |
+| `tree`                  | `[tree]`                 | `[tree]="{ childrenField: 'children' }"`                                   |
+| `column-virtualization` | `[columnVirtualization]` | `[columnVirtualization]="true"`                                            |
+| `export`                | `[export]`               | `[export]="true"`                                                          |
+| `print`                 | `[print]`                | `[print]="true"`                                                           |
+| `responsive`            | `[responsive]`           | `[responsive]="true"` (card layout on mobile)                              |
+| `master-detail`         | `[masterDetail]`         | `[masterDetail]="true"` (use with `<tbw-grid-detail>`)                     |
+| `pivot`                 | `[pivot]`                | `[pivot]="{ rowFields: [...], columnFields: [...] }"`                      |
+| `server-side`           | `[serverSide]`           | `[serverSide]="{ ... }"`                                                   |
 
 ### Import All Features
 
@@ -157,7 +157,7 @@ import '@toolbox-web/grid-angular/features';
 import '@toolbox-web/grid-angular/features/selection';
 import '@toolbox-web/grid-angular/features/editing';
 import '@toolbox-web/grid-angular/features/filtering';
-import '@toolbox-web/grid-angular/features/sorting';
+import '@toolbox-web/grid-angular/features/multi-sort';
 import '@toolbox-web/grid-angular/features/clipboard';
 
 import { Component } from '@angular/core';
@@ -182,7 +182,8 @@ interface Employee {
       [editing]="'dblclick'"
       [filtering]="true"
       [clipboard]="true"
-      style="height: 400px; display: block;">
+      style="height: 400px; display: block;"
+    >
     </tbw-grid>
   `,
 })

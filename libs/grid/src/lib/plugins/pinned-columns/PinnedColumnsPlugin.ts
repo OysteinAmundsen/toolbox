@@ -111,21 +111,15 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         description: 'the "pinned" column property',
         isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
       },
-      {
-        property: 'sticky',
-        level: 'column',
-        description: 'the "sticky" column property (deprecated, use "pinned")',
-        isUsed: (v) => v === 'left' || v === 'right' || v === 'start' || v === 'end',
-      },
     ],
     queries: [
       {
         type: QUERY_CAN_MOVE_COLUMN,
-        description: 'Prevents pinned (sticky) columns from being moved/reordered',
+        description: 'Prevents pinned columns from being moved/reordered',
       },
       {
         type: 'getStickyOffsets',
-        description: 'Returns the sticky offsets for left/right pinned columns',
+        description: 'Returns the offsets for left/right pinned columns',
       },
       {
         type: 'getContextMenuItems',
@@ -460,7 +454,6 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
         if (col.field !== field) return col;
         const copy = { ...col };
         (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned = position;
-        delete (copy as ColumnConfig & { sticky?: PinnedPosition }).sticky;
         return copy;
       });
 
@@ -470,7 +463,6 @@ export class PinnedColumnsPlugin extends BaseGridPlugin<PinnedColumnsConfig> {
       const col = currentColumns[currentIndex];
       const copy = { ...col };
       delete (copy as ColumnConfig & { pinned?: PinnedPosition }).pinned;
-      delete (copy as ColumnConfig & { sticky?: PinnedPosition }).sticky;
 
       // Remove from current position
       const remaining = [...currentColumns];

@@ -40,11 +40,6 @@ export interface CellRenderer<TRow = unknown, TValue = unknown> {
   column?: { (): unknown };
 }
 
-/**
- * @deprecated Use `CellRenderer` instead. Will be removed in v2.
- * @see {@link CellRenderer}
- */
-export type AngularCellRenderer<TRow = unknown, TValue = unknown> = CellRenderer<TRow, TValue>;
 // #endregion
 
 // #region CellEditor Interface
@@ -84,11 +79,6 @@ export interface CellEditor<TRow = unknown, TValue = unknown> extends CellRender
   cancel: { emit(): void; subscribe?(fn: () => void): { unsubscribe(): void } };
 }
 
-/**
- * @deprecated Use `CellEditor` instead. Will be removed in v2.
- * @see {@link CellEditor}
- */
-export type AngularCellEditor<TRow = unknown, TValue = unknown> = CellEditor<TRow, TValue>;
 // #endregion
 
 // #region FilterPanel Interface
@@ -175,11 +165,6 @@ export interface TypeDefault<TRow = unknown> {
   filterPanelRenderer?: FilterPanelRenderer | Type<FilterPanel>;
 }
 
-/**
- * @deprecated Use `TypeDefault` instead. Will be removed in v2.
- * @see {@link TypeDefault}
- */
-export type AngularTypeDefault<TRow = unknown> = TypeDefault<TRow>;
 // #endregion
 
 // #region ColumnConfig Interface
@@ -239,11 +224,6 @@ export interface ColumnConfig<TRow = unknown> extends Omit<
   headerLabelRenderer?: BaseColumnConfig<TRow>['headerLabelRenderer'] | Type<unknown>;
 }
 
-/**
- * @deprecated Use `ColumnConfig` instead. Will be removed in v2.
- * @see {@link ColumnConfig}
- */
-export type AngularColumnConfig<TRow = unknown> = ColumnConfig<TRow>;
 // #endregion
 
 // #region GridConfig Interface
@@ -278,11 +258,6 @@ export interface GridConfig<TRow = unknown> extends Omit<
   loadingRenderer?: BaseGridConfig<TRow>['loadingRenderer'] | Type<unknown>;
 }
 
-/**
- * @deprecated Use `GridConfig` instead. Will be removed in v2.
- * @see {@link GridConfig}
- */
-export type AngularGridConfig<TRow = unknown> = GridConfig<TRow>;
 // #endregion
 
 // #region Utilities

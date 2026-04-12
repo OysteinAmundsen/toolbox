@@ -160,19 +160,9 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     // Effect to process gridConfig and apply to grid
     // This merges feature input plugins with the user's config plugins
     effect(() => {
-      const deprecatedAngularConfig = this.angularConfig();
       const userGridConfig = this.gridConfig();
 
-      // Emit deprecation warning if angularConfig is used
-      if (deprecatedAngularConfig && !userGridConfig) {
-        console.warn(
-          '[tbw-grid] The [angularConfig] input is deprecated. Use [gridConfig] instead. ' +
-            'The gridConfig input now accepts GridConfig directly.',
-        );
-      }
-
-      // Use gridConfig preferentially, fall back to deprecated angularConfig
-      const angularCfg = userGridConfig ?? deprecatedAngularConfig;
+      const angularCfg = userGridConfig;
       if (!this.adapter) return;
 
       // Create plugins from feature inputs
@@ -473,23 +463,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   gridConfig = input<GridConfig<any>>();
 
-  /**
-   * @deprecated Use `gridConfig` instead. This input will be removed in v2.
-   *
-   * The `angularConfig` name was inconsistent with React and Vue adapters, which both use `gridConfig`.
-   * The `gridConfig` input now accepts `GridConfig` directly.
-   *
-   * ```html
-   * <!-- Before -->
-   * <tbw-grid [angularConfig]="config" />
-   *
-   * <!-- After -->
-   * <tbw-grid [gridConfig]="config" />
-   * ```
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  angularConfig = input<GridConfig<any>>();
-
   // ═══════════════════════════════════════════════════════════════════════════
   // FEATURE INPUTS - Declarative plugin configuration
   // ═══════════════════════════════════════════════════════════════════════════
@@ -594,18 +567,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
   multiSort = input<boolean | 'single' | 'multi' | MultiSortConfig>();
 
   /**
-   * @deprecated Use `[multiSort]` instead. Will be removed in v2.
-   *
-   * Enable column sorting. This is an alias for `[multiSort]`.
-   *
-   * **Requires feature import:**
-   * ```typescript
-   * import '@toolbox-web/grid-angular/features/multi-sort';
-   * ```
-   */
-  sorting = input<boolean | 'single' | 'multi' | MultiSortConfig>();
-
-  /**
    * Enable column filtering.
    *
    * **Requires feature import:**
@@ -636,11 +597,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   reorderColumns = input<boolean | ReorderConfig>();
-
-  /**
-   * @deprecated Use `reorderColumns` instead. Will be removed in v2.
-   */
-  reorder = input<boolean | ReorderConfig>();
 
   /**
    * Enable column visibility toggle panel.
@@ -721,11 +677,6 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
    * ```
    */
   reorderRows = input<boolean | RowReorderConfig>();
-
-  /**
-   * @deprecated Use `reorderRows` instead. Will be removed in v2.0.
-   */
-  rowReorder = input<boolean | RowReorderConfig>();
 
   /**
    * Enable row grouping by field values.
@@ -1244,10 +1195,10 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     addPlugin('editing', this.editing());
     addPlugin('clipboard', this.clipboard());
     addPlugin('contextMenu', this.contextMenu());
-    // multiSort is the primary input; sorting is a deprecated alias
-    addPlugin('multiSort', this.multiSort() ?? this.sorting());
+    // multiSort is the primary input
+    addPlugin('multiSort', this.multiSort());
     addPlugin('filtering', this.filtering());
-    addPlugin('reorderColumns', this.reorderColumns() ?? this.reorder());
+    addPlugin('reorderColumns', this.reorderColumns());
     addPlugin('visibility', this.visibility());
     addPlugin('pinnedColumns', this.pinnedColumns());
 
@@ -1260,7 +1211,7 @@ export class Grid implements OnInit, AfterContentInit, OnDestroy {
     }
 
     addPlugin('columnVirtualization', this.columnVirtualization());
-    addPlugin('reorderRows', this.reorderRows() ?? this.rowReorder());
+    addPlugin('reorderRows', this.reorderRows());
     // Pre-process groupingRows config to bridge Angular component classes
     const grConfig = this.groupingRows();
     if (grConfig && typeof grConfig === 'object' && this.adapter) {

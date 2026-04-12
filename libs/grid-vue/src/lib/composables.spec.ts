@@ -1,15 +1,13 @@
 /**
- * Tests for the useGrid and useGridEvent composables.
+ * Tests for the useGrid composable.
  *
  * Tests cover:
  * - useGrid hook interface and method delegation
- * - useGridEvent hook interface
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApp, defineComponent, h, provide, ref, type Ref } from 'vue';
+import { createApp, defineComponent, h, provide, ref } from 'vue';
 import { GRID_ELEMENT_KEY, useGrid } from './use-grid';
-import { useGridEvent } from './use-grid-event';
 
 type MockGrid = Record<string, unknown>;
 
@@ -236,124 +234,6 @@ describe('use-grid', () => {
       const result = useGrid();
       expect(result.config).toBeDefined();
       expect(result.config.value).toBe(null);
-    });
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// USE GRID EVENT TESTS
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('use-grid-event', () => {
-  describe('useGridEvent', () => {
-    it('should be a valid function', () => {
-      expect(useGridEvent).toBeDefined();
-      expect(typeof useGridEvent).toBe('function');
-    });
-
-    it('should accept event name and handler', () => {
-      // Just verify it doesn't throw when called
-      // Note: In real usage, this would be called inside a component setup
-      expect(() => {
-        useGridEvent('cell-click', () => {
-          // noop handler for test
-        });
-      }).not.toThrow();
-    });
-
-    it('should accept different event types', () => {
-      expect(() => {
-        useGridEvent('cell-dblclick', () => undefined);
-      }).not.toThrow();
-
-      expect(() => {
-        useGridEvent('cell-commit', () => undefined);
-      }).not.toThrow();
-
-      expect(() => {
-        useGridEvent('selection-change', () => undefined);
-      }).not.toThrow();
-
-      expect(() => {
-        useGridEvent('sort-change', () => undefined);
-      }).not.toThrow();
-
-      expect(() => {
-        useGridEvent('row-toggle', () => undefined);
-      }).not.toThrow();
-    });
-
-    it('should accept a custom handler function', () => {
-      const handler = vi.fn();
-      expect(() => {
-        useGridEvent('cell-click', handler);
-      }).not.toThrow();
-    });
-  });
-
-  describe('useGridEvent lifecycle', () => {
-    afterEach(() => {
-      document.body.innerHTML = '';
-    });
-
-    it('should subscribe to grid event on mount and cleanup on unmount', () => {
-      const handler = vi.fn();
-      const cleanup = vi.fn();
-      const mockOn = vi.fn().mockReturnValue(cleanup);
-      const mockGrid = { on: mockOn };
-
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-
-      const app = createApp(
-        defineComponent({
-          setup() {
-            provide(GRID_ELEMENT_KEY, ref(mockGrid));
-            const Child = defineComponent({
-              setup() {
-                useGridEvent('cell-click', handler);
-                return () => h('div');
-              },
-            });
-            return () => h(Child);
-          },
-        }),
-      );
-
-      app.mount(container);
-      // After mount, on() should have been called
-      expect(mockOn).toHaveBeenCalledWith('cell-click', expect.any(Function));
-
-      // Unmount triggers cleanup
-      app.unmount();
-      expect(cleanup).toHaveBeenCalled();
-
-      container.remove();
-    });
-
-    it('should use provided gridElement ref when given', () => {
-      const handler = vi.fn();
-      const cleanup = vi.fn();
-      const mockOn = vi.fn().mockReturnValue(cleanup);
-      const gridRef = ref({ on: mockOn }) as Ref<any>;
-
-      const container = document.createElement('div');
-      document.body.appendChild(container);
-
-      const app = createApp(
-        defineComponent({
-          setup() {
-            useGridEvent('selection-change', handler, gridRef);
-            return () => h('div');
-          },
-        }),
-      );
-
-      app.mount(container);
-      expect(mockOn).toHaveBeenCalledWith('selection-change', expect.any(Function));
-
-      app.unmount();
-      container.remove();
     });
   });
 });

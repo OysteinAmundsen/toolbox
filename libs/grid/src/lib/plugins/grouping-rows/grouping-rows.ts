@@ -6,10 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { DefaultExpandedValue, GroupRowModelItem, RenderRow, RowGroupingConfig } from './types';
-
-// Re-export aggregator functions from core for backward compatibility
-export { getAggregator, listAggregators, registerAggregator, runAggregator } from '../../core/internal/aggregators';
+import type { DefaultExpandedValue, GroupingRowsConfig, GroupRowModelItem, RenderRow } from './types';
 
 interface GroupNode {
   key: string; // composite key
@@ -22,7 +19,7 @@ interface GroupNode {
 
 interface BuildGroupingArgs {
   rows: any[];
-  config: RowGroupingConfig;
+  config: GroupingRowsConfig;
   expanded: Set<string>;
   /** Initial expanded state to apply (processed by the plugin) */
   initialExpanded?: Set<string>;

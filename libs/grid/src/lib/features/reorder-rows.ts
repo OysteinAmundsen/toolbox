@@ -16,8 +16,6 @@ declare module '../core/types' {
   interface FeatureConfig {
     /** Enable row drag-to-reorder. */
     reorderRows?: boolean | RowReorderConfig;
-    /** @deprecated Use `reorderRows` instead. Will be removed in v2.*/
-    rowReorder?: boolean | RowReorderConfig;
   }
 }
 
@@ -29,7 +27,6 @@ const factory = (config: unknown) => {
 };
 
 registerFeature('reorderRows', factory);
-registerFeature('rowReorder', factory);
 
 /** @internal Type anchor — forces bundlers to preserve this module's FeatureConfig augmentation when re-exported. */
 export type _Augmentation = true;

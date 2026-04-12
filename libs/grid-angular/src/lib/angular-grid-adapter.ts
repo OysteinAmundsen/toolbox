@@ -4,7 +4,6 @@ import {
   createComponent,
   EmbeddedViewRef,
   EnvironmentInjector,
-  EventEmitter,
   TemplateRef,
   Type,
   ViewContainerRef,
@@ -434,15 +433,9 @@ export class GridAdapter implements FrameworkAdapter {
     }
 
     return (ctx: ColumnEditorContext<TRow, TValue>) => {
-      // Create simple callback functions (preferred)
+      // Create simple callback functions
       const onCommit = (value: TValue) => ctx.commit(value);
       const onCancel = () => ctx.cancel();
-
-      // Create EventEmitters for backwards compatibility (deprecated)
-      const commitEmitter = new EventEmitter<TValue>();
-      const cancelEmitter = new EventEmitter<void>();
-      commitEmitter.subscribe((value: TValue) => ctx.commit(value));
-      cancelEmitter.subscribe(() => ctx.cancel());
 
       // Try to get the FormControl from the FormArrayContext
       let control: GridEditorContext<TValue, TRow>['control'];
@@ -468,16 +461,12 @@ export class GridAdapter implements FrameworkAdapter {
         field: ctx.field as string,
         column: ctx.column,
         rowId: ctx.rowId ?? '',
-        // Preferred: simple callback functions
         onCommit,
         onCancel,
         updateRow: ctx.updateRow,
         onValueChange: ctx.onValueChange,
         // FormControl from FormArray (if available)
         control,
-        // Deprecated: EventEmitters (for backwards compatibility)
-        commit: commitEmitter,
-        cancel: cancelEmitter,
       };
 
       // Create embedded view from template
@@ -1247,9 +1236,3 @@ export class GridAdapter implements FrameworkAdapter {
     this.editorComponentRefs = [];
   }
 }
-
-/**
- * @deprecated Use `GridAdapter` instead. This alias will be removed in v2.
- * @see {@link GridAdapter}
- */
-export const AngularGridAdapter = GridAdapter;

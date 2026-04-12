@@ -971,8 +971,6 @@ export interface ShellController {
   setInitialized(value: boolean): void;
   /** Whether the tool panel is currently open */
   readonly isPanelOpen: boolean;
-  /** Get the currently active panel ID (deprecated) */
-  readonly activePanel: string | null;
   /** Get IDs of expanded accordion sections */
   readonly expandedSections: string[];
   /** Open the tool panel */
@@ -1020,14 +1018,6 @@ export function createShellController(state: ShellState, grid: InternalGrid): Sh
 
     get isPanelOpen() {
       return state.isPanelOpen;
-    },
-
-    get activePanel() {
-      // For backward compatibility, return first expanded section if panel is open
-      if (state.isPanelOpen && state.expandedSections.size > 0) {
-        return [...state.expandedSections][0];
-      }
-      return null;
     },
 
     get expandedSections() {

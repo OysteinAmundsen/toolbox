@@ -29,17 +29,17 @@ describe('sticky-columns', () => {
     });
 
     it('returns true for left sticky column', () => {
-      const cols = [{ field: 'a', sticky: 'left' }, { field: 'b' }];
+      const cols = [{ field: 'a', pinned: 'left' }, { field: 'b' }];
       expect(hasStickyColumns(cols)).toBe(true);
     });
 
     it('returns true for right sticky column', () => {
-      const cols = [{ field: 'a' }, { field: 'b', sticky: 'right' }];
+      const cols = [{ field: 'a' }, { field: 'b', pinned: 'right' }];
       expect(hasStickyColumns(cols)).toBe(true);
     });
 
     it('returns true for both left and right sticky', () => {
-      const cols = [{ field: 'a', sticky: 'left' }, { field: 'b' }, { field: 'c', sticky: 'right' }];
+      const cols = [{ field: 'a', pinned: 'left' }, { field: 'b' }, { field: 'c', pinned: 'right' }];
       expect(hasStickyColumns(cols)).toBe(true);
     });
   });
@@ -52,10 +52,10 @@ describe('sticky-columns', () => {
 
     it('returns only left sticky columns', () => {
       const cols = [
-        { field: 'a', sticky: 'left' },
+        { field: 'a', pinned: 'left' },
         { field: 'b' },
-        { field: 'c', sticky: 'right' },
-        { field: 'd', sticky: 'left' },
+        { field: 'c', pinned: 'right' },
+        { field: 'd', pinned: 'left' },
       ];
       const result = getLeftStickyColumns(cols);
       expect(result).toHaveLength(2);
@@ -72,10 +72,10 @@ describe('sticky-columns', () => {
 
     it('returns only right sticky columns', () => {
       const cols = [
-        { field: 'a', sticky: 'left' },
-        { field: 'b', sticky: 'right' },
+        { field: 'a', pinned: 'left' },
+        { field: 'b', pinned: 'right' },
         { field: 'c' },
-        { field: 'd', sticky: 'right' },
+        { field: 'd', pinned: 'right' },
       ];
       const result = getRightStickyColumns(cols);
       expect(result).toHaveLength(2);
@@ -89,12 +89,12 @@ describe('sticky-columns', () => {
       expect(getColumnStickyPosition({ field: 'a' })).toBe(null);
     });
 
-    it('returns left for left sticky', () => {
-      expect(getColumnStickyPosition({ field: 'a', sticky: 'left' })).toBe('left');
+    it('returns left for left pinned', () => {
+      expect(getColumnStickyPosition({ field: 'a', pinned: 'left' })).toBe('left');
     });
 
-    it('returns right for right sticky', () => {
-      expect(getColumnStickyPosition({ field: 'a', sticky: 'right' })).toBe('right');
+    it('returns right for right pinned', () => {
+      expect(getColumnStickyPosition({ field: 'a', pinned: 'right' })).toBe('right');
     });
   });
 
@@ -107,10 +107,10 @@ describe('sticky-columns', () => {
 
     it('calculates cumulative offsets for left sticky columns', () => {
       const cols = [
-        { field: 'a', sticky: 'left' },
-        { field: 'b', sticky: 'left' },
+        { field: 'a', pinned: 'left' },
+        { field: 'b', pinned: 'left' },
         { field: 'c' },
-        { field: 'd', sticky: 'left' },
+        { field: 'd', pinned: 'left' },
       ];
       const widths: Record<string, number> = { a: 100, b: 150, c: 200, d: 80 };
       const result = calculateLeftStickyOffsets(cols, (f) => widths[f]);
@@ -131,10 +131,10 @@ describe('sticky-columns', () => {
 
     it('calculates cumulative offsets from right for sticky columns', () => {
       const cols = [
-        { field: 'a', sticky: 'right' },
+        { field: 'a', pinned: 'right' },
         { field: 'b' },
-        { field: 'c', sticky: 'right' },
-        { field: 'd', sticky: 'right' },
+        { field: 'c', pinned: 'right' },
+        { field: 'd', pinned: 'right' },
       ];
       const widths: Record<string, number> = { a: 100, b: 150, c: 120, d: 80 };
       const result = calculateRightStickyOffsets(cols, (f) => widths[f]);
@@ -173,7 +173,7 @@ describe('sticky-columns', () => {
     });
 
     it('applies sticky-left class and offset to left sticky columns', () => {
-      const cols = [{ field: 'a', sticky: 'left' }, { field: 'b' }, { field: 'c' }];
+      const cols = [{ field: 'a', pinned: 'left' }, { field: 'b' }, { field: 'c' }];
       applyStickyOffsets(host, cols);
 
       const headerCell = host.querySelector('.header-row .cell[data-field="a"]') as HTMLElement;
@@ -186,7 +186,7 @@ describe('sticky-columns', () => {
     });
 
     it('applies sticky-right class and offset to right sticky columns', () => {
-      const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c', sticky: 'right' }];
+      const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c', pinned: 'right' }];
       applyStickyOffsets(host, cols);
 
       const headerCell = host.querySelector('.header-row .cell[data-field="c"]') as HTMLElement;
@@ -201,7 +201,7 @@ describe('sticky-columns', () => {
     it('does nothing if no header cells found', () => {
       const emptyHost = document.createElement('div');
       // With light DOM, an empty element has no cells
-      const cols = [{ field: 'a', sticky: 'left' }];
+      const cols = [{ field: 'a', pinned: 'left' }];
 
       // Should not throw
       expect(() => applyStickyOffsets(emptyHost, cols)).not.toThrow();
@@ -490,27 +490,27 @@ describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
   // Import the plugin class for canMoveColumn tests
   const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
 
-  it('returns false for column with sticky: left', () => {
+  it('returns false for column with pinned: left', () => {
     const plugin = new PinnedColumnsPlugin();
-    const column = { field: 'id', sticky: 'left' };
+    const column = { field: 'id', pinned: 'left' };
     expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
-  it('returns false for column with sticky: right', () => {
+  it('returns false for column with pinned: right', () => {
     const plugin = new PinnedColumnsPlugin();
-    const column = { field: 'actions', sticky: 'right' };
+    const column = { field: 'actions', pinned: 'right' };
     expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
-  it('returns false for column with meta.sticky: left', () => {
+  it('returns false for column with meta.pinned: left', () => {
     const plugin = new PinnedColumnsPlugin();
-    const column = { field: 'id', meta: { sticky: 'left' } };
+    const column = { field: 'id', meta: { pinned: 'left' } };
     expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
-  it('returns false for column with meta.sticky: right', () => {
+  it('returns false for column with meta.pinned: right', () => {
     const plugin = new PinnedColumnsPlugin();
-    const column = { field: 'actions', meta: { sticky: 'right' } };
+    const column = { field: 'actions', meta: { pinned: 'right' } };
     expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
@@ -534,7 +534,7 @@ describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
 
   it('pinned takes precedence over sticky when both are set', () => {
     const plugin = new PinnedColumnsPlugin();
-    const column = { field: 'id', pinned: 'left', sticky: 'right' };
+    const column = { field: 'id', pinned: 'left', pinned: 'right' };
     // getColumnPinned returns pinned first
     expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
@@ -560,22 +560,22 @@ describe('PinnedColumnsPlugin.handleQuery (getContextMenuItems)', async () => {
     expect(result[1]).toMatchObject({ id: 'pinned/pin-right', label: 'Pin Right' });
   });
 
-  it('returns unpin item for column with sticky: left', () => {
+  it('returns unpin item for column with pinned: left', () => {
     const plugin = new PinnedColumnsPlugin();
     const result = plugin.handleQuery({
       type: 'getContextMenuItems',
-      context: { isHeader: true, column: { field: 'id', sticky: 'left' }, field: 'id' },
+      context: { isHeader: true, column: { field: 'id', pinned: 'left' }, field: 'id' },
     }) as unknown[];
 
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ id: 'pinned/unpin', label: 'Unpin Column' });
   });
 
-  it('returns unpin item for column with sticky: right', () => {
+  it('returns unpin item for column with pinned: right', () => {
     const plugin = new PinnedColumnsPlugin();
     const result = plugin.handleQuery({
       type: 'getContextMenuItems',
-      context: { isHeader: true, column: { field: 'actions', sticky: 'right' }, field: 'actions' },
+      context: { isHeader: true, column: { field: 'actions', pinned: 'right' }, field: 'actions' },
     }) as unknown[];
 
     expect(result).toHaveLength(1);
@@ -625,7 +625,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
     it('returns true when columns have sticky property', async () => {
       const { PinnedColumnsPlugin } = await import('./PinnedColumnsPlugin');
       const result = PinnedColumnsPlugin.detect([], {
-        columns: [{ field: 'id', sticky: 'left' }, { field: 'name' }],
+        columns: [{ field: 'id', pinned: 'left' }, { field: 'name' }],
       });
       expect(result).toBe(true);
     });
@@ -659,7 +659,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
     });
 
     it('keeps order unchanged when already at correct edges', () => {
-      const columns = [{ field: 'id', sticky: 'left' }, { field: 'name' }];
+      const columns = [{ field: 'id', pinned: 'left' }, { field: 'name' }];
       const result = plugin.processColumns(columns as any);
       expect(result).toEqual(columns);
     });
@@ -671,7 +671,7 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
     });
 
     it('sets isApplied flag when sticky columns exist', () => {
-      const columns = [{ field: 'id', sticky: 'left' }];
+      const columns = [{ field: 'id', pinned: 'left' }];
       plugin.processColumns(columns as any);
       // isApplied is private, so we test via afterRender behavior
       // This is verified through the afterRender tests
@@ -702,9 +702,9 @@ describe('PinnedColumnsPlugin lifecycle and API', () => {
 
       // Mock columns array on grid
       mockGrid.columns = [
-        { field: 'id', sticky: 'left', width: 100 },
+        { field: 'id', pinned: 'left', width: 100 },
         { field: 'name', width: 150 },
-        { field: 'actions', sticky: 'right', width: 80 },
+        { field: 'actions', pinned: 'right', width: 80 },
       ];
 
       // Attach plugin to mock grid
@@ -872,8 +872,8 @@ describe('reorderColumnsForPinning', () => {
     expect(result.map((c: any) => c.field)).toEqual(['a', 'b', 'c']);
   });
 
-  it('handles sticky (deprecated) property', () => {
-    const cols = [{ field: 'a' }, { field: 'b', sticky: 'left' }, { field: 'c', sticky: 'right' }];
+  it('handles pinned property', () => {
+    const cols = [{ field: 'a' }, { field: 'b', pinned: 'left' }, { field: 'c', pinned: 'right' }];
     const result = reorderColumnsForPinning(cols);
     expect(result.map((c: any) => c.field)).toEqual(['b', 'a', 'c']);
   });
@@ -1047,19 +1047,19 @@ describe('RTL support', () => {
 
   describe('hasStickyColumns with logical positions', () => {
     it('returns true for start sticky column', () => {
-      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }];
+      const cols = [{ field: 'a', pinned: 'start' }, { field: 'b' }];
       expect(hasStickyColumns(cols)).toBe(true);
     });
 
     it('returns true for end sticky column', () => {
-      const cols = [{ field: 'a' }, { field: 'b', sticky: 'end' }];
+      const cols = [{ field: 'a' }, { field: 'b', pinned: 'end' }];
       expect(hasStickyColumns(cols)).toBe(true);
     });
   });
 
   describe('getLeftStickyColumns in RTL', () => {
     it('includes start columns in LTR', () => {
-      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c', sticky: 'left' }];
+      const cols = [{ field: 'a', pinned: 'start' }, { field: 'b' }, { field: 'c', pinned: 'left' }];
       const result = getLeftStickyColumns(cols, 'ltr');
       expect(result).toHaveLength(2);
       expect(result[0].field).toBe('a');
@@ -1067,7 +1067,7 @@ describe('RTL support', () => {
     });
 
     it('includes end columns in RTL (flipped to left)', () => {
-      const cols = [{ field: 'a', sticky: 'end' }, { field: 'b' }, { field: 'c', sticky: 'left' }];
+      const cols = [{ field: 'a', pinned: 'end' }, { field: 'b' }, { field: 'c', pinned: 'left' }];
       const result = getLeftStickyColumns(cols, 'rtl');
       expect(result).toHaveLength(2);
       expect(result[0].field).toBe('a');
@@ -1075,7 +1075,7 @@ describe('RTL support', () => {
     });
 
     it('excludes start columns in RTL (they go to right)', () => {
-      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c', sticky: 'left' }];
+      const cols = [{ field: 'a', pinned: 'start' }, { field: 'b' }, { field: 'c', pinned: 'left' }];
       const result = getLeftStickyColumns(cols, 'rtl');
       // start resolves to right in RTL, so only 'c' is left
       expect(result).toHaveLength(1);
@@ -1085,7 +1085,7 @@ describe('RTL support', () => {
 
   describe('getRightStickyColumns in RTL', () => {
     it('includes end columns in LTR', () => {
-      const cols = [{ field: 'a', sticky: 'end' }, { field: 'b' }, { field: 'c', sticky: 'right' }];
+      const cols = [{ field: 'a', pinned: 'end' }, { field: 'b' }, { field: 'c', pinned: 'right' }];
       const result = getRightStickyColumns(cols, 'ltr');
       expect(result).toHaveLength(2);
       expect(result[0].field).toBe('a');
@@ -1093,7 +1093,7 @@ describe('RTL support', () => {
     });
 
     it('includes start columns in RTL (flipped to right)', () => {
-      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c', sticky: 'right' }];
+      const cols = [{ field: 'a', pinned: 'start' }, { field: 'b' }, { field: 'c', pinned: 'right' }];
       const result = getRightStickyColumns(cols, 'rtl');
       expect(result).toHaveLength(2);
       expect(result[0].field).toBe('a');
@@ -1127,7 +1127,7 @@ describe('RTL support', () => {
     });
 
     it('applies sticky-right class to start columns in RTL', () => {
-      const cols = [{ field: 'a', sticky: 'start' }, { field: 'b' }, { field: 'c' }];
+      const cols = [{ field: 'a', pinned: 'start' }, { field: 'b' }, { field: 'c' }];
       applyStickyOffsets(host, cols);
 
       // In RTL, 'start' resolves to 'right'
@@ -1136,7 +1136,7 @@ describe('RTL support', () => {
     });
 
     it('applies sticky-left class to end columns in RTL', () => {
-      const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c', sticky: 'end' }];
+      const cols = [{ field: 'a' }, { field: 'b' }, { field: 'c', pinned: 'end' }];
       applyStickyOffsets(host, cols);
 
       // In RTL, 'end' resolves to 'left'

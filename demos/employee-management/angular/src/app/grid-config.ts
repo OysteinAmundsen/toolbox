@@ -5,7 +5,7 @@
  *
  * **Feature Inputs** (in template) for always-on features:
  * ```html
- * <tbw-grid [clipboard]="true" [contextMenu]="true" [reorder]="true" ... />
+ * <tbw-grid [clipboard]="true" [contextMenu]="true" [reorderColumns]="true" ... />
  * ```
  *
  * **Plugin-based** (here) for features that need:
@@ -183,7 +183,7 @@ export function createGridConfig(options: GridConfigOptions): GridConfig<Employe
     selectable: enableSelection,
 
     // Always-on features configured via feature inputs in the template:
-    // [clipboard], [contextMenu], [reorder], [visibility], [pinnedColumns],
+    // [clipboard], [contextMenu], [reorderColumns], [visibility], [pinnedColumns],
     // [columnVirtualization], [export]
     //
     // Dynamic features (toggled via checkboxes) configured via plugins:

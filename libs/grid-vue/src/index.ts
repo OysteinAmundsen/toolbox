@@ -56,35 +56,13 @@ export type { ToolPanelContext } from './lib/tool-panel-registry';
 
 // Vue grid adapter
 export { GridAdapter, isVueComponent } from './lib/vue-grid-adapter';
-/** @deprecated Use `GridAdapter` instead. Will be removed in v2. */
-export { VueGridAdapter } from './lib/vue-grid-adapter';
 
 // Composables
 export { GRID_ELEMENT_KEY, useGrid } from './lib/use-grid';
 export type { UseGridReturn } from './lib/use-grid';
 
-/** @deprecated Use `@event` handlers directly on `<TbwGrid>` instead. Will be removed in v2. */
-export { useGridEvent } from './lib/use-grid-event';
-/** @deprecated Use `@event` handlers directly on `<TbwGrid>` instead. Will be removed in v2. */
-export type { GridEventMap } from './lib/use-grid-event';
-
-// Configuration types - use unified names (GridConfig, ColumnConfig, CellRenderer, etc.)
-export type {
-  // Primary exports - use these
-  CellEditor,
-  CellRenderer,
-  ColumnConfig,
-  GridConfig,
-  // Deprecated names - use unified names instead
-  /** @deprecated Use `CellEditor` instead. Will be removed in v2. */
-  VueCellEditor,
-  /** @deprecated Use `CellRenderer` instead. Will be removed in v2. */
-  VueCellRenderer,
-  /** @deprecated Use `ColumnConfig` instead. Will be removed in v2. */
-  VueColumnConfig,
-  /** @deprecated Use `GridConfig` instead. Will be removed in v2. */
-  VueGridConfig,
-} from './lib/vue-column-config';
+// Configuration types
+export type { CellEditor, CellRenderer, ColumnConfig, GridConfig } from './lib/vue-column-config';
 
 // Feature props types for declarative plugin configuration
 export type { AllFeatureProps, FeatureProps } from './lib/feature-props';
@@ -102,15 +80,7 @@ export type { FeatureName, PluginFactory } from './lib/feature-registry';
 
 // Type registry for application-wide type defaults
 export { GRID_TYPE_DEFAULTS, GridTypeProvider, useGridTypeDefaults, useTypeDefault } from './lib/grid-type-registry';
-export type {
-  GridTypeProviderProps,
-  // Primary export
-  TypeDefault,
-  TypeDefaultsMap,
-  // Deprecated - use TypeDefault instead
-  /** @deprecated Use `TypeDefault` instead. Will be removed in v2. */
-  VueTypeDefault,
-} from './lib/grid-type-registry';
+export type { GridTypeProviderProps, TypeDefault, TypeDefaultsMap } from './lib/grid-type-registry';
 
 // Icon registry for application-wide icon overrides
 export { GRID_ICONS, GridIconProvider, useGridIcons } from './lib/grid-icon-registry';

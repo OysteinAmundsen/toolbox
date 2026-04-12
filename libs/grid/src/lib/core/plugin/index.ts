@@ -6,7 +6,7 @@
  */
 
 // #region Base Plugin Class
-export { BaseGridPlugin, PLUGIN_QUERIES } from './base-plugin';
+export { BaseGridPlugin } from './base-plugin';
 export type {
   AfterCellRenderContext,
   AfterRowRenderContext,

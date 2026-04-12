@@ -16,8 +16,6 @@ declare module '../core/types' {
   interface FeatureConfig {
     /** Enable multi-column sorting. */
     multiSort?: boolean | 'single' | 'multi' | MultiSortConfig;
-    /** @deprecated Use `multiSort` instead. Will be removed in v2.*/
-    sorting?: boolean | 'single' | 'multi' | MultiSortConfig;
   }
 }
 

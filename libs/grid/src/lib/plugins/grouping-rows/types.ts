@@ -112,10 +112,6 @@ export interface GroupingRowsState {
   isActive: boolean;
 }
 
-// Backward compatibility aliases
-export type RowGroupingConfig = GroupingRowsConfig;
-export type RowGroupingState = GroupingRowsState;
-
 /**
  * A group header row in the flattened render model.
  *

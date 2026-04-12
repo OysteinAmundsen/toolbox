@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GridPlugin } from '../core/types';
 import {
-  registerFeature,
-  isFeatureRegistered,
-  getFeatureFactory,
-  getRegisteredFeatures,
+  clearFeatureRegistry,
   createPluginFromFeature,
   createPluginsFromFeatures,
-  clearFeatureRegistry,
+  getFeatureFactory,
+  getRegisteredFeatures,
+  isFeatureRegistered,
+  registerFeature,
 } from './registry';
-import type { GridPlugin } from '../core/types';
 
 /** Minimal plugin stub for testing. */
 function fakePlugin(name: string, config?: unknown): GridPlugin {
@@ -124,39 +124,6 @@ describe('Feature Registry', () => {
       const plugins = createPluginsFromFeatures({ undoRedo: true, editing: true });
       expect((plugins[0] as any).pluginName).toBe('editing');
       expect((plugins[1] as any).pluginName).toBe('undoRedo');
-    });
-
-    it('resolves deprecated alias: sorting → multiSort', () => {
-      registerFeature('multiSort' as any, (config) => fakePlugin('multiSort', config));
-
-      const plugins = createPluginsFromFeatures({ sorting: 'single' } as any);
-      expect(plugins).toHaveLength(1);
-      expect((plugins[0] as any)._config).toBe('single');
-    });
-
-    it('resolves deprecated alias: reorder → reorderColumns', () => {
-      registerFeature('reorderColumns' as any, (config) => fakePlugin('reorderColumns', config));
-
-      const plugins = createPluginsFromFeatures({ reorder: true } as any);
-      expect(plugins).toHaveLength(1);
-      expect((plugins[0] as any).pluginName).toBe('reorderColumns');
-    });
-
-    it('resolves deprecated alias: rowReorder → reorderRows', () => {
-      registerFeature('reorderRows' as any, (config) => fakePlugin('reorderRows', config));
-
-      const plugins = createPluginsFromFeatures({ rowReorder: true } as any);
-      expect(plugins).toHaveLength(1);
-      expect((plugins[0] as any).pluginName).toBe('reorderRows');
-    });
-
-    it('primary takes precedence over deprecated alias', () => {
-      registerFeature('multiSort' as any, (config) => fakePlugin('multiSort', config));
-
-      const plugins = createPluginsFromFeatures({ sorting: 'single', multiSort: { mode: 'multi' } } as any);
-      expect(plugins).toHaveLength(1);
-      // Primary config wins
-      expect((plugins[0] as any)._config).toEqual({ mode: 'multi' });
     });
 
     it('returns empty array for empty features', () => {

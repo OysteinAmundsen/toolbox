@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0-alpha.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-alpha.0...grid-3.0.0-alpha.0) (2026-04-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([b03c5d6](https://github.com/OysteinAmundsen/toolbox/commit/b03c5d659a661f94c062322ae0e5382fef80084b))
+
 ## [1.31.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.3...grid-1.31.0) (2026-04-11)
 
 

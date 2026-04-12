@@ -7,9 +7,11 @@ on:
   pull_request:
     branches:
       - main
+      - next
   push:
     branches:
       - main
+      - next
       - "release-please--*"
   release:
     types: [published]
@@ -68,21 +70,21 @@ jobs:
           IS_RELEASE_MERGE="false"
           SHOULD_VALIDATE="false"
 
-          # Check if this is a release-please merge commit
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
+          # Check if this is a release-please merge commit (main or next)
+          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" ]]; then
+            if [[ "$COMMIT_MSG" == "chore(main): release"* ]] || [[ "$COMMIT_MSG" == "chore(next): release"* ]] || [[ "$COMMIT_MSG" == "chore: release"* ]]; then
               IS_RELEASE_MERGE="true"
               echo "🚀 Detected release-please merge commit - skipping test/build"
             fi
           fi
 
           # Determine if we should run validation (test/build)
-          # Run on: PRs, release-please branches, or regular pushes to main (not release merges)
+          # Run on: PRs, release-please branches, or regular pushes to main/next (not release merges)
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             SHOULD_VALIDATE="true"
           elif [[ "${{ github.ref }}" == refs/heads/release-please--* ]]; then
             SHOULD_VALIDATE="true"
-          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && "$IS_RELEASE_MERGE" == "false" ]]; then
+          elif [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/next" ]] && [[ "$IS_RELEASE_MERGE" == "false" ]]; then
             SHOULD_VALIDATE="true"
           fi
 
@@ -230,7 +232,7 @@ jobs:
     if: |
       always() && !cancelled() &&
       (github.event_name == 'release' || github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && (
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/next') && (
         needs.setup.outputs.is_release_merge == 'true' ||
         (needs.test.result == 'success' && needs.build.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped'))
       ))
@@ -268,8 +270,8 @@ jobs:
   build-docs:
     if: |
       always() && !cancelled() && (
-        github.event_name == 'release' ||
-        needs.release-please.outputs.grid_release_created == 'true' ||
+        (github.event_name == 'release' && github.event.release.prerelease != true) ||
+        (needs.release-please.outputs.grid_release_created == 'true' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     needs: [release-please]
@@ -308,8 +310,8 @@ jobs:
   deploy-pages:
     if: |
       always() && !cancelled() && (
-        github.event_name == 'release' ||
-        needs.release-please.outputs.grid_release_created == 'true' ||
+        (github.event_name == 'release' && github.event.release.prerelease != true) ||
+        (needs.release-please.outputs.grid_release_created == 'true' && github.ref == 'refs/heads/main') ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_pages == true && github.ref == 'refs/heads/main')
       )
     environment:
@@ -327,7 +329,7 @@ jobs:
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid == true)
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -366,17 +368,26 @@ jobs:
       - name: Generate custom elements manifest
         run: bun run cem
 
+      - name: Determine npm tag
+        id: npm-tag
+        run: |
+          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish @toolbox-web/grid to npm
         run: |
           cd dist/libs/grid
-          npm publish --provenance
+          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}
 
   publish-grid-angular:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_angular_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_angular == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_angular == true)
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -412,17 +423,26 @@ jobs:
       - name: Build grid-angular library
         run: bun nx build grid-angular
 
+      - name: Determine npm tag
+        id: npm-tag
+        run: |
+          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish @toolbox-web/grid-angular to npm
         run: |
           cd dist/libs/grid-angular
-          npm publish --provenance
+          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}
 
   publish-grid-react:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_react_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_react == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_react == true)
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -458,17 +478,26 @@ jobs:
       - name: Build grid-react library
         run: bun nx build grid-react
 
+      - name: Determine npm tag
+        id: npm-tag
+        run: |
+          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish @toolbox-web/grid-react to npm
         run: |
           cd dist/libs/grid-react
-          npm publish --provenance
+          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}
 
   publish-grid-vue:
     if: |
       always() && !cancelled() && (
         github.event_name == 'release' ||
         needs.release-please.outputs.grid_vue_release_created == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_vue == true && github.ref == 'refs/heads/main')
+        (github.event_name == 'workflow_dispatch' && inputs.publish_grid_vue == true)
       )
     needs: [release-please]
     runs-on: ubuntu-latest
@@ -504,7 +533,16 @@ jobs:
       - name: Build grid-vue library
         run: bun nx build grid-vue
 
+      - name: Determine npm tag
+        id: npm-tag
+        run: |
+          if [[ "${{ github.event.release.prerelease }}" == "true" ]] || [[ "${{ github.ref }}" == "refs/heads/next" ]]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publish @toolbox-web/grid-vue to npm
         run: |
           cd dist/libs/grid-vue
-          npm publish --provenance
+          npm publish --provenance --tag ${{ steps.npm-tag.outputs.tag }}

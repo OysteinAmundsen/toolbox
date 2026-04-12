@@ -66,7 +66,7 @@ if (container) {
     const log = document.getElementById('pivot-sorting-events-log');
     function updateLog() {
       if (!log) return;
-      const sortConfig = grid.queryPlugins({ type: 'sort:get-sort-config', context: null })[0] as any;
+      const sortConfig = grid.query('sort:get-sort-config', null)[0] as any;
       if (Array.isArray(sortConfig)) {
         // Multi-sort mode: array of PivotSortConfig
         const desc = sortConfig.map((c: any) =>

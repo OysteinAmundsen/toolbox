@@ -532,13 +532,6 @@ describe('PinnedColumnsPlugin.handleQuery (CAN_MOVE_COLUMN)', async () => {
     expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
   });
 
-  it('pinned takes precedence over sticky when both are set', () => {
-    const plugin = new PinnedColumnsPlugin();
-    const column = { field: 'id', pinned: 'left', pinned: 'right' };
-    // getColumnPinned returns pinned first
-    expect(plugin.handleQuery({ type: 'canMoveColumn', context: column })).toBe(false);
-  });
-
   it('returns undefined for unknown query types', () => {
     const plugin = new PinnedColumnsPlugin();
     expect(plugin.handleQuery({ type: 'unknown-query', context: {} })).toBe(undefined);

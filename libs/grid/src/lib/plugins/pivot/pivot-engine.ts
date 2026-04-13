@@ -179,6 +179,7 @@ export function buildHierarchicalPivotRows(
 
 /**
  * Aggregate values for a set of rows across all column keys.
+ * Pre-groups rows by column key in a single pass to avoid O(rows × colKeys) repeated filtering.
  */
 export function aggregateValues(
   rows: PivotDataRow[],
@@ -188,20 +189,53 @@ export function aggregateValues(
 ): Record<string, number | null> {
   const values: Record<string, number | null> = {};
 
-  for (const colKey of columnKeys) {
+  if (columnFields.length === 0) {
+    // No column grouping — all rows match every key
     for (const vf of valueFields) {
-      // Filter rows that match this column key
-      const matchingRows =
-        columnFields.length > 0
-          ? rows.filter((r) => columnFields.map((f) => String(r[f] ?? '')).join('|') === colKey)
-          : rows;
-
-      const nums = matchingRows.map((r) => Number(r[vf.field]) || 0);
+      const nums: number[] = new Array(rows.length);
+      for (let i = 0; i < rows.length; i++) {
+        nums[i] = Number(rows[i][vf.field]) || 0;
+      }
       const aggregator = getPivotAggregator(vf.aggFunc);
-      const aggregatedResult = nums.length > 0 ? aggregator(nums) : null;
+      const valueKey = createValueKey(['value'], vf.field);
+      values[valueKey] = nums.length > 0 ? aggregator(nums) : null;
+    }
+    return values;
+  }
 
-      const valueKey = createValueKey([colKey], vf.field);
-      values[valueKey] = aggregatedResult;
+  // Pre-group rows by column key in a single O(rows) pass
+  const rowsByColKey = new Map<string, PivotDataRow[]>();
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    let key = String(row[columnFields[0]] ?? '');
+    for (let j = 1; j < columnFields.length; j++) {
+      key += '|';
+      key += String(row[columnFields[j]] ?? '');
+    }
+    const existing = rowsByColKey.get(key);
+    if (existing) {
+      existing.push(row);
+    } else {
+      rowsByColKey.set(key, [row]);
+    }
+  }
+
+  for (const colKey of columnKeys) {
+    const matchingRows = rowsByColKey.get(colKey);
+    if (!matchingRows || matchingRows.length === 0) {
+      for (const vf of valueFields) {
+        values[createValueKey([colKey], vf.field)] = null;
+      }
+      continue;
+    }
+
+    for (const vf of valueFields) {
+      const nums: number[] = new Array(matchingRows.length);
+      for (let i = 0; i < matchingRows.length; i++) {
+        nums[i] = Number(matchingRows[i][vf.field]) || 0;
+      }
+      const aggregator = getPivotAggregator(vf.aggFunc);
+      values[createValueKey([colKey], vf.field)] = aggregator(nums);
     }
   }
 

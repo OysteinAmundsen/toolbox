@@ -82,7 +82,10 @@ export function getRightStickyColumns(columns: any[], direction: TextDirection =
  * @returns True if any column has sticky position
  */
 export function hasStickyColumns(columns: any[]): boolean {
-  return columns.some((col) => getColumnPinned(col) != null);
+  for (let i = 0; i < columns.length; i++) {
+    if (columns[i].pinned != null || columns[i].meta?.pinned != null) return true;
+  }
+  return false;
 }
 
 /**

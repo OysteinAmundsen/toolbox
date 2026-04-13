@@ -9,36 +9,33 @@
 
 /**
  * Toggle the expansion state of a detail row.
- * Returns a new Set with the updated state.
+ * Mutates the Set in-place and returns it (avoids O(n) copy per toggle).
  */
 export function toggleDetailRow(expandedRows: Set<object>, row: object): Set<object> {
-  const newExpanded = new Set(expandedRows);
-  if (newExpanded.has(row)) {
-    newExpanded.delete(row);
+  if (expandedRows.has(row)) {
+    expandedRows.delete(row);
   } else {
-    newExpanded.add(row);
+    expandedRows.add(row);
   }
-  return newExpanded;
+  return expandedRows;
 }
 
 /**
  * Expand a detail row.
- * Returns a new Set with the row added.
+ * Mutates the Set in-place and returns it (avoids O(n) copy).
  */
 export function expandDetailRow(expandedRows: Set<object>, row: object): Set<object> {
-  const newExpanded = new Set(expandedRows);
-  newExpanded.add(row);
-  return newExpanded;
+  expandedRows.add(row);
+  return expandedRows;
 }
 
 /**
  * Collapse a detail row.
- * Returns a new Set with the row removed.
+ * Mutates the Set in-place and returns it (avoids O(n) copy).
  */
 export function collapseDetailRow(expandedRows: Set<object>, row: object): Set<object> {
-  const newExpanded = new Set(expandedRows);
-  newExpanded.delete(row);
-  return newExpanded;
+  expandedRows.delete(row);
+  return expandedRows;
 }
 
 /**
@@ -56,7 +53,7 @@ export function createDetailElement(
   row: any,
   rowIndex: number,
   renderer: (row: any, rowIndex: number) => HTMLElement | string,
-  columnCount: number
+  columnCount: number,
 ): HTMLElement {
   const detailRow = document.createElement('div');
   detailRow.className = 'master-detail-row';

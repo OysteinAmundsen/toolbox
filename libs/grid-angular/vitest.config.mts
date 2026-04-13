@@ -25,7 +25,7 @@ export default defineConfig({
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
       reporter: ['text', 'json-summary'],
-      thresholds: { statements: 68, branches: 70, functions: 70, lines: 70 },
+      thresholds: { statements: 72, branches: 74, functions: 71, lines: 73 },
     },
     alias: [
       // Resolve @toolbox-web/grid-angular feature imports to local source (for tests)

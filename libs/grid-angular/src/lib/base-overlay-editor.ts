@@ -167,6 +167,31 @@ let anchorCounter = 0;
  * }
  * ```
  *
+ * @example
+ * ```typescript
+ * @Component({
+ *   template: `
+ *     <input #inlineInput readonly [value]="currentValue()"
+ *       (click)="onInlineClick()" (keydown)="onInlineKeydown($event)" />
+ *     <div #panel style="width: 280px">
+ *       <!-- overlay content -->
+ *     </div>
+ *   `
+ * })
+ * export class MyEditor extends BaseOverlayEditor<MyRow, string> {
+ *   panelRef = viewChild.required<ElementRef<HTMLElement>>('panel');
+ *   inputRef = viewChild.required<ElementRef<HTMLInputElement>>('inlineInput');
+ *
+ *   constructor() {
+ *     super();
+ *     effect(() => this.initOverlay(this.panelRef().nativeElement));
+ *   }
+ *
+ *   protected getInlineInput() { return this.inputRef()?.nativeElement ?? null; }
+ *   protected onOverlayOutsideClick() { this.hideOverlay(); }
+ * }
+ * ```
+ *
  * @typeParam TRow - The row data type
  * @typeParam TValue - The cell value type
  */

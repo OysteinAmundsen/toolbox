@@ -151,6 +151,13 @@ export function getFormArrayContext(gridElement: HTMLElement): FormArrayContext 
  * - Supports row-level validation state aggregation
  * - Automatically syncs FormArray changes to the grid
  *
+ * @example
+ * ```html
+ * <form [formGroup]="form">
+ *   <tbw-grid [formArray]="form.controls.rows" [columns]="columns" />
+ * </form>
+ * ```
+ *
  * @category Directive
  */
 @Directive({

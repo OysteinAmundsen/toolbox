@@ -22,6 +22,9 @@ import { flushMetrics, recordMetric } from './perf-metrics-helper';
  * - Single-row update
  * - Column resize
  * - Scroll-to-end
+ * - Grouping (row grouping with expand/collapse)
+ * - Wide columns (100 columns with horizontal scroll)
+ * - Grid destroy (teardown cost)
  *
  * Run locally:  bun nx build grid && bunx playwright test performance-regression.spec.ts
  * Run on CI:    runs as part of the regular e2e suite
@@ -43,6 +46,7 @@ const REGRESSION_THRESHOLD = 1.1;
 
 const ROW_COUNT = 500;
 const LARGE_ROW_COUNT = 1000;
+const WIDE_COL_ROW_COUNT = 200;
 
 const runId = process.env.PERF_RUN_ID ?? Date.now().toString();
 
@@ -342,6 +346,176 @@ async function measureScrollToEnd(page: Page, rowCount: number): Promise<number>
   ) as Promise<number>;
 }
 
+/** Measure row grouping: apply grouping by department, measure render time. */
+async function measureGrouping(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || !grid.getPluginByName) return -1;
+      const plugin = grid.getPluginByName('grouping-rows');
+      if (!plugin) return -1;
+
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const samples = [];
+      for (let i = 0; i < 5; i++) {
+        await raf();
+        const start = performance.now();
+        if (plugin.setGroupOn) {
+          plugin.setGroupOn((row) => [row.department]);
+        } else if (plugin.groupOn) {
+          plugin.groupOn = (row) => [row.department];
+        }
+        await raf(); await raf();
+        samples.push(performance.now() - start);
+        // Clear grouping
+        if (plugin.setGroupOn) {
+          plugin.setGroupOn(null);
+        } else if (plugin.clearGrouping) {
+          plugin.clearGrouping();
+        }
+        await raf();
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Generate wide-column config JSON for evaluation in page context. */
+function wideColumnConfigJson(colCount: number): string {
+  const cols = [];
+  for (let i = 0; i < colCount; i++) {
+    cols.push(`{ "field": "col${i}", "header": "Column ${i}", "width": 120, "sortable": true }`);
+  }
+  return `[${cols.join(',')}]`;
+}
+
+/** Create a grid with many columns and fewer rows. */
+async function setupWideGrid(page: Page, colCount: number, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const rows = Array.from({length:${rowCount}}, (_,i) => {
+        const row = { id: i };
+        for (let c = 0; c < ${colCount}; c++) row['col' + c] = 'R' + i + 'C' + c;
+        return row;
+      });
+      const start = performance.now();
+      const grid = document.createElement('tbw-grid');
+      grid.style.cssText = 'width:100%;height:600px;display:block';
+      document.body.appendChild(grid);
+      grid.gridConfig = {
+        columns: ${wideColumnConfigJson(colCount)},
+        getRowId: (row) => String(row.id),
+      };
+      grid.rows = rows;
+
+      return new Promise(resolve => {
+        let n = 0;
+        const check = () => {
+          n++;
+          const root = grid.shadowRoot || grid;
+          if (root.querySelector('[role="row"]')) {
+            requestAnimationFrame(() => resolve(performance.now() - start));
+          } else if (n > 300) {
+            resolve(-1);
+          } else {
+            requestAnimationFrame(check);
+          }
+        };
+        requestAnimationFrame(check);
+      });
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure horizontal scroll avg frame time. */
+async function measureHorizontalScroll(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid) return -1;
+      const root = grid.shadowRoot || grid;
+      let scrollable = null;
+      for (const el of root.querySelectorAll('*')) {
+        const s = getComputedStyle(el);
+        if ((s.overflowX === 'auto' || s.overflowX === 'scroll') &&
+            el.scrollWidth > el.clientWidth + 50) {
+          scrollable = el; break;
+        }
+      }
+      if (!scrollable) {
+        // Try the grid body itself
+        if (grid.scrollWidth > grid.clientWidth + 50) scrollable = grid;
+        else return -1;
+      }
+
+      const maxScroll = scrollable.scrollWidth - scrollable.clientWidth;
+      const steps = 30;
+      const step = maxScroll / steps;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+
+      // Warm-up
+      for (let i = 0; i <= steps; i++) { scrollable.scrollLeft = i * step; await raf(); }
+      scrollable.scrollLeft = 0;
+      await new Promise(r => setTimeout(r, 100));
+
+      // Measure
+      const times = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = performance.now();
+        scrollable.scrollLeft = i * step;
+        await raf();
+        times.push(performance.now() - t);
+      }
+      scrollable.scrollLeft = 0;
+      return times.reduce((a, b) => a + b, 0) / times.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure grid creation + destroy cycle time. */
+async function measureDestroy(page: Page, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const d = ['Engineering','Marketing','Sales','HR','Finance'];
+      const rows = Array.from({length:${rowCount}}, (_,i) => ({
+        id: i,
+        firstName: 'First' + i,
+        lastName: 'Last' + i,
+        email: 'e' + i + '@test.com',
+        department: d[i % 5],
+        salary: 50000 + i * 100,
+      }));
+      const cols = ${BENCH_COLUMNS_JSON};
+
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const samples = [];
+
+      for (let i = 0; i < 5; i++) {
+        // Create grid
+        const grid = document.createElement('tbw-grid');
+        grid.style.cssText = 'width:100%;height:600px;display:block';
+        document.body.appendChild(grid);
+        grid.gridConfig = { columns: cols, getRowId: (row) => String(row.id) };
+        grid.rows = rows;
+        await raf(); await raf();
+
+        // Measure destroy
+        const start = performance.now();
+        grid.remove();
+        await raf();
+        samples.push(performance.now() - start);
+        await new Promise(r => setTimeout(r, 50));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
 // ─── Assert Helper ──────────────────────────────────────────────────────────
 
 function assertNoRegression(metricName: string, localTime: number, cdnTime: number): void {
@@ -590,5 +764,98 @@ test.describe('Performance: Self-Comparison', () => {
     await cdnPage.close();
 
     assertNoRegression('scrollToEnd', localTime, cdnTime);
+  });
+
+  test('grouping', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
+
+    const localTime = await measureGrouping(localPage);
+    const cdnTime = await measureGrouping(cdnPage);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('grouping', localTime, cdnTime);
+  });
+
+  test('wide columns render', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    const localOk = await loadGridScript(localPage, 'local');
+    expect(localOk).toBe(true);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+
+    const localTime = await setupWideGrid(localPage, 200, WIDE_COL_ROW_COUNT);
+    const cdnTime = await setupWideGrid(cdnPage, 200, WIDE_COL_ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('wideColsRender', localTime, cdnTime);
+  });
+
+  test('wide columns horizontal scroll', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
+
+    const localTime = await measureHorizontalScroll(localPage);
+    const cdnTime = await measureHorizontalScroll(cdnPage);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('horizontalScroll', localTime, cdnTime);
+  });
+
+  test('grid destroy', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+
+    const localTime = await measureDestroy(localPage, ROW_COUNT);
+    const cdnTime = await measureDestroy(cdnPage, ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('destroy', localTime, cdnTime);
   });
 });

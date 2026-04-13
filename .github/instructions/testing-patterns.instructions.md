@@ -51,7 +51,15 @@ Existing benchmark files:
 |------|----------------------|
 | `sorting.bench.ts` | `defaultComparator`, `builtInSort` (string/numeric/custom comparator) |
 | `filter-model.bench.ts` | `filterRows` (text/numeric/set/multi-AND), `matchesFilter` |
-| `virtualization.bench.ts` | `rebuildPositionCache`, `getRowIndexAtOffset`, `updateRowHeight` |
+| `virtualization.bench.ts` | `rebuildPositionCache`, `getRowIndexAtOffset`, `updateRowHeight`, `computeVirtualWindow` |
 | `aggregators.bench.ts` | `aggregatorRegistry.run`, `runValueAggregator` (sum/avg/min/max/count) |
 | `grouping-rows.bench.ts` | `buildGroupedRowModel` (single/multi-level, expanded, high cardinality) |
 | `config.bench.ts` | `inferColumns`, `mergeColumns` |
+| `pivot-engine.bench.ts` | `buildPivot`, `flattenPivotRows`, `sortPivotMulti` (single/multi-level, multiple value fields) |
+| `tree-data.bench.ts` | `flattenTree`, `expandAll` (balanced/wide trees, varying depth/expansion) |
+| `column-virtualization.bench.ts` | `computeColumnOffsets`, `getVisibleColumnRange`, `getColumnWidths` (50–500 columns) |
+| `pinned-columns.bench.ts` | `reorderColumnsForPinning`, `hasStickyColumns`, `getLeftStickyColumns` |
+| `grouping-columns.bench.ts` | `computeColumnGroups`, `resolveColumnGroupDefs`, `mergeGroups` |
+| `master-detail.bench.ts` | `toggleDetailRow`, `isDetailExpanded`, `expandDetailRow`, `collapseDetailRow` |
+| `datasource.bench.ts` | `getBlockNumber`, `getRequiredBlocks`, `getRowFromCache`, `isBlockLoaded` |
+| `render-pipeline.bench.ts` | Combined pipeline benchmarks: sort→filter→virtualization, sort→grouping, tree→virtualization, pivot→flatten→virtualization, column pinning→column-virtualization |

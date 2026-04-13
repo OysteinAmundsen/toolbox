@@ -2214,6 +2214,7 @@ gridConfig: {
 ## Resources
 
 - [Documentation](https://toolboxjs.com/): Interactive examples
+- [v1 → v2 Migration Guide](https://toolboxjs.com/grid/guides/migration/): Breaking changes and upgrade instructions
 - [GitHub Repository](https://github.com/OysteinAmundsen/toolbox): Source code
 - [npm Package](https://www.npmjs.com/package/@toolbox-web/grid): Installation
 - [Changelog](https://github.com/OysteinAmundsen/toolbox/blob/main/libs/grid/CHANGELOG.md): Version history

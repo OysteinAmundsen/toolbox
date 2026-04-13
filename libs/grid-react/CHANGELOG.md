@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.3...grid-react-0.18.4) (2026-04-13)
+
+
+### Bug Fixes
+
+* **grid-react,grid-vue:** add missing tooltip feature build entry ([b7c586c](https://github.com/OysteinAmundsen/toolbox/commit/b7c586c987ffb71a6f6083a994fb2559f4304fb5))
+
 ## [0.18.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.2...grid-react-0.18.3) (2026-04-05)
 
 

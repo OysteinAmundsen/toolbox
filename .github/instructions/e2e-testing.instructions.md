@@ -167,7 +167,8 @@ Automated benchmarks that catch performance regressions by comparing the **curre
 
 1. **Self-Comparison tests** load the local UMD build (`dist/libs/grid/umd/grid.all.umd.js`) and the CDN release (`@toolbox-web/grid@latest`) in separate browser pages
 2. Identical benchmarks (render, data update, scroll) run on both versions
-3. The test fails if the current build is **>25% slower** than the released version
+3. The test flags a regression if the current build is **>10% slower** than the released version
+4. **Retry on regression** — when a regression is detected, the benchmark re-runs up to 2 more times with fresh browser pages. Only fails if the regression reproduces consistently (absorbs transient CI noise)
 
 ### Environment Variables
 

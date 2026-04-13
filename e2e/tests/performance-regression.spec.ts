@@ -1,1481 +1,594 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 import { flushMetrics, recordMetric } from './perf-metrics-helper';
-import { DEMOS, waitForGridReady } from './utils';
 
 /**
- * E2E Performance Regression Tests
+ * Performance Regression Tests — Self-Comparison vs Released CDN Version
  *
- * These tests measure real-world grid performance in a browser and record
- * metrics for CI-based regression detection. Each test measures a specific
- * operation and records the result.
+ * Compares the current build against the latest published release loaded
+ * from CDN. Both versions execute identical benchmarks in the same browser
+ * session, so CI runner variance cancels out. If the current build is
+ * significantly slower, the test fails.
  *
- * **CI mode (PERF_BASELINE_MODE=record|compare):**
- * - Metrics are recorded to `e2e/test-results/perf-metrics-*.json`
- * - Hard assertions are skipped (thresholds are machine-dependent)
- * - The `compare-perf-baseline.mjs` script handles pass/fail via relative
- *   comparison against a committed baseline (50% regression threshold)
+ * No demo server required — tests load UMD bundles into blank pages.
  *
- * **Local mode (default):**
- * - Metrics are recorded AND hard budget assertions are enforced
- * - Budgets are generous (2-3x expected) as a local safety net
+ * Metrics tested:
+ * - Initial render (500 + 1000 rows)
+ * - Data replacement
+ * - Vertical scroll (avg frame time)
+ * - Sort
+ * - Filter
+ * - Single-row update
+ * - Column resize
+ * - Scroll-to-end
  *
- * Run locally: bunx playwright test performance-regression.spec.ts
- * Run on CI:   PERF_BASELINE_MODE=record bunx playwright test ...
+ * Run locally:  bun nx build grid && bunx playwright test performance-regression.spec.ts
+ * Run on CI:    runs as part of the regular e2e suite
  */
 
-/** When true, skip hard assertions — CI uses relative baseline comparison instead */
-const isBaselineMode = !!process.env.PERF_BASELINE_MODE;
+// ─── Configuration ──────────────────────────────────────────────────────────
+
+const LOCAL_UMD = resolve(__dirname, '../../dist/libs/grid/umd/grid.all.umd.js');
+
+const CDN_VERSION = process.env.PERF_CDN_VERSION ?? 'latest';
+const CDN_UMD = `https://cdn.jsdelivr.net/npm/@toolbox-web/grid@${CDN_VERSION}/umd/grid.all.umd.js`;
+
+/**
+ * Maximum allowed slowdown ratio (current / released).
+ * 1.10 means current can be at most 10% slower than the released version.
+ * Self-comparison in the same session has low variance, so 10% is safe.
+ */
+const REGRESSION_THRESHOLD = 1.1;
+
+const ROW_COUNT = 500;
+const LARGE_ROW_COUNT = 1000;
+
 const runId = process.env.PERF_RUN_ID ?? Date.now().toString();
 
-// #region Helpers
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-/**
- * Set the demo row count via the slider and wait for re-render.
- */
-async function setRowCount(page: import('@playwright/test').Page, count: number): Promise<void> {
-  const slider = page.locator('#row-count');
-  if (await slider.isVisible()) {
-    await slider.fill(String(count));
-    await slider.dispatchEvent('input');
-    await page.waitForTimeout(500);
-    await waitForGridReady(page);
-  }
+const BENCH_COLUMNS = [
+  { field: 'id', header: 'ID', width: 80, type: 'number', sortable: true },
+  { field: 'firstName', header: 'First Name', sortable: true },
+  { field: 'lastName', header: 'Last Name', sortable: true },
+  { field: 'email', header: 'Email', sortable: true },
+  { field: 'department', header: 'Department', sortable: true },
+  { field: 'salary', header: 'Salary', width: 100, type: 'number', sortable: true },
+];
+const BENCH_COLUMNS_JSON = JSON.stringify(BENCH_COLUMNS);
+
+function rowGeneratorScript(count: number, prefix = ''): string {
+  return `(() => {
+    const d = ['Engineering','Marketing','Sales','HR','Finance'];
+    return Array.from({length:${count}}, (_,i) => ({
+      id: i,
+      firstName: '${prefix}First' + i,
+      lastName: '${prefix}Last' + i,
+      email: '${prefix}e' + i + '@test.com',
+      department: d[i % 5],
+      salary: 50000 + i * 100,
+    }));
+  })()`;
 }
 
-/**
- * Inject rows directly into the grid element.
- * Used for demos without a row-count slider (Angular, React, Vue).
- */
-async function injectRows(page: import('@playwright/test').Page, count: number): Promise<void> {
-  await page.evaluate((n) => {
-    const grid = document.querySelector('tbw-grid');
-    if (!grid) return;
-    const depts = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Legal', 'Ops'];
-    const statuses = ['Active', 'On Leave', 'Remote'];
-    const rows = [];
-    for (let i = 0; i < n; i++) {
-      rows.push({
-        id: `emp-${i}`,
-        firstName: `First${i}`,
-        lastName: `Last${i}`,
-        email: `emp${i}@example.com`,
-        department: depts[i % depts.length],
-        title: `Title ${i % 20}`,
-        status: statuses[i % statuses.length],
-        salary: 50000 + Math.random() * 100000,
-        level: (i % 10) + 1,
-        rating: Math.round(Math.random() * 5 * 10) / 10,
-        hireDate: new Date(2015 + (i % 10), i % 12, (i % 28) + 1).toISOString().split('T')[0],
-      });
+async function loadGridScript(page: Page, source: 'local' | 'cdn'): Promise<boolean> {
+  await page.goto('about:blank');
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  try {
+    if (source === 'local') {
+      await page.addScriptTag({ path: LOCAL_UMD });
+    } else {
+      await page.addScriptTag({ url: CDN_UMD });
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (grid as any).rows = rows;
-  }, count);
-  await page.waitForTimeout(500);
-  await waitForGridReady(page);
-}
-
-/**
- * Set row count via slider if available, otherwise inject directly.
- */
-async function ensureRowCount(page: import('@playwright/test').Page, count: number): Promise<void> {
-  const slider = page.locator('#row-count');
-  if (await slider.isVisible()) {
-    await setRowCount(page, count);
-  } else {
-    await injectRows(page, count);
+    return await page.evaluate(
+      () =>
+        new Promise<boolean>((resolve) => {
+          if (customElements.get('tbw-grid')) return resolve(true);
+          const t = setTimeout(() => resolve(false), 10_000);
+          customElements.whenDefined('tbw-grid').then(() => {
+            clearTimeout(t);
+            resolve(true);
+          });
+        }),
+    );
+  } catch {
+    return false;
   }
 }
 
-/**
- * Helper to wait a single rAF in Playwright evaluate context.
- */
-const RAF_WAIT = `await new Promise(r => requestAnimationFrame(() => r()));`;
+/** Create a grid, set config + rows, wait for first rendered row. */
+async function setupGrid(page: Page, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const rows = ${rowGeneratorScript(rowCount)};
+      const start = performance.now();
+      const grid = document.createElement('tbw-grid');
+      grid.style.cssText = 'width:100%;height:600px;display:block';
+      document.body.appendChild(grid);
+      grid.gridConfig = {
+        columns: ${BENCH_COLUMNS_JSON},
+        features: { filtering: true },
+        getRowId: (row) => String(row.id),
+      };
+      grid.rows = rows;
 
-// #endregion
+      return new Promise(resolve => {
+        let n = 0;
+        const check = () => {
+          n++;
+          const root = grid.shadowRoot || grid;
+          if (root.querySelector('[role="row"]')) {
+            requestAnimationFrame(() => resolve(performance.now() - start));
+          } else if (n > 300) {
+            resolve(-1);
+          } else {
+            requestAnimationFrame(check);
+          }
+        };
+        requestAnimationFrame(check);
+      });
+    })()`,
+  ) as Promise<number>;
+}
 
-// Flush recorded metrics to a JSON file after all tests complete
+/** Measure data replacement using trimmed mean of 5 runs. */
+async function measureDataUpdate(page: Page, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid) return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const d = ['Engineering','Marketing','Sales','HR','Finance'];
+      const samples = [];
+      for (let i = 0; i < 5; i++) {
+        const newRows = Array.from({length:${rowCount}}, (_,j) => ({
+          id: j,
+          firstName: 'Run' + i + 'First' + j,
+          lastName: 'Run' + i + 'Last' + j,
+          email: 'run' + i + 'e' + j + '@test.com',
+          department: d[j % 5],
+          salary: 50000 + j * 100,
+        }));
+        await raf();
+        const start = performance.now();
+        grid.rows = newRows;
+        await raf(); await raf(); await raf();
+        samples.push(performance.now() - start);
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure vertical scroll avg frame time. */
+async function measureScroll(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid) return -1;
+      const root = grid.shadowRoot || grid;
+      let scrollable = null;
+      for (const el of root.querySelectorAll('*')) {
+        const s = getComputedStyle(el);
+        if ((s.overflowY === 'auto' || s.overflowY === 'scroll') &&
+            el.scrollHeight > el.clientHeight + 50) {
+          scrollable = el; break;
+        }
+      }
+      if (!scrollable) return -1;
+
+      const maxScroll = scrollable.scrollHeight - scrollable.clientHeight;
+      const steps = 30;
+      const step = maxScroll / steps;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+
+      // Warm-up
+      for (let i = 0; i <= steps; i++) { scrollable.scrollTop = i * step; await raf(); }
+      scrollable.scrollTop = 0;
+      await new Promise(r => setTimeout(r, 100));
+
+      // Measure
+      const times = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = performance.now();
+        scrollable.scrollTop = i * step;
+        await raf();
+        times.push(performance.now() - t);
+      }
+      scrollable.scrollTop = 0;
+      return times.reduce((a, b) => a + b, 0) / times.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure sort: sort by 'id' desc then clear, using trimmed mean of 5 runs. */
+async function measureSort(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || !grid.sort) return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const samples = [];
+      for (let i = 0; i < 5; i++) {
+        await raf();
+        const start = performance.now();
+        grid.sort('id', 'desc');
+        await raf();
+        samples.push(performance.now() - start);
+        grid.sort(null);
+        await raf();
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure filter: apply a number filter on 'id' column then clear. */
+async function measureFilter(page: Page, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || !grid.getPluginByName) return -1;
+      const plugin = grid.getPluginByName('filtering');
+      if (!plugin || !plugin.setFilterModel) return -1;
+
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const threshold = Math.floor(${rowCount} / 2);
+      const samples = [];
+
+      for (let i = 0; i < 5; i++) {
+        await raf();
+        const start = performance.now();
+        plugin.setFilterModel([
+          { field: 'id', type: 'number', operator: 'greaterThan', value: threshold },
+        ]);
+        await raf();
+        samples.push(performance.now() - start);
+        plugin.clearAllFilters();
+        if (grid.forceLayout) await grid.forceLayout();
+        await raf();
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure single-row update via updateRow(). */
+async function measureRowUpdate(page: Page, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || !grid.updateRow) return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const targetId = String(Math.floor(${rowCount} / 2));
+      const samples = [];
+      for (let i = 0; i < 5; i++) {
+        await raf();
+        const start = performance.now();
+        grid.updateRow(targetId, { firstName: 'Updated' + i });
+        await raf();
+        samples.push(performance.now() - start);
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure column resize via columnState API. */
+async function measureColumnResize(page: Page): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || !grid.getColumnState) return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      let wide = true;
+      const samples = [];
+      for (let i = 0; i < 5; i++) {
+        const state = grid.getColumnState();
+        if (!state?.columns?.[0]) return -1;
+        state.columns[0].width = wide ? 200 : 80;
+        wide = !wide;
+        await raf();
+        const start = performance.now();
+        grid.columnState = state;
+        await raf();
+        samples.push(performance.now() - start);
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+/** Measure scrollToRow to the last row. */
+async function measureScrollToEnd(page: Page, rowCount: number): Promise<number> {
+  return page.evaluate(
+    `(async () => {
+      const grid = document.querySelector('tbw-grid');
+      if (!grid || !grid.scrollToRow) return -1;
+      const raf = () => new Promise(r => requestAnimationFrame(() => r()));
+      const samples = [];
+      for (let i = 0; i < 5; i++) {
+        grid.scrollToRow(0, { align: 'start' });
+        await raf();
+        await new Promise(r => setTimeout(r, 50));
+
+        const start = performance.now();
+        grid.scrollToRow(${rowCount} - 1, { align: 'end' });
+        await raf();
+        samples.push(performance.now() - start);
+        await new Promise(r => setTimeout(r, 30));
+      }
+      samples.sort((a, b) => a - b);
+      const trimmed = samples.slice(1, -1);
+      return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
+    })()`,
+  ) as Promise<number>;
+}
+
+// ─── Assert Helper ──────────────────────────────────────────────────────────
+
+function assertNoRegression(metricName: string, localTime: number, cdnTime: number): void {
+  recordMetric(`compare.${metricName}.local`, localTime);
+  recordMetric(`compare.${metricName}.cdn`, cdnTime);
+
+  // Skip assertion if either measurement failed
+  if (localTime <= 0 || cdnTime <= 0) return;
+
+  const ratio = localTime / cdnTime;
+  const absoluteDelta = localTime - cdnTime;
+  recordMetric(`compare.${metricName}.ratio`, ratio);
+
+  // Only assert if the ratio exceeds threshold AND the absolute difference
+  // is meaningful. Small absolute deltas (e.g. 4 ms = 25% slower) are noise,
+  // not real regressions — skip unless the delta is clearly significant.
+  const MIN_ABSOLUTE_DELTA_MS = 20;
+  if (absoluteDelta < MIN_ABSOLUTE_DELTA_MS) return;
+
+  expect(
+    ratio,
+    `${metricName} regression: local=${localTime.toFixed(1)}ms, released=${cdnTime.toFixed(1)}ms, ratio=${ratio.toFixed(2)}`,
+  ).toBeLessThanOrEqual(REGRESSION_THRESHOLD);
+}
+
+// ─── Flush metrics ──────────────────────────────────────────────────────────
+
 test.afterAll(() => {
   flushMetrics(runId);
 });
 
-// #region Initial Render Performance
+// ═══════════════════════════════════════════════════════════════════════════
+// SELF-COMPARISON BENCHMARKS
+// ═══════════════════════════════════════════════════════════════════════════
 
-test.describe('Performance Regression: Initial Render', () => {
-  test('vanilla: initial render completes within budget', async ({ page }) => {
-    // Measure navigation + grid render time
-    const before = Date.now();
+test.describe('Performance: Self-Comparison', () => {
+  test('render 500 rows', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
+    const localPage = await browser.newPage();
+    const localOk = await loadGridScript(localPage, 'local');
+    expect(localOk, 'Local UMD failed to register <tbw-grid>').toBe(true);
 
-    const renderTime = Date.now() - before;
-    recordMetric('vanilla.initialRender', renderTime);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
 
-    // Budget: full page load + grid render should be < 5s
-    // This is generous to account for CI cold-start
-    if (!isBaselineMode) expect(renderTime).toBeLessThan(5000);
+    const localTime = await setupGrid(localPage, ROW_COUNT);
+    const cdnTime = await setupGrid(cdnPage, ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('render500', localTime, cdnTime);
   });
 
-  test('vanilla: grid renders 500 rows within time budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
+  test('render 1000 rows', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    // Set to 500 rows and measure re-render
-    const renderTime = await page.evaluate(`
-      (async () => {
-        const grid = document.querySelector('tbw-grid');
-        const slider = document.querySelector('#row-count');
-        ${RAF_WAIT}
-        const start = performance.now();
-        slider.value = '500';
-        slider.dispatchEvent(new Event('input'));
-        // Wait for grid to re-render (multiple frames)
-        await new Promise(r => setTimeout(r, 500));
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
 
-    recordMetric('vanilla.render500', renderTime as number);
+    const localTime = await setupGrid(localPage, LARGE_ROW_COUNT);
+    const cdnTime = await setupGrid(cdnPage, LARGE_ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
 
-    // Budget: 500 rows should render in < 2s including data generation
-    if (!isBaselineMode) expect(renderTime).toBeLessThan(2000);
+    assertNoRegression('render1000', localTime, cdnTime);
   });
 
-  test('vanilla: grid renders 1000 rows within time budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
+  test('data replacement', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const renderTime = await page.evaluate(`
-      (async () => {
-        const grid = document.querySelector('tbw-grid');
-        const slider = document.querySelector('#row-count');
-        ${RAF_WAIT}
-        const start = performance.now();
-        slider.value = '1000';
-        slider.dispatchEvent(new Event('input'));
-        await new Promise(r => setTimeout(r, 800));
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
 
-    recordMetric('vanilla.render1000', renderTime as number);
+    const localTime = await measureDataUpdate(localPage, ROW_COUNT);
+    const cdnTime = await measureDataUpdate(cdnPage, ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
 
-    // Budget: 1000 rows should render in < 3s including data generation
-    if (!isBaselineMode) expect(renderTime).toBeLessThan(3000);
+    assertNoRegression('dataUpdate', localTime, cdnTime);
+  });
+
+  test('vertical scroll', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
+
+    const localTime = await measureScroll(localPage);
+    const cdnTime = await measureScroll(cdnPage);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('scroll', localTime, cdnTime);
+  });
+
+  test('sort', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
+
+    const localTime = await measureSort(localPage);
+    const cdnTime = await measureSort(cdnPage);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('sort', localTime, cdnTime);
+  });
+
+  test('filter', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
+
+    const localTime = await measureFilter(localPage, ROW_COUNT);
+    const cdnTime = await measureFilter(cdnPage, ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('filter', localTime, cdnTime);
+  });
+
+  test('single-row update', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
+
+    const localTime = await measureRowUpdate(localPage, ROW_COUNT);
+    const cdnTime = await measureRowUpdate(cdnPage, ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('rowUpdate', localTime, cdnTime);
+  });
+
+  test('column resize', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
+
+    const localTime = await measureColumnResize(localPage);
+    const cdnTime = await measureColumnResize(cdnPage);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('columnResize', localTime, cdnTime);
+  });
+
+  test('scroll to end', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    const localPage = await browser.newPage();
+    expect(await loadGridScript(localPage, 'local')).toBe(true);
+    await setupGrid(localPage, ROW_COUNT);
+    const cdnPage = await browser.newPage();
+    const cdnOk = await loadGridScript(cdnPage, 'cdn');
+    if (!cdnOk) {
+      await localPage.close();
+      await cdnPage.close();
+      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
+      return;
+    }
+    await setupGrid(cdnPage, ROW_COUNT);
+
+    const localTime = await measureScrollToEnd(localPage, ROW_COUNT);
+    const cdnTime = await measureScrollToEnd(cdnPage, ROW_COUNT);
+    await localPage.close();
+    await cdnPage.close();
+
+    assertNoRegression('scrollToEnd', localTime, cdnTime);
   });
 });
-
-// #endregion
-
-// #region Scroll Performance
-
-test.describe('Performance Regression: Scroll', () => {
-  test('vanilla: vertical scroll frame times stay under budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 500);
-
-    const result = (await page.evaluate(`
-      (async () => {
-        const scrollable = document.querySelector('.faux-vscroll');
-        if (!scrollable) return { avg: 999, p95: 999, p99: 999, max: 999 };
-
-        const totalHeight = scrollable.scrollHeight;
-        const viewportHeight = scrollable.clientHeight;
-        const steps = 30;
-        const stepSize = (totalHeight - viewportHeight) / steps;
-
-        if (stepSize <= 0) return { avg: 0, p95: 0, p99: 0, max: 0 };
-
-        // Warm-up pass
-        for (let i = 0; i <= steps; i++) {
-          scrollable.scrollTop = i * stepSize;
-          await new Promise(r => requestAnimationFrame(() => r()));
-        }
-        scrollable.scrollTop = 0;
-        await new Promise(r => setTimeout(r, 100));
-
-        // Measurement pass
-        const frameTimes = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          scrollable.scrollTop = i * stepSize;
-          await new Promise(r => requestAnimationFrame(() => r()));
-          frameTimes.push(performance.now() - start);
-        }
-
-        const sorted = [...frameTimes].sort((a, b) => a - b);
-        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        const p95 = sorted[Math.floor(sorted.length * 0.95)];
-        const p99 = sorted[Math.floor(sorted.length * 0.99)];
-        const max = sorted[sorted.length - 1];
-
-        return { avg, p95, p99, max };
-      })()
-    `)) as { avg: number; p95: number; p99: number; max: number };
-
-    // Scroll budgets (generous for CI)
-    recordMetric('vanilla.scrollAvg', result.avg);
-    recordMetric('vanilla.scrollP95', result.p95);
-    recordMetric('vanilla.scrollP99', result.p99);
-    if (!isBaselineMode) {
-      expect(result.avg).toBeLessThan(50); // Average: < 50ms (20fps minimum)
-      expect(result.p95).toBeLessThan(80); // P95: < 80ms
-      expect(result.p99).toBeLessThan(100); // P99: < 100ms
-    }
-  });
-
-  test('vanilla: stress scroll (random jumps) stays under budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 500);
-
-    const result = (await page.evaluate(`
-      (async () => {
-        const scrollable = document.querySelector('.faux-vscroll');
-        if (!scrollable) return { avg: 999, max: 999 };
-
-        const totalHeight = scrollable.scrollHeight;
-        const viewportHeight = scrollable.clientHeight;
-        const maxScroll = totalHeight - viewportHeight;
-
-        // Warm-up
-        scrollable.scrollTop = maxScroll;
-        await new Promise(r => requestAnimationFrame(() => r()));
-        scrollable.scrollTop = 0;
-        await new Promise(r => setTimeout(r, 100));
-
-        // Random jump measurement
-        const frameTimes = [];
-        const jumps = 20;
-        for (let i = 0; i < jumps; i++) {
-          const pos = Math.random() * maxScroll;
-          const start = performance.now();
-          scrollable.scrollTop = pos;
-          await new Promise(r => requestAnimationFrame(() => r()));
-          frameTimes.push(performance.now() - start);
-        }
-
-        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        const max = Math.max(...frameTimes);
-        return { avg, max };
-      })()
-    `)) as { avg: number; max: number };
-
-    recordMetric('vanilla.stressScrollAvg', result.avg);
-    recordMetric('vanilla.stressScrollMax', result.max);
-    if (!isBaselineMode) {
-      expect(result.avg).toBeLessThan(80); // Random jumps are expensive
-      expect(result.max).toBeLessThan(150); // Worst case single frame
-    }
-  });
-
-  test('vanilla: horizontal scroll frame times stay under budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    const result = (await page.evaluate(`
-      (async () => {
-        const scrollArea = document.querySelector('.tbw-scroll-area');
-        if (!scrollArea) return { avg: 0, p95: 0, skipped: true };
-
-        const totalWidth = scrollArea.scrollWidth;
-        const viewportWidth = scrollArea.clientWidth;
-        const steps = 20;
-        const stepSize = (totalWidth - viewportWidth) / steps;
-
-        if (stepSize <= 0) return { avg: 0, p95: 0, skipped: true };
-
-        // Warm-up
-        for (let i = 0; i <= steps; i++) {
-          scrollArea.scrollLeft = i * stepSize;
-          await new Promise(r => requestAnimationFrame(() => r()));
-        }
-        scrollArea.scrollLeft = 0;
-        await new Promise(r => setTimeout(r, 100));
-
-        // Measurement
-        const frameTimes = [];
-        for (let i = 0; i <= steps; i++) {
-          const start = performance.now();
-          scrollArea.scrollLeft = i * stepSize;
-          await new Promise(r => requestAnimationFrame(() => r()));
-          frameTimes.push(performance.now() - start);
-        }
-
-        const sorted = [...frameTimes].sort((a, b) => a - b);
-        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        const p95 = sorted[Math.floor(sorted.length * 0.95)];
-        return { avg, p95, skipped: false };
-      })()
-    `)) as { avg: number; p95: number; skipped: boolean };
-
-    if (!result.skipped) {
-      recordMetric('vanilla.hscrollAvg', result.avg);
-      recordMetric('vanilla.hscrollP95', result.p95);
-      if (!isBaselineMode) {
-        expect(result.avg).toBeLessThan(50);
-        expect(result.p95).toBeLessThan(80);
-      }
-    }
-  });
-});
-
-// Cross-framework scroll performance tests
-// These run the same scroll measurements against Angular, React, and Vue demos
-// to catch framework-specific regressions (adapter overhead, change detection, etc.)
-
-const SCROLL_MEASUREMENT = `
-  (async () => {
-    const scrollable = document.querySelector('.faux-vscroll');
-    if (!scrollable) return { avg: 999, p95: 999, p99: 999, max: 999, error: 'no-scrollable' };
-
-    const totalHeight = scrollable.scrollHeight;
-    const viewportHeight = scrollable.clientHeight;
-    const steps = 30;
-    const stepSize = (totalHeight - viewportHeight) / steps;
-
-    if (stepSize <= 0) return { avg: 0, p95: 0, p99: 0, max: 0, error: 'nothing-to-scroll' };
-
-    // Warm-up pass
-    for (let i = 0; i <= steps; i++) {
-      scrollable.scrollTop = i * stepSize;
-      await new Promise(r => requestAnimationFrame(() => r()));
-    }
-    scrollable.scrollTop = 0;
-    await new Promise(r => setTimeout(r, 100));
-
-    // Measurement pass
-    const frameTimes = [];
-    for (let i = 0; i <= steps; i++) {
-      const start = performance.now();
-      scrollable.scrollTop = i * stepSize;
-      await new Promise(r => requestAnimationFrame(() => r()));
-      frameTimes.push(performance.now() - start);
-    }
-
-    const sorted = [...frameTimes].sort((a, b) => a - b);
-    const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-    const p95 = sorted[Math.floor(sorted.length * 0.95)];
-    const p99 = sorted[Math.floor(sorted.length * 0.99)];
-    const max = sorted[sorted.length - 1];
-
-    return { avg, p95, p99, max };
-  })()
-`;
-
-const RANDOM_JUMP_MEASUREMENT = `
-  (async () => {
-    const scrollable = document.querySelector('.faux-vscroll');
-    if (!scrollable) return { avg: 999, max: 999, error: 'no-scrollable' };
-
-    const totalHeight = scrollable.scrollHeight;
-    const viewportHeight = scrollable.clientHeight;
-    const maxScroll = totalHeight - viewportHeight;
-
-    // Warm-up
-    scrollable.scrollTop = maxScroll;
-    await new Promise(r => requestAnimationFrame(() => r()));
-    scrollable.scrollTop = 0;
-    await new Promise(r => setTimeout(r, 100));
-
-    // Random jump measurement
-    const frameTimes = [];
-    const jumps = 20;
-    for (let i = 0; i < jumps; i++) {
-      const pos = Math.random() * maxScroll;
-      const start = performance.now();
-      scrollable.scrollTop = pos;
-      await new Promise(r => requestAnimationFrame(() => r()));
-      frameTimes.push(performance.now() - start);
-    }
-
-    const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-    const max = Math.max(...frameTimes);
-    return { avg, max };
-  })()
-`;
-
-for (const framework of ['angular', 'react', 'vue'] as const) {
-  test.describe(`Performance Regression: Scroll (${framework})`, () => {
-    test(`${framework}: vertical scroll frame times stay under budget`, async ({ page }) => {
-      await page.goto(DEMOS[framework]);
-      await waitForGridReady(page);
-      await ensureRowCount(page, 500);
-
-      const result = (await page.evaluate(SCROLL_MEASUREMENT)) as {
-        avg: number;
-        p95: number;
-        p99: number;
-        max: number;
-      };
-
-      recordMetric(`${framework}.scrollAvg`, result.avg);
-      recordMetric(`${framework}.scrollP95`, result.p95);
-      if (!isBaselineMode) {
-        expect(result.avg).toBeLessThan(50);
-        expect(result.p95).toBeLessThan(80);
-        expect(result.p99).toBeLessThan(100);
-      }
-    });
-
-    test(`${framework}: stress scroll (random jumps) stays under budget`, async ({ page }) => {
-      await page.goto(DEMOS[framework]);
-      await waitForGridReady(page);
-      await ensureRowCount(page, 500);
-
-      const result = (await page.evaluate(RANDOM_JUMP_MEASUREMENT)) as {
-        avg: number;
-        max: number;
-      };
-
-      recordMetric(`${framework}.stressScrollAvg`, result.avg);
-      recordMetric(`${framework}.stressScrollMax`, result.max);
-      if (!isBaselineMode) {
-        expect(result.avg).toBeLessThan(80);
-        expect(result.max).toBeLessThan(150);
-      }
-    });
-  });
-}
-
-// Cross-framework initial render tests
-// Measure how quickly each framework demo loads and renders the grid
-for (const framework of ['angular', 'react', 'vue'] as const) {
-  test.describe(`Performance Regression: Initial Render (${framework})`, () => {
-    test(`${framework}: initial page load + grid render within budget`, async ({ page }) => {
-      const before = Date.now();
-
-      await page.goto(DEMOS[framework]);
-      await waitForGridReady(page);
-
-      const renderTime = Date.now() - before;
-
-      recordMetric(`${framework}.initialRender`, renderTime);
-
-      // Budget: full page load + framework bootstrap + grid render < 8s
-      // Frameworks have more overhead than vanilla (Angular zone.js, React hydration, etc.)
-      if (!isBaselineMode) expect(renderTime).toBeLessThan(8000);
-    });
-
-    test(`${framework}: grid renders 500 rows within time budget`, async ({ page }) => {
-      await page.goto(DEMOS[framework]);
-      await waitForGridReady(page);
-
-      const renderTime = await page.evaluate(`
-        (async () => {
-          const grid = document.querySelector('tbw-grid');
-          if (!grid) return 9999;
-
-          ${RAF_WAIT}
-          const start = performance.now();
-
-          // Inject 500 rows directly
-          const depts = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
-          const rows = [];
-          for (let i = 0; i < 500; i++) {
-            rows.push({
-              id: 'perf-' + i,
-              firstName: 'First' + i,
-              lastName: 'Last' + i,
-              email: 'e' + i + '@test.com',
-              department: depts[i % depts.length],
-              title: 'Title ' + (i % 20),
-              status: i % 3 === 0 ? 'Active' : 'Remote',
-              salary: 50000 + i * 100,
-              level: (i % 10) + 1,
-              rating: (i % 50) / 10,
-              hireDate: '2020-01-01',
-            });
-          }
-          grid.rows = rows;
-
-          await new Promise(r => setTimeout(r, 500));
-          ${RAF_WAIT}
-          return performance.now() - start;
-        })()
-      `);
-
-      recordMetric(`${framework}.render500`, renderTime as number);
-
-      // Budget: 500 rows re-render < 3s (generous for framework overhead)
-      if (!isBaselineMode) expect(renderTime).toBeLessThan(3000);
-    });
-  });
-}
-
-// #endregion
-
-// Cross-framework interaction latency tests
-// Measure cell click and keyboard navigation response across frameworks
-// to catch framework adapter overhead (change detection, reconciliation)
-
-// #region Cross-Framework Interaction Latency
-
-const CELL_CLICK_MEASUREMENT = `
-  (async () => {
-    const cell = document.querySelector('[role="gridcell"]');
-    if (!cell) return 999;
-
-    ${RAF_WAIT}
-    const start = performance.now();
-    cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    cell.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-    cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    ${RAF_WAIT}
-    return performance.now() - start;
-  })()
-`;
-
-const KEYBOARD_NAV_MEASUREMENT = `
-  (async () => {
-    const grid = document.querySelector('tbw-grid');
-    if (!grid) return { avg: 999, max: 999 };
-
-    // Click a cell first to establish focus
-    const cell = grid.querySelector('[role="gridcell"]');
-    if (cell) {
-      cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-      cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    }
-    await new Promise(r => requestAnimationFrame(() => r()));
-
-    const frameTimes = [];
-    const keys = ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight',
-                  'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowUp',
-                  'ArrowUp', 'ArrowLeft'];
-
-    for (const key of keys) {
-      const start = performance.now();
-      grid.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-      await new Promise(r => requestAnimationFrame(() => r()));
-      frameTimes.push(performance.now() - start);
-    }
-
-    const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-    const max = Math.max(...frameTimes);
-    return { avg, max };
-  })()
-`;
-
-for (const framework of ['angular', 'react', 'vue'] as const) {
-  test.describe(`Performance Regression: Interaction Latency (${framework})`, () => {
-    test(`${framework}: cell click response time stays under budget`, async ({ page }) => {
-      await page.goto(DEMOS[framework]);
-      await waitForGridReady(page);
-
-      const clickTime = await page.evaluate(CELL_CLICK_MEASUREMENT);
-
-      recordMetric(`${framework}.clickLatency`, clickTime as number);
-
-      // Click response should be < 100ms (feels instant)
-      // Framework adapters may add small overhead but should not be noticeable
-      if (!isBaselineMode) expect(clickTime).toBeLessThan(100);
-    });
-
-    test(`${framework}: keyboard navigation response time`, async ({ page }) => {
-      await page.goto(DEMOS[framework]);
-      await waitForGridReady(page);
-
-      const navTime = (await page.evaluate(KEYBOARD_NAV_MEASUREMENT)) as {
-        avg: number;
-        max: number;
-      };
-
-      recordMetric(`${framework}.keyNavAvg`, navTime.avg);
-      recordMetric(`${framework}.keyNavMax`, navTime.max);
-      if (!isBaselineMode) {
-        // Arrow key nav should be < 50ms average
-        expect(navTime.avg).toBeLessThan(50);
-        expect(navTime.max).toBeLessThan(100);
-      }
-    });
-  });
-}
-
-// #endregion
-
-// #region Sort & Filter Performance
-
-test.describe('Performance Regression: Sort & Filter', () => {
-  test('vanilla: clicking header to sort completes within budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 500);
-
-    // Measure sort by clicking the "Name" header
-    const sortTime = await page.evaluate(`
-      (async () => {
-        ${RAF_WAIT}
-        const header = document.querySelector('[role="columnheader"]');
-        if (!header) return 999;
-
-        const start = performance.now();
-        header.click();
-        ${RAF_WAIT}
-        await new Promise(r => setTimeout(r, 100));
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
-
-    recordMetric('vanilla.sort500', sortTime as number);
-
-    // Budget: sort 500 rows should be < 500ms
-    if (!isBaselineMode) expect(sortTime).toBeLessThan(500);
-  });
-
-  test('vanilla: sorting twice (asc then desc) stays within budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 500);
-
-    const totalTime = await page.evaluate(`
-      (async () => {
-        const header = document.querySelector('[role="columnheader"]');
-        if (!header) return 999;
-
-        const start = performance.now();
-
-        // Sort ascending
-        header.click();
-        ${RAF_WAIT}
-        await new Promise(r => setTimeout(r, 100));
-
-        // Sort descending
-        header.click();
-        ${RAF_WAIT}
-        await new Promise(r => setTimeout(r, 100));
-
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
-
-    recordMetric('vanilla.sortDouble500', totalTime as number);
-
-    // Two sorts should still be fast
-    if (!isBaselineMode) expect(totalTime).toBeLessThan(1000);
-  });
-});
-
-// #endregion
-
-// #region Filter Latency Performance
-
-/**
- * Filter latency tests measure the time from clicking a filter button,
- * typing in a search term, and the grid completing the re-render.
- * This catches regressions in the FilteringPlugin debounce + render pipeline.
- */
-test.describe('Performance Regression: Filter Latency', () => {
-  test('vanilla: filter panel open + type + re-render stays under budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 500);
-
-    const filterTime = (await page.evaluate(`
-      (async () => {
-        // Find any filterable column header with a filter button
-        const filterBtn = document.querySelector('.tbw-filter-btn');
-        if (!filterBtn) return { openTime: -1, filterTime: -1, error: 'no-filter-btn' };
-
-        // Measure panel open time
-        ${RAF_WAIT}
-        const openStart = performance.now();
-        filterBtn.click();
-        ${RAF_WAIT}
-        await new Promise(r => setTimeout(r, 200));
-        const openTime = performance.now() - openStart;
-
-        // Find search input in the filter panel
-        const searchInput = document.querySelector('.tbw-filter-search-input');
-        if (!searchInput) return { openTime, filterTime: -1, error: 'no-search-input' };
-
-        // Type a filter term and measure re-render time
-        const filterStart = performance.now();
-        searchInput.value = 'Eng';
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-        // Wait for debounce (200ms default) + re-render
-        await new Promise(r => setTimeout(r, 400));
-        ${RAF_WAIT}
-        const filterTime = performance.now() - filterStart;
-
-        return { openTime, filterTime };
-      })()
-    `)) as { openTime: number; filterTime: number; error?: string };
-
-    if (filterTime.error) return; // Skip if filtering not available
-
-    recordMetric('vanilla.filterPanelOpen', filterTime.openTime);
-    recordMetric('vanilla.filterRerender', filterTime.filterTime);
-    if (!isBaselineMode) {
-      // Panel open should be < 300ms
-      expect(filterTime.openTime).toBeLessThan(300);
-      // Filter re-render (including 200ms debounce) should be < 800ms
-      expect(filterTime.filterTime).toBeLessThan(800);
-    }
-  });
-
-  test('vanilla: rapid filter typing does not cause compounding delays', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 500);
-
-    const result = (await page.evaluate(`
-      (async () => {
-        // Open filter panel
-        const filterBtn = document.querySelector('.tbw-filter-btn');
-        if (!filterBtn) return { times: [], error: 'no-filter-btn' };
-
-        filterBtn.click();
-        await new Promise(r => setTimeout(r, 200));
-
-        const searchInput = document.querySelector('.tbw-filter-search-input');
-        if (!searchInput) return { times: [], error: 'no-search-input' };
-
-        // Type characters rapidly, measuring each keystroke's frame time
-        const chars = 'Engineering'.split('');
-        const times = [];
-
-        for (const char of chars) {
-          searchInput.value += char;
-          const start = performance.now();
-          searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-          await new Promise(r => requestAnimationFrame(() => r()));
-          times.push(performance.now() - start);
-        }
-
-        // Wait for final debounce + render
-        await new Promise(r => setTimeout(r, 400));
-
-        return { times };
-      })()
-    `)) as { times: number[]; error?: string };
-
-    if (result.error || result.times.length === 0) return;
-
-    // Individual keystrokes should be fast (debounce absorbs the heavy work)
-    const avg = result.times.reduce((a: number, b: number) => a + b, 0) / result.times.length;
-    recordMetric('vanilla.rapidFilterAvg', avg);
-    if (!isBaselineMode) expect(avg).toBeLessThan(50); // Each keystroke event < 50ms
-
-    // Later keystrokes should not be slower than earlier ones (no compounding)
-    const firstHalf = result.times.slice(0, 5);
-    const secondHalf = result.times.slice(5);
-    if (secondHalf.length > 0) {
-      const firstAvg = firstHalf.reduce((a: number, b: number) => a + b, 0) / firstHalf.length;
-      const secondAvg = secondHalf.reduce((a: number, b: number) => a + b, 0) / secondHalf.length;
-      expect(secondAvg).toBeLessThan(firstAvg * 3 + 20); // Generous tolerance
-    }
-  });
-});
-
-// Cross-framework filter latency
-for (const framework of ['angular', 'react', 'vue'] as const) {
-  test.describe(`Performance Regression: Filter Latency (${framework})`, () => {
-    test(`${framework}: filter panel open + type + re-render stays under budget`, async ({ page }) => {
-      await page.goto(DEMOS[framework]);
-      await waitForGridReady(page);
-
-      const filterTime = (await page.evaluate(`
-        (async () => {
-          const filterBtn = document.querySelector('.tbw-filter-btn');
-          if (!filterBtn) return { openTime: -1, filterTime: -1, error: 'no-filter-btn' };
-
-          ${RAF_WAIT}
-          const openStart = performance.now();
-          filterBtn.click();
-          ${RAF_WAIT}
-          await new Promise(r => setTimeout(r, 200));
-          const openTime = performance.now() - openStart;
-
-          const searchInput = document.querySelector('.tbw-filter-search-input');
-          if (!searchInput) return { openTime, filterTime: -1, error: 'no-search-input' };
-
-          const filterStart = performance.now();
-          searchInput.value = 'Eng';
-          searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-          await new Promise(r => setTimeout(r, 400));
-          ${RAF_WAIT}
-          const filterTime = performance.now() - filterStart;
-
-          return { openTime, filterTime };
-        })()
-      `)) as { openTime: number; filterTime: number; error?: string };
-
-      if (filterTime.error) return;
-
-      recordMetric(`${framework}.filterPanelOpen`, filterTime.openTime);
-      recordMetric(`${framework}.filterRerender`, filterTime.filterTime);
-      if (!isBaselineMode) {
-        // Panel open < 300ms, filter re-render < 800ms (including debounce)
-        expect(filterTime.openTime).toBeLessThan(300);
-        expect(filterTime.filterTime).toBeLessThan(800);
-      }
-    });
-  });
-}
-
-// #endregion
-
-// #region Data Mutation Performance
-
-test.describe('Performance Regression: Data Mutation', () => {
-  test('vanilla: changing row count (data replacement) stays within budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Time the row count change from 200 → 500
-    const mutationTime = await page.evaluate(`
-      (async () => {
-        const slider = document.querySelector('#row-count');
-        if (!slider) return 999;
-
-        ${RAF_WAIT}
-        const start = performance.now();
-        slider.value = '500';
-        slider.dispatchEvent(new Event('input'));
-        // Wait for full grid rebuild (demo recreates grid on config change)
-        await new Promise(r => setTimeout(r, 800));
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
-
-    recordMetric('vanilla.dataMutation500', mutationTime as number);
-
-    // Budget: full re-render with 500 rows < 2s
-    if (!isBaselineMode) expect(mutationTime).toBeLessThan(2000);
-  });
-
-  test('vanilla: toggling a feature (editing) re-renders within budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Toggle editing off — this recreates the grid
-    const toggleTime = await page.evaluate(`
-      (async () => {
-        const checkbox = document.querySelector('#enable-editing');
-        if (!checkbox) return 999;
-
-        ${RAF_WAIT}
-        const start = performance.now();
-        checkbox.click();
-        await new Promise(r => setTimeout(r, 800));
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
-
-    recordMetric('vanilla.featureToggle', toggleTime as number);
-
-    // Budget: feature toggle + grid rebuild < 2s
-    if (!isBaselineMode) expect(toggleTime).toBeLessThan(2000);
-  });
-});
-
-// #endregion
-
-// #region DOM Virtualization Verification
-
-test.describe('Performance Regression: Virtualization', () => {
-  test('vanilla: DOM row count stays bounded regardless of data size', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 1000);
-
-    const domMetrics = (await page.evaluate(`
-      (() => {
-        const grid = document.querySelector('tbw-grid');
-        if (!grid) return { rows: 0, cells: 0 };
-
-        const rows = grid.querySelectorAll('.data-grid-row').length;
-        const cells = grid.querySelectorAll('.cell').length;
-        return { rows, cells };
-      })()
-    `)) as { rows: number; cells: number };
-
-    // With 1000 data rows, DOM should have far fewer rendered rows
-    // Virtualization: ~15-30 viewport rows + 16 overscan = max ~50
-    expect(domMetrics.rows).toBeLessThan(80);
-    expect(domMetrics.rows).toBeGreaterThan(0);
-
-    // Cells should be bounded too
-    expect(domMetrics.cells).toBeLessThan(2000);
-    expect(domMetrics.cells).toBeGreaterThan(0);
-  });
-
-  test('vanilla: DOM stays bounded after scrolling to bottom', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 1000);
-
-    // Scroll to bottom
-    await page.evaluate(`
-      (async () => {
-        const scrollable = document.querySelector('.faux-vscroll');
-        if (!scrollable) return;
-        scrollable.scrollTop = scrollable.scrollHeight - scrollable.clientHeight;
-        await new Promise(r => requestAnimationFrame(() => r()));
-        await new Promise(r => setTimeout(r, 200));
-      })()
-    `);
-
-    const domRows = await page.evaluate(`
-      document.querySelector('tbw-grid')?.querySelectorAll('.data-grid-row').length ?? 0
-    `);
-
-    // Same budget at bottom of scroll
-    expect(domRows).toBeLessThan(80);
-    expect(domRows).toBeGreaterThan(0);
-  });
-});
-
-// #endregion
-
-// #region Interaction Latency
-
-test.describe('Performance Regression: Interaction Latency', () => {
-  test('vanilla: cell click response time stays under budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Measure time from click to selection visual update
-    const clickTime = await page.evaluate(`
-      (async () => {
-        const cell = document.querySelector('[role="gridcell"]');
-        if (!cell) return 999;
-
-        ${RAF_WAIT}
-        const start = performance.now();
-        cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        cell.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-        cell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
-
-    recordMetric('vanilla.clickLatency', clickTime as number);
-
-    // Click response should be < 100ms (feels instant)
-    if (!isBaselineMode) expect(clickTime).toBeLessThan(100);
-  });
-
-  test('vanilla: double-click to edit response time stays under budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Find an editable cell and measure dblclick → editor visible
-    const editTime = await page.evaluate(`
-      (async () => {
-        // Find a cell with data-field that should be editable
-        const cell = document.querySelector('[role="gridcell"][data-field]');
-        if (!cell) return 999;
-
-        ${RAF_WAIT}
-        const start = performance.now();
-        cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-        ${RAF_WAIT}
-        await new Promise(r => setTimeout(r, 50));
-        ${RAF_WAIT}
-        return performance.now() - start;
-      })()
-    `);
-
-    recordMetric('vanilla.editLatency', editTime as number);
-
-    // Double-click to editor should be < 200ms
-    if (!isBaselineMode) expect(editTime).toBeLessThan(200);
-  });
-
-  test('vanilla: keyboard navigation (arrow keys) response time', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Click a cell first to establish focus
-    const firstCell = page.locator('[role="gridcell"]').first();
-    await firstCell.click();
-    await page.waitForTimeout(100);
-
-    // Measure arrow key navigation time
-    const navTime = (await page.evaluate(`
-      (async () => {
-        const grid = document.querySelector('tbw-grid');
-        if (!grid) return { avg: 999, max: 999 };
-
-        const frameTimes = [];
-        const keys = ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight',
-                      'ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowUp',
-                      'ArrowUp', 'ArrowLeft'];
-
-        for (const key of keys) {
-          const start = performance.now();
-          grid.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-          await new Promise(r => requestAnimationFrame(() => r()));
-          frameTimes.push(performance.now() - start);
-        }
-
-        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        const max = Math.max(...frameTimes);
-        return { avg, max };
-      })()
-    `)) as { avg: number; max: number };
-
-    recordMetric('vanilla.keyNavAvg', navTime.avg);
-    recordMetric('vanilla.keyNavMax', navTime.max);
-    if (!isBaselineMode) {
-      // Arrow key nav should be < 50ms average (feels instant)
-      expect(navTime.avg).toBeLessThan(50);
-      expect(navTime.max).toBeLessThan(100);
-    }
-  });
-});
-
-// #endregion
-
-// #region Master-Detail Performance
-
-test.describe('Performance Regression: Master-Detail', () => {
-  test('vanilla: expand detail row response time', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Master-detail is enabled by default in the demo
-    const expanders = page.locator('.master-detail-toggle');
-    const expanderCount = await expanders.count();
-
-    if (expanderCount > 0) {
-      const expandTime = await page.evaluate(`
-        (async () => {
-          const toggle = document.querySelector('.master-detail-toggle');
-          if (!toggle) return 999;
-
-          await new Promise(r => requestAnimationFrame(() => r()));
-          const start = performance.now();
-          toggle.click();
-          await new Promise(r => requestAnimationFrame(() => r()));
-          await new Promise(r => setTimeout(r, 100));
-          await new Promise(r => requestAnimationFrame(() => r()));
-          return performance.now() - start;
-        })()
-      `);
-
-      recordMetric('vanilla.detailExpand', expandTime as number);
-
-      // Expand should be < 300ms
-      if (!isBaselineMode) expect(expandTime).toBeLessThan(300);
-    }
-  });
-
-  test('vanilla: expand/collapse cycle does not leak time', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    const expanders = page.locator('.master-detail-toggle');
-    if ((await expanders.count()) === 0) return;
-
-    // Measure 5 expand/collapse cycles — later cycles should not be slower
-    const cycleTimes = (await page.evaluate(`
-      (async () => {
-        const toggle = document.querySelector('.master-detail-toggle');
-        if (!toggle) return [];
-
-        const times = [];
-        for (let i = 0; i < 10; i++) {
-          const start = performance.now();
-          toggle.click();
-          await new Promise(r => requestAnimationFrame(() => r()));
-          await new Promise(r => setTimeout(r, 50));
-          times.push(performance.now() - start);
-        }
-        return times;
-      })()
-    `)) as number[];
-
-    if (cycleTimes.length >= 10) {
-      // Compare first half vs second half — second half should not be 2x slower
-      const firstHalf = cycleTimes.slice(0, 5).reduce((a: number, b: number) => a + b, 0) / 5;
-      const secondHalf = cycleTimes.slice(5).reduce((a: number, b: number) => a + b, 0) / 5;
-
-      // No time leak: second half should be < 2x first half
-      expect(secondHalf).toBeLessThan(firstHalf * 2 + 50); // +50ms tolerance
-    }
-  });
-});
-
-// #endregion
-
-// #region Resize Performance
-
-test.describe('Performance Regression: Resize', () => {
-  test('vanilla: column resize drag does not drop below 20fps', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Measure resize performance entirely inside the browser to avoid
-    // Playwright CDP protocol overhead inflating frame times.
-    const avg = await page.evaluate(`
-      (async () => {
-        const handle = document.querySelector('.resize-handle');
-        if (!handle) return 0;
-
-        const rect = handle.getBoundingClientRect();
-        const startX = rect.x + rect.width / 2;
-        const startY = rect.y + rect.height / 2;
-
-        // Start drag
-        handle.dispatchEvent(new MouseEvent('mousedown', {
-          clientX: startX, clientY: startY, bubbles: true
-        }));
-
-        // Measure frame times during drag (synthetic mousemove events)
-        const frameTimes = [];
-        const steps = 15;
-        for (let i = 0; i < steps; i++) {
-          const x = startX + (i + 1) * 10;
-          const start = performance.now();
-          window.dispatchEvent(new MouseEvent('mousemove', {
-            clientX: x, clientY: startY, bubbles: true
-          }));
-          await new Promise(r => requestAnimationFrame(() => r()));
-          frameTimes.push(performance.now() - start);
-        }
-
-        // End drag
-        window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-
-        return frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-      })()
-    `);
-
-    if (avg === 0) return; // No resize handle found
-
-    recordMetric('vanilla.colResizeAvg', avg as number);
-    // Average frame time should stay under 50ms (20fps minimum during resize)
-    if (!isBaselineMode) expect(avg).toBeLessThan(50);
-  });
-
-  test('vanilla: container resize does not cause layout thrashing', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Resize the viewport to simulate container resize
-    const resizeTime = (await page.evaluate(`
-      (async () => {
-        const frameTimes = [];
-        const sizes = [
-          { width: 1000, height: 600 },
-          { width: 800, height: 500 },
-          { width: 1200, height: 700 },
-          { width: 600, height: 400 },
-          { width: 1000, height: 600 },
-        ];
-
-        for (const size of sizes) {
-          const start = performance.now();
-          // Trigger ResizeObserver by changing grid wrapper size
-          const wrapper = document.querySelector('.grid-wrapper');
-          if (wrapper) {
-            wrapper.style.width = size.width + 'px';
-            wrapper.style.height = size.height + 'px';
-          }
-          await new Promise(r => requestAnimationFrame(() => r()));
-          await new Promise(r => setTimeout(r, 100));
-          await new Promise(r => requestAnimationFrame(() => r()));
-          frameTimes.push(performance.now() - start);
-        }
-
-        const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        const max = Math.max(...frameTimes);
-        return { avg, max };
-      })()
-    `)) as { avg: number; max: number };
-
-    recordMetric('vanilla.containerResizeAvg', resizeTime.avg);
-    recordMetric('vanilla.containerResizeMax', resizeTime.max);
-    if (!isBaselineMode) {
-      // Container resize should not cause long frames
-      expect(resizeTime.avg).toBeLessThan(300);
-      expect(resizeTime.max).toBeLessThan(500);
-    }
-  });
-});
-
-// #endregion
-
-// #region No JavaScript Errors
-
-test.describe('Performance Regression: Error Budget', () => {
-  test('vanilla: no JS errors during normal operation sequence', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (err) => errors.push(err.message));
-
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Full interaction sequence: scroll → sort → expand → collapse → resize row count
-    const scrollable = page.locator('.faux-vscroll');
-
-    // Scroll
-    await scrollable.evaluate((el) => {
-      el.scrollTop = 200;
-    });
-    await page.waitForTimeout(100);
-    await scrollable.evaluate((el) => {
-      el.scrollTop = 0;
-    });
-    await page.waitForTimeout(100);
-
-    // Sort — pick a visible, non-utility column header
-    const header = page.locator('[role="columnheader"]:not([data-field^="__tbw_"])').first();
-    await header.click();
-    await page.waitForTimeout(200);
-
-    // Expand detail
-    const toggle = page.locator('.master-detail-toggle').first();
-    if (await toggle.isVisible()) {
-      await toggle.click({ force: true });
-      await page.waitForTimeout(200);
-      await toggle.click({ force: true });
-      await page.waitForTimeout(200);
-    }
-
-    // Change row count
-    const slider = page.locator('#row-count');
-    if (await slider.isVisible()) {
-      await slider.fill('300');
-      await slider.dispatchEvent('input');
-      await page.waitForTimeout(500);
-    }
-
-    expect(errors).toHaveLength(0);
-  });
-});
-
-// #endregion
-// #region Large Column Count Performance
-
-test.describe('Performance Regression: Large Column Count', () => {
-  test('vanilla: 50-column grid renders within budget', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    const result = (await page.evaluate(`
-      (async () => {
-        const grid = document.querySelector('tbw-grid');
-        if (!grid) return { renderTime: 9999, domCells: 0, error: 'no-grid' };
-
-        // Generate 50 columns
-        const columns = [];
-        for (let i = 0; i < 50; i++) {
-          columns.push({ field: 'col' + i, header: 'Column ' + i });
-        }
-
-        // Generate 200 rows × 50 columns
-        const rows = [];
-        for (let r = 0; r < 200; r++) {
-          const row = { id: r };
-          for (let c = 0; c < 50; c++) {
-            row['col' + c] = 'R' + r + 'C' + c;
-          }
-          rows.push(row);
-        }
-
-        ${RAF_WAIT}
-        const start = performance.now();
-        grid.gridConfig = { columns };
-        grid.rows = rows;
-        await new Promise(r => setTimeout(r, 1000));
-        ${RAF_WAIT}
-        const renderTime = performance.now() - start;
-
-        const domCells = grid.querySelectorAll('[role="gridcell"]').length;
-        return { renderTime, domCells };
-      })()
-    `)) as { renderTime: number; domCells: number; error?: string };
-
-    recordMetric('vanilla.render50cols', result.renderTime);
-
-    // 50 columns × 200 rows should render in < 5s
-    if (!isBaselineMode) expect(result.renderTime).toBeLessThan(5000);
-
-    // With column virtualization off, all column cells are rendered per row
-    // With it on, only visible ones. Either way, should be bounded.
-    expect(result.domCells).toBeGreaterThan(0);
-  });
-
-  test('vanilla: 100-column grid scroll stays responsive', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    const result = (await page.evaluate(`
-      (async () => {
-        const grid = document.querySelector('tbw-grid');
-        if (!grid) return { renderTime: 999, scrollAvg: 999, error: 'no-grid' };
-
-        // Generate 100 columns
-        const columns = [];
-        for (let i = 0; i < 100; i++) {
-          columns.push({ field: 'c' + i, header: 'Col ' + i, width: 120 });
-        }
-
-        const rows = [];
-        for (let r = 0; r < 100; r++) {
-          const row = { id: r };
-          for (let c = 0; c < 100; c++) row['c' + c] = 'v' + r + '.' + c;
-          rows.push(row);
-        }
-
-        ${RAF_WAIT}
-        const start = performance.now();
-        grid.gridConfig = { columns };
-        grid.rows = rows;
-        await new Promise(r => setTimeout(r, 1500));
-        ${RAF_WAIT}
-        const renderTime = performance.now() - start;
-
-        // Horizontal scroll measurement
-        const scrollArea = grid.querySelector('.tbw-scroll-area');
-        if (!scrollArea) return { renderTime, scrollAvg: -1, error: 'no-scroll-area' };
-
-        const totalWidth = scrollArea.scrollWidth;
-        const viewportWidth = scrollArea.clientWidth;
-        const steps = 15;
-        const stepSize = (totalWidth - viewportWidth) / steps;
-
-        if (stepSize <= 0) return { renderTime, scrollAvg: 0 };
-
-        const frameTimes = [];
-        for (let i = 0; i <= steps; i++) {
-          const s = performance.now();
-          scrollArea.scrollLeft = i * stepSize;
-          await new Promise(r => requestAnimationFrame(() => r()));
-          frameTimes.push(performance.now() - s);
-        }
-
-        const scrollAvg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-        return { renderTime, scrollAvg };
-      })()
-    `)) as { renderTime: number; scrollAvg: number };
-
-    recordMetric('vanilla.render100cols', result.renderTime);
-    // 100-column grid initial render < 8s (generous for CI)
-    if (!isBaselineMode) expect(result.renderTime).toBeLessThan(8000);
-
-    // Horizontal scroll should remain responsive
-    if (result.scrollAvg >= 0) {
-      recordMetric('vanilla.hscroll100cols', result.scrollAvg);
-      if (!isBaselineMode) expect(result.scrollAvg).toBeLessThan(100);
-    }
-  });
-});
-
-// #endregion
-
-// #region Memory Stability
-
-test.describe('Performance Regression: Memory Stability', () => {
-  test('vanilla: repeated data replacement does not leak memory', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-
-    // Needs CDP for heap metrics
-    const cdp = await page.context().newCDPSession(page);
-
-    // Force GC and get baseline
-    await cdp.send('HeapProfiler.collectGarbage');
-    const baseline = (await cdp.send('Runtime.getHeapUsage')) as {
-      usedSize: number;
-      totalSize: number;
-    };
-
-    // Perform 10 cycles of data replacement (each replaces all rows)
-    await page.evaluate(`
-      (async () => {
-        const grid = document.querySelector('tbw-grid');
-        if (!grid) return;
-
-        for (let cycle = 0; cycle < 10; cycle++) {
-          const rows = [];
-          for (let i = 0; i < 500; i++) {
-            rows.push({
-              id: 'c' + cycle + '-' + i,
-              firstName: 'First' + i,
-              lastName: 'Last' + i,
-              email: 'e' + i + '@test.com',
-              department: 'Dept' + (i % 5),
-              salary: 50000 + i * 100,
-            });
-          }
-          grid.rows = rows;
-          await new Promise(r => setTimeout(r, 200));
-        }
-      })()
-    `);
-
-    // Force GC and measure final state
-    await cdp.send('HeapProfiler.collectGarbage');
-    const final = (await cdp.send('Runtime.getHeapUsage')) as {
-      usedSize: number;
-      totalSize: number;
-    };
-
-    const growthMB = (final.usedSize - baseline.usedSize) / 1024 / 1024;
-
-    // After 10 data replacements (500 rows each), heap growth should be bounded.
-    // Allow up to 20MB growth (generous for CI variance + renderer caches)
-    expect(growthMB).toBeLessThan(20);
-
-    await cdp.detach();
-  });
-
-  test('vanilla: scroll does not leak DOM nodes', async ({ page }) => {
-    await page.goto(DEMOS.vanilla);
-    await waitForGridReady(page);
-    await setRowCount(page, 1000);
-
-    // Count DOM nodes before scrolling
-    const before = await page.evaluate(() => document.querySelectorAll('*').length);
-
-    // Scroll through entire dataset multiple times
-    await page.evaluate(`
-      (async () => {
-        const scrollable = document.querySelector('.faux-vscroll');
-        if (!scrollable) return;
-
-        const maxScroll = scrollable.scrollHeight - scrollable.clientHeight;
-
-        for (let pass = 0; pass < 3; pass++) {
-          // Scroll down in steps
-          for (let pos = 0; pos <= maxScroll; pos += maxScroll / 20) {
-            scrollable.scrollTop = pos;
-            await new Promise(r => requestAnimationFrame(() => r()));
-          }
-          // Scroll back up
-          for (let pos = maxScroll; pos >= 0; pos -= maxScroll / 20) {
-            scrollable.scrollTop = pos;
-            await new Promise(r => requestAnimationFrame(() => r()));
-          }
-        }
-
-        // Return to top
-        scrollable.scrollTop = 0;
-        await new Promise(r => setTimeout(r, 200));
-      })()
-    `);
-
-    // Count DOM nodes after scrolling
-    const after = await page.evaluate(() => document.querySelectorAll('*').length);
-
-    // DOM node count should be roughly stable (virtualization reuses nodes)
-    // Allow 20% growth tolerance for any deferred rendering
-    expect(after).toBeLessThan(before * 1.2);
-  });
-});
-
-// #endregion

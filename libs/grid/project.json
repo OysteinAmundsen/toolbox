@@ -3,10 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/grid/src",
   "projectType": "library",
-  "tags": [
-    "type:lib",
-    "scope:grid"
-  ],
+  "tags": ["type:lib", "scope:grid"],
   "targets": {
     "typecheck": {
       "command": "bunx tsc -p libs/grid/tsconfig.lib.json --noEmit",
@@ -16,13 +13,9 @@
     },
     "build": {
       "executor": "@nx/vite:build",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
-      "dependsOn": [
-        "typecheck"
-      ],
+      "dependsOn": ["typecheck"],
       "options": {
         "outputPath": "dist/libs/grid",
         "emptyOutDir": true
@@ -38,9 +31,7 @@
     },
     "test": {
       "executor": "@nx/vitest:test",
-      "outputs": [
-        "{options.reportsDirectory}"
-      ],
+      "outputs": ["{options.reportsDirectory}"],
       "options": {
         "passWithNoTests": true,
         "reportsDirectory": "{projectRoot}/../../coverage/libs/grid"
@@ -51,26 +42,24 @@
       "options": {
         "cwd": "{projectRoot}"
       },
-      "inputs": [
-        "{projectRoot}/src/**/*.ts",
-        "{projectRoot}/typedoc.json",
-        "{projectRoot}/scripts/typedoc-to-mdx.ts"
-      ],
+      "inputs": ["{projectRoot}/src/**/*.ts", "{projectRoot}/typedoc.json", "{projectRoot}/scripts/typedoc-to-mdx.ts"],
       "outputs": [
         "{projectRoot}/docs/api-generated",
         "{workspaceRoot}/apps/docs/src/content/docs/grid/api",
         "{workspaceRoot}/apps/docs/src/content/docs/grid/plugins/**/api"
       ]
     },
+    "bench": {
+      "command": "vitest bench --config libs/grid/vite.config.ts --run",
+      "options": {
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "outputs": [
-        "{options.outputFile}"
-      ],
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": [
-          "libs/grid/**/*.ts"
-        ]
+        "lintFilePatterns": ["libs/grid/**/*.ts"]
       }
     }
   }

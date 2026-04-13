@@ -161,49 +161,39 @@ These verify visual and functional parity across framework demos (vanilla as bas
 
 ## Performance Regression Tests (`e2e/tests/performance-regression.spec.ts`)
 
-Automated benchmarks that catch performance regressions in CI via **relative baseline comparison** (not absolute budgets).
+Automated benchmarks that catch performance regressions by comparing the **current build against the latest published release** loaded from CDN. Both versions run identical benchmarks in the same browser session, so CI runner variance cancels out. Runs as part of the regular `e2e` suite — no separate CI job needed.
 
 ### How It Works
 
-1. Tests measure render, scroll, sort, filter, and interaction metrics
-2. Metrics are recorded to `e2e/test-results/perf-metrics-*.json`
-3. CI runs tests **3 times** and takes the **median** of each metric
-4. `scripts/compare-perf-baseline.mjs` compares medians against `e2e/perf-baseline.json`
-5. Fails if any metric regresses **>50%** over baseline
+1. **Self-Comparison tests** load the local UMD build (`dist/libs/grid/umd/grid.all.umd.js`) and the CDN release (`@toolbox-web/grid@latest`) in separate browser pages
+2. Identical benchmarks (render, data update, scroll) run on both versions
+3. The test fails if the current build is **>25% slower** than the released version
 
 ### Environment Variables
 
-| Variable             | Purpose                                                               |
-| -------------------- | --------------------------------------------------------------------- |
-| `PERF_BASELINE_MODE` | Set to `record` to skip hard assertions (CI uses baseline comparison) |
-| `PERF_RUN_ID`        | Unique ID for the output file (`perf-metrics-{runId}.json`)           |
+| Variable           | Purpose                                                     |
+| ------------------ | ----------------------------------------------------------- |
+| `PERF_CDN_VERSION` | Override CDN version to compare against (default: `latest`) |
+| `PERF_RUN_ID`      | Unique ID for the output file (`perf-metrics-{runId}.json`) |
 
 ### Running Locally
 
 ```bash
-# Local mode (hard assertions + metric recording)
+# Requires a build first (for the local UMD bundle)
+bun nx build grid
+
+# Run self-comparison tests (no demo server needed)
 bunx playwright test --config=e2e/playwright.config.ts performance-regression
-
-# CI-style mode (record-only, no hard assertions)
-PERF_BASELINE_MODE=record bunx playwright test --config=e2e/playwright.config.ts performance-regression
 ```
 
-### Updating the Baseline
+## Grid Stability Tests (`e2e/tests/grid-stability.spec.ts`)
 
-Trigger **"Update perf baseline"** via `workflow_dispatch` in GitHub Actions, or manually:
-
-```bash
-# Run 3 times to collect medians
-for i in 1 2 3; do PERF_BASELINE_MODE=record PERF_RUN_ID=run$i bunx playwright test --config=e2e/playwright.config.ts --grep "Performance Regression"; done
-node scripts/update-perf-baseline.mjs e2e/test-results
-```
+Structural assertions that run against the vanilla demo — verifying virtualization bounds, zero JS errors during interactions, and no memory/DOM leaks. Fast and deterministic. Runs as part of the regular `e2e` suite.
 
 ### Key Files
 
-| File                                       | Purpose                                      |
-| ------------------------------------------ | -------------------------------------------- |
-| `e2e/tests/performance-regression.spec.ts` | Test definitions with `recordMetric()` calls |
-| `e2e/tests/perf-metrics-helper.ts`         | Metric accumulator + flush utility           |
-| `e2e/perf-baseline.json`                   | Committed baseline (CI-recorded)             |
-| `scripts/compare-perf-baseline.mjs`        | Compares results vs baseline, exits non-zero |
-| `scripts/update-perf-baseline.mjs`         | Records new baseline from result files       |
+| File                                       | Purpose                                     |
+| ------------------------------------------ | ------------------------------------------- |
+| `e2e/tests/performance-regression.spec.ts` | Self-comparison benchmarks (no demo needed) |
+| `e2e/tests/grid-stability.spec.ts`         | Structural stability tests (vanilla demo)   |
+| `e2e/tests/perf-metrics-helper.ts`         | Metric accumulator + flush utility          |

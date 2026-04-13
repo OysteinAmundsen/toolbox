@@ -410,6 +410,9 @@ export default defineConfig(({ command }) => ({
     globals: true,
     environment: 'happy-dom',
     include: ['src/**/*.spec.ts', 'src/**/__tests__/**/*.spec.ts'],
+    benchmark: {
+      include: ['src/**/*.bench.ts'],
+    },
     setupFiles: ['./test/setup.ts'],
     reporters: process.env.CI
       ? [

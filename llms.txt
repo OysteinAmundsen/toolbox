@@ -125,6 +125,7 @@ Key TypeScript interfaces for configuration and events:
 
 ## Optional
 
+- [v1 → v2 Migration Guide](https://toolboxjs.com/grid/guides/migration/): Complete guide for upgrading from v1 to v2
 - [Accessibility Guide](https://toolboxjs.com/grid/guides/accessibility/): ARIA attributes and screen reader support
 - [Performance Guide](https://toolboxjs.com/grid/guides/performance/): Virtualization, optimization tips, and live head-to-head comparison benchmark vs AG Grid
 - [Custom Plugins Guide](https://toolboxjs.com/grid/guides/custom-plugins/): How to create your own plugins

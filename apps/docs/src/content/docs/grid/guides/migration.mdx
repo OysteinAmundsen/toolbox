@@ -1,0 +1,423 @@
+---
+title: Migrating from v1 to v2
+description: Complete migration guide for upgrading @toolbox-web/grid and its framework adapters from v1 to v2.
+---
+
+import { Aside, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
+
+This guide covers every breaking change in `@toolbox-web/grid` v2 and its Angular, React, and Vue adapters. Most changes are simple renames that can be done with find-and-replace. A handful require manual migration due to structural API changes.
+
+## Quick Summary
+
+v2 removes **~106 deprecated items** across the grid core and all three framework adapters. The majority are renames — removing framework prefixes from types (e.g., `ReactGridConfig` → `GridConfig`), renaming features for clarity (e.g., `sorting` → `multiSort`), and replacing `sticky` with `pinned`. A few structural API changes (like `useGridEvent()` removal) require manual attention.
+
+<Aside type="note">
+  **Most of these APIs have been deprecated for a long time.** The earliest deprecations date back to v1.0.0, and the most recent batch was introduced in v1.24.0+. If you've been following deprecation warnings in your IDE and keeping your code up to date, you may have very little (or nothing) to change. The tables below include a "Deprecated since" column so you can quickly check whether a removal affects your version.
+</Aside>
+
+<Aside type="tip">
+  Run `git diff` after each section to verify changes before committing.
+</Aside>
+
+## Automated Find-and-Replace
+
+~75 of ~106 changes are simple 1:1 renames. Use your IDE's find-and-replace (Ctrl+Shift+H) or the `sed` commands below.
+
+<Aside type="caution">
+  **Order matters** for some replacements. Replace `rowReorder` before `reorder`, and `row-reorder` before `reorder` in import paths, to avoid creating incorrect names like `reorderColumnsRows`.
+</Aside>
+
+### Grid Core — Type & Event Renames
+
+| v1 (removed)             | v2 (replacement)         | Kind     | Deprecated since |
+| ------------------------ | ------------------------ | -------- | ---------------- |
+| `ActivateCellDetail`     | `CellActivateDetail`     | Type     | v1.0.0           |
+| `activate-cell`          | `cell-activate`          | Event    | v1.0.0           |
+| `StickyPosition`         | `PinnedPosition`         | Type     | v1.15.0          |
+| `ResolvedStickyPosition` | `ResolvedPinnedPosition` | Type     | v1.15.0          |
+| `EditorContext`           | `ColumnEditorContext`     | Type     | v1.12.0          |
+| `RowGroupingConfig`      | `GroupingRowsConfig`     | Type     | v1.24.0          |
+| `RowGroupingState`       | `GroupingRowsState`      | Type     | v1.24.0          |
+| `PLUGIN_QUERIES`         | String literals with `grid.query()` | Constant | v1.8.0 |
+
+### Grid Core — Property & Attribute Renames
+
+| v1 (removed)   | v2 (replacement) | Kind                 | Deprecated since |
+| -------------- | ---------------- | -------------------- | ---------------- |
+| `.sticky`      | `.pinned`        | Column config property | v1.15.0        |
+| `'sticky'`     | `'pinned'`       | String key           | v1.15.0          |
+| `sticky:`      | `pinned:`        | Config key           | v1.15.0          |
+| `sizable`      | `resizable`      | HTML attribute       | v1.0.0           |
+
+### Grid Core — Feature Alias Renames
+
+| v1 (removed)   | v2 (replacement)   | Kind         | Deprecated since |
+| -------------- | ------------------ | ------------ | ---------------- |
+| `'sorting'`    | `'multiSort'`      | Feature name | v1.24.0          |
+| `sorting:`     | `multiSort:`       | Config key   | v1.24.0          |
+| `'reorder'`    | `'reorderColumns'` | Feature name | v1.24.0          |
+| `reorder:`     | `reorderColumns:`  | Config key   | v1.24.0          |
+| `rowReorder`   | `reorderRows`      | Feature name | v1.24.0          |
+
+### Grid Core — Function Renames (Plugin Authors)
+
+| v1 (removed)               | v2 (replacement)       | Kind        | Deprecated since |
+| -------------------------- | ---------------------- | ----------- | ---------------- |
+| `onPluginQuery`            | `handleQuery`          | Plugin hook | v1.8.0           |
+| `getPivotAggregator`       | `getValueAggregator`   | Function    | v1.24.0          |
+| `createPinnedRowsElement`  | `createInfoBarElement` | Function    | v1.24.0          |
+
+### Angular Adapter
+
+| v1 (removed)          | v2 (replacement)   | Kind                 | Deprecated since |
+| --------------------- | ------------------ | -------------------- | ---------------- |
+| `AngularGridAdapter`  | `GridAdapter`      | Type / export        | 0.11.0           |
+| `AngularCellRenderer` | `CellRenderer`     | Type                 | 0.11.0           |
+| `AngularCellEditor`   | `CellEditor`       | Type                 | 0.11.0           |
+| `AngularColumnConfig` | `ColumnConfig`     | Type                 | 0.11.0           |
+| `AngularGridConfig`   | `GridConfig`       | Type                 | 0.11.0           |
+| `AngularTypeDefault`  | `TypeDefault`      | Type                 | 0.11.0           |
+| `[angularConfig]`     | `[gridConfig]`     | Directive input      | 0.11.0           |
+| `[sorting]`           | `[multiSort]`      | Directive input      | 0.11.0           |
+| `[reorder]`           | `[reorderColumns]` | Directive input      | 0.11.0           |
+| `[rowReorder]`        | `[reorderRows]`    | Directive input      | 0.11.0           |
+| `TbwCellEditor`       | `TbwEditor`        | Structural directive | 0.11.0           |
+| `TbwCellView`         | `TbwRenderer`      | Structural directive | 0.11.0           |
+
+**Feature import paths:**
+
+| v1 path                                          | v2 path                                                |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| `@toolbox-web/grid-angular/features/sorting`     | `@toolbox-web/grid-angular/features/multi-sort`        |
+| `@toolbox-web/grid-angular/features/reorder`     | `@toolbox-web/grid-angular/features/reorder-columns`   |
+| `@toolbox-web/grid-angular/features/row-reorder` | `@toolbox-web/grid-angular/features/reorder-rows`      |
+
+### React Adapter
+
+| v1 (removed)                          | v2 (replacement)               | Kind           | Deprecated since |
+| ------------------------------------- | ------------------------------ | -------------- | ---------------- |
+| `ReactGridAdapter`                    | `GridAdapter`                  | Type / export  | 0.11.0           |
+| `ReactColumnConfig`                   | `ColumnConfig`                 | Type           | 0.11.0           |
+| `ReactGridConfig`                     | `GridConfig`                   | Type           | 0.11.0           |
+| `ReactTypeDefault`                    | `TypeDefault`                  | Type           | 0.11.0           |
+| `reactTypeDefaultToGridTypeDefault`   | `typeDefaultToBaseTypeDefault` | Function       | 0.11.0           |
+| `processReactGridConfig`              | `processGridConfig`            | Function       | 0.11.0           |
+| `sorting` prop                        | `multiSort` prop               | Component prop | 0.11.0           |
+| `reorder` prop                        | `reorderColumns` prop          | Component prop | 0.11.0           |
+| `rowReorder` prop                     | `reorderRows` prop             | Component prop | 0.11.0           |
+
+**Feature import paths:**
+
+| v1 path                                      | v2 path                                            |
+| -------------------------------------------- | -------------------------------------------------- |
+| `@toolbox-web/grid-react/features/sorting`     | `@toolbox-web/grid-react/features/multi-sort`      |
+| `@toolbox-web/grid-react/features/reorder`     | `@toolbox-web/grid-react/features/reorder-columns` |
+| `@toolbox-web/grid-react/features/row-reorder` | `@toolbox-web/grid-react/features/reorder-rows`    |
+
+### Vue Adapter
+
+| v1 (removed)      | v2 (replacement)      | Kind           | Deprecated since |
+| ----------------- | --------------------- | -------------- | ---------------- |
+| `VueGridAdapter`  | `GridAdapter`         | Type / export  | 0.11.0           |
+| `VueCellRenderer` | `CellRenderer`        | Type           | 0.11.0           |
+| `VueCellEditor`   | `CellEditor`          | Type           | 0.11.0           |
+| `VueColumnConfig` | `ColumnConfig`        | Type           | 0.11.0           |
+| `VueGridConfig`   | `GridConfig`          | Type           | 0.11.0           |
+| `VueTypeDefault`  | `TypeDefault`         | Type           | 0.11.0           |
+| `sorting` prop    | `multiSort` prop      | Component prop | 0.11.0           |
+| `reorder` prop    | `reorderColumns` prop | Component prop | 0.11.0           |
+| `rowReorder` prop | `reorderRows` prop    | Component prop | 0.11.0           |
+
+**Feature import paths:**
+
+| v1 path                                    | v2 path                                          |
+| ------------------------------------------ | ------------------------------------------------ |
+| `@toolbox-web/grid-vue/features/reorder`     | `@toolbox-web/grid-vue/features/reorder-columns` |
+| `@toolbox-web/grid-vue/features/row-reorder` | `@toolbox-web/grid-vue/features/reorder-rows`    |
+
+### CSS Default Export
+
+```typescript
+// v1
+import styles from '@toolbox-web/grid/styles';
+
+// v2
+import { gridStyles } from '@toolbox-web/grid/styles';
+```
+
+---
+
+## Manual Migration Required
+
+These structural API changes cannot be safely automated with find-and-replace. Each requires understanding the surrounding code.
+
+### `queryPlugins()` → `query()` — Parameter format change
+
+*Deprecated since v1.8.0.* The object-based parameter was replaced with a flat signature.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```typescript
+    const results = grid.queryPlugins<boolean>({
+      type: 'canMoveColumn',
+      context: column,
+    });
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```typescript
+    const results = grid.query<boolean>('canMoveColumn', column);
+    ```
+  </TabItem>
+</Tabs>
+
+### `suspendProcessing()` — Removed entirely
+
+*Deprecated since v1.21.0.* This method was already a no-op in late v1. Delete all calls to `suspendProcessing()` and `resumeProcessing()`. Use `insertRow()` / `removeRow()` for individual row mutations — batching is handled internally.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```typescript
+    grid.suspendProcessing();
+    // ... batch operations ...
+    grid.resumeProcessing();
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```typescript
+    // Just use row mutation methods directly
+    grid.insertRow(newRow, index);
+    grid.removeRow(rowId);
+    ```
+  </TabItem>
+</Tabs>
+
+### `getExtraHeight()` / `getExtraHeightBefore()` → `getRowHeight()`
+
+*Plugin authors only. Deprecated since v1.12.0.* The two aggregate height hooks were replaced by a single per-row hook.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```typescript
+    getExtraHeight(): number {
+      return this.expandedRows.size * this.detailHeight;
+    }
+
+    getExtraHeightBefore(beforeRowIndex: number): number {
+      let height = 0;
+      for (const idx of this.expandedRowIndices) {
+        if (idx < beforeRowIndex) height += this.detailHeight;
+      }
+      return height;
+    }
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```typescript
+    getRowHeight(row: unknown, index: number): number | undefined {
+      if (this.isExpanded(row)) {
+        return this.baseRowHeight + this.getDetailHeight(row);
+      }
+      return undefined; // use default height
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### `resolveIcon()` → `setIcon()`
+
+*Plugin authors only. Deprecated since v1.31.0.* The return-value pattern was replaced with a DOM-mutation pattern.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```typescript
+    const icon = this.resolveIcon('sort-asc');
+    element.innerHTML = typeof icon === 'string' ? icon : '';
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```typescript
+    this.setIcon(element, 'sort-asc');
+    ```
+  </TabItem>
+</Tabs>
+
+### `PLUGIN_QUERIES` constant → String literals
+
+*Plugin authors only. Deprecated since v1.8.0.* The constant object was removed. Use string literals with `grid.query()` instead.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```typescript
+    import { PLUGIN_QUERIES } from '@toolbox-web/grid';
+
+    grid.queryPlugins({
+      type: PLUGIN_QUERIES.CAN_MOVE_COLUMN,
+      context: column,
+    });
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```typescript
+    grid.query<boolean>('canMoveColumn', column);
+    ```
+  </TabItem>
+</Tabs>
+
+### Angular: `commit`/`cancel` outputs → `onCommit`/`onCancel` callbacks
+
+*Deprecated since grid-angular 0.11.0.* The `EventEmitter`-based outputs on the editor directive were replaced with simple callback functions on the editor context.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```typescript
+    // In your editor component
+    @Output() commit = new EventEmitter<string>();
+    @Output() cancel = new EventEmitter<void>();
+
+    save() {
+      this.commit.emit(this.value);
+    }
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```typescript
+    // Editor context provides callbacks directly
+    save() {
+      this.context.onCommit(this.value);
+    }
+
+    discard() {
+      this.context.onCancel();
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### React: `useGridEvent()` → Event props on `<DataGrid>`
+
+*Deprecated since grid-react 0.18.0.* The `useGridEvent` hook was removed. Use event handler props directly on the `<DataGrid>` component.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```tsx
+    import { useGridEvent } from '@toolbox-web/grid-react';
+
+    function MyGrid() {
+      const gridRef = useRef(null);
+      useGridEvent(gridRef, 'selection-change', (e) => {
+        setSelected(e.detail);
+      });
+
+      return <DataGrid ref={gridRef} />;
+    }
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```tsx
+    function MyGrid() {
+      return (
+        <DataGrid
+          onSelectionChange={(e) => setSelected(e.detail)}
+        />
+      );
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### Vue: `useGridEvent()` → Template event handlers
+
+*Deprecated since grid-vue 0.11.0.* The `useGridEvent` composable was removed. Use standard Vue template event handlers on `<TbwGrid>`.
+
+<Tabs>
+  <TabItem label="v1 (removed)">
+    ```vue
+    <script setup>
+    import { useGridEvent } from '@toolbox-web/grid-vue';
+
+    useGridEvent('selection-change', (e) => {
+      selected.value = e.detail;
+    });
+    </script>
+
+    <template>
+      <TbwGrid />
+    </template>
+    ```
+  </TabItem>
+  <TabItem label="v2">
+    ```vue
+    <template>
+      <TbwGrid @selection-change="onSelectionChange" />
+    </template>
+
+    <script setup>
+    function onSelectionChange(e) {
+      selected.value = e.detail;
+    }
+    </script>
+    ```
+  </TabItem>
+</Tabs>
+
+### All Adapters: `SelectionMethods`/`ExportMethods` → Feature-specific functions
+
+*Deprecated since adapter 0.11.0.* The monolithic `injectGrid()` / `useGrid()` return type no longer includes selection and export methods. Import them from their respective feature modules instead.
+
+<Tabs>
+  <TabItem label="Angular">
+    ```typescript
+    // v1
+    const { selectAll, clearSelection, exportToCsv } = injectGrid();
+
+    // v2
+    import { injectGridSelection } from '@toolbox-web/grid-angular/features/selection';
+    import { injectGridExport } from '@toolbox-web/grid-angular/features/export';
+
+    const { selectAll, clearSelection } = injectGridSelection();
+    const { exportToCsv } = injectGridExport();
+    ```
+  </TabItem>
+  <TabItem label="React">
+    ```tsx
+    // v1
+    const { selectAll, clearSelection, exportToCsv } = useGrid(gridRef);
+
+    // v2
+    import { useGridSelection } from '@toolbox-web/grid-react/features/selection';
+    import { useGridExport } from '@toolbox-web/grid-react/features/export';
+
+    const { selectAll, clearSelection } = useGridSelection(gridRef);
+    const { exportToCsv } = useGridExport(gridRef);
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## FAQ
+
+### Can I use v1 plugins with v2?
+
+Yes, as long as they use `handleQuery()` (not `onPluginQuery()`). If your plugin implements `onPluginQuery`, rename it to `handleQuery` — the signature is identical.
+
+### Do I need to update adapter packages at the same time?
+
+Yes. The v2 adapter packages (`@toolbox-web/grid-angular`, `@toolbox-web/grid-react`, `@toolbox-web/grid-vue`) require `@toolbox-web/grid` v2 as a peer dependency. Update all packages together.
+
+### What about the `default` CSS export?
+
+The default export from the styles module was removed. Use the named export instead:
+
+```typescript
+// v1
+import styles from '@toolbox-web/grid/styles';
+
+// v2
+import { gridStyles } from '@toolbox-web/grid/styles';
+```
+
+### Are there any runtime behavior changes?
+
+The `suspendProcessing()` method was already a no-op in late v1 — removing it has no runtime impact. All other changes are API surface renames. If your v1 code compiled without deprecation warnings, the migration is purely mechanical.

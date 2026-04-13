@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.31.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.0...grid-1.31.1) (2026-04-13)
+
+
+### Bug Fixes
+
+* **grid:** anchor filter panel to filter button instead of header cell ([c87b73b](https://github.com/OysteinAmundsen/toolbox/commit/c87b73b1ce3732c583bee4dc8ee283cab11c326c))
+* **grid:** sort set filter values numerically for number columns ([#205](https://github.com/OysteinAmundsen/toolbox/issues/205)) ([0f616a5](https://github.com/OysteinAmundsen/toolbox/commit/0f616a5cf2b6c6b8ffb790afcd5c631c5581b498))
+
 ## [1.31.0](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.30.3...grid-1.31.0) (2026-04-11)
 
 

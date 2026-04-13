@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.31.2](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.1...grid-1.31.2) (2026-04-13)
+
+
+### Bug Fixes
+
+* **grid:** preserve grid DOM during shell refresh to retain event listeners ([c53a12e](https://github.com/OysteinAmundsen/toolbox/commit/c53a12e14299b7634c46361e663bffa417f2fa04))
+
 ## [1.31.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.0...grid-1.31.1) (2026-04-13)
 
 

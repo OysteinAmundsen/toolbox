@@ -6,13 +6,16 @@ const _dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = 4450;
 const baseURL = `http://localhost:${PORT}`;
 
-// Use GitHub Actions reporter on CI, custom clean-list reporter locally
+// Use GitHub summary reporter on CI, custom clean-list reporter locally
 const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
   ? [
       ['html', { outputFolder: resolve(_dirname, 'playwright-report') }],
-      ['@estruyf/github-actions-reporter', { title: 'Docs E2E Test Results' }],
+      [resolve(_dirname, '../../e2e/reporters/github-summary-reporter.ts'), { title: 'Docs E2E Test Report' }],
     ]
-  : [['html', { outputFolder: resolve(_dirname, 'playwright-report') }], [resolve(_dirname, '../../e2e/reporters/clean-list-reporter.ts')]];
+  : [
+      ['html', { outputFolder: resolve(_dirname, 'playwright-report') }],
+      [resolve(_dirname, '../../e2e/reporters/clean-list-reporter.ts')],
+    ];
 
 export default defineConfig({
   testDir: resolve(_dirname, 'tests'),

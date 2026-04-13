@@ -63,13 +63,13 @@
   @supports (anchor-name: --test) {
     .tbw-filter-panel {
       position-anchor: --tbw-filter-anchor;
-      /* Default: position below header cell, aligned to left */
+      /* Position below header row, right-aligned to the filter button */
       top: anchor(bottom);
-      left: anchor(left);
+      right: anchor(right);
       margin-top: 4px;
       /* Fallback positions when overflowing viewport */
       position-try-fallbacks:
-      /* Try aligning to right edge instead */
+      /* Try aligning to left edge instead */
         flip-inline,
         /* Try flipping to above the anchor */ flip-block,
         /* Try both flips */ flip-block flip-inline;

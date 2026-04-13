@@ -201,6 +201,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   private openPanelField: string | null = null;
   private panelElement: HTMLElement | null = null;
   private panelAnchorElement: HTMLElement | null = null; // For CSS anchor positioning cleanup
+  private panelButtonElement: HTMLElement | null = null; // Filter button that opened the panel
   private searchText: Map<string, string> = new Map();
   private excludedValues: Map<string, Set<unknown>> = new Map();
   private panelAbortController: AbortController | null = null; // For panel-scoped listeners
@@ -804,6 +805,9 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
     this.panelElement = panel;
     this.openPanelField = field;
+    // Keep the filter button visible while the panel is open
+    buttonEl.classList.add('active');
+    this.panelButtonElement = buttonEl;
 
     // If using async valuesHandler, show loading state and fetch values
     if (this.config.valuesHandler) {
@@ -964,10 +968,18 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
       panel.remove();
       this.panelElement = null;
     }
-    // Clean up anchor name from header cell
+    // Clean up anchor name from anchor element
     if (this.panelAnchorElement) {
       (this.panelAnchorElement.style as any).anchorName = '';
       this.panelAnchorElement = null;
+    }
+    // Remove forced-active from the filter button (unless the column has an actual filter)
+    if (this.panelButtonElement) {
+      const field = this.openPanelField;
+      if (!field || !this.filters.has(field)) {
+        this.panelButtonElement.classList.remove('active');
+      }
+      this.panelButtonElement = null;
     }
     this.openPanelField = null;
     // Abort panel-scoped listeners (document click handler)
@@ -989,26 +1001,38 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
   }
 
   /**
-   * Position the panel below the header cell
+   * Position the panel below the filter button
    * Uses CSS Anchor Positioning if supported, falls back to JS positioning
    */
   private positionPanel(panel: HTMLElement, buttonEl: HTMLElement): void {
-    // Find the parent header cell
-    const headerCell = buttonEl.closest('.cell') as HTMLElement | null;
-    const anchorEl = headerCell ?? buttonEl;
+    // Use the header row as the vertical anchor so the panel appears
+    // right below the full header, and align horizontally to the
+    // filter button's right edge.
+    const headerRow = buttonEl.closest('.header-row') as HTMLElement | null;
+    const anchorEl = headerRow ?? buttonEl;
 
-    // Set anchor name on the header cell for CSS anchor positioning
+    // Set anchor name for CSS anchor positioning
     (anchorEl.style as any).anchorName = '--tbw-filter-anchor';
     this.panelAnchorElement = anchorEl; // Store for cleanup
 
     // If CSS Anchor Positioning is supported, CSS handles positioning
     // but we need to detect if it flipped above to adjust animation
     if (FilteringPlugin.checkAnchorPositioningSupport()) {
-      // Check position after CSS anchor positioning takes effect
+      // CSS `right: anchor(right)` needs the button as the inline anchor.
+      // Use the header row for the block axis via margin offset.
+      (anchorEl.style as any).anchorName = '';
+      (buttonEl.style as any).anchorName = '--tbw-filter-anchor';
+      this.panelAnchorElement = buttonEl;
+
+      // Offset: panel top should sit at the header row bottom, not the button bottom
+      const headerBottom = anchorEl.getBoundingClientRect().bottom;
+      const buttonBottom = buttonEl.getBoundingClientRect().bottom;
+      const offset = headerBottom - buttonBottom;
+      panel.style.marginTop = `${offset + 4}px`;
+
       requestAnimationFrame(() => {
         const panelRect = panel.getBoundingClientRect();
-        const anchorRect = anchorEl.getBoundingClientRect();
-        // If panel top is above anchor top, it flipped to above
+        const anchorRect = buttonEl.getBoundingClientRect();
         if (panelRect.top < anchorRect.top) {
           panel.classList.add('tbw-filter-panel-above');
         }
@@ -1017,24 +1041,31 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     }
 
     // Fallback: JS-based positioning for older browsers
-    const rect = anchorEl.getBoundingClientRect();
+    const headerRect = anchorEl.getBoundingClientRect();
+    const btnRect = buttonEl.getBoundingClientRect();
 
     panel.style.position = 'fixed';
-    panel.style.top = `${rect.bottom + 4}px`;
-    panel.style.left = `${rect.left}px`;
+    panel.style.top = `${headerRect.bottom + 4}px`;
 
-    // Adjust if overflows viewport edges
+    // Right-align: panel right edge = button right edge
+    // We set left initially, then adjust after measuring panel width
+    panel.style.left = `${btnRect.right}px`;
+
     requestAnimationFrame(() => {
       const panelRect = panel.getBoundingClientRect();
 
-      // Check horizontal overflow - align right edge to header cell right edge
-      if (panelRect.right > window.innerWidth - 8) {
-        panel.style.left = `${rect.right - panelRect.width}px`;
+      // Right-align panel to button
+      panel.style.left = `${btnRect.right - panelRect.width}px`;
+
+      // Check horizontal overflow - flip to left-aligned if needed
+      const adjustedLeft = btnRect.right - panelRect.width;
+      if (adjustedLeft < 8) {
+        panel.style.left = `${btnRect.left}px`;
       }
 
-      // Check vertical overflow - flip to above header cell
+      // Check vertical overflow - flip to above header row
       if (panelRect.bottom > window.innerHeight - 8) {
-        panel.style.top = `${rect.top - panelRect.height - 4}px`;
+        panel.style.top = `${headerRect.top - panelRect.height - 4}px`;
         panel.classList.add('tbw-filter-panel-above');
       }
     });

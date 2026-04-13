@@ -18,10 +18,16 @@ export type AggregatorRef = string | AggregatorFn;
 
 /** Built-in aggregator functions */
 const builtInAggregators: Record<string, AggregatorFn> = {
-  sum: (rows, field) => rows.reduce((acc, row) => acc + (Number(row[field]) || 0), 0),
+  sum: (rows, field) => {
+    let sum = 0;
+    for (let i = 0; i < rows.length; i++) sum += Number(rows[i][field]) || 0;
+    return sum;
+  },
   avg: (rows, field) => {
-    const sum = rows.reduce((acc, row) => acc + (Number(row[field]) || 0), 0);
-    return rows.length ? sum / rows.length : 0;
+    if (!rows.length) return 0;
+    let sum = 0;
+    for (let i = 0; i < rows.length; i++) sum += Number(rows[i][field]) || 0;
+    return sum / rows.length;
   },
   count: (rows) => rows.length,
   min: (rows, field) => {
@@ -111,8 +117,17 @@ export type ValueAggregatorFn = (values: number[]) => number;
  * These operate on arrays of numbers (unlike row-based aggregators).
  */
 const builtInValueAggregators: Record<string, ValueAggregatorFn> = {
-  sum: (vals) => vals.reduce((a, b) => a + b, 0),
-  avg: (vals) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0),
+  sum: (vals) => {
+    let sum = 0;
+    for (let i = 0; i < vals.length; i++) sum += vals[i];
+    return sum;
+  },
+  avg: (vals) => {
+    if (!vals.length) return 0;
+    let sum = 0;
+    for (let i = 0; i < vals.length; i++) sum += vals[i];
+    return sum / vals.length;
+  },
   count: (vals) => vals.length,
   min: (vals) => {
     if (!vals.length) return 0;

@@ -56,7 +56,7 @@ import '@toolbox-web/grid/features/filtering';
   const ITERATIONS = 5; // Repeat each metric this many times and report trimmed mean
   const TIME_METRICS = [
     'Initial render', 'Scroll avg frame', 'Sort', 'Filter', 'Data replacement',
-    'Update single row', 'Column resize', 'Scroll to end',
+    'Update single row', 'Column resize', 'Scroll to end', 'Grid destroy',
   ] as const;
   const MEMORY_METRIC = 'Memory usage' as const;
   const ALL_METRICS = [...TIME_METRICS, MEMORY_METRIC] as const;
@@ -346,6 +346,25 @@ import '@toolbox-web/grid/features/filtering';
       await cooldown(50);
     }
 
+    // Grid destroy
+    {
+      // Measure the cost of removing the grid (disconnect + cleanup)
+      // Re-create a fresh grid just for this measurement
+      gridArea.innerHTML = '<tbw-grid id="compare-tbw-destroy" style="width:100%;height:100%;"></tbw-grid>';
+      const destroyGrid = queryGrid('#compare-tbw-destroy')!;
+      destroyGrid.gridConfig = { columns: tbwColumns, fitMode: 'fixed', getRowId: (row: any) => String(row.id) };
+      destroyGrid.rows = rows;
+      await nextFrame(); await nextFrame();
+      await cooldown(100);
+
+      const destroyTime = await measureVisual(() => {
+        destroyGrid.remove();
+      });
+      results.set('Grid destroy', destroyTime);
+      gridArea.innerHTML = '';
+      await cooldown(50);
+    }
+
     // Memory usage (Chrome only)
     const mem = await measureMemory();
     if (mem !== null) results.set('Memory usage', mem);
@@ -494,6 +513,29 @@ import '@toolbox-web/grid/features/filtering';
         () => { gridApi.ensureIndexVisible(0, 'top'); },
       );
       results.set('Scroll to end', scrollEndTime);
+      await cooldown(50);
+    }
+
+    // Grid destroy
+    if (gridApi) {
+      // Create a fresh grid just for destroy measurement
+      gridArea.innerHTML += '<div id="compare-ag-destroy" class="ag-theme-quartz" style="width:100%;height:100%;position:absolute;top:0;left:0;right:0;bottom:0;"></div>';
+      const destroyContainer = document.getElementById('compare-ag-destroy')!;
+      const freshRows = generateRows(rowCount, COL_COUNT);
+      let destroyApi: any;
+      destroyApi = agGrid.createGrid(destroyContainer, {
+        columnDefs: agColumnDefs, rowData: freshRows,
+        suppressColumnVirtualisation: false, animateRows: false,
+        getRowId: (params: any) => String(params.data.id),
+      });
+      await nextFrame(); await nextFrame();
+      await cooldown(100);
+
+      const destroyTime = await measureVisual(() => {
+        destroyApi.destroy();
+      });
+      results.set('Grid destroy', destroyTime);
+      destroyContainer.remove();
       await cooldown(50);
     }
 

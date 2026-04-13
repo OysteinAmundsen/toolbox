@@ -17,7 +17,7 @@
  * with code 0. Bootstrap the baseline via workflow_dispatch.
  */
 
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 const THRESHOLD = 0.5; // 50% regression threshold
@@ -144,6 +144,60 @@ function printResults(results) {
   console.log('');
 }
 
+/**
+ * Write a Vitest-style GitHub Actions Job Summary for perf results.
+ */
+function writeSummary(results, baselineDate, hasRegression) {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryPath) return;
+
+  const passed = results.filter((r) => r.status === 'pass').length;
+  const failed = results.filter((r) => r.status === 'FAIL').length;
+  const other = results.filter((r) => r.status !== 'pass' && r.status !== 'FAIL').length;
+  const total = results.length;
+
+  const SEP = ' · ';
+  let md = `## Performance Regression Report\n\n### Summary\n\n`;
+
+  const metricInfo = [];
+  if (failed > 0) metricInfo.push(`❌ **${failed} ${failed === 1 ? 'failure' : 'failures'}**`);
+  if (passed > 0) metricInfo.push(`✅ **${passed} ${passed === 1 ? 'pass' : 'passes'}**`);
+  metricInfo.push(`${total} total`);
+  md += `- **Metrics**: ${metricInfo.join(SEP)}\n`;
+
+  if (other > 0) {
+    md += `- **Other**: ${other} (new/missing/skipped)\n`;
+  }
+
+  md += `- **Baseline**: ${baselineDate}\n`;
+  md += `- **Threshold**: 50% regression\n`;
+
+  // Details table for regressions and notable changes
+  const notable = results.filter(
+    (r) => r.status === 'FAIL' || (r.regression !== undefined && Math.abs(r.regression) > 20),
+  );
+  if (notable.length > 0) {
+    md += `\n### ${hasRegression ? 'Regressions & Notable Changes' : 'Notable Changes'}\n\n`;
+    md += `| Metric | Status | Current | Baseline | Change |\n`;
+    md += `|--------|--------|--------:|---------:|-------:|\n`;
+    for (const r of notable) {
+      const icon = r.status === 'FAIL' ? '❌' : '✅';
+      const current = r.current !== undefined ? `${r.current}ms` : '-';
+      const baseline = r.baseline !== undefined ? `${r.baseline}ms` : '-';
+      const change = r.regression !== undefined ? `${r.regression > 0 ? '+' : ''}${r.regression}%` : '-';
+      md += `| ${icon} ${r.key} | ${r.status} | ${current} | ${baseline} | ${change} |\n`;
+    }
+  }
+
+  md += '\n';
+
+  try {
+    writeFileSync(summaryPath, md, { flag: 'a' });
+  } catch {
+    /* not in CI */
+  }
+}
+
 // Main
 const resultsDir = process.argv[2];
 if (!resultsDir) {
@@ -173,6 +227,7 @@ if (!baselineData.baseline) {
 // Compare against existing baseline
 const { hasRegression, results } = compare(baselineData.baseline.metrics, currentMetrics);
 printResults(results);
+writeSummary(results, baselineData.baseline.date, hasRegression);
 
 console.log(`Baseline recorded: ${baselineData.baseline.date} on ${baselineData.baseline.runner}`);
 

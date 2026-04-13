@@ -7,7 +7,8 @@
  * @module internal/aria
  */
 
-import type { GridConfig } from '../types';
+import type { A11yMessages, GridConfig } from '../types';
+import { DEFAULT_A11Y_MESSAGES } from '../types';
 import type { ShellState } from './shell';
 
 // #region Types
@@ -167,10 +168,22 @@ export function updateAriaLabels<T>(
  * Announce a message to screen readers via the grid's aria-live region.
  * Clears then sets text to ensure repeated messages are re-announced.
  *
+ * Respects `effectiveConfig.a11y.announcements` — if set to `false`,
+ * the announcement is silently skipped.
+ *
  * @param gridEl - The grid host element (or any ancestor containing `.tbw-sr-only`)
  * @param message - The message to announce
  */
 export function announce(gridEl: HTMLElement, message: string): void {
+  // Check if announcements are disabled via config.
+  // gridEl is always a DataGridElement at runtime — use property access safely.
+  if (!gridEl) return;
+  const config =
+    'effectiveConfig' in gridEl
+      ? (gridEl as HTMLElement & { effectiveConfig?: GridConfig }).effectiveConfig
+      : undefined;
+  if (config?.a11y?.announcements === false) return;
+
   const el = gridEl.querySelector?.('.tbw-sr-only');
   if (!el) return;
   // Clear first so identical consecutive messages are still announced
@@ -178,6 +191,28 @@ export function announce(gridEl: HTMLElement, message: string): void {
   requestAnimationFrame(() => {
     el.textContent = message;
   });
+}
+
+/**
+ * Get an announcement message, preferring custom overrides from config.
+ * Falls back to default English messages when no override is provided.
+ *
+ * @param gridEl - The grid host element
+ * @param key - The message key from A11yMessages
+ * @param args - Arguments to pass to the message function
+ */
+export function getA11yMessage<K extends keyof A11yMessages>(
+  gridEl: HTMLElement,
+  key: K,
+  ...args: Parameters<A11yMessages[K]>
+): string {
+  const config =
+    gridEl && 'effectiveConfig' in gridEl
+      ? (gridEl as HTMLElement & { effectiveConfig?: GridConfig }).effectiveConfig
+      : undefined;
+  const customFn = config?.a11y?.messages?.[key] as ((...a: Parameters<A11yMessages[K]>) => string) | undefined;
+  if (customFn) return customFn(...args);
+  return (DEFAULT_A11Y_MESSAGES[key] as (...a: Parameters<A11yMessages[K]>) => string)(...args);
 }
 
 // #endregion

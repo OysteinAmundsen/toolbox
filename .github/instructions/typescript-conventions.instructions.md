@@ -10,12 +10,13 @@ applyTo: '**/*.ts'
 
 **Common patterns and their fixes:**
 
-| Bad pattern                           | Proper fix                                                       |
-| ------------------------------------- | ---------------------------------------------------------------- |
-| `grid as unknown as HTMLElement`      | Use `grid._hostElement` (typed property on `InternalGrid`)       |
-| `this.grid as unknown as HTMLElement` | Use `this.gridElement` (typed getter on `BaseGridPlugin`)        |
-| `value as unknown as TargetType`      | Add a properly typed property/method, or narrow with type guards |
-| `config as unknown as ExtendedConfig` | Use generic parameters or add properly typed overloads           |
+| Bad pattern                                  | Proper fix                                                                                           |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `grid as unknown as HTMLElement`             | Use `grid._hostElement` (typed property on `InternalGrid`)                                           |
+| `this.grid as unknown as HTMLElement`        | Use `this.gridElement` (typed getter on `BaseGridPlugin`)                                            |
+| `value as unknown as TargetType`             | Add a properly typed property/method, or narrow with type guards                                     |
+| `config as unknown as ExtendedConfig`        | Use generic parameters or add properly typed overloads                                               |
+| `(el as unknown as TbwGrid).effectiveConfig` | Use `'effectiveConfig' in el` narrowing (avoids circular imports in internal helpers like `aria.ts`) |
 
 **Why this matters:**
 

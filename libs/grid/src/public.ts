@@ -266,6 +266,9 @@ export type PluginEventName = (typeof PluginEvents)[keyof typeof PluginEvents];
 
 // Public type exports
 export type {
+  // Accessibility types
+  A11yConfig,
+  A11yMessages,
   AggregatorRef,
   // Animation types
   AnimationConfig,
@@ -351,7 +354,7 @@ export type {
 } from './lib/core/types';
 
 // Re-export FitModeEnum for runtime usage
-export { DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
+export { DEFAULT_A11Y_MESSAGES, DEFAULT_ANIMATION_CONFIG, DEFAULT_GRID_ICONS, FitModeEnum } from './lib/core/types';
 
 // Re-export sorting utilities for custom sort handlers
 export { builtInSort, defaultComparator } from './lib/core/internal/sorting';

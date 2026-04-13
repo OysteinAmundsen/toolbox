@@ -3,7 +3,7 @@ title: Accessibility
 description: How @toolbox-web/grid implements WAI-ARIA grid patterns, keyboard navigation, screen reader support, and high contrast mode.
 ---
 
-import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 
 `@toolbox-web/grid` follows the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) to provide an accessible data grid experience. This page documents the ARIA attributes, keyboard interactions, and best practices.
@@ -138,6 +138,41 @@ Or reference a visible heading:
 The grid uses `aria-live` regions to announce dynamic changes to screen readers:
 - Sort changes ("Sorted by Name, ascending")
 - Filter changes ("Filter applied on Name", "All filters cleared")
+- Group expand/collapse ("Group Engineering expanded, 5 rows")
+- Selection changes ("3 rows selected")
+- Editing lifecycle ("Editing row 1", "Row 1 saved")
+
+### Configuring Announcements
+
+You can disable or customize live region announcements via the `a11y` config:
+
+```typescript
+// Disable all announcements
+grid.gridConfig = {
+  a11y: { announcements: false },
+};
+
+// Override messages for internationalization
+grid.gridConfig = {
+  a11y: {
+    messages: {
+      sortApplied: (col, dir) => `Trié par ${col}, ${dir}`,
+      sortCleared: () => 'Tri effacé',
+      filterApplied: (col) => `Filtre appliqué sur ${col}`,
+      filterCleared: (col) => `Filtre effacé de ${col}`,
+      allFiltersCleared: () => 'Tous les filtres effacés',
+      groupExpanded: (name, count) => `Groupe ${name} développé, ${count} lignes`,
+      groupCollapsed: (name) => `Groupe ${name} réduit`,
+      selectionChanged: (count) => `${count} lignes sélectionnées`,
+      editingStarted: (rowIndex) => `Édition de la ligne ${rowIndex + 1}`,
+      editingCommitted: (rowIndex) => `Ligne ${rowIndex + 1} enregistrée`,
+      dataLoaded: (count) => `${count} lignes chargées`,
+    },
+  },
+};
+```
+
+Only override the messages you need — defaults (English) are used for the rest.
 
 ### Column Headers
 
@@ -201,7 +236,7 @@ The grid handles most accessibility concerns out of the box:
 - **Column type inference** — Types (`number`, `date`, `boolean`) are auto-detected from the first data row
 - **Grid label** — Auto-derived from the shell title (`<tbw-grid-header title="...">` or `shell.header.title` config)
 - **Windows High Contrast** — `forced-colors` media query is built into core CSS
-- **Live announcements** — Sort and filter changes are announced via `aria-live` regions
+- **Live announcements** — Sort, filter, selection, grouping, and editing changes are announced via `aria-live` regions (configurable via `a11y` config)
 - **Plugin ARIA** — Selection, editing, filtering, tree, and grouping plugins manage their own ARIA attributes (`aria-selected`, `aria-readonly`, `aria-expanded`, `aria-multiselectable`, `aria-description`)
 
 ## Developer Responsibilities

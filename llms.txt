@@ -37,6 +37,7 @@ Key TypeScript interfaces for configuration and events:
 - [GridConfig](https://toolboxjs.com/grid/api/core/interfaces/gridconfig/): Grid-level configuration options
 - [ColumnConfig](https://toolboxjs.com/grid/api/core/interfaces/columnconfig/): Column definition options
 - [ShellConfig](https://toolboxjs.com/grid/api/core/interfaces/shellconfig/): Shell header and tool panel configuration
+- [A11yConfig](https://toolboxjs.com/grid/api/core/interfaces/a11yconfig/): Accessibility config — toggle announcements and override message text for i18n
 - [GridColumnState](https://toolboxjs.com/grid/api/core/interfaces/gridcolumnstate/): Column state for persistence
 - [CellClickDetail](https://toolboxjs.com/grid/api/core/interfaces/cellclickdetail/): Cell click event detail
 - [CellChangeDetail](https://toolboxjs.com/grid/api/core/interfaces/cellchangedetail/): Cell change event detail

@@ -15,6 +15,7 @@
  * is fully functional without any core changes.
  */
 
+import { announce, getA11yMessage } from '../../core/internal/aria';
 import { ensureCellVisible } from '../../core/internal/keyboard';
 import type {
   AfterCellRenderContext,
@@ -1918,6 +1919,7 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
           rowId: this.#activeEditRowId ?? '',
           row: rowData,
         });
+        announce(this.gridElement, getA11yMessage(this.gridElement, 'editingStarted', rowIndex));
       }
     }
   }
@@ -2123,6 +2125,9 @@ export class EditingPlugin<T = unknown> extends BaseGridPlugin<EditingConfig> {
         row: current,
         reverted: revert,
       });
+      if (!revert) {
+        announce(this.gridElement, getA11yMessage(this.gridElement, 'editingCommitted', rowIndex));
+      }
     }
   }
 

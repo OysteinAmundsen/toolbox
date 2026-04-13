@@ -5,7 +5,7 @@
  */
 
 import type { ColumnConfig, GridHost, InternalGrid, SortHandler, SortState } from '../types';
-import { announce } from './aria';
+import { announce, getA11yMessage } from './aria';
 import { renderHeader } from './header';
 
 /**
@@ -135,7 +135,7 @@ function finalizeSortResult<T>(grid: GridHost<T>, sortedRows: T[], col: ColumnCo
   renderHeader(grid);
   grid.refreshVirtualWindow(true);
   grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: dir } }));
-  announce(grid, `Sorted by ${col.header ?? col.field}, ${dir === 1 ? 'ascending' : 'descending'}`);
+  announce(grid, getA11yMessage(grid, 'sortApplied', col.header ?? col.field, dir === 1 ? 'ascending' : 'descending'));
   // Trigger state change after sort applied
   grid.requestStateChange?.();
 }
@@ -175,7 +175,7 @@ export function toggleSort(grid: GridHost, col: ColumnConfig<any>): void {
     }
     grid.refreshVirtualWindow(true);
     grid.dispatchEvent(new CustomEvent('sort-change', { detail: { field: col.field, direction: 0 } }));
-    announce(grid, 'Sort cleared');
+    announce(grid, getA11yMessage(grid, 'sortCleared'));
     // Trigger state change after sort is cleared
     grid.requestStateChange?.();
   }

@@ -2197,6 +2197,58 @@ gridConfig: {
 
 ---
 
+## Accessibility (A11y)
+
+The grid implements the [WAI-ARIA Grid Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/grid/) with full keyboard navigation.
+
+### Live Region Announcements
+
+State changes are announced to screen readers via an `aria-live="polite"` region:
+- Sort: "Sorted by Name, ascending" / "Sort cleared"
+- Filter: "Filter applied on Status" / "Filter cleared from Status" / "All filters cleared"
+- Selection: "3 rows selected" (debounced)
+- Grouping: "Group Engineering expanded, 5 rows" / "Group Engineering collapsed"
+- Editing: "Editing row 1" / "Row 1 saved"
+
+### `a11y` Config
+
+```typescript
+gridConfig = {
+  // Explicit label for screen readers (auto-derived from shell title if not set)
+  gridAriaLabel: 'Employee directory',
+  // Reference to a describing element
+  gridAriaDescribedBy: 'grid-description',
+  // Accessibility configuration
+  a11y: {
+    // Toggle live region announcements (default: true)
+    announcements: true,
+    // Override announcement text for i18n (partial — only override what you need)
+    messages: {
+      sortApplied: (column, direction) => `Sorted by ${column}, ${direction}`,
+      sortCleared: () => 'Sort cleared',
+      filterApplied: (column) => `Filter applied on ${column}`,
+      filterCleared: (column) => `Filter cleared from ${column}`,
+      allFiltersCleared: () => 'All filters cleared',
+      groupExpanded: (name, count) => `Group ${name} expanded, ${count} rows`,
+      groupCollapsed: (name) => `Group ${name} collapsed`,
+      selectionChanged: (count) => `${count} rows selected`,
+      editingStarted: (rowIndex) => `Editing row ${rowIndex + 1}`,
+      editingCommitted: (rowIndex) => `Row ${rowIndex + 1} saved`,
+      dataLoaded: (count) => `${count} rows loaded`,
+    },
+  },
+};
+```
+
+### Public Types
+
+```typescript
+import type { A11yConfig, A11yMessages } from '@toolbox-web/grid';
+import { DEFAULT_A11Y_MESSAGES } from '@toolbox-web/grid';
+```
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |

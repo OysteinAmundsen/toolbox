@@ -6,7 +6,15 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { GridConfig } from '../types';
-import { createAriaState, getEffectiveAriaLabel, updateAriaCounts, updateAriaLabels, type AriaState } from './aria';
+import {
+  announce,
+  createAriaState,
+  getA11yMessage,
+  getEffectiveAriaLabel,
+  updateAriaCounts,
+  updateAriaLabels,
+  type AriaState,
+} from './aria';
 import type { ShellState } from './shell';
 
 describe('ARIA Helpers', () => {
@@ -255,6 +263,138 @@ describe('ARIA Helpers', () => {
       expect(updated).toBe(true);
       expect(rowsBodyEl.getAttribute('aria-label')).toBe('Employees');
       expect(rowsBodyEl.getAttribute('aria-describedby')).toBe('description');
+    });
+  });
+
+  // #endregion
+
+  // #region announce
+
+  describe('announce', () => {
+    let gridEl: HTMLElement;
+    let srOnly: HTMLElement;
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+      srOnly = document.createElement('div');
+      srOnly.className = 'tbw-sr-only';
+      gridEl.appendChild(srOnly);
+    });
+
+    it('should set textContent on aria-live region after rAF', async () => {
+      announce(gridEl, 'Sorted by name, ascending');
+
+      // Before rAF, textContent is cleared
+      expect(srOnly.textContent).toBe('');
+
+      // After rAF, message is set
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('Sorted by name, ascending');
+    });
+
+    it('should do nothing when no .tbw-sr-only element exists', () => {
+      const emptyGrid = document.createElement('div');
+      // Should not throw
+      announce(emptyGrid, 'Test message');
+    });
+
+    it('should skip announcement when a11y.announcements is false', async () => {
+      // Simulate effectiveConfig on grid element
+      Object.defineProperty(gridEl, 'effectiveConfig', {
+        value: { a11y: { announcements: false } },
+        configurable: true,
+      });
+
+      announce(gridEl, 'Should not appear');
+      await new Promise((r) => requestAnimationFrame(r));
+      // textContent should remain empty since announce() returns early
+      expect(srOnly.textContent).toBe('');
+    });
+
+    it('should announce when a11y.announcements is true', async () => {
+      Object.defineProperty(gridEl, 'effectiveConfig', {
+        value: { a11y: { announcements: true } },
+        configurable: true,
+      });
+
+      announce(gridEl, 'Should appear');
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('Should appear');
+    });
+
+    it('should announce when a11y config is not set', async () => {
+      Object.defineProperty(gridEl, 'effectiveConfig', {
+        value: {},
+        configurable: true,
+      });
+
+      announce(gridEl, 'Default behavior');
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(srOnly.textContent).toBe('Default behavior');
+    });
+  });
+
+  // #endregion
+
+  // #region getA11yMessage
+
+  describe('getA11yMessage', () => {
+    let gridEl: HTMLElement;
+
+    beforeEach(() => {
+      gridEl = document.createElement('div');
+    });
+
+    it('should return default message when no config overrides', () => {
+      const msg = getA11yMessage(gridEl, 'sortApplied', 'Name', 'ascending');
+      expect(msg).toBe('Sorted by Name, ascending');
+    });
+
+    it('should return custom message when override provided', () => {
+      Object.defineProperty(gridEl, 'effectiveConfig', {
+        value: {
+          a11y: {
+            messages: {
+              sortApplied: (col: string, dir: string) => `Trié par ${col}, ${dir}`,
+            },
+          },
+        },
+        configurable: true,
+      });
+
+      const msg = getA11yMessage(gridEl, 'sortApplied', 'Nom', 'ascendant');
+      expect(msg).toBe('Trié par Nom, ascendant');
+    });
+
+    it('should fall back to default for non-overridden messages', () => {
+      Object.defineProperty(gridEl, 'effectiveConfig', {
+        value: {
+          a11y: {
+            messages: {
+              sortApplied: (col: string) => `Custom sort: ${col}`,
+            },
+          },
+        },
+        configurable: true,
+      });
+
+      // sortCleared is not overridden — should use default
+      const msg = getA11yMessage(gridEl, 'sortCleared');
+      expect(msg).toBe('Sort cleared');
+    });
+
+    it('should handle all default message types', () => {
+      expect(getA11yMessage(gridEl, 'sortApplied', 'Name', 'ascending')).toBe('Sorted by Name, ascending');
+      expect(getA11yMessage(gridEl, 'sortCleared')).toBe('Sort cleared');
+      expect(getA11yMessage(gridEl, 'filterApplied', 'Status')).toBe('Filter applied on Status');
+      expect(getA11yMessage(gridEl, 'filterCleared', 'Status')).toBe('Filter cleared from Status');
+      expect(getA11yMessage(gridEl, 'allFiltersCleared')).toBe('All filters cleared');
+      expect(getA11yMessage(gridEl, 'groupExpanded', 'Engineering', 5)).toBe('Group Engineering expanded, 5 rows');
+      expect(getA11yMessage(gridEl, 'groupCollapsed', 'Engineering')).toBe('Group Engineering collapsed');
+      expect(getA11yMessage(gridEl, 'selectionChanged', 3)).toBe('3 rows selected');
+      expect(getA11yMessage(gridEl, 'editingStarted', 0)).toBe('Editing row 1');
+      expect(getA11yMessage(gridEl, 'editingCommitted', 0)).toBe('Row 1 saved');
+      expect(getA11yMessage(gridEl, 'dataLoaded', 100)).toBe('100 rows loaded');
     });
   });
 

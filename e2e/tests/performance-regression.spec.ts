@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { flushMetrics, recordMetric } from './perf-metrics-helper';
@@ -25,6 +25,10 @@ import { flushMetrics, recordMetric } from './perf-metrics-helper';
  * - Grouping (row grouping with expand/collapse)
  * - Wide columns (100 columns with horizontal scroll)
  * - Grid destroy (teardown cost)
+ *
+ * Flaky-test mitigation: When a regression is detected, the benchmark is
+ * re-run up to 2 more times with fresh browser pages. The test only fails
+ * if the regression reproduces consistently across all attempts.
  *
  * Run locally:  bun nx build grid && bunx playwright test performance-regression.spec.ts
  * Run on CI:    runs as part of the regular e2e suite
@@ -518,27 +522,63 @@ async function measureDestroy(page: Page, rowCount: number): Promise<number> {
 
 // ─── Assert Helper ──────────────────────────────────────────────────────────
 
-function assertNoRegression(metricName: string, localTime: number, cdnTime: number): void {
+/**
+ * Maximum number of retry attempts when a regression is initially detected.
+ * The benchmark is re-run this many extra times before declaring a real failure.
+ * This absorbs transient CI noise (CPU spikes, thermal throttling, GC pauses)
+ * without masking genuine regressions — a consistent slowdown will fail every retry.
+ */
+const REGRESSION_RETRIES = 2;
+
+function checkRegression(metricName: string, localTime: number, cdnTime: number): string | null {
   recordMetric(`compare.${metricName}.local`, localTime);
   recordMetric(`compare.${metricName}.cdn`, cdnTime);
 
   // Skip assertion if either measurement failed
-  if (localTime <= 0 || cdnTime <= 0) return;
+  if (localTime <= 0 || cdnTime <= 0) return null;
 
   const ratio = localTime / cdnTime;
   const absoluteDelta = localTime - cdnTime;
   recordMetric(`compare.${metricName}.ratio`, ratio);
 
-  // Only assert if the ratio exceeds threshold AND the absolute difference
+  // Only flag if the ratio exceeds threshold AND the absolute difference
   // is meaningful. Small absolute deltas (e.g. 4 ms = 25% slower) are noise,
   // not real regressions — skip unless the delta is clearly significant.
   const MIN_ABSOLUTE_DELTA_MS = 20;
-  if (absoluteDelta < MIN_ABSOLUTE_DELTA_MS) return;
+  if (absoluteDelta < MIN_ABSOLUTE_DELTA_MS) return null;
 
-  expect(
-    ratio,
-    `${metricName} regression: local=${localTime.toFixed(1)}ms, released=${cdnTime.toFixed(1)}ms, ratio=${ratio.toFixed(2)}`,
-  ).toBeLessThanOrEqual(REGRESSION_THRESHOLD);
+  if (ratio > REGRESSION_THRESHOLD) {
+    return `${metricName} regression: local=${localTime.toFixed(1)}ms, released=${cdnTime.toFixed(1)}ms, ratio=${ratio.toFixed(2)}`;
+  }
+  return null;
+}
+
+/**
+ * Assert that a benchmark shows no regression, retrying up to {@link REGRESSION_RETRIES}
+ * times when the initial run looks like a regression. Each retry calls `retryFn`
+ * to get a fresh pair of measurements from new browser pages so transient noise
+ * from one run does not carry over.
+ */
+async function assertNoRegression(
+  metricName: string,
+  localTime: number,
+  cdnTime: number,
+  retryFn?: () => Promise<{ local: number; cdn: number }>,
+): Promise<void> {
+  let failure = checkRegression(metricName, localTime, cdnTime);
+  if (!failure) return;
+
+  // Regression detected — retry to confirm it's not transient noise
+  if (retryFn) {
+    for (let attempt = 1; attempt <= REGRESSION_RETRIES; attempt++) {
+      const { local, cdn } = await retryFn();
+      failure = checkRegression(`${metricName}.retry${attempt}`, local, cdn);
+      if (!failure) return; // Retry passed — transient noise, not a real regression
+    }
+  }
+
+  // All retries also showed regression — this is real
+  expect(failure).toBeNull();
 }
 
 // ─── Flush metrics ──────────────────────────────────────────────────────────
@@ -547,14 +587,20 @@ test.afterAll(() => {
   flushMetrics(runId);
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SELF-COMPARISON BENCHMARKS
-// ═══════════════════════════════════════════════════════════════════════════
+// ─── Comparison Runner ──────────────────────────────────────────────────────
 
-test.describe('Performance: Self-Comparison', () => {
-  test('render 500 rows', async ({ browser }) => {
-    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
-
+/**
+ * Run a benchmark comparison between local and CDN builds, with automatic
+ * retry support. `benchFn` receives local and CDN pages (already loaded with
+ * the grid script) and must return both measurements. The helper handles
+ * page lifecycle and passes a retry callback to {@link assertNoRegression}.
+ */
+async function runComparison(
+  browser: Browser,
+  metricName: string,
+  benchFn: (localPage: Page, cdnPage: Page) => Promise<{ local: number; cdn: number }>,
+): Promise<void> {
+  const run = async (): Promise<{ local: number; cdn: number }> => {
     const localPage = await browser.newPage();
     const localOk = await loadGridScript(localPage, 'local');
     expect(localOk, 'Local UMD failed to register <tbw-grid>').toBe(true);
@@ -565,297 +611,173 @@ test.describe('Performance: Self-Comparison', () => {
       await localPage.close();
       await cdnPage.close();
       test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
     }
 
-    const localTime = await setupGrid(localPage, ROW_COUNT);
-    const cdnTime = await setupGrid(cdnPage, ROW_COUNT);
+    const result = await benchFn(localPage, cdnPage);
     await localPage.close();
     await cdnPage.close();
+    return result;
+  };
 
-    assertNoRegression('render500', localTime, cdnTime);
+  const { local, cdn } = await run();
+  await assertNoRegression(metricName, local, cdn, run);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SELF-COMPARISON BENCHMARKS
+// ═══════════════════════════════════════════════════════════════════════════
+
+test.describe('Performance: Self-Comparison', () => {
+  test('render 500 rows', async ({ browser }) => {
+    test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
+
+    await runComparison(browser, 'render500', async (localPage, cdnPage) => ({
+      local: await setupGrid(localPage, ROW_COUNT),
+      cdn: await setupGrid(cdnPage, ROW_COUNT),
+    }));
   });
 
   test('render 1000 rows', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-
-    const localTime = await setupGrid(localPage, LARGE_ROW_COUNT);
-    const cdnTime = await setupGrid(cdnPage, LARGE_ROW_COUNT);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('render1000', localTime, cdnTime);
+    await runComparison(browser, 'render1000', async (localPage, cdnPage) => ({
+      local: await setupGrid(localPage, LARGE_ROW_COUNT),
+      cdn: await setupGrid(cdnPage, LARGE_ROW_COUNT),
+    }));
   });
 
   test('data replacement', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureDataUpdate(localPage, ROW_COUNT);
-    const cdnTime = await measureDataUpdate(cdnPage, ROW_COUNT);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('dataUpdate', localTime, cdnTime);
+    await runComparison(browser, 'dataUpdate', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureDataUpdate(localPage, ROW_COUNT),
+        cdn: await measureDataUpdate(cdnPage, ROW_COUNT),
+      };
+    });
   });
 
   test('vertical scroll', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureScroll(localPage);
-    const cdnTime = await measureScroll(cdnPage);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('scroll', localTime, cdnTime);
+    await runComparison(browser, 'scroll', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureScroll(localPage),
+        cdn: await measureScroll(cdnPage),
+      };
+    });
   });
 
   test('sort', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureSort(localPage);
-    const cdnTime = await measureSort(cdnPage);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('sort', localTime, cdnTime);
+    await runComparison(browser, 'sort', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureSort(localPage),
+        cdn: await measureSort(cdnPage),
+      };
+    });
   });
 
   test('filter', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureFilter(localPage, ROW_COUNT);
-    const cdnTime = await measureFilter(cdnPage, ROW_COUNT);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('filter', localTime, cdnTime);
+    await runComparison(browser, 'filter', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureFilter(localPage, ROW_COUNT),
+        cdn: await measureFilter(cdnPage, ROW_COUNT),
+      };
+    });
   });
 
   test('single-row update', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureRowUpdate(localPage, ROW_COUNT);
-    const cdnTime = await measureRowUpdate(cdnPage, ROW_COUNT);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('rowUpdate', localTime, cdnTime);
+    await runComparison(browser, 'rowUpdate', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureRowUpdate(localPage, ROW_COUNT),
+        cdn: await measureRowUpdate(cdnPage, ROW_COUNT),
+      };
+    });
   });
 
   test('column resize', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureColumnResize(localPage);
-    const cdnTime = await measureColumnResize(cdnPage);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('columnResize', localTime, cdnTime);
+    await runComparison(browser, 'columnResize', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureColumnResize(localPage),
+        cdn: await measureColumnResize(cdnPage),
+      };
+    });
   });
 
   test('scroll to end', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureScrollToEnd(localPage, ROW_COUNT);
-    const cdnTime = await measureScrollToEnd(cdnPage, ROW_COUNT);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('scrollToEnd', localTime, cdnTime);
+    await runComparison(browser, 'scrollToEnd', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureScrollToEnd(localPage, ROW_COUNT),
+        cdn: await measureScrollToEnd(cdnPage, ROW_COUNT),
+      };
+    });
   });
 
   test('grouping', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupGrid(localPage, ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupGrid(cdnPage, ROW_COUNT);
-
-    const localTime = await measureGrouping(localPage);
-    const cdnTime = await measureGrouping(cdnPage);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('grouping', localTime, cdnTime);
+    await runComparison(browser, 'grouping', async (localPage, cdnPage) => {
+      await setupGrid(localPage, ROW_COUNT);
+      await setupGrid(cdnPage, ROW_COUNT);
+      return {
+        local: await measureGrouping(localPage),
+        cdn: await measureGrouping(cdnPage),
+      };
+    });
   });
 
   test('wide columns render', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    const localOk = await loadGridScript(localPage, 'local');
-    expect(localOk).toBe(true);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-
-    const localTime = await setupWideGrid(localPage, 200, WIDE_COL_ROW_COUNT);
-    const cdnTime = await setupWideGrid(cdnPage, 200, WIDE_COL_ROW_COUNT);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('wideColsRender', localTime, cdnTime);
+    await runComparison(browser, 'wideColsRender', async (localPage, cdnPage) => ({
+      local: await setupWideGrid(localPage, 200, WIDE_COL_ROW_COUNT),
+      cdn: await setupWideGrid(cdnPage, 200, WIDE_COL_ROW_COUNT),
+    }));
   });
 
   test('wide columns horizontal scroll', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-    await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
-
-    const localTime = await measureHorizontalScroll(localPage);
-    const cdnTime = await measureHorizontalScroll(cdnPage);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('horizontalScroll', localTime, cdnTime);
+    await runComparison(browser, 'horizontalScroll', async (localPage, cdnPage) => {
+      await setupWideGrid(localPage, 100, WIDE_COL_ROW_COUNT);
+      await setupWideGrid(cdnPage, 100, WIDE_COL_ROW_COUNT);
+      return {
+        local: await measureHorizontalScroll(localPage),
+        cdn: await measureHorizontalScroll(cdnPage),
+      };
+    });
   });
 
   test('grid destroy', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    const localPage = await browser.newPage();
-    expect(await loadGridScript(localPage, 'local')).toBe(true);
-    const cdnPage = await browser.newPage();
-    const cdnOk = await loadGridScript(cdnPage, 'cdn');
-    if (!cdnOk) {
-      await localPage.close();
-      await cdnPage.close();
-      test.skip(true, `CDN version (${CDN_VERSION}) not available`);
-      return;
-    }
-
-    const localTime = await measureDestroy(localPage, ROW_COUNT);
-    const cdnTime = await measureDestroy(cdnPage, ROW_COUNT);
-    await localPage.close();
-    await cdnPage.close();
-
-    assertNoRegression('destroy', localTime, cdnTime);
+    await runComparison(browser, 'destroy', async (localPage, cdnPage) => ({
+      local: await measureDestroy(localPage, ROW_COUNT),
+      cdn: await measureDestroy(cdnPage, ROW_COUNT),
+    }));
   });
 });

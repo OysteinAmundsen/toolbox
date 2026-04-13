@@ -18,11 +18,11 @@ const DEMO_PORTS = {
   angular: 4200, // Angular default
 };
 
-// Use GitHub Actions reporter on CI, custom clean-list reporter locally
+// Use GitHub summary reporter on CI, custom clean-list reporter locally
 const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
   ? [
       ['html', { outputFolder: '../playwright-report' }],
-      ['@estruyf/github-actions-reporter', { title: 'E2E Test Results' }],
+      ['./reporters/github-summary-reporter.ts', { title: 'E2E Test Report' }],
     ]
   : [['html', { outputFolder: '../playwright-report' }], ['./reporters/clean-list-reporter.ts']];
 

@@ -406,11 +406,18 @@ export default defineConfig(({ command }) => ({
     target: 'es2022',
   },
   test: {
+    name: '@toolbox-web/grid',
     globals: true,
     environment: 'happy-dom',
     include: ['src/**/*.spec.ts', 'src/**/__tests__/**/*.spec.ts'],
     setupFiles: ['./test/setup.ts'],
-    reporters: process.env.CI ? ['default', 'github-actions'] : ['default'],
+    reporters: process.env.CI
+      ? [
+          'default',
+          ['github-actions', { jobSummary: { enabled: false } }],
+          '../../tools/vitest-github-summary-reporter.ts',
+        ]
+      : ['default'],
     // Isolate test files to prevent module initialization race conditions
     isolate: true,
     coverage: {

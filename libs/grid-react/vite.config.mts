@@ -104,7 +104,13 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'jsdom',
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    reporters: process.env.CI ? ['default', 'github-actions'] : ['default'],
+    reporters: process.env.CI
+      ? [
+          'default',
+          ['github-actions', { jobSummary: { enabled: false } }],
+          '../../tools/vitest-github-summary-reporter.ts',
+        ]
+      : ['default'],
     coverage: {
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,

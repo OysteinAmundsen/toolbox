@@ -1,6 +1,14 @@
 import type { Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 import { writeFileSync } from 'node:fs';
 
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+/** Strip ANSI escape codes — markdown summaries cannot render them. */
+function stripAnsi(str: string): string {
+  return str.replace(ANSI_RE, '');
+}
+
 /**
  * GitHub Actions Job Summary reporter for Playwright.
  *
@@ -50,7 +58,7 @@ class GitHubSummaryReporter implements Reporter {
     } else if (result.status === 'failed' || result.status === 'timedOut') {
       stats.failed++;
       const fullName = test.titlePath().slice(1).join(' > ');
-      const errorMsg = result.errors.map((e) => e.message?.split('\n')[0] ?? '').join('; ');
+      const errorMsg = result.errors.map((e) => stripAnsi(e.message?.split('\n')[0] ?? '')).join('; ');
       stats.failures.push({ name: fullName, error: errorMsg });
     } else if (result.status === 'skipped') {
       stats.skipped++;

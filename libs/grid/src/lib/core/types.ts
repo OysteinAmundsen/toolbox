@@ -2097,6 +2097,93 @@ export interface FeatureConfig<TRow = unknown> {
 }
 // #endregion
 
+// #region Accessibility Config
+
+/**
+ * Default announcement messages for screen reader live regions.
+ * Each function returns a localized string for a specific state change.
+ * Override individual messages via {@link A11yConfig.messages} for i18n.
+ *
+ * @group Accessibility
+ */
+export interface A11yMessages {
+  /** Announced when sorting is applied. */
+  sortApplied: (column: string, direction: string) => string;
+  /** Announced when sorting is cleared. */
+  sortCleared: () => string;
+  /** Announced when a filter is applied. */
+  filterApplied: (column: string) => string;
+  /** Announced when a filter is cleared from a column. */
+  filterCleared: (column: string) => string;
+  /** Announced when all filters are cleared. */
+  allFiltersCleared: () => string;
+  /** Announced when a group row is expanded. */
+  groupExpanded: (name: string, count: number) => string;
+  /** Announced when a group row is collapsed. */
+  groupCollapsed: (name: string) => string;
+  /** Announced when row selection changes. */
+  selectionChanged: (count: number) => string;
+  /** Announced when row editing starts. */
+  editingStarted: (rowIndex: number) => string;
+  /** Announced when row editing is committed. */
+  editingCommitted: (rowIndex: number) => string;
+  /** Announced when data is loaded. */
+  dataLoaded: (count: number) => string;
+}
+
+/**
+ * Accessibility configuration for controlling screen reader announcements.
+ *
+ * @group Accessibility
+ *
+ * @example
+ * ```ts
+ * // Disable all live announcements
+ * a11y: { announcements: false }
+ *
+ * // Override specific messages for French locale
+ * a11y: {
+ *   messages: {
+ *     sortApplied: (col, dir) => `Trié par ${col}, ${dir}`,
+ *     sortCleared: () => 'Tri effacé',
+ *   },
+ * }
+ * ```
+ */
+export interface A11yConfig {
+  /**
+   * Enable or disable live region announcements.
+   * When `false`, the `aria-live` region remains in the DOM but no messages are set.
+   * @defaultValue `true`
+   */
+  announcements?: boolean;
+  /**
+   * Custom announcement text overrides for internationalization.
+   * Partial — only override the messages you need; defaults are used for the rest.
+   */
+  messages?: Partial<A11yMessages>;
+}
+
+/**
+ * Default English announcement messages.
+ * Used when no custom messages are provided via {@link A11yConfig.messages}.
+ */
+export const DEFAULT_A11Y_MESSAGES: A11yMessages = {
+  sortApplied: (column, direction) => `Sorted by ${column}, ${direction}`,
+  sortCleared: () => 'Sort cleared',
+  filterApplied: (column) => `Filter applied on ${column}`,
+  filterCleared: (column) => `Filter cleared from ${column}`,
+  allFiltersCleared: () => 'All filters cleared',
+  groupExpanded: (name, count) => `Group ${name} expanded, ${count} rows`,
+  groupCollapsed: (name) => `Group ${name} collapsed`,
+  selectionChanged: (count) => `${count} rows selected`,
+  editingStarted: (rowIndex) => `Editing row ${rowIndex + 1}`,
+  editingCommitted: (rowIndex) => `Row ${rowIndex + 1} saved`,
+  dataLoaded: (count) => `${count} rows loaded`,
+};
+
+// #endregion
+
 // #region Grid Config
 /**
  * Grid configuration object - the **single source of truth** for grid behavior.
@@ -2442,6 +2529,31 @@ export interface GridConfig<TRow = any> {
    * ```
    */
   gridAriaDescribedBy?: string;
+
+  /**
+   * Accessibility configuration for screen reader announcements.
+   *
+   * The grid automatically announces state changes (sort, filter, selection, etc.)
+   * via an `aria-live` region. Use this config to toggle announcements or override
+   * message text for internationalization.
+   *
+   * @example
+   * ```ts
+   * // Disable all announcements
+   * gridConfig = { a11y: { announcements: false } };
+   *
+   * // Custom messages for i18n
+   * gridConfig = {
+   *   a11y: {
+   *     messages: {
+   *       sortApplied: (col, dir) => `Trié par ${col}, ${dir}`,
+   *       filterApplied: (col) => `Filtre appliqué sur ${col}`,
+   *     },
+   *   },
+   * };
+   * ```
+   */
+  a11y?: A11yConfig;
 
   // #endregion
 

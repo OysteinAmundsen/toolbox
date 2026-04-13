@@ -6,7 +6,7 @@
  * Includes UI with filter buttons in headers and dropdown filter panels.
  */
 
-import { announce } from '../../core/internal/aria';
+import { announce, getA11yMessage } from '../../core/internal/aria';
 import { BaseGridPlugin, type GridElement, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isUtilityColumn } from '../../core/plugin/expander-column';
 import type { ColumnConfig, ColumnState } from '../../core/types';
@@ -524,7 +524,12 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
         this.grid.requestStateChange?.();
       }
       const header = this.grid.effectiveConfig?.columns?.find((c) => c.field === field)?.header ?? field;
-      announce(this.gridElement!, filter === null ? `Filter cleared from ${header}` : `Filter applied on ${header}`);
+      announce(
+        this.gridElement!,
+        filter === null
+          ? getA11yMessage(this.gridElement!, 'filterCleared', header)
+          : getA11yMessage(this.gridElement!, 'filterApplied', header),
+      );
     }
     // Notify other plugins via Event Bus
     this.emitPluginEvent('filter-applied', { filters: [...this.filters.values()] });
@@ -592,7 +597,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.searchText.clear();
 
     this.applyFiltersInternal(options?.silent);
-    if (!options?.silent) announce(this.gridElement!, 'All filters cleared');
+    if (!options?.silent) announce(this.gridElement!, getA11yMessage(this.gridElement!, 'allFiltersCleared'));
   }
 
   /**
@@ -607,7 +612,7 @@ export class FilteringPlugin extends BaseGridPlugin<FilterConfig> {
     this.applyFiltersInternal(options?.silent);
     if (!options?.silent) {
       const header = this.grid.effectiveConfig?.columns?.find((c) => c.field === field)?.header ?? field;
-      announce(this.gridElement!, `Filter cleared from ${header}`);
+      announce(this.gridElement!, getA11yMessage(this.gridElement!, 'filterCleared', header));
     }
   }
 

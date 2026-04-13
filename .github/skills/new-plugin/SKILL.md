@@ -141,15 +141,32 @@ describe('<PluginName>Plugin', () => {
 
 Use `.dg-` prefixed class names for grid internals, or plugin-specific class names.
 
-## 8. Create Demo Component (`<PluginName>DefaultDemo.astro`)
+## 8. Add Accessibility Announcements
+
+If the plugin changes user-visible state (sorting, filtering, selection, editing, expanding/collapsing), announce it via the aria live region:
+
+```typescript
+import { announce, getA11yMessage } from '../../core/internal/aria';
+
+// In the relevant handler:
+announce(this.gridElement, getA11yMessage(this.gridElement, 'messageKey', ...args));
+```
+
+- Add a corresponding message function to `A11yMessages` in `types.ts` with an English default in `DEFAULT_A11Y_MESSAGES`
+- `getA11yMessage()` resolves user-provided i18n overrides from `gridConfig.a11y.messages`, falling back to the default
+- `announce()` respects `gridConfig.a11y.announcements === false` (opt-out)
+- For high-frequency events (e.g., selection changes), debounce the announcement with `setTimeout` (~150ms)
+- Guard for `this.gridElement` being `undefined` in tests — `announce()` handles this with a null guard
+
+## 9. Create Demo Component (`<PluginName>DefaultDemo.astro`)
 
 Create an interactive Astro demo in `apps/docs/src/components/demos/<plugin-name>/`. See the `astro-demo` skill for full templates.
 
-## 9. Create Documentation (`<plugin-name>.mdx`)
+## 10. Create Documentation (`<plugin-name>.mdx`)
 
 Create a plugin MDX page at `apps/docs/src/content/docs/grid/plugins/<plugin-name>.mdx`. Import the demo component and wrap it in `<ShowSource>`. See the `docs-update` skill for templates.
 
-## 10. Verify Documentation Build
+## 11. Verify Documentation Build
 
 Build the docs site to verify the new plugin page renders correctly:
 

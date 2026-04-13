@@ -6,7 +6,7 @@
  * Includes a tool panel for interactive pivot configuration.
  */
 
-import { announce } from '../../core/internal/aria';
+import { announce, getA11yMessage } from '../../core/internal/aria';
 import { BaseGridPlugin, HeaderClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import type { ColumnConfig, ToolPanelDefinition } from '../../core/types';
 import {
@@ -520,9 +520,12 @@ export class PivotPlugin extends BaseGridPlugin<PivotConfig> {
     if (gridEl) {
       const colHeader = event.column.header ?? field;
       if (newDir) {
-        announce(gridEl, `Sorted by ${colHeader}, ${newDir === 'asc' ? 'ascending' : 'descending'}`);
+        announce(
+          gridEl,
+          getA11yMessage(gridEl, 'sortApplied', colHeader, newDir === 'asc' ? 'ascending' : 'descending'),
+        );
       } else {
-        announce(gridEl, 'Sort cleared');
+        announce(gridEl, getA11yMessage(gridEl, 'sortCleared'));
       }
     }
 

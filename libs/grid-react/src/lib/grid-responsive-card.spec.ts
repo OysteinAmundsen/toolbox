@@ -121,8 +121,9 @@ describe('React component rendering', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     const cardEl = container.querySelector('tbw-grid-responsive-card');
-    // React renders camelCase props as lowercase attributes on custom elements
-    const height = cardEl?.getAttribute('cardrowheight') ?? cardEl?.getAttribute('cardRowHeight');
+    // React 19 sets properties on custom elements instead of attributes
+    const height =
+      (cardEl as any)?.cardRowHeight ?? cardEl?.getAttribute('cardrowheight') ?? cardEl?.getAttribute('cardRowHeight');
     expect(height).toBe('auto');
 
     root.unmount();
@@ -138,7 +139,9 @@ describe('React component rendering', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     const cardEl = container.querySelector('tbw-grid-responsive-card');
-    const height = cardEl?.getAttribute('cardrowheight') ?? cardEl?.getAttribute('cardRowHeight');
+    // React 19 sets properties on custom elements instead of attributes
+    const height =
+      (cardEl as any)?.cardRowHeight ?? cardEl?.getAttribute('cardrowheight') ?? cardEl?.getAttribute('cardRowHeight');
     expect(height).toBe('80');
 
     root.unmount();

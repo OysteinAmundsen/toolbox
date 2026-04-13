@@ -6,6 +6,7 @@
 
 import { GridClasses } from '../../core/constants';
 import { aggregatorRegistry } from '../../core/internal/aggregators';
+import { announce, getA11yMessage } from '../../core/internal/aria';
 import { BaseGridPlugin, CellClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
@@ -695,6 +696,16 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       value: group?.value,
       depth: group?.depth ?? 0,
     });
+
+    // Announce group state change for screen readers
+    const expanded = this.expandedKeys.has(key);
+    const groupName = group?.value != null ? String(group.value) : key;
+    if (expanded) {
+      const rowCount = group?.rows?.length ?? 0;
+      announce(this.gridElement, getA11yMessage(this.gridElement, 'groupExpanded', groupName, rowCount));
+    } else {
+      announce(this.gridElement, getA11yMessage(this.gridElement, 'groupCollapsed', groupName));
+    }
 
     // Notify other plugins that grouping state changed (row visibility changed)
     this.emitPluginEvent('grouping-state-change', {

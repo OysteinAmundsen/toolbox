@@ -106,6 +106,30 @@ async function loadGridScript(page: Page, source: 'local' | 'cdn'): Promise<bool
   }
 }
 
+/** Warm up JS engine by creating and destroying a small grid. */
+async function warmUpGrid(page: Page): Promise<void> {
+  await page.evaluate(
+    `(async () => {
+      const grid = document.createElement('tbw-grid');
+      grid.style.cssText = 'width:100%;height:100px;display:block';
+      document.body.appendChild(grid);
+      grid.gridConfig = {
+        columns: ${BENCH_COLUMNS_JSON},
+        getRowId: (row) => String(row.id),
+      };
+      grid.rows = Array.from({length:10}, (_,i) => ({
+        id: i, firstName: 'W'+i, lastName: 'W'+i,
+        email: 'w@w.com', department: 'Eng', salary: 50000,
+      }));
+      await new Promise(r => requestAnimationFrame(() =>
+        requestAnimationFrame(() => r())
+      ));
+      grid.remove();
+      await new Promise(r => setTimeout(r, 50));
+    })()`,
+  );
+}
+
 /** Create a grid, set config + rows, wait for first rendered row. */
 async function setupGrid(page: Page, rowCount: number): Promise<number> {
   return page.evaluate(
@@ -631,19 +655,27 @@ test.describe('Performance: Self-Comparison', () => {
   test('render 500 rows', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    await runComparison(browser, 'render500', async (localPage, cdnPage) => ({
-      local: await setupGrid(localPage, ROW_COUNT),
-      cdn: await setupGrid(cdnPage, ROW_COUNT),
-    }));
+    await runComparison(browser, 'render500', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      return {
+        local: await setupGrid(localPage, ROW_COUNT),
+        cdn: await setupGrid(cdnPage, ROW_COUNT),
+      };
+    });
   });
 
   test('render 1000 rows', async ({ browser }) => {
     test.skip(!existsSync(LOCAL_UMD), 'Local build not found — run: bun nx build grid');
 
-    await runComparison(browser, 'render1000', async (localPage, cdnPage) => ({
-      local: await setupGrid(localPage, LARGE_ROW_COUNT),
-      cdn: await setupGrid(cdnPage, LARGE_ROW_COUNT),
-    }));
+    await runComparison(browser, 'render1000', async (localPage, cdnPage) => {
+      await warmUpGrid(localPage);
+      await warmUpGrid(cdnPage);
+      return {
+        local: await setupGrid(localPage, LARGE_ROW_COUNT),
+        cdn: await setupGrid(cdnPage, LARGE_ROW_COUNT),
+      };
+    });
   });
 
   test('data replacement', async ({ browser }) => {

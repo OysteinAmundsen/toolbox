@@ -9,6 +9,7 @@
  */
 
 import { GridClasses } from '../../core/constants';
+import { announce, getA11yMessage } from '../../core/internal/aria';
 import { clearCellFocus, getRowIndexFromCell } from '../../core/internal/utils';
 import type { GridElement, PluginManifest, PluginQuery } from '../../core/plugin/base-plugin';
 import { BaseGridPlugin, CellClickEvent, CellMouseEvent } from '../../core/plugin/base-plugin';
@@ -231,6 +232,9 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   private lastSyncedFocusRow = -1;
   /** Last synced focus col (cell mode) */
   private lastSyncedFocusCol = -1;
+
+  /** Debounce timer for selection announcements */
+  private announceTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** True when selection was explicitly set (click/keyboard) — prevents #syncSelectionToFocus from overwriting */
   private explicitSelection = false;
@@ -1361,7 +1365,7 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
   // #region Private Helpers
 
   #buildEvent(): SelectionChangeDetail {
-    return buildSelectionEvent(
+    const event = buildSelectionEvent(
       this.config.mode,
       {
         selectedCell: this.selectedCell,
@@ -1370,6 +1374,15 @@ export class SelectionPlugin extends BaseGridPlugin<SelectionConfig> {
       },
       this.columns.length,
     );
+    // Debounced screen reader announcement for selection changes
+    if (this.announceTimer) clearTimeout(this.announceTimer);
+    this.announceTimer = setTimeout(() => {
+      const count = event.mode === 'row' ? this.selected.size : event.ranges.length;
+      if (count > 0) {
+        announce(this.gridElement, getA11yMessage(this.gridElement, 'selectionChanged', count));
+      }
+    }, 150);
+    return event;
   }
 
   // #endregion

@@ -76,6 +76,7 @@ export default defineConfig(() => ({
         'features/selection': 'src/features/selection.ts',
         'features/server-side': 'src/features/server-side.ts',
         'features/sorting': 'src/features/sorting.ts',
+        'features/tooltip': 'src/features/tooltip.ts',
         'features/tree': 'src/features/tree.ts',
         'features/undo-redo': 'src/features/undo-redo.ts',
         'features/visibility': 'src/features/visibility.ts',

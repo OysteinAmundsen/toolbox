@@ -24,8 +24,24 @@ const builtInAggregators: Record<string, AggregatorFn> = {
     return rows.length ? sum / rows.length : 0;
   },
   count: (rows) => rows.length,
-  min: (rows, field) => (rows.length ? Math.min(...rows.map((r) => Number(r[field]) || Infinity)) : 0),
-  max: (rows, field) => (rows.length ? Math.max(...rows.map((r) => Number(r[field]) || -Infinity)) : 0),
+  min: (rows, field) => {
+    if (!rows.length) return 0;
+    let min = Infinity;
+    for (let i = 0; i < rows.length; i++) {
+      const v = Number(rows[i][field]);
+      if (v < min) min = v;
+    }
+    return min;
+  },
+  max: (rows, field) => {
+    if (!rows.length) return 0;
+    let max = -Infinity;
+    for (let i = 0; i < rows.length; i++) {
+      const v = Number(rows[i][field]);
+      if (v > max) max = v;
+    }
+    return max;
+  },
   first: (rows, field) => rows[0]?.[field],
   last: (rows, field) => rows[rows.length - 1]?.[field],
 };
@@ -98,8 +114,22 @@ const builtInValueAggregators: Record<string, ValueAggregatorFn> = {
   sum: (vals) => vals.reduce((a, b) => a + b, 0),
   avg: (vals) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0),
   count: (vals) => vals.length,
-  min: (vals) => (vals.length ? Math.min(...vals) : 0),
-  max: (vals) => (vals.length ? Math.max(...vals) : 0),
+  min: (vals) => {
+    if (!vals.length) return 0;
+    let min = vals[0];
+    for (let i = 1; i < vals.length; i++) {
+      if (vals[i] < min) min = vals[i];
+    }
+    return min;
+  },
+  max: (vals) => {
+    if (!vals.length) return 0;
+    let max = vals[0];
+    for (let i = 1; i < vals.length; i++) {
+      if (vals[i] > max) max = vals[i];
+    }
+    return max;
+  },
   first: (vals) => vals[0] ?? 0,
   last: (vals) => vals[vals.length - 1] ?? 0,
 };

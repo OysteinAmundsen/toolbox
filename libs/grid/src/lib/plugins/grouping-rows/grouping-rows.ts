@@ -68,6 +68,12 @@ export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }
     if (only.rows.length === rows.length) return [];
   }
 
+  // Pre-build row→index map for O(1) lookups (avoids O(n²) from rows.indexOf)
+  const rowIndexMap = new Map<any, number>();
+  for (let i = 0; i < rows.length; i++) {
+    rowIndexMap.set(rows[i], i);
+  }
+
   // Merge expanded sets - use initialExpanded on first render, then expanded takes over
   const effectiveExpanded = new Set([...expanded, ...(initialExpanded ?? [])]);
 
@@ -93,7 +99,7 @@ export function buildGroupedRowModel({ rows, config, expanded, initialExpanded }
       if (node.children.size) {
         node.children.forEach((c) => visit(c));
       } else {
-        node.rows.forEach((r) => flat.push({ kind: 'data', row: r, rowIndex: rows.indexOf(r) }));
+        node.rows.forEach((r) => flat.push({ kind: 'data', row: r, rowIndex: rowIndexMap.get(r) ?? -1 }));
       }
     }
   };

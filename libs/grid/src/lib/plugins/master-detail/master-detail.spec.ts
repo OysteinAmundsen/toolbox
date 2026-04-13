@@ -31,19 +31,20 @@ describe('masterDetail', () => {
     it('should toggle same row twice back to original state', () => {
       const expanded = new Set<number>();
       const afterExpand = toggleDetailRow(expanded, 2);
-      const afterCollapse = toggleDetailRow(afterExpand, 2);
-
       expect(afterExpand.has(2)).toBe(true);
+
+      const afterCollapse = toggleDetailRow(afterExpand, 2);
       expect(afterCollapse.has(2)).toBe(false);
+      expect(afterCollapse).toBe(expanded);
     });
 
-    it('should not mutate the original Set', () => {
+    it('should mutate the original Set in-place for O(1) performance', () => {
       const expanded = new Set<number>([1, 2]);
       const result = toggleDetailRow(expanded, 3);
 
-      expect(expanded.size).toBe(2);
-      expect(result.size).toBe(3);
-      expect(result).not.toBe(expanded);
+      expect(result).toBe(expanded);
+      expect(expanded.size).toBe(3);
+      expect(result.has(3)).toBe(true);
     });
 
     it('should handle multiple expanded rows', () => {
@@ -74,12 +75,13 @@ describe('masterDetail', () => {
       expect(result.size).toBe(1);
     });
 
-    it('should not mutate the original Set', () => {
+    it('should mutate the original Set in-place for O(1) performance', () => {
       const expanded = new Set<number>();
       const result = expandDetailRow(expanded, 0);
 
-      expect(expanded.size).toBe(0);
-      expect(result.size).toBe(1);
+      expect(result).toBe(expanded);
+      expect(expanded.size).toBe(1);
+      expect(expanded.has(0)).toBe(true);
     });
   });
 
@@ -103,12 +105,12 @@ describe('masterDetail', () => {
       expect(result.has(1)).toBe(true);
     });
 
-    it('should not mutate the original Set', () => {
+    it('should mutate the original Set in-place for O(1) performance', () => {
       const expanded = new Set<number>([0]);
       const result = collapseDetailRow(expanded, 0);
 
-      expect(expanded.size).toBe(1);
-      expect(result.size).toBe(0);
+      expect(result).toBe(expanded);
+      expect(expanded.size).toBe(0);
     });
   });
 

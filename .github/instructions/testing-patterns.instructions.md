@@ -35,3 +35,23 @@ Tests are co-located with source files (`feature.ts` → `feature.spec.ts`). Int
 
 - **React lowercases custom element attributes**: React renders camelCase props as lowercase DOM attributes (e.g., `cardRowHeight` → `cardrowheight`). Use `getAttribute('cardrowheight')` in assertions.
 - **No `@testing-library/react`**: The grid-react project uses `react-dom/client` `createRoot` directly for component rendering tests. See the `test-coverage` skill for patterns.
+
+## Vitest Benchmarks
+
+Co-located benchmark files (`feature.ts` → `feature.bench.ts`) measure pure computational hot paths using `vitest bench` (tinybench). Run via `bun nx bench grid`.
+
+- **Co-located**: Place `.bench.ts` next to the source file being benchmarked
+- **Pure functions only**: Benchmark sorting, filtering, virtualization, grouping — not DOM rendering (use e2e for that)
+- **Use `describe` + `bench`**: Group related benchmarks in `describe` blocks, use `bench()` for each case
+- **Scale testing**: Test at multiple dataset sizes (1K, 10K, 100K rows) to verify algorithmic complexity
+- **No DOM**: happy-dom has no layout engine — DOM timing is meaningless in Vitest
+
+Existing benchmark files:
+| File | Hot paths benchmarked |
+|------|----------------------|
+| `sorting.bench.ts` | `defaultComparator`, `builtInSort` (string/numeric/custom comparator) |
+| `filter-model.bench.ts` | `filterRows` (text/numeric/set/multi-AND), `matchesFilter` |
+| `virtualization.bench.ts` | `rebuildPositionCache`, `getRowIndexAtOffset`, `updateRowHeight` |
+| `aggregators.bench.ts` | `aggregatorRegistry.run`, `runValueAggregator` (sum/avg/min/max/count) |
+| `grouping-rows.bench.ts` | `buildGroupedRowModel` (single/multi-level, expanded, high cardinality) |
+| `config.bench.ts` | `inferColumns`, `mergeColumns` |

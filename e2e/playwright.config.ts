@@ -28,11 +28,10 @@ const reporters: Parameters<typeof defineConfig>[0]['reporter'] = process.env.CI
 
 export default defineConfig({
   testDir: './tests',
-  /* Completely exclude CI-incompatible test files so they don't appear in reports.
-   * Exception: PERF_BASELINE_MODE enables perf tests for the dedicated CI perf job. */
-  testIgnore: process.env.CI
-    ? [...(!process.env.PERF_BASELINE_MODE ? ['**/performance-regression*'] : []), '**/virtualization-stability*']
-    : [],
+  /* Exclude virtualization-stability tests from CI — they involve heavy scrolling
+   * with many waitForTimeout delays that are unreliable on slow shared CI runners.
+   * Run locally: bunx playwright test virtualization-stability.spec.ts */
+  testIgnore: process.env.CI ? ['**/virtualization-stability*'] : [],
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code */

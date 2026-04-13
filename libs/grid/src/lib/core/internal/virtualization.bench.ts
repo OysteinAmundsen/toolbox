@@ -1,5 +1,6 @@
 import { bench, describe } from 'vitest';
 import {
+  computeVirtualWindow,
   createHeightCache,
   getRowIndexAtOffset,
   rebuildPositionCache,
@@ -132,6 +133,45 @@ describe('updateRowHeight', () => {
   bench('update first row — 10K cache', () => {
     const cache = buildPositionCache(10_000, false);
     updateRowHeight(cache, 0, 60);
+  });
+});
+
+// #endregion
+
+// #region computeVirtualWindow
+
+describe('computeVirtualWindow', () => {
+  bench('1K rows — fixed height', () => {
+    computeVirtualWindow({ totalRows: 1_000, viewportHeight: 600, scrollTop: 5_000, rowHeight: 40, overscan: 5 });
+  });
+
+  bench('100K rows — top', () => {
+    computeVirtualWindow({ totalRows: 100_000, viewportHeight: 600, scrollTop: 0, rowHeight: 40, overscan: 5 });
+  });
+
+  bench('100K rows — middle', () => {
+    computeVirtualWindow({ totalRows: 100_000, viewportHeight: 600, scrollTop: 2_000_000, rowHeight: 40, overscan: 5 });
+  });
+
+  bench('100K rows — end', () => {
+    const totalHeight = 100_000 * 40;
+    computeVirtualWindow({
+      totalRows: 100_000,
+      viewportHeight: 600,
+      scrollTop: totalHeight - 600,
+      rowHeight: 40,
+      overscan: 5,
+    });
+  });
+
+  bench('1M rows — middle', () => {
+    computeVirtualWindow({
+      totalRows: 1_000_000,
+      viewportHeight: 600,
+      scrollTop: 20_000_000,
+      rowHeight: 40,
+      overscan: 5,
+    });
   });
 });
 

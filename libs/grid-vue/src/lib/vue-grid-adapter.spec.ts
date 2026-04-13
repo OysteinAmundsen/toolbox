@@ -1078,4 +1078,326 @@ describe('GridAdapter', () => {
   });
 
   // #endregion
+
+  // #region Config-based renderer/editor invocation
+
+  describe('processGridConfig - invoke wrapped renderers', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('should produce working DOM from wrapped VNode renderer', () => {
+      const adapter = new GridAdapter();
+      const vueRenderer = (ctx: any) => h('span', `Value: ${ctx.value}`);
+      const config = { columns: [{ field: 'name', renderer: vueRenderer }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { value: 'Alice', row: {}, column: { field: 'name' } };
+      const container = (result.columns![0].renderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-cell-renderer');
+    });
+
+    it('should produce working DOM from wrapped Vue component renderer', () => {
+      const adapter = new GridAdapter();
+      const Badge = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('span', props.value);
+        },
+      });
+      const config = { columns: [{ field: 'status', renderer: Badge }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { value: 'Active', row: {}, column: { field: 'status' } };
+      const container = (result.columns![0].renderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-cell-renderer');
+    });
+
+    it('should use cellEl cache for config VNode renderer', () => {
+      const adapter = new GridAdapter();
+      const vueRenderer = (ctx: any) => h('span', String(ctx.value));
+      const config = { columns: [{ field: 'name', renderer: vueRenderer }] };
+      const result = adapter.processGridConfig(config);
+      const wrappedRenderer = result.columns![0].renderer as (...args: unknown[]) => HTMLElement;
+
+      const cellEl = document.createElement('div');
+      const ctx1 = { value: 'first', row: {}, column: { field: 'name' }, cellEl };
+      const container1 = wrappedRenderer(ctx1);
+
+      const ctx2 = { value: 'second', row: {}, column: { field: 'name' }, cellEl };
+      const container2 = wrappedRenderer(ctx2);
+
+      expect(container2).toBe(container1);
+    });
+
+    it('should use cellEl cache for config component renderer', () => {
+      const adapter = new GridAdapter();
+      const Badge = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('span', props.value);
+        },
+      });
+      const config = { columns: [{ field: 'status', renderer: Badge }] };
+      const result = adapter.processGridConfig(config);
+      const wrappedRenderer = result.columns![0].renderer as (...args: unknown[]) => HTMLElement;
+
+      const cellEl = document.createElement('div');
+      const ctx1 = { value: 'Active', row: {}, column: { field: 'status' }, cellEl };
+      const container1 = wrappedRenderer(ctx1);
+
+      const ctx2 = { value: 'Inactive', row: {}, column: { field: 'status' }, cellEl };
+      const container2 = wrappedRenderer(ctx2);
+
+      expect(container2).toBe(container1);
+    });
+
+    it('should produce working DOM from wrapped VNode editor', () => {
+      const adapter = new GridAdapter();
+      const vueEditor = (ctx: any) => h('input', { value: ctx.value });
+      const config = { columns: [{ field: 'name', editor: vueEditor }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { value: 'Bob', row: {}, column: { field: 'name' } };
+      const container = (result.columns![0].editor as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-cell-editor');
+    });
+
+    it('should produce working DOM from wrapped Vue component editor', () => {
+      const adapter = new GridAdapter();
+      const EditorComp = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('input', { value: props.value });
+        },
+      });
+      const config = { columns: [{ field: 'name', editor: EditorComp }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { value: 'Bob', row: {}, column: { field: 'name' } };
+      const container = (result.columns![0].editor as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-cell-editor');
+    });
+
+    it('should produce working DOM from wrapped VNode headerRenderer', () => {
+      const adapter = new GridAdapter();
+      const headerFn = (ctx: any) => h('div', `Header: ${ctx.value}`);
+      const config = { columns: [{ field: 'name', headerRenderer: headerFn }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { column: { field: 'name' }, value: 'Name', sortState: null, filterActive: false };
+      const container = (result.columns![0].headerRenderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-header-renderer');
+    });
+
+    it('should produce working DOM from wrapped component headerRenderer', () => {
+      const adapter = new GridAdapter();
+      const HeaderComp = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('div', props.value);
+        },
+      });
+      const config = { columns: [{ field: 'name', headerRenderer: HeaderComp }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { column: { field: 'name' }, value: 'Name', sortState: null, filterActive: false };
+      const container = (result.columns![0].headerRenderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-header-renderer');
+    });
+
+    it('should produce working DOM from wrapped VNode headerLabelRenderer', () => {
+      const adapter = new GridAdapter();
+      const labelFn = (ctx: any) => h('span', ctx.value);
+      const config = { columns: [{ field: 'name', headerLabelRenderer: labelFn }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { column: { field: 'name' }, value: 'Name' };
+      const container = (result.columns![0].headerLabelRenderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-header-label-renderer');
+    });
+
+    it('should produce working DOM from wrapped component headerLabelRenderer', () => {
+      const adapter = new GridAdapter();
+      const LabelComp = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('span', props.value);
+        },
+      });
+      const config = { columns: [{ field: 'name', headerLabelRenderer: LabelComp }] };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { column: { field: 'name' }, value: 'Name' };
+      const container = (result.columns![0].headerLabelRenderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-header-label-renderer');
+    });
+
+    it('should produce working DOM from wrapped VNode loadingRenderer', () => {
+      const adapter = new GridAdapter();
+      const loadingFn = (ctx: any) => h('div', `Loading ${ctx.size}`);
+      const config = { columns: [{ field: 'name' }], loadingRenderer: loadingFn };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { size: 'large' };
+      const container = (result.loadingRenderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-loading-renderer');
+    });
+
+    it('should produce working DOM from wrapped component loadingRenderer', () => {
+      const adapter = new GridAdapter();
+      const LoadingComp = defineComponent({
+        props: { size: String },
+        setup(props) {
+          return () => h('div', `Loading ${props.size}`);
+        },
+      });
+      const config = { columns: [{ field: 'name' }], loadingRenderer: LoadingComp };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { size: 'large' };
+      const container = (result.loadingRenderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+      expect(container.className).toBe('vue-loading-renderer');
+    });
+
+    it('should produce working DOM from typeDefaults VNode editor via processGridConfig', () => {
+      const adapter = new GridAdapter();
+      const editorFn = (ctx: any) => h('select', [h('option', ctx.value)]);
+      const config = {
+        columns: [{ field: 'status' }],
+        typeDefaults: { status: { editor: editorFn } },
+      };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { value: 'Active', row: {}, column: { field: 'status' } };
+      const container = (result.typeDefaults!['status'].editor as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+    });
+
+    it('should produce working DOM from typeDefaults filterPanelRenderer via processGridConfig', () => {
+      const adapter = new GridAdapter();
+      const filterFn = (_params: any) => h('div', 'filter panel');
+      const config = {
+        columns: [{ field: 'name' }],
+        typeDefaults: { custom: { filterPanelRenderer: filterFn } },
+      };
+      const result = adapter.processGridConfig(config);
+
+      const container = document.createElement('div');
+      const params = { column: { field: 'name' }, currentFilter: null };
+      (result.typeDefaults!['custom'].filterPanelRenderer as (...args: unknown[]) => void)(container, params);
+      expect(container.children.length).toBeGreaterThan(0);
+    });
+
+    it('should produce working DOM from typeDefaults component editor via processGridConfig', () => {
+      const adapter = new GridAdapter();
+      const EditorComp = defineComponent({
+        setup() {
+          return () => h('input');
+        },
+      });
+      const config = {
+        columns: [{ field: 'name' }],
+        typeDefaults: { custom: { editor: EditorComp } },
+      };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { value: '', row: {}, column: { field: 'name' } };
+      const container = (result.typeDefaults!['custom'].editor as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+    });
+
+    it('should produce working DOM from typeDefaults component renderer via processGridConfig', () => {
+      const adapter = new GridAdapter();
+      const RenderComp = defineComponent({
+        props: { value: String },
+        setup(props) {
+          return () => h('span', props.value);
+        },
+      });
+      const config = {
+        columns: [{ field: 'name' }],
+        typeDefaults: { custom: { renderer: RenderComp } },
+      };
+      const result = adapter.processGridConfig(config);
+
+      const ctx = { value: 'test', row: {}, column: { field: 'name' } };
+      const container = (result.typeDefaults!['custom'].renderer as (...args: unknown[]) => HTMLElement)(ctx);
+      expect(container).toBeInstanceOf(HTMLElement);
+    });
+  });
+
+  // #endregion
+
+  // #region detail/card renderer invocation with empty vnodes
+
+  describe('parseDetailElement - empty vnodes', () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return empty container when renderer returns empty array', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const detailElement = document.createElement('tbw-grid-detail');
+      gridElement.appendChild(detailElement);
+      container.appendChild(gridElement);
+
+      detailRegistry.set(detailElement, () => []);
+
+      const renderFn = adapter.parseDetailElement(detailElement)!;
+      const result = renderFn({ id: 1 }, 0);
+      expect(result).toBeInstanceOf(HTMLElement);
+      expect(result.className).toBe('vue-detail-panel');
+      expect(result.children.length).toBe(0);
+    });
+  });
+
+  describe('parseResponsiveCardElement - empty vnodes', () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+      container.remove();
+    });
+
+    it('should return empty container when renderer returns empty array', () => {
+      const adapter = new GridAdapter();
+      const gridElement = document.createElement('tbw-grid');
+      const cardElement = document.createElement('tbw-grid-responsive-card');
+      gridElement.appendChild(cardElement);
+      container.appendChild(gridElement);
+
+      cardRegistry.set(cardElement, () => []);
+
+      const renderFn = adapter.parseResponsiveCardElement(cardElement)!;
+      const result = renderFn({ id: 1 }, 0);
+      expect(result).toBeInstanceOf(HTMLElement);
+      expect(result.className).toBe('vue-responsive-card');
+      expect(result.children.length).toBe(0);
+    });
+  });
+
+  // #endregion
 });

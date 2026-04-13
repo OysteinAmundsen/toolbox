@@ -83,6 +83,17 @@ export function getDetailConfig(
  * })
  * ```
  *
+ * @example
+ * ```html
+ * <tbw-grid [rows]="rows" [gridConfig]="config">
+ *   <tbw-grid-detail [showExpandColumn]="true" animation="slide">
+ *     <ng-template let-row>
+ *       <app-detail-panel [employee]="row" />
+ *     </ng-template>
+ *   </tbw-grid-detail>
+ * </tbw-grid>
+ * ```
+ *
  * @category Directive
  */
 @Directive({ selector: 'tbw-grid-detail' })

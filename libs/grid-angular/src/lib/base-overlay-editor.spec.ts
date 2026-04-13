@@ -763,5 +763,245 @@ describe('BaseOverlayEditor', () => {
 
       expect(() => instance['_positionWithJs']()).not.toThrow();
     });
+
+    it('should flip "above" to below when top goes negative', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      const panel = document.createElement('div');
+      document.body.appendChild(cell);
+      document.body.appendChild(panel);
+
+      vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({
+        top: 20,
+        bottom: 60,
+        left: 100,
+        right: 300,
+        width: 200,
+        height: 40,
+        x: 100,
+        y: 20,
+        toJSON: vi.fn(),
+      });
+      vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+        top: 0,
+        bottom: 200,
+        left: 0,
+        right: 150,
+        width: 150,
+        height: 200,
+        x: 0,
+        y: 0,
+        toJSON: vi.fn(),
+      });
+
+      instance['_panel'] = panel;
+      instance['overlayPosition'] = 'above';
+      instance['_getCell'] = () => cell;
+
+      instance['_positionWithJs']();
+
+      // top = cellRect.top - panelHeight = 20 - 200 = -180, flips to cellRect.bottom = 60
+      expect(panel.style.top).toBe('60px');
+
+      panel.remove();
+      cell.remove();
+    });
+
+    it('should clamp left to viewport edge when panel exceeds right boundary', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      const panel = document.createElement('div');
+      document.body.appendChild(cell);
+      document.body.appendChild(panel);
+
+      // Place cell near right edge of viewport
+      vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({
+        top: 100,
+        bottom: 140,
+        left: 700,
+        right: 900,
+        width: 200,
+        height: 40,
+        x: 700,
+        y: 100,
+        toJSON: vi.fn(),
+      });
+      vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+        top: 0,
+        bottom: 50,
+        left: 0,
+        right: 300,
+        width: 300,
+        height: 50,
+        x: 0,
+        y: 0,
+        toJSON: vi.fn(),
+      });
+
+      // Mock viewport to be narrow
+      Object.defineProperty(window, 'innerWidth', { value: 800, writable: true });
+      Object.defineProperty(window, 'innerHeight', { value: 600, writable: true });
+
+      instance['_panel'] = panel;
+      instance['overlayPosition'] = 'below';
+      instance['_getCell'] = () => cell;
+
+      instance['_positionWithJs']();
+
+      // left = cellRect.left = 700, but 700 + 300 > 800, so left = 800 - 300 - 4 = 496
+      expect(panel.style.left).toBe('496px');
+
+      panel.remove();
+      cell.remove();
+    });
+  });
+
+  describe('initOverlay - CSS anchor positioning', () => {
+    it('should set anchor-name on cell when CSS anchor supported', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      const cell = document.createElement('div');
+      cell.setAttribute('part', 'cell');
+      const host = document.createElement('span');
+      cell.appendChild(host);
+      document.body.appendChild(cell);
+
+      instance['_panel'] = null;
+      instance['_anchorId'] = '';
+      instance['_supportsAnchor'] = true;
+      instance['_abortCtrl'] = null;
+      instance['overlayPosition'] = 'below';
+      instance['_elementRef'] = { nativeElement: host };
+      instance['_getCell'] = () => cell;
+      instance['_getGridElement'] = () => null;
+      instance['_onDocumentPointerDown'] = vi.fn();
+
+      instance['initOverlay'](panel);
+
+      // Should set CSS anchor properties
+      expect(cell.style.getPropertyValue('anchor-name')).toBeTruthy();
+      expect(panel.style.getPropertyValue('--tbw-overlay-anchor')).toBeTruthy();
+
+      panel.remove();
+      cell.remove();
+      instance['_abortCtrl']?.abort();
+    });
+  });
+
+  describe('teardownOverlay - CSS anchor cleanup', () => {
+    it('should remove anchor-name from cell when CSS anchor supported', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      cell.style.setProperty('anchor-name', '--tbw-anchor-42');
+
+      instance['_panel'] = null;
+      instance['_isOpen'] = false;
+      instance['_abortCtrl'] = null;
+      instance['_focusObserver'] = null;
+      instance['_supportsAnchor'] = true;
+      instance['_elementRef'] = { nativeElement: document.createElement('span') };
+      instance['_getCell'] = () => cell;
+
+      instance['teardownOverlay']();
+
+      expect(cell.style.getPropertyValue('anchor-name')).toBe('');
+    });
+
+    it('should call unregisterExternalFocusContainer on grid', () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const panel = document.createElement('div');
+      document.body.appendChild(panel);
+      const unregisterFn = vi.fn();
+
+      instance['_panel'] = panel;
+      instance['_isOpen'] = true;
+      instance['_abortCtrl'] = null;
+      instance['_focusObserver'] = null;
+      instance['_supportsAnchor'] = false;
+      instance['_getGridElement'] = () => ({ unregisterExternalFocusContainer: unregisterFn });
+
+      instance['teardownOverlay']();
+
+      expect(unregisterFn).toHaveBeenCalledWith(panel);
+    });
+  });
+
+  describe('_setupFocusObserver - detached host', () => {
+    it('should disconnect when host is detached from cell', async () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      cell.setAttribute('part', 'cell');
+      const host = document.createElement('span');
+      cell.appendChild(host);
+      document.body.appendChild(cell);
+
+      instance['_isOpen'] = false;
+      instance['_focusObserver'] = null;
+      instance['_elementRef'] = { nativeElement: host };
+      instance['showOverlay'] = vi.fn();
+      instance['hideOverlay'] = vi.fn();
+      instance['onOverlayOpened'] = vi.fn();
+      instance['_getCell'] = () => cell;
+
+      instance['_setupFocusObserver']();
+      expect(instance['_focusObserver']).not.toBeNull();
+
+      // Detach host from cell
+      cell.removeChild(host);
+
+      // Trigger a class mutation
+      cell.classList.add('cell-focus');
+      await new Promise((r) => setTimeout(r, 0));
+
+      // Observer should have disconnected itself
+      expect(instance['_focusObserver']).toBeNull();
+
+      document.body.removeChild(cell);
+    });
+  });
+
+  describe('_setupFocusObserver - deferred hide', () => {
+    it('should call hideOverlay after focus-away past the flash guard', async () => {
+      const instance = Object.create(BaseOverlayEditor.prototype);
+      const cell = document.createElement('div');
+      cell.setAttribute('part', 'cell');
+      const host = document.createElement('span');
+      cell.appendChild(host);
+      document.body.appendChild(cell);
+
+      instance['_isOpen'] = false;
+      instance['_focusObserver'] = null;
+      instance['_elementRef'] = { nativeElement: host };
+      instance['showOverlay'] = vi.fn(() => {
+        instance['_isOpen'] = true;
+      });
+      instance['hideOverlay'] = vi.fn(() => {
+        instance['_isOpen'] = false;
+      });
+      instance['onOverlayOpened'] = vi.fn();
+      instance['_getCell'] = () => cell;
+
+      instance['_setupFocusObserver']();
+
+      // Gain focus
+      cell.classList.add('cell-focus');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(instance['showOverlay']).toHaveBeenCalledOnce();
+
+      // Wait for justOpened guard to clear
+      await new Promise((r) => setTimeout(r, 10));
+
+      // Lose focus
+      cell.classList.remove('cell-focus');
+      await new Promise((r) => setTimeout(r, 0));
+
+      // rAF fires — hideOverlay should be called
+      // happy-dom fires rAF synchronously in setTimeout
+      await new Promise((r) => setTimeout(r, 50));
+      expect(instance['hideOverlay']).toHaveBeenCalledWith(true);
+
+      instance['_focusObserver']?.disconnect();
+      document.body.removeChild(cell);
+    });
   });
 });

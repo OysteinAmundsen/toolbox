@@ -76,6 +76,17 @@ export function getToolPanelElements(gridElement: HTMLElement): HTMLElement[] {
  * })
  * ```
  *
+ * @example
+ * ```html
+ * <tbw-grid [rows]="rows">
+ *   <tbw-grid-tool-panel id="quick-filters" title="Quick Filters" icon="\uD83D\uDD0D">
+ *     <ng-template let-grid>
+ *       <app-quick-filters [grid]="grid" />
+ *     </ng-template>
+ *   </tbw-grid-tool-panel>
+ * </tbw-grid>
+ * ```
+ *
  * @category Directive
  */
 @Directive({ selector: 'tbw-grid-tool-panel' })

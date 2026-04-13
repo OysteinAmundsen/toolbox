@@ -140,6 +140,13 @@ export function getStructuralEditorTemplate(
  * })
  * ```
  *
+ * @example
+ * ```html
+ * <tbw-grid-column field="status">
+ *   <app-status-badge *tbwRenderer="let value; row as row" [value]="value" />
+ * </tbw-grid-column>
+ * ```
+ *
  * @category Directive
  */
 @Directive({ selector: '[tbwRenderer]' })
@@ -228,6 +235,13 @@ export class TbwRenderer implements OnDestroy {
  *   imports: [TbwEditor],
  *   // ...
  * })
+ * ```
+ *
+ * @example
+ * ```html
+ * <tbw-grid-column field="status" editable>
+ *   <app-status-editor *tbwEditor="let value" [value]="value" />
+ * </tbw-grid-column>
  * ```
  *
  * @category Directive

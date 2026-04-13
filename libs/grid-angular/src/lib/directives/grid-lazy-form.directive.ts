@@ -123,6 +123,11 @@ export interface RowFormChangeEvent<TRow = unknown> {
  * | 500  | 10,000 controls          | ~20 controls |
  * | 1000 | 20,000 controls          | ~20 controls |
  *
+ * @example
+ * ```html
+ * <tbw-grid [rows]="employees()" [lazyForm]="createRowForm" [gridConfig]="gridConfig" />
+ * ```
+ *
  * @see GridFormArray For small datasets with full upfront validation
  * @category Directive
  */

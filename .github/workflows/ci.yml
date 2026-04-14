@@ -195,6 +195,10 @@ jobs:
       - name: Build affected libraries
         run: bun nx affected -t build --base=${{ steps.nx-shas.outputs.base }} --head=${{ steps.nx-shas.outputs.head }}
 
+      - name: Build size report
+        if: always() && hashFiles('dist/libs/grid/index.js') != ''
+        run: bun run tools/build-size-report.ts --ci
+
   # ============================================
   # E2E: Cross-Framework Visual Regression Tests
   # Runs demos against BUILT packages (dist/) to validate releases

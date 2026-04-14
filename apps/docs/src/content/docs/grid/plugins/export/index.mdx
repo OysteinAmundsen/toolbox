@@ -6,6 +6,7 @@ description: "Export grid data to CSV or other formats."
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import ExportDefaultDemo from '@components/demos/export/ExportDefaultDemo.astro';
 import ExportEventsDemo from '@components/demos/export/ExportEventsDemo.astro';
+import ExportStyledExcelDemo from '@components/demos/export/ExportStyledExcelDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
 
@@ -229,6 +230,117 @@ exportPlugin.exportExcel({
 | `includeHeaders` | `boolean`                       | config value  | Include column headers in export    |
 | `processCell`    | `(value, field, row) => any`    | -             | Custom cell value processor         |
 | `processHeader`  | `(header, field) => string`     | -             | Custom header processor             |
+| `fileExtension`  | `string`                        | `'.xls'`      | Override file extension for Excel export (e.g. `'.xml'`) |
+| `excelStyles`    | `ExcelStyleConfig`              | -             | Excel style configuration (Excel only) |
+
+## Styled Excel Export
+
+The export plugin produces **XML Spreadsheet 2003** output — a single-XML format natively understood by Excel, without any external dependencies.
+
+:::note[About the file extension]
+The correct extension for XML Spreadsheet 2003 is `.xml`, but most operating systems open `.xml` files in a **web browser** instead of Excel. For this reason the export defaults to `.xls`, which ensures the file opens directly in Excel.
+
+The trade-off is that Excel shows a warning when opening the file:
+
+> *"The file format and extension of 'filename.xls' don't match. The file could be corrupted or unsafe. Unless you trust its source, don't open it. Do you want to open it anyway?"*
+
+Clicking **Yes** opens the file normally — the data is not corrupt.
+
+If your users are comfortable opening `.xml` files in Excel (e.g. via right-click → "Open with"), you can set `fileExtension: '.xml'` to avoid the warning entirely:
+
+```ts
+exportPlugin.exportExcel({ fileExtension: '.xml' });
+```
+:::
+
+Pass an `excelStyles` object in `ExportParams` to control header styles, per-column formatting, dynamic cell styling, column widths, and more.
+
+<ShowSource file="demos/export/ExportStyledExcelDemo.astro">
+  <ExportStyledExcelDemo />
+</ShowSource>
+
+Click **Export Styled Excel** to download a formatted `.xls` file with bold headers, currency-formatted salaries, and color-coded status cells. Compare with **Export Plain Excel** to see the difference.
+
+### Header & Default Styles
+
+```ts
+exportPlugin.exportExcel({
+  fileName: 'report',
+  excelStyles: {
+    headerStyle: {
+      font: { bold: true, size: 12, color: '#FFFFFF' },
+      fill: { color: '#4472C4' },
+      alignment: { horizontal: 'Center' },
+    },
+    defaultStyle: {
+      font: { name: 'Calibri', size: 10 },
+    },
+  },
+});
+```
+
+### Per-Column Styles (Financial Report)
+
+```ts
+exportPlugin.exportExcel({
+  fileName: 'financial-report',
+  excelStyles: {
+    headerStyle: { font: { bold: true }, fill: { color: '#D9E2F3' } },
+    columnStyles: {
+      revenue: { numberFormat: '$#,##0.00', alignment: { horizontal: 'Right' } },
+      margin: { numberFormat: '0.0%' },
+      date: { numberFormat: 'yyyy-mm-dd' },
+    },
+    columnWidths: { name: 25, revenue: 15, margin: 10, date: 12 },
+  },
+});
+```
+
+### Dynamic Cell Styling (Conditional Colors)
+
+```ts
+exportPlugin.exportExcel({
+  fileName: 'status-report',
+  excelStyles: {
+    cellStyle: (value, field) => {
+      if (field === 'status') {
+        if (value === 'Active') return { fill: { color: '#C6EFCE' }, font: { color: '#006100' } };
+        if (value === 'Inactive') return { fill: { color: '#FFC7CE' }, font: { color: '#9C0006' } };
+      }
+      return undefined; // fall through to column/default style
+    },
+  },
+});
+```
+
+### Auto-Fit Column Widths
+
+```ts
+exportPlugin.exportExcel({
+  excelStyles: { autoFitColumns: true },
+});
+```
+
+### `ExcelStyleConfig` Reference
+
+| Option           | Type                                               | Default | Description                                     |
+| ---------------- | -------------------------------------------------- | ------- | ----------------------------------------------- |
+| `headerStyle`    | `ExcelCellStyle`                                   | -       | Style applied to all header cells               |
+| `defaultStyle`   | `ExcelCellStyle`                                   | -       | Default style for all data cells                |
+| `columnStyles`   | `Record<string, ExcelCellStyle>`                   | -       | Per-column style overrides (keyed by field)     |
+| `cellStyle`      | `(value, field, row) => ExcelCellStyle \| undefined` | -     | Callback for per-cell dynamic styling           |
+| `columnWidths`   | `Record<string, number>`                           | -       | Column widths in characters (keyed by field)    |
+| `autoFitColumns` | `boolean`                                          | `false` | Auto-fit column widths from content             |
+
+### `ExcelCellStyle` Properties
+
+| Property       | Type     | Description                                               |
+| -------------- | -------- | --------------------------------------------------------- |
+| `font`         | `object` | `{ name?, size?, bold?, italic?, color? }`                |
+| `fill`         | `object` | `{ color, pattern? }` — pattern defaults to `'Solid'`    |
+| `numberFormat` | `string` | Excel format code (e.g. `'#,##0.00'`, `'0%'`, `'yyyy-mm-dd'`) |
+| `alignment`    | `object` | `{ horizontal?, vertical?, wrapText? }`                   |
+| `borders`      | `object` | `{ top?, bottom?, left?, right? }` — each `{ style, color? }` |
 
 ## Events
 

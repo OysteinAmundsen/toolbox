@@ -5,4 +5,12 @@
  * @module Plugins/Export
  */
 export { ExportPlugin } from './ExportPlugin';
-export type { ExportCompleteDetail, ExportConfig, ExportFormat, ExportParams } from './types';
+export type {
+  ExcelBorder,
+  ExcelCellStyle,
+  ExcelStyleConfig,
+  ExportCompleteDetail,
+  ExportConfig,
+  ExportFormat,
+  ExportParams,
+} from './types';

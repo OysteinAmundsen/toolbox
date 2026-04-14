@@ -1,12 +1,15 @@
 # Changelog
 
-## [0.19.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.3...grid-angular-0.19.4) (2026-04-15)
+## [1.0.0-alpha](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.3...grid-angular-1.0.0-alpha) (2026-04-14)
 
 
-### Bug Fixes
+### ⚠ BREAKING CHANGES
 
-* **grid,grid-angular:** tooltip anchor guard and overlay editor init ([4c71a0a](https://github.com/OysteinAmundsen/toolbox/commit/4c71a0ae7d62923b26ad2394ee829acaf2600c88))
-* **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([f7ceb11](https://github.com/OysteinAmundsen/toolbox/commit/f7ceb11142d101f0725b51e575d23ea6efb3f6e9))
 
 ## [0.19.3](https://github.com/OysteinAmundsen/toolbox/compare/grid-angular-0.19.2...grid-angular-0.19.3) (2026-03-29)
 

@@ -1,12 +1,16 @@
 # Changelog
 
-## [0.18.5](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.4...grid-react-0.18.5) (2026-04-15)
+## [1.0.0-alpha](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.4...grid-react-1.0.0-alpha) (2026-04-14)
 
 
-### Bug Fixes
+### ⚠ BREAKING CHANGES
 
-* **grid-react:** replace createRoot with portals for React context preservation ([#211](https://github.com/OysteinAmundsen/toolbox/issues/211)) ([79186d9](https://github.com/OysteinAmundsen/toolbox/commit/79186d9d8b02b02b2d4eaa04042fe01e93240009))
-* **grid,grid-react:** thread gridEl for multi-grid portal resolution ([f18e397](https://github.com/OysteinAmundsen/toolbox/commit/f18e3975ccd22336bf65cbb44710dabe8781fe53))
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* **grid:** accessibility hardening — axe-core, live announcements, A11yConfig ([#189](https://github.com/OysteinAmundsen/toolbox/issues/189)) ([5a9865d](https://github.com/OysteinAmundsen/toolbox/commit/5a9865d607a036062f03687657d32edc64d8dfa9))
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([f7ceb11](https://github.com/OysteinAmundsen/toolbox/commit/f7ceb11142d101f0725b51e575d23ea6efb3f6e9))
 
 ## [0.18.4](https://github.com/OysteinAmundsen/toolbox/compare/grid-react-0.18.3...grid-react-0.18.4) (2026-04-13)
 

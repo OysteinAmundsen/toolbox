@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.0-alpha.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-alpha...grid-2.0.0-alpha.1) (2026-04-14)
+
+
+### Features
+
+* **grid:** add pre-defined group mode for server-side row grouping ([#187](https://github.com/OysteinAmundsen/toolbox/issues/187)) ([21670bb](https://github.com/OysteinAmundsen/toolbox/commit/21670bbb127a8a3bcfcdc8bf9b03ef20dd9ecb62))
+* **grid:** styled Excel export with cell formatting ([#188](https://github.com/OysteinAmundsen/toolbox/issues/188)) ([840e329](https://github.com/OysteinAmundsen/toolbox/commit/840e32951206ce808e962ff3550a0e3a6a277f7d))
+
 ## [2.0.0-alpha](https://github.com/OysteinAmundsen/toolbox/compare/grid-1.31.2...grid-2.0.0-alpha) (2026-04-14)
 
 

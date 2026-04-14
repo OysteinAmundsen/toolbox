@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.0.0-rc.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-rc.0...grid-2.0.0-rc.1) (2026-04-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* Remove ~106 deprecated APIs across grid core and all framework adapters.
+
+### Features
+
+* **grid:** accessibility hardening — axe-core, live announcements, A11yConfig ([#189](https://github.com/OysteinAmundsen/toolbox/issues/189)) ([5a9865d](https://github.com/OysteinAmundsen/toolbox/commit/5a9865d607a036062f03687657d32edc64d8dfa9))
+* **grid:** add pre-defined group mode for server-side row grouping ([#187](https://github.com/OysteinAmundsen/toolbox/issues/187)) ([21670bb](https://github.com/OysteinAmundsen/toolbox/commit/21670bbb127a8a3bcfcdc8bf9b03ef20dd9ecb62))
+* **grid:** styled Excel export with cell formatting ([#188](https://github.com/OysteinAmundsen/toolbox/issues/188)) ([840e329](https://github.com/OysteinAmundsen/toolbox/commit/840e32951206ce808e962ff3550a0e3a6a277f7d))
+* remove deprecated APIs for v2 ([#186](https://github.com/OysteinAmundsen/toolbox/issues/186)) ([f7ceb11](https://github.com/OysteinAmundsen/toolbox/commit/f7ceb11142d101f0725b51e575d23ea6efb3f6e9))
+
+
+### Bug Fixes
+
+* **grid:** anchor filter panel to filter button instead of header cell ([c87b73b](https://github.com/OysteinAmundsen/toolbox/commit/c87b73b1ce3732c583bee4dc8ee283cab11c326c))
+* **grid:** preserve grid DOM during shell refresh to retain event listeners ([c53a12e](https://github.com/OysteinAmundsen/toolbox/commit/c53a12e14299b7634c46361e663bffa417f2fa04))
+* **grid:** sort set filter values numerically for number columns ([#205](https://github.com/OysteinAmundsen/toolbox/issues/205)) ([0f616a5](https://github.com/OysteinAmundsen/toolbox/commit/0f616a5cf2b6c6b8ffb790afcd5c631c5581b498))
+
+
+### Performance Improvements
+
+* **grid:** add comprehensive benchmarks for plugins, pipelines, and E2E regression ([fbac568](https://github.com/OysteinAmundsen/toolbox/commit/fbac56860c86e99f624aa5d537d584e2b77a17a2))
+* **grid:** optimize for better performance ([1a1bd35](https://github.com/OysteinAmundsen/toolbox/commit/1a1bd35d8af894fbf13c85614f00238bc1deee57))
+* **grid:** optimize hot paths in master-detail, pivot, pinned-columns, and aggregators ([c2b7daf](https://github.com/OysteinAmundsen/toolbox/commit/c2b7dafc9b2b3321f765bc68854b64f6328c963c))
+
 ## [2.0.0-alpha.1](https://github.com/OysteinAmundsen/toolbox/compare/grid-2.0.0-alpha...grid-2.0.0-alpha.1) (2026-04-14)
 
 

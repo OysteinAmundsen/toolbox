@@ -66,7 +66,7 @@ Key TypeScript interfaces for configuration and events:
 - [Selection Plugin](https://toolboxjs.com/grid/plugins/selection/): Cell selection, row selection, range selection (Excel-like), checkbox column, Shift/Ctrl multi-select, select all
 - [Filtering Plugin](https://toolboxjs.com/grid/plugins/filtering/): Column filters with text, number, date, set (multi-select), boolean types; custom filter functions, filter row, quick filter, silent mode (`{ silent: true }` option on `setFilter`/`setFilterModel`/`clearAllFilters` for batch updates); stale filter detection (`getStaleFilters()`); blank filter toggle (`getBlankMode`, `toggleBlankFilter`)
 - [Multi-Sort Plugin](https://toolboxjs.com/grid/plugins/multi-sort/): Sort by multiple columns with priority
-- [Row Grouping Plugin](https://toolboxjs.com/grid/plugins/grouping-rows/): Group rows by field values, nested grouping, expand/collapse, group footer aggregations (sum, avg, count, min, max)
+- [Row Grouping Plugin](https://toolboxjs.com/grid/plugins/grouping-rows/): Group rows by field values, nested grouping, expand/collapse, group footer aggregations (sum, avg, count, min, max), pre-defined groups with lazy-loaded rows for server-side grouping
 - [Column Grouping Plugin](https://toolboxjs.com/grid/plugins/grouping-columns/): Group columns under shared headers, multi-level column spanning, header grouping
 - [Tree Plugin](https://toolboxjs.com/grid/plugins/tree/): Hierarchical/nested tree data, parent-child relationships, expand/collapse, lazy loading children, indentation
 - [Master-Detail Plugin](https://toolboxjs.com/grid/plugins/master-detail/): Expandable detail rows, nested grids, custom detail templates, row expansion
@@ -86,7 +86,7 @@ Key TypeScript interfaces for configuration and events:
 - [Pivot Plugin](https://toolboxjs.com/grid/plugins/pivot/): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max, first, last, custom), sorting, value formatting, events (pivot-toggle, pivot-state-change, pivot-config-change), dynamic pivot columns
 - [Tooltip Plugin](https://toolboxjs.com/grid/plugins/tooltip/): Popover tooltips for overflowing header/cell text, per-column static/dynamic overrides, CSS anchor positioning, Popover API
 
-**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with GroupingRows/Tree/Pivot (they require the full dataset; server-side loads lazily). A dev-mode warning is shown when conflicts are detected.
+**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with Tree/Pivot (they require the full dataset; server-side loads lazily). ServerSide + GroupingRows can now coexist using pre-defined groups with lazy-loaded row data. A dev-mode warning is shown when conflicts are detected.
 
 ## Core Features (Built-in, No Plugin Required)
 

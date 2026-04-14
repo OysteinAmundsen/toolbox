@@ -70,13 +70,6 @@ export class ServerSidePlugin extends BaseGridPlugin<ServerSideConfig> {
     modifiesRowStructure: true,
     incompatibleWith: [
       {
-        name: 'groupingRows',
-        reason:
-          'Row grouping requires the full dataset to compute group boundaries. ' +
-          'ServerSidePlugin lazy-loads rows in blocks, so groups cannot be built client-side. ' +
-          'Server-side grouping would require hierarchical loading (group headers first, then rows on expand).',
-      },
-      {
         name: 'tree',
         reason:
           'TreePlugin requires the full hierarchy to flatten and manage expansion state. ' +

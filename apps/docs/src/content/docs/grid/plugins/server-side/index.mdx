@@ -227,6 +227,10 @@ export class ServerSideGridComponent {
   <ServerSideSortingDemo />
 </ShowSource>
 
+:::note
+`sortHandler` is a **core GridConfig property**, not a ServerSidePlugin feature. It works with or without the ServerSidePlugin. See the [Multi-Sort Plugin docs](/grid/plugins/multi-sort/#server-side-sorting) for full details.
+:::
+
 Use the `sortHandler` config option for async sorting. When a user clicks a sortable column header,
 your handler is called instead of the built-in sorting logic. This is ideal for large datasets
 where sorting should happen on the backend.
@@ -255,6 +259,10 @@ The handler receives:
 Return the sorted array directly or a Promise that resolves to it.
 
 ### Server-Side Filtering
+
+:::note
+`filterHandler` and `valuesHandler` are **FilteringPlugin config properties**, not ServerSidePlugin features. They work with or without the ServerSidePlugin.
+:::
 
 For server-side filtering, use the FilteringPlugin's async handlers.
 See the [Filtering Plugin documentation](/grid/plugins/filtering/#async-filtering-server-side) for details on `valuesHandler` and `filterHandler`.
@@ -606,33 +614,29 @@ source.addEventListener('delete', (e) => {
 
 ---
 
-## Combining with Other Plugins
+## Combining with Server-Side Sorting and Filtering
 
-The ServerSidePlugin works well with:
+When loading data lazily via ServerSidePlugin, you'll typically want sorting and filtering to happen on the server too. These are **independent** async handlers — they don't require ServerSidePlugin, but they're commonly used alongside it.
 
-| Plugin | Integration |
-|--------|-------------|
-| `FilteringPlugin` | Use `filterHandler` for server-side filtering |
-| `MultiSortPlugin` | Use `sortHandler` for server-side sorting |
-| `SelectionPlugin` | Works normally - selection state is client-side |
-| `EditingPlugin` | Works normally - edits are local until you sync |
-| `ExportPlugin` | Only exports cached rows by default |
+- **Server-side sorting** — Use the [`sortHandler`](/grid/plugins/multi-sort/#server-side-sorting) config option. When a user clicks a column header, your handler calls the server instead of sorting in-memory.
+- **Server-side filtering** — Use the [`filterHandler` and `valuesHandler`](/grid/plugins/filtering/#async-filtering-server-side) on the FilteringPlugin config. Your handler calls the server to apply filters and return matching rows.
 
-**Note:** `RowGroupingPlugin` and `TreePlugin` are not recommended with server-side data as they require all data to be present for grouping calculations.
+Both handlers work identically whether or not ServerSidePlugin is active. If you only need async sorting or filtering (without block-based lazy loading), just use the handlers directly — no ServerSidePlugin needed.
 
 :::caution[Incompatible Plugins]
-The Server-Side plugin **cannot** be used with the following plugins:
+The Server-Side plugin **cannot** be used with:
 
-- **[Row Grouping](/grid/plugins/grouping-rows/)** — Requires the full dataset to compute group boundaries. Would need hierarchical loading (group headers first, then rows on expand).
-- **[Tree](/grid/plugins/tree/)** — Requires the full hierarchy to flatten and manage expansion. Would need lazy child loading as nodes expand.
-- **[Pivot](/grid/plugins/pivot/)** — Requires the full dataset to compute aggregations. No general way to pivot lazily since data can be grouped in unbounded ways.
+- **[Row Grouping](/grid/plugins/grouping-rows/)** — Inserts group header rows that shift indices, breaking block-based fetching. Row Grouping has its own [async data model](/grid/plugins/grouping-rows/#server-side-integration) for server-backed grouped data.
+- **[Tree](/grid/plugins/tree/)** — Requires the full hierarchy to flatten and manage expansion.
+- **[Pivot](/grid/plugins/pivot/)** — Requires the full dataset to compute aggregations.
 :::
 
 ## See Also
 
 - **[Common Patterns — Real-Time Data](/grid/guides/common-patterns/#real-time--streaming-data)** — Transport-agnostic streaming patterns
-- **[Filtering](/grid/plugins/filtering/)** — Client-side filtering
-- **[Multi-Sort](/grid/plugins/multi-sort/)** — Client-side multi-sort
+- **[Filtering](/grid/plugins/filtering/)** — Column-level filtering with async server-side support
+- **[Multi-Sort](/grid/plugins/multi-sort/)** — Multi-column sorting with async server-side support
 - **[Export](/grid/plugins/export/)** — Export grid data
+- **[Row Grouping](/grid/plugins/grouping-rows/)** — Row grouping with server-side lazy loading
 - **[Common Patterns](/grid/guides/common-patterns/)** — Full application recipes
 - **[Plugins Overview](/grid/plugins/)** — Plugin compatibility and combinations

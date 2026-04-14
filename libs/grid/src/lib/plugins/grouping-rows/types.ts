@@ -16,6 +16,57 @@ import type { ExpandCollapseAnimation } from '../../core/types';
 export type AggregatorMap = Record<string, import('../../core/internal/aggregators').AggregatorRef>;
 
 /**
+ * Pre-defined group definition for server-side grouping.
+ *
+ * When groups are provided externally (e.g. from a server), this interface
+ * describes each group's structure. The plugin renders these groups as
+ * collapsible headers and emits events when users expand/collapse them,
+ * allowing the consumer to lazily load row data.
+ *
+ * @example
+ * ```typescript
+ * const groups: GroupDefinition[] = [
+ *   { key: 'Engineering', value: 'Engineering', rowCount: 150 },
+ *   { key: 'Sales', value: 'Sales', rowCount: 89 },
+ *   { key: 'Marketing', value: 'Marketing', rowCount: 42,
+ *     children: [
+ *       { key: 'Digital', value: 'Digital', rowCount: 20 },
+ *       { key: 'Brand', value: 'Brand', rowCount: 22 },
+ *     ],
+ *   },
+ * ];
+ * ```
+ */
+export interface GroupDefinition {
+  /** Unique group identifier. */
+  key: string;
+  /** Display value for the group header. */
+  value: unknown;
+  /** Expected row count from server (for display in group header). */
+  rowCount?: number;
+  /** Nested child groups for multi-level grouping. */
+  children?: GroupDefinition[];
+  /** Server-computed aggregate values keyed by field name. */
+  aggregates?: Record<string, unknown>;
+}
+
+/** Detail payload for `group-expand` event. */
+export interface GroupExpandDetail {
+  /** The key of the group being expanded. */
+  groupKey: string;
+  /** The full path of group keys from root to this group. */
+  groupPath: string[];
+}
+
+/** Detail payload for `group-collapse` event. */
+export interface GroupCollapseDetail {
+  /** The key of the group being collapsed. */
+  groupKey: string;
+  /** The full path of group keys from root to this group. */
+  groupPath: string[];
+}
+
+/**
  * Default expanded state for group rows.
  * - `boolean`: true = expand all, false = collapse all
  * - `number`: expand group at this index (0-based)
@@ -29,8 +80,60 @@ export interface GroupingRowsConfig {
   /**
    * Callback to determine group path for a row.
    * Return an array of group keys, a single key, null/false to skip grouping.
+   *
+   * Mutually exclusive with `groups` — when `groups` is provided, `groupOn` is ignored.
    */
   groupOn?: (row: any) => any[] | any | null | false;
+  /**
+   * Pre-defined group structure for server-side grouping.
+   *
+   * When provided, the plugin renders these groups as collapsible headers
+   * instead of analyzing row data with `groupOn`.
+   *
+   * Accepts:
+   * - A static `GroupDefinition[]` array
+   * - An async callback `() => Promise<GroupDefinition[]>` that fetches groups on attach
+   *
+   * When combined with {@link GroupingRowsConfig.rows | rows}, the plugin handles
+   * the full lifecycle automatically — loading indicator, data fetch, and render.
+   *
+   * @example Static groups
+   * ```typescript
+   * new GroupingRowsPlugin({
+   *   groups: [
+   *     { key: 'Engineering', value: 'Engineering', rowCount: 150 },
+   *     { key: 'Sales', value: 'Sales', rowCount: 89 },
+   *   ],
+   * });
+   * ```
+   *
+   * @example Async groups with lazy-loaded rows
+   * ```typescript
+   * new GroupingRowsPlugin({
+   *   groups: () => fetch('/api/groups').then(r => r.json()),
+   *   rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
+   * });
+   * ```
+   */
+  groups?: GroupDefinition[] | (() => Promise<GroupDefinition[]>);
+  /**
+   * Callback to lazily load rows for an expanded group.
+   *
+   * When a user expands a group, the plugin calls this callback with the
+   * group definition. The plugin manages the loading indicator automatically.
+   *
+   * If not provided, use the imperative {@link GroupingRowsPlugin.setGroupRows | setGroupRows()}
+   * API and listen for `group-expand` events instead.
+   *
+   * @example
+   * ```typescript
+   * new GroupingRowsPlugin({
+   *   groups: () => fetch('/api/groups').then(r => r.json()),
+   *   rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
+   * });
+   * ```
+   */
+  rows?: (group: GroupDefinition) => Promise<unknown[]>;
   /**
    * Default expanded state for group rows.
    * - `true`: Expand all groups initially
@@ -194,6 +297,10 @@ declare module '../../core/types' {
   interface DataGridEventMap {
     /** Fired when a row group is expanded or collapsed. @group Grouping Events */
     'group-toggle': GroupToggleDetail;
+    /** Fired when a pre-defined group is expanded. @group Grouping Events */
+    'group-expand': GroupExpandDetail;
+    /** Fired when a pre-defined group is collapsed. @group Grouping Events */
+    'group-collapse': GroupCollapseDetail;
   }
 
   interface PluginNameMap {

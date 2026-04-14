@@ -6,7 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { DefaultExpandedValue, GroupingRowsConfig, GroupRowModelItem, RenderRow } from './types';
+import type { DefaultExpandedValue, GroupDefinition, GroupingRowsConfig, GroupRowModelItem, RenderRow } from './types';
 
 interface GroupNode {
   key: string; // composite key
@@ -203,3 +203,98 @@ export function getGroupRowCount(groupRow: RenderRow): number {
   if (groupRow.kind !== 'group') return 0;
   return groupRow.rows.length;
 }
+
+// #region Pre-Defined Group Model
+
+interface PreDefinedGroupModelArgs {
+  groups: GroupDefinition[];
+  expanded: Set<string>;
+  groupRows: Map<string, unknown[]>;
+  loadingGroups: Set<string>;
+  parentPath?: string[];
+}
+
+/**
+ * Build a flattened render model from pre-defined group definitions.
+ *
+ * Unlike `buildGroupedRowModel`, this does not analyze row data — groups
+ * are provided externally (e.g. from a server). Row data for each group
+ * is populated lazily via the `groupRows` map.
+ *
+ * @param args - Pre-defined grouping arguments
+ * @returns Flattened array of render rows (groups + data rows)
+ */
+export function buildPreDefinedGroupModel({
+  groups,
+  expanded,
+  groupRows,
+  loadingGroups,
+  parentPath = [],
+}: PreDefinedGroupModelArgs): RenderRow[] {
+  const flat: RenderRow[] = [];
+  const depth = parentPath.length;
+
+  for (const group of groups) {
+    const currentPath = [...parentPath, group.key];
+    const isExpanded = expanded.has(group.key);
+    const rows = groupRows.get(group.key) ?? [];
+    const isLoading = loadingGroups.has(group.key);
+
+    flat.push({
+      kind: 'group',
+      key: group.key,
+      value: group.value,
+      depth,
+      rows,
+      expanded: isExpanded,
+    });
+
+    if (isExpanded) {
+      // Nested child groups take priority over leaf rows
+      if (group.children?.length) {
+        const childRows = buildPreDefinedGroupModel({
+          groups: group.children,
+          expanded,
+          groupRows,
+          loadingGroups,
+          parentPath: currentPath,
+        });
+        flat.push(...childRows);
+      } else if (isLoading) {
+        // Loading placeholder — rendered by the plugin as a loading indicator
+        flat.push({ kind: 'data', row: { __loading: true, __groupKey: group.key }, rowIndex: -1 });
+      } else {
+        // Leaf rows from the groupRows map
+        rows.forEach((row, idx) => {
+          flat.push({ kind: 'data', row, rowIndex: idx });
+        });
+      }
+    }
+  }
+
+  return flat;
+}
+
+/**
+ * Compute the group path (array of ancestor keys) for a given group key
+ * within a pre-defined group structure.
+ *
+ * @param groups - The group definitions to search
+ * @param targetKey - The key to find
+ * @param parentPath - Accumulated path (used for recursion)
+ * @returns Array of group keys from root to target, or empty array if not found
+ */
+export function getGroupPath(groups: GroupDefinition[], targetKey: string, parentPath: string[] = []): string[] {
+  for (const group of groups) {
+    const currentPath = [...parentPath, group.key];
+    if (group.key === targetKey) {
+      return currentPath;
+    }
+    if (group.children?.length) {
+      const found = getGroupPath(group.children, targetKey, currentPath);
+      if (found.length > 0) return found;
+    }
+  }
+  return [];
+}
+// #endregion

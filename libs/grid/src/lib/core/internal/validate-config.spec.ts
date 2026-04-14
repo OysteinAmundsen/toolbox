@@ -725,12 +725,12 @@ describe('validatePluginIncompatibilities', () => {
   });
 
   describe('real plugin manifest incompatibilities', () => {
-    it('GroupingRowsPlugin declares tree, pivot, and serverSide as incompatible', async () => {
+    it('GroupingRowsPlugin declares tree and pivot as incompatible', async () => {
       const { GroupingRowsPlugin } = await import('../../plugins/grouping-rows/GroupingRowsPlugin');
       const names = GroupingRowsPlugin.manifest?.incompatibleWith?.map((i) => i.name) ?? [];
       expect(names).toContain('tree');
       expect(names).toContain('pivot');
-      expect(names).toContain('serverSide');
+      expect(names).not.toContain('serverSide');
     });
 
     it('TreePlugin declares groupingRows, pivot, and serverSide as incompatible', async () => {
@@ -749,10 +749,10 @@ describe('validatePluginIncompatibilities', () => {
       expect(names).toContain('serverSide');
     });
 
-    it('ServerSidePlugin declares groupingRows, tree, and pivot as incompatible', async () => {
+    it('ServerSidePlugin declares tree and pivot as incompatible', async () => {
       const { ServerSidePlugin } = await import('../../plugins/server-side/ServerSidePlugin');
       const names = ServerSidePlugin.manifest?.incompatibleWith?.map((i) => i.name) ?? [];
-      expect(names).toContain('groupingRows');
+      expect(names).not.toContain('groupingRows');
       expect(names).toContain('tree');
       expect(names).toContain('pivot');
     });

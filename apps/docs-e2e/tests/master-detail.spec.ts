@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { grid, openDemo } from './utils';
+import { openDemo } from './utils';
 
 test.describe('Master-Detail Demos', () => {
   test('MasterDetailDefaultDemo — clicking expand arrow opens detail panel', async ({ page }) => {
@@ -17,15 +17,36 @@ test.describe('Master-Detail Demos', () => {
     expect(count).toBeGreaterThan(0);
   });
 
-  test('MasterDetailExpandOnRowClickDemo — clicking row expands detail', async ({ page }) => {
-    await openDemo(page, 'master-detail/MasterDetailExpandOnRowClickDemo');
+  test('MasterDetailDefaultDemo — expand on row click', async ({ page }) => {
+    await openDemo(page, 'master-detail/MasterDetailDefaultDemo');
 
-    // Click the first data row
-    const firstRow = page.locator('tbw-grid [role="row"]').first();
+    // Enable "expand on row click" via the demo control
+    const toggle = page.locator('[data-ctrl-name="expandOnRowClick"] .dc-toggle');
+    await toggle.click();
+
+    // Click the first data row (not the header row or expand button)
+    const firstRow = page.locator('tbw-grid .data-grid-row').first();
     await firstRow.click();
     await page.waitForTimeout(500);
 
-    await expect(grid(page)).toBeVisible();
+    const detail = page.locator('tbw-grid .master-detail-row');
+    await expect(detail.first()).toBeVisible();
+  });
+
+  test('MasterDetailDefaultDemo — fixed detail height', async ({ page }) => {
+    await openDemo(page, 'master-detail/MasterDetailDefaultDemo');
+
+    // Set detail height to 150px via the demo control
+    await page.locator('select[data-ctrl="detailHeight"]').selectOption('150');
+
+    // Expand a row
+    const expandBtn = page.locator('tbw-grid .master-detail-toggle[role="button"]').first();
+    await expect(expandBtn).toBeVisible({ timeout: 5000 });
+    await expandBtn.click();
+    await page.waitForTimeout(500);
+
+    const detail = page.locator('tbw-grid .master-detail-row');
+    await expect(detail.first()).toBeVisible();
   });
 
   test('MasterDetailEventsDemo — expand fires events', async ({ page }) => {
@@ -42,22 +63,6 @@ test.describe('Master-Detail Demos', () => {
         const text = await logEl.textContent();
         expect(text?.length).toBeGreaterThan(0);
       }
-    }
-  });
-
-  test('MasterDetailFixedDetailHeightDemo — fixed detail height', async ({ page }) => {
-    await openDemo(page, 'master-detail/MasterDetailFixedDetailHeightDemo');
-    await expect(grid(page)).toBeVisible();
-
-    // Expand a row to see the fixed-height detail panel
-    const expandBtn = page.locator('tbw-grid .master-detail-toggle[role="button"]').first();
-    if (await expandBtn.isVisible({ timeout: 5000 })) {
-      await expandBtn.click();
-      await page.waitForTimeout(500);
-
-      // Detail panel should be visible
-      const detail = page.locator('tbw-grid .master-detail-row');
-      await expect(detail.first()).toBeVisible();
     }
   });
 });

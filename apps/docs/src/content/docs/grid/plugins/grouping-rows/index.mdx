@@ -333,9 +333,192 @@ The row grouping plugin uses these class names:
   <GroupingRowsEventsDemo />
 </ShowSource>
 
-| Event          | Detail                                         | Description                        |
-| -------------- | ---------------------------------------------- | ---------------------------------- |
-| `group-toggle` | `{ key, expanded, value, depth }`              | Fired when a group is expanded/collapsed |
+| Event            | Detail                                         | Description                                  |
+| ---------------- | ---------------------------------------------- | -------------------------------------------- |
+| `group-toggle`   | `{ key, expanded, value, depth }`              | Fired when a group is expanded/collapsed     |
+| `group-expand`   | `{ groupKey, groupPath }`                      | Fired when a pre-defined group is expanded   |
+| `group-collapse` | `{ groupKey, groupPath }`                      | Fired when a pre-defined group is collapsed  |
+
+## Server-Side Integration
+
+The Row Grouping plugin supports **pre-defined groups** for server-side scenarios where group structure comes from the server and row data is loaded on demand.
+
+### Declarative API (recommended)
+
+The simplest approach uses `groups` and `rows` callbacks in the config. The plugin manages the full lifecycle automatically — loading indicators, data fetching, caching, and rendering:
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+import '@toolbox-web/grid/features/grouping-rows';
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' },
+  ],
+  features: {
+    groupingRows: {
+      groups: () => fetch('/api/groups').then(r => r.json()),
+      rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
+    },
+  },
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/grouping-rows';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+function ServerGroupedGrid() {
+  return (
+    <DataGrid
+      columns={[
+        { field: 'name', header: 'Employee' },
+        { field: 'department', header: 'Department' },
+        { field: 'salary', header: 'Salary', type: 'currency' },
+      ]}
+      groupingRows={{
+        groups: () => fetch('/api/groups').then(r => r.json()),
+        rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
+      }}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/grouping-rows';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const groupingConfig = {
+  groups: () => fetch('/api/groups').then(r => r.json()),
+  rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
+};
+</script>
+
+<template>
+  <TbwGrid :grouping-rows="groupingConfig">
+    <TbwGridColumn field="name" header="Employee" />
+    <TbwGridColumn field="department" header="Department" />
+    <TbwGridColumn field="salary" header="Salary" type="currency" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/grouping-rows';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-server-grouped-grid',
+  imports: [Grid],
+  template: `
+    <tbw-grid [columns]="columns" [groupingRows]="groupingConfig" style="height: 400px; display: block;">
+    </tbw-grid>
+  `,
+})
+export class ServerGroupedGridComponent {
+  columns = [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' },
+  ];
+
+  groupingConfig = {
+    groups: () => fetch('/api/groups').then((r: any) => r.json()),
+    rows: (group: any) => fetch(`/api/groups/${group.key}/rows`).then((r: any) => r.json()),
+  };
+}
+```
+  </TabItem>
+</Tabs>
+
+The `groups` config can also be a static array if the group structure is known upfront:
+
+```ts
+features: {
+  groupingRows: {
+    groups: [
+      { key: 'engineering', value: 'Engineering', rowCount: 150 },
+      { key: 'sales', value: 'Sales', rowCount: 89 },
+    ],
+    rows: (group) => fetch(`/api/groups/${group.key}/rows`).then(r => r.json()),
+  },
+},
+```
+
+### Imperative API
+
+For full control over loading states and partial updates, use the plugin instance directly. Groups and rows can both be loaded asynchronously:
+
+```ts
+import '@toolbox-web/grid/features/grouping-rows';
+import { queryGrid } from '@toolbox-web/grid';
+
+const grid = await queryGrid('tbw-grid', true);
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Employee' },
+    { field: 'department', header: 'Department' },
+    { field: 'salary', header: 'Salary', type: 'currency' },
+  ],
+  features: {
+    groupingRows: true,
+  },
+};
+
+const grouping = grid.getPluginByName('groupingRows');
+
+// Lazy-load rows when a group is expanded
+grid.on('group-expand', async ({ groupKey }) => {
+  grouping.setGroupLoading(groupKey, true);
+  const rows = await fetchGroupRows(groupKey);
+  grouping.setGroupRows(groupKey, rows); // also clears loading state
+});
+
+// Load groups asynchronously
+const groups = await fetch('/api/groups').then(r => r.json());
+grouping.setGroups(groups);
+```
+
+:::note
+`setGroupRows()` automatically clears the loading indicator — no need to call `setGroupLoading(key, false)` afterwards.
+:::
+
+| Method | Description |
+| --- | --- |
+| `setGroups(groups)` | Replace groups with an external structure |
+| `getGroups()` | Get the current group definitions |
+| `setGroupRows(key, rows)` | Populate rows for an expanded group |
+| `setGroupLoading(key, loading)` | Toggle loading indicator for a group |
+| `clearGroupRows(key?)` | Clear cached rows (specific group or all) |
+
+### Nested Pre-Defined Groups
+
+Groups can be nested using the `children` property:
+
+```ts
+const groups: GroupDefinition[] = [
+  {
+    key: 'engineering',
+    value: 'Engineering',
+    rowCount: 150,
+    children: [
+      { key: 'frontend', value: 'Frontend', rowCount: 60 },
+      { key: 'backend', value: 'Backend', rowCount: 90 },
+    ],
+  },
+];
+```
 
 ## Plugin Compatibility
 
@@ -344,14 +527,9 @@ The Row Grouping plugin **cannot** be used with the following plugins:
 
 - **[Tree](/grid/plugins/tree/)** — Both plugins transform the entire row model. Tree flattens nested hierarchies while Row Grouping groups flat rows with synthetic headers. Use one approach per grid.
 - **[Pivot](/grid/plugins/pivot/)** — Pivot creates its own aggregated row and column structure. Row grouping cannot be applied on top of pivot-generated rows.
-- **[Server-Side](/grid/plugins/server-side/)** — Row grouping requires the full dataset to compute group boundaries. Server-side lazy loading provides rows in blocks, so groups cannot be built client-side.
 :::
 
 A development-mode warning is shown if incompatible plugins are loaded together.
-
-:::tip[Works with Master-Detail]
-Row Grouping works seamlessly with the [Master-Detail](../master-detail/) plugin. When both are enabled, data rows within expanded groups show the master-detail toggle, while group header rows (which are synthetic) do not. Use `expandOnRowClick: true` on master-detail safely — group header clicks are ignored.
-:::
 
 ## See Also
 

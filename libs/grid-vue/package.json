@@ -57,10 +57,10 @@
   },
   "devDependencies": {
     "vue": "^3.5.0",
-    "@toolbox-web/grid": ">=1.0.0"
+    "@toolbox-web/grid": "^2.0.0-alpha.1"
   },
   "peerDependencies": {
     "vue": ">=3.3.0",
-    "@toolbox-web/grid": ">=1.0.0"
+    "@toolbox-web/grid": "^2.0.0-alpha.1"
   }
 }

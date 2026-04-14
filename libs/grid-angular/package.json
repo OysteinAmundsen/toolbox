@@ -1,6 +1,6 @@
 {
   "name": "@toolbox-web/grid-angular",
-  "version": "1.0.0-alpha",
+  "version": "1.0.0-rc.0",
   "description": "Angular adapter for @toolbox-web/grid data grid component",
   "type": "module",
   "keywords": [
@@ -44,10 +44,10 @@
     "@angular/build": "^21.0.4",
     "@angular/cli": "^21.0.4",
     "@angular/compiler-cli": "^21.0.0",
-    "@toolbox-web/grid": "^2.0.0-alpha.1"
+    "@toolbox-web/grid": "^2.0.0-rc.0"
   },
   "peerDependencies": {
     "@angular/core": ">=17.0.0",
-    "@toolbox-web/grid": "^2.0.0-alpha.1"
+    "@toolbox-web/grid": "^2.0.0-rc.0"
   }
 }

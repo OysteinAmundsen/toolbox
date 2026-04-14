@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import { builtInSort, defaultComparator } from './sorting';
 
@@ -9,7 +10,7 @@ function generateRows(count: number) {
     rows.push({
       id: i,
       name: `Employee ${String(count - i).padStart(6, '0')}`,
-      salary: Math.round(Math.random() * 200_000),
+      salary: randomInt(0, 200_001),
       department: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance'][i % 5],
       hired: new Date(2020, 0, 1 + (i % 365)).toISOString(),
     });

@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { bench, describe } from 'vitest';
 import { filterRows, matchesFilter } from './filter-model';
 import type { FilterModel } from './types';
@@ -10,7 +11,7 @@ function generateRows(count: number) {
     rows.push({
       id: i,
       name: `Employee ${String(i).padStart(6, '0')}`,
-      salary: 30_000 + Math.round(Math.random() * 170_000),
+      salary: randomInt(30_000, 200_001),
       department: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance'][i % 5],
       active: i % 3 !== 0,
     });

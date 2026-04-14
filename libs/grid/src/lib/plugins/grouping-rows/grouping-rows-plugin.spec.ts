@@ -793,4 +793,550 @@ describe('GroupingRowsPlugin', () => {
       expect(plugin.getRowHeight(nestedGroup, 1)).toBe(40);
     });
   });
+
+  describe('pre-defined groups', () => {
+    describe('setGroups / getGroups', () => {
+      it('should set and get pre-defined groups', () => {
+        const plugin = new GroupingRowsPlugin({});
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        const groups = [
+          { key: 'Engineering', value: 'Engineering', rowCount: 150 },
+          { key: 'Sales', value: 'Sales', rowCount: 89 },
+        ];
+        plugin.setGroups(groups);
+
+        const result = plugin.getGroups();
+        expect(result).toEqual(groups);
+      });
+
+      it('should return groups from config when setGroups not called', () => {
+        const groups = [
+          { key: 'A', value: 'A' },
+          { key: 'B', value: 'B' },
+        ];
+        const plugin = new GroupingRowsPlugin({ groups });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        expect(plugin.getGroups()).toEqual(groups);
+      });
+
+      it('should return empty array when no groups configured', () => {
+        const plugin = new GroupingRowsPlugin({});
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        expect(plugin.getGroups()).toEqual([]);
+      });
+
+      it('should clear rows and loading state when setting new groups', () => {
+        const plugin = new GroupingRowsPlugin({});
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        const groups = [{ key: 'A', value: 'A' }];
+        plugin.setGroups(groups);
+        plugin.setGroupRows('A', [{ id: 1 }]);
+        plugin.setGroupLoading('A', true);
+
+        // Setting new groups should clear everything
+        plugin.setGroups([{ key: 'B', value: 'B' }]);
+        expect(plugin.getGroups()).toEqual([{ key: 'B', value: 'B' }]);
+      });
+
+      it('should request render when setGroups is called', () => {
+        const plugin = new GroupingRowsPlugin({});
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        const spy = vi.spyOn(plugin, 'requestRender');
+        plugin.setGroups([{ key: 'A', value: 'A' }]);
+        expect(spy).toHaveBeenCalled();
+      });
+    });
+
+    describe('processRows with pre-defined groups', () => {
+      it('should produce group rows from pre-defined groups', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [
+            { key: 'Engineering', value: 'Engineering', rowCount: 150 },
+            { key: 'Sales', value: 'Sales', rowCount: 89 },
+          ],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        const result = plugin.processRows([]);
+
+        expect(result.length).toBe(2);
+        expect(result[0].__isGroupRow).toBe(true);
+        expect(result[0].__groupKey).toBe('Engineering');
+        expect(result[0].__groupRowCount).toBe(150);
+        expect(result[1].__isGroupRow).toBe(true);
+        expect(result[1].__groupKey).toBe('Sales');
+        expect(result[1].__groupRowCount).toBe(89);
+        expect(plugin.isGroupingActive()).toBe(true);
+      });
+
+      it('should prefer setGroups over config.groups', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'Config', value: 'Config' }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.setGroups([{ key: 'Dynamic', value: 'Dynamic' }]);
+        const result = plugin.processRows([]);
+
+        expect(result.length).toBe(1);
+        expect(result[0].__groupKey).toBe('Dynamic');
+      });
+
+      it('should prefer pre-defined groups over groupOn', () => {
+        const plugin = new GroupingRowsPlugin({
+          groupOn: (row: any) => row.category,
+          groups: [{ key: 'Forced', value: 'Forced' }],
+        });
+        const rows = [{ id: 1, category: 'A' }];
+        const grid = createMockGrid({ rows });
+        plugin.attach(grid);
+
+        const result = plugin.processRows(rows);
+
+        expect(result.length).toBe(1);
+        expect(result[0].__groupKey).toBe('Forced');
+      });
+    });
+
+    describe('setGroupRows', () => {
+      it('should populate rows for an expanded group', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'Engineering', value: 'Engineering', rowCount: 2 }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.processRows([]);
+        plugin.expand('Engineering');
+        plugin.setGroupRows('Engineering', [{ name: 'Alice' }, { name: 'Bob' }]);
+
+        const result = plugin.processRows([]);
+
+        // 1 group + 2 data rows
+        expect(result.length).toBe(3);
+        expect(result[0].__isGroupRow).toBe(true);
+        expect(result[1].name).toBe('Alice');
+        expect(result[2].name).toBe('Bob');
+      });
+
+      it('should request render', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'A' }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        const spy = vi.spyOn(plugin, 'requestRender');
+        plugin.setGroupRows('A', []);
+        expect(spy).toHaveBeenCalled();
+      });
+
+      it('should clear loading state for the group', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'A' }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.setGroupLoading('A', true);
+        plugin.setGroupRows('A', [{ id: 1 }]);
+
+        // After setting rows, the loading state should be cleared
+        // Verify by expanding and checking no loading placeholder appears
+        plugin.expand('A');
+        const result = plugin.processRows([]);
+        const loadingRows = result.filter((r: any) => r.__loading === true);
+        expect(loadingRows.length).toBe(0);
+      });
+    });
+
+    describe('setGroupLoading', () => {
+      it('should show loading placeholder when group is expanded and loading', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'A' }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.expand('A');
+        plugin.setGroupLoading('A', true);
+
+        const result = plugin.processRows([]);
+
+        // 1 group + 1 loading placeholder
+        expect(result.length).toBe(2);
+        expect(result[0].__isGroupRow).toBe(true);
+        expect(result[1].__loading).toBe(true);
+        expect(result[1].__groupKey).toBe('A');
+      });
+
+      it('should remove loading placeholder when set to false', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'A' }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.expand('A');
+        plugin.setGroupLoading('A', true);
+        plugin.setGroupLoading('A', false);
+
+        const result = plugin.processRows([]);
+
+        // Just the group row, no loading placeholder
+        expect(result.length).toBe(1);
+      });
+    });
+
+    describe('clearGroupRows', () => {
+      it('should clear rows for a specific group', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [
+            { key: 'A', value: 'A' },
+            { key: 'B', value: 'B' },
+          ],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.setGroupRows('A', [{ id: 1 }]);
+        plugin.setGroupRows('B', [{ id: 2 }]);
+
+        plugin.clearGroupRows('A');
+
+        plugin.expand('A');
+        plugin.expand('B');
+        const result = plugin.processRows([]);
+
+        // A group + B group + B's data row = 3 (A cleared, so no data rows for A)
+        expect(result.length).toBe(3);
+        expect(result[0].__isGroupRow).toBe(true);
+        expect(result[0].__groupKey).toBe('A');
+        // A is expanded but has no rows
+        expect(result[1].__isGroupRow).toBe(true);
+        expect(result[1].__groupKey).toBe('B');
+        expect(result[2].id).toBe(2);
+      });
+
+      it('should clear all group rows when no key provided', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [
+            { key: 'A', value: 'A' },
+            { key: 'B', value: 'B' },
+          ],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.setGroupRows('A', [{ id: 1 }]);
+        plugin.setGroupRows('B', [{ id: 2 }]);
+
+        plugin.clearGroupRows();
+
+        plugin.expand('A');
+        plugin.expand('B');
+        const result = plugin.processRows([]);
+
+        // Just the 2 groups, no data rows
+        expect(result.length).toBe(2);
+      });
+    });
+
+    describe('events', () => {
+      it('should emit group-expand when toggling open in pre-defined mode', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'Engineering', value: 'Engineering' }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        plugin.processRows([]);
+
+        const emitSpy = vi.spyOn(plugin, 'emit');
+        plugin.toggle('Engineering');
+
+        expect(emitSpy).toHaveBeenCalledWith(
+          'group-expand',
+          expect.objectContaining({
+            groupKey: 'Engineering',
+            groupPath: ['Engineering'],
+          }),
+        );
+      });
+
+      it('should emit group-collapse when toggling closed in pre-defined mode', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'Engineering', value: 'Engineering' }],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        plugin.processRows([]);
+
+        plugin.expand('Engineering');
+        const emitSpy = vi.spyOn(plugin, 'emit');
+        plugin.toggle('Engineering');
+
+        expect(emitSpy).toHaveBeenCalledWith(
+          'group-collapse',
+          expect.objectContaining({
+            groupKey: 'Engineering',
+            groupPath: ['Engineering'],
+          }),
+        );
+      });
+
+      it('should include full group path for nested groups', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [
+            {
+              key: 'US',
+              value: 'US',
+              children: [{ key: 'US-Eng', value: 'Engineering' }],
+            },
+          ],
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        plugin.processRows([]);
+        plugin.expand('US');
+        plugin.processRows([]);
+
+        const emitSpy = vi.spyOn(plugin, 'emit');
+        plugin.toggle('US-Eng');
+
+        expect(emitSpy).toHaveBeenCalledWith(
+          'group-expand',
+          expect.objectContaining({
+            groupKey: 'US-Eng',
+            groupPath: ['US', 'US-Eng'],
+          }),
+        );
+      });
+
+      it('should not emit group-expand/collapse in groupOn mode', () => {
+        const plugin = new GroupingRowsPlugin({
+          groupOn: (row: any) => row.category,
+        });
+        const rows = [{ id: 1, category: 'A' }];
+        const grid = createMockGrid({ rows });
+        plugin.attach(grid);
+        plugin.processRows(rows);
+
+        const emitSpy = vi.spyOn(plugin, 'emit');
+        plugin.toggle('A');
+
+        // Should emit group-toggle but NOT group-expand
+        const expandCalls = emitSpy.mock.calls.filter((c) => c[0] === 'group-expand');
+        expect(expandCalls.length).toBe(0);
+      });
+    });
+
+    describe('detect', () => {
+      it('should detect groups array in config', () => {
+        const result = GroupingRowsPlugin.detect([], { groups: [{ key: 'A', value: 'A' }] });
+        expect(result).toBe(true);
+      });
+    });
+
+    describe('manifest compatibility', () => {
+      it('should not declare serverSide as incompatible', () => {
+        const manifest = GroupingRowsPlugin.manifest;
+        const incompatible = manifest?.incompatibleWith?.map((i) => i.name) ?? [];
+        expect(incompatible).not.toContain('serverSide');
+      });
+    });
+
+    describe('async groups callback', () => {
+      it('should detect groups function in config', () => {
+        const result = GroupingRowsPlugin.detect([], {
+          groups: () => Promise.resolve([{ key: 'A', value: 'A' }]),
+        });
+        expect(result).toBe(true);
+      });
+
+      it('should return empty array while groups are loading', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: () =>
+            new Promise((_resolve) => {
+              /* never resolves */
+            }),
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        const result = plugin.processRows([]);
+        expect(result).toEqual([]);
+        expect(plugin.isGroupingActive()).toBe(true);
+      });
+
+      it('should render groups after async fetch resolves', async () => {
+        let resolve!: (groups: any[]) => void;
+        const groupsPromise = new Promise<any[]>((r) => {
+          resolve = r;
+        });
+
+        const plugin = new GroupingRowsPlugin({
+          groups: () => groupsPromise,
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        vi.spyOn(plugin, 'requestRender');
+
+        // First call triggers fetch
+        plugin.processRows([]);
+
+        // Resolve the promise
+        resolve([
+          { key: 'Engineering', value: 'Engineering', rowCount: 10 },
+          { key: 'Sales', value: 'Sales', rowCount: 5 },
+        ]);
+        await groupsPromise;
+
+        expect(plugin.requestRender).toHaveBeenCalled();
+
+        // After resolve, processRows should produce group rows
+        const result = plugin.processRows([]);
+        expect(result.length).toBe(2);
+        expect(result[0].__isGroupRow).toBe(true);
+        expect(result[0].__groupKey).toBe('Engineering');
+      });
+
+      it('should not fetch groups twice while in flight', () => {
+        let callCount = 0;
+        const plugin = new GroupingRowsPlugin({
+          groups: () => {
+            callCount++;
+            return new Promise((_resolve) => {
+              /* never resolves */
+            });
+          },
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.processRows([]);
+        plugin.processRows([]);
+
+        expect(callCount).toBe(1);
+      });
+
+      it('should getGroups return empty while async fetch is in flight', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: () =>
+            new Promise((_resolve) => {
+              /* never resolves */
+            }),
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+
+        plugin.processRows([]);
+        expect(plugin.getGroups()).toEqual([]);
+      });
+    });
+
+    describe('rows callback', () => {
+      it('should auto-fetch rows when group is expanded', async () => {
+        let resolve!: (rows: any[]) => void;
+        const rowsPromise = new Promise<any[]>((r) => {
+          resolve = r;
+        });
+
+        const rowsFn = vi.fn().mockReturnValue(rowsPromise);
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'Engineering', value: 'Engineering', rowCount: 2 }],
+          rows: rowsFn,
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        plugin.processRows([]);
+
+        vi.spyOn(plugin, 'requestRender');
+        plugin.toggle('Engineering');
+
+        // rows callback should be called with the group definition
+        expect(rowsFn).toHaveBeenCalledWith(expect.objectContaining({ key: 'Engineering', value: 'Engineering' }));
+
+        // Resolve the fetch
+        resolve([{ name: 'Alice' }, { name: 'Bob' }]);
+        await rowsPromise;
+
+        // After resolve, rows should be populated
+        const result = plugin.processRows([]);
+        expect(result.length).toBe(3); // 1 group + 2 data rows
+        expect(result[1].name).toBe('Alice');
+        expect(result[2].name).toBe('Bob');
+      });
+
+      it('should show loading indicator while rows are being fetched', () => {
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'AGroup' }],
+          rows: () =>
+            new Promise((_resolve) => {
+              /* never resolves */
+            }),
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        plugin.processRows([]);
+
+        plugin.toggle('A');
+
+        const result = plugin.processRows([]);
+        // 1 group + 1 loading placeholder
+        expect(result.length).toBe(2);
+        expect(result[1].__loading).toBe(true);
+      });
+
+      it('should not re-fetch rows if already cached', () => {
+        const rowsFn = vi.fn().mockResolvedValue([{ id: 1 }]);
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'A' }],
+          rows: rowsFn,
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        plugin.processRows([]);
+
+        // Expand, then collapse, then expand again
+        plugin.toggle('A'); // expand
+        plugin.toggle('A'); // collapse
+        plugin.toggle('A'); // expand again
+
+        // rows callback should only be called once (first expand)
+        expect(rowsFn).toHaveBeenCalledTimes(1);
+      });
+
+      it('should re-fetch rows after clearGroupRows', async () => {
+        const rowsFn = vi.fn().mockResolvedValue([{ id: 1 }]);
+        const plugin = new GroupingRowsPlugin({
+          groups: [{ key: 'A', value: 'A' }],
+          rows: rowsFn,
+        });
+        const grid = createMockGrid();
+        plugin.attach(grid);
+        plugin.processRows([]);
+
+        plugin.toggle('A');
+        await vi.waitFor(() => expect(rowsFn).toHaveBeenCalledTimes(1));
+
+        plugin.clearGroupRows('A');
+        plugin.toggle('A'); // collapse
+        plugin.toggle('A'); // expand again — should re-fetch
+
+        expect(rowsFn).toHaveBeenCalledTimes(2);
+      });
+    });
+  });
 });

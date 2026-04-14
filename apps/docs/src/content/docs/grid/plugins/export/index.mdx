@@ -352,8 +352,23 @@ exportPlugin.exportExcel({
 | ------------------ | ------------------------------------------------- | ----------------------------- |
 | `export-complete`  | `{ format, fileName, rowCount, columnCount }`     | Fired after an export completes |
 
+## Server-Side Considerations
+
+The ExportPlugin exports the rows currently held in memory (`grid.rows`). It has **no async or server-side support** — it cannot fetch data it hasn't already loaded.
+
+:::caution[Partial data with ServerSidePlugin]
+When combined with the [ServerSidePlugin](/grid/plugins/server-side/), only **cached blocks** are available for export. Rows the user hasn't scrolled to yet are placeholder objects and will not be included. If you need to export the full server dataset, fetch all rows from your API and pass them to the export method directly:
+
+```ts
+const allRows = await fetch('/api/data?all=true').then(r => r.json());
+grid.rows = allRows;
+grid.getPluginByName('export').exportCsv();
+```
+:::
+
 ## See Also
 
 - **[Clipboard](/grid/plugins/clipboard/)** — Copy cells to clipboard
 - **[Print](/grid/plugins/print/)** — Print the grid
+- **[Server-Side Data](../server-side/)** — Block-based virtual scrolling for large datasets
 

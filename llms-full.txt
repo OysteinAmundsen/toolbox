@@ -64,9 +64,10 @@ These plugins **cannot** be used together. A development-mode warning is shown w
 | `GroupingRowsPlugin` | `TreePlugin` | Both transform the entire row model in different ways |
 | `GroupingRowsPlugin` | `PivotPlugin` | Pivot creates its own aggregated row/column structure |
 | `TreePlugin` | `PivotPlugin` | Pivot replaces the data structure; tree hierarchy cannot coexist |
-| `ServerSidePlugin` | `GroupingRowsPlugin` | Grouping needs the full dataset; server-side loads blocks lazily |
 | `ServerSidePlugin` | `TreePlugin` | Tree needs the full hierarchy; server-side cannot provide children on demand |
 | `ServerSidePlugin` | `PivotPlugin` | Pivot needs the full dataset for aggregation |
+
+> **Note:** `ServerSidePlugin` + `GroupingRowsPlugin` can coexist. GroupingRowsPlugin has its own built-in server-side support (`groups`/`rows` callbacks, imperative `setGroups()`/`setGroupRows()`) that works independently of ServerSidePlugin. Similarly, FilteringPlugin has `filterHandler`/`valuesHandler` and GridConfig has `sortHandler` — these work without ServerSidePlugin. ServerSidePlugin is specifically for **block-based virtual scrolling** over large flat datasets.
 
 ### 6. Correct Plugin Class Names
 
@@ -820,7 +821,8 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `sort-model-change` | MultiSort | `SortModel[]` |
 | `tree-expand` | Tree | `TreeExpandDetail` |
 | `detail-expand` | MasterDetail | `DetailExpandDetail` |
-| `group-expand` | GroupingRows | `GroupExpandDetail` |
+| `group-expand` | GroupingRows | `GroupExpandDetail` (`groupKey`, `groupPath`) |
+| `group-collapse` | GroupingRows | `GroupCollapseDetail` (`groupKey`, `groupPath`) |
 | `export-start` | Export | `ExportStartDetail` |
 | `export-complete` | Export | `ExportCompleteDetail` |
 | `pivot-toggle` | Pivot | `PivotToggleDetail` (`key`, `expanded`, `label`, `depth`) |
@@ -926,6 +928,8 @@ new EditingPlugin({
 
 ### FilteringPlugin
 
+Client-side and server-side filtering. Server-side support (`filterHandler`/`valuesHandler`) is built-in — works independently of ServerSidePlugin.
+
 ```typescript
 new FilteringPlugin({
   debounceMs?: number,          // Debounce input (default: 300)
@@ -986,7 +990,9 @@ new MasterDetailPlugin({
 
 ```typescript
 new GroupingRowsPlugin({
-  groupOn?: (row) => any[] | any | null | false, // Group path callback (required)
+  groupOn?: (row) => any[] | any | null | false, // Group path callback
+  groups?: GroupDefinition[] | (() => Promise<GroupDefinition[]>), // Pre-defined groups (static or async)
+  rows?: (group: GroupDefinition) => Promise<unknown[]>,           // Lazy-load rows on expand
   defaultExpanded?: boolean | number | string | string[], // Start expanded (default: false)
   groupRowRenderer?: (params) => HTMLElement | string | void, // Custom group row
   showRowCount?: boolean,       // Show row count in headers (default: true)
@@ -996,9 +1002,16 @@ new GroupingRowsPlugin({
   animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
   accordion?: boolean,          // Only one group expanded at a time (default: false)
 })
+// Declarative server-side grouping (recommended):
+// { groups: () => fetch('/api/groups').then(r => r.json()), rows: (group) => fetch(`/api/${group.key}`).then(r => r.json()) }
+// Imperative API: groupingRows: true → grid.getPluginByName('groupingRows').setGroups(await fetch(…))
+// grid.on('group-expand', async ({ groupKey }) => { plugin.setGroupLoading(key, true); plugin.setGroupRows(key, await …); })
+// plugin.setGroupRows() auto-clears loading state
 ```
 
 ### ServerSidePlugin
+
+Block-based virtual scrolling for large datasets. Does NOT coordinate sorting, filtering, or export — each plugin manages its own server-side behavior independently via its own async handlers (`sortHandler` on GridConfig, `filterHandler`/`valuesHandler` on FilteringPlugin, `groups`/`rows` on GroupingRowsPlugin).
 
 ```typescript
 new ServerSidePlugin({
@@ -1043,6 +1056,8 @@ await clipboard.paste();                                  // Read & parse clipbo
 ```
 
 ### ExportPlugin
+
+Exports in-memory rows only. No async/server-side support. With ServerSidePlugin, only cached blocks are exported.
 
 ```typescript
 new ExportPlugin({
@@ -1135,12 +1150,15 @@ new TooltipPlugin({
 
 ### MultiSortPlugin
 
+Client-side multi-column sorting. For server-side sorting, use `sortHandler` on GridConfig (a core property — works independently of both MultiSortPlugin and ServerSidePlugin).
+
 ```typescript
 new MultiSortPlugin({
   maxSortColumns?: number,           // Max columns to sort by (default: 3)
   showSortIndex?: boolean,           // Show sort order badges on headers (default: true)
 })
 // Events: 'sort-change' → { sortModel: SortModel[] }
+// Server-side sorting: gridConfig.sortHandler = async (rows, sortState, columns) => sortedRows
 // Programmatic API:
 const sort = grid.getPluginByName('multiSort');
 sort.getSortModel();                 // Get current SortModel[] (copy)

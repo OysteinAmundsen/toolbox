@@ -10,9 +10,12 @@ export type {
   AggregatorMap,
   DataRowModelItem,
   DefaultExpandedValue,
+  GroupCollapseDetail,
+  GroupDefinition,
+  GroupExpandDetail,
+  GroupingRowsConfig,
   GroupRowModelItem,
   GroupRowRenderParams,
   GroupToggleDetail,
-  GroupingRowsConfig,
   RenderRow,
 } from './types';

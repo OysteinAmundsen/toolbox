@@ -7,14 +7,17 @@
 import { GridClasses } from '../../core/constants';
 import { aggregatorRegistry } from '../../core/internal/aggregators';
 import { announce, getA11yMessage } from '../../core/internal/aria';
+import { setRowLoadingState } from '../../core/internal/loading';
 import { BaseGridPlugin, CellClickEvent, type PluginManifest, type PluginQuery } from '../../core/plugin/base-plugin';
 import { isExpanderColumn } from '../../core/plugin/expander-column';
 import type { RowElementInternal } from '../../core/types';
 import {
   buildGroupedRowModel,
+  buildPreDefinedGroupModel,
   collapseAllGroups,
   expandAllGroups,
   getGroupKeys,
+  getGroupPath,
   getGroupRowCount,
   resolveDefaultExpanded,
   toggleGroupExpansion,
@@ -22,6 +25,9 @@ import {
 import styles from './grouping-rows.css?inline';
 import type {
   ExpandCollapseAnimation,
+  GroupCollapseDetail,
+  GroupDefinition,
+  GroupExpandDetail,
   GroupingRowsConfig,
   GroupRowModelItem,
   GroupToggleDetail,
@@ -119,17 +125,19 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
           'PivotPlugin creates its own aggregated row and column structure. ' +
           'Row grouping cannot be applied on top of pivot-generated rows.',
       },
-      {
-        name: 'serverSide',
-        reason:
-          'Row grouping requires the full dataset to compute group boundaries. ' +
-          'ServerSidePlugin lazy-loads rows in blocks, so groups cannot be built client-side.',
-      },
     ],
     events: [
       {
         type: 'grouping-state-change',
         description: 'Emitted when groups are expanded/collapsed. Subscribers can react to row visibility changes.',
+      },
+      {
+        type: 'group-expand',
+        description: 'Emitted when a pre-defined group is expanded. Use to lazily load group row data.',
+      },
+      {
+        type: 'group-collapse',
+        description: 'Emitted when a pre-defined group is collapsed.',
       },
     ],
     queries: [
@@ -186,6 +194,16 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   private keysToAnimate = new Set<string>();
   /** Track if initial defaultExpanded has been applied */
   private hasAppliedDefaultExpanded = false;
+  /** Pre-defined group definitions (server-side mode) */
+  private preDefinedGroups: GroupDefinition[] = [];
+  /** Lazily loaded row data keyed by group key */
+  private groupRowsMap = new Map<string, unknown[]>();
+  /** Groups currently in a loading state */
+  private loadingGroups = new Set<string>();
+  /** Whether an async groups fetch is currently in progress */
+  private groupsFetchInFlight = false;
+  /** Group keys with an in-flight rows fetch */
+  private rowsFetchInFlight = new Set<string>();
   // #endregion
 
   // #region Animation
@@ -211,6 +229,11 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
     this.previousVisibleKeys.clear();
     this.keysToAnimate.clear();
     this.hasAppliedDefaultExpanded = false;
+    this.preDefinedGroups = [];
+    this.groupRowsMap.clear();
+    this.loadingGroups.clear();
+    this.groupsFetchInFlight = false;
+    this.rowsFetchInFlight.clear();
   }
 
   /**
@@ -261,11 +284,39 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    * Called by plugin system to determine if plugin should activate.
    */
   static detect(rows: readonly any[], config: any): boolean {
-    return typeof config?.groupOn === 'function' || typeof config?.enableRowGrouping === 'boolean';
+    return (
+      typeof config?.groupOn === 'function' ||
+      typeof config?.enableRowGrouping === 'boolean' ||
+      Array.isArray(config?.groups) ||
+      typeof config?.groups === 'function'
+    );
   }
 
   /** @internal */
   override processRows(rows: readonly any[]): any[] {
+    // Pre-defined groups path — use external group structure instead of groupOn analysis
+    if (this.preDefinedGroups.length > 0 || this.config.groups != null) {
+      // If groups is an async callback and hasn't been resolved yet, trigger fetch
+      if (typeof this.config.groups === 'function' && this.preDefinedGroups.length === 0 && !this.groupsFetchInFlight) {
+        this.fetchGroupsAsync(this.config.groups);
+        // Return empty while loading
+        this.isActive = true;
+        this.flattenedRows = [];
+        return [];
+      }
+      if (this.preDefinedGroups.length > 0) {
+        return this.processPreDefinedGroups();
+      }
+      // Static array path
+      if (Array.isArray(this.config.groups) && this.config.groups.length > 0) {
+        return this.processPreDefinedGroups();
+      }
+      // Groups callback in flight or empty result — return empty
+      this.isActive = typeof this.config.groups === 'function';
+      this.flattenedRows = [];
+      return [];
+    }
+
     const config = this.config;
 
     // Check if grouping is configured
@@ -382,10 +433,26 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
   }
 
   /**
-   * Render a row. Returns true if we handled the row (group row), false otherwise.
+   * Render a row. Returns true if we handled the row (group row or loading placeholder), false otherwise.
    * @internal
    */
   override renderRow(row: any, rowEl: HTMLElement, _rowIndex: number): boolean {
+    // Handle loading placeholder rows for pre-defined groups
+    // Uses the grid's built-in row loading API for consistent, customizable spinners
+    if (row?.__loading === true && row?.__groupKey) {
+      rowEl.className = 'data-grid-row';
+      (rowEl as RowElementInternal).__isCustomRow = true;
+      rowEl.innerHTML = '';
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.style.gridColumn = '1 / -1';
+      cell.setAttribute('role', 'gridcell');
+      cell.textContent = '\u00A0'; // &nbsp; for row height
+      rowEl.appendChild(cell);
+      setRowLoadingState(rowEl, true);
+      return true;
+    }
+
     // Only handle group rows
     if (!row?.__isGroupRow) {
       return false;
@@ -475,6 +542,164 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       }
     }
     this.keysToAnimate.clear();
+  }
+  // #endregion
+
+  // #region Pre-Defined Groups
+
+  /**
+   * Build the row model from pre-defined group definitions.
+   * Used when `groups` config or `setGroups()` provides external group structure.
+   */
+  private processPreDefinedGroups(): any[] {
+    const groups =
+      this.preDefinedGroups.length > 0
+        ? this.preDefinedGroups
+        : Array.isArray(this.config.groups)
+          ? this.config.groups
+          : [];
+
+    if (groups.length === 0) {
+      this.isActive = false;
+      this.flattenedRows = [];
+      return [];
+    }
+
+    // Resolve defaultExpanded on first render only
+    if (!this.hasAppliedDefaultExpanded && this.expandedKeys.size === 0 && this.config.defaultExpanded !== false) {
+      const allKeys = this.collectGroupKeys(groups);
+      const initialExpanded = resolveDefaultExpanded(this.config.defaultExpanded ?? false, allKeys);
+      if (initialExpanded.size > 0) {
+        this.expandedKeys = new Set(initialExpanded);
+        this.hasAppliedDefaultExpanded = true;
+      }
+    }
+
+    const grouped = buildPreDefinedGroupModel({
+      groups,
+      expanded: this.expandedKeys,
+      groupRows: this.groupRowsMap,
+      loadingGroups: this.loadingGroups,
+    });
+
+    this.isActive = true;
+    this.flattenedRows = grouped;
+
+    // Track visible data rows for animation
+    this.keysToAnimate.clear();
+    const currentVisibleKeys = new Set<string>();
+    grouped.forEach((item, idx) => {
+      if (item.kind === 'data') {
+        const key = `data-${idx}`;
+        currentVisibleKeys.add(key);
+        if (!this.previousVisibleKeys.has(key)) {
+          this.keysToAnimate.add(key);
+        }
+      }
+    });
+    this.previousVisibleKeys = currentVisibleKeys;
+
+    // Return flattened rows for rendering
+    return grouped.map((item) => {
+      if (item.kind === 'group') {
+        // Look up the pre-defined group to get rowCount from server
+        const groupDef = this.findGroupDefinition(groups, item.key);
+        const rowCount = groupDef?.rowCount ?? item.rows.length;
+        return {
+          __isGroupRow: true,
+          __groupKey: item.key,
+          __groupValue: item.value,
+          __groupDepth: item.depth,
+          __groupRows: item.rows,
+          __groupExpanded: item.expanded,
+          __groupRowCount: rowCount,
+          __rowCacheKey: `group:${item.key}`,
+        };
+      }
+      return item.row;
+    });
+  }
+
+  /**
+   * Fetch group definitions from an async callback.
+   * Sets `preDefinedGroups` when resolved and triggers re-render.
+   */
+  private fetchGroupsAsync(fn: () => Promise<GroupDefinition[]>): void {
+    this.groupsFetchInFlight = true;
+    fn().then(
+      (groups) => {
+        this.groupsFetchInFlight = false;
+        this.preDefinedGroups = groups;
+        this.requestRender();
+      },
+      () => {
+        // On error, clear the in-flight flag so a retry can happen
+        this.groupsFetchInFlight = false;
+      },
+    );
+  }
+
+  /**
+   * Fetch rows for a group using the `rows` callback and update state.
+   * Manages loading indicator automatically. Guards against duplicate in-flight fetches.
+   */
+  private fetchGroupRowsAsync(groupKey: string, groupDef: GroupDefinition): void {
+    const rowsFn = this.config.rows;
+    if (!rowsFn || this.rowsFetchInFlight.has(groupKey)) return;
+
+    this.rowsFetchInFlight.add(groupKey);
+    this.loadingGroups.add(groupKey);
+    this.requestRender();
+
+    rowsFn(groupDef).then(
+      (rows) => {
+        this.rowsFetchInFlight.delete(groupKey);
+        this.groupRowsMap.set(groupKey, rows);
+        this.loadingGroups.delete(groupKey);
+        this.requestRender();
+      },
+      () => {
+        this.rowsFetchInFlight.delete(groupKey);
+        this.loadingGroups.delete(groupKey);
+        this.requestRender();
+      },
+    );
+  }
+
+  /**
+   * Collect all group keys from a pre-defined group tree.
+   */
+  private collectGroupKeys(groups: GroupDefinition[]): string[] {
+    const keys: string[] = [];
+    for (const g of groups) {
+      keys.push(g.key);
+      if (g.children?.length) {
+        keys.push(...this.collectGroupKeys(g.children));
+      }
+    }
+    return keys;
+  }
+
+  /**
+   * Get the active group definitions (pre-defined or empty).
+   */
+  private getActiveGroups(): GroupDefinition[] {
+    if (this.preDefinedGroups.length > 0) return this.preDefinedGroups;
+    return Array.isArray(this.config.groups) ? this.config.groups : [];
+  }
+
+  /**
+   * Find a group definition by key in the pre-defined group tree.
+   */
+  private findGroupDefinition(groups: GroupDefinition[], key: string): GroupDefinition | undefined {
+    for (const g of groups) {
+      if (g.key === key) return g;
+      if (g.children?.length) {
+        const found = this.findGroupDefinition(g.children, key);
+        if (found) return found;
+      }
+    }
+    return undefined;
   }
   // #endregion
 
@@ -696,6 +921,25 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
       depth: group?.depth ?? 0,
     });
 
+    // Emit group-expand/group-collapse events for pre-defined mode
+    const activeGroups = this.getActiveGroups();
+    if (activeGroups.length > 0) {
+      const groupPath = getGroupPath(activeGroups, key);
+      if (isExpanding) {
+        this.emit<GroupExpandDetail>('group-expand', { groupKey: key, groupPath });
+
+        // Auto-fetch rows via `rows` callback if configured and not already cached
+        if (config.rows && !this.groupRowsMap.has(key)) {
+          const groupDef = this.findGroupDefinition(activeGroups, key);
+          if (groupDef) {
+            this.fetchGroupRowsAsync(key, groupDef);
+          }
+        }
+      } else {
+        this.emit<GroupCollapseDetail>('group-collapse', { groupKey: key, groupPath });
+      }
+    }
+
     // Announce group state change for screen readers
     const expanded = this.expandedKeys.has(key);
     const groupName = group?.value != null ? String(group.value) : key;
@@ -807,6 +1051,96 @@ export class GroupingRowsPlugin extends BaseGridPlugin<GroupingRowsConfig> {
    */
   setGroupOn(fn: ((row: any) => any[] | any | null | false) | undefined): void {
     (this.config as GroupingRowsConfig).groupOn = fn;
+    this.requestRender();
+  }
+
+  // --- Pre-defined group API ---
+
+  /**
+   * Replace auto-detected groups with an externally provided group structure.
+   *
+   * When groups are set, the plugin switches to pre-defined mode — `groupOn`
+   * is ignored and the plugin renders the provided group headers instead.
+   * Row data for each group must be populated via {@link setGroupRows}.
+   *
+   * @param groups - Array of group definitions, or empty array to clear
+   */
+  setGroups(groups: GroupDefinition[]): void {
+    this.preDefinedGroups = groups;
+    this.groupRowsMap.clear();
+    this.loadingGroups.clear();
+    this.rowsFetchInFlight.clear();
+    this.expandedKeys.clear();
+    this.hasAppliedDefaultExpanded = false;
+    this.requestRender();
+  }
+
+  /**
+   * Get the current pre-defined group structure.
+   *
+   * Returns the groups set via {@link setGroups} or the resolved `groups` config.
+   * Returns an empty array when using `groupOn`-based grouping or while
+   * an async `groups` callback is still in flight.
+   *
+   * @returns Current group definitions
+   */
+  getGroups(): GroupDefinition[] {
+    if (this.preDefinedGroups.length > 0) return [...this.preDefinedGroups];
+    return Array.isArray(this.config.groups) ? [...this.config.groups] : [];
+  }
+
+  /**
+   * Populate row data for an expanded group.
+   *
+   * Call this in response to a `group-expand` event after fetching rows
+   * from the server. The plugin will re-render to show the rows.
+   *
+   * If the {@link GroupingRowsConfig.rows | rows} callback is configured,
+   * this is called automatically — you only need this for the imperative API.
+   *
+   * @param groupKey - The group key to populate
+   * @param rows - The row data for this group
+   */
+  setGroupRows(groupKey: string, rows: unknown[]): void {
+    this.groupRowsMap.set(groupKey, rows);
+    this.loadingGroups.delete(groupKey);
+    this.requestRender();
+  }
+
+  /**
+   * Toggle loading indicator for a group.
+   *
+   * When loading is true, the group shows a loading spinner instead of row data.
+   * Call with `false` after rows are loaded (also cleared by {@link setGroupRows}).
+   *
+   * @param groupKey - The group key
+   * @param loading - Whether the group is loading
+   */
+  setGroupLoading(groupKey: string, loading: boolean): void {
+    if (loading) {
+      this.loadingGroups.add(groupKey);
+    } else {
+      this.loadingGroups.delete(groupKey);
+    }
+    this.requestRender();
+  }
+
+  /**
+   * Clear cached row data for one or all groups.
+   *
+   * Use when the server data has changed and groups need to be re-fetched
+   * on next expand.
+   *
+   * @param groupKey - Specific group key to clear, or omit to clear all
+   */
+  clearGroupRows(groupKey?: string): void {
+    if (groupKey != null) {
+      this.groupRowsMap.delete(groupKey);
+      this.rowsFetchInFlight.delete(groupKey);
+    } else {
+      this.groupRowsMap.clear();
+      this.rowsFetchInFlight.clear();
+    }
     this.requestRender();
   }
   // #endregion

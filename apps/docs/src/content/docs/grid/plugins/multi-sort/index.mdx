@@ -10,7 +10,7 @@ import ShowSource from '@components/ShowSource.astro';
 
 
 
-The Multi-Sort plugin enables sorting by multiple columns at once—hold Shift and click additional column headers to build up a sort stack. Priority badges show the sort order, so users always know which column takes precedence.
+This plugin is not needed if you only want single-column sorting—just set `sortable: true` on the columns. This is built in to the core. Multi-Sort extends that functionality by enabling sorting by multiple columns at once—hold Shift and click additional column headers to build up a sort stack. Priority badges show the sort order, so users always know which column takes precedence.
 
 ## Installation
 
@@ -251,7 +251,39 @@ WebSocket updates). In those cases just set `grid.rows = newData` and let
 multi-sort re-apply.
 :::
 
+## Server-Side Sorting
+
+For large datasets where sorting should happen on the backend, use the `sortHandler` property on `gridConfig`. When set, your handler is called instead of the built-in client-side sort whenever a user clicks a sortable column header.
+
+```ts
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'salary', header: 'Salary', type: 'number', sortable: true },
+  ],
+  features: { multiSort: true },
+  sortHandler: async (rows, sortState, columns) => {
+    // sortState: { field: 'name', direction: 1 } — 1 = asc, -1 = desc
+    const response = await fetch(
+      `/api/data?sort=${sortState.field}&dir=${sortState.direction === 1 ? 'asc' : 'desc'}`
+    );
+    return response.json();
+  },
+};
+```
+
+**Handler signature:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `rows` | `TRow[]` | Current row array (useful for optimistic updates) |
+| `sortState` | `{ field: string, direction: 1 \| -1 }` | Which field and direction |
+| `columns` | `ColumnConfig[]` | Column configs (access `sortComparator` if needed) |
+
+Return the sorted array directly or a `Promise` that resolves to it.
+
 ## See Also
 
 - **[Filtering](../filtering/)** — Filter rows by column values
+- **[Server-Side Data](../server-side/)** — Block-based virtual scrolling for large datasets
 - **[Plugins Overview](/grid/plugins/)** — Plugin compatibility and combinations

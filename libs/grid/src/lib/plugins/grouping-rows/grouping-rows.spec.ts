@@ -4,14 +4,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildGroupedRowModel,
+  buildPreDefinedGroupModel,
   collapseAllGroups,
   expandAllGroups,
   getGroupKeys,
+  getGroupPath,
   getGroupRowCount,
   resolveDefaultExpanded,
   toggleGroupExpansion,
 } from './grouping-rows';
-import type { RenderRow, GroupingRowsConfig } from './types';
+import type { GroupDefinition, GroupingRowsConfig, RenderRow } from './types';
 
 describe('row-grouping (buildGroupedRowModel)', () => {
   it('returns empty when groupOn not provided', () => {
@@ -340,5 +342,187 @@ describe('resolveDefaultExpanded', () => {
   it('returns empty set for empty array', () => {
     const result = resolveDefaultExpanded([], allKeys);
     expect(result).toEqual(new Set());
+  });
+});
+
+describe('buildPreDefinedGroupModel', () => {
+  const groups: GroupDefinition[] = [
+    { key: 'Engineering', value: 'Engineering', rowCount: 150 },
+    { key: 'Sales', value: 'Sales', rowCount: 89 },
+    { key: 'Marketing', value: 'Marketing', rowCount: 42 },
+  ];
+
+  it('builds flattened model with collapsed groups', () => {
+    const result = buildPreDefinedGroupModel({
+      groups,
+      expanded: new Set(),
+      groupRows: new Map(),
+      loadingGroups: new Set(),
+    });
+
+    expect(result.length).toBe(3);
+    expect(result[0]).toEqual({
+      kind: 'group',
+      key: 'Engineering',
+      value: 'Engineering',
+      depth: 0,
+      rows: [],
+      expanded: false,
+    });
+    expect(result[1]).toEqual({ kind: 'group', key: 'Sales', value: 'Sales', depth: 0, rows: [], expanded: false });
+    expect(result[2]).toEqual({
+      kind: 'group',
+      key: 'Marketing',
+      value: 'Marketing',
+      depth: 0,
+      rows: [],
+      expanded: false,
+    });
+  });
+
+  it('shows row data when group is expanded and rows are loaded', () => {
+    const engRows = [{ name: 'Alice' }, { name: 'Bob' }];
+    const groupRowsMap = new Map([['Engineering', engRows]]);
+
+    const result = buildPreDefinedGroupModel({
+      groups,
+      expanded: new Set(['Engineering']),
+      groupRows: groupRowsMap,
+      loadingGroups: new Set(),
+    });
+
+    expect(result.length).toBe(5); // 3 groups + 2 data rows
+    expect(result[0].kind).toBe('group');
+    expect((result[0] as any).expanded).toBe(true);
+    expect(result[1].kind).toBe('data');
+    expect((result[1] as any).row.name).toBe('Alice');
+    expect(result[2].kind).toBe('data');
+    expect((result[2] as any).row.name).toBe('Bob');
+  });
+
+  it('shows loading placeholder when group is expanded and loading', () => {
+    const result = buildPreDefinedGroupModel({
+      groups,
+      expanded: new Set(['Engineering']),
+      groupRows: new Map(),
+      loadingGroups: new Set(['Engineering']),
+    });
+
+    expect(result.length).toBe(4); // 3 groups + 1 loading placeholder
+    expect(result[1].kind).toBe('data');
+    expect((result[1] as any).row.__loading).toBe(true);
+    expect((result[1] as any).row.__groupKey).toBe('Engineering');
+  });
+
+  it('shows no child rows when expanded but no rows and not loading', () => {
+    const result = buildPreDefinedGroupModel({
+      groups,
+      expanded: new Set(['Engineering']),
+      groupRows: new Map(),
+      loadingGroups: new Set(),
+    });
+
+    // Expanded with no rows and not loading = empty expansion (no children)
+    expect(result.length).toBe(3); // Just the 3 groups, Engineering expanded but empty
+  });
+
+  it('handles nested group definitions', () => {
+    const nestedGroups: GroupDefinition[] = [
+      {
+        key: 'US',
+        value: 'United States',
+        children: [
+          { key: 'US-Eng', value: 'Engineering', rowCount: 100 },
+          { key: 'US-Sales', value: 'Sales', rowCount: 50 },
+        ],
+      },
+      { key: 'UK', value: 'United Kingdom', rowCount: 30 },
+    ];
+
+    const result = buildPreDefinedGroupModel({
+      groups: nestedGroups,
+      expanded: new Set(['US']),
+      groupRows: new Map(),
+      loadingGroups: new Set(),
+    });
+
+    expect(result.length).toBe(4); // US group + 2 child groups + UK group
+    expect(result[0].kind).toBe('group');
+    expect((result[0] as any).key).toBe('US');
+    expect((result[0] as any).depth).toBe(0);
+    expect(result[1].kind).toBe('group');
+    expect((result[1] as any).key).toBe('US-Eng');
+    expect((result[1] as any).depth).toBe(1);
+    expect(result[2].kind).toBe('group');
+    expect((result[2] as any).key).toBe('US-Sales');
+    expect((result[2] as any).depth).toBe(1);
+    expect(result[3].kind).toBe('group');
+    expect((result[3] as any).key).toBe('UK');
+  });
+
+  it('handles deeply nested expansion', () => {
+    const nestedGroups: GroupDefinition[] = [
+      {
+        key: 'US',
+        value: 'US',
+        children: [{ key: 'US-Eng', value: 'Engineering', rowCount: 5 }],
+      },
+    ];
+
+    const engRows = [{ name: 'Alice' }];
+    const result = buildPreDefinedGroupModel({
+      groups: nestedGroups,
+      expanded: new Set(['US', 'US-Eng']),
+      groupRows: new Map([['US-Eng', engRows]]),
+      loadingGroups: new Set(),
+    });
+
+    expect(result.length).toBe(3); // US group + US-Eng group + Alice data row
+    expect(result[0].kind).toBe('group');
+    expect(result[1].kind).toBe('group');
+    expect(result[2].kind).toBe('data');
+    expect((result[2] as any).row.name).toBe('Alice');
+  });
+
+  it('returns empty array for empty groups', () => {
+    const result = buildPreDefinedGroupModel({
+      groups: [],
+      expanded: new Set(),
+      groupRows: new Map(),
+      loadingGroups: new Set(),
+    });
+    expect(result).toEqual([]);
+  });
+});
+
+describe('getGroupPath', () => {
+  const groups: GroupDefinition[] = [
+    {
+      key: 'US',
+      value: 'US',
+      children: [
+        { key: 'US-Eng', value: 'Engineering' },
+        { key: 'US-Sales', value: 'Sales' },
+      ],
+    },
+    { key: 'UK', value: 'UK' },
+  ];
+
+  it('returns path for top-level group', () => {
+    expect(getGroupPath(groups, 'US')).toEqual(['US']);
+    expect(getGroupPath(groups, 'UK')).toEqual(['UK']);
+  });
+
+  it('returns full path for nested group', () => {
+    expect(getGroupPath(groups, 'US-Eng')).toEqual(['US', 'US-Eng']);
+    expect(getGroupPath(groups, 'US-Sales')).toEqual(['US', 'US-Sales']);
+  });
+
+  it('returns empty array for non-existent key', () => {
+    expect(getGroupPath(groups, 'nonexistent')).toEqual([]);
+  });
+
+  it('returns empty array for empty groups', () => {
+    expect(getGroupPath([], 'anything')).toEqual([]);
   });
 });

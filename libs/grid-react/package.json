@@ -60,11 +60,11 @@
     "react-dom": "^19.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@toolbox-web/grid": ">=0.4.0"
+    "@toolbox-web/grid": "^2.0.0-alpha.1"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0",
-    "@toolbox-web/grid": ">=0.4.0"
+    "@toolbox-web/grid": "^2.0.0-alpha.1"
   }
 }

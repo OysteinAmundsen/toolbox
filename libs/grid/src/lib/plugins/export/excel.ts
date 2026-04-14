@@ -6,8 +6,9 @@
  */
 
 import type { ColumnConfig } from '../../core/types';
-import type { ExportParams } from './types';
 import { downloadBlob } from './csv';
+import { buildColumnWidthsXml, buildStyleRegistry, resolveDataStyleId } from './excel-styles';
+import type { ExportParams } from './types';
 
 /**
  * Escape XML special characters.
@@ -26,12 +27,38 @@ function escapeXml(str: string): string {
  * Uses XML Spreadsheet 2003 format for broad compatibility.
  */
 export function buildExcelXml(rows: any[], columns: ColumnConfig[], params: ExportParams): string {
+  const styles = params.excelStyles;
+  const registry = styles ? buildStyleRegistry(styles) : undefined;
+
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-<Worksheet ss:Name="Sheet1">
-<Table>`;
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">`;
+
+  // Emit <Styles> block (only when styles are configured)
+  if (registry) {
+    // Pre-register dynamic cellStyle entries so they appear in <Styles>
+    if (styles!.cellStyle) {
+      for (const row of rows) {
+        for (const col of columns) {
+          const value = row[col.field];
+          const dynamic = styles!.cellStyle(value, col.field, row);
+          if (dynamic) registry.register(dynamic);
+        }
+      }
+    }
+    xml += registry.toXml();
+  }
+
+  xml += '\n<Worksheet ss:Name="Sheet1">\n<Table>';
+
+  // Column widths
+  if (styles) {
+    xml += buildColumnWidthsXml(columns, rows as Record<string, unknown>[], styles);
+  }
+
+  // Header style ID
+  const headerStyleId = styles?.headerStyle && registry ? registry.getStyleId(styles.headerStyle) : undefined;
 
   // Build header row
   if (params.includeHeaders !== false) {
@@ -39,7 +66,8 @@ export function buildExcelXml(rows: any[], columns: ColumnConfig[], params: Expo
     for (const col of columns) {
       const header = col.header || col.field;
       const processed = params.processHeader ? params.processHeader(header, col.field) : header;
-      xml += `<Cell><Data ss:Type="String">${escapeXml(processed)}</Data></Cell>`;
+      const styleAttr = headerStyleId ? ` ss:StyleID="${headerStyleId}"` : '';
+      xml += `<Cell${styleAttr}><Data ss:Type="String">${escapeXml(processed)}</Data></Cell>`;
     }
     xml += '</Row>';
   }
@@ -69,7 +97,11 @@ export function buildExcelXml(rows: any[], columns: ColumnConfig[], params: Expo
         displayValue = escapeXml(String(value));
       }
 
-      xml += `<Cell><Data ss:Type="${type}">${displayValue}</Data></Cell>`;
+      // Resolve data cell style
+      const dataStyleId = registry && styles ? resolveDataStyleId(registry, styles, value, col.field, row) : undefined;
+      const styleAttr = dataStyleId ? ` ss:StyleID="${dataStyleId}"` : '';
+
+      xml += `<Cell${styleAttr}><Data ss:Type="${type}">${displayValue}</Data></Cell>`;
     }
     xml += '</Row>';
   }
@@ -82,9 +114,8 @@ export function buildExcelXml(rows: any[], columns: ColumnConfig[], params: Expo
  * Download Excel XML content as a file.
  */
 export function downloadExcel(content: string, fileName: string): void {
-  const finalName = fileName.endsWith('.xls') ? fileName : `${fileName}.xls`;
   const blob = new Blob([content], {
     type: 'application/vnd.ms-excel;charset=utf-8;',
   });
-  downloadBlob(blob, finalName);
+  downloadBlob(blob, fileName);
 }

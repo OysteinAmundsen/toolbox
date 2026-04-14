@@ -111,6 +111,8 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
       processHeader: params?.processHeader,
       columns: params?.columns,
       rowIndices: params?.rowIndices,
+      excelStyles: params?.excelStyles,
+      fileExtension: params?.fileExtension,
     };
 
     // Get columns to export (shared utility handles hidden/utility filtering)
@@ -145,7 +147,9 @@ export class ExportPlugin extends BaseGridPlugin<ExportConfig> {
 
         case 'excel': {
           const content = buildExcelXml(rows, columns, fullParams);
-          fileName = fileName.endsWith('.xls') ? fileName : `${fileName}.xls`;
+          const ext = fullParams.fileExtension ?? '.xls';
+          const normalizedExt = ext.startsWith('.') ? ext : `.${ext}`;
+          fileName = fileName.endsWith(normalizedExt) ? fileName : `${fileName}${normalizedExt}`;
           downloadExcel(content, fileName);
           break;
         }

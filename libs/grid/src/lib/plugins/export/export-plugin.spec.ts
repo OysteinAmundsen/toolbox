@@ -160,6 +160,47 @@ describe('ExportPlugin', () => {
       const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent<ExportCompleteDetail>;
       expect(event.detail.fileName).toBe('test.xls');
     });
+
+    it('should pass excelStyles through to buildExcelXml', async () => {
+      const { downloadExcel } = await import('./excel');
+      const plugin = new ExportPlugin({ fileName: 'styled' });
+      const grid = createGridMock(sampleRows, sampleColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportExcel({
+        excelStyles: {
+          headerStyle: { font: { bold: true } },
+          columnStyles: { age: { numberFormat: '0' } },
+        },
+      });
+
+      const xmlContent = (downloadExcel as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0] as string;
+      expect(xmlContent).toContain('<Styles>');
+      expect(xmlContent).toContain('ss:Bold="1"');
+      expect(xmlContent).toContain('ss:Format="0"');
+    });
+
+    it('should use .xml extension when fileExtension is overridden', () => {
+      const plugin = new ExportPlugin({ fileName: 'report' });
+      const grid = createGridMock(sampleRows, sampleColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportExcel({ fileExtension: '.xml' });
+
+      const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent<ExportCompleteDetail>;
+      expect(event.detail.fileName).toBe('report.xml');
+    });
+
+    it('should normalize fileExtension without leading dot', () => {
+      const plugin = new ExportPlugin({ fileName: 'report' });
+      const grid = createGridMock(sampleRows, sampleColumns);
+      plugin.attach(grid as any);
+
+      plugin.exportExcel({ fileExtension: 'xml' });
+
+      const event = grid.dispatchEvent.mock.calls[0][0] as CustomEvent<ExportCompleteDetail>;
+      expect(event.detail.fileName).toBe('report.xml');
+    });
   });
 
   describe('exportJson', () => {

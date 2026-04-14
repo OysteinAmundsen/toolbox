@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 import { getDetailRenderer, type DetailPanelContext } from './grid-detail-panel';
 import { getResponsiveCardRenderer, type ResponsiveCardContext } from './grid-responsive-card';
 import { getToolPanelRenderer, type ToolPanelContext } from './grid-tool-panel';
-import type { ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
+import type { TypeDefault as ReactTypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { removeFromContainer, renderToContainer } from './portal-bridge';
 import { cleanupConfigRootsIn, processGridConfig } from './react-column-config';
 

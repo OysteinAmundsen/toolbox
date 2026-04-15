@@ -50,12 +50,12 @@ import '@toolbox-web/grid/features/server-side';
 
 const dataSource = {
   async getRows(params) {
-    // params: { startRow, endRow, sortModel, filterModel }
-    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    // params: { startNode, endNode, sortModel, filterModel }
+    const response = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`);
     const data = await response.json();
     return {
       rows: data.rows,
-      totalRowCount: data.total, // Required for scroll height calculation
+      totalNodeCount: data.total, // Required for scroll height calculation
     };
   },
 };
@@ -87,9 +87,9 @@ import { useEffect } from 'react';
 
 const dataSource = {
   async getRows(params) {
-    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    const response = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`);
     const data = await response.json();
-    return { rows: data.rows, totalRowCount: data.total };
+    return { rows: data.rows, totalNodeCount: data.total };
   },
 };
 
@@ -131,9 +131,9 @@ const gridRef = ref(null);
 
 const dataSource = {
   async getRows(params) {
-    const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+    const response = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`);
     const data = await response.json();
-    return { rows: data.rows, totalRowCount: data.total };
+    return { rows: data.rows, totalNodeCount: data.total };
   },
 };
 
@@ -185,9 +185,9 @@ export class ServerSideGridComponent {
 
   private dataSource = {
     getRows: async (params: any) => {
-      const response = await fetch(`/api/data?start=${params.startRow}&end=${params.endRow}`);
+      const response = await fetch(`/api/data?start=${params.startNode}&end=${params.endNode}`);
       const data = await response.json();
-      return { rows: data.rows, totalRowCount: data.total };
+      return { rows: data.rows, totalNodeCount: data.total };
     },
   };
 
@@ -273,9 +273,11 @@ See [`ServerSideConfig`](./Interfaces/ServerSideConfig/) for the full list of op
 
 ## TypeScript Interfaces
 
-- [`ServerSideDataSource`](./Interfaces/ServerSideDataSource/) — Data source contract with `getRows()` method
-- [`GetRowsParams`](./Interfaces/GetRowsParams/) — Parameters passed to `getRows()` (startRow, endRow, sortModel, filterModel)
-- [`GetRowsResult`](./Interfaces/GetRowsResult/) — Return type with `rows` and `totalRowCount`
+- [`ServerSideDataSource`](./Interfaces/ServerSideDataSource/) — Data source contract with `getRows()` and optional `getChildRows()`
+- [`GetRowsParams`](./Interfaces/GetRowsParams/) — Parameters passed to `getRows()` (startNode, endNode, sortModel, filterModel)
+- [`GetRowsResult`](./Interfaces/GetRowsResult/) — Return type with `rows` and `totalNodeCount`
+- [`GetChildRowsParams`](./Interfaces/GetChildRowsParams/) — Parameters for `getChildRows()` with plugin context
+- [`GetChildRowsResult`](./Interfaces/GetChildRowsResult/) — Return type with `rows`
 
 ## Programmatic API
 
@@ -285,8 +287,8 @@ const plugin = grid.getPluginByName('serverSide');
 plugin.setDataSource(newDataSource);  // Set or replace the data source
 plugin.refresh();                      // Reload current viewport from server
 plugin.purgeCache();                   // Clear all cached blocks
-plugin.getTotalRowCount();             // Get server-reported total row count
-plugin.isRowLoaded(index);             // Check if a specific row is in cache
+plugin.getTotalNodeCount();            // Get server-reported total node count
+plugin.isNodeLoaded(index);            // Check if a specific node is in cache
 plugin.getLoadedBlockCount();          // Number of blocks currently cached
 ```
 
@@ -356,7 +358,7 @@ grid.ready().then(() => {
   const plugin = grid.getPluginByName('serverSide');
   plugin.setDataSource({
     async getRows(params) {
-      const res = await fetch(`/api/employees?start=${params.startRow}&end=${params.endRow}`);
+      const res = await fetch(`/api/employees?start=${params.startNode}&end=${params.endNode}`);
       return res.json();
     },
   });
@@ -409,7 +411,7 @@ function LiveGrid() {
     element.ready().then(() => {
       element.getPluginByName('serverSide')?.setDataSource({
         async getRows(params) {
-          const res = await fetch(`/api/employees?start=${params.startRow}&end=${params.endRow}`);
+          const res = await fetch(`/api/employees?start=${params.startNode}&end=${params.endNode}`);
           return res.json();
         },
       });
@@ -470,7 +472,7 @@ onMounted(async () => {
   await grid?.ready();
   grid?.getPluginByName('serverSide')?.setDataSource({
     async getRows(params) {
-      const res = await fetch(`/api/employees?start=${params.startRow}&end=${params.endRow}`);
+      const res = await fetch(`/api/employees?start=${params.startNode}&end=${params.endNode}`);
       return res.json();
     },
   });
@@ -539,7 +541,7 @@ export class LiveGridComponent implements OnDestroy {
     grid?.ready().then(() => {
       grid.getPluginByName('serverSide')?.setDataSource({
         async getRows(params: any) {
-          const res = await fetch(`/api/employees?start=${params.startRow}&end=${params.endRow}`);
+          const res = await fetch(`/api/employees?start=${params.startNode}&end=${params.endNode}`);
           return res.json();
         },
       });
@@ -623,12 +625,16 @@ When loading data lazily via ServerSidePlugin, you'll typically want sorting and
 
 Both handlers work identically whether or not ServerSidePlugin is active. If you only need async sorting or filtering (without block-based lazy loading), just use the handlers directly — no ServerSidePlugin needed.
 
+## Composing with Other Plugins
+
+ServerSidePlugin acts as the **data layer** in the unified DataSource architecture. Structural plugins (Tree, Row Grouping) claim the root data and use `datasource:fetch-children` for on-demand child loading. Master-Detail uses child fetching for async detail panels.
+
+See the [Server-Side Data Loading guide](/grid/guides/server-side-data/) for architecture details and composition examples.
+
 :::caution[Incompatible Plugins]
 The Server-Side plugin **cannot** be used with:
 
-- **[Row Grouping](/grid/plugins/grouping-rows/)** — Inserts group header rows that shift indices, breaking block-based fetching. Row Grouping has its own [async data model](/grid/plugins/grouping-rows/#server-side-integration) for server-backed grouped data.
-- **[Tree](/grid/plugins/tree/)** — Requires the full hierarchy to flatten and manage expansion.
-- **[Pivot](/grid/plugins/pivot/)** — Requires the full dataset to compute aggregations.
+- **[Pivot](/grid/plugins/pivot/)** — Pivot requires the full dataset to compute aggregations. ServerSide lazy-loads rows in blocks, so pivot aggregation cannot be performed client-side.
 :::
 
 ## See Also

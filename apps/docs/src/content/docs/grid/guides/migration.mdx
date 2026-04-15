@@ -49,6 +49,19 @@ v2 removes **~106 deprecated items** across the grid core and all three framewor
 | `sticky:`      | `pinned:`        | Config key           | v1.15.0          |
 | `sizable`      | `resizable`      | HTML attribute       | v1.0.0           |
 
+### Server-Side Plugin — DataSource Renames
+
+The server-side plugin's datasource interface was renamed from row-centric to node-centric terminology (a "node" is the atomic pagination unit — a row for flat data, a top-level tree/group node for hierarchical data).
+
+| v1 (removed)                       | v2 (replacement)                    | Kind                  | Deprecated since |
+| ---------------------------------- | ----------------------------------- | --------------------- | ---------------- |
+| `GetRowsParams.startRow`           | `GetRowsParams.startNode`           | Interface property    | v1.24.0          |
+| `GetRowsParams.endRow`             | `GetRowsParams.endNode`             | Interface property    | v1.24.0          |
+| `GetRowsResult.totalRowCount`      | `GetRowsResult.totalNodeCount`      | Interface property    | v1.24.0          |
+| `GetRowsResult.lastRow`            | `GetRowsResult.lastNode`            | Interface property    | v1.24.0          |
+| `plugin.getTotalRowCount()`        | `plugin.getTotalNodeCount()`        | Method                | v1.24.0          |
+| `plugin.isRowLoaded(index)`        | `plugin.isNodeLoaded(index)`        | Method                | v1.24.0          |
+
 ### Grid Core — Feature Alias Renames
 
 | v1 (removed)   | v2 (replacement)   | Kind         | Deprecated since |

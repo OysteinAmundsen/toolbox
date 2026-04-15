@@ -1,10 +1,10 @@
 ---
-// TreeLazyLoadingDemo.astro
+// TreeLazyLoadingDemo.astro — Server-Side + Tree demo
 import DemoControls from '@components/DemoControls.astro';
 ---
 <div class="grid-demo not-content" id="tree-lazy-loading-demo">
   <DemoControls controls={[
-    { section: 'LAZY', name: 'pageSize', label: 'Page size', type: 'number',
+    { section: 'SERVER', name: 'pageSize', label: 'Page size', type: 'number',
       min: 10, max: 100, step: 10, default: 20, description: 'Top-level nodes fetched per request' },
     { section: 'TREE', name: 'animation', label: 'Animation', type: 'select',
       options: ['slide', 'fade', 'false'], default: 'slide', description: 'Expand/collapse animation' },
@@ -20,6 +20,7 @@ import DemoControls from '@components/DemoControls.astro';
 <script>
 import '@toolbox-web/grid';
 import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/server-side';
 import '@toolbox-web/grid/features/tree';
 
 const container = document.getElementById('tree-lazy-loading-demo');
@@ -56,7 +57,7 @@ if (container) {
   const allTopLevelNodes = generateTreeData(200);
 
   // Simulated data source — returns a page of top-level nodes with children embedded
-  function createDataSource() {
+  function createDataSource(pageSize: number) {
     return {
       async getRows(params: any) {
         // Simulate network latency
@@ -71,10 +72,10 @@ if (container) {
           });
         }
 
-        const page = data.slice(params.startNode, params.startNode + params.count);
+        const page = data.slice(params.startNode, params.endNode);
         return {
           rows: page,
-          totalTopLevelCount: data.length,
+          totalNodeCount: data.length,
         };
       },
     };
@@ -93,27 +94,36 @@ if (container) {
     grid.gridConfig = {
       columns,
       features: {
+        serverSide: { pageSize },
         tree: {
           childrenField: 'children',
           animation: opts.animation === 'false' ? false : (opts.animation as string) ?? 'slide',
           defaultExpanded: opts.defaultExpanded as boolean ?? false,
-          dataSource: createDataSource() as any,
-          pageSize,
-        } as any,
+        },
       },
     };
+
+    grid.ready().then(() => {
+      const serverSide = grid.getPluginByName('serverSide');
+      serverSide?.setDataSource(createDataSource(pageSize));
+      statusEl.textContent = 'Scroll down to load more nodes…';
+    });
   }
 
   rebuild({ pageSize: 20, animation: 'slide', defaultExpanded: false });
 
-  grid.on('tree-load-start', () => { statusEl.textContent = 'Loading…'; });
-  grid.on('tree-load-end', () => {
-    const plugin = grid.getPluginByName('tree') as any;
-    if (plugin) {
-      statusEl.textContent = `Loaded ${plugin.getLoadedTopLevelCount()} of ${plugin.getTotalTopLevelCount()} top-level nodes`;
+  grid.on('datasource:loading' as any, (e: any) => {
+    if (e.detail?.loading) {
+      statusEl.textContent = 'Loading…';
+    } else {
+      const serverSide = grid.getPluginByName('serverSide') as any;
+      if (serverSide) {
+        const tree = grid.getPluginByName('tree') as any;
+        const loaded = tree?.getFlattenedRows?.()?.length ?? '?';
+        statusEl.textContent = `Loaded ${loaded} rows (${serverSide.getTotalRowCount() ?? '?'} top-level nodes total)`;
+      }
     }
   });
-  grid.on('tree-load-error', () => { statusEl.textContent = 'Error loading data.'; });
 
   container.addEventListener('control-change', ((e: CustomEvent) => {
     rebuild(e.detail.allValues);

@@ -34,8 +34,9 @@
 import '@toolbox-web/grid/features/pinned-rows';
 
 import { PinnedRowsPlugin, type PinnedRowsConfig, type PinnedRowsContext } from '@toolbox-web/grid/plugins/pinned-rows';
-import { createApp, type VNode } from 'vue';
+import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
+import { renderToContainer } from '../lib/teleport-bridge';
 
 registerFeature('pinnedRows', (rawConfig) => {
   if (rawConfig === true) {
@@ -58,14 +59,7 @@ registerFeature('pinnedRows', (rawConfig) => {
         render: (ctx: PinnedRowsContext) => {
           const wrapper = document.createElement('div');
           wrapper.style.display = 'contents';
-
-          const app = createApp({
-            render() {
-              return vueFn(ctx);
-            },
-          });
-
-          app.mount(wrapper);
+          renderToContainer(wrapper, vueFn(ctx));
           return wrapper;
         },
       };

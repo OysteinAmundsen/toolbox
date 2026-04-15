@@ -36,8 +36,9 @@ import {
   type GroupHeaderRenderParams,
   type GroupingColumnsConfig,
 } from '@toolbox-web/grid/plugins/grouping-columns';
-import { createApp, type VNode } from 'vue';
+import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
+import { renderToContainer } from '../lib/teleport-bridge';
 
 /** Bridge a Vue render function to a vanilla DOM render function. */
 function bridgeRenderer(
@@ -46,14 +47,7 @@ function bridgeRenderer(
   return (params: GroupHeaderRenderParams) => {
     const wrapper = document.createElement('div');
     wrapper.style.display = 'contents';
-
-    const app = createApp({
-      render() {
-        return vueFn(params);
-      },
-    });
-
-    app.mount(wrapper);
+    renderToContainer(wrapper, vueFn(params));
     return wrapper;
   };
 }

@@ -34,8 +34,9 @@ import {
   type GroupingRowsConfig,
   type GroupRowRenderParams,
 } from '@toolbox-web/grid/plugins/grouping-rows';
-import { createApp, type VNode } from 'vue';
+import type { VNode } from 'vue';
 import { registerFeature } from '../lib/feature-registry';
+import { renderToContainer } from '../lib/teleport-bridge';
 
 registerFeature('groupingRows', (rawConfig) => {
   if (rawConfig === true) {
@@ -54,14 +55,7 @@ registerFeature('groupingRows', (rawConfig) => {
     options.groupRowRenderer = (params: GroupRowRenderParams) => {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
-
-      const app = createApp({
-        render() {
-          return vueFn(params);
-        },
-      });
-
-      app.mount(wrapper);
+      renderToContainer(wrapper, vueFn(params));
       return wrapper;
     };
   }

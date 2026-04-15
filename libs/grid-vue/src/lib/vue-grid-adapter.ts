@@ -12,10 +12,11 @@ import type {
   LoadingContext,
 } from '@toolbox-web/grid';
 import type { FilterPanelParams } from '@toolbox-web/grid/plugins/filtering';
-import { createApp, createVNode, type App, type Component, type VNode } from 'vue';
+import { createVNode, type Component, type VNode } from 'vue';
 import { detailRegistry, type DetailPanelContext } from './detail-panel-registry';
 import type { TypeDefault, TypeDefaultsMap } from './grid-type-registry';
 import { cardRegistry, type ResponsiveCardContext } from './responsive-card-registry';
+import { removeFromContainer, renderToContainer } from './teleport-bridge';
 import type { ColumnConfig, GridConfig } from './vue-column-config';
 export type { GridConfig };
 
@@ -201,19 +202,11 @@ const PROCESSED_MARKER = Symbol.for('tbw:vue-processed');
 // #endregion
 
 /**
- * Tracks mounted Vue apps for cleanup.
+ * Cache for cell containers and their teleport keys.
  */
-interface MountedView {
-  app: App;
+interface CellTeleportCache {
   container: HTMLElement;
-}
-
-/**
- * Cache for cell containers and their Vue apps.
- */
-interface CellAppCache {
-  app: App;
-  container: HTMLElement;
+  teleportKey: string;
   update: (ctx: CellRenderContext<unknown, unknown>) => void;
 }
 
@@ -247,9 +240,10 @@ interface CellAppCache {
  * ```
  */
 export class GridAdapter implements FrameworkAdapter {
-  private mountedViews: MountedView[] = [];
-  /** Editor-specific views tracked separately for per-cell cleanup via releaseCell. */
-  private editorViews: MountedView[] = [];
+  /** Teleport keys tracked for cleanup. */
+  private teleportKeys: string[] = [];
+  /** Editor-specific teleport keys tracked separately for per-cell cleanup. */
+  private editorTeleportKeys: Map<HTMLElement, string> = new Map();
   private typeDefaults: TypeDefaultsMap | null = null;
 
   // #region Config Processing
@@ -446,7 +440,7 @@ export class GridAdapter implements FrameworkAdapter {
   private createConfigComponentRenderer<TRow = unknown, TValue = unknown>(
     component: Component,
   ): ColumnViewRenderer<TRow, TValue> {
-    const cellCache = new WeakMap<HTMLElement, CellAppCache>();
+    const cellCache = new WeakMap<HTMLElement, CellTeleportCache>();
 
     return (ctx: CellRenderContext<TRow, TValue>) => {
       const cellEl = (ctx as any).cellEl as HTMLElement | undefined;
@@ -465,20 +459,17 @@ export class GridAdapter implements FrameworkAdapter {
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
         const comp = component;
 
-        const app = createApp({
-          render() {
-            return createVNode(comp, { ...currentCtx });
-          },
-        });
-
-        app.mount(container);
+        const teleportKey = renderToContainer(
+          container,
+          createVNode(comp, { ...currentCtx }),
+        );
 
         cellCache.set(cellEl, {
-          app,
           container,
+          teleportKey,
           update: (newCtx) => {
             currentCtx = newCtx;
-            app._instance?.update();
+            renderToContainer(container, createVNode(comp, { ...currentCtx }), teleportKey);
           },
         });
 
@@ -490,14 +481,11 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       const comp = component;
-      const app = createApp({
-        render() {
-          return createVNode(comp, { ...ctx });
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(
+        container,
+        createVNode(comp, { ...ctx }),
+      );
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -511,7 +499,7 @@ export class GridAdapter implements FrameworkAdapter {
   private createConfigVNodeRenderer<TRow = unknown, TValue = unknown>(
     renderFn: (ctx: CellRenderContext<TRow, TValue>) => VNode,
   ): ColumnViewRenderer<TRow, TValue> {
-    const cellCache = new WeakMap<HTMLElement, CellAppCache>();
+    const cellCache = new WeakMap<HTMLElement, CellTeleportCache>();
 
     return (ctx: CellRenderContext<TRow, TValue>) => {
       const cellEl = (ctx as any).cellEl as HTMLElement | undefined;
@@ -529,20 +517,21 @@ export class GridAdapter implements FrameworkAdapter {
 
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
 
-        const app = createApp({
-          render() {
-            return renderFn(currentCtx as CellRenderContext<TRow, TValue>);
-          },
-        });
-
-        app.mount(container);
+        const teleportKey = renderToContainer(
+          container,
+          renderFn(currentCtx as CellRenderContext<TRow, TValue>),
+        );
 
         cellCache.set(cellEl, {
-          app,
           container,
+          teleportKey,
           update: (newCtx) => {
             currentCtx = newCtx;
-            app._instance?.update();
+            renderToContainer(
+              container,
+              renderFn(currentCtx as CellRenderContext<TRow, TValue>),
+              teleportKey,
+            );
           },
         });
 
@@ -553,14 +542,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'vue-cell-renderer';
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx);
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -580,15 +563,9 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       const comp = component;
-      const app = createApp({
-        render() {
-          return createVNode(comp, { ...ctx });
-        },
-      });
-
-      app.mount(container);
-      // Track in editor-specific array for per-cell cleanup via releaseCell
-      this.editorViews.push({ app, container });
+      const teleportKey = renderToContainer(container, createVNode(comp, { ...ctx }));
+      // Track for per-cell cleanup via releaseCell
+      this.editorTeleportKeys.set(container, teleportKey);
 
       return container;
     };
@@ -607,15 +584,9 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'vue-cell-editor';
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx);
-        },
-      });
-
-      app.mount(container);
-      // Track in editor-specific array for per-cell cleanup via releaseCell
-      this.editorViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      // Track for per-cell cleanup via releaseCell
+      this.editorTeleportKeys.set(container, teleportKey);
 
       return container;
     };
@@ -635,21 +606,18 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       const comp = component;
-      const app = createApp({
-        render() {
-          return createVNode(comp, {
-            column: ctx.column,
-            value: ctx.value,
-            sortState: ctx.sortState,
-            filterActive: ctx.filterActive,
-            renderSortIcon: ctx.renderSortIcon,
-            renderFilterButton: ctx.renderFilterButton,
-          });
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(
+        container,
+        createVNode(comp, {
+          column: ctx.column,
+          value: ctx.value,
+          sortState: ctx.sortState,
+          filterActive: ctx.filterActive,
+          renderSortIcon: ctx.renderSortIcon,
+          renderFilterButton: ctx.renderFilterButton,
+        }),
+      );
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -668,14 +636,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'vue-header-renderer';
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx);
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -695,17 +657,14 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       const comp = component;
-      const app = createApp({
-        render() {
-          return createVNode(comp, {
-            column: ctx.column,
-            value: ctx.value,
-          });
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(
+        container,
+        createVNode(comp, {
+          column: ctx.column,
+          value: ctx.value,
+        }),
+      );
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -724,14 +683,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'vue-header-label-renderer';
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx);
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -748,14 +701,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.style.display = 'contents';
 
       const comp = component;
-      const app = createApp({
-        render() {
-          return createVNode(comp, { size: ctx.size });
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(container, createVNode(comp, { size: ctx.size }));
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -771,14 +718,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'vue-loading-renderer';
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx);
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -829,22 +770,22 @@ export class GridAdapter implements FrameworkAdapter {
       return undefined;
     }
 
-    // Cell cache for this field - maps cell element to its Vue app
-    const cellCache = new WeakMap<HTMLElement, CellAppCache>();
+    // Cell cache for this field - maps cell element to its teleport key
+    const cellCache = new WeakMap<HTMLElement, CellTeleportCache>();
 
     return (ctx: CellRenderContext<TRow, TValue>) => {
       const cellEl = (ctx as any).cellEl as HTMLElement | undefined;
 
       if (cellEl) {
-        // Check if we have a cached app for this cell
+        // Check if we have a cached teleport for this cell
         const cached = cellCache.get(cellEl);
         if (cached) {
-          // Update the existing app with new context
+          // Update the existing teleport with new context
           cached.update(ctx as CellRenderContext<unknown, unknown>);
           return cached.container;
         }
 
-        // Create new container and Vue app for this cell
+        // Create new container and teleport for this cell
         const container = document.createElement('div');
         container.className = 'vue-cell-renderer';
         container.style.display = 'contents';
@@ -852,22 +793,15 @@ export class GridAdapter implements FrameworkAdapter {
         // Create reactive context that can be updated
         let currentCtx = ctx as CellRenderContext<unknown, unknown>;
 
-        const app = createApp({
-          render() {
-            return renderFn(currentCtx);
-          },
-        });
-
-        app.mount(container);
+        const teleportKey = renderToContainer(container, renderFn(currentCtx));
 
         // Store in cache with update function
         cellCache.set(cellEl, {
-          app,
           container,
+          teleportKey,
           update: (newCtx) => {
             currentCtx = newCtx;
-            // Force re-render
-            app._instance?.update();
+            renderToContainer(container, renderFn(currentCtx), teleportKey);
           },
         });
 
@@ -879,14 +813,8 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'vue-cell-renderer';
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx as CellRenderContext<unknown, unknown>);
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx as CellRenderContext<unknown, unknown>));
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -909,15 +837,9 @@ export class GridAdapter implements FrameworkAdapter {
       container.className = 'vue-cell-editor';
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return editorFn(ctx as ColumnEditorContext<unknown, unknown>);
-        },
-      });
-
-      app.mount(container);
-      // Track in editor-specific array for per-cell cleanup via releaseCell
-      this.editorViews.push({ app, container });
+      const teleportKey = renderToContainer(container, editorFn(ctx as ColumnEditorContext<unknown, unknown>));
+      // Track for per-cell cleanup via releaseCell
+      this.editorTeleportKeys.set(container, teleportKey);
 
       return container;
     };
@@ -948,14 +870,9 @@ export class GridAdapter implements FrameworkAdapter {
       const vnodes = renderFn(ctx as DetailPanelContext<unknown>);
 
       if (vnodes && vnodes.length > 0) {
-        // Render VNodes into container
-        const app = createApp({
-          render() {
-            return vnodes;
-          },
-        });
-        app.mount(container);
-        this.mountedViews.push({ app, container });
+        // Render VNodes into container via teleport bridge
+        const teleportKey = renderToContainer(container, vnodes as unknown as VNode);
+        this.teleportKeys.push(teleportKey);
       }
 
       return container;
@@ -987,14 +904,9 @@ export class GridAdapter implements FrameworkAdapter {
       const vnodes = renderFn(ctx as ResponsiveCardContext<unknown>);
 
       if (vnodes && vnodes.length > 0) {
-        // Render VNodes into container
-        const app = createApp({
-          render() {
-            return vnodes;
-          },
-        });
-        app.mount(container);
-        this.mountedViews.push({ app, container });
+        // Render VNodes into container via teleport bridge
+        const teleportKey = renderToContainer(container, vnodes as unknown as VNode);
+        this.teleportKeys.push(teleportKey);
       }
 
       return container;
@@ -1074,14 +986,8 @@ export class GridAdapter implements FrameworkAdapter {
       const container = document.createElement('span');
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx);
-        },
-      });
-
-      app.mount(container);
-      this.mountedViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      this.teleportKeys.push(teleportKey);
 
       return container;
     };
@@ -1098,15 +1004,9 @@ export class GridAdapter implements FrameworkAdapter {
       const container = document.createElement('span');
       container.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(ctx);
-        },
-      });
-
-      app.mount(container);
-      // Track in editor-specific array for per-cell cleanup via releaseCell
-      this.editorViews.push({ app, container });
+      const teleportKey = renderToContainer(container, renderFn(ctx));
+      // Track for per-cell cleanup via releaseCell
+      this.editorTeleportKeys.set(container, teleportKey);
 
       return container;
     };
@@ -1126,14 +1026,8 @@ export class GridAdapter implements FrameworkAdapter {
       const wrapper = document.createElement('div');
       wrapper.style.display = 'contents';
 
-      const app = createApp({
-        render() {
-          return renderFn(params);
-        },
-      });
-
-      app.mount(wrapper);
-      this.mountedViews.push({ app, container: wrapper });
+      const teleportKey = renderToContainer(wrapper, renderFn(params));
+      this.teleportKeys.push(teleportKey);
       container.appendChild(wrapper);
     };
   }
@@ -1141,65 +1035,41 @@ export class GridAdapter implements FrameworkAdapter {
   // #endregion
 
   /**
-   * Cleanup all mounted Vue apps.
+   * Cleanup all teleport entries.
    */
   cleanup(): void {
-    for (const { app, container } of this.mountedViews) {
-      try {
-        app.unmount();
-        container.remove();
-      } catch {
-        // Ignore cleanup errors
-      }
+    // Clean up teleport entries
+    for (const key of this.teleportKeys) {
+      removeFromContainer(key);
     }
-    this.mountedViews = [];
-    for (const { app, container } of this.editorViews) {
-      try {
-        app.unmount();
-        container.remove();
-      } catch {
-        // Ignore cleanup errors
-      }
+    this.teleportKeys = [];
+    for (const [, key] of this.editorTeleportKeys) {
+      removeFromContainer(key);
     }
-    this.editorViews = [];
+    this.editorTeleportKeys.clear();
+
     fieldRegistries.clear();
   }
 
   /**
    * Unmount a specific container (e.g., detail panel, tool panel).
-   * Finds the matching entry in mountedViews by container reference
-   * and properly destroys the Vue app to prevent memory leaks.
+   * Currently a no-op for teleport-based rendering — the TeleportManager's
+   * prune pass handles disconnected containers automatically.
    */
-  unmount(container: HTMLElement): void {
-    for (let i = this.mountedViews.length - 1; i >= 0; i--) {
-      const view = this.mountedViews[i];
-      if (view.container === container || container.contains(view.container)) {
-        try {
-          view.app.unmount();
-        } catch {
-          // Ignore cleanup errors
-        }
-        this.mountedViews.splice(i, 1);
-        return;
-      }
-    }
+  unmount(_container: HTMLElement): void {
+    // Teleport-based rendering is handled by the TeleportManager prune pass
   }
 
   /**
    * Called when a cell's content is about to be wiped.
-   * Destroys editor Vue apps whose container is inside the cell.
+   * Destroys editor teleports whose container is inside the cell.
    */
   releaseCell(cellEl: HTMLElement): void {
-    for (let i = this.editorViews.length - 1; i >= 0; i--) {
-      const { app, container } = this.editorViews[i];
-      if (cellEl.contains(container)) {
-        try {
-          app.unmount();
-          container.remove();
-        } catch {
-          // Ignore cleanup errors
-        }
-        this.editorViews.splice(i, 1);
+    // Clean up editor teleport keys
+    for (const [editorContainer, key] of this.editorTeleportKeys) {
+      if (cellEl.contains(editorContainer)) {
+        removeFromContainer(key);
+        this.editorTeleportKeys.delete(editorContainer);
       }
     }
   }

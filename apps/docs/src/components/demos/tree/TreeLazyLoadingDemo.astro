@@ -1,0 +1,122 @@
+---
+// TreeLazyLoadingDemo.astro
+import DemoControls from '@components/DemoControls.astro';
+---
+<div class="grid-demo not-content" id="tree-lazy-loading-demo">
+  <DemoControls controls={[
+    { section: 'LAZY', name: 'pageSize', label: 'Page size', type: 'number',
+      min: 10, max: 100, step: 10, default: 20, description: 'Top-level nodes fetched per request' },
+    { section: 'TREE', name: 'animation', label: 'Animation', type: 'select',
+      options: ['slide', 'fade', 'false'], default: 'slide', description: 'Expand/collapse animation' },
+    { section: 'TREE', name: 'defaultExpanded', label: 'Default expanded', type: 'boolean',
+      default: false, description: 'Expand all nodes by default' },
+  ]} />
+  <tbw-grid style="height: 400px;"></tbw-grid>
+  <p class="load-status" style="margin-top: 0.5rem; font-size: 0.85em; color: var(--sl-color-gray-3);">
+    Scroll down to load more nodes…
+  </p>
+</div>
+
+<script>
+import '@toolbox-web/grid';
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/tree';
+
+const container = document.getElementById('tree-lazy-loading-demo');
+if (container) {
+  const statusEl = container.querySelector('.load-status')!;
+
+  // Generate a large hierarchical dataset on the client to simulate a server
+  function generateTreeData(count: number) {
+    const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
+    const data = [];
+    for (let i = 0; i < count; i++) {
+      const dept = departments[i % departments.length];
+      const teamSize = 2 + (i % 4);
+      const children = [];
+      for (let j = 0; j < teamSize; j++) {
+        children.push({
+          id: `${i + 1}-${j + 1}`,
+          name: `${dept} Member ${j + 1}`,
+          role: j === 0 ? 'Lead' : 'Member',
+          department: dept,
+        });
+      }
+      data.push({
+        id: `${i + 1}`,
+        name: `${dept} Team ${Math.floor(i / departments.length) + 1}`,
+        role: 'Manager',
+        department: dept,
+        children,
+      });
+    }
+    return data;
+  }
+
+  const allTopLevelNodes = generateTreeData(200);
+
+  // Simulated data source — returns a page of top-level nodes with children embedded
+  function createDataSource() {
+    return {
+      async getRows(params: any) {
+        // Simulate network latency
+        await new Promise((r) => setTimeout(r, 300));
+
+        let data = [...allTopLevelNodes];
+        if (params.sortModel?.length) {
+          const { field, direction } = params.sortModel[0];
+          data.sort((a: any, b: any) => {
+            const cmp = a[field] < b[field] ? -1 : a[field] > b[field] ? 1 : 0;
+            return direction === 'asc' ? cmp : -cmp;
+          });
+        }
+
+        const page = data.slice(params.startNode, params.startNode + params.count);
+        return {
+          rows: page,
+          totalTopLevelCount: data.length,
+        };
+      },
+    };
+  }
+
+  const columns = [
+    { field: 'name', header: 'Name', sortable: true },
+    { field: 'role', header: 'Role' },
+    { field: 'department', header: 'Department', sortable: true },
+  ];
+
+  const grid = queryGrid('tbw-grid', container)!;
+
+  function rebuild(opts: Record<string, unknown>) {
+    const pageSize = (opts.pageSize as number) ?? 20;
+    grid.gridConfig = {
+      columns,
+      features: {
+        tree: {
+          childrenField: 'children',
+          animation: opts.animation === 'false' ? false : (opts.animation as string) ?? 'slide',
+          defaultExpanded: opts.defaultExpanded as boolean ?? false,
+          dataSource: createDataSource() as any,
+          pageSize,
+        } as any,
+      },
+    };
+  }
+
+  rebuild({ pageSize: 20, animation: 'slide', defaultExpanded: false });
+
+  grid.on('tree-load-start', () => { statusEl.textContent = 'Loading…'; });
+  grid.on('tree-load-end', () => {
+    const plugin = grid.getPluginByName('tree') as any;
+    if (plugin) {
+      statusEl.textContent = `Loaded ${plugin.getLoadedTopLevelCount()} of ${plugin.getTotalTopLevelCount()} top-level nodes`;
+    }
+  });
+  grid.on('tree-load-error', () => { statusEl.textContent = 'Error loading data.'; });
+
+  container.addEventListener('control-change', ((e: CustomEvent) => {
+    rebuild(e.detail.allValues);
+  }) as EventListener);
+}
+</script>

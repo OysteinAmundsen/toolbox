@@ -64,10 +64,9 @@ These plugins **cannot** be used together. A development-mode warning is shown w
 | `GroupingRowsPlugin` | `TreePlugin` | Both transform the entire row model in different ways |
 | `GroupingRowsPlugin` | `PivotPlugin` | Pivot creates its own aggregated row/column structure |
 | `TreePlugin` | `PivotPlugin` | Pivot replaces the data structure; tree hierarchy cannot coexist |
-| `ServerSidePlugin` | `TreePlugin` | Tree needs the full hierarchy; server-side cannot provide children on demand |
 | `ServerSidePlugin` | `PivotPlugin` | Pivot needs the full dataset for aggregation |
 
-> **Note:** `ServerSidePlugin` + `GroupingRowsPlugin` can coexist. GroupingRowsPlugin has its own built-in server-side support (`groups`/`rows` callbacks, imperative `setGroups()`/`setGroupRows()`) that works independently of ServerSidePlugin. Similarly, FilteringPlugin has `filterHandler`/`valuesHandler` and GridConfig has `sortHandler` — these work without ServerSidePlugin. ServerSidePlugin is specifically for **block-based virtual scrolling** over large flat datasets.
+> **Note:** `ServerSidePlugin` + `TreePlugin` can coexist — TreePlugin has its own `dataSource` for lazy-loading paginated tree data independently of ServerSidePlugin. `ServerSidePlugin` + `GroupingRowsPlugin` can also coexist. GroupingRowsPlugin has its own built-in server-side support (`groups`/`rows` callbacks, imperative `setGroups()`/`setGroupRows()`) that works independently of ServerSidePlugin. Similarly, FilteringPlugin has `filterHandler`/`valuesHandler` and GridConfig has `sortHandler` — these work without ServerSidePlugin. ServerSidePlugin is specifically for **block-based virtual scrolling** over large flat datasets.
 
 ### 6. Correct Plugin Class Names
 
@@ -820,6 +819,9 @@ grid.addEventListener(DGEvents.SORT_CHANGE, (e) => {
 | `filter-change` | Filtering | `FilterChangeDetail` (`filters[]`, `filteredRowCount`, `selected?`) |
 | `sort-model-change` | MultiSort | `SortModel[]` |
 | `tree-expand` | Tree | `TreeExpandDetail` |
+| `tree-load-start` | Tree | — |
+| `tree-load-end` | Tree | `{ totalTopLevelCount, loadedCount }` |
+| `tree-load-error` | Tree | `{ error }` |
 | `detail-expand` | MasterDetail | `DetailExpandDetail` |
 | `group-expand` | GroupingRows | `GroupExpandDetail` (`groupKey`, `groupPath`) |
 | `group-collapse` | GroupingRows | `GroupCollapseDetail` (`groupKey`, `groupPath`) |
@@ -970,7 +972,34 @@ new TreePlugin({
   indentWidth?: number,         // Indent per level in px (default: 20)
   showExpandIcons?: boolean,    // Show expand/collapse icons (default: true)
   animation?: false | 'slide' | 'fade', // Animation style (default: 'slide')
+  dataSource?: TreeDataSource,  // Lazy-load paginated top-level nodes from server
+  pageSize?: number,            // Top-level nodes per page (default: 50)
 })
+
+// Lazy tree data source — fetch paged top-level nodes with embedded children
+interface TreeDataSource {
+  getRows(params: TreeGetRowsParams): Promise<TreeGetRowsResult>;
+}
+interface TreeGetRowsParams {
+  startNode: number;  // Zero-based first top-level node
+  count: number;      // Number of top-level nodes to fetch
+  sortModel?: Array<{ field: string; direction: 'asc' | 'desc' }>;
+  filterModel?: Record<string, unknown>;
+}
+interface TreeGetRowsResult {
+  rows: TreeRow[];              // Top-level nodes with children embedded
+  totalTopLevelCount: number;   // Total top-level nodes (-1 for infinite)
+  lastNode?: number;            // Final page marker for infinite scroll
+}
+
+// Lazy mode API:
+// tree.setDataSource(ds)      — enter lazy mode, load first page
+// tree.refreshDataSource()    — clear & re-fetch from page 0
+// tree.loadMore()             — manually fetch next page
+// tree.isLoading              — check loading state
+// tree.getTotalTopLevelCount() / tree.getLoadedTopLevelCount()
+// Events: tree-load-start, tree-load-end, tree-load-error
+// CSS class: .tbw-tree-loading on grid during fetch
 ```
 
 ### MasterDetailPlugin

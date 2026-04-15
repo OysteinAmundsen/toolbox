@@ -6,6 +6,7 @@ description: "Display hierarchical data as an expandable tree."
 import { TabItem, Tabs } from '@astrojs/starlight/components';
 import TreeDefaultDemo from '@components/demos/tree/TreeDefaultDemo.astro';
 import TreeEventsDemo from '@components/demos/tree/TreeEventsDemo.astro';
+import TreeLazyLoadingDemo from '@components/demos/tree/TreeLazyLoadingDemo.astro';
 import TreePinnedColumnsDemo from '@components/demos/tree/TreePinnedColumnsDemo.astro';
 import ShowSource from '@components/ShowSource.astro';
 
@@ -156,6 +157,129 @@ Use `treeColumn` to control which column displays the tree toggle when combining
   <TreePinnedColumnsDemo />
 </ShowSource>
 
+### Lazy Loading (Data Source)
+
+For large hierarchical datasets, use a **data source** to load top-level nodes on demand as the user scrolls. Each page of top-level nodes is fetched with its children already embedded — the grid handles expand/collapse locally while pagination operates at the top-level node granularity.
+
+<Tabs syncKey="framework">
+  <TabItem label="Vanilla JS">
+```ts
+import { queryGrid } from '@toolbox-web/grid';
+import '@toolbox-web/grid/features/tree';
+
+const dataSource = {
+  async getRows(params) {
+    // params: { startNode, count, sortModel, filterModel }
+    const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
+    const data = await res.json();
+    return {
+      rows: data.nodes,                // Top-level nodes with embedded children
+      totalTopLevelCount: data.total,  // Total top-level nodes on server
+    };
+  },
+};
+
+const grid = queryGrid('tbw-grid');
+grid.gridConfig = {
+  columns: [
+    { field: 'name', header: 'Name' },
+    { field: 'role', header: 'Role' },
+  ],
+  features: {
+    tree: {
+      childrenField: 'children',
+      dataSource,
+      pageSize: 50,
+    },
+  },
+};
+```
+  </TabItem>
+  <TabItem label="React">
+```tsx
+import '@toolbox-web/grid-react/features/tree';
+import { DataGrid } from '@toolbox-web/grid-react';
+
+const dataSource = {
+  async getRows(params) {
+    const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
+    return res.json();
+  },
+};
+
+function LazyTree() {
+  return (
+    <DataGrid
+      columns={[
+        { field: 'name', header: 'Name' },
+        { field: 'role', header: 'Role' },
+      ]}
+      tree={{ childrenField: 'children', dataSource, pageSize: 50 }}
+    />
+  );
+}
+```
+  </TabItem>
+  <TabItem label="Vue">
+```html
+<script setup>
+import '@toolbox-web/grid-vue/features/tree';
+import { TbwGrid, TbwGridColumn } from '@toolbox-web/grid-vue';
+
+const dataSource = {
+  async getRows(params) {
+    const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
+    return res.json();
+  },
+};
+</script>
+
+<template>
+  <TbwGrid :tree="{ childrenField: 'children', dataSource, pageSize: 50 }">
+    <TbwGridColumn field="name" header="Name" />
+    <TbwGridColumn field="role" header="Role" />
+  </TbwGrid>
+</template>
+```
+  </TabItem>
+  <TabItem label="Angular">
+```typescript
+import '@toolbox-web/grid-angular/features/tree';
+import { Component } from '@angular/core';
+import { Grid } from '@toolbox-web/grid-angular';
+
+@Component({
+  selector: 'app-lazy-tree',
+  imports: [Grid],
+  template: `
+    <tbw-grid [columns]="columns" [tree]="treeConfig" style="height: 400px; display: block;" />
+  `,
+})
+export class LazyTreeComponent {
+  columns = [
+    { field: 'name', header: 'Name' },
+    { field: 'role', header: 'Role' },
+  ];
+
+  treeConfig = {
+    childrenField: 'children',
+    dataSource: {
+      async getRows(params: any) {
+        const res = await fetch(`/api/tree?start=${params.startNode}&count=${params.count}`);
+        return res.json();
+      },
+    },
+    pageSize: 50,
+  };
+}
+```
+  </TabItem>
+</Tabs>
+
+<ShowSource file="demos/tree/TreeLazyLoadingDemo.astro">
+  <TreeLazyLoadingDemo />
+</ShowSource>
+
 
 
 ## Configuration Options
@@ -212,6 +336,19 @@ const rows = plugin.getFlattenedRows();  // Get flattened tree rows with metadat
 const row = plugin.getRowByKey(key);     // Find a row by its key
 ```
 
+### Lazy Mode API
+
+When using a `dataSource`, the following additional methods are available:
+
+```ts
+plugin.setDataSource(dataSource);        // Replace the data source at runtime
+plugin.refreshDataSource();              // Clear loaded data and re-fetch from start
+plugin.loadMore();                       // Manually trigger loading the next page
+plugin.isLoading;                        // true while a fetch is in progress
+plugin.getLoadedTopLevelCount();         // Number of top-level nodes loaded so far
+plugin.getTotalTopLevelCount();          // Total reported by the server (-1 if unknown)
+```
+
 ## Events
 
 <ShowSource>
@@ -230,6 +367,22 @@ grid.on('tree-expand', ({ key, row, expanded, depth, expandedKeys }) => {
 ```
 
 See [`TreeExpandDetail`](./Interfaces/TreeExpandDetail/) for the full event payload type.
+
+### Lazy Loading Events
+
+When using a `dataSource`, the following events track fetch lifecycle:
+
+```ts
+grid.on('tree-load-start', () => console.log('Fetching next page…'));
+grid.on('tree-load-end', () => console.log('Page loaded'));
+grid.on('tree-load-error', (e) => console.error('Fetch failed', e.detail));
+```
+
+| Event | Fired when |
+|---|---|
+| `tree-load-start` | A page fetch begins |
+| `tree-load-end` | A page fetch succeeds |
+| `tree-load-error` | A page fetch fails |
 
 ## Styling
 

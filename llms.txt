@@ -68,7 +68,7 @@ Key TypeScript interfaces for configuration and events:
 - [Multi-Sort Plugin](https://toolboxjs.com/grid/plugins/multi-sort/): Sort by multiple columns with priority
 - [Row Grouping Plugin](https://toolboxjs.com/grid/plugins/grouping-rows/): Group rows by field values, nested grouping, expand/collapse, group footer aggregations (sum, avg, count, min, max), pre-defined groups with lazy-loaded rows for server-side grouping
 - [Column Grouping Plugin](https://toolboxjs.com/grid/plugins/grouping-columns/): Group columns under shared headers, multi-level column spanning, header grouping
-- [Tree Plugin](https://toolboxjs.com/grid/plugins/tree/): Hierarchical/nested tree data, parent-child relationships, expand/collapse, lazy loading children, indentation
+- [Tree Plugin](https://toolboxjs.com/grid/plugins/tree/): Hierarchical/nested tree data, parent-child relationships, expand/collapse, lazy loading children, indentation, lazy tree data source (paginated top-level nodes with embedded children, scroll-triggered loading, sort/filter pass-through)
 - [Master-Detail Plugin](https://toolboxjs.com/grid/plugins/master-detail/): Expandable detail rows, nested grids, custom detail templates, row expansion
 - [Pinned Columns Plugin](https://toolboxjs.com/grid/plugins/pinned-columns/): Sticky/frozen/locked columns on left or right edge
 - [Pinned Rows Plugin](https://toolboxjs.com/grid/plugins/pinned-rows/): Sticky/frozen/locked rows at top or bottom, summary rows, totals row
@@ -86,7 +86,7 @@ Key TypeScript interfaces for configuration and events:
 - [Pivot Plugin](https://toolboxjs.com/grid/plugins/pivot/): Pivot table/pivot mode, cross-tabulation, row fields, column fields, value aggregation (sum, avg, count, min, max, first, last, custom), sorting, value formatting, events (pivot-toggle, pivot-state-change, pivot-config-change), dynamic pivot columns
 - [Tooltip Plugin](https://toolboxjs.com/grid/plugins/tooltip/): Popover tooltips for overflowing header/cell text, per-column static/dynamic overrides, CSS anchor positioning, Popover API
 
-**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with Tree/Pivot (they require the full dataset; server-side loads lazily). ServerSide + GroupingRows can now coexist using pre-defined groups with lazy-loaded row data. A dev-mode warning is shown when conflicts are detected.
+**Incompatible combinations:** GroupingRows/Tree/Pivot are mutually incompatible (each transforms the full row model differently). ServerSide is incompatible with Pivot (requires full dataset). ServerSide + Tree can coexist (Tree has its own `dataSource` for lazy loading). ServerSide + GroupingRows can coexist using pre-defined groups with lazy-loaded row data. A dev-mode warning is shown when conflicts are detected.
 
 ## Core Features (Built-in, No Plugin Required)
 
